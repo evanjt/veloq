@@ -27,6 +27,7 @@ jest.mock('react-i18next', () => {
       .split('.')
       .reduce<unknown>((o, k) => (o == null ? o : (o as Record<string, unknown>)[k]), en);
   return {
+    ...jest.requireActual('react-i18next'),
     useTranslation: () => ({
       t: (key: string, opts?: string | Record<string, unknown>) => {
         const raw = lookup(key);
@@ -44,22 +45,16 @@ jest.mock('react-i18next', () => {
 
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = jest.requireActual('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-    SafeAreaProvider: View,
-    SafeAreaView: View,
-  };
-});
-
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),
   useTopSafeArea: () => ({ hasTopBanner: false, topInset: 0, screenEdges: [] }),
   useScreenSafeAreaEdges: () => [],
 }));
 
-jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ clear: jest.fn() }) }));
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({ clear: jest.fn() }),
+}));
 
 jest.mock('@/features/settings/hooks/exportIndex', () => ({
   useImportDatabaseBackup: () => ({ importDatabaseBackup: jest.fn(), importing: false }),

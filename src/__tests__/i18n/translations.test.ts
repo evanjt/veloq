@@ -168,17 +168,133 @@ async function extractAllTranslationKeys(): Promise<Map<string, { file: string; 
   return keyUsages;
 }
 
-describe('Translation Completeness', () => {
-  const referenceData = loadLocale(REFERENCE_LOCALE);
-
-  if (!referenceData) {
-    test('Reference locale should exist', () => {
-      throw new Error(`Reference locale ${REFERENCE_LOCALE}.json not found in ${LOCALES_DIR}`);
-    });
-    return;
+/** The reference bundle, or a throw naming the missing file, so no describe branches on it. */
+function referenceLocale(): Record<string, unknown> {
+  const data = loadLocale(REFERENCE_LOCALE);
+  if (!data) {
+    throw new Error(`Reference locale ${REFERENCE_LOCALE}.json not found in ${LOCALES_DIR}`);
   }
+  return data;
+}
 
-  const referenceKeys = getAllKeys(referenceData);
+const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];
+
+/**
+ * Keys whose non-English value must differ from en-GB. Values a person has not
+ * reviewed are left out: which identical values are legitimate loanwords is an
+ * open question, so the list holds only keys already known to be translated
+ * everywhere. Keys that carry a placeholder are left out where the value can be
+ * little more than the placeholder.
+ */
+const TRANSLATED_KEYS: Record<string, readonly string[]> = {
+  'notifications.activityRecorded': ['title'],
+  'notifications.activityPr': ['title'],
+  'notifications.activityFaster': ['title'],
+  maps: ['unavailableTitle', 'unavailableHint', 'threeDUnavailable'],
+  'whatsNew.v040': [
+    'elevationLine',
+    'recutRunning',
+    'recutRunningPhase',
+    'phasePreparing',
+    'phaseDetecting',
+    'phaseDiffing',
+    'diffTotals',
+    'diffBreakdown',
+    'diffUnchanged',
+    'recutFailed',
+    'settingsReset',
+    'settingsResetChange',
+    'settingsResetProximity',
+    'settingsResetMinLength',
+    'settingsResetMaxLength',
+    'settingsResetMinActivities',
+    'settingsResetDivergence',
+  ],
+  settings: [
+    'elevationBackfillRunning',
+    'elevationBackfillComplete',
+    'elevationBackfillPartial',
+    'elevationBackfillFailed',
+    'elevationBackfillExplainer',
+    'elevationBackfillWhy',
+    'elevationBackfillWhyTitle',
+    'elevationBackfillWhyBody',
+    'elevationBackfillPause',
+    'elevationBackfillPaused',
+    'previewSections',
+    'previewRun',
+    'previewFailed',
+    'previewSuspended',
+    'previewCurrentFailed',
+    'previewPoolScope',
+    'previewStatusUnchanged',
+    'previewStatusChanged',
+    'previewStatusNew',
+    'previewStatusGone',
+    'previewCurrentLayer',
+    'previewProposedLayer',
+    'previewKeep',
+    'previewDiscard',
+    'previewKeepTitle',
+    'previewKeepWarning',
+    'previewKeepRefusedTitle',
+    'previewKeepRefused',
+    'sectionParamPastClamp',
+    'sectionPresets',
+    'sectionPresetDefault',
+    'sectionPresetStrict',
+    'sectionPresetRelaxed',
+    'streamBackfill',
+    'streamBackfillDownload',
+    'streamBackfillStop',
+    'syncActivities',
+    'syncStop',
+    'syncStopping',
+  ],
+  'settings.syncStep': [
+    'athlete',
+    'sportSettings',
+    'wellness',
+    'census',
+    'activities',
+    'firstActivities',
+    'curves',
+    'intervalBodies',
+    'remainingActivities',
+  ],
+  sections: ['elevationGain', 'avgGrade'],
+  'engine.initReason': ['busy', 'forwardSchema', 'storageUnavailable', 'failed'],
+  routes: ['sortRelevance'],
+  login: [
+    'sessionSignedOut',
+    'sessionKeyRejected',
+    'sessionDataKept',
+    'sessionRestore',
+    'sessionRestoreAthlete',
+  ],
+  'emptyState.syncError.reason': [
+    'unauthorized',
+    'rateLimited',
+    'server',
+    'network',
+    'storage',
+    'notConfigured',
+    'internal',
+    'engineClosed',
+  ],
+  insights: ['aboutRanking'],
+};
+
+const TRANSLATED_PATHS = Object.entries(TRANSLATED_KEYS).flatMap(([block, keys]) =>
+  keys.map((key) => `${block}.${key}`)
+);
+
+test('reference locale exists', () => {
+  expect(loadLocale(REFERENCE_LOCALE)).not.toBeNull();
+});
+
+describe('Translation Completeness', () => {
+  const referenceKeys = getAllKeys(referenceLocale());
   const availableLocales = getAvailableLocales();
 
   test(`Reference locale (${REFERENCE_LOCALE}) should have translations`, () => {
@@ -197,19 +313,40 @@ describe('Translation Completeness', () => {
       expect(missingKeys).toEqual([]);
     }
   );
+
+  // An empty value keeps its key, so key parity passes and the screen renders a blank label.
+  test.each(availableLocales)('%s gives every key a non-empty string', (locale) => {
+    const localeData = loadLocale(locale) as Record<string, unknown>;
+    const blank = getAllKeys(localeData).filter((key) => {
+      const value = getValueAtPath(localeData, key);
+      return typeof value !== 'string' || value.trim().length === 0;
+    });
+    expect(blank).toEqual([]);
+  });
+
+  test('every key held to a translation is a reference string', () => {
+    const reference = referenceLocale();
+    const absent = TRANSLATED_PATHS.filter(
+      (key) => typeof getValueAtPath(reference, key) !== 'string'
+    );
+    expect(absent).toEqual([]);
+  });
+
+  test.each(availableLocales.filter((l) => !ENGLISH_LOCALES.includes(l)))(
+    '%s translates the held keys rather than copying en-GB',
+    (locale) => {
+      const reference = referenceLocale();
+      const localeData = loadLocale(locale) as Record<string, unknown>;
+      const copied = TRANSLATED_PATHS.filter(
+        (key) => getValueAtPath(localeData, key) === getValueAtPath(reference, key)
+      );
+      expect(copied).toEqual([]);
+    }
+  );
 });
 
 describe('Translation Key Usage', () => {
-  const referenceData = loadLocale(REFERENCE_LOCALE);
-
-  if (!referenceData) {
-    test('Reference locale should exist', () => {
-      throw new Error(`Reference locale ${REFERENCE_LOCALE}.json not found`);
-    });
-    return;
-  }
-
-  const referenceKeys = new Set(getAllKeys(referenceData));
+  const referenceKeys = new Set(getAllKeys(referenceLocale()));
 
   test('All translation keys used in source code should be defined in locale files', async () => {
     const keyUsages = await extractAllTranslationKeys();

@@ -13,9 +13,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { NotificationSection } from '@/features/settings/components/NotificationSection';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   hasNotificationPermission: jest.fn().mockResolvedValue(true),

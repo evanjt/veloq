@@ -1,8 +1,6 @@
 use super::error::{VeloqError, with_engine};
 use crate::init_logging;
-use crate::persistence::persistent_engine_ffi::{
-    BACKUP_HANDLE, BULK_EXPORT_HANDLE, CLEAR_ALL_HANDLE,
-};
+use crate::persistence::persistent_engine_ffi::CLEAR_ALL_HANDLE;
 use crate::persistence::{
     DerivedClear, NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats, WorkerPoll,
 };
@@ -135,18 +133,6 @@ pub struct BulkExportPoll {
     pub total: u32,
     pub skipped: u32,
     pub total_bytes: f64,
-}
-
-impl BulkExportPoll {
-    fn idle() -> Self {
-        BulkExportPoll {
-            state: "idle".to_string(),
-            exported: 0,
-            total: 0,
-            skipped: 0,
-            total_bytes: 0.0,
-        }
-    }
 }
 
 #[derive(uniffi::Object)]
@@ -856,7 +842,7 @@ mod tests {
             .unwrap_or_else(|e| e.into_inner())
             .take()
             .expect("handle");
-        finished.recv();
+        let _ = finished.recv();
     }
 
     #[test]

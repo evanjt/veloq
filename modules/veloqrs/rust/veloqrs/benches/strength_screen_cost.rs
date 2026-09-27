@@ -1,10 +1,10 @@
 //! What the strength tab's one read costs, against the 100 ms a mount allows.
 //!
-//! `C89` replaced the tab's three engine reads with one `get_screen_data`, so
+//! One `get_screen_data` replaced the tab's three engine reads, so
 //! the period read, the four trailing-week reads and the aggregation now happen
 //! together on the mount path, and the per-muscle exercise aggregation that used
-//! to wait for a selection no longer does. `I91`'s table has a row for every
-//! other screen read and none for this one.
+//! to wait for a selection no longer does. The handset budget table has a row
+//! for every other screen read and none for this one.
 //!
 //! Desktop timings are not handset timings. What transfers is the split between
 //! the parts and how each one grows, which is what decides whether the exercise
@@ -99,7 +99,7 @@ fn week_ranges(now: i64) -> Vec<(i64, i64)> {
 #[test]
 #[ignore]
 fn strength_screen_data_split_by_part() {
-    let Some((mut engine, dir)) = corpus() else {
+    let Some((engine, dir)) = corpus() else {
         return;
     };
     let path = dir.path().join("routes.db");
@@ -174,7 +174,7 @@ fn strength_screen_data_split_by_part() {
         100.0 * (summary_agg + exercise_agg).as_secs_f64() / whole.as_secs_f64()
     );
 
-    // A mount allows 100 ms (`I91`). Desktop is not the handset, so this is a
+    // A mount allows 100 ms. Desktop is not the handset, so this is a
     // tripwire on the shape rather than the acceptance: a read that is already
     // over budget here is over it there too.
     assert!(

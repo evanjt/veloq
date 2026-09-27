@@ -28,7 +28,7 @@ export const SNAPSHOT_SAVE = 'snapshot.save';
 export function snapshotRenderMetric(shape: {
   flat: boolean;
   standIn: boolean;
-  firstPaint?: boolean;
+  firstPaint?: boolean | undefined;
 }): string {
   if (shape.firstPaint && shape.standIn) return 'snapshot.render.firstPaint';
   if (shape.standIn) return 'snapshot.render.standIn';

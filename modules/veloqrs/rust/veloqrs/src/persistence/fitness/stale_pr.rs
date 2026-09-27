@@ -175,7 +175,7 @@ pub(crate) fn opportunities(
         }
     }
 
-    out.sort_by(|a, b| b.traversal_count.cmp(&a.traversal_count));
+    out.sort_by_key(|b| std::cmp::Reverse(b.traversal_count));
     out.truncate(request.max_opportunities as usize);
     out
 }

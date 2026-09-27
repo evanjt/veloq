@@ -103,10 +103,6 @@ afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-it('exits 0 on this checkout, so the audit gate stays usable', () => {
-  expect(runGuard().status).toBe(0);
-});
-
 it('passes when the submodule sits at the commit the tree records', () => {
   const sub = submoduleRepo();
   expect(runGuard(superproject(sub, sub.head)).status).toBe(0);

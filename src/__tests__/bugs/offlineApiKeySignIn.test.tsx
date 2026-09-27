@@ -30,8 +30,11 @@ jest.mock('@/features/auth/lib/accountChange', () => ({
   confirmAccountChange: jest.fn(async () => true),
   getCachedAthleteId: jest.fn(async () => null),
 }));
-jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({}) }));
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({}),
+}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const mockIsOnline = jest.fn(() => true);
 jest.mock('@/shared/app/NetworkContext', () => ({

@@ -2,6 +2,8 @@ name: Rust Coverage
 
 # Nightly, not per push: the instrumented run over all 138 test targets takes
 # about an hour. The floors it holds are in scripts/rust-coverage-baseline.json.
+# A sha already measured is skipped, so an unchanged main is not re-measured,
+# and re-reported, every night.
 on:
   schedule:
     - cron: "0 3 * * *"
@@ -16,48 +18,92 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
+      # A dispatch measures regardless, which is how to re-run a sha by hand.
+      - name: Look for a run on this sha
+        id: measured
+        if: github.event_name == 'schedule'
+        uses: actions/cache/restore@v4
+        with:
+          path: .coverage-measured
+          key: rust-coverage-measured-${{ github.sha }}
+          lookup-only: true
+
       - name: Checkout repository
+        if: steps.measured.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
+      # The toolchain the other Rust jobs use, so a floor moves with the code
+      # and not with a stable release.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        if: steps.measured.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@1.95.0
         with:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
+        if: steps.measured.outputs.cache-hit != 'true'
         uses: taiki-e/install-action@cargo-llvm-cov
 
+      - name: Install nextest
+        if: steps.measured.outputs.cache-hit != 'true'
+        uses: taiki-e/install-action@nextest
+
       - name: Cache Rust
+        if: steps.measured.outputs.cache-hit != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: modules/veloqrs/rust
           key: coverage
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: true
 
       - name: Setup Node.js
+        if: steps.measured.outputs.cache-hit != 'true'
         uses: actions/setup-node@v6
         with:
           node-version: "22"
 
+      # Through nextest, one process per test, as Rust Tests runs them: under
+      # plain `cargo test` the tests on process-global state share a process
+      # and race, which failed four nightlies with no coverage change.
       # The one skip is `name_follows_ground_through_recut`, six full
       # detects ending in one over 550 activities: 13 minutes in a plain
       # debug build on 32 threads, and instrumentation multiplies that. It
       # does return, so the skip buys the hour, not a hang.
       - name: Measure
+        id: measure
+        if: steps.measured.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: >
-          cargo llvm-cov -p veloqrs --features synthetic
+          cargo llvm-cov nextest -p veloqrs --features synthetic
           --json --output-path coverage.json
-          -- --skip name_follows_ground_through_recut
+          -E 'not test(name_follows_ground_through_recut)'
 
       - name: Hold the floors
+        if: steps.measured.outputs.cache-hit != 'true'
         run: node scripts/check-rust-coverage.mjs --report modules/veloqrs/rust/coverage.json
 
       - name: Upload report
-        if: always()
+        if: ${{ !cancelled() && steps.measured.outputs.cache-hit != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: rust-coverage
           path: modules/veloqrs/rust/coverage.json
           retention-days: 90
+
+      # Once the measurement has run, pass or fail, the sha has its result and
+      # the next night leaves it be. A setup failure is retried.
+      - name: Record this sha as measured
+        if: ${{ !cancelled() && (steps.measure.outcome == 'success' || steps.measure.outcome == 'failure') }}
+        run: |
+          mkdir -p .coverage-measured
+          echo "${{ github.sha }}" > .coverage-measured/sha
+
+      - name: Save the record
+        if: ${{ !cancelled() && (steps.measure.outcome == 'success' || steps.measure.outcome == 'failure') }}
+        uses: actions/cache/save@v4
+        with:
+          path: .coverage-measured
+          key: rust-coverage-measured-${{ github.sha }}

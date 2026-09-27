@@ -3,9 +3,9 @@
 //! Every sync ends with one `attach_finalize` under the **write** lock
 //! (`ffi.rs`, the attach batch tail), which either regroups when the ingest
 //! marked groups dirty or recomputes activity indicators when junction rows
-//! landed. It is the last long holder on the async path: `B475` took the bulk
-//! exports off the lock and `B482`/`B503` own the wipes, so this is the number
-//! `B489` was missing.
+//! landed. It is the last long holder on the async path: the bulk exports run
+//! off the lock and the wipes have their own threads, so this is the number the
+//! write-lock budget was missing.
 //!
 //! Both arms are timed, on the same corpus, because which one runs depends on
 //! whether the batch created a new group and the two do different work. The

@@ -18,15 +18,15 @@ export interface DemoExerciseSet {
   setOrder: number;
   /** FIT exercise category enum (4=BenchPress, 25=Squat, 12=Deadlift, …) */
   exerciseCategory: number;
-  /** Optional sub-name enum; we leave undefined to use the category's default */
-  exerciseName: number | undefined;
+  /** Optional sub-name enum; left out to use the category's default */
+  exerciseName?: number;
   /** Pre-resolved display name (Rust normally derives this; we match the format) */
   displayName: string;
   /** 0=active, 1=rest, 2=warmup, 3=cooldown */
   setType: number;
-  repetitions: number | undefined;
-  weightKg: number | undefined;
-  durationSecs: number | undefined;
+  repetitions?: number;
+  weightKg?: number;
+  durationSecs?: number;
 }
 
 /**
@@ -50,12 +50,10 @@ function buildDemoTest6Sets(): DemoExerciseSet[] {
         activityId,
         setOrder: order++,
         exerciseCategory,
-        exerciseName: undefined,
         displayName,
         setType: 0,
         repetitions: reps,
         weightKg,
-        durationSecs: undefined,
       });
     }
   };

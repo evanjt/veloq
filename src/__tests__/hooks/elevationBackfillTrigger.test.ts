@@ -17,6 +17,7 @@ import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevati
 const mockVersion = { current: '0.3.1' };
 
 jest.mock('expo-constants', () => ({
+  ...jest.requireActual('expo-constants'),
   __esModule: true,
   default: {
     expoConfig: {

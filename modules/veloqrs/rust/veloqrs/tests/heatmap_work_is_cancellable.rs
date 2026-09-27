@@ -10,7 +10,9 @@
 //! heatmap work costs nothing but a stale heatmap the next pass redraws, which
 //! is why the dirty marker must survive a cancelled pass.
 //!
-//! The pass slot and the handle slot are process-global, so these take `SERIAL`.
+//! Every cancel lands on a pass held just before it draws, so the cancel is in
+//! place before the first tile whatever the machine's load. The pass slot, the
+//! handle slot and the hold are process-global, so these take `SERIAL`.
 //!
 //! Run: `cargo test --features synthetic --test heatmap_work_is_cancellable -p veloqrs`
 
@@ -19,7 +21,8 @@ use std::sync::{Mutex, MutexGuard};
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::PersistentEngine;
-use veloqrs::persistence::CancelToken;
+use veloqrs::persistence::tiles::hold_next_tile_pass;
+use veloqrs::persistence::{CancelToken, TileGenerationHandle};
 
 static SERIAL: Mutex<()> = Mutex::new(());
 
@@ -27,15 +30,28 @@ fn serial() -> MutexGuard<'static, ()> {
     SERIAL.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Big enough that a pass outlives the call that started it, so a cancel has
-/// something in flight to land on.
+/// Start a pass, wait until it has scheduled its tiles and is about to draw,
+/// cancel it there, and let it go. The cancel is in place before any tile.
+fn cancel_before_drawing(engine: &PersistentEngine) -> TileGenerationHandle {
+    let hold = hold_next_tile_pass();
+    let handle = engine.generate_tiles_background().expect("the pass starts");
+    hold.wait_until_reached();
+    let (_, scheduled) = handle.get_progress();
+    assert!(scheduled > 0, "the held pass scheduled no tiles to cancel");
+    handle.cancel();
+    hold.release();
+    handle
+}
+
+/// Small, since the hold rather than the size of the pass is what gives a
+/// cancel something in flight to land on.
 fn seed_engine() -> (PersistentEngine, TempDir) {
     let cfg = LifecycleConfig {
-        bucket_a_count: 120,
+        bucket_a_count: 12,
         bucket_b_delta_count: 0,
         bucket_d_delta_count: 0,
         bucket_e_delta_count: 0,
-        parallel_street_count: 4,
+        parallel_street_count: 0,
         ..LifecycleConfig::default()
     };
     let corpus = LifecycleCorpus::generate(&cfg);
@@ -57,10 +73,9 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
     // set draws nothing and every count here would read zero.
     if let Ok(mut guard) =
         veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
+        && let Some(handle) = guard.take()
     {
-        if let Some(handle) = guard.take() {
-            handle.recv_blocking();
-        }
+        handle.recv_blocking();
     }
     for entry in std::fs::read_dir(&tiles).expect("read tiles dir").flatten() {
         // The zoom directories only. `version.txt` stays: without it the set
@@ -93,19 +108,16 @@ fn a_cancelled_pass_draws_less_than_a_pass_left_alone() {
 
     let (stopped, _stopped_tmp) = seed_engine();
     stopped.mark_heatmap_dirty();
-    let handle = stopped
-        .generate_tiles_background()
-        .expect("the pass starts");
-    handle.cancel();
+    let handle = cancel_before_drawing(&stopped);
     let drawn = handle.recv_blocking().expect("the pass answers");
 
     assert!(
         handle.was_cancelled(),
         "the pass must report it stopped early"
     );
-    assert!(
-        drawn < full,
-        "a cancelled pass drew {drawn} tiles and a whole pass drew {full}"
+    assert_eq!(
+        drawn, 0,
+        "a pass cancelled before its first tile drew {drawn} tiles, a whole pass drew {full}"
     );
 }
 
@@ -117,8 +129,7 @@ fn a_cancelled_pass_leaves_the_set_dirty() {
     let (engine, _tmp) = seed_engine();
     engine.mark_heatmap_dirty();
 
-    let handle = engine.generate_tiles_background().expect("the pass starts");
-    handle.cancel();
+    let handle = cancel_before_drawing(&engine);
     handle.recv_blocking().expect("the pass answers");
 
     assert!(
@@ -135,8 +146,7 @@ fn the_slot_comes_back_after_a_cancel() {
     let (engine, _tmp) = seed_engine();
     engine.mark_heatmap_dirty();
 
-    let first = engine.generate_tiles_background().expect("the pass starts");
-    first.cancel();
+    let first = cancel_before_drawing(&engine);
     first.recv_blocking().expect("the pass answers");
 
     let second = engine

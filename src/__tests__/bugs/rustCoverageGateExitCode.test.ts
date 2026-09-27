@@ -145,7 +145,7 @@ describe('Rust coverage floor', () => {
 
     expect(existsSync(WORKFLOW)).toBe(true);
     const workflow = readFileSync(WORKFLOW, 'utf8');
-    expect(workflow).toContain('cargo llvm-cov -p veloqrs --features synthetic');
+    expect(workflow).toContain('cargo llvm-cov nextest -p veloqrs --features synthetic');
     expect(workflow).toContain('scripts/check-rust-coverage.mjs');
     expect(workflow).toContain('schedule:');
   });

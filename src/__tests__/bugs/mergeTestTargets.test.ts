@@ -7,8 +7,18 @@
  * and a merge touching nothing testable runs nothing.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
@@ -38,6 +48,21 @@ describe('which suites a merge runs', () => {
     const targets = mergeTestTargets([`${CRATE}/tests/lifecycle_support/mod.rs`]);
 
     expect(targets.rustTests).toEqual([]);
+  });
+
+  it('names the grouped suite a module under its own directory belongs to', () => {
+    const targets = mergeTestTargets([
+      `${CRATE}/tests/wellness/summary.rs`,
+      `${CRATE}/tests/wellness/main.rs`,
+    ]);
+
+    expect(targets.rustTests).toEqual(['wellness']);
+  });
+
+  it('names a directory suite for its main and its helper alike', () => {
+    const targets = mergeTestTargets([`${CRATE}/tests/migration_support/mod.rs`]);
+
+    expect(targets.rustTests).toEqual(['migration_support']);
   });
 
   it('hands the changed TypeScript to jest and nothing generated', () => {
@@ -97,11 +122,14 @@ describe('which suites a merge runs', () => {
 });
 
 describe('the commands a merge runs', () => {
+  // tracematch gates `fold_resume` and its other synthetic suites on the
+  // feature, and cargo skips an unnamed suite whose features are absent
+  // rather than failing, so a plain run passes with those suites never built.
   it('runs the tracematch crate against its own manifest', () => {
     const commands = mergeTestCommands(mergeTestTargets(['modules/veloqrs/rust/tracematch']));
 
     expect(commands).toEqual([
-      'cargo test --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch',
+      'cargo test --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch --features synthetic',
     ]);
   });
 
@@ -112,7 +140,7 @@ describe('the commands a merge runs', () => {
 
     expect(commands).toEqual([
       'cargo test --manifest-path modules/veloqrs/rust/veloqrs/Cargo.toml -p veloqrs --features synthetic --lib',
-      'cargo test --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch',
+      'cargo test --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch --features synthetic',
     ]);
   });
 
@@ -205,24 +233,65 @@ describe('the merge hook', () => {
     readFileSync(join(ROOT, '.husky', 'pre-merge-commit'), 'utf8') +
     readFileSync(join(ROOT, 'scripts/merge-gates.sh'), 'utf8');
 
+  // Command lines only: the prose in the battery names every gate it replaced,
+  // so a match anywhere in the file passes with the gate itself deleted.
+  const commands = hook
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
+
   it('runs the suites the merge touched', () => {
-    expect(hook).toMatch(/check-merge-tests/);
+    expect(commands).toContain('./scripts/check-merge-tests.sh');
+  });
+
+  it('holds the lint ceiling it was written for', () => {
+    expect(commands).toContain('./scripts/check-merge-lint.sh');
   });
 
   it('runs the whole-tree guards, which a worktree commit never did', () => {
-    expect(hook).toMatch(/npm run audit\b/);
+    expect(commands).toContain('npm run audit:guards');
   });
 
-  it('runs them before the suites, so the cheap check fails first', () => {
-    expect(hook.indexOf('npm run audit')).toBeLessThan(hook.indexOf('check-merge-tests'));
+  it('runs the lint and the guards before the suites, so the cheap check fails first', () => {
+    const suites = commands.indexOf('./scripts/check-merge-tests.sh');
+    const lint = commands.indexOf('./scripts/check-merge-lint.sh');
+    const guards = commands.indexOf('npm run audit:guards');
+
+    // An absent gate indexes at -1, which is before everything.
+    expect(Math.min(lint, guards)).toBeGreaterThan(-1);
+    expect(lint).toBeLessThan(suites);
+    expect(guards).toBeLessThan(suites);
   });
 
-  it('still holds the lint ceiling it was written for', () => {
-    expect(hook).toMatch(/npm run lint\b/);
-  });
+  it('stops at the first gate that fails rather than reporting and continuing', () => {
+    const root = mkdtempSync(join(tmpdir(), 'merge-battery-'));
+    try {
+      mkdirSync(join(root, 'scripts'));
+      mkdirSync(join(root, 'bin'));
+      copyFileSync(join(ROOT, 'scripts/merge-gates.sh'), join(root, 'scripts/merge-gates.sh'));
+      const stub = (path: string, body: string) => {
+        writeFileSync(join(root, path), `#!/bin/sh\n${body}\n`);
+        chmodSync(join(root, path), 0o755);
+      };
+      stub('scripts/check-merge-lint.sh', 'exit 1');
+      // The second gate is `npx tsc`, so an `npx` that leaves a mark says it ran.
+      stub('bin/npx', `touch "${join(root, 'second-gate-ran')}"`);
 
-  it('fails the merge rather than reporting and continuing', () => {
-    expect(hook).toMatch(/^set -e$/m);
+      const result = spawnSync('sh', ['scripts/merge-gates.sh'], {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${join(root, 'bin')}:${process.env.PATH}`,
+          VELOQ_MERGE_LOCK_HELD: '1',
+        },
+        encoding: 'utf8',
+      });
+
+      expect(result.status).not.toBe(0);
+      expect(existsSync(join(root, 'second-gate-ran'))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

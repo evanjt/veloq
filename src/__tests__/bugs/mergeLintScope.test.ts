@@ -7,8 +7,9 @@
  *
  * Expected behaviour: a merge is judged on the tree it is about to commit. The
  * check lints a copy taken from the index, so an unstaged edit beside it is
- * neither counted nor blamed, and a staged file that is genuinely over the
- * ceiling still fails.
+ * neither counted nor blamed, and a staged warning still fails. The tree holds
+ * no warnings, so the merged `lint` script has to say `--max-warnings 0`, and a
+ * merge that raises it is refused rather than obeyed.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -22,7 +23,7 @@ const SCRIPT = join(REPO, 'scripts/check-merge-lint.sh');
 
 /** Clean under the fixture's config: no warnings, no errors. */
 const CLEAN = 'export const a = 1;\n';
-/** One `no-unused-vars` warning, which is what the fixture ceiling counts. */
+/** One `no-unused-vars` warning, which is one more than the tree may hold. */
 const WARNING = 'const unused = 1;\nexport const b = 2;\n';
 
 const CONFIG = `module.exports = [
@@ -47,27 +48,22 @@ function write(root: string, files: Record<string, string>): void {
   }
 }
 
+const LINT_ZERO = 'eslint . --no-warn-ignored --max-warnings 0';
+
+function packageJson(lint: string): string {
+  return JSON.stringify({ name: 'fixture', scripts: { lint } }, null, 2);
+}
+
 /**
- * A repository whose `lint` script carries `ceiling`, with `committed` in the
- * first commit and `staged` staged on top of it.
+ * A repository whose `lint` script is the repository's own shape, with
+ * `committed` in the first commit and `staged` staged on top of it.
  */
-function fixture(
-  ceiling: number,
-  committed: Record<string, string>,
-  staged: Record<string, string> = {}
-): string {
+function fixture(committed: Record<string, string>, staged: Record<string, string> = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'merge-lint-'));
   roots.push(root);
   write(root, {
     'eslint.config.js': CONFIG,
-    'package.json': JSON.stringify(
-      {
-        name: 'fixture',
-        scripts: { lint: `eslint . --no-warn-ignored --max-warnings ${ceiling}` },
-      },
-      null,
-      2
-    ),
+    'package.json': packageJson(LINT_ZERO),
     ...committed,
   });
   git(root, 'init', '-q', '-b', 'main');
@@ -99,14 +95,14 @@ afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-it('passes a tree that sits on its ceiling', () => {
-  const root = fixture(1, { 'a.js': WARNING });
+it('passes a tree with no warnings', () => {
+  const root = fixture({ 'a.js': CLEAN });
 
   expect(run(root).status).toBe(0);
 });
 
 it('ignores an unstaged file the merge never touched', () => {
-  const root = fixture(1, { 'a.js': WARNING });
+  const root = fixture({ 'a.js': CLEAN });
   write(root, { 'other.js': WARNING });
 
   const { status, output } = run(root);
@@ -116,31 +112,53 @@ it('ignores an unstaged file the merge never touched', () => {
 });
 
 it('counts the index, not the disk, for a file edited again after staging', () => {
-  const root = fixture(1, { 'a.js': WARNING });
-  // Two more warnings on disk, none of them staged.
-  write(root, { 'a.js': `${WARNING}const second = 1;\nconst third = 2;\n` });
+  const root = fixture({ 'a.js': CLEAN });
+  write(root, { 'a.js': WARNING });
 
   expect(run(root).status).toBe(0);
 });
 
-it('fails a merge whose own tree is over the ceiling', () => {
-  const root = fixture(1, { 'a.js': WARNING }, { 'b.js': WARNING });
+it('fails a merge whose own tree carries a warning', () => {
+  const root = fixture({ 'a.js': CLEAN }, { 'b.js': WARNING });
 
   expect(run(root).status).not.toBe(0);
 });
 
-it('reads the ceiling out of the merged tree, not out of the checkout it runs in', () => {
-  const root = fixture(0, { 'a.js': CLEAN });
-  // The merge raises its own ceiling and adds the warning that needs it.
-  write(root, {
-    'package.json': JSON.stringify(
-      { name: 'fixture', scripts: { lint: 'eslint . --no-warn-ignored --max-warnings 1' } },
-      null,
-      2
-    ),
-    'b.js': WARNING,
-  });
-  git(root, 'add', 'package.json', 'b.js');
+it('refuses a merge that raises the ceiling alongside the warning that needs it', () => {
+  const root = fixture(
+    { 'a.js': CLEAN },
+    {
+      'package.json': packageJson('eslint . --no-warn-ignored --max-warnings 1'),
+      'b.js': WARNING,
+    }
+  );
+
+  const { status, output } = run(root);
+
+  expect(status).not.toBe(0);
+  expect(output).toContain('--max-warnings 0');
+});
+
+it('refuses a merged lint script that drops the flag, which leaves eslint unbounded', () => {
+  const root = fixture({ 'a.js': CLEAN }, { 'package.json': packageJson('eslint .') });
+
+  expect(run(root).status).not.toBe(0);
+});
+
+it('refuses a second --max-warnings beside the zero', () => {
+  const root = fixture(
+    { 'a.js': CLEAN },
+    { 'package.json': packageJson(`${LINT_ZERO} --max-warnings 5`) }
+  );
+
+  expect(run(root).status).not.toBe(0);
+});
+
+it('accepts the zero with the cache flags after it', () => {
+  const root = fixture(
+    { 'a.js': CLEAN },
+    { 'package.json': packageJson(`${LINT_ZERO} --cache --cache-strategy content`) }
+  );
 
   expect(run(root).status).toBe(0);
 });
@@ -149,8 +167,8 @@ it('removes its copy on the failing path as well as the passing one', () => {
   const copies = () => readdirSync(tmpdir()).filter((name) => name.startsWith('veloq-merge-lint'));
   const before = copies();
 
-  run(fixture(1, { 'a.js': WARNING }));
-  run(fixture(1, { 'a.js': WARNING }, { 'b.js': WARNING }));
+  run(fixture({ 'a.js': CLEAN }));
+  run(fixture({ 'a.js': CLEAN }, { 'b.js': WARNING }));
 
   expect(copies()).toEqual(before);
 });

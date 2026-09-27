@@ -95,8 +95,7 @@ const MAX_SNAPSHOT_RETRIES = 1;
  * A 429 or a 503 is an instruction to wait, and every worker is hitting the
  * same host, so the one request that saw it is not the thing to back off. The
  * wait is a floor the athlete cannot pull past either: a pull-to-refresh that
- * reset it would turn an impatient athlete into the load that caused it
- * (B418).
+ * reset it would turn an impatient athlete into the load that caused it.
  */
 const TILE_THROTTLE_BACKOFF_MS = 30000;
 const MAX_TILE_THROTTLE_BACKOFF_MS = 300000;
@@ -342,7 +341,7 @@ export const TerrainSnapshotWebView = forwardRef<
         }
         // A pool waiting out a tile throttle is not a stuck pool. The backoff
         // outlasts this timeout on purpose, so keep watching rather than
-        // failing every queued card for waiting as instructed (B418).
+        // failing every queued card for waiting as instructed.
         if (throttledUntilRef.current > Date.now()) {
           held('waiting out a tile throttle');
           arm();
@@ -822,7 +821,7 @@ export const TerrainSnapshotWebView = forwardRef<
         // A throttle is the server asking for time, so the whole pool takes it
         // rather than the one request that saw it. The floor only ever moves
         // out while throttles keep arriving, and it is not reset by a retry
-        // path, so nothing the athlete does shortens it (B418).
+        // path, so nothing the athlete does shortens it.
         if (((data.tileThrottles as number) ?? 0) > 0) {
           const now = Date.now();
           if (now >= throttledUntilRef.current) {

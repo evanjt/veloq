@@ -40,7 +40,7 @@ if (offenders.length > 0) {
     console.error(`  modules/veloqrs/src/generated/veloqrs.ts:${o.line}  ${o.name}: ${o.rust}`);
   }
   console.error('');
-  console.error('  Declare the field as f64 in Rust and run `npm run ffi:manifest`.');
+  console.error('  Declare the field as f64 in Rust and run `npm run ffi:generate`.');
   console.error('  Exact to 2^53: seconds, durations, rowids, versions and byte counts all fit.');
   process.exit(1);
 }

@@ -23,6 +23,7 @@ jest.mock('@/shared/native/engine', () => ({
   })),
 }));
 jest.mock('expo-task-manager', () => ({
+  ...jest.requireActual('expo-task-manager'),
   defineTask: jest.fn(),
   isTaskRegisteredAsync: jest.fn(async () => false),
   unregisterTaskAsync: jest.fn(async () => undefined),

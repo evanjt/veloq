@@ -3,8 +3,8 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { SectionHistoryPanel } from '@/features/routes/components/section/SectionHistoryPanel';
 import { router } from 'expo-router';
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (key: string, params?: Record<string, unknown>) =>
       params ? `${key}:${Object.values(params).join(',')}` : key,

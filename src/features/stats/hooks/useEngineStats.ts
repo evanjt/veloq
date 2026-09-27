@@ -2,7 +2,7 @@
  * Aggregate totals read from the engine rather than summed in JavaScript.
  *
  * `activity_metrics` covers exactly what `activity_bodies` covers: the sync
- * writes both from the same page (`objects/sync.rs:1078-1098`). The comments
+ * writes both from the same page (`sync_activity_window`). The comments
  * these hooks replaced said the engine could only answer the 90-day GPS window,
  * which is why a year of bodies was being parsed to sum a dozen numbers.
  */

@@ -17,14 +17,10 @@ import { SyncErrorReason } from '../__shared__/veloqrsStub';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, vars?: Record<string, unknown>) =>
-      vars ? `${key}:${JSON.stringify(vars)}` : key,
-  }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
 jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 40, bottom: 0, left: 0, right: 0 }),
 }));
 

@@ -82,6 +82,14 @@ export function cancelDetectorCutover(): void {
   );
 }
 
+/**
+ * Ask the running fetch-and-store to stop. Returns whether there was one.
+ *
+ * Cooperative and scoped to the run: the loop checks between activities, so
+ * the one in flight finishes and lands, and the attach tail still runs over
+ * whatever did. The flag is cleared by the reset every run makes, so a cancel
+ * cannot outlive the download it was aimed at.
+ */
 export function cancelFetchAndStore(): boolean {
   return FfiConverterBool.lift(
     uniffiCaller.rustCall(
@@ -238,6 +246,15 @@ export function getCutoverProgress(): CutoverProgress {
   }
 }
 
+/**
+ * Get current download progress for FFI polling.
+ *
+ * TypeScript should poll this every 100ms during fetch operations
+ * to get smooth progress updates without cross-thread callback issues.
+ *
+ * Returns DownloadProgressResult with completed/total/active fields.
+ * When active is false, the download has completed (or never started).
+ */
 export function getDownloadProgress(): DownloadProgressResult {
   const __rb: Uint8Array = uniffiCaller.rustCall(
     /*caller:*/ (callStatus) => {
@@ -575,6 +592,7 @@ export function startElevationBackfill(): FfiStartOutcome {
  * - No ~1.7MB GPS data transfer from Rust to TypeScript
  * - No ~865KB GPS data transfer from TypeScript back to Rust
  * - Direct storage in SQLite without serialization overhead
+ *
  * Start one fetch+store run and answer its id.
  *
  * The id is what `take_fetch_and_store_result` reads back with. Three callers
@@ -726,19 +744,6 @@ export function validateBackupDatabase(
 }
 
 /**
- * Get current download progress for FFI polling.
- *
- * TypeScript should poll this every 100ms during fetch operations
- * to get smooth progress updates without cross-thread callback issues.
- *
- * Returns DownloadProgressResult with completed/total/active fields.
- * When active is false, the download has completed (or never started).
- * Ask the running fetch-and-store to stop. Returns whether there was one.
- *
- * Cooperative and scoped to the run: the loop checks between activities, so
- * the one in flight finishes and lands, and the attach tail still runs over
- * whatever did. The flag is cleared by the reset every run makes, so a cancel
- * cannot outlive the download it was aimed at.
  * Check a credential and report the athlete it belongs to, without storing it.
  *
  * Standalone rather than a method on the engine, because a sign-in screen has
@@ -26536,7 +26541,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store() !==
-    27454
+    30085
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_cancel_fetch_and_store",
@@ -26584,7 +26589,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_download_progress() !==
-    59677
+    60736
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_download_progress",
@@ -26712,7 +26717,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store() !==
-    20720
+    30209
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_fetch_and_store",
@@ -26760,7 +26765,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_credentials() !==
-    3151
+    42978
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_validate_credentials",

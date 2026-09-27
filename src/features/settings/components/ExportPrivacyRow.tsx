@@ -47,9 +47,11 @@ export function ExportPrivacyRow() {
     const lat = engine?.getSetting?.(HOME_LAT_KEY);
     const lng = engine?.getSetting?.(HOME_LNG_KEY);
     const hasHome = Boolean(lat && lng);
+    const radius = Number(engine?.getSetting?.(RADIUS_KEY) ?? '0');
     return {
       hasHome,
-      enabled: Number(engine?.getSetting?.(RADIUS_KEY) ?? '0') > 0,
+      radius,
+      enabled: radius > 0,
       suggestion: hasHome
         ? null
         : ((engine?.suggestExportHome?.() ?? null) as SuggestedHome | null),
@@ -64,8 +66,7 @@ export function ExportPrivacyRow() {
   const confirmed = stored.hasHome || confirmedHome !== null;
   const enabled = toggled ?? stored.enabled;
   const suggestion = stored.suggestion;
-  const storedRadius = Number(engine?.getSetting?.(RADIUS_KEY) ?? '0');
-  const activeRadius = enabled ? (radius ?? storedRadius ?? DEFAULT_RADIUS_M) : 0;
+  const activeRadius = enabled ? (radius ?? stored.radius ?? DEFAULT_RADIUS_M) : 0;
 
   // The home the preview is measured against: what is stored, or what was just
   // confirmed in this render pass and not yet read back.

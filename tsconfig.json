@@ -4,6 +4,7 @@
     "strict": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "types": ["jest", "node", "react", "geojson"],

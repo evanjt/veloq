@@ -17,6 +17,7 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 let mockPathname = '/map';
 
 jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
   useRouter: () => ({ push: jest.fn(), navigate: jest.fn(), back: jest.fn() }),
   usePathname: () => mockPathname,
 }));
@@ -46,6 +47,7 @@ jest.mock('@/shared/app', () => ({
 }));
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
   getCurrentPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },

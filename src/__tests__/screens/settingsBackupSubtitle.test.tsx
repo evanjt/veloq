@@ -18,19 +18,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 // i18next hands back the same `t` on every render unless the language changes,
 // so the stub must too: a fresh function per render invalidates any memo keyed
 // on it and hides exactly the staleness this file is about.
-jest.mock('react-i18next', () => {
-  const t = (key: string, fallback?: unknown) => (typeof fallback === 'string' ? fallback : key);
-  return { useTranslation: () => ({ t }) };
-});
-
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-    SafeAreaProvider: View,
-    SafeAreaView: View,
-  };
-});
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),

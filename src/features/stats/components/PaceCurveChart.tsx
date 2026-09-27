@@ -50,7 +50,7 @@ interface ChartPoint {
   distance: number; // actual distance in meters
   time: number; // time in seconds to cover this distance
   paceSecsPerKm: number;
-  activityId?: string; // Activity that achieved this best effort
+  activityId?: string | undefined; // Activity that achieved this best effort
 }
 
 export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {

@@ -45,6 +45,8 @@ impl BasemapManager {
         basemap::get_or_fetch(&source, z, x, y)
     }
 
+    // The FFI signature, which takes each field as its own argument.
+    #[allow(clippy::too_many_arguments)]
     /// Store one tile. `pinned` marks the pre-seeded offline base, which
     /// eviction takes last.
     fn put_tile(

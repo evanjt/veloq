@@ -6,7 +6,7 @@
 //! frame budget, because the copy runs on its own thread and its own
 //! connection.
 
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
 use rusqlite::Connection;
@@ -23,7 +23,7 @@ const FRAME_BUDGET: Duration = Duration::from_millis(16);
 const BULK_ROWS: usize = 1_500;
 const BULK_ROW_BYTES: usize = 4_096;
 
-fn engine_with_bulk_bytes(name: &str) -> (TempDir, Arc<RwLock<PersistentEngine>>) {
+fn engine_with_bulk_bytes(name: &str) -> (TempDir, RwLock<PersistentEngine>) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join(name);
     let path_str = path.to_str().unwrap().to_string();
@@ -46,7 +46,7 @@ fn engine_with_bulk_bytes(name: &str) -> (TempDir, Arc<RwLock<PersistentEngine>>
     conn.execute("COMMIT", []).expect("commit");
     drop(conn);
 
-    (dir, Arc::new(RwLock::new(engine)))
+    (dir, RwLock::new(engine))
 }
 
 fn bulk_count(path: &str) -> i64 {
@@ -58,7 +58,7 @@ fn bulk_count(path: &str) -> i64 {
 /// Drive a running backup to its result, timing an engine write-lock
 /// acquisition on every poll. Returns the waits and the outcome.
 fn poll_to_completion(
-    engine: &Arc<RwLock<PersistentEngine>>,
+    engine: &RwLock<PersistentEngine>,
     handle: &veloqrs::persistence::BackupHandle,
 ) -> (Vec<Duration>, Result<(), String>) {
     let mut waits = Vec::new();

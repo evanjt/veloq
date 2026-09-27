@@ -314,10 +314,10 @@ impl PersistentEngine {
             for name in names.values() {
                 // New pattern: "Route N"
                 let prefix = format!("{} ", route_word);
-                if name.starts_with(&prefix) {
-                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                        taken_numbers.insert(num);
-                    }
+                if name.starts_with(&prefix)
+                    && let Ok(num) = name[prefix.len()..].parse::<u32>()
+                {
+                    taken_numbers.insert(num);
                 }
                 // Old pattern: "{Sport} Route N" - still recognise for numbering
                 for sport in [
@@ -330,10 +330,10 @@ impl PersistentEngine {
                     "VirtualRun",
                 ] {
                     let old_prefix = format!("{} {} ", sport, route_word);
-                    if name.starts_with(&old_prefix) {
-                        if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
-                            taken_numbers.insert(num);
-                        }
+                    if name.starts_with(&old_prefix)
+                        && let Ok(num) = name[old_prefix.len()..].parse::<u32>()
+                    {
+                        taken_numbers.insert(num);
                     }
                 }
             }
@@ -396,10 +396,10 @@ impl PersistentEngine {
                 let mut used: std::collections::HashSet<u32> = std::collections::HashSet::new();
                 for name in names.values() {
                     let pfx = format!("{} ", route_word);
-                    if name.starts_with(&pfx) {
-                        if let Ok(num) = name[pfx.len()..].parse::<u32>() {
-                            used.insert(num);
-                        }
+                    if name.starts_with(&pfx)
+                        && let Ok(num) = name[pfx.len()..].parse::<u32>()
+                    {
+                        used.insert(num);
                     }
                 }
 
@@ -795,8 +795,8 @@ impl PersistentEngine {
         // OPTIMISATION 2: Parallelize with rayon
         let calc_start = Instant::now();
 
-        let mut work_items: Vec<(String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>)> =
-            Vec::new();
+        type WorkItem = (String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>);
+        let mut work_items: Vec<WorkItem> = Vec::new();
         let mut skipped_self = 0u32;
 
         for group in self.groups.iter().filter(|g| in_scope(g)) {
@@ -1035,10 +1035,10 @@ impl PersistentEngine {
                 std::collections::HashSet::new();
             for name in existing_names.values() {
                 let prefix = format!("{} ", route_word);
-                if name.starts_with(&prefix) {
-                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                        taken_numbers.insert(num);
-                    }
+                if name.starts_with(&prefix)
+                    && let Ok(num) = name[prefix.len()..].parse::<u32>()
+                {
+                    taken_numbers.insert(num);
                 }
                 for sport in [
                     "Ride",
@@ -1050,10 +1050,10 @@ impl PersistentEngine {
                     "VirtualRun",
                 ] {
                     let old_prefix = format!("{} {} ", sport, route_word);
-                    if name.starts_with(&old_prefix) {
-                        if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
-                            taken_numbers.insert(num);
-                        }
+                    if name.starts_with(&old_prefix)
+                        && let Ok(num) = name[old_prefix.len()..].parse::<u32>()
+                    {
+                        taken_numbers.insert(num);
                     }
                 }
             }
@@ -1867,13 +1867,13 @@ pub(crate) mod pooled {
     pub(crate) fn all_route_names(conn: &Connection) -> HashMap<String, String> {
         // Query the database directly to ensure we get the latest names
         let mut result = HashMap::new();
-        if let Ok(mut stmt) = conn.prepare("SELECT route_id, custom_name FROM route_names") {
-            if let Ok(rows) = stmt.query_map([], |row| {
+        if let Ok(mut stmt) = conn.prepare("SELECT route_id, custom_name FROM route_names")
+            && let Ok(rows) = stmt.query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            }) {
-                for row in rows.flatten() {
-                    result.insert(row.0, row.1);
-                }
+            })
+        {
+            for row in rows.flatten() {
+                result.insert(row.0, row.1);
             }
         }
         result

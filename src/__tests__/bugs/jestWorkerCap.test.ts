@@ -12,9 +12,6 @@
  * workers passes every test in the suite right up until the machine dies.
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import jestConfig from '../../../config/jest.config.js';
 
 /** The number the config commits to, with any operator override set aside. */
@@ -52,8 +49,14 @@ describe('how many workers a run takes', () => {
   });
 
   it('lets an idle machine have its cores back without editing the config', () => {
-    const config = readFileSync(resolve(__dirname, '../../../config/jest.config.js'), 'utf8');
-
-    expect(config).toContain('JEST_WORKERS');
+    const override = process.env.JEST_WORKERS;
+    process.env.JEST_WORKERS = '7';
+    jest.resetModules();
+    try {
+      expect(require('../../../config/jest.config.js').maxWorkers).toBe(7);
+    } finally {
+      if (override === undefined) delete process.env.JEST_WORKERS;
+      else process.env.JEST_WORKERS = override;
+    }
   });
 });

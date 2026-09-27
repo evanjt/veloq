@@ -51,7 +51,7 @@ fn unframe_postcard(bytes: &[u8]) -> Option<&[u8]> {
 /// value with garbage contents; requiring full consumption closes that hole.
 fn postcard_exact<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
     match postcard::take_from_bytes(bytes) {
-        Ok((value, rest)) if rest.is_empty() => Ok(value),
+        Ok((value, [])) => Ok(value),
         Ok(_) => Err("postcard decode left trailing bytes".to_string()),
         Err(e) => Err(e.to_string()),
     }
@@ -68,10 +68,10 @@ pub fn serialize<T: Serialize + ?Sized>(value: &T) -> Result<Vec<u8>, String> {
 /// Deserialize a blob written by `serialize`, falling back to the legacy
 /// unframed formats (postcard, then rmp-serde) for pre-tag data.
 pub fn deserialize<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
-    if let Some(payload) = unframe_postcard(bytes) {
-        if let Ok(value) = postcard_exact(payload) {
-            return Ok(value);
-        }
+    if let Some(payload) = unframe_postcard(bytes)
+        && let Ok(value) = postcard_exact(payload)
+    {
+        return Ok(value);
     }
     postcard_exact(bytes).or_else(|_| rmp_serde::from_slice(bytes).map_err(|e| e.to_string()))
 }
@@ -530,6 +530,119 @@ pub fn decode_polyline(bytes: &[u8]) -> Option<Vec<crate::GpsPoint>> {
     Some(points)
 }
 
+/// Framed tag for a quantised scalar series. Distinct from [`POLYLINE_TAG`] so
+/// a series blob can never be handed to the point decoder.
+const SERIES_TAG: u8 = 0xC1;
+
+/// Sample carriage in a series header, mirroring the polyline's elevation modes.
+const SERIES_NONE: u8 = 0;
+const SERIES_ALL: u8 = 1;
+const SERIES_MIXED: u8 = 2;
+
+/// Counts per unit for each series the store holds. A scale is chosen so the
+/// server's own precision is exact rather than approximated: the integer
+/// series count in ones, speeds in hundredths of a metre per second, distance
+/// and temperature in tenths.
+///
+/// The scale is written into the blob rather than looked up on read, so a
+/// future change here cannot silently rescale everything already stored.
+pub fn series_scale(kind: &str) -> f64 {
+    match kind {
+        "velocity_smooth" | "ga_velocity" | "grade_smooth" => 100.0,
+        "distance" | "temp" => 10.0,
+        _ => 1.0,
+    }
+}
+
+/// Quantised zigzag-varint scalar series: sample count, scale, presence mode
+/// (none / all / mixed with a bitmap), then the deltas of the quantised
+/// samples. Exact at the scale it records; gaps survive as gaps.
+///
+/// This is the polyline codec's technique on one dimension rather than three,
+/// deliberately: the packing format is the quantised codec, not a design of
+/// its own.
+pub fn encode_series(values: &[Option<f64>], scale: f64) -> Vec<u8> {
+    let mut body = Vec::new();
+    write_varint(&mut body, values.len() as u64);
+    write_varint(&mut body, scale.round() as u64);
+    let present = values.iter().filter(|v| v.is_some()).count();
+    let mode = match present {
+        0 => SERIES_NONE,
+        n if n == values.len() => SERIES_ALL,
+        _ => SERIES_MIXED,
+    };
+    body.push(mode);
+    if mode == SERIES_MIXED {
+        let mut bitmap = vec![0u8; values.len().div_ceil(8)];
+        for (i, v) in values.iter().enumerate() {
+            if v.is_some() {
+                bitmap[i / 8] |= 1 << (i % 8);
+            }
+        }
+        body.extend_from_slice(&bitmap);
+    }
+    let mut prev = 0i64;
+    for v in values.iter().flatten() {
+        // A NaN or an infinity has no quantised form, so it stores as the
+        // previous sample's value rather than as a wild delta. The server does
+        // not send them; a body that does is malformed, not meaningful.
+        let q = if v.is_finite() {
+            (v * scale).round() as i64
+        } else {
+            prev
+        };
+        write_varint(&mut body, zigzag(q - prev));
+        prev = q;
+    }
+    frame(SERIES_TAG, body)
+}
+
+/// Decode [`encode_series`] output. `None` on anything truncated, malformed or
+/// not a series blob; never panics on foreign bytes.
+pub fn decode_series(bytes: &[u8]) -> Option<Vec<Option<f64>>> {
+    let body = unframe(SERIES_TAG, bytes)?;
+    let mut pos = 0usize;
+    let n = usize::try_from(read_varint(body, &mut pos)?).ok()?;
+    // A varint can claim an absurd count; bound it by what the remaining bytes
+    // could hold, one byte per present sample at minimum.
+    if n > body.len().saturating_sub(pos).saturating_mul(8) {
+        return None;
+    }
+    let scale = read_varint(body, &mut pos)? as f64;
+    if scale <= 0.0 {
+        return None;
+    }
+    let mode = *body.get(pos)?;
+    pos += 1;
+    let bitmap: &[u8] = if mode == SERIES_MIXED {
+        let len = n.div_ceil(8);
+        let slice = body.get(pos..pos + len)?;
+        pos += len;
+        slice
+    } else {
+        &[]
+    };
+    // Same reason as the polyline reserve: `SERIES_NONE` spends no bytes per
+    // sample, so a torn blob's count is bounded only by the guard above.
+    let mut out = Vec::with_capacity(n.min(POLYLINE_RESERVE_CAP));
+    let mut prev = 0i64;
+    for i in 0..n {
+        let present = match mode {
+            SERIES_ALL => true,
+            SERIES_NONE => false,
+            SERIES_MIXED => bitmap.get(i / 8).is_some_and(|b| b & (1 << (i % 8)) != 0),
+            _ => return None,
+        };
+        if !present {
+            out.push(None);
+            continue;
+        }
+        prev += unzigzag(read_varint(body, &mut pos)?);
+        out.push(Some(prev as f64 / scale));
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -969,117 +1082,4 @@ mod tests {
         let bytes = encode_polyline(&points);
         assert_eq!(decode_polyline(&bytes).unwrap().len(), points.len());
     }
-}
-
-/// Framed tag for a quantised scalar series. Distinct from [`POLYLINE_TAG`] so
-/// a series blob can never be handed to the point decoder.
-const SERIES_TAG: u8 = 0xC1;
-
-/// Sample carriage in a series header, mirroring the polyline's elevation modes.
-const SERIES_NONE: u8 = 0;
-const SERIES_ALL: u8 = 1;
-const SERIES_MIXED: u8 = 2;
-
-/// Counts per unit for each series the store holds. A scale is chosen so the
-/// server's own precision is exact rather than approximated: the integer
-/// series count in ones, speeds in hundredths of a metre per second, distance
-/// and temperature in tenths.
-///
-/// The scale is written into the blob rather than looked up on read, so a
-/// future change here cannot silently rescale everything already stored.
-pub fn series_scale(kind: &str) -> f64 {
-    match kind {
-        "velocity_smooth" | "ga_velocity" | "grade_smooth" => 100.0,
-        "distance" | "temp" => 10.0,
-        _ => 1.0,
-    }
-}
-
-/// Quantised zigzag-varint scalar series: sample count, scale, presence mode
-/// (none / all / mixed with a bitmap), then the deltas of the quantised
-/// samples. Exact at the scale it records; gaps survive as gaps.
-///
-/// This is the polyline codec's technique on one dimension rather than three,
-/// deliberately: the packing format is the quantised codec, not a design of
-/// its own.
-pub fn encode_series(values: &[Option<f64>], scale: f64) -> Vec<u8> {
-    let mut body = Vec::new();
-    write_varint(&mut body, values.len() as u64);
-    write_varint(&mut body, scale.round() as u64);
-    let present = values.iter().filter(|v| v.is_some()).count();
-    let mode = match present {
-        0 => SERIES_NONE,
-        n if n == values.len() => SERIES_ALL,
-        _ => SERIES_MIXED,
-    };
-    body.push(mode);
-    if mode == SERIES_MIXED {
-        let mut bitmap = vec![0u8; values.len().div_ceil(8)];
-        for (i, v) in values.iter().enumerate() {
-            if v.is_some() {
-                bitmap[i / 8] |= 1 << (i % 8);
-            }
-        }
-        body.extend_from_slice(&bitmap);
-    }
-    let mut prev = 0i64;
-    for v in values.iter().flatten() {
-        // A NaN or an infinity has no quantised form, so it stores as the
-        // previous sample's value rather than as a wild delta. The server does
-        // not send them; a body that does is malformed, not meaningful.
-        let q = if v.is_finite() {
-            (v * scale).round() as i64
-        } else {
-            prev
-        };
-        write_varint(&mut body, zigzag(q - prev));
-        prev = q;
-    }
-    frame(SERIES_TAG, body)
-}
-
-/// Decode [`encode_series`] output. `None` on anything truncated, malformed or
-/// not a series blob; never panics on foreign bytes.
-pub fn decode_series(bytes: &[u8]) -> Option<Vec<Option<f64>>> {
-    let body = unframe(SERIES_TAG, bytes)?;
-    let mut pos = 0usize;
-    let n = usize::try_from(read_varint(body, &mut pos)?).ok()?;
-    // A varint can claim an absurd count; bound it by what the remaining bytes
-    // could hold, one byte per present sample at minimum.
-    if n > body.len().saturating_sub(pos).saturating_mul(8) {
-        return None;
-    }
-    let scale = read_varint(body, &mut pos)? as f64;
-    if scale <= 0.0 {
-        return None;
-    }
-    let mode = *body.get(pos)?;
-    pos += 1;
-    let bitmap: &[u8] = if mode == SERIES_MIXED {
-        let len = n.div_ceil(8);
-        let slice = body.get(pos..pos + len)?;
-        pos += len;
-        slice
-    } else {
-        &[]
-    };
-    // Same reason as the polyline reserve: `SERIES_NONE` spends no bytes per
-    // sample, so a torn blob's count is bounded only by the guard above.
-    let mut out = Vec::with_capacity(n.min(POLYLINE_RESERVE_CAP));
-    let mut prev = 0i64;
-    for i in 0..n {
-        let present = match mode {
-            SERIES_ALL => true,
-            SERIES_NONE => false,
-            SERIES_MIXED => bitmap.get(i / 8).is_some_and(|b| b & (1 << (i % 8)) != 0),
-            _ => return None,
-        };
-        if !present {
-            out.push(None);
-            continue;
-        }
-        prev += unzigzag(read_varint(body, &mut pos)?);
-        out.push(Some(prev as f64 / scale));
-    }
-    Some(out)
 }

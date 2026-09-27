@@ -37,8 +37,8 @@ interface SectionTrimOverlayProps {
   isSaving: boolean;
   canReset: boolean;
   isExpandMode: boolean;
-  sectionStartInWindow?: number;
-  sectionEndInWindow?: number;
+  sectionStartInWindow?: number | undefined;
+  sectionEndInWindow?: number | undefined;
   onStartChange: (index: number) => void;
   onEndChange: (index: number) => void;
   onConfirm: () => void;

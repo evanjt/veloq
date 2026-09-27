@@ -133,8 +133,8 @@ fn a_tile_template_is_not_treated_as_a_tilejson() {
 }
 
 /// Which of the two a registered template is, decided on its own shape rather
-/// than on the source's name: a second vector host is the case `B80` left
-/// uncached by matching one literal url.
+/// than on the source's name: a second vector host is the case that was
+/// left uncached when one literal url was matched.
 #[test]
 fn the_shape_of_the_template_says_which_it_is() {
     assert_eq!(

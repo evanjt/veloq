@@ -35,7 +35,7 @@ interface MuscleGroupViewProps {
   activity: ActivityDetail;
   hasExercises: boolean;
   isDark: boolean;
-  athleteSex?: string;
+  athleteSex?: string | undefined;
   exerciseSets?: ExerciseSet[];
 }
 
@@ -75,7 +75,7 @@ export function MuscleGroupView({
   const bodyData: ExtendedBodyPart[] = useMemo(
     () =>
       (muscleGroups ?? []).map((g) => ({
-        slug: g.slug as ExtendedBodyPart['slug'],
+        slug: g.slug as NonNullable<ExtendedBodyPart['slug']>,
         intensity: g.intensity,
         ...(g.slug === selectedMuscle
           ? {

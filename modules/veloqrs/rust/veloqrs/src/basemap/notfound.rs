@@ -22,7 +22,10 @@ use std::sync::{LazyLock, Mutex};
 /// already there is what the map has been asking for.
 const PER_SOURCE_CAP: usize = 4096;
 
-static REFUSED: LazyLock<Mutex<HashMap<String, HashSet<(u8, u32, u32)>>>> =
+/// A tile's `(z, x, y)`.
+type TileKey = (u8, u32, u32);
+
+static REFUSED: LazyLock<Mutex<HashMap<String, HashSet<TileKey>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Remember that this source's host answered 404 for this tile.

@@ -14,8 +14,14 @@ import {
   getExpoPushToken,
 } from '@/features/settings/lib/pushTokenRegistration';
 
-jest.mock('expo-notifications', () => ({ getExpoPushTokenAsync: jest.fn() }));
-jest.mock('expo-constants', () => ({ expoConfig: { extra: { eas: { projectId: 'p' } } } }));
+jest.mock('expo-notifications', () => ({
+  ...jest.requireActual('expo-notifications'),
+  getExpoPushTokenAsync: jest.fn(),
+}));
+jest.mock('expo-constants', () => ({
+  ...jest.requireActual('expo-constants'),
+  expoConfig: { extra: { eas: { projectId: 'p' } } },
+}));
 jest.mock('@/shared/app/AuthStore', () => ({
   getStoredCredentials: () => ({ authMethod: 'apiKey', apiKey: 'k', accessToken: null }),
 }));

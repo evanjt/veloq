@@ -3,7 +3,7 @@
 // process, and no more.
 //
 // `uniffi_veloqrs_fn_init_callback_vtable_engineobserver` is a single exported
-// slot. JavaScript installs its vtable at `EngineClient.ts:293-303`. Generated
+// slot. JavaScript installs its vtable in `ensureBindingInitialised`. Generated
 // Kotlin installs its own during `UniffiLib` initialisation, and generated
 // Swift at its one-time initialisation. Last writer wins, and Rust's `notify`
 // (`objects/observer.rs`) then dispatches a JS-registered observer handle

@@ -6,7 +6,7 @@
 //! defaults. So a profile written here is not a description of what ships, it
 //! is a wish, and nothing fails when the two disagree.
 //!
-//! What that cost is `B154`. Under the default `codegen-units = 16` the
+//! What that cost: under the default `codegen-units = 16` the
 //! partitioning of rstar's generic AABB distance methods across codegen units
 //! decides whether they inline into the section fold's nearest-neighbour
 //! queries. The warm-add median lands on ~700 ms or ~900 ms accordingly, and
@@ -20,7 +20,7 @@
 //! | `a5f2d69` |     897 |               700 |
 //!
 //! A bisect over that column attributes a coin toss to whichever commit it
-//! straddles, which is what `B154` did before this landed.
+//! straddles, which is what happened before this landed.
 
 use std::path::{Path, PathBuf};
 
@@ -145,7 +145,7 @@ fn the_root_does_not_optimise_the_fold_for_size() {
     // `opt-level = "s"` was declared in veloqrs and never took effect. Honouring
     // it as written costs 2,297 ms on the same warm-add median that is 700 ms at
     // the default level 3, which is 2.5x the drip budget. Size is not worth that
-    // here, so the hoist deliberately left it behind. See `B154`.
+    // here, so the hoist deliberately left it behind.
     let text = std::fs::read_to_string(root().join("Cargo.toml")).expect("read the workspace root");
     let release = text
         .split_once("[profile.release]")

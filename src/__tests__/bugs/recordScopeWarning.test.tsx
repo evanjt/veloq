@@ -21,11 +21,9 @@ import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
 import type { RecordingStreams } from '@/features/recording/types';
 
-jest.mock('expo-router', () => ({ router: { replace: jest.fn() } }));
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string, fallback?: string) => fallback ?? key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));

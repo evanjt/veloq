@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, ink, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useActivities } from '@/features/activity';
-import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
@@ -74,8 +74,8 @@ export function SyncDebugTab() {
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
 
-  // Subscribe to engine activity changes
-  const trigger = useEngineSubscription(['activities']);
+  // A new reader on every activities announcement, which re-runs both reads.
+  const readActivities = useEngineRead(['activities']);
 
   // Data sources
   const syncOldest = useSyncDateRange((s) => s.oldest);
@@ -90,15 +90,16 @@ export function SyncDebugTab() {
     newest: syncNewest,
   });
 
-  // Engine data (refreshes on subscription trigger)
   const engine = getEngine();
-  const engineActivityIds = useMemo(() => {
-    return engine?.getActivityIds() ?? [];
-  }, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  const engineActivityIds = useMemo(
+    () => readActivities((client) => client.getActivityIds()) ?? [],
+    [readActivities]
+  );
 
-  const engineStats: PersistentEngineStats | undefined = useMemo(() => {
-    return engine?.getStats();
-  }, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  const engineStats: PersistentEngineStats | undefined = useMemo(
+    () => readActivities((client) => client.getStats()),
+    [readActivities]
+  );
 
   // Alignment computation
   const alignment = useMemo(() => {

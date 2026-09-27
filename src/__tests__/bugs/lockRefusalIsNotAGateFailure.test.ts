@@ -51,14 +51,13 @@ describe('a held lock is told apart from a failing gate', () => {
 
     expect(hook).toMatch(new RegExp(`-eq ${LOCK_HELD}`));
 
-    // The alarm and the reset advice belong to a real gate failure only, so
-    // every line offering a reset sits after the one that names the failure.
+    // The alarm belongs to a real gate failure only. No line offers a reset
+    // for either case: the checkout is shared, and a reset there discards
+    // every other session's staged and unstaged work.
     const alarm = printed.findIndex((line) => line.includes('THE GATES FAIL'));
-    const resets = printed.flatMap((line, i) => (line.includes('reset --hard') ? [i] : []));
 
     expect(alarm).toBeGreaterThan(-1);
-    expect(resets).not.toEqual([]);
-    expect(Math.min(...resets)).toBeGreaterThan(alarm);
+    expect(printed.some((line) => line.includes('reset --hard'))).toBe(false);
     expect(printed.some((line) => /Do not reset/.test(line))).toBe(true);
   });
 });

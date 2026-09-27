@@ -41,20 +41,6 @@ pub struct ActivitySportType {
     pub sport_type: String,
 }
 
-/// Get current download progress for FFI polling.
-///
-/// TypeScript should poll this every 100ms during fetch operations
-/// to get smooth progress updates without cross-thread callback issues.
-///
-/// Returns DownloadProgressResult with completed/total/active fields.
-/// When active is false, the download has completed (or never started).
-
-/// Ask the running fetch-and-store to stop. Returns whether there was one.
-///
-/// Cooperative and scoped to the run: the loop checks between activities, so
-/// the one in flight finishes and lands, and the attach tail still runs over
-/// whatever did. The flag is cleared by the reset every run makes, so a cancel
-/// cannot outlive the download it was aimed at.
 /// Check a credential and report the athlete it belongs to, without storing it.
 ///
 /// Standalone rather than a method on the engine, because a sign-in screen has
@@ -72,11 +58,24 @@ pub async fn validate_credentials(
     crate::objects::sync::validate_credentials_detached(method, secret).await
 }
 
+/// Ask the running fetch-and-store to stop. Returns whether there was one.
+///
+/// Cooperative and scoped to the run: the loop checks between activities, so
+/// the one in flight finishes and lands, and the attach tail still runs over
+/// whatever did. The flag is cleared by the reset every run makes, so a cancel
+/// cannot outlive the download it was aimed at.
 #[uniffi::export]
 pub fn cancel_fetch_and_store() -> bool {
     crate::http::cancel_download()
 }
 
+/// Get current download progress for FFI polling.
+///
+/// TypeScript should poll this every 100ms during fetch operations
+/// to get smooth progress updates without cross-thread callback issues.
+///
+/// Returns DownloadProgressResult with completed/total/active fields.
+/// When active is false, the download has completed (or never started).
 #[uniffi::export]
 pub fn get_download_progress() -> DownloadProgressResult {
     let (completed, total, active) = crate::http::get_download_progress();
@@ -401,7 +400,7 @@ fn store_downloaded_track(
 /// - No ~1.7MB GPS data transfer from Rust to TypeScript
 /// - No ~865KB GPS data transfer from TypeScript back to Rust
 /// - Direct storage in SQLite without serialization overhead
-
+///
 /// Start one fetch+store run and answer its id.
 ///
 /// The id is what `take_fetch_and_store_result` reads back with. Three callers
@@ -670,7 +669,7 @@ pub fn start_fetch_and_store(
                         Ok(times) => {
                             let stored = crate::persistence::with_persistent_engine(|engine| {
                                 engine.store_time_streams_flat(
-                                    &[activity_id.clone()],
+                                    std::slice::from_ref(&activity_id),
                                     &times,
                                     &[0],
                                 );
@@ -1440,7 +1439,7 @@ mod tests {
 
         /// The length check runs twice on purpose. A series long enough to be a
         /// line can filter down to nothing: `is_storable`
-        /// (`net/types.rs:174-179`) drops a non-finite coordinate and one
+        /// in `net/types.rs` drops a non-finite coordinate and one
         /// outside the world, and a caller that trusted the first check would
         /// hand the engine one point or none. The null island passes that gate
         /// and is stored, which is why it is not the case used here.

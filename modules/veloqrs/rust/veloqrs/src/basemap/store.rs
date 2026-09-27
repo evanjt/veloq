@@ -167,6 +167,8 @@ impl TileStore {
     ///
     /// A satellite raster is drawn and dropped rather than kept, so this
     /// reports success without writing anything. See [`is_kept_offline`].
+    // One tile's key, bytes and pin, as `put_tile` receives them over the FFI.
+    #[allow(clippy::too_many_arguments)]
     pub fn put(
         &self,
         source: &str,
@@ -192,10 +194,10 @@ impl TileStore {
         let index = self.index_for(&mut sources, source);
         // A tile re-stored under a different extension leaves its old file
         // behind, which the index would then never count or evict.
-        if let Some(previous) = index.sidecar.entries.get(&key) {
-            if previous.ext != ext {
-                let _ = std::fs::remove_file(self.tile_path(source, z, x, y, &previous.ext));
-            }
+        if let Some(previous) = index.sidecar.entries.get(&key)
+            && previous.ext != ext
+        {
+            let _ = std::fs::remove_file(self.tile_path(source, z, x, y, &previous.ext));
         }
         index.sidecar.clock = stamp;
         index.sidecar.entries.insert(
@@ -366,7 +368,7 @@ impl TileStore {
         if total <= budget {
             return Ok(0);
         }
-        order.sort_by(|a, b| (a.2, a.3).cmp(&(b.2, b.3)));
+        order.sort_by_key(|a| (a.2, a.3));
 
         let mut removed = 0;
         let mut touched: Vec<String> = Vec::new();

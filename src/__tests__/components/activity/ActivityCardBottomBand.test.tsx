@@ -22,12 +22,8 @@ jest.mock('react-native-iap', () => ({
   ErrorCode: {},
 }));
 
-jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), push: jest.fn() },
-  useIsFocused: () => true,
-}));
-
 jest.mock('expo-haptics', () => ({
+  ...jest.requireActual('expo-haptics'),
   impactAsync: jest.fn(),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
 }));

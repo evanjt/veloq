@@ -71,7 +71,7 @@ export const StrengthTab = React.memo(function StrengthTab({
       const normalized = v.weightedSets / maxWeighted;
       const intensity = Math.max(1, Math.min(5, Math.ceil(normalized * 5)));
       return {
-        slug: v.slug as ExtendedBodyPart['slug'],
+        slug: v.slug as NonNullable<ExtendedBodyPart['slug']>,
         intensity,
         ...(v.slug === selectedMuscle
           ? {

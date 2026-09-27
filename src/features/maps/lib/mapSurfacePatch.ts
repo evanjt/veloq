@@ -94,10 +94,10 @@ export function planGrowth(sent: GeoJSON.Position[] | null, next: GeoJSON.Positi
 export type SurfaceSpecs = {
   sources: Record<string, MapSourceSpec>;
   layers: MapLayerSpec[];
-  markers?: MapMarkerSpec[];
+  markers?: MapMarkerSpec[] | undefined;
   /** Absent and empty differ: the page is only told about images it has. */
-  images?: MapImageSpec[];
-  interactiveLayers?: string[];
+  images?: MapImageSpec[] | undefined;
+  interactiveLayers?: string[] | undefined;
 };
 
 export type SurfacePatch = {

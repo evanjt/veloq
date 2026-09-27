@@ -1,29 +1,33 @@
 name: E2E Gate
 
-# PR-blocking E2E gate: runs the tier0+tier1 critical-path flows (the same set
-# as `npm run maestro:gate`) on every pull request. Heavier tiers stay in the
-# dispatch-only E2E workflow and the daily e2e-full run. The pack-map flows are
-# the one exception: they run here too, but only on pull requests that change a
-# map surface.
+# E2E gate: runs the tier0+tier1 critical-path flows (the same set as
+# `npm run maestro:gate`) after every push to main, which is where work lands:
+# it arrives by local merge, and pull requests are almost all Dependabot, whose
+# gate runs failed for reasons outside the diff. Heavier tiers stay in the E2E
+# workflow. The pack-map flows run here too, but only when a push changes a map
+# surface.
 
 on:
-  pull_request:
+  push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
   checks: write
 
+# Queued, not cancelled: a running gate always finishes. GitHub keeps one
+# pending run per group, so a burst of pushes tests the first and the last.
 concurrency:
   group: e2e-gate-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   NODE_VERSION: "22"
 
 jobs:
   # The map flows are the slowest and most GPU-sensitive in the suite, so they
-  # run only when a pull request actually touches a map surface.
+  # run only when a push actually touches a map surface.
   changes:
     name: Detect Changed Areas
     runs-on: ubuntu-latest
@@ -46,8 +50,6 @@ jobs:
   # dispatched E2E runs share the cached APK for identical source.
   build-android-dev:
     name: Build Android Dev
-    # Only run for same-repo PRs: forks get no secrets and shouldn't spend runner minutes.
-    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -104,7 +106,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: modules/veloqrs/android/src/main/jniLibs
-          key: rust-android-2arch-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
+          key: rust-android-2arch-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml', 'rust-toolchain.toml') }}
 
       - name: Setup Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
@@ -381,10 +383,9 @@ jobs:
         if: always() && env.MAESTRO_FAILED == 'true'
         run: exit 1
 
-  # The only job branch protection should require. Every other job here can be
-  # skipped: a fork PR skips the build, and the map suite is path-filtered. A
-  # skipped job reports neutral, which GitHub renders as a passing check, so a
-  # PR that ran nothing looked identical to one that passed everything.
+  # The one result to read. The map suite is path-filtered, and a skipped job
+  # reports neutral, which GitHub renders as a passing check, so a run that
+  # executed nothing would look identical to one that passed everything.
   gate-required:
     name: E2E Gate Required
     needs: [changes, build-android-dev, gate, map-gate]
@@ -413,6 +414,6 @@ jobs:
             [ "$MAP_GATE" = success ] || failed=1
           fi
           if [ "$failed" = 1 ]; then
-            echo "::error::E2E gate did not pass. A skipped build or suite fails here rather than reporting green. Fork PRs skip the build by design, so they need a same-repo branch to merge."
+            echo "::error::E2E gate did not pass. A skipped build or suite fails here rather than reporting green."
             exit 1
           fi

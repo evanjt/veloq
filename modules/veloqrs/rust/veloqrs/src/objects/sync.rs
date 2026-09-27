@@ -2050,10 +2050,10 @@ async fn sync_activity_history_summary(
         if let Err(e) = engine.set_setting(OLDEST_ACTIVITY_DATE_KEY, &oldest) {
             log::warn!("[Sync] oldest activity date write failed: {}", e);
         }
-        if !counts.is_empty() {
-            if let Err(e) = engine.set_setting(ACTIVITY_YEAR_COUNTS_KEY, &counts) {
-                log::warn!("[Sync] year counts write failed: {}", e);
-            }
+        if !counts.is_empty()
+            && let Err(e) = engine.set_setting(ACTIVITY_YEAR_COUNTS_KEY, &counts)
+        {
+            log::warn!("[Sync] year counts write failed: {}", e);
         }
     })
     .await

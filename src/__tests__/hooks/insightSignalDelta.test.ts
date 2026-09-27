@@ -48,6 +48,12 @@ function efficiency(overrides: Partial<EfficiencyTrend> = {}): EfficiencyTrend {
   } as EfficiencyTrend;
 }
 
+function withoutSignalDelta(trend: EfficiencyTrend): EfficiencyTrend {
+  const copy = { ...trend };
+  delete copy.signalDelta;
+  return copy;
+}
+
 beforeEach(() => jest.clearAllMocks());
 
 describe('the HRV trend insight', () => {
@@ -135,7 +141,7 @@ describe('the efficiency trend insight', () => {
 
   it('declares no delta when the engine sent no per-effort series', () => {
     const [insight] = generateEfficiencyTrendInsights(
-      [efficiency({ points: [], signalDelta: undefined })],
+      [withoutSignalDelta(efficiency({ points: [] }))],
       NOW,
       t
     );

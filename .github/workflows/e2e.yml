@@ -9,8 +9,9 @@ on:
         default: "tier0,tier1,tier2,tier3"
         type: string
   schedule:
-    # Weekly full tier0-3 drift sweep. Schedule passes no inputs, so the jobs
-    # fall back to the default tier0,tier1,tier2,tier3 on both platforms.
+    # Weekly full tier0-3 drift sweep on Android. Schedule passes no inputs, so
+    # the jobs fall back to the default tier0,tier1,tier2,tier3. iOS runs only
+    # by hand: its scheduled sweep timed out eleven weeks of eleven.
     - cron: '0 3 * * 0'
 
 permissions:
@@ -82,7 +83,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: modules/veloqrs/android/src/main/jniLibs
-          key: rust-android-2arch-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
+          key: rust-android-2arch-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml', 'rust-toolchain.toml') }}
 
       - name: Setup Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
@@ -146,6 +147,7 @@ jobs:
   # ============================================
   build-ios-dev:
     name: Build iOS Dev
+    if: github.event_name != 'schedule'
 
     runs-on: macos-26
     timeout-minutes: 60
@@ -535,6 +537,9 @@ jobs:
         continue-on-error: true
 
       - name: Generate summary
+        env:
+          EVENT: ${{ github.event_name }}
+          IOS_RESULT: ${{ needs.e2e-ios.result }}
         run: |
           {
             echo "## E2E Test Results"
@@ -543,7 +548,9 @@ jobs:
             echo "|----------|--------|--------|"
             for platform in ios android; do
               report="/tmp/reports/$platform/maestro-report.xml"
-              if [ -f "$report" ]; then
+              if [ "$platform" = ios ] && [ "$IOS_RESULT" = skipped ] && [ "$EVENT" = schedule ]; then
+                echo "| $platform | Not run on the weekly schedule | :heavy_minus_sign: |"
+              elif [ -f "$report" ]; then
                 tests=$(grep -oP 'tests="\K[0-9]+' "$report" | head -1 || echo "0")
                 failures=$(grep -oP 'failures="\K[0-9]+' "$report" | head -1 || echo "0")
                 if [ "$failures" = "0" ] || [ -z "$failures" ]; then

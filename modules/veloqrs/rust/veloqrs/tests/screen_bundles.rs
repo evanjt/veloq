@@ -442,7 +442,7 @@ fn map_screen_counts_an_activity_with_no_metrics_but_does_not_place_it() {
 /// draws the same stack on every read rather than whichever order a hash gave.
 #[test]
 fn map_screen_returns_the_window_newest_first() {
-    let mut s = populated();
+    let s = populated();
 
     let dates: Vec<f64> = s
         .engine

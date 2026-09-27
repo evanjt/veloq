@@ -35,7 +35,7 @@ export interface SectionCreationError {
   /** User-friendly error message */
   message: string;
   /** Technical error from Rust/system */
-  technicalDetails?: string;
+  technicalDetails?: string | undefined;
   /** Activity ID for debugging */
   activityId?: string;
   /** Start/end indices for debugging */
@@ -56,7 +56,7 @@ interface SectionCreationOverlayProps {
   /** Number of GPS points in the selected section */
   sectionPointCount: number | null;
   /** Error details when state is 'error' */
-  error?: SectionCreationError | null;
+  error?: SectionCreationError | null | undefined;
   /** Called when user confirms the section */
   onConfirm: () => void;
   /** Called when user cancels creation */
@@ -64,7 +64,7 @@ interface SectionCreationOverlayProps {
   /** Called to reset selection */
   onReset: () => void;
   /** Called to dismiss error and retry */
-  onDismissError?: () => void;
+  onDismissError?: (() => void) | undefined;
 }
 
 /**

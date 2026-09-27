@@ -9,7 +9,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -110,6 +110,28 @@ describe('the gate itself', () => {
     expect(status).toBe(1);
     expect(output).toContain('not rustfmt clean');
     expect(output).toContain('untidy.rs');
+  });
+
+  it('runs rustfmt from the Rust workspace, where the merge gates run cargo fmt', () => {
+    const root = repoWith({ [`${CRATE}/tidy.rs`]: CLEAN });
+    const bin = join(root, 'fake-bin');
+    const record = join(root, 'rustfmt-cwd');
+    mkdirSync(bin);
+    writeFileSync(
+      join(bin, 'rustfmt'),
+      `#!/bin/sh\npwd > '${record}'\nfor f in "$@"; do case "$f" in -*) ;; *) test -f "$f" || exit 3 ;; esac; done\n`,
+      { mode: 0o755 }
+    );
+    const result = spawnSync('npx', ['tsx', SCRIPT], {
+      cwd: root,
+      env: { ...gitFreeEnv(), PATH: `${bin}:${process.env.PATH ?? ''}` },
+      encoding: 'utf-8',
+    });
+
+    expect(result.status).toBe(0);
+    expect(readFileSync(record, 'utf-8').trim()).toBe(
+      realpathSync(join(root, 'modules/veloqrs/rust'))
+    );
   });
 
   it('runs without the workspace or the tracematch submodule present', () => {

@@ -77,7 +77,7 @@ export const TrackPreview = memo(function TrackPreview({
   const gridColor = preview.grid;
 
   return (
-    <Svg width={width} height={height} testID={testID}>
+    <Svg width={width} height={height} {...(testID !== undefined && { testID })}>
       <Defs>
         <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={bgColor} stopOpacity="1" />

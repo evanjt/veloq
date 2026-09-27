@@ -12,8 +12,8 @@
  * rather than answering nothing.
  */
 export interface ChartBestCandidate {
-  sectionTime?: number;
-  direction?: string;
+  sectionTime?: number | undefined;
+  direction?: string | undefined;
 }
 
 export function chartBestIndex(points: readonly ChartBestCandidate[]): number {

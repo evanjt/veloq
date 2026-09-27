@@ -9,9 +9,35 @@ const { configure: configureTestingLibrary } = require("@testing-library/react-n
 
 configureTestingLibrary({ asyncUtilTimeout: 4000 });
 
+// Every test starts on a known day. Only `Date` is faked, and it advances
+// with real time, so a timer, a poll deadline or an elapsed-time measure
+// behaves as it did. A suite that fakes timers itself replaces this, and its
+// clock starts at the same instant through `fakeTimers.now` in the config. One
+// that switches back to real timers, or moved this clock with
+// `jest.setSystemTime`, is back on the fixed instant at its next test. A suite
+// that genuinely needs the machine's clock calls `jest.useRealTimers()` in a
+// `beforeEach` of its own, with the reason.
+const { FIXED_NOW, TIMERS_NOT_FAKED } = require("./jest.clock");
+
+let fixedClock = null;
+
+function startOnFixedDay() {
+  if (Date.clock && Date.clock === fixedClock) {
+    jest.setSystemTime(FIXED_NOW);
+    return;
+  }
+  if (Date.clock) return;
+  jest.useFakeTimers({ now: FIXED_NOW, advanceTimers: true, doNotFake: TIMERS_NOT_FAKED });
+  fixedClock = Date.clock;
+}
+
+startOnFixedDay();
+beforeEach(startOnFixedDay);
+
 // Jest setup file
 
 require("./jest.nativeMocks");
+require("./jest.sharedMocks");
 
 // Mock AsyncStorage
 jest.mock("@react-native-async-storage/async-storage", () =>
@@ -20,6 +46,7 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 
 // Mock expo-secure-store
 jest.mock("expo-secure-store", () => ({
+  ...jest.requireActual("expo-secure-store"),
   getItemAsync: jest.fn().mockResolvedValue(null),
   setItemAsync: jest.fn().mockResolvedValue(undefined),
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),

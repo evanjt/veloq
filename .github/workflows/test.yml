@@ -36,13 +36,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The transform cache and haste map, which a cold run rebuilds for every
+      # file. The lockfile is in the key because a dependency change
+      # invalidates the transforms, and the sha so each main run saves a fresh
+      # copy; a run restores the newest one under its lockfile. Pull requests
+      # read main's cache and write none, so they cannot evict it.
+      - name: Restore Jest cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .jest-cache
+          key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
       - name: Run tests
-        run: npm test -- --coverage --maxWorkers=2
+        run: npm test
         env:
-          # Prevent jest-expo from loading expo/virtual/streams polyfill.
-          # The polyfill replaces native ReadableStream and its cancel()
-          # triggers unhandled rejections during axios module initialization.
-          EXPO_OS: web
+          JEST_WORKERS: 2
+
+      - name: Save Jest cache
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .jest-cache
+          key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
 
   rust:
     name: Rust Tests
@@ -57,8 +74,9 @@ jobs:
         with:
           submodules: recursive
 
-      # One toolchain across the three Rust jobs, the one the tree is
-      # formatted with, so a bump is one edit and the caches share content.
+      # One toolchain across the three Rust jobs, the one
+      # rust-toolchain.toml at the repository root names, so the caches share
+      # content. A Jest test fails when a pin here drifts from that file.
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.95.0
 
@@ -67,6 +85,9 @@ jobs:
         with:
           workspaces: modules/veloqrs/rust
           key: test
+          # Pull requests read main's cache and write none, so they cannot evict it.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: true
 
       - name: Install nextest
         uses: taiki-e/install-action@nextest
@@ -95,12 +116,12 @@ jobs:
 
       # Benches are a build target nothing else compiles: `cargo test` and the
       # merge gates skip them, so a bench rots silently behind any signature
-      # change and the whole `cargo bench` suite stops at the first one that
-      # will not build. Compiled, not run: the measurements want a quiet
-      # machine and a CI runner is not one.
-      - name: Build Rust benches
+      # change. Type-checked, not linked: `cargo bench --no-run` links under the
+      # release profile's LTO and ran this job past its cap, and every bench
+      # break so far was a compile error, which `check` sees.
+      - name: Check Rust benches
         working-directory: modules/veloqrs/rust
-        run: cargo bench -p veloqrs --features synthetic --no-run
+        run: cargo check -p veloqrs --features synthetic --benches
 
       - name: Upload test report
         if: always()
@@ -120,8 +141,8 @@ jobs:
         with:
           submodules: recursive
 
-      # Pinned to the toolchain the tree is formatted with; bump this together
-      # with a fresh `cargo fmt` run when the local toolchain moves.
+      # Pinned to rust-toolchain.toml at the repository root, which is the
+      # release the tree is formatted with. Bump both with a fresh `cargo fmt`.
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.95.0
         with:
@@ -132,23 +153,29 @@ jobs:
         with:
           workspaces: modules/veloqrs/rust
           key: lint
+          # Pull requests read main's cache and write none, so they cannot evict it.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: true
 
       - name: Check formatting
         working-directory: modules/veloqrs/rust
         run: cargo fmt -p veloqrs --check
 
-      # Informational: the veloqrs crate carries a ~115-lint backlog. Burn it
-      # down, then flip this to `-D warnings` to gate.
-      - name: Clippy (informational)
-        continue-on-error: true
+      # Every target and feature, so a test, bench or example is linted too.
+      - name: Clippy
         working-directory: modules/veloqrs/rust
-        run: cargo clippy -p veloqrs
+        run: cargo clippy -p veloqrs --all-targets --all-features -- -D warnings
 
-  guards:
-    name: Guard Scripts
+  # Every check that needs only node_modules, behind one install. They were four
+  # jobs across two workflows, each paying its own checkout and npm ci, and one
+  # format drift failed two of them.
+  js:
+    name: JS Checks
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
+      # Recursive: lint-detector-ordering.mjs and the tracematch-backed guards
+      # read the submodule, and pass silently without it.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -161,16 +188,46 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
+        id: install
         run: npm ci
+
+      - name: Type check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npx tsc --noEmit
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run lint
+
+      - name: Check formatting
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run format:check
 
       # The same guards the pre-commit hook runs, so a PR can't merge past them
       # with --no-verify. See the `audit` script in package.json for the list.
       - name: Run guard scripts
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run audit
+
+      # The Jest suites over the scripts, hooks, workflows and the test tree,
+      # which `npm test` in the Jest job leaves out. config/jest.tooling.js
+      # holds the split.
+      - name: Run tooling tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:tooling
+
+      # Its own package, and Dependabot bumps it with nothing else checking it.
+      - name: Type check the OAuth proxy
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        working-directory: oauth-proxy
+        run: |
+          npm ci
+          npx tsc --noEmit -p .
 
       # A personal routes.db was purged from history. Fail if the blob is
       # reachable again from any ref the checkout can see.
       - name: Purged data tripwire
+        if: ${{ !cancelled() }}
         run: |
           git fetch --quiet --no-recurse-submodules origin '+refs/heads/*:refs/remotes/origin/*'
           if git rev-list --objects --all | grep -q '^1c8f0e9a567179c76ac0bae7b9dfeff563b0c8dc'; then
@@ -202,6 +259,9 @@ jobs:
         with:
           workspaces: modules/veloqrs/rust
           key: verify-bindings
+          # Pull requests read main's cache and write none, so they cannot evict it.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: true
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y clang-format
@@ -225,3 +285,26 @@ jobs:
             exit 1
           fi
           echo "Bindings are in sync with Rust source"
+
+  # The one job branch protection requires from this workflow. A job skipped or
+  # cancelled upstream reports neutral, which GitHub renders as passing, so the
+  # result of each is read here instead.
+  ci-required:
+    name: CI Required
+    needs: [jest, rust, rust-lint, js, verify-bindings]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check results
+        env:
+          JEST: ${{ needs.jest.result }}
+          RUST: ${{ needs.rust.result }}
+          RUST_LINT: ${{ needs.rust-lint.result }}
+          JS: ${{ needs.js.result }}
+          VERIFY_BINDINGS: ${{ needs.verify-bindings.result }}
+        run: |
+          echo "jest=$JEST rust=$RUST rust-lint=$RUST_LINT js=$JS verify-bindings=$VERIFY_BINDINGS"
+          for result in "$JEST" "$RUST" "$RUST_LINT" "$JS" "$VERIFY_BINDINGS"; do
+            [ "$result" = success ] || { echo "::error::A required check did not pass."; exit 1; }
+          done

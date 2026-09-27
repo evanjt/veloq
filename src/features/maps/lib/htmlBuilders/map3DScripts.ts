@@ -6,13 +6,13 @@ import { jsLiteralList } from '@/features/maps/lib/webViewLiterals';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
 
 export interface UpdateLayersParams {
-  routesGeoJSON?: FeatureCollection;
-  sectionsGeoJSON?: FeatureCollection;
-  tracesGeoJSON?: FeatureCollection;
-  sectionMarkersGeoJSON?: FeatureCollection;
-  pointMarkersGeoJSON?: FeatureCollection;
-  sectionBoundariesGeoJSON?: FeatureCollection;
-  highlightedSectionId?: string | null;
+  routesGeoJSON?: FeatureCollection | undefined;
+  sectionsGeoJSON?: FeatureCollection | undefined;
+  tracesGeoJSON?: FeatureCollection | undefined;
+  sectionMarkersGeoJSON?: FeatureCollection | undefined;
+  pointMarkersGeoJSON?: FeatureCollection | undefined;
+  sectionBoundariesGeoJSON?: FeatureCollection | undefined;
+  highlightedSectionId?: string | null | undefined;
 }
 
 /** Every collection the page holds, in the order the script applies them. */

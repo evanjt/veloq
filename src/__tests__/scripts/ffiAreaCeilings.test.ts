@@ -4,17 +4,18 @@
  * feature under that screen reaches for one, because it is still there and
  * still works, and the surface the migration just shrank grows back.
  *
- * Expected behaviour: a ratchet. Each area's reach is committed, an area may
- * reach less than it is allowed to, and an export it did not reach before is
- * refused by name.
+ * Expected behaviour: a ratchet. Each area's reach is committed, an export it
+ * did not reach before is refused by name, and so is a ceiling entry it no
+ * longer reaches, or the ground a migration took is given back the next time
+ * someone calls it.
  */
 
-import { execFileSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { areaOf, surfaceOverCeiling } from '../../../scripts/lib/ffiUsage';
+import { areaOf, surfaceOverCeiling, surfaceUnderCeiling } from '../../../scripts/lib/ffiUsage';
 
 const CEILINGS = path.join(__dirname, '../../../scripts/ffi-area-ceilings.json');
 const REPORT = path.join(__dirname, '../../../scripts/ffi-usage-report.ts');
@@ -57,6 +58,74 @@ describe('the area ratchet', () => {
     const over = surfaceOverCeiling({ 'features/strength': ['getMuscleDetail'] }, ceilings);
 
     expect(over).toEqual([{ area: 'features/strength', added: ['getMuscleDetail'] }]);
+  });
+});
+
+describe('a ceiling the tree has beaten', () => {
+  const ceilings = {
+    '//': 'a note, not an area',
+    'features/maps': ['VeloqEngine.launchData', 'setNetworkOnline'],
+    'features/routes': ['VeloqEngine.getStats'],
+  };
+
+  it('passes when every area reaches exactly what its entry lists', () => {
+    expect(
+      surfaceUnderCeiling(
+        {
+          'features/maps': ['VeloqEngine.launchData', 'setNetworkOnline'],
+          'features/routes': ['VeloqEngine.getStats'],
+        },
+        ceilings
+      )
+    ).toEqual([]);
+  });
+
+  it('names the area and the key an area no longer reaches', () => {
+    const under = surfaceUnderCeiling(
+      { 'features/maps': ['setNetworkOnline'], 'features/routes': ['VeloqEngine.getStats'] },
+      ceilings
+    );
+
+    expect(under).toEqual([
+      { area: 'features/maps', stale: ['VeloqEngine.launchData'], reachesNothing: false },
+    ]);
+  });
+
+  it('names an area listed in the ceiling that reaches nothing at all', () => {
+    const under = surfaceUnderCeiling(
+      { 'features/maps': ['VeloqEngine.launchData', 'setNetworkOnline'] },
+      ceilings
+    );
+
+    expect(under).toEqual([
+      { area: 'features/routes', stale: ['VeloqEngine.getStats'], reachesNothing: true },
+    ]);
+  });
+
+  it('names an empty entry for an area that reaches nothing', () => {
+    const under = surfaceUnderCeiling({}, { 'features/strength': [] });
+
+    expect(under).toEqual([{ area: 'features/strength', stale: [], reachesNothing: true }]);
+  });
+
+  it('never reads the note beside the numbers as an area', () => {
+    const under = surfaceUnderCeiling(
+      {
+        'features/maps': ['VeloqEngine.launchData', 'setNetworkOnline'],
+        'features/routes': ['VeloqEngine.getStats'],
+      },
+      ceilings
+    );
+
+    expect(under.map(({ area }) => area)).not.toContain('//');
+  });
+
+  it('is refused by the area check, which says to remove the entry', () => {
+    const source = fs.readFileSync(REPORT, 'utf-8');
+
+    expect(source).toContain('surfaceUnderCeiling(surface, ceilings)');
+    expect(source).toContain('Remove');
+    expect(source).toContain('scripts/ffi-area-ceilings.json');
   });
 });
 
@@ -122,8 +191,10 @@ describe('the guard under a hook\u2019s environment', () => {
     expect(reader.match(/execFileSync\(/g)).toHaveLength(1);
   });
 
+  // Whether the tree is over a ceiling is `npm run audit`'s to say, so the exit
+  // code is not read here, only that the areas were found at all.
   it('reads its own checkout even when the environment names another tree', () => {
-    const run = execFileSync('npx', ['tsx', REPORT, '--check-areas'], {
+    const result = spawnSync('npx', ['tsx', REPORT, '--check-areas'], {
       cwd: path.join(__dirname, '../../..'),
       encoding: 'utf8',
       env: {
@@ -132,6 +203,7 @@ describe('the guard under a hook\u2019s environment', () => {
         GIT_WORK_TREE: os.tmpdir(),
       },
     });
+    const run = `${result.stdout}${result.stderr}`;
 
     expect(run).toContain('areas reach');
     expect(run).not.toContain('0 areas reach 0 exports');

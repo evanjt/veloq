@@ -9,9 +9,9 @@
  * coordinate of the track that is stored for it.
  */
 
-import { getActivityMap, getActivityStreams } from '@/features/activity/demo';
-import { storableTimeStreams } from '@/features/activity/demo/streams';
-import { getActivities } from '@/features/activity/demo/activities';
+import { getActivityMap, getActivityStreams } from '@/shared/demo/activity';
+import { storableTimeStreams } from '@/shared/demo/activity/streams';
+import { getActivities } from '@/shared/demo/activity/activities';
 
 function tracked() {
   return getActivities()

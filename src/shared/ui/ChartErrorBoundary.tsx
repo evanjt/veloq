@@ -58,7 +58,7 @@ export class ChartErrorBoundary extends Component<Props, State> {
 
 interface FallbackProps {
   height: number;
-  label?: string;
+  label?: string | undefined;
   onRetry: () => void;
 }
 

@@ -49,7 +49,7 @@ fn engine_with_route(dir: &TempDir) -> (PersistentEngine, String) {
     engine.set_activity_metrics(metrics).unwrap();
     let group_id = engine
         .get_groups()
-        .into_iter()
+        .iter()
         .max_by_key(|g| g.activity_ids.len())
         .expect("one route group from five overlapping tracks")
         .group_id

@@ -46,7 +46,13 @@ function fakeEngine(seed: Record<string, string> = {}): FakeEngine {
 }
 
 function status(state: SyncStatus['state'], lastError?: string): SyncStatus {
-  return { state, inFlight: 0, completed: 0, total: 0, lastError };
+  return {
+    state,
+    inFlight: 0,
+    completed: 0,
+    total: 0,
+    ...(lastError !== undefined && { lastError }),
+  };
 }
 
 describe('useSyncHealth', () => {

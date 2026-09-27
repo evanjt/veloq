@@ -23,6 +23,7 @@ const mockSetBudgetMb = jest.fn();
 const mockBudget = { mb: 50 };
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (key: string, vars?: Record<string, unknown>) =>
       vars && typeof vars.size === 'string' ? `${key}:${vars.size}` : key,

@@ -41,10 +41,10 @@ impl PersistentEngine {
             if let Some(ref name) = section.name {
                 // New pattern: "Section N"
                 let prefix = format!("{} ", section_word);
-                if name.starts_with(&prefix) {
-                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                        taken_numbers.insert(num);
-                    }
+                if name.starts_with(&prefix)
+                    && let Ok(num) = name[prefix.len()..].parse::<u32>()
+                {
+                    taken_numbers.insert(num);
                 }
                 // Old pattern: "{Sport} Section N" - still recognise for numbering
                 for sport in [
@@ -57,10 +57,10 @@ impl PersistentEngine {
                     "VirtualRun",
                 ] {
                     let old_prefix = format!("{} {} ", sport, section_word);
-                    if name.starts_with(&old_prefix) {
-                        if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
-                            taken_numbers.insert(num);
-                        }
+                    if name.starts_with(&old_prefix)
+                        && let Ok(num) = name[old_prefix.len()..].parse::<u32>()
+                    {
+                        taken_numbers.insert(num);
                     }
                 }
             }
@@ -146,10 +146,10 @@ impl PersistentEngine {
         for section in &self.sections {
             if let Some(ref name) = section.name {
                 let prefix = format!("{} ", section_word);
-                if name.starts_with(&prefix) {
-                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                        used_numbers.insert(num);
-                    }
+                if name.starts_with(&prefix)
+                    && let Ok(num) = name[prefix.len()..].parse::<u32>()
+                {
+                    used_numbers.insert(num);
                 }
             }
         }

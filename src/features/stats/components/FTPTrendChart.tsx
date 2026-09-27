@@ -14,9 +14,9 @@ import { ftpChangeOverDays } from '../lib/ftpTrend';
 
 interface FTPTrendChartProps {
   /** eFTP history data points */
-  data?: eFTPPoint[];
+  data?: eFTPPoint[] | undefined;
   /** Chart height */
-  height?: number;
+  height?: number | undefined;
 }
 
 interface FtpPoint {

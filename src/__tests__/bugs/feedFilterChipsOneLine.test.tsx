@@ -15,6 +15,7 @@ import { render, screen } from '@testing-library/react-native';
 import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips';
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ t: (_key: string, fallback: string) => fallback }),
 }));
 

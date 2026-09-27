@@ -40,8 +40,7 @@ const EXEMPT = [
   'authorization',
   'unauthorized',
   // The UniFFI surface. A rename here is a breaking change for the generated
-  // TypeScript and the FFI manifest, so it belongs to the FFI rename, not to
-  // spelling.
+  // TypeScript, so it belongs to the FFI rename, not to spelling.
   'notinitialized',
   'is_initialized',
   // android_logger's own error variant, quoted in a comment.
@@ -62,7 +61,7 @@ const root = rootFlag === -1 ? process.cwd() : process.argv[rootFlag + 1];
 
 // Out of the index and not off the disk: this runs in the one checkout every
 // worktree merges through, so a working copy here is whatever session has a
-// file open rather than what anyone is committing (`B1070`).
+// file open rather than what anyone is committing.
 const INDEXED = indexedSources(root);
 refuseEmptyListing(INDEXED, 'Spelling guard');
 

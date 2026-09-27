@@ -17,13 +17,13 @@ const EMPTY_SECTIONS: FrequentSection[] = [];
 
 export interface UseSectionsOptions {
   /** Filter by sport type */
-  sportType?: string;
+  sportType?: string | undefined;
   /** Include custom sections (default: true) */
-  includeCustom?: boolean;
+  includeCustom?: boolean | undefined;
   /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
-  enabled?: boolean;
+  enabled?: boolean | undefined;
   /** Pre-loaded engine sections from batch FFI call. When provided, skips useSectionSummaries FFI calls. */
-  preloadedEngineSections?: FrequentSection[];
+  preloadedEngineSections?: FrequentSection[] | undefined;
 }
 
 export interface UseSectionsResult {

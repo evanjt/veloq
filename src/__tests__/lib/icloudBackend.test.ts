@@ -25,17 +25,15 @@ const mockCloudStorage = {
 };
 
 jest.mock('react-native-cloud-storage', () => ({
+  ...jest.requireActual('react-native-cloud-storage'),
   CloudStorage: mockCloudStorage,
   CloudStorageScope: { Documents: 'documents', AppData: 'app_data' },
 }));
 
 jest.mock('react-native/Libraries/Utilities/Platform', () => ({
+  ...jest.requireActual('react-native/Libraries/Utilities/Platform'),
   __esModule: true,
   default: { OS: 'ios', select: (options: Record<string, unknown>) => options.ios },
-}));
-
-jest.mock('expo-file-system/legacy', () => ({
-  deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
 const METADATA: Omit<BackupEntry, 'id'> = {

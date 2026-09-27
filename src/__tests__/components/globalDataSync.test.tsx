@@ -44,7 +44,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
   ...jest.requireActual('@/shared/app/NetworkContext'),
   useNetwork: () => ({ isOnline: true }),
 }));
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const mockUseActivities = useActivities as jest.MockedFunction<typeof useActivities>;
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;

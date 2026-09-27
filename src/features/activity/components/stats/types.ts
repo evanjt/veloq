@@ -11,7 +11,7 @@ export interface StatComparison {
   label: string;
   value: string;
   trend: 'up' | 'down' | 'same';
-  isGood?: boolean;
+  isGood?: boolean | undefined;
 }
 
 export interface StatDetail {
@@ -19,8 +19,8 @@ export interface StatDetail {
   value: string;
   icon: IconName;
   color: string;
-  comparison?: StatComparison;
-  context?: string;
-  details?: { label: string; value: string }[];
-  explanation?: string;
+  comparison?: StatComparison | undefined;
+  context?: string | undefined;
+  details?: { label: string; value: string }[] | undefined;
+  explanation?: string | undefined;
 }

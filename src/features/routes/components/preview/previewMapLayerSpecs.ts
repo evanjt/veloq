@@ -52,7 +52,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
     // maps gets. That is what lets it stay a neutral grey and still be found
     // over satellite imagery. It reads as subordinate to the proposed lines
     // through its narrower width and its dashes, not through an opacity that
-    // erased it (B406).
+    // erased it.
     {
       id: 'current-casing',
       type: 'line',

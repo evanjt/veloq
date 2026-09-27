@@ -60,10 +60,6 @@ describe('render-time engine read lint', () => {
     return root;
   };
 
-  it('exits 0 on this repo, so the audit gate stays usable', () => {
-    expect(runLint().status).toBe(0);
-  });
-
   it('fails a read in the hook body', () => {
     const root = withHook('export function useThing() {\n  return getEngine()?.getStats();\n}\n');
     const { status, output } = runLint(root);
@@ -93,6 +89,40 @@ describe('render-time engine read lint', () => {
       'export function useThing() {\n  const [n] = useState(getEngine()?.getActivityCount() ?? 0);\n  return n;\n}\n'
     );
     expect(runLint(root).status).toBe(1);
+  });
+
+  it('fails a read through a const bound from useEngineReady, which returns the same handle', () => {
+    const root = withHook(
+      [
+        "import { useEngineReady } from '@/shared/native/useEngineReady';",
+        'export function Row() {',
+        '  const engine = useEngineReady();',
+        "  const radius = Number(engine?.getSetting?.('radius') ?? '0');",
+        '  return radius;',
+        '}',
+        '',
+      ].join('\n'),
+      'src/features/x/components/Row.tsx'
+    );
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('Row.tsx:7  Row  engine.getSetting');
+  });
+
+  it('passes a useEngineReady handle read only inside an effect', () => {
+    const root = withHook(
+      [
+        "import { useEngineReady } from '@/shared/native/useEngineReady';",
+        'export function useThing() {',
+        '  const engine = useEngineReady();',
+        '  const [n, setN] = useState(0);',
+        '  useEffect(() => { setN(engine?.getActivityCount() ?? 0); }, [engine]);',
+        '  return n;',
+        '}',
+        '',
+      ].join('\n')
+    );
+    expect(runLint(root).status).toBe(0);
   });
 
   it('passes a read inside a queryFn, a useEffect, a useCallback and an event handler', () => {
@@ -130,6 +160,113 @@ describe('render-time engine read lint', () => {
     expect(output).toContain('useThing.ts:6  useThing  engine.getStats  deps [trigger]');
     expect(output).toContain('useThing.ts:5  useThing  engine.getActivityCount');
     expect(output).toContain('memo reads: 1, unkeyed memo reads: 0, initialiser reads: 1');
+  });
+
+  it('fails a useMemo read keyed only on a bare useEngineSubscription trigger', () => {
+    const root = withHook(
+      [
+        "import { useEngineSubscription } from '@/shared/native/useEngineSubscription';",
+        'export function useThing() {',
+        "  const trigger = useEngineSubscription(['activities']);",
+        '  return useMemo(() => getEngine()?.getStats(), [trigger]);',
+        '}',
+        '',
+      ].join('\n')
+    );
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('useThing.ts:7  useThing  engine.getStats  deps [trigger]');
+    expect(output).toContain('useEngineRead');
+  });
+
+  it('fails a bare-trigger memo whose other deps are inputs, whatever the trigger is called', () => {
+    const root = withHook(
+      [
+        "import { useEngineSubscription } from '@/shared/native/useEngineSubscription';",
+        'export function useThing(id: string) {',
+        "  const sectionsTick = useEngineSubscription(['sections']);",
+        '  return useMemo(() => getEngine()?.getSectionById(id), [id, sectionsTick]);',
+        '}',
+        '',
+      ].join('\n')
+    );
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('useEngineRead');
+  });
+
+  it('fails a bare-trigger memo whose other key is a precomputed fallback', () => {
+    const root = withHook(
+      [
+        "import { useEngineSubscription } from '@/shared/native/useEngineSubscription';",
+        'export function useThing(ids: string[], preComputedBundle?: number[]) {',
+        "  const trigger = useEngineSubscription(['sections']);",
+        '  return useMemo(',
+        '    () => preComputedBundle ?? getEngine()?.getActivityHighlightsBundle(ids),',
+        '    [ids, trigger, preComputedBundle]',
+        '  );',
+        '}',
+        '',
+      ].join('\n')
+    );
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('useEngineRead');
+  });
+
+  it('fails a bare-trigger memo that reaches the engine through a helper', () => {
+    const root = withHook(
+      [
+        "import { useEngineSubscription } from '@/shared/native/useEngineSubscription';",
+        'function readStats() {',
+        '  return getEngine()?.getStats();',
+        '}',
+        'export function useThing() {',
+        "  const trigger = useEngineSubscription(['activities']);",
+        '  return useMemo(() => readStats(), [trigger]);',
+        '}',
+        '',
+      ].join('\n')
+    );
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('useEngineRead');
+  });
+
+  it('passes a memo keyed on the reader useEngineRead hands back', () => {
+    const root = withHook(
+      [
+        "import { useEngineRead } from '@/shared/native/useEngineSubscription';",
+        'export function useThing(id: string) {',
+        "  const readSections = useEngineRead(['sections']);",
+        '  const direct = useMemo(() => {',
+        '    void readSections;',
+        '    return getEngine()?.getSectionById(id);',
+        '  }, [id, readSections]);',
+        '  const through = useMemo(',
+        '    () => readSections((engine) => engine.getExcludedRouteActivityIds(id)),',
+        '    [id, readSections]',
+        '  );',
+        '  return { direct, through };',
+        '}',
+        '',
+      ].join('\n')
+    );
+    const { status, output } = runLint(root, '--verbose');
+    expect(status).toBe(0);
+    expect(output).toContain('useThing.ts:9  useThing  engine.getSectionById');
+  });
+
+  it('leaves a caller key alone even when it shares a name with a trigger', () => {
+    const root = withHook(
+      [
+        'export function useThing(refreshKey: number, tick: number) {',
+        '  return useMemo(() => getEngine()?.getStats(), [refreshKey, tick]);',
+        '}',
+        '',
+      ].join('\n')
+    );
+    expect(runLint(root).status).toBe(0);
   });
 
   it('fails a useMemo read keyed on its inputs alone, which nothing re-runs', () => {

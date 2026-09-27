@@ -1,10 +1,10 @@
 //! What one page of `routes_screen_data` costs on a real library.
 //!
-//! `I196`: two figures for this read are in the tree and they disagree by 300x.
+//! Two figures for this read were in the tree and they disagreed by 300x.
 //! `useRoutesScreenData.ts` carried a comment putting `get_section_summaries`
 //! at 277-325 ms with real data, which is why the read sat behind
-//! `InteractionManager`. `I91` timed the whole read at 1.1 ms on the S22, and
-//! `B906` moved the first page into the state initialiser on that figure. The
+//! `InteractionManager`. The whole read timed 1.1 ms on the S22, and the first
+//! page moved into the state initialiser on that figure. The
 //! read is a render-phase read now, so its budget is the 100 ms tap-or-mount
 //! ceiling.
 //!
@@ -32,7 +32,7 @@ use std::time::{Duration, Instant};
 
 use veloqrs::{FfiGroupSort, FfiRoutesScreenQuery, PersistentEngine};
 
-/// Samples per figure, `I91`'s method, so the numbers compare.
+/// Samples per figure, the handset budget table's method, so the numbers compare.
 const SAMPLES: usize = 7;
 
 fn corpus_source() -> Option<PathBuf> {

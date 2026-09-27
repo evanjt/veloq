@@ -72,8 +72,8 @@ export class ComponentErrorBoundary extends Component<Props, State> {
 }
 
 interface FallbackProps {
-  componentName?: string;
-  minHeight?: number;
+  componentName?: string | undefined;
+  minHeight?: number | undefined;
   showRetry: boolean;
   onRetry: () => void;
 }

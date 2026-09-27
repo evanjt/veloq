@@ -70,7 +70,9 @@ describe('the cutover diff delegate', () => {
   });
 
   it('reads an absent reset as null, which is what the card checks', () => {
-    mockDiff.mockReturnValue(record({ settingsReset: undefined }));
+    const noReset = record();
+    delete noReset.settingsReset;
+    mockDiff.mockReturnValue(noReset);
 
     expect(getCutoverDiff(host(true))?.settingsReset).toBeNull();
   });

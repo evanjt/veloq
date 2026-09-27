@@ -2,7 +2,8 @@
  * Scenario: `core.hooksPath` was an absolute path into the main checkout, so a
  * commit made inside a worktree ran the main checkout's pre-commit hook. The
  * commit that came out held only the staged files and deleted every other
- * tracked file, 420,935 lines of them, four times in one session.
+ * tracked file, over four hundred thousand lines of them, four times in one
+ * session.
  *
  * Expected behaviour: a hook that does not belong to the working tree being
  * committed refuses the commit instead of rewriting it, and says how to fix

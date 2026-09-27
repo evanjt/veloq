@@ -1,13 +1,13 @@
 //! What the five section editors cost, and how much of it is the indicator tail.
 //!
-//! `B705` proposes moving `create`, `trim`, `reset_bounds`, `expand_bounds` and
+//! One proposal moves `create`, `trim`, `reset_bounds`, `expand_bounds` and
 //! `exclude_activity` onto their own thread with progress and a terminal state. That is five
 //! handles, five polling hooks and a progress state per editor. Each of the five also tail-calls
-//! `recompute_activity_indicators` (`objects/sections.rs:370,385,408,427` and
-//! `sections/mutations.rs:241`), which deletes `activity_indicators` whole and rebuilds it from
+//! `recompute_activity_indicators`, from `objects/sections.rs` and
+//! `sections/mutations.rs`, which deletes `activity_indicators` whole and rebuilds it from
 //! every section in the library, scoped to nothing.
 //!
-//! So the number that decides `B705`'s size is the split: if the tail is the cost, scoping the
+//! So the number that decides that proposal's size is the split: if the tail is the cost, scoping the
 //! rebuild is one file and no FFI change, and the job shape is not needed.
 //!
 //! The corpus is a real database, named by `VELOQ_DEVICE_DB`. Each editor mutates, so each gets
@@ -199,7 +199,9 @@ fn section_editor_split_by_editor() {
         let (mut engine, _dir) = fresh(&src);
         let line = engine.get_section_polyline(&section);
         let polyline: Vec<tracematch::GpsPoint> = line
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|c| tracematch::GpsPoint {
                 latitude: c[0],
                 longitude: c[1],

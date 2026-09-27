@@ -14,6 +14,7 @@ import { render } from '@testing-library/react-native';
 import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewParamPanel';
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (key: string, vars?: Record<string, unknown>) =>
       vars ? `${key}:${Object.values(vars).join(',')}` : key,

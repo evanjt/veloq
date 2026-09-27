@@ -3,8 +3,8 @@
  * stand-in. The athlete comes back on a better connection.
  *
  * Expected behaviour: the card asks again, and stops asking after a few tries
- * so a host that is throttling is not hammered (B418). The image on screen is
- * never taken away to do it (B416), which is why the serving gate and the
+ * so a host that is throttling is not hammered. The image on screen is
+ * never taken away to do it, which is why the serving gate and the
  * re-request gate have to disagree.
  */
 

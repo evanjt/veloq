@@ -18,6 +18,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 
 let focusCallback: (() => void) | null = null;
 jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
   useFocusEffect: jest.fn(),
 }));
 

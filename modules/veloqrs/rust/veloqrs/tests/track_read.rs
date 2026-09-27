@@ -516,8 +516,8 @@ fn a_corrupt_signature_yields_no_signature_at_all() {
     assert!(fresh.get_signature("a2").is_none());
 }
 
-/// Scenario: a signature is stored after the move to the quantised codec
-/// (`B137`, the second of the stores `Q15` named).
+/// Scenario: a signature is stored after the move to the quantised codec, the
+/// second of the stores that moved.
 ///
 /// Expected behaviour: the row carries the quantised container, not postcard,
 /// and reads back on the grid. Roughly 3 B/point against postcard's 25, so the
@@ -614,7 +614,7 @@ fn for_each_track_holds_one_track_at_a_time() {
 }
 
 /// Scenario: a track is stored and read back after the move to the quantised
-/// codec (`B125`).
+/// codec.
 ///
 /// Expected behaviour: a 6-decimal coordinate survives exactly, and anything
 /// finer is rounded to the grid rather than kept. The store has one encoding,

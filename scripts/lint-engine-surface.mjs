@@ -41,12 +41,22 @@ const ENGINE_CEILING = Number(flag('--engine-ceiling', '0'));
 const STORE_CEILING = Number(flag('--store-ceiling', '0'));
 const SRC = join(ROOT, 'src');
 
-// The module, however a file spells the reach: an import or the one `require`
-// a store uses to keep the binding chain out of its import graph.
+// The shared module, however a file spells the reach: an import or the one
+// `require` a store uses to keep the binding chain out of its import graph.
 const REACHES_ENGINE = /(?:from|require\()\s*'@\/shared\/native\/engine'/;
 
 /** The same reach for `git grep`, which takes POSIX extended and not this. */
 const REACHES_ENGINE_ERE = "(from|require\\()[[:space:]]*'@/shared/native/engine'";
+
+// The other door: `veloqrs` exports the client itself as `engine`, so a file
+// can reach it with no shared-layer import at all. Prettier breaks a long
+// import over several lines, so this is matched over the whole file, and
+// `git grep`, which reads a line at a time, only finds the candidates.
+const IMPORTS_VELOQRS_ENGINE = /import\s*\{[^}]*\bengine\b[^}]*\}\s*from\s*'veloqrs'/;
+const IMPORTS_VELOQRS_ERE = "from[[:space:]]*'veloqrs'";
+
+const reachesEngine = (source) =>
+  REACHES_ENGINE.test(source) || IMPORTS_VELOQRS_ENGINE.test(source);
 
 /** Where the module belongs, and where the tests mock it. */
 const UNCOUNTED = [join(SRC, 'shared', 'native'), join(SRC, '__tests__')];
@@ -75,6 +85,11 @@ function indexedMatches(root, pattern) {
     .map((rel) => join(root, rel));
 }
 
+/** A tracked file's content as the index holds it, not as the disk does. */
+function indexedContent(root, file) {
+  return git(root, ['show', `:${relative(root, file)}`], true);
+}
+
 function git(root, args, emptyOnFailure = false) {
   try {
     return execFileSync('git', args, {
@@ -82,7 +97,7 @@ function git(root, args, emptyOnFailure = false) {
       // `cwd` does not decide which index git reads: a hook exports GIT_DIR,
       // GIT_INDEX_FILE and GIT_WORK_TREE and those win. Reading another tree's
       // index, this counted nothing and then told the reader to lower both
-      // ceilings to zero, which hands back every file a sweep took (`B1071`).
+      // ceilings to zero, which hands back every file a sweep took.
       env: gitFreeEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
@@ -125,8 +140,15 @@ if (read.length === 0) {
 
 const counted = read.filter((file) => !uncounted(file));
 const callSites = indexed
-  ? indexedMatches(ROOT, REACHES_ENGINE_ERE).filter((file) => !uncounted(file))
-  : counted.filter((file) => REACHES_ENGINE.test(readFileSync(file, 'utf8')));
+  ? [
+      ...new Set([
+        ...indexedMatches(ROOT, REACHES_ENGINE_ERE),
+        ...indexedMatches(ROOT, IMPORTS_VELOQRS_ERE).filter((file) =>
+          IMPORTS_VELOQRS_ENGINE.test(indexedContent(ROOT, file))
+        ),
+      ]),
+    ].filter((file) => !uncounted(file))
+  : counted.filter((file) => reachesEngine(readFileSync(file, 'utf8')));
 const stores = counted.filter((file) => file.endsWith('Store.ts'));
 
 let failed = false;

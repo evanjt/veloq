@@ -22,7 +22,8 @@ fn corpus() -> LifecycleCorpus {
 #[test]
 fn both_arms_detect_on_cold_start() {
     let corpus = corpus();
-    for arm in [Arm::Battery] {
+    {
+        let arm = Arm::Battery;
         let (mut engine, _dir) = fresh_engine_for(arm);
         let cold = ingest_step(&mut engine, "cold-90", &corpus.through_a());
         cold.print(arm);
@@ -41,7 +42,8 @@ fn both_arms_detect_on_cold_start() {
 #[test]
 fn expand_window_discontinuity_is_measured() {
     let corpus = corpus();
-    for arm in [Arm::Battery] {
+    {
+        let arm = Arm::Battery;
         let (mut engine, _dir) = fresh_engine_for(arm);
         let cold = ingest_step(&mut engine, "cold-90", &corpus.through_a());
         let expand = ingest_step(&mut engine, "expand-1y", &refs(&corpus.bucket_b_delta));
@@ -77,7 +79,8 @@ fn order_free_cold_batch() {
     let mut reversed = forward.clone();
     reversed.reverse();
 
-    for arm in [Arm::Battery] {
+    {
+        let arm = Arm::Battery;
         let (mut e1, _d1) = fresh_engine_for(arm);
         let s1 = ingest_step(&mut e1, "forward", &forward).snapshot;
         let (mut e2, _d2) = fresh_engine_for(arm);

@@ -15,7 +15,7 @@
  * twelve. A count that cannot name which export it belongs to answers nothing.
  */
 
-import { FFI_EXPORTS } from '../bindings/ffi-exports.generated';
+import { ffiManifest } from '../../../scripts/lib/ffiExports';
 import {
   OWNED_ELSEWHERE,
   type Call,
@@ -32,6 +32,8 @@ import {
   standaloneCallsIn,
   typeBindings,
 } from '../../../scripts/lib/ffiUsage';
+
+const { FFI_EXPORTS } = ffiManifest();
 
 /** The calls, without the offsets, so an expectation reads as the source does. */
 function calls(text: string): { receiver: string; method: string }[] {
@@ -67,7 +69,7 @@ describe('the FFI usage report', () => {
       // second reason this report under-reported.
       'modules/veloqrs/src/delegates/routes.ts',
       'modules/veloqrs/src/generated/veloqrs.ts',
-      'src/__tests__/bindings/ffi-exports.generated.ts',
+      'src/shared/native/sportTaxonomy.generated.ts',
       'src/__tests__/hooks/useSectionRescan.test.ts',
     ])('does not count %s', (file) => {
       expect(isCallerFile(file)).toBe(false);

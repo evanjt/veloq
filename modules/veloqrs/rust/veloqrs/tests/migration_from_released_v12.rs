@@ -63,12 +63,11 @@ fn junction_rows(conn: &Connection) -> Vec<(String, String, i64)> {
             "SELECT section_id, activity_id, start_index FROM section_activities ORDER BY 1, 2, 3",
         )
         .expect("prepare junction read");
-    let rows = stmt
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+
+    stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
         .expect("read junction")
         .collect::<Result<Vec<_>, _>>()
-        .expect("collect junction");
-    rows
+        .expect("collect junction")
 }
 
 fn migrate_only(path: &Path) {

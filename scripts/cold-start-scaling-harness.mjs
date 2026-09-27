@@ -29,7 +29,7 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
 // One measurement at a time against one handset. `docket start` locks the item
 // and not the device, so a second session clearing app data or relaunching
-// mid-run lands in this run's peak RSS (B1034). Re-exec through the lock
+// mid-run lands in this run's peak RSS. Re-exec through the lock
 // unless it is already held.
 if (!process.env.VELOQ_DEVICE_LOCK_HELD) {
   const lock = join(SCRIPT_DIR, 'with-device-lock.sh');

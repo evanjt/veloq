@@ -49,10 +49,10 @@ export interface SectionStatsCardsProps {
   calendarSummary: CalendarSummary;
   isDark: boolean;
   isRunning: boolean;
-  isSwimming?: boolean;
+  isSwimming?: boolean | undefined;
   activityColor: string;
-  onSetAsReference?: (activityId: string) => void;
-  referenceActivityId?: string;
+  onSetAsReference?: ((activityId: string) => void) | undefined;
+  referenceActivityId?: string | undefined;
 }
 
 export function SectionStatsCards({

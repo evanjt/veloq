@@ -44,7 +44,7 @@ export function ManualEntryForm({
   bottomPadding,
 }: {
   activityType: ActivityType;
-  pairedEventId?: number;
+  pairedEventId?: number | undefined;
   bottomPadding: number;
 }) {
   const { t } = useTranslation();
@@ -65,7 +65,7 @@ export function ManualEntryForm({
   const textSecondary = themeColors.textSecondary;
   const surface = themeColors.surface;
   const border = themeColors.border;
-  // The border takes the fill, the validation line under it is text (B491).
+  // The border takes the fill, the validation line under it is text.
   const errorColor = themeColors.error;
   const errorTextColor = isDark ? darkColors.errorDeep : colors.errorDeep;
 

@@ -47,10 +47,12 @@ jest.mock('@/features/recording/stores/RecordingStore', () => ({
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 24, left: 0, right: 0 }),
 }));
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ t: (_key: string, fallback: string) => fallback }),
 }));
 

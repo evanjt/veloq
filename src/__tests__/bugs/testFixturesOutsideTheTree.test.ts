@@ -1,8 +1,7 @@
 /**
- * Scenario: three gate suites scan the whole repository from a child process,
- * `mergeLintCeiling` with `eslint .`, `reachabilityAuditExitCode` and
- * `renderEngineReadLintExitCode` with a node scanner. Under a full Jest run
- * they see whatever any other suite has momentarily put in the tree.
+ * Scenario: gate scripts scan the whole repository, and three Jest suites once
+ * ran them from a child process in the middle of a full run, seeing whatever
+ * any other suite had momentarily put in the tree.
  *
  * Expected behaviour: no test writes a fixture into the repository. The one
  * that did, the font-size lint, wrote `src/typeLintFixture.<n>.ts` and removed

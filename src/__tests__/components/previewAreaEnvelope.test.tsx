@@ -43,7 +43,7 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 }));
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const CENTRE = { binKey: '1055:193', lat: 47.5, lng: 8.7 };
 

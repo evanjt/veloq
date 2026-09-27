@@ -44,23 +44,12 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useScreenSafeAreaEdges: () => [],
 }));
 
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-    SafeAreaProvider: View,
-    SafeAreaView: View,
-  };
-});
-
 jest.mock('react-native-iap', () => ({
   useIAP: () => ({}),
   ErrorCode: {},
 }));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const mockRescan = { isScanning: false, stillRunning: false, failed: false };
 jest.mock('@/features/routes/hooks/useSectionRescan', () => ({

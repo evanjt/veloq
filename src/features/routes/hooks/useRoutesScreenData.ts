@@ -66,7 +66,7 @@ function readFirstPage(query: {
   sectionSort: SectionSort;
   sectionSearch: string;
   sectionFilters: SectionHiddenFilters;
-  sectionSportType?: string;
+  sectionSportType?: string | undefined;
   userLat: number;
   userLng: number;
 }): PaginatedRoutesData | null {
@@ -85,7 +85,7 @@ function readFirstPage(query: {
       sectionSort: query.sectionSort,
       sectionSearch: query.sectionSearch,
       sectionFilters: query.sectionFilters,
-      sectionSportType: query.sectionSportType,
+      ...(query.sectionSportType !== undefined && { sectionSportType: query.sectionSportType }),
       userLat: query.userLat,
       userLng: query.userLng,
     });
@@ -120,7 +120,7 @@ export function useRoutesScreenData(opts?: {
   sectionSort?: SectionSort;
   sectionSearch?: string;
   sectionFilters?: SectionHiddenFilters;
-  sectionSportType?: string;
+  sectionSportType?: string | undefined;
   userLocation?: LatLngShort | null;
 }): UseRoutesScreenDataResult {
   const groupLimit = opts?.groupLimit ?? DEFAULT_PAGE_SIZE;
@@ -244,7 +244,7 @@ export function useRoutesScreenData(opts?: {
         sectionSort,
         sectionSearch,
         sectionFilters,
-        sectionSportType,
+        ...(sectionSportType !== undefined && { sectionSportType }),
         userLat,
         userLng,
       });

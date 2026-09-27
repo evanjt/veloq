@@ -42,7 +42,7 @@ import { pressable } from '@/shared/ui';
 interface PreviewParamPanelProps {
   params: PreviewParams;
   onChange: (params: PreviewParams) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }
 
 /** Which row the editor is open over, and what has been typed into it. */
@@ -52,7 +52,7 @@ interface Editing {
   text: string;
 }
 
-export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPanelProps) {
+export function PreviewParamPanel({ params, onChange, disabled = false }: PreviewParamPanelProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const surface = isDark ? darkColors.surface : colors.surface;
@@ -165,7 +165,7 @@ function ParamRow({
   onChange,
   onEdit,
   isDark,
-  disabled,
+  disabled = false,
 }: {
   paramKey: DetectionParamKey;
   label: string;
@@ -213,7 +213,7 @@ function PresetChip({
   active,
   onPress,
   isDark,
-  disabled,
+  disabled = false,
 }: {
   name: DetectionPresetName;
   label: string;

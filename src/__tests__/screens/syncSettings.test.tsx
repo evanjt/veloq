@@ -29,18 +29,13 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   SafeAreaProvider: mockPassthrough,
   SafeAreaView: mockPassthrough,
 }));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string, fallback?: string) => fallback ?? key }),
-}));
-
-jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), push: jest.fn() },
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 
 // Hoisted past the mock factories as declarations, so they can reach `View`
 // without a `require` inside the factory.

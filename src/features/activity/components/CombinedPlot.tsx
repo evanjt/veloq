@@ -45,23 +45,23 @@ interface CombinedPlotProps {
   streams: ActivityStreams;
   selectedCharts: ChartTypeId[];
   chartConfigs: Record<ChartTypeId, ChartConfig>;
-  height?: number;
-  onPointSelect?: (index: number | null) => void;
-  onInteractionChange?: (isInteracting: boolean) => void;
+  height?: number | undefined;
+  onPointSelect?: ((index: number | null) => void) | undefined;
+  onInteractionChange?: ((isInteracting: boolean) => void) | undefined;
   /** When set, show Y-axis for this metric (for long-press preview in multi-metric mode) */
-  previewMetricId?: ChartTypeId | null;
+  previewMetricId?: ChartTypeId | null | undefined;
   /** X-axis mode: 'distance' (default) or 'time' */
-  xAxisMode?: 'distance' | 'time';
+  xAxisMode?: 'distance' | 'time' | undefined;
   /** Called when user taps the x-axis pill to toggle mode */
-  onXAxisModeToggle?: () => void;
+  onXAxisModeToggle?: (() => void) | undefined;
   /** Whether the x-axis mode can be toggled (has both distance and time data) */
-  canToggleXAxis?: boolean;
+  canToggleXAxis?: boolean | undefined;
   /** Interval data - when provided, renders zone-colored bands behind the chart */
-  intervals?: ActivityInterval[];
+  intervals?: ActivityInterval[] | undefined;
   /** Activity type - needed for zone color selection (power vs HR) */
-  activityType?: ActivityType;
+  activityType?: ActivityType | undefined;
   /** Called with per-series values when scrubbing or averages when idle */
-  onMetricsChange?: (metrics: ChartMetricValue[], isScrubbing: boolean) => void;
+  onMetricsChange?: ((metrics: ChartMetricValue[], isScrubbing: boolean) => void) | undefined;
 }
 
 const CHART_PADDING = { top: 2, bottom: 20 } as const;

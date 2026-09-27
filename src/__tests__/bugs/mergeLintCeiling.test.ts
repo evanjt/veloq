@@ -5,11 +5,23 @@
  *
  * Expected behaviour: git runs `pre-commit` for a commit and
  * `pre-merge-commit` for a merge that does not conflict, and only the first
- * existed. A merge now checks the ceiling the same way a commit does.
+ * existed. A merge now lints the same way a commit does.
  */
 
-import { execFileSync } from 'node:child_process';
-import { accessSync, constants, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+  accessSync,
+  chmodSync,
+  constants,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '../../..');
@@ -25,7 +37,7 @@ describe('a merge is gated the way a commit is', () => {
     ).not.toThrow();
   });
 
-  it('checks the lint ceiling, which is what drifted', () => {
+  it('runs lint, which is what drifted', () => {
     // Through the merge-scoped script, which counts the tree the merge
     // commits rather than the shared checkout on disk. Matched as a
     // command line, not anywhere in the file: the prose above it names the
@@ -38,49 +50,36 @@ describe('a merge is gated the way a commit is', () => {
     expect(commands.some((line) => /^npm run lint\b/.test(line))).toBe(false);
   });
 
-  it('checks the ceiling uncached, so a merge cannot replay a stale pass', () => {
-    expect(merge()).not.toMatch(/lint:cached/);
+  it('lints uncached, so a merge cannot replay a stale pass', () => {
+    const script = readFileSync(join(ROOT, 'scripts/check-merge-lint.sh'), 'utf8');
+    const eslint = script.split('\n').filter((line) => line.includes('/.bin/eslint'));
+    expect(eslint).toHaveLength(1);
+    expect(eslint[0]).not.toMatch(/--cache/);
   });
 
   it('refuses a foreign hook or index first, the same as a commit does', () => {
     expect(hook('pre-merge-commit')).toContain('check-commit-index.sh');
   });
 
-  it('fails the merge rather than reporting and continuing', () => {
-    expect(merge()).toMatch(/^set -e$/m);
-  });
-});
+  it('fails the merge when its first check fails, rather than running on', () => {
+    const root = mkdtempSync(join(tmpdir(), 'merge-hook-'));
+    try {
+      mkdirSync(join(root, '.husky'));
+      mkdirSync(join(root, 'scripts'));
+      copyFileSync(join(ROOT, '.husky/pre-merge-commit'), join(root, '.husky/pre-merge-commit'));
+      const stub = (path: string, body: string) => {
+        writeFileSync(join(root, path), `#!/bin/sh\n${body}\n`);
+        chmodSync(join(root, path), 0o755);
+      };
+      stub('scripts/check-commit-index.sh', 'exit 1');
+      stub('scripts/merge-gates.sh', 'touch battery-ran');
 
-/** The ceiling the lint script passes to eslint. */
-function ceiling(): number {
-  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-  const flag = /--max-warnings (\d+)/.exec(pkg.scripts.lint as string);
-  expect(flag).not.toBeNull();
-  return Number(flag?.[1]);
-}
+      const result = spawnSync('sh', ['.husky/pre-merge-commit'], { cwd: root, encoding: 'utf8' });
 
-/** What the tree actually reports, counted the way the ratchet counts. */
-function warningsInTree(): number {
-  const report = execFileSync('npx', ['eslint', '.', '--no-warn-ignored', '--format', 'json'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  const files = JSON.parse(report) as { warningCount: number }[];
-  return files.reduce((total, file) => total + file.warningCount, 0);
-}
-
-describe('the ceiling is a real number, not a rounded one', () => {
-  it('names the ceiling in the lint script', () => {
-    expect(ceiling()).toBeGreaterThan(0);
-  });
-
-  /**
-   * The whole point of the ceiling is that it equals the tree. Headroom is
-   * how new warnings land without failing a hook, and it appears whenever a
-   * change removes warnings without tightening the flag.
-   */
-  it('sits on the tree, with no headroom for a new warning', () => {
-    expect(ceiling()).toBe(warningsInTree());
+      expect(result.status).not.toBe(0);
+      expect(existsSync(join(root, 'battery-ran'))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -10,7 +10,10 @@ import { useLocalSearchParams } from 'expo-router';
 import RoutesRedirectScreen from '@/app/routes';
 import { replaceTo } from '@/shared/app/navigation';
 
-jest.mock('expo-router', () => ({ useLocalSearchParams: jest.fn() }));
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useLocalSearchParams: jest.fn(),
+}));
 jest.mock('@/shared/app/navigation', () => ({ replaceTo: jest.fn() }));
 
 function renderWith(params: Record<string, string | undefined>) {

@@ -34,7 +34,7 @@ import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 interface SectionInlinePlotProps {
   group: SectionEncounterGroup;
   activityId: string;
-  sportType?: string;
+  sportType?: string | undefined;
   index: number;
   isHighlighted: boolean;
   isDark: boolean;
@@ -43,10 +43,10 @@ interface SectionInlinePlotProps {
   onSwipeableOpen: (sectionId: string) => void;
   /** Report the outer row's measured height so the parent can compute
    *  finger-Y → row-index arithmetically instead of querying per-row layouts. */
-  onRowHeight?: (index: number, height: number) => void;
+  onRowHeight?: ((index: number, height: number) => void) | undefined;
   /** Expose the first row's outer View ref to the parent. Only row 0 needs
    *  to be measured - subsequent rows' positions are pure arithmetic. */
-  firstRowRef?: (ref: View | null) => void;
+  firstRowRef?: ((ref: View | null) => void) | undefined;
   /**
    * The swipe actions for this row. It takes the group rather than closing over
    * it, so the list passes one function for every row and the memo above holds

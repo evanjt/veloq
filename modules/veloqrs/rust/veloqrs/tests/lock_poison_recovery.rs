@@ -82,7 +82,7 @@ fn a_second_panic_under_the_lock_still_leaves_it_serving() {
         with_persistent_engine(|_engine| panic!("writer blew up"));
     });
     panic_quietly(|| {
-        with_engine(|_engine| panic!("the next caller blew up too"));
+        let _ = with_engine(|_engine| panic!("the next caller blew up too"));
     });
 
     assert_all_accessors_serve("two panics under the engine lock");

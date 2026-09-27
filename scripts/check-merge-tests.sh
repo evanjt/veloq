@@ -13,7 +13,17 @@ set -e
 # rather than skipping it, so one deletion blocks every merge that carries it.
 # A deletion is still gated, by `cargo check --tests` in `merge-gates.sh`,
 # which is what catches a caller left behind.
-changed=$(git diff --cached --name-only --diff-filter=d HEAD)
+#
+# Before the ref moves, from `pre-merge-commit`, the merged tree is staged over
+# the old head, so the index holds the merge. After a fast-forward, from
+# `post-merge`, HEAD has moved and the index matches it, so the same diff is
+# empty or holds only another session's staged files. There the hook hands over
+# the head it moved from, and the range between is what landed.
+if [ -n "${VELOQ_MERGE_BASE:-}" ]; then
+  changed=$(git diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" HEAD)
+else
+  changed=$(git diff --cached --name-only --diff-filter=d HEAD)
+fi
 [ -n "$changed" ] || exit 0
 
 plan=$(mktemp)

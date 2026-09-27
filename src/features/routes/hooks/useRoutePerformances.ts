@@ -41,15 +41,15 @@ export interface RoutePerformancePoint {
   /** Elevation gain in meters */
   elevationGain: number;
   /** Average heart rate */
-  avgHr?: number;
+  avgHr?: number | undefined;
   /** Average power */
-  avgPower?: number;
+  avgPower?: number | undefined;
   /** Is this the current activity being viewed */
   isCurrent: boolean;
   /** Match direction: same, reverse, or partial */
   direction: MatchDirection;
   /** Match percentage (0-100), undefined if no match data */
-  matchPercentage?: number;
+  matchPercentage?: number | undefined;
 }
 
 interface UseRoutePerformancesResult {
@@ -83,7 +83,7 @@ interface UseRoutePerformancesResult {
 export interface PreComputedRoutePerformances {
   groups: readonly EngineRouteGroup[];
   /** The result for this exact sport filter, when the caller has it. */
-  result?: RoutePerformanceResult;
+  result?: RoutePerformanceResult | undefined;
 }
 
 export function useRoutePerformances(

@@ -8,6 +8,6 @@ set -e
 #
 # What it runs, and why only that, is in scripts/merge-gates.sh. A merge that
 # fast-forwards creates no commit, so git runs this hook not at all and
-# post-merge instead: both call the same battery (S30).
+# post-merge instead: both call the same battery.
 ./scripts/check-commit-index.sh "$0"
 ./scripts/merge-gates.sh

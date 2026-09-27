@@ -14,6 +14,7 @@ import { formatDuration } from '@/shared/format/format';
 import { getFormZone, formZoneTextColor, formZoneLabel } from '@/features/fitness/lib/fitness';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
+import { peerAverages } from './peerAverages';
 import { colors, darkColors } from '@/theme';
 import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
 import { formAsPercent } from '@/shared/app/FormPreferenceStore';
@@ -31,14 +32,14 @@ const METRIC_EXPLANATION_KEYS: Record<string, string> = {
 
 interface UseActivityStatsOptions {
   activity: Activity;
-  wellness?: WellnessData | null;
-  recentActivities?: Activity[];
+  wellness?: WellnessData | null | undefined;
+  recentActivities?: Activity[] | undefined;
   /**
    * The theme, for the card marks. Passed in rather than read from the app
    * shell: this hook is data, and reaching the shell for a colour pulls the
    * native module into every test that renders a stat.
    */
-  isDark?: boolean;
+  isDark?: boolean | undefined;
 }
 
 interface UseActivityStatsResult {
@@ -60,27 +61,10 @@ export function useActivityStats({
   const green = isDark ? darkColors.successDeep : colors.successDeep;
   const amber = isDark ? darkColors.warningAmber : colors.warningAmber;
 
-  // Calculate averages from recent activities of same type (memoized)
-  const { avgLoad, avgIntensity, avgHR } = useMemo(() => {
-    const sameType = recentActivities.filter((a) => a.type === activity.type);
-    if (sameType.length === 0) {
-      return { avgLoad: null, avgIntensity: null, avgHR: null };
-    }
-    // Average only over activities that actually carry the field. Coercing a
-    // missing value to 0 and dividing by the full count drags the average down
-    // and makes an ordinary ride look exceptional.
-    const meanOf = (pick: (a: (typeof sameType)[number]) => number | null | undefined) => {
-      const values = sameType.map(pick).filter((v): v is number => Number.isFinite(v));
-      if (values.length === 0) return null;
-      return values.reduce((sum, v) => sum + v, 0) / values.length;
-    };
-
-    return {
-      avgLoad: meanOf((a) => a.icu_training_load),
-      avgIntensity: meanOf((a) => a.icu_intensity),
-      avgHR: meanOf((a) => a.average_heartrate ?? a.icu_average_hr),
-    };
-  }, [recentActivities, activity.type]);
+  const { avgLoad, avgIntensity, avgHR } = useMemo(
+    () => peerAverages(recentActivities, activity.type),
+    [recentActivities, activity.type]
+  );
 
   // Build insightful stats (memoized to prevent rebuild on every render)
   const stats = useMemo(() => {

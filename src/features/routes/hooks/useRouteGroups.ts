@@ -40,20 +40,23 @@ interface RouteGroupExtended {
   activityCount: number;
   type: ActivityType;
   /** All sport types present in this group's activities */
-  sportTypes?: string[];
+  sportTypes?: string[] | undefined;
   /** Route signature with points for mini-trace preview */
-  signature?: {
-    points: { lat: number; lng: number }[];
-    distance: number;
-  } | null;
+  signature?:
+    | {
+        points: { lat: number; lng: number }[];
+        distance: number;
+      }
+    | null
+    | undefined;
   /** Best moving time in seconds (fastest completion) */
-  bestTime?: number;
+  bestTime?: number | undefined;
   /** Average moving time in seconds */
-  avgTime?: number;
+  avgTime?: number | undefined;
   /** Best pace/speed in m/s (from fastest activity) */
-  bestPace?: number;
+  bestPace?: number | undefined;
   /** Activity ID with the best performance */
-  bestActivityId?: string;
+  bestActivityId?: string | undefined;
 }
 
 interface UseRouteGroupsResult {

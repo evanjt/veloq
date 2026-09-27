@@ -46,9 +46,9 @@ export interface SectionEfficiencyCardProps {
   sectionId: string;
   isDark: boolean;
   /** Canvas width. The card is full-bleed inside its own padding. */
-  width?: number;
+  width?: number | undefined;
   /** The screen bundle's trend, so the card makes no engine call of its own. */
-  bundledTrend?: EfficiencyTrend | null;
+  bundledTrend?: EfficiencyTrend | null | undefined;
 }
 
 export function SectionEfficiencyCard({

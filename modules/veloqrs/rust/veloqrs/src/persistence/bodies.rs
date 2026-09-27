@@ -921,12 +921,11 @@ mod tests {
             .db
             .prepare("SELECT activity_id FROM stream_bodies ORDER BY activity_id")
             .unwrap();
-        let rows = stmt
-            .query_map([], |r| r.get::<_, String>(0))
+
+        stmt.query_map([], |r| r.get::<_, String>(0))
             .unwrap()
             .collect::<SqlResult<Vec<_>>>()
-            .unwrap();
-        rows
+            .unwrap()
     }
 
     #[test]

@@ -958,7 +958,8 @@ impl PersistentEngine {
                             (Some(t), Some(p)) if t > 0.0 => (t, p),
                             _ => {
                                 // Fall back to time-stream calculation if cache miss
-                                if let Some(times) = self.time_streams.peek(activity_id) {
+                                {
+                                    let times = self.time_streams.peek(activity_id)?;
                                     let start_idx = p.start_index as usize;
                                     let end_idx = p.end_index as usize;
                                     if start_idx < times.len() && end_idx < times.len() {
@@ -972,8 +973,6 @@ impl PersistentEngine {
                                     } else {
                                         return None;
                                     }
-                                } else {
-                                    return None;
                                 }
                             }
                         };
@@ -1109,10 +1108,10 @@ impl PersistentEngine {
             }
             if let Some(metrics) = self.activity_metrics.get(id) {
                 // Filter by sport type if specified
-                if let Some(filter) = sport_type_filter {
-                    if metrics.sport_type != filter {
-                        continue;
-                    }
+                if let Some(filter) = sport_type_filter
+                    && metrics.sport_type != filter
+                {
+                    continue;
                 }
 
                 let speed = if metrics.moving_time > 0 {
@@ -1124,9 +1123,7 @@ impl PersistentEngine {
                 let match_data =
                     match_info.and_then(|matches| matches.iter().find(|m| m.activity_id == *id));
                 let match_percentage = match_data.map(|m| m.match_percentage);
-                let direction = match_data
-                    .map(|m| m.direction.clone())
-                    .unwrap_or(Direction::Same);
+                let direction = match_data.map(|m| m.direction).unwrap_or(Direction::Same);
 
                 performances.push(RoutePerformance {
                     activity_id: id.clone(),
@@ -1162,6 +1159,261 @@ impl PersistentEngine {
             attempt_count,
             percentile_rank: None,
         }
+    }
+}
+
+/// Where `point` falls along `line`, as a fraction of the line's length.
+fn progress_along(line: &[crate::GpsPoint], cumulative: &[f64], point: &crate::GpsPoint) -> f64 {
+    let mut best = (f64::INFINITY, 0.0);
+    for (i, p) in line.iter().enumerate() {
+        let d = crate::persistence::haversine_distance_meters(
+            p.latitude,
+            p.longitude,
+            point.latitude,
+            point.longitude,
+        );
+        if d < best.0 {
+            best = (d, cumulative[i]);
+        }
+    }
+    let total = cumulative.last().copied().unwrap_or(0.0);
+    if total <= 0.0 { 0.0 } else { best.1 / total }
+}
+
+/// The share of `line` a traversal spans, or `None` when the indices or the
+/// line cannot describe one. `end_index` is the half-open end every writer of
+/// `section_activities` stores.
+pub(crate) fn portion_coverage(
+    line: &[crate::GpsPoint],
+    track: &[crate::GpsPoint],
+    start_index: u32,
+    end_index: u32,
+) -> Option<f64> {
+    if line.len() < 2 || end_index == 0 {
+        return None;
+    }
+    let start = start_index as usize;
+    let end = (end_index as usize).min(track.len());
+    if end < start + 2 {
+        return None;
+    }
+    let mut cumulative = Vec::with_capacity(line.len());
+    let mut run = 0.0;
+    cumulative.push(0.0);
+    for w in line.windows(2) {
+        run += crate::persistence::haversine_distance_meters(
+            w[0].latitude,
+            w[0].longitude,
+            w[1].latitude,
+            w[1].longitude,
+        );
+        cumulative.push(run);
+    }
+    if run <= 0.0 {
+        return None;
+    }
+    let first = progress_along(line, &cumulative, &track[start]);
+    let last = progress_along(line, &cumulative, &track[end - 1]);
+    Some((last - first).abs().clamp(0.0, 1.0))
+}
+
+/// The route performance result, from a group's membership and its members'
+/// metrics, whichever side loaded them.
+///
+/// The engine hands it its in-memory tier and a pooled reader hands it rows
+/// read from `route_groups`, `activity_matches` and `activity_metrics`, so the
+/// arithmetic lives here once rather than twice.
+pub(crate) fn route_performances<F>(
+    activity_ids: &[String],
+    match_info: Option<&[crate::ActivityMatchInfo]>,
+    excluded_ids: &[String],
+    metrics_of: F,
+    current_activity_id: Option<&str>,
+    sport_type_filter: Option<&str>,
+) -> RoutePerformanceResult
+where
+    F: Fn(&str) -> Option<ActivityMetrics>,
+{
+    // Build performances from metrics + collect metrics for inline return
+    let mut performances: Vec<RoutePerformance> = Vec::new();
+    let mut metrics_list: Vec<ActivityMetrics> = Vec::new();
+
+    for id in activity_ids {
+        // Skip excluded activities
+        if excluded_ids.contains(id) {
+            continue;
+        }
+        if let Some(metrics) = metrics_of(id) {
+            // Filter by sport type if specified
+            if let Some(filter) = sport_type_filter
+                && metrics.sport_type != filter
+            {
+                continue;
+            }
+
+            let speed = if metrics.moving_time > 0 {
+                metrics.distance / metrics.moving_time as f64
+            } else {
+                0.0
+            };
+
+            // Look up match info for this activity (optional - may not exist for old data)
+            let match_data =
+                match_info.and_then(|matches| matches.iter().find(|m| m.activity_id == *id));
+            let match_percentage = match_data.map(|m| m.match_percentage);
+            let direction = match_data.map(|m| m.direction).unwrap_or(Direction::Same);
+
+            performances.push(RoutePerformance {
+                activity_id: id.clone(),
+                name: metrics.name.clone(),
+                date: metrics.date,
+                speed,
+                duration: metrics.moving_time,
+                moving_time: metrics.moving_time,
+                distance: metrics.distance,
+                elevation_gain: metrics.elevation_gain,
+                avg_hr: metrics.avg_hr,
+                avg_power: metrics.avg_power,
+                is_current: current_activity_id == Some(id.as_str()),
+                direction: direction.to_string(),
+                match_percentage,
+            });
+
+            // Collect metrics for inline return
+            metrics_list.push(metrics);
+        }
+    }
+
+    // Sort by date (oldest first for charting)
+    performances.sort_by_key(|p| p.date);
+
+    // Find best (shortest moving time) - overall
+    let best = performances
+        .iter()
+        .filter(|p| p.moving_time > 0)
+        .min_by_key(|p| p.moving_time)
+        .cloned();
+
+    // Find best forward
+    let best_forward = performances
+        .iter()
+        .filter(|p| p.direction == "same" && p.moving_time > 0)
+        .min_by_key(|p| p.moving_time)
+        .cloned();
+
+    // Find best reverse
+    let best_reverse = performances
+        .iter()
+        .filter(|p| p.direction == "reverse" && p.moving_time > 0)
+        .min_by_key(|p| p.moving_time)
+        .cloned();
+
+    // Calculate current rank (1 = shortest time)
+    let current_rank = current_activity_id.and_then(|current_id| {
+        let mut by_time = performances.clone();
+        by_time.sort_by_key(|p| p.moving_time);
+        by_time
+            .iter()
+            .position(|p| p.activity_id == current_id)
+            .map(|idx| (idx + 1) as u32)
+    });
+
+    // Compute forward direction stats
+    let forward_perfs: Vec<_> = performances
+        .iter()
+        .filter(|p| p.direction == "same")
+        .collect();
+    let forward_stats = if forward_perfs.is_empty() {
+        None
+    } else {
+        let count = forward_perfs.len() as u32;
+        let avg_time = forward_perfs
+            .iter()
+            .map(|p| p.moving_time as f64)
+            .sum::<f64>()
+            / count as f64;
+        let valid_speeds: Vec<f64> = forward_perfs
+            .iter()
+            .map(|p| p.speed)
+            .filter(|s| s.is_finite() && *s > 0.0)
+            .collect();
+        let avg_speed = if valid_speeds.is_empty() {
+            None
+        } else {
+            Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
+        };
+        let last_activity = forward_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
+        Some(DirectionStats {
+            avg_time: Some(avg_time),
+            last_activity,
+            count,
+            avg_speed,
+        })
+    };
+
+    // Compute reverse direction stats
+    let reverse_perfs: Vec<_> = performances
+        .iter()
+        .filter(|p| p.direction == "reverse")
+        .collect();
+    let reverse_stats = if reverse_perfs.is_empty() {
+        None
+    } else {
+        let count = reverse_perfs.len() as u32;
+        let avg_time = reverse_perfs
+            .iter()
+            .map(|p| p.moving_time as f64)
+            .sum::<f64>()
+            / count as f64;
+        let valid_speeds: Vec<f64> = reverse_perfs
+            .iter()
+            .map(|p| p.speed)
+            .filter(|s| s.is_finite() && *s > 0.0)
+            .collect();
+        let avg_speed = if valid_speeds.is_empty() {
+            None
+        } else {
+            Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
+        };
+        let last_activity = reverse_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
+        Some(DirectionStats {
+            avg_time: Some(avg_time),
+            last_activity,
+            count,
+            avg_speed,
+        })
+    };
+
+    let (attempt_count, percentile_rank) = attempt_standing(&performances, current_activity_id);
+
+    RoutePerformanceResult {
+        performances,
+        activity_metrics: metrics_list,
+        best,
+        best_forward,
+        best_reverse,
+        forward_stats,
+        reverse_stats,
+        current_rank,
+        attempt_count,
+        percentile_rank,
+    }
+}
+
+/// What a route with no group answers: nothing, rather than a shape with
+/// zeroes in it that a caller would read as a route nobody has ridden.
+fn empty_route_performances() -> RoutePerformanceResult {
+    RoutePerformanceResult {
+        performances: vec![],
+        activity_metrics: vec![],
+        best: None,
+        best_forward: None,
+        best_reverse: None,
+        forward_stats: None,
+        reverse_stats: None,
+        current_rank: None,
+        attempt_count: 0,
+        percentile_rank: None,
     }
 }
 
@@ -1518,262 +1770,5 @@ mod tests {
         assert_eq!(count, 3);
         // 1 of 3 is slower, the tie is not
         assert!((percentile.unwrap() - 33.3333).abs() < 0.001);
-    }
-}
-
-/// Where `point` falls along `line`, as a fraction of the line's length.
-fn progress_along(line: &[crate::GpsPoint], cumulative: &[f64], point: &crate::GpsPoint) -> f64 {
-    let mut best = (f64::INFINITY, 0.0);
-    for (i, p) in line.iter().enumerate() {
-        let d = crate::persistence::haversine_distance_meters(
-            p.latitude,
-            p.longitude,
-            point.latitude,
-            point.longitude,
-        );
-        if d < best.0 {
-            best = (d, cumulative[i]);
-        }
-    }
-    let total = cumulative.last().copied().unwrap_or(0.0);
-    if total <= 0.0 { 0.0 } else { best.1 / total }
-}
-
-/// The share of `line` a traversal spans, or `None` when the indices or the
-/// line cannot describe one. `end_index` is the half-open end every writer of
-/// `section_activities` stores.
-pub(crate) fn portion_coverage(
-    line: &[crate::GpsPoint],
-    track: &[crate::GpsPoint],
-    start_index: u32,
-    end_index: u32,
-) -> Option<f64> {
-    if line.len() < 2 || end_index == 0 {
-        return None;
-    }
-    let start = start_index as usize;
-    let end = (end_index as usize).min(track.len());
-    if end < start + 2 {
-        return None;
-    }
-    let mut cumulative = Vec::with_capacity(line.len());
-    let mut run = 0.0;
-    cumulative.push(0.0);
-    for w in line.windows(2) {
-        run += crate::persistence::haversine_distance_meters(
-            w[0].latitude,
-            w[0].longitude,
-            w[1].latitude,
-            w[1].longitude,
-        );
-        cumulative.push(run);
-    }
-    if run <= 0.0 {
-        return None;
-    }
-    let first = progress_along(line, &cumulative, &track[start]);
-    let last = progress_along(line, &cumulative, &track[end - 1]);
-    Some((last - first).abs().clamp(0.0, 1.0))
-}
-
-/// The route performance result, from a group's membership and its members'
-/// metrics, whichever side loaded them.
-///
-/// The engine hands it its in-memory tier and a pooled reader hands it rows
-/// read from `route_groups`, `activity_matches` and `activity_metrics`, so the
-/// arithmetic lives here once rather than twice.
-pub(crate) fn route_performances<F>(
-    activity_ids: &[String],
-    match_info: Option<&[crate::ActivityMatchInfo]>,
-    excluded_ids: &[String],
-    metrics_of: F,
-    current_activity_id: Option<&str>,
-    sport_type_filter: Option<&str>,
-) -> RoutePerformanceResult
-where
-    F: Fn(&str) -> Option<ActivityMetrics>,
-{
-    // Build performances from metrics + collect metrics for inline return
-    let mut performances: Vec<RoutePerformance> = Vec::new();
-    let mut metrics_list: Vec<ActivityMetrics> = Vec::new();
-
-    for id in activity_ids {
-        // Skip excluded activities
-        if excluded_ids.contains(id) {
-            continue;
-        }
-        if let Some(metrics) = metrics_of(id) {
-            // Filter by sport type if specified
-            if let Some(filter) = sport_type_filter {
-                if metrics.sport_type != filter {
-                    continue;
-                }
-            }
-
-            let speed = if metrics.moving_time > 0 {
-                metrics.distance / metrics.moving_time as f64
-            } else {
-                0.0
-            };
-
-            // Look up match info for this activity (optional - may not exist for old data)
-            let match_data =
-                match_info.and_then(|matches| matches.iter().find(|m| m.activity_id == *id));
-            let match_percentage = match_data.map(|m| m.match_percentage);
-            let direction = match_data
-                .map(|m| m.direction.clone())
-                .unwrap_or(Direction::Same);
-
-            performances.push(RoutePerformance {
-                activity_id: id.clone(),
-                name: metrics.name.clone(),
-                date: metrics.date,
-                speed,
-                duration: metrics.moving_time,
-                moving_time: metrics.moving_time,
-                distance: metrics.distance,
-                elevation_gain: metrics.elevation_gain,
-                avg_hr: metrics.avg_hr,
-                avg_power: metrics.avg_power,
-                is_current: current_activity_id == Some(id.as_str()),
-                direction: direction.to_string(),
-                match_percentage,
-            });
-
-            // Collect metrics for inline return
-            metrics_list.push(metrics);
-        }
-    }
-
-    // Sort by date (oldest first for charting)
-    performances.sort_by_key(|p| p.date);
-
-    // Find best (shortest moving time) - overall
-    let best = performances
-        .iter()
-        .filter(|p| p.moving_time > 0)
-        .min_by_key(|p| p.moving_time)
-        .cloned();
-
-    // Find best forward
-    let best_forward = performances
-        .iter()
-        .filter(|p| p.direction == "same" && p.moving_time > 0)
-        .min_by_key(|p| p.moving_time)
-        .cloned();
-
-    // Find best reverse
-    let best_reverse = performances
-        .iter()
-        .filter(|p| p.direction == "reverse" && p.moving_time > 0)
-        .min_by_key(|p| p.moving_time)
-        .cloned();
-
-    // Calculate current rank (1 = shortest time)
-    let current_rank = current_activity_id.and_then(|current_id| {
-        let mut by_time = performances.clone();
-        by_time.sort_by_key(|p| p.moving_time);
-        by_time
-            .iter()
-            .position(|p| p.activity_id == current_id)
-            .map(|idx| (idx + 1) as u32)
-    });
-
-    // Compute forward direction stats
-    let forward_perfs: Vec<_> = performances
-        .iter()
-        .filter(|p| p.direction == "same")
-        .collect();
-    let forward_stats = if forward_perfs.is_empty() {
-        None
-    } else {
-        let count = forward_perfs.len() as u32;
-        let avg_time = forward_perfs
-            .iter()
-            .map(|p| p.moving_time as f64)
-            .sum::<f64>()
-            / count as f64;
-        let valid_speeds: Vec<f64> = forward_perfs
-            .iter()
-            .map(|p| p.speed)
-            .filter(|s| s.is_finite() && *s > 0.0)
-            .collect();
-        let avg_speed = if valid_speeds.is_empty() {
-            None
-        } else {
-            Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
-        };
-        let last_activity = forward_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
-        Some(DirectionStats {
-            avg_time: Some(avg_time),
-            last_activity,
-            count,
-            avg_speed,
-        })
-    };
-
-    // Compute reverse direction stats
-    let reverse_perfs: Vec<_> = performances
-        .iter()
-        .filter(|p| p.direction == "reverse")
-        .collect();
-    let reverse_stats = if reverse_perfs.is_empty() {
-        None
-    } else {
-        let count = reverse_perfs.len() as u32;
-        let avg_time = reverse_perfs
-            .iter()
-            .map(|p| p.moving_time as f64)
-            .sum::<f64>()
-            / count as f64;
-        let valid_speeds: Vec<f64> = reverse_perfs
-            .iter()
-            .map(|p| p.speed)
-            .filter(|s| s.is_finite() && *s > 0.0)
-            .collect();
-        let avg_speed = if valid_speeds.is_empty() {
-            None
-        } else {
-            Some(valid_speeds.iter().sum::<f64>() / valid_speeds.len() as f64)
-        };
-        let last_activity = reverse_perfs.iter().max_by_key(|p| p.date).map(|p| p.date);
-        Some(DirectionStats {
-            avg_time: Some(avg_time),
-            last_activity,
-            count,
-            avg_speed,
-        })
-    };
-
-    let (attempt_count, percentile_rank) = attempt_standing(&performances, current_activity_id);
-
-    RoutePerformanceResult {
-        performances,
-        activity_metrics: metrics_list,
-        best,
-        best_forward,
-        best_reverse,
-        forward_stats,
-        reverse_stats,
-        current_rank,
-        attempt_count,
-        percentile_rank,
-    }
-}
-
-/// What a route with no group answers: nothing, rather than a shape with
-/// zeroes in it that a caller would read as a route nobody has ridden.
-fn empty_route_performances() -> RoutePerformanceResult {
-    RoutePerformanceResult {
-        performances: vec![],
-        activity_metrics: vec![],
-        best: None,
-        best_forward: None,
-        best_reverse: None,
-        forward_stats: None,
-        reverse_stats: None,
-        current_rank: None,
-        attempt_count: 0,
-        percentile_rank: None,
     }
 }

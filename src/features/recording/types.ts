@@ -50,13 +50,13 @@ export interface ManualActivityData {
   name: string;
   start_date_local: string; // ISO date
   elapsed_time: number; // seconds
-  moving_time?: number;
-  distance?: number; // meters
-  total_elevation_gain?: number;
-  average_heartrate?: number;
-  description?: string;
-  trainer?: boolean;
-  commute?: boolean;
+  moving_time?: number | undefined;
+  distance?: number | undefined; // meters
+  total_elevation_gain?: number | undefined;
+  average_heartrate?: number | undefined;
+  description?: string | undefined;
+  trainer?: boolean | undefined;
+  commute?: boolean | undefined;
 }
 
 export type RecordingUploadStatus =

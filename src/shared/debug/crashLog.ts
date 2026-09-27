@@ -12,9 +12,9 @@ export interface CrashEntry {
   ts: number;
   source: CrashSource;
   message: string;
-  stack?: string;
+  stack?: string | undefined;
   screen?: string;
-  fatal?: boolean;
+  fatal?: boolean | undefined;
 }
 
 let currentScreen = 'unknown';
@@ -36,7 +36,9 @@ async function load(): Promise<CrashEntry[]> {
 }
 
 // Fire-and-forget. A crash handler must never throw.
-export function recordCrash(entry: Omit<CrashEntry, 'ts' | 'screen'> & { screen?: string }) {
+export function recordCrash(
+  entry: Omit<CrashEntry, 'ts' | 'screen'> & { screen?: string | undefined }
+) {
   const full: CrashEntry = {
     ts: Date.now(),
     screen: entry.screen ?? currentScreen,

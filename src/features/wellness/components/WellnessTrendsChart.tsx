@@ -22,11 +22,11 @@ import type { WellnessData } from '@/types';
 import type { TimeRange } from '../hooks';
 
 interface WellnessTrendsChartProps {
-  data?: WellnessData[];
-  height?: number;
+  data?: WellnessData[] | undefined;
+  height?: number | undefined;
   timeRange: TimeRange;
-  smoothingWindow?: SmoothingWindow;
-  onDateSelect?: (date: string | null) => void;
+  smoothingWindow?: SmoothingWindow | undefined;
+  onDateSelect?: ((date: string | null) => void) | undefined;
 }
 
 interface MetricChartData {

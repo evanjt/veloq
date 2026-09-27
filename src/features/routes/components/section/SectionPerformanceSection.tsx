@@ -27,14 +27,14 @@ export interface SectionPerformanceSectionProps {
   bestForwardRecord: DirectionBestRecord | null;
   bestReverseRecord: DirectionBestRecord | null;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  onExcludeActivity?: (activityId: string) => void;
-  onIncludeActivity?: (activityId: string) => void;
-  onSetAsReference?: (activityId: string) => void;
-  referenceActivityId?: string;
-  showExcluded?: boolean;
-  hasExcluded?: boolean;
-  onToggleShowExcluded?: () => void;
-  highlightedActivityId?: string;
+  onExcludeActivity?: ((activityId: string) => void) | undefined;
+  onIncludeActivity?: ((activityId: string) => void) | undefined;
+  onSetAsReference?: ((activityId: string) => void) | undefined;
+  referenceActivityId?: string | undefined;
+  showExcluded?: boolean | undefined;
+  hasExcluded?: boolean | undefined;
+  onToggleShowExcluded?: (() => void) | undefined;
+  highlightedActivityId?: string | undefined;
   sectionTimeRange: SectionTimeRange;
   onTimeRangeChange: (range: SectionTimeRange) => void;
 }

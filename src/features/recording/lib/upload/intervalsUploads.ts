@@ -12,6 +12,7 @@ import { CallKind, engine, type CallOutcome, type ManualActivity } from 'veloqrs
 
 import { useAuthStore, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
 import type { ManualActivityData } from '@/types';
+import { present } from 'veloqrs/src/delegates/optional';
 
 function isDemoMode(): boolean {
   const state = useAuthStore.getState();
@@ -49,7 +50,7 @@ function createdId(outcome: CallOutcome): string | undefined {
 export async function uploadActivityFile(
   filePath: string,
   filename: string,
-  opts?: { name?: string; pairedEventId?: number }
+  opts?: { name?: string | undefined; pairedEventId?: number | undefined }
 ): Promise<string | undefined> {
   if (isDemoMode()) return `demo-${Date.now()}`;
   return createdId(
@@ -65,7 +66,7 @@ export async function createManualActivity(data: ManualActivityData): Promise<st
 
 /** Widen the screen's shape to the record the engine takes. */
 function toManualActivity(data: ManualActivityData): ManualActivity {
-  return {
+  return present({
     activityType: data.type,
     name: data.name,
     startDateLocal: data.start_date_local,
@@ -77,5 +78,5 @@ function toManualActivity(data: ManualActivityData): ManualActivity {
     description: data.description,
     trainer: data.trainer,
     commute: data.commute,
-  };
+  });
 }

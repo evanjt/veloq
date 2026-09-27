@@ -13,13 +13,13 @@ import { formatDistance } from '@/shared/format/format';
  */
 interface SectionNameData {
   id: string;
-  name?: string;
+  name?: string | undefined;
   sportType: string;
   distanceMeters: number;
   /** climb, descent, rolling, flat or loop, from the engine */
-  klass?: string;
+  klass?: string | undefined;
   /** Steepest grade percent held over 300 m, from the engine */
-  maxGradePercent?: number;
+  maxGradePercent?: number | undefined;
 }
 
 /**

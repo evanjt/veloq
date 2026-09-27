@@ -38,12 +38,12 @@ export interface ActivityTrace {
 interface SectionRowProps {
   section: Section;
   /** Optional pre-loaded activity traces for this section */
-  activityTraces?: ActivityTrace[];
+  activityTraces?: ActivityTrace[] | undefined;
   /** Whether this section is disabled/hidden */
-  isDisabled?: boolean;
+  isDisabled?: boolean | undefined;
   /** Distance from user's current location in meters */
-  distanceFromUser?: number;
-  onPress?: (id: string) => void;
+  distanceFromUser?: number | undefined;
+  onPress?: ((id: string) => void) | undefined;
 }
 
 // Activity trace colors - muted versions of the primary color

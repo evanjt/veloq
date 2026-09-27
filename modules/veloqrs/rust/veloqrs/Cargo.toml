@@ -338,6 +338,24 @@ name = "strength_screen_cost"
 name = "live_section_replay"
 
 [[bench]]
+name = "evidence_cache_decode_cost"
+required-features = ["synthetic"]
+
+[[bench]]
+name = "evidence_cache_write_cost"
+required-features = ["synthetic"]
+
+[[bench]]
+name = "indicator_recompute_cost"
+required-features = ["synthetic"]
+
+[[bench]]
+name = "recording_save_add_cost"
+
+[[bench]]
+name = "detection_cluster_spread"
+
+[[bench]]
 name = "activity_detail_cost"
 harness = false
 
@@ -384,14 +402,6 @@ name = "evidence_cache_durability"
 required-features = ["synthetic"]
 
 [[test]]
-name = "evidence_cache_decode_cost"
-required-features = ["synthetic"]
-
-[[test]]
-name = "evidence_cache_write_cost"
-required-features = ["synthetic"]
-
-[[test]]
 name = "evidence_cache_encode_off_lock"
 required-features = ["synthetic"]
 
@@ -432,14 +442,7 @@ name = "every_table_declares_an_owner"
 path = "tests/every_table_declares_an_owner.rs"
 
 [[test]]
-name = "indicator_recompute_cost"
-required-features = ["synthetic"]
-
-[[test]]
 name = "tile_sweep_enumeration"
-
-[[test]]
-name = "detection_cluster_spread"
 
 [[test]]
 name = "detection_narrowed_pool"

@@ -30,7 +30,7 @@ impl ActivityManager {
                 ),
             });
         }
-        if all_coords.len() % 2 != 0 {
+        if !all_coords.len().is_multiple_of(2) {
             return Err(VeloqError::Database {
                 msg: format!(
                     "all_coords length {} is not an even count of lat/lon values",
@@ -91,14 +91,16 @@ impl ActivityManager {
     ) -> Result<(), VeloqError> {
         crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || {
-                if coords.len() % 2 != 0 {
+                if !coords.len().is_multiple_of(2) {
                     return Err(VeloqError::Database {
                         msg: "provisional coordinates must be lat/lon pairs".into(),
                     });
                 }
                 let has_track = !coords.is_empty();
                 let points = coords
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|p| crate::GpsPoint::new(p[0], p[1]))
                     .collect();
                 let stored = with_engine(|engine| {

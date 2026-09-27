@@ -34,9 +34,9 @@ fn seed_synthetic(path: &str) {
     for s in 0..SECTIONS {
         let sport = sports[s % sports.len()];
         let sid = format!("sec_bench_{s}");
-        let poly = format!(
-            "[{{\"latitude\":46.2,\"longitude\":7.3}},{{\"latitude\":46.21,\"longitude\":7.31}}]"
-        );
+        let poly =
+            "[{\"latitude\":46.2,\"longitude\":7.3},{\"latitude\":46.21,\"longitude\":7.31}]"
+                .to_string();
         tx.execute(
             "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
                 distance_meters, is_user_defined, version, created_at,

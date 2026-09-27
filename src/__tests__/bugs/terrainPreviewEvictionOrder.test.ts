@@ -26,6 +26,7 @@ const mockMtimes = new Map<string, number>();
 let mockDirListing: string[] | null = null;
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: '/mock/cache/',
   documentDirectory: '/mock/docs/',
   EncodingType: { Base64: 'base64' },

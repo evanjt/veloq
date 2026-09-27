@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type {
   ActivityMetrics,
@@ -41,9 +40,10 @@ export interface SectionDetailBundle {
   efficiencyTrend: EfficiencyTrend | null;
 }
 
-function fetchSectionDetailData(sectionId: string): SectionDetailBundle | null {
-  const engine = getEngine();
-  if (!engine || !sectionId) return null;
+type Engine = NonNullable<ReturnType<typeof getEngine>>;
+
+function fetchSectionDetailData(engine: Engine, sectionId: string): SectionDetailBundle | null {
+  if (!sectionId) return null;
 
   try {
     const result = engine.getSectionDetailData(sectionId, NEARBY_RADIUS_METERS);
@@ -80,7 +80,7 @@ export function useSectionDetailData(
   sectionId: string | undefined,
   refreshKey = 0
 ): { data: SectionDetailBundle | null; refresh: () => void } {
-  const trigger = useEngineSubscription(['sections']);
+  const readSection = useEngineRead(['sections'], [refreshKey]);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -91,8 +91,11 @@ export function useSectionDetailData(
   }, []);
 
   const initialData = useMemo(
-    () => (sectionId ? fetchSectionDetailData(sectionId) : null),
-    [sectionId, refreshKey, trigger]
+    () =>
+      sectionId
+        ? (readSection((engine) => fetchSectionDetailData(engine, sectionId)) ?? null)
+        : null,
+    [sectionId, readSection]
   );
 
   // `refresh()` re-reads the bundle out of band, so the state holds its result
@@ -107,8 +110,9 @@ export function useSectionDetailData(
   }
 
   const refresh = useCallback(() => {
-    if (!isMountedRef.current || !sectionId) return;
-    const result = fetchSectionDetailData(sectionId);
+    const engine = getEngine();
+    if (!isMountedRef.current || !sectionId || !engine) return;
+    const result = fetchSectionDetailData(engine, sectionId);
     if (result && isMountedRef.current) {
       setData(result);
     }

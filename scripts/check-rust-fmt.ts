@@ -8,6 +8,7 @@
  */
 
 import { execFileSync, spawnSync } from 'child_process';
+import { relative, resolve } from 'path';
 
 import { EDITION, parseStagedList, stagedRustFiles } from './lib/rustFmtGate';
 
@@ -23,9 +24,14 @@ if (files.length === 0) {
   process.exit(0);
 }
 
-const result = spawnSync('rustfmt', [`--edition=${EDITION}`, '--check', ...files], {
-  encoding: 'utf-8',
-});
+// From the Rust workspace, where `cargo fmt` in the merge gates and CI runs, so
+// the staged check and the whole-crate check read the same directory.
+const rustDir = resolve('modules/veloqrs/rust');
+const result = spawnSync(
+  'rustfmt',
+  [`--edition=${EDITION}`, '--check', ...files.map((file) => relative(rustDir, resolve(file)))],
+  { cwd: rustDir, encoding: 'utf-8' }
+);
 
 if (result.error) {
   console.error('Refusing to commit: rustfmt is not on PATH and Rust files are staged.');

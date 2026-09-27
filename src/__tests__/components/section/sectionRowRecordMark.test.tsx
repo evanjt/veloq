@@ -8,9 +8,7 @@ import type { FrequentSection } from '@/types';
 // The binding registers a TurboModule at import time, so the stub is the module.
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),

@@ -7,7 +7,7 @@
 //!
 //! Expected behaviour, and it is what this file pins rather than what it wants:
 //! each direction of divergence fails in a specific, named way today. This is
-//! the guard, not the repair. `B851` is the repair, and when it lands these
+//! the guard, not the repair. When the repair lands these
 //! assertions are where it becomes visible: a test that only said "it fails"
 //! would pass just as well after a fix that failed differently.
 
@@ -71,7 +71,7 @@ fn a_pragma_ahead_of_the_tables_is_refused_before_the_pass() {
 
 /// Behind: the pragma claims fewer migrations ran than did, so the pass
 /// re-applies files that have already run. `ADD COLUMN` has no `IF NOT EXISTS`
-/// in SQLite, which `src/migrations/017_b4_core.sql:72` says outright, so the
+/// in SQLite, which `src/migrations/017_b4_core.sql` says outright, so the
 /// first re-applied file carrying one fails on a duplicate column.
 #[test]
 fn a_pragma_behind_the_tables_fails_on_a_duplicate_column() {
@@ -120,9 +120,9 @@ fn a_stale_schema_info_repairs_itself_in_one_open() {
     );
 }
 
-/// The case the item names in its Cover line: no `schema_info` row at all,
+/// No `schema_info` row at all,
 /// which is every database older than migration 012. It reads as 0 through the
-/// `unwrap_or(0)` at `schema.rs:151`, so the forward-compat refusal must not
+/// `unwrap_or(0)` in `init_schema`, so the forward-compat refusal must not
 /// fire and the open must succeed.
 #[test]
 fn an_absent_schema_info_row_reads_as_zero_and_opens() {

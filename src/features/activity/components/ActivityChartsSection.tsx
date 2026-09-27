@@ -56,16 +56,16 @@ interface ActivityChartsSectionProps {
   activity: ActivityDetail;
   activityId: string;
   streams: ActivityStreams | undefined;
-  streamsDownloaded?: boolean;
-  streamsStatus?: EngineBodyStatus;
-  onRetryStreams?: () => void;
+  streamsDownloaded?: boolean | undefined;
+  streamsStatus?: EngineBodyStatus | undefined;
+  onRetryStreams?: (() => void) | undefined;
   intervalsData: { icu_intervals: ActivityInterval[] } | undefined;
   /**
    * Why `intervalsData` is empty. An empty lap list is either a steady ride
    * with no laps or a body the sync has not reached, and only the second of
    * those is worth a line on screen.
    */
-  intervalsOutcome?: IntervalsOutcome;
+  intervalsOutcome?: IntervalsOutcome | undefined;
   activityWellness: WellnessData | null | undefined;
   coordinates: LatLng[];
   isDark: boolean;
@@ -137,7 +137,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         convertToImperial: (v: number) => v * 1.09361,
       },
     };
-  }, [activity, streams]);
+  }, [activity]);
 
   // Determine effective x-axis mode and whether toggle is available
   const hasDistance = (streams?.distance?.length ?? 0) > 0;
@@ -283,7 +283,9 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
               >
                 <Text>{t('statsScreen.curveNotDownloaded')}</Text>
                 {streamsStatus === 'timedOut' && (
-                  <Button onPress={onRetryStreams}>{t('common.retry')}</Button>
+                  <Button {...(onRetryStreams && { onPress: onRetryStreams })}>
+                    {t('common.retry')}
+                  </Button>
                 )}
               </View>
             )}

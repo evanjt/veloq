@@ -22,6 +22,7 @@ const SCALE = 0.8;
 jest.mock('react-native-body-highlighter', () => {
   const { View } = require('react-native');
   return {
+    ...jest.requireActual('react-native-body-highlighter'),
     __esModule: true,
     default: ({ scale }: { scale: number }) => (
       <View testID={scale === 0.8 * 2.5 ? 'loupe-body' : 'body'} />

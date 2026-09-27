@@ -390,13 +390,15 @@ fn a_migrated_section_records_the_range_it_was_sliced_from() {
     let path = dir.path().join("routes.db");
     seed_older_build_engine(&path);
 
-    let rows: Vec<(
+    // id, representative activity, start, end, geometry source
+    type ReferenceRow = (
         String,
         Option<String>,
         Option<u32>,
         Option<u32>,
         Option<String>,
-    )> = {
+    );
+    let rows: Vec<ReferenceRow> = {
         let db = rusqlite::Connection::open(&path).expect("open");
         let mut stmt = db
             .prepare(
@@ -651,7 +653,7 @@ fn refuse_the_archive(path: &std::path::Path) {
         .expect("install the refusal");
 }
 
-/// SB12: any detect at all used to move the catalogue's detector marker, which
+/// Any detect at all used to move the catalogue's detector marker, which
 /// retires the cutover. On the upgrade path that meant a sync-triggered detect
 /// could re-cut the pre-0.4.0 catalogue and stamp it Unified before anything
 /// had captured it, losing the migration and its change card with it.
@@ -770,7 +772,7 @@ fn identical_sections_is_claimed_only_at_the_validated_configuration() {
     .unwrap();
 }
 
-/// B239: `run_cutover_claimed` stamps `failed` up front and `PhaseClock::enter`
+/// `run_cutover_claimed` stamps `failed` up front and `PhaseClock::enter`
 /// overwrites it on the way through, so a run that died partway reported the
 /// step it died inside. The change card reads that string as "not failed" and
 /// shows the previous run's counts as this run's result.

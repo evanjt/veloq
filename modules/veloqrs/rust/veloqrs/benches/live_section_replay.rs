@@ -161,7 +161,7 @@ fn load_corpus(dir: &Path) -> Vec<Activity> {
     let mut activities = Vec::new();
     for entry in std::fs::read_dir(dir).expect("read_dir").flatten() {
         let path = entry.path();
-        if !path.extension().is_some_and(|e| e == "gpx") {
+        if path.extension().is_none_or(|e| e != "gpx") {
             continue;
         }
         let (points, seconds, date) = load_gpx(&path);
@@ -187,7 +187,7 @@ fn load_corpus(dir: &Path) -> Vec<Activity> {
 fn resample_1hz(activity: &Activity) -> Vec<Fix> {
     let start = activity.seconds[0];
     let end = *activity.seconds.last().unwrap();
-    if !(end > start) || end - start > 86_400.0 {
+    if end.partial_cmp(&start) != Some(std::cmp::Ordering::Greater) || end - start > 86_400.0 {
         return Vec::new();
     }
     let mut fixes = Vec::new();

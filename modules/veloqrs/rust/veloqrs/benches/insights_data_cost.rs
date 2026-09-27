@@ -1,7 +1,7 @@
 //! Where the time in `insights_data` actually goes.
 //!
-//! `I91` measured the whole bundle at 27.8 ms on the handset and left the
-//! split open. Three parts of it scale with sections times traversals rather
+//! The whole bundle measured 27.8 ms on the handset, with the split left
+//! open. Three parts of it scale with sections times traversals rather
 //! than with the window asked for: the per-sport summary scan, the junction
 //! query behind the recent-PR loop, and the per-sport ranked join. Rewriting
 //! any of them means growing or changing the read, so the split comes first.
@@ -49,8 +49,6 @@ const SECTION_CHANGE_WINDOW_DAYS: u32 = 14;
 const STALE_THRESHOLD_DAYS: u32 = 30;
 /// Sections last visited beyond this many days get no efficiency trend.
 const ACTIVE_WINDOW_DAYS: u32 = 28;
-
-/// A writable copy, since the engine opens read-write and the fixture is the
 
 /// Where the corpus comes from: `VELOQ_DEVICE_DB` if it names a file that
 /// exists, else the gitignored private fixture. A pull off the handset is
@@ -245,7 +243,7 @@ fn insights_data_split_by_part() {
             .collect::<Vec<_>>()
     });
 
-    // The three tails `C92` folded in, which were three engine calls of their
+    // The three tails folded into the bundle, which were three engine calls of their
     // own on top of this bundle. The stale-PR one is the only one that reads
     // per sport, and it reads nothing at all unless a fitness gain qualifies.
     let (_, hrv) = time("  compute_hrv_trend (folded in by C92)", || {

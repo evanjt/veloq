@@ -38,10 +38,10 @@ fn feature_in_crate_level_cfg(source: &str) -> Option<String> {
             }
             continue;
         }
-        if let Some(rest) = line.split_once("feature = \"") {
-            if let Some((feature, _)) = rest.1.split_once('"') {
-                return Some(feature.to_string());
-            }
+        if let Some(rest) = line.split_once("feature = \"")
+            && let Some((feature, _)) = rest.1.split_once('"')
+        {
+            return Some(feature.to_string());
         }
     }
     None
@@ -66,10 +66,10 @@ fn gated_targets(manifest: &str, stanza: &str) -> BTreeSet<String> {
         }
         if let Some(rest) = line.strip_prefix("name = \"") {
             name = rest.split_once('"').map(|(n, _)| n.to_string());
-        } else if line.starts_with("required-features") {
-            if let Some(n) = name.clone() {
-                gated.insert(n);
-            }
+        } else if line.starts_with("required-features")
+            && let Some(n) = name.clone()
+        {
+            gated.insert(n);
         }
     }
     gated
@@ -115,10 +115,8 @@ fn feature_in_item_level_test_cfg(source: &str) -> Option<String> {
         if line.starts_with("//") {
             continue;
         }
-        if has_test {
-            if let Some(feature) = feature.take() {
-                return Some(feature);
-            }
+        if has_test && let Some(feature) = feature.take() {
+            return Some(feature);
         }
         feature = None;
         has_test = false;

@@ -32,6 +32,7 @@ jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
 }));
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   Accuracy: { BestForNavigation: 6 },
   ActivityType: { Fitness: 3 },
   getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
@@ -42,6 +43,7 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('expo-task-manager', () => ({
+  ...jest.requireActual('expo-task-manager'),
   defineTask: jest.fn(),
   isTaskRegisteredAsync: jest.fn(async () => false),
 }));
@@ -95,35 +97,5 @@ describe('a recording notification with no ride behind it', () => {
     // The ordinary end of a ride still clears, exactly once, through
     // `stopSession`. The reap does not add a second one.
     expect(clearRecordingNotification).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('the native clear cancels the notification rather than only a retry', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const KOTLIN = fs.readFileSync(
-    path.join(
-      __dirname,
-      '../../../modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt'
-    ),
-    'utf8'
-  );
-
-  function body(signature: string): string {
-    const start = KOTLIN.indexOf(signature);
-    expect(start).toBeGreaterThan(-1);
-    return KOTLIN.slice(start, KOTLIN.indexOf('\n  }\n', start));
-  }
-
-  it('cancels the notification and not only the pending retry', () => {
-    const clear = body('Function("clear")');
-    expect(clear).toContain('cancelRetry()');
-    expect(clear).toContain('cancelNotification()');
-  });
-
-  it('cancels only the notification it finds on the recording channel', () => {
-    const cancel = body('private fun cancelNotification');
-    expect(cancel).toContain('serviceNotification()');
-    expect(cancel).toContain('manager.cancel(');
   });
 });

@@ -108,7 +108,8 @@ fn assert_summaries_true(raw: &Connection, after: &str) {
              FROM sections s",
         )
         .expect("prepare parity");
-    let rows: Vec<(String, i64, i64, Option<String>, i64, i64, Option<String>)> = stmt
+    type ParityRow = (String, i64, i64, Option<String>, i64, i64, Option<String>);
+    let rows: Vec<ParityRow> = stmt
         .query_map([], |r| {
             Ok((
                 r.get(0)?,

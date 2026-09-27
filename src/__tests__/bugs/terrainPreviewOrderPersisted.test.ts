@@ -30,6 +30,7 @@ const mockDirStore = new Set<string>([DIR]);
 let mockStatted: string[] = [];
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: '/mock/cache/',
   documentDirectory: '/mock/docs/',
   EncodingType: { Base64: 'base64' },

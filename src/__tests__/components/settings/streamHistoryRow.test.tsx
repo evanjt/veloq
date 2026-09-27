@@ -21,6 +21,7 @@ import {
 import { DEFAULT_STREAM_RETENTION_DAYS } from '@/features/settings/lib/streamRetention';
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (key: string, vars?: Record<string, unknown>) =>
       vars && typeof vars.count === 'number' ? `${key}:${vars.count}` : key,

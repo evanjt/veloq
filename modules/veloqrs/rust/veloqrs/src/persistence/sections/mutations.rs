@@ -774,12 +774,10 @@ impl PersistentEngine {
         if let Ok(mut stmt) = self.db.prepare(
             "SELECT activity_id, start_index, excluded FROM section_activities
              WHERE section_id = ? ORDER BY activity_id, start_index",
-        ) {
-            if let Ok(mapped) = stmt.query_map(params![section_id], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get::<_, i64>(2)? != 0))
-            }) {
-                rows.extend(mapped.filter_map(|r| r.ok()));
-            }
+        ) && let Ok(mapped) = stmt.query_map(params![section_id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get::<_, i64>(2)? != 0))
+        }) {
+            rows.extend(mapped.filter_map(|r| r.ok()));
         }
         let mut snapshot = ExclusionSnapshot::default();
         let mut i = 0;

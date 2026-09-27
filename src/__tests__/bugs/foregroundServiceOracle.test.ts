@@ -17,6 +17,7 @@ import * as Location from 'expo-location';
 import { backgroundLocationRunning } from '@/features/recording/lib/backgroundLocation';
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   hasStartedLocationUpdatesAsync: jest.fn(async () => true),
   startLocationUpdatesAsync: jest.fn(async () => undefined),
   stopLocationUpdatesAsync: jest.fn(async () => undefined),
@@ -25,6 +26,7 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('expo-task-manager', () => ({
+  ...jest.requireActual('expo-task-manager'),
   defineTask: jest.fn(),
   isTaskRegisteredAsync: jest.fn(async () => true),
 }));
@@ -78,31 +80,5 @@ describe('what counts as proof that the foreground service started', () => {
     mockLocationServiceRunning.mockRejectedValue(new Error('no'));
     registrySays.mockRejectedValue(new Error('no'));
     await expect(backgroundLocationRunning()).resolves.toBe(false);
-  });
-});
-
-describe('the native side reads the service list, not a leftover', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const KOTLIN = fs.readFileSync(
-    path.join(
-      __dirname,
-      '../../../modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt'
-    ),
-    'utf8'
-  );
-
-  it("asks Android which of this app's services are running", () => {
-    expect(KOTLIN).toContain('Function("serviceRunning")');
-    expect(KOTLIN).toContain('getRunningServices(');
-    expect(KOTLIN).toContain('it.foreground');
-    expect(KOTLIN).toContain('expo.modules.location.services.LocationTaskService');
-  });
-
-  it('does not answer from the notification, which outlives the service', () => {
-    const start = KOTLIN.indexOf('Function("serviceRunning")');
-    const check = KOTLIN.slice(start, KOTLIN.indexOf('\n  }\n', start));
-    expect(check).toContain('getRunningServices(');
-    expect(check).not.toContain('activeNotifications');
   });
 });

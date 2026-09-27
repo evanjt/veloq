@@ -29,8 +29,8 @@ export {
   SkylineBar,
 } from './components';
 
-export { fixtures } from './demo/activities';
-export type { ApiWellness } from './demo/types';
+export { fixtures } from '@/shared/demo/activity/activities';
+export type { ApiWellness } from '@/shared/demo/activity/types';
 
 export {
   getLatestFTP,
@@ -51,7 +51,7 @@ export { useActivityLabels } from './hooks/useActivityLabels';
 export type { ChartConfig, ChartTypeId } from './lib/chartConfig';
 export { FEED_GROUPS, matchesFeedGroup } from './lib/feedActivityGroups';
 export { FeedFilterChips } from './components/FeedFilterChips';
-export { storableTimeStreams } from './demo/streams';
+export { storableTimeStreams } from '@/shared/demo/activity/streams';
 export { ESTIMATED_SEARCH_SECTION_HEIGHT, searchOffsetCorrection } from './lib/feedSearchOffset';
 export type { FeedGroup } from './lib/feedActivityGroups';
 export { groupSectionEncounters } from './lib/groupSectionEncounters';

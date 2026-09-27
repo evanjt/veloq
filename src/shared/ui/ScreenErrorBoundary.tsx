@@ -66,7 +66,7 @@ export class ScreenErrorBoundary extends Component<Props, State> {
 }
 
 interface FallbackProps {
-  screenName?: string;
+  screenName?: string | undefined;
   error: Error | null;
   onRetry: () => void;
 }

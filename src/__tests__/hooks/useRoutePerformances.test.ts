@@ -167,7 +167,7 @@ describe('a sport filter over a screen bundle', () => {
     // The screen builds this literal in its render body, so every render is a
     // new object with the same contents.
     const { result, rerender } = renderHook(
-      ({ sport }: { sport?: string }) =>
+      ({ sport }: { sport?: string | undefined }) =>
         useRoutePerformances('a1', 'g1', sport, { groups, result: undefined }),
       { initialProps: { sport: 'Ride' } }
     );
@@ -183,7 +183,7 @@ describe('a sport filter over a screen bundle', () => {
     getRoutePerformances.mockReturnValue(filtered);
 
     const { result, rerender } = renderHook(
-      ({ sport }: { sport?: string }) =>
+      ({ sport }: { sport?: string | undefined }) =>
         useRoutePerformances('a1', 'g1', sport, {
           groups,
           result: sport ? undefined : unfiltered,

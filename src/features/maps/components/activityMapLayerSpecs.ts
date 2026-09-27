@@ -47,7 +47,7 @@ interface ActivityLayerInput {
   gradientLineExpression: unknown;
   /** Truthy when the sections tab has overlays to draw. */
   hasSectionOverlays: boolean;
-  highlightedSectionId?: string | null;
+  highlightedSectionId?: string | null | undefined;
   hasHighlightPoint: boolean;
   creationMode: boolean;
 }

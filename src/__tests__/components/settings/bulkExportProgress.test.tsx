@@ -12,9 +12,7 @@ import { render, screen } from '@testing-library/react-native';
 
 import { BulkExportProgress } from '@/features/settings/components/BulkExportProgress';
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 
 it('shows a spinner and the phase while generating, with no count', () => {
   render(<BulkExportProgress phase="generating" format="gpx" sizeBytes={0} isDark={false} />);

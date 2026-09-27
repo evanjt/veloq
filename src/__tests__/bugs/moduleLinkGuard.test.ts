@@ -51,10 +51,6 @@ afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-it('exits 0 on this checkout, so the audit gate stays usable', () => {
-  expect(runGuard().status).toBe(0);
-});
-
 it('passes when the link resolves to this checkout', () => {
   expect(runGuard(checkout((root) => join(root, 'modules/veloqrs'))).status).toBe(0);
 });

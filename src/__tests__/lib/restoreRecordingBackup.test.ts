@@ -10,6 +10,7 @@ import type { RecordingBackup } from '@/types';
 
 const mockFiles = new Map<string, string>();
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: '/mock/docs/',
   getInfoAsync: jest.fn(async (path: string) => ({ exists: mockFiles.has(path) })),
   writeAsStringAsync: jest.fn(async (path: string, data: string) => {
@@ -22,6 +23,7 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   Accuracy: { BestForNavigation: 6 },
   ActivityType: { Fitness: 3 },
   getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
@@ -33,6 +35,7 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('expo-task-manager', () => ({
+  ...jest.requireActual('expo-task-manager'),
   defineTask: jest.fn(),
   isTaskRegisteredAsync: jest.fn(async () => false),
 }));

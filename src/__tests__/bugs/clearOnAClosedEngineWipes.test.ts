@@ -37,10 +37,6 @@ jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
   },
 }));
 
-jest.mock('expo-file-system/legacy', () => ({
-  cacheDirectory: 'file:///cache/',
-}));
-
 const DB = '/data/routes.db';
 
 /** The handle as the login screen holds it: constructed, never opened. */

@@ -44,18 +44,18 @@ const DYNAMIC_PREFIXES = [
 // Closed sets, built at runtime from a value the sweep cannot see but whose
 // members are enumerable from the source.
 const DYNAMIC_KEYS = [
-  // `navigation.${item.key}`, BottomTabBar.tsx:127, over MENU_ITEMS.
+  // `navigation.${item.key}` in BottomTabBar.tsx, over MENU_ITEMS.
   'navigation.feed',
   'navigation.fitness',
   'navigation.map',
   'navigation.insights',
   'navigation.health',
-  // `settings.${themePreference}`, settings.tsx:145.
+  // `settings.${themePreference}` in settings.tsx.
   'settings.light',
   'settings.dark',
   'settings.system',
   // `settings.${mapPreferences.defaultStyle}` and `settings.terrain3D${mode}`,
-  // settings.tsx:155.
+  // both in settings.tsx.
   'settings.satellite',
   'settings.terrain3DOff',
   'settings.terrain3DAlways',

@@ -24,6 +24,7 @@ jest.mock('@/shared/debug/debug', () => {
 });
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   uploadAsync: jest.fn(),
   downloadAsync: jest.fn(),
   FileSystemUploadType: { BINARY_CONTENT: 0 },

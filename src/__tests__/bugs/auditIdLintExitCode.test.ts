@@ -9,10 +9,10 @@
  * one. The generated bindings carry the crate's own docstrings, so a hit there
  * would be the same comment reported twice and is skipped.
  *
- * It reads two forms. A backticked id anywhere, which is the audit's prose
- * style, and an id that opens a comment and is followed by a colon, which is
- * how three slipped in without backticks. It deliberately reads no more than
- * that: a bare id mid-sentence cannot be told from the Galaxy S22 or from the
+ * It reads three forms. A backticked id anywhere, which is the audit's prose
+ * style, an id that opens a comment and is followed by a colon, which is how
+ * three slipped in without backticks, and ids that fill a parenthesis on their
+ * own. It deliberately reads no more than that: a bare id mid-sentence cannot be told from the Galaxy S22 or from the
  * insights engine's own rule labels, which share two of the audit's keys by
  * coincidence, and a guard that renames either of those is worse than the gap.
  */
@@ -56,10 +56,6 @@ function fixture(files: Record<string, string>): string {
 
 afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
-});
-
-it('exits 0 on this repo, so the audit gate stays usable', () => {
-  expect(runGuard().status).toBe(0);
 });
 
 it('fails on a Rust doc comment naming an item', () => {
@@ -109,6 +105,15 @@ it('skips the generated bindings, which carry the crate comments already', () =>
   );
 
   expect(status).toBe(0);
+});
+
+it('reads a script whose name only contains the word generated', () => {
+  const { status, output } = runGuard(
+    fixture({ 'scripts/fix-generated.sh': '#!/bin/sh\n# Decided in `Q65`.\necho ok\n' })
+  );
+
+  expect(status).toBe(1);
+  expect(output).toContain('scripts/fix-generated.sh:2');
 });
 
 it('fails on an id that opens a comment and is followed by a colon', () => {
@@ -190,4 +195,72 @@ it('leaves a bare id mid-sentence alone, which is the half it cannot judge', () 
   );
 
   expect(status).toBe(0);
+});
+
+it.each([
+  ['a shell script', 'scripts/a.sh', '#!/bin/sh\n# Fixed for `B1234`.\necho a\n', 2],
+  [
+    'a hook with no extension',
+    '.husky/post-merge',
+    '#!/bin/sh\n# Landing ran no gate (`B1076`).\n',
+    2,
+  ],
+  ['a workflow', '.github/workflows/ci.yml', 'jobs:\n  # Split out for `Q20`.\n  a: {}\n', 2],
+  ['a node script', 'scripts/lint-x.mjs', '// The window `B132` put in.\nexport const a = 1;\n', 1],
+  [
+    'a crate test',
+    'modules/veloqrs/rust/veloqrs/tests/foo.rs',
+    '// What `B999` was.\nfn a() {}\n',
+    1,
+  ],
+  ['a crate bench', 'modules/veloqrs/rust/veloqrs/benches/cost.rs', '//! Measured for `I91`.\n', 1],
+  [
+    'a crate example',
+    'modules/veloqrs/rust/veloqrs/examples/x.rs',
+    '// From `I124`.\nfn main() {}\n',
+    1,
+  ],
+  ['a colon-led shell comment', 'scripts/b.sh', '# B238: the wrong tie-break.\necho b\n', 1],
+])('fails on %s naming an item', (_what, path, body, line) => {
+  const { status, output } = runGuard(fixture({ [path]: body }));
+
+  expect(status).toBe(1);
+  expect(output).toContain(`${path}:${line}`);
+});
+
+it('reads a shell comment only in a file that comments with a hash', () => {
+  const { status } = runGuard(
+    fixture({ 'scripts/c.sh': '#!/bin/sh\n# The S22 on the desk.\necho "`B12`"\n' })
+  );
+
+  expect(status).toBe(0);
+});
+
+it('does not refuse its own file, which documents what it allows', () => {
+  const { readFileSync } = jest.requireActual<typeof import('node:fs')>('node:fs');
+  const { status, output } = runGuard(
+    fixture({ 'scripts/lint-audit-ids.mjs': readFileSync(SCRIPT, 'utf8') })
+  );
+
+  expect(output).not.toContain('lint-audit-ids.mjs:');
+  expect(status).toBe(0);
+});
+
+it.each([
+  ['a single id', '// ...erased it (B406).'],
+  ['a comma list', '// Every family carries a named pair (B927, B928).'],
+  ['a Rust comment', '/// The preview keeps its own bounds (B423).'],
+  ['a block comment line', ' * Both taps land on the sheet (U44).'],
+  ['a two-letter key', '// Stamped on every apply (SB12).'],
+])('fails on a parenthesised id: %s', (_what, line) => {
+  expect(runGuard(fixture({ 'src/p.ts': `${line}\nexport const p = 1;\n` })).status).toBe(1);
+});
+
+it.each([
+  ['the phone', '// Measured on the handset (S22).'],
+  ['an insights rule pair', '// Diversity cap (D9, D10).'],
+  ['an insights score label', '// The flow corridor score (R5).'],
+  ['a word in brackets', '// The count (B for bytes) and the id (Bid).'],
+])('leaves a parenthesis that is not an id alone: %s', (_what, line) => {
+  expect(runGuard(fixture({ 'src/q.ts': `${line}\nexport const q = 1;\n` })).status).toBe(0);
 });

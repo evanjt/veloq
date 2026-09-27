@@ -1,5 +1,5 @@
 /**
- * Scenario: a section on the global map is drawn as a dashed line 1.2 px wide
+ * Scenario: a section on the global map is drawn as a dashed stroke 1.2 px wide
  * at zoom 6 and 2.4 at zoom 14, a third of its length gap, and the page
  * hit-tested a tap against the single pixel under the finger. A finger covers
  * about 30 px. Most taps missed and ran the empty-space branch, which closes

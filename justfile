@@ -34,7 +34,7 @@ clean-full:
 
 # --- Quality ---
 
-# Run every static guard (expo SDK, FFI manifest, crash patterns, engine bridge)
+# Run every static guard (expo SDK, crash patterns, engine bridge)
 audit:
     npm run audit
 
@@ -45,10 +45,6 @@ check:
 # Format all source with Prettier
 format:
     npm run format
-
-# Regenerate the FFI manifest after adding/removing a #[uniffi::export]
-ffi-manifest:
-    npm run ffi:manifest
 
 # --- E2E (Maestro) ---
 

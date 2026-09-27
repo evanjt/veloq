@@ -136,13 +136,7 @@ pub fn glyph(name: &str, current: Option<f64>, baseline: Option<f64>) -> Option<
     Some(
         match (direction, m.polarity) {
             (0, _) => "→",
-            (_, Polarity::None) => {
-                if direction > 0 {
-                    "↑"
-                } else {
-                    "↓"
-                }
-            }
+            (_, Polarity::None) if direction > 0 => "↑",
             (1, Polarity::Higher) | (-1, Polarity::Lower) => "↑",
             _ => "↓",
         }

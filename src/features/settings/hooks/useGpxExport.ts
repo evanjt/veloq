@@ -14,7 +14,7 @@ interface ExportParams {
   name: string;
   points: GpxPoint[];
   time?: string;
-  sport?: string;
+  sport?: string | undefined;
 }
 
 export function useGpxExport() {

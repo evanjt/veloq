@@ -7,7 +7,7 @@
  * bundle, the settings preview, keeps its own read.
  */
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { getEngine } from '@/shared/native/engine';
@@ -16,9 +16,10 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
+let mockWellnessGeneration = 0;
 jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: undefined }),
-  useWellnessGeneration: () => 0,
+  useWellnessGeneration: () => mockWellnessGeneration,
 }));
 jest.mock('@/shared/app/useSportSettings', () => ({
   useSportSettings: () => ({ data: undefined }),
@@ -53,6 +54,7 @@ const engine = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockWellnessGeneration = 0;
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 });
 
@@ -81,5 +83,22 @@ describe('the feed card sparklines', () => {
 
     expect(engine.getWellnessSparklines).toHaveBeenCalledWith(30);
     expect(result.current.fitnessData).toEqual(SPARKLINES.fitness);
+  });
+
+  it('are read again after a wellness sync and a pull-to-refresh, and not on a bare render', async () => {
+    const { result, rerender } = renderHook(() => useSummaryCardData());
+    expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(1);
+
+    rerender({});
+    expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(1);
+
+    mockWellnessGeneration = 1;
+    rerender({});
+    expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+    expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(3);
   });
 });

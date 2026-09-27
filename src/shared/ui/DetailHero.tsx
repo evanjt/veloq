@@ -30,7 +30,7 @@ const BACK_BUTTON_SIZE = 40;
 /**
  * Height of the floating header row below the top inset. Anything a hero's
  * map floats over its own top corners has to clear `insetTop` plus this, or
- * it lands under the back button (B1180).
+ * it lands under the back button.
  */
 export const HERO_HEADER_HEIGHT = BACK_BUTTON_SIZE + spacing.sm;
 

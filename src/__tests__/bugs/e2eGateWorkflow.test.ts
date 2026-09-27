@@ -1,9 +1,8 @@
 /**
- * Static guards for the PR-blocking E2E gate.
+ * Static guards for the E2E gate that runs after every push to main.
  *
- * Scenario: branch protection points at a workflow whose jobs can all be
- * skipped (a fork PR gets no build, a path filter drops the map suite), and a
- * skipped job reports neutral, which reads as green.
+ * Scenario: a workflow whose jobs can be skipped (a path filter drops the map
+ * suite), where a skipped job reports neutral, which reads as green.
  * Expected behaviour: one always-run job decides the gate, the suite is never
  * rerun wholesale from the previous run's device state, and the App Store
  * rejection regression flow is inside the blocking set.

@@ -65,24 +65,26 @@ export interface SectionScatterChartProps {
   bestReverseRecord: DirectionBestRecord | null;
   forwardStats: DirectionSummaryStats | null;
   reverseStats: DirectionSummaryStats | null;
-  onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  onExcludeActivity?: (activityId: string) => void;
-  onIncludeActivity?: (activityId: string) => void;
-  onSetAsReference?: (activityId: string) => void;
-  referenceActivityId?: string;
-  showExcluded?: boolean;
-  hasExcluded?: boolean;
-  onToggleShowExcluded?: () => void;
+  onActivitySelect?:
+    | ((activityId: string | null, activityPoints?: RoutePoint[]) => void)
+    | undefined;
+  onExcludeActivity?: ((activityId: string) => void) | undefined;
+  onIncludeActivity?: ((activityId: string) => void) | undefined;
+  onSetAsReference?: ((activityId: string) => void) | undefined;
+  referenceActivityId?: string | undefined;
+  showExcluded?: boolean | undefined;
+  hasExcluded?: boolean | undefined;
+  onToggleShowExcluded?: (() => void) | undefined;
   /** When true, hides tooltip/scrub hint and disables long-press scrub gesture */
-  compact?: boolean;
+  compact?: boolean | undefined;
   /** When true, renders a minimal chart: no text overlays, no gestures, smaller dots */
-  mini?: boolean;
+  mini?: boolean | undefined;
   /** External style for controlling width in flex layouts */
-  containerStyle?: ViewStyle;
+  containerStyle?: ViewStyle | undefined;
   /** Activity ID to highlight with a green ring (e.g., the activity that navigated here) */
-  highlightedActivityId?: string;
+  highlightedActivityId?: string | undefined;
   /** When true, Y-axis shows time (inverted: shorter = higher) instead of speed */
-  useTimeAxis?: boolean;
+  useTimeAxis?: boolean | undefined;
 }
 
 export function SectionScatterChart({
@@ -111,7 +113,7 @@ export function SectionScatterChart({
   const showPace = isPaceSport(activityType) || isSwimming;
   const activityColor = isDark ? darkColors.primary : colors.primary;
   // The ring is the only thing that says "personal best" or "this activity",
-  // so it is a mark and owes 3:1 rather than a chart tone (B929).
+  // so it is a mark and owes 3:1 rather than a chart tone.
   const prMarkColor = isDark ? darkColors.chartGoldMark : colors.chartGoldMark;
   const highlightMarkColor = isDark ? darkColors.chartGreenMark : colors.chartGreenMark;
   const sectionDistance = chartData[0]?.sectionDistance || 0;

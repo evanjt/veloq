@@ -21,7 +21,7 @@ interface Athlete {
 }
 
 interface ProfileAccountSectionProps {
-  athlete?: Athlete;
+  athlete?: Athlete | undefined;
 }
 
 function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps) {

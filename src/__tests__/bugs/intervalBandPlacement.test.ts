@@ -27,7 +27,10 @@ function reducedStreams(): ActivityStreams {
   } as ActivityStreams;
 }
 
-function interval(over: Partial<ActivityInterval>): ActivityInterval {
+/** Any field may be missing, as a body from the API sometimes leaves one out. */
+function interval(over: {
+  [K in keyof ActivityInterval]?: ActivityInterval[K] | undefined;
+}): ActivityInterval {
   return {
     id: 1,
     type: 'WORK',

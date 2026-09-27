@@ -11,6 +11,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { TopSafeAreaProvider, useTopSafeArea } from '@/shared/app/TopSafeAreaContext';
 
 jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 40, bottom: 0, left: 0, right: 0 }),
 }));
 

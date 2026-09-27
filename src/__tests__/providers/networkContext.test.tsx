@@ -39,6 +39,7 @@ jest.mock('expo-network', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).__networkMock = mockState;
   return {
+    ...jest.requireActual('expo-network'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     addNetworkStateListener: jest.fn((listener: any) => {
       mockState.listener = listener;
@@ -52,9 +53,9 @@ jest.mock('expo-network', () => {
 });
 
 type NetworkStateShape = {
-  isConnected?: boolean;
-  isInternetReachable?: boolean;
-  type?: string | null;
+  isConnected?: boolean | undefined;
+  isInternetReachable?: boolean | undefined;
+  type?: string | null | undefined;
 };
 
 // Helper to access the mock state from tests

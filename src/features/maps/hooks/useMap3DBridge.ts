@@ -31,11 +31,11 @@ interface Map3DBridgeParams {
   onSectionClickRef: MutableRefObject<((sectionId: string) => void) | undefined>;
   onActivityClickRef: MutableRefObject<((activityId: string) => void) | undefined>;
   updateLayers: () => void;
-  onMapReady?: () => void;
-  onMapFailed?: (reason: string) => void;
-  onTerrainUnavailable?: (reason: string) => void;
-  onBearingChange?: (bearing: number) => void;
-  onCameraStateChange?: (camera: Camera) => void;
+  onMapReady?: (() => void) | undefined;
+  onMapFailed?: ((reason: string) => void) | undefined;
+  onTerrainUnavailable?: ((reason: string) => void) | undefined;
+  onBearingChange?: ((bearing: number) => void) | undefined;
+  onCameraStateChange?: ((camera: Camera) => void) | undefined;
 }
 
 // Parses and dispatches messages from the 3D MapLibre WebView. Handlers keep

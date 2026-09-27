@@ -20,9 +20,7 @@ type EngineStatusReason = Parameters<
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 /**
  * The stub's enum is a separate declaration from the generated one the store

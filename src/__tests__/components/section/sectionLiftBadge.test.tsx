@@ -17,9 +17,7 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides
  * name or its rename affordance.
  */
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/features/routes/components/SectionMapView', () => ({
   SectionMapView: () => null,

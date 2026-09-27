@@ -81,7 +81,13 @@ function engineWith(syncNow: jest.Mock, eventsAreLive = true) {
 }
 
 function settled(lastError?: string): SyncStatus {
-  return { state: SyncState.Idle, inFlight: 0, completed: 0, total: 0, lastError };
+  return {
+    state: SyncState.Idle,
+    inFlight: 0,
+    completed: 0,
+    total: 0,
+    ...(lastError !== undefined && { lastError }),
+  };
 }
 
 describe('useEngineSync', () => {

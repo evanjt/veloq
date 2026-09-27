@@ -1,7 +1,7 @@
 /**
  * `pbxProject.addTargetDependency` writes the dependency only when both
  * `PBXTargetDependency` and `PBXContainerItemProxy` are already in the project,
- * and it creates neither (`node_modules/xcode/lib/pbxProject.js:860`). A project
+ * and it creates neither (`addTargetDependency` in the `xcode` package). A project
  * from `expo prebuild` carries neither section, so every call returned a value
  * and wrote nothing, and what built the extensions was the scheme's "Find
  * Implicit Dependencies" resolving the product the app's Copy Files phase names.

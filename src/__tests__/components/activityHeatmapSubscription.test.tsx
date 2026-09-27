@@ -36,9 +36,7 @@ jest.mock('@shopify/react-native-skia', () => {
   };
 });
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),

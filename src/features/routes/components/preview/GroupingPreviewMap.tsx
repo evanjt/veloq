@@ -36,7 +36,7 @@ export interface GroupingRoute {
   groupId: string;
   encodedPolyline: ArrayBuffer;
   /** The route's own box, for framing. Absent on a route with no track. */
-  bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+  bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number } | undefined;
 }
 
 interface GroupingPreviewMapProps {

@@ -18,8 +18,10 @@ inputs:
 runs:
   using: composite
   steps:
+    # rust-toolchain.toml at the repository root decides which compiler cargo runs
+    # there, so the targets have to land on that release rather than on stable.
     - name: Setup Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@1.95.0
       with:
         targets: ${{ inputs.targets }}
 
@@ -28,6 +30,8 @@ runs:
       with:
         workspaces: modules/veloqrs/rust
         key: ${{ inputs.cache-key }}
+        # Pull requests read main's cache and write none, so they cannot evict it.
+        save-if: ${{ github.ref == 'refs/heads/main' }}
 
     - name: Copy C++ files for iOS build
       if: ${{ inputs.copy-cpp-files == 'true' }}

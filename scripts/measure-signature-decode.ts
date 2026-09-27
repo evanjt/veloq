@@ -2,7 +2,7 @@
  * What the JS half of the map signature read costs: `decodeCoords` over every
  * blob, plus the `{lat,lng}` map `useRouteSignatures` does with the result.
  *
- * The third of `I193`'s three passes. The other two are Rust and are timed on
+ * The third of the read's three passes. The other two are Rust and are timed on
  * the handset by the `map_signature_passes` example, which also dumps the
  * encoded blobs this reads, so both halves are timed over the same bytes:
  *

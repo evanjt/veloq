@@ -69,30 +69,52 @@ const cacheDirectory = require('path').join(__dirname, '..', '.jest-cache');
 // JEST_WORKERS, which is also how CI passes its own number.
 const maxWorkers = Number(process.env.JEST_WORKERS) || 4;
 
-module.exports = {
+// Test code is not what the number measures. Jest leaves out the suites a run
+// selects, but the other project's suites and the shared helpers are only
+// files under src/ to it, and counted as untested source they cost fifteen
+// points of statements.
+const collectCoverageFrom = [
+  'src/**/*.{ts,tsx}',
+  '!src/**/__tests__/**',
+  '!src/**/*.d.ts',
+  '!src/**/index.ts',
+  '!src/components/**',
+  '!src/i18n/**',
+  '!src/data/**',
+  '!src/styles/**',
+  '!src/theme/**',
+  '!src/types/**',
+  '!src/features/**/components/**',
+  '!src/shared/ui/**',
+  '!src/features/**/demo/**',
+  '!src/features/**/demo.ts',
+  '!src/features/**/types.ts',
+  '!src/features/**/constants.ts',
+];
+
+const { toolingDirectories, toolingSuites } = require('./jest.tooling.js');
+
+const ignored = ['/node_modules/', '/__tests__/e2e/', ...perfIgnores, ...worktreeIgnores];
+const escape = (path) => path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Jest reads these per project, so both projects carry them. The options on
+// the exported object are read once per run.
+const project = {
   preset: 'jest-expo',
   cacheDirectory,
-  maxWorkers,
-  // A worker that has grown is recycled rather than held to the end of the run.
-  // Sampled workers reached 2.0 GB, so this is the ceiling the fleet
-  // multiplies, and it does not govern the main process.
-  workerIdleMemoryLimit: '512MB',
   testEnvironment: 'node',
-  silent: true,
-  rootDir: '..',
-  testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
+  // Absolute: a project's rootDir resolves against the top-level one, so
+  // '..' here would name the directory above the repository.
+  rootDir: require('path').join(__dirname, '..'),
+  collectCoverageFrom,
   // react-native-worklets ships .native.ts entry points that assert the native
   // module is installed. Its resolver strips the native extensions so a
   // component importing reanimated can be rendered under Jest.
   resolver: 'react-native-worklets/jest/resolver',
-  testPathIgnorePatterns: ['/node_modules/', '/__tests__/e2e/', ...perfIgnores, ...worktreeIgnores],
   modulePathIgnorePatterns: worktreeIgnores,
   moduleNameMapper: {
     '^@/theme$': '<rootDir>/src/__tests__/__mocks__/theme.js',
     '^@/(.*)$': '<rootDir>/src/$1',
-    // Block expo's ReadableStream polyfill, its cancel() throws when axios
-    // probes stream support. Node already provides native ReadableStream.
-    'expo/virtual/streams': '<rootDir>/config/jest.emptyModule.js',
   },
   transformIgnorePatterns: [
     // `uuid` resolves its `.` export through the `node` condition to an ESM
@@ -104,43 +126,69 @@ module.exports = {
     '\\.[jt]sx?$': babelTransform,
   },
   setupFilesAfterEnv: ['<rootDir>/config/jest.setup.js'],
+  // A suite's own `jest.useFakeTimers()` starts on the same known day as the rest.
+  fakeTimers: { now: require('./jest.clock').FIXED_NOW },
+};
+
+module.exports = {
+  rootDir: '..',
+  cacheDirectory,
+  maxWorkers,
+  // A worker that has grown is recycled rather than held to the end of the run.
+  // Sampled workers reached 2.0 GB, so this is the ceiling the fleet
+  // multiplies, and it does not govern the main process.
+  workerIdleMemoryLimit: '512MB',
+  silent: true,
   // A wait that gives up at four seconds needs a test budget above it, or Jest
   // reports its own timeout instead of the library's, which names nothing.
   //
   // The budget covers hooks too, and the runner is the slowest machine the
-  // suite meets: two workers on four cores with every file instrumented for
-  // coverage. Three tests in one suite spent the old 15 s in the library's
+  // suite meets: two workers on four cores, and weekly with every file
+  // instrumented for coverage. Three tests in one suite spent the old 15 s in the library's
   // own cleanup on 2026-09-08 and none of them reproduced here, on a run
   // taking the same flags. Thirty seconds is still short enough that a wait
   // which will never settle fails inside it.
   testTimeout: 30000,
-  collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/index.ts',
-    '!src/components/**',
-    '!src/i18n/**',
-    '!src/data/**',
-    '!src/styles/**',
-    '!src/theme/**',
-    '!src/types/**',
-    '!src/features/**/components/**',
-    '!src/shared/ui/**',
-    '!src/features/**/demo/**',
-    '!src/features/**/demo.ts',
-    '!src/features/**/types.ts',
-    '!src/features/**/constants.ts',
+  collectCoverageFrom,
+  // Two projects, split in config/jest.tooling.js. `npm test` selects `app`
+  // and `npm run test:tooling` selects `tooling`. Anything that selects no
+  // project runs both: `test:changed` in the pre-commit hook and the merge
+  // gate's `--findRelatedTests`, so neither loses a related suite to the split.
+  projects: [
+    {
+      ...project,
+      displayName: 'app',
+      testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
+      testPathIgnorePatterns: [
+        ...ignored,
+        ...toolingDirectories.map((dir) => `/${escape(dir)}`),
+        ...toolingSuites.map((suite) => `/${escape(suite)}$`),
+      ],
+    },
+    {
+      ...project,
+      displayName: 'tooling',
+      testMatch: [
+        ...toolingDirectories.map((dir) => `<rootDir>/${dir}**/*.test.{ts,tsx}`),
+        ...toolingSuites.map((suite) => `<rootDir>/${suite}`),
+      ],
+      testPathIgnorePatterns: ignored,
+    },
   ],
-  // Ratchet policy: thresholds sit a point below what the suite measures on a
-  // quiet box, so the gate is real. Raise them as coverage climbs; never lower
-  // them. The screens under src/app count: 40 files at a quarter covered are
-  // the largest gap in the tree and the number has to be able to show it.
+  // Ratchet policy: thresholds sit a point below what the app project measures,
+  // so the gate is real. Raise them as coverage climbs; never lower them. The
+  // screens under src/app count: 40 files at a quarter covered are the largest
+  // gap in the tree and the number has to be able to show it. Instrumenting
+  // every file costs a run about half as much again, so the weekly Jest
+  // Coverage workflow holds these rather than every push, and
+  // `npm run test:coverage` is the same check by hand. Measured 2026-09-27:
+  // statements 72.43, branches 63.19, functions 70.22, lines 73.71.
   coverageThreshold: {
     global: {
-      branches: 49,
-      functions: 54,
-      lines: 57,
-      statements: 56,
+      branches: 62,
+      functions: 69,
+      lines: 72,
+      statements: 71,
     },
   },
 };

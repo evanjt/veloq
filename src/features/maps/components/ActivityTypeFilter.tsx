@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   // Unselected read as the activity type's own hue, `run` at 2.28:1 on the card.
-  // The icon beside the label keeps it, and an icon is a mark at 3:1 (B927).
+  // The icon beside the label keeps it, and an icon is a mark at 3:1.
   chipTextUnselected: {
     color: colors.textPrimary,
   },

@@ -19,9 +19,9 @@ import type { Activity, WellnessData } from '@/types';
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ i18n: { language: 'en-AU' }, t: (key: string) => key }),
 }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }));
 jest.mock('@/features/home/hooks/useTodayWorkout', () => ({
   useTodayWorkout: () => ({ todayWorkout: null, tomorrowWorkout: null, isLoading: false }),
 }));

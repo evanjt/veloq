@@ -39,20 +39,13 @@ const SRC = join(ROOT, 'src');
 const rel = (p) => relative(ROOT, p);
 
 // Deliberate exceptions. Each entry needs a reason: the rule stays strict and
-// the exception is recorded, rather than the rule being weakened to fit.
-const ALLOWLIST = new Map([
-  // Deliberately unmounted while recording is feature-gated off. Kept for
-  // re-enabling, and guarded by src/__tests__/bugs/noWritePermissionPrompt.test.ts,
-  // which asserts no shipping file mounts it.
-  [
-    'src/features/settings/components/RecordingPermissionSection.tsx',
-    'intentionally unwired, see US-PRM1 test',
-  ],
-  [
-    'src/features/home/components/InsightLine.tsx',
-    'deliberately disabled, see the note at src/app/(tabs)/index.tsx:207',
-  ],
-]);
+// the exception is recorded, rather than the rule being weakened to fit. An
+// entry whose file is gone or reachable fails the run, so no exemption outlives
+// its reason. `--allow` adds one, and nothing but the tests passes it.
+const ALLOWLIST = new Map([]);
+process.argv.forEach((arg, i) => {
+  if (arg === '--allow') ALLOWLIST.set(process.argv[i + 1], 'passed on the command line');
+});
 
 const CODE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
 // `target` is cargo's, and it is walked because the audit reads modules/. Its
@@ -393,6 +386,20 @@ function main() {
   }
   dead.sort();
   testOnly.sort();
+
+  const staleAllowed = [];
+  for (const path of ALLOWLIST.keys()) {
+    const full = join(ROOT, path);
+    if (!existsSync(full)) staleAllowed.push(`${path} does not exist`);
+    else if (reachedReal.has(full)) staleAllowed.push(`${path} is reachable from real code`);
+  }
+  if (staleAllowed.length > 0) {
+    console.error('Stale ALLOWLIST entries (the reason for the exemption no longer holds):');
+    for (const line of staleAllowed) console.error(`  ${line}`);
+    console.error('');
+    console.error('Fix: delete the entry from ALLOWLIST in this script.');
+    process.exit(1);
+  }
 
   if (testOnly.length > 0) {
     console.log('Test-only modules (reached from tests but from no real code):');

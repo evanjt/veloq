@@ -23,9 +23,9 @@ import type { StatDetail } from './types';
 interface InsightfulStatsProps {
   activity: Activity;
   /** Wellness data for the activity date (for context) */
-  wellness?: WellnessData | null;
+  wellness?: WellnessData | null | undefined;
   /** Recent activities for comparison */
-  recentActivities?: Activity[];
+  recentActivities?: Activity[] | undefined;
 }
 
 export function InsightfulStats({

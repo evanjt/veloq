@@ -134,7 +134,8 @@ fn playback_converges_to_batch() {
 #[ignore = "benchmark, run explicitly with --release"]
 fn add_cost_by_library_size() {
     let corpus = corpus();
-    for arm in [Arm::Battery] {
+    {
+        let arm = Arm::Battery;
         // add-1 onto a 60-activity library.
         let (mut e60, _d60) = fresh_engine_for(arm);
         ingest_step(&mut e60, "cold60", &corpus.through_a());

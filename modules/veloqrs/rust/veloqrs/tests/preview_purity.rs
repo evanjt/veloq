@@ -1,6 +1,6 @@
 //! A preview changes nothing the athlete has saved.
 //!
-//! The promise, in Evan's words answering `Q236`: "It's about the sections and
+//! The promise, in the owner's words: "It's about the sections and
 //! activities, if you need some caching or storage to assist the preview screen
 //! you can write its own stuff, it just mustn't change the user's saved sections
 //! or anything until they accept the new one."
@@ -96,9 +96,9 @@ fn detect_and_apply() {
 }
 
 /// The tables a preview is allowed to write, because they are its own
-/// bookkeeping rather than anything the athlete has saved. `Q236` allows this
-/// in as many words; nothing else on this list gets in without going back to
-/// that question.
+/// bookkeeping rather than anything the athlete has saved. The owner allowed
+/// this in as many words; nothing else on this list gets in without going back
+/// to that decision.
 const PREVIEW_BOOKKEEPING: &[&str] = &["job_attempts"];
 
 /// Every row of every table, as text, keyed by table.

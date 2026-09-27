@@ -78,9 +78,9 @@ describe('readRecordingTrack', () => {
   it('reads the sidecar for a recording that never got an engine key', async () => {
     mockReadStreams.mockResolvedValue({ latlng: [[-33.86, 151.2]] });
 
-    await expect(readRecordingTrack({ ...ENTRY, engineActivityId: undefined })).resolves.toEqual([
-      [-33.86, 151.2],
-    ]);
+    const unkeyed = { ...ENTRY };
+    delete unkeyed.engineActivityId;
+    await expect(readRecordingTrack(unkeyed)).resolves.toEqual([[-33.86, 151.2]]);
     expect(mockGetTrack).not.toHaveBeenCalled();
   });
 

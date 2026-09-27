@@ -17,6 +17,7 @@ import { render } from '@testing-library/react-native';
 import { SwipeableTabs } from '@/shared/ui';
 
 jest.mock('expo-haptics', () => ({
+  ...jest.requireActual('expo-haptics'),
   impactAsync: jest.fn(),
   ImpactFeedbackStyle: { Light: 'light' },
 }));

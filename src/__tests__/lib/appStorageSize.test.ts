@@ -18,6 +18,7 @@ const mockGetInfo = jest.fn(
 );
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: '/mock/docs/',
   cacheDirectory: '/mock/cache/',
   getInfoAsync: (path: string) => mockGetInfo(path),

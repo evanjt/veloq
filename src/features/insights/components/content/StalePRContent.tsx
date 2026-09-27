@@ -43,7 +43,7 @@ function getSingleSportLabel(sections: SupportingSection[]): string | null {
 
 function getContextCopy(
   sections: SupportingSection[],
-  dataPoints: { label: string; unit?: string }[]
+  dataPoints: { label: string; unit?: string | undefined }[]
 ): {
   heading: string;
   body: string;

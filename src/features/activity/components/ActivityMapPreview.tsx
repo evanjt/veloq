@@ -36,14 +36,14 @@ const log = debug.create('ActivityMapPreview');
 
 interface ActivityMapPreviewProps {
   activity: Activity;
-  height?: number;
-  index?: number;
+  height?: number | undefined;
+  index?: number | undefined;
   /** Ref to the shared snapshot WebView for requesting 3D terrain previews */
-  snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
+  snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null> | undefined;
   /** Pre-fetched GPS track from startup data (avoids individual FFI/API calls) */
-  startupTrack?: PreviewTrack;
+  startupTrack?: PreviewTrack | undefined;
   /** Whether the snapshot WebView workers are mounted and ready */
-  snapshotReady?: boolean;
+  snapshotReady?: boolean | undefined;
 }
 
 export const ActivityMapPreview = React.memo(function ActivityMapPreview({
@@ -166,7 +166,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   //
   // A card the athlete has overridden keeps one render. The renders it
   // supersedes go once the new one has landed, never before, so a failed
-  // re-render leaves the card with the image it already had (B416).
+  // re-render leaves the card with the image it already had.
   useEffect(() => {
     return subscribeSnapshot(activity.id, (uri) => {
       setSnapshotFailed(false);
@@ -228,7 +228,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       standIn: !flat && !downgraded,
       firstPaint: !flat && !downgraded,
       // The athlete changed this one card's map, so it does not wait behind
-      // every card the feed has mounted (B416).
+      // every card the feed has mounted.
       priority: hasActivityOverride(activity.id),
       upgrade: downgraded,
     });

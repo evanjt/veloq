@@ -1,16 +1,19 @@
 /**
  * Scenario: a UniFFI export takes an argument named after a C++ keyword. The
- * Rust compiles, `ffi:check` passes and the TypeScript type checks, then the
- * Android build fails inside CMake because the C++ codegen copies argument
- * names verbatim.
+ * Rust compiles and the TypeScript type checks, then the Android build fails
+ * inside CMake because the C++ codegen copies argument names verbatim.
  *
- * Expected behaviour: the export surface gate refuses the name and says which
- * export and which argument, so the failure costs a lint rather than a full
- * Android build.
+ * Expected behaviour: the test run refuses the name and says which export and
+ * which argument, so the failure costs a test rather than a full Android build.
  */
 import { CPP_KEYWORDS, isCppKeyword, findCppKeywordParams } from '../../../scripts/lib/cppKeywords';
+import { extractFfiExports } from '../../../scripts/lib/ffiExports';
 
 describe('C++ keyword parameter names', () => {
+  it('names no argument of the real FFI surface after a keyword', () => {
+    expect(findCppKeywordParams(extractFfiExports())).toEqual([]);
+  });
+
   it('names the export and the argument that will not compile', () => {
     const offenders = findCppKeywordParams([
       {

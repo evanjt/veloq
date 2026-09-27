@@ -11,4 +11,4 @@ export {
   type ApiActivityMap,
   type ApiActivityStreams,
   type ApiAthlete,
-} from '@/features/activity/demo';
+} from '@/shared/demo/activity';

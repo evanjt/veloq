@@ -1,9 +1,4 @@
 //! The ladder and both renderings, against the real English templates.
-//!
-//! The same cases the TypeScript suite covers
-//! (`src/__tests__/lib/activityNotificationBody.test.ts`), because the whole
-//! point of moving this into the crate is that there is one answer rather than
-//! one per language.
 
 use super::*;
 

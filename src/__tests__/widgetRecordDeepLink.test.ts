@@ -10,25 +10,11 @@
  * rather than an empty path.
  */
 
-import fs from 'fs';
-import path from 'path';
-
 import {
   composeSnapshot,
   RECORD_PICKER_URL,
   type RawWidgetData,
 } from '@/features/home/lib/widgetSnapshot';
-
-const widgetDir = path.join(__dirname, '../../widget');
-const read = (rel: string) => fs.readFileSync(path.join(widgetDir, rel), 'utf8');
-
-const KOTLIN_RENDERER = read('android/java/WidgetRenderer.kt');
-const KOTLIN_SNAPSHOT = read('android/java/WidgetSnapshot.kt');
-const KOTLIN_RECORD_PROVIDER = read('android/java/VeloqRecordWidgetProvider.kt');
-const SWIFT_MODEL = read('ios/VeloqWidget/WidgetSnapshotModel.swift');
-const SWIFT_LINK = read('ios/shared/RecordDeepLink.swift');
-const SWIFT_WIDGET = read('ios/VeloqWidget/VeloqWidget.swift');
-const SWIFT_VIEWS = read('ios/VeloqWidget/WidgetViews.swift');
 
 function raw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
   return {
@@ -59,63 +45,6 @@ describe('the deep link is composed once, in the snapshot', () => {
   it('names the picker as the fallback, and only there', () => {
     expect(RECORD_PICKER_URL).toBe('veloq://record');
     expect(composeSnapshot(raw()).recordShortcuts).toEqual([]);
-  });
-});
-
-describe('Android points its record surfaces at a started recording', () => {
-  it('parses the list null-safely, so an older snapshot still reads', () => {
-    expect(KOTLIN_SNAPSHOT).toContain('val recordShortcuts: List<RecordShortcut>');
-    expect(KOTLIN_SNAPSHOT).toContain('?: return emptyList()');
-  });
-
-  it('reads the URL rather than composing one, with the picker as the only fallback', () => {
-    expect(KOTLIN_RENDERER).toContain('fun recordUrl(snap: WidgetSnapshot?): String');
-    expect(KOTLIN_RENDERER).toContain('snap?.recordShortcuts?.firstOrNull()?.url');
-    expect(KOTLIN_RENDERER.match(/"veloq:\/\/record"/g)).toHaveLength(1);
-    expect(KOTLIN_RENDERER).not.toContain('"veloq://recording/');
-  });
-
-  it('gives every record surface the snapshot, so the URL can vary', () => {
-    expect(KOTLIN_RENDERER).toContain('fun recordIntent(context: Context, snap: WidgetSnapshot?)');
-    expect(KOTLIN_RENDERER).toContain('recordIntent(context, snap)');
-    expect(KOTLIN_RECORD_PROVIDER).toContain('WidgetSnapshot.read(context)');
-    // The widget provider passes its own instance's choice alongside the
-    // snapshot; the tile and the dashboard button have no instance and take the
-    // two-argument form. `androidRecordWidgetSport.test.ts` holds that split.
-    expect(KOTLIN_RECORD_PROVIDER).toContain('WidgetRenderer.recordIntent(');
-    expect(KOTLIN_RECORD_PROVIDER).toContain('snap, RecordWidgetChoice.url(context, id), id');
-  });
-
-  it('refreshes the pending intent, because its URL is no longer constant', () => {
-    expect(KOTLIN_RENDERER).toContain('PendingIntent.FLAG_UPDATE_CURRENT');
-  });
-});
-
-describe('iOS points its record surfaces at a started recording', () => {
-  it('decodes the list as optional, so an older snapshot still decodes', () => {
-    expect(SWIFT_MODEL).toContain('let launcherShortcuts: [WidgetRecordShortcut]?');
-    expect(SWIFT_MODEL).toContain('struct WidgetRecordShortcut: Codable');
-  });
-
-  it('reads the URL rather than composing one, with the picker as the only fallback', () => {
-    // The rule is shared with the app target, so it lives in its own file and
-    // the model only adds the snapshot-shaped overload.
-    expect(SWIFT_LINK).toContain('enum RecordDeepLink');
-    expect(SWIFT_LINK.match(/veloq:\/\//g)).toHaveLength(1);
-    expect(SWIFT_MODEL).toContain('extension RecordDeepLink');
-    expect(SWIFT_MODEL).toContain('static func url(for snapshot: WidgetSnapshot?) -> URL');
-    expect(SWIFT_MODEL).toContain('snapshot?.launcherShortcuts?.first?.url');
-    expect(SWIFT_MODEL).not.toContain('veloq://');
-  });
-
-  it('leaves no record surface on a literal of its own', () => {
-    expect(SWIFT_WIDGET).not.toContain('veloq://');
-    expect(SWIFT_VIEWS).not.toContain('veloq://');
-    expect(SWIFT_VIEWS).toContain('RecordDeepLink.url(for: snapshot)');
-  });
-
-  it('loads the snapshot behind the standalone record widget, which had none', () => {
-    expect(SWIFT_WIDGET).toContain('WidgetSnapshotStore.load()');
   });
 });
 

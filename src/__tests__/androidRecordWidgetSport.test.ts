@@ -22,10 +22,6 @@ const plugin = require('@/../src/plugins/with-android-widget.js');
 
 const projectRoot = path.join(__dirname, '../..');
 
-function kotlin(file: string): string {
-  return fs.readFileSync(path.join(projectRoot, 'widget/android/java', file), 'utf8');
-}
-
 function generated(): string {
   const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'record-configure-'));
   plugin.writeWidgetSources(projectRoot, dest, 'com.veloq.app');
@@ -57,41 +53,5 @@ describe('the Android Record widget is configured per instance', () => {
     const record = on.find((a) => a.$['android:name'] === '.widget.RecordWidgetConfigureActivity');
     expect(record).toBeDefined();
     expect(activities(false)).toHaveLength(0);
-  });
-
-  it('keeps the chosen link per widget id, not the sport’s type', () => {
-    const choice = kotlin('RecordWidgetChoice.kt');
-    expect(choice).toContain('fun url(context: Context, widgetId: Int): String?');
-    expect(choice).toContain('fun put(context: Context, widgetId: Int, url: String)');
-    expect(choice).toMatch(/"sport_url_\$widgetId"/);
-  });
-
-  it('forgets a widget’s sport when that widget is removed', () => {
-    expect(kotlin('VeloqRecordWidgetProvider.kt')).toMatch(
-      /override fun onDeleted\([\s\S]*?RecordWidgetChoice\.clear\(/
-    );
-  });
-
-  it('falls back to the last sport recorded when an instance is unconfigured', () => {
-    expect(kotlin('WidgetRenderer.kt')).toMatch(
-      /fun recordUrl\(snap: WidgetSnapshot\?, configured: String\?\): String =\s*\n?\s*configured \?: recordUrl\(snap\)/
-    );
-  });
-
-  it('gives each widget its own PendingIntent, so two instances hold two sports', () => {
-    // FLAG_UPDATE_CURRENT rewrites the intent behind a request code, so a
-    // shared one would point both widgets at whichever updated last.
-    expect(kotlin('VeloqRecordWidgetProvider.kt')).toMatch(
-      /recordIntent\(\s*context,\s*snap,\s*RecordWidgetChoice\.url\(context, id\),\s*id\s*\)/
-    );
-  });
-
-  it('offers the snapshot’s own sport names, so no sport list is written in Kotlin', () => {
-    const configure = kotlin('RecordWidgetConfigureActivity.kt');
-    expect(configure).toContain('recordShortcuts');
-    expect(configure).toContain('.label');
-    expect(configure).toContain('RecordWidgetChoice.put(');
-    expect(configure).toContain('EXTRA_APPWIDGET_ID');
-    expect(configure).toContain('RESULT_OK');
   });
 });

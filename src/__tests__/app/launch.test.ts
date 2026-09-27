@@ -64,6 +64,7 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: 'file:///data/documents/',
 }));
 

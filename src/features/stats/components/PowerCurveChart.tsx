@@ -11,14 +11,14 @@ import { RangeCoverage } from 'veloqrs';
 import { pressable } from '@/shared/ui';
 
 interface PowerCurveChartProps {
-  sport?: string;
+  sport?: string | undefined;
   /** Number of days to include (default 365) */
-  days?: number;
-  height?: number;
+  days?: number | undefined;
+  height?: number | undefined;
   /** Chart color override */
-  color?: string;
+  color?: string | undefined;
   /** FTP value for threshold line */
-  ftp?: number | null;
+  ftp?: number | null | undefined;
 }
 
 const FTP_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
@@ -33,7 +33,7 @@ interface ChartPoint {
 }
 
 /** Whether the body carried a per-kilogram series worth offering. */
-function hasPerKg(curve: { watts_per_kg?: number[] } | null | undefined): boolean {
+function hasPerKg(curve: { watts_per_kg?: number[] | undefined } | null | undefined): boolean {
   return (curve?.watts_per_kg ?? []).some((v) => v > 0);
 }
 
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   },
   // The selected unit was the curve's own blue, 2.66:1 on white, on a pill that
   // already carries a tinted ground and an `accessibilityState`. Weight says the
-  // same thing and leaves the text on the theme's own colour (B927).
+  // same thing and leaves the text on the theme's own colour.
   unitTextActive: {
     fontWeight: '700',
   },

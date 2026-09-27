@@ -24,9 +24,9 @@ interface EmptyStateProps {
   /** Description text */
   description?: string;
   /** Action button text */
-  actionLabel?: string;
+  actionLabel?: string | undefined;
   /** Action button callback */
-  onAction?: () => void;
+  onAction?: (() => void) | undefined;
   /** Compact mode for inline display */
   compact?: boolean;
 }

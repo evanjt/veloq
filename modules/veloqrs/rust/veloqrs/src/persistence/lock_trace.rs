@@ -155,7 +155,7 @@ fn report() {
         hist(&table.hold_hist),
     );
     let mut rows: Vec<_> = table.by_caller.iter().collect();
-    rows.sort_by(|a, b| b.1.hold_total.cmp(&a.1.hold_total));
+    rows.sort_by_key(|b| std::cmp::Reverse(b.1.hold_total));
     for (caller, s) in rows.iter().take(TOP) {
         log::warn!(
             "[LockTrace] hold {}:{} calls={} sum={:.1}ms max={:.1}ms wait_sum={:.1}ms wait_max={:.1}ms hold[{}]",
@@ -169,7 +169,7 @@ fn report() {
             hist(&s.hold_hist),
         );
     }
-    rows.sort_by(|a, b| b.1.calls.cmp(&a.1.calls));
+    rows.sort_by_key(|b| std::cmp::Reverse(b.1.calls));
     for (caller, s) in rows.iter().take(TOP) {
         log::warn!(
             "[LockTrace] calls {}:{} calls={} sum={:.1}ms max={:.1}ms",
@@ -180,7 +180,7 @@ fn report() {
             ms(s.hold_max),
         );
     }
-    rows.sort_by(|a, b| b.1.wait_max.cmp(&a.1.wait_max));
+    rows.sort_by_key(|b| std::cmp::Reverse(b.1.wait_max));
     for (caller, s) in rows.iter().take(TOP) {
         if s.wait_max < Duration::from_millis(1) {
             break;

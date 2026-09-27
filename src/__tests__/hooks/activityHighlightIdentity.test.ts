@@ -11,23 +11,25 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { useActivitySectionHighlights } from '@/features/activity/hooks/useActivitySectionHighlights';
 
-let bump: () => void = () => {};
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useEngineSubscription: () => {
-    const { useState } = jest.requireActual<typeof import('react')>('react');
-    const [n, setN] = useState(0);
-    bump = () => setN((v: number) => v + 1);
-    return n;
-  },
-}));
+// The real reader runs over this engine, so an announcement reaches the hook
+// the way the app's does: through the handle's own subscribe.
+const mockListeners = new Set<() => void>();
+const bump = () => mockListeners.forEach((listener) => listener());
 
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: () => true,
 }));
 
 const mockBundle = jest.fn();
+const mockEngine = {
+  getActivityHighlightsBundle: (...args: unknown[]) => mockBundle(...args),
+  subscribe: (_event: string, listener: () => void) => {
+    mockListeners.add(listener);
+    return () => mockListeners.delete(listener);
+  },
+};
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ getActivityHighlightsBundle: mockBundle }),
+  getEngine: () => mockEngine,
 }));
 
 jest.mock('@/shared/debug/debug', () => ({

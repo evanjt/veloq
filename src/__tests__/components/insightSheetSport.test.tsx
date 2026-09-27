@@ -17,6 +17,7 @@ import type { Insight } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ t: (key: string) => `t(${key})` }),
 }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));

@@ -26,6 +26,7 @@ const mockEngine = {
 };
 
 jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
   copyAsync: jest.fn().mockResolvedValue(undefined),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true }),
@@ -46,6 +47,7 @@ jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
 }));
 
 jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({ refetchQueries: jest.fn(async () => {}) }),
 }));
 

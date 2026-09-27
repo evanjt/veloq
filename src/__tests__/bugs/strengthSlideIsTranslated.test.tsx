@@ -23,6 +23,7 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 // Every string the slide draws is rendered as its own key, so a literal that
 // never went through `t()` stands out as plain English.
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ t: (key: string) => `[${key}]` }),
 }));
 

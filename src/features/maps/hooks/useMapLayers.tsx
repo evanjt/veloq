@@ -19,10 +19,10 @@ import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
 /** Data about a single section overlay used by the rendering layer */
 export interface SectionOverlayGeoJSON {
   id: string;
-  overlayId?: string;
+  overlayId?: string | undefined;
   sectionGeo: GeoJSON.Feature | null;
   portionGeo: GeoJSON.Feature | null;
-  isPR?: boolean;
+  isPR?: boolean | undefined;
 }
 
 interface UseMapLayersParams {
@@ -31,15 +31,15 @@ interface UseMapLayersParams {
   /** All decoded coordinates (including invalid - used for highlight index lookup) */
   coordinates: LatLng[];
   /** Route overlay coordinates (e.g., matched route trace) */
-  routeOverlay?: LatLng[] | null;
+  routeOverlay?: LatLng[] | null | undefined;
   /** Section overlays for the sections tab */
-  sectionOverlays?: SectionOverlay[] | null;
+  sectionOverlays?: SectionOverlay[] | null | undefined;
   /** Index into coordinates to highlight (from chart scrubbing) */
-  highlightIndex?: number | null;
+  highlightIndex?: number | null | undefined;
   /** Active tab - controls marker style (numbered on sections, PR on charts) */
-  activeTab?: string;
+  activeTab?: string | undefined;
   /** Activity streams - used to build per-point gradient colors */
-  streams?: ActivityStreams | null;
+  streams?: ActivityStreams | null | undefined;
 }
 
 interface UseMapLayersResult {

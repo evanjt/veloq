@@ -9,7 +9,6 @@ import { MIN_TAP_TARGET } from './spacing';
  * `react-native`, and the widget codegen builds its palette from the spacing
  * and colour modules outside the RN runtime. One `Platform` import there put
  * `react-native/index.js` in esbuild's graph and the generator stopped running
- * at all, so the committed widget constants drifted with nothing to say so
- * (B952).
+ * at all, so the committed widget constants drifted with nothing to say so.
  */
 export const minTapTarget = MIN_TAP_TARGET[Platform.OS === 'android' ? 'android' : 'ios'];

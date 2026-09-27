@@ -30,13 +30,10 @@ const BATCH: usize = 20;
 /// Long enough for a ride of a few hours at one point a second.
 const CORRIDOR_METERS: f64 = 20_000.0;
 
-fn build_engine(
-    pool: usize,
-) -> (
-    PersistentEngine,
-    TempDir,
-    Vec<(String, Vec<GpsPoint>, String)>,
-) {
+/// An activity id, its track and its sport.
+type Ride = (String, Vec<GpsPoint>, String);
+
+fn build_engine(pool: usize) -> (PersistentEngine, TempDir, Vec<Ride>) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("cost.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");

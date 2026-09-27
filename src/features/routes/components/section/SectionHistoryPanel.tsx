@@ -56,7 +56,7 @@ function Chips({
   ids: string[];
   isDark: boolean;
   testID: string;
-  names?: Record<string, string>;
+  names?: Record<string, string> | undefined;
 }) {
   const shown = ids.slice(0, MAX_CHIPS);
   const rest = ids.length - shown.length;

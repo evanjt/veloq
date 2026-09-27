@@ -13,7 +13,7 @@
  */
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -119,6 +119,67 @@ it('refuses a main-checkout commit while a merge holds the lock, and says how to
 
   expect(status).toBe(1);
   expect(output).toContain('flock');
+});
+
+/**
+ * The refusal used to print `flock $lock git commit ...`. That holds the lock
+ * across the commit, so the hook's own probe fails against its parent and the
+ * commit is refused again with the same advice, for ever, reading as a stale
+ * lock.
+ */
+it('prints a wait that lands the commit once the merge lets go of the lock', async () => {
+  const { main } = repoWithWorktree();
+  const lock = join(scratch('lock-'), 'commit.lock');
+  const hook = join(main, '.git/hooks/pre-commit');
+  writeFileSync(hook, `#!/bin/sh\nVELOQ_COMMIT_LOCK='${lock}' exec sh '${SCRIPT}'\n`);
+  chmodSync(hook, 0o755);
+  writeFileSync(join(main, 'b.txt'), 'b\n');
+  git(main, 'add', 'b.txt');
+
+  const holder = spawn('flock', [lock, 'sleep', '30'], {
+    detached: true,
+    stdio: 'ignore',
+    env: gitFreeEnv(),
+  });
+  const deadline = Date.now() + 5_000;
+  while (spawnSync('flock', ['-n', lock, 'true'], { env: gitFreeEnv() }).status === 0) {
+    if (Date.now() > deadline) throw new Error('the holder never took the lock');
+  }
+
+  const { output } = run(main, lock);
+  const advice = output
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.startsWith('flock '));
+  expect(advice).toBeDefined();
+  const command = (advice ?? '').replace('git commit ...', "git commit -qm 'waited for the merge'");
+
+  const waiter = spawn('sh', ['-c', command], { cwd: main, env: gitFreeEnv(), stdio: 'pipe' });
+  let waiterOutput = '';
+  waiter.stdout.on('data', (chunk) => (waiterOutput += chunk));
+  waiter.stderr.on('data', (chunk) => (waiterOutput += chunk));
+  const exited = new Promise<number | null>((done) => waiter.on('exit', done));
+  await new Promise((done) => setTimeout(done, 300));
+  // The whole group: `flock` hands its descriptor to `sleep`, so killing
+  // `flock` alone leaves the lock held.
+  process.kill(-(holder.pid ?? 0), 'SIGKILL');
+
+  expect({ status: await exited, output: waiterOutput }).toEqual({ status: 0, output: '' });
+  expect(
+    execFileSync('git', ['log', '-1', '--format=%s'], { cwd: main, env: gitFreeEnv() })
+      .toString()
+      .trim()
+  ).toBe('waited for the merge');
+});
+
+it('says never to wrap the commit itself in the lock', () => {
+  const { main } = repoWithWorktree();
+  const lock = join(scratch('lock-'), 'commit.lock');
+
+  const { output } = whileHeld(lock, () => run(main, lock));
+
+  expect(output).toMatch(/[Nn]ever wrap/);
+  expect(output).not.toMatch(/flock \S+ git commit/);
 });
 
 it('lets a worktree commit through while the lock is held, since its index is its own', () => {

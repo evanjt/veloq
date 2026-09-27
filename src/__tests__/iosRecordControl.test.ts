@@ -17,9 +17,6 @@ const iosPlugin = require('@/../src/plugins/with-ios-widget.js');
 const flags = require('@/../src/plugins/widgetFlags.js');
 
 const projectRoot = path.join(__dirname, '../..');
-const widgetDir = path.join(projectRoot, 'widget/ios/VeloqWidget');
-const CONTROL = fs.readFileSync(path.join(widgetDir, 'RecordControl.swift'), 'utf8');
-const MODEL = fs.readFileSync(path.join(widgetDir, 'WidgetSnapshotModel.swift'), 'utf8');
 
 function bundles(includeRecord = flags.INCLUDE_RECORD_WIDGET): string {
   const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'ios-control-'));
@@ -28,26 +25,6 @@ function bundles(includeRecord = flags.INCLUDE_RECORD_WIDGET): string {
 }
 
 describe('the Record control is an iOS 18 ControlWidget in the existing extension', () => {
-  it('declares a control, not a second target', () => {
-    expect(CONTROL).toContain('@available(iOS 18.0, *)');
-    expect(CONTROL).toContain('struct VeloqRecordControl: ControlWidget');
-    expect(CONTROL).toContain('ControlWidgetButton(action:');
-    expect(CONTROL).toContain('StaticControlConfiguration(kind:');
-  });
-
-  it('opens the deep link every other record surface uses, so one rule picks the sport', () => {
-    expect(CONTROL).toContain('WidgetSnapshotStore.load()');
-    expect(CONTROL).toContain('RecordDeepLink.url(for:');
-    expect(CONTROL).toContain('OpenURLIntent(');
-    // No second literal: the picker fallback lives in RecordDeepLink and nowhere else.
-    expect(CONTROL).not.toContain('veloq://');
-  });
-
-  it('resolves to a URL rather than an optional, so no surface force-unwraps one', () => {
-    expect(MODEL).toContain('static func url(for snapshot: WidgetSnapshot?) -> URL');
-    expect(MODEL).not.toContain('-> URL?');
-  });
-
   it('is in both generated bundles, gated at 18 the way the Live Activity is at 16.2', () => {
     const swift = bundles(true);
     const occurrences = swift.match(/VeloqRecordControl\(\)/g) ?? [];

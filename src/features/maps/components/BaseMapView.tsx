@@ -40,43 +40,43 @@ const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as cons
 
 export interface BaseMapViewProps {
   /** Route coordinates as [lng, lat] pairs for GeoJSON */
-  routeCoordinates?: LngLat[];
+  routeCoordinates?: LngLat[] | undefined;
   /** Route line color */
-  routeColor?: string;
+  routeColor?: string | undefined;
   /** Bounds to fit camera to */
-  bounds?: { ne: LngLat; sw: LngLat };
+  bounds?: { ne: LngLat; sw: LngLat } | undefined;
   /** Camera padding in pixels */
-  padding?: { top: number; right: number; bottom: number; left: number };
+  padding?: { top: number; right: number; bottom: number; left: number } | undefined;
   /** Initial map style */
-  initialStyle?: MapStyleType;
+  initialStyle?: MapStyleType | undefined;
   /** Show style toggle button */
-  showStyleToggle?: boolean;
+  showStyleToggle?: boolean | undefined;
   /** Show 3D toggle button */
-  show3DToggle?: boolean;
+  show3DToggle?: boolean | undefined;
   /** Show orientation/compass button */
-  showOrientationButton?: boolean;
+  showOrientationButton?: boolean | undefined;
   /** Show location button */
-  showLocationButton?: boolean;
+  showLocationButton?: boolean | undefined;
   /** Show attribution */
-  showAttribution?: boolean;
+  showAttribution?: boolean | undefined;
   /** Called when map is pressed */
-  onPress?: (event: MapPressEvent) => void;
+  onPress?: ((event: MapPressEvent) => void) | undefined;
   /**
    * Extra sources the caller wants drawn over the route, keyed by id. Declared
    * as data rather than passed as JSX so the same description works whichever
    * renderer is behind the surface.
    */
-  overlaySources?: Record<string, MapSourceSpec>;
+  overlaySources?: Record<string, MapSourceSpec> | undefined;
   /** Extra layers over the route, in draw order. */
-  overlayLayers?: MapLayerSpec[];
+  overlayLayers?: MapLayerSpec[] | undefined;
   /** Images the overlay layers reference by id. */
-  overlayImages?: MapImageSpec[];
+  overlayImages?: MapImageSpec[] | undefined;
   /** Overlay layers that respond to a tap, most specific first. */
-  interactiveLayers?: string[];
+  interactiveLayers?: string[] | undefined;
   /** Custom control buttons to add to the control stack */
-  extraControls?: ReactNode;
+  extraControls?: ReactNode | undefined;
   /** Close button handler (for fullscreen maps) */
-  onClose?: () => void;
+  onClose?: (() => void) | undefined;
 }
 
 const NO_SOURCES: Record<string, MapSourceSpec> = {};

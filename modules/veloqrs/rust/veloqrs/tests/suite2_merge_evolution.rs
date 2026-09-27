@@ -256,7 +256,7 @@ fn a_cross_sport_corridor_is_one_section_headed_by_its_own_traffic() {
         .iter()
         .filter_map(|(id, f)| {
             let sports = member_sports(&smap, &f.activity_ids);
-            (sports.len() > 1).then(|| (id, f, sports))
+            (sports.len() > 1).then_some((id, f, sports))
         })
         .collect();
     assert!(

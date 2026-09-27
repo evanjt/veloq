@@ -65,15 +65,8 @@ jest.mock('@shopify/react-native-skia', () => {
   };
 });
 
-jest.mock('expo-file-system/legacy', () => ({
-  cacheDirectory: 'file:///cache/',
-  makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
-  writeAsStringAsync: jest.fn().mockResolvedValue(undefined),
-  deleteAsync: jest.fn().mockResolvedValue(undefined),
-  EncodingType: { Base64: 'base64' },
-}));
-
 jest.mock('expo-notifications', () => ({
+  ...jest.requireActual('expo-notifications'),
   scheduleNotificationAsync: jest.fn().mockResolvedValue('activity-1'),
   dismissNotificationAsync: jest.fn().mockResolvedValue(undefined),
   setNotificationHandler: jest.fn(),
@@ -82,10 +75,6 @@ jest.mock('expo-notifications', () => ({
   getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
   requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
   addNotificationResponseReceivedListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
-}));
-
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), navigate: jest.fn() },
 }));
 
 jest.mock('@/theme', () => ({

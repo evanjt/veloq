@@ -135,35 +135,35 @@ export interface RouteGroup {
   /** Display name (auto-generated or user-set) */
   name: string;
   /** Representative route signature (from the first/best activity) - optional for engine groups */
-  signature?: RouteSignature | null;
+  signature?: RouteSignature | null | undefined;
   /** Consensus route - the common core that 80%+ of activities share */
-  consensusPoints?: RoutePoint[];
+  consensusPoints?: RoutePoint[] | undefined;
   /** Activity IDs in this group */
   activityIds: string[];
   /** Total count of activities */
   activityCount: number;
   /** Date of first activity on this route - optional for engine groups */
-  firstDate?: string;
+  firstDate?: string | undefined;
   /** Date of most recent activity - optional for engine groups */
-  lastDate?: string;
+  lastDate?: string | undefined;
   /** Activity type (Ride, Run, etc.) */
   type: ActivityType;
   /** All sport types present in this group's activities */
-  sportTypes?: string[];
+  sportTypes?: string[] | undefined;
   /** Distance in meters (from representative activity) */
-  distance?: number;
+  distance?: number | undefined;
   /** Pre-computed center point for proximity sorting */
-  center?: { lat: number; lng: number };
+  center?: { lat: number; lng: number } | undefined;
   /** Average match quality for grouped activities (0-100) - optional for engine groups */
-  averageMatchQuality?: number;
+  averageMatchQuality?: number | undefined;
   /** Best moving time in seconds (fastest completion) */
-  bestTime?: number;
+  bestTime?: number | undefined;
   /** Average moving time in seconds */
-  avgTime?: number;
+  avgTime?: number | undefined;
   /** Best pace/speed in m/s (from fastest activity) */
-  bestPace?: number;
+  bestPace?: number | undefined;
   /** Activity ID with the best performance */
-  bestActivityId?: string;
+  bestActivityId?: string | undefined;
 }
 
 /** Direction of route match */
@@ -207,7 +207,7 @@ export interface Section {
   /** Section type: 'auto' for detected sections, 'custom' for user-created */
   sectionType: SectionType;
   /** Section name */
-  name?: string;
+  name?: string | undefined;
   /** Sport type (e.g., "Ride", "Run") */
   sportType: string;
   /** GPS points defining the section */
@@ -215,7 +215,7 @@ export interface Section {
   /** Section length in meters */
   distanceMeters: number;
   /** Activity that provides the representative polyline */
-  representativeActivityId?: string;
+  representativeActivityId?: string | undefined;
   /** Activity IDs that traverse this section */
   activityIds: string[];
   /** Number of times traversed */
@@ -223,76 +223,76 @@ export interface Section {
 
   // Auto-specific metadata (null for custom sections)
   /** Confidence score (0.0-1.0) based on observation density */
-  confidence?: number;
+  confidence?: number | undefined;
   /** Number of tracks used to compute consensus */
-  observationCount?: number;
+  observationCount?: number | undefined;
   /** Average spread from consensus line (meters) */
-  averageSpread?: number;
+  averageSpread?: number | undefined;
   /** Per-point observation density */
-  pointDensity?: number[];
+  pointDensity?: number[] | undefined;
   /** Detection scale: "short", "medium", "long" */
-  scale?: string;
+  scale?: string | undefined;
 
   /** Whether reference is user-defined */
-  isUserDefined?: boolean;
+  isUserDefined?: boolean | undefined;
 
   /** How well the reference trace aligns with the consensus (0.0-1.0) */
-  stability?: number;
+  stability?: number | undefined;
   /** Elevation gain in metres over the representative slice, absent when unknown */
-  elevationGainM?: number;
+  elevationGainM?: number | undefined;
   /** Elevation loss in metres over the representative slice, absent when unknown */
-  elevationLossM?: number;
+  elevationLossM?: number | undefined;
   /** Net grade percent over the representative slice, absent when unknown */
-  avgGradePercent?: number;
+  avgGradePercent?: number | undefined;
   /** Steepest grade percent held over 300 m of the slice, absent when unknown */
-  maxGradePercent?: number;
+  maxGradePercent?: number | undefined;
   /** climb, descent, rolling, flat or loop, absent when nothing says */
-  klass?: string;
+  klass?: string | undefined;
   /** The detector read most of this ground as a lift rather than a ride */
-  isLift?: boolean;
+  isLift?: boolean | undefined;
   /** Interestingness percentile across the catalogue, 0 to 1 */
-  rankScore?: number;
+  rankScore?: number | undefined;
   /** Interestingness percentile within the section's sport, 0 to 1 */
-  sportRankScore?: number;
+  sportRankScore?: number | undefined;
   /** Number of times this section has been recalibrated */
-  version?: number;
+  version?: number | undefined;
   /** ISO timestamp of last recalibration */
-  updatedAt?: string;
+  updatedAt?: string | undefined;
 
   /** ISO timestamp when section was created */
   createdAt: string;
 
   // Associations
   /** Route group IDs that include this section */
-  routeIds?: string[];
+  routeIds?: string[] | undefined;
 
   // Custom-specific fields (null for auto sections)
   /** Activity ID this custom section was created from */
-  sourceActivityId?: string;
+  sourceActivityId?: string | undefined;
   /** Start index in source activity's GPS track */
-  startIndex?: number;
+  startIndex?: number | undefined;
   /** End index in source activity's GPS track */
-  endIndex?: number;
+  endIndex?: number | undefined;
 
   // On-demand data (loaded separately, not part of persisted section)
   /** Portion data for each activity (loaded from junction table) */
-  activityPortions?: ActivitySectionRecord[];
+  activityPortions?: ActivitySectionRecord[] | undefined;
   /** Activity traces (loaded on-demand for section detail) */
-  activityTraces?: Record<string, RoutePoint[]>;
+  activityTraces?: Record<string, RoutePoint[]> | undefined;
   /** All sport types present in this section's activities */
-  sportTypes?: string[];
+  sportTypes?: string[] | undefined;
   /** Pre-computed center point for proximity sorting */
-  center?: { lat: number; lng: number };
+  center?: { lat: number; lng: number } | undefined;
   /** Whether the user has disabled (hidden) this section */
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   /** If superseded by a custom section, stores its ID */
-  supersededBy?: string | null;
+  supersededBy?: string | null | undefined;
   /**
    * The section's record was set on its most recent outing, as the routes
    * screen read says. Absent on any record that read did not build, which is
    * every conversion that does not come from the sections page.
    */
-  latestIsRecord?: boolean;
+  latestIsRecord?: boolean | undefined;
 }
 
 /** Backward compatibility aliases */
@@ -364,17 +364,17 @@ export interface PerformanceDataPoint {
   date: Date;
   activityName: string;
   direction: 'same' | 'reverse';
-  lapPoints?: RoutePoint[];
-  matchPercentage?: number;
-  lapNumber?: number;
-  totalLaps?: number;
-  sectionTime?: number;
-  sectionDistance?: number;
-  lapCount?: number;
-  isExcluded?: boolean;
-  bestTime?: number;
-  bestSpeed?: number;
-  isBest?: boolean;
+  lapPoints?: RoutePoint[] | undefined;
+  matchPercentage?: number | undefined;
+  lapNumber?: number | undefined;
+  totalLaps?: number | undefined;
+  sectionTime?: number | undefined;
+  sectionDistance?: number | undefined;
+  lapCount?: number | undefined;
+  isExcluded?: boolean | undefined;
+  bestTime?: number | undefined;
+  bestSpeed?: number | undefined;
+  isBest?: boolean | undefined;
 }
 
 /**

@@ -147,18 +147,6 @@ impl PersistentEngine {
         pooled::section_summaries_filtered(&self.db, section_type, visible_only, &names)
     }
 
-    /// Get distinct activity count for a section.
-    fn get_section_activity_count(&self, section_id: &str) -> u32 {
-        self.db
-            .query_row(
-                "SELECT COUNT(DISTINCT activity_id) FROM section_activities
-                 WHERE section_id = ? AND excluded = 0",
-                params![section_id],
-                |row| row.get(0),
-            )
-            .unwrap_or(0)
-    }
-
     /// Activity IDs fully excluded from a section: no included row remains.
     /// An activity with only some laps excluded is per-lap state, served by
     /// `get_excluded_section_laps`.
@@ -358,7 +346,7 @@ pub(crate) mod pooled {
 
         Ok(Section {
             id,
-            section_type: SectionType::from_str(&section_type_str).unwrap_or(SectionType::Auto),
+            section_type: SectionType::parse(&section_type_str).unwrap_or(SectionType::Auto),
             name: row.get(2)?,
             sport_type: row.get(3)?,
             polyline: geometry::line(
@@ -415,7 +403,7 @@ pub(crate) mod pooled {
 
     /// Fill in what `section_from_row` left: the traversal count and the
     /// routes, the latter in one query for the whole batch.
-    fn finish(conn: &Connection, sections: &mut Vec<Section>, names: &BTreeMap<String, String>) {
+    fn finish(conn: &Connection, sections: &mut [Section], names: &BTreeMap<String, String>) {
         for section in sections.iter_mut() {
             section.visit_count = section_visit_count(conn, &section.id);
             apply_overlay(section, names);

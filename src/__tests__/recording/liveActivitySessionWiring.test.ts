@@ -20,6 +20,7 @@ jest.mock('@/features/recording/lib/backgroundLocation', () => ({
   stopBackgroundLocation: jest.fn(async () => undefined),
 }));
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   watchPositionAsync: jest.fn(async () => ({ remove: jest.fn() })),
   getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
   Accuracy: { BestForNavigation: 6 },

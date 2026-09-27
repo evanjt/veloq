@@ -33,6 +33,7 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 // The interpolated values are the point of the count line, so the stub keeps
 // them and drops only the fallback string.
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (key: string, vars?: unknown) => {
       if (typeof vars !== 'object' || vars === null) return key;

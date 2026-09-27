@@ -57,30 +57,34 @@ function formatLocation(activity: Activity): string | null {
 
 interface ActivityCardProps {
   activity: Activity;
-  index?: number;
+  index?: number | undefined;
   /** Ref to the shared snapshot WebView for 3D terrain previews */
-  snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
+  snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null> | undefined;
   /** Pre-fetched GPS track from startup data */
-  startupTrack?: PreviewTrack;
+  startupTrack?: PreviewTrack | undefined;
   /** Whether snapshot WebView workers are ready */
-  snapshotReady?: boolean;
+  snapshotReady?: boolean | undefined;
   /** Forces re-render when theme changes (enableFreeze suppresses useColorScheme updates) */
-  colorScheme?: boolean;
+  colorScheme?: boolean | undefined;
   /** Section highlights for this activity (PRs, trends) from batch FFI query */
-  sectionHighlights?: {
-    sectionName: string;
-    isPr: boolean;
-    trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
-    startIndex: number;
-    endIndex: number;
-  }[];
+  sectionHighlights?:
+    | {
+        sectionName: string;
+        isPr: boolean;
+        trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
+        startIndex: number;
+        endIndex: number;
+      }[]
+    | undefined;
   /** Route highlight for this activity (trend, PR) */
-  routeHighlight?: {
-    routeName: string;
-    isPr: boolean;
-    trend: number; // -1=slower, 0=neutral, 1=faster
-    timeDeltaSeconds?: number | null;
-  };
+  routeHighlight?:
+    | {
+        routeName: string;
+        isPr: boolean;
+        trend: number; // -1=slower, 0=neutral, 1=faster
+        timeDeltaSeconds?: number | null | undefined;
+      }
+    | undefined;
 }
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
@@ -341,7 +345,7 @@ export const ActivityCard = React.memo(
       return {
         muscles: (muscleGroups ?? []).map(
           (g): ExtendedBodyPart => ({
-            slug: g.slug as ExtendedBodyPart['slug'],
+            slug: g.slug as NonNullable<ExtendedBodyPart['slug']>,
             intensity: g.intensity,
           })
         ),

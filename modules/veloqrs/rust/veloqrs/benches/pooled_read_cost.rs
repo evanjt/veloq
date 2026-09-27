@@ -1,9 +1,9 @@
 //! What a screen read costs once it reads SQLite through a read-only
 //! connection instead of the in-memory tier.
 //!
-//! `Q253` decided on 2026-09-14 that screen reads leave the engine lock for a
-//! read-only pool, and that a pooled read reads SQLite rather than the memory
-//! tier. `I91` timed those reads from memory, so none of its numbers survives
+//! Since 2026-09-14 screen reads leave the engine lock for a read-only pool,
+//! and a pooled read reads SQLite rather than the memory tier. The handset
+//! budget table timed those reads from memory, so none of its numbers survives
 //! the change, and the fallback it would justify (an `arc-swap` snapshot of the
 //! tier) is only worth building for a read that misses its budget.
 //!
@@ -24,14 +24,14 @@
 //! | `stats` | `groups.len()`, `sections.len()` | two counts |
 //!
 //! Every read is timed twice: on a quiet file, and while a writer holds an open
-//! `BEGIN IMMEDIATE` on its own connection, which is the shape `Q253` was
+//! `BEGIN IMMEDIATE` on its own connection, which is the shape the pool was
 //! decided on. Under WAL a pooled reader takes the last commit and does not
 //! wait, so the two columns should agree; they are both printed because that is
 //! the claim being tested rather than assumed.
 //!
 //! Nothing asserts, it prints a table.
 //!
-//! On the S22, which is where the numbers belong, because `I91`'s budgets are
+//! On the S22, which is where the numbers belong, because the call budgets are
 //! that handset's frame:
 //!
 //!     cargo bench -p veloqrs --bench pooled_read_cost --no-run --target aarch64-linux-android
@@ -51,11 +51,11 @@ use std::time::{Duration, Instant};
 use rusqlite::{Connection, OpenFlags};
 use veloqrs::PersistentEngine;
 
-/// Samples per figure. `I91`'s method, so the numbers compare.
+/// Samples per figure, the handset budget table's method, so the numbers compare.
 const SAMPLES: usize = 7;
 
-/// How long the writer holds its transaction, matching the hold `Q253` was
-/// measured under.
+/// How long the writer holds its transaction, matching the hold the pool was
+/// decided under.
 const WRITE_HOLD: Duration = Duration::from_millis(200);
 
 fn corpus_source() -> Option<PathBuf> {
@@ -125,7 +125,7 @@ fn reader(path: &std::path::Path) -> Connection {
 
 /// A writer holding `BEGIN IMMEDIATE` in a loop, so a read issued at any moment
 /// lands inside a hold. It writes a settings row rather than anything a read
-/// below looks at, which is what `Q253`'s proof did.
+/// below looks at, which is what the proof behind the pool did.
 fn hold_writer(path: PathBuf, stop: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         let w = Connection::open(&path).expect("open the writer");
@@ -291,7 +291,7 @@ fn main() {
 
     // The memory tier as it stands, on this library and this machine, so the
     // pooled figures below are compared against a number taken here rather than
-    // against `I91`'s, which were taken on another day and another library.
+    // against the handset table's, which were taken on another day and another library.
     let from_memory = vec![
         ("activity_count", time(|| engine.activity_count())),
         (

@@ -101,6 +101,7 @@ describe('AuthStore.initialize', () => {
 
   async function initializeWith(refused: string) {
     jest.doMock('expo-secure-store', () => ({
+      ...jest.requireActual('expo-secure-store'),
       getItemAsync: jest.fn(async (key: string) => {
         if (key === refused) throw new Error('keychain refused');
         if (key === 'intervals_api_key') return 'k';

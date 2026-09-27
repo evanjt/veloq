@@ -62,15 +62,6 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useScreenSafeAreaEdges: () => [],
 }));
 
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-    SafeAreaProvider: View,
-    SafeAreaView: View,
-  };
-});
-
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 // The real strings, so the assertions below are about the copy an athlete
@@ -78,6 +69,7 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => {
   const strings = require('@/i18n/locales/en-GB.json');
   return {
+    ...jest.requireActual('react-i18next'),
     useTranslation: () => ({
       t: (key: string, vars?: Record<string, unknown>) => {
         const raw = key

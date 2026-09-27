@@ -20,6 +20,7 @@ import {
 } from '@/shared/app/useUserLocation';
 
 jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
   Accuracy: { Balanced: 3 },
   getForegroundPermissionsAsync: jest.fn(),
   requestForegroundPermissionsAsync: jest.fn(),

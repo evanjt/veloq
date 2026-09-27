@@ -16,7 +16,7 @@ export function getTimeOfDayKey(): TimeOfDayKey {
 
 export interface UseActivityNameGenerationArgs {
   /** Pre-specified name from route params (takes precedence if provided). */
-  initialName?: string;
+  initialName?: string | undefined;
   /** Activity type used to generate the default name. */
   type: ActivityType;
 }

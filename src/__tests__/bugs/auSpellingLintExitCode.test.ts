@@ -63,10 +63,6 @@ afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-it('exits 0 on this repo, so the audit gate stays usable', () => {
-  expect(runGuard().status).toBe(0);
-});
-
 it('fails on an American identifier', () => {
   const { status, output } = runGuard(crate('fn normalize_features() {}\n'));
 

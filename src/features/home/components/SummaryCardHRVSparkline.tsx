@@ -24,11 +24,11 @@ const HRV_DOMAIN_MAX = 106;
 
 interface SummaryCardHRVSparklineProps {
   hrvData: number[];
-  rhrData?: number[];
+  rhrData?: number[] | undefined;
   width: number;
-  showLabels?: boolean;
-  onScrub?: (values: ScrubValues | null) => void;
-  onTap?: () => void;
+  showLabels?: boolean | undefined;
+  onScrub?: ((values: ScrubValues | null) => void) | undefined;
+  onTap?: (() => void) | undefined;
 }
 
 /**

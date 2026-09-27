@@ -144,7 +144,7 @@ fn every_class_is_used_and_the_record_set_is_named() {
 
 /// Two tables are derived rows carrying one athlete decision apiece. A
 /// consumer that treats them as purely derived throws that decision away, so
-/// the declaration says so rather than leaving it to `B322`'s reader.
+/// the declaration says so rather than leaving it to the reader.
 #[test]
 fn a_derived_table_holding_an_athlete_decision_says_so() {
     let mixed: Vec<(&'static str, &'static str)> = declared_tables()

@@ -3,8 +3,8 @@
 //! may be metered.
 //!
 //! Expected behaviour: the estimate is built from the moving seconds already
-//! stored for the range, not from an activity count. Across the sample `I153`
-//! measured, per-activity cost spans fifty-fold while bytes per moving second
+//! stored for the range, not from an activity count. Across the measured
+//! sample, per-activity cost spans fifty-fold while bytes per moving second
 //! holds to about a third, so a count-based figure is the one that misleads.
 
 use tempfile::TempDir;
@@ -107,7 +107,7 @@ fn the_range_bounds_are_inclusive() {
     assert_eq!(estimate.activities, 2);
 }
 
-/// `I153`'s own figure for a year of the measured library, reproduced from the
+/// The measured figure for a year of the sampled library, reproduced from the
 /// components rather than from its rounded total: 318 activities and about 520
 /// hours moving came to 1,001 requests and about 115 MB.
 #[test]

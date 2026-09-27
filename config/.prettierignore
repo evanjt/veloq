@@ -1,15 +1,14 @@
-# Patterns here are matched against paths relative to this file, so they must
-# stay unanchored: a bare `android/` matches because the relative path carries
-# a `../`, but a leading-slash `/android/` would resolve under config/ and
-# match nothing. Anchor a pattern only from a root-level .prettierignore.
+# Patterns here are matched against paths relative to this file, which start
+# with `../`. Any slash before the trailing one anchors a pattern to config/,
+# so `/android/` and `src/assets/` both match nothing. A bare name such as
+# `android/` matches at any depth, and a multi-segment path needs a leading
+# `**/`, as in `**/src/assets/`.
 
 node_modules/
 android/
 ios/
 .expo/
 rust/
-modules/veloqrs/android/
-modules/veloqrs/ios/
 *.lock
 *.log
 basemap*.generated.ts

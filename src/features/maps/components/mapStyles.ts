@@ -300,7 +300,7 @@ export interface CombinedSatelliteMapStyle {
       tiles: string[];
       tileSize: number;
       maxzoom: number;
-      bounds?: [number, number, number, number];
+      bounds?: [number, number, number, number] | undefined;
     }
   >;
   layers: (
@@ -587,7 +587,7 @@ function satelliteLayerStack(): { id: SatelliteSourceId; minzoom: number }[] {
  *
  * It used to credit every source whose box contained the point plus EOX
  * unconditionally, which over Valais named IGN France for ground it does not
- * draw and Sentinel-2 underneath imagery that fully covers it (B410).
+ * draw and Sentinel-2 underneath imagery that fully covers it.
  */
 export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: number): string {
   for (const { id, minzoom } of satelliteLayerStack()) {

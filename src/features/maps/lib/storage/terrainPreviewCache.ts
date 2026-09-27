@@ -410,7 +410,7 @@ export async function deleteTerrainPreviewsForActivity(activityId: string): Prom
  * Called after a render lands, never before, so a failed re-render leaves the
  * card with the image it already had. Without it every style and render the
  * athlete has ever tried for an activity stays on disk under its own key, an
- * unbounded set of orphaned JPEGs per card on anyone who experiments (B416).
+ * unbounded set of orphaned JPEGs per card on anyone who experiments.
  */
 export async function deleteSupersededTerrainPreviews(
   activityId: string,

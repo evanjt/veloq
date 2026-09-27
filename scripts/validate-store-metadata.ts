@@ -125,7 +125,7 @@ function getVersionCodeFromAppJson(): number | null {
  *
  * `validateMetadata` reads one version code, so a file goes over the cap only
  * on the release that ships it and is never looked at again. Sixteen of them
- * had drifted over before anyone counted (`B103`), and the same edit that
+ * had drifted over before anyone counted, and the same edit that
  * lengthens a translation for an old build lengthens it silently.
  */
 export function oversizedChangelogs(): ValidationError[] {

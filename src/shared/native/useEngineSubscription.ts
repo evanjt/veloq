@@ -55,8 +55,12 @@ export function useEngineSubscription(events: EngineEvent[]): number {
     }
     let cancelled = false;
 
+    // Rebuilt from the key rather than read from `events`, so the key is the
+    // whole dependency and a changed list cannot hide behind an unchanged one.
+    // An empty key splits to one empty name, which is no channel at all.
+    const list = eventKey === '' ? [] : (eventKey.split(',') as EngineEvent[]);
     const cb = () => refreshRef.current();
-    const unsubscribes = events.map((event) => engine.subscribe(event, cb));
+    const unsubscribes = list.map((event) => engine.subscribe(event, cb));
     if (missedRef.current && !cancelled) {
       refreshRef.current();
     }
@@ -66,7 +70,7 @@ export function useEngineSubscription(events: EngineEvent[]): number {
       cancelled = true;
       unsubscribes.forEach((u) => u());
     };
-  }, [eventKey, engine]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [eventKey, engine]);
 
   return trigger;
 }
@@ -77,7 +81,7 @@ export function useEngineSubscription(events: EngineEvent[]): number {
  *
  * The counter [`useEngineSubscription`] returns is a key, not a value: a caller
  * lists it in a memo's deps so the read re-runs after a sync, and the memo's
- * body never touches it. `react-hooks/exhaustive-deps` is then right on the
+ * body never touches it. The hooks dependency rule is then right on the
  * syntax and wrong on the purpose, and the reflex it invites, deleting the
  * name, leaves the read showing what was true at mount.
  *
@@ -91,23 +95,37 @@ export function useEngineSubscription(events: EngineEvent[]): number {
  *       [id, readSections]
  *     );
  *
+ * `keys` are the caller's own reasons to look again, a refresh counter bumped
+ * after an edit or a pull-to-refresh, which no engine event announces. They
+ * move the reader's identity the same way an announcement does, so the memo
+ * still names one honest dependency. An empty event list is a reader keyed on
+ * those alone.
+ *
  * `undefined` when the engine is not open, which is the same answer a caller
  * got from `getEngine()?.x()` and needs no new branch.
  */
+export type EngineReadKey = string | number | boolean | null | undefined;
+
 export function useEngineRead(
-  events: EngineEvent[]
+  events: EngineEvent[],
+  keys: readonly EngineReadKey[] = []
 ): <T>(read: (engine: NonNullable<ReturnType<typeof getEngine>>) => T) => T | undefined {
   const generation = useEngineSubscription(events);
+  // Callers pass a fresh array literal every render, so the serialised keys
+  // are the identity, the same reasoning as the event key above.
+  const keyId = JSON.stringify(keys);
 
-  // The generation is the whole dependency: a new identity per announcement is
-  // what re-runs every memo keyed on this reader, and holding it stable in
-  // between is what stops one re-running on an unrelated render.
+  // The generation and the keys are the whole dependency: a new identity per
+  // announcement or key move is what re-runs every memo keyed on this reader,
+  // and holding it stable in between is what stops one re-running on an
+  // unrelated render.
   return useCallback(
     <T>(read: (engine: NonNullable<ReturnType<typeof getEngine>>) => T): T | undefined => {
       void generation;
+      void keyId;
       const engine = getEngine();
       return engine ? read(engine) : undefined;
     },
-    [generation]
+    [generation, keyId]
   );
 }

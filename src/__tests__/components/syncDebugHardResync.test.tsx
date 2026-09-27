@@ -16,13 +16,13 @@ const mockEngine = {
   clear: jest.fn(),
   getActivityIds: jest.fn(() => []),
   getStats: jest.fn(() => undefined),
+  subscribe: jest.fn(() => () => {}),
 };
 
 // No locale is loaded here, so the translator answers with the key it was asked.
 jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/activity', () => ({ useActivities: () => ({ data: [] }) }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({ useEngineSubscription: () => 0 }));
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({
@@ -36,6 +36,7 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
 jest.mock('@/shared/storage/gpsStorage', () => ({ deleteGpsTracks: jest.fn() }));
 jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({ invalidateQueries: mockInvalidate }),
 }));
 

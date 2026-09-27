@@ -89,7 +89,6 @@ export async function initializeI18n(savedLocale?: SupportedLocale | null): Prom
     },
 
     load: 'currentOnly',
-    detection: undefined,
     returnNull: false,
     returnEmptyString: false,
   });

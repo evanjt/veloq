@@ -30,12 +30,15 @@ jest.mock('@/features/auth/lib/accountChange', () => ({
   confirmAccountChange: jest.fn(async () => true),
   getCachedAthleteId: jest.fn(async () => null),
 }));
-jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({}) }));
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({}),
+}));
 
 // The hook asks whether the radio is up before it asks the server, and this
 // case is about what happens when it is.
 jest.mock('@/shared/app/NetworkContext', () => ({ useNetwork: () => ({ isOnline: true }) }));
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 // Declared after the mocks, not before: the factory is hoisted above every
 // `const` in this file, so a mock named up there is still undefined when it

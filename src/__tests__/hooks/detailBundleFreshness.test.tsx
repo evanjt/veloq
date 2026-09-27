@@ -88,6 +88,28 @@ describe('detail bundle freshness', () => {
     expect(commits).toEqual([1, 2]);
   });
 
+  it('re-reads the section bundle when the caller bumps its refresh key', () => {
+    let count = 1;
+    mockGetEngine.mockReturnValue({
+      subscribe: () => () => {},
+      getSectionDetailData: () => sectionDetail(count),
+    });
+
+    function Probe({ refreshKey }: { refreshKey: number }) {
+      const value = useSectionDetailData('a', refreshKey).data?.activityCount;
+      return <Text testID="count">{String(value)}</Text>;
+    }
+    const screen = render(<Probe refreshKey={0} />);
+    expect(screen.getByTestId('count')).toHaveTextContent('1');
+
+    count = 2;
+    screen.rerender(<Probe refreshKey={0} />);
+    expect(screen.getByTestId('count')).toHaveTextContent('1');
+
+    screen.rerender(<Probe refreshKey={1} />);
+    expect(screen.getByTestId('count')).toHaveTextContent('2');
+  });
+
   it('keeps the bundle it has when the read goes quiet', () => {
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},

@@ -23,6 +23,7 @@ jest.mock('react-native-iap', () => ({
 }));
 
 jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
     t: (key: string, params?: Record<string, unknown>) =>
       params ? `${key}:${Object.values(params).join(',')}` : key,

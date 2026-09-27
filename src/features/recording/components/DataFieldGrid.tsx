@@ -48,7 +48,7 @@ interface DataFieldGridProps {
   /** Live HR zone; tints the heart-rate tile so effort reads at a glance. */
   hrZone?: HrZoneInfo | null;
   /** Long-press a tile to swap its field in place. */
-  onLongPressField?: (index: number, field: DataFieldType) => void;
+  onLongPressField?: ((index: number, field: DataFieldType) => void) | undefined;
   style?: ViewStyle;
 }
 

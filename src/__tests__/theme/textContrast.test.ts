@@ -106,7 +106,7 @@ describe('body text clears AA on every surface it is drawn on', () => {
    * shade darker on white and a shade lighter on black was neither: 4.34:1 on
    * `backgroundAlt` and 3.24:1 on `surfaceCard`, read at 269 sites. It is body
    * copy, a caption or a unit, not an inactive control, so the exemption
-   * `textDisabled` carries does not reach it (B605).
+   * `textDisabled` carries does not reach it.
    */
   it.each(Object.keys(LIGHT_SURFACES))('light textMuted on %s', (surface) => {
     const ground = LIGHT_SURFACES[surface as keyof typeof LIGHT_SURFACES];
@@ -129,7 +129,7 @@ describe('body text clears AA on every surface it is drawn on', () => {
    * somewhere, and 1.4.11's exemption for a graphical object does not reach text
    * at all, so each of these sites either took a text token or took a variant of
    * its own hue measured here. Lightness moves, hue and saturation do not, so the
-   * screen still reads gold for a PR and green for the optimal zone (B927).
+   * screen still reads gold for a PR and green for the optimal zone.
    */
   const TEXT_VARIANTS = [
     'chartGoldText',
@@ -191,7 +191,7 @@ describe('body text clears AA on every surface it is drawn on', () => {
  * Scenario: the five form-zone tokens are fills for the chart bands and the
  * sparkline, and every screen that names the zone also draws the number and the
  * zone name in the same colour. A band is a ground and 1.4.11 exempts it; text
- * is held to 1.4.3 at 4.5:1 whatever names it (B928).
+ * is held to 1.4.3 at 4.5:1 whatever names it.
  *
  * Expected behaviour: the text family beside the fills clears 4.5:1 on every
  * surface a zone-coloured word is drawn on, in both themes, including the two
@@ -244,7 +244,7 @@ describe('form zone text clears AA on every surface it is drawn on', () => {
  *
  * Expected behaviour: the mark-grade tokens clear it on every surface they are
  * drawn on. `chartGold` and `chartGreen` do not, which is why the mark tokens
- * exist beside them (B929).
+ * exist beside them.
  */
 describe('a mark that carries its own meaning clears AA for a graphical object', () => {
   const LIGHT_MARKS = {
@@ -305,7 +305,7 @@ describe('no ground token colours text', () => {
    * Every ground-family token, which is the series hues and the fills beside
    * them. A ground is a ground because nothing reads it as text, so the moment
    * a `Text` style does, the family line in `tokenFamilies.ts` is a claim the
-   * tree contradicts (S34).
+   * tree contradicts.
    */
   const GROUNDS = Object.keys(TOKEN_FAMILIES).filter((token) => TOKEN_FAMILIES[token] === 'ground');
 
@@ -461,7 +461,7 @@ describe('the marks the screens draw come from that family', () => {
 /**
  * Scenario: the palette had no rule separating a text token from a fill token,
  * so nothing stopped the next one landing under the bar. Four did, and each was
- * found by somebody reading a screen rather than by a gate (S34).
+ * found by somebody reading a screen rather than by a gate.
  *
  * Expected behaviour: every token in `colors` and `darkColors` is in a family,
  * a text token clears 4.5:1 and a mark 3:1 on the grounds it is drawn on in the

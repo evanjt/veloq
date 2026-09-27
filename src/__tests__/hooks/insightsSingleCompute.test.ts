@@ -30,11 +30,6 @@ jest.mock('@/features/insights/lib/computeInsightsData', () => ({
   computeInsightsFromData: jest.fn(() => []),
 }));
 
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
-  useFocusEffect: jest.fn(),
-}));
-
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const mockFetch = fetchInsightsDataFromEngine as jest.MockedFunction<
   typeof fetchInsightsDataFromEngine

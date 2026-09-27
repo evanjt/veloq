@@ -22,27 +22,32 @@
 //            because a barrel is not a hop anybody wrote.
 //   memo     the call sits inside useMemo. Runs when the deps change, so it is
 //            only as fresh as its key. Deps that name the reader
-//            `useEngineRead` hands back, a subscription trigger, or a
-//            precomputed value the caller passes instead of the read, are the
-//            sanctioned shape and pass. Deps that name none of those never
-//            re-run after a sync, so the screen shows what was true at mount:
-//            those fail.
+//            `useEngineRead` hands back, a caller's refresh key, or a
+//            precomputed value the caller passes instead of the read, pass.
+//            Deps that name none of those never re-run after a sync, so the
+//            screen shows what was true at mount: those fail.
 //
-//            The reader is the shape to write now. A bare trigger is a key the
-//            memo body never reads, so `exhaustive-deps` calls it an
-//            unnecessary dependency and the clean-looking fix, deleting it,
-//            silently freezes the read at mount.
+//            A memo whose only re-read key is the counter a
+//            `useEngineSubscription` call in the same function returned fails
+//            too. That trigger is a key the memo body never reads, so
+//            `exhaustive-deps` calls it an unnecessary dependency, the site
+//            takes a per-line disable to keep it, and the clean-looking fix,
+//            deleting it, silently freezes the read at mount. `useEngineRead`
+//            is the same key said in a way the body uses. A key the caller
+//            passes in, `refreshKey` or `tick`, is not a trigger this function
+//            subscribed to and is left alone.
 //   init     the call sits in a useState or useReducer lazy initialiser. Runs
 //            once per mount, before the first paint. Reported, not failed.
 //
 // An engine read is a call through getEngine(), getNativeModule(), a binding
-// initialised from one of those, or a parameter named engine. Reads inside a
-// boundary are not reported.
+// initialised from one of those or from useEngineReady(), which returns the
+// same handle, or a parameter named engine. Reads inside a boundary are not
+// reported.
 //
 // `direct` and `helper` reads fail the run unless the file is in ALLOWLIST with
 // a reason, and so does an unkeyed `memo` read unless the file is in
-// MEMO_ALLOWLIST. Keyed `memo` and `init` reads are printed under --verbose and
-// never fail.
+// MEMO_ALLOWLIST. A bare-trigger `memo` read always fails. Keyed `memo` and
+// `init` reads are printed under --verbose and never fail.
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
@@ -60,9 +65,8 @@ const VERBOSE = process.argv.includes('--verbose');
 const JSON_OUT = process.argv.includes('--json');
 
 // Files whose render-time read is known, measured, and deliberate. Each entry
-// carries the reason so the next reader does not re-derive it. An entry with an
-// open audit item is a debt, not an exemption, and comes out when the item
-// closes.
+// carries the reason so the next reader does not re-derive it. An entry is a
+// debt, not an exemption, and comes out when its read moves into a screen read.
 const ALLOWLIST = new Map([
   // Re-reads once when the engine opens after the row mounted, guarded by the
   // ready nonce, so it is one extra read per open and not one per render.
@@ -73,13 +77,15 @@ const ALLOWLIST = new Map([
 ]);
 
 // A memo dep that makes the read re-run when the engine's data changes. A
-// subscription counter is the trigger, however the caller names it; a
+// refresh counter the caller passes is the key, however it is named; a
 // precomputed value is the caller having already read it, so the memo's own
 // read is the fallback path and stays as stale as its input. A screen bundle
 // hoisted out of its wrapper into a local is the same thing under the other
 // name the codebase uses for it, and keys on the array rather than on the
 // literal the screen rebuilds each render, so `bundled` counts too.
-const KEYED_DEP = /trigger|refresh|refetch|reload|nonce|revision|version|tick|precomputed|bundled/i;
+const REREAD_DEP = /trigger|refresh|refetch|reload|nonce|revision|version|tick/i;
+const PRECOMPUTED_DEP = /precomputed|bundled/i;
+const KEYED_DEP = new RegExp(`${REREAD_DEP.source}|${PRECOMPUTED_DEP.source}`, 'i');
 
 // The reader `useEngineRead` hands back. Its identity changes when a subscribed
 // event fires and at no other time, so a memo depending on it re-runs then and
@@ -88,25 +94,46 @@ const KEYED_DEP = /trigger|refresh|refetch|reload|nonce|revision|version|tick|pr
 // matches.
 const KEYED_READER = /(^|[^A-Za-z])read[A-Z]/;
 
+const isKeyedDep = (text) => KEYED_DEP.test(text) || KEYED_READER.test(text);
+
 // Does a memo's dep list carry something that re-runs it after a sync?
 function memoIsKeyed(deps) {
   if (!deps || deps === '(none)') return false;
   const inner = deps.replace(/^\[|\]$/g, '').trim();
   if (inner === '') return false;
-  return KEYED_DEP.test(inner) || KEYED_READER.test(inner);
+  return isKeyedDep(inner);
+}
+
+// The deps that re-read a memo, when every one of them is a bare
+// `useEngineSubscription` trigger: the names, or null. A subscription result
+// counts under any name, since the call and not the spelling makes it a
+// trigger. A precomputed value is not a re-read key: the memo's own read is
+// the fallback for when the caller passed none, and the trigger is then the
+// only thing that re-runs it.
+function bareTriggers(depsNode) {
+  if (!depsNode || !ts.isArrayLiteralExpression(depsNode)) return null;
+  const triggers = [];
+  for (const el of depsNode.elements) {
+    const trigger = ts.isIdentifier(el) && initialiserCalls(el, 'useEngineSubscription');
+    if (trigger) triggers.push(el.text);
+    else if (REREAD_DEP.test(el.getText()) || KEYED_READER.test(el.getText())) return null;
+  }
+  return triggers.length > 0 ? triggers : null;
 }
 
 // Files whose useMemo read is keyed on its inputs alone by design, with the
-// reason. Same rule as ALLOWLIST: an entry with an open audit item is a debt.
+// reason. Same rule as ALLOWLIST: an entry is a debt.
 const MEMO_ALLOWLIST = new Map([
   // Feeds a useState initialiser and is named for it: one read per mount, with
   // its own refresh path for everything after.
   ['src/features/activity/hooks/useActivityBoundsCache.ts', 'initial value, refreshed elsewhere'],
-  // Both reads are keyed on the flag the backup itself flips, and a backup on
-  // this screen is the only thing that moves either value.
+  // Keyed on the handle useEngineReady returns, which changes when the engine
+  // opens, clears or is quarantined. No event announces a settings change, and
+  // the row's own writes land in local state, so the handle is the only other
+  // thing that moves these. The settings screen read takes them over.
   [
-    'src/features/settings/components/BackupSection.tsx',
-    'keyed on the backup running, which is what changes it',
+    'src/features/settings/components/ExportPrivacyRow.tsx',
+    'keyed on the engine handle, and the row writes the settings itself',
   ],
 ]);
 
@@ -190,23 +217,22 @@ function engineReadName(call) {
   return null;
 }
 
-// Is this identifier bound to an engine handle? Climb the scopes to the nearest
-// declaration of the name. A `const engine = getEngine()` is a handle, and so
-// is a parameter called engine. A loop variable or a destructured field is not,
-// whatever it is called.
-function bindsEngine(id) {
+// The nearest declaration of this identifier's name, climbing the scopes:
+// { param } for a function parameter, { loop } for a for-of or for-in
+// variable, { decl } for a variable declaration, or null when none is in view.
+function nearestBinding(id) {
   const name = id.text;
   for (let scope = id.parent; scope; scope = scope.parent) {
     if (isFunctionLike(scope)) {
       for (const param of scope.parameters) {
-        if (ts.isIdentifier(param.name) && param.name.text === name) return /engine$/i.test(name);
+        if (ts.isIdentifier(param.name) && param.name.text === name) return { param };
       }
     }
     if (ts.isForOfStatement(scope) || ts.isForInStatement(scope)) {
       const init = scope.initializer;
       if (ts.isVariableDeclarationList(init)) {
         for (const d of init.declarations) {
-          if (ts.isIdentifier(d.name) && d.name.text === name) return false;
+          if (ts.isIdentifier(d.name) && d.name.text === name) return { loop: d };
         }
       }
     }
@@ -218,18 +244,30 @@ function bindsEngine(id) {
     for (const st of statements) {
       if (!ts.isVariableStatement(st)) continue;
       for (const d of st.declarationList.declarations) {
-        if (!ts.isIdentifier(d.name) || d.name.text !== name) continue;
-        // The declaration is a handle only when the loader is the initialiser
-        // itself. A memo whose body happens to mention getEngine binds an
-        // array or a map, and its own methods are not engine reads.
-        return (
-          d.initializer !== undefined &&
-          /^\(*(?:getEngine|getNativeModule)\s*\(/.test(d.initializer.getText())
-        );
+        if (ts.isIdentifier(d.name) && d.name.text === name) return { decl: d };
       }
     }
   }
-  return false;
+  return null;
+}
+
+// Is this identifier a variable whose initialiser is itself a call to one of
+// these names? Only the initialiser counts: a memo whose body happens to
+// mention getEngine binds an array or a map, not the handle.
+function initialiserCalls(id, ...callees) {
+  const init = nearestBinding(id)?.decl?.initializer;
+  if (!init) return false;
+  return new RegExp(`^\\(*(?:${callees.join('|')})\\s*\\(`).test(init.getText());
+}
+
+// Is this identifier bound to an engine handle? A `const engine = getEngine()`
+// is a handle, and so is `useEngineReady()`, which returns the same one, and a
+// parameter called engine. A loop variable or a destructured field is not,
+// whatever it is called.
+function bindsEngine(id) {
+  const binding = nearestBinding(id);
+  if (binding?.param) return /engine$/i.test(id.text);
+  return initialiserCalls(id, 'getEngine', 'getNativeModule', 'useEngineReady');
 }
 
 // Where does a callback passed as an argument run? Returns 'render' when React
@@ -264,12 +302,13 @@ function classifyCallbackArg(fn) {
 function renderContext(node) {
   let kind = 'direct';
   let deps = null;
+  let triggers = null;
   let cur = node.parent;
   while (cur) {
     if (isFunctionLike(cur)) {
       const name = functionName(cur);
       if (name && (isHookName(name) || isComponentName(name))) {
-        return { owner: name, kind, fn: cur, deps };
+        return { owner: name, kind, fn: cur, deps, triggers };
       }
       // Anonymous or helper-named function: what is it passed to?
       const where = classifyCallbackArg(cur);
@@ -287,6 +326,7 @@ function renderContext(node) {
         kind = 'memo';
         const args = cur.parent.arguments;
         deps = args.length > 1 ? args[1].getText() : '(none)';
+        triggers = bareTriggers(args[1]);
       } else if (where === 'init') {
         kind = 'init';
       }
@@ -365,6 +405,7 @@ function parseFile(file) {
             member,
             kind: ctx.kind,
             deps: ctx.deps,
+            triggers: ctx.triggers,
           });
         } else if (ctx.kind === 'helper-body' && ctx.fn && isModuleLevelFunction(ctx.fn)) {
           if (!helperReads.has(ctx.owner)) helperReads.set(ctx.owner, []);
@@ -379,6 +420,7 @@ function parseFile(file) {
             line: line(node),
             kind: ctx.kind,
             deps: ctx.deps,
+            triggers: ctx.triggers,
           });
         }
       }
@@ -446,6 +488,7 @@ function joinHelpers(modules) {
           kind: c.kind === 'direct' ? 'helper' : c.kind,
           via: `${c.callee}:${r.line}`,
           deps: c.deps,
+          triggers: c.triggers,
         });
       }
     }
@@ -458,8 +501,9 @@ function main() {
   for (const file of walk(SRC)) modules.set(file, parseFile(file));
   const all = [...modules.values()].flatMap((m) => m.findings).concat(joinHelpers(modules));
   const failing = all.filter((f) => f.kind === 'direct' || f.kind === 'helper');
-  const memo = all.filter((f) => f.kind === 'memo' && memoIsKeyed(f.deps));
-  const unkeyedMemo = all.filter((f) => f.kind === 'memo' && !memoIsKeyed(f.deps));
+  const bareTrigger = all.filter((f) => f.kind === 'memo' && f.triggers);
+  const memo = all.filter((f) => f.kind === 'memo' && !f.triggers && memoIsKeyed(f.deps));
+  const unkeyedMemo = all.filter((f) => f.kind === 'memo' && !f.triggers && !memoIsKeyed(f.deps));
   const init = all.filter((f) => f.kind === 'init');
 
   if (JSON_OUT) {
@@ -521,10 +565,20 @@ function main() {
     for (const f of violations) console.error(fmt(f));
     console.error('');
     console.error('Fix: move the read into a useQuery queryFn, a useEffect, or an event handler,');
+    console.error('     or read it in a useMemo keyed on a reader from useEngineRead. If the read');
+    console.error('     must stay, add the file to ALLOWLIST in this script with the reason.');
+    process.exit(1);
+  }
+
+  if (bareTrigger.length > 0) {
     console.error(
-      '     or key it on a subscription trigger inside useMemo. If the read must stay,'
+      'Engine reads inside a useMemo keyed only on a bare useEngineSubscription trigger:'
     );
-    console.error('     add the file to ALLOWLIST in this script with the audit item and reason.');
+    for (const f of bareTrigger) console.error(`${fmt(f)}  trigger ${f.triggers.join(', ')}`);
+    console.error('');
+    console.error('Fix: take a reader from useEngineRead for the same events, read through it');
+    console.error('     in the memo, and put the reader in the deps in place of the trigger.');
+    console.error('     The body then uses its key, so no exhaustive-deps disable is needed.');
     process.exit(1);
   }
 
@@ -535,7 +589,7 @@ function main() {
     console.error('Fix: take a reader from useEngineRead for the event that announces');
     console.error('     this data and put it in the deps, or take the value precomputed from a');
     console.error('     caller that already read it. If the read must stay unkeyed, add the file');
-    console.error('     to MEMO_ALLOWLIST in this script with the audit item and reason.');
+    console.error('     to MEMO_ALLOWLIST in this script with the reason.');
     process.exit(1);
   }
 

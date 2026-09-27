@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
@@ -30,7 +30,9 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textMuted : colors.textSecondary;
 
-  const outcome = useMemo(() => getLastInsightOutcome(), [visible]);
+  // A module-level getter, so reading it each render costs nothing, and the
+  // render that opens the panel is the one that picks up the latest run.
+  const outcome = getLastInsightOutcome();
 
   if (!__DEV__) return null;
 

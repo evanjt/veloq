@@ -14,10 +14,10 @@ export interface NamedCorridor {
   name: string;
   /** The ground the name is keyed to, decoded for a static preview. */
   footprint: LatLng[];
-  sportType?: string;
+  sportType?: string | undefined;
   createdAt: string;
   /** Visible section carrying the name, absent while dormant. */
-  sectionId?: string;
+  sectionId?: string | undefined;
   coverage: number;
   /** Whether this intent is the one displayed on its section. */
   primary: boolean;

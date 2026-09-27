@@ -5,8 +5,8 @@
 // reads the bytes off the disk judges whichever session happens to have a file
 // open. On 2026-09-15 two em dashes inside another session's in-flight binding
 // regeneration failed `npm run audit` for the fleet, on a file nobody was
-// merging. That is `B922`'s defect, which the lint ceiling was fixed for, and
-// it was still live in three guards written after it.
+// merging. The lint ceiling had been fixed for exactly that, and the defect
+// was still live in three guards written after it.
 //
 // The bytes come back as buffers rather than strings: a guard has to tell text
 // from a binary blob before it decodes, and the index holds both.
@@ -98,7 +98,7 @@ export function indexedSources(root, pathspec = []) {
 
   // A reply that does not answer every request means the walk lost its place,
   // and a short map read by a guard is a clean tree over files nobody read. Say
-  // so rather than hand it back (`B1082`, and `S60` for the rule).
+  // so rather than hand it back: a guard never reports clean over a short read.
   if (read !== files.length) {
     throw new Error(
       `indexedSources: asked git for ${files.length} files and could only read ${read}. ` +

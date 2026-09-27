@@ -27,24 +27,24 @@ import type { RouteGroup, RoutePoint } from '@/types';
 
 /** Minimal route group type for map display - only needs points and distance for signature */
 type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {
-  signature?: { points: RoutePoint[]; distance: number } | null;
+  signature?: { points: RoutePoint[]; distance: number } | null | undefined;
 };
 
 interface RouteMapViewProps {
   routeGroup: RouteGroupForMap;
-  height?: number;
+  height?: number | undefined;
   /** Enable map interaction (zoom, pan). Default false for preview, true for detail. */
-  interactive?: boolean;
+  interactive?: boolean | undefined;
   /** Activity ID to highlight (show prominently while others fade) */
-  highlightedActivityId?: string | null;
+  highlightedActivityId?: string | null | undefined;
   /** Specific lap points to highlight (takes precedence over highlightedActivityId) */
-  highlightedLapPoints?: RoutePoint[];
+  highlightedLapPoints?: RoutePoint[] | undefined;
   /** Enable tap to fullscreen */
-  enableFullscreen?: boolean;
+  enableFullscreen?: boolean | undefined;
   /** Callback when map is tapped (only if enableFullscreen is false) */
-  onPress?: () => void;
+  onPress?: (() => void) | undefined;
   /** Activity signatures for trace rendering (activity ID -> points) */
-  activitySignatures?: Record<string, { points: RoutePoint[] }>;
+  activitySignatures?: Record<string, { points: RoutePoint[] }> | undefined;
 }
 
 const FIT_PADDING = 40;

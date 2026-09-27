@@ -113,9 +113,12 @@ fn sport_map(tracks: &[(String, Vec<GpsPoint>)]) -> HashMap<String, String> {
         .collect()
 }
 
+/// An activity id and its track.
+type Track = (String, Vec<GpsPoint>);
+
 /// Create 5 activities sharing the same ~1.5 km central segment.
 /// Each activity approaches from a well-separated direction.
-fn build_fixture() -> (Vec<(String, Vec<GpsPoint>)>, HashMap<String, String>) {
+fn build_fixture() -> (Vec<Track>, HashMap<String, String>) {
     let tracks = tracks_from_variants(&FIXTURE_VARIANTS, 0);
     let sport_types = sport_map(&tracks);
     (tracks, sport_types)

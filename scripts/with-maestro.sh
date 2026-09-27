@@ -9,7 +9,7 @@
 # requested, but it is not connected", which reads as the S22 having dropped.
 # `--udid`, `-p android` and `ANDROID_SERIAL` all behaved the same way, and
 # `adb -s 192.168.1.118:5555 shell` worked throughout. Measured 2026-09-19 on
-# Maestro 2.1.0 (`B1165`).
+# Maestro 2.1.0.
 #
 # So the preflight says what the run actually met. Clearing it is `adb
 # disconnect <serial>`, which did not always take here: a transport that will
@@ -42,9 +42,9 @@ fi
 # Which handset the flow reaches. Maestro chooses a transport itself when it is
 # not told, and `ANDROID_SERIAL` does not hold it: that steers `adb`, and
 # Maestro's own selection reads it the way it reads `--device`, by enumerating
-# everything (`B1165`). So a run locked to one phone drove the other, with every
+# everything. So a run locked to one phone drove the other, with every
 # `adb` call in the same shell reaching the locked one, which reads as the lock
-# working (`B1208`). The serial comes from the same file the lock derives its
+# working. The serial comes from the same file the lock derives its
 # path from, so the phone that is locked is the phone that is driven.
 . "$(dirname "$0")/device-lock-path.sh"
 veloq_refuse_if_ambiguous with-maestro || exit 1

@@ -368,7 +368,7 @@ fn gate_reset_reference_fully_resets_like_reset_bounds() {
 /// recalc still reports: `polyline_point_count` was cut from
 /// `FfiSectionRecalcResult` with the twenty other slots no reader wanted, and
 /// this assertion was left reading a field that no longer existed, which
-/// stopped the whole synthetic suite from building (`SB17`).
+/// stopped the whole synthetic suite from building.
 ///
 /// It converges: measured 2026-09-13 on the battery arm, both recalcs answer
 /// 251.5 m, a drift of nought. The tolerance is a centimetre rather than

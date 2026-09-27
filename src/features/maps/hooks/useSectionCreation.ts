@@ -19,8 +19,8 @@ interface UseSectionCreationParams {
   creationMode: boolean;
   externalCreationState: CreationState | undefined;
   validCoordinates: LatLng[];
-  onSectionCreated?: (result: SectionCreationResult) => void;
-  onCreationCancelled?: () => void;
+  onSectionCreated?: ((result: SectionCreationResult) => void) | undefined;
+  onCreationCancelled?: (() => void) | undefined;
 }
 
 interface UseSectionCreationResult {

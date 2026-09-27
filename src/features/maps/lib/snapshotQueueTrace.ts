@@ -33,10 +33,10 @@ export interface SnapshotQueueEvent {
   /** Epoch milliseconds, handed in rather than read, so nothing here spends a clock. */
   at: number;
   kind: SnapshotQueueEventKind;
-  activityId?: string;
-  workerId?: number;
+  activityId?: string | undefined;
+  workerId?: number | undefined;
   /** Why, for the kinds that have a why. The watchdog's hold reason above all. */
-  detail?: string;
+  detail?: string | undefined;
 }
 
 /** How many events the buffer keeps. Two full worker passes over a feed page. */

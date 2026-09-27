@@ -346,9 +346,7 @@ impl PersistentEngine {
 
             // Compute running-average trend for each traversal
             let mut running_sum = 0.0f64;
-            let mut count = 0u32;
-
-            for (activity_id, lap_time) in &traversals {
+            for (count, (activity_id, lap_time)) in traversals.iter().enumerate() {
                 let rival =
                     crate::persistence::records::rival_of(*lap_time, best_time, second_best_time);
                 let is_pr = crate::persistence::records::is_personal_record(*lap_time, rival);
@@ -392,7 +390,6 @@ impl PersistentEngine {
                 }
 
                 running_sum += lap_time;
-                count += 1;
             }
         }
 
@@ -454,7 +451,8 @@ impl PersistentEngine {
     /// lap time and keeps a NULL heart rate for good, which is the truth about
     /// that lap. Returns the number of rows updated.
     fn backfill_null_lap_times(&self) -> SqlResult<usize> {
-        let portions: Vec<(String, String, u32, u32, f64, Option<f64>, Option<f64>)> = self
+        type PortionRow = (String, String, u32, u32, f64, Option<f64>, Option<f64>);
+        let portions: Vec<PortionRow> = self
             .db
             .prepare(
                 "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,

@@ -7,17 +7,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { localBackend } from '@/features/settings/lib/autobackup/backends/localBackend';
 
-jest.mock('expo-file-system/legacy', () => ({
-  documentDirectory: 'file:///docs/',
-  getInfoAsync: jest.fn(),
-  makeDirectoryAsync: jest.fn(),
-  readDirectoryAsync: jest.fn(),
-  readAsStringAsync: jest.fn(),
-  writeAsStringAsync: jest.fn(),
-  copyAsync: jest.fn(),
-  deleteAsync: jest.fn(),
-}));
-
 const fs = FileSystem as jest.Mocked<typeof FileSystem>;
 const DIR = 'file:///docs/backups/';
 

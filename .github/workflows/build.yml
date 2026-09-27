@@ -8,8 +8,6 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
   pull_request:
     branches: [main]
-  schedule:
-    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       build_type:
@@ -37,8 +35,8 @@ env:
 
 jobs:
   # A pull request pays for the iOS build only when something native can
-  # change. The gate's APK is the app check for everything else. push,
-  # schedule and dispatch skip this job and build unconditionally below.
+  # change. The Android build is the app check for everything else. push and
+  # dispatch skip this job and build unconditionally below.
   changes:
     name: Detect Native Changes
     if: github.event_name == 'pull_request'
@@ -69,12 +67,10 @@ jobs:
   # ============================================
   # Build Android
   # ============================================
-  # Not on pull requests: the E2E gate builds and exercises the APK there, and
-  # this job's PR artefact was downloaded by nothing. e2e-smoke needs it on
-  # push, schedule and dispatch, which still build.
+  # On pull requests too: the E2E gate now runs after a push to main, so this is
+  # the one build a Dependabot bump meets before it merges.
   build-android:
     name: Build Android
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -103,9 +99,9 @@ jobs:
       # Source-hash cache, skip build if code unchanged.
       # Key is segmented by build type so an APK-only cache from a feature branch
       # can't satisfy a release build that also needs the AAB.
-      - name: Cache built APK/AAB
+      - name: Restore built APK/AAB
         id: apk-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             android/app/build/outputs/apk/release/app-release.apk
@@ -134,15 +130,19 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: gradle/actions/setup-gradle@v6
         with:
-          cache-read-only: false
+          # Pull requests read main's Gradle home and write none, so they cannot
+          # evict it from the 10 GB budget.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-cleanup: on-success
           gradle-home-cache-includes: |
             caches
             notifications
             wrapper
 
-      - name: Cache Metro bundler
+      - name: Restore Metro bundler
+        id: metro-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             /tmp/metro-*
@@ -156,13 +156,13 @@ jobs:
         run: npm ci
 
       # Rust library cache, skip toolchain install + compilation if Rust unchanged
-      - name: Cache Rust Android libraries
+      - name: Restore Rust Android libraries
         id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: modules/veloqrs/android/src/main/jniLibs
-          key: rust-android-${{ env.RELEASE_BUILD == 'true' && '4arch' || '2arch' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
+          key: rust-android-${{ env.RELEASE_BUILD == 'true' && '4arch' || '2arch' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml', 'rust-toolchain.toml') }}
 
       - name: Setup Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
@@ -171,6 +171,7 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
 
       - name: Build Rust libraries for Android
+        id: build-rust-android
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
@@ -191,6 +192,15 @@ jobs:
 
           echo "=== Verifying .so installation ==="
           find ../android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
+
+      # Every save in this job is skipped on a pull request: main's entries are
+      # the ones worth the space, and a PR's are unreadable from main anyway.
+      - name: Save Rust Android libraries
+        if: github.event_name != 'pull_request' && steps.build-rust-android.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: modules/veloqrs/android/src/main/jniLibs
+          key: ${{ steps.rust-android-cache.outputs.cache-primary-key }}
 
       - name: Write google-services.json
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -293,6 +303,22 @@ jobs:
             exit 1
           fi
 
+      # The Gradle time is CMake C++ for every React Native library. CMake reads
+      # the launcher variables from the environment at configure time, so ccache
+      # needs no Gradle change. The dev variant's store in e2e-gate.yml compiles
+      # the same sources and is a valid warm start.
+      - name: Setup ccache
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: android-ndk-prod-v1-${{ runner.os }}-${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/android/**', 'modules/**/android/**', 'modules/**/cpp/**') }}
+          restore-keys: |
+            android-ndk-prod-v1-${{ runner.os }}-
+            android-ndk-v2-${{ runner.os }}-
+          append-timestamp: false
+          max-size: 1G
+          save: ${{ github.event_name != 'pull_request' }}
+
       - name: Clean stale dex archives
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: |
@@ -301,6 +327,9 @@ jobs:
 
       - name: Build Android APK
         if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD != 'true'
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: |
           cd android && ./gradlew assembleRelease \
             -PreactNativeArchitectures=arm64-v8a,x86_64 \
@@ -308,11 +337,23 @@ jobs:
 
       - name: Build Android APK + AAB
         if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD == 'true'
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: cd android && ./gradlew assembleRelease bundleRelease --no-daemon --no-build-cache
 
       - name: Skip build (cache hit)
         if: steps.apk-cache.outputs.cache-hit == 'true'
         run: echo "Using cached APK (hash ${{ steps.version.outputs.source_hash }})"
+
+      - name: Save Metro bundler
+        if: github.event_name != 'pull_request' && steps.apk-cache.outputs.cache-hit != 'true' && steps.metro-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            /tmp/metro-*
+            node_modules/.cache
+          key: ${{ steps.metro-cache.outputs.cache-primary-key }}
 
       - name: Copy APK
         run: |
@@ -334,7 +375,7 @@ jobs:
           retention-days: 30
 
       - name: Upload APK for E2E
-        if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: android-apk-e2e
@@ -399,6 +440,17 @@ jobs:
           path: artifacts/*.aab
           retention-days: 30
 
+      # Last, after the AAB signing check: a build that fails it must not be
+      # cached, or the next build of the same source restores it and fails again.
+      - name: Save built APK/AAB
+        if: success() && github.event_name != 'pull_request' && steps.apk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+          key: ${{ steps.apk-cache.outputs.cache-primary-key }}
+
   # ============================================
   # Build iOS
   # ============================================
@@ -456,16 +508,6 @@ jobs:
           build-type-override: ${{ inputs.build_type }}
           source-profile: ios
 
-      # Source-hash cache for simulator .app. Skipped wherever signing runs, since the
-      # signing check and the IPA both read the project prebuild generates.
-      - name: Cache simulator app
-        if: github.ref != 'refs/heads/main' && github.ref_type != 'tag' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
-        id: app-cache
-        uses: actions/cache@v4
-        with:
-          path: ios/build/Build/Products/Release-iphonesimulator/Veloq.app
-          key: ios-sim-v1-${{ steps.version.outputs.source_hash }}
-
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -476,15 +518,13 @@ jobs:
       # Rust library cache, skip toolchain install + compilation if Rust unchanged
       - name: Restore Rust iOS libraries
         id: rust-ios-cache
-        if: steps.app-cache.outputs.cache-hit != 'true'
         uses: actions/cache/restore@v4
         with:
           path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
-          key: rust-ios-${{ env.RELEASE_BUILD == 'true' && 'full' || 'sim' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
+          key: rust-ios-${{ env.RELEASE_BUILD == 'true' && 'full' || 'sim' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml', 'rust-toolchain.toml') }}
 
       # C++ bindings are needed by Xcode even when Rust libs are cached
       - name: Copy C++ bindings for iOS
-        if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p modules/veloqrs/ios/cpp/generated
           cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
@@ -493,7 +533,7 @@ jobs:
           cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
 
       - name: Setup Rust for iOS
-        if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
+        if: steps.rust-ios-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust-ios
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim
@@ -501,7 +541,7 @@ jobs:
 
       - name: Build Rust for iOS
         id: build-rust
-        if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
+        if: steps.rust-ios-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           echo "=== Building veloqrs for iOS ==="
@@ -543,7 +583,7 @@ jobs:
       # The caches in this job save as soon as their contents exist rather than in the
       # post step, which runs only when the whole job succeeds.
       - name: Save Rust iOS libraries
-        if: steps.build-rust.outcome == 'success'
+        if: github.event_name != 'pull_request' && steps.build-rust.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
@@ -551,7 +591,6 @@ jobs:
 
       # ---- iOS Native Project ----
       - name: Restore iOS prebuild
-        if: steps.app-cache.outputs.cache-hit != 'true'
         id: ios-prebuild-cache
         uses: actions/cache/restore@v4
         with:
@@ -577,12 +616,11 @@ jobs:
         run: npm run sync:live-activity
 
       - name: Generate native project
-        if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
+        if: steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         run: APP_VARIANT=production npx expo prebuild --platform ios
 
       - name: Restore CocoaPods
         id: pods-cache
-        if: steps.app-cache.outputs.cache-hit != 'true'
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -595,7 +633,6 @@ jobs:
           key: cocoapods-v2-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
 
       - name: Setup Ruby
-        if: steps.app-cache.outputs.cache-hit != 'true'
         uses: ruby/setup-ruby@v1
         with:
           # excon 1.7.1 in the fastlane lockfile needs Ruby 3.3 or later
@@ -604,7 +641,6 @@ jobs:
           working-directory: config/fastlane
 
       - name: Install Pods
-        if: steps.app-cache.outputs.cache-hit != 'true'
         working-directory: ios
         run: |
           gem install cocoapods 2>/dev/null || true
@@ -612,7 +648,7 @@ jobs:
 
       # Saved before fastlane rewrites the project's signing settings.
       - name: Save iOS prebuild
-        if: steps.app-cache.outputs.cache-hit != 'true' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'pull_request' && steps.ios-prebuild-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -624,7 +660,7 @@ jobs:
           key: ${{ steps.ios-prebuild-cache.outputs.cache-primary-key }}
 
       - name: Save CocoaPods
-        if: steps.app-cache.outputs.cache-hit != 'true' && steps.pods-cache.outputs.cache-hit != 'true'
+        if: github.event_name != 'pull_request' && steps.pods-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -634,7 +670,6 @@ jobs:
 
       # ---- Simulator Build (always) ----
       - name: Initialize simulator
-        if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
           xcrun simctl list > /dev/null 2>&1 || true
           if ! xcrun simctl list devices available | grep -q "iPhone"; then
@@ -642,7 +677,6 @@ jobs:
           fi
 
       - name: Find simulator
-        if: steps.app-cache.outputs.cache-hit != 'true'
         id: simulator
         run: |
           DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 \(" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
@@ -654,7 +688,6 @@ jobs:
           echo "udid=$DEVICE_UDID" >> $GITHUB_OUTPUT
 
       - name: Build simulator app
-        if: steps.app-cache.outputs.cache-hit != 'true'
         run: |
           set -o pipefail
           xcodebuild -workspace ios/Veloq.xcworkspace \
@@ -673,14 +706,10 @@ jobs:
             }
 
       - name: Show ccache stats
-        if: ${{ !cancelled() && steps.app-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() }}
         run: |
           ccache --show-stats --verbose
           du -sh "$CCACHE_DIR"
-
-      - name: Skip build (cache hit)
-        if: steps.app-cache.outputs.cache-hit == 'true'
-        run: echo "Using cached simulator app (hash ${{ steps.version.outputs.source_hash }})"
 
       - name: Verify and package simulator app
         run: |
@@ -808,7 +837,7 @@ jobs:
 
       # After both xcodebuild runs, and whether or not the signed build passed.
       - name: Save ccache store
-        if: ${{ !cancelled() && steps.ccache.outcome == 'success' && steps.ccache.outputs.cache-hit != 'true' && steps.app-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && steps.ccache.outcome == 'success' && steps.ccache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
           path: ~/Library/Caches/ccache
@@ -913,7 +942,7 @@ jobs:
   e2e-smoke:
     name: E2E Smoke
     needs: build-android
-    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name != 'pull_request'
     # Per-push heartbeat: cancel a superseded smoke when a newer push lands on the
     # same ref so only the latest commit is smoke tested.
     concurrency:
@@ -982,3 +1011,44 @@ jobs:
           name: e2e-smoke-report
           path: smoke-report.xml
           retention-days: 7
+
+  # The one job branch protection requires from this workflow. Build iOS may be
+  # skipped only on a pull request that changes nothing native, and E2E Smoke
+  # only on a pull request, where it never runs.
+  build-required:
+    name: Build Required
+    needs: [changes, build-android, build-ios, e2e-smoke]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check results
+        env:
+          EVENT: ${{ github.event_name }}
+          CHANGES: ${{ needs.changes.result }}
+          NATIVE: ${{ needs.changes.outputs.native }}
+          ANDROID: ${{ needs.build-android.result }}
+          IOS: ${{ needs.build-ios.result }}
+          SMOKE: ${{ needs.e2e-smoke.result }}
+        run: |
+          echo "event=$EVENT changes=$CHANGES native=$NATIVE android=$ANDROID ios=$IOS smoke=$SMOKE"
+          failed=0
+          [ "$ANDROID" = success ] || failed=1
+          # A failed filter leaves `native` empty, which would read as nothing native.
+          if [ "$EVENT" = pull_request ]; then
+            [ "$CHANGES" = success ] || failed=1
+          fi
+          if [ "$EVENT" = pull_request ] && [ "$NATIVE" != true ]; then
+            [ "$IOS" = success ] || [ "$IOS" = skipped ] || failed=1
+          else
+            [ "$IOS" = success ] || failed=1
+          fi
+          if [ "$EVENT" = pull_request ]; then
+            [ "$SMOKE" = skipped ] || [ "$SMOKE" = success ] || failed=1
+          else
+            [ "$SMOKE" = success ] || failed=1
+          fi
+          if [ "$failed" = 1 ]; then
+            echo "::error::A required build did not pass."
+            exit 1
+          fi

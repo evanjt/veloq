@@ -38,7 +38,7 @@ export interface SnapshotRequest {
   flat?: boolean;
   /**
    * The athlete asked for this one render on the card they are looking at, so
-   * it goes to the head of the queue and survives an overflow (B416).
+   * it goes to the head of the queue and survives an overflow.
    */
   priority?: boolean;
   /**

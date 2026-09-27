@@ -2,7 +2,9 @@ import type { Insight } from '@/types';
 import { formatDuration } from '@/shared/format/format';
 
 /** Extract the primary metric value + unit from an insight for inline display */
-export function getInlineMetric(insight: Insight): { value: string; context?: string } | null {
+export function getInlineMetric(
+  insight: Insight
+): { value: string; context?: string | undefined } | null {
   const dp = insight.supportingData?.dataPoints;
   const comp = insight.supportingData?.comparisonData;
 

@@ -52,7 +52,7 @@ fn build_colour_lut() -> [[u8; 4]; 256] {
         (1.0, 204.0, 251.0, 241.0, 246.0),  // very pale teal highlight
     ];
 
-    for i in 1..256 {
+    for (i, entry) in lut.iter_mut().enumerate().skip(1) {
         let t = i as f32 / 255.0;
 
         // Find surrounding stops
@@ -72,7 +72,7 @@ fn build_colour_lut() -> [[u8; 4]; 256] {
         };
 
         let lerp = |a: f32, b: f32| -> u8 { (a + (b - a) * local_t).clamp(0.0, 255.0) as u8 };
-        lut[i] = [
+        *entry = [
             lerp(stops[lower].1, stops[upper].1),
             lerp(stops[lower].2, stops[upper].2),
             lerp(stops[lower].3, stops[upper].3),
@@ -818,14 +818,12 @@ pub fn invalidate_tiles_in_bounds(
 /// Clear all heatmap tiles from disk
 pub fn clear_all_tiles(base_path: &Path) -> u32 {
     let mut deleted = 0u32;
-    if base_path.exists() {
-        if let Ok(entries) = std::fs::read_dir(base_path) {
-            for entry in entries.flatten() {
-                if entry.path().is_dir() {
-                    if std::fs::remove_dir_all(entry.path()).is_ok() {
-                        deleted += 1;
-                    }
-                }
+    if base_path.exists()
+        && let Ok(entries) = std::fs::read_dir(base_path)
+    {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() && std::fs::remove_dir_all(entry.path()).is_ok() {
+                deleted += 1;
             }
         }
     }

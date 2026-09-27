@@ -16,9 +16,8 @@
 
 import { useMemo } from 'react';
 import type { ActivityHighlightsBundle } from 'veloqrs';
-import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ActivitySectionHighlights');
@@ -101,27 +100,28 @@ export function useActivitySectionHighlights(
   sections: Map<string, ActivitySectionHighlight[]>;
   routes: Map<string, ActivityRouteHighlight>;
 } {
-  const trigger = useEngineSubscription(['sections', 'groups', 'activities']);
+  const readHighlights = useEngineRead(['sections', 'groups', 'activities']);
   // The list arrives as a fresh array every render, so the joined ids are what
-  // the memo can be keyed on.
+  // the memo is keyed on, and the memo splits them back rather than closing
+  // over the array its key stands in for.
   const activityKey = activityIds.join(',');
 
   return useMemo(() => {
+    const ids = activityKey === '' ? [] : activityKey.split(',');
     const empty = {
       sections: new Map<string, ActivitySectionHighlight[]>(),
       routes: new Map<string, ActivityRouteHighlight>(),
     };
 
-    if (!isRouteMatchingEnabled() || activityIds.length === 0) return empty;
+    if (!isRouteMatchingEnabled() || ids.length === 0) return empty;
 
     try {
       // Single FFI call returns both section indicators and route highlights,
       // unless the caller already has the bundle.
       let bundle = preComputedBundle;
       if (!bundle) {
-        const engine = getEngine();
-        if (!engine) return empty;
-        bundle = engine.getActivityHighlightsBundle(activityIds);
+        bundle = readHighlights((engine) => engine.getActivityHighlightsBundle(ids));
+        if (!bundle) return empty;
       }
       const indicators = bundle.indicators;
       const rawRoutes = bundle.routeHighlights;
@@ -190,7 +190,7 @@ export function useActivitySectionHighlights(
         }
       }
 
-      prune(activityIds);
+      prune(ids);
       for (const [id, highlights] of sectionMap) {
         sectionMap.set(id, carry(sectionIdentity, id, highlights, sectionsKey(highlights)));
       }
@@ -204,6 +204,5 @@ export function useActivitySectionHighlights(
       }
       return empty;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityKey, trigger, preComputedBundle]);
+  }, [activityKey, readHighlights, preComputedBundle]);
 }

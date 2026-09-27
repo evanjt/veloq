@@ -50,10 +50,9 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
     // Drain it so this test starts from an idle engine.
     if let Ok(mut guard) =
         veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
+        && let Some(handle) = guard.take()
     {
-        if let Some(handle) = guard.take() {
-            handle.recv_blocking();
-        }
+        handle.recv_blocking();
     }
     (engine, tmp)
 }

@@ -9,8 +9,8 @@
 
 export interface IntervalTypeLabelInput {
   type: string;
-  zone?: number | null;
-  label?: string | null;
+  zone?: number | null | undefined;
+  label?: string | null | undefined;
   /** Whether the row draws a zone colour, which is what makes `Z<n>` readable. */
   zoneColoured: boolean;
 }

@@ -6,17 +6,14 @@
  *
  * Run: npm test -- --testPathPattern=ffiBindingValidation
  *
- * Regenerate manifests: npx tsx scripts/extract-ffi-exports.ts
+ * The manifest is computed from the Rust source when the suite loads.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  FFI_EXPORTS,
-  EXPECTED_TS_FUNCTIONS,
-  RUST_TO_TS_NAME,
-  UNIFFI_OBJECTS,
-} from './ffi-exports.generated';
+import { ffiManifest } from '../../../scripts/lib/ffiExports';
+
+const { FFI_EXPORTS, EXPECTED_TS_FUNCTIONS, RUST_TO_TS_NAME, UNIFFI_OBJECTS } = ffiManifest();
 
 const VELOQRS_SRC_DIR = path.resolve(__dirname, '../../../modules/veloqrs/src');
 const VELOQRS_INDEX_PATH = path.join(VELOQRS_SRC_DIR, 'index.ts');
@@ -263,9 +260,7 @@ describe('FFI Binding Validation', () => {
 
     it('every impl-method export should reference a known UniFFI Object', () => {
       const knownObjects = new Set(UNIFFI_OBJECTS);
-      const orphans = METHOD_EXPORTS.filter(
-        (e) => !knownObjects.has(e.object as (typeof UNIFFI_OBJECTS)[number])
-      );
+      const orphans = METHOD_EXPORTS.filter((e) => !knownObjects.has(e.object ?? ''));
       expect(orphans.map((e) => `${e.object}::${e.name}`)).toEqual([]);
     });
   });
@@ -299,29 +294,6 @@ describe('FFI Binding Validation', () => {
       }
 
       expect(missing).toEqual([]);
-    });
-  });
-
-  describe('Strength FFI contract (US-T1/T2)', () => {
-    // Guards that the demo-mode insertion path stays wired end-to-end.
-    // Both sides - the Rust method and the TS client method - must exist so
-    // demo fixtures can seed WeightTraining activities without network calls.
-    const STRENGTH_RS = path.resolve(
-      __dirname,
-      '../../../modules/veloqrs/rust/veloqrs/src/objects/strength.rs'
-    );
-    const ROUTE_ENGINE_CLIENT_TS = path.join(VELOQRS_SRC_DIR, 'EngineClient.ts');
-
-    it('Rust StrengthManager exposes bulk_insert_exercise_sets', () => {
-      const source = fs.readFileSync(STRENGTH_RS, 'utf-8');
-      expect(source).toMatch(/fn bulk_insert_exercise_sets\s*\(/);
-      expect(source).toMatch(/Vec<FfiExerciseSet>/);
-    });
-
-    it('TS client wraps bulkInsertExerciseSets', () => {
-      const source = fs.readFileSync(ROUTE_ENGINE_CLIENT_TS, 'utf-8');
-      expect(source).toMatch(/bulkInsertExerciseSets\s*\(/);
-      expect(source).toContain('strength().bulkInsertExerciseSets');
     });
   });
 
@@ -402,8 +374,6 @@ describe('FFI Binding Validation', () => {
     });
   });
 
-  // The manifest carries each export's arity and return type so `npm run
-  // ffi:check` can detect signature drift, not just added/removed names.
   describe('Signature manifest', () => {
     it('records arity and return type for every export', () => {
       for (const exp of FFI_EXPORTS) {

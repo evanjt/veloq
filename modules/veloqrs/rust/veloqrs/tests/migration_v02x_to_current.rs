@@ -341,10 +341,10 @@ const GHOST_SECTION: &str = "sec_dissolved";
 const AUTO_SECTION_NAME: &str = "Chemin des Vignes";
 const CUSTOM_SECTION_NAME: &str = "Col de Ma Ferme";
 
-/// Junction rows whose activity row is gone. Migration 017 line 60 deletes these
+/// Junction rows whose activity row is gone. Migration 017's orphan filter deletes these
 /// and there is no way back, so the count is pinned exactly.
 const ORPHANS_BY_MISSING_ACTIVITY: i64 = 3;
-/// Junction rows whose section row is gone, deleted by line 59 of the same filter.
+/// Junction rows whose section row is gone, deleted by the same filter.
 const ORPHANS_BY_MISSING_SECTION: i64 = 1;
 const JUNCTION_ROWS_SEEDED: i64 = 9;
 

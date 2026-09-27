@@ -26,7 +26,6 @@ import { getTrendStyle } from '@/features/routes/components/TodayBanner';
 import { getTrendColor } from '@/features/insights/components/content/SectionTrendContent';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 const LIGHT_SURFACE = '#FFFFFF';

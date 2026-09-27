@@ -629,7 +629,7 @@ impl PersistentEngine {
     /// broken by name so the label is stable across runs. The position comes
     /// from the activity's stored box and not from `start_latlng`: the sync
     /// never asks intervals.icu for that field, so no stored body carries one
-    /// and a join on it matched nothing (B423).
+    /// and a join on it matched nothing.
     ///
     /// The anchor is the centre of the bin box, which is the box the preview
     /// camera frames, rather than the mean of the bin's members: that mean can
@@ -1190,7 +1190,7 @@ mod tests {
     }
 
     /// A catalogue dense enough that the greedy pairing has real competition:
-    /// `count` near-parallel lines 20 m apart, so every one shares ground with
+    /// `count` near-parallel tracks 20 m apart, so every one shares ground with
     /// its neighbours and the pairing must still choose its own twin.
     fn dense_catalogue(count: usize) -> Vec<FrequentSection> {
         (0..count)

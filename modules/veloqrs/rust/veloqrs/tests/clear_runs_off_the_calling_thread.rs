@@ -1,8 +1,8 @@
 //! The whole-database wipes run on a Rust thread, not the caller's.
 //!
 //! Scenario: "Clear cache" and "Clear & Sync" both take the engine write lock
-//! over every table. Measured at 734 ms and 401 ms on a 750-activity library
-//! (`B482`), and on the JavaScript thread that is a button that freezes the
+//! over every table. Measured at 734 ms and 401 ms on a 750-activity library,
+//! and on the JavaScript thread that is a button that freezes the
 //! app for as long as the wipe runs. The catalogue wipe was moved off it
 //! already; these two were not.
 //!

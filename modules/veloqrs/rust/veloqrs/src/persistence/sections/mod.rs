@@ -1044,7 +1044,7 @@ impl PersistentEngine {
     /// sections are both cached in `self.sections`, so this applies to any
     /// row. Call it after modifying a section's polyline or activity list.
     pub fn refresh_section_in_memory(&mut self, section_id: &str) {
-        let section_data: Option<(
+        type SectionRow = (
             String,
             String,
             Option<String>,
@@ -1067,7 +1067,8 @@ impl PersistentEngine {
             Option<f64>,
             Option<u32>,
             Option<u32>,
-        )> = {
+        );
+        let section_data: Option<SectionRow> = {
             // Cached: the attach loop refreshes one section per match and the
             // parse of these twenty-two columns is the cost, not the row.
             let mut stmt = match self.db.prepare_cached(
@@ -2618,7 +2619,7 @@ pub(crate) mod pooled {
         section_id: &str,
         radius_meters: f64,
     ) -> Vec<crate::FfiNearbySectionSummary> {
-        if !(radius_meters > 0.0) {
+        if radius_meters.is_nan() || radius_meters <= 0.0 {
             return vec![];
         }
 

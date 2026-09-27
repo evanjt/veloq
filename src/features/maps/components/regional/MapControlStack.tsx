@@ -113,11 +113,11 @@ interface MapControlStackProps {
   /** Callback to toggle activities */
   onToggleActivities: () => void;
   /** Callback to toggle heatmap (undefined = hidden) */
-  onToggleHeatmap?: () => void;
+  onToggleHeatmap?: (() => void) | undefined;
   /** Callback to toggle sections (undefined = hidden) */
-  onToggleSections?: () => void;
+  onToggleSections?: (() => void) | undefined;
   /** Callback to toggle routes (undefined = hidden) */
-  onToggleRoutes?: () => void;
+  onToggleRoutes?: (() => void) | undefined;
   /** Callback to fit all activities in view */
   onFitAll: () => void;
 }

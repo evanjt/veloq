@@ -127,7 +127,7 @@ fn only_the_streamed_portion_is_examined_once_a_stream_lands() {
 fn a_filled_portion_is_not_examined_again() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
-    let db = conn(&path);
+    let _db = conn(&path);
     let mut engine = open(&path);
     let times: Vec<u32> = (0..40).collect();
     engine.set_time_streams_flat(&["streamed".into()], &times, &[0]);

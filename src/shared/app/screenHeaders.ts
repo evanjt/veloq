@@ -59,3 +59,13 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'summary-card-settings': { titleKey: 'settings.summaryCard' },
   'sync-settings': { titleKey: 'settings.localDataRange' },
 };
+
+/**
+ * The transition a root-stack route opens with. The tabs switch instantly. Every
+ * other route takes the platform's own default, which is what the stack has
+ * always shown: its `slide_from_right` for Android never reached a screen,
+ * because each screen set the animation back to the default.
+ */
+export function screenAnimation(name: string): 'none' | 'default' {
+  return name === '(tabs)' ? 'none' : 'default';
+}

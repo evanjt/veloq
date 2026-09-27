@@ -14,10 +14,6 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
-}));
-
 describe('BackgroundJobsLink', () => {
   beforeAll(async () => {
     await initializeI18n('en-GB');

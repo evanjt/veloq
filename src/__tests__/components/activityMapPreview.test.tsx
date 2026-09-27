@@ -30,8 +30,6 @@ const mockKey = (id: string, style: string, is3D: boolean) =>
 // barrel pulls it in transitively.
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-jest.mock('expo-router', () => ({ useIsFocused: () => true }));
-
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => mockMapStyle,

@@ -40,7 +40,7 @@ export interface ChartCanvasProps<T, K extends string> {
   /** One accessor per drawn series, keyed by the name the body reads back. */
   series: Record<K, (datum: T) => number | null | undefined>;
   /** Defaults to the extent of the x values. */
-  xDomain?: Domain;
+  xDomain?: Domain | undefined;
   yDomain: Domain;
   padding?: Partial<ChartPadding>;
   /** Horizontal rules spread over the box, 0 for none. */

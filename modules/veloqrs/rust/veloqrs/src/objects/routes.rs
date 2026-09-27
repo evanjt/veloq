@@ -44,7 +44,7 @@ impl RouteManager {
             }
             match sort_key.as_deref() {
                 Some("name") => summaries.sort_by(|a, b| a.group_id.cmp(&b.group_id)),
-                Some("count") => summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+                Some("count") => summaries.sort_by_key(|b| std::cmp::Reverse(b.activity_count)),
                 _ => {}
             }
             crate::FfiGroupSummariesResult {

@@ -23,9 +23,9 @@ interface RouteRowProps {
   /** Route data - can be either DiscoveredRouteInfo (during processing) or RouteGroup (saved) */
   route: DiscoveredRouteInfo | RouteGroup;
   /** If true, tapping navigates to route detail. If false/undefined, just expands. */
-  navigable?: boolean;
+  navigable?: boolean | undefined;
   /** Distance from user's current location in meters */
-  distanceFromUser?: number;
+  distanceFromUser?: number | undefined;
 }
 
 /** Check if route is a RouteGroup (has signature property) */
