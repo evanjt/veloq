@@ -33,6 +33,8 @@ pub const GROUND_ZOOMS: RangeInclusive<u8> = 2..=5;
 /// Priced per tile and never per level: a whole z3 level is 18 MB, and the
 /// tiles one athlete's bounds touch are a handful of it.
 pub const GROUND_BUDGET_BYTES: u64 = 10 * 1024 * 1024;
+pub const TERRAIN_ZOOMS: RangeInclusive<u8> = 8..=12;
+const TERRAIN_SOURCE: &str = "terrain";
 
 /// The sources the 2D basemap draws its ground from, as the style names them.
 ///
@@ -148,6 +150,43 @@ pub fn plan_preseed(bounds: &[Bounds], sources: &[PreseedSource]) -> Vec<Planned
     planned
 }
 
+/// Plan one ~5 km riding area at a time, in the caller's ranked order.
+/// Earlier areas survive a byte budget cut before less visited ones.
+pub fn plan_area_preseed(centres: &[(f64, f64)], source: &PreseedSource) -> Vec<PlannedTile> {
+    let mut planned = Vec::new();
+    let mut seen = HashSet::new();
+    for &(lat, lng) in centres {
+        if !lat.is_finite() || !lng.is_finite() {
+            continue;
+        }
+        let half_lat = 2.5 / 111.0;
+        let half_lng = 2.5 / (111.0 * lat.to_radians().cos().abs().max(0.01));
+        for z in source.zooms.clone() {
+            let mut tiles = tiles_for_bounds(
+                lat - half_lat,
+                lat + half_lat,
+                lng - half_lng,
+                lng + half_lng,
+                z,
+            );
+            tiles.sort_unstable();
+            for (x, y) in tiles {
+                if seen.insert((z, x, y)) {
+                    planned.push(PlannedTile {
+                        source: source.name.clone(),
+                        z,
+                        x,
+                        y,
+                        url: super::fill_template(&source.template, z, x, y),
+                        ext: source.ext.clone(),
+                    });
+                }
+            }
+        }
+    }
+    planned
+}
+
 /// Fetch and pin the plan, up to `budget` bytes.
 ///
 /// A tile the store already holds is pinned where it lies rather than fetched
@@ -162,12 +201,17 @@ pub async fn seed_preseed(
     budget: u64,
 ) -> SeedOutcome {
     let mut outcome = SeedOutcome::default();
+    let generation = store.generation();
     for tile in plan {
         if outcome.bytes >= budget {
             outcome.stopped_at_budget = true;
             break;
         }
         if let Some(bytes) = store.pin(&tile.source, tile.z, tile.x, tile.y) {
+            if outcome.bytes + bytes > budget {
+                outcome.stopped_at_budget = true;
+                break;
+            }
             outcome.kept += 1;
             outcome.bytes += bytes;
             continue;
@@ -191,7 +235,8 @@ pub async fn seed_preseed(
             outcome.stopped_at_budget = true;
             break;
         }
-        match store.put(
+        match store.put_in_generation(
+            generation,
             &tile.source,
             tile.z,
             tile.x,
@@ -200,10 +245,13 @@ pub async fn seed_preseed(
             &bytes,
             true,
         ) {
-            Ok(()) => {
+            Ok(true) => {
                 outcome.fetched += 1;
                 outcome.bytes += bytes.len() as u64;
             }
+            // A clear ran mid-pass: the rest of the plan is the athlete's
+            // ground that was just taken.
+            Ok(false) => break,
             Err(e) => {
                 log::warn!(
                     "[basemap] pre-seed {} {}/{}/{} did not store: {}",
@@ -220,6 +268,34 @@ pub async fn seed_preseed(
     outcome
 }
 
+/// Refresh a ranked source's pins only after a successful pass. If the host
+/// goes offline during a sync, its previous offline tiles stay protected.
+pub async fn seed_ranked_preseed(
+    store: &TileStore,
+    fetcher: &TileFetcher,
+    plan: &[PlannedTile],
+    budget: u64,
+    source: &str,
+) -> SeedOutcome {
+    let outcome = seed_preseed(store, fetcher, plan, budget).await;
+    if outcome.failed == 0 && outcome.fetched + outcome.kept > 0 {
+        store.unpin_source(source);
+        let mut pinned = 0;
+        for tile in plan {
+            if pinned >= budget {
+                break;
+            }
+            if let Some(bytes) = store.pin(source, tile.z, tile.x, tile.y) {
+                if pinned + bytes > budget {
+                    break;
+                }
+                pinned += bytes;
+            }
+        }
+    }
+    outcome
+}
+
 /// The ground sources the page has named a template for, resolved and ready.
 ///
 /// Empty until a template has been handed over, which launch does before any
@@ -229,7 +305,7 @@ fn ground_sources() -> Vec<PreseedSource> {
     GROUND_SOURCES
         .iter()
         .filter_map(|name| {
-            let template = super::resolve_template(name)?;
+            let template = super::resolve_template(name).ok()?;
             Some(PreseedSource {
                 name: (*name).to_string(),
                 ext: super::extension_of(&template),
@@ -243,6 +319,7 @@ fn ground_sources() -> Vec<PreseedSource> {
 /// Whether a pass is running. One at a time: two would fetch the same tiles
 /// twice and race each other onto one sidecar.
 static RUNNING: AtomicBool = AtomicBool::new(false);
+static TERRAIN_RUNNING: AtomicBool = AtomicBool::new(false);
 
 /// Frees the slot however the pass ends, a panic included.
 struct RunningGuard;
@@ -251,6 +328,68 @@ impl Drop for RunningGuard {
     fn drop(&mut self) {
         RUNNING.store(false, Ordering::SeqCst);
     }
+}
+
+struct TerrainRunningGuard;
+
+impl Drop for TerrainRunningGuard {
+    fn drop(&mut self) {
+        TERRAIN_RUNNING.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Seed DEM around ranked riding areas, spending at most 40% of the live pool.
+pub fn seed_terrain_background(centres: Vec<(f64, f64)>) {
+    if centres.is_empty() || super::store().is_none() {
+        return;
+    }
+    if TERRAIN_RUNNING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    crate::threads::spawn_named("veloq-dem-seed", move || {
+        let _running = TerrainRunningGuard;
+        let Some(store) = super::store() else { return };
+        let Some(pool_budget) = store.budget() else {
+            return;
+        };
+        let Ok(template) = super::resolve_template(TERRAIN_SOURCE) else {
+            return;
+        };
+        let source = PreseedSource {
+            name: TERRAIN_SOURCE.into(),
+            ext: super::extension_of(&template),
+            template,
+            zooms: TERRAIN_ZOOMS,
+        };
+        let plan = plan_area_preseed(&centres, &source);
+        let Ok(fetcher) = TileFetcher::for_fill() else {
+            return;
+        };
+        let outcome = crate::runtime::block_on(seed_ranked_preseed(
+            &store,
+            &fetcher,
+            &plan,
+            pool_budget * 2 / 5,
+            TERRAIN_SOURCE,
+        ));
+        log::info!(
+            "[basemap] DEM pre-seed over {} tiles: {} fetched, {} kept, {} failed, {} bytes{}",
+            plan.len(),
+            outcome.fetched,
+            outcome.kept,
+            outcome.failed,
+            outcome.bytes,
+            if outcome.stopped_at_budget {
+                ", stopped at the budget"
+            } else {
+                ""
+            }
+        );
+        let _ = store.flush();
+        if let Err(e) = store.enforce_budget() {
+            log::warn!("[basemap] DEM pre-seed could not bring the store under its budget: {e}");
+        }
+    });
 }
 
 /// Seed the ground around these bounds, on a thread of its own.
@@ -267,7 +406,7 @@ pub fn seed_ground_background(bounds: Vec<Bounds>) {
         log::info!("[basemap] A ground pre-seed is already running - not starting another");
         return;
     }
-    crate::threads::spawn_named("veloq-basemap-seed", move || {
+    crate::threads::spawn_named("veloq-seed", move || {
         let _running = RunningGuard;
         let Some(store) = super::store() else { return };
         let sources = ground_sources();
@@ -301,6 +440,11 @@ pub fn seed_ground_background(bounds: Vec<Bounds>) {
         // The pass pins as it goes, so the sidecars are already on disk. This
         // is for the read stamps the pins did not carry.
         let _ = store.flush();
+        // Every put already holds the ceiling. A pin of a tile already held
+        // stores nothing, so the pass ends by checking it once more.
+        if let Err(e) = store.enforce_budget() {
+            log::warn!("[basemap] pre-seed could not bring the store under its budget: {e}");
+        }
     });
 }
 
