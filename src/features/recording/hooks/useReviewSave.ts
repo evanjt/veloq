@@ -1,19 +1,25 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { UploadOutcome } from 'veloqrs';
 
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
+import { rebaseLaps } from '@/features/recording/lib/savedLaps';
+import { epochMsToStartDateLocal } from '@/shared/time/startDate';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { debug } from '@/shared/debug/debug';
+import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import {
   attachEngineActivity,
+  holdsRecordingStartingIn,
   saveRecording,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { writeProvisionalActivity } from '@/features/recording/lib/storage/provisionalActivity';
-import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
+import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { isOAuthConfigured } from '@/features/auth';
@@ -22,6 +28,19 @@ import type { ActivityType, RecordingLibraryEntry } from '@/types';
 import type { RecordingStreams, RecordingLap } from '@/features/recording/types';
 
 const log = debug.create('Upload');
+
+/**
+ * Whether the library already holds this stopped ride. A library that cannot
+ * be read holds nothing: the ride is saved rather than dropped on a failed read.
+ */
+function libraryHoldsStoppedRide(session: { startTime: number | null; stopTime: number | null }) {
+  if (session.startTime === null) return false;
+  try {
+    return holdsRecordingStartingIn(session.startTime, session.stopTime ?? Date.now());
+  } catch {
+    return false;
+  }
+}
 
 export interface UseReviewSaveArgs {
   isManual: boolean;
@@ -34,12 +53,16 @@ export interface UseReviewSaveArgs {
     elevationGain: number;
   };
   notes: string;
+  /** The effort from 1 to 10, or null when the athlete never moved the slider. */
+  rpe?: number | null;
   startTime: number | null;
   /** Paused seconds inside the window being saved, not the whole session. */
   pausedSecondsInWindow: number;
   laps: RecordingLap[];
   pairedEventId: number | null;
   getTrimmedStreams: () => RecordingStreams;
+  /** Store index of the first sample `getTrimmedStreams` returns. */
+  trimStartIndex: number;
   canTrim: boolean;
 }
 
@@ -80,11 +103,13 @@ export function useReviewSave({
   name,
   summary,
   notes,
+  rpe = null,
   startTime,
   pausedSecondsInWindow,
   laps,
   pairedEventId,
   getTrimmedStreams,
+  trimStartIndex,
   canTrim,
 }: UseReviewSaveArgs): UseReviewSave {
   const { t } = useTranslation();
@@ -98,13 +123,28 @@ export function useReviewSave({
   // The library entry created on the first save attempt; retries reuse it so a
   // failed upload never produces a duplicate recording.
   const savedEntryRef = useRef<RecordingLibraryEntry | null>(null);
+  const mountedRef = useRef(true);
+
+  // A ride the library holds is settled once its review is left, whatever its
+  // upload did: the library retries it from there, and a stopped store would
+  // keep routing back to a review with nothing left to save.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const session = useRecordingStore.getState();
+      if (session.status === 'stopped' && session.savedToLibrary) session.reset();
+    };
+  }, []);
 
   const finishAndGoHome = useCallback(
-    (message: string | null) => {
+    (message: string | null, stillCurrent: () => boolean) => {
+      if (!stillCurrent()) return;
       if (message) {
         setQueuedMessage(message);
         setIsUploading(false);
         setTimeout(() => {
+          if (!stillCurrent()) return;
           useRecordingStore.getState().reset();
           router.replace('/');
         }, 1500);
@@ -117,6 +157,59 @@ export function useReviewSave({
   );
 
   const handleSave = useCallback(async () => {
+    const session = useRecordingStore.getState();
+    const owner = session.athleteId;
+    const sessionStart = session.startTime;
+    const requiredStatus = isManual ? 'recording' : 'stopped';
+    const stillCurrent = () => {
+      const current = useRecordingStore.getState();
+      const auth = useAuthStore.getState();
+      return (
+        !!owner &&
+        sessionStart !== null &&
+        auth.isAuthenticated &&
+        auth.athleteId === owner &&
+        current.athleteId === owner &&
+        current.startTime === sessionStart &&
+        current.status === requiredStatus &&
+        (isManual ? current.mode === 'manual' : !!current.mode && current.mode !== 'manual')
+      );
+    };
+    if (!owner || sessionStart === null || !stillCurrent()) return;
+    // A review opened on a ride the library already holds, where only this
+    // screen's own entry may retry the upload. The ride is saved, so the review
+    // settles it rather than offering a Save that does nothing.
+    if (!savedEntryRef.current && session.savedToLibrary) {
+      finishAndGoHome(
+        t(
+          'recording.savedLocally',
+          'Activity saved on this device. Upload it any time from My Recordings.'
+        ),
+        stillCurrent
+      );
+      return;
+    }
+    // The library holds the ride from here, whatever became of the session
+    // meanwhile. A sign-out that held it in the gap would otherwise leave a
+    // backup that reopens it for a second save.
+    const settleSaved = async (clearBackup: boolean) => {
+      useRecordingStore.getState().markSavedToLibrary(owner, sessionStart);
+      if (clearBackup)
+        await clearRecordingBackup(owner, { athleteId: owner, startTime: sessionStart });
+    };
+    // A review left while this save was in flight has already run its unmount
+    // settle, before the library held the ride, so the save settles it at the end.
+    const settleIfLeft = () => {
+      if (mountedRef.current) return;
+      const current = useRecordingStore.getState();
+      if (
+        current.status === 'stopped' &&
+        current.savedToLibrary &&
+        current.athleteId === owner &&
+        current.startTime === sessionStart
+      )
+        current.reset();
+    };
     setIsUploading(true);
     setErrorMessage(null);
     setQueuedMessage(null);
@@ -133,11 +226,12 @@ export function useReviewSave({
         // A manual entry is a row like any other: saved first, posted second,
         // and drained by the same queue. It used to await the network and treat
         // the answer as the save, so offline it existed nowhere at all.
+        const manualStart = startTime ?? Date.now();
         const entry = await saveRecording({
           manualBody: {
             type,
             name,
-            start_date_local: new Date().toISOString(),
+            start_date_local: epochMsToStartDateLocal(manualStart),
             elapsed_time: summary.duration,
             distance: summary.distance > 0 ? summary.distance : undefined,
             average_heartrate: summary.avgHeartrate ?? undefined,
@@ -145,14 +239,21 @@ export function useReviewSave({
           },
           activityType: type,
           name,
-          startTime: startTime ?? Date.now(),
+          startTime: manualStart,
           durationSeconds: summary.duration,
           distanceMeters: summary.distance,
           elevationGain: summary.elevationGain,
           avgHeartrate: summary.avgHeartrate,
           pairedEventId: pairedEventId ?? undefined,
+          notes,
           uploadStatus: uploadable ? 'pending' : 'localOnly',
+          athleteId: owner,
         });
+        if (entry) await settleSaved(false);
+        if (!stillCurrent()) {
+          setIsUploading(false);
+          return;
+        }
         if (!entry) {
           setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
           setCanRetry(true);
@@ -162,14 +263,32 @@ export function useReviewSave({
         savedEntryRef.current = entry;
         // No streams, so no track and no detection: the row is the metadata the
         // feed and the week read.
-        const engineActivityId = await writeProvisionalActivity(entry, null);
+        const engineActivityId = await writeProvisionalActivity(entry);
+        if (!stillCurrent()) {
+          setIsUploading(false);
+          return;
+        }
         if (engineActivityId) {
           savedEntryRef.current = (await attachEngineActivity(entry.id, engineActivityId)) ?? {
             ...entry,
             engineActivityId,
           };
         }
-        await clearRecordingBackup();
+      }
+
+      if (!savedEntryRef.current && startTime !== null && libraryHoldsStoppedRide(session)) {
+        // A backup offered while the library could not be read, whose ride was
+        // saved before the process died. Writing it again would duplicate it.
+        await settleSaved(true);
+        setIsUploading(false);
+        finishAndGoHome(
+          t(
+            'recording.savedLocally',
+            'Activity saved on this device. Upload it any time from My Recordings.'
+          ),
+          stillCurrent
+        );
+        return;
       }
 
       if (!savedEntryRef.current) {
@@ -195,14 +314,18 @@ export function useReviewSave({
           activityType: type,
           startTime: adjustedStart,
           streams: trimmedStreams,
-          laps,
+          // Laps are on the store's clock and indices, the records on the window's.
+          laps: rebaseLaps(laps, trimmedStreams, timeBase, trimStartIndex, session.pauseIntervals),
           name,
           pausedTimeSeconds: pausedSecondsInWindow,
         });
+        if (!stillCurrent()) {
+          setIsUploading(false);
+          return;
+        }
 
         const entry = await saveRecording({
           fitBuffer,
-          streams: trimmedStreams,
           activityType: type,
           name,
           startTime: adjustedStart.getTime(),
@@ -211,8 +334,16 @@ export function useReviewSave({
           elevationGain: summary.elevationGain,
           avgHeartrate: summary.avgHeartrate,
           pairedEventId: pairedEventId ?? undefined,
+          notes,
+          rpe: rpe ?? undefined,
           uploadStatus: uploadable ? 'pending' : 'localOnly',
+          athleteId: owner,
         });
+        if (entry) await settleSaved(true);
+        if (!stillCurrent()) {
+          setIsUploading(false);
+          return;
+        }
         if (!entry) {
           setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
           setCanRetry(true);
@@ -220,16 +351,24 @@ export function useReviewSave({
           return;
         }
         savedEntryRef.current = entry;
-        // The ride reaches the feed, the heatmap and the week from here.
-        const engineActivityId = await writeProvisionalActivity(entry, trimmedStreams);
+        // The ride reaches the feed, the heatmap and the week from here. The
+        // engine reads the track out of the FIT the save just wrote.
+        const engineActivityId = await writeProvisionalActivity(entry);
+        if (!stillCurrent()) {
+          setIsUploading(false);
+          return;
+        }
         if (engineActivityId) {
           savedEntryRef.current = (await attachEngineActivity(entry.id, engineActivityId)) ?? {
             ...entry,
             engineActivityId,
           };
         }
-        // The recording is durable now - the crash backup has done its job
-        await clearRecordingBackup();
+      }
+
+      if (!stillCurrent()) {
+        setIsUploading(false);
+        return;
       }
 
       if (!uploadable) {
@@ -245,23 +384,33 @@ export function useReviewSave({
             : t(
                 'recording.savedLocally',
                 'Activity saved on this device. Upload it any time from My Recordings.'
-              )
+              ),
+          stillCurrent
         );
         return;
       }
 
-      const result = await uploadRecording(savedEntryRef.current);
+      const result = await uploadRecordingNow(savedEntryRef.current.id);
+      if (!stillCurrent()) {
+        setIsUploading(false);
+        return;
+      }
 
       switch (result.outcome) {
-        case 'uploaded':
+        case UploadOutcome.Uploaded:
           queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
           queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
-          setIsUploading(false);
-          finishAndGoHome(null);
+          // The feed reads the engine, so the new ride is absent until a sync brings it in.
+          try {
+            requestSyncRefresh();
+          } catch (error) {
+            log.warn('Post-upload sync request failed', error);
+          }
+          finishAndGoHome(null, stillCurrent);
           return;
 
-        case 'permissionBlocked':
-          useUploadPermissionStore.getState().setHasWritePermission(false);
+        case UploadOutcome.PermissionBlocked:
+          // The engine announces the refusal, which is what marks the grant.
           setErrorMessage(
             t(
               'recording.permissionExplanation',
@@ -274,8 +423,8 @@ export function useReviewSave({
           setIsUploading(false);
           return;
 
-        case 'rejected':
-        case 'missing':
+        case UploadOutcome.Rejected:
+        case UploadOutcome.Missing:
           setErrorMessage(
             t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
               error: result.errorDetail ?? 'unknown',
@@ -285,16 +434,37 @@ export function useReviewSave({
           setIsUploading(false);
           return;
 
-        case 'network':
-        case 'retriable':
+        case UploadOutcome.AuthExpired:
+        // Saved for an athlete no longer signed in: it waits for them.
+        case UploadOutcome.OtherAthlete:
+          finishAndGoHome(
+            t(
+              'recording.savedQueuedAuth',
+              'Activity saved. It will upload when you sign in again.'
+            ),
+            stillCurrent
+          );
+          return;
+
+        case UploadOutcome.Network:
+        case UploadOutcome.Retriable:
+        // The ride was not pending, or it was and its upload finished
+        // before this call could join it, so the queue settles it.
+        case UploadOutcome.NotStarted:
           log.log('Upload deferred, recording waits in the library');
           finishAndGoHome(
             t(
               'recording.savedQueued',
               'Activity saved. It will upload automatically when connectivity is restored.'
-            )
+            ),
+            stillCurrent
           );
           return;
+
+        default: {
+          const unhandled: never = result.outcome;
+          throw new Error(`Unhandled upload outcome: ${unhandled}`);
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -304,6 +474,8 @@ export function useReviewSave({
         })
       );
       setIsUploading(false);
+    } finally {
+      settleIfLeft();
     }
   }, [
     isManual,
@@ -311,12 +483,14 @@ export function useReviewSave({
     name,
     summary,
     notes,
+    rpe,
     startTime,
     pausedSecondsInWindow,
     laps,
     pairedEventId,
     t,
     getTrimmedStreams,
+    trimStartIndex,
     canTrim,
     queryClient,
     finishAndGoHome,

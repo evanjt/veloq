@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { TouchableOpacity, StyleSheet } from 'react-native';
+import { Pressable, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
@@ -15,6 +15,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { colors, colorWithOpacity, darkColors, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { selectStatusMessage, type StatusSlotInput } from '../lib/statusSlot';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface StatusSlotProps extends StatusSlotInput {
   onDismissGpsWarning: () => void;
@@ -68,12 +69,14 @@ function StatusSlotInner({
       >
         <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
         <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
-        <TouchableOpacity
+        <Pressable
           onPress={onDismissGpsWarning}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={pressable()}
+          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons name="close" size={16} color={amber} />
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
     );
   }
@@ -123,7 +126,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.xsPlus,
     borderRadius: layout.borderRadiusSm,
   },
   warnRow: {

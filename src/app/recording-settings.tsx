@@ -5,19 +5,25 @@ import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/shared/app';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { MPS_TO_KPH, formatElevation, formatSpeed } from '@/shared/format/format';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { navigateTo } from '@/shared/app/navigation';
-import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import type { GpsAccuracyMode } from '@/features/recording/stores/RecordingPreferencesStore';
+import { useRecordingPreferences, type GpsAccuracyMode } from '@/features/recording';
+import { DEFAULT_AUTO_PAUSE_KMH, type SportCategory } from '@/shared/recording';
 import type { DataFieldType } from '@/types';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const GPS_MODES: GpsAccuracyMode[] = ['high', 'balanced', 'batterySaver'];
 
-const SPORT_THRESHOLDS = [
-  { key: 'cycling', label: 'Cycling', defaultKmh: 2 },
-  { key: 'running', label: 'Running', defaultKmh: 1 },
-  { key: 'walking', label: 'Walking', defaultKmh: 0.5 },
+const SPORT_THRESHOLDS: { key: SportCategory; labelKey: string; fallback: string }[] = [
+  { key: 'cycling', labelKey: 'recording.categories.cycling', fallback: 'Cycling' },
+  { key: 'running', labelKey: 'recording.categories.running', fallback: 'Running' },
+  {
+    key: 'walking',
+    labelKey: 'recording.settingsAutoPauseWalkingAndOther',
+    fallback: 'Walking and other sports',
+  },
 ];
 
 const ALL_DATA_FIELDS: DataFieldType[] = [
@@ -40,14 +46,15 @@ const ALL_DATA_FIELDS: DataFieldType[] = [
 
 const FIELD_MODES = ['gps', 'indoor'] as const;
 
-const MODE_LABELS: Record<string, string> = {
-  gps: 'GPS',
-  indoor: 'Indoor',
-};
+const MODE_LABEL_KEYS = {
+  gps: 'recording.fieldModeGps',
+  indoor: 'recording.fieldModeIndoor',
+} as const;
 
-export default function RecordingSettingsScreen() {
+function RecordingSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const insets = useSafeAreaInsets();
 
   const autoPauseEnabled = useRecordingPreferences((s) => s.autoPauseEnabled);
@@ -95,8 +102,10 @@ export default function RecordingSettingsScreen() {
       .setAutoPauseDuration(Math.max(1000, Math.min(10_000, current + deltaMs)));
   }, []);
 
-  const handleAdjustThreshold = useCallback((sport: string, delta: number) => {
-    const current = useRecordingPreferences.getState().autoPauseThresholds[sport] ?? 1;
+  const handleAdjustThreshold = useCallback((sport: SportCategory, delta: number) => {
+    const current =
+      useRecordingPreferences.getState().autoPauseThresholds[sport] ??
+      DEFAULT_AUTO_PAUSE_KMH[sport];
     const next = Math.max(0.5, Math.min(10, current + delta));
     useRecordingPreferences.getState().setAutoPauseThreshold(sport, Math.round(next * 10) / 10);
   }, []);
@@ -243,7 +252,7 @@ export default function RecordingSettingsScreen() {
                   <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
                 </TouchableOpacity>
                 <Text style={[styles.thresholdValue, { color: textPrimary }]}>
-                  {accuracyRejectThreshold} m
+                  {formatElevation(accuracyRejectThreshold, isMetric)}
                 </Text>
                 <TouchableOpacity
                   testID="settings-accuracy-filter-plus"
@@ -331,7 +340,7 @@ export default function RecordingSettingsScreen() {
                   {t('recording.settingsAutoPauseThreshold')}
                 </Text>
                 {SPORT_THRESHOLDS.map((sport) => {
-                  const value = autoPauseThresholds[sport.key] ?? sport.defaultKmh;
+                  const value = autoPauseThresholds[sport.key] ?? DEFAULT_AUTO_PAUSE_KMH[sport.key];
                   return (
                     <View
                       key={sport.key}
@@ -339,7 +348,7 @@ export default function RecordingSettingsScreen() {
                       style={[styles.thresholdRow, { borderTopColor: border }]}
                     >
                       <Text style={[styles.thresholdLabel, { color: textPrimary }]}>
-                        {t(`recording.categories.${sport.key}`, sport.label)}
+                        {t(sport.labelKey, sport.fallback)}
                       </Text>
                       <View style={styles.thresholdControls}>
                         <TouchableOpacity
@@ -351,7 +360,7 @@ export default function RecordingSettingsScreen() {
                           <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
                         </TouchableOpacity>
                         <Text style={[styles.thresholdValue, { color: textPrimary }]}>
-                          {value.toFixed(1)} km/h
+                          {formatSpeed(value / MPS_TO_KPH, isMetric)}
                         </Text>
                         <TouchableOpacity
                           testID={`settings-threshold-${sport.key}-plus`}
@@ -386,7 +395,9 @@ export default function RecordingSettingsScreen() {
                   { backgroundColor: surface, borderColor: border, marginBottom: spacing.sm },
                 ]}
               >
-                <Text style={[styles.modeLabel, { color: textPrimary }]}>{MODE_LABELS[mode]}</Text>
+                <Text style={[styles.modeLabel, { color: textPrimary }]}>
+                  {t(MODE_LABEL_KEYS[mode])}
+                </Text>
                 <View style={styles.fieldGrid}>
                   {ALL_DATA_FIELDS.map((field) => {
                     const isSelected = selectedFields.includes(field);
@@ -583,3 +594,5 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+export default withScreenBoundary(RecordingSettingsScreenContent, 'RecordingSettings');

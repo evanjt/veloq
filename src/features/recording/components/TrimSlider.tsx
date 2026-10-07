@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm + 4,
+    paddingBottom: spacing.smPlus,
     ...shadows.elevated,
   },
   headerRow: {

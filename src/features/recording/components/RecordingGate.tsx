@@ -9,7 +9,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { GrantAccessButton } from './GrantAccessButton';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface RecordingGateProps {
   /** Why recording is blocked. `ok` never reaches here. */
@@ -72,8 +72,9 @@ export function RecordingGate({
           onPress={() => navigateTo('/login')}
           accessibilityRole="button"
           style={pressable()}
+          android_ripple={pressRipple}
         >
-          <Text style={[styles.action, { color: colors.primary }]}>
+          <Text style={[styles.action, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}>
             {t('recording.signInAction')}
           </Text>
         </Pressable>
@@ -90,8 +91,11 @@ export function RecordingGate({
               onPress={onContinue}
               accessibilityRole="button"
               style={pressable()}
+              android_ripple={pressRipple}
             >
-              <Text style={[styles.action, { color: colors.primary }]}>
+              <Text
+                style={[styles.action, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
+              >
                 {t('recording.recordAnyway')}
               </Text>
             </Pressable>

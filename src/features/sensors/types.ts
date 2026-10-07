@@ -28,9 +28,3 @@ export interface SensorConnection {
   kinds: SensorKind[];
   batteryPercent?: number;
 }
-
-/** Latest value from a sensor with its arrival time, for sample-and-hold + staleness. */
-export interface SensorSample {
-  value: number;
-  at: number; // Date.now()
-}

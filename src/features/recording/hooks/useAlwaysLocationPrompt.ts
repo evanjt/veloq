@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 
 import { debug } from '@/shared/debug/debug';
@@ -19,7 +20,11 @@ const log = debug.create('AlwaysLocation');
  * be in hand first or the platform refuses the request outright.
  *
  * A refusal changes nothing: every ride started in the app keeps working on When
- * In Use, which is every ride today. The ask is recorded either way, so the
+ * In Use, which is every ride today.
+ *
+ * iOS only. An Android recording is a location foreground service, which runs
+ * on the foreground grant alone, so the app neither declares nor requests
+ * background location there. The ask is recorded either way, so the
  * athlete is asked once and never nagged.
  */
 export function useAlwaysLocationPrompt(fromQuickStart: boolean, status: RecordingStatus): void {
@@ -29,7 +34,7 @@ export function useAlwaysLocationPrompt(fromQuickStart: boolean, status: Recordi
 
   useEffect(() => {
     let cancelled = false;
-    const earned = fromQuickStart && isLoaded && !asked && isRunning;
+    const earned = Platform.OS === 'ios' && fromQuickStart && isLoaded && !asked && isRunning;
 
     void (async () => {
       if (!earned) return;

@@ -3,7 +3,8 @@ import * as Location from 'expo-location';
 
 import { debug } from '@/shared/debug/debug';
 import { brand } from '@/theme';
-import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
+import type { AutoPauseDetector } from './autoPause';
+import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 import { locationServiceRunning, updateRecordingNotification } from './recordingNotification';
 import {
   buildRecordingBackup,
@@ -25,9 +26,31 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // batches that follow the restoring one inside the same runtime.
 let restoredFromBackup = false;
 
+// The detector this runtime built for itself, when no session runs to own one.
+let headlessDetector: AutoPauseDetector | null = null;
+
 // Use require to avoid a circular dependency - this runs outside the React tree
 function recordingStore() {
   return require('@/features/recording/stores/RecordingStore').useRecordingStore;
+}
+
+function autoPause(): typeof import('./manualPause') {
+  return require('./manualPause');
+}
+
+/**
+ * A headless runtime renders no screen, so no session starts to evaluate
+ * auto-pause and the batch has to. A session that starts later owns a detector
+ * of its own, seeded from the same state, and this one then stands down.
+ */
+function batchDrivesAutoPause(): boolean {
+  if (!restoredFromBackup) return false;
+  const pause = autoPause();
+  if (!pause.autoPauseDetector()) {
+    headlessDetector = pause.buildAutoPauseDetector();
+    pause.setAutoPauseDetector(headlessDetector);
+  }
+  return pause.autoPauseDetector() === headlessDetector;
 }
 
 /**
@@ -40,23 +63,28 @@ function recordingStore() {
  * is credited when it resumes or stops.
  */
 async function restoreSessionFromBackup(): Promise<boolean> {
+  const { ensureCredentialsHydrated } = require('@/shared/app/AuthStore');
+  await ensureCredentialsHydrated();
   const backup = await loadRecordingBackup();
   if (!backup) return false;
+  const { useAuthStore } = require('@/shared/app/AuthStore');
+  const auth = useAuthStore.getState();
+  if (!auth.isAuthenticated || !backup.athleteId || backup.athleteId !== auth.athleteId)
+    return false;
   if (backup.status !== 'recording' && backup.status !== 'paused') return false;
 
-  const store = recordingStore();
-  store
-    .getState()
-    .startRecording(backup.activityType, backup.mode, backup.pairedEventId ?? undefined);
-  store.setState({
-    status: backup.status,
-    startTime: backup.startTime,
-    pausedDuration: backup.pausedDuration,
-    pauseIntervals: backup.pauseIntervals ?? [],
-    streams: backup.streams,
-    laps: backup.laps,
-    _pauseStart: backup.status === 'paused' ? backup.savedAt : null,
-  });
+  // Auto-pause reads the rider's preferences, and a fresh runtime has only the
+  // defaults until they are loaded.
+  const { useRecordingPreferences } = require('../stores/RecordingPreferencesStore');
+  if (!useRecordingPreferences.getState().isLoaded) {
+    await useRecordingPreferences.getState().initialize();
+  }
+
+  // A foreground launch may have started or restored a session during the load.
+  if (recordingStore().getState().status !== 'idle') return false;
+
+  const { restoreRecordingBackup } = require('./restoreRecordingBackup');
+  restoreRecordingBackup(backup, { headless: true });
   log.log('Restored a recording from its backup in a headless runtime');
   return true;
 }
@@ -71,8 +99,9 @@ export async function handleBackgroundLocations(
     restoredFromBackup = await restoreSessionFromBackup();
   }
 
-  const { addGpsPoint, setRawLocationFix, status } = store.getState();
+  const { status } = store.getState();
   if (status !== 'recording' && status !== 'paused') return;
+  const drivesAutoPause = batchDrivesAutoPause();
 
   const rejectThreshold = getAccuracyRejectThreshold();
   for (const location of locations) {
@@ -82,22 +111,28 @@ export async function handleBackgroundLocations(
     const point = {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
-      altitude: location.coords.altitude,
+      altitude: fixAltitude(location.coords),
       accuracy: location.coords.accuracy,
       speed: location.coords.speed,
       heading: location.coords.heading,
       timestamp: location.timestamp,
     };
     // Auto-pause needs a speed signal while paused, so raw fixes are published
-    // whether or not the point itself is recorded.
-    setRawLocationFix(point);
-    if (status === 'recording') addGpsPoint(point);
+    // whether or not the point itself is recorded. It can pause or resume the
+    // ride mid-batch, so the status is read again for each point.
+    store.getState().setRawLocationFix(point);
+    if (drivesAutoPause) autoPause().evaluateAutoPause();
+    if (store.getState().status === 'recording') store.getState().addGpsPoint(point);
   }
 
   // A headless runtime has no screen and no periodic timer, so each batch
   // persists itself or the next kill loses everything since the last one.
   if (restoredFromBackup) {
-    const backup = buildRecordingBackup(store.getState());
+    const { useRecordingLiveStore } = require('../stores/RecordingLiveStore');
+    const backup = buildRecordingBackup({
+      ...store.getState(),
+      autoPaused: useRecordingLiveStore.getState().autoPaused,
+    });
     if (backup) await saveRecordingBackup(backup);
   }
 

@@ -1,5 +1,5 @@
-import React, { useRef, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,13 +7,12 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing, layout, brand, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 
 const BRAND_COLOR = brand.tealLight;
 const RESUME_COLOR = colors.success;
 const STOP_COLOR = colors.error;
-const LONG_PRESS_MS = 1000;
 
 interface ControlBarProps {
   status: RecordingStatus;
@@ -23,6 +22,8 @@ interface ControlBarProps {
   onResume: () => void;
   onStart: () => void;
   onStop: () => void;
+  /** Open review for a ride already stopped, the one thing left to do with it. */
+  onReview: () => void;
   style?: ViewStyle;
 }
 
@@ -34,45 +35,11 @@ function ControlBarInner({
   onResume,
   onStart,
   onStop,
+  onReview,
   style,
 }: ControlBarProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-
-  // Long-press stop state - fully Animated, no React state re-renders
-  const stopAnim = useRef(new Animated.Value(0)).current;
-  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearStopTimer = useCallback(() => {
-    if (stopTimerRef.current) {
-      clearTimeout(stopTimerRef.current);
-      stopTimerRef.current = null;
-    }
-    stopAnim.stopAnimation();
-    stopAnim.setValue(0);
-  }, [stopAnim]);
-
-  useEffect(() => clearStopTimer, [clearStopTimer]);
-
-  const handleStopPressIn = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    Animated.timing(stopAnim, {
-      toValue: 1,
-      duration: LONG_PRESS_MS,
-      easing: Easing.linear,
-      useNativeDriver: false,
-    }).start();
-    // Fire completion after duration
-    stopTimerRef.current = setTimeout(() => {
-      clearStopTimer();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      onStop();
-    }, LONG_PRESS_MS);
-  }, [onStop, clearStopTimer, stopAnim]);
-
-  const handleStopPressOut = useCallback(() => {
-    clearStopTimer();
-  }, [clearStopTimer]);
 
   const handleHapticPress = useCallback((action: () => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -99,9 +66,8 @@ function ControlBarInner({
     );
   }
 
-  // Idle: [START]. The screen is reached with nothing recording only after an
-  // armed start is cancelled, and the athlete kept their sport and their place
-  // to begin when they are ready.
+  // Idle: [START]. The screen is reached with nothing recording from a one-tap
+  // system entry, and the athlete begins when they are ready.
   if (status === 'idle') {
     return (
       <View style={[styles.bar, style]}>
@@ -118,13 +84,26 @@ function ControlBarInner({
     );
   }
 
-  // Paused: [RESUME] [STOP (long-press)]
-  if (status === 'paused') {
-    const stopBorderColor = stopAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [colorWithOpacity(colors.error, 0.3), STOP_COLOR],
-    });
+  // Stopped: [REVIEW]. Back from review lands here, and a stopped ride takes no
+  // lap, pause or stop, so the only way on is back to the screen that saves it.
+  if (status === 'stopped') {
+    return (
+      <View style={[styles.bar, style]}>
+        <Animated.View style={styles.centerGroup}>
+          <PrimaryButton
+            testID="control-review"
+            label={t('recording.reviewActivity')}
+            icon="clipboard-check-outline"
+            color={BRAND_COLOR}
+            onPress={() => handleHapticPress(onReview)}
+          />
+        </Animated.View>
+      </View>
+    );
+  }
 
+  // Paused: [RESUME] [STOP]
+  if (status === 'paused') {
     return (
       <View style={[styles.bar, style]}>
         <View style={styles.buttonGroup}>
@@ -136,35 +115,14 @@ function ControlBarInner({
             onPress={() => handleHapticPress(onResume)}
           />
 
-          <Animated.View
+          <SecondaryButton
             testID="control-stop"
-            style={[styles.stopButtonWrap, { borderColor: stopBorderColor }]}
-            onTouchStart={handleStopPressIn}
-            onTouchEnd={handleStopPressOut}
-            onTouchCancel={handleStopPressOut}
-          >
-            <View style={[styles.stopButton, { backgroundColor: secondaryBg }]}>
-              {/* Progress overlay - driven by Animated for smooth 120hz */}
-              <Animated.View
-                style={[
-                  styles.stopProgress,
-                  {
-                    backgroundColor: STOP_COLOR,
-                    width: stopAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  },
-                ]}
-              />
-              <View style={styles.stopContent}>
-                <MaterialCommunityIcons name="stop" size={22} color={STOP_COLOR} />
-                <Text style={[styles.stopLabel, { color: STOP_COLOR }]}>
-                  {t('recording.controls.stop')}
-                </Text>
-              </View>
-            </View>
-          </Animated.View>
+            label={t('recording.controls.stop')}
+            icon="stop"
+            backgroundColor={secondaryBg}
+            textColor={STOP_COLOR}
+            onPress={() => handleHapticPress(onStop)}
+          />
         </View>
       </View>
     );
@@ -305,36 +263,5 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
-  },
-  // Stop button with long-press progress
-  stopButtonWrap: {
-    borderRadius: layout.borderRadius,
-    borderWidth: 2,
-    overflow: 'hidden',
-  },
-  stopButton: {
-    height: 56,
-    minWidth: 120,
-    borderRadius: layout.borderRadiusMd,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stopProgress: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    opacity: 0.15,
-  },
-  stopContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  stopLabel: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
   },
 });

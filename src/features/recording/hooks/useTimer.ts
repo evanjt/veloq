@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useSyncExternalStore } from 'react';
 
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { movingMsAt, useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 function formatTime(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -18,71 +18,97 @@ function formatTime(totalSeconds: number): string {
   return `${mm}:${ss}`;
 }
 
+const TICK_MS = 1000;
+
+const listeners = new Set<() => void>();
+let ticker: ReturnType<typeof setInterval> | null = null;
+let tickedAt = Date.now();
+
+function advance(): void {
+  tickedAt = Date.now();
+  listeners.forEach((notify) => notify());
+}
+
+function subscribeToClock(notify: () => void): () => void {
+  if (listeners.size === 0) {
+    // The cached reading is as old as the last time anyone listened.
+    tickedAt = Date.now();
+    ticker = setInterval(advance, TICK_MS);
+  }
+  listeners.add(notify);
+  return () => {
+    listeners.delete(notify);
+    if (listeners.size === 0 && ticker) {
+      clearInterval(ticker);
+      ticker = null;
+    }
+  };
+}
+
+function subscribeToNothing(): () => void {
+  return () => {};
+}
+
+function clockReading(): number {
+  // With nobody listening, nothing refreshes the cached reading, so a render
+  // that mounts the first reader must not start from one that is hours old.
+  if (listeners.size === 0 && Date.now() - tickedAt >= TICK_MS) tickedAt = Date.now();
+  return tickedAt;
+}
+
+function noReading(): number {
+  return 0;
+}
+
+/**
+ * The one-second clock the live recording readers share. A single interval
+ * runs while any reader is enabled, so every reader's re-render lands in the
+ * same commit. A disabled reader subscribes to nothing and reads 0.
+ */
+export function useClock(enabled: boolean = true): number {
+  return useSyncExternalStore(
+    enabled ? subscribeToClock : subscribeToNothing,
+    enabled ? clockReading : noReading
+  );
+}
+
 export function useTimer(): {
   elapsedTime: number;
   movingTime: number;
-  lapTime: number;
   formattedElapsed: string;
   formattedMoving: string;
-  formattedLap: string;
 } {
   const status = useRecordingStore((s) => s.status);
   const startTime = useRecordingStore((s) => s.startTime);
+  const stopTime = useRecordingStore((s) => s.stopTime);
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
-  const laps = useRecordingStore((s) => s.laps);
+  const pauseStart = useRecordingStore((s) => s._pauseStart);
 
-  const [, setTick] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The clock only schedules the re-render; the reading itself is taken at render.
+  useClock(status === 'recording');
 
-  // Start/stop interval based on status
-  useEffect(() => {
-    if (status === 'recording') {
-      intervalRef.current = setInterval(() => {
-        setTick((t) => t + 1);
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [status]);
-
-  if (status === 'idle' || status === 'stopped' || !startTime) {
+  if (status === 'idle' || !startTime) {
     return {
       elapsedTime: 0,
       movingTime: 0,
-      lapTime: 0,
       formattedElapsed: '00:00',
       formattedMoving: '00:00',
-      formattedLap: '00:00',
     };
   }
 
-  const now = Date.now();
+  // A stopped ride shows the times it finished on.
+  const now = status === 'stopped' ? (stopTime ?? Date.now()) : Date.now();
   const elapsedMs = now - startTime;
   const elapsedTime = Math.max(0, Math.floor(elapsedMs / 1000));
 
-  // Moving time excludes paused duration and any current pause
-  const movingTime = Math.max(0, elapsedTime - Math.floor(pausedDuration / 1000));
-
-  // Lap time: seconds since last lap ended
-  const lastLap = laps.length > 0 ? laps[laps.length - 1] : null;
-  const lapStartSeconds = lastLap ? lastLap.movingEndTime : 0;
-  const lapTime = Math.max(0, movingTime - lapStartSeconds);
+  const movingTime = Math.floor(
+    movingMsAt({ status, startTime, stopTime, pausedDuration, _pauseStart: pauseStart }, now) / 1000
+  );
 
   return {
     elapsedTime,
     movingTime,
-    lapTime,
     formattedElapsed: formatTime(elapsedTime),
     formattedMoving: formatTime(movingTime),
-    formattedLap: formatTime(lapTime),
   };
 }

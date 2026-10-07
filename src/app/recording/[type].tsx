@@ -5,51 +5,62 @@ import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { navigateTo } from '@/shared/app/navigation';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { getRecordingMode } from '@/features/recording/lib/recordingModes';
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
-import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { RecordingMap } from '@/features/recording/components/RecordingMap';
-import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
-import { ControlBar } from '@/features/recording/components/ControlBar';
-import { ActivityTypePickerModal } from '@/features/recording/components/ActivityTypePickerModal';
-import { FieldPickerModal } from '@/features/recording/components/FieldPickerModal';
-import { RouteOverlayPicker } from '@/features/recording/components/RouteOverlayPicker';
-import { ManualEntry } from '@/features/recording/components/ManualEntry';
-import { TimerHeader } from '@/features/recording/components/TimerHeader';
-import { StatusSlot } from '@/features/recording/components/StatusSlot';
-import { UnlockTrack } from '@/features/recording/components/UnlockTrack';
-import { IndoorDisplay } from '@/features/recording/components/IndoorDisplay';
-import { useTimer } from '@/features/recording/hooks/useTimer';
-import { useLocationPermission } from '@/features/recording/hooks/useLocationPermission';
-import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
-import { useRecordingScreenState } from '@/features/recording/hooks/useRecordingScreenState';
-import { useRecordingScreenColors } from '@/features/recording/hooks/useRecordingScreenColors';
-import { useRecordingLock } from '@/features/recording/hooks/useRecordingLock';
-import { useStatusPulseAnimation } from '@/features/recording/hooks/useStatusPulseAnimation';
-import { useGpsWarningClearEffect } from '@/features/recording/hooks/useGpsWarningClearEffect';
-import { useKmSplitBannerEffect } from '@/features/recording/hooks/useKmSplitBannerEffect';
-import { useHrZoneColorEffect } from '@/features/recording/hooks/useHrZoneColorEffect';
-import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
-import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
 import {
-  ArmedCountdownOverlay,
+  screenRecordingMode,
+  useRecordingStore,
+  useRecordingLiveStore,
+  useRecordingPreferences,
+  RecordingMap,
+  ConnectedDataFieldGrid,
+  ControlBar,
+  FieldPickerModal,
+  RouteOverlayPicker,
+  ManualEntry,
+  TimerHeader,
+  StatusSlot,
+  UnlockTrack,
+  IndoorDisplay,
+  useLocationPermission,
+  useRecordingScreenState,
+  useRecordingScreenColors,
+  useRecordingLock,
+  useStatusPulseAnimation,
+  useGpsWarningClearEffect,
+  useKmSplitBannerEffect,
+  useGpsSessionEffect,
+  useInitRecordingEffect,
+  RecordingCloseButton,
   RecordingGate,
+  StrengthSession,
+  WorkoutGuide,
+  canStartAfterScopeWarning,
   useAlwaysLocationPrompt,
   useCanRecord,
   usePermissionUpgrade,
   useUploadPermissionStore,
+  useRecordingKeepAwake,
+  useRecordingHandlers,
+  styles,
 } from '@/features/recording';
-import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
+import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
-import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
-import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
+import { useRepresentativeRoute } from '@/features/routes';
 import { colors, spacing } from '@/theme';
-import { styles } from '@/features/recording/RecordingScreen.styles';
+import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { ActivityType, DataFieldType } from '@/types';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function RecordingScreen() {
+function RecordingScreenContent() {
+  const recordingAthleteId = useRecordingStore((s) => s.athleteId);
+  const signedInAthleteId = useAuthStore((s) => s.athleteId);
+  if (recordingAthleteId && recordingAthleteId !== signedInAthleteId) return null;
+  return <RecordingContent />;
+}
+
+function RecordingContent() {
   useRecordingKeepAwake();
 
   const { isDark } = useTheme();
@@ -67,37 +78,32 @@ export default function RecordingScreen() {
   const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
   const ridingWithoutScope = useUploadPermissionStore((s) => s.recordingWithoutScope);
   const continueWithoutScope = useUploadPermissionStore((s) => s.continueWithoutScope);
+  const warnedPastScope = reason === 'no_permission' && ridingWithoutScope;
+  const canRecordAfterWarning = canStartAfterScopeWarning(canRecord, reason, ridingWithoutScope);
 
   const activityType = type as ActivityType;
-  const mode = getRecordingMode(activityType);
   const status = useRecordingStore((s) => s.status);
+  const storeMode = useRecordingStore((s) => s.mode);
+  const storeActivityType = useRecordingStore((s) => s.activityType);
+  // The sport can change after the tap that opened the screen, so the layout
+  // follows the store rather than the route param.
+  const mode = screenRecordingMode(
+    { status, mode: storeMode, activityType: storeActivityType },
+    activityType
+  );
   // Subscribe to per-stream lengths rather than the whole streams object or the
   // mutated-in-place arrays (whose identity is stable, so a direct array
   // selector would never notify). Each GPS point changes only the relevant
   // length, so only the consumers that need it re-render.
   const latlngLength = useRecordingStore((s) => s.streams.latlng.length);
   const distanceLength = useRecordingStore((s) => s.streams.distance.length);
-  const heartrateLength = useRecordingStore((s) => s.streams.heartrate.length);
 
-  // Snapshot coordinates for the map. Keyed on length because the underlying
-  // latlng array is mutated in place. The slice gives consumers a stable
-  // reference that only changes when a point is added, and slicing to the
-  // length this render saw keeps the snapshot and its key in step.
-  const coordinates = useMemo(
-    () => useRecordingStore.getState().streams.latlng.slice(0, latlngLength),
-    [latlngLength]
-  );
+  // The map gets the store's own track, which grows in place, and the length
+  // this render saw. It flips only the points past the last length, so a fix
+  // costs one point rather than a copy of the ride.
+  const coordinates = useRecordingStore((s) => s.streams.latlng);
 
-  const {
-    gpsWarning,
-    setGpsWarning,
-    splitBanner,
-    setSplitBanner,
-    showTypePicker,
-    setShowTypePicker,
-    hrZone,
-    setHrZone,
-  } = useRecordingScreenState();
+  const { gpsWarning, setGpsWarning, splitBanner, setSplitBanner } = useRecordingScreenState();
 
   const { textPrimary, textSecondary, bg, surface, border } = useRecordingScreenColors();
 
@@ -107,12 +113,6 @@ export default function RecordingScreen() {
   const statusPulse = useStatusPulseAnimation(status);
   const { isLocked, lock, unlock } = useRecordingLock(status);
 
-  const { elapsedTime, movingTime, formattedElapsed, formattedMoving } = useTimer();
-  const baseMetrics = useRecordingMetrics();
-  const metrics = useMemo(
-    () => ({ ...baseMetrics, elapsedTime, movingTime }),
-    [baseMetrics, elapsedTime, movingTime]
-  );
   // The location watch, the indoor tick, auto-pause and the crash backup are
   // owned by the recording session, so the screen only reads what they publish.
   const currentLocation = useRecordingLiveStore((s) => s.currentLocation);
@@ -124,11 +124,11 @@ export default function RecordingScreen() {
 
   useGpsWarningClearEffect(currentLocation, gpsWarning, setGpsWarning);
 
-  useKmSplitBannerEffect({ mode, status, distanceLength, isMetric, setSplitBanner });
-  useHrZoneColorEffect(heartrateLength, setHrZone);
+  const startTime = useRecordingStore((s) => s.startTime);
+  useKmSplitBannerEffect({ mode, status, distanceLength, startTime, isMetric, setSplitBanner });
 
-  const { handlePause, handleResume, handleLap, handleStop, handleDiscard, handleChangeType } =
-    useRecordingHandlers({ setShowTypePicker });
+  const { handlePause, handleResume, handleLap, handleStop, handleChangeType } =
+    useRecordingHandlers();
 
   useGpsSessionEffect({
     mode,
@@ -136,41 +136,34 @@ export default function RecordingScreen() {
     hasPermission,
     requestPermission,
     setGpsWarning,
-    onDiscard: handleDiscard,
   });
-  const { countdown, cancelCountdown, startNow } = useInitRecordingEffect(
+  const { startNow } = useInitRecordingEffect(
     status,
     activityType,
-    mode,
     pairedEventId,
-    canRecord,
-    from
+    canRecordAfterWarning,
+    from,
+    mode
   );
 
-  // The window is an abort and a pause: a cancel keeps the sport and the
-  // screen, so an athlete who wanted to wake a strap or change the sport first
-  // taps Start when they are ready rather than finding the widget again.
-  const cancelArmedStart = cancelCountdown;
   // Nothing to ask for on a ride that never started.
-  useAlwaysLocationPrompt(canRecord && from === 'quickstart', status);
+  useAlwaysLocationPrompt(canRecordAfterWarning && from === 'quickstart', status);
   useSensorSession();
   const sensorIssue = useSensorIssue();
 
   // Saved-route overlay on the live map (GPS mode only, session-scoped)
   const [overlayRouteId, setOverlayRouteId] = useState<string | null>(null);
   const [showRoutePicker, setShowRoutePicker] = useState(false);
-  const { points: overlayPoints } = useConsensusRoute(mode === 'gps' ? overlayRouteId : null);
+  const { points: overlayPoints } = useRepresentativeRoute(mode === 'gps' ? overlayRouteId : null);
 
   // In-place tile customisation (long-press a tile while unlocked)
   const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
 
-  // Stable handles for the memoised children below. An arrow written at the
-  // call site is a new function on every render, and this screen renders every
-  // second while the timer runs, so `React.memo` on those children could never
-  // hold against one. The two padding objects are the same story: a fresh
-  // object literal per render is a changed prop.
-  const openTypePicker = useCallback(() => setShowTypePicker(true), [setShowTypePicker]);
+  // Stable handles and styles let memoised children hold when store updates
+  // do not change the values they draw.
   const openRoutePicker = useCallback(() => setShowRoutePicker(true), []);
+  const openReview = useCallback(() => navigateTo('/recording/review'), []);
+  const openSensorPairing = useCallback(() => navigateTo('/sensor-settings'), []);
   const dismissGpsWarning = useCallback(() => setGpsWarning(null), [setGpsWarning]);
   const bottomPadding = insets.bottom + TAB_BAR_SAFE_PADDING;
   const unlockTrackStyle = useMemo(
@@ -202,8 +195,16 @@ export default function RecordingScreen() {
     [editingFieldIndex, effectiveFields, mode, setDataFields]
   );
 
-  // Read current activity type from store (may change during recording)
-  const currentActivityType = useRecordingStore((s) => s.activityType) ?? activityType;
+  const currentActivityType = storeActivityType ?? activityType;
+
+  const openSheet = useSheetOpener();
+  const openTypePicker = useCallback(async () => {
+    const result = await openSheet<ActivityTypeSheetInput, ActivityType>('sheets/activity-type', {
+      selectedType: currentActivityType,
+      mode: 'recording',
+    });
+    if (result.kind === 'selected') handleChangeType(result.value);
+  }, [openSheet, currentActivityType, handleChangeType]);
 
   // An answer that has not arrived is not a refusal. A cold start from a widget,
   // tile, shortcut or Siri can beat the permission store, and gating there shows
@@ -215,6 +216,7 @@ export default function RecordingScreen() {
         testID="recording-checking"
       >
         <ActivityIndicator size="large" color={colors.primary} />
+        <RecordingCloseButton />
       </View>
     );
   }
@@ -222,7 +224,6 @@ export default function RecordingScreen() {
   // A missing account is the only refusal: that ride has nowhere to go. A missing
   // scope stops the upload rather than the ride, so it warns once and the athlete
   // decides, and the ride they take that way stays on the device.
-  const warnedPastScope = reason === 'no_permission' && ridingWithoutScope;
   if (!canRecord && reason !== 'ok' && !warnedPastScope) {
     return (
       <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
@@ -233,14 +234,24 @@ export default function RecordingScreen() {
           isUpgrading={isUpgrading}
           error={upgradeError}
         />
+        <RecordingCloseButton />
       </View>
+    );
+  }
+
+  if (mode === 'manual' && currentActivityType === 'WeightTraining') {
+    return (
+      <StrengthSession
+        activityType={currentActivityType}
+        pairedEventId={pairedEventId ? Number(pairedEventId) : undefined}
+      />
     );
   }
 
   if (mode === 'manual') {
     return (
       <ManualEntry
-        activityType={activityType}
+        activityType={currentActivityType}
         pairedEventId={pairedEventId ? Number(pairedEventId) : undefined}
       />
     );
@@ -249,7 +260,6 @@ export default function RecordingScreen() {
   return (
     <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
       <TimerHeader
-        formattedElapsed={formattedElapsed}
         currentActivityType={currentActivityType}
         status={status}
         statusPulse={statusPulse}
@@ -274,19 +284,22 @@ export default function RecordingScreen() {
         onDismissGpsWarning={dismissGpsWarning}
       />
 
-      {countdown !== null && (
-        <ArmedCountdownOverlay
-          secondsLeft={countdown}
-          activityType={currentActivityType}
-          onCancel={cancelArmedStart}
-        />
-      )}
+      <WorkoutGuide
+        isMetric={isMetric}
+        isLocked={isLocked}
+        textPrimary={textPrimary}
+        textSecondary={textSecondary}
+        surface={surface}
+        border={border}
+        accent={colors.primary}
+      />
 
       {/* Main Content Area */}
       <View style={styles.mainContent} pointerEvents={isLocked ? 'none' : 'auto'}>
         {mode === 'gps' ? (
           <RecordingMap
             coordinates={coordinates}
+            coordinateCount={latlngLength}
             currentLocation={currentLocation}
             routeOverlay={overlayPoints}
             onOpenRoutePicker={openRoutePicker}
@@ -294,8 +307,7 @@ export default function RecordingScreen() {
           />
         ) : (
           <IndoorDisplay
-            activityType={activityType}
-            formattedMoving={formattedMoving}
+            activityType={currentActivityType}
             surface={surface}
             border={border}
             textPrimary={textPrimary}
@@ -304,12 +316,12 @@ export default function RecordingScreen() {
       </View>
 
       {/* Data Fields */}
-      <DataFieldGrid
+      <ConnectedDataFieldGrid
         fields={effectiveFields}
-        metrics={metrics}
         isMetric={isMetric}
-        hrZone={hrZone}
+        activityType={currentActivityType}
         onLongPressField={isLocked ? undefined : setEditingFieldIndex}
+        onEmptySensorTap={isLocked ? undefined : openSensorPairing}
       />
 
       {/* Controls, or the unlock track while locked */}
@@ -326,19 +338,10 @@ export default function RecordingScreen() {
           onStart={startNow}
           onStop={handleStop}
           onLap={handleLap}
+          onReview={openReview}
           style={controlBarStyle}
         />
       )}
-
-      {/* Activity type picker modal */}
-      <ActivityTypePickerModal
-        visible={showTypePicker}
-        selectedType={currentActivityType}
-        onSelect={handleChangeType}
-        onClose={() => setShowTypePicker(false)}
-        mode="recording"
-        isDark={isDark}
-      />
 
       {/* In-place data field picker */}
       <FieldPickerModal
@@ -362,3 +365,5 @@ export default function RecordingScreen() {
     </View>
   );
 }
+
+export default withScreenBoundary(RecordingScreenContent, 'Recording');

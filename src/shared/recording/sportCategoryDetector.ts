@@ -17,6 +17,32 @@ export function getSportCategory(activityType: ActivityType): SportCategory {
   return 'cycling';
 }
 
+/** The recorder's auto-pause threshold for each family, in km/h. */
+export const DEFAULT_AUTO_PAUSE_KMH: Record<SportCategory, number> = {
+  cycling: 2,
+  running: 1,
+  walking: 0.5,
+};
+
+const CYCLING: readonly string[] = SPORT_FAMILIES.cycling;
+
+/**
+ * The family whose auto-pause default a sport takes. A sport outside cycling,
+ * running and walking takes the lowest default, because a threshold set too
+ * high deletes real movement from an average while one set too low keeps only
+ * drift.
+ */
+export function autoPauseCategory(activityType: ActivityType): SportCategory {
+  if (CYCLING.includes(activityType)) return 'cycling';
+  if (RUNNING.includes(activityType)) return 'running';
+  return 'walking';
+}
+
+/** Speed (m/s) under which a sample of this sport is a stop. */
+export function stoppedSpeedMs(activityType: ActivityType): number {
+  return DEFAULT_AUTO_PAUSE_KMH[autoPauseCategory(activityType)] / 3.6;
+}
+
 // Teleport guard ceilings, deliberately generous so real efforts always pass:
 // cycling 126 km/h covers alpine descents, running 45 km/h, walking 29 km/h.
 const MAX_PLAUSIBLE_SPEED_MS: Record<SportCategory, number> = {

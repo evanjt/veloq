@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { spacing, ink, layout, colorWithOpacity } from '@/theme';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { TrimSlider } from '@/features/recording/components/TrimSlider';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface ReviewMapHeroProps {
   coordinates: [number, number][];
@@ -59,6 +59,7 @@ function ReviewMapHeroInner({
       <Pressable
         onPress={onBack}
         style={pressable([styles.mapBackButton, { top: topInset + spacing.sm }])}
+        android_ripple={pressRipple}
         disabled={disabled}
       >
         <MaterialCommunityIcons name="arrow-left" size={24} color={ink.white} />

@@ -1,3 +1,4 @@
+import { summariseLap } from './savedLaps';
 import type { ActivityType, RecordingStreams, RecordingLap } from '@/types';
 import { debug } from '@/shared/debug/debug';
 
@@ -355,7 +356,7 @@ export async function generateFitFile(params: {
     // Heart rate
     const hr = streams.heartrate?.[i] ?? 0;
     writer.writeUint8(hr > 0 ? Math.min(255, Math.round(hr)) : 0xff);
-    if (hr > 0) {
+    if (Number.isFinite(hr) && hr > 0) {
       totalHr += hr;
       hrCount++;
       if (hr > maxHr) maxHr = hr;
@@ -364,7 +365,7 @@ export async function generateFitFile(params: {
     // Cadence
     const cad = streams.cadence?.[i] ?? 0;
     writer.writeUint8(cad > 0 ? Math.min(255, Math.round(cad)) : 0xff);
-    if (cad > 0) {
+    if (Number.isFinite(cad) && cad > 0) {
       totalCadence += cad;
       cadenceCount++;
       if (cad > maxCadence) maxCadence = cad;
@@ -385,7 +386,7 @@ export async function generateFitFile(params: {
     // Power
     const pwr = streams.power?.[i] ?? 0;
     writer.writeUint16(pwr > 0 ? Math.min(65535, Math.round(pwr)) : 0xffff);
-    if (pwr > 0) {
+    if (Number.isFinite(pwr) && pwr > 0) {
       totalPower += pwr;
       powerCount++;
       if (pwr > maxPower) maxPower = pwr;
@@ -408,6 +409,7 @@ export async function generateFitFile(params: {
     { fieldNum: 253, size: 4, baseType: FIT_UINT32 }, // timestamp
     { fieldNum: 2, size: 4, baseType: FIT_UINT32 }, // start_time
     { fieldNum: 7, size: 4, baseType: FIT_UINT32 }, // total_elapsed_time (scale 1000)
+    { fieldNum: 8, size: 4, baseType: FIT_UINT32 }, // total_timer_time (scale 1000)
     { fieldNum: 9, size: 4, baseType: FIT_UINT32 }, // total_distance (scale 100)
     { fieldNum: 13, size: 2, baseType: FIT_UINT16 }, // avg_speed (scale 1000)
     { fieldNum: 15, size: 1, baseType: FIT_UINT8 }, // avg_heart_rate
@@ -415,11 +417,32 @@ export async function generateFitFile(params: {
     { fieldNum: 17, size: 1, baseType: FIT_UINT8 }, // avg_cadence
   ]);
 
-  for (const lap of laps) {
+  const savedLaps = [...laps];
+  const lastLap = savedLaps.at(-1);
+  if (!lastLap || lastLap.endTime < elapsedTime) {
+    savedLaps.push(
+      summariseLap(
+        streams,
+        {
+          index: savedLaps.length,
+          startTime: lastLap?.endTime ?? 0,
+          endTime: elapsedTime,
+          startIndex: lastLap ? lastLap.endIndex + 1 : 0,
+          endIndex: numPoints - 1,
+          movingEndTime: timerTime,
+        },
+        lastLap?.movingEndTime ?? 0
+      )
+    );
+  }
+  let movingStart = 0;
+  for (const lap of savedLaps) {
     writer.writeDataHeader(2);
     writer.writeUint32(fitStartTime + lap.endTime);
     writer.writeUint32(fitStartTime + lap.startTime);
     writer.writeUint32(Math.round((lap.endTime - lap.startTime) * 1000));
+    writer.writeUint32(Math.round(Math.max(0, lap.movingEndTime - movingStart) * 1000));
+    movingStart = lap.movingEndTime;
     writer.writeUint32(Math.round(lap.distance * 100));
     writer.writeUint16(Math.min(65535, Math.round(lap.avgSpeed * 1000)));
     writer.writeUint8(lap.avgHeartrate ? Math.min(255, Math.round(lap.avgHeartrate)) : 0xff);
@@ -428,7 +451,7 @@ export async function generateFitFile(params: {
   }
 
   // ── session message (local 3) ──────────────────────────────────────────────
-  const avgSpeed = elapsedTime > 0 ? totalDistance / elapsedTime : 0;
+  const avgSpeed = timerTime > 0 ? totalDistance / timerTime : 0;
   const avgHr = hrCount > 0 ? totalHr / hrCount : 0;
   const avgPower = powerCount > 0 ? totalPower / powerCount : 0;
   const avgCadence = cadenceCount > 0 ? totalCadence / cadenceCount : 0;
@@ -474,7 +497,7 @@ export async function generateFitFile(params: {
   writer.writeUint16(Math.min(65535, Math.round(totalAscent)));
   writer.writeUint16(Math.min(65535, Math.round(totalDescent)));
   writer.writeUint8(0); // first_lap_index
-  writer.writeUint16(Math.max(1, laps.length));
+  writer.writeUint16(savedLaps.length);
 
   // ── activity message (local 4) ─────────────────────────────────────────────
   writer.writeDefinition(4, MESG_ACTIVITY, [

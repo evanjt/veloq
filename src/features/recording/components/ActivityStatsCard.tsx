@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { formatDistance, formatDuration } from '@/shared/format/format';
+import { formatDistance, formatDuration, formatElevation } from '@/shared/format/format';
 import { spacing, typography } from '@/theme';
 import { useMetricSystem } from '@/shared/app';
 import type { ActivitySummary } from '@/features/recording/hooks/useActivitySummary';
@@ -47,8 +47,7 @@ export function ActivityStatsCard({ summary, textPrimary, textSecondary }: Activ
       {summary.elevationGain > 0 && (
         <View style={styles.compactStatItem}>
           <Text style={[styles.compactStatValue, { color: textPrimary }]}>
-            {Math.round(summary.elevationGain)} {isMetric ? t('units.m', 'm') : t('units.ft', 'ft')}{' '}
-            ↑
+            {formatElevation(summary.elevationGain, isMetric)} ↑
           </Text>
           <Text style={[styles.compactStatLabel, { color: textSecondary }]}>
             {t('recording.elevation', 'Elevation')}

@@ -9,11 +9,25 @@ const DEFAULT_DURATION_THRESHOLD = 5000;
 // GPS speed noise hovering around the threshold cannot flap pause/resume.
 const RESUME_HYSTERESIS_FACTOR = 1.25;
 
-export function createAutoPauseDetector(config: AutoPauseConfig): {
+export type AutoPauseDetector = ReturnType<typeof createAutoPauseDetector>;
+
+/**
+ * `paused` starts the detector in its own pause, for a ride it paused before a
+ * restore, so the next fix above the resume speed resumes it.
+ */
+export function createAutoPauseDetector(
+  config: AutoPauseConfig,
+  { paused = false }: { paused?: boolean } = {}
+): {
   update: (speed: number, timestamp: number) => 'pause' | 'resume' | null;
+  /** The fix time the current stop began, so a pause starts there and not when it latched. */
+  stoppedSince: () => number | null;
   reset: () => void;
 } {
-  let isPaused = false;
+  let isPaused = paused;
+  // Auto-pause cannot engage until a speed at or above the threshold has been
+  // seen, so a rider still clipping in at the start is not paused.
+  let hasMoved = paused;
   let belowThresholdSince: number | null = null;
 
   const threshold = config.durationThreshold ?? DEFAULT_DURATION_THRESHOLD;
@@ -32,6 +46,10 @@ export function createAutoPauseDetector(config: AutoPauseConfig): {
         return null;
       }
 
+      if (speed >= config.speedThreshold) hasMoved = true;
+
+      if (!hasMoved) return null;
+
       if (speed < config.speedThreshold) {
         if (belowThresholdSince === null) {
           belowThresholdSince = timestamp;
@@ -47,8 +65,13 @@ export function createAutoPauseDetector(config: AutoPauseConfig): {
       return null;
     },
 
+    stoppedSince() {
+      return belowThresholdSince;
+    },
+
     reset() {
       isPaused = false;
+      hasMoved = false;
       belowThresholdSince = null;
     },
   };

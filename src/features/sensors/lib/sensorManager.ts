@@ -423,5 +423,4 @@ export async function disconnectAllSensors(): Promise<void> {
   for (const id of new Set([...ids, ...storeIds])) {
     await disconnectSensor(id);
   }
-  useSensorStore.getState().clearLatest();
 }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -15,29 +15,34 @@ import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { replaceTo } from '@/shared/app/navigation';
+import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
+import { Button, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { useUploadPermissionStore } from '@/features/recording';
-import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
-import { useActivitySummary } from '@/features/recording/hooks/useActivitySummary';
-import { useDiscardWithAnimation } from '@/features/recording/hooks/useDiscardWithAnimation';
 import {
+  useRecordingStore,
+  useUploadPermissionStore,
+  useReviewSave,
+  useActivitySummary,
+  useDiscardWithAnimation,
+  resumeStoppedRecording,
   useActivityNameGeneration,
   getTimeOfDayKey,
-} from '@/features/recording/hooks/useActivityNameGeneration';
-import { ReviewMapHero } from '@/features/recording/components/ReviewMapHero';
-import { RpeSlider } from '@/features/recording/components/RpeSlider';
-import { ActivityTypePickerModal } from '@/features/recording/components/ActivityTypePickerModal';
-import { ActivityStatsCard } from '@/features/recording/components/ActivityStatsCard';
-import { SaveErrorBanner } from '@/features/recording/components/SaveErrorBanner';
+  ReviewMapHero,
+  ActivityStatsCard,
+  SaveErrorBanner,
+} from '@/features/recording';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSheetOpener } from '@/shared/app/sheetRequest';
+import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { ActivityType } from '@/types';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const MAP_FRACTION = 0.45;
 
-export default function ReviewScreen() {
+function ReviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -52,7 +57,25 @@ export default function ReviewScreen() {
   }>();
 
   const isManual = params.manual === 'true';
+  useEffect(() => {
+    if (!isManual) return undefined;
+    return () => {
+      if (useRecordingStore.getState().mode === 'manual') useRecordingStore.getState().reset();
+    };
+  }, [isManual]);
   const activityType = useRecordingStore((s) => s.activityType);
+  const recordingStatus = useRecordingStore((s) => s.status);
+  const recordingMode = useRecordingStore((s) => s.mode);
+  const recordingAthleteId = useRecordingStore((s) => s.athleteId);
+  const signedInAthleteId = useAuthStore((s) => s.athleteId);
+  const authenticated = useAuthStore((s) => s.isAuthenticated);
+  const ownedReview =
+    authenticated &&
+    !!recordingAthleteId &&
+    recordingAthleteId === signedInAthleteId &&
+    (isManual
+      ? recordingStatus === 'recording' && recordingMode === 'manual'
+      : recordingStatus === 'stopped' && !!recordingMode && recordingMode !== 'manual');
   const streams = useRecordingStore((s) => s.streams);
   const laps = useRecordingStore((s) => s.laps);
   const startTime = useRecordingStore((s) => s.startTime);
@@ -62,15 +85,14 @@ export default function ReviewScreen() {
   const pairedEventId = useRecordingStore((s) => s.pairedEventId);
 
   const [notes, setNotes] = useState(params.notes ?? '');
-  const [rpe, setRpe] = useState(5);
   const [selectedType, setSelectedType] = useState<ActivityType>(
     activityType ?? ('Ride' as ActivityType)
   );
   const { name, setName } = useActivityNameGeneration({
     initialName: params.name,
+    startTime,
     type: selectedType,
   });
-  const [showTypeModal, setShowTypeModal] = useState(false);
 
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(Math.max(0, (streams.latlng?.length ?? 0) - 1));
@@ -94,18 +116,19 @@ export default function ReviewScreen() {
   }, []);
 
   // Summary, trim delta, and trimmed-stream accessor extracted to useActivitySummary
-  const { summary, trimDelta, getTrimmedStreams, pausedSecondsInWindow } = useActivitySummary({
-    streams,
-    startTime,
-    stopTime,
-    pausedDuration,
-    pauseIntervals,
-    trimStart,
-    trimEnd,
-    canTrim,
-    isManual,
-    params,
-  });
+  const { summary, trimDelta, getTrimmedStreams, trimStartIndex, pausedSecondsInWindow } =
+    useActivitySummary({
+      streams,
+      startTime,
+      stopTime,
+      pausedDuration,
+      pauseIntervals,
+      trimStart,
+      trimEnd,
+      canTrim,
+      isManual,
+      params,
+    });
 
   const ridingWithoutScope = useUploadPermissionStore((s) => s.recordingWithoutScope);
 
@@ -130,19 +153,28 @@ export default function ReviewScreen() {
     laps,
     pairedEventId,
     getTrimmedStreams,
+    trimStartIndex,
     canTrim,
   });
+  useEffect(() => {
+    const foreignSession = !!recordingAthleteId && recordingAthleteId !== signedInAthleteId;
+    if (!ownedReview && (foreignSession || (!isUploading && !queuedMessage))) replaceTo('/record');
+  }, [ownedReview, recordingAthleteId, signedInAthleteId, isUploading, queuedMessage]);
 
   // Hold-to-discard extracted to useDiscardWithAnimation
   const { discardAnim, handleDiscardPressIn, handleDiscardPressOut } = useDiscardWithAnimation();
 
-  const handleTypeSelect = useCallback((item: ActivityType) => {
-    setSelectedType(item);
-    setShowTypeModal(false);
-  }, []);
+  const openSheet = useSheetOpener();
+  const openTypePicker = useCallback(async () => {
+    const result = await openSheet<ActivityTypeSheetInput, ActivityType>('sheets/activity-type', {
+      selectedType: type,
+      mode: 'review',
+    });
+    if (result.kind === 'selected') setSelectedType(result.value);
+  }, [openSheet, type]);
 
-  const handleCloseTypeModal = useCallback(() => {
-    setShowTypeModal(false);
+  const handleResume = useCallback(() => {
+    resumeStoppedRecording().catch(() => {});
   }, []);
 
   const handleBack = useCallback(() => {
@@ -158,6 +190,8 @@ export default function ReviewScreen() {
   const isProcessing = isUploading;
   const { height: windowHeight } = useWindowDimensions();
   const mapHeight = hasGps ? windowHeight * MAP_FRACTION : 0;
+
+  if (!ownedReview) return null;
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
@@ -194,7 +228,10 @@ export default function ReviewScreen() {
 
       {/* Bottom sheet content */}
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Activity Name */}
@@ -206,7 +243,7 @@ export default function ReviewScreen() {
           ]}
           value={name}
           onChangeText={setName}
-          placeholder={`${t(`recording.timeOfDay.${getTimeOfDayKey()}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`}
+          placeholder={`${t(`recording.timeOfDay.${getTimeOfDayKey(startTime)}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`}
           placeholderTextColor={textSecondary}
           editable={!isProcessing}
         />
@@ -230,7 +267,7 @@ export default function ReviewScreen() {
         <TouchableOpacity
           testID="review-activity-type"
           style={[styles.typeChip, { backgroundColor: surface, borderColor: border }]}
-          onPress={() => !isProcessing && setShowTypeModal(true)}
+          onPress={() => !isProcessing && openTypePicker()}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name={getActivityIcon(type)} size={20} color={activityColor} />
@@ -239,11 +276,6 @@ export default function ReviewScreen() {
           </Text>
           <MaterialCommunityIcons name="chevron-down" size={18} color={textSecondary} />
         </TouchableOpacity>
-
-        {/* RPE Slider - only for GPS activities; not applicable to manual entries */}
-        {!isManual && (
-          <RpeSlider value={rpe} onValueChange={setRpe} textSecondary={textSecondary} />
-        )}
 
         {/* Notes */}
         <TextInput
@@ -305,17 +337,27 @@ export default function ReviewScreen() {
         <View style={styles.actions}>
           <TouchableOpacity
             testID="review-save-button"
-            style={[styles.primaryBtn, { backgroundColor: brand.teal }]}
+            style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
             onPress={handleSave}
             disabled={isProcessing}
             activeOpacity={0.8}
           >
             {isUploading ? (
-              <ActivityIndicator size="small" color={colors.textOnDark} />
+              <ActivityIndicator size="small" color={colors.textOnPrimary} />
             ) : (
               <Text style={styles.primaryBtnText}>{t('common.save', 'Save')}</Text>
             )}
           </TouchableOpacity>
+
+          {!isManual && (
+            <Button
+              testID="review-resume-button"
+              label={t('recording.controls.resume')}
+              variant="secondary"
+              onPress={handleResume}
+              disabled={isProcessing}
+            />
+          )}
 
           {/* Hold-to-discard */}
           <Animated.View
@@ -355,14 +397,6 @@ export default function ReviewScreen() {
           </Animated.View>
         </View>
       </ScrollView>
-
-      {/* Activity Type Modal */}
-      <ActivityTypePickerModal
-        visible={showTypeModal}
-        selectedType={type}
-        onSelect={handleTypeSelect}
-        onClose={handleCloseTypeModal}
-      />
     </View>
   );
 }
@@ -441,18 +475,18 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     borderRadius: layout.borderRadiusSm,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: layout.minTapTarget,
   },
   primaryBtnText: {
     ...typography.bodyBold,
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   dangerBtn: {
     borderRadius: layout.borderRadiusSm,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: layout.minTapTarget,
@@ -465,3 +499,5 @@ const styles = StyleSheet.create({
     color: darkColors.errorDeep,
   },
 });
+
+export default withScreenBoundary(ReviewScreenContent, 'RecordingReview');

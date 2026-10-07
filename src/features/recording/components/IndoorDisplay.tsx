@@ -5,21 +5,21 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
 import { styles } from '../RecordingScreen.styles';
+import { useTimer } from '../hooks/useTimer';
 
 export function IndoorDisplay({
   activityType,
-  formattedMoving,
   surface,
   border,
   textPrimary,
 }: {
   activityType: ActivityType;
-  formattedMoving: string;
   surface: string;
   border: string;
   textPrimary: string;
 }) {
   const activityColor = getActivityColor(activityType);
+  const { formattedMoving } = useTimer();
   return (
     <View style={[styles.indoorDisplay, { backgroundColor: surface, borderColor: border }]}>
       <MaterialCommunityIcons

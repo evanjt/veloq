@@ -46,6 +46,12 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
         }
 
         const tokenResponse = await handleOAuthCallback(result.url);
+        const currentAthleteId = useAuthStore.getState().athleteId;
+        const consentedAthleteId = String(tokenResponse.athlete_id);
+        if (consentedAthleteId !== currentAthleteId) {
+          setError(`${t('alerts.accountChangeTitle')} (${consentedAthleteId})`);
+          return false;
+        }
         await useAuthStore
           .getState()
           .setOAuthCredentials(
@@ -60,9 +66,9 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
         const granted = useUploadPermissionStore.getState().hasWritePermission === true;
 
         if (granted) {
-          // Requeue permission-blocked entries; the queue processor re-drains
-          // when needsUpgrade flips false.
-          await clearPermissionBlocked();
+          // Requeue this athlete's permission-blocked entries, and nobody
+          // else's; the queue processor re-drains when needsUpgrade flips false.
+          await clearPermissionBlocked(consentedAthleteId);
           log.log('Successfully upgraded to write scope');
         } else {
           setError(

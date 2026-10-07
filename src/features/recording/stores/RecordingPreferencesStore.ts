@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
-import { setRecentRecordingTypes } from '@/shared/recording';
+import { setRecentRecordingTypes, setRecordedRecordingTypes } from '@/shared/recording';
+import { DEFAULT_AUTO_PAUSE_KMH } from '@/shared/recording/sportCategoryDetector';
 import { getSetting, setSetting } from '@/shared/storage';
 import type { ActivityType, DataFieldType } from '@/types';
 
@@ -12,11 +13,7 @@ export type GpsAccuracyMode = 'high' | 'balanced' | 'batterySaver';
 const DEFAULT_ACCURACY_REJECT_THRESHOLD_M = 30;
 const DEFAULT_AUTO_PAUSE_DURATION_MS = 3000;
 
-const DEFAULT_AUTO_PAUSE_THRESHOLDS: Record<string, number> = {
-  cycling: 2,
-  running: 1,
-  walking: 0.5,
-};
+const DEFAULT_AUTO_PAUSE_THRESHOLDS: Record<string, number> = DEFAULT_AUTO_PAUSE_KMH;
 
 const DEFAULT_DATA_FIELDS: Record<string, DataFieldType[]> = {
   gps: ['speed', 'distance', 'heartrate', 'power'],
@@ -26,6 +23,8 @@ const DEFAULT_DATA_FIELDS: Record<string, DataFieldType[]> = {
 
 interface RecordingPreferencesState {
   recentActivityTypes: ActivityType[];
+  /** Every distinct sport recorded, most recent first. The recents above are its first four. */
+  recordedActivityTypes: ActivityType[];
   /**
    * Whether the Always location dialog has been put to the athlete. iOS shows it
    * once, so this is asked-not-granted: a denial must never lead to a second ask.
@@ -62,6 +61,7 @@ interface RecordingPreferencesState {
 
 export const useRecordingPreferences = create<RecordingPreferencesState>((set) => ({
   recentActivityTypes: [],
+  recordedActivityTypes: [],
   alwaysLocationAsked: false,
   autoPauseEnabled: true,
   autoPauseThresholds: { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
@@ -82,9 +82,18 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
         const recentActivityTypes = Array.isArray(parsed.recentActivityTypes)
           ? parsed.recentActivityTypes
           : [];
+        const storedRecorded = Array.isArray(parsed.recordedActivityTypes)
+          ? parsed.recordedActivityTypes
+          : [];
+        const recordedActivityTypes = [
+          ...storedRecorded,
+          ...recentActivityTypes.filter((t) => !storedRecorded.includes(t)),
+        ];
         setRecentRecordingTypes(recentActivityTypes);
+        setRecordedRecordingTypes(recordedActivityTypes);
         set({
           recentActivityTypes,
+          recordedActivityTypes,
           autoPauseEnabled:
             typeof parsed.autoPauseEnabled === 'boolean' ? parsed.autoPauseEnabled : true,
           autoPauseThresholds:
@@ -138,9 +147,15 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
     set((state) => {
       const filtered = state.recentActivityTypes.filter((t) => t !== type);
       const updated = [type, ...filtered].slice(0, 4);
-      persistPreferences({ ...state, recentActivityTypes: updated });
+      const recorded = [type, ...state.recordedActivityTypes.filter((t) => t !== type)];
+      persistPreferences({
+        ...state,
+        recentActivityTypes: updated,
+        recordedActivityTypes: recorded,
+      });
       setRecentRecordingTypes(updated);
-      return { recentActivityTypes: updated };
+      setRecordedRecordingTypes(recorded);
+      return { recentActivityTypes: updated, recordedActivityTypes: recorded };
     });
   },
 
@@ -225,6 +240,7 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
   try {
     const data = {
       recentActivityTypes: state.recentActivityTypes,
+      recordedActivityTypes: state.recordedActivityTypes,
       autoPauseEnabled: state.autoPauseEnabled,
       autoPauseThresholds: state.autoPauseThresholds,
       dataFields: state.dataFields,

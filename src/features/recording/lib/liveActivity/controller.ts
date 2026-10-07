@@ -1,7 +1,13 @@
-import { formatDistance, formatPace, formatSpeed } from '@/shared/format/format';
+import { i18n } from '@/i18n';
+import { formatDistance } from '@/shared/format/format';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { getSportCategory } from '@/features/recording/lib/sportCategoryDetector';
+import { movingMsAt, useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { getSportCategory } from '@/shared/recording/sportCategoryDetector';
+import { formatRecordingSpeed } from '@/features/recording/lib/formatRecordingSpeed';
+import {
+  pauseRecordingManually,
+  resumeRecordingManually,
+} from '@/features/recording/lib/manualPause';
 
 import { buildContentState, type LiveActivityContentState } from './contentState';
 import {
@@ -16,42 +22,39 @@ import {
 /** Static for the life of the card: what the extension needs before the first state. */
 interface LiveActivityAttributes {
   activityType: string;
+  /** The name the card shows, translated here because the extension holds no catalogue. */
+  activityLabel: string;
   sportCategory: string;
 }
 
 let cardRunning = false;
 
-/**
- * The paused clock the store keeps is closed only on resume, so a card built
- * mid-pause has to add the pause it is standing in.
- */
-function pausedMs(now: number): number {
-  const { pausedDuration, status, _pauseStart } = useRecordingStore.getState();
-  if (status !== 'paused' || !_pauseStart) return pausedDuration;
-  return pausedDuration + Math.max(0, now - _pauseStart);
-}
-
 function composeState(now: number): LiveActivityContentState | null {
-  const { status, startTime, activityType, streams } = useRecordingStore.getState();
+  const state = useRecordingStore.getState();
+  const { status, startTime, activityType, streams } = state;
   if (!startTime || (status !== 'recording' && status !== 'paused')) return null;
 
   const isMetric = getIsMetric();
   const distance = streams.distance[streams.distance.length - 1] ?? 0;
-  const paused = pausedMs(now);
-  const movingS = Math.max(1, (now - startTime - paused) / 1000);
+  const movingMs = movingMsAt(state, now);
+  const movingS = Math.max(1, movingMs / 1000);
   const avgSpeed = distance / movingS;
-  const category = getSportCategory(activityType ?? 'Ride');
 
   return buildContentState({
     status,
     now,
-    startTime,
-    pausedDurationMs: paused,
+    movingMs,
     distanceLabel: formatDistance(distance, isMetric),
-    speedLabel:
-      category === 'cycling' ? formatSpeed(avgSpeed, isMetric) : formatPace(avgSpeed, isMetric),
+    speedLabel: formatRecordingSpeed(activityType, avgSpeed, isMetric),
     gps: streams.latlng,
   });
+}
+
+function activityLabel(type: string): string {
+  const t = i18n.t as unknown as (key: string) => string;
+  const key = `activityTypes.${type}`;
+  const label = t(key);
+  return label && label !== key ? label : type;
 }
 
 /** Start the card for the session in flight. A second call is a no-op, not a second card. */
@@ -63,6 +66,7 @@ export function beginLiveActivity(): void {
   const { activityType } = useRecordingStore.getState();
   const attributes: LiveActivityAttributes = {
     activityType: activityType ?? 'Ride',
+    activityLabel: activityLabel(activityType ?? 'Ride'),
     sportCategory: getSportCategory(activityType ?? 'Ride'),
   };
   startNativeLiveActivity(JSON.stringify(attributes), JSON.stringify(state));
@@ -89,11 +93,11 @@ export function finishLiveActivity(): void {
  */
 export function installLiveActivityControls(): () => void {
   return onLiveActivityControl(({ action }) => {
-    const { status, pauseRecording, resumeRecording } = useRecordingStore.getState();
+    const { status } = useRecordingStore.getState();
     if (status !== 'recording' && status !== 'paused') return;
     const wantsPause = action === 'pause' || (action === 'toggle' && status === 'recording');
-    if (wantsPause) pauseRecording();
-    else resumeRecording();
+    if (wantsPause) pauseRecordingManually();
+    else resumeRecordingManually();
   });
 }
 

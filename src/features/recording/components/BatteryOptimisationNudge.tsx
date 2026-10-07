@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, colorWithOpacity, spacing, layout, typography, darkColors } from '@/theme';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 /**
  * One-time, dismissable Android nudge to exempt Veloq from battery
@@ -49,7 +49,12 @@ export function BatteryOptimisationNudge() {
             'Long recordings work best with battery optimisation off for Veloq.'
           )}
         </Text>
-        <Pressable onPress={openBatterySettings} accessibilityRole="button" style={pressable()}>
+        <Pressable
+          onPress={openBatterySettings}
+          accessibilityRole="button"
+          style={pressable()}
+          android_ripple={pressRipple}
+        >
           <Text
             style={[styles.link, { color: isDark ? darkColors.warningAmber : colors.warningAmber }]}
           >
@@ -64,6 +69,7 @@ export function BatteryOptimisationNudge() {
         accessibilityRole="button"
         accessibilityLabel={t('common.close', 'Close')}
         style={pressable()}
+        android_ripple={pressRipple}
       >
         <MaterialCommunityIcons name="close" size={18} color={colors.amberIcon} />
       </Pressable>

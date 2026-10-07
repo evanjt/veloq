@@ -8,14 +8,15 @@ import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
-import { spacing, colors, colorWithOpacity, layout, typography } from '@/theme';
+import { spacing, colors, darkColors, colorWithOpacity, layout, typography } from '@/theme';
 import { GrantAccessButton } from './GrantAccessButton';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 const AMBER_BG = colorWithOpacity(colors.warning, 0.12);
 const AMBER_BG_DARK = colorWithOpacity(colors.warning, 0.18);
 const AMBER_TEXT = colors.amberIcon;
-const AMBER_ACCENT = colors.warning;
+const AMBER_ACCENT = colors.warningAmber;
+const AMBER_ACCENT_DARK = darkColors.warningAmber;
 
 function PermissionUpgradeBannerInner() {
   const { t } = useTranslation();
@@ -36,7 +37,11 @@ function PermissionUpgradeBannerInner() {
     >
       <View style={styles.content}>
         <View style={styles.row}>
-          <MaterialCommunityIcons name="shield-lock-outline" size={18} color={AMBER_ACCENT} />
+          <MaterialCommunityIcons
+            name="shield-lock-outline"
+            size={18}
+            color={isDark ? AMBER_ACCENT_DARK : AMBER_ACCENT}
+          />
           <Text style={[styles.text, { color: AMBER_TEXT }]} numberOfLines={2}>
             {t('recording.permissionNeeded', 'Permission needed to upload activities')}
           </Text>
@@ -46,6 +51,7 @@ function PermissionUpgradeBannerInner() {
             onPress={dismissBanner}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={pressable()}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="close" size={18} color={AMBER_TEXT} />
           </Pressable>
@@ -61,6 +67,8 @@ function PermissionUpgradeBannerInner() {
 }
 
 export const PermissionUpgradeBanner = React.memo(PermissionUpgradeBannerInner);
+
+const PERMISSION_ICON_WIDTH = 18;
 
 const styles = StyleSheet.create({
   container: {
@@ -86,6 +94,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: typography.caption.fontSize,
     color: colors.errorDeep,
-    marginLeft: 18 + spacing.sm,
+    marginLeft: PERMISSION_ICON_WIDTH + spacing.sm,
   },
 });

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { freshValue, useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useClock } from '@/features/recording/hooks/useTimer';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { pausedSecondsBetween } from '@/features/recording/lib/pausedTime';
 
 // MET values for calorie estimation
 const MET_VALUES: Record<string, number> = {
@@ -38,10 +40,9 @@ export function useRecordingMetrics(): {
   heartrate: number;
   power: number;
   cadence: number;
-  elevation: number;
+  /** The last valid altitude reading, null before any fix has carried one. */
+  elevation: number | null;
   elevationGain: number;
-  pace: number;
-  avgPace: number;
   calories: number;
   lapDistance: number;
   lapTime: number;
@@ -52,15 +53,13 @@ export function useRecordingMetrics(): {
   // A sensor going quiet is the absence of an update, so nothing in the store
   // marks it. The clock is what turns a held sample stale, and it has to be a
   // value the memo reads rather than a `Date.now()` in the render body.
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const tick = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, []);
+  const nowMs = useClock();
   const totals = useRecordingStore((s) => s.totals);
   const laps = useRecordingStore((s) => s.laps);
   const activityType = useRecordingStore((s) => s.activityType);
-  const pausedDuration = useRecordingStore((s) => s.pausedDuration);
+  const pauseIntervals = useRecordingStore((s) => s.pauseIntervals);
+  const startTime = useRecordingStore((s) => s.startTime);
+  const openPauseStart = useRecordingStore((s) => (s.status === 'paused' ? s._pauseStart : null));
   const athleteWeight = useAuthStore((s) => {
     // Weight comes from the intervals.icu API but is not typed on Athlete
     const a = s.athlete as Record<string, unknown> | null;
@@ -70,7 +69,7 @@ export function useRecordingMetrics(): {
   return useMemo(() => {
     // The tiles read the sensors, not the recorded streams. A stream starts at
     // the first point, which outdoors waits for a GPS fix, so a connected
-    // sensor would otherwise read 0 through the countdown and the wait.
+    // sensor would otherwise read 0 through the wait.
     const liveHeartrate = freshValue(latestSensor.heartrate, nowMs);
     const livePower = freshValue(latestSensor.power, nowMs);
     const liveCadence = freshValue(latestSensor.cadence, nowMs);
@@ -84,10 +83,8 @@ export function useRecordingMetrics(): {
         heartrate: liveHeartrate,
         power: livePower,
         cadence: liveCadence,
-        elevation: 0,
+        elevation: null,
         elevationGain: 0,
-        pace: 0,
-        avgPace: 0,
         calories: 0,
         lapDistance: 0,
         lapTime: 0,
@@ -101,15 +98,21 @@ export function useRecordingMetrics(): {
     const heartrate = liveHeartrate;
     const power = livePower;
     const cadence = liveCadence;
-    const elevation = streams.altitude[lastIdx] ?? 0;
+    const elevation = totals.lastAltitude;
 
-    // Average speed
+    // Stream times are wall clock, so the pauses come back out, the review's
+    // rule. A pause still open began at the first stationary fix, whose samples
+    // are already in the streams, so its overlap with the window comes out too.
     const elapsedSeconds = streams.time[lastIdx] ?? 0;
-    const avgSpeed = elapsedSeconds > 0 ? distance / elapsedSeconds : 0;
-
-    // Pace (seconds per km)
-    const pace = speed > 0 ? 1000 / speed : 0;
-    const avgPace = avgSpeed > 0 ? 1000 / avgSpeed : 0;
+    const pauses =
+      openPauseStart && startTime
+        ? [...pauseIntervals, { start: (openPauseStart - startTime) / 1000, end: Infinity }]
+        : pauseIntervals;
+    const movingSeconds = Math.max(
+      0,
+      elapsedSeconds - pausedSecondsBetween(pauses, 0, elapsedSeconds)
+    );
+    const avgSpeed = movingSeconds > 0 ? distance / movingSeconds : 0;
 
     // Accumulated per appended sample by the store. Rescanning the whole
     // altitude array here made the work over a ride quadratic.
@@ -120,12 +123,12 @@ export function useRecordingMetrics(): {
     // age assumed 35 as the athlete's age is not available locally). Without
     // HR, fall back to duration_hours * weight_kg * MET.
     const weightKg = athleteWeight ?? DEFAULT_WEIGHT_KG;
-    const durationHours = elapsedSeconds / 3600;
+    const durationHours = movingSeconds / 3600;
     let calories: number;
     if (totals.heartrateCount >= 30) {
       const avgHr = totals.heartrateSum / totals.heartrateCount;
       const kcalPerMin = (-55.0969 + 0.6309 * avgHr + 0.1988 * weightKg + 0.2017 * 35) / 4.184;
-      calories = Math.round(Math.max(0, kcalPerMin) * (elapsedSeconds / 60));
+      calories = Math.round(Math.max(0, kcalPerMin) * (movingSeconds / 60));
     } else {
       const met = getMet(activityType ?? 'Other');
       calories = Math.round(durationHours * weightKg * met);
@@ -139,7 +142,6 @@ export function useRecordingMetrics(): {
       lastLap && lastLap.endIndex >= 0 ? (streams.distance[lastLap.endIndex] ?? 0) : 0;
     const lapDistance = distance - lapStartDistance;
     const lapStartSeconds = lastLap ? lastLap.movingEndTime : 0;
-    const movingSeconds = elapsedSeconds - Math.floor(pausedDuration / 1000);
     const lapTime = Math.max(0, movingSeconds - lapStartSeconds);
 
     return {
@@ -151,11 +153,20 @@ export function useRecordingMetrics(): {
       cadence,
       elevation,
       elevationGain,
-      pace,
-      avgPace,
       calories,
       lapDistance,
       lapTime,
     };
-  }, [streams, latestSensor, nowMs, totals, laps, activityType, pausedDuration, athleteWeight]);
+  }, [
+    streams,
+    latestSensor,
+    nowMs,
+    totals,
+    laps,
+    activityType,
+    pauseIntervals,
+    openPauseStart,
+    startTime,
+    athleteWeight,
+  ]);
 }

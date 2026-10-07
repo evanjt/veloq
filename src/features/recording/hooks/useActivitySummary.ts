@@ -46,6 +46,8 @@ export interface UseActivitySummary {
   summary: ActivitySummary;
   trimDelta: TrimDelta | null;
   getTrimmedStreams: () => RecordingStreams;
+  /** Store index of the first sample `getTrimmedStreams` returns, so laps can be moved onto it. */
+  trimStartIndex: number;
   /** Paused seconds inside the saved window, for the FIT writer's timer time. */
   pausedSecondsInWindow: number;
 }
@@ -73,19 +75,20 @@ export function useActivitySummary({
   params,
 }: UseActivitySummaryArgs): UseActivitySummary {
   // Get trimmed streams for upload
+  const trimStartIndex = canTrim ? trimStart : 0;
   const getTrimmedStreams = useCallback(() => {
     if (!canTrim) return streams;
     return {
-      latlng: streams.latlng.slice(trimStart, trimEnd + 1),
-      altitude: streams.altitude.slice(trimStart, trimEnd + 1),
-      distance: streams.distance.slice(trimStart, trimEnd + 1),
-      heartrate: streams.heartrate.slice(trimStart, trimEnd + 1),
-      power: streams.power.slice(trimStart, trimEnd + 1),
-      cadence: streams.cadence.slice(trimStart, trimEnd + 1),
-      speed: streams.speed.slice(trimStart, trimEnd + 1),
-      time: streams.time.slice(trimStart, trimEnd + 1),
+      latlng: streams.latlng.slice(trimStartIndex, trimEnd + 1),
+      altitude: streams.altitude.slice(trimStartIndex, trimEnd + 1),
+      distance: streams.distance.slice(trimStartIndex, trimEnd + 1),
+      heartrate: streams.heartrate.slice(trimStartIndex, trimEnd + 1),
+      power: streams.power.slice(trimStartIndex, trimEnd + 1),
+      cadence: streams.cadence.slice(trimStartIndex, trimEnd + 1),
+      speed: streams.speed.slice(trimStartIndex, trimEnd + 1),
+      time: streams.time.slice(trimStartIndex, trimEnd + 1),
     };
-  }, [canTrim, streams, trimStart, trimEnd]);
+  }, [canTrim, streams, trimStartIndex, trimEnd]);
 
   // Built once per recording. A trim handle moves once a frame and the
   // window's gain and averages come out of these in constant time, so a drag
@@ -201,5 +204,5 @@ export function useActivitySummary({
     return pausedSecondsBetween(pauseIntervals, streams.time[from], streams.time[to]);
   }, [isManual, savedWindow, streams, pauseIntervals, pausedDuration]);
 
-  return { summary, trimDelta, getTrimmedStreams, pausedSecondsInWindow };
+  return { summary, trimDelta, getTrimmedStreams, trimStartIndex, pausedSecondsInWindow };
 }

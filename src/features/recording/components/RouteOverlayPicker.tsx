@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, FlatList, Modal } from 'react-native';
+import { Pressable, View, StyleSheet, TouchableOpacity, FlatList, Modal } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -8,9 +8,11 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatDistance } from '@/shared/format/format';
 // Deep imports keep the routes barrel (and its map components) out of the
 // recording module graph.
-import { useRouteGroups } from '@/features/routes/hooks/useRouteGroups';
+import { useRouteGroups } from '@/features/routes';
 import { colors, darkColors, brand, spacing, layout, typography, opacity } from '@/theme';
 import type { ActivityType } from '@/types';
+import { engineErrorKey } from '@/shared/native/engineError';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface RouteOverlayPickerProps {
   visible: boolean;
@@ -34,7 +36,11 @@ export function RouteOverlayPicker({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const { groups } = useRouteGroups({ type: activityType, minActivities: 2, sortBy: 'recent' });
+  const { groups, error: groupsError } = useRouteGroups({
+    type: activityType,
+    minActivities: 2,
+    sortBy: 'count',
+  });
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -52,15 +58,16 @@ export function RouteOverlayPicker({
             <Text style={[styles.sheetTitle, { color: textPrimary }]}>
               {t('recording.routeOverlay.title', 'Follow a route')}
             </Text>
-            <TouchableOpacity
+            <Pressable
               testID="route-overlay-close"
               onPress={onClose}
-              style={styles.closeButton}
+              style={pressable(styles.closeButton)}
               accessibilityRole="button"
               accessibilityLabel={t('common.close', 'Close')}
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <TouchableOpacity
@@ -87,7 +94,14 @@ export function RouteOverlayPicker({
             </Text>
           </TouchableOpacity>
 
-          {groups.length === 0 ? (
+          {groupsError !== undefined ? (
+            <Text
+              testID="route-groups-failure"
+              style={[styles.emptyHint, { color: textSecondary }]}
+            >
+              {t(engineErrorKey(groupsError, 'engine.failure.database'))}
+            </Text>
+          ) : groups.length === 0 ? (
             <Text style={[styles.emptyHint, { color: textSecondary }]}>
               {t('recording.routeOverlay.empty', 'No saved routes for this sport yet.')}
             </Text>
@@ -122,8 +136,8 @@ export function RouteOverlayPicker({
                         {item.name}
                       </Text>
                       <Text style={[styles.rowMeta, { color: textSecondary }]}>
-                        {item.signature?.distance
-                          ? `${formatDistance(item.signature.distance, isMetric)} · `
+                        {item.distance != null
+                          ? `${formatDistance(item.distance, isMetric)} · `
                           : ''}
                         {t('recording.routeOverlay.activities', { count: item.activityCount })}
                       </Text>
@@ -181,7 +195,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     minHeight: layout.minTapTarget,
   },

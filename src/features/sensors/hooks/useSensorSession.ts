@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 // Deep store import to keep the recording barrel's UI out of this module graph
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingStore } from '@/features/recording';
 import { useSensorStore } from '../store';
 import {
   connectKnownSensors,

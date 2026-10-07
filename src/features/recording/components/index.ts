@@ -1,12 +1,10 @@
 export { ActivityStatsCard, type ActivityStatsCardProps } from './ActivityStatsCard';
-export {
-  ActivityTypePickerModal,
-  type ActivityTypePickerModalProps,
-} from './ActivityTypePickerModal';
 export { ControlBar } from './ControlBar';
 export { DataFieldGrid } from './DataFieldGrid';
+export { ConnectedDataFieldGrid } from './ConnectedDataFieldGrid';
 export { GpsSignalIndicator } from './GpsSignalIndicator';
 export { RecordingGate } from './RecordingGate';
+export { RecordingCloseButton } from './RecordingCloseButton';
 export { IndoorDisplay } from './IndoorDisplay';
 export { ManualEntry } from './ManualEntry';
 export { RecordingTitle } from './RecordingTitle';
@@ -25,4 +23,8 @@ export { GrantAccessButton } from './GrantAccessButton';
 export { FieldPickerModal } from './FieldPickerModal';
 export { TimerHeader } from './TimerHeader';
 export { TrimSlider } from './TrimSlider';
-export { ArmedCountdownOverlay } from './ArmedCountdownOverlay';
+export { StrengthSession } from './StrengthFollow';
+export { WorkoutGuide } from './WorkoutGuide';
+export { BatteryOptimisationNudge } from './BatteryOptimisationNudge';
+export { RecordingReturnPill } from './RecordingReturnPill';
+export { RouteOverlayPicker } from './RouteOverlayPicker';

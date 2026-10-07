@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, colorWithOpacity, typography } from '@/theme';
-import { getUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
+import { getVisibleUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
 
 /** Home banner shown while locally saved recordings are not yet on intervals.icu. */
 function PendingUploadsCardInner() {
@@ -19,7 +19,7 @@ function PendingUploadsCardInner() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      getUnuploadedCount().then((n) => {
+      getVisibleUnuploadedCount().then((n) => {
         if (!cancelled) setCount(n);
       });
       return () => {

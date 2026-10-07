@@ -17,15 +17,24 @@ import * as Sharing from 'expo-sharing';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
-import { formatDistance, formatDuration, formatElevation } from '@/shared/format/format';
-import { recordingActions } from '@/features/recording/lib/recordingActions';
-import { RecordingMap } from '@/features/recording/components/RecordingMap';
-import { getRecording } from '@/features/recording/lib/storage/recordingLibrary';
-import { readRecordingTrack } from '@/features/recording';
-import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
+import {
+  formatDistance,
+  formatDuration,
+  formatElevation,
+  getIntlLocale,
+} from '@/shared/format/format';
+import {
+  recordingActions,
+  RecordingMap,
+  getVisibleRecording,
+  recordingFitExists,
+  readRecordingTrack,
+  useRecordingLibrary,
+} from '@/features/recording';
 import type { RecordingLibraryEntry } from '@/types';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function RecordingDetailScreen() {
+function RecordingDetailScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
@@ -35,11 +44,13 @@ export default function RecordingDetailScreen() {
 
   const [entry, setEntry] = useState<RecordingLibraryEntry | null>(null);
   const [coordinates, setCoordinates] = useState<[number, number][]>([]);
+  const [fitAvailable, setFitAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     if (!id) return;
-    const found = await getRecording(id);
+    const found = await getVisibleRecording(id);
+    setFitAvailable(found ? await recordingFitExists(found) : false);
     setEntry(found);
     if (found) {
       setCoordinates(await readRecordingTrack(found));
@@ -65,8 +76,11 @@ export default function RecordingDetailScreen() {
   }, [entry, uploadNow, load]);
 
   const handleShare = useCallback(async () => {
-    if (!entry) return;
+    if (!entry || !recordingActions(entry, uploadingId).canShare) return;
     try {
+      const available = await recordingFitExists(entry);
+      setFitAvailable(available);
+      if (!available) return;
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(entry.fitPath, {
           mimeType: 'application/octet-stream',
@@ -76,16 +90,18 @@ export default function RecordingDetailScreen() {
     } catch {
       // User cancelled or share unavailable
     }
-  }, [entry]);
+  }, [entry, uploadingId]);
 
   const handleDelete = useCallback(() => {
     if (!entry) return;
     Alert.alert(
       t('recording.library.deleteConfirmTitle', 'Delete recording?'),
-      t(
-        'recording.library.deleteConfirmMessage',
-        'This removes the recording from this device permanently.'
-      ),
+      t('recording.library.deleteConfirmMessage', {
+        sport: t(`activityTypes.${entry.activityType}`, entry.activityType),
+        startTime: new Date(entry.startTime).toLocaleString(getIntlLocale()),
+        defaultValue:
+          'This permanently removes the {{sport}} recording from {{startTime}} from this device.',
+      }),
       [
         { text: t('common.cancel', 'Cancel'), style: 'cancel' },
         {
@@ -121,12 +137,12 @@ export default function RecordingDetailScreen() {
     );
   }
 
-  const { isUploading, canUpload, canShare } = recordingActions(entry, uploadingId);
+  const { isUploading, canUpload, canShare } = recordingActions(entry, uploadingId, fitAvailable);
 
   const stats: { label: string; value: string }[] = [
     {
       label: t('recording.library.recorded', 'Recorded'),
-      value: new Date(entry.startTime).toLocaleString(),
+      value: new Date(entry.startTime).toLocaleString(getIntlLocale()),
     },
     { label: t('recording.duration', 'Duration'), value: formatDuration(entry.durationSeconds) },
   ];
@@ -191,7 +207,7 @@ export default function RecordingDetailScreen() {
               <MaterialCommunityIcons
                 name="cloud-upload-outline"
                 size={18}
-                color={colors.textOnDark}
+                color={colors.textOnPrimary}
               />
               <Text style={styles.actionButtonText}>
                 {t('recording.library.uploadNow', 'Upload now')}
@@ -200,7 +216,7 @@ export default function RecordingDetailScreen() {
           )}
           {isUploading && (
             <View style={[styles.actionButton, { backgroundColor: colors.primary }]}>
-              <ActivityIndicator size="small" color={colors.textOnDark} />
+              <ActivityIndicator size="small" color={colors.textOnPrimary} />
             </View>
           )}
           {canShare && (
@@ -263,7 +279,7 @@ const styles = StyleSheet.create({
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.xsPlus,
   },
   statLabel: {
     ...typography.bodySmall,
@@ -285,12 +301,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderRadius: layout.borderRadius,
     minHeight: layout.minTapTarget,
   },
   actionButtonText: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
     fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
@@ -303,3 +319,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+export default withScreenBoundary(RecordingDetailScreenContent, 'RecordingDetail');

@@ -17,9 +17,8 @@ import {
   locationServiceRunning,
   updateRecordingNotification,
 } from './recordingNotification';
-import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
-import { createAutoPauseDetector, type AutoPauseConfig } from './autoPause';
-import { getSportCategory } from './sportCategoryDetector';
+import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
+import { buildAutoPauseDetector, evaluateAutoPause, setAutoPauseDetector } from './manualPause';
 import { buildRecordingBackup, saveRecordingBackup } from './storage/recordingBackup';
 import { BACKUP_INTERVAL_MS, LIVE_ACTIVITY_REFRESH_MS, SERVICE_WATCH_MS } from './constants';
 import {
@@ -29,12 +28,11 @@ import {
   reapOrphanedLiveActivities,
   refreshLiveActivity,
 } from './liveActivity/controller';
-import type { RecordingStatus } from '../types';
+import type { RecordingMode, RecordingStatus } from '../types';
 
 const log = debug.create('RecordingSession');
 
 type Timer = ReturnType<typeof setInterval>;
-type AutoPauseDetector = ReturnType<typeof createAutoPauseDetector>;
 
 let watch: Location.LocationSubscription | null = null;
 let appStateSub: { remove: () => void } | null = null;
@@ -44,7 +42,6 @@ let backupTimer: Timer | null = null;
 let serviceWatchTimer: Timer | null = null;
 let liveActivityTimer: Timer | null = null;
 let backupArmedFor: string | null = null;
-let detector: AutoPauseDetector | null = null;
 let serviceStarted = false;
 let sessionUnsubscribes: (() => void)[] = [];
 let installUnsubscribe: (() => void) | null = null;
@@ -54,53 +51,21 @@ function isLive(status: RecordingStatus): boolean {
   return status === 'recording' || status === 'paused';
 }
 
-function buildDetector(): AutoPauseDetector {
-  const { autoPauseEnabled, autoPauseThresholds, autoPauseDurationMs } =
-    useRecordingPreferences.getState();
-  const { activityType } = useRecordingStore.getState();
-  const sportCategory = getSportCategory(activityType ?? 'Ride');
-  return createAutoPauseDetector({
-    enabled: autoPauseEnabled,
-    // Preferences are km/h, the detector is m/s.
-    speedThreshold: (autoPauseThresholds[sportCategory] ?? 2) / 3.6,
-    durationThreshold: autoPauseDurationMs,
-  } as AutoPauseConfig);
-}
-
-/** Forget the pause the detector believes it is in, after a manual pause or resume. */
-export function resetAutoPause(): void {
-  detector?.reset();
-  useRecordingLiveStore.getState().setAutoPaused(false);
-}
-
-function evaluateAutoPause(): void {
-  const { status, mode, rawSpeed, pauseRecording, resumeRecording } = useRecordingStore.getState();
-  if (mode !== 'gps' || !detector || !rawSpeed || !isLive(status)) return;
-
-  const result = detector.update(rawSpeed.value, rawSpeed.at);
-  const live = useRecordingLiveStore.getState();
-  if (result === 'pause' && status === 'recording') {
-    pauseRecording();
-    live.setAutoPaused(true);
-  } else if (result === 'resume' && status === 'paused' && live.autoPaused) {
-    resumeRecording();
-    live.setAutoPaused(false);
-  }
-}
-
 function ingestFix(coords: Location.LocationObjectCoords, timestamp: number): void {
-  const { latitude, longitude, altitude, accuracy, speed, heading } = coords;
+  const { latitude, longitude, accuracy, speed, heading } = coords;
   useRecordingLiveStore.getState().setFix({ latitude, longitude }, accuracy);
 
   // Drop low-accuracy points to reduce GPS noise (the threshold is a preference)
   if (accuracy != null && accuracy > getAccuracyRejectThreshold()) return;
 
-  const { addGpsPoint, setRawLocationFix, status } = useRecordingStore.getState();
+  const { addGpsPoint, setRawLocationFix } = useRecordingStore.getState();
+  const altitude = fixAltitude(coords);
   const point = { latitude, longitude, altitude, accuracy, speed, heading, timestamp };
   // Fixes keep arriving while paused. Auto-pause reads them so a ride that
   // stopped at a light can resume itself.
   setRawLocationFix(point);
-  if (status === 'recording') addGpsPoint(point);
+  // Read again: this fix may itself have resumed the ride.
+  if (useRecordingStore.getState().status === 'recording') addGpsPoint(point);
 }
 
 /**
@@ -269,7 +234,10 @@ async function handleAppStateChange(next: AppStateStatus): Promise<void> {
 }
 
 function writeBackup(): void {
-  const backup = buildRecordingBackup(useRecordingStore.getState());
+  const backup = buildRecordingBackup({
+    ...useRecordingStore.getState(),
+    autoPaused: useRecordingLiveStore.getState().autoPaused,
+  });
   if (backup) saveRecordingBackup(backup);
 }
 
@@ -296,44 +264,12 @@ function armBackups(status: RecordingStatus, laps: number): void {
   backupTimer = setInterval(writeBackup, BACKUP_INTERVAL_MS);
 }
 
-function startSession(): void {
-  if (running) return;
-  running = true;
-  const { status, mode, laps } = useRecordingStore.getState();
-  log.log(`Starting recording session (${mode})`);
-
-  detector = buildDetector();
-  useRecordingLiveStore.getState().setAutoPaused(false);
-
-  sessionUnsubscribes.push(
-    useRecordingPreferences.subscribe(() => {
-      detector = buildDetector();
-    }),
-    useRecordingStore.subscribe((state, previous) => {
-      // Raw fixes arrive from the foreground watch and from the background
-      // task, so auto-pause reads the store rather than either callback.
-      if (state.rawSpeed !== previous.rawSpeed) evaluateAutoPause();
-      if (state.status !== previous.status || state.laps.length !== previous.laps.length) {
-        armBackups(state.status, state.laps.length);
-        // Pausing swaps the button and stops the clock, so the notification is
-        // wrong the moment either changes rather than at the next fix.
-        updateRecordingNotification();
-      }
-      // A pause has to reach the card now. Waiting out the tick leaves a lock
-      // screen counting up through a stop the rider has already made.
-      if (state.status !== previous.status) refreshLiveActivity();
-    }),
-    installRecordingNotificationActions()
-  );
-
-  armBackups(status, laps.length);
-  beginLiveActivity();
-  liveActivityTimer = setInterval(refreshLiveActivity, LIVE_ACTIVITY_REFRESH_MS);
-
+function startSampling(mode: RecordingMode | null): void {
   if (mode === 'indoor') {
     indoorTimer = setInterval(() => useRecordingStore.getState().addIndoorSample(), 1000);
     return;
   }
+  if (mode !== 'gps') return;
 
   // A cold start from a widget, a tile, a shortcut or Siri runs this before
   // Android has resumed the activity, and on a release build that is fast
@@ -352,6 +288,64 @@ function startSession(): void {
   void ensureLocationWatch().catch((e) => log.error('Failed to start location watch:', e));
 }
 
+function stopSampling(): void {
+  if (indoorTimer) {
+    clearInterval(indoorTimer);
+    indoorTimer = null;
+  }
+  disarmServiceWatch();
+  serviceStarted = false;
+  appStateSub?.remove();
+  appStateSub = null;
+  stopForegroundWatch();
+  useRecordingLiveStore.getState().setBackgroundTrackingFailed(false);
+  stopBackgroundLocation().catch((e) => log.error('Failed to stop background location:', e));
+}
+
+function startSession(): void {
+  if (running) return;
+  running = true;
+  const { status, mode, laps } = useRecordingStore.getState();
+  log.log(`Starting recording session (${mode})`);
+
+  // A ride restored mid auto-pause keeps it, so the detector can resume it.
+  const live = useRecordingLiveStore.getState();
+  live.setAutoPaused(status === 'paused' && live.autoPaused);
+  setAutoPauseDetector(buildAutoPauseDetector());
+
+  sessionUnsubscribes.push(
+    useRecordingPreferences.subscribe(() => {
+      setAutoPauseDetector(buildAutoPauseDetector());
+    }),
+    useRecordingStore.subscribe((state, previous) => {
+      // Raw fixes arrive from the foreground watch and from the background
+      // task, so auto-pause reads the store rather than either callback.
+      if (state.rawSpeed !== previous.rawSpeed) evaluateAutoPause();
+      if (state.status !== previous.status || state.laps.length !== previous.laps.length) {
+        armBackups(state.status, state.laps.length);
+        // Pausing swaps the button and stops the clock, so the notification is
+        // wrong the moment either changes rather than at the next fix.
+        updateRecordingNotification();
+      }
+      // A pause has to reach the card now. Waiting out the tick leaves a lock
+      // screen counting up through a stop the rider has already made.
+      if (state.status !== previous.status) refreshLiveActivity();
+      // A sport changed mid-ride moves the source of samples with it.
+      if (state.mode !== previous.mode && state.status === previous.status) {
+        stopSampling();
+        startSampling(state.mode);
+      }
+    }),
+    installRecordingNotificationActions()
+  );
+
+  armBackups(status, laps.length);
+  beginLiveActivity();
+  liveActivityTimer = setInterval(refreshLiveActivity, LIVE_ACTIVITY_REFRESH_MS);
+
+  startSampling(mode);
+}
+
 function stopSession(): void {
   if (!running) return;
   running = false;
@@ -359,12 +353,8 @@ function stopSession(): void {
 
   for (const unsubscribe of sessionUnsubscribes) unsubscribe();
   sessionUnsubscribes = [];
-  detector = null;
+  setAutoPauseDetector(null);
 
-  if (indoorTimer) {
-    clearInterval(indoorTimer);
-    indoorTimer = null;
-  }
   if (backupTimer) {
     clearInterval(backupTimer);
     backupTimer = null;
@@ -373,16 +363,10 @@ function stopSession(): void {
     clearInterval(liveActivityTimer);
     liveActivityTimer = null;
   }
-  disarmServiceWatch();
+  stopSampling();
   finishLiveActivity();
   backupArmedFor = null;
-  serviceStarted = false;
-  appStateSub?.remove();
-  appStateSub = null;
-
-  stopForegroundWatch();
   clearRecordingNotification();
-  stopBackgroundLocation().catch((e) => log.error('Failed to stop background location:', e));
   useRecordingLiveStore.getState().reset();
 }
 
@@ -396,12 +380,12 @@ export function installRecordingSession(): () => void {
   if (installUnsubscribe) return installUnsubscribe;
 
   const react = (status: RecordingStatus): void => {
-    if (isLive(status)) startSession();
+    if (isLive(status) && useRecordingStore.getState().mode !== 'manual') startSession();
     else stopSession();
   };
 
   const unsubscribe = useRecordingStore.subscribe((state, previous) => {
-    if (state.status !== previous.status) react(state.status);
+    if (state.status !== previous.status || state.mode !== previous.mode) react(state.status);
   });
   const stopListening = installLiveActivityControls();
 

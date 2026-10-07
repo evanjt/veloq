@@ -12,12 +12,15 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
 import { i18n } from '@/i18n';
-import { brand } from '@/theme';
+import { brand, colors } from '@/theme';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
+import { isPositioned } from '@/shared/geo/routePreview';
 import { debug } from '@/shared/debug/debug';
-import { formatDistance, formatDuration, formatSpeed } from '@/shared/format/format';
+import { formatDistance, formatDuration } from '@/shared/format/format';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { formatRecordingSpeed } from '@/features/recording/lib/formatRecordingSpeed';
+import { movingMsAt, useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { pauseRecordingManually, resumeRecordingManually } from './manualPause';
 import type { RecordingStatus } from '../types';
 
 const log = debug.create('RecordingNotification');
@@ -51,7 +54,12 @@ export interface RecordingNotificationPayload {
   elapsedText: string;
   running: boolean;
   actions: { id: RecordingNotificationAction; label: string }[];
-  /** The trace is rasterised natively, which has no access to the token file. */
+  /** The card is colourised with this. */
+  accentColor: string;
+  /**
+   * The trace is rasterised natively, which has no access to the token file. It is
+   * drawn on the colourised card, so it must contrast with `accentColor`.
+   */
   traceColor: string;
   /** Flat lat,lng pairs, decimated to at most `TRACE_POINT_CAP` points. */
   trace: number[];
@@ -89,19 +97,27 @@ export async function locationServiceRunning(): Promise<boolean | null> {
   return VeloqRecordingNotification.serviceRunning();
 }
 
-/** Flatten `[lat, lng]` pairs, keeping the first and last point of a long trace. */
+/**
+ * Flatten `[lat, lng]` pairs, keeping the first and last point of a long trace.
+ * Samples recorded without a position are `[0, 0]` and are not drawn.
+ */
 export function decimateTrace(
   latlng: readonly (readonly [number, number])[],
   cap = TRACE_POINT_CAP
 ): number[] {
-  if (latlng.length === 0) return [];
-  const last = latlng[latlng.length - 1];
+  const positioned = (point: readonly [number, number] | undefined) =>
+    point !== undefined && isPositioned(point[0], point[1]);
+  let lastIndex = latlng.length - 1;
+  while (lastIndex >= 0 && !positioned(latlng[lastIndex])) lastIndex--;
+  const last = latlng[lastIndex];
+  if (!last) return [];
   const flat: number[] = [];
   // The terminal point is where the rider is now, so it is always drawn and the
   // stride spends the cap's other places on the points before it.
-  const stride = Math.max(1, Math.ceil((latlng.length - 1) / Math.max(1, cap - 1)));
-  for (let i = 0; i < latlng.length - 1; i += stride) {
-    flat.push(latlng[i][0], latlng[i][1]);
+  const stride = Math.max(1, Math.ceil(lastIndex / Math.max(1, cap - 1)));
+  for (let i = 0; i < lastIndex; i += stride) {
+    const point = latlng[i];
+    if (point && positioned(point)) flat.push(point[0], point[1]);
   }
   flat.push(last[0], last[1]);
   return flat;
@@ -129,9 +145,7 @@ export function buildRecordingNotificationPayload(
   const { status, startTime, streams } = state;
   if (!isLive(status) || startTime == null) return null;
 
-  const pausedMs =
-    state.pausedDuration + (status === 'paused' && state._pauseStart ? now - state._pauseStart : 0);
-  const movingMs = Math.max(0, now - startTime - pausedMs);
+  const movingMs = movingMsAt(state, now);
 
   const last = streams.time.length - 1;
   const distance = last >= 0 ? (streams.distance[last] ?? 0) : 0;
@@ -153,14 +167,15 @@ export function buildRecordingNotificationPayload(
     status,
     session: startTime,
     title: translate('recording.backgroundNotificationTitle', 'Recording activity'),
-    body: `${formatDistance(distance, isMetric)} · ${formatSpeed(avgSpeed, isMetric)}`,
+    body: `${formatDistance(distance, isMetric)} · ${formatRecordingSpeed(state.activityType, avgSpeed, isMetric)}`,
     chronometerBase: now - movingMs,
     // Shown only while paused, where a running chronometer would count time the
     // ride did not spend moving.
     elapsedText: `${translate('recording.status.paused', 'Paused')} · ${elapsedText}`,
     running: status === 'recording',
     actions,
-    traceColor: brand.teal,
+    accentColor: brand.teal,
+    traceColor: colors.textOnPrimary,
     trace: decimateTrace(streams.latlng),
   };
 }
@@ -185,10 +200,10 @@ export async function applyRecordingNotificationAction(
   if (session !== undefined && store.startTime !== session) return;
   switch (action) {
     case 'pause':
-      store.pauseRecording();
+      pauseRecordingManually();
       break;
     case 'resume':
-      store.resumeRecording();
+      resumeRecordingManually();
       break;
     case 'lap':
       store.addLap();

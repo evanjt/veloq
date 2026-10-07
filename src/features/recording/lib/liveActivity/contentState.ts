@@ -32,8 +32,8 @@ export interface LiveActivityContentState {
 export interface ContentStateInput {
   status: RecordingStatus;
   now: number;
-  startTime: number;
-  pausedDurationMs: number;
+  /** Moving milliseconds at `now`, from the store's one clock (`movingMsAt`). */
+  movingMs: number;
   distanceLabel: string;
   speedLabel: string;
   gps: RouteTrack;
@@ -100,7 +100,7 @@ export function fitContentState(
 }
 
 export function buildContentState(input: ContentStateInput): LiveActivityContentState {
-  const movingMs = Math.max(0, input.now - input.startTime - input.pausedDurationMs);
+  const movingMs = Math.max(0, input.movingMs);
   const paused = input.status === 'paused';
   const preview = composeRouteOutline(input.gps);
 

@@ -11,7 +11,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { brand, colors, layout, spacing, typography } from '@/theme';
+import { colors, layout, spacing, typography } from '@/theme';
 
 interface GrantAccessButtonProps {
   onPress: () => void;
@@ -36,13 +36,13 @@ export function GrantAccessButton({ onPress, loading, small, testID }: GrantAcce
       accessibilityLabel={label}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={colors.textOnDark} />
+        <ActivityIndicator size="small" color={colors.textOnPrimary} />
       ) : (
         <>
           <MaterialCommunityIcons
             name="shield-lock-outline"
             size={small ? 14 : 16}
-            color={colors.textOnDark}
+            color={colors.textOnPrimary}
           />
           <Text style={[styles.label, small && styles.labelSmall]}>{label}</Text>
         </>
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: layout.borderRadiusSm,
-    backgroundColor: brand.teal,
+    backgroundColor: colors.primary,
     minHeight: layout.minTapTarget,
   },
   buttonSmall: {
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   label: {
     ...typography.bodyBold,
     fontSize: typography.bodySmall.fontSize,
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
   labelSmall: {
     fontSize: typography.captionBold.fontSize,
