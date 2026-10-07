@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, Button, TextInput } from 'react-native-paper';
+import { Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
-import { pressable } from '@/shared/ui';
+import { Button, pressable, pressRipple } from '@/shared/ui';
 
 interface ApiKeyLoginFormProps {
   onLogin: (apiKey: string) => Promise<void>;
@@ -60,8 +60,14 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
           {t('login.apiKeyDescription')}
         </Text>
 
-        <Pressable onPress={onOpenDeveloperSettings} style={pressable(styles.getApiKeyLink)}>
-          <Text style={styles.linkText}>{t('login.getApiKey')}</Text>
+        <Pressable
+          onPress={onOpenDeveloperSettings}
+          style={pressable(styles.getApiKeyLink)}
+          android_ripple={pressRipple}
+        >
+          <Text style={[styles.linkText, isDark && { color: darkColors.linkTeal }]}>
+            {t('login.getApiKey')}
+          </Text>
           <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
         </Pressable>
 
@@ -83,15 +89,12 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
 
         <Button
           testID="login-apikey-button"
-          mode="contained"
+          label={isLoading ? t('login.connecting') : t('login.apiKeyConnect')}
           onPress={handleSubmit}
           loading={isLoading}
-          disabled={isLoading || !apiKey.trim()}
-          style={styles.apiKeyButton}
-          icon="login"
-        >
-          {isLoading ? t('login.connecting') : t('login.apiKeyConnect')}
-        </Button>
+          disabled={!apiKey.trim()}
+          icon={<MaterialCommunityIcons name="login" size={18} color={colors.textOnPrimary} />}
+        />
 
         <View style={styles.localModeNote}>
           <MaterialCommunityIcons name="shield-check" size={14} color={themeColors.textSecondary} />
@@ -136,15 +139,12 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: typography.bodySmall.fontSize,
-    color: colors.primary,
+    color: colors.linkTeal,
     textDecorationLine: 'underline',
   },
   apiKeyInput: {
     marginBottom: spacing.md,
     backgroundColor: 'transparent',
-  },
-  apiKeyButton: {
-    backgroundColor: colors.primary,
   },
   localModeNote: {
     flexDirection: 'row',

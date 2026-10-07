@@ -2,7 +2,7 @@
  * How much library a destructive path is about to destroy.
  *
  * The engine is closed on the login screen by design, and a closed handle
- * answers `getActivityCount()` with 0, which is the same answer an empty
+ * answers the library count with 0, which is the same answer an empty
  * device gives. A backup restored from that screen therefore read as nothing
  * to lose: Try Demo seeded the demo fixtures straight into it without asking,
  * and the sign-in after that wiped it without asking either.
@@ -13,13 +13,26 @@
  */
 
 import { getEngine, isEngineReady } from '@/shared/native/engine';
+import { readLibraryCount } from '@/shared/native/libraryCount';
 import { readStoredActivityCountMirror } from '@/shared/storage';
 import { DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
 import { accountChangeAction, getCachedAthleteId, type AccountChangeAction } from './accountChange';
 
 export async function resolveStoredActivityCount(): Promise<number> {
-  if (isEngineReady()) return getEngine()?.getActivityCount() ?? 0;
+  if (isEngineReady()) {
+    const engine = getEngine();
+    return engine ? readLibraryCount(engine) : 0;
+  }
   return readStoredActivityCountMirror();
+}
+
+export async function shouldOfferBackupRestore(): Promise<boolean> {
+  if (await getCachedAthleteId()) return false;
+  return (await resolveStoredActivityCount()) === 0;
+}
+
+export function isRestoreEngineReady(): boolean {
+  return isEngineReady();
 }
 
 /**

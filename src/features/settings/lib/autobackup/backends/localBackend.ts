@@ -1,17 +1,14 @@
 /**
- * Local file backup backend.
+ * Legacy reader for the app's old backup directory.
  *
- * Export: Creates a SQLite snapshot and shares via OS share sheet.
- * Import: Picks a file via document picker.
- * List: Scans the app's backup directory for .veloqdb files.
- *
- * This is the default backend that works on both platforms with no
- * external account or registration.
+ * Nothing writes there any more. Backups an older build made stay listed for
+ * restore, and go only with a wipe.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
 import type { BackupBackend, BackupEntry } from './types';
 import { safeGetTime } from '@/shared/format/format';
+import { excludeFromBackup } from '@/shared/native/backupExclusion';
 
 /** Resolve the backup directory at call time (not module load time). */
 function getBackupDir(): string {
@@ -20,37 +17,70 @@ function getBackupDir(): string {
   return `${docDir}backups/`;
 }
 
-async function ensureBackupDir(): Promise<string> {
-  const dir = getBackupDir();
-  const info = await FileSystem.getInfoAsync(dir);
-  if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+/**
+ * The share sheet's copy of a record zip, `veloq-backup-<date>.zip`. It is
+ * written under the cache's exports directory, which the wipe deletes whole,
+ * and older builds wrote it at the cache root, which is matched here.
+ */
+export const SHARE_COPY_PREFIX = 'veloq-backup-';
+
+/**
+ * The restore copies older builds wrote at the cache root, before restores had
+ * a directory of their own in `cacheFiles.ts`. Matched so the wipe still finds
+ * one a kill left behind.
+ */
+const RESTORE_COPY_PREFIX = 'restore-';
+
+/** The whole-database snapshot an older auto-backup staged in the cache root before uploading. */
+export const AUTOBACKUP_SNAPSHOT_PREFIX = 'veloq-autobackup-';
+
+/**
+ * Delete every backup file on the device: the local backups, the old
+ * whole-database copies beside them, and the copies older builds left at the
+ * cache root.
+ *
+ * A record zip names its athlete and carries their decisions, an old database
+ * copy carries their whole library, and the login screen offers the newest
+ * local backup to whoever opens an empty library.
+ */
+export async function deleteBackupFiles(): Promise<void> {
+  const deletions: Promise<void>[] = [FileSystem.deleteAsync(getBackupDir(), { idempotent: true })];
+  const cacheDir = FileSystem.cacheDirectory;
+  if (cacheDir) {
+    const info = await FileSystem.getInfoAsync(cacheDir);
+    const names = info.exists ? await FileSystem.readDirectoryAsync(cacheDir) : [];
+    for (const name of names) {
+      if (
+        name.startsWith(SHARE_COPY_PREFIX) ||
+        name.startsWith(RESTORE_COPY_PREFIX) ||
+        name.startsWith(AUTOBACKUP_SNAPSHOT_PREFIX)
+      ) {
+        deletions.push(FileSystem.deleteAsync(`${cacheDir}${name}`, { idempotent: true }));
+      }
+    }
   }
-  return dir;
+  await Promise.all(deletions);
 }
 
 /**
- * Delete snapshots with no metadata beside them. `upload` cleans up after its
- * own failure, but a kill between the copy and the meta write leaves one
- * behind, and nothing else in the app can see it.
+ * Keep the backup directory out of the device backup.
+ *
+ * The platform backup already carries the latest record zip from the documents
+ * root, so the generations here are copies of it, and an older build left whole
+ * database copies beside them. The attribute lives on the directory, so a wipe
+ * that deletes it takes the attribute too, so launch asks every time.
  */
-async function sweepOrphans(dir: string): Promise<void> {
-  try {
-    const files = await FileSystem.readDirectoryAsync(dir);
-    for (const file of files) {
-      if (!file.endsWith('.veloqdb')) continue;
-      const metaInfo = await FileSystem.getInfoAsync(`${dir}${file}.meta.json`);
-      if (metaInfo.exists) continue;
-      await FileSystem.deleteAsync(`${dir}${file}`, { idempotent: true });
-    }
-  } catch {
-    // Best-effort, never block a backup on cleanup
+export function excludeLocalBackupsFromDeviceBackup(): void {
+  const docDir = FileSystem.documentDirectory;
+  if (!docDir) return;
+  if (excludeFromBackup(`${docDir}backups/`) === false) {
+    console.warn('[backup] local backups are not excluded from the device backup');
   }
 }
 
 export const localBackend: BackupBackend = {
   id: 'local',
-  name: 'Local Storage',
+  name: 'This device (older backups)',
   isRemote: false,
 
   async isAvailable(): Promise<boolean> {
@@ -58,12 +88,13 @@ export const localBackend: BackupBackend = {
   },
 
   async listBackups(): Promise<BackupEntry[]> {
-    const dir = await ensureBackupDir();
+    const dir = getBackupDir();
+    if (!(await FileSystem.getInfoAsync(dir)).exists) return [];
     const files = await FileSystem.readDirectoryAsync(dir);
     const entries: BackupEntry[] = [];
 
     for (const file of files) {
-      if (!file.endsWith('.veloqdb')) continue;
+      if (!file.endsWith('.zip') && !file.endsWith('.veloqdb')) continue;
 
       const metaPath = `${dir}${file}.meta.json`;
       const metaInfo = await FileSystem.getInfoAsync(metaPath);
@@ -83,26 +114,8 @@ export const localBackend: BackupBackend = {
     return entries;
   },
 
-  async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void> {
-    const dir = await ensureBackupDir();
-    await sweepOrphans(dir);
-
-    const filename = `veloq-${metadata.timestamp.replace(/[:.]/g, '-')}.veloqdb`;
-    const destPath = `${dir}${filename}`;
-
-    // Copy the backup file
-    await FileSystem.copyAsync({ from: localPath, to: destPath });
-
-    // Write metadata alongside. A snapshot with no meta is invisible to
-    // listBackups, so retention could never reclaim it, and these are hundreds
-    // of megabytes each.
-    try {
-      const entry: BackupEntry = { ...metadata, id: filename };
-      await FileSystem.writeAsStringAsync(`${destPath}.meta.json`, JSON.stringify(entry, null, 2));
-    } catch (error) {
-      await FileSystem.deleteAsync(destPath, { idempotent: true });
-      throw error;
-    }
+  async upload(): Promise<void> {
+    throw new Error('The old backup directory is read-only');
   },
 
   async download(backupId: string, destPath: string): Promise<void> {

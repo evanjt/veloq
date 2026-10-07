@@ -13,9 +13,11 @@ import {
   webdavConfigProblem,
   webdavUrlProblemMessage,
   type WebdavConfig,
+  type WebdavUrlProblem,
 } from '../webdavConfig';
 import { transferFailure, transportFailure } from './errors';
 import { NET_DEADLINE_MS, fetchWithDeadline } from '@/shared/net/fetchWithDeadline';
+import { basicAuthHeader } from '@/shared/net/basicAuth';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('WebdavBackend');
@@ -52,8 +54,7 @@ async function request(
 }
 
 function authHeaders(username: string, password: string): Record<string, string> {
-  const encoded = btoa(`${username}:${password}`);
-  return { Authorization: `Basic ${encoded}` };
+  return { Authorization: basicAuthHeader(username, password) };
 }
 
 function joinUrl(base: string, ...parts: string[]): string {
@@ -121,10 +122,18 @@ async function ensureRemoteDir(baseUrl: string, headers: Record<string, string>)
   }
 }
 
-/** Test connection to the WebDAV server. Returns null on success, error message on failure. */
-export async function testWebdavConnection(): Promise<string | null> {
+/** What a connection test found, as a kind the screen words in the athlete's language. */
+export type WebdavTestOutcome =
+  | { kind: 'ok' }
+  | { kind: 'urlProblem'; problem: WebdavUrlProblem }
+  | { kind: 'unauthorised' }
+  | { kind: 'methodNotAllowed' }
+  | { kind: 'status'; code: number }
+  | { kind: 'transport' };
+
+export async function testWebdavConnection(): Promise<WebdavTestOutcome> {
   const problem = webdavConfigProblem();
-  if (problem) return webdavUrlProblemMessage(problem);
+  if (problem) return { kind: 'urlProblem', problem };
   const config = getWebdavConfig() as WebdavConfig;
 
   try {
@@ -140,13 +149,13 @@ export async function testWebdavConnection(): Promise<string | null> {
       },
       NET_DEADLINE_MS.interactive
     );
-    if (res.status === 207 || res.ok) return null;
-    if (res.status === 401) return 'Authentication failed';
-    if (res.status === 405)
-      return 'Check your WebDAV URL format - the server does not accept PROPFIND at this path';
-    return `Server returned ${res.status}`;
+    if (res.status === 207 || res.ok) return { kind: 'ok' };
+    if (res.status === 401) return { kind: 'unauthorised' };
+    if (res.status === 405) return { kind: 'methodNotAllowed' };
+    return { kind: 'status', code: res.status };
   } catch (e) {
-    return e instanceof Error ? e.message : 'Connection failed';
+    log.warn('connection test failed', e instanceof Error ? e.message : e);
+    return { kind: 'transport' };
   }
 }
 
@@ -193,6 +202,7 @@ export const webdavBackend: BackupBackend = {
     for (const metaHref of metaFiles) {
       try {
         const metaUrl = resolveHref(config.url, metaHref);
+        if (!metaUrl) continue;
         const metaRes = await fetchWithDeadline(metaUrl, { headers }, NET_DEADLINE_MS.transfer);
         if (!metaRes.ok) continue;
         const meta = (await metaRes.json()) as BackupEntry;
@@ -212,14 +222,14 @@ export const webdavBackend: BackupBackend = {
     const headers = authHeaders(config.username, config.password);
     await ensureRemoteDir(config.url, headers);
 
-    const filename = `veloq-${metadata.timestamp.replace(/[:.]/g, '-')}.veloqdb`;
+    const filename = `veloq-${metadata.timestamp.replace(/[:.]/g, '-')}.zip`;
     const fileUrl = joinUrl(config.url, REMOTE_DIR, filename);
 
     // uploadAsync resolves with the status instead of rejecting, so an
     // unchecked call reports a rejected write as a completed backup.
-    let dbResult;
+    let uploadResult;
     try {
-      dbResult = await FileSystem.uploadAsync(fileUrl, localPath, {
+      uploadResult = await FileSystem.uploadAsync(fileUrl, localPath, {
         httpMethod: 'PUT',
         headers,
         uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
@@ -227,8 +237,8 @@ export const webdavBackend: BackupBackend = {
     } catch (error) {
       throw transportFailure('Upload backup', error);
     }
-    if (dbResult.status < 200 || dbResult.status >= 300) {
-      throw transferFailure('Upload backup', dbResult.status);
+    if (uploadResult.status < 200 || uploadResult.status >= 300) {
+      throw transferFailure('Upload backup', uploadResult.status);
     }
 
     // Upload metadata sidecar. Without it the backup is invisible to
@@ -285,9 +295,18 @@ function extractHrefs(xml: string): string[] {
   return hrefs;
 }
 
-/** Resolve a potentially-relative href against the server base URL. */
-function resolveHref(baseUrl: string, href: string): string {
-  if (href.startsWith('http')) return href;
-  const url = new URL(baseUrl);
-  return `${url.protocol}//${url.host}${href}`;
+/**
+ * Resolve an href against the server base URL, or null when it names another
+ * origin. The credential goes only to the address the athlete configured.
+ */
+function resolveHref(baseUrl: string, href: string): string | null {
+  let base: URL;
+  let resolved: URL;
+  try {
+    base = new URL(baseUrl);
+    resolved = new URL(href, base);
+  } catch {
+    return null;
+  }
+  return resolved.origin === base.origin ? resolved.href : null;
 }

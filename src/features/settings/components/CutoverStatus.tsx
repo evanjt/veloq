@@ -21,20 +21,13 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
-import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
-import type { CutoverPhase } from 'veloqrs';
+import { useCutoverSummary } from '@/features/routes';
+import { CUTOVER_FAILURE_KEYS, CUTOVER_PHASE_KEYS } from '../lib/cutoverPhaseKeys';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export const CUTOVER_STATUS_TEST_ID = 'cutover-status';
 export const CUTOVER_CANCEL_TEST_ID = 'cutover-cancel';
-
-const PHASE_KEYS = {
-  draining: 'settings.cutoverPhaseDraining',
-  archiving: 'settings.cutoverPhaseArchiving',
-  detecting: 'settings.cutoverPhaseDetecting',
-  diffing: 'settings.cutoverPhaseDiffing',
-} as const satisfies Partial<Record<CutoverPhase, string>>;
 
 export function CutoverStatus() {
   const { t } = useTranslation();
@@ -61,7 +54,7 @@ export function CutoverStatus() {
   const danger = isDark ? darkColors.error : colors.error;
 
   if (isRunning) {
-    const phaseKey = PHASE_KEYS[phase as keyof typeof PHASE_KEYS];
+    const phaseKey = CUTOVER_PHASE_KEYS[phase as keyof typeof CUTOVER_PHASE_KEYS];
     if (!phaseKey) return null;
     return (
       <View style={styles.block} testID={CUTOVER_STATUS_TEST_ID}>
@@ -85,6 +78,7 @@ export function CutoverStatus() {
             accessibilityRole="button"
             hitSlop={8}
             style={pressable()}
+            android_ripple={pressRipple}
           >
             <Text style={[styles.line, styles.centred, styles.stop, { color: textSecondary }]}>
               {t('settings.cutoverStop')}
@@ -95,13 +89,14 @@ export function CutoverStatus() {
     );
   }
 
-  if (sawRun && phase === 'failed') {
+  const failure = CUTOVER_FAILURE_KEYS[phase as keyof typeof CUTOVER_FAILURE_KEYS];
+  if (sawRun && failure) {
     return (
       <Text
         style={[styles.line, styles.centred, { color: danger }]}
         testID={CUTOVER_STATUS_TEST_ID}
       >
-        {t('settings.cutoverFailed')}
+        {t(failure.status)}
       </Text>
     );
   }

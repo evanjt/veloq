@@ -1,24 +1,20 @@
 import React from 'react';
 import { StyleSheet, ScrollView } from 'react-native';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
 import { DataSourcesSection } from '@/features/settings/components';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function DataSourcesSettingsScreen() {
+function DataSourcesSettingsScreenContent() {
   const { isDark } = useTheme();
 
   return (
-    <ScreenErrorBoundary screenName="DataSourcesSettings">
-      <ScreenSafeAreaView
-        hasNativeHeader
-        style={[styles.container, isDark && styles.containerDark]}
-      >
-        <ScrollView contentContainerStyle={styles.content}>
-          <DataSourcesSection />
-        </ScrollView>
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+    <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <DataSourcesSection />
+      </ScrollView>
+    </ScreenSafeAreaView>
   );
 }
 
@@ -33,7 +29,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
-  textLight: {
-    color: colors.textOnDark,
-  },
 });
+
+export default withScreenBoundary(DataSourcesSettingsScreenContent, 'DataSourcesSettings');

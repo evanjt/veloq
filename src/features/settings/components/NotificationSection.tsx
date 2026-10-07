@@ -11,18 +11,9 @@ import {
   requestNotificationPermission,
   hasNotificationPermission,
 } from '@/features/settings/lib/notificationService';
-import {
-  colors,
-  darkColors,
-  spacing,
-  typography,
-  layout,
-  shadows,
-  ink,
-  colorWithOpacity,
-} from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 /**
  * The kinds of push the athlete can turn off one at a time. Both flags shipped
@@ -108,7 +99,7 @@ export function NotificationSection() {
           <Switch
             value={enabled}
             onValueChange={handleMainToggle}
-            disabled={!canEnable || toggling}
+            disabled={(!canEnable && !enabled) || toggling}
             color={colors.primary}
             testID="settings-notifications-toggle"
           />
@@ -142,6 +133,7 @@ export function NotificationSection() {
           <Pressable
             onPress={() => Linking.openURL('https://veloq.fit/privacy')}
             style={pressable(styles.privacyRow)}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons
               name="information-outline"
@@ -193,58 +185,5 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.textMuted,
     textTransform: 'none',
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: colorWithOpacity(ink.black, 0.5),
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  dialog: {
-    width: '100%',
-    maxWidth: 400,
-    borderRadius: layout.borderRadius,
-    padding: spacing.lg,
-    ...shadows.modal,
-  },
-  dialogHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  dialogTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-  },
-  dialogBody: {
-    fontSize: typography.bodySmall.fontSize,
-    lineHeight: 22,
-    marginBottom: spacing.lg,
-  },
-  dialogActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-  },
-  cancelBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  cancelText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '500',
-  },
-  acceptBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: spacing.sm,
-  },
-  acceptText: {
-    color: ink.white,
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
   },
 });

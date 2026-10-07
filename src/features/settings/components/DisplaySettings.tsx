@@ -2,13 +2,13 @@ import React, { memo } from 'react';
 import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SegmentedButtons } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
-import { type PrimarySport } from '@/features/fitness/stores';
+import { type PrimarySport } from '@/features/fitness';
 import {
   getAvailableLanguages,
+  languageLabel,
   isEnglishVariant,
   getEnglishVariantValue,
   isLanguageVariant,
@@ -17,9 +17,9 @@ import { type ThemePreference } from '@/shared/app/ThemeProvider';
 import {
   type UnitPreference,
   type IntervalsUnitPreferences,
-  getIntervalsPreferenceLabel,
+  getIntervalsUnitSystem,
 } from '@/shared/app/UnitPreferenceStore';
-import { pressable } from '@/shared/ui';
+import { ToggleButtonRow, pressable, pressRipple } from '@/shared/ui';
 
 // LanguageChoice from useLanguageStore (always a string now, no System option)
 type LanguageChoice = string;
@@ -34,8 +34,6 @@ interface DisplaySettingsProps {
   onSportChange: (value: string) => void;
   language: LanguageChoice;
   onLanguageChange: (value: string) => void;
-  /** When true, skip section label and outer card (for embedding in a parent card) */
-  embedded?: boolean;
 }
 
 function DisplaySettingsComponent({
@@ -48,34 +46,12 @@ function DisplaySettingsComponent({
   onSportChange,
   language,
   onLanguageChange,
-  embedded,
 }: DisplaySettingsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const availableLanguages = getAvailableLanguages();
 
-  // Get the display label for the current language selection
-  const currentLanguageLabel = React.useMemo(() => {
-    for (const group of availableLanguages) {
-      for (const lang of group.languages) {
-        if (language === lang.value) {
-          return lang.label;
-        }
-        // Check variants
-        if (lang.variants) {
-          const variant = lang.variants.find((v) => v.value === language);
-          if (variant) {
-            return `${lang.label} (${variant.label})`;
-          }
-        }
-        // Check if current language is a variant of this language
-        if (isLanguageVariant(language, lang.value)) {
-          return lang.label;
-        }
-      }
-    }
-    return 'English'; // Fallback
-  }, [language, availableLanguages]);
+  const currentLanguageLabel = languageLabel(language).label;
 
   const displayContent = (
     <>
@@ -91,30 +67,14 @@ function DisplaySettingsComponent({
         </Text>
       </View>
       <View testID="settings-theme-toggle" style={styles.themePickerContainer}>
-        <SegmentedButtons
+        <ToggleButtonRow
           value={themePreference}
           onValueChange={onThemeChange}
-          buttons={[
-            {
-              value: 'system',
-              label: t('settings.system'),
-              icon: 'cellphone',
-              testID: 'theme-button-system',
-            },
-            {
-              value: 'light',
-              label: t('settings.light'),
-              icon: 'white-balance-sunny',
-              testID: 'theme-button-light',
-            },
-            {
-              value: 'dark',
-              label: t('settings.dark'),
-              icon: 'moon-waning-crescent',
-              testID: 'theme-button-dark',
-            },
+          options={[
+            { value: 'system', label: t('settings.system'), testID: 'theme-button-system' },
+            { value: 'light', label: t('settings.light'), testID: 'theme-button-light' },
+            { value: 'dark', label: t('settings.dark'), testID: 'theme-button-dark' },
           ]}
-          style={styles.themePicker}
         />
       </View>
 
@@ -132,34 +92,24 @@ function DisplaySettingsComponent({
         </Text>
       </View>
       <View testID="settings-unit-toggle" style={styles.themePickerContainer}>
-        <SegmentedButtons
+        <ToggleButtonRow
           value={unitPreference}
           onValueChange={onUnitChange}
-          buttons={[
-            {
-              value: 'auto',
-              label: t('settings.unitsAuto'),
-              icon: 'cellphone-cog',
-            },
-            {
-              value: 'metric',
-              label: t('settings.unitsMetric'),
-              icon: 'ruler',
-            },
-            {
-              value: 'imperial',
-              label: t('settings.unitsImperial'),
-              icon: 'ruler',
-            },
+          options={[
+            { value: 'auto', label: t('settings.unitsAuto') },
+            { value: 'metric', label: t('settings.unitsMetric') },
+            { value: 'imperial', label: t('settings.unitsImperial') },
           ]}
-          style={styles.themePicker}
         />
       </View>
       <Text style={[styles.subsectionHint, isDark && settingsStyles.textMuted]}>
         {unitPreference === 'auto'
           ? intervalsUnitPreference
             ? t('settings.unitsAutoHintWithIntervals', {
-                setting: getIntervalsPreferenceLabel(intervalsUnitPreference),
+                setting:
+                  getIntervalsUnitSystem(intervalsUnitPreference) === 'metric'
+                    ? t('settings.unitsMetric')
+                    : t('settings.unitsImperial'),
               })
             : t('settings.unitsAutoHint')
           : unitPreference === 'metric'
@@ -221,6 +171,7 @@ function DisplaySettingsComponent({
                     onLanguageChange(valueToUse);
                   }}
                   style={pressable(styles.languageLabelContainer)}
+                  android_ripple={pressRipple}
                 >
                   <Text style={[styles.languageLabel, isDark && settingsStyles.textLight]}>
                     {lang.label}
@@ -258,6 +209,7 @@ function DisplaySettingsComponent({
                               isDark &&
                               styles.variantChipDialectSelectedDark,
                           ])}
+                          android_ripple={pressRipple}
                           onPress={() => {
                             onLanguageChange(variant.value);
                           }}
@@ -287,12 +239,14 @@ function DisplaySettingsComponent({
     </>
   );
 
-  if (embedded) {
-    return (
-      <>
+  return (
+    <>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+        {t('settings.display').toUpperCase()}
+      </Text>
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {displayContent}
 
-        {/* Primary Sport Section */}
         <View style={[styles.divider, isDark && styles.dividerDark]} />
         <View style={styles.subsectionHeader}>
           <MaterialCommunityIcons
@@ -305,15 +259,14 @@ function DisplaySettingsComponent({
           </Text>
         </View>
         <View style={styles.themePickerContainer}>
-          <SegmentedButtons
+          <ToggleButtonRow
             value={primarySport}
             onValueChange={onSportChange}
-            buttons={[
-              { value: 'Cycling', label: t('filters.cycling'), icon: 'bike' },
-              { value: 'Running', label: t('filters.running'), icon: 'run' },
-              { value: 'Swimming', label: t('filters.swimming'), icon: 'swim' },
+            options={[
+              { value: 'Cycling', label: t('filters.cycling') },
+              { value: 'Running', label: t('filters.running') },
+              { value: 'Swimming', label: t('filters.swimming') },
             ]}
-            style={styles.themePicker}
           />
         </View>
         <Text style={[styles.embeddedHint, isDark && settingsStyles.textMuted]}>
@@ -323,57 +276,7 @@ function DisplaySettingsComponent({
               ? t('settings.primarySportHintRunning')
               : t('settings.primarySportHintSwimming')}
         </Text>
-      </>
-    );
-  }
-
-  return (
-    <>
-      {/* Display Settings Section - Appearance, Units, Language combined */}
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-        {t('settings.display').toUpperCase()}
-      </Text>
-      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        {displayContent}
       </View>
-
-      {/* Primary Sport Section */}
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-        {t('settings.primarySport').toUpperCase()}
-      </Text>
-      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        <View style={styles.themePickerContainer}>
-          <SegmentedButtons
-            value={primarySport}
-            onValueChange={onSportChange}
-            buttons={[
-              {
-                value: 'Cycling',
-                label: t('filters.cycling'),
-                icon: 'bike',
-              },
-              {
-                value: 'Running',
-                label: t('filters.running'),
-                icon: 'run',
-              },
-              {
-                value: 'Swimming',
-                label: t('filters.swimming'),
-                icon: 'swim',
-              },
-            ]}
-            style={styles.themePicker}
-          />
-        </View>
-      </View>
-      <Text style={[styles.infoText, isDark && settingsStyles.textMuted]}>
-        {primarySport === 'Cycling'
-          ? t('settings.primarySportHintCycling')
-          : primarySport === 'Running'
-            ? t('settings.primarySportHintRunning')
-            : t('settings.primarySportHintSwimming')}
-      </Text>
     </>
   );
 }
@@ -386,9 +289,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
-  },
-  themePicker: {
-    // React Native Paper SegmentedButtons handles styling
   },
   subsectionHeader: {
     flexDirection: 'row',
@@ -449,7 +349,7 @@ const styles = StyleSheet.create({
   },
   variantChips: {
     flexDirection: 'row',
-    gap: spacing.xs + 2,
+    gap: spacing.xsPlus,
     marginLeft: 'auto',
   },
   variantChip: {
@@ -493,12 +393,6 @@ const styles = StyleSheet.create({
   },
   variantChipTextSelected: {
     color: colors.textOnPrimary,
-  },
-  infoText: {
-    ...typography.bodyCompact,
-    color: colors.textSecondary,
-    marginHorizontal: layout.screenPadding,
-    marginTop: spacing.md,
   },
   dialectLegendChip: {
     paddingHorizontal: spacing.smPlus,

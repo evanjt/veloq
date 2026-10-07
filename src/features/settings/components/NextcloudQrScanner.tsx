@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, cameraOverlay, layout, typography, colorWithOpacity, ink } from '@/theme';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface NextcloudQrScannerProps {
   onScanned: (data: string) => void;
@@ -29,12 +29,20 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
         <Text style={styles.permissionText}>
           {t('backup.cameraPermissionNeeded', 'Camera access is required to scan QR codes')}
         </Text>
-        <Pressable style={pressable(styles.grantButton)} onPress={requestPermission}>
+        <Pressable
+          style={pressable(styles.grantButton)}
+          android_ripple={pressRipple}
+          onPress={requestPermission}
+        >
           <Text style={styles.grantButtonText}>
             {t('backup.grantCameraAccess', 'Grant Camera Access')}
           </Text>
         </Pressable>
-        <Pressable style={pressable(styles.cancelButton)} onPress={onClose}>
+        <Pressable
+          style={pressable(styles.cancelButton)}
+          android_ripple={pressRipple}
+          onPress={onClose}
+        >
           <Text style={styles.cancelText}>{t('common.cancel')}</Text>
         </Pressable>
       </View>
@@ -58,7 +66,11 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={onClose} style={pressable(styles.closeButton)}>
+        <Pressable
+          onPress={onClose}
+          style={pressable(styles.closeButton)}
+          android_ripple={pressRipple}
+        >
           <MaterialCommunityIcons name="close" size={24} color={cameraOverlay.text} />
         </Pressable>
         <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR Code')}</Text>

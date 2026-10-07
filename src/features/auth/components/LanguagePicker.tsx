@@ -6,13 +6,14 @@ import { useTranslation } from 'react-i18next';
 import {
   useLanguageStore,
   getAvailableLanguages,
+  languageLabel,
   isLanguageVariant,
   isEnglishVariant,
   getEnglishVariantValue,
 } from '@/shared/app/LanguageStore';
 import { colors, darkColors, spacing, brand, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export const LanguagePicker = React.memo(function LanguagePicker() {
   const { t } = useTranslation();
@@ -23,28 +24,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
   const [showLanguages, setShowLanguages] = React.useState(false);
   const availableLanguages = getAvailableLanguages();
 
-  const { currentLanguageLabel, isDialectSelected } = React.useMemo(() => {
-    for (const group of availableLanguages) {
-      for (const lang of group.languages) {
-        if (language === lang.value) {
-          return { currentLanguageLabel: lang.label, isDialectSelected: false };
-        }
-        if (lang.variants) {
-          const variant = lang.variants.find((v) => v.value === language);
-          if (variant) {
-            return {
-              currentLanguageLabel: `${lang.label} (${variant.label})`,
-              isDialectSelected: variant.isDialect ?? false,
-            };
-          }
-        }
-        if (isLanguageVariant(language, lang.value)) {
-          return { currentLanguageLabel: lang.label, isDialectSelected: false };
-        }
-      }
-    }
-    return { currentLanguageLabel: 'English', isDialectSelected: false };
-  }, [language, availableLanguages]);
+  const { label: currentLanguageLabel, isDialect: isDialectSelected } = languageLabel(language);
 
   const handleLanguageChange = async (value: string) => {
     await setLanguage(value);
@@ -63,6 +43,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
             isDialectSelected && styles.languageButtonDialect,
             isDialectSelected && isDark && styles.languageButtonDialectDark,
           ])}
+          android_ripple={pressRipple}
           onPress={() => setShowLanguages(!showLanguages)}
         >
           <MaterialCommunityIcons
@@ -123,6 +104,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                       handleLanguageChange(valueToUse);
                     }}
                     style={pressable(styles.languageLabelContainer)}
+                    android_ripple={pressRipple}
                   >
                     <Text style={[styles.languageLabel, isDark && styles.textLight]}>
                       {lang.label}
@@ -157,6 +139,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                                 isDark &&
                                 styles.variantChipDialectSelectedDark,
                             ])}
+                            android_ripple={pressRipple}
                             onPress={() => handleLanguageChange(variant.value)}
                             hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
                             accessibilityRole="button"

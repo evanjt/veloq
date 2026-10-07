@@ -3,23 +3,38 @@ export {
   onSyncComplete,
   onAppBackground,
   onAppForeground,
-  getConfiguredBackend,
-  setBackendPreference,
   isAutoBackupEnabled,
   setAutoBackupEnabled,
-  getAvailableBackends,
-  getOfferableBackends,
   getLastBackupTimestamp,
+  getUnplacedBackupRecords,
+  isPlatformRecordAnswered,
+  markPlatformRecordAnswered,
   getLastBackupFailure,
-  registerBackend,
+  getBackupFailures,
+  cleanUpRetiredBackupSettings,
+  forgetBackupCarrier,
   getWebdavConfig,
   initWebdavConfig,
   setWebdavConfig,
   clearWebdavConfig,
   webdavUrlProblem,
 } from './autoBackup';
-export { testWebdavConnection } from './backends';
+export {
+  testWebdavConnection,
+  localBackend,
+  webdavBackend,
+  folderBackend,
+  pickBackupFolder,
+  getBackupFolderName,
+  forgetBackupFolder,
+} from './backends';
 export { failureMessageKey, isBackupTransferError } from './backends/errors';
 export type { BackupBackend, BackupEntry } from './backends';
-export type { BackupFailure, WebdavConfig, WebdavUrlProblem } from './autoBackup';
+export type {
+  BackupFailure,
+  BackupRunResult,
+  CarrierOutcome,
+  WebdavConfig,
+  WebdavUrlProblem,
+} from './autoBackup';
 export type { BackupFailureKind } from './backends/errors';

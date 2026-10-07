@@ -12,7 +12,7 @@ import { getAllSlides } from '@/features/settings/components/whatsNew/slides';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { buildCommit, formatVersionLine } from '@/shared/format/buildStamp';
 import { settingsStyles } from './settingsStyles';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export function FooterSection() {
   const { isDark } = useTheme();
@@ -73,7 +73,7 @@ export function FooterSection() {
         <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
       </TouchableOpacity>
 
-      <Pressable onPress={handleVersionTap} style={pressable()}>
+      <Pressable onPress={handleVersionTap} style={pressable()} android_ripple={pressRipple}>
         <Text
           testID="settings-version-text"
           style={[styles.versionText, isDark && settingsStyles.textMuted]}

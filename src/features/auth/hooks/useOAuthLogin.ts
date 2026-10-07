@@ -4,36 +4,51 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import {
-  accountChangeAction,
-  confirmAccountChange,
-  getCachedAthleteId,
-} from '@/features/auth/lib/accountChange';
-import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
+import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
+import { useUploadPermissionStore } from '@/features/recording';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useNetwork } from '@/shared/app/NetworkContext';
 import {
   startOAuthFlow,
   handleOAuthCallback,
   isOAuthConfigured,
   getAppRedirectUri,
+  oauthFailureKey,
 } from '@/features/auth/lib/oauth';
+import { clearPendingApiKey } from '@/features/auth/lib/pendingSignIn';
 
 interface UseOAuthLoginParams {
   setError: (message: string | null) => void;
+  /**
+   * Drops a key queued offline when the athlete refuses the account change.
+   * The login screen passes its own, which takes the waiting banner with it.
+   */
+  discardQueuedKey?: () => Promise<void>;
 }
 
-export function useOAuthLogin({ setError }: UseOAuthLoginParams) {
+export function useOAuthLogin({
+  setError,
+  discardQueuedKey = clearPendingApiKey,
+}: UseOAuthLoginParams) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const resetSyncDateRange = useSyncDateRange((state) => state.reset);
   const setOAuthCredentials = useAuthStore((state) => state.setOAuthCredentials);
+  const { isOnline } = useNetwork();
 
   const [isLoading, setIsLoading] = useState(false);
 
   const handleOAuthLogin = useCallback(async () => {
     if (!isOAuthConfigured()) {
       setError(t('login.oauthNotConfigured'));
+      return;
+    }
+
+    // The flow registers with the proxy before the browser opens, so offline
+    // it can only fail, and what it fails with is the platform's English.
+    if (!isOnline) {
+      setError(t('login.oauthNeedsNetwork'));
       return;
     }
 
@@ -57,19 +72,15 @@ export function useOAuthLogin({ setError }: UseOAuthLoginParams) {
         // refresh keeps cached activities; switching accounts requires
         // explicit confirmation before we wipe the previous identity.
         const incomingId = String(tokenResponse.athlete_id);
-        const cachedId = await getCachedAthleteId();
-        const action = accountChangeAction(cachedId, incomingId);
-        if (cachedId && action === 'confirm-then-wipe') {
-          const proceed = await confirmAccountChange({
-            cachedAthleteId: cachedId,
-            incomingKind: 'login',
-          });
-          if (!proceed) {
-            setIsLoading(false);
-            return;
-          }
+        const outcome = await resolveLoginLibrary(incomingId);
+        // A refused sign-in drops the queued key as the API-key path does:
+        // otherwise the next reconnect signs its owner in unasked.
+        if (outcome === 'refused') {
+          await discardQueuedKey();
+          setIsLoading(false);
+          return;
         }
-        if (action === 'keep') {
+        if (outcome === 'keep') {
           await clearAuthOnly(queryClient);
         } else {
           await clearAccountData(queryClient);
@@ -82,9 +93,7 @@ export function useOAuthLogin({ setError }: UseOAuthLoginParams) {
           tokenResponse.athlete_name
         );
 
-        if (tokenResponse.scope) {
-          useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope);
-        }
+        useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope ?? '');
 
         replaceTo('/');
       } else if (result.type === 'cancel') {
@@ -94,22 +103,19 @@ export function useOAuthLogin({ setError }: UseOAuthLoginParams) {
         setError(t('login.oauthFailed'));
       }
     } catch (err: unknown) {
-      let errorMessage = t('login.connectionFailed');
-      if (err instanceof Error) {
-        if (
-          err.message.includes('state validation failed') ||
-          err.message.includes('missing state parameter')
-        ) {
-          errorMessage = t('login.oauthStateValidationFailed');
-        } else {
-          errorMessage = err.message;
-        }
-      }
-      setError(errorMessage);
+      setError(t(oauthFailureKey(err)));
     } finally {
       setIsLoading(false);
     }
-  }, [t, queryClient, resetSyncDateRange, setOAuthCredentials, setError]);
+  }, [
+    t,
+    isOnline,
+    queryClient,
+    resetSyncDateRange,
+    setOAuthCredentials,
+    setError,
+    discardQueuedKey,
+  ]);
 
   return { handleOAuthLogin, isLoading };
 }

@@ -28,7 +28,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
-import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
+import { useElevationBackfill, useRouteSettings } from '@/features/routes';
 import {
   colors,
   darkColors,
@@ -39,12 +39,13 @@ import {
   colorWithOpacity,
   ink,
 } from '@/theme';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export function ElevationBackfillStatus() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { phase, completed, total, failed, remaining, isPaused } = useElevationBackfill();
+  const routeMatchingEnabled = useRouteSettings((state) => state.settings.enabled);
   const [showWhy, setShowWhy] = useState(false);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -65,51 +66,59 @@ export function ElevationBackfillStatus() {
   // a pause already taken offers its inverse rather than itself.
   const pausable = !isPaused && (phase === 'fetching' || phase === 'partial' || outstandingAtRest);
 
-  const status = outstandingAtRest ? (
-    <Text
-      style={[styles.line, styles.centred, { color: textSecondary }]}
-      testID="elevation-backfill-status"
-    >
-      {t('settings.elevationBackfillOutstanding', { count: remaining ?? 0 })}
-    </Text>
-  ) : phase === 'fetching' ? (
-    <View style={styles.runningRow} testID="elevation-backfill-status">
-      <ActivityIndicator size="small" color={textSecondary} />
-      <View style={styles.runningText}>
-        <Text style={[styles.line, { color: textSecondary }]}>
-          {t('settings.elevationBackfillRunning')}
-        </Text>
-        <Text style={[styles.line, { color: textSecondary }]}>
-          {t('settings.elevationBackfillProgress', { completed, total })}
-        </Text>
+  const status =
+    !routeMatchingEnabled && phase !== 'complete' ? (
+      <Text
+        style={[styles.line, styles.centred, { color: textSecondary }]}
+        testID="elevation-backfill-status"
+      >
+        {t('settings.elevationBackfillSwitchedOff')}
+      </Text>
+    ) : outstandingAtRest ? (
+      <Text
+        style={[styles.line, styles.centred, { color: textSecondary }]}
+        testID="elevation-backfill-status"
+      >
+        {t('settings.elevationBackfillOutstanding', { count: remaining ?? 0 })}
+      </Text>
+    ) : phase === 'fetching' ? (
+      <View style={styles.runningRow} testID="elevation-backfill-status">
+        <ActivityIndicator size="small" color={textSecondary} />
+        <View style={styles.runningText}>
+          <Text style={[styles.line, { color: textSecondary }]}>
+            {t('settings.elevationBackfillRunning')}
+          </Text>
+          <Text style={[styles.line, { color: textSecondary }]}>
+            {t('settings.elevationBackfillProgress', { completed, total })}
+          </Text>
+        </View>
       </View>
-    </View>
-  ) : phase === 'failed' ? (
-    <Text
-      style={[styles.line, styles.centred, { color: danger }]}
-      testID="elevation-backfill-status"
-    >
-      {t('settings.elevationBackfillFailed')}
-    </Text>
-  ) : phase === 'paused' ? (
-    <Text
-      style={[styles.line, styles.centred, { color: textSecondary }]}
-      testID="elevation-backfill-status"
-    >
-      {t('settings.elevationBackfillPaused')}
-    </Text>
-  ) : (
-    <Text
-      style={[styles.line, styles.centred, { color: textSecondary }]}
-      testID="elevation-backfill-status"
-    >
-      {phase === 'complete'
-        ? t('settings.elevationBackfillComplete')
-        : failed > 0
-          ? t('settings.elevationBackfillRetrying', { count: failed })
-          : t('settings.elevationBackfillPartial')}
-    </Text>
-  );
+    ) : phase === 'failed' ? (
+      <Text
+        style={[styles.line, styles.centred, { color: danger }]}
+        testID="elevation-backfill-status"
+      >
+        {t('settings.elevationBackfillFailed')}
+      </Text>
+    ) : phase === 'paused' ? (
+      <Text
+        style={[styles.line, styles.centred, { color: textSecondary }]}
+        testID="elevation-backfill-status"
+      >
+        {t('settings.elevationBackfillPaused')}
+      </Text>
+    ) : (
+      <Text
+        style={[styles.line, styles.centred, { color: textSecondary }]}
+        testID="elevation-backfill-status"
+      >
+        {phase === 'complete'
+          ? t('settings.elevationBackfillComplete')
+          : failed > 0
+            ? t('settings.elevationBackfillRetrying', { count: failed })
+            : t('settings.elevationBackfillPartial')}
+      </Text>
+    );
 
   return (
     <View>
@@ -118,11 +127,14 @@ export function ElevationBackfillStatus() {
       {pausable && (
         <Pressable
           style={pressable(styles.pauseRow)}
+          android_ripple={pressRipple}
           onPress={() => getEngine()?.pauseElevationBackfill()}
           testID="elevation-backfill-pause"
         >
           <MaterialCommunityIcons name="pause-circle-outline" size={16} color={colors.primary} />
-          <Text style={[styles.pauseText, { color: colors.primary }]}>
+          <Text
+            style={[styles.pauseText, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
+          >
             {t('settings.elevationBackfillPause')}
           </Text>
         </Pressable>
@@ -131,17 +143,20 @@ export function ElevationBackfillStatus() {
       {isPaused && (
         <Pressable
           style={pressable(styles.pauseRow)}
+          android_ripple={pressRipple}
           onPress={() => getEngine()?.resumeElevationBackfill()}
           testID="elevation-backfill-resume"
         >
           <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.primary} />
-          <Text style={[styles.pauseText, { color: colors.primary }]}>
+          <Text
+            style={[styles.pauseText, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
+          >
             {t('settings.elevationBackfillResume')}
           </Text>
         </Pressable>
       )}
 
-      {phase !== 'complete' && phase !== 'paused' && (
+      {routeMatchingEnabled && phase !== 'complete' && phase !== 'paused' && (
         <Text
           style={[styles.line, styles.centred, { color: textMuted }]}
           testID="elevation-backfill-explainer"
@@ -152,6 +167,7 @@ export function ElevationBackfillStatus() {
 
       <Pressable
         style={pressable(styles.whyRow)}
+        android_ripple={pressRipple}
         onPress={() => setShowWhy(true)}
         testID="elevation-backfill-why"
       >
@@ -184,10 +200,16 @@ export function ElevationBackfillStatus() {
             <View style={styles.dialogActions}>
               <Pressable
                 style={pressable(styles.closeBtn)}
+                android_ripple={pressRipple}
                 onPress={() => setShowWhy(false)}
                 testID="elevation-backfill-why-close"
               >
-                <RNText style={[styles.closeText, { color: colors.primary }]}>
+                <RNText
+                  style={[
+                    styles.closeText,
+                    { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+                  ]}
+                >
                   {t('common.close')}
                 </RNText>
               </Pressable>

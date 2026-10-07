@@ -22,9 +22,10 @@ interface WhatsNewState {
   showMe: (nextIndex: number, tip?: string) => void;
   resumeTour: () => void;
   endTour: () => void;
+  dismissTour: (currentVersion: string) => Promise<void>;
 }
 
-export const useWhatsNewStore = create<WhatsNewState>((set) => ({
+export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
   lastSeenVersion: null,
   isLoaded: false,
   tourState: null,
@@ -74,6 +75,15 @@ export const useWhatsNewStore = create<WhatsNewState>((set) => ({
 
   endTour: () => {
     set({ tourState: null });
+  },
+
+  // A tour left early still counts as seen, or it reopens on every launch.
+  dismissTour: async (currentVersion) => {
+    const { lastSeenVersion, markSeen } = get();
+    set({ tourState: null });
+    if (lastSeenVersion !== currentVersion) {
+      await markSeen(currentVersion);
+    }
   },
 }));
 

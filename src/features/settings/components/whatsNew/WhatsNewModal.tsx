@@ -17,11 +17,13 @@ import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, ink, typography, colorWithOpacity } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useMapPreferences } from '@/features/maps';
+import { useMapPreferenceActions } from '@/features/maps';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { getAllSlides, getSlidesSince } from './slides';
+import { useCutoverSummary } from '@/features/routes';
+import { cutoverHasChangesToShow } from '@/features/settings/lib/cutoverShowMe';
+import { getAllSlides, getSlidesSince, type WhatsNewSlideDefinition } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 const SWIPE_THRESHOLD_RATIO = 0.2;
 const VELOCITY_THRESHOLD = 400;
@@ -29,6 +31,11 @@ const TIMING_CONFIG = { duration: 250, easing: Easing.out(Easing.cubic) };
 
 const MODAL_HORIZONTAL_PADDING = spacing.xl;
 const ALL_SLIDES = getAllSlides();
+
+function withoutShowMe(slide: WhatsNewSlideDefinition): WhatsNewSlideDefinition {
+  const { showMeRoute: _route, ...rest } = slide;
+  return rest;
+}
 
 export function WhatsNewModal() {
   const { t } = useTranslation();
@@ -42,18 +49,22 @@ export function WhatsNewModal() {
   const markSeen = useWhatsNewStore((s) => s.markSeen);
   const startTour = useWhatsNewStore((s) => s.startTour);
   const showMe = useWhatsNewStore((s) => s.showMe);
-  const endTour = useWhatsNewStore((s) => s.endTour);
-  const { setDefaultStyle, setTerrain3DMode } = useMapPreferences();
+  const dismissTour = useWhatsNewStore((s) => s.dismissTour);
+  const { setDefaultStyle, setTerrain3DMode } = useMapPreferenceActions();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isDemoMode = useAuthStore((s) => s.isDemoMode);
+  const cutover = useCutoverSummary();
+  const cutoverChanged = cutoverHasChangesToShow(cutover);
 
   const currentVersion = Constants.expoConfig?.version ?? '';
   const allSlides = ALL_SLIDES;
   const missedSlides = lastSeenVersion ? getSlidesSince(lastSeenVersion) : [];
-  const isAutoTriggered = lastSeenVersion !== currentVersion;
 
   const hasAutoTriggered = useRef(false);
   useEffect(() => {
-    if (!isLoaded || !isAuthenticated || hasAutoTriggered.current || tourState) return;
+    // Demo is not a sign-in: opening the tour there would mark it seen before the first real one.
+    if (!isLoaded || !isAuthenticated || isDemoMode || hasAutoTriggered.current || tourState)
+      return;
     if (lastSeenVersion === null && allSlides.length > 0) {
       hasAutoTriggered.current = true;
       startTour('tutorial');
@@ -67,6 +78,7 @@ export function WhatsNewModal() {
   }, [
     isLoaded,
     isAuthenticated,
+    isDemoMode,
     lastSeenVersion,
     currentVersion,
     missedSlides.length,
@@ -76,8 +88,16 @@ export function WhatsNewModal() {
     markSeen,
   ]);
 
-  const slides =
+  const tourSlides =
     tourState?.mode === 'tutorial' ? allSlides : missedSlides.length > 0 ? missedSlides : allSlides;
+  const slides = useMemo(
+    () =>
+      tourSlides.map(
+        (slide): WhatsNewSlideDefinition =>
+          slide.showMeWhen === 'cutoverChanged' && !cutoverChanged ? withoutShowMe(slide) : slide
+      ),
+    [tourSlides, cutoverChanged]
+  );
   const slideCount = slides.length;
 
   const translateX = useSharedValue(0);
@@ -101,11 +121,8 @@ export function WhatsNewModal() {
   }, [tourState, translateX, activeIndex, contentWidth]);
 
   const dismiss = useCallback(() => {
-    if (isAutoTriggered) {
-      markSeen(currentVersion);
-    }
-    endTour();
-  }, [isAutoTriggered, currentVersion, markSeen, endTour]);
+    dismissTour(currentVersion);
+  }, [currentVersion, dismissTour]);
 
   const goToSlide = useCallback(
     (index: number) => {
@@ -198,7 +215,11 @@ export function WhatsNewModal() {
       entering={FadeIn.duration(300)}
       exiting={FadeOut.duration(200)}
     >
-      <Pressable style={pressable(styles.backdrop)} onPress={dismiss} />
+      <Pressable
+        style={pressable(styles.backdrop)}
+        android_ripple={pressRipple}
+        onPress={dismiss}
+      />
       <View style={[styles.card, { width: contentWidth, backgroundColor: bgColor }]}>
         <GestureDetector gesture={panGesture}>
           <View style={styles.slideArea}>
@@ -226,6 +247,7 @@ export function WhatsNewModal() {
               onPress={handleModeToggle}
               hitSlop={8}
               style={pressable([styles.modeTogglePill, { borderColor: primaryColor }])}
+              android_ripple={pressRipple}
             >
               <Text style={[styles.modeToggleText, { color: primaryColor }]}>
                 {tourState?.mode === 'tutorial'
@@ -332,7 +354,7 @@ function NavigationButtons({
       {/* Left: Skip (hidden on last slide) */}
       <View style={styles.navLeft}>
         <Animated.View style={isLast}>
-          <Pressable onPress={onSkip} hitSlop={12} style={pressable()}>
+          <Pressable onPress={onSkip} hitSlop={12} style={pressable()} android_ripple={pressRipple}>
             <Text style={[styles.navText, { color: mutedColor }]}>{skipLabel}</Text>
           </Pressable>
         </Animated.View>
@@ -340,7 +362,7 @@ function NavigationButtons({
 
       {/* Center: Show Me */}
       <Animated.View style={showMeStyle}>
-        <Pressable onPress={onShowMe} hitSlop={12} style={pressable()}>
+        <Pressable onPress={onShowMe} hitSlop={12} style={pressable()} android_ripple={pressRipple}>
           <Text style={[styles.navText, styles.navTextBold, { color: primaryColor }]}>
             {showMeLabel} →
           </Text>
@@ -354,12 +376,13 @@ function NavigationButtons({
             onPress={onSkip}
             hitSlop={12}
             style={pressable([styles.doneButton, { backgroundColor: primaryColor }])}
+            android_ripple={pressRipple}
           >
             <Text style={[styles.doneText, { color: ink.white }]}>{doneLabel}</Text>
           </Pressable>
         </Animated.View>
         <Animated.View style={[styles.nextOverlay, isLast]}>
-          <Pressable onPress={onNext} hitSlop={12} style={pressable()}>
+          <Pressable onPress={onNext} hitSlop={12} style={pressable()} android_ripple={pressRipple}>
             <Text style={[styles.navText, styles.navTextBold, { color: primaryColor }]}>
               {nextLabel}
             </Text>
@@ -401,7 +424,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: layout.borderRadiusLg,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.xsPlus,
   },
   modeToggleText: {
     fontSize: typography.bodySmall.fontSize,

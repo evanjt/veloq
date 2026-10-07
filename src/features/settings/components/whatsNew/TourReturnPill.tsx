@@ -10,8 +10,7 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
-import { WHATS_NEW_SLIDES } from './slides';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export function TourReturnPill() {
   const { t } = useTranslation();
@@ -19,20 +18,14 @@ export function TourReturnPill() {
   const insets = useSafeAreaInsets();
   const tourState = useWhatsNewStore((s) => s.tourState);
   const resumeTour = useWhatsNewStore((s) => s.resumeTour);
-  const endTour = useWhatsNewStore((s) => s.endTour);
-  const markSeen = useWhatsNewStore((s) => s.markSeen);
-  const lastSeenVersion = useWhatsNewStore((s) => s.lastSeenVersion);
+  const dismissTour = useWhatsNewStore((s) => s.dismissTour);
 
   if (!tourState || !tourState.exploring) return null;
 
   const currentVersion = Constants.expoConfig?.version ?? '';
-  const isAutoTriggered = lastSeenVersion !== currentVersion;
 
   const handleClose = () => {
-    if (isAutoTriggered && WHATS_NEW_SLIDES[currentVersion]) {
-      markSeen(currentVersion);
-    }
-    endTour();
+    dismissTour(currentVersion);
   };
 
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
@@ -58,7 +51,12 @@ export function TourReturnPill() {
           </Text>
         )}
         <View style={styles.buttonRow}>
-          <Pressable style={pressable(styles.backButton)} onPress={resumeTour} hitSlop={8}>
+          <Pressable
+            style={pressable(styles.returnButton)}
+            android_ripple={pressRipple}
+            onPress={resumeTour}
+            hitSlop={8}
+          >
             <MaterialCommunityIcons name="arrow-left" size={18} color={primaryColor} />
             <Text style={[styles.backText, { color: primaryColor }]}>
               {t('whatsNew.backToTour')}
@@ -72,7 +70,12 @@ export function TourReturnPill() {
             ]}
           />
 
-          <Pressable style={pressable(styles.closeButton)} onPress={handleClose} hitSlop={8}>
+          <Pressable
+            style={pressable(styles.closeButton)}
+            android_ripple={pressRipple}
+            onPress={handleClose}
+            hitSlop={8}
+          >
             <Text style={[styles.closeText, { color: mutedColor }]}>{t('whatsNew.closeTour')}</Text>
             <MaterialCommunityIcons name="close" size={16} color={mutedColor} />
           </Pressable>
@@ -107,7 +110,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backButton: {
+  returnButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,

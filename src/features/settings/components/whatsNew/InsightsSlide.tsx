@@ -1,26 +1,29 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
+import type { ParseKeys } from 'i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 
-const insightItems = (isDark: boolean) => [
+const insightItems = (isDark: boolean): { icon: string; labelKey: ParseKeys; color: string }[] => [
   {
     icon: 'trophy-outline',
-    label: 'Section PRs',
+    labelKey: 'whatsNew.v030.insightsSectionPrs',
     color: isDark ? darkColors.warningAmber : colors.warningAmber,
   },
-  { icon: 'heart-pulse', label: 'Efficiency trends', color: colors.chartHrv },
-  { icon: 'lightning-bolt', label: 'Fitness milestones', color: colors.walk },
+  { icon: 'heart-pulse', labelKey: 'whatsNew.v030.insightsEfficiency', color: colors.chartHrv },
+  { icon: 'lightning-bolt', labelKey: 'whatsNew.v030.insightsMilestones', color: colors.walk },
   {
     icon: 'trending-up',
-    label: 'HRV trends',
+    labelKey: 'whatsNew.v030.insightsHrv',
     color: isDark ? darkColors.successDeep : colors.successDeep,
   },
 ];
 
 export function InsightsSlide() {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
   const bgColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.04);
@@ -28,13 +31,13 @@ export function InsightsSlide() {
   return (
     <View style={styles.container}>
       {insightItems(isDark).map((item) => (
-        <View key={item.label} style={[styles.row, { backgroundColor: bgColor }]}>
+        <View key={item.labelKey} style={[styles.row, { backgroundColor: bgColor }]}>
           <MaterialCommunityIcons
             name={item.icon as keyof typeof MaterialCommunityIcons.glyphMap}
             size={20}
             color={item.color}
           />
-          <Text style={[styles.label, { color: mutedColor }]}>{item.label}</Text>
+          <Text style={[styles.label, { color: mutedColor }]}>{t(item.labelKey)}</Text>
         </View>
       ))}
     </View>

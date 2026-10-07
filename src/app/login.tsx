@@ -1,18 +1,18 @@
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { ScreenSafeAreaView, pressable } from '@/shared/ui';
+import { ScreenSafeAreaView, Button, pressable, pressRipple } from '@/shared/ui';
 import { replaceTo } from '@/shared/app/navigation';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
-import { useImportDatabaseBackup } from '@/features/settings/hooks/exportIndex';
+import { useImportDatabaseBackup } from '@/features/settings';
 import {
   useAuthStore,
   INTERVALS_URLS,
@@ -22,21 +22,20 @@ import {
   UNNAMED_LIBRARY,
   useApiKeyLogin,
   useOAuthLogin,
-  useBackupRestore,
   useApiKeyPrefill,
   useSessionExpiryNotice,
   LanguagePicker,
   OAuthLoginForm,
   ApiKeyLoginForm,
-  BackupRestoreBanner,
   SessionExpiredNotice,
 } from '@/features/auth';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const VELOQ_URLS = {
   privacy: 'https://veloq.fit/privacy',
 };
 
-export default function LoginScreen() {
+function LoginScreenContent() {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -44,14 +43,6 @@ export default function LoginScreen() {
   const queryClient = useQueryClient();
   const resetSyncDateRange = useSyncDateRange((state) => state.reset);
   const { importDatabaseBackup, importing: isRestoring } = useImportDatabaseBackup();
-
-  const {
-    detectedBackup,
-    restoringDetected,
-    dismissedRestore,
-    setDismissedRestore,
-    handleRestoreDetected,
-  } = useBackupRestore();
 
   const [error, setError] = useState<string | null>(null);
 
@@ -67,10 +58,13 @@ export default function LoginScreen() {
     [dismissSessionNotice]
   );
 
-  const { handleApiKeyLogin, isApiKeyLoading, queuedMessage } = useApiKeyLogin({
+  const { handleApiKeyLogin, isApiKeyLoading, queuedMessage, discardQueuedKey } = useApiKeyLogin({
     setError: reportError,
   });
-  const { handleOAuthLogin, isLoading } = useOAuthLogin({ setError: reportError });
+  const { handleOAuthLogin, isLoading } = useOAuthLogin({
+    setError: reportError,
+    discardQueuedKey,
+  });
 
   const handleTryDemo = async () => {
     // Warn before destroying a real account's cached data. Engine holds at
@@ -85,7 +79,11 @@ export default function LoginScreen() {
         cachedAthleteId: (await getCachedAthleteId()) ?? UNNAMED_LIBRARY,
         incomingKind: 'demo',
       });
-      if (!proceed) return;
+      // A refusal drops a key queued offline, as a refused sign-in does.
+      if (!proceed) {
+        await discardQueuedKey();
+        return;
+      }
     }
     // A wipe that could not run now says so rather than resolving, and demo
     // mode must not open over a library that is still there: that is how the
@@ -157,18 +155,14 @@ export default function LoginScreen() {
               >
                 {queuedMessage}
               </Text>
+              <Button
+                testID="login-discard-queued-key"
+                label={t('recording.discard')}
+                variant="ghost"
+                size="sm"
+                onPress={discardQueuedKey}
+              />
             </View>
-          )}
-
-          {/* Detected backup banner (fresh install only) */}
-          {detectedBackup && (
-            <BackupRestoreBanner
-              backup={detectedBackup}
-              isDismissed={dismissedRestore}
-              onDismiss={() => setDismissedRestore(true)}
-              onRestore={handleRestoreDetected}
-              isRestoring={restoringDetected}
-            />
           )}
 
           {/* OAuth Login */}
@@ -186,29 +180,36 @@ export default function LoginScreen() {
           {/* Demo Button */}
           <Button
             testID="login-demo-button"
-            mode="outlined"
+            label={t('login.tryDemo', { defaultValue: 'Try Demo' })}
+            variant="secondary"
             onPress={handleTryDemo}
             disabled={isLoading || isApiKeyLoading}
-            style={styles.demoButton}
-            icon="play-circle-outline"
-          >
-            {t('login.tryDemo', { defaultValue: 'Try Demo' })}
-          </Button>
+            icon={
+              <MaterialCommunityIcons name="play-circle-outline" size={18} color={colors.primary} />
+            }
+          />
 
           {/* Restore from Backup */}
           <Button
             testID="login-restore-button"
-            mode="text"
+            label={
+              isRestoring
+                ? t('backup.importing')
+                : t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })
+            }
+            variant="ghost"
+            size="sm"
             onPress={importDatabaseBackup}
             disabled={isLoading || isApiKeyLoading || isRestoring}
             style={styles.restoreButton}
-            icon="database-import-outline"
-            compact
-          >
-            {isRestoring
-              ? t('backup.importingDatabase')
-              : t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })}
-          </Button>
+            icon={
+              <MaterialCommunityIcons
+                name="database-import-outline"
+                size={18}
+                color={colors.primary}
+              />
+            }
+          />
 
           {/* API Key Login */}
           <ApiKeyLoginForm
@@ -229,13 +230,12 @@ export default function LoginScreen() {
             {t('login.createAccountHint')}
           </Text>
           <Button
-            mode="text"
+            label={t('login.createAccount')}
+            variant="ghost"
             onPress={handleCreateAccount}
-            icon="open-in-new"
+            icon={<MaterialCommunityIcons name="open-in-new" size={18} color={colors.primary} />}
             style={styles.createAccountButton}
-          >
-            {t('login.createAccount')}
-          </Button>
+          />
         </View>
 
         {/* Disclaimer Footer */}
@@ -244,19 +244,37 @@ export default function LoginScreen() {
             {t('login.disclaimer')}
           </Text>
 
-          <Pressable onPress={handleOpenVeloqPrivacy} style={pressable(styles.veloqPrivacyLink)}>
+          <Pressable
+            onPress={handleOpenVeloqPrivacy}
+            style={pressable(styles.veloqPrivacyLink)}
+            android_ripple={pressRipple}
+          >
             <MaterialCommunityIcons name="shield-lock" size={14} color={colors.primary} />
-            <Text style={styles.linkText}>{t('about.veloqPrivacy')}</Text>
+            <Text style={[styles.linkText, isDark && { color: darkColors.linkTeal }]}>
+              {t('about.veloqPrivacy')}
+            </Text>
           </Pressable>
 
           <Text style={[styles.intervalsLabel, isDark && styles.textMuted]}>intervals.icu:</Text>
           <View style={styles.linksRow}>
-            <Pressable onPress={handleOpenIntervalsPrivacy} style={pressable()}>
-              <Text style={styles.linkTextSmall}>{t('login.privacyPolicy')}</Text>
+            <Pressable
+              onPress={handleOpenIntervalsPrivacy}
+              style={pressable()}
+              android_ripple={pressRipple}
+            >
+              <Text style={[styles.linkTextSmall, isDark && { color: darkColors.linkTeal }]}>
+                {t('login.privacyPolicy')}
+              </Text>
             </Pressable>
             <Text style={[styles.linkSeparator, isDark && styles.textMuted]}>|</Text>
-            <Pressable onPress={handleOpenIntervalsTerms} style={pressable()}>
-              <Text style={styles.linkTextSmall}>{t('login.termsOfService')}</Text>
+            <Pressable
+              onPress={handleOpenIntervalsTerms}
+              style={pressable()}
+              android_ripple={pressRipple}
+            >
+              <Text style={[styles.linkTextSmall, isDark && { color: darkColors.linkTeal }]}>
+                {t('login.termsOfService')}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -363,9 +381,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.bodySmall.fontSize,
   },
-  demoButton: {
-    borderColor: colors.primary,
-  },
   restoreButton: {
     marginTop: spacing.sm,
   },
@@ -414,12 +429,12 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: typography.bodySmall.fontSize,
-    color: colors.primary,
+    color: colors.linkTeal,
     textDecorationLine: 'underline',
   },
   linkTextSmall: {
     fontSize: typography.caption.fontSize,
-    color: colors.primary,
+    color: colors.linkTeal,
     textDecorationLine: 'underline',
   },
   linkSeparator: {
@@ -437,3 +452,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
+
+export default withScreenBoundary(LoginScreenContent, 'Login');

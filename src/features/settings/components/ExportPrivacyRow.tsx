@@ -17,10 +17,15 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { HomeRadiusMap, type LngLat } from '@/features/maps';
 import { getEngine } from '@/shared/native/engine';
+import { engineErrorTag } from '@/shared/native/engineError';
 import { useEngineReady } from '@/shared/native/useEngineReady';
-import type { SuggestedHome, ExportPrivacyPreview } from 'veloqrs';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import type { ExportPrivacyPreview } from 'veloqrs';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
+import { Button, ToggleButtonRow } from '@/shared/ui/Button';
+import { Row } from '@/shared/ui/Row';
+import { InfoButton } from './InfoButton';
 
 const HOME_LAT_KEY = '__export_home_lat';
 const HOME_LNG_KEY = '__export_home_lng';
@@ -35,6 +40,26 @@ const DEFAULT_RADIUS_M = 100;
  */
 const RADIUS_CHOICES_M = [100, 250, 500] as const;
 
+/**
+ * The guess and the ride count only advise: the trim applies at export
+ * whatever they say. A failed read leaves them off the row rather than taking
+ * the backup screen around it to its fallback.
+ */
+function advisory<T>(what: string, read: () => T | null | undefined): T | null {
+  try {
+    return read() ?? null;
+  } catch (error) {
+    console.warn(`[ExportPrivacy] Could not ${what}:`, engineErrorTag(error) ?? error);
+    return null;
+  }
+}
+
+/** A whole percentage, never 0 for a share that is not zero. */
+export function endpointSharePercent(share: number): number {
+  if (!(share > 0)) return 0;
+  return Math.min(100, Math.max(1, Math.round(share * 100)));
+}
+
 export function ExportPrivacyRow() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
@@ -43,20 +68,21 @@ export function ExportPrivacyRow() {
   // the truth until the athlete changes it, and the two edits below are the
   // only things that do.
   const engine = useEngineReady();
+  const readScreen = useEngineRead(['cutoverSettled']);
   const stored = useMemo(() => {
-    const lat = engine?.getSetting?.(HOME_LAT_KEY);
-    const lng = engine?.getSetting?.(HOME_LNG_KEY);
+    const data = readScreen((engine) => engine.getBackupScreenData());
+    const lat = data?.homeLat;
+    const lng = data?.homeLng;
     const hasHome = Boolean(lat && lng);
-    const radius = Number(engine?.getSetting?.(RADIUS_KEY) ?? '0');
+    const radius = Number(data?.radiusM ?? '0');
     return {
       hasHome,
+      home: lat && lng ? { lat: Number(lat), lng: Number(lng) } : null,
       radius,
       enabled: radius > 0,
-      suggestion: hasHome
-        ? null
-        : ((engine?.suggestExportHome?.() ?? null) as SuggestedHome | null),
+      suggestion: data?.suggestion ?? null,
     };
-  }, [engine]);
+  }, [readScreen]);
 
   const [confirmedHome, setConfirmedHome] = useState<LngLat | null>(null);
   const [toggled, setToggled] = useState<boolean | null>(null);
@@ -72,10 +98,8 @@ export function ExportPrivacyRow() {
   // confirmed in this render pass and not yet read back.
   const home = useMemo(() => {
     if (confirmedHome) return { lat: confirmedHome[1], lng: confirmedHome[0] };
-    const lat = Number(engine?.getSetting?.(HOME_LAT_KEY));
-    const lng = Number(engine?.getSetting?.(HOME_LNG_KEY));
-    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
-  }, [engine, confirmedHome]);
+    return stored.home;
+  }, [stored.home, confirmedHome]);
 
   // What the map draws: the home if there is one, else the guess on offer. The
   // circle in the off position is what turning it on would cover.
@@ -83,11 +107,14 @@ export function ExportPrivacyRow() {
     if (home) return [home.lng, home.lat];
     return suggestion ? [suggestion.longitude, suggestion.latitude] : null;
   }, [home, suggestion]);
-  const mapRadius = activeRadius > 0 ? activeRadius : DEFAULT_RADIUS_M;
+  // Off, the row describes and draws the radius the switch would turn back on.
+  const mapRadius = activeRadius > 0 ? activeRadius : (radius ?? DEFAULT_RADIUS_M);
 
   const preview: ExportPrivacyPreview | null = useMemo(() => {
     if (!home || !engine?.exportPrivacyPreview) return null;
-    return engine.exportPrivacyPreview(home.lat, home.lng, activeRadius);
+    return advisory('preview the trim', () =>
+      engine.exportPrivacyPreview(home.lat, home.lng, activeRadius)
+    );
   }, [engine, home, activeRadius]);
 
   // Placing the pin and confirming the guess are the same two writes.
@@ -110,12 +137,12 @@ export function ExportPrivacyRow() {
       if (!confirmed) return;
       const client = getEngine();
       if (!client) return;
-      const next_m = next ? (radius ?? DEFAULT_RADIUS_M) : 0;
+      const next_m = next ? mapRadius : 0;
       client.setSetting?.(RADIUS_KEY, String(next_m));
       setToggled(next);
       if (next) setRadius(next_m);
     },
-    [confirmed, radius]
+    [confirmed, mapRadius]
   );
 
   const handleRadius = useCallback((metres: number) => {
@@ -127,22 +154,27 @@ export function ExportPrivacyRow() {
   }, []);
 
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const hint = [styles.hint, isDark && settingsStyles.textMuted];
 
   return (
     <View style={styles.block} testID="export-privacy-row">
-      <View style={settingsStyles.actionRow}>
+      <Row>
         <MaterialCommunityIcons name="home-map-marker" size={22} color={textSecondary} />
-        <View style={styles.textWrap}>
-          <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-            {t('settings.exportPrivacyTitle', 'Leave home out of exports')}
-          </Text>
-          <Text style={[styles.hint, isDark && settingsStyles.textMuted]}>
-            {t(
-              'settings.exportPrivacyDescription',
-              'Trims the start and end of each track within 100 m of home. Only the exported copy is shortened.'
-            )}
-          </Text>
-        </View>
+        <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
+          {t('settings.exportPrivacyTitle', 'Leave home out of exports')}
+        </Text>
+        <InfoButton
+          testID="export-privacy-info"
+          title={t('settings.exportPrivacyTitle', 'Leave home out of exports')}
+          message={[
+            t('settings.exportPrivacyDescription', {
+              defaultValue:
+                'Trims the start and end of each track within {{radius}} m of home. Only the exported copy is shortened.',
+              radius: mapRadius,
+            }),
+            t('settings.exportPrivacyMoveHint', 'Tap the map to move home.'),
+          ].join('\n\n')}
+        />
         <Switch
           value={enabled}
           onValueChange={handleToggle}
@@ -150,45 +182,41 @@ export function ExportPrivacyRow() {
           color={colors.primary}
           testID="export-privacy-switch"
         />
-      </View>
+      </Row>
 
       {mapHome && (
-        <View style={styles.mapRow}>
+        <View style={styles.indented}>
           <HomeRadiusMap
             home={mapHome}
             radiusM={mapRadius}
             onMove={handleMove}
             testID="export-privacy-map"
           />
-          <Text style={[styles.hint, isDark && settingsStyles.textMuted]}>
-            {t('settings.exportPrivacyMoveHint', 'Tap the map to move home.')}
-          </Text>
         </View>
       )}
 
       {!confirmed && suggestion && (
-        <View style={styles.homeRow} testID="export-privacy-home">
-          <Text style={[styles.hint, isDark && settingsStyles.textMuted]}>
+        <View style={[styles.indented, styles.suggestion]} testID="export-privacy-home">
+          <Text style={[hint, styles.suggestionText]}>
             {t('settings.exportPrivacySuggested', {
-              defaultValue: 'Most of your rides start near one place, {{count}} of them.',
+              defaultValue:
+                'Most of your rides start near one place, {{count}} of them. {{share}}% of all ride ends.',
               count: suggestion.activityCount,
+              share: endpointSharePercent(suggestion.endpointShare),
             })}
           </Text>
-          <Text
-            style={[styles.confirm, { color: colors.primary }]}
-            onPress={handleConfirm}
+          <Button
             testID="export-privacy-confirm"
-          >
-            {t('settings.exportPrivacyConfirm', 'Use it as home')}
-          </Text>
+            label={t('settings.exportPrivacyConfirm', 'Use it as home')}
+            variant="secondary"
+            size="sm"
+            onPress={handleConfirm}
+          />
         </View>
       )}
 
       {confirmed && preview && (
-        <Text
-          style={[styles.hint, styles.homeRow, isDark && settingsStyles.textMuted]}
-          testID="export-privacy-count"
-        >
+        <Text style={[hint, styles.indented]} testID="export-privacy-count">
           {enabled
             ? t('settings.exportPrivacyCount', {
                 defaultValue:
@@ -205,32 +233,24 @@ export function ExportPrivacyRow() {
       )}
 
       {confirmed && enabled && (
-        <View style={styles.radiusRow} testID="export-privacy-radius">
-          {RADIUS_CHOICES_M.map((metres) => (
-            <Text
-              key={metres}
-              onPress={() => handleRadius(metres)}
-              testID={`export-privacy-radius-${metres}`}
-              style={[
-                styles.radiusChip,
-                isDark && settingsStyles.textMuted,
-                metres === activeRadius && { color: colors.primary, fontWeight: '600' },
-              ]}
-            >
-              {t('settings.exportPrivacyRadius', {
+        <View style={styles.indented} testID="export-privacy-radius">
+          <ToggleButtonRow
+            value={String(activeRadius)}
+            onValueChange={(value) => handleRadius(Number(value))}
+            options={RADIUS_CHOICES_M.map((metres) => ({
+              value: String(metres),
+              testID: `export-privacy-radius-${metres}`,
+              label: t('settings.exportPrivacyRadius', {
                 defaultValue: '{{metres}} m',
                 metres,
-              })}
-            </Text>
-          ))}
+              }),
+            }))}
+          />
         </View>
       )}
 
       {!confirmed && !suggestion && (
-        <Text
-          style={[styles.hint, styles.homeRow, isDark && settingsStyles.textMuted]}
-          testID="export-privacy-no-home"
-        >
+        <Text style={[hint, styles.indented]} testID="export-privacy-no-home">
           {t(
             'settings.exportPrivacyNoSuggestion',
             'Not enough rides yet to work out where home is.'
@@ -242,12 +262,9 @@ export function ExportPrivacyRow() {
 }
 
 const styles = StyleSheet.create({
-  block: { paddingBottom: spacing.sm },
-  textWrap: { flex: 1, marginLeft: spacing.sm },
+  block: { paddingBottom: spacing.sm, gap: spacing.sm },
   hint: { ...typography.caption, color: colors.textSecondary },
-  homeRow: { paddingHorizontal: spacing.md, gap: spacing.xs },
-  mapRow: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.xs },
-  confirm: { ...typography.caption, fontWeight: '600' },
-  radiusRow: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.md },
-  radiusChip: { ...typography.caption, color: colors.textSecondary },
+  indented: { paddingHorizontal: spacing.md },
+  suggestion: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  suggestionText: { flex: 1 },
 });

@@ -1,11 +1,11 @@
 /**
  * What the bulk export row shows while the export is running.
  *
- * The export is one blocking FFI call, so there is no count to report until it
- * returns and nothing on the JavaScript thread could paint one if there were.
- * A spinner is a native view and keeps turning through the freeze, which is the
- * only honest thing this row can show. The size is real and arrives with the
- * share.
+ * The write runs on a Rust thread and answers with a promise, so the JavaScript
+ * thread is free to paint. Meanwhile the hook reads the worker's counters four
+ * times a second: activities written, and how many it expects to visit. The row
+ * shows that count, and a spinner only before the first read brings a total,
+ * or while the share sheet opens. The size is real and arrives with the share.
  */
 
 import React from 'react';
@@ -24,22 +24,43 @@ interface BulkExportProgressProps {
   phase: BulkExportPhase;
   /** The two pills drive this one row, so it has to say which is running. */
   format: BulkExportKind;
+  /**
+   * Activities visited so far, written or skipped, and of how many. A total of
+   * 0 is not known yet.
+   */
+  current: number;
+  total: number;
   sizeBytes: number;
   isDark: boolean;
 }
 
-export function BulkExportProgress({ phase, format, sizeBytes, isDark }: BulkExportProgressProps) {
+export function BulkExportProgress({
+  phase,
+  format,
+  current,
+  total,
+  sizeBytes,
+  isDark,
+}: BulkExportProgressProps) {
   const { t } = useTranslation();
+  const counting = phase === 'generating' && total > 0;
 
   return (
     <View style={styles.row}>
-      <ActivityIndicator size="small" color={colors.primary} testID="bulk-export-spinner" />
+      {!counting && (
+        <ActivityIndicator size="small" color={colors.primary} testID="bulk-export-spinner" />
+      )}
       <View style={styles.labels}>
         <Text style={[styles.label, isDark && styles.labelDark]}>
           {phase === 'sharing'
             ? t('export.bulkSharing')
             : t('export.bulkExporting', { format: BULK_EXPORT_FORMAT_NAME[format] })}
         </Text>
+        {counting && (
+          <Text testID="bulk-export-count" style={[styles.detail, isDark && styles.detailDark]}>
+            {t('export.bulkCount', { current, total })}
+          </Text>
+        )}
         {sizeBytes > 0 && (
           <Text style={[styles.detail, isDark && styles.detailDark]}>
             {formatFileSize(sizeBytes)}

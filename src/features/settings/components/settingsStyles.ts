@@ -25,16 +25,6 @@ export const settingsStyles = StyleSheet.create({
     backgroundColor: darkColors.surfaceCard,
   },
 
-  // Tappable row with icon + text + optional right element
-  actionRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-    minHeight: layout.minTapTarget,
-  },
-
   // Text inside action row
   actionRowText: {
     ...typography.body,
@@ -52,41 +42,12 @@ export const settingsStyles = StyleSheet.create({
     backgroundColor: darkColors.border,
   },
 
-  // Full-width divider within a card
-  fullDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.md,
-  },
-  fullDividerDark: {
-    backgroundColor: darkColors.border,
-  },
-
   // Hint/caption text below controls
   hintText: {
     ...typography.caption,
     color: colors.textMuted,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-  },
-
-  // Row with label + description + switch
-  toggleRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  toggleLabel: {
-    ...typography.body,
-    flex: 1,
-    color: colors.textPrimary,
-  },
-  toggleDescription: {
-    ...typography.bodyCompact,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
   },
 
   // Standard dark mode text overrides

@@ -22,10 +22,21 @@ export interface WebdavConfig {
 export type WebdavUrlProblem = 'empty' | 'invalid' | 'not-https';
 
 const PRIVATE_HOST =
-  /^(localhost|127(\.\d{1,3}){3}|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2}|[^.]+\.(local|lan|home|internal))$/i;
+  /^(localhost|127(\.\d{1,3}){3}|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2}|([^.]+\.)+(local|lan|home|internal)|([^.]+\.)*home\.arpa)$/i;
+
+/** Loopback, link-local fe80::/10 and unique-local fc00::/7 literals, without brackets. */
+const PRIVATE_IPV6 =
+  /^(::1|fe[89ab][0-9a-f]?(:[0-9a-f]{0,4})*|f[cd][0-9a-f]{0,2}(:[0-9a-f]{0,4})*)$/i;
+
+function isPrivateHost(hostname: string): boolean {
+  if (hostname.startsWith('[') && hostname.endsWith(']')) {
+    return PRIVATE_IPV6.test(hostname.slice(1, -1));
+  }
+  return PRIVATE_HOST.test(hostname);
+}
 
 /**
- * Why an address cannot take the athlete's password and database, or null.
+ * Why an address cannot take the athlete's password and record archive, or null.
  * The payload crosses as Basic auth and a raw file, so only https carries it,
  * except to a private host the athlete has explicitly allowed.
  */
@@ -39,7 +50,7 @@ export function webdavUrlProblem(url: string, plainLan = false): WebdavUrlProble
     return 'invalid';
   }
   if (parsed.protocol === 'https:') return null;
-  if (parsed.protocol === 'http:' && plainLan && PRIVATE_HOST.test(parsed.hostname)) return null;
+  if (parsed.protocol === 'http:' && plainLan && isPrivateHost(parsed.hostname)) return null;
   return 'not-https';
 }
 

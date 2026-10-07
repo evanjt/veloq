@@ -3,7 +3,13 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { brand } from '@/theme';
 import { debug } from '@/shared/debug/debug';
-import { tapTargetFromPushData } from '@/features/insights/lib/pushPayload';
+import {
+  isForSignedInAthlete,
+  pushDataAthleteId,
+  tapTargetFromPushData,
+} from '@/features/insights';
+import { ensureCredentialsHydrated, getStoredCredentials } from '@/shared/app/AuthStore';
+import { i18n } from '@/i18n';
 
 const log = debug.create('Notification');
 const CHANNEL_ID = 'veloq-insights';
@@ -31,17 +37,37 @@ export function initializeNotifications(): void {
     },
   });
 
-  // Create Android notification channels
   if (Platform.OS === 'android') {
-    Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      name: 'Activity Insights',
-      description:
-        'Notifications about personal records, fitness milestones, and training insights',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250],
-      lightColor: brand.tealLight,
-    });
+    nameInsightsChannel();
+    i18n.off('languageChanged', nameInsightsChannel);
+    i18n.on('languageChanged', nameInsightsChannel);
   }
+}
+
+const CHANNEL_NAME_KEY = 'notifications.channel.insightsName';
+const CHANNEL_DESCRIPTION_KEY = 'notifications.channel.insightsDescription';
+
+/**
+ * Create the insights channel, named in the app's language. Android lists the
+ * name in the system's notification settings, and creating a channel again
+ * renames it without touching what the athlete set, so this runs again when
+ * the language changes.
+ *
+ * A name that resolves as its key means the bundles are not loaded yet, which
+ * is the case on mount, so nothing is created until they are. Nothing posts on
+ * the channel before then: insights wait for the launch, and a push that beats
+ * it is posted natively, which creates the channel under the generated strings.
+ */
+function nameInsightsChannel(): void {
+  const name = i18n.t(CHANNEL_NAME_KEY);
+  if (!name || name === CHANNEL_NAME_KEY) return;
+  Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+    name,
+    description: i18n.t(CHANNEL_DESCRIPTION_KEY),
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250],
+    lightColor: brand.tealLight,
+  }).catch((e: unknown) => log.warn('could not create the insights channel', e));
 }
 
 /** Request notification permissions from the OS. Returns true if granted. */
@@ -71,21 +97,13 @@ export interface InsightNotificationData {
   [key: string]: unknown;
 }
 
-/** Present a local notification with insight content. */
-export async function presentInsightNotification(
-  title: string,
-  body: string,
-  data?: InsightNotificationData
-): Promise<void> {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title,
-      body,
-      data: data ?? {},
-      priority: 'high',
-    },
-    trigger: immediatelyOn(CHANNEL_ID),
-  });
+/**
+ * The entry's data with the athlete signed in now, which is who it is about.
+ * A tap reads it back, so an entry that outlives a wipe opens nothing in the
+ * next athlete's library.
+ */
+function forSignedInAthlete(data?: InsightNotificationData): Record<string, unknown> {
+  return { ...data, athleteId: getStoredCredentials().athleteId };
 }
 
 /**
@@ -93,40 +111,42 @@ export async function presentInsightNotification(
  * Repeated calls with the same activityId update the existing tray entry in
  * place rather than stacking duplicates - used by the background task to fire
  * a placeholder immediately and then enrich it once GPS + insights are ready.
- *
- * `attachmentUri` is a local file shown beside the text. Only iOS presents one
- * for a locally scheduled notification: Android resolves the image to the
- * static large icon in the manifest, so the key is left off there entirely.
  */
 export async function presentActivityNotification(
   activityId: string,
   title: string,
   body: string,
-  data?: InsightNotificationData,
-  attachmentUri?: string | null
+  data?: InsightNotificationData
 ): Promise<void> {
-  const attachable = Platform.OS === 'ios' && !!attachmentUri;
   await Notifications.scheduleNotificationAsync({
     identifier: `activity-${activityId}`,
     content: {
       title,
       body,
-      data: data ?? {},
+      data: forSignedInAthlete(data),
       priority: 'high',
-      ...(attachable
-        ? {
-            attachments: [
-              {
-                identifier: `activity-${activityId}-route`,
-                url: attachmentUri as string,
-                type: 'public.png',
-              },
-            ],
-          }
-        : {}),
     },
     trigger: immediatelyOn(CHANNEL_ID),
   });
+}
+
+/**
+ * Take every entry out of the tray and every one out of the schedule, the
+ * server's pushes and the app's own alike.
+ *
+ * Best-effort, so a wipe that cannot reach the tray still empties the library.
+ * An entry that survives opens nothing, because a tap routes only for the
+ * athlete signed in now.
+ */
+export async function dismissAllNotifications(): Promise<void> {
+  await Promise.all([
+    Notifications.dismissAllNotificationsAsync().catch((error: unknown) => {
+      log.warn('Could not clear the tray:', error);
+    }),
+    Notifications.cancelAllScheduledNotificationsAsync().catch((error: unknown) => {
+      log.warn('Could not clear the schedule:', error);
+    }),
+  ]);
 }
 
 /**
@@ -162,11 +182,22 @@ const handledResponseIds = new Set<string>();
  * messages arrive under `body`, so the direct read was `undefined` and the tap
  * went nowhere.
  *
+ * A tap routes only when the entry names the athlete signed in now. The tray
+ * can outlive the library it came from, when a wipe's dismissal fails or a
+ * push arrives before the previous athlete's token is unregistered, and an
+ * entry that names nobody predates the stamp. Either opens the app where it
+ * is rather than another athlete's activity in this library.
+ *
  * Exported so the four shapes can be tested against it.
  */
 export function routeFromNotificationData(data: unknown, coldStart = false): void {
   const target = tapTargetFromPushData(data);
   if (!target) return;
+  const signedIn = getStoredCredentials().athleteId;
+  if (!isForSignedInAthlete(pushDataAthleteId(data), signedIn)) {
+    log.log('Tap is not for the athlete signed in, opening the app where it is');
+    return;
+  }
   log.log('Notification tap routing to:', target.path);
   if (target.mode === 'navigate') {
     router.navigate(target.path as never);
@@ -195,7 +226,8 @@ export function setupNotificationResponseHandler(): Notifications.Subscription {
     handledResponseIds.add(id);
     const data = response.notification.request.content.data;
     log.log('Tap data:', JSON.stringify(data));
-    routeFromNotificationData(data);
+    // The athlete check reads the credential, which a tap can beat to memory.
+    void ensureCredentialsHydrated().then(() => routeFromNotificationData(data));
   });
 }
 
@@ -215,6 +247,7 @@ export async function handleInitialNotificationResponse(): Promise<void> {
     handledResponseIds.add(id);
     const data = response.notification.request.content.data;
     log.log('Cold-start tap data:', JSON.stringify(data));
+    await ensureCredentialsHydrated();
     routeFromNotificationData(data, true);
   } catch (e) {
     log.warn('Could not read initial response:', e);
