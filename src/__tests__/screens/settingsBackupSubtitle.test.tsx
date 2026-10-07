@@ -11,7 +11,7 @@ import React from 'react';
 import { render, within } from '@testing-library/react-native';
 
 import SettingsScreen from '@/app/settings';
-import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
+import { getLastBackupTimestamp, isAutoBackupEnabled } from '@/features/settings/lib/autobackup';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -24,6 +24,11 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),
   useTopSafeArea: () => ({ hasTopBanner: false, topInset: 0, screenEdges: [] }),
   useScreenSafeAreaEdges: () => [],
+}));
+
+jest.mock('@/i18n', () => ({
+  ...jest.requireActual('@/i18n'),
+  getCurrentLanguage: () => 'ja',
 }));
 
 jest.mock('react-native-iap', () => ({
@@ -47,16 +52,19 @@ jest.mock('@/shared/storage/gpsStorage', () => ({
 
 jest.mock('@/features/settings/lib/autobackup', () => ({
   getLastBackupTimestamp: jest.fn(),
+  isAutoBackupEnabled: jest.fn(),
 }));
 
-// The hub reads only the running count for the Background Jobs subtitle. What
-// that count is computed from belongs to useRunningJobCount's own tests.
 jest.mock('@/features/settings', () => ({
-  useRunningJobCount: () => 0,
+  useNotificationPreferences: jest.requireActual(
+    '@/features/settings/stores/NotificationPreferencesStore'
+  ).useNotificationPreferences,
   // The hook reads on focus; here the read itself is what the subtitle is
   // being tested against, so it stands in as the read.
   useLastBackupTimestamp: () =>
     jest.requireMock('@/features/settings/lib/autobackup').getLastBackupTimestamp(),
+  useAutoBackupEnabled: () =>
+    jest.requireMock('@/features/settings/lib/autobackup').isAutoBackupEnabled(),
 }));
 
 jest.mock('@/features/settings/components', () => ({
@@ -65,6 +73,10 @@ jest.mock('@/features/settings/components', () => ({
 }));
 
 const readTimestamp = getLastBackupTimestamp as jest.MockedFunction<() => number | null>;
+
+const readEnabled = isAutoBackupEnabled as jest.MockedFunction<() => boolean>;
+
+beforeEach(() => readEnabled.mockReturnValue(true));
 
 /** The nav row renders its title then its subtitle, so the subtitle is the last line. */
 function backupSubtitle(screen: ReturnType<typeof render>): string {
@@ -84,7 +96,7 @@ describe('Settings auto-backup subtitle', () => {
     const taken = Date.UTC(2026, 0, 15, 12);
     readTimestamp.mockReturnValue(taken);
     const screen = render(<SettingsScreen />);
-    expect(backupSubtitle(screen)).toBe(new Date(taken).toLocaleDateString());
+    expect(backupSubtitle(screen)).toBe(new Date(taken).toLocaleDateString('ja'));
   });
 
   it('picks up a backup taken since the screen mounted', () => {
@@ -92,11 +104,11 @@ describe('Settings auto-backup subtitle', () => {
     const second = Date.UTC(2026, 5, 20, 12);
     readTimestamp.mockReturnValue(first);
     const screen = render(<SettingsScreen />);
-    expect(backupSubtitle(screen)).toBe(new Date(first).toLocaleDateString());
+    expect(backupSubtitle(screen)).toBe(new Date(first).toLocaleDateString('ja'));
 
     readTimestamp.mockReturnValue(second);
     screen.rerender(<SettingsScreen />);
-    expect(backupSubtitle(screen)).toBe(new Date(second).toLocaleDateString());
+    expect(backupSubtitle(screen)).toBe(new Date(second).toLocaleDateString('ja'));
   });
 
   it('goes back to never if the backup record is cleared', () => {
@@ -106,5 +118,19 @@ describe('Settings auto-backup subtitle', () => {
     readTimestamp.mockReturnValue(null);
     screen.rerender(<SettingsScreen />);
     expect(backupSubtitle(screen)).toBe('backup.lastBackupNever');
+  });
+
+  it('says off when auto backup is off, even after a manual backup', () => {
+    readEnabled.mockReturnValue(false);
+    readTimestamp.mockReturnValue(Date.UTC(2026, 0, 15, 12));
+    const screen = render(<SettingsScreen />);
+    expect(backupSubtitle(screen)).toBe('common.off');
+  });
+
+  it('says off when auto backup is off and nothing was ever backed up', () => {
+    readEnabled.mockReturnValue(false);
+    readTimestamp.mockReturnValue(null);
+    const screen = render(<SettingsScreen />);
+    expect(backupSubtitle(screen)).toBe('common.off');
   });
 });

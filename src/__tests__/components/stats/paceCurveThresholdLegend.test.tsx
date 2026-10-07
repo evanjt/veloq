@@ -12,6 +12,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
+import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { PaceCurveChart } from '@/features/stats/components/PaceCurveChart';
 
 interface Curve {
@@ -53,9 +54,17 @@ jest.mock('@/features/activity/hooks/useActivities', () => ({
 
 describe('the pace curve threshold legend', () => {
   it('names the critical speed the dashed rule marks', () => {
+    useUnitPreference.setState({ unitPreference: 'metric' });
     render(<PaceCurveChart />);
 
     expect(screen.getByTestId('pace-curve-cs-legend')).toHaveTextContent(/^CS 5:00\/km$/);
+  });
+
+  it('reads the critical speed per mile when imperial', () => {
+    useUnitPreference.setState({ unitPreference: 'imperial' });
+    render(<PaceCurveChart />);
+
+    expect(screen.getByTestId('pace-curve-cs-legend')).toHaveTextContent(/^CS 8:03\/mi$/);
   });
 
   it('draws no legend for a curve with no critical speed', () => {

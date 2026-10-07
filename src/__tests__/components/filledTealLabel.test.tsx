@@ -13,9 +13,14 @@ import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { TimeRangeSelector } from '@/features/fitness/components/TimeRangeSelector';
+import { TipButtons } from '@/shared/ui/TipButtons';
+import { GrantAccessButton } from '@/features/recording/components/GrantAccessButton';
+import { SaveErrorBanner } from '@/features/recording/components/SaveErrorBanner';
 import { colors } from '@/theme';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/ui/useAnnounceOnAppear', () => ({ useAnnounceOnAppear: () => {} }));
 
 function channels(hex: string): number[] {
   return [1, 3, 5]
@@ -51,4 +56,52 @@ it('paints the selected range label in the ink the fill can carry', () => {
   expect(contrastRatio(label.color as string, selected.backgroundColor as string)).toBeGreaterThan(
     4.5
   );
+});
+
+describe('filled teal controls outside the range selector', () => {
+  const fillOf = (node: { props: { style?: unknown } }) =>
+    flattened(node.props.style).backgroundColor as string;
+
+  it('draws the tip price and label in the ink the fill can carry', () => {
+    const { getByText, getByRole } = render(
+      <TipButtons
+        products={[{ id: 'tip_small', displayPrice: '$1' }]}
+        isPurchasing={false}
+        onTip={() => {}}
+        isDark={false}
+      />
+    );
+    const fill = fillOf(getByRole('button'));
+    for (const node of [getByText('$1'), getByText('support.tipSmall')]) {
+      const ink = flattened(node.props.style).color as string;
+      expect(fill).toBe(colors.primary);
+      expect(contrastRatio(ink, fill)).toBeGreaterThan(4.5);
+    }
+  });
+
+  it('draws the grant access label on the primary fill in dark ink', () => {
+    const { getByText, getByRole } = render(
+      <GrantAccessButton onPress={() => {}} loading={false} />
+    );
+    const fill = fillOf(getByRole('button'));
+    const ink = flattened(getByText('recording.grantAccess').props.style).color as string;
+    expect(fill).toBe(colors.primary);
+    expect(contrastRatio(ink, fill)).toBeGreaterThan(4.5);
+  });
+
+  it('draws the retry label on the primary fill in dark ink', () => {
+    const { getByText, getByRole } = render(
+      <SaveErrorBanner
+        errorMessage="failed"
+        showPermissionFix={false}
+        isOAuthLoading={false}
+        onUpgradePermissions={() => {}}
+        onRetry={() => {}}
+      />
+    );
+    const fill = fillOf(getByRole('button'));
+    const ink = flattened(getByText('common.retry').props.style).color as string;
+    expect(fill).toBe(colors.primary);
+    expect(contrastRatio(ink, fill)).toBeGreaterThan(4.5);
+  });
 });

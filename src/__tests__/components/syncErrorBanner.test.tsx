@@ -4,8 +4,8 @@
  * as "I have no activities" rather than "the sync is failing".
  *
  * Expected behaviour: the banner appears whenever the engine holds a sync error
- * and the device believes it is online, naming the error and when the last sync
- * actually landed. It stays out of the way when the offline banner has the case.
+ * and the offline banner is not up, naming the error and when the last sync
+ * actually landed. It stays out of the way once the offline banner has the case.
  */
 
 import React from 'react';
@@ -28,9 +28,9 @@ jest.mock('@/shared/app/useTheme', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
-let mockIsOnline = true;
+let mockOfflineBannerShown = false;
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: mockIsOnline }),
+  useNetwork: () => ({ offlineBannerShown: mockOfflineBannerShown }),
 }));
 
 let mockHealth: {
@@ -48,7 +48,7 @@ jest.mock('@/shared/native/useSyncHealth', () => ({
 
 describe('SyncErrorBanner', () => {
   beforeEach(() => {
-    mockIsOnline = true;
+    mockOfflineBannerShown = false;
     mockHealth = {
       lastError: null,
       lastErrorReason: null,
@@ -108,8 +108,8 @@ describe('SyncErrorBanner', () => {
     expect(getByText(/emptyState\.syncError\.lastSynced:/)).toBeTruthy();
   });
 
-  it('defers to the offline banner when the device is offline', () => {
-    mockIsOnline = false;
+  it('defers to the offline banner once it shows', () => {
+    mockOfflineBannerShown = true;
     mockHealth = {
       lastError: 'timed out',
       lastErrorReason: null,

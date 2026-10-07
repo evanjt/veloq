@@ -48,11 +48,12 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   getLastBackupTimestamp: jest.fn().mockReturnValue(null),
 }));
 
-// The hub reads only the running count for the Background Jobs subtitle. What
-// that count is computed from belongs to useRunningJobCount's own tests.
 jest.mock('@/features/settings', () => ({
-  useRunningJobCount: () => 0,
+  useNotificationPreferences: jest.requireActual(
+    '@/features/settings/stores/NotificationPreferencesStore'
+  ).useNotificationPreferences,
   useLastBackupTimestamp: () => null,
+  useAutoBackupEnabled: () => true,
 }));
 
 jest.mock('@/features/settings/components', () => ({

@@ -1,7 +1,8 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { SectionRow } from '@/features/routes/components/SectionRow';
-import { convertSectionWithPolylineToApp } from '@/features/routes/lib/sectionConversions';
+import { Card } from '@/shared/ui/Card';
+import { convertSectionWithPolylineToApp } from '@/shared/ffi/sectionConversions';
 import { unifySections } from '@/features/routes/lib/unifySections';
 import type { FrequentSection } from '@/types';
 
@@ -28,7 +29,7 @@ jest.mock('@/shared/app', () => ({
 const BASE: FrequentSection = {
   id: 's1',
   sectionType: 'auto',
-  sportType: 'Ride',
+  sportTypes: ['Ride'],
   polyline: [],
   distanceMeters: 1200,
   activityIds: ['a1'],
@@ -41,6 +42,7 @@ describe('the sections list row marks a section whose latest outing is its recor
     render(<SectionRow section={{ ...BASE, latestIsRecord: true }} />);
 
     expect(screen.getByTestId('section-row-record-s1')).toBeTruthy();
+    expect(screen.UNSAFE_getByType(Card).props.variant).toBe('flat');
   });
 
   it('draws nothing when it does not', () => {
@@ -71,7 +73,6 @@ describe('the flag survives the path from the engine record to the row', () => {
   const record = {
     id: 's1',
     name: 'Col',
-    sportType: 'Ride',
     visitCount: 3,
     distanceMeters: 1200,
     activityCount: 3,
@@ -92,19 +93,37 @@ describe('the flag survives the path from the engine record to the row', () => {
     rankScore: null,
     sportRankScore: null,
     latestIsRecord: true,
+    trend: 1,
   } as unknown as Parameters<typeof convertSectionWithPolylineToApp>[0];
 
   it('survives the conversion out of the engine record', () => {
     expect(convertSectionWithPolylineToApp(record).latestIsRecord).toBe(true);
+    expect(convertSectionWithPolylineToApp(record).trend).toBe(1);
   });
 
   it('survives the merge with the custom store', () => {
     const merged = unifySections({
       engineSections: [convertSectionWithPolylineToApp(record)],
-      customSections: [],
-      includeCustom: true,
     });
 
     expect(merged[0].latestIsRecord).toBe(true);
+    expect(merged[0].trend).toBe(1);
+  });
+});
+
+describe('the sections list row shows the engine trend verdict', () => {
+  it.each([
+    [1, 'sections.trendingFaster'],
+    [-1, 'sections.trendingSlower'],
+  ])('marks direction %i with an accessible label', (trend, label) => {
+    render(<SectionRow section={{ ...BASE, trend }} />);
+
+    expect(screen.getByTestId('section-row-trend-s1').props.accessibilityLabel).toBe(label);
+  });
+
+  it.each([0, null, undefined])('has no mark for verdict %s', (trend) => {
+    render(<SectionRow section={{ ...BASE, trend }} />);
+
+    expect(screen.queryByTestId('section-row-trend-s1')).toBeNull();
   });
 });

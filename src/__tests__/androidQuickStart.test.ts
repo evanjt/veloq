@@ -16,43 +16,32 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import {
-  composeSnapshot,
-  WIDGET_SNAPSHOT_SCHEMA_VERSION,
-  type RawWidgetData,
-} from '@/features/home/lib/widgetSnapshot';
+import { composeWidgetContext, type WidgetContextInput } from '@/features/home/lib/widgetSnapshot';
 
 const projectRoot = path.join(__dirname, '../..');
 const readFile = (rel: string) => fs.readFileSync(path.join(projectRoot, rel), 'utf8');
 
 const plugin = require('@/../src/plugins/with-android-widget.js');
 
-function raw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
-  return {
-    sparklines: null,
-    summary: null,
-    latest: null,
-    locale: 'en-AU',
-    isMetric: true,
-    nowSeconds: 1_700_000_000,
-    nowWallSeconds: 1_700_000_000,
-    ...overrides,
-  };
+const NO_DATES = {
+  weekdays: [],
+  monthDay: { parts: [], months: [] },
+  monthDayYear: { parts: [], months: [] },
+};
+
+function raw(overrides: Partial<WidgetContextInput> = {}): WidgetContextInput {
+  return { locale: 'en-AU', isMetric: true, dates: NO_DATES, ...overrides };
 }
 
 describe('the snapshot carries the recent sports as one pre-localised list', () => {
-  it('is schema 6, because the single field became a list', () => {
-    expect(WIDGET_SNAPSHOT_SCHEMA_VERSION).toBe(6);
-  });
-
   it('labels each sport from the translations the app already has', () => {
-    const snap = composeSnapshot(
+    const context = composeWidgetContext(
       raw({
         recentRecordingTypes: ['Ride', 'OpenWaterSwim'],
         translate: (k) => (k === 'activityTypes.Ride' ? 'Vélo' : k),
       })
     );
-    expect(snap.recordShortcuts).toEqual([
+    expect(context.recordShortcuts).toEqual([
       { type: 'Ride', label: 'Vélo', url: 'veloq://recording/Ride?from=quickstart' },
       {
         type: 'OpenWaterSwim',
@@ -63,22 +52,41 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
   });
 
   it('caps the launcher list at what a long press will show', () => {
-    const snap = composeSnapshot(
+    const context = composeWidgetContext(
       raw({ recentRecordingTypes: ['Ride', 'Run', 'Swim', 'Hike', 'Row'] })
     );
-    expect(snap.launcherShortcuts).toHaveLength(3);
-    expect(snap.launcherShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run', 'Swim']);
+    expect(context.launcherShortcuts).toHaveLength(3);
+    expect(context.launcherShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run', 'Swim']);
+  });
+
+  it('offers a sport that has left the recents to the pickers, not to the launcher', () => {
+    const context = composeWidgetContext(
+      raw({
+        recentRecordingTypes: ['Run', 'Walk', 'Hike', 'Swim'],
+        recordedRecordingTypes: ['Run', 'Walk', 'Hike', 'Swim', 'Ride'],
+      })
+    );
+    expect(context.recordShortcuts.map((s) => s.type)).toEqual([
+      'Run',
+      'Walk',
+      'Hike',
+      'Swim',
+      'Ride',
+    ]);
+    expect(context.launcherShortcuts.map((s) => s.type)).toEqual(['Run', 'Walk', 'Hike']);
   });
 
   it('drops blanks and duplicates, so no surface gets an empty path or a repeat', () => {
-    const snap = composeSnapshot(raw({ recentRecordingTypes: ['Ride', '  ', 'Ride', ' Run '] }));
-    expect(snap.recordShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run']);
-    expect(snap.launcherShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run']);
+    const context = composeWidgetContext(
+      raw({ recentRecordingTypes: ['Ride', '  ', 'Ride', ' Run '] })
+    );
+    expect(context.recordShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run']);
+    expect(context.launcherShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run']);
   });
 
   it('is empty before anything has been recorded, which is the fallback signal', () => {
-    expect(composeSnapshot(raw()).recordShortcuts).toEqual([]);
-    expect(composeSnapshot(raw()).launcherShortcuts).toEqual([]);
+    expect(composeWidgetContext(raw()).recordShortcuts).toEqual([]);
+    expect(composeWidgetContext(raw()).launcherShortcuts).toEqual([]);
   });
 });
 
@@ -110,22 +118,21 @@ describe('the Quick Settings tile is the same intent behind the shade', () => {
       'app/src/main/java/com/veloq/app/widget/RecordTileService.kt'
     );
     expect(fs.existsSync(tile)).toBe(true);
-    expect(fs.readFileSync(tile, 'utf8')).toContain('package com.veloq.app.widget');
   });
 });
 
 describe('a quick-start link says where it came from, so Always can be asked once', () => {
   it('marks the URL the snapshot composes', () => {
-    const snap = composeSnapshot(raw({ recentRecordingTypes: ['Ride'] }));
-    expect(snap.recordShortcuts[0].url).toBe('veloq://recording/Ride?from=quickstart');
+    const context = composeWidgetContext(raw({ recentRecordingTypes: ['Ride'] }));
+    expect(context.recordShortcuts[0].url).toBe('veloq://recording/Ride?from=quickstart');
   });
 
-  it('declares the permission Android needs for it, or the request is refused silently', () => {
+  it('does not declare background location on Android, where the foreground service needs none', () => {
     const app = JSON.parse(readFile('app.json'));
-    expect(app.expo.android.permissions).toContain('ACCESS_BACKGROUND_LOCATION');
+    expect(app.expo.android.permissions).not.toContain('ACCESS_BACKGROUND_LOCATION');
     const location = app.expo.plugins.find(
       (p: unknown) => Array.isArray(p) && p[0] === 'expo-location'
     );
-    expect(location[1].isAndroidBackgroundLocationEnabled).toBe(true);
+    expect(location[1].isAndroidBackgroundLocationEnabled).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
@@ -20,6 +21,13 @@ type EngineStatusReason = Parameters<
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
+const mockInsets = { top: 0, bottom: 0, left: 0, right: 0 };
+
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => mockInsets,
+}));
+
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 /**
@@ -35,6 +43,7 @@ function failedWith(reason: InitOutcome | null) {
 
 describe('EngineInitBanner', () => {
   beforeEach(() => {
+    mockInsets.top = 0;
     useEngineStatus.setState({ initFailed: false, initFailureReason: null });
   });
 
@@ -48,6 +57,7 @@ describe('EngineInitBanner', () => {
     [InitOutcome.ForwardSchema, 'engine.initReason.forwardSchema'],
     [InitOutcome.StorageUnavailable, 'engine.initReason.storageUnavailable'],
     [InitOutcome.Failed, 'engine.initReason.failed'],
+    [InitOutcome.VersionMismatch, 'engine.initReason.versionMismatch'],
   ])('names reason %s with its own line', (reason, key) => {
     failedWith(reason);
     const { getByText } = render(<EngineInitBanner />);
@@ -72,5 +82,19 @@ describe('EngineInitBanner', () => {
     failedWith(InitOutcome.Opened);
     const { getByText } = render(<EngineInitBanner />);
     expect(getByText('engine.initFailed')).toBeTruthy();
+  });
+
+  /** A centre cut-out or status bar covers the top inset, so the text starts below it. */
+  it('pads its top edge by the safe-area inset', () => {
+    mockInsets.top = 44;
+    failedWith(InitOutcome.Busy);
+    const { getByTestId } = render(<EngineInitBanner />);
+    expect(StyleSheet.flatten(getByTestId('engine-init-banner').props.style).paddingTop).toBe(44);
+  });
+
+  it('keeps its own padding when there is no inset', () => {
+    failedWith(InitOutcome.Busy);
+    const { getByTestId } = render(<EngineInitBanner />);
+    expect(StyleSheet.flatten(getByTestId('engine-init-banner').props.style).paddingTop).toBe(8);
   });
 });

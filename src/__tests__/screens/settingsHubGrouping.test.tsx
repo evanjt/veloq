@@ -8,7 +8,8 @@
  */
 
 import React from 'react';
-import { render, within } from '@testing-library/react-native';
+import { Text } from 'react-native';
+import { render } from '@testing-library/react-native';
 
 import SettingsScreen from '@/app/settings';
 
@@ -40,12 +41,12 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   getLastBackupTimestamp: jest.fn().mockReturnValue(null),
 }));
 
-// The hub reads the job list for the Background Jobs subtitle. What that list
-// is computed from belongs to BackgroundJobsPanel's own tests.
-let mockJobs: { id: string; state: string }[] = [{ id: 'sync', state: 'idle' }];
 jest.mock('@/features/settings', () => ({
-  useRunningJobCount: () => mockJobs.filter((job) => job.state === 'running').length,
+  useNotificationPreferences: jest.requireActual(
+    '@/features/settings/stores/NotificationPreferencesStore'
+  ).useNotificationPreferences,
   useLastBackupTimestamp: () => null,
+  useAutoBackupEnabled: () => true,
 }));
 
 jest.mock('@/features/settings/components', () => ({
@@ -79,17 +80,7 @@ function inRenderOrder(tree: unknown): string[] {
   return found;
 }
 
-function subtitleOf(screen: ReturnType<typeof render>, testID: string): string {
-  const row = screen.getByTestId(testID);
-  const lines = within(row).getAllByText(/.+/);
-  return String(lines[lines.length - 1].props.children);
-}
-
 describe('Settings hub grouping', () => {
-  beforeEach(() => {
-    mockJobs = [{ id: 'sync', state: 'idle' }];
-  });
-
   it('groups the rows by what the athlete is doing', () => {
     const screen = render(<SettingsScreen />);
 
@@ -108,7 +99,6 @@ describe('Settings hub grouping', () => {
       'settings-nav-cache',
       'settings-group-tells',
       'settings-nav-notifications',
-      'settings-nav-background-jobs',
       'settings-nav-data-sources',
     ]);
   });
@@ -122,23 +112,8 @@ describe('Settings hub grouping', () => {
 
     const bare = spokes.filter((id) => {
       const row = screen.getByTestId(id);
-      return within(row).getAllByText(/.+/).length < 2;
+      return row.findAllByType(Text).length < 2;
     });
     expect(bare).toEqual([]);
-  });
-
-  it('counts the jobs that are running, and says so when none are', () => {
-    expect(subtitleOf(render(<SettingsScreen />), 'settings-nav-background-jobs')).toBe(
-      'backgroundJobs.stateIdle'
-    );
-
-    mockJobs = [
-      { id: 'sync', state: 'running' },
-      { id: 'detection', state: 'running' },
-      { id: 'cutover', state: 'idle' },
-    ];
-    expect(subtitleOf(render(<SettingsScreen />), 'settings-nav-background-jobs')).toBe(
-      'settings.jobsRunning'
-    );
   });
 });

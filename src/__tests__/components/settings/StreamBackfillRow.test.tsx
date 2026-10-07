@@ -8,6 +8,7 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 
+import { StartOutcome } from 'veloqrs';
 import { initializeI18n, changeLanguage } from '@/i18n';
 import { StreamBackfillRow } from '@/features/settings/components/StreamBackfillRow';
 import type { StreamBackfillState } from '@/features/settings/hooks/useStreamBackfill';
@@ -19,7 +20,7 @@ jest.mock('@/features/settings/hooks/useStreamBackfill', () => ({
   useStreamBackfill: () => mockUseStreamBackfill(),
 }));
 
-function state(over: Partial<StreamBackfillState>): unknown {
+function state(over: Partial<StreamBackfillState> & { refusal?: StartOutcome | null }): unknown {
   return {
     phase: 'idle',
     completed: 0,
@@ -27,6 +28,7 @@ function state(over: Partial<StreamBackfillState>): unknown {
     stored: 0,
     remaining: null,
     isRunning: false,
+    refusal: null,
     ...over,
     start: mockStart,
     stop: mockStop,
@@ -48,8 +50,24 @@ describe('StreamBackfillRow', () => {
     mockStop.mockClear();
   });
 
-  it('offers the download with what is owed, pluralised', () => {
-    mockUseStreamBackfill.mockReturnValue(state({ remaining: 412 }));
+  it('says why an offline tap started nothing', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({ remaining: 412, phase: 'stopped', refusal: StartOutcome.Offline })
+    );
+    const tree = row();
+
+    expect(tree.getByTestId('settings-stream-backfill-refusal').props.children).toBe(
+      'No connection. Try again when you are online.'
+    );
+  });
+
+  it('shows no refusal line when nothing was refused', () => {
+    mockUseStreamBackfill.mockReturnValue(state({ remaining: 412, phase: 'stopped' }));
+    expect(row().queryByTestId('settings-stream-backfill-refusal')).toBeNull();
+  });
+
+  it('offers the download after a stop, with what is owed, pluralised', () => {
+    mockUseStreamBackfill.mockReturnValue(state({ remaining: 412, phase: 'stopped' }));
     const tree = row();
 
     expect(tree.getByTestId('settings-stream-backfill-count').props.children).toBe(
@@ -57,6 +75,38 @@ describe('StreamBackfillRow', () => {
     );
     fireEvent.press(tree.getByTestId('settings-stream-backfill-action'));
     expect(mockStart).toHaveBeenCalled();
+  });
+
+  /**
+   * Scenario: retention is widened with series owed and the engine has not been
+   * stopped. Expected behaviour: the engine starts the pass itself, so the row
+   * offers no Download and shows the running pass.
+   */
+  it('offers no download before any stop', () => {
+    mockUseStreamBackfill.mockReturnValue(state({ remaining: 412, phase: 'idle' }));
+    expect(row().queryByTestId('settings-stream-backfill-action')).toBeNull();
+  });
+
+  it('shows the running pass with Stop and no Download after a widening', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({ remaining: 412, isRunning: true, phase: 'fetching', completed: 3, total: 412 })
+    );
+    const tree = row();
+
+    expect(tree.getByTestId('settings-stream-backfill-count').props.children).toBe('3 of 412');
+    expect(tree.queryByText('Download')).toBeNull();
+  });
+
+  it('offers the download while the engine waits for consent', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({
+        remaining: 900,
+        phase: 'awaiting_consent',
+        awaitingConsent: true,
+        estimateMegabytes: 90,
+      })
+    );
+    expect(row().getByTestId('settings-stream-backfill-action')).toBeTruthy();
   });
 
   it('reads as a singular when one activity is owed', () => {

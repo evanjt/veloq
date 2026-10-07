@@ -58,7 +58,7 @@ jest.mock('react-native-iap', () => ({
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/features/settings/components', () => ({
-  BackgroundJobsLink: () => null,
+  BackgroundJobsActivityBar: () => null,
   ElevationBackfillStatus: () => null,
   CutoverStatus: () => null,
 }));

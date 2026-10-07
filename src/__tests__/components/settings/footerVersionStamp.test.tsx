@@ -45,8 +45,8 @@ describe('the settings version line', () => {
   });
 
   it('marks a build made from a dirty tree', () => {
-    expoConfig.extra = { buildCommit: 'a8f276dff+' };
-    expect(versionLine()).toBe('t(settings.version) 0.4.0 (a8f276dff+)');
+    expoConfig.extra = { buildCommit: 'a8f276dff+3c9e04b1' };
+    expect(versionLine()).toBe('t(settings.version) 0.4.0 (a8f276dff+3c9e04b1)');
   });
 
   it('falls back to the version alone when nothing stamped the build', () => {

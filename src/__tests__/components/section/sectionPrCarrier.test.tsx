@@ -29,14 +29,16 @@ const summary: CalendarSummary = {
     {
       year: 2026,
       traversalCount: 4,
+      activityCount: 4,
       forward: best('pr', 600),
-      months: [{ month: 6, traversalCount: 2, forward: best('pr', 600) }],
+      months: [{ month: 6, traversalCount: 2, activityCount: 2, forward: best('pr', 600) }],
     },
     {
       year: 2025,
       traversalCount: 2,
+      activityCount: 2,
       forward: best('older', 640),
-      months: [{ month: 6, traversalCount: 1, forward: best('older', 640) }],
+      months: [{ month: 6, traversalCount: 1, activityCount: 1, forward: best('older', 640) }],
     },
   ],
   forwardPr: best('pr', 600),

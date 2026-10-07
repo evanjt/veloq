@@ -6,15 +6,16 @@
  *
  * Expected behaviour: the navigation chrome is the platform's, declared once
  * per route in `screenHeaders`, and no screen draws a back button of its own.
- * That is the rule in `src/shared/ui/CLAUDE.md`, held here so a new screen
- * cannot arrive with a hand-rolled header.
+ * That is the rule in `src/shared/ui/CLAUDE.md`. That no screen draws a
+ * header of its own is `lint:native-header`, and this suite holds the table.
  */
 
 import fs from 'fs';
 import path from 'path';
 
-import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
+import { SCREEN_HEADERS, SCREEN_SHEETS, sheetScreenOptions } from '@/shared/app/screenHeaders';
 import type { ScreenHeader } from '@/shared/app/screenHeaders';
+import { resolvedLocale } from '../i18n/resolvedLocale';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
 
@@ -49,36 +50,6 @@ function headered(): [string, ScreenHeader][] {
   );
 }
 
-/**
- * Every route that takes the native header, as the source file it lives in.
- * The tab screens and the login screen draw their own title row and take no
- * header, so the ban on a hand-rolled one does not reach them.
- */
-function headeredSources(): { file: string; source: string }[] {
-  return headered().map(([route]) => {
-    const base = path.join(APP_ROOT, route);
-    const file = fs.existsSync(`${base}.tsx`) ? `${base}.tsx` : path.join(base, 'index.tsx');
-    return { file: path.relative(APP_ROOT, file), source: fs.readFileSync(file, 'utf-8') };
-  });
-}
-
-function appSources(): { file: string; source: string }[] {
-  const out: { file: string; source: string }[] = [];
-  const walk = (dir: string): void => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-        continue;
-      }
-      if (!/\.tsx?$/.test(entry.name)) continue;
-      out.push({ file: path.relative(APP_ROOT, full), source: fs.readFileSync(full, 'utf-8') });
-    }
-  };
-  walk(APP_ROOT);
-  return out;
-}
-
 describe('the native stack header', () => {
   it('declares chrome for every route the root stack owns', () => {
     const declared = Object.keys(SCREEN_HEADERS).sort();
@@ -87,15 +58,21 @@ describe('the native stack header', () => {
 
   it('gives every route that takes a header a title to show', () => {
     const untitled = headered()
-      .filter(([, header]) => !header.titleKey && !header.title)
+      .filter(([, header]) => !header.overMap && !header.titleKey && !header.title)
       .map(([route]) => route);
     expect(untitled).toEqual([]);
   });
 
+  it('lays the native header over the map on the three map-hero detail screens', () => {
+    const overMap = headered()
+      .filter(([, header]) => header.overMap)
+      .map(([route]) => route)
+      .sort();
+    expect(overMap).toEqual(['activity/[id]', 'route/[id]', 'section/[id]']);
+  });
+
   it('titles every header from an i18n key that exists, bar the developer screen', () => {
-    const strings = JSON.parse(
-      fs.readFileSync(path.resolve(__dirname, '../../i18n/locales/en-AU.json'), 'utf-8')
-    );
+    const strings = resolvedLocale('en-AU');
     const lookup = (key: string): unknown =>
       key.split('.').reduce<unknown>((node, part) => {
         if (!node || typeof node !== 'object') return undefined;
@@ -107,31 +84,26 @@ describe('the native stack header', () => {
       .map(([route]) => route);
     expect(missing).toEqual([]);
   });
+});
 
-  it('leaves no hand-rolled back button under src/app', () => {
-    const offenders = appSources()
-      .filter(({ source }) => /\bbackButton\b/.test(source))
-      .map(({ file }) => file);
-    expect(offenders).toEqual([]);
-  });
-
-  it('leaves no hand-rolled header row on a screen that takes a native one', () => {
-    const offenders = headeredSources()
-      .filter(({ source }) => /style=\{(?:\[)?(?:styles|shared)\.header\b/.test(source))
-      .map(({ file }) => file);
-    expect(offenders).toEqual([]);
-  });
-
-  it('does not turn the header off for the whole root stack', () => {
-    const layout = fs.readFileSync(path.join(APP_ROOT, '_layout.tsx'), 'utf-8');
-    const screenOptions = layout.slice(layout.indexOf('<Stack'), layout.indexOf('<Stack.Screen'));
-    expect(screenOptions).not.toMatch(/headerShown:\s*false/);
-  });
-
-  it('drops the copied header block from the shared styles', () => {
-    const shared = fs.readFileSync(path.resolve(__dirname, '../../styles/shared.ts'), 'utf-8');
-    for (const key of ['header:', 'headerTitle:', 'backButton:']) {
-      expect(shared).not.toContain(key);
+describe('sheet routes', () => {
+  it('presents each listed sheet as a formSheet with a grabber and no header', () => {
+    expect(Object.keys(SCREEN_SHEETS)).toContain('sheets/activity-type');
+    for (const name of Object.keys(SCREEN_SHEETS)) {
+      expect(sheetScreenOptions(name)).toMatchObject({
+        presentation: 'formSheet',
+        sheetGrabberVisible: true,
+        headerShown: false,
+      });
+      expect(sheetScreenOptions(name)?.sheetAllowedDetents).toBe(SCREEN_SHEETS[name]);
     }
+  });
+
+  it('leaves an ordinary route without sheet options', () => {
+    expect(sheetScreenOptions('settings')).toBeUndefined();
+  });
+
+  it('registers every sheet in the header table without a header', () => {
+    for (const name of Object.keys(SCREEN_SHEETS)) expect(SCREEN_HEADERS[name]).toBeNull();
   });
 });

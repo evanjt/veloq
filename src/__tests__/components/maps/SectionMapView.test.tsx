@@ -14,6 +14,7 @@ import { SectionMapView } from '@/features/routes/components/SectionMapView';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
+jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
 const mockFitBounds = jest.fn();
 jest.mock('@/features/maps/lib/htmlBuilders/mapSurface', () => {
@@ -36,6 +37,7 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
 }));
 
 jest.mock('expo-location', () => ({
@@ -63,7 +65,7 @@ function section(overrides: Partial<FrequentSection> = {}): FrequentSection {
     id: 'section-1',
     sectionType: 'auto',
     name: 'Bern climb',
-    sportType: 'Ride',
+    sportTypes: ['Ride'],
     polyline: POLYLINE,
     distanceMeters: 1200,
     activityIds: ['a1', 'a2'],
@@ -169,14 +171,13 @@ describe('SectionMapView', () => {
           }),
         },
       ],
-      ['an unknown sport type', { section: section({ sportType: 'Paragliding' }) }],
+      ['an unknown sport type', { section: section({ sportTypes: ['Paragliding'] }) }],
       ['a trim range beyond the polyline', { trimRange: { start: 0, end: 99 } }],
       ['an inverted trim range', { trimRange: { start: 4, end: 1 } }],
       ['an empty extension track', { extensionTrack: [] }],
       ['empty activity traces', { allActivityTraces: {}, highlightedActivityId: 'a1' }],
       ['a highlighted activity with no trace', { highlightedActivityId: 'missing' }],
       ['an empty shadow track', { shadowTrack: [] }],
-      ['no nearby polylines', { nearbyPolylines: [] }],
     ];
 
     it.each(cases)('survives %s', (_label, props) => {

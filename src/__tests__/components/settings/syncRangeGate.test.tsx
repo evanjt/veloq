@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import { SyncRangePanel } from '@/features/settings/components/SyncRangePanel';
@@ -17,6 +17,7 @@ import { SyncRangePanel } from '@/features/settings/components/SyncRangePanel';
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 const mockSyncDateRange = jest.fn();
 let mockSliderRangeChange: ((start: Date, end: Date) => void) | null = null;
+let mockResetKeys: (number | undefined)[] = [];
 let mockYearCounts: Record<string, number> = {};
 
 jest.mock('@/shared/app', () => ({
@@ -26,8 +27,12 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@/features/maps', () => {
   const { View } = require('react-native');
   return {
-    TimelineSlider: (props: { onRangeChange: (start: Date, end: Date) => void }) => {
+    TimelineSlider: (props: {
+      onRangeChange: (start: Date, end: Date) => void;
+      resetKey?: number;
+    }) => {
       mockSliderRangeChange = props.onRangeChange;
+      mockResetKeys.push(props.resetKey);
       return <View testID="timeline-slider" />;
     },
   };
@@ -69,9 +74,8 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => null,
 }));
 
-jest.mock('@/features/maps/hooks/useHeatmapTiles', () => ({
+jest.mock('@/features/maps/lib/heatmapTiles', () => ({
   HEATMAP_TILES_DIR: '/tmp/heatmap',
-  getHeatmapTilesCacheSize: () => 0,
 }));
 
 function dragTo(year: number) {
@@ -83,7 +87,72 @@ describe('the history slider gate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSliderRangeChange = null;
+    mockResetKeys = [];
     mockYearCounts = {};
+  });
+
+  describe('putting the handle back', () => {
+    const distinctKeys = () => new Set(mockResetKeys).size;
+
+    function dragInAct(start: string) {
+      act(() => {
+        mockSliderRangeChange?.(new Date(`${start}T00:00:00`), new Date());
+      });
+    }
+
+    it('after Cancel on the large-history prompt', () => {
+      jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+        buttons?.[0]?.onPress?.();
+      });
+      mockYearCounts = { '2015': 700, '2025': 40, '2026': 60 };
+      render(<SyncRangePanel />);
+      const before = distinctKeys();
+      dragInAct('2015-01-01');
+
+      expect(distinctKeys()).toBe(before + 1);
+    });
+
+    it('after the expansion latch refuses the drag', () => {
+      jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      mockSyncDateRange.mockReturnValue('locked');
+      mockYearCounts = { '2025': 40, '2026': 60 };
+      render(<SyncRangePanel />);
+      const before = distinctKeys();
+      dragInAct('2025-01-01');
+
+      expect(distinctKeys()).toBe(before + 1);
+    });
+
+    it('after a drag that does not widen the range', () => {
+      render(<SyncRangePanel />);
+      const before = distinctKeys();
+      dragInAct('2026-08-01');
+
+      expect(distinctKeys()).toBe(before + 1);
+    });
+
+    it('not when the prompt is confirmed', () => {
+      jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+        buttons?.[buttons.length - 1]?.onPress?.();
+      });
+      mockSyncDateRange.mockReturnValue('expanded');
+      mockYearCounts = { '2015': 700, '2025': 40, '2026': 60 };
+      render(<SyncRangePanel />);
+      const before = distinctKeys();
+      dragInAct('2015-01-01');
+
+      expect(distinctKeys()).toBe(before);
+    });
+
+    it('not when a small widening goes through', () => {
+      mockSyncDateRange.mockReturnValue('expanded');
+      mockYearCounts = { '2025': 40, '2026': 60 };
+      render(<SyncRangePanel />);
+      const before = distinctKeys();
+      dragInAct('2025-01-01');
+
+      expect(distinctKeys()).toBe(before);
+    });
   });
 
   it('expands straight away when the widening is small', () => {

@@ -6,8 +6,9 @@
  */
 
 import React from 'react';
-import { Alert, InteractionManager } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { stubIdleScheduler } from '../__shared__/idleScheduler';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { DemoBanner } from '@/shared/app/DemoBanner';
 
@@ -33,14 +34,15 @@ jest.mock('@/shared/storage', () => ({
 
 /** Tap the banner and let the deferred discard run to its end. */
 async function tapAndSettle(): Promise<void> {
-  let deferred: Promise<unknown> = Promise.resolve();
-  jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((task) => {
-    deferred = Promise.resolve((task as () => unknown)());
-    return { then: jest.fn(), done: jest.fn(), cancel: jest.fn() } as never;
-  });
-  const { getByTestId } = render(<DemoBanner />);
-  fireEvent.press(getByTestId('demo-mode-banner'));
-  await deferred;
+  const idle = stubIdleScheduler('immediate');
+  try {
+    const { getByTestId } = render(<DemoBanner />);
+    fireEvent.press(getByTestId('demo-mode-banner'));
+    await waitFor(() => expect(mockClearDemoData).toHaveBeenCalled());
+    await act(async () => {});
+  } finally {
+    idle.restore();
+  }
 }
 
 describe('leaving demo mode from the banner', () => {

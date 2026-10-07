@@ -42,8 +42,8 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey
 function mockPassthrough({ children }: { children?: React.ReactNode }) {
   return React.createElement(View, null, children);
 }
-function mockJobsLink() {
-  return React.createElement(View, { testID: 'background-jobs-link' });
+function mockActivityBar() {
+  return React.createElement(View, { testID: 'background-jobs-activity' });
 }
 function mockSyncRow() {
   return React.createElement(View, { testID: 'activity-sync-row' });
@@ -53,16 +53,16 @@ function mockRangePanel() {
 }
 
 jest.mock('@/features/settings/components', () => ({
-  BackgroundJobsLink: mockJobsLink,
+  BackgroundJobsActivityBar: mockActivityBar,
   ActivitySyncRow: mockSyncRow,
   SyncRangePanel: mockRangePanel,
 }));
 
 describe('SyncSettingsScreen', () => {
-  it('links out to the jobs area, so sync is not the only job with a home', () => {
+  it('shows the activity bar above the controls', () => {
     const tree = render(<SyncSettingsScreen />);
 
-    expect(tree.getByTestId('background-jobs-link')).toBeTruthy();
+    expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
   });
 
   it('keeps its own sync row, which the link does not replace', () => {

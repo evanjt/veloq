@@ -32,7 +32,7 @@ jest.mock('@/shared/app', () => ({
 const BASE: FrequentSection = {
   id: 's1',
   sectionType: 'auto',
-  sportType: 'Ride',
+  sportTypes: ['Ride'],
   polyline: [],
   distanceMeters: 1200,
   activityIds: ['a1'],
@@ -59,7 +59,6 @@ function renderHeader(section: FrequentSection, onUnflagLift?: () => void) {
       customName={null}
       nameInputRef={React.createRef()}
       highlightedActivityId={null}
-      onBack={jest.fn()}
       onStartEditing={jest.fn()}
       onSaveName={jest.fn()}
       onCancelEdit={jest.fn()}
@@ -111,5 +110,54 @@ describe('section lift badge', () => {
     const tree = renderHeader({ ...BASE, isLift: true }, jest.fn());
 
     expect(tree.getByTestId('section-lift-unflag')).toBeTruthy();
+  });
+});
+
+describe('section traversal count scope', () => {
+  function renderScoped(extra: Partial<React.ComponentProps<typeof SectionHeader>>) {
+    return render(
+      <SectionHeader
+        section={BASE}
+        insetTop={0}
+        activityColor="#000000"
+        iconName="bike"
+        activityCount={22}
+        mapReady={true}
+        isTrimming={false}
+        isExpandMode={false}
+        trimStart={0}
+        trimEnd={1}
+        isEditing={false}
+        editName=""
+        customName={null}
+        nameInputRef={React.createRef()}
+        highlightedActivityId={null}
+        onStartEditing={jest.fn()}
+        onSaveName={jest.fn()}
+        onCancelEdit={jest.fn()}
+        onEditNameChange={jest.fn()}
+        {...extra}
+      />
+    );
+  }
+
+  it('names the sport and the range when the section spans sports and the range is not all time', () => {
+    const tree = renderScoped({ scopeSport: 'Run', scopeRange: '6m' });
+
+    expect(
+      tree.getByText('22 sections.traversals · activityTypes.Run · period.long.6m')
+    ).toBeTruthy();
+  });
+
+  it('names only the range for a single-sport section', () => {
+    const tree = renderScoped({ scopeRange: '1y' });
+
+    expect(tree.getByText('22 sections.traversals · period.long.1y')).toBeTruthy();
+  });
+
+  it('adds nothing for a single-sport section over all time', () => {
+    const tree = renderScoped({ scopeRange: 'all' });
+
+    expect(tree.getByText('22 sections.traversals')).toBeTruthy();
   });
 });

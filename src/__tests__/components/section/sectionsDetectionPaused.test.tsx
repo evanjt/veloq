@@ -19,7 +19,7 @@ import { StartOutcome } from 'veloqrs';
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/app', () => ({
-  useTheme: () => ({ isDark: false }),
+  useTheme: () => ({ isDark: false, colors: require('@/theme').colors }),
 }));
 
 const BASE = {

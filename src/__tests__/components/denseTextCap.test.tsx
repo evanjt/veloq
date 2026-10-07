@@ -13,9 +13,11 @@ import { execFileSync } from 'node:child_process';
 
 import React from 'react';
 import { Text } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 
 import { DENSE_TEXT_SCALE, DenseText } from '@/shared/ui/DenseText';
+import { ChartXAxisLabel } from '@/features/activity/components/ChartXAxisLabel';
+import { ChartYAxisLabel } from '@/features/activity/components/ChartYAxisLabel';
 import { StatCard } from '@/features/activity/components/stats/StatCard';
 
 /**
@@ -25,6 +27,9 @@ import { StatCard } from '@/features/activity/components/stats/StatCard';
  * reaches for the cap without being here fails this suite.
  */
 const DENSE_SURFACES = [
+  'src/features/activity/components/ChartTypeSelector.tsx',
+  'src/features/activity/components/ChartXAxisLabel.tsx',
+  'src/features/activity/components/ChartYAxisLabel.tsx',
   'src/features/activity/components/stats/StatCard.tsx',
   'src/features/recording/components/DataFieldGrid.tsx',
   'src/shared/charts/CurveChart.tsx',
@@ -32,6 +37,8 @@ const DENSE_SURFACES = [
   'src/features/fitness/components/FormZoneChart.tsx',
   'src/features/insights/components/content/HrvTrendContent.tsx',
   'src/features/insights/components/content/SectionPerformanceTimeline.tsx',
+  'src/features/routes/components/section/AttemptHistogramChart.tsx',
+  'src/features/routes/components/section/SectionDeltaChart.tsx',
   'src/features/routes/components/section/SectionScatterChart.tsx',
   'src/features/stats/components/FTPTrendChart.tsx',
   'src/shared/ui/BottomTabBar.tsx',
@@ -77,6 +84,42 @@ describe('the dense text cap', () => {
     const caps = capsOf(tree);
     expect(caps.length).toBeGreaterThan(0);
     expect(caps.every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
+  });
+
+  it('caps the activity plot axis labels and anchors the min label to its measured height', () => {
+    const x = render(<ChartXAxisLabel xAxisMode="distance" maxX={10} isDark={false} />);
+    expect(capsOf(x).every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
+
+    const series = { range: { min: 0, max: 10 }, config: { color: '#000000' } } as never;
+    const y = render(
+      <ChartYAxisLabel
+        yAxisSeries={series}
+        yAxisAvgInfo={{ normalized: 0.5, raw: 5 }}
+        showYAxisAccent={false}
+        chartPaddingTop={10}
+        chartPaddingBottom={20}
+        height={200}
+        isDark={false}
+        formatYAxisValue={(v) => String(v)}
+      />
+    );
+    expect(capsOf(y).every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
+    const labels = y.UNSAFE_getAllByType(Text);
+    const tops = () =>
+      labels.map((n) => {
+        const flat = Object.assign({}, ...[n.props.style].flat(Infinity).filter(Boolean));
+        return flat.top as number;
+      });
+    act(() => {
+      labels.forEach((n) => n.props.onLayout({ nativeEvent: { layout: { height: 40 } } }));
+    });
+    const after = y.UNSAFE_getAllByType(Text).map((n) => {
+      const flat = Object.assign({}, ...[n.props.style].flat(Infinity).filter(Boolean));
+      return flat.top as number;
+    });
+    expect(tops()).toBeDefined();
+    expect(after[1]).toBe(200 - 20 - 40);
+    expect(after[2]).toBe(10 + 0.5 * 170 - 20);
   });
 
   it('reaches exactly the named dense surfaces, and no prose one', () => {

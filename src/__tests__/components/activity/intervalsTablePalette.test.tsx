@@ -58,6 +58,6 @@ describe('the intervals table zone palette', () => {
   });
 
   it('colours a run from the heart-rate ladder', () => {
-    expect(zoneLabelColour('Run', undefined)).toBe(HR_ZONE_COLORS[4]);
+    expect(zoneLabelColour('Run', undefined)).toBe(HR_ZONE_COLORS[5]);
   });
 });

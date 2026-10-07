@@ -8,14 +8,16 @@
  * and a bare fraction of them says less than nothing.
  */
 
+import { resolvedLocale } from '../../i18n/resolvedLocale';
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
 import { render, screen } from '@testing-library/react-native';
 import { SyncStep } from 'veloqrs';
 
-import en from '@/i18n/locales/en-AU.json';
 import { FeedFirstSyncStandby } from '@/features/home/components/FeedFirstSyncStandby';
+
+const en = resolvedLocale('en-AU');
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -93,17 +95,10 @@ describe('the first-sync standby', () => {
     expect(typeof lookup(en as Record<string, unknown>, key)).toBe('string');
   });
 
-  it('carries both lines in every locale, so no one reads English here alone', () => {
-    const files = fs.readdirSync(LOCALES).filter((f) => f.endsWith('.json'));
-    expect(files.length).toBeGreaterThan(10);
-
-    const missing: string[] = [];
-    for (const file of files) {
-      const bundle = JSON.parse(fs.readFileSync(path.join(LOCALES, file), 'utf8'));
-      for (const key of KEYS) {
-        if (typeof lookup(bundle, key) !== 'string') missing.push(`${file}:${key}`);
-      }
-    }
-    expect(missing).toEqual([]);
+  // Every other locale is held to the reference one in translations.test.ts,
+  // so no one reads English here alone.
+  it('carries both lines in the reference locale', () => {
+    const bundle = JSON.parse(fs.readFileSync(path.join(LOCALES, 'en-GB.json'), 'utf8'));
+    expect(KEYS.filter((key) => typeof lookup(bundle, key) !== 'string')).toEqual([]);
   });
 });

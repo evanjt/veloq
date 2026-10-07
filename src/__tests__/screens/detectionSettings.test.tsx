@@ -64,15 +64,19 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
 }));
 
 // Hoisted past the mock factory as a declaration, so the factory can reach it.
-function mockJobsLink() {
-  return React.createElement(View, { testID: 'background-jobs-link' });
+function mockActivityBar() {
+  return React.createElement(View, { testID: 'background-jobs-activity' });
+}
+
+function mockElevationStatus() {
+  return React.createElement(View, { testID: 'elevation-backfill-status' });
 }
 
 // The barrel no longer exports `DetectionIllustration`, so a screen that went
 // back to rendering it would render `undefined` and every test here would fail.
 jest.mock('@/features/settings/components', () => ({
-  BackgroundJobsLink: mockJobsLink,
-  ElevationBackfillStatus: () => null,
+  BackgroundJobsActivityBar: mockActivityBar,
+  ElevationBackfillStatus: mockElevationStatus,
   CutoverStatus: () => null,
 }));
 
@@ -109,9 +113,9 @@ describe('detection settings screen', () => {
     expect(tree.getByTestId('detection-preview-row')).toBeTruthy();
   });
 
-  it('links out to the jobs area rather than being the only home for the backfill', () => {
+  it('shows the activity bar on the screen that starts detection', () => {
     const tree = render(<DetectionSettingsScreen />);
-    expect(tree.getByTestId('background-jobs-link')).toBeTruthy();
+    expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
   });
 
   it('reads no detector config, since nothing on the screen draws it', () => {
@@ -130,6 +134,20 @@ describe('detection settings screen', () => {
       order.indexOf('detection-rescan-button')
     );
   });
+});
+
+it('keeps elevation controls enabled when route matching is off', () => {
+  useRouteSettings.setState((state) => ({ settings: { ...state.settings, enabled: false } }));
+  try {
+    const tree = render(<DetectionSettingsScreen />);
+    let node = tree.getByTestId('elevation-backfill-status').parent;
+    while (node) {
+      expect(node.props.pointerEvents).not.toBe('none');
+      node = node.parent;
+    }
+  } finally {
+    useRouteSettings.setState((state) => ({ settings: { ...state.settings, enabled: true } }));
+  }
 });
 
 /**
@@ -168,36 +186,5 @@ describe('a rescan the screen stops watching', () => {
     const tree = render(<DetectionSettingsScreen />);
     expect(tree.getByText('settings.rescanFailed')).toBeTruthy();
     expect(tree.queryByTestId('detection-rescan-still-running')).toBeNull();
-  });
-});
-
-/**
- * Scenario: turning route matching off starts a catalogue wipe that can outlive
- * the wait on it, which used to be logged and shown nowhere.
- *
- * Expected behaviour: the switch carries the same still-running line the rescan
- * uses, and nothing while the wipe landed in time.
- */
-describe('a catalogue wipe the switch stopped watching', () => {
-  afterEach(() => {
-    useRouteSettings.setState({ clearNotice: null });
-  });
-
-  it('says nothing when the wipe landed inside the wait', () => {
-    expect(render(<DetectionSettingsScreen />).queryByTestId('detection-clear-notice')).toBeNull();
-  });
-
-  it('tells the athlete the wipe is still going', () => {
-    useRouteSettings.setState({ clearNotice: 'settings.stillRunning' });
-
-    const tree = render(<DetectionSettingsScreen />);
-    expect(tree.getByTestId('detection-clear-notice')).toBeTruthy();
-    expect(tree.getByText('settings.stillRunning')).toBeTruthy();
-  });
-
-  it('says which failure the engine reported, not the same line', () => {
-    useRouteSettings.setState({ clearNotice: 'engine.failure.database' });
-
-    expect(render(<DetectionSettingsScreen />).getByText('engine.failure.database')).toBeTruthy();
   });
 });

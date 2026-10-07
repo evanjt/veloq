@@ -71,13 +71,19 @@ describe('seedDemoEngine', () => {
     expect(engine.announceBodyStored).toHaveBeenCalledWith('wellness');
   });
 
-  it('upserts activity metrics for every fixture activity', () => {
+  it('lets the engine derive metrics from every seeded body', () => {
     seedDemoEngine();
 
-    const metrics = engine.setActivityMetrics.mock.calls[0][0];
-    expect(metrics.length).toBeGreaterThan(0);
-    expect(metrics[0]).toHaveProperty('activityId');
-    expect(metrics[0]).toHaveProperty('sportType');
+    expect(engine.upsertActivityBodies).toHaveBeenCalledTimes(1);
+    expect(engine.setActivityMetrics).not.toHaveBeenCalled();
+  });
+
+  it('passes ride power to the engine in its stored body', () => {
+    seedDemoEngine();
+
+    const bodies = engine.upsertActivityBodies.mock.calls[0][0];
+    const body = bodies.find((row: { activityId: string }) => row.activityId === 'demo-test-0');
+    expect(JSON.parse(body.raw).icu_average_watts).toBe(195);
   });
 
   it('stores an activity body for every fixture activity', () => {
@@ -118,19 +124,15 @@ describe('seedDemoEngine', () => {
     expect(Array.isArray(rows)).toBe(true);
   });
 
-  it('records a pace snapshot so trend tracking has a baseline', () => {
+  it('passes the curve end date to the Rust snapshot writer', () => {
     seedDemoEngine();
 
-    expect(engine.savePaceSnapshot).toHaveBeenCalledWith(
-      'Run',
-      expect.any(Number),
-      // Under the window the sync writes, so the demo library's pace milestone
-      // reads the snapshot rather than skipping it as an unknown range.
-      PACE_SNAPSHOT_WINDOW_DAYS,
-      expect.any(Number),
-      expect.any(Number),
-      expect.any(Number)
+    const call = engine.setCurveBody.mock.calls.find(
+      ([kind, sport, days, gap]: [string, string, number, boolean]) =>
+        kind === 'pace' && sport === 'Run' && days === PACE_SNAPSHOT_WINDOW_DAYS && !gap
     );
+    expect(JSON.parse(call[4]).list[0].end_date_local).toBeDefined();
+    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
   it('wakes engine-derived readers once seeding is done', () => {

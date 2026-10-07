@@ -59,10 +59,13 @@ function Harness({ efforts }: { efforts: (PerformanceDataPoint & { x: number })[
       isDark={false}
       sportType="Ride"
       chartData={chartData}
+      trendCurves={{}}
       forwardStats={null}
       reverseStats={null}
       bestForwardRecord={null}
       bestReverseRecord={null}
+      bestForwardIsRecord={false}
+      bestReverseIsRecord={false}
       onActivitySelect={jest.fn()}
       sectionTimeRange={range}
       onTimeRangeChange={setRange}
@@ -109,5 +112,69 @@ describe('SectionPerformanceSection time range', () => {
 
     expect(queryByTestId('section-performance-empty')).toBeNull();
     expect(queryByTestId('section-time-range-all')).toBeTruthy();
+  });
+});
+
+describe('SectionPerformanceSection while time streams download', () => {
+  const base = {
+    isDark: false,
+    sportType: 'Ride',
+    chartData: [],
+    trendCurves: {},
+    forwardStats: null,
+    reverseStats: null,
+    bestForwardRecord: null,
+    bestReverseRecord: null,
+    bestForwardIsRecord: false,
+    bestReverseIsRecord: false,
+    onActivitySelect: jest.fn(),
+    sectionTimeRange: 'all' as SectionTimeRange,
+    onTimeRangeChange: jest.fn(),
+  };
+
+  it('draws a placeholder and never the empty state while streams are outstanding', () => {
+    const { queryByTestId } = render(
+      <SectionPerformanceSection {...base} streams={{ status: 'loading', onRetry: jest.fn() }} />
+    );
+
+    expect(queryByTestId('section-performance-pending')).toBeTruthy();
+    expect(queryByTestId('section-performance-empty')).toBeNull();
+    expect(queryByTestId('section-time-range-all')).toBeTruthy();
+  });
+
+  it('offers a retry when the stream sync failed and calls it on press', () => {
+    const onRetry = jest.fn();
+    const { getByText, queryByTestId } = render(
+      <SectionPerformanceSection
+        {...base}
+        streams={{ status: 'failed', error: new Error('boom'), onRetry }}
+      />
+    );
+
+    expect(queryByTestId('section-performance-stream-failure')).toBeTruthy();
+    expect(queryByTestId('section-performance-empty')).toBeNull();
+    fireEvent.press(getByText('common.retry'));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the empty state for a settled empty result', () => {
+    const { queryByTestId } = render(
+      <SectionPerformanceSection {...base} streams={{ status: 'ready', onRetry: jest.fn() }} />
+    );
+
+    expect(queryByTestId('section-performance-empty')).toBeTruthy();
+    expect(queryByTestId('section-performance-pending')).toBeNull();
+  });
+
+  it('plots efforts that landed even while the rest download', () => {
+    const { queryByTestId } = render(
+      <SectionPerformanceSection
+        {...base}
+        chartData={[{ ...effort(1), x: 0 }]}
+        streams={{ status: 'loading', onRetry: jest.fn() }}
+      />
+    );
+
+    expect(queryByTestId('section-performance-pending')).toBeNull();
   });
 });

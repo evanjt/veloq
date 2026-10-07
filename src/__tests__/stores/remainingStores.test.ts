@@ -9,7 +9,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // DebugStore
-import { useDebugStore, isDebugEnabled } from '@/features/settings/stores/DebugStore';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 
 // WhatsNewStore
 import {
@@ -166,14 +166,6 @@ describe('DebugStore', () => {
       expect(useDebugStore.getState().unlocked).toBe(false);
       const stored = JSON.parse((await AsyncStorage.getItem(DEBUG_MODE_KEY))!);
       expect(stored.enabled).toBe(false);
-    });
-  });
-
-  describe('isDebugEnabled() helper', () => {
-    it('returns current enabled state', () => {
-      expect(isDebugEnabled()).toBe(false);
-      useDebugStore.setState({ enabled: true });
-      expect(isDebugEnabled()).toBe(true);
     });
   });
 });

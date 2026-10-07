@@ -1,6 +1,8 @@
 /**
- * Scenario: a section's sport decides which basemap style the athlete's own
- * map preferences hand back, and which colour the line is drawn in.
+ * Scenario: the sport a section is read in decides which basemap style the
+ * athlete's own map preferences hand back, and which colour the line is drawn
+ * in. That is the sport the screen picked, or the section's only sport; ground
+ * several sports have taken has none until one is picked.
  *
  * Expected behaviour: the sport is read against the one activity vocabulary
  * the app keeps. A hand-written set of nineteen strings beside it had no
@@ -32,6 +34,7 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
 }));
 
 jest.mock('expo-location', () => ({
@@ -52,26 +55,26 @@ const POLYLINE: RoutePoint[] = [
   { lat: 46.95, lng: 7.449 },
 ];
 
-function sectionOfSport(sportType: string): FrequentSection {
+function sectionOfSports(sportTypes: string[]): FrequentSection {
   return {
     id: 'section-1',
     sectionType: 'auto',
     name: 'A climb',
-    sportType,
+    sportTypes,
     polyline: POLYLINE,
     activityIds: ['a1'],
     visitCount: 3,
     distanceMeters: 900,
     createdAt: '2026-01-01T00:00:00Z',
-  } as FrequentSection;
+  };
 }
 
-/** Which sport the map asked the athlete's preferences about. */
-function styleAskedFor(sportType: string): string {
+/** Which sport the map asked the athlete's preferences about, if any. */
+function styleAskedFor(sportTypes: string[], picked?: string): string | undefined {
   askedFor.length = 0;
   render(
     <SafeAreaProvider initialMetrics={METRICS}>
-      <SectionMapView section={sectionOfSport(sportType)} />
+      <SectionMapView section={sectionOfSports(sportTypes)} sportType={picked} />
     </SafeAreaProvider>
   );
   return askedFor[0];
@@ -88,16 +91,24 @@ describe('the sport a section map draws', () => {
     'TrackRide',
     'Cyclocross',
   ])('is the section its own, not road cycling: %s', (sportType) => {
-    expect(styleAskedFor(sportType)).toBe(sportType);
+    expect(styleAskedFor([sportType])).toBe(sportType);
   });
 
   it('is unchanged for the sports that always worked', () => {
-    expect(styleAskedFor('Ride')).toBe('Ride');
-    expect(styleAskedFor('Hike')).toBe('Hike');
-    expect(styleAskedFor('OpenWaterSwim')).toBe('OpenWaterSwim');
+    expect(styleAskedFor(['Ride'])).toBe('Ride');
+    expect(styleAskedFor(['Hike'])).toBe('Hike');
+    expect(styleAskedFor(['OpenWaterSwim'])).toBe('OpenWaterSwim');
   });
 
   it('falls through to Other for a sport the app does not know', () => {
-    expect(styleAskedFor('Quidditch')).toBe('Other');
+    expect(styleAskedFor(['Quidditch'])).toBe('Other');
+  });
+
+  it('is the picked sport on ground ridden and run', () => {
+    expect(styleAskedFor(['Ride', 'Run'], 'Run')).toBe('Run');
+  });
+
+  it('is none on ground ridden and run with nothing picked, so the default style holds', () => {
+    expect(styleAskedFor(['Ride', 'Run'])).toBeUndefined();
   });
 });

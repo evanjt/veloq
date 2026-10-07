@@ -30,7 +30,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-const mockEngineTrend = jest.fn<EfficiencyTrend | null, [string]>();
+const mockEngineTrend = jest.fn<{ trend: EfficiencyTrend | null; error?: unknown }, [string]>();
 
 jest.mock('@/features/routes/hooks/useSectionEfficiencyTrend', () => ({
   useSectionEfficiencyTrend: (sectionId: string) => mockEngineTrend(sectionId),
@@ -49,9 +49,10 @@ function trend(overrides: Partial<EfficiencyTrend> = {}): EfficiencyTrend {
   return {
     sectionId: 'sec-1',
     sectionName: 'Church Hill',
+    sportType: 'Ride',
     points: [point(0.64), point(0.62), point(0.59)],
     trendSlope: -0.0004,
-    isImproving: true,
+    direction: 0,
     hrChangeBpm: -6.2,
     effortCount: 3,
     ...overrides,
@@ -61,9 +62,11 @@ function trend(overrides: Partial<EfficiencyTrend> = {}): EfficiencyTrend {
 beforeEach(() => jest.clearAllMocks());
 
 it('renders the effort count and the HR change the engine measured', () => {
-  mockEngineTrend.mockReturnValue(trend());
+  mockEngineTrend.mockReturnValue({ trend: trend() });
 
-  const { getByTestId } = render(<SectionEfficiencyCard sectionId="sec-1" isDark={false} />);
+  const { getByTestId } = render(
+    <SectionEfficiencyCard sectionId="sec-1" sportType="Ride" isDark={false} />
+  );
 
   expect(getByTestId('section-efficiency-card')).toBeTruthy();
   expect(getByTestId('section-efficiency-detail').props.children).toContain('3');
@@ -71,9 +74,11 @@ it('renders the effort count and the HR change the engine measured', () => {
 });
 
 it('renders the chart for a section that has a series', () => {
-  mockEngineTrend.mockReturnValue(trend());
+  mockEngineTrend.mockReturnValue({ trend: trend() });
 
-  const { getByTestId } = render(<SectionEfficiencyCard sectionId="sec-1" isDark={false} />);
+  const { getByTestId } = render(
+    <SectionEfficiencyCard sectionId="sec-1" sportType="Ride" isDark={false} />
+  );
 
   expect(getByTestId('section-efficiency-chart')).toBeTruthy();
 });
@@ -94,17 +99,35 @@ it('centres a flat series instead of dividing by a zero range', () => {
 });
 
 it('rounds a rise in heart rate with its sign kept', () => {
-  mockEngineTrend.mockReturnValue(trend({ hrChangeBpm: 4.4, isImproving: false }));
+  mockEngineTrend.mockReturnValue({ trend: trend({ hrChangeBpm: 4.4, direction: 1 }) });
 
-  const { getByTestId } = render(<SectionEfficiencyCard sectionId="sec-1" isDark={false} />);
+  const { getByTestId } = render(
+    <SectionEfficiencyCard sectionId="sec-1" sportType="Ride" isDark={false} />
+  );
 
   expect(getByTestId('section-efficiency-detail').props.children).toContain('+4');
 });
 
 it('renders nothing when the section has no efficiency series', () => {
-  mockEngineTrend.mockReturnValue(null);
+  mockEngineTrend.mockReturnValue({ trend: null });
 
-  const { queryByTestId } = render(<SectionEfficiencyCard sectionId="sec-1" isDark={false} />);
+  const { queryByTestId } = render(
+    <SectionEfficiencyCard sectionId="sec-1" sportType="Ride" isDark={false} />
+  );
 
+  expect(queryByTestId('section-efficiency-card')).toBeNull();
+});
+
+it('says the read failed, rather than that there is no series, when the engine threw', () => {
+  mockEngineTrend.mockReturnValue({
+    trend: null,
+    error: { tag: 'Database', inner: { msg: 'poisoned' } },
+  });
+
+  const { getByTestId, queryByTestId } = render(
+    <SectionEfficiencyCard sectionId="sec-1" sportType="Ride" isDark={false} />
+  );
+
+  expect(getByTestId('section-efficiency-failure').props.children).toBe('engine.failure.database');
   expect(queryByTestId('section-efficiency-card')).toBeNull();
 });

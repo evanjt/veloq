@@ -14,6 +14,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { StorageStatsPanel } from '@/features/settings/components/StorageStatsPanel';
+import { resolvedLocale } from '../../i18n/resolvedLocale';
 
 // The maps barrel reaches the engine binding, which registers a TurboModule at
 // import time, so the graph this renders cannot load without the stub.
@@ -42,6 +43,7 @@ const SEGMENT_KEYS = [
   'storageVector',
   'storageGround',
   'storagePreviews',
+  'storageBackups',
 ] as const;
 
 function fullPanel() {
@@ -55,17 +57,12 @@ function fullPanel() {
       dateRangeText="range"
       lastSync={null}
       totalQueries={1}
-      databaseSize={1_000_000}
       onClearMapCache={jest.fn()}
       routesSize={1_000_000}
       terrainCacheSize={2_000_000}
       heatmapCacheSize={3_000_000}
-      tileCacheStats={{
-        tileCount: 20,
-        totalBytes: 5_000_000,
-        vector: { tileCount: 10, totalBytes: 3_000_000 },
-        ground: { tileCount: 10, totalBytes: 2_000_000 },
-      }}
+      basemapTiles={{ totalBytes: 5_000_000, vectorBytes: 3_000_000 }}
+      athleteFilesSize={4_000_000}
       freeStorage={5_000_000}
     />
   );
@@ -87,26 +84,31 @@ describe('the storage legend', () => {
     expect(names).toEqual(SEGMENT_KEYS.map((key) => `t(settings.${key})`));
   });
 
-  it('translates every segment name in every locale', () => {
-    const locales = fs.readdirSync(LOCALES_DIR).filter((f) => f.endsWith('.json'));
-    const english = JSON.parse(
-      fs.readFileSync(path.join(LOCALES_DIR, 'en-AU.json'), 'utf-8')
+  // Every other locale is held to the reference one in translations.test.ts,
+  // key for key and leaf for leaf.
+  it('names every segment in the reference locale', () => {
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(LOCALES_DIR, 'en-GB.json'), 'utf-8')
     ).settings;
-    for (const file of locales) {
-      const settings = JSON.parse(fs.readFileSync(path.join(LOCALES_DIR, file), 'utf-8')).settings;
-      const names = SEGMENT_KEYS.map((key) => settings[key]);
-      for (const name of names) {
-        expect(typeof name).toBe('string');
-        expect(name.length).toBeGreaterThan(0);
-      }
+    for (const name of SEGMENT_KEYS.map((key) => settings[key])) {
+      expect(typeof name).toBe('string');
+      expect(name.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('leaves no locale with the whole legend in English', () => {
+    const locales = fs.readdirSync(LOCALES_DIR).filter((f) => f.endsWith('.json'));
+    const english = resolvedLocale('en-AU').settings;
+    for (const file of locales.filter((f) => !f.startsWith('en-'))) {
+      const settings = resolvedLocale(file.replace('.json', '')).settings;
       // Individual names are compared as a set, not one by one: `Database` and
       // `Heatmap` are the real words in Danish, Dutch and Italian, so a
       // per-key comparison flags a correct translation. A locale whose whole
       // legend equals the English one has translated none of it, which is the
       // defect this file exists for.
-      if (!file.startsWith('en-')) {
-        expect(names).not.toEqual(SEGMENT_KEYS.map((key) => english[key]));
-      }
+      expect(SEGMENT_KEYS.map((key) => settings[key])).not.toEqual(
+        SEGMENT_KEYS.map((key) => english[key])
+      );
     }
   });
 });

@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 
 import SettingsScreen from '@/app/settings';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -52,11 +52,12 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   getLastBackupTimestamp: jest.fn().mockResolvedValue(null),
 }));
 
-// The hub reads only the running count for the Background Jobs subtitle. What
-// that count is computed from belongs to useRunningJobCount's own tests.
 jest.mock('@/features/settings', () => ({
-  useRunningJobCount: () => 0,
+  useNotificationPreferences: jest.requireActual(
+    '@/features/settings/stores/NotificationPreferencesStore'
+  ).useNotificationPreferences,
   useLastBackupTimestamp: () => null,
+  useAutoBackupEnabled: () => true,
 }));
 
 jest.mock('@/features/settings/components', () => ({
@@ -79,13 +80,28 @@ function signIn(authMethod: 'oauth' | 'apiKey' | 'demo') {
 
 describe('Settings recording permission', () => {
   beforeEach(() => {
-    useUploadPermissionStore.setState({ hasWritePermission: null });
+    useUploadPermissionStore.setState({ hasWritePermission: null, isLoaded: true });
     signIn('oauth');
+  });
+
+  it('waits for permission hydration before offering an upgrade', () => {
+    useUploadPermissionStore.getState().reset();
+    const { queryByTestId, getByTestId } = render(<SettingsScreen />);
+    expect(queryByTestId('settings-grant-access')).toBeNull();
+
+    act(() => useUploadPermissionStore.getState().setFromOAuthScope(''));
+    expect(getByTestId('settings-grant-access')).toBeTruthy();
   });
 
   it('offers Grant Access when an OAuth token has no confirmed write permission', () => {
     const { getByTestId } = render(<SettingsScreen />);
     expect(getByTestId('settings-grant-access')).toBeTruthy();
+  });
+
+  it('says recording works without write permission rather than requiring it', () => {
+    const { queryByText, getByText } = render(<SettingsScreen />);
+    expect(queryByText(/requires write permission/i)).toBeNull();
+    expect(getByText(/Recording works without it/)).toBeTruthy();
   });
 
   it('offers Grant Access when the write scope was explicitly refused', () => {

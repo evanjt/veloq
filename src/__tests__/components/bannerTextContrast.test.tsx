@@ -21,7 +21,9 @@ const AA_TEXT = 4.5;
 let mockIsDark = false;
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
-jest.mock('@/shared/app/NetworkContext', () => ({ useNetwork: () => ({ isOnline: false }) }));
+jest.mock('@/shared/app/NetworkContext', () => ({
+  useNetwork: () => ({ isOnline: false, offlineBannerShown: true }),
+}));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({

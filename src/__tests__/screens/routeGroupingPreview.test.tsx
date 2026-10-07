@@ -5,11 +5,13 @@
  *
  * Expected behaviour: the screen regroups on the value it opens with, repaints
  * the lines it already holds against the answer, says how many routes the
- * setting produces, and applies nothing.
+ * setting produces, and applies nothing until Keep is confirmed.
  */
 
 import React from 'react';
-import { act, render, screen } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 import RouteGroupingPreviewScreen from '@/app/route-grouping-preview';
 import { GROUPING_DEFAULTS } from '@/features/routes/lib/groupingParams';
 
@@ -26,15 +28,47 @@ let mockPreviewGroups: { key: string; activityIds: string[] }[] | null = null;
 let mockPreviewStatus = 'idle';
 let mockStrictness: { minMatchPct: number; endpointThreshold: number } | null = null;
 
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({
-    getRoutesScreenData: mockGetRoutesScreenData,
-    startRouteGroupingPreview: mockStart,
+const mockSetMatchStrictness = jest.fn();
+const mockRescan = jest.fn(() => 1);
+const mockBack = jest.fn();
+let mockTransitionPending = false;
+const mockTransitionListeners = new Map<string, (event: { data: { closing: boolean } }) => void>();
+const mockNavigation = {
+  addListener: (name: string, listener: (event: { data: { closing: boolean } }) => void) => {
+    mockTransitionListeners.set(name, listener);
+    if (name === 'transitionEnd' && !mockTransitionPending) {
+      listener({ data: { closing: false } });
+    }
+    return () => mockTransitionListeners.delete(name);
+  },
+};
+let mockOnChange:
+  | ((next: { minMatchPercentage: number; endpointThreshold: number }) => void)
+  | null = null;
+
+jest.mock('@/shared/native/engine', () => {
+  // Every method looks its mock up when called: importing the screen reaches
+  // modules that read the engine on load, before the mocks above are assigned.
+  const engine = {
+    getRoutesScreenData: (...args: unknown[]) => mockGetRoutesScreenData(...(args as [])),
+    startRouteGroupingPreview: (...args: unknown[]) => mockStart(...(args as [])),
     pollRouteGroupingPreview: () => mockPreviewStatus,
     takeRouteGroupingPreviewResult: () => mockPreviewGroups,
     cancelRouteGroupingPreview: jest.fn(),
     getMatchStrictness: () => mockStrictness,
-  }),
+    setMatchStrictness: (...args: unknown[]) => mockSetMatchStrictness(...args),
+  };
+  return { getEngine: () => engine };
+});
+
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  router: { back: () => mockBack() },
+  useNavigation: () => mockNavigation,
+}));
+
+jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
+  useSectionRescan: () => ({ rescan: mockRescan, forceRescan: mockRescan }),
 }));
 
 jest.mock('@/features/routes/hooks/useRouteGroupingPreview', () => {
@@ -52,7 +86,10 @@ jest.mock('@/features/routes/hooks/useRouteGroupingPreview', () => {
 });
 
 jest.mock('@/features/routes/components', () => ({
-  GroupingParamPanel: () => null,
+  GroupingParamPanel: ({ onChange }: { onChange: typeof mockOnChange }) => {
+    mockOnChange = onChange;
+    return null;
+  },
   GroupingPreviewMap: () => null,
 }));
 
@@ -72,9 +109,12 @@ jest.mock('react-i18next', () => {
     ...jest.requireActual('react-i18next'),
     useTranslation: () => ({
       t: (key: string, vars?: Record<string, unknown>) => {
-        const raw = key
-          .split('.')
-          .reduce<unknown>((acc, part) => (acc as Record<string, unknown>)?.[part], strings);
+        const at = (path: string) =>
+          path
+            .split('.')
+            .reduce<unknown>((acc, part) => (acc as Record<string, unknown>)?.[part], strings);
+        const form = typeof vars?.count === 'number' ? (vars.count === 1 ? 'one' : 'other') : null;
+        const raw = form ? (at(`${key}_${form}`) ?? at(key)) : at(key);
         const text = typeof raw === 'string' ? raw : key;
         return vars
           ? text.replace(/{{(\w+)}}/g, (_m, name: string) => String(vars[name] ?? ''))
@@ -84,12 +124,19 @@ jest.mock('react-i18next', () => {
   };
 });
 
+let idle: IdleScheduler;
+
 beforeEach(() => {
+  idle = stubIdleScheduler('immediate');
   jest.clearAllMocks();
   mockPreviewGroups = null;
   mockPreviewStatus = 'idle';
   mockStrictness = null;
+  mockTransitionPending = false;
+  mockTransitionListeners.clear();
 });
+
+afterEach(() => idle.restore());
 
 it('asks for a grouping at the value it opens with, without being dragged', () => {
   render(<RouteGroupingPreviewScreen />);
@@ -154,16 +201,111 @@ it('draws no dropped line when every route keeps a group', () => {
   expect(screen.queryByTestId('grouping-dropped')).toBeNull();
 });
 
-it('reads the routes once, and applies nothing', async () => {
+it('reads the routes once, and applies nothing on mount', async () => {
   mockPreviewStatus = 'complete';
   mockPreviewGroups = [{ key: 'p1', activityIds: ['a1', 'a2'] }];
-  const engine = jest.requireMock('@/shared/native/engine').getEngine();
 
   render(<RouteGroupingPreviewScreen />);
   await act(async () => {});
 
   expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(1);
-  expect(engine.setMatchStrictness).toBeUndefined();
+  expect(mockSetMatchStrictness).not.toHaveBeenCalled();
+});
+
+it('waits for the opening transition before reading routes', () => {
+  mockTransitionPending = true;
+  render(<RouteGroupingPreviewScreen />);
+
+  expect(mockGetRoutesScreenData).not.toHaveBeenCalled();
+  act(() => mockTransitionListeners.get('transitionEnd')?.({ data: { closing: false } }));
+  expect(mockGetRoutesScreenData).toHaveBeenCalledTimes(1);
+});
+
+/**
+ * Scenario: the athlete moves a knob until the preview shows the grouping they
+ * want, then decides.
+ *
+ * Expected behaviour: nothing is written while they tune or when they discard,
+ * Keep is offered only once a knob differs from the applied value, and a
+ * confirmed Keep writes both values once, starts the regroup and leaves.
+ */
+describe('applying the setting', () => {
+  const moved = { minMatchPercentage: 65, endpointThreshold: 180 };
+  const confirmKeep = () => {
+    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as {
+      text: string;
+      onPress?: () => void;
+    }[];
+    buttons.find((b) => b.text === 'Confirm')?.onPress?.();
+  };
+
+  beforeEach(() => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockPreviewStatus = 'complete';
+    mockPreviewGroups = [{ key: 'p1', activityIds: ['a1', 'a2'] }];
+  });
+
+  it('offers neither Keep nor Discard until a knob moves', () => {
+    render(<RouteGroupingPreviewScreen />);
+
+    expect(screen.queryByTestId('grouping-keep-button')).toBeNull();
+    expect(screen.queryByTestId('grouping-discard-button')).toBeNull();
+  });
+
+  it('writes nothing while a knob moves', async () => {
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+    act(() => mockOnChange?.(moved));
+
+    expect(mockSetMatchStrictness).not.toHaveBeenCalled();
+    expect(screen.getByTestId('grouping-keep-button')).toBeTruthy();
+  });
+
+  it('hides Keep again when the knobs return to the applied value', async () => {
+    mockStrictness = { minMatchPct: 62, endpointThreshold: 190 };
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+    act(() => mockOnChange?.(moved));
+    act(() => mockOnChange?.({ minMatchPercentage: 62, endpointThreshold: 190 }));
+
+    expect(screen.queryByTestId('grouping-keep-button')).toBeNull();
+  });
+
+  it('writes the panel values once on a confirmed Keep, regroups and leaves', async () => {
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+    act(() => mockOnChange?.(moved));
+    fireEvent.press(screen.getByTestId('grouping-keep-button'));
+
+    expect(mockSetMatchStrictness).not.toHaveBeenCalled();
+    act(confirmKeep);
+
+    expect(mockSetMatchStrictness).toHaveBeenCalledTimes(1);
+    expect(mockSetMatchStrictness).toHaveBeenCalledWith(65, 180);
+    expect(mockRescan).toHaveBeenCalledTimes(1);
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes nothing when the confirmation is cancelled', async () => {
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+    act(() => mockOnChange?.(moved));
+    fireEvent.press(screen.getByTestId('grouping-keep-button'));
+
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    expect(mockSetMatchStrictness).not.toHaveBeenCalled();
+    expect(mockRescan).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing on Discard and leaves', async () => {
+    render(<RouteGroupingPreviewScreen />);
+    await act(async () => {});
+    act(() => mockOnChange?.(moved));
+    fireEvent.press(screen.getByTestId('grouping-discard-button'));
+
+    expect(mockSetMatchStrictness).not.toHaveBeenCalled();
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
 });
 
 /**

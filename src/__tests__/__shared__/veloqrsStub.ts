@@ -27,6 +27,20 @@ export enum CallKind {
   Http = 4,
   Network = 5,
   Internal = 6,
+  OtherAthlete = 7,
+}
+
+/** `FfiUploadOutcome` as generated, held to the source by the same test. */
+export enum UploadOutcome {
+  Uploaded = 1,
+  PermissionBlocked = 2,
+  AuthExpired = 3,
+  Rejected = 4,
+  Retriable = 5,
+  Network = 6,
+  Missing = 7,
+  OtherAthlete = 8,
+  NotStarted = 9,
 }
 
 /** `FfiSyncErrorReason` as generated, held to the source by the same test. */
@@ -52,6 +66,8 @@ export enum SyncStep {
   IntervalBodies = 7,
   RemainingActivities = 8,
   FirstActivities = 9,
+  RecordActivities = 10,
+  Calendar = 11,
 }
 
 /** `FfiGroupSort` as generated, held to the source by the same test. */
@@ -62,10 +78,47 @@ export enum GroupSort {
   Name = 3,
 }
 
+/** `FfiFeedGroup` as generated, the feed's sport chips as the engine names them. */
+export enum FeedSportGroup {
+  Cycling = 0,
+  Running = 1,
+  Swimming = 2,
+  Other = 3,
+}
+
+/** `FfiFeedSeen` as generated: three tagged variants built with `.new`. */
+export const FfiFeedSeen = {
+  Opened: { new: () => ({ tag: 'Opened' }) },
+  Closed: { new: () => ({ tag: 'Closed' }) },
+  Dismissed: { new: (inner: { activityIds: string[] }) => ({ tag: 'Dismissed', inner }) },
+};
+
+export enum MapDistanceBand {
+  All,
+  XShort,
+  Short,
+  Medium,
+  Long,
+}
+
+export enum EfficiencyDirection {
+  Improving,
+  Flat,
+  Worsening,
+}
+
 /** `FfiLoadMetric` as generated, the metric a period comparison was taken on. */
 export enum LoadMetric {
   Tss = 0,
   Duration = 1,
+}
+
+/** `FfiDayLoadStatus` as generated, whether a day's recorded load can be totalled. */
+export enum DayLoadStatus {
+  Complete = 0,
+  Partial = 1,
+  Unavailable = 2,
+  Rest = 3,
 }
 
 /** `FfiSectionSort` as generated, held to the source by the same test. */
@@ -105,6 +158,7 @@ export enum InitOutcome {
   StorageUnavailable = 4,
   NotAttempted = 5,
   Failed = 6,
+  VersionMismatch = 7,
 }
 
 /** `FfiStartOutcome` as generated, held to the source by the same test. */
@@ -126,13 +180,27 @@ export enum RangeCoverage {
   Loaded = 3,
 }
 
-export const isRetryableStart = (outcome: StartOutcome): boolean =>
-  outcome === StartOutcome.Busy ||
-  outcome === StartOutcome.Held ||
-  outcome === StartOutcome.NotReady ||
-  outcome === StartOutcome.Offline;
+/** `FfiReferenceSource` as generated, held to the source by the same test. */
+export enum FfiReferenceSource {
+  Record,
+  AthleteSet,
+}
 
-export const hasStarted = (outcome: StartOutcome): boolean => outcome === StartOutcome.Started;
+export const startOutcome = (result: StartOutcome | { outcome: StartOutcome }): StartOutcome =>
+  typeof result === 'object' ? result.outcome : result;
+
+export const isRetryableStart = (result: StartOutcome | { outcome: StartOutcome }): boolean => {
+  const outcome = startOutcome(result);
+  return (
+    outcome === StartOutcome.Busy ||
+    outcome === StartOutcome.Held ||
+    outcome === StartOutcome.NotReady ||
+    outcome === StartOutcome.Offline
+  );
+};
+
+export const hasStarted = (result: StartOutcome | { outcome: StartOutcome }): boolean =>
+  startOutcome(result) === StartOutcome.Started;
 
 export const isRetryableInit = (outcome: InitOutcome): boolean => outcome === InitOutcome.Busy;
 
@@ -156,9 +224,17 @@ export const createPreviewClientStub = () => ({
   setSectionConfig: jest.fn(),
   forceRedetectSections: jest.fn(() => StartOutcome.Held),
 });
-export const startFetchAndStore = jest.fn();
-export const takeFetchAndStoreResult = jest.fn(() => null);
-export const getDownloadProgress = jest.fn(() => null);
+export const startFetchAndStore = jest.fn(() => 0);
+export const takeFetchAndStoreResult = jest.fn(() => undefined);
+export const cancelFetchAndStore = jest.fn(() => true);
+export const getFetchRunProgress = jest.fn(() => ({ active: false, completed: 0, total: 0 }));
+/** The fetch-and-store calls as the engine client carries them, for a test that overrides `engine`. */
+export const fetchCalls = {
+  startFetchAndStore,
+  takeFetchAndStoreResult,
+  cancelFetchAndStore,
+  getFetchRunProgress,
+};
 
 /**
  * A closed engine, which is what a Jest run has: `ready` is false and every
@@ -170,11 +246,12 @@ export const engine = {
   ready: false,
   // The sync status reader subscribes on the first mount that wants it, so a
   // closed engine still has to hand back an unsubscribe rather than throw.
+  ...fetchCalls,
   subscribe: jest.fn(() => () => {}),
   getSyncStatus: jest.fn(() => null),
   getSetting: jest.fn(() => undefined),
   setSetting: jest.fn(),
-  setSettings: jest.fn(() => 0),
+  setSettings: jest.fn(),
   deleteSetting: jest.fn(),
 };
 
@@ -188,7 +265,13 @@ export const basemap = {
   setSourceTemplate: jest.fn(),
   getTile: jest.fn(() => undefined),
   getOrFetchTile: jest.fn(() => undefined),
-  getCacheSize: jest.fn(() => 0n),
+  getCacheSize: jest.fn(() => Promise.resolve(0)),
+  getSourceSize: jest.fn(() => Promise.resolve(0)),
+  setBudget: jest.fn(() => Promise.resolve(0)),
+  clearTiles: jest.fn(() => 0),
+  clearUnpinnedTiles: jest.fn(() => Promise.resolve(0)),
+  resetTileCounts: jest.fn(),
+  tileCounts: jest.fn(() => []),
   flush: jest.fn(),
 };
 
@@ -202,26 +285,33 @@ export const basemapStore = jest.fn(() => basemap);
 export function withOverrides(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     CallKind,
+    UploadOutcome,
     SyncState,
     SyncErrorReason,
     SyncStep,
     DownloadPriority,
     BulkExportFormat,
     GroupSort,
+    FeedSportGroup,
+    FfiFeedSeen,
+    MapDistanceBand,
+    EfficiencyDirection,
     SectionSort,
     LoadMetric,
+    DayLoadStatus,
     StartOutcome,
     InitOutcome,
     RangeCoverage,
+    FfiReferenceSource,
     isRetryableInit,
     hasOpened,
     isRetryableStart,
     hasStarted,
+    startOutcome,
     decodeCoords,
     createPreviewClientStub,
     startFetchAndStore,
     takeFetchAndStoreResult,
-    getDownloadProgress,
     engine,
     basemapStore,
     ...overrides,

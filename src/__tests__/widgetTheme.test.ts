@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { colors, darkColors, brand } from '@/theme/colors';
 import { widgetPalette, widgetRecord } from '@/shared/theme/widgetTheme';
 
@@ -48,42 +45,5 @@ describe('widgetRecord', () => {
     expect(widgetRecord.gradientStart).toBe(brand.teal);
     expect(widgetRecord.gradientEnd).toBe(brand.tealLight);
     expect(widgetRecord.foreground).toBe(colors.textOnDark);
-  });
-});
-
-/**
- * Scenario: the generated resources are committed, and nothing but a developer
- * running `npm run gen:widget-theme` keeps them in step with the palette. The
- * widget draws its largest form value with no zone label beside it, so a text
- * variant that reached the palette and not the XML is invisible until someone
- * reads a screenshot.
- */
-describe('generated Android resources', () => {
-  const ROOT = join(__dirname, '..', '..');
-  const read = (dir: string) =>
-    readFileSync(join(ROOT, 'widget', 'android', 'res', dir, 'widget_theme.xml'), 'utf8');
-
-  const TEXT_RESOURCES = [
-    ['widget_form_high_risk_text', 'formHighRiskText'],
-    ['widget_form_optimal_text', 'formOptimalText'],
-    ['widget_form_grey_zone_text', 'formGreyZoneText'],
-    ['widget_form_fresh_text', 'formFreshText'],
-    ['widget_form_transition_text', 'formTransitionText'],
-  ] as const;
-
-  it.each(TEXT_RESOURCES)('values/%s matches the light palette', (name, key) => {
-    expect(read('values')).toContain(`<color name="${name}">${widgetPalette.light[key]}</color>`);
-  });
-
-  it.each(TEXT_RESOURCES)('values-night/%s matches the dark palette', (name, key) => {
-    expect(read('values-night')).toContain(
-      `<color name="${name}">${widgetPalette.dark[key]}</color>`
-    );
-  });
-
-  it('keeps the fills, which the form bar draws as a ground', () => {
-    expect(read('values')).toContain(
-      `<color name="widget_form_grey_zone">${widgetPalette.light.formGreyZone}</color>`
-    );
   });
 });

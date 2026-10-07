@@ -64,7 +64,13 @@ describe('the cutover status line', () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
     render(<CutoverStatus />);
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
-    expect(screen.getByText('Rebuilding sections: detecting')).toBeTruthy();
+    expect(screen.getByText('Rebuilding sections: cutting new sections')).toBeTruthy();
+  });
+
+  it('uses the preparing wording while the run drains', () => {
+    mockUseCutoverSummary.mockReturnValue(running('draining'));
+    render(<CutoverStatus />);
+    expect(screen.getByText('Rebuilding sections: preparing the catalogue')).toBeTruthy();
   });
 
   it('names every phase a run can hold the slot in', () => {
@@ -97,7 +103,27 @@ describe('the cutover status line', () => {
     tree.rerender(<CutoverStatus />);
 
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
-    expect(screen.getByText('The section rebuild did not finish.')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'The section rebuild did not finish. Your sections are unchanged and it runs again next launch.'
+      )
+    ).toBeTruthy();
+  });
+
+  it('says the sections were rebuilt when the run failed after replacing them', () => {
+    mockUseCutoverSummary.mockReturnValue(running('diffing'));
+    const tree = render(<CutoverStatus />);
+
+    mockUseCutoverSummary.mockReturnValue(settled('failed_after_apply', true));
+    tree.rerender(<CutoverStatus />);
+
+    expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Your sections were rebuilt, but the summary of what changed was not saved. It is written again next launch.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText(/Your sections are unchanged/)).toBeNull();
   });
 
   it('says nothing about a run that was already over when the screen opened', () => {

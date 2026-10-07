@@ -1,6 +1,6 @@
 /**
  * Scenario: the regional map is rendered over a list of activity bounds that
- * may be empty, partly invalid, or missing GPS tracks.
+ * may be empty, partly invalid, or missing their start points.
  *
  * Expected behaviour: it mounts, exposes its overlay toggles and the fit-all
  * control, and the toggles stay pressable without a GL context.
@@ -10,9 +10,17 @@ import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RegionalMapView } from '@/features/maps/components/RegionalMapView';
+import { decodeCoords } from 'veloqrs';
 import type { ActivityBoundsItem } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
+
+const mockClearHeatmapView = jest.fn();
+
+jest.mock('@/features/maps/lib/heatmapGeneration', () => ({
+  ...jest.requireActual('@/features/maps/lib/heatmapGeneration'),
+  clearHeatmapView: () => mockClearHeatmapView(),
+}));
 
 let mockPathname = '/map';
 
@@ -31,11 +39,26 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   }),
 }));
 
-jest.mock('@/features/routes/hooks', () => ({
-  // The overlay's light read, and the full record the popup takes on a tap.
-  useMapSections: () => ({ sections: [], totalCount: 0 }),
-  useSectionDetail: () => ({ section: null }),
-  useEngineSectionCount: () => 0,
+const SECTION = {
+  id: 'sec-1',
+  sectionType: 'auto',
+  name: 'Hill Climb',
+  sportTypes: ['Ride'],
+  polyline: [
+    { lat: 46.95, lng: 7.45 },
+    { lat: 46.96, lng: 7.46 },
+  ],
+  distanceMeters: 1200,
+  activityIds: ['a1'],
+  visitCount: 3,
+};
+
+const mockSectionDetail = jest.fn((id: string | null) => ({
+  section: id ? SECTION : null,
+}));
+
+jest.mock('@/shared/native/useSectionDetail', () => ({
+  useSectionDetail: (id: string | null) => mockSectionDetail(id),
 }));
 
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
@@ -44,6 +67,11 @@ jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
+}));
+
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({ getGpsTrack: () => 'encoded' }),
 }));
 
 jest.mock('expo-location', () => ({
@@ -70,11 +98,7 @@ function activity(id: string, overrides: Partial<ActivityBoundsItem> = {}): Acti
     date: '2026-01-15T10:00:00Z',
     distance: 42_000,
     duration: 5400,
-    latlngs: [
-      [46.948, 7.447],
-      [46.949, 7.448],
-      [46.95, 7.449],
-    ],
+    startPoint: [46.948, 7.447],
     ...overrides,
   };
 }
@@ -88,7 +112,28 @@ function renderRegional(props: Partial<React.ComponentProps<typeof RegionalMapVi
 }
 
 describe('RegionalMapView', () => {
+  /**
+   * Scenario: a link names a section, so the popup opens without a tap on the
+   * overlay.
+   *
+   * Expected behaviour: the popup shows for the named id, and nothing opens
+   * when the link names none.
+   */
+  it('opens the popup for the section a link names', () => {
+    renderRegional({ selectSectionId: 'sec-1' });
+
+    expect(mockSectionDetail).toHaveBeenCalledWith('sec-1');
+    expect(screen.getByTestId('section-popup')).toBeTruthy();
+  });
+
+  it('opens no section popup without a section in the link', () => {
+    renderRegional();
+
+    expect(screen.queryByTestId('section-popup')).toBeNull();
+  });
+
   beforeEach(() => {
+    (decodeCoords as jest.Mock).mockReturnValue([{ latitude: 46.95, longitude: 7.45 }]);
     mockPathname = '/map';
   });
 
@@ -124,6 +169,42 @@ describe('RegionalMapView', () => {
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
+  /**
+   * Scenario: the markers are drawn into the map canvas, so no automation can
+   * tap one. A deep link names the activity to open instead.
+   *
+   * Expected behaviour: the named activity's popup shows with its actions, the
+   * close button dismisses it, and an unknown id opens nothing.
+   */
+  it('opens the popup for the activity a deep link names, and closes it', () => {
+    renderRegional({ selectActivityId: 'a2' });
+
+    expect(screen.getByTestId('activity-popup')).toBeTruthy();
+    expect(screen.getByText('Ride a2')).toBeTruthy();
+    expect(screen.getByTestId('activity-popup-view-details')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('activity-popup-close'));
+    expect(screen.queryByTestId('activity-popup')).toBeNull();
+  });
+
+  it('opens no popup for an activity that is not on the map', () => {
+    renderRegional({ selectActivityId: 'missing' });
+
+    expect(screen.queryByTestId('activity-popup')).toBeNull();
+  });
+
+  it('opens the popup once the named activity arrives', () => {
+    const view = renderRegional({ activities: [], selectActivityId: 'a1' });
+    expect(screen.queryByTestId('activity-popup')).toBeNull();
+
+    view.rerender(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <RegionalMapView activities={[activity('a1')]} selectActivityId="a1" />
+      </SafeAreaProvider>
+    );
+    expect(screen.getByTestId('activity-popup')).toBeTruthy();
+  });
+
   it('swaps in the terrain view when 3D is enabled', () => {
     renderRegional();
 
@@ -157,6 +238,35 @@ describe('RegionalMapView', () => {
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
+  /**
+   * Scenario: the athlete opens the map over one town and leaves the tab. The
+   * next tile pass still put that town first, for a screen nobody has open.
+   *
+   * Expected behaviour: leaving the tab clears the priority view. Staying on
+   * the tab, or entering 3D, which still shows the same ground, does not.
+   */
+  it('forgets the heatmap priority view when the tab loses focus', () => {
+    mockClearHeatmapView.mockClear();
+    const view = renderRegional();
+    fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    view.rerender(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <RegionalMapView activities={[activity('a1'), activity('a2')]} />
+      </SafeAreaProvider>
+    );
+    expect(mockClearHeatmapView).not.toHaveBeenCalled();
+
+    mockPathname = '/activity/a1';
+    view.rerender(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <RegionalMapView activities={[activity('a1'), activity('a2')]} />
+      </SafeAreaProvider>
+    );
+
+    expect(mockClearHeatmapView).toHaveBeenCalledTimes(1);
+  });
+
   it('takes the terrain view down with the tab too', () => {
     const view = renderRegional();
     fireEvent.press(screen.getByTestId('map-toggle-3d'));
@@ -177,27 +287,22 @@ describe('RegionalMapView', () => {
     renderRegional({ onAttributionChange });
 
     expect(onAttributionChange).toHaveBeenCalled();
+    expect(screen.queryByText(onAttributionChange.mock.calls[0][0])).toBeNull();
   });
 
   describe('degenerate input', () => {
     const cases: [string, Partial<React.ComponentProps<typeof RegionalMapView>>][] = [
       ['an empty activity list', { activities: [] }],
-      ['an activity with no GPS track', { activities: [activity('a1', { latlngs: undefined })] }],
-      ['an activity with an empty GPS track', { activities: [activity('a1', { latlngs: [] })] }],
       [
-        'an activity with a single GPS point',
-        { activities: [activity('a1', { latlngs: [[46.948, 7.447]] })] },
+        'an activity with no start point',
+        { activities: [activity('a1', { startPoint: undefined })] },
       ],
       [
-        'non-finite GPS points',
+        'a non-finite start point',
         {
           activities: [
-            activity('a1', {
-              latlngs: [
-                [NaN, 7.447],
-                [46.949, Infinity],
-              ],
-            }),
+            activity('a1', { startPoint: [NaN, 7.447] }),
+            activity('a2', { startPoint: [46.949, Infinity] }),
           ],
         },
       ],
@@ -214,7 +319,6 @@ describe('RegionalMapView', () => {
           ],
         },
       ],
-      ['attribution turned off', { showAttribution: false }],
     ];
 
     it.each(cases)('survives %s', (_label, props) => {

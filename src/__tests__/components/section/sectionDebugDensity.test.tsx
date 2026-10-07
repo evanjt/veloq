@@ -17,7 +17,7 @@ function section(pointDensity?: number[]): FrequentSection {
   return {
     id: 'sec-1',
     sectionType: 'auto',
-    sportType: 'Ride',
+    sportTypes: ['Ride'],
     polyline: [
       { lat: 1, lng: 1 },
       { lat: 2, lng: 2 },

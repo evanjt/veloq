@@ -50,7 +50,6 @@ function section(id: string, over: Partial<PreviewSection> = {}): PreviewSection
     liveId: id,
     status: 'unchanged',
     name: `Section ${id}`,
-    sport: 'Ride',
     polyline: new ArrayBuffer(0),
     visits: 7,
     distanceM: 4200,
@@ -80,7 +79,7 @@ function renderMap(over: { showCurrent?: boolean; showRemoved?: boolean } = {}) 
   render(
     <PreviewMapView
       result={RESULT}
-      currentSections={[]}
+      currentSections={[section('kept')]}
       centre={CENTRE}
       selectedId={null}
       showCurrent={over.showCurrent ?? true}

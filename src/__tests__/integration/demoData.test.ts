@@ -4,11 +4,11 @@
  * and that fixtures themselves remain shape-valid, unique, and deterministic.
  */
 
-import { calculateTSB } from '@/features/fitness/lib/fitness';
+import { formFromLoads } from '@/shared/math/trainingLoad';
 import { sortByDateId } from '@/shared/activity/activityUtils';
-import { demoWellness } from '@/shared/demo/fitness/wellness';
 import {
   fixtures,
+  getActivityIntervals,
   getActivityStreams,
   getActivityMap,
   type ApiActivity,
@@ -18,16 +18,21 @@ import { DEMO_REFERENCE_DATE } from '@/data/demo/random';
 const demoActivities = fixtures.activities;
 
 describe('Demo data integrity', () => {
+  it('keeps ride power in the generated interval rows', () => {
+    const intervals = getActivityIntervals('demo-test-0').icu_intervals;
+    expect(intervals.length).toBeGreaterThan(0);
+    expect(intervals[0].average_watts).toBeGreaterThan(0);
+  });
+
   it('wellness TSB pipeline produces finite form values that track CTL - ATL', () => {
-    const sorted = sortByDateId(demoWellness);
-    const withTSB = calculateTSB(sorted);
+    const sorted = sortByDateId(fixtures.wellness);
+    const withTSB = sorted.map((day) => ({ ...day, tsb: formFromLoads(day.ctl, day.atl) }));
 
     expect(withTSB.length).toBeGreaterThan(0);
-    expect(demoWellness[demoWellness.length - 1].id).toBe(DEMO_REFERENCE_DATE);
+    expect(sorted[sorted.length - 1].id).toBe(DEMO_REFERENCE_DATE);
 
     withTSB.forEach((day, i) => {
-      expect(typeof day.tsb).toBe('number');
-      expect(Number.isNaN(day.tsb)).toBe(false);
+      expect(Number.isFinite(day.tsb)).toBe(true);
       expect(day.tsb).toBeGreaterThanOrEqual(-150);
       expect(day.tsb).toBeLessThanOrEqual(150);
 
