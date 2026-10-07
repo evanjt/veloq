@@ -2,9 +2,18 @@ import React, { useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import type { TFunc } from '../../types';
+import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
+import type { TFunction } from 'i18next';
 import { useTheme } from '@/shared/app';
-import { getSportDisplayName, getActivityIcon } from '@/shared/activity/activityUtils';
-import { useSectionDetail } from '@/features/routes/hooks/useEngine';
+import {
+  getActivityIcon,
+  isCyclingActivity,
+  isPaceSport,
+  isSwimmingActivity,
+} from '@/shared/activity/activityUtils';
+import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SectionInsightMap } from './SectionInsightMap';
@@ -19,14 +28,15 @@ import {
   typography,
   verdictColor,
 } from '@/theme';
-import type { Insight, SupportingSection } from '@/types';
-import { pressable } from '@/shared/ui';
+import type { ActivityType, Insight, SupportingSection } from '@/types';
+import { pressable, pressRipple, EngineReadFailure } from '@/shared/ui';
 
 interface StalePRContentProps {
   insight: Insight;
 }
 
-function getSingleSportLabel(sections: SupportingSection[]): string | null {
+/** The one sport every section shares, as the engine names it, or null. */
+function getSingleSportType(sections: SupportingSection[]): string | null {
   const uniqueSports = Array.from(
     new Set(
       sections
@@ -37,13 +47,20 @@ function getSingleSportLabel(sections: SupportingSection[]): string | null {
     )
   );
 
-  if (uniqueSports.length !== 1) return null;
-  return getSportDisplayName(uniqueSports[0]);
+  return uniqueSports.length === 1 ? uniqueSports[0] : null;
 }
 
+/**
+ * The heading names what the card compared, read from the units the generator
+ * set rather than from its translated labels: watts are eFTP, a pace per
+ * hundred metres is CSS, a pace per kilometre is critical speed. A group card
+ * carries no rows, and the engine compares a ride's eFTP and a run's or a
+ * swim's critical speed, so there the sport its sections share says which.
+ */
 function getContextCopy(
   sections: SupportingSection[],
-  dataPoints: { label: string; unit?: string | undefined }[]
+  dataPoints: { unit?: string | undefined }[],
+  t: TFunction
 ): {
   heading: string;
   body: string;
@@ -54,34 +71,42 @@ function getContextCopy(
       .map((dataPoint) => dataPoint.unit)
       .filter((unit): unit is string => typeof unit === 'string' && unit.length > 0)
   );
-  const labels = dataPoints.map((dataPoint) => dataPoint.label.toLowerCase());
-  const sportLabel = getSingleSportLabel(sections);
+  const sportType = getSingleSportType(sections);
+  const sport = sportType ? t(`activityTypes.${sportType}`, { defaultValue: sportType }) : null;
   const isGrouped = sections.length > 1;
+  // The engine's own sport name, which is what the sport predicates take.
+  const activity = units.size === 0 ? (sportType as ActivityType | null) : null;
 
   const heading =
-    labels.some((label) => label.includes('ftp')) || units.has('W')
-      ? 'Current power vs PR period'
-      : units.has('/100m')
-        ? 'Current swim threshold vs PR period'
-        : units.has('/km') || sportLabel === 'running' || sportLabel === 'trail running'
-          ? 'Current running threshold vs PR period'
-          : 'Current fitness vs PR period';
+    units.has('W') || (activity != null && isCyclingActivity(activity))
+      ? t('insights.stalePr.sheetHeadingPower')
+      : units.has('/100m') || (activity != null && isSwimmingActivity(activity))
+        ? t('insights.stalePr.sheetHeadingSwim')
+        : units.has('/km') || (activity != null && isPaceSport(activity))
+          ? t('insights.stalePr.sheetHeadingRun')
+          : t('insights.stalePr.sheetHeadingFitness');
 
-  const bodyTarget = isGrouped ? 'repeat sections' : 'this repeat section';
-  const sportPrefix = sportLabel ? `${sportLabel} ` : '';
+  const body = isGrouped
+    ? sport
+      ? t('insights.stalePr.sheetBodyManySport', { sport })
+      : t('insights.stalePr.sheetBodyMany')
+    : sport
+      ? t('insights.stalePr.sheetBodyOneSport', { sport })
+      : t('insights.stalePr.sheetBodyOne');
 
   return {
     heading,
-    body: `Comparison of the current ${sportPrefix}fitness trend with the level recorded around the best effort for ${bodyTarget}.`,
-    meta: isGrouped
-      ? 'Open any section below for the underlying effort history.'
-      : 'Open the section below for the underlying effort history.',
+    body,
+    meta: isGrouped ? t('insights.stalePr.sheetMetaMany') : t('insights.stalePr.sheetMetaOne'),
   };
 }
 
 /** Map preview for the first section */
 const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { sectionId: string }) {
-  const { section } = useSectionDetail(sectionId);
+  const { section, error } = useSectionDetail(sectionId);
+  if (error !== undefined) {
+    return <EngineReadFailure error={error} testID="section-read-failure" />;
+  }
   if (!section?.polyline || section.polyline.length < 2) return null;
   return <SectionInsightMap polyline={section.polyline} lineColor={insightIcon.opportunity} />;
 });
@@ -92,10 +117,11 @@ const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { section
  */
 export const StalePRContent = React.memo(function StalePRContent({ insight }: StalePRContentProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const dataPoints = insight.supportingData?.dataPoints ?? [];
   const sections = insight.supportingData?.sections ?? [];
   const topSectionId = sections[0]?.sectionId ?? null;
-  const contextCopy = getContextCopy(sections, dataPoints);
+  const contextCopy = getContextCopy(sections, dataPoints, t);
 
   const handleSectionPress = useCallback((id: string) => {
     navigateTo(`/section/${id}`);
@@ -130,6 +156,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
                 ]}
               >
                 {String(dp.value)}
+                {dp.unit ?? ''}
               </Text>
             </View>
           ))}
@@ -140,8 +167,9 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
         <View style={styles.sectionList}>
           {sections.map((s: SupportingSection) => (
             <Pressable
-              key={s.sectionId}
+              key={sectionRowKey(s)}
               style={pressable([styles.sectionCard, isDark && styles.sectionCardDark])}
+              android_ripple={pressRipple}
               onPress={() => handleSectionPress(s.sectionId)}
             >
               <View style={styles.sectionContent}>
@@ -158,7 +186,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
                     style={[styles.sectionName, isDark && styles.sectionNameDark]}
                     numberOfLines={1}
                   >
-                    {s.sectionName}
+                    {sectionWithSport(s.sectionName, s.sportType, t as unknown as TFunc)}
                   </Text>
                 </View>
                 {s.bestTime != null ? (

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -10,7 +10,7 @@ import Animated, {
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { CHART_CONFIG } from '@/constants';
-import { brand, loupeChrome, layout } from '@/theme';
+import { bodyDiagram, brand, loupeChrome, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 import { findMuscleAtPoint } from '../lib/polygons';
@@ -28,6 +28,8 @@ const BODY_INTRINSIC_H = 400;
 
 interface BodyPairWithLoupeProps {
   data: readonly ExtendedBodyPart[];
+  /** The muscle drawn with the selection stroke. Kept out of `data` so a scrub does not rebuild it. */
+  selectedSlug?: string | null | undefined;
   gender: 'male' | 'female';
   scale: number;
   colors: readonly string[];
@@ -41,7 +43,8 @@ interface BodyPairWithLoupeProps {
 }
 
 export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
-  data,
+  data: baseData,
+  selectedSlug,
   gender,
   scale,
   colors,
@@ -54,6 +57,28 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   centerWidth = 0,
 }: BodyPairWithLoupeProps) {
   const { isDark } = useTheme();
+  const stroke = isDark ? bodyDiagram.selectedStrokeDark : bodyDiagram.selectedStroke;
+  // Each part's selected form is made once per data and theme, so a scrub step hands
+  // Body the same objects for every part whose stroke did not change.
+  const selectedParts = useMemo(
+    () =>
+      new Map(
+        baseData.map((part) => [
+          part.slug,
+          { ...part, styles: { ...part.styles, stroke, strokeWidth: 2.5 } },
+        ])
+      ),
+    [baseData, stroke]
+  );
+  const data = useMemo(
+    () =>
+      selectedSlug == null
+        ? baseData
+        : baseData.map((part) =>
+            part.slug === selectedSlug ? (selectedParts.get(part.slug) ?? part) : part
+          ),
+    [baseData, selectedSlug, selectedParts]
+  );
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const lastScrubSlug = useRef<string | null>(null);
   // The loupe's two bodies are drawn two and a half times larger than the pair
@@ -322,38 +347,6 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
               </View>
             </Animated.View>
           )}
-          {/* Debug: uncomment to visualize hit regions
-          {layoutSize && tappableSlugs && tappableSlugs.size > 0 && (
-            <View style={StyleSheet.absoluteFill} pointerEvents="none">
-              {(['front', 'back'] as const).map((side) => {
-                const positions = side === 'front' ? FRONT_POSITIONS : BACK_POSITIONS;
-                const bodyW = (layoutSize.width - totalGap) / 2;
-                const svgW = bodyPixelW;
-                const svgH = bodyPixelH;
-                const padX = (bodyW - svgW) / 2;
-                const containerOffsetX = side === 'front' ? 0 : bodyW + totalGap;
-                return Object.entries(positions).map(([slug, regions]) => {
-                  if (!tappableSlugs.has(slug)) return null;
-                  return regions.map((pos, idx) => (
-                    <View
-                      key={`debug-${side}-${slug}-${idx}`}
-                      style={{
-                        position: 'absolute',
-                        left: containerOffsetX + padX + pos.x * svgW - TAP_TARGET_RADIUS,
-                        top: pos.y * svgH - TAP_TARGET_RADIUS,
-                        width: TAP_TARGET_RADIUS * 2,
-                        height: TAP_TARGET_RADIUS * 2,
-                        borderRadius: TAP_TARGET_RADIUS,
-                        backgroundColor: 'rgba(0, 100, 255, 0.3)',
-                        borderWidth: 1,
-                        borderColor: 'blue',
-                      }}
-                    />
-                  ));
-                });
-              })}
-            </View>
-          )} */}
         </View>
       </Animated.View>
     </GestureDetector>

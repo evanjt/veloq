@@ -7,31 +7,25 @@ import type {
   StrengthProgressionRecord,
   StrengthProgressTrend,
   StrengthScreenData,
+  StrengthSummary,
 } from '../types';
 
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from './exerciseMuscleMap';
-
-/** The engine's slugs are the same set, but they cross the FFI as strings. */
-function muscleName(slug: string): string {
-  return MUSCLE_DISPLAY_NAMES[slug as MuscleSlug] ?? slug;
-}
+import {
+  BALANCE_PAIR_NAME_KEYS,
+  balancePairName,
+  muscleName,
+  type NameTranslator,
+} from './muscleNames';
 
 /**
- * What each pair is called. The pairs themselves, the volumes on each side and
- * the verdict come from the engine (`objects/strength.rs`, `balance_pairs`),
- * which is where the arithmetic they are a function of already lived.
+ * Every pair the screen lists and what it is called. The pairs themselves, the
+ * volumes on each side and the verdict come from the engine
+ * (`objects/strength.rs`, `balance_pairs`), which is where the arithmetic they
+ * are a function of already lived.
  */
-const BALANCE_PAIR_LABELS: Record<string, string> = {
-  quads_hamstrings: 'Quads vs Hamstrings',
-  chest_back: 'Chest vs Upper Back',
-  biceps_triceps: 'Biceps vs Triceps',
-};
-
-/** Every pair and what it is called, for the screen that lists them. */
-export const BALANCE_PAIR_NAMES = Object.entries(BALANCE_PAIR_LABELS).map(([id, label]) => ({
-  id,
-  label,
-}));
+export function listBalancePairNames(t: NameTranslator): { id: string; label: string }[] {
+  return Object.keys(BALANCE_PAIR_NAME_KEYS).map((id) => ({ id, label: balancePairName(id, t) }));
+}
 
 const BALANCE_SEVERITY: Record<StrengthBalanceStatus, number> = {
   'one-sided': 4,
@@ -41,13 +35,16 @@ const BALANCE_SEVERITY: Record<StrengthBalanceStatus, number> = {
   insufficient: 0,
 };
 
-export function buildStrengthBalancePairs(pairs: EngineBalancePair[]): StrengthBalancePair[] {
+export function buildStrengthBalancePairs(
+  pairs: EngineBalancePair[],
+  t: NameTranslator
+): StrengthBalancePair[] {
   const named = pairs.map((pair) => ({
     ...pair,
-    label: BALANCE_PAIR_LABELS[pair.id] ?? pair.id,
-    leftLabel: muscleName(pair.leftSlug),
-    rightLabel: muscleName(pair.rightSlug),
-    dominantLabel: pair.dominantSlug ? muscleName(pair.dominantSlug) : null,
+    label: balancePairName(pair.id, t),
+    leftLabel: muscleName(pair.leftSlug, t),
+    rightLabel: muscleName(pair.rightSlug, t),
+    dominantLabel: pair.dominantSlug ? muscleName(pair.dominantSlug, t) : null,
   }));
 
   return named.sort((a, b) => {
@@ -69,6 +66,7 @@ export function normalizeStrengthProgression(raw: {
   peakWeightedSets: number;
   changePct?: number;
   trend: string;
+  signalDelta?: number;
 }): StrengthProgressionRecord {
   return {
     muscleSlug: raw.muscleSlug,
@@ -78,6 +76,60 @@ export function normalizeStrengthProgression(raw: {
     peakWeightedSets: raw.peakWeightedSets,
     changePct: raw.changePct ?? null,
     trend: raw.trend as StrengthProgressTrend,
+    signalDelta: raw.signalDelta ?? null,
+  };
+}
+
+/**
+ * The engine's strength summary as it crosses the FFI, with optional fields
+ * filled and the verdict typed. The strength tab and the insights both read
+ * one, so both map it here.
+ */
+export function normalizeStrengthSummary(raw: {
+  muscleVolumes?: {
+    slug: string;
+    primarySets: number;
+    secondarySets: number;
+    weightedSets: number;
+    totalReps: number;
+    volumeKg: number;
+    exerciseNames: string[];
+  }[];
+  activityCount?: number;
+  totalSets?: number;
+  balance?: {
+    id: string;
+    leftSlug: string;
+    rightSlug: string;
+    leftWeightedSets: number;
+    rightWeightedSets: number;
+    dominantSlug?: string | null;
+    ratio?: number | null;
+    status: string;
+  }[];
+}): StrengthSummary {
+  return {
+    muscleVolumes: (raw.muscleVolumes ?? []).map((v) => ({
+      slug: v.slug,
+      primarySets: v.primarySets,
+      secondarySets: v.secondarySets,
+      weightedSets: v.weightedSets,
+      totalReps: v.totalReps,
+      volumeKg: v.volumeKg,
+      exerciseNames: v.exerciseNames,
+    })),
+    activityCount: raw.activityCount ?? 0,
+    totalSets: raw.totalSets ?? 0,
+    balance: (raw.balance ?? []).map((pair) => ({
+      id: pair.id,
+      leftSlug: pair.leftSlug,
+      rightSlug: pair.rightSlug,
+      leftWeightedSets: pair.leftWeightedSets,
+      rightWeightedSets: pair.rightWeightedSets,
+      dominantSlug: pair.dominantSlug ?? null,
+      ratio: pair.ratio ?? null,
+      status: pair.status as StrengthBalanceStatus,
+    })),
   };
 }
 
@@ -115,8 +167,7 @@ export function selectExercises(
   data: StrengthScreenData | undefined | null,
   muscleSlug: string | null
 ): MuscleExerciseSummary {
-  const periodDays = data?.periodDays ?? 0;
-  if (!data || !muscleSlug) return { exercises: [], periodDays };
+  if (!data || !muscleSlug) return { exercises: [] };
   const muscle = data.exercises.find((m) => m.muscleSlug === muscleSlug);
-  return { exercises: muscle?.exercises ?? [], periodDays };
+  return { exercises: muscle?.exercises ?? [] };
 }

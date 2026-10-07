@@ -5,6 +5,7 @@ export { StrengthActivityCard, type StrengthCardData } from './components/Streng
 export { StrengthBodyDiagram } from './components/StrengthBodyDiagram';
 export { StrengthProgressionCard } from './components/StrengthProgressionCard';
 export { StrengthExerciseList } from './components/StrengthExerciseList';
+export { default as ExerciseDetailScreen } from './components/ExerciseDetailScreen';
 export { StrengthBalanceView } from './components/StrengthBalanceView';
 
 export { useExerciseSets, useMuscleGroups } from './hooks/useExerciseSets';
@@ -13,31 +14,29 @@ export type { MuscleGroupDetail } from './hooks/useMuscleDetail';
 export {
   useStrengthScreenData,
   useStrengthTabState,
-  useActivitiesForExercise,
+  readExerciseDetailData,
 } from './hooks/useStrengthScreenData';
 export { generateStrengthInsights } from './hooks/strengthInsights';
 export { STRENGTH_PERIODS } from './periods';
 
-export { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from './lib/exerciseMuscleMap';
+export { type MuscleSlug } from './lib/exerciseMuscleMap';
+export { MUSCLE_NAME_KEYS, muscleName, balancePairName } from './lib/muscleNames';
 export {
   buildStrengthBalancePairs,
   normalizeStrengthProgression,
+  normalizeStrengthSummary,
   selectExercises,
   selectProgression,
-  BALANCE_PAIR_NAMES,
+  listBalancePairNames,
 } from './lib/analysis';
-export {
-  formatWeight,
-  formatWeightRounded,
-  formatSetCount,
-  formatBalanceRatio,
-} from './lib/formatting';
+export { formatSetCount, formatBalanceRatio } from './lib/formatting';
 export { findMuscleAtPoint } from './lib/polygons';
 export type { MusclePolygons, Polygon } from './lib/polygons';
 
 export type {
   MuscleVolume,
   StrengthSummary,
+  StrengthProgressionRecord,
   StrengthPeriod,
   StrengthProgressPoint,
   StrengthProgressTrend,
@@ -47,7 +46,6 @@ export type {
   StrengthBalancePair,
   ExerciseSummary,
   MuscleExerciseSummary,
-  ExerciseActivity,
 } from './types';
 
 export { demoStrengthSets } from './demo';

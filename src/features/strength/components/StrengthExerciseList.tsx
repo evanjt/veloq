@@ -1,251 +1,106 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { formatEpochDayUtc } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
+import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
 
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
-import { formatWeightRounded as formatWeight } from '../lib/formatting';
-
-interface ExerciseActivity {
-  activityId: string;
-  activityName: string;
-  date: number;
-  sets: number;
-  totalWeightKg: number;
-}
+import { muscleName } from '../lib/muscleNames';
 
 interface StrengthExerciseListProps {
   selectedVolume: MuscleVolume;
   exerciseSummary: { exercises: ExerciseSummary[] };
-  expandedExercise: number | null;
-  exerciseActivities: ExerciseActivity[] | null;
-  onExpandExercise: (exerciseCategory: number | null) => void;
-  /** When true, render without the outer card wrapper (used when embedded
-   *  inside StrengthProgressionCard). */
-  embedded?: boolean;
 }
 
+/** Exercises behind one muscle, each opening its history. */
 export const StrengthExerciseList = React.memo(function StrengthExerciseList({
   selectedVolume,
   exerciseSummary,
-  expandedExercise,
-  exerciseActivities,
-  onExpandExercise,
-  embedded = false,
 }: StrengthExerciseListProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const router = useRouter();
-
-  const Wrapper = embedded ? View : View;
-  const wrapperStyle = embedded ? null : [styles.exerciseCard, isDark && styles.exerciseCardDark];
+  const selectedMuscleName = muscleName(selectedVolume.slug, t);
 
   return (
-    <Wrapper style={wrapperStyle as never}>
-      <Text style={[styles.exerciseCardTitle, isDark && styles.exerciseCardTitleDark]}>
-        {t('strength.exercisesTargeting', {
-          muscle: MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug,
-        })}
+    <View testID="strength-exercise-list">
+      <Text style={[styles.title, isDark && styles.titleDark]}>
+        {t('strength.exercisesTargeting', { muscle: selectedMuscleName })}
       </Text>
-      {exerciseSummary.exercises.map((exercise: ExerciseSummary, idx: number) => {
-        const isExpanded = expandedExercise === exercise.exerciseCategory;
-        return (
-          <View key={exercise.exerciseCategory}>
-            <TouchableOpacity
-              style={[
-                styles.exerciseCardItem,
-                idx > 0 && styles.exerciseCardItemBorder,
-                idx > 0 && isDark && styles.exerciseCardItemBorderDark,
-              ]}
-              onPress={() => onExpandExercise(isExpanded ? null : exercise.exerciseCategory)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.exerciseCardDot} />
-              <View style={styles.exerciseCardContent}>
-                <View style={styles.exerciseCardNameRow}>
-                  <Text
-                    style={[styles.exerciseCardName, isDark && styles.exerciseCardNameDark]}
-                    numberOfLines={1}
-                  >
-                    {exercise.exerciseName}
-                  </Text>
-                  <MaterialCommunityIcons
-                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={16}
-                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                  />
-                </View>
-                <Text style={[styles.exerciseCardMeta, isDark && styles.exerciseCardMetaDark]}>
-                  {t('strength.exerciseSets', {
-                    sets: exercise.totalSets,
-                  })}{' '}
-                  ·{' '}
-                  {t('strength.exerciseWorkoutCount', {
-                    count: exercise.activityCount,
-                  })}
-                  {exercise.totalWeightKg > 0
-                    ? ` · ${formatWeight(exercise.totalWeightKg, isMetric)}`
-                    : ''}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Expanded: per-activity breakdown */}
-            {isExpanded && exerciseActivities && exerciseActivities.length > 0 && (
-              <View style={[styles.activityList, isDark && styles.activityListDark]}>
-                {exerciseActivities.map((activity) => (
-                  <TouchableOpacity
-                    key={activity.activityId}
-                    style={styles.activityRow}
-                    onPress={() => router.push(`/activity/${activity.activityId}`)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.activityRowLeft}>
-                      <Text
-                        style={[styles.activityName, isDark && styles.activityNameDark]}
-                        numberOfLines={1}
-                      >
-                        {activity.activityName}
-                      </Text>
-                      <Text style={[styles.activityDate, isDark && styles.activityDateDark]}>
-                        {formatEpochDayUtc(activity.date)}
-                      </Text>
-                    </View>
-                    <Text style={[styles.activityStats, isDark && styles.activityStatsDark]}>
-                      {t('strength.exerciseSets', {
-                        sets: activity.sets,
-                      })}
-                      {activity.totalWeightKg > 0
-                        ? ` · ${formatWeight(activity.totalWeightKg, isMetric)}`
-                        : ''}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            {isExpanded && exerciseActivities && exerciseActivities.length === 0 && (
-              <View style={[styles.activityList, isDark && styles.activityListDark]}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            )}
+      {exerciseSummary.exercises.map((exercise, index) => (
+        <TouchableOpacity
+          key={exercise.exerciseCategory}
+          style={[
+            styles.item,
+            index > 0 && styles.itemBorder,
+            index > 0 && isDark && styles.itemBorderDark,
+          ]}
+          onPress={() => router.push(`/exercise/${exercise.exerciseCategory}`)}
+          accessibilityRole="link"
+          accessibilityLabel={t('strength.openExerciseHistory', {
+            exercise: exercise.exerciseName,
+          })}
+          testID={`exercise-history-${exercise.exerciseCategory}`}
+          activeOpacity={0.7}
+        >
+          <View style={styles.dot} />
+          <View style={styles.content}>
+            <Text style={[styles.name, isDark && styles.nameDark]} numberOfLines={1}>
+              {exercise.exerciseName}
+            </Text>
+            <Text style={[styles.meta, isDark && styles.metaDark]}>
+              {t('strength.exerciseSets', { sets: exercise.totalSets })} ·{' '}
+              {t('strength.exerciseWorkoutCount', { count: exercise.activityCount })}
+              {` · ${exercise.totalReps} ${t('strength.reps')}`}
+              {exercise.volumeKg > 0 ? ` · ${formatWeight(exercise.volumeKg, isMetric)}` : ''}
+            </Text>
           </View>
-        );
-      })}
-    </Wrapper>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={20}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+        </TouchableOpacity>
+      ))}
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
-  exerciseCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  exerciseCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  exerciseCardTitle: {
+  title: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
-  exerciseCardTitleDark: {
-    color: darkColors.textSecondary,
-  },
-  exerciseCardItem: {
+  titleDark: { color: darkColors.textSecondary },
+  item: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.xsPlus,
     gap: spacing.sm,
   },
-  exerciseCardItemBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-  },
-  exerciseCardItemBorderDark: {
-    borderTopColor: darkColors.border,
-  },
-  exerciseCardDot: {
+  itemBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+  itemBorderDark: { borderTopColor: darkColors.border },
+  dot: {
     width: 6,
     height: 6,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: brand.tealLight,
   },
-  exerciseCardContent: {
-    flex: 1,
-  },
-  exerciseCardNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  exerciseCardName: {
-    flex: 1,
-    fontSize: typography.bodyMedium.fontSize,
-    color: colors.textPrimary,
-  },
-  exerciseCardNameDark: {
-    color: darkColors.textPrimary,
-  },
-  exerciseCardMeta: {
+  content: { flex: 1 },
+  name: { fontSize: typography.bodyMedium.fontSize, color: colors.textPrimary },
+  nameDark: { color: darkColors.textPrimary },
+  meta: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
-  exerciseCardMetaDark: {
-    color: darkColors.textSecondary,
-  },
-  activityList: {
-    marginLeft: spacing.md,
-    paddingLeft: spacing.sm,
-    borderLeftWidth: 1,
-    borderLeftColor: colors.divider,
-    marginBottom: spacing.xs,
-  },
-  activityListDark: {
-    borderLeftColor: darkColors.border,
-  },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xsPlus,
-    paddingHorizontal: spacing.xs,
-  },
-  activityRowLeft: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  activityName: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textPrimary,
-  },
-  activityNameDark: {
-    color: darkColors.textPrimary,
-  },
-  activityDate: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  activityDateDark: {
-    color: darkColors.textSecondary,
-  },
-  activityStats: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  activityStatsDark: {
-    color: darkColors.textSecondary,
-  },
+  metaDark: { color: darkColors.textSecondary },
 });

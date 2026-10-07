@@ -7,13 +7,18 @@
  * fetch that would fill it. Activities the engine knows are strength and has
  * no FIT outcome for are enough for the tab: it then says what it is waiting
  * for rather than that no strength workout exists.
+ *
+ * While a sync runs the files are owed rather than left behind, so the tab
+ * reports a download in progress and keeps 'awaiting' for a settled sync.
  */
-export type StrengthTabState = 'hidden' | 'awaiting' | 'ready';
+export type StrengthTabState = 'hidden' | 'awaiting' | 'downloading' | 'ready';
 
 export function strengthTabState(counts: {
   hasSets: boolean;
   unfetchedCount: number;
+  isSyncing: boolean;
 }): StrengthTabState {
   if (counts.hasSets) return 'ready';
-  return counts.unfetchedCount > 0 ? 'awaiting' : 'hidden';
+  if (counts.unfetchedCount === 0) return 'hidden';
+  return counts.isSyncing ? 'downloading' : 'awaiting';
 }

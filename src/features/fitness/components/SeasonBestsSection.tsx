@@ -4,67 +4,101 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useActivities } from '@/features/activity';
+import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import { formatDurationOrNull, formatLocalDate } from '@/shared/format/format';
+import { EngineReadFailure } from '@/shared/ui';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
+import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '../lib/bestEfforts';
-import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
+import {
+  SPORT_COLORS,
+  SPORT_TEXT_COLORS,
+  SPORT_TEXT_COLORS_DARK,
+  type PrimarySport,
+} from '@/features/fitness/stores';
 import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '@/theme';
-import { type BestEffort } from '@/features/stats';
+import { type BestEffort, type ClimbBest, type ClimbStatus } from '@/features/stats';
+import { ClimbingBestRows } from './ClimbingBestRows';
+import { ClimbingStatusNote } from './ClimbingStatusNote';
 
 interface SeasonBestsSectionProps {
   efforts: BestEffort[];
+  climbing?: ClimbBest[];
+  climbingStatus?: ClimbStatus;
   sport: PrimarySport;
-  days: number;
   isLoading: boolean;
 }
 
-export function SeasonBestsSection({ efforts, sport, days, isLoading }: SeasonBestsSectionProps) {
+export function SeasonBestsSection({
+  efforts,
+  climbing = [],
+  climbingStatus,
+  sport,
+  isLoading,
+}: SeasonBestsSectionProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const sportColor = SPORT_COLORS[sport];
+  const sportText = isDark ? SPORT_TEXT_COLORS_DARK[sport] : SPORT_TEXT_COLORS[sport];
 
-  // Fetch activities to look up names for activity IDs
-  const daysAgo = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - days);
-    return formatLocalDate(d);
-  }, [days]);
+  const effortIds = useMemo(
+    () => efforts.map((effort) => effort.activityId).filter((id): id is string => !!id),
+    [efforts]
+  );
+  const { labels: activityMap, error: labelsError } = useActivityLabels(effortIds);
 
-  const { data: activities } = useActivities({ oldest: daysAgo });
+  const hasEfforts = efforts.some((e) => e.value !== null);
+  const hasClimbingValues = climbing.some((b) => b.vam !== null || b.wattsPerKg !== null);
+  const hasClimbingNote =
+    !!climbingStatus && (climbingStatus.owed > 0 || climbingStatus.sourceExcluded > 0);
+  const hasClimbing = hasClimbingValues || hasClimbingNote;
 
-  const activityMap = useMemo(() => {
-    const map = new Map<string, string>();
-    if (activities) {
-      for (const a of activities) {
-        map.set(a.id, a.name);
-      }
-    }
-    return map;
-  }, [activities]);
+  const viewAll = (
+    <TouchableOpacity
+      testID="season-bests-view-all"
+      style={[styles.viewAllRow, isDark && styles.viewAllRowDark]}
+      onPress={() => router.push('/best-efforts')}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.viewAllText, { color: sportText }]}>{t('bestEffortsScreen.title')}</Text>
+      <MaterialCommunityIcons name="chevron-right" size={18} color={sportColor} />
+    </TouchableOpacity>
+  );
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={colors.primary} />
+      <View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+        {viewAll}
       </View>
     );
   }
 
-  if (efforts.length === 0 || efforts.every((e) => e.value === null)) {
+  if (!hasEfforts && !hasClimbing) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-          {t('statsScreen.noEffortData')}
-        </Text>
+      <View>
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
+            {t('statsScreen.noEffortData')}
+          </Text>
+        </View>
+        {viewAll}
       </View>
     );
   }
 
   return (
     <View>
-      {efforts.map((effort, index) => {
-        const activityName = effort.activityId ? activityMap.get(effort.activityId) : undefined;
+      {labelsError != null && (
+        <EngineReadFailure error={labelsError} testID="season-bests-labels-failed" />
+      )}
+      {(hasEfforts ? efforts : []).map((effort, index) => {
+        const activityName = effort.activityId
+          ? activityMap.get(effort.activityId)?.name
+          : undefined;
         const timeStr = formatDurationOrNull(effort.time);
 
         return (
@@ -79,8 +113,8 @@ export function SeasonBestsSection({ efforts, sport, days, isLoading }: SeasonBe
           >
             <Text style={[styles.label, isDark && styles.labelDark]}>{effort.label}</Text>
             <View style={styles.valueColumn}>
-              <Text style={[styles.value, { color: sportColor }]}>
-                {formatEffortValue(effort.value, sport)}
+              <Text style={[styles.value, { color: sportText }]}>
+                {formatEffortValue(effort.value, sport, t('units.watts'), isMetric)}
               </Text>
               {timeStr && sport !== 'Cycling' && (
                 <Text style={[styles.time, isDark && styles.timeDark]}>{timeStr}</Text>
@@ -93,7 +127,7 @@ export function SeasonBestsSection({ efforts, sport, days, isLoading }: SeasonBe
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text style={[styles.activityName, { color: sportColor }]} numberOfLines={1}>
+                  <Text style={[styles.activityName, { color: sportText }]} numberOfLines={1}>
                     {activityName} →
                   </Text>
                 </TouchableOpacity>
@@ -102,17 +136,16 @@ export function SeasonBestsSection({ efforts, sport, days, isLoading }: SeasonBe
           </View>
         );
       })}
-      <TouchableOpacity
-        testID="season-bests-view-all"
-        style={[styles.viewAllRow, isDark && styles.viewAllRowDark]}
-        onPress={() => router.push('/best-efforts')}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.viewAllText, { color: sportColor }]}>
-          {t('bestEffortsScreen.title')}
-        </Text>
-        <MaterialCommunityIcons name="chevron-right" size={18} color={sportColor} />
-      </TouchableOpacity>
+      {hasClimbing ? (
+        <View>
+          <Text style={[styles.climbingTitle, isDark && styles.climbingTitleDark]}>
+            {t('bestEffortsScreen.climbingBests')}
+          </Text>
+          {hasClimbingValues ? <ClimbingBestRows bests={climbing} sport={sport} /> : null}
+          <ClimbingStatusNote status={climbingStatus} />
+        </View>
+      ) : null}
+      {viewAll}
     </View>
   );
 }
@@ -137,7 +170,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
   },
   rowDark: {},
   rowBorder: {
@@ -179,6 +212,15 @@ const styles = StyleSheet.create({
   activityName: {
     ...typography.caption,
     fontWeight: '500',
+  },
+  climbingTitle: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  climbingTitleDark: {
+    color: darkColors.textSecondary,
   },
   viewAllRow: {
     flexDirection: 'row',

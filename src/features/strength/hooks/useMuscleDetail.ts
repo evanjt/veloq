@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
+import { muscleName } from '../lib/muscleNames';
 
 export interface ExerciseContribution {
   name: string;
@@ -18,7 +19,7 @@ export interface MuscleGroupDetail {
   exercises: ExerciseContribution[];
   totalSets: number;
   totalReps: number;
-  totalVolumeKg: number;
+  volumeKg: number;
   primaryExercises: number;
   secondaryExercises: number;
 }
@@ -34,15 +35,17 @@ export function useMuscleDetail(
   activityId: string | null,
   slug: string | null
 ): MuscleGroupDetail | null {
+  const { t } = useTranslation();
   // A FIT parsed after the screen opened is the event, not the ids below.
   const readActivities = useEngineRead(['activities']);
+  const name = slug ? muscleName(slug, t) : '';
 
   return useMemo(() => {
     if (!slug || !activityId) return null;
     const detail = readActivities((engine) => engine.getMuscleDetail(activityId, slug));
     if (!detail || detail.exercises.length === 0) return null;
     return {
-      name: MUSCLE_DISPLAY_NAMES[slug as MuscleSlug] ?? slug,
+      name,
       slug: detail.slug,
       exercises: detail.exercises.map((e) => ({
         name: e.name,
@@ -53,9 +56,9 @@ export function useMuscleDetail(
       })),
       totalSets: detail.totalSets,
       totalReps: detail.totalReps,
-      totalVolumeKg: detail.totalVolumeKg,
+      volumeKg: detail.volumeKg,
       primaryExercises: detail.primaryExercises,
       secondaryExercises: detail.secondaryExercises,
     };
-  }, [activityId, slug, readActivities]);
+  }, [activityId, slug, readActivities, name]);
 }

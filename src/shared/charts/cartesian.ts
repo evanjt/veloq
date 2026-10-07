@@ -50,6 +50,25 @@ export function xForValue(value: number, xDomain: Domain, bounds: ChartBounds): 
   return scaleFor(xDomain, [bounds.left, bounds.right])(value);
 }
 
+/** Left offset of each label centred on its value's pixel, dropping labels outside the domain. */
+export function placeLabels(
+  labels: readonly { label: string; value: number }[],
+  xDomain: Domain,
+  width: number,
+  halfWidth: number
+): { label: string; left: number }[] {
+  if (width <= 0) return [];
+  const [min, max] = xDomain;
+  const span = max - min || 1;
+  const out: { label: string; left: number }[] = [];
+  for (const { label, value } of labels) {
+    const ratio = (value - min) / span;
+    if (ratio < 0 || ratio > 1) continue;
+    out.push({ label, left: ratio * width - halfWidth });
+  }
+  return out;
+}
+
 /** `[min, max]` of the finite x values, `[0, 1]` when there are none. */
 export function dataExtent<T>(data: readonly T[], x: (datum: T) => number): Domain {
   let min = Infinity;
@@ -64,6 +83,37 @@ export function dataExtent<T>(data: readonly T[], x: (datum: T) => number): Doma
   return [min, max];
 }
 
+/**
+ * Project a series into pixel runs: consecutive samples with a finite y. A
+ * sample whose y is not a finite number ends the run, so a line drawn per run
+ * lifts the pen over the gap instead of joining its neighbours.
+ */
+export function projectRuns<T>(
+  data: readonly T[],
+  x: (datum: T) => number,
+  y: (datum: T) => number | null | undefined,
+  xDomain: Domain,
+  yDomain: Domain,
+  bounds: ChartBounds
+): ProjectedPoint[][] {
+  const sx = scaleFor(xDomain, [bounds.left, bounds.right]);
+  const sy = scaleFor(yDomain, [bounds.bottom, bounds.top]);
+  const runs: ProjectedPoint[][] = [];
+  let run: ProjectedPoint[] = [];
+  for (const datum of data) {
+    const xValue = x(datum);
+    const yValue = y(datum);
+    if (typeof yValue !== 'number' || !Number.isFinite(yValue) || !Number.isFinite(xValue)) {
+      if (run.length > 0) runs.push(run);
+      run = [];
+      continue;
+    }
+    run.push({ x: sx(xValue), y: sy(yValue), xValue, yValue });
+  }
+  if (run.length > 0) runs.push(run);
+  return runs;
+}
+
 /** Project a series into pixels, dropping points whose y is not a finite number. */
 export function projectPoints<T>(
   data: readonly T[],
@@ -73,18 +123,7 @@ export function projectPoints<T>(
   yDomain: Domain,
   bounds: ChartBounds
 ): ProjectedPoint[] {
-  const sx = scaleFor(xDomain, [bounds.left, bounds.right]);
-  const sy = scaleFor(yDomain, [bounds.bottom, bounds.top]);
-  const out: ProjectedPoint[] = [];
-  for (const datum of data) {
-    const xValue = x(datum);
-    const yValue = y(datum);
-    if (typeof yValue !== 'number' || !Number.isFinite(yValue) || !Number.isFinite(xValue)) {
-      continue;
-    }
-    out.push({ x: sx(xValue), y: sy(yValue), xValue, yValue });
-  }
-  return out;
+  return projectRuns(data, x, y, xDomain, yDomain, bounds).flat();
 }
 
 /** `count` horizontal rules spread evenly from the top edge to the bottom edge. */

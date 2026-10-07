@@ -1,25 +1,24 @@
 import { useEffect, useMemo } from 'react';
 import { PERIOD_DAYS } from '@/shared/app/period';
 import { useQuery } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 
-import { getEngine } from '@/shared/native/engine';
+import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
+import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { useSyncState } from '@/shared/native/useSyncStatus';
+import { SyncState, type ExerciseDetailData } from 'veloqrs';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
+import { trailingWeekRanges } from '@/shared/time/trailingWeeks';
 
 import { strengthTabState, type StrengthTabState } from '../lib/strengthTabState';
-import { normalizeStrengthProgression } from '../lib/analysis';
+import { normalizeStrengthProgression, normalizeStrengthSummary } from '../lib/analysis';
 import { demoStrengthSets } from '../demo';
-import type {
-  StrengthSummary,
-  StrengthBalanceStatus,
-  StrengthPeriod,
-  StrengthScreenData,
-  ExerciseActivity,
-} from '../types';
+import type { StrengthPeriod, StrengthScreenData } from '../types';
 
 /**
  * Seed synthetic strength sets for demo activities once per session. The
@@ -34,12 +33,13 @@ function ensureDemoStrengthSeeded(): boolean {
   if (demoStrengthSeedAttempted) return false;
   if (!useAuthStore.getState().isDemoMode) return false;
   const engine = getEngine();
+  if (!isEngineReady()) return false;
   if (!engine || typeof engine.bulkInsertExerciseSets !== 'function') return false;
   demoStrengthSeedAttempted = true;
   let wrote = false;
   try {
     for (const [activityId, sets] of Object.entries(demoStrengthSets)) {
-      if (engine.getExerciseSets(activityId).length === 0) {
+      if (engine.getExerciseSets(activityId).sets.length === 0) {
         engine.bulkInsertExerciseSets(activityId, sets);
         wrote = true;
       }
@@ -60,91 +60,35 @@ export function getTimestampRange(period: StrengthPeriod): { startTs: number; en
   now.setHours(23, 59, 59, 0);
   const endTs = localWallClockToEpochSeconds(now);
 
+  // Today is one of the period's days, so `7d` is today and the six before
+  // it: the same seven days as the trailing `This wk` bar.
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - PERIOD_DAYS[period]);
+  start.setDate(start.getDate() - (PERIOD_DAYS[period] - 1));
   const startTs = localWallClockToEpochSeconds(start);
 
   return { startTs, endTs };
 }
 
+/** The trailing weeks, each with the label its bar carries. */
 export function getTrailingWeekRanges(weekCount: number): {
   label: string;
   startTs: number;
   endTs: number;
 }[] {
-  const end = new Date();
-  end.setHours(23, 59, 59, 0);
-
-  const ranges: { label: string; startTs: number; endTs: number }[] = [];
-  for (let index = weekCount - 1; index >= 0; index -= 1) {
-    const rangeEnd = new Date(end);
-    rangeEnd.setDate(rangeEnd.getDate() - index * 7);
-
-    const rangeStart = new Date(rangeEnd);
-    rangeStart.setDate(rangeStart.getDate() - 6);
-    rangeStart.setHours(0, 0, 0, 0);
-
-    ranges.push({
-      label: index === 0 ? 'This wk' : `-${index}w`,
-      startTs: localWallClockToEpochSeconds(rangeStart),
-      endTs: localWallClockToEpochSeconds(rangeEnd),
-    });
-  }
-
-  return ranges;
-}
-
-function normalizeStrengthSummary(raw: {
-  muscleVolumes?: {
-    slug: string;
-    primarySets: number;
-    secondarySets: number;
-    weightedSets: number;
-    totalReps: number;
-    totalWeightKg: number;
-    exerciseNames: string[];
-  }[];
-  activityCount?: number;
-  totalSets?: number;
-  balance?: {
-    id: string;
-    leftSlug: string;
-    rightSlug: string;
-    leftWeightedSets: number;
-    rightWeightedSets: number;
-    dominantSlug?: string | null;
-    ratio?: number | null;
-    status: string;
-  }[];
-}): StrengthSummary {
-  return {
-    muscleVolumes: (raw.muscleVolumes ?? []).map((v) => ({
-      slug: v.slug,
-      primarySets: v.primarySets,
-      secondarySets: v.secondarySets,
-      weightedSets: v.weightedSets,
-      totalReps: v.totalReps,
-      totalWeightKg: v.totalWeightKg,
-      exerciseNames: v.exerciseNames,
-    })),
-    activityCount: raw.activityCount ?? 0,
-    totalSets: raw.totalSets ?? 0,
-    balance: (raw.balance ?? []).map((pair) => ({
-      id: pair.id,
-      leftSlug: pair.leftSlug,
-      rightSlug: pair.rightSlug,
-      leftWeightedSets: pair.leftWeightedSets,
-      rightWeightedSets: pair.rightWeightedSets,
-      dominantSlug: pair.dominantSlug ?? null,
-      ratio: pair.ratio ?? null,
-      status: pair.status as StrengthBalanceStatus,
-    })),
-  };
+  return trailingWeekRanges(weekCount).map((range, position) => {
+    const weeksBack = weekCount - 1 - position;
+    return { label: weeksBack === 0 ? 'This wk' : `-${weeksBack}w`, ...range };
+  });
 }
 
 /** How many trailing weeks a progression series covers. */
 const PROGRESSION_WEEKS = 4;
+
+/** Read the history surface through the existing strength engine boundary. */
+export function readExerciseDetailData(category: number): ExerciseDetailData | null {
+  return getEngine()?.getExerciseDetailData(category) ?? null;
+}
 
 /**
  * Everything the strength tab draws, read once.
@@ -156,100 +100,45 @@ const PROGRESSION_WEEKS = 4;
  * `selectExercises` pick out of what is already in hand.
  */
 export function useStrengthScreenData(period: StrengthPeriod) {
+  // A parse commits sets the read could not see before, so it is stale at once.
+  useEngineChannel('fitParsed', queryKeys.strength.all);
   return useQuery<StrengthScreenData | null>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.strength.screenData(period, PROGRESSION_WEEKS),
     queryFn: () => {
       ensureDemoStrengthSeeded();
       const engine = getEngine();
       if (!engine || typeof engine.getStrengthScreenData !== 'function') return null;
 
-      try {
-        const { startTs, endTs } = getTimestampRange(period);
-        const weeks = getTrailingWeekRanges(PROGRESSION_WEEKS);
-        const data = engine.getStrengthScreenData(
-          startTs,
-          endTs,
-          weeks.map((week) => ({ startTs: week.startTs, endTs: week.endTs }))
-        );
-        return {
-          summary: normalizeStrengthSummary(data.summary),
-          weeks,
-          weekly: data.weekly.map((raw) => normalizeStrengthSummary(raw)),
-          progressions: data.progressions.map((raw) => normalizeStrengthProgression(raw)),
-          exercises: data.exercises.map((muscle) => ({
-            muscleSlug: muscle.muscleSlug,
-            exercises: muscle.exercises.map((exercise) => ({
-              exerciseName: exercise.exerciseName,
-              exerciseCategory: exercise.exerciseCategory,
-              frequencyDays: exercise.frequencyDays,
-              totalSets: exercise.totalSets,
-              totalWeightKg: exercise.totalWeightKg,
-              activityCount: exercise.activityCount,
-              isPrimary: exercise.isPrimary,
-            })),
-          })),
-          periodDays: data.periodDays,
-        };
-      } catch (err) {
-        console.error('[StrengthScreen] Error:', err);
-        return null;
-      }
-    },
-    staleTime: CACHE.SHORT, // 5 minutes
-    gcTime: CACHE.LONG, // 30 minutes
-  });
-}
-
-/**
- * Fetch activities for a specific exercise filtered by muscle group.
- * Returns activities sorted by date descending with per-activity stats.
- */
-export function useActivitiesForExercise(
-  period: StrengthPeriod,
-  muscleSlug: string | null,
-  exerciseCategory: number | null
-) {
-  return useQuery<ExerciseActivity[]>({
-    queryKey: queryKeys.strength.activitiesForExercise(period, muscleSlug, exerciseCategory),
-    queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
-      const engine = getEngine();
-      if (
-        !engine ||
-        !muscleSlug ||
-        exerciseCategory == null ||
-        typeof engine.getActivitiesForExercise !== 'function'
-      ) {
-        return [];
-      }
-
-      try {
-        const raw = engine.getActivitiesForExercise(startTs, endTs, muscleSlug, exerciseCategory);
-        return (raw.activities ?? []).map(
-          (a: {
-            activityId: string;
-            activityName: string;
-            date: number | bigint;
-            sets: number;
-            totalWeightKg: number;
-            isPrimary: boolean;
-          }) => ({
-            activityId: a.activityId,
-            activityName: a.activityName,
-            date: typeof a.date === 'bigint' ? Number(a.date) : a.date,
-            sets: a.sets,
-            totalWeightKg: a.totalWeightKg,
-            isPrimary: a.isPrimary,
-          })
-        );
-      } catch (err) {
-        console.error('[ActivitiesForExercise] Error:', err);
-        return [];
-      }
+      const weeks = getTrailingWeekRanges(PROGRESSION_WEEKS);
+      const data = engine.getStrengthScreenData(
+        startTs,
+        endTs,
+        weeks.map((week) => ({ startTs: week.startTs, endTs: week.endTs }))
+      );
+      return {
+        summary: normalizeStrengthSummary(data.summary),
+        weeks,
+        weekly: data.weekly.map((raw) => normalizeStrengthSummary(raw)),
+        progressions: data.progressions.map((raw) => normalizeStrengthProgression(raw)),
+        exercises: data.exercises.map((muscle) => ({
+          muscleSlug: muscle.muscleSlug,
+          exercises: muscle.exercises.map((exercise) => ({
+            exerciseName: exercise.exerciseName,
+            exerciseCategory: exercise.exerciseCategory,
+            totalSets: exercise.totalSets,
+            totalReps: exercise.totalReps,
+            volumeKg: exercise.volumeKg,
+            activityCount: exercise.activityCount,
+            isPrimary: exercise.isPrimary,
+          })),
+        })),
+        owedCount: data.owedCount,
+      };
     },
-    enabled: !!muscleSlug && exerciseCategory != null,
-    staleTime: CACHE.SHORT,
-    gcTime: CACHE.LONG,
+    staleTime: Infinity,
+    gcTime: CACHE.LONG, // 30 minutes
   });
 }
 
@@ -263,6 +152,7 @@ export function useStrengthTabState(): StrengthTabState {
   // below sends.
   const readStrength = useEngineRead(['activities', 'fitParsed']);
   const engine = useEngineReady();
+  const isSyncing = useSyncState() === SyncState.Syncing;
 
   // The demo seed is a write, and a write does not belong in a render. It still
   // has to land before the first `hasStrengthData` answer or the tab never
@@ -282,17 +172,17 @@ export function useStrengthTabState(): StrengthTabState {
       readStrength((open) => {
         if (typeof open.hasStrengthData !== 'function') return 'hidden' as StrengthTabState;
         try {
-          // The empty list asks the engine for its own queue: every strength
-          // activity with no recorded FIT outcome.
+          // The engine's own queue: every strength activity with no recorded
+          // FIT outcome.
           const unfetchedCount =
             typeof open.getUnprocessedStrengthIds === 'function'
-              ? open.getUnprocessedStrengthIds([]).length
+              ? open.getUnprocessedStrengthIds().length
               : 0;
-          return strengthTabState({ hasSets: open.hasStrengthData(), unfetchedCount });
+          return strengthTabState({ hasSets: open.hasStrengthData(), unfetchedCount, isSyncing });
         } catch {
           return 'hidden' as StrengthTabState;
         }
       }) ?? 'hidden',
-    [readStrength]
+    [readStrength, isSyncing]
   );
 }

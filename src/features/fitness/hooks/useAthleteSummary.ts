@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate, getMonday, getSunday, getIntlLocale } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
@@ -134,12 +135,13 @@ export function useAthleteSummary(weeksBack: number = 8) {
     const start = new Date(monday);
     start.setDate(start.getDate() - weeksBack * 7);
     return { currentMonday: monday, startDate: start, endDate: getSunday(today) };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The day key advances the range once per day.
   }, [todayKey, weeksBack]);
 
   useEngineChannel('activities', queryKeys.athleteSummary.all);
 
   const query = useQuery<AthleteSummary[]>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.athleteSummary.byRange(
       formatLocalDate(startDate),
       formatLocalDate(endDate)

@@ -7,7 +7,9 @@ import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import type { Insight, SupportingActivity } from '@/types';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
+import { getIntlLocale } from '@/shared/format/format';
+import { RankingFactorsGroup } from './RankingFactorsGroup';
 
 interface MethodologySectionProps {
   insight: Insight;
@@ -29,7 +31,10 @@ export const MethodologySection = React.memo(function MethodologySection({
   const sourceActivities = activities?.length ? activities : null;
   const description = methodology?.description ?? null;
 
+  const ranking = insight.meta?.ranking;
+
   const hasAnyContent =
+    ranking != null ||
     formula != null ||
     algorithmDescription != null ||
     sourceActivities != null ||
@@ -57,6 +62,9 @@ export const MethodologySection = React.memo(function MethodologySection({
 
         {/* Formula display */}
         {formula ? <FormulaBlock formula={formula} isDark={isDark} /> : null}
+
+        {/* Why the engine chose this card */}
+        {ranking ? <RankingFactorsGroup ranking={ranking} /> : null}
 
         {/* Source activities */}
         {sourceActivities ? (
@@ -106,6 +114,7 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
         <Pressable
           key={activity.activityId}
           style={pressable([styles.activityRow, isDark && styles.activityRowDark])}
+          android_ripple={pressRipple}
           onPress={() => handlePress(activity.activityId)}
         >
           <View style={styles.activityInfo}>
@@ -128,7 +137,7 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
       ))}
       {activities.length > 5 ? (
         <Text style={[styles.moreActivities, isDark && styles.moreActivitiesDark]}>
-          +{activities.length - 5} more
+          {t('sections.mergeDroppedMore', { count: activities.length - 5 })}
         </Text>
       ) : null}
     </View>
@@ -139,7 +148,7 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
 function formatActivityDate(dateStr: string): string {
   try {
     const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleDateString(getIntlLocale(), {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -250,21 +259,5 @@ const styles = StyleSheet.create({
   },
   moreActivitiesDark: {
     color: darkColors.textSecondary,
-  },
-  referenceText: {
-    fontSize: typography.caption.fontSize,
-    fontStyle: 'italic',
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  referenceTextDark: {
-    color: darkColors.textSecondary,
-  },
-  referenceTappable: {
-    color: colors.linkTeal,
-    textDecorationLine: 'underline',
-  },
-  legacyReferenceContainer: {
-    paddingTop: spacing.xs,
   },
 });

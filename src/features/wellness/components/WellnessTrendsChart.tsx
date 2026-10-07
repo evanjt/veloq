@@ -7,10 +7,21 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
 
 import { useTheme } from '@/shared/app';
-import { colors, spacing, typography, opacity, chartStyles, colorWithOpacity, ink } from '@/theme';
+import {
+  colors,
+  spacing,
+  layout,
+  typography,
+  opacity,
+  chartStyles,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useChartColors } from '@/shared/charts';
 import { sortByDateId } from '@/shared/activity/activityUtils';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
+import { toDisplayWeight, weightUnitLabel } from '@/shared/format/weight';
 import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
 import {
   smoothDataPoints,
@@ -36,10 +47,9 @@ interface MetricChartData {
   rawValue: number;
 }
 
-function formatSleepDuration(hours: number): string {
+function splitSleepDuration(hours: number): { hours: number; minutes: number } {
   const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return `${h}h ${m}m`;
+  return { hours: h, minutes: Math.round((hours - h) * 60) };
 }
 
 const SPARKLINE_PADDING = { left: 4, right: 4, top: 8, bottom: 8 } as const;
@@ -120,6 +130,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const chartColors = useChartColors();
+  const isMetric = useMetricSystem();
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -190,9 +201,9 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         if (d.weight != null) {
           weightDataRaw.push({
             x: idx,
-            value: d.weight,
+            value: toDisplayWeight(d.weight, isMetric),
             date: d.id,
-            rawValue: d.weight,
+            rawValue: toDisplayWeight(d.weight, isMetric),
           });
         }
       });
@@ -213,7 +224,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         weightData,
         totalDays,
       };
-    }, [data, effectiveWindow]);
+    }, [data, effectiveWindow, isMetric]);
 
   // Build metric configs for active metrics
   const activeMetrics: MetricConfig[] = useMemo(() => {
@@ -224,7 +235,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         data: hrvData,
         color: chartColors.hrv,
         label: t('metrics.hrv'),
-        unit: 'ms',
+        unit: t('units.ms'),
         formatValue: (v) => Math.round(v).toString(),
       });
     if (rhrData.length > 0)
@@ -243,7 +254,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         color: chartColors.sleep,
         label: t('wellness.sleep'),
         unit: '',
-        formatValue: (v) => formatSleepDuration(v),
+        formatValue: (v) => t('wellness.sleepDuration', splitSleepDuration(v)),
       });
     if (sleepScoreData.length > 0)
       metrics.push({
@@ -260,11 +271,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         data: weightData,
         color: chartColors.weight,
         label: t('wellness.weight'),
-        unit: 'kg',
+        unit: weightUnitLabel(isMetric),
         formatValue: (v) => v.toFixed(1),
       });
     return metrics;
-  }, [hrvData, rhrData, sleepData, sleepScoreData, weightData, chartColors, t]);
+  }, [hrvData, rhrData, sleepData, sleepScoreData, weightData, chartColors, t, isMetric]);
 
   const hasAnyData = activeMetrics.length > 0;
 
@@ -511,14 +522,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
               {/* Right: values */}
               <View style={styles.metricValues}>
-                <Text
-                  style={[
-                    styles.metricValue,
-                    metricDisplayValues[i]?.isSelected
-                      ? { color: metric.color }
-                      : isDark && styles.textLight,
-                  ]}
-                >
+                <Text style={[styles.metricValue, isDark && styles.textLight]}>
                   {metricDisplayValues[i]?.displayValue
                     ? metric.formatValue(metricDisplayValues[i].displayValue.rawValue)
                     : '-'}
@@ -528,7 +532,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 </Text>
                 {!metricDisplayValues[i]?.isSelected && (
                   <Text style={[styles.metricAvg, isDark && chartStyles.textDark]}>
-                    avg {metric.formatValue(metricDisplayValues[i]?.avgValue ?? 0)}
+                    {t('sections.avg')} {metric.formatValue(metricDisplayValues[i]?.avgValue ?? 0)}
                   </Text>
                 )}
                 {!metricDisplayValues[i]?.isSelected &&
@@ -630,7 +634,7 @@ const styles = StyleSheet.create({
   metricDot: {
     width: spacing.sm,
     height: spacing.sm,
-    borderRadius: spacing.xs,
+    borderRadius: layout.borderRadiusXs,
     marginRight: spacing.xs,
   },
   metricLabel: {

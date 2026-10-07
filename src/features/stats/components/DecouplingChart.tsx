@@ -1,46 +1,31 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
 import { useTheme } from '@/shared/app';
+import { Button } from '@/shared/ui';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import {
-  colors,
-  darkColors,
-  typography,
-  spacing,
-  layout,
-  verdictColor,
-  colorWithOpacity,
-  ink,
-} from '@/theme';
-import { calculateDecoupling } from '../lib/decoupling';
+import { formatRelativeDate } from '@/shared/format/format';
+import { colors, darkColors, typography, spacing } from '@/theme';
+import type { DecouplingSource } from '@/features/activity';
 
 interface DecouplingChartProps {
-  /** Power or pace data */
-  power?: number[] | undefined;
-  /** Heart rate data */
-  heartrate?: number[] | undefined;
-  /** Height of the chart area */
+  /** The ride and the decoupling intervals.icu stored for it, null when none has one */
+  source: DecouplingSource | null;
+  /** Height of the empty state */
   height?: number | undefined;
 }
 
-export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingChartProps) {
+/**
+ * The stored decoupling of one ride, with the ride named so the figure can be
+ * found again on its activity screen. It states the measurement and grades
+ * nothing.
+ */
+export function DecouplingChart({ source, height = 150 }: DecouplingChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  // All hooks must be called before any conditional returns
-  const analysis = useMemo(() => {
-    if (!power || !heartrate) return null;
-    return calculateDecoupling(power, heartrate);
-  }, [power, heartrate]);
-
-  const midpoint = useMemo(() => {
-    if (!power) return 0;
-    return Math.floor(power.length / 2);
-  }, [power]);
-
-  // Show empty state if there is no data or decoupling is not computable
-  if (!power || !heartrate || analysis === null) {
+  if (!source) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -62,112 +47,27 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, isDark && styles.textLight]}>
           {t('stats.aerobicDecoupling')}
         </Text>
-        <Text
-          style={[
-            styles.decouplingValue,
-            { color: verdictColor(analysis.isGood ? 'positive' : 'caution', isDark) },
-          ]}
-        >
-          {analysis.decoupling.toFixed(1)}%
+        <Text style={[styles.decouplingValue, isDark && styles.textLight]}>
+          {source.decoupling.toFixed(1)}%
         </Text>
       </View>
 
-      {/* Status indicator */}
-      <View style={styles.statusRow}>
-        <View
-          style={[
-            styles.statusBadge,
-            {
-              backgroundColor: analysis.isGood ? colors.success : colors.warning,
-            },
-          ]}
-        >
-          <Text style={styles.statusText}>
-            {analysis.isGood ? t('stats.goodAerobicFitness') : t('stats.needsImprovement')}
-          </Text>
-        </View>
-        <Text style={[styles.targetText, isDark && styles.textDark]}>
-          {t('stats.targetLessThan5')}
-        </Text>
-      </View>
+      <Button
+        testID="decoupling-source"
+        variant="ghost"
+        size="sm"
+        label={`${source.name} · ${formatRelativeDate(source.date)}`}
+        onPress={() => router.push(`/activity/${source.activityId}`)}
+        style={styles.sourceRide}
+      />
+      <Text style={[styles.provenance, isDark && styles.textDark]}>
+        {t('stats.decouplingProvenance')}
+      </Text>
 
-      {/* Mini chart visualization */}
-      <View style={[styles.chartContainer, { height }]}>
-        {/* First half */}
-        <View style={[styles.halfSection, styles.firstHalf]}>
-          <Text style={[styles.halfLabel, isDark && styles.textDark]}>{t('stats.firstHalf')}</Text>
-          <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgPower')}</Text>
-            <Text style={[styles.dataValue, isDark && styles.textLight]}>
-              {Math.round(power.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint)}W
-            </Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgHr')}</Text>
-            <Text style={[styles.dataValue, isDark && styles.textLight]}>
-              {Math.round(heartrate.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint)} bpm
-            </Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>
-              {t('stats.efficiency')}
-            </Text>
-            <Text style={[styles.dataValue, { color: colors.primary }]}>
-              {analysis.firstHalfEf.toFixed(2)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Divider with arrow */}
-        <View style={styles.divider}>
-          <View style={[styles.dividerLine, isDark && styles.dividerLineDark]} />
-          <Text style={styles.arrow}>→</Text>
-          <View style={[styles.dividerLine, isDark && styles.dividerLineDark]} />
-        </View>
-
-        {/* Second half */}
-        <View style={[styles.halfSection, styles.secondHalf]}>
-          <Text style={[styles.halfLabel, isDark && styles.textDark]}>{t('stats.secondHalf')}</Text>
-          <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgPower')}</Text>
-            <Text style={[styles.dataValue, isDark && styles.textLight]}>
-              {Math.round(
-                power.slice(midpoint).reduce((a, b) => a + b, 0) / (power.length - midpoint)
-              )}
-              W
-            </Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>{t('stats.avgHr')}</Text>
-            <Text style={[styles.dataValue, isDark && styles.textLight]}>
-              {Math.round(
-                heartrate.slice(midpoint).reduce((a, b) => a + b, 0) / (heartrate.length - midpoint)
-              )}{' '}
-              bpm
-            </Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={[styles.dataLabel, isDark && styles.textDark]}>
-              {t('stats.efficiency')}
-            </Text>
-            <Text
-              style={[
-                styles.dataValue,
-                { color: analysis.isGood ? colors.primary : verdictColor('caution', isDark) },
-              ]}
-            >
-              {analysis.secondHalfEf.toFixed(2)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Explanation */}
       <Text style={[styles.explanation, isDark && styles.textDark]}>
         {t('stats.decouplingExplanation')}
       </Text>
@@ -197,81 +97,16 @@ const styles = StyleSheet.create({
   decouplingValue: {
     fontSize: typography.screenTitle.fontSize,
     fontWeight: '700',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-  },
-  statusText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    color: colors.textOnDark,
-  },
-  targetText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  chartContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  halfSection: {
-    flex: 1,
-    padding: spacing.sm,
-    backgroundColor: colorWithOpacity(ink.black, 0.02),
-    borderRadius: layout.borderRadiusSm,
-  },
-  firstHalf: {
-    marginRight: spacing.xs,
-  },
-  secondHalf: {
-    marginLeft: spacing.xs,
-  },
-  halfLabel: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  dataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  dataLabel: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  dataValue: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
-  divider: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xs,
+  sourceRide: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 0,
   },
-  dividerLine: {
-    width: 1,
-    height: 20,
-    backgroundColor: colorWithOpacity(ink.black, 0.1),
-  },
-  dividerLineDark: {
-    backgroundColor: colorWithOpacity(ink.white, 0.1),
-  },
-  arrow: {
-    fontSize: typography.body.fontSize,
+  provenance: {
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginVertical: spacing.xs,
+    marginTop: spacing.xs,
   },
   explanation: {
     fontSize: typography.label.fontSize,

@@ -6,63 +6,38 @@ export interface StripDay {
   activities: { type: ActivityType; load: number }[];
 }
 
-/** One drawn mark: a bar at `x`, split by sport share from the bottom up. */
+/** One drawn mark: a bar at `x`, split by sport from the bottom up. */
 export interface StripMark {
-  /** The days the mark stands for, first to last. */
+  /** The date the mark stands for. */
   dates: string[];
   x: number;
   width: number;
   /** Fraction of the strip's height, 0 to 1. */
   height: number;
-  /** Sport shares from the bottom up, largest first. Fractions sum to 1. */
+  /** Sport portions from the bottom up, equal and in name order. Fractions sum to 1. */
   segments: { type: ActivityType; fraction: number }[];
-  /** The group trained but carries no load, so its height is the floor and its shares mean nothing. */
+  /** The date trained but carries no load, so it draws in the neutral colour. */
   noLoad: boolean;
 }
 
-/** Below this many points per day the strip draws weeks. */
-export const DAY_SPACING_FLOOR = 3;
-/** A day that trained but carries no load still shows, at this height, muted. */
-export const MIN_MARK_HEIGHT = 0.15;
+/** Every active date draws at this fraction of the strip's height, whatever it carried. */
+export const MARK_HEIGHT = 1;
 const MAX_MARK_WIDTH = 6;
-const MIN_MARK_WIDTH = 2;
-/** Loads above this share of the sorted non-zero loads draw full height. */
-const CLIP_PERCENTILE = 0.9;
+/** The share of a date's slot a mark fills, the rest being the gap to the next date. */
+const SLOT_SHARE = 0.6;
 
-function sportShares(days: StripDay[]): StripMark['segments'] {
-  const byType = new Map<ActivityType, number>();
-  let count = 0;
-  for (const day of days)
-    for (const a of day.activities) {
-      byType.set(a.type, (byType.get(a.type) ?? 0) + Math.max(0, a.load));
-      count += 1;
-    }
-  if (count === 0) return [];
-  const total = [...byType.values()].reduce((s, v) => s + v, 0);
-  // With no load anywhere every sport present takes an equal share.
-  const entries = [...byType.entries()].map(([type, load]) => ({
-    type,
-    fraction: total > 0 ? load / total : 1 / byType.size,
-  }));
-  return entries.sort((a, b) => b.fraction - a.fraction || a.type.localeCompare(b.type));
-}
-
-function loadOf(days: StripDay[]): number {
-  let load = 0;
-  for (const day of days) for (const a of day.activities) load += Math.max(0, a.load);
-  return load;
-}
-
-function hasActivities(days: StripDay[]): boolean {
-  return days.some((d) => d.activities.length > 0);
+/** Each distinct sport takes an equal portion, in name order, so load and activity order never move it. */
+function sportShares(day: StripDay): StripMark['segments'] {
+  const types = [...new Set(day.activities.map((a) => a.type))].sort((a, b) => a.localeCompare(b));
+  return types.map((type) => ({ type, fraction: 1 / types.length }));
 }
 
 /**
- * What one mark fills, bottom-up. A group that carries load draws its sport
- * shares. A group that trained without load has no share to draw and no height
- * of its own, so it draws once in the muted neutral: at the floor in a sport's
- * own colour it reads as a light session, and a whole window of them reads as
- * steady light training, which is what B604 found.
+ * What one mark fills, bottom-up. A date that carries load draws its sport
+ * portions. A date that trained without load has no load to colour by, so it
+ * draws once in the muted neutral at the same height: a sport colour there
+ * would read as a recorded session, which is what a window of unmeasured days
+ * must not claim.
  */
 export function markFills(
   mark: StripMark,
@@ -77,43 +52,50 @@ export function markFills(
 }
 
 /**
- * Lay the strip out. One mark per day while a day has `DAY_SPACING_FLOOR`
- * points or more; otherwise one mark per seven-day bin from the first day.
- * Height is the group's load against the window's clipped maximum, so one
- * outlier does not flatten the rest, and never under `MIN_MARK_HEIGHT` for a
- * group that trained.
+ * Lay the strip out: one mark per date that has an activity, none for a rest
+ * day, each of constant height and of a width bound to its date slot so
+ * neighbouring dates never overlap at any range.
  */
 export function stripMarks(days: StripDay[], chartWidth: number): StripMark[] {
   if (days.length === 0 || chartWidth <= 0) return [];
-  const daySpacing = chartWidth / Math.max(days.length - 1, 1);
-  const binSize = daySpacing >= DAY_SPACING_FLOOR ? 1 : 7;
-
-  const groups: StripDay[][] = [];
-  for (let i = 0; i < days.length; i += binSize) groups.push(days.slice(i, i + binSize));
-
-  const loads = groups.map(loadOf);
-  const nonZero = loads.filter((l) => l > 0).sort((a, b) => a - b);
-  const clip =
-    nonZero.length > 0
-      ? nonZero[Math.min(nonZero.length - 1, Math.floor(CLIP_PERCENTILE * (nonZero.length - 1)))]
-      : 0;
-
-  const spacing = chartWidth / Math.max(groups.length - 1, 1);
-  const width = Math.min(MAX_MARK_WIDTH, Math.max(MIN_MARK_WIDTH, spacing * 0.6));
+  const spacing = chartWidth / Math.max(days.length - 1, 1);
+  const width = Math.min(MAX_MARK_WIDTH, spacing * SLOT_SHARE);
 
   const marks: StripMark[] = [];
-  groups.forEach((group, idx) => {
-    if (!hasActivities(group)) return;
-    const centre = groups.length === 1 ? chartWidth / 2 : (idx / (groups.length - 1)) * chartWidth;
-    const scaled = clip > 0 ? Math.min(1, loads[idx] / clip) : 0;
+  days.forEach((day, idx) => {
+    if (day.activities.length === 0) return;
+    const centre = days.length === 1 ? chartWidth / 2 : idx * spacing;
     marks.push({
-      dates: group.map((d) => d.date),
+      dates: [day.date],
       x: Math.min(Math.max(0, centre - width / 2), chartWidth - width),
       width,
-      height: Math.max(MIN_MARK_HEIGHT, scaled),
-      segments: sportShares(group),
-      noLoad: loads[idx] <= 0,
+      height: MARK_HEIGHT,
+      segments: sportShares(day),
+      noLoad: day.activities.every((a) => a.load <= 0),
     });
   });
   return marks;
+}
+
+/** What the strip's key names: the sports drawn in colour, and whether any mark is neutral. */
+export interface StripKey {
+  /** Sports with at least one loaded date, in name order. */
+  sports: ActivityType[];
+  /** At least one date trained without load and draws neutral. */
+  noLoad: boolean;
+}
+
+/** The sports and neutral state the given days draw, so the key names only what the strip shows. */
+export function stripKey(days: StripDay[]): StripKey {
+  const sports = new Set<ActivityType>();
+  let noLoad = false;
+  for (const day of days) {
+    if (day.activities.length === 0) continue;
+    if (day.activities.every((a) => a.load <= 0)) {
+      noLoad = true;
+      continue;
+    }
+    for (const a of day.activities) sports.add(a.type);
+  }
+  return { sports: [...sports].sort((a, b) => a.localeCompare(b)), noLoad };
 }

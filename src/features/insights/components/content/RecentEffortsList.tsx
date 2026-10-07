@@ -2,36 +2,39 @@ import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
 import { colors, darkColors, spacing, opacity, brand, ink, layout, typography } from '@/theme';
-import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
-import { pressable } from '@/shared/ui';
+import type { SectionPerformanceRecord } from '@/features/routes';
+import { pressable, pressRipple } from '@/shared/ui';
+import { directionEfforts, type DirectionBests } from '@/features/insights/lib/directionBests';
 
 const MAX_EFFORTS = 5;
 
 interface RecentEffortsListProps {
   records: SectionPerformanceRecord[];
-  bestRecord: SectionPerformanceRecord | null;
+  bests: DirectionBests;
 }
 
 /**
  * Shows the most recent efforts on a section with date, time, and
- * delta from PR. Tapping navigates to the activity detail page.
+ * delta from the best of its own direction. An out-and-back shows one row per direction. Tapping navigates to the activity detail page.
  */
 export const RecentEffortsList = React.memo(function RecentEffortsList({
   records,
-  bestRecord,
+  bests,
 }: RecentEffortsListProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   // Sort by date descending (most recent first) and take up to MAX_EFFORTS
   const recentEfforts = useMemo(() => {
-    return [...records]
-      .sort((a, b) => safeGetTime(b.activityDate) - safeGetTime(a.activityDate))
+    return directionEfforts(records, bests)
+      .sort((a, b) => safeGetTime(b.record.activityDate) - safeGetTime(a.record.activityDate))
       .slice(0, MAX_EFFORTS);
-  }, [records]);
+  }, [records, bests]);
 
   const handlePress = useCallback((activityId: string) => {
     navigateTo(`/activity/${activityId}`);
@@ -39,19 +42,17 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
 
   if (recentEfforts.length === 0) return null;
 
-  const bestTime = bestRecord?.bestTime;
-
   return (
     <View style={styles.container}>
-      <Text style={[styles.heading, isDark && styles.headingDark]}>Recent efforts</Text>
-      {recentEfforts.map((record) => {
-        const isPR = bestRecord != null && record.activityId === bestRecord.activityId;
-        const delta = bestTime != null && !isPR ? record.bestTime - bestTime : null;
-
+      <Text style={[styles.heading, isDark && styles.headingDark]}>
+        {t('insights.data.recentEfforts')}
+      </Text>
+      {recentEfforts.map(({ record, direction, time, isPr: isPR, delta }) => {
         return (
           <Pressable
-            key={record.activityId}
+            key={`${record.activityId}-${direction}`}
             style={pressable([styles.row, isDark && styles.rowDark])}
+            android_ripple={pressRipple}
             onPress={() => handlePress(record.activityId)}
           >
             <View style={styles.rowLeft}>
@@ -60,13 +61,11 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
               </Text>
             </View>
             <View style={styles.rowRight}>
-              <Text style={[styles.time, isDark && styles.timeDark]}>
-                {formatDuration(record.bestTime)}
-              </Text>
+              <Text style={[styles.time, isDark && styles.timeDark]}>{formatDuration(time)}</Text>
               {isPR ? (
                 <View style={styles.prBadge}>
                   <MaterialCommunityIcons name="trophy" size={10} color={ink.white} />
-                  <Text style={styles.prText}>PR</Text>
+                  <Text style={styles.prText}>{t('sections.legendPr')}</Text>
                 </View>
               ) : delta != null ? (
                 <Text style={[styles.delta, isDark && styles.deltaDark]}>
@@ -103,7 +102,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.xsPlus,
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.subtle,

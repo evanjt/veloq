@@ -9,7 +9,6 @@ import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import {
   useStrengthScreenData,
-  useActivitiesForExercise,
   buildStrengthBalancePairs,
   selectExercises,
   selectProgression,
@@ -19,8 +18,11 @@ import {
   StrengthBalanceView,
   STRENGTH_PERIODS,
 } from '@/features/strength';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { colors, darkColors, spacing, typography, opacity, layout, bodyDiagram } from '@/theme';
+import { ErrorStatePreset, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { engineErrorKey } from '@/shared/native/engineError';
+import { useSyncState } from '@/shared/native/useSyncStatus';
+import { SyncState } from 'veloqrs';
+import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
 import type { StrengthPeriod, MuscleVolume } from '@/types';
 import { PERIOD_LABEL_KEYS, DEFAULT_PERIOD } from '@/shared/app/period';
 
@@ -41,9 +43,8 @@ export const StrengthTab = React.memo(function StrengthTab({
   const { data: athlete } = useAthlete();
   const [period, setPeriod] = useState<StrengthPeriod>(DEFAULT_PERIOD);
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
-  const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
 
-  const { data: screen, isLoading } = useStrengthScreenData(period);
+  const { data: screen, isLoading, isError, error, refetch } = useStrengthScreenData(period);
   const summary = screen?.summary;
   const progression = useMemo(
     () => selectProgression(screen, selectedMuscle),
@@ -52,11 +53,6 @@ export const StrengthTab = React.memo(function StrengthTab({
   const exerciseSummary = useMemo(
     () => selectExercises(screen, selectedMuscle),
     [screen, selectedMuscle]
-  );
-  const { data: exerciseActivities } = useActivitiesForExercise(
-    period,
-    selectedMuscle,
-    expandedExercise
   );
 
   const gender = athlete?.sex === 'F' ? 'female' : 'male';
@@ -73,17 +69,9 @@ export const StrengthTab = React.memo(function StrengthTab({
       return {
         slug: v.slug as NonNullable<ExtendedBodyPart['slug']>,
         intensity,
-        ...(v.slug === selectedMuscle
-          ? {
-              styles: {
-                stroke: isDark ? bodyDiagram.selectedStrokeDark : bodyDiagram.selectedStroke,
-                strokeWidth: 2.5,
-              },
-            }
-          : {}),
       };
     });
-  }, [summary, selectedMuscle, isDark]);
+  }, [summary]);
 
   const maxWeightedSets = useMemo(() => {
     if (!summary || summary.muscleVolumes.length === 0) return 0;
@@ -95,7 +83,10 @@ export const StrengthTab = React.memo(function StrengthTab({
     return summary.muscleVolumes.find((v) => v.slug === selectedMuscle) ?? null;
   }, [selectedMuscle, summary]);
 
-  const balancePairs = useMemo(() => buildStrengthBalancePairs(summary?.balance ?? []), [summary]);
+  const balancePairs = useMemo(
+    () => buildStrengthBalancePairs(summary?.balance ?? [], t),
+    [summary, t]
+  );
 
   const visibleBalancePairs = useMemo(
     () => balancePairs.filter((pair) => pair.status !== 'insufficient'),
@@ -103,17 +94,11 @@ export const StrengthTab = React.memo(function StrengthTab({
   );
 
   const featuredBalancePair = visibleBalancePairs[0] ?? null;
-  const hasRecentProgression = progression
-    ? progression.points.some((point) => point.weightedSets > 0)
-    : false;
-  const maxProgressWeightedSets = useMemo(() => {
-    if (!progression) return 1;
-    return Math.max(...progression.points.map((point) => point.weightedSets), 1);
-  }, [progression]);
+  const hasRecentProgression = progression ? progression.peakWeightedSets > 0 : false;
+  const maxProgressWeightedSets = Math.max(progression?.peakWeightedSets ?? 0, 1);
 
   const handleMuscleTap = useCallback((slug: string) => {
     setSelectedMuscle((prev) => (prev === slug ? null : slug));
-    setExpandedExercise(null);
   }, []);
 
   const handleMuscleScrub = useCallback((slug: string) => {
@@ -124,16 +109,17 @@ export const StrengthTab = React.memo(function StrengthTab({
     setSelectedMuscle(null);
   }, []);
 
-  const handleExpandExercise = useCallback((exerciseCategory: number | null) => {
-    setExpandedExercise(exerciseCategory);
-  }, []);
-
   const tappableSlugs = useMemo(
     () => new Set((summary?.muscleVolumes ?? []).map((v) => v.slug)),
     [summary]
   );
 
   const periodLabel = t(PERIOD_LABEL_KEYS.long[period] as never);
+  // An empty period with sessions still owed their files has workouts it
+  // cannot show yet, which is not the same as having none.
+  const periodAwaitingDownload = awaitingDownload || (screen?.owedCount ?? 0) > 0;
+  const isSyncing = useSyncState() === SyncState.Syncing;
+  const periodDownloading = periodAwaitingDownload && isSyncing;
 
   return (
     <ScrollView
@@ -173,24 +159,53 @@ export const StrengthTab = React.memo(function StrengthTab({
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
+      ) : isError ? (
+        <View testID="strength-failed">
+          <ErrorStatePreset
+            message={t(engineErrorKey(error, 'engine.failure.database'))}
+            onRetry={() => void refetch()}
+          />
+        </View>
       ) : !summary || summary.activityCount === 0 ? (
         <View style={styles.emptyContainer} testID="strength-empty">
-          <MaterialCommunityIcons
-            name={awaitingDownload ? 'cloud-download-outline' : 'dumbbell'}
-            size={32}
-            color={isDark ? darkColors.textMuted : colors.textDisabled}
-          />
+          {periodDownloading ? (
+            <ActivityIndicator size="small" color={colors.primary} testID="strength-downloading" />
+          ) : (
+            <MaterialCommunityIcons
+              name={periodAwaitingDownload ? 'cloud-download-outline' : 'dumbbell'}
+              size={32}
+              color={isDark ? darkColors.textMuted : colors.textDisabled}
+            />
+          )}
           <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-            {awaitingDownload
-              ? t('strength.notDownloaded')
-              : t('strength.noWorkouts', { period: periodLabel })}
+            {periodDownloading
+              ? t('strength.downloading')
+              : periodAwaitingDownload
+                ? t('strength.notDownloaded')
+                : t('strength.noWorkouts', { period: periodLabel })}
           </Text>
           <Text style={[styles.emptyHint, isDark && styles.emptyTextDark]}>
-            {awaitingDownload ? t('strength.notDownloadedHint') : t('strength.noWorkoutsHint')}
+            {periodDownloading
+              ? t('strength.downloadingHint')
+              : periodAwaitingDownload
+                ? t('strength.notDownloadedHint')
+                : t('strength.noWorkoutsHint')}
           </Text>
         </View>
       ) : (
         <>
+          {(screen?.owedCount ?? 0) > 0 && (
+            <View style={styles.owedRow} testID="strength-period-owed">
+              <MaterialCommunityIcons
+                name="cloud-download-outline"
+                size={typography.caption.fontSize}
+                color={isDark ? darkColors.textMuted : colors.textSecondary}
+              />
+              <Text style={[styles.owedText, isDark && styles.emptyTextDark]}>
+                {t('strength.periodOwed', { count: screen?.owedCount ?? 0 })}
+              </Text>
+            </View>
+          )}
           <StrengthBodyDiagram
             bodyData={bodyData}
             gender={gender}
@@ -202,10 +217,13 @@ export const StrengthTab = React.memo(function StrengthTab({
             onClearSelection={handleClearSelection}
           />
 
-          {selectedVolume && progression && hasRecentProgression && (
+          {/* The period totals show for any muscle the period reached. The
+              four-week figures inside the card need the last four weeks to
+              have reached it too. */}
+          {selectedVolume && (
             <StrengthProgressionCard
               selectedVolume={selectedVolume}
-              progression={progression}
+              progression={hasRecentProgression ? progression : null}
               maxProgressWeightedSets={maxProgressWeightedSets}
               exerciseSummary={exerciseSummary}
               periodLabel={periodLabel}
@@ -214,28 +232,10 @@ export const StrengthTab = React.memo(function StrengthTab({
                 <StrengthExerciseList
                   selectedVolume={selectedVolume}
                   exerciseSummary={exerciseSummary}
-                  expandedExercise={expandedExercise}
-                  exerciseActivities={exerciseActivities ?? null}
-                  onExpandExercise={handleExpandExercise}
-                  embedded
                 />
               ) : null}
             </StrengthProgressionCard>
           )}
-
-          {/* Render exercise list as a standalone card only when there is no
-              progression card to embed it into. */}
-          {selectedVolume &&
-            (!progression || !hasRecentProgression) &&
-            exerciseSummary.exercises.length > 0 && (
-              <StrengthExerciseList
-                selectedVolume={selectedVolume}
-                exerciseSummary={exerciseSummary}
-                expandedExercise={expandedExercise}
-                exerciseActivities={exerciseActivities ?? null}
-                onExpandExercise={handleExpandExercise}
-              />
-            )}
 
           <StrengthBalanceView
             visibleBalancePairs={visibleBalancePairs}
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   periodButton: {
-    paddingHorizontal: spacing.sm + 4,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
@@ -326,6 +326,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  owedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  owedText: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
   },
   emptyTextDark: {
     color: darkColors.textSecondary,

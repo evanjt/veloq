@@ -5,14 +5,19 @@ import { useTranslation } from 'react-i18next';
 import type { SharedValue } from 'react-native-reanimated';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { colors, darkColors, spacing, typography, opacity } from '@/theme';
+import { Card } from '@/shared/ui/Card';
+import type { DayLoad } from 'veloqrs';
 import type { WellnessData, Activity } from '@/types';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '..';
-import { useEftpChanges } from '../../hooks/useEftpChanges';
+import type { EftpChange } from '../../lib/eftpChanges';
 
 interface FitnessChartCardProps {
   wellness: WellnessData[];
   activities: Activity[];
+  dailyLoads: DayLoad[];
+  /** The activities that moved the accepted eFTP, marked on the fitness plot. */
+  eftpChanges: EftpChange[];
   selectedDate: string | null;
   sharedSelectedIdx: SharedValue<number>;
   onDateSelect: (
@@ -25,6 +30,8 @@ interface FitnessChartCardProps {
 export const FitnessChartCard = React.memo(function FitnessChartCard({
   wellness,
   activities,
+  dailyLoads,
+  eftpChanges,
   selectedDate,
   sharedSelectedIdx,
   onDateSelect,
@@ -32,68 +39,64 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
 }: FitnessChartCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const markers = useEftpChanges();
 
   return (
-    <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-      {/* Fitness/Fatigue chart */}
-      <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
-        {t('fitnessScreen.fitnessAndFatigue')}
-      </Text>
-      <FitnessChart
-        data={wellness}
-        markers={markers}
-        height={220}
-        selectedDate={selectedDate}
-        sharedSelectedIdx={sharedSelectedIdx}
-        onDateSelect={onDateSelect}
-        onInteractionChange={onInteractionChange}
-      />
-
-      <View
-        testID="fitness-activity-dots"
-        style={[styles.dotsSection, isDark && styles.dotsSectionDark]}
-      >
-        <ActivityDotsChart
-          data={wellness}
-          activities={activities}
-          height={32}
-          selectedDate={selectedDate}
-          sharedSelectedIdx={sharedSelectedIdx}
-          onDateSelect={onDateSelect}
-          onInteractionChange={onInteractionChange}
-        />
-      </View>
-
-      <View
-        testID="fitness-form-zone-chart"
-        style={[styles.formSection, isDark && styles.formSectionDark]}
-      >
+    <View style={styles.chartFrame}>
+      <Card variant="flat">
+        {/* Fitness/Fatigue chart */}
         <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
-          {t('metrics.form')}
+          {t('fitnessScreen.fitnessAndFatigue')}
         </Text>
-        <FormZoneChart
+        <FitnessChart
           data={wellness}
-          height={140}
+          markers={eftpChanges}
+          height={220}
           selectedDate={selectedDate}
           sharedSelectedIdx={sharedSelectedIdx}
           onDateSelect={onDateSelect}
           onInteractionChange={onInteractionChange}
         />
-      </View>
+
+        <View
+          testID="fitness-activity-dots"
+          style={[styles.dotsSection, isDark && styles.dotsSectionDark]}
+        >
+          <ActivityDotsChart
+            data={wellness}
+            activities={activities}
+            dailyLoads={dailyLoads}
+            height={32}
+            selectedDate={selectedDate}
+            sharedSelectedIdx={sharedSelectedIdx}
+            onDateSelect={onDateSelect}
+            onInteractionChange={onInteractionChange}
+          />
+        </View>
+
+        <View
+          testID="fitness-form-zone-chart"
+          style={[styles.formSection, isDark && styles.formSectionDark]}
+        >
+          <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
+            {t('metrics.form')}
+          </Text>
+          <FormZoneChart
+            data={wellness}
+            height={140}
+            selectedDate={selectedDate}
+            sharedSelectedIdx={sharedSelectedIdx}
+            onDateSelect={onDateSelect}
+            onInteractionChange={onInteractionChange}
+          />
+        </View>
+      </Card>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  chartCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
+  chartFrame: {
     marginBottom: spacing.md,
-  },
-  chartCardDark: {
-    backgroundColor: darkColors.surface,
   },
   chartTitle: {
     ...typography.bodySmall,

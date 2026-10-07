@@ -4,8 +4,10 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
+import { RangeCoverage } from 'veloqrs';
 import { CHART_CONFIG } from '@/constants';
 import {
   chartStyles,
@@ -20,19 +22,40 @@ import {
   darkColors,
 } from '@/theme';
 import {
-  localDayEnd,
-  localDayStart,
-  useMonthlyStats,
+  useTrainingScreenData,
   type MonthTotals,
+  type PeriodTotals,
 } from '@/features/stats/hooks/useEngineStats';
-import { pressable } from '@/shared/ui';
+import { EngineReadFailureRetry, pressable, pressRipple } from '@/shared/ui';
+import { queryKeys } from '@/shared/query/queryKeys';
+import { seasonMonthChange } from '@/features/stats/lib/periodWindows';
+import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
+import {
+  formatLocalDate,
+  getIntlLocale,
+  longDistanceUnitLabel,
+  metersToLongDistance,
+} from '@/shared/format/format';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
 
 interface SeasonComparisonProps {
   /** Height of the chart */
   height?: number;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/**
+ * The change from `previous` to `current` as a percentage, or null when there
+ * is no previous value to take a percentage of. A zero baseline has no
+ * percentage change, and showing one as 0 read as "no change".
+ */
+function percentChange(current: number, previous: number): number | null {
+  return previous > 0 ? ((current - previous) / previous) * 100 : null;
+}
+
+/** A change as the card prints it, signed and whole. */
+function formatChange(pct: number): string {
+  return `${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`;
+}
 
 /**
  * One year's twelve bars, from the engine's monthly aggregate.
@@ -44,7 +67,8 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 function monthBars(
   months: MonthTotals[],
   year: number,
-  metric: 'hours' | 'distance' | 'tss'
+  metric: 'hours' | 'distance' | 'tss',
+  isMetric: boolean
 ): number[] {
   const bars = new Array(12).fill(0);
   for (const row of months) {
@@ -53,11 +77,26 @@ function monthBars(
       metric === 'hours'
         ? row.duration / 3600
         : metric === 'distance'
-          ? row.distance / 1000
+          ? metersToLongDistance(row.distance, isMetric)
           : row.tss;
     bars[row.month - 1] = Math.round(value * 10) / 10;
   }
   return bars;
+}
+
+/** One period's total in the unit the card prints, rounded as the bars are. */
+function metricValue(
+  totals: PeriodTotals,
+  metric: 'hours' | 'distance' | 'tss',
+  isMetric: boolean
+): number {
+  const value =
+    metric === 'hours'
+      ? totals.duration / 3600
+      : metric === 'distance'
+        ? metersToLongDistance(totals.distance, isMetric)
+        : totals.tss;
+  return Math.round(value * 10) / 10;
 }
 
 const BAR_WIDTH = 8;
@@ -67,19 +106,29 @@ const BAR_RADIUS = 4; // spacing.xs
 export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
 
   // The two calendar years the chart draws, and no more: the totals come from
-  // the engine's own GROUP BY rather than from a parsed year of bodies.
-  const { currentYear, startTs, endTs } = useMemo(() => {
-    const now = new Date();
-    return {
-      currentYear: now.getFullYear(),
-      startTs: localDayStart(new Date(now.getFullYear() - 1, 0, 1)),
-      endTs: localDayEnd(now),
-    };
-  }, []);
-  const months = useMonthlyStats(startTs, endTs);
+  // the engine's own GROUP BY rather than from a parsed year of bodies. The
+  // year and month to date are set against the same span of last year, never
+  // against a whole one, and all of it is the training screen's one read.
+  const {
+    windows,
+    data: { months, yearCurrent, yearPrevious, monthCurrent, monthPrevious },
+    error: readError,
+  } = useTrainingScreenData();
+  const queryClient = useQueryClient();
+  const { currentYear, currentMonth, firstDay, lastDay } = useMemo(
+    () => ({
+      currentYear: windows.today.getFullYear(),
+      currentMonth: windows.today.getMonth(),
+      firstDay: formatLocalDate(windows.seasonFrom),
+      lastDay: formatLocalDate(windows.today),
+    }),
+    [windows]
+  );
+  const coverage = useWindowCoverage(firstDay, lastDay);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [measuredWidth, setMeasuredWidth] = useState(0);
   const chartWidthRef = useRef(0);
@@ -138,22 +187,27 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   // Show empty state when neither year has an activity in it.
   const hasData = months.length > 0;
 
+  const locale = getIntlLocale();
   const data = useMemo(() => {
-    const currentTotals = monthBars(months, currentYear, metric);
-    const previousTotals = monthBars(months, currentYear - 1, metric);
+    const currentTotals = monthBars(months, currentYear, metric, isMetric);
+    const previousTotals = monthBars(months, currentYear - 1, metric, isMetric);
 
-    return MONTHS.map((month, idx) => ({
-      month,
-      current: currentTotals[idx],
-      previous: previousTotals[idx],
-    }));
-  }, [months, currentYear, metric]);
+    // Month names follow the app language, the short one for the tooltip and
+    // the narrow one under each pair of bars.
+    return currentTotals.map((current, idx) => {
+      const first = new Date(currentYear, idx, 1);
+      return {
+        month: first.toLocaleDateString(locale, { month: 'short' }),
+        letter: first.toLocaleDateString(locale, { month: 'narrow' }),
+        current,
+        previous: previousTotals[idx],
+      };
+    });
+  }, [months, currentYear, metric, isMetric, locale]);
 
   const maxValue = useMemo(() => {
     return Math.max(...data.flatMap((d) => [d.current, d.previous]));
   }, [data]);
-
-  const now = new Date();
 
   // Color constants
   const colorCurrent = colors.primary;
@@ -163,29 +217,27 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
 
   // Calculate totals
   const totals = useMemo(() => {
-    const currentTotal = Math.round(data.reduce((sum, d) => sum + d.current, 0) * 10) / 10;
-    const previousTotal = Math.round(data.reduce((sum, d) => sum + d.previous, 0) * 10) / 10;
-    const diff = Math.round((currentTotal - previousTotal) * 10) / 10;
-    const pctChange = previousTotal > 0 ? ((diff / previousTotal) * 100).toFixed(0) : 0;
-    return { currentTotal, previousTotal, diff, pctChange };
-  }, [data]);
+    const currentTotal = metricValue(yearCurrent, metric, isMetric);
+    const previousTotal = metricValue(yearPrevious, metric, isMetric);
+    const pctChange = percentChange(currentTotal, previousTotal);
+    return { currentTotal, previousTotal, pctChange };
+  }, [yearCurrent, yearPrevious, metric, isMetric]);
 
   const metricLabels = {
     hours: { label: t('stats.hours'), unit: 'h' },
-    distance: { label: t('activity.distance'), unit: 'km' },
+    distance: { label: t('activity.distance'), unit: longDistanceUnitLabel(isMetric) },
     tss: { label: t('stats.tss'), unit: '' },
   };
-
-  // Current month for highlighting
-  const currentMonth = now.getMonth();
 
   // Get selected month data for tooltip
   const selectedMonthData = selectedMonth !== null ? data[selectedMonth] : null;
   const selectedMonthDiff =
-    selectedMonthData && selectedMonthData.previous > 0
-      ? ((selectedMonthData.current - selectedMonthData.previous) / selectedMonthData.previous) *
-        100
-      : 0;
+    selectedMonthData && selectedMonth !== null
+      ? seasonMonthChange(selectedMonth, currentMonth, selectedMonthData, {
+          current: metricValue(monthCurrent, metric, isMetric),
+          previous: metricValue(monthPrevious, metric, isMetric),
+        })
+      : null;
 
   // Build the bar chart as a single Skia Picture
   const chartPicture = useMemo(() => {
@@ -300,11 +352,32 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   // Month labels - kept as native Text for proper font rendering
   const monthLabels = useMemo(() => {
     return data.map((d, idx) => ({
-      letter: d.month.charAt(0),
+      letter: d.letter,
       isCurrentMonth: idx === currentMonth,
       isSelected: idx === selectedMonth,
     }));
   }, [data, currentMonth, selectedMonth]);
+
+  const notDownloaded = coverage === RangeCoverage.NotFetched;
+
+  if (readError != null) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={[styles.title, isDark && styles.textLight]}>
+            {t('stats.seasonComparison')}
+          </Text>
+        </View>
+        <EngineReadFailureRetry
+          error={readError}
+          onRetry={() =>
+            void queryClient.invalidateQueries({ queryKey: queryKeys.stats.training.all })
+          }
+          testID="season-comparison-failed"
+        />
+      </View>
+    );
+  }
 
   if (!hasData) {
     return (
@@ -316,11 +389,13 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
         </View>
         <View style={[styles.emptyState, { height }]}>
           <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {t('stats.noActivityData')}
+            {notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noActivityData')}
           </Text>
-          <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
-            {t('stats.completeActivitiesYearComparison')}
-          </Text>
+          {!notDownloaded && (
+            <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
+              {t('stats.completeActivitiesYearComparison')}
+            </Text>
+          )}
         </View>
       </View>
     );
@@ -339,6 +414,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
               key={m}
               onPress={() => setMetric(m)}
               style={pressable([styles.metricButton, metric === m && styles.metricButtonActive])}
+              android_ripple={pressRipple}
             >
               <Text
                 style={[
@@ -354,27 +430,18 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
         </View>
       </View>
 
-      {/* Legend */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colorPrevious }]} />
-          <Text style={[styles.legendLabel, isDark && chartStyles.textDark]}>
-            {t('stats.previous')}
-          </Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colorCurrent }]} />
-          <Text style={[styles.legendLabel, isDark && chartStyles.textDark]}>
-            {t('stats.current')}
-          </Text>
-        </View>
-      </View>
-
       {/* Summary / Tooltip */}
-      <View style={[styles.summary, selectedMonth !== null && styles.summaryActive]}>
+      <View
+        style={[
+          styles.summary,
+          isDark && styles.summaryDark,
+          selectedMonth !== null && styles.summaryActive,
+          selectedMonth !== null && isDark && styles.summaryActiveDark,
+        ]}
+      >
         {selectedMonth !== null && selectedMonthData ? (
           <>
-            <Text style={[styles.tooltipMonth, isDark && styles.textLight]}>
+            <Text testID="season-tooltip" style={[styles.tooltipMonth, isDark && styles.textLight]}>
               {selectedMonthData.month}
             </Text>
             <View style={styles.tooltipValues}>
@@ -392,22 +459,27 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                   {metricLabels[metric].unit}
                 </Text>
               </View>
-              <Text
-                style={[
-                  styles.tooltipDiff,
-                  {
-                    color: verdictColor(selectedMonthDiff >= 0 ? 'positive' : 'negative', isDark),
-                  },
-                ]}
-              >
-                {selectedMonthDiff >= 0 ? '+' : ''}
-                {selectedMonthDiff.toFixed(0)}%
-              </Text>
+              {selectedMonthDiff !== null && (
+                <Text
+                  style={[
+                    styles.tooltipDiff,
+                    {
+                      color: verdictColor(selectedMonthDiff >= 0 ? 'positive' : 'negative', isDark),
+                    },
+                  ]}
+                >
+                  {formatChange(selectedMonthDiff)}
+                </Text>
+              )}
             </View>
           </>
         ) : (
           <>
             <View style={styles.summaryItem}>
+              <View
+                testID="season-summary-dot-previous"
+                style={[styles.legendDot, { backgroundColor: colorPrevious }]}
+              />
               <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
                 {t('stats.previous')}
               </Text>
@@ -417,6 +489,10 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
               </Text>
             </View>
             <View style={styles.summaryItem}>
+              <View
+                testID="season-summary-dot-current"
+                style={[styles.legendDot, { backgroundColor: colorCurrent }]}
+              />
               <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
                 {t('stats.current')}
               </Text>
@@ -425,17 +501,20 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                 {metricLabels[metric].unit}
               </Text>
             </View>
-            <View style={styles.summaryItem}>
-              <Text
-                style={[
-                  styles.summaryValue,
-                  { color: verdictColor(totals.diff >= 0 ? 'positive' : 'negative', isDark) },
-                ]}
-              >
-                {totals.diff >= 0 ? '+' : ''}
-                {totals.pctChange}%
-              </Text>
-            </View>
+            {totals.pctChange !== null && (
+              <View style={styles.summaryItem}>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    {
+                      color: verdictColor(totals.pctChange >= 0 ? 'positive' : 'negative', isDark),
+                    },
+                  ]}
+                >
+                  {formatChange(totals.pctChange)}
+                </Text>
+              </View>
+            )}
           </>
         )}
       </View>
@@ -457,6 +536,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                   styles.monthLabel,
                   isDark && chartStyles.textDark,
                   m.isCurrentMonth && styles.currentMonthLabel,
+                  m.isCurrentMonth && isDark && { color: darkColors.linkTeal },
                   m.isSelected && styles.selectedMonthLabel,
                 ]}
               >
@@ -466,6 +546,15 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
           </View>
         </View>
       </GestureDetector>
+
+      {notDownloaded && (
+        <Text
+          testID="season-comparison-partial"
+          style={[styles.partial, isDark && chartStyles.textDark]}
+        >
+          {t('stats.rangePartlyDownloaded')}
+        </Text>
+      )}
     </View>
   );
 }
@@ -505,22 +594,6 @@ const styles = StyleSheet.create({
   metricButtonTextActive: {
     color: colors.textOnPrimary,
   },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    marginBottom: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  legendLabel: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
   summary: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -529,11 +602,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusSm,
-    backgroundColor: colorWithOpacity(ink.black, 0.02),
+    backgroundColor: colors.regionTintIdle,
     minHeight: 44,
   },
+  summaryDark: {
+    backgroundColor: darkColors.regionTintIdle,
+  },
   summaryActive: {
-    backgroundColor: colorWithOpacity(ink.black, 0.05),
+    backgroundColor: colors.regionTintActive,
+  },
+  summaryActiveDark: {
+    backgroundColor: darkColors.regionTintActive,
   },
   summaryItem: {
     alignItems: 'center',
@@ -543,7 +622,7 @@ const styles = StyleSheet.create({
   legendDot: {
     width: spacing.sm,
     height: spacing.sm,
-    borderRadius: spacing.xs,
+    borderRadius: layout.borderRadiusXs,
   },
   summaryLabel: {
     fontSize: typography.label.fontSize,
@@ -596,7 +675,7 @@ const styles = StyleSheet.create({
   },
   currentMonthLabel: {
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.linkTeal,
   },
   selectedMonthLabel: {
     fontWeight: '700',
@@ -610,6 +689,11 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
+  },
+  partial: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   emptyHint: {
     fontSize: typography.caption.fontSize,

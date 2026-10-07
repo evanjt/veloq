@@ -20,7 +20,10 @@ import {
 import type { MuscleVolume } from '@/types';
 
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
+import { muscleName } from '../lib/muscleNames';
+import { formatSetCount } from '../lib/formatting';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
+import { formatWeightRounded } from '@/shared/format/weight';
 
 const BODY_COLORS: readonly string[] = strengthRamp;
 const BODY_FILL_LIGHT = bodyDiagram.fillLight;
@@ -49,6 +52,9 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
 }: StrengthBodyDiagramProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
+  const isMetric = useMetricSystem();
+  // The legend's zero names the colour an untrained muscle is drawn in.
+  const untrainedFill = isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT;
 
   return (
     <View testID="strength-body-diagram" style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
@@ -71,7 +77,14 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             ]}
           />
           <Text style={[styles.subtitleText, isDark && styles.subtitleTextDark]} numberOfLines={1}>
-            {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
+            {muscleName(selectedVolume.slug, t)}
+          </Text>
+          <Text
+            testID="strength-selected-summary"
+            style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
+            numberOfLines={1}
+          >
+            {`· ${formatSetCount(selectedVolume.weightedSets)} ${t('strength.sets')} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`}
           </Text>
           <MaterialCommunityIcons
             name="close"
@@ -87,13 +100,14 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
 
       <BodyPairWithLoupe
         data={bodyData}
+        selectedSlug={selectedVolume?.slug ?? null}
         gender={gender}
         scale={0.6}
         colors={BODY_COLORS}
         onMuscleTap={onMuscleTap}
         onMuscleScrub={onMuscleScrub}
         tappableSlugs={tappableSlugs}
-        defaultFill={isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT}
+        defaultFill={untrainedFill}
       />
 
       {/* Continuous scale bar */}
@@ -103,7 +117,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
         </Text>
         <View style={styles.scaleBar}>
           <LinearGradient
-            colors={[BODY_FILL_LIGHT, ...strengthRamp]}
+            colors={[untrainedFill, ...strengthRamp]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.scaleGradient}

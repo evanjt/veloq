@@ -6,7 +6,7 @@ export interface MuscleVolume {
   /** Weighted set count: primary=1.0, secondary=0.5 */
   weightedSets: number;
   totalReps: number;
-  totalWeightKg: number;
+  volumeKg: number;
   exerciseNames: string[];
 }
 
@@ -65,6 +65,8 @@ export interface StrengthProgressionRecord {
   peakWeightedSets: number;
   changePct: number | null;
   trend: StrengthProgressTrend;
+  /** The engine's distance of the recent average from the baseline, in weekly deviations. */
+  signalDelta: number | null;
 }
 
 export type StrengthBalanceStatus =
@@ -93,9 +95,9 @@ export interface StrengthBalancePair {
 export interface ExerciseSummary {
   exerciseName: string;
   exerciseCategory: number;
-  frequencyDays: number;
   totalSets: number;
-  totalWeightKg: number;
+  totalReps: number;
+  volumeKg: number;
   activityCount: number;
   isPrimary: boolean;
 }
@@ -103,7 +105,6 @@ export interface ExerciseSummary {
 /** Exercise summaries for a specific muscle group over a period. */
 export interface MuscleExerciseSummary {
   exercises: ExerciseSummary[];
-  periodDays: number;
 }
 
 /** One muscle's exercises over the period, as the screen read carries them. */
@@ -122,15 +123,6 @@ export interface StrengthScreenData {
   weekly: StrengthSummary[];
   progressions: StrengthProgressionRecord[];
   exercises: MuscleExercises[];
-  periodDays: number;
-}
-
-/** A single activity containing a specific exercise. */
-export interface ExerciseActivity {
-  activityId: string;
-  activityName: string;
-  date: number;
-  sets: number;
-  totalWeightKg: number;
-  isPrimary: boolean;
+  /** Strength activities in the period still owed their FIT file. */
+  owedCount: number;
 }

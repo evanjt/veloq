@@ -12,7 +12,7 @@ import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/
 import { formFromLoads } from '@/shared/math';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { formatShortDate } from '@/shared/format/format';
-import { ChartErrorBoundary, pressable } from '@/shared/ui';
+import { ChartErrorBoundary, pressable, pressRipple } from '@/shared/ui';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -22,6 +22,7 @@ import {
   useChartGestures,
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
+import { displayedDay } from '../lib/pinnedDay';
 import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
 
 interface FitnessChartProps {
@@ -45,7 +46,6 @@ interface ChartDataPoint {
   fitness: number;
   fatigue: number;
   form: number;
-  load: number;
 }
 
 const CHART_PADDING = { top: 8, bottom: 20 } as const;
@@ -101,38 +101,21 @@ export const FitnessChart = React.memo(function FitnessChart({
   // Process data for the chart
   const { chartData, maxFitness } = useMemo(() => {
     if (!data || data.length === 0) {
-      return {
-        chartData: [],
-        indexMap: [],
-        maxLoad: 50,
-        maxFitness: 100,
-        minForm: -30,
-        maxForm: 30,
-      };
+      return { chartData: [], maxFitness: 100 };
     }
 
     const points: ChartDataPoint[] = [];
-    const indices: number[] = [];
 
     // Sort by date
     const sorted = sortByDateId(data);
 
-    let maxL = 0;
     let maxF = 0;
-    let minFm = 0;
-    let maxFm = 0;
 
     sorted.forEach((day, idx) => {
       const fitness = Math.round(day.ctl ?? 0);
       const fatigue = Math.round(day.atl ?? 0);
       const form = formFromLoads(day.ctl, day.atl);
-      // Estimate daily load from the difference in fatigue (rough approximation)
-      const load = day.sportInfo?.reduce((sum, s) => sum + (s.load || 0), 0) || 0;
-
-      maxL = Math.max(maxL, load);
       maxF = Math.max(maxF, fitness, fatigue);
-      minFm = Math.min(minFm, form);
-      maxFm = Math.max(maxFm, form);
 
       points.push({
         x: idx,
@@ -140,18 +123,12 @@ export const FitnessChart = React.memo(function FitnessChart({
         fitness,
         fatigue,
         form,
-        load,
       });
-      indices.push(idx);
     });
 
     return {
       chartData: points,
-      indexMap: indices,
-      maxLoad: Math.max(maxL, 50),
       maxFitness: Math.max(maxF, 50),
-      minForm: Math.min(minFm, -10),
-      maxForm: Math.max(maxFm, 10),
     };
   }, [data]);
 
@@ -185,10 +162,10 @@ export const FitnessChart = React.memo(function FitnessChart({
   React.useEffect(() => {
     if (selectedDate && chartData.length > 0 && !isActive) {
       const idx = chartData.findIndex((d) => d.date === selectedDate);
-      if (idx >= 0) {
-        setTooltipData(chartData[idx]);
-        externalSelectedIdx.value = idx;
-      }
+      // A pinned day with no row has nothing to show, which is not the last
+      // day selected or the newest one.
+      setTooltipData(idx >= 0 ? chartData[idx] : null);
+      externalSelectedIdx.value = idx;
     } else if (!selectedDate && !isActive) {
       setTooltipData(null);
       externalSelectedIdx.value = -1;
@@ -206,8 +183,12 @@ export const FitnessChart = React.memo(function FitnessChart({
   }
 
   // Get current (latest) values
-  const currentData = chartData[chartData.length - 1];
-  const displayData = tooltipData || currentData;
+  const displayData = displayedDay({
+    selectedDate,
+    isActive,
+    selected: tooltipData,
+    newest: chartData[chartData.length - 1],
+  });
   const yDomain: [number, number] = [0, maxFitness * 1.1];
   const markerChanges = tooltipData ? eftpChangesOn(markers, tooltipData.date) : [];
   const markerIndices = markerIndicesOf(chartData, markers);
@@ -231,7 +212,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                   { color: isDark ? darkColors.chartAccentText : colors.chartAccentText },
                 ]}
               >
-                {markerChanges.map(formatEftpChange).join(', ')}
+                {markerChanges.map((c) => formatEftpChange(c, t('units.watts'))).join(', ')}
               </Text>
             )}
           </View>
@@ -247,7 +228,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                   { color: isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText },
                 ]}
               >
-                {Math.round(displayData.fitness)}
+                {displayData ? Math.round(displayData.fitness) : '-'}
               </Text>
             </View>
             <View style={styles.valueItem}>
@@ -261,7 +242,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                   { color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText },
                 ]}
               >
-                {Math.round(displayData.fatigue)}
+                {displayData ? Math.round(displayData.fatigue) : '-'}
               </Text>
             </View>
           </View>
@@ -360,6 +341,7 @@ export const FitnessChart = React.memo(function FitnessChart({
               styles.legendItem,
               !visibleLines.fitness && styles.legendItemDisabled,
             ])}
+            android_ripple={pressRipple}
             onPress={() => toggleLine('fitness')}
             hitSlop={8}
           >
@@ -385,6 +367,7 @@ export const FitnessChart = React.memo(function FitnessChart({
               styles.legendItem,
               !visibleLines.fatigue && styles.legendItemDisabled,
             ])}
+            android_ripple={pressRipple}
             onPress={() => toggleLine('fatigue')}
             hitSlop={8}
           >

@@ -1,17 +1,12 @@
 import { useMemo } from 'react';
 
-import { calculateDecoupling } from '@/features/stats';
 import { type PrimarySport } from '@/features/fitness/stores';
-import type { WellnessData, ZoneDistribution, eFTPPoint } from '@/types';
+import type { WellnessData, ZoneDistribution } from '@/types';
+import type { FtpTrendView } from '../lib/ftpTrendView';
 import { getFormZone, type FormZone } from '../lib';
 import { trendOfMetric, type TrendDirection } from '@/shared/format/trend';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formFromLoads } from '@/shared/math';
-
-interface DecouplingStreams {
-  watts?: number[];
-  heartrate?: number[];
-}
 
 interface FitnessChartValues {
   fitness: number;
@@ -24,8 +19,7 @@ interface UseFitnessComputationsArgs {
   sportMode: PrimarySport;
   powerZones: ZoneDistribution[] | undefined;
   hrZones: ZoneDistribution[] | undefined;
-  eftpHistory: eFTPPoint[] | undefined;
-  decouplingStreams: DecouplingStreams | undefined;
+  eftpTrend: FtpTrendView | undefined;
   selectedDate: string | null;
   selectedValues: FitnessChartValues | null;
 }
@@ -33,7 +27,6 @@ interface UseFitnessComputationsArgs {
 interface FitnessComputations {
   ftpTrend: TrendDirection | null;
   dominantZone: { name: string; percentage: number } | null;
-  decouplingValue: { value: number; isGood: boolean } | null;
   currentValues: (FitnessChartValues & { date: string }) | null;
   displayValues: FitnessChartValues | (FitnessChartValues & { date: string }) | null;
   displayDate: string | null | undefined;
@@ -62,18 +55,15 @@ export function useFitnessComputations({
   sportMode,
   powerZones,
   hrZones,
-  eftpHistory,
-  decouplingStreams,
+  eftpTrend,
   selectedDate,
   selectedValues,
 }: UseFitnessComputationsArgs): FitnessComputations {
-  // Compute FTP trend (compare current to avg of previous values)
+  // The direction of the engine's step over the card's window
   const ftpTrend = useMemo<FitnessComputations['ftpTrend']>(() => {
-    if (!eftpHistory || eftpHistory.length < 2) return null;
-    const current = eftpHistory[eftpHistory.length - 1].eftp;
-    const previous = eftpHistory[eftpHistory.length - 2].eftp;
-    return trendOfMetric('ftp', current, previous);
-  }, [eftpHistory]);
+    if (!eftpTrend || eftpTrend.previous === undefined) return null;
+    return trendOfMetric('ftp', eftpTrend.latest, eftpTrend.previous);
+  }, [eftpTrend]);
 
   // Compute dominant zone for header display
   const dominantZone = useMemo(() => {
@@ -84,17 +74,6 @@ export function useFitnessComputations({
     if (top.percentage === 0) return null;
     return { name: top.name, percentage: top.percentage };
   }, [sportMode, powerZones, hrZones]);
-
-  // Compute decoupling percentage for header display
-  const decouplingValue = useMemo(() => {
-    if (!decouplingStreams?.watts || !decouplingStreams?.heartrate) return null;
-    const power = decouplingStreams.watts;
-    const hr = decouplingStreams.heartrate;
-    const analysis = calculateDecoupling(power, hr);
-    if (!analysis) return null;
-
-    return { value: analysis.decoupling, isGood: analysis.isGood };
-  }, [decouplingStreams]);
 
   // Memoize current (latest) values - only recompute when wellness data changes
   const currentValues = useMemo(() => {
@@ -129,7 +108,6 @@ export function useFitnessComputations({
   return {
     ftpTrend,
     dominantZone,
-    decouplingValue,
     currentValues,
     displayValues,
     displayDate,

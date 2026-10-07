@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import {
@@ -24,7 +25,12 @@ import {
   colorWithOpacity,
 } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
-import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
+import type { SectionPerformanceRecord } from '@/features/routes';
+import {
+  directionEfforts,
+  plottedDirection,
+  type DirectionBests,
+} from '@/features/insights/lib/directionBests';
 import type { LayoutChangeEvent } from 'react-native';
 
 const CHART_HEIGHT = 160;
@@ -32,7 +38,7 @@ const CHART_PADDING = { top: 12, bottom: 24, left: 42, right: 12 };
 
 interface SectionPerformanceTimelineProps {
   records: SectionPerformanceRecord[];
-  bestRecord: SectionPerformanceRecord | null;
+  bests: DirectionBests;
   /** Chart line color */
   lineColor?: string;
 }
@@ -40,24 +46,28 @@ interface SectionPerformanceTimelineProps {
 /**
  * Timeline chart showing section performance (time) over date.
  * X-axis: dates, Y-axis: duration in seconds (inverted so faster = higher).
- * PR is highlighted with a distinct marker.
+ * An out-and-back plots the direction holding the record. PR is highlighted with a distinct marker.
  */
 export const SectionPerformanceTimeline = React.memo(function SectionPerformanceTimeline({
   records,
-  bestRecord,
+  bests,
   lineColor = colors.primary,
 }: SectionPerformanceTimelineProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const [chartWidth, setChartWidth] = useState(0);
   const onChartLayout = useCallback((e: LayoutChangeEvent) => {
     setChartWidth(e.nativeEvent.layout.width);
   }, []);
 
   // Sort records chronologically
-  const sorted = useMemo(
-    () => [...records].sort((a, b) => safeGetTime(a.activityDate) - safeGetTime(b.activityDate)),
-    [records]
-  );
+  const sorted = useMemo(() => {
+    const efforts = directionEfforts(records, bests);
+    const direction = plottedDirection(efforts, bests);
+    return efforts
+      .filter((e) => e.direction === direction)
+      .sort((a, b) => safeGetTime(a.record.activityDate) - safeGetTime(b.record.activityDate));
+  }, [records, bests]);
 
   const { linePath, areaPath, pointPositions, bestPointIdx, yMin, yMax, yTicks, xLabels } =
     useMemo(() => {
@@ -73,7 +83,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
       };
       if (sorted.length < 2 || chartWidth <= 0) return empty;
 
-      const times = sorted.map((r) => r.bestTime);
+      const times = sorted.map((e) => e.time);
       const minTime = Math.min(...times);
       const maxTime = Math.max(...times);
       const range = maxTime - minTime || 10;
@@ -88,7 +98,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
       // Y is inverted: lower time (faster) = higher on chart
       const positions = sorted.map((r, i) => ({
         x: CHART_PADDING.left + (i / (sorted.length - 1)) * drawW,
-        y: CHART_PADDING.top + ((r.bestTime - paddedMin) / yRange) * drawH,
+        y: CHART_PADDING.top + ((r.time - paddedMin) / yRange) * drawH,
       }));
 
       // Build line path
@@ -103,9 +113,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
       const area = `${d} L ${lastX} ${bottomY} L ${positions[0].x} ${bottomY} Z`;
 
       // Find best point index
-      const bestIdx = bestRecord
-        ? sorted.findIndex((r) => r.activityId === bestRecord.activityId)
-        : -1;
+      const bestIdx = sorted.findIndex((e) => e.isPr);
 
       // Y-axis ticks: 3 evenly spaced
       const tickCount = 3;
@@ -115,17 +123,17 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
       // X-axis labels: first, middle (if enough points), last
       const labels: { x: number; label: string }[] = [];
       if (sorted.length >= 2) {
-        labels.push({ x: positions[0].x, label: formatShortDate(sorted[0].activityDate) });
+        labels.push({ x: positions[0].x, label: formatShortDate(sorted[0].record.activityDate) });
         if (sorted.length >= 5) {
           const midIdx = Math.floor(sorted.length / 2);
           labels.push({
             x: positions[midIdx].x,
-            label: formatShortDate(sorted[midIdx].activityDate),
+            label: formatShortDate(sorted[midIdx].record.activityDate),
           });
         }
         labels.push({
           x: positions[positions.length - 1].x,
-          label: formatShortDate(sorted[sorted.length - 1].activityDate),
+          label: formatShortDate(sorted[sorted.length - 1].record.activityDate),
         });
       }
 
@@ -139,7 +147,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
         yTicks: ticks,
         xLabels: labels,
       };
-    }, [sorted, bestRecord, chartWidth]);
+    }, [sorted, chartWidth]);
 
   if (sorted.length < 2) return null;
 
@@ -156,7 +164,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
     <ChartErrorBoundary height={CHART_HEIGHT}>
       <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
         <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
-          All efforts ({records.length})
+          {t('insights.sectionPrSheet.allEfforts', { n: sorted.length })}
         </Text>
         <View style={styles.chartWrapper} onLayout={onChartLayout}>
           {linePath ? (

@@ -70,11 +70,6 @@ export const useSportPreference = create<SportPreferenceState>((set) => ({
   },
 }));
 
-// Helper for synchronous access (e.g., in API calls or non-React contexts)
-export function getPrimarySport(): PrimarySport {
-  return useSportPreference.getState().primarySport;
-}
-
 // Initialize sport preference (call during app startup)
 export async function initializeSportPreference(): Promise<void> {
   await useSportPreference.getState().initialize();

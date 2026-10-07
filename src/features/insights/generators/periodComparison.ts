@@ -6,12 +6,20 @@ import type {
   PeriodStats,
   TFunc,
   SeriesPoint,
+  SupportingTrend,
 } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { ACTIVE_WINDOW_DAYS, INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
 import { formatDurationCompact } from '@/shared/format/format';
 import { fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
 import { sparkline } from '../lib/sparkline';
+import {
+  trendIcon,
+  trendOfMetric,
+  trendVerdict,
+  verdictRung,
+  type TrendMetric,
+} from '@/shared/format/trend';
 
 /** A week against the week before it. */
 const WEEK_OVER_WEEK_DAYS = 14;
@@ -31,6 +39,32 @@ function weeklySeries(weeks: PeriodStats[] | undefined, useTss: boolean): Series
     value: displayValue(useTss ? week.totalTss : week.totalDuration, useTss),
     date: at,
   }));
+}
+
+/**
+ * The comparison judged by the polarity table. Load is `weekTss`, which has a
+ * direction and no judgement, and time is `weekHours`, where more is better.
+ * The engine states time in seconds and the table in hours.
+ */
+function comparisonTrend(comparison: PeriodComparison): {
+  metric: TrendMetric;
+  trend: SupportingTrend;
+} {
+  const metric: TrendMetric = comparison.metric === 'tss' ? 'weekTss' : 'weekHours';
+  const scale = comparison.metric === 'tss' ? 1 : 1 / 3600;
+  const direction = trendOfMetric(metric, comparison.current * scale, comparison.previous * scale);
+  return { metric, trend: { direction, verdict: trendVerdict(metric, direction) } };
+}
+
+/**
+ * A ratio as the change the card prints: signed on either side of zero, bare
+ * at zero. Both branches print it in the same slot, and the week-on-week one
+ * used to drop the minus, so a 29% fall read as a 29% rise.
+ */
+export function signedPercent(ratio: number): string {
+  const percent = Math.round(Math.abs(ratio) * 100);
+  if (percent === 0) return '0%';
+  return `${ratio > 0 ? '+' : '-'}${percent}%`;
 }
 
 /** A comparison's own value as the card shows it: TSS as it stands, seconds as minutes. */
@@ -67,6 +101,9 @@ export function generatePeriodComparisonInsights(
   const useTss = weekOverWeek.metric === 'tss';
   const ratio = weekOverWeek.ratio;
   const percent = Math.round(Math.abs(ratio) * 100);
+  const { metric, trend } = comparisonTrend(weekOverWeek);
+  const icon = trendIcon(metric, trend.direction);
+  const iconTone = verdictRung(trend.verdict);
 
   const body = useTss
     ? t('insights.loadBody', {
@@ -96,6 +133,7 @@ export function generatePeriodComparisonInsights(
     // The four weeks behind the chronic total, in whichever unit the
     // comparison is stated in, so the strip and the numbers agree.
     ...sparkline(weeklySeries(chronicWeeks, useTss), t('insights.data.weeklyLoad')),
+    trend,
     comparisonData: {
       current: {
         label: t('insights.data.thisWeek'),
@@ -109,7 +147,7 @@ export function generatePeriodComparisonInsights(
       },
       change: {
         label: t('insights.data.change'),
-        value: `${ratio > 0 ? '+' : ''}${percent}%`,
+        value: signedPercent(ratio),
         context: 'neutral',
       },
     },
@@ -137,8 +175,8 @@ export function generatePeriodComparisonInsights(
         id: 'period_comparison-volume',
         category: 'period_comparison',
         priority: 2,
-        icon: 'trending-up',
-        iconTone: 'positive',
+        icon,
+        iconTone,
         title: t(upKey, { percent }),
         body,
         // A comparison is a picture of a fitness window, so it opens that
@@ -158,8 +196,8 @@ export function generatePeriodComparisonInsights(
         id: 'period_comparison-volume',
         category: 'period_comparison',
         priority: 2,
-        icon: 'trending-down',
-        iconTone: 'negative',
+        icon,
+        iconTone,
         title: t(downKey, { percent }),
         body,
         // A comparison is a picture of a fitness window, so it opens that
@@ -193,14 +231,15 @@ function generateLastWeekVsAverageInsight(
   if (percent < Math.round(INSIGHTS_CONFIG.thresholds.volumeChangePct * 100)) return [];
 
   const direction = ratio > 0 ? t('insights.weeklyLoad.above') : t('insights.weeklyLoad.below');
+  const { metric, trend } = comparisonTrend(comparison);
 
   return [
     makeInsight({
       id: 'period_comparison-volume',
       category: 'period_comparison',
       priority: 2,
-      icon: ratio > 0 ? 'trending-up' : 'trending-down',
-      iconTone: ratio > 0 ? 'positive' : 'negative',
+      icon: trendIcon(metric, trend.direction),
+      iconTone: verdictRung(trend.verdict),
       title: t('insights.weeklyLoad.title', { percent, direction }),
       navigationTarget: fitnessTarget({ range: rangeCovering(WEEK_AGAINST_CHRONIC_DAYS) }),
       timestamp: now,
@@ -212,6 +251,7 @@ function generateLastWeekVsAverageInsight(
         comparisonKind: 'self',
       },
       supportingData: {
+        trend,
         comparisonData: {
           current: {
             label: t('insights.data.lastWeek'),
@@ -225,7 +265,7 @@ function generateLastWeekVsAverageInsight(
           },
           change: {
             label: t('insights.data.change'),
-            value: `${ratio > 0 ? '+' : '-'}${percent}%`,
+            value: signedPercent(ratio),
             context: 'neutral',
           },
         },

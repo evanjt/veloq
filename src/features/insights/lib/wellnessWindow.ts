@@ -14,21 +14,3 @@ export function wellnessWindow(now: Date, days: number): { oldest: string; newes
 
   return { oldest: formatLocalDate(oldest), newest: formatLocalDate(now) };
 }
-
-/**
- * The date to caption the insights panel with when the form cards have been
- * dropped for want of a wellness row inside the window.
- *
- * The window is anchored on today, so a library last synced a month ago
- * answers empty and every form insight falls out of the panel silently.
- * Naming the last sync is what tells that apart from an athlete who has
- * never synced wellness at all, who has no sync to date and keeps the
- * ordinary empty state.
- */
-export function droppedFormSyncDate(
-  windowRows: readonly unknown[] | null | undefined,
-  latestStoredDate: string | null | undefined
-): string | null {
-  if (windowRows && windowRows.length > 0) return null;
-  return latestStoredDate ?? null;
-}

@@ -32,12 +32,14 @@ import {
   FORM_ZONE_MARK_COLORS,
   formZoneLabel,
   FORM_ZONE_BOUNDARIES,
+  formChartSeries,
+  type FormChartPoint,
   type FormZone,
 } from '@/features/fitness/lib/fitness';
-import { sortByDateId } from '@/shared/activity/activityUtils';
+import { displayedDay } from '@/features/fitness/lib/pinnedDay';
 import { formatShortDate } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
-import { formFromLoads } from '@/shared/math';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
 interface FormZoneChartProps {
   data: WellnessData[];
@@ -52,17 +54,10 @@ interface FormZoneChartProps {
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
-interface ChartDataPoint {
-  x: number;
-  date: string;
-  form: number;
-  fitness: number;
-  fatigue: number;
-}
-
 const CHART_PADDING = { top: 4, bottom: 4 } as const;
-const SERIES = { form: (d: ChartDataPoint) => d.form };
-const xOf = (d: ChartDataPoint) => d.x;
+const signedForm = (n: number) => (n > 0 ? `+${n}` : String(n === 0 ? 0 : n));
+const SERIES = { form: (d: FormChartPoint) => d.form };
+const xOf = (d: FormChartPoint) => d.x;
 const ZONES: FormZone[] = ['transition', 'fresh', 'greyZone', 'optimal', 'highRisk'];
 
 export const FormZoneChart = React.memo(function FormZoneChart({
@@ -76,40 +71,23 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const chartColors = useChartColors();
-  const [selectedData, setSelectedData] = useState<ChartDataPoint | null>(null);
+  const [selectedData, setSelectedData] = useState<FormChartPoint | null>(null);
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   onDateSelectRef.current = onDateSelect;
   onInteractionChangeRef.current = onInteractionChange;
 
   const externalSelectedIdx = useSharedValue(-1);
+  const asPercent = useFormPreference((state) => state.formAsPercent) === true;
 
-  // Process data for the chart
-  const chartData = useMemo(() => {
-    if (!data || data.length === 0) return [];
+  const chartData = useMemo(() => formChartSeries(data ?? [], asPercent), [data, asPercent]);
 
-    const sorted = sortByDateId(data);
-
-    return sorted.map((day, idx) => {
-      const fitness = Math.round(day.ctl ?? 0);
-      const fatigue = Math.round(day.atl ?? 0);
-      const form = formFromLoads(day.ctl, day.atl);
-      return {
-        x: idx,
-        date: day.id,
-        form,
-        fitness,
-        fatigue,
-      };
-    });
-  }, [data]);
-
-  const handleSelect = useCallback((point: ChartDataPoint) => {
+  const handleSelect = useCallback((point: FormChartPoint) => {
     setSelectedData(point);
     onDateSelectRef.current?.(point.date, {
       fitness: point.fitness,
       fatigue: point.fatigue,
-      form: point.form,
+      form: point.tsb,
     });
   }, []);
 
@@ -122,7 +100,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   }, []);
 
   const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords } =
-    useChartGestures<ChartDataPoint>({
+    useChartGestures<FormChartPoint>({
       data: chartData,
       onSelect: handleSelect,
       onInteractionChange: handleInteractionChange,
@@ -134,10 +112,10 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   React.useEffect(() => {
     if (selectedDate && chartData.length > 0 && !isActive) {
       const idx = chartData.findIndex((d) => d.date === selectedDate);
-      if (idx >= 0) {
-        setSelectedData(chartData[idx]);
-        externalSelectedIdx.value = idx;
-      }
+      // A pinned day with no row has nothing to show, which is not the last
+      // day selected or the newest one.
+      setSelectedData(idx >= 0 ? chartData[idx] : null);
+      externalSelectedIdx.value = idx;
     } else if (!selectedDate && !isActive) {
       setSelectedData(null);
       externalSelectedIdx.value = -1;
@@ -149,14 +127,23 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   }
 
   // Calculate domain - show at least -35 to 30
-  const minForm = Math.min(-35, ...chartData.map((d) => d.form));
-  const maxForm = Math.max(30, ...chartData.map((d) => d.form));
+  const formValues = chartData.flatMap((d) => (d.form === null ? [] : [d.form]));
+  const minForm = Math.min(-35, ...formValues);
+  const maxForm = Math.max(30, ...formValues);
   const yDomain: [number, number] = [minForm, maxForm];
 
-  // Get current (latest) values for display when not selecting
-  const currentData = chartData[chartData.length - 1];
-  const displayData = selectedData || currentData;
-  const formZone = getFormZone(displayData.form);
+  const displayData = displayedDay({
+    selectedDate,
+    isActive,
+    selected: selectedData,
+    newest: chartData[chartData.length - 1],
+  });
+  // The series already carries the athlete's unit at full precision, so the thresholds apply as they are.
+  const formZone = displayData && displayData.form !== null ? getFormZone(displayData.form) : null;
+  const formText =
+    displayData && displayData.form !== null
+      ? `${signedForm(Math.round(displayData.form))}${asPercent ? '%' : ''}`
+      : '-';
 
   return (
     <View style={styles.container}>
@@ -170,13 +157,25 @@ export const FormZoneChart = React.memo(function FormZoneChart({
           </Text>
         </View>
         <View style={styles.valuesRow}>
-          <Text style={[styles.formValue, { color: formZoneTextColor(formZone, isDark) }]}>
-            {displayData.form > 0 ? '+' : ''}
-            {displayData.form}
+          <Text
+            testID="form-chart-value"
+            style={[
+              styles.formValue,
+              formZone
+                ? { color: formZoneTextColor(formZone, isDark) }
+                : isDark && styles.textLight,
+            ]}
+          >
+            {formText}
           </Text>
-          <Text style={[styles.zoneText, { color: formZoneTextColor(formZone, isDark) }]}>
-            {formZoneLabel(formZone)}
-          </Text>
+          {formZone && (
+            <Text
+              testID="form-chart-zone"
+              style={[styles.zoneText, { color: formZoneTextColor(formZone, isDark) }]}
+            >
+              {formZoneLabel(formZone)}
+            </Text>
+          )}
         </View>
       </View>
 
@@ -190,9 +189,10 @@ export const FormZoneChart = React.memo(function FormZoneChart({
             padding={CHART_PADDING}
             grid={5}
           >
-            {({ points, bounds, yFor }) => {
+            {({ points, bounds, xFor, yFor }) => {
               syncBounds(bounds);
-              syncXCoords(points.form, (p) => p.x);
+              // One coordinate per day, including a gap day, so a drag index is a data index.
+              syncXCoords(chartData, (d) => xFor(d.x));
               return (
                 <>
                   {ZONES.map((zone) => (
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     backgroundColor: colorWithOpacity(ink.white, 0.7),
     paddingHorizontal: spacing.xxs,
-    borderRadius: spacing.xxs,
+    borderRadius: layout.borderRadiusXs,
   },
   axisLabelDark: {
     color: darkColors.textPrimary,

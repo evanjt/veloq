@@ -105,6 +105,3 @@ export const BACK_POSITIONS: MusclePositions = {
     { x: 0.557, y: 0.544 },
   ],
 };
-
-/** Radius of tap target in dp */
-export const TAP_TARGET_RADIUS = 22;

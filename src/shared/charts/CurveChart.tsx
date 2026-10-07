@@ -9,7 +9,7 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/shared/app';
 import { chartStyles, spacing } from '@/theme';
 
-import { domainContains, type Domain } from './cartesian';
+import { dataExtent, domainContains, placeLabels, type Domain } from './cartesian';
 import { ChartCanvas } from './ChartCanvas';
 import { ChartCrosshair } from './ChartCrosshair';
 import { CurveLine } from './CurvePaths';
@@ -30,8 +30,8 @@ export interface CurveChartProps<T extends { x: number; y: number }> {
   color: string;
   /** A dashed horizontal rule, drawn only when its value lies inside `yDomain`. */
   referenceLine?: { value: number; color: string } | null;
-  /** Plain strings spread evenly, or labels placed by data value. */
-  xLabels: readonly string[] | readonly PlacedLabel[];
+  /** Labels placed by data value, so each sits on the value it names. */
+  xLabels: readonly PlacedLabel[];
   formatY: (value: number) => string;
   /** Names the top y-axis label, for a caller whose axis unit is under test. */
   topAxisTestID?: string;
@@ -82,16 +82,10 @@ export function CurveChart<T extends { x: number; y: number }>({
   const x = useCallback((d: T) => d.x, []);
   const series = useMemo(() => ({ y: (d: T) => d.y }), []);
 
-  const placed = xLabels.length > 0 && typeof xLabels[0] !== 'string';
-  const placedLabels = useMemo(() => {
-    if (!placed || width <= 0) return [];
-    const [xMin, xMax] = xDomain ?? [0, 1];
-    const span = xMax - xMin || 1;
-    return (xLabels as readonly PlacedLabel[])
-      .map(({ label, value }) => ({ label, ratio: (value - xMin) / span }))
-      .filter(({ ratio }) => ratio >= -0.05 && ratio <= 1.05)
-      .map(({ label, ratio }) => ({ label, left: ratio * width - PLACED_LABEL_HALF_WIDTH }));
-  }, [placed, xLabels, xDomain, width]);
+  const placedLabels = useMemo(
+    () => placeLabels(xLabels, xDomain ?? dataExtent(data, x), width, PLACED_LABEL_HALF_WIDTH),
+    [xLabels, xDomain, data, x, width]
+  );
 
   const labelStyle = [chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark];
   const midY = (yDomain[0] + yDomain[1]) / 2;
@@ -133,27 +127,17 @@ export function CurveChart<T extends { x: number; y: number }>({
 
         <ChartCrosshair style={crosshairStyle} />
 
-        {placed ? (
-          <View style={styles.xAxisPlaced} pointerEvents="none">
-            {placedLabels.map((item) => (
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                key={item.label}
-                style={[labelStyle, styles.placedLabel, { left: item.left }]}
-              >
-                {item.label}
-              </Text>
-            ))}
-          </View>
-        ) : (
-          <View style={styles.xAxisSpread} pointerEvents="none">
-            {(xLabels as readonly string[]).map((label) => (
-              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} key={label} style={labelStyle}>
-                {label}
-              </Text>
-            ))}
-          </View>
-        )}
+        <View style={styles.xAxisPlaced} pointerEvents="none">
+          {placedLabels.map((item) => (
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              key={item.label}
+              style={[labelStyle, styles.placedLabel, { left: item.left }]}
+            >
+              {item.label}
+            </Text>
+          ))}
+        </View>
 
         <View style={styles.yAxis} pointerEvents="none">
           <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} testID={topAxisTestID} style={labelStyle}>
@@ -172,15 +156,6 @@ export function CurveChart<T extends { x: number; y: number }>({
 }
 
 const styles = StyleSheet.create({
-  xAxisSpread: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xs,
-  },
   xAxisPlaced: {
     position: 'absolute',
     bottom: 0,

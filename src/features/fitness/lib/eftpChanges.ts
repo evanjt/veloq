@@ -15,7 +15,7 @@ export function eftpChangesOn(changes: EftpChange[], date: string | undefined): 
 }
 
 /** `eFTP 367 W (+20)`, the same for a fall with its sign. */
-export function formatEftpChange(change: EftpChange): string {
+export function formatEftpChange(change: EftpChange, wattsUnit: string): string {
   const sign = change.delta > 0 ? '+' : '';
-  return `eFTP ${Math.round(change.eftp)} W (${sign}${Math.round(change.delta)})`;
+  return `eFTP ${Math.round(change.eftp)} ${wattsUnit} (${sign}${Math.round(change.delta)})`;
 }

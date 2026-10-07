@@ -1,9 +1,6 @@
-import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
+import { getAllSectionDisplayNames, ledgerDate, isRouteMatchingEnabled } from '@/features/routes';
 import type { SectionChangeInput } from '../generators/sectionChanged';
-import { ledgerDate } from '@/features/routes/lib/sectionLedger';
-import type { StrengthSummary } from '@/features/strength/types';
-import { normalizeStrengthProgression } from '@/features/strength';
-import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { normalizeStrengthProgression, normalizeStrengthSummary } from '@/features/strength';
 import { getEngine } from '@/shared/native/engine';
 
 import { LoadMetric, decodeCoords } from 'veloqrs';
@@ -18,7 +15,9 @@ import type {
 import type { Insight, PeriodComparison, SectionRankingScores, SeriesPoint } from '../types';
 import { generateInsights, recordConsolidation } from './generateInsights';
 import type { ConsolidationDrop } from './generateInsights';
+import { insightPairKeys, sectionPairKey } from './sectionIdentity';
 import { buildInsightsParams } from './insightsParams';
+import { INSIGHTS_CONFIG } from './config';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ComputeInsightsData');
@@ -36,50 +35,6 @@ function toComparison(raw: EnginePeriodComparison | undefined): PeriodComparison
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
-function normalizeStrengthSummary(raw: {
-  muscleVolumes?: {
-    slug: string;
-    primarySets: number;
-    secondarySets: number;
-    weightedSets: number;
-    totalReps: number;
-    totalWeightKg: number;
-    exerciseNames: string[];
-  }[];
-  activityCount?: number;
-  totalSets?: number;
-  balance?: {
-    id: string;
-    leftSlug: string;
-    rightSlug: string;
-    leftWeightedSets: number;
-    rightWeightedSets: number;
-    dominantSlug?: string | null;
-    ratio?: number | null;
-    status: string;
-  }[];
-}): StrengthSummary {
-  return {
-    muscleVolumes: (raw.muscleVolumes ?? []).map((volume) => ({
-      slug: volume.slug,
-      primarySets: volume.primarySets,
-      secondarySets: volume.secondarySets,
-      weightedSets: volume.weightedSets,
-      totalReps: volume.totalReps,
-      totalWeightKg: volume.totalWeightKg,
-      exerciseNames: volume.exerciseNames,
-    })),
-    activityCount: raw.activityCount ?? 0,
-    totalSets: raw.totalSets ?? 0,
-    balance: (raw.balance ?? []).map((pair) => ({
-      ...pair,
-      dominantSlug: pair.dominantSlug ?? null,
-      ratio: pair.ratio ?? null,
-      status: pair.status as StrengthSummary['balance'][number]['status'],
-    })),
-  };
-}
-
 /**
  * Wellness data needed for insight generation.
  * This is the subset of intervals.icu wellness that generateInsights uses.
@@ -94,19 +49,21 @@ function normalizeStrengthSummary(raw: {
  * side and not a column.
  */
 function namedSectionChanges(changes: readonly SectionChange[]): SectionChangeInput[] {
+  if (changes.length === 0) return [];
+  let names: Record<string, string>;
   try {
-    const names = getAllSectionDisplayNames();
-    return changes.map((c) => ({
-      sectionId: c.sectionId,
-      sectionName: names[c.sectionId] ?? c.sectionId,
-      kind: c.kind,
-      at: ledgerDate(c.at).getTime(),
-    }));
+    names = getAllSectionDisplayNames();
   } catch {
-    // A naming lookup that cannot answer is an unnamed list, never a feed that
-    // does not render.
-    return [];
+    // A naming lookup that cannot answer leaves the ledger's changes listed
+    // under their ids, never a feed that drops them.
+    names = {};
   }
+  return changes.map((c) => ({
+    sectionId: c.sectionId,
+    sectionName: names[c.sectionId] ?? c.sectionId,
+    kind: c.kind,
+    at: ledgerDate(c.at).getTime(),
+  }));
 }
 
 interface InsightsEnginePayload {
@@ -114,25 +71,8 @@ interface InsightsEnginePayload {
   summaryCardData: SummaryCardData | null;
 }
 
-const MAX_SECTION_STORY_INSIGHTS = 2;
-
 function isSectionStoryInsight(insight: Insight): boolean {
   return insight.category === 'stale_pr' || insight.category === 'efficiency_trend';
-}
-
-function getInsightSectionIds(insight: Insight): string[] {
-  const sections = insight.supportingData?.sections ?? [];
-  const sectionIds = sections
-    .map((section) => section.sectionId)
-    .filter((sectionId): sectionId is string => !!sectionId);
-
-  if (sectionIds.length > 0) return sectionIds;
-
-  if (insight.navigationTarget?.startsWith('/section/')) {
-    return [insight.navigationTarget.replace('/section/', '')];
-  }
-
-  return [];
 }
 
 export function consolidateInsights(insights: Insight[]): Insight[] {
@@ -141,14 +81,14 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     return insights;
   }
 
-  // Every section a PR card covers, collected before anything is kept. Read
+  // Every section and sport a PR card covers, collected before anything is kept. Read
   // in one pass, the drop below fired only when the PR happened to come first,
   // which held because `section_pr` outranked `stale_pr` by priority and this
   // function used to sort by priority. It arrives in score order now.
-  const prSectionIds = new Set<string>();
+  const prPairKeys = new Set<string>();
   for (const insight of insights) {
     if (insight.category === 'section_pr') {
-      getInsightSectionIds(insight).forEach((sectionId) => prSectionIds.add(sectionId));
+      insightPairKeys(insight).forEach((key) => prPairKeys.add(key));
     }
   }
 
@@ -161,7 +101,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
   // section: the debug panel is the one tool for asking why a card is
   // missing, and a story blamed on a PR sends the reader after a card that
   // was never generated.
-  const storySectionIds = new Set<string>();
+  const storyPairKeys = new Set<string>();
   let keptSectionStories = 0;
 
   for (const insight of insights) {
@@ -171,28 +111,24 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     }
 
     if (isSectionStoryInsight(insight)) {
-      if (keptSectionStories >= MAX_SECTION_STORY_INSIGHTS) {
+      if (keptSectionStories >= INSIGHTS_CONFIG.limits.sectionStories) {
         dropped.push({
           insight,
-          reason: `section story limit (max ${MAX_SECTION_STORY_INSIGHTS})`,
+          reason: `section story limit (max ${INSIGHTS_CONFIG.limits.sectionStories})`,
         });
         continue;
       }
 
-      const sectionIds = getInsightSectionIds(insight);
-      if (sectionIds.length > 0) {
-        if (sectionIds.every((sectionId) => prSectionIds.has(sectionId))) {
+      const pairKeys = insightPairKeys(insight);
+      if (pairKeys.length > 0) {
+        if (pairKeys.every((key) => prPairKeys.has(key))) {
           dropped.push({
             insight,
             reason: 'duplicate section (already covered by PR insight)',
           });
           continue;
         }
-        if (
-          sectionIds.every(
-            (sectionId) => prSectionIds.has(sectionId) || storySectionIds.has(sectionId)
-          )
-        ) {
+        if (pairKeys.every((key) => prPairKeys.has(key) || storyPairKeys.has(key))) {
           dropped.push({
             insight,
             reason: 'duplicate section (already covered by an earlier story)',
@@ -203,7 +139,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
 
       kept.push(insight);
       keptSectionStories += 1;
-      sectionIds.forEach((sectionId) => storySectionIds.add(sectionId));
+      pairKeys.forEach((key) => storyPairKeys.add(key));
       continue;
     }
 
@@ -238,12 +174,19 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
  * @param t - Translation function (from useTranslation() or i18n.t directly)
  * @returns Ranked array of insights
  */
+/** `failed` tells a pipeline that threw from a library with nothing to say. */
+export interface InsightsComputation {
+  insights: Insight[];
+  failed: boolean;
+}
+
 export function computeInsightsFromData(
   ffiData: InsightsData | null,
   t: TFunc,
-  summaryCardData?: SummaryCardData | null
-): Insight[] {
-  if (!ffiData) return [];
+  summaryCardData?: SummaryCardData | null,
+  isMetric = true
+): InsightsComputation {
+  if (!ffiData) return { insights: [], failed: false };
 
   try {
     // Convert FFI bigint fields to number
@@ -257,19 +200,12 @@ export function computeInsightsFromData(
     // The chronic window as one week of it, divided by the engine.
     const chronicPeriod = toPeriod(ffiData.chronicWeekAverage);
 
-    // Form as the engine read it off the newest day in the window the params
-    // asked for. Absent when that window holds no day at all, which is a
-    // library synced a month ago rather than an athlete at zero.
-    const form = ffiData.form ?? null;
-    const ctl = form?.ctl ?? 0;
-    const atl = form?.atl ?? 0;
-
     // Section readiness check - skip when route matching is disabled
     const routeMatchingOn = isRouteMatchingEnabled();
     const sectionCount = routeMatchingOn ? (ffiData.sectionCount ?? 0) : 0;
     const sectionsReady = sectionCount > 0;
 
-    // Build section trends from the ML-ranked sections the bundle carries.
+    // Build section trends from the ranked sections the bundle carries.
     const sectionTrendMap = new Map<
       string,
       {
@@ -288,15 +224,16 @@ export function computeInsightsFromData(
     >();
 
     if (sectionsReady) {
-      // Note: we keep the full unfiltered list here so the stale_pr
-      // detector (which needs OLD sections) still works on the TS fallback
-      // path. The section_trend generator does its own recency filter
-      // internally using INSIGHTS_CONFIG.activeWindowDays.
-      for (const { sportType, sections } of ffiData.rankedSections ?? []) {
+      // The engine's trend batch has already applied the evidence and age gates.
+      // Older fixtures use the ranked batch and the generator's fallback gate.
+      for (const { sportType, sections } of ffiData.trendSections ?? ffiData.rankedSections ?? []) {
         for (const rs of sections) {
           if (!rs.sectionId) continue;
-          if (!sectionTrendMap.has(rs.sectionId)) {
-            sectionTrendMap.set(rs.sectionId, {
+          // Keyed by section and sport: the same section ridden and run is two
+          // ranked entries, and the first sport read must not hide the other.
+          const pairKey = sectionPairKey(rs.sectionId, sportType);
+          if (!sectionTrendMap.has(pairKey)) {
+            sectionTrendMap.set(pairKey, {
               sectionId: rs.sectionId,
               sectionName: rs.sectionName || 'Section',
               trend: rs.trend,
@@ -312,6 +249,14 @@ export function computeInsightsFromData(
                 improvement: rs.improvementScore,
                 anomaly: rs.anomalyScore,
                 engagement: rs.engagementScore,
+                // Left off rather than set to undefined or zero when the
+                // engine compared nothing.
+                ...(rs.improvementChange !== undefined && rs.improvementBasis !== undefined
+                  ? {
+                      improvementChange: rs.improvementChange,
+                      improvementBasis: rs.improvementBasis,
+                    }
+                  : {}),
               },
               // Straight across. The ranker holds every traversal to take its
               // medians from and sends the tail of them, so the card draws a
@@ -335,21 +280,32 @@ export function computeInsightsFromData(
 
     // Recent PRs (skip if sections aren't loaded)
     const recentPRs = sectionsReady
-      ? (ffiData.recentPrs ?? []).map((pr) => ({
-          sectionId: pr.sectionId,
-          sectionName: pr.sectionName,
-          bestTime: pr.bestTime,
-          daysAgo: pr.daysAgo,
-          sportType: pr.sportType,
-          traversalCount: pr.traversalCount,
-          recentEfforts: pr.recentEfforts,
-          // Thinned by the engine to what a thumbnail draws, so this decodes
-          // tens of points per card rather than a consensus line.
-          previewPoints: decodeCoords(pr.encodedPolyline).map((p) => ({
-            lat: p.latitude,
-            lng: p.longitude,
-          })),
-        }))
+      ? (ffiData.recentPrs ?? []).flatMap((pr) => {
+          // One polyline the decoder rejects drops its own card, not the list.
+          try {
+            return [
+              {
+                sectionId: pr.sectionId,
+                sectionName: pr.sectionName,
+                bestTime: pr.bestTime,
+                daysAgo: pr.daysAgo,
+                sportType: pr.sportType,
+                traversalCount: pr.traversalCount,
+                recentEfforts: pr.recentEfforts,
+                // Thinned by the engine to what a thumbnail draws, so this decodes
+                // tens of points per card rather than a consensus line.
+                previewPoints: decodeCoords(pr.encodedPolyline).map((p) => ({
+                  lat: p.latitude,
+                  lng: p.longitude,
+                })),
+              },
+            ];
+          } catch (err) {
+            // empty-on-error: a polyline decode failure drops one card, and no engine read throws here.
+            console.error('[insights] dropped a record whose polyline did not decode', err);
+            return [];
+          }
+        })
       : [];
 
     // Strength rides the same bundle, so it enters the same pipeline.
@@ -362,22 +318,28 @@ export function computeInsightsFromData(
         ftpTrend: ffiData.ftpTrend ?? null,
         paceTrend: ffiData.runPaceTrend ?? null,
         swimPaceTrend: summaryCardData?.swimPaceTrend ?? null,
+        isMetric,
         recentPRs,
         sectionTrends,
-        formTsb: form ? form.tsb : null,
-        formCtl: ctl > 0 ? ctl : null,
-        formAtl: atl > 0 ? atl : null,
-        peakCtl: null,
-        currentCtl: ctl > 0 ? ctl : null,
+        sectionTrendCounts: ffiData.trendSections
+          ? { faster: ffiData.trendFasterCount, slower: ffiData.trendSlowerCount }
+          : undefined,
         chronicPeriod,
-        chronicWeeks: (ffiData.chronicWeeks ?? []).map(toPeriod),
+        // The weekly rows end on the compared week, which the chronic strip
+        // does not draw.
+        chronicWeeks: (ffiData.weeklyTotals ?? []).slice(0, -1).map((week) => toPeriod(week.stats)),
         weekOverWeek: toComparison(ffiData.weekOverWeek),
         weekAgainstChronic: toComparison(ffiData.weekAgainstChronic),
-        allSectionTrends: sectionTrends,
         efficiencyTrends,
         sectionChanges,
         hrvTrend: ffiData.hrvTrend ?? null,
         stalePrOpportunities: ffiData.stalePrOpportunities ?? [],
+        routeInsights: routeMatchingOn ? (ffiData.routeInsights ?? []) : [],
+        routeInsightCounts: {
+          records: ffiData.routeRecordCount ?? 0,
+          faster: ffiData.routeFasterCount ?? 0,
+          slower: ffiData.routeSlowerCount ?? 0,
+        },
         strengthMonthly: strengthSeries ? normalizeStrengthSummary(strengthSeries.monthly) : null,
         strengthWeekly: strengthSeries?.weekly.map(normalizeStrengthSummary) ?? [],
         strengthProgressions: strengthSeries?.progressions.map(normalizeStrengthProgression) ?? [],
@@ -385,7 +347,13 @@ export function computeInsightsFromData(
       t
     );
 
-    const consolidated = consolidateInsights(coreInsights);
+    // A consolidation that throws leaves the list as the generators made it.
+    let consolidated = coreInsights;
+    try {
+      consolidated = consolidateInsights(coreInsights);
+    } catch (err) {
+      console.error('[insights] consolidation failed, showing the unconsolidated list', err);
+    }
 
     if (__DEV__) {
       log.log(
@@ -396,12 +364,10 @@ export function computeInsightsFromData(
       }
     }
 
-    return consolidated;
+    return { insights: consolidated, failed: false };
   } catch (err) {
-    if (typeof process !== 'undefined' && process.env?.VELOQ_INSIGHTS_DEBUG) {
-      console.error('[computeInsightsFromData] swallowed error:', err);
-    }
-    return [];
+    console.error('[insights] pipeline failed', err);
+    return { insights: [], failed: true };
   }
 }
 

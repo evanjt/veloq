@@ -3,9 +3,12 @@ export {
   FormZoneChart,
   ActivityDotsChart,
   SeasonBestsSection,
+  ClimbingBestRows,
+  ClimbingStatusNote,
   TimeRangeSelector,
   SportToggleSelector,
   FitnessHeaderStats,
+  BestEffortsHeaderButton,
 } from './components';
 
 export {
@@ -20,15 +23,20 @@ export {
   useFitnessRefresh,
   useFitnessComputations,
   useFitnessScreenData,
+  useFitnessWindow,
   getISOWeekNumber,
   formatWeekRange,
   type WeeklySummaryData,
 } from './hooks';
 
 export {
-  calculateTSB,
   getFormZone,
+  formatForm,
+  formatEffortValue,
+  formChartSeries,
+  type FormChartPoint,
   FORM_ZONE_COLORS,
+  FORM_ZONE_MARK_COLORS,
   FORM_ZONE_TEXT_COLORS,
   FORM_ZONE_TEXT_COLORS_DARK,
   formZoneTextColor,
@@ -38,15 +46,12 @@ export {
 } from './lib';
 
 export {
-  useHRZones,
-  initializeHRZones,
-  DEFAULT_HR_ZONES,
-  type HRZone,
-  type HRZonesSettings,
   useSportPreference,
-  getPrimarySport,
   initializeSportPreference,
   SPORT_COLORS,
+  SPORT_TEXT_COLORS,
+  SPORT_TEXT_COLORS_DARK,
   type PrimarySport,
 } from './stores';
 export { resolveThresholdPace } from './lib/thresholdPace';
+export { currentAndPreviousWeek } from './lib/weekWindow';

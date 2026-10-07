@@ -2,7 +2,9 @@ import { formatDuration } from '@/shared/format/format';
 import type { Insight, SectionPR, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom, maxPerCategoryFor } from '../lib/config';
+import { sectionWithSport } from '../lib/cardSport';
 import { sparkline } from '../lib/sparkline';
+import { sectionPairKey } from '../lib/sectionIdentity';
 
 const DAY_MS = 86_400_000;
 
@@ -21,12 +23,12 @@ export function generateSectionPRInsights(
     if (!pr.sectionId || !pr.sectionName || !Number.isFinite(pr.bestTime)) continue;
     insights.push(
       makeInsight({
-        id: `section_pr-${pr.sectionId}`,
+        id: `section_pr-${sectionPairKey(pr.sectionId, pr.sportType)}`,
         category: 'section_pr',
         priority: 1,
         icon: 'trophy-outline',
         iconTone: 'record',
-        title: t('insights.sectionPr', { name: pr.sectionName }),
+        title: t('insights.sectionPr', { name: sectionWithSport(pr.sectionName, pr.sportType, t) }),
         subtitle: t('insights.sectionPrSubtitle', {
           time: formatDuration(pr.bestTime),
           daysAgo: pr.daysAgo,

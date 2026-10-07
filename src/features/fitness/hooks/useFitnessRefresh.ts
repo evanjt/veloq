@@ -24,6 +24,7 @@ export function useFitnessRefresh(refetchWellness: Refetcher) {
         queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charts.bestEfforts.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
       ]);
     } finally {

@@ -24,15 +24,17 @@ import {
   darkColors,
   typography,
   spacing,
-  shadows,
   brand,
   layout,
   colorWithOpacity,
   ink,
+  mapTextShadow,
 } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { formatWeightRounded } from '@/features/strength/lib/formatting';
-import { pressable } from '@/shared/ui';
+import { formatWeightRounded } from '@/shared/format/weight';
+import { pressable, pressRipple } from '@/shared/ui';
+import { Card } from '@/shared/ui/Card';
+import { engineErrorKey } from '@/shared/native/engineError';
 
 /** Aggregated muscle/exercise data for a strength activity */
 export interface StrengthCardData {
@@ -41,6 +43,8 @@ export interface StrengthCardData {
   setCount: number;
   /** Total weight lifted (kg). 0 if no weight data. */
   totalWeight: number;
+  /** What the engine threw reading the muscles. Empty muscles with no error is none worked. */
+  musclesError?: unknown;
 }
 
 interface StrengthActivityCardProps {
@@ -64,8 +68,8 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   const isMetric = useMetricSystem();
   const [menuVisible, setMenuVisible] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
-  const averageHeartRate = activity.average_heartrate || activity.icu_average_hr;
-  const averagePower = activity.average_watts || activity.icu_average_watts;
+  const averageHeartRate = activity.average_heartrate;
+  const averagePower = activity.icu_average_watts;
   const handlePressIn = useCallback(() => setIsPressed(true), []);
   const handlePressOut = useCallback(() => setIsPressed(false), []);
 
@@ -105,7 +109,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
       onContentSizeChange={handleContentSizeChange}
       style={styles.secondaryScroll}
     >
-      <Pressable onPress={handlePress} style={pressable(styles.secondaryStats)}>
+      <Pressable
+        onPress={handlePress}
+        style={pressable(styles.secondaryStats)}
+        android_ripple={pressRipple}
+      >
         {!!activity.icu_training_load && (
           <View
             style={styles.secondaryStat}
@@ -175,107 +183,118 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
 
   return (
     <View style={styles.cardWrapper}>
-      <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
-        <View style={[styles.strengthPanel, isDark && styles.strengthPanelDark]}>
-          {/* Pressable overlay */}
-          <Pressable
-            testID={`activity-card-${activity.id}`}
-            onPress={handlePress}
-            onLongPress={handleLongPress}
-            delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            style={pressable(styles.pressableOverlay)}
-            accessibilityRole="button"
-            accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDuration(activity.moving_time)}`}
-          />
+      <View style={isPressed && styles.cardPressed}>
+        <Card variant="raised" padding="none">
+          <View style={[styles.strengthPanel, isDark && styles.strengthPanelDark]}>
+            {/* Pressable overlay */}
+            <Pressable
+              testID={`activity-card-${activity.id}`}
+              onPress={handlePress}
+              onLongPress={handleLongPress}
+              delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              style={pressable(styles.pressableOverlay)}
+              android_ripple={pressRipple}
+              accessibilityRole="button"
+              accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDuration(activity.moving_time)}`}
+            />
 
-          {/* Top: icon + name + date */}
-          <View style={styles.topOverlay} pointerEvents="none">
-            <View style={styles.overlayHeader}>
-              <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
-              </View>
-              <View style={styles.overlayTitleColumn}>
-                <RNText
-                  style={[
-                    styles.overlayName,
-                    { color: compactTextColor, textShadowColor: 'transparent' },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {activity.name}
-                </RNText>
-                <RNText
-                  style={[
-                    styles.overlayDateSubtitle,
-                    { color: compactMutedColor, textShadowColor: 'transparent' },
-                  ]}
-                >
-                  {formatRelativeDate(activity.start_date_local)}
-                </RNText>
-              </View>
-            </View>
-          </View>
-
-          {/* Center: body diagrams + stats */}
-          <View style={styles.strengthCenter}>
-            <View style={styles.strengthBodies}>
-              <Body
-                data={strengthData.muscles}
-                gender={bodyGender}
-                side="front"
-                scale={0.38}
-                colors={[brand.tealDark, brand.tealLight]}
-              />
-              <Body
-                data={strengthData.muscles}
-                gender={bodyGender}
-                side="back"
-                scale={0.38}
-                colors={[brand.tealDark, brand.tealLight]}
-              />
-            </View>
-            <View style={styles.strengthStats}>
-              <View style={styles.strengthStatRow}>
-                <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
-                  {formatDuration(activity.moving_time)}
-                </RNText>
-                <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                  {t('strength.durationLabel')}
-                </RNText>
-              </View>
-              <View style={styles.strengthStatRow}>
-                <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
-                  {strengthData.exerciseCount} / {strengthData.setCount}
-                </RNText>
-                <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                  {t('activityDetail.exercises')} / {t('strength.setsLabel')}
-                </RNText>
-              </View>
-              {strengthData.totalWeight > 0 && (
-                <View style={styles.strengthStatRow}>
-                  <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
-                    {formatWeightRounded(strengthData.totalWeight, isMetric)}
+            {/* Top: icon + name + date */}
+            <View style={styles.topOverlay} pointerEvents="none">
+              <View style={styles.overlayHeader}>
+                <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+                  <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                </View>
+                <View style={styles.overlayTitleColumn}>
+                  <RNText
+                    style={[
+                      styles.overlayName,
+                      { color: compactTextColor, textShadowColor: 'transparent' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {activity.name}
                   </RNText>
-                  <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                    {t('strength.totalLabel')}
+                  <RNText
+                    style={[
+                      styles.overlayDateSubtitle,
+                      { color: compactMutedColor, textShadowColor: 'transparent' },
+                    ]}
+                  >
+                    {formatRelativeDate(activity.start_date_local)}
                   </RNText>
                 </View>
+              </View>
+            </View>
+
+            {/* Center: body diagrams + stats */}
+            <View style={styles.strengthCenter}>
+              {strengthData.musclesError !== undefined ? (
+                <RNText
+                  testID="muscle-groups-failure"
+                  style={[styles.secondaryStatValue, { color: compactMutedColor }]}
+                >
+                  {t(engineErrorKey(strengthData.musclesError, 'engine.failure.database'))}
+                </RNText>
+              ) : null}
+              <View style={styles.strengthBodies}>
+                <Body
+                  data={strengthData.muscles}
+                  gender={bodyGender}
+                  side="front"
+                  scale={0.38}
+                  colors={[brand.tealDark, brand.tealLight]}
+                />
+                <Body
+                  data={strengthData.muscles}
+                  gender={bodyGender}
+                  side="back"
+                  scale={0.38}
+                  colors={[brand.tealDark, brand.tealLight]}
+                />
+              </View>
+              <View style={styles.strengthStats}>
+                <View style={styles.strengthStatRow}>
+                  <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
+                    {formatDuration(activity.moving_time)}
+                  </RNText>
+                  <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
+                    {t('strength.durationLabel')}
+                  </RNText>
+                </View>
+                <View style={styles.strengthStatRow}>
+                  <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
+                    {strengthData.exerciseCount} / {strengthData.setCount}
+                  </RNText>
+                  <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
+                    {t('activityDetail.exercises')} / {t('strength.setsLabel')}
+                  </RNText>
+                </View>
+                {strengthData.totalWeight > 0 && (
+                  <View style={styles.strengthStatRow}>
+                    <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
+                      {formatWeightRounded(strengthData.totalWeight, isMetric)}
+                    </RNText>
+                    <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
+                      {t('strength.totalLabel')}
+                    </RNText>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Bottom: secondary stats only */}
+            <View style={styles.strengthBottom}>
+              {activity.skyline_chart_bytes ? (
+                <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+              ) : (
+                <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
               )}
+              {secondaryStatsRow}
             </View>
           </View>
-
-          {/* Bottom: secondary stats only */}
-          <View style={styles.strengthBottom}>
-            {activity.skyline_chart_bytes ? (
-              <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
-            ) : (
-              <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
-            )}
-            {secondaryStatsRow}
-          </View>
-        </View>
+        </Card>
       </View>
       <ActivityCardContextMenu
         visible={menuVisible}
@@ -296,18 +315,6 @@ const styles = StyleSheet.create({
   cardPressed: {
     transform: [{ scale: 0.98 }],
     opacity: 0.9,
-  },
-  card: {
-    borderRadius: layout.borderRadius,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-    ...shadows.elevated,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-    ...shadows.modal,
   },
   strengthPanel: {
     position: 'relative',
@@ -377,18 +384,14 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   overlayName: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...typography.cardTitle,
+    ...mapTextShadow,
   },
   overlayDateSubtitle: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     fontWeight: '500',
     marginTop: spacing.xxs,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...mapTextShadow,
   },
   dividerLine: {
     height: 1,

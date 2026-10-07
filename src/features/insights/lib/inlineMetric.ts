@@ -1,10 +1,18 @@
-import type { Insight } from '@/types';
+import type { DataPoint, Insight } from '@/types';
+import type { VerdictRung } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
+
+/** The rung a change is drawn on, from the verdict the generator gave it. */
+function rungOf(point: DataPoint): VerdictRung {
+  if (point.context === 'good') return 'positive';
+  if (point.context === 'concern') return 'negative';
+  return 'neutral';
+}
 
 /** Extract the primary metric value + unit from an insight for inline display */
 export function getInlineMetric(
   insight: Insight
-): { value: string; context?: string | undefined } | null {
+): { value: string; context?: string | undefined; contextRung?: VerdictRung } | null {
   const dp = insight.supportingData?.dataPoints;
   const comp = insight.supportingData?.comparisonData;
 
@@ -16,6 +24,7 @@ export function getInlineMetric(
         return {
           value: `${cur.value}${cur.unit ? ` ${cur.unit}` : ''}`,
           context: change ? String(change.value) : undefined,
+          contextRung: change ? rungOf(change) : 'neutral',
         };
       }
       return null;
@@ -45,7 +54,7 @@ export function getInlineMetric(
       return null;
     }
     case 'strength_balance': {
-      const ratioPoint = dp?.find((d) => d.label === 'Ratio');
+      const ratioPoint = dp?.find((d) => d.key === 'balanceRatio');
       if (ratioPoint) {
         return {
           value: String(ratioPoint.value),
@@ -61,7 +70,7 @@ export function getInlineMetric(
       return null;
     }
     case 'efficiency_trend': {
-      const hrPoint = dp?.find((d) => d.unit === 'bpm');
+      const hrPoint = dp?.find((d) => d.key === 'hrChange');
       if (hrPoint) {
         return { value: `${hrPoint.value} bpm`, context: undefined };
       }

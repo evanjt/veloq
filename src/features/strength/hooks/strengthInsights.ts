@@ -1,24 +1,13 @@
 import type { Insight } from '@/types';
+import { trendVerdict, verdictRung } from '@/shared/format/trend';
 
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
+import { muscleName as nameOf } from '../lib/muscleNames';
 import { buildStrengthBalancePairs } from '../lib/analysis';
-import { formatSetCount } from '../lib/formatting';
+import { balanceStatusLabelKey, formatBalanceRatio, formatSetCount } from '../lib/formatting';
 import type { StrengthBalancePair, StrengthProgressionRecord, StrengthSummary } from '../types';
-import { INSIGHTS_CONFIG, confidenceFrom } from '@/features/insights/lib/config';
-import { signalDeltaFrom } from '@/features/insights';
+import { INSIGHTS_CONFIG, confidenceFrom } from '@/features/insights';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
-
-/**
- * A ratio against an untrained side is not a number, so the engine sends none
- * and the verdict carries that case: `one-sided` is a reading, `insufficient`
- * and the rest are a pair with nothing to divide.
- */
-function formatRatio(pair: StrengthBalancePair, t: TFunc): string {
-  if (pair.status === 'one-sided') return t('insights.strengthBalance.oneSided');
-  if (pair.ratio == null) return t('insights.strengthBalance.noSignal');
-  return `${pair.ratio.toFixed(pair.ratio >= 10 ? 0 : 1)}x`;
-}
 
 function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: TFunc): Insight {
   const dominant = pair.dominantLabel ?? pair.leftLabel;
@@ -31,7 +20,7 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
       ? t('insights.strengthBalance.oneSidedBody', { dominant, pair: pair.label })
       : t('insights.strengthBalance.ratioBody', {
           pair: pair.label,
-          ratio: formatRatio(pair, t),
+          ratio: formatBalanceRatio(pair, t),
         });
 
   return {
@@ -65,13 +54,14 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
           value: formatSetCount(pair.rightWeightedSets),
           unit: t('strength.sets'),
         },
-        { label: t('insights.strengthBalance.ratioLabel'), value: formatRatio(pair, t) },
+        {
+          key: 'balanceRatio',
+          label: t('insights.strengthBalance.ratioLabel'),
+          value: formatBalanceRatio(pair, t),
+        },
         {
           label: t('insights.strengthBalance.statusLabel'),
-          value:
-            pair.status === 'watch'
-              ? t('insights.strengthBalance.watch')
-              : t('insights.strengthBalance.imbalanced'),
+          value: t(balanceStatusLabelKey(pair.status)),
         },
       ],
       formula: t('insights.strengthBalance.formula'),
@@ -85,19 +75,6 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
   };
 }
 
-/**
- * Signal-to-noise delta for R6: how far the recent average sits from the
- * baseline, measured in weekly standard deviations. Ranking progressions on
- * this is what lets the shared pipeline choose between muscles.
- */
-function progressionSignalDelta(progression: StrengthProgressionRecord): number | undefined {
-  return signalDeltaFrom(
-    progression.recentAverage,
-    progression.baselineAverage,
-    progression.weeklyWeightedSets
-  );
-}
-
 function buildStrengthProgressionInsight(
   progression: StrengthProgressionRecord,
   monthlyWeightedSets: number,
@@ -107,29 +84,27 @@ function buildStrengthProgressionInsight(
   if (monthlyWeightedSets < INSIGHTS_CONFIG.repetition.strength_min_sets) return null;
 
   const hasRecentVolume = progression.weeklyWeightedSets.some((weightedSets) => weightedSets > 0);
-  const isMeaningfulChange =
-    progression.changePct == null
-      ? progression.recentAverage > 0 && progression.baselineAverage === 0
-      : Math.abs(progression.changePct) >= INSIGHTS_CONFIG.thresholds.minProgressChangePct;
 
-  if (!hasRecentVolume || !isMeaningfulChange || progression.trend === 'flat') {
+  // The engine's trend is the verdict on the change; it is not re-tested here.
+  if (!hasRecentVolume || progression.trend === 'flat') {
     return null;
   }
 
+  // Weekly sets move with no judgement: the arrow points, the colour stays neutral.
+  const verdict = trendVerdict('weekSets', progression.trend);
   const muscleSlug = progression.muscleSlug;
-  const muscleName = MUSCLE_DISPLAY_NAMES[muscleSlug as MuscleSlug] ?? muscleSlug;
+  const muscleName = nameOf(muscleSlug, t);
   const title =
     progression.trend === 'up'
       ? t('insights.strengthProgression.upTitle', { muscle: muscleName })
       : t('insights.strengthProgression.downTitle', { muscle: muscleName });
-  const body =
-    progression.changePct == null
-      ? t('insights.strengthProgression.newVolumeBody', { muscle: muscleName })
-      : t('insights.strengthProgression.shiftBody', {
-          muscle: muscleName,
-          from: formatSetCount(progression.baselineAverage),
-          to: formatSetCount(progression.recentAverage),
-        });
+  // Both averages whatever the baseline: a rise from zero has no percentage,
+  // and the two numbers are still the comparison.
+  const body = t('insights.strengthProgression.shiftBody', {
+    muscle: muscleName,
+    from: formatSetCount(progression.baselineAverage),
+    to: formatSetCount(progression.recentAverage),
+  });
 
   return {
     id: `strength_progression-${muscleSlug}`,
@@ -153,19 +128,16 @@ function buildStrengthProgressionInsight(
     icon: progression.trend === 'up' ? 'arm-flex-outline' : 'dumbbell',
     // Flat is not a warning. It used to share amber with a fall, so a steady
     // month read as a problem.
-    iconTone:
-      progression.trend === 'up'
-        ? 'positive'
-        : progression.trend === 'down'
-          ? 'negative'
-          : 'neutral',
+    iconTone: verdictRung(verdict),
     navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
     meta: {
       sourceTimestamp: now,
       comparisonKind: 'self',
-      signalDelta: progressionSignalDelta(progression),
+      // The engine's reading, the same rule the HRV and efficiency trends
+      // are scored on, so the ranker compares like with like.
+      signalDelta: progression.signalDelta ?? undefined,
     },
     supportingData: {
       dataPoints: [
@@ -192,6 +164,12 @@ function buildStrengthProgressionInsight(
       ],
       sparklineData: progression.weeklyWeightedSets,
       sparklineLabel: t('insights.strengthProgression.sparklineLabel'),
+      // The engine's own direction, past its change threshold, judged by the
+      // metric's polarity.
+      trend: {
+        direction: progression.trend,
+        verdict,
+      },
       comparisonData: {
         current: {
           label: t('insights.strengthProgression.recent2Weeks'),
@@ -224,9 +202,7 @@ function buildStrengthProgressionInsight(
 
 function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: TFunc): Insight {
   const dominant = [...summary.muscleVolumes].sort((a, b) => b.weightedSets - a.weightedSets)[0];
-  const dominantName = dominant
-    ? (MUSCLE_DISPLAY_NAMES[dominant.slug as MuscleSlug] ?? dominant.slug)
-    : null;
+  const dominantName = dominant ? nameOf(dominant.slug, t) : null;
   const subtitle = dominantName
     ? t('insights.strengthSnapshot.subtitleWithTop', {
         sessions: summary.activityCount,
@@ -290,13 +266,13 @@ export function generateStrengthInsights(
 
   const insights: Insight[] = [];
 
-  // Surface a snapshot only when there is enough volume to be informative -
-  // mirrors the per-muscle gate used by the other strength insights.
-  if (monthlySummary.totalSets > INSIGHTS_CONFIG.repetition.strength_min_sets) {
+  // Surface a snapshot only when there is enough volume to be informative,
+  // passing at the same minimum as the per-muscle gate.
+  if (monthlySummary.totalSets >= INSIGHTS_CONFIG.repetition.strength_min_sets) {
     insights.push(buildStrengthSnapshotInsight(monthlySummary, now, t));
   }
 
-  const balancePair = buildStrengthBalancePairs(monthlySummary.balance).find(
+  const balancePair = buildStrengthBalancePairs(monthlySummary.balance, t).find(
     (pair) => pair.status === 'watch' || pair.status === 'imbalanced' || pair.status === 'one-sided'
   );
   if (balancePair) {

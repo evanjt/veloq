@@ -16,6 +16,8 @@ import {
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { RangeCoverage } from 'veloqrs';
+import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
+import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import { useActivities } from '@/features/activity';
 import {
@@ -24,6 +26,7 @@ import {
   formatLocalDate,
   speedToSecsPerKm,
   formatPaceFromSecsPerKm,
+  paceUnitLabel,
   formatDuration,
 } from '@/shared/format/format';
 
@@ -59,6 +62,10 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   const chartColors = useChartColors();
   const isMetric = useMetricSystem();
   const isRunning = sport === 'Run';
+  const formatPaceAxis = useCallback(
+    (secsPerKm: number) => formatPaceFromSecsPerKm(secsPerKm, isMetric),
+    [isMetric]
+  );
 
   // GAP toggle state (only for running)
   const [showGap, setShowGap] = useState(false);
@@ -68,6 +75,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     isLoading,
     error,
     coverage,
+    bodyStatus,
   } = usePaceCurve({
     sport,
     days,
@@ -112,32 +120,8 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       };
     }
 
-    const points: ChartPoint[] = [];
-
-    for (let i = 0; i < curve.distances.length; i++) {
-      const distance = curve.distances[i];
-      const time = curve.times[i];
-      const speed = curve.pace[i];
-      const activityId = curve.activity_ids?.[i];
-
-      if (distance > 0 && time > 0 && speed > 0) {
-        const paceSecsPerKm = speedToSecsPerKm(speed);
-
-        // Filter to reasonable running paces (2:30-10:00 min/km = 150-600 sec/km)
-        if (paceSecsPerKm >= 150 && paceSecsPerKm <= 600 && distance >= 100) {
-          points.push({
-            x: Math.log10(distance),
-            y: paceSecsPerKm,
-            distance,
-            time,
-            paceSecsPerKm,
-            activityId,
-          });
-        }
-      }
-    }
-
-    if (points.length === 0) {
+    const series = paceChartSeries(curve, speedToSecsPerKm);
+    if (!series) {
       return {
         chartData: [],
         criticalSpeedPace: null,
@@ -146,41 +130,23 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       };
     }
 
-    // Sort by distance
-    points.sort((a, b) => a.distance - b.distance);
-
-    // Sample to reduce density while keeping shape
-    const sampled: ChartPoint[] = [];
-    let lastDist = 0;
-    for (const p of points) {
-      // Adaptive sampling: more points at shorter distances
-      const minGap = p.distance < 1000 ? 30 : p.distance < 5000 ? 100 : 300;
-      if (p.distance - lastDist >= minGap) {
-        sampled.push(p);
-        lastDist = p.distance;
-      }
-    }
+    const points: ChartPoint[] = series.points.map(({ distance, time, pace, activityId }) => ({
+      x: Math.log10(distance),
+      y: pace,
+      distance,
+      time,
+      paceSecsPerKm: pace,
+      activityId,
+    }));
 
     // Critical speed in seconds/km
     const csSecsPerKm = curve.criticalSpeed ? speedToSecsPerKm(curve.criticalSpeed) : null;
 
-    // Calculate y domain (pace range)
-    // Note: For pace, LOWER seconds = FASTER, so we want min at TOP of chart
-    const paces = sampled.map((d) => d.y);
-    const minPace = Math.min(...paces); // fastest
-    const maxPace = Math.max(...paces); // slowest
-    const padding = (maxPace - minPace) * 0.1;
-
-    // Calculate x domain (log distance range)
-    const minDist = Math.min(...sampled.map((d) => d.distance));
-    const maxDist = Math.max(...sampled.map((d) => d.distance));
-
     return {
-      chartData: sampled,
+      chartData: points,
       criticalSpeedPace: csSecsPerKm,
-      // Invert y domain: [max, min] puts faster paces (lower values) at TOP
-      yDomain: [maxPace + padding, minPace - padding] as [number, number],
-      xDomain: [Math.log10(minDist), Math.log10(maxDist)] as [number, number],
+      yDomain: series.yDomain,
+      xDomain: series.xDomain,
     };
   }, [curve]);
 
@@ -218,15 +184,13 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     }
   }, [displayData]);
 
-  if (isLoading) {
+  const awaitingBody = bodyStatus === 'waiting' && chartData.length === 0;
+
+  if (isLoading || awaitingBody) {
     return (
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDark && chartStyles.textDark]}>
-            {t('common.loading')}
-          </Text>
-        </View>
+        <CurveLoadingPlaceholder height={height} />
       </View>
     );
   }
@@ -292,7 +256,8 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             {t('metrics.pace')}
           </Text>
           <Text style={[styles.valueNumber, isDark && styles.textLight]}>
-            {formatPaceFromSecsPerKm(displayData.paceSecsPerKm)}/km
+            {formatPaceFromSecsPerKm(displayData.paceSecsPerKm, isMetric)}
+            {paceUnitLabel(isMetric)}
           </Text>
         </View>
       </View>
@@ -319,7 +284,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         color={chartColors.paceCurve}
         referenceLine={referenceLine}
         xLabels={X_LABELS}
-        formatY={formatPaceFromSecsPerKm}
+        formatY={formatPaceAxis}
         crosshairMode="finger"
         onSelect={handleSelect}
         onInteractionChange={handleInteractionChange}
@@ -335,7 +300,8 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             testID="pace-curve-cs-legend"
             style={[styles.legendText, isDark && chartStyles.textDark]}
           >
-            CS {formatPaceFromSecsPerKm(criticalSpeedPace)}/km
+            CS {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
+            {paceUnitLabel(isMetric)}
           </Text>
         </View>
       )}
@@ -351,8 +317,8 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           </Text>
           {criticalSpeedPace && (
             <Text style={[styles.modelStats, isDark && chartStyles.textDark]}>
-              CS {formatPaceFromSecsPerKm(criticalSpeedPace)}/km ({curve?.criticalSpeed?.toFixed(2)}{' '}
-              m/s)
+              CS {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
+              {paceUnitLabel(isMetric)} ({curve?.criticalSpeed?.toFixed(2)} m/s)
               {curve?.dPrime ? `  D' ${curve.dPrime.toFixed(0)}m` : ''}
               {curve?.r2 ? `  R² ${curve.r2.toFixed(4)}` : ''}
             </Text>
@@ -427,15 +393,6 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
   },
   emptyState: {
     flex: 1,

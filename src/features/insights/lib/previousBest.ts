@@ -1,4 +1,4 @@
-import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
+import type { SectionPerformanceRecord } from '@/features/routes';
 
 /**
  * The fastest record other than the PR, which is the "previous best" a PR card
@@ -26,10 +26,16 @@ export function findPreviousBest(
   let secondBest: SectionPerformanceRecord | null = null;
   for (const r of records) {
     if (r.activityId === bestRecord.activityId) continue;
-    if (r.direction !== bestRecord.direction) continue;
-    if (!Number.isFinite(r.bestTime) || r.bestTime <= 0) continue;
-    if (!secondBest || r.bestTime < secondBest.bestTime) {
-      secondBest = r;
+    const directionalTime =
+      bestRecord.direction === 'reverse'
+        ? (r.bestReverseTime ??
+          (r.bestReverseTime === undefined && r.direction === 'reverse' ? r.bestTime : null))
+        : (r.bestForwardTime ??
+          (r.bestForwardTime === undefined && r.direction === 'same' ? r.bestTime : null));
+    if (directionalTime == null || !Number.isFinite(directionalTime) || directionalTime <= 0)
+      continue;
+    if (!secondBest || directionalTime < secondBest.bestTime) {
+      secondBest = { ...r, bestTime: directionalTime };
     }
   }
   return secondBest;

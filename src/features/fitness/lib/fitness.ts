@@ -1,18 +1,8 @@
 import { i18n } from '@/i18n';
 import type { WellnessData } from '@/types';
 import { colors, darkColors } from '@/theme/colors';
-import { tsbFromLoads } from '@/shared/math';
-
-/**
- * Calculate TSB (Form) per day from wellness data, for chart rendering. A day
- * missing either load renders as 0 rather than a distorted -atl.
- */
-export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: number })[] {
-  return wellness.map((day) => ({
-    ...day,
-    tsb: tsbFromLoads(day.ctl, day.atl) ?? 0,
-  }));
-}
+import { formFromLoads } from '@/shared/math';
+import { sortByDateId } from '@/shared/activity/activityUtils';
 
 /**
  * Form zones based on TSB (Training Stress Balance) - intervals.icu boundaries:
@@ -30,18 +20,74 @@ export type FormZone = 'highRisk' | 'optimal' | 'greyZone' | 'fresh' | 'transiti
  *
  * `icu_form_as_percent` decides what form means: absolute TSB, or TSB as a
  * share of fitness. The thresholds are the same either way, applied to
- * whichever number the athlete reads. A percentage needs a denominator, so an
- * athlete with no fitness yet, a sport with no load, or any day before the
- * first activity falls back to the absolute band: that is what the number
- * means when there is no fitness to be a percentage of.
+ * whichever number the athlete reads. A percentage needs a denominator, so a
+ * day with no fitness has no form value under that setting and no zone: null,
+ * not the absolute band.
  */
-export function getFormZone(tsb: number, fitness?: number | null, asPercent?: boolean): FormZone {
+export function getFormZone(
+  tsb: number,
+  fitness?: number | null,
+  asPercent?: boolean
+): FormZone | null {
+  if (asPercent && !fitness) return null;
   const value = asPercent && fitness ? (tsb / fitness) * 100 : tsb;
   if (value < -30) return 'highRisk';
   if (value < -10) return 'optimal';
   if (value < 5) return 'greyZone';
   if (value < 25) return 'fresh';
   return 'transition';
+}
+
+/**
+ * A form number as the athlete reads it, on the denominator getFormZone zones
+ * it by: the integer percentage of fitness with a % suffix under the
+ * percentage setting, the signed absolute TSB otherwise. A day with no fitness
+ * has no percentage, so it prints nothing (null) rather than the absolute
+ * number beside a zone from another denominator.
+ */
+export function formatForm(
+  tsb: number,
+  fitness?: number | null,
+  asPercent?: boolean
+): string | null {
+  if (asPercent) {
+    if (!fitness) return null;
+    return `${signed(Math.round((tsb / fitness) * 100))}%`;
+  }
+  return signed(Math.round(tsb));
+}
+
+function signed(n: number): string {
+  const v = n === 0 ? 0 : n;
+  return v > 0 ? `+${v}` : String(v);
+}
+
+export interface FormChartPoint {
+  x: number;
+  date: string;
+  /** Null on a day with no fitness under the percentage setting: a gap, not a dropped day. */
+  form: number | null;
+  /** Absolute TSB whatever the setting, for a header that prints it. */
+  tsb: number;
+  fitness: number;
+  fatigue: number;
+}
+
+/**
+ * One point per day, oldest first, with form in the unit the athlete chose.
+ * The percentage keeps full precision: rounding happens only when it is printed,
+ * so a zone never depends on the display digits.
+ * The zone thresholds apply to whichever unit is plotted, so the bands stay
+ * horizontal under either setting.
+ */
+export function formChartSeries(data: WellnessData[], asPercent: boolean): FormChartPoint[] {
+  return sortByDateId(data).map((day, idx) => {
+    const fitness = Math.round(day.ctl ?? 0);
+    const fatigue = Math.round(day.atl ?? 0);
+    const tsb = formFromLoads(day.ctl, day.atl);
+    const form = asPercent ? (fitness ? (tsb / fitness) * 100 : null) : tsb;
+    return { x: idx, date: day.id, form, tsb, fitness, fatigue };
+  });
 }
 
 /** Fills: the chart bands, the sparkline runs and the widget's form bar. */

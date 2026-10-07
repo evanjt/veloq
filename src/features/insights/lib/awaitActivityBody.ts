@@ -12,7 +12,8 @@
  * answers for one activity in one row.
  */
 
-import { hasStarted, isRetryableStart, type StartOutcome } from 'veloqrs';
+import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
+import { hasStarted, isRetryableStart, type StartOutcome, type StartResult } from 'veloqrs';
 
 /** Max time to wait for the engine to store the body. */
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -20,7 +21,7 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 /** The engine surface this needs, so a caller can hand it a double. */
 export interface ActivityBodyReader {
   getActivityBody: (activityId: string) => string | null;
-  syncActivityDetail: (activityId: string) => StartOutcome;
+  syncActivityDetail: (activityId: string) => StartOutcome | StartResult;
   subscribe: (event: string, callback: (payload?: { activityId?: string }) => void) => () => void;
 }
 
@@ -52,36 +53,31 @@ export function awaitActivityBody(
   const stored = readStoredActivity(engine, activityId);
   if (stored) return Promise.resolve(stored);
 
-  return new Promise((resolve) => {
-    let settled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+  const refused = new AbortController();
 
-    const finish = (body: Record<string, unknown> | null) => {
-      if (settled) return;
-      settled = true;
-      if (timer) clearTimeout(timer);
-      unsubscribe();
-      resolve(body);
-    };
-
-    // An announcement names the activity, so a body landing for a different
-    // one costs nothing. Only ours is read back, and only once.
-    const unsubscribe = engine.subscribe('bodyStored', (payload) => {
-      if (payload?.activityId !== activityId) return;
-      const landed = readStoredActivity(engine, activityId);
-      // The announcement is the write, so this should be here. If it is not,
-      // keep waiting rather than reporting a body we have not read.
-      if (landed) finish(landed);
-    });
-
-    timer = setTimeout(() => finish(null), timeoutMs);
-
-    // A refusal that asking again cannot change is the answer. There is no
-    // credential, or there is nothing to fetch, so the fifteen seconds buy
-    // nothing and the headless task spends them before it can write anything
-    // at all. A retryable refusal is different: the work may still land from
-    // whatever holds the slot, so that one waits.
-    const outcome = engine.syncActivityDetail(activityId);
-    if (!hasStarted(outcome) && !isRetryableStart(outcome)) finish(null);
+  // An announcement names the activity, so a body landing for a different
+  // one costs nothing. Only ours is read back, and only once. The
+  // announcement is the write, so the body should be there. If it is not,
+  // keep waiting rather than reporting a body we have not read.
+  const body = awaitEngineAnnouncement<Record<string, unknown> | null>({
+    channel: 'bodyStored',
+    timeoutMs,
+    read: (payload) =>
+      (payload as { activityId?: string } | undefined)?.activityId === activityId
+        ? (readStoredActivity(engine, activityId) ?? undefined)
+        : undefined,
+    onDeadline: () => null,
+    subscribe: (channel, listener) => engine.subscribe(channel, listener),
+    signal: refused.signal,
   });
+
+  // A refusal that asking again cannot change is the answer. There is no
+  // credential, or there is nothing to fetch, so the fifteen seconds buy
+  // nothing and the headless task spends them before it can write anything
+  // at all. A retryable refusal is different: the work may still land from
+  // whatever holds the slot, so that one waits.
+  const outcome = engine.syncActivityDetail(activityId);
+  if (!hasStarted(outcome) && !isRetryableStart(outcome)) refused.abort();
+
+  return body;
 }

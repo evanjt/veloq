@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { formatShortDateWithWeekday } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { formZoneTextColor, formZoneLabel, type FormZone } from '../lib';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { formatForm, formZoneTextColor, formZoneLabel, type FormZone } from '../lib';
 
 interface FitnessDisplayValues {
   fitness: number;
@@ -42,6 +43,7 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
 }: FitnessHeaderStatsProps) {
   const { t } = useTranslation();
   const { colors: themeColors } = useTheme();
+  const asPercent = useFormPreference((state) => state.formAsPercent) === true;
 
   return (
     <View style={[styles.statsCard, isDark && styles.statsCardDark]}>
@@ -93,9 +95,9 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
               },
             ]}
           >
-            {displayValues
-              ? `${displayValues.form > 0 ? '+' : ''}${Math.round(displayValues.form)}`
-              : '-'}
+            {(displayValues
+              ? formatForm(displayValues.form, displayValues.fitness, asPercent)
+              : null) ?? '-'}
           </Text>
           <Text
             style={[
