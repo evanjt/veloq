@@ -29,7 +29,7 @@ declare module 'xcode' {
         objects: {
           PBXGroup: PbxSection<PbxGroup>;
           PBXBuildFile: PbxSection<{ fileRef: string }>;
-          PBXFileReference: PbxSection<{ path: string }>;
+          PBXFileReference: PbxSection<{ path: string; lastKnownFileType?: string }>;
           /** Absent until a target adds one, which `addTarget` does for an extension. */
           PBXCopyFilesBuildPhase?: Record<string, unknown>;
         };
@@ -40,9 +40,11 @@ declare module 'xcode' {
     generateUuid(): string;
     hasFile(path: string): false | { path: string };
     pbxNativeTargetSection(): Record<string, { name: string }>;
-    pbxFileReferenceSection(): Record<string, { path: string }>;
+    pbxFileReferenceSection(): Record<string, { path: string; lastKnownFileType?: string }>;
     pbxBuildFileSection(): Record<string, unknown>;
     pbxSourcesBuildPhaseObj(targetUuid: string): PbxBuildPhase;
+    pbxResourcesBuildPhaseObj(targetUuid: string): PbxBuildPhase | null;
+    hasKnownRegion(name: string): boolean;
     pbxXCBuildConfigurationSection(): Record<
       string,
       { buildSettings?: Record<string, string> } | string

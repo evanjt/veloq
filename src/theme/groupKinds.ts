@@ -92,6 +92,11 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     kind: 'series',
     reason: 'the map line colours, told apart from each other and from the white casing under them',
   },
+  routePalette: {
+    kind: 'series',
+    reason:
+      'the route line colours, told apart from each other and from the white casing under them',
+  },
   mapPreviewColors: {
     kind: 'series',
     reason:
@@ -105,6 +110,11 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   chartStreamColors: {
     kind: 'series',
     reason: 'one hue per stream, with a labelled chip and a labelled axis',
+  },
+  chartStreamInk: {
+    kind: 'series',
+    reason:
+      'the label ink of a selected chart chip, one per stream hue. Measured against its hue at 4.5:1 in chartStreamInk.test.ts, because the ground is in another group',
   },
   mapStyleSwatch: {
     kind: 'pair',
@@ -248,6 +258,22 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   zoneColors: {
     kind: 'series',
     reason: "intervals.icu's own zone ladder, with the zone number beside every use",
+  },
+  zoneTextColors: {
+    kind: 'mark',
+    reason:
+      'the zone ladder as text on the light zone tint, held to 4.5:1 by hrZoneTextColor.test.ts',
+    marks: [
+      { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'light' },
+    ],
+  },
+  zoneTextColorsDark: {
+    kind: 'mark',
+    reason:
+      'the zone ladder as text on the dark zone tint, held to 4.5:1 by hrZoneTextColor.test.ts',
+    marks: [
+      { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'dark' },
+    ],
   },
   insightCategoryColors: {
     kind: 'series',

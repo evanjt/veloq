@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 /**
@@ -58,30 +58,6 @@ export function DeviceAttribution({ deviceName }: DeviceAttributionProps) {
 }
 
 const styles = StyleSheet.create({
-  text: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  textMedium: {
-    fontSize: typography.caption.fontSize,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
-  },
-  garminText: {
-    fontWeight: '600',
-  },
-  blockContainer: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colorWithOpacity(ink.black, 0.03),
-    borderRadius: layout.borderRadiusXs,
-    alignSelf: 'flex-start',
-  },
-  blockContainerDark: {
-    backgroundColor: colorWithOpacity(ink.white, 0.05),
-  },
   deviceContainer: {
     alignItems: 'center',
     gap: spacing.xs,

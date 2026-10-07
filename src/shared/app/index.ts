@@ -1,7 +1,6 @@
 export {
   initializeTheme,
   setThemePreference,
-  getThemePreference,
   useThemePreferenceStore,
   useResolvedColorScheme,
   type ThemePreference,
@@ -10,12 +9,10 @@ export {
   useLanguageStore,
   initializeLanguage,
   resolveLanguageToLocale,
-  getEffectiveLanguage,
   getAvailableLanguages,
   isEnglishVariant,
   getEnglishVariantValue,
   isLanguageVariant,
-  getBaseLanguage,
   type LanguageVariant,
   type LanguageGroup,
 } from './LanguageStore';
@@ -23,7 +20,7 @@ export {
   useUnitPreference,
   getIsMetric,
   resolveIsMetric,
-  getIntervalsPreferenceLabel,
+  getIntervalsUnitSystem,
   initializeUnitPreference,
   type UnitPreference,
   type IntervalsUnitPreferences,
@@ -43,7 +40,6 @@ export {
   HR_ZONE_COLORS,
   DEFAULT_POWER_ZONES,
   DEFAULT_HR_ZONES,
-  getZoneColor,
 } from './useSportSettings';
 export { useCacheDays } from './useCacheDays';
 export { useOldestActivityDate } from './useOldestActivityDate';

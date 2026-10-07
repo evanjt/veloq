@@ -113,11 +113,13 @@ export function ErrorStatePreset({ message, onRetry }: { message?: string; onRet
   );
 }
 
+const EMPTY_STATE_VERTICAL_PADDING = spacing.xl * 2;
+
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xl * 2,
+    paddingVertical: EMPTY_STATE_VERTICAL_PADDING,
     paddingHorizontal: spacing.lg,
   },
   containerCompact: {

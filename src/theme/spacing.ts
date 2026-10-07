@@ -53,4 +53,5 @@ export const layout = {
   borderRadiusXl: 20, // 20 - Sheets, large pills
   borderRadiusLg: spacing.lg, // 24 - Large pills, rounded containers
   borderRadiusFull: 9999, // Circles
+  recordFabSize: 56, // Floating record button diameter
 } as const;

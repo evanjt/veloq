@@ -12,3 +12,12 @@ import { MIN_TAP_TARGET } from './spacing';
  * at all, so the committed widget constants drifted with nothing to say so.
  */
 export const minTapTarget = MIN_TAP_TARGET[Platform.OS === 'android' ? 'android' : 'ios'];
+
+/**
+ * The vertical hit slop that lifts a control drawn `drawnHeight` tall to the
+ * platform minimum, split across both edges.
+ */
+export function slopToMinTapTarget(drawnHeight: number): { top: number; bottom: number } {
+  const each = Math.max(0, Math.ceil((minTapTarget - drawnHeight) / 2));
+  return { top: each, bottom: each };
+}

@@ -1,12 +1,12 @@
 /**
- * Shared hero header frame for the activity, route, and section detail
- * screens: full-bleed map slot, bottom gradient, floating back button,
- * and a bottom info overlay. HeroNameRow and HeroStatsRow provide the
+ * Shared hero frame for the activity, route, and section detail screens:
+ * full-bleed map slot, bottom gradient and a bottom info overlay. The back
+ * control is the stack's transparent native header, drawn over the map. HeroNameRow and HeroStatsRow provide the
  * standard overlay content (editable name, dot-separated stats).
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { Pressable, View, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -20,28 +20,48 @@ import {
   typography,
   layout,
   darkColors,
+  mapTextShadow,
 } from '@/theme';
+import { pressable, pressRipple } from './pressFeedback';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const GRADIENT_HEIGHT = 120;
-const BACK_BUTTON_SIZE = 40;
+const NATIVE_BACK_CONTROL_SIZE = 40;
+
+export const heroTextStyles = StyleSheet.create({
+  name: {
+    ...typography.statsValue,
+    color: colors.textOnDark,
+    textShadowColor: opacity.overlay.full,
+    ...mapTextShadow,
+  },
+  stat: {
+    ...typography.bodyCompact,
+    fontWeight: '600',
+    color: colors.textOnDark,
+    textShadowColor: opacity.overlay.full,
+    ...mapTextShadow,
+  },
+  statDivider: {
+    ...typography.bodyCompact,
+    color: colorWithOpacity(colors.textOnDark, 0.5),
+    marginHorizontal: spacing.xsPlus,
+    textShadowColor: opacity.overlay.full,
+    ...mapTextShadow,
+  },
+});
 
 /**
- * Height of the floating header row below the top inset. Anything a hero's
- * map floats over its own top corners has to clear `insetTop` plus this, or
- * it lands under the back button.
+ * Height of the native header's control row below the top inset. Anything a
+ * hero's map floats over its own top corners has to clear the inset plus this,
+ * or it lands under the back control.
  */
-export const HERO_HEADER_HEIGHT = BACK_BUTTON_SIZE + spacing.sm;
+export const HERO_HEADER_HEIGHT = NATIVE_BACK_CONTROL_SIZE + spacing.sm;
 
 export interface DetailHeroProps {
   height: number;
-  insetTop: number;
-  onBack: () => void;
-  backTestID?: string;
   containerTestID?: string;
-  /** Extra buttons on the right of the floating header row. */
-  rightActions?: React.ReactNode;
   /** Bottom info overlay content (HeroNameRow / HeroStatsRow or custom). */
   overlay?: React.ReactNode;
   /**
@@ -50,23 +70,20 @@ export interface DetailHeroProps {
    * map shows attribution.
    */
   attributionClearance?: number;
+  /** Right padding for the info overlay, so its text stays clear of controls drawn down the map's edge. */
+  overlayInsetEnd?: number;
   /** The map (or placeholder) filling the hero. */
   children: React.ReactNode;
 }
 
 export function DetailHero({
   height,
-  insetTop,
-  onBack,
-  backTestID,
   containerTestID,
-  rightActions,
   overlay,
   attributionClearance = 0,
+  overlayInsetEnd,
   children,
 }: DetailHeroProps) {
-  const { t } = useTranslation();
-
   return (
     <View testID={containerTestID} style={[styles.heroSection, { height }]}>
       <View style={styles.mapContainer}>{children}</View>
@@ -78,29 +95,14 @@ export function DetailHero({
         pointerEvents="none"
       />
 
-      <View
-        testID="detail-hero-header"
-        style={[styles.floatingHeader, { paddingTop: insetTop }]}
-        pointerEvents="box-none"
-      >
-        <TouchableOpacity
-          testID={backTestID}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back')}
-          style={styles.backButton}
-          onPress={onBack}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textOnDark} />
-        </TouchableOpacity>
-        <View testID="detail-hero-header-spacer" style={styles.headerSpacer} pointerEvents="none" />
-        {rightActions}
-      </View>
-
       {overlay != null && (
         <View
           testID="detail-hero-overlay"
-          style={[styles.infoOverlay, { paddingBottom: spacing.md + attributionClearance }]}
+          style={[
+            styles.infoOverlay,
+            { paddingBottom: spacing.md + attributionClearance },
+            overlayInsetEnd != null && { paddingRight: overlayInsetEnd },
+          ]}
           pointerEvents="box-none"
         >
           {overlay}
@@ -151,28 +153,31 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
             placeholder={editable.placeholder}
             placeholderTextColor={colorWithOpacity(colors.textOnDark, 0.5)}
             returnKeyType="done"
+            maxLength={255}
             autoFocus
             selectTextOnFocus
           />
-          <TouchableOpacity
+          <Pressable
             testID={`${editable.testIDPrefix}-rename-save`}
             accessibilityRole="button"
             accessibilityLabel={t('common.save')}
             onPress={editable.onSave}
-            style={styles.editNameButton}
+            style={pressable(styles.editNameButton)}
+            android_ripple={pressRipple}
           >
             {/* The button sits on a dark scrim over the hero image in both themes, so
                 the mark is the light tone rather than the light theme's. */}
             <MaterialCommunityIcons name="check" size={20} color={darkColors.successDeep} />
-          </TouchableOpacity>
-          <TouchableOpacity
+          </Pressable>
+          <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
             onPress={editable.onCancel}
-            style={styles.editNameButton}
+            style={pressable(styles.editNameButton)}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="close" size={20} color={colors.error} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       ) : editable ? (
         <TouchableOpacity
@@ -183,7 +188,11 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
           style={styles.nameEditTouchable}
           activeOpacity={0.7}
         >
-          <Text testID={nameTestID} style={styles.heroName} numberOfLines={1}>
+          <Text
+            testID={nameTestID}
+            style={[heroTextStyles.name, styles.heroName]}
+            numberOfLines={1}
+          >
             {name}
           </Text>
           <MaterialCommunityIcons
@@ -194,7 +203,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
           />
         </TouchableOpacity>
       ) : (
-        <Text testID={nameTestID} style={styles.heroName} numberOfLines={1}>
+        <Text testID={nameTestID} style={[heroTextStyles.name, styles.heroName]} numberOfLines={1}>
           {name}
         </Text>
       )}
@@ -219,8 +228,8 @@ export function HeroStatsRow({ stats, testID, statTestIDs }: HeroStatsRowProps) 
     <View testID={testID} style={styles.statsRow}>
       {visible.map((entry, index) => (
         <React.Fragment key={index}>
-          {index > 0 && <Text style={styles.statDivider}>·</Text>}
-          <Text testID={entry.testID} style={styles.stat}>
+          {index > 0 && <Text style={heroTextStyles.statDivider}>·</Text>}
+          <Text testID={entry.testID} style={heroTextStyles.stat}>
             {entry.value}
           </Text>
         </React.Fragment>
@@ -247,28 +256,6 @@ const styles = StyleSheet.create({
     right: 0,
     height: GRADIENT_HEIGHT,
   },
-  floatingHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
-    zIndex: 10,
-  },
-  backButton: {
-    width: BACK_BUTTON_SIZE,
-    height: BACK_BUTTON_SIZE,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: opacity.overlay.scrim,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerSpacer: {
-    flex: 1,
-  },
   infoOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -291,12 +278,6 @@ const styles = StyleSheet.create({
   },
   heroName: {
     flex: 1,
-    fontSize: typography.statsValue.fontSize,
-    fontWeight: '700',
-    color: colors.textOnDark,
-    textShadowColor: opacity.overlay.heavy,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   nameEditTouchable: {
     flex: 1,
@@ -324,8 +305,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   editNameButton: {
-    padding: spacing.xsPlus,
-    borderRadius: spacing.xsPlus,
+    minWidth: layout.minTapTarget,
+    minHeight: layout.minTapTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlayDark.heavy,
   },
   statsRow: {
@@ -333,17 +317,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.xsPlus,
     flexWrap: 'wrap',
-  },
-  stat: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colorWithOpacity(colors.textOnDark, 0.9),
-    textShadowColor: opacity.overlay.heavy,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  statDivider: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colorWithOpacity(colors.textOnDark, 0.5),
-    marginHorizontal: spacing.xs,
   },
 });

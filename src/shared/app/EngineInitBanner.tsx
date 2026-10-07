@@ -5,8 +5,9 @@
  *
  * The reason is the engine's, never re-derived here. A database written by a
  * newer build is fixed by updating the app, a file another connection holds
- * fixes itself on the retry, and a directory nothing can be written to needs
- * space or permission. The general line stays as the fallback for a reason a
+ * fixes itself on the retry, a directory nothing can be written to needs
+ * space or permission, and a file whose version records disagree with its
+ * tables is kept on the device for someone to look at. The general line stays as the fallback for a reason a
  * shipped build has no string for, which is what an engine newer than the
  * bundle produces.
  */
@@ -17,8 +18,10 @@ import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InitOutcome } from 'veloqrs';
 
+import { useBannerPadsStatusBar } from '@/shared/app/TopSafeAreaContext';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { colors, typography, spacing } from '@/theme';
 
@@ -39,6 +42,8 @@ function reasonLine(reason: InitOutcome | null) {
       return 'engine.initReason.storageUnavailable';
     case InitOutcome.Failed:
       return 'engine.initReason.failed';
+    case InitOutcome.VersionMismatch:
+      return 'engine.initReason.versionMismatch';
     default:
       return 'engine.initFailed';
   }
@@ -46,6 +51,8 @@ function reasonLine(reason: InitOutcome | null) {
 
 export function EngineInitBanner() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const padsStatusBar = useBannerPadsStatusBar('engineInit');
   const initFailed = useEngineStatus((s) => s.initFailed);
   const initFailureReason = useEngineStatus((s) => s.initFailureReason);
   const requestRetry = useEngineStatus((s) => s.requestRetry);
@@ -64,8 +71,18 @@ export function EngineInitBanner() {
 
   return (
     <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
-      <View style={styles.container} testID="engine-init-banner">
-        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.warningAmber} />
+      <View
+        style={[
+          styles.container,
+          { paddingTop: !padsStatusBar ? 0 : insets.top > 0 ? insets.top : spacing.sm },
+        ]}
+        testID="engine-init-banner"
+      >
+        <MaterialCommunityIcons
+          name="alert-circle-outline"
+          size={16}
+          color={colors.warningBannerText}
+        />
         <Text style={styles.text}>{t(reasonKey)}</Text>
         <IconButton
           icon="refresh"

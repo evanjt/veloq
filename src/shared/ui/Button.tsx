@@ -55,18 +55,18 @@ export interface ButtonProps {
  * for `android_ripple` on iOS is what keeps this one prop rather than two
  * components.
  */
-const ripple = Platform.select({
+export const ripple = Platform.select({
   android: { borderless: false },
   default: undefined,
 });
 
-function pressedOpacity(pressed: boolean): number {
+export function pressedOpacity(pressed: boolean): number {
   if (Platform.OS === 'android') return 1;
   return pressed ? 0.7 : 1;
 }
 
 /** The ground, the border and the text, per variant and per theme. */
-function paint(variant: ButtonVariant, isDark: boolean) {
+export function paint(variant: ButtonVariant, isDark: boolean) {
   const palette = isDark ? darkColors : colors;
   switch (variant) {
     case 'secondary':
@@ -85,10 +85,11 @@ function paint(variant: ButtonVariant, isDark: boolean) {
       };
     case 'destructive':
       return {
-        backgroundColor: palette.error,
-        borderColor: palette.error,
+        // White clears the bar only on the deeper red. The dark red is light, so it takes dark ink.
+        backgroundColor: isDark ? palette.error : colors.errorDeep,
+        borderColor: isDark ? palette.error : colors.errorDeep,
         borderWidth: 0,
-        color: colors.textOnDark,
+        color: isDark ? colors.textOnPrimary : colors.textOnDark,
       };
     case 'primary':
     default:
@@ -210,7 +211,7 @@ export function ToggleButton({
         numberOfLines={1}
         style={[
           size === 'sm' ? styles.labelSm : styles.labelMd,
-          { color: selected ? palette.textPrimary : palette.textSecondary },
+          { color: selected ? colors.textOnPrimary : palette.textSecondary },
         ]}
       >
         {label}
@@ -219,7 +220,44 @@ export function ToggleButton({
   );
 }
 
+export interface ToggleButtonRowProps<T extends string> {
+  options: readonly { value: T; label: string; testID?: string }[];
+  value: T;
+  onValueChange: (value: T) => void;
+  style?: StyleProp<ViewStyle>;
+}
+
+/** A row of `ToggleButton`, one per option, with exactly one selected. */
+export function ToggleButtonRow<T extends string>({
+  options,
+  value,
+  onValueChange,
+  style,
+}: ToggleButtonRowProps<T>) {
+  return (
+    <View style={[styles.toggleRow, style]}>
+      {options.map((option) => (
+        <ToggleButton
+          key={option.value}
+          {...(option.testID && { testID: option.testID })}
+          label={option.label}
+          selected={option.value === value}
+          onPress={() => onValueChange(option.value)}
+          style={styles.toggleCell}
+        />
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  toggleRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  toggleCell: {
+    flex: 1,
+  },
   base: {
     alignItems: 'center',
     justifyContent: 'center',

@@ -86,6 +86,14 @@ const routeDbFileSystem: RouteDbFileSystem = {
   copy(from, to) {
     return FileSystem.copyAsync({ from: `file://${from}`, to: `file://${to}` });
   },
+  async move(from, to) {
+    // `moveAsync` replaces an existing destination on some platforms, and a
+    // displaced library must never land on another.
+    if ((await FileSystem.getInfoAsync(`file://${to}`)).exists) {
+      throw new Error(`Refusing to move over ${to}`);
+    }
+    await FileSystem.moveAsync({ from: `file://${from}`, to: `file://${to}` });
+  },
   remove(path) {
     return FileSystem.deleteAsync(`file://${path}`, { idempotent: true });
   },

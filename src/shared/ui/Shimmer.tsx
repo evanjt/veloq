@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, darkColors, layout, spacing } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
 
 interface ShimmerProps {
   width?: DimensionValue;
@@ -72,8 +73,10 @@ export function ActivityCardSkeleton() {
   const { isDark } = useTheme();
 
   return (
-    <View style={[styles.activityCard, isDark && styles.cardDark]}>
-      <Shimmer width="100%" height={252} borderRadius={0} />
+    <View testID="activity-card-skeleton" style={[styles.activityCard, isDark && styles.cardDark]}>
+      <View testID="activity-card-skeleton-fill" style={{ height: CARD_HEIGHT }}>
+        <Shimmer width="100%" height={CARD_HEIGHT} borderRadius={0} />
+      </View>
     </View>
   );
 }
@@ -89,7 +92,7 @@ export function ChartSkeleton({ height = 200 }: { height?: number }) {
         width="100%"
         height={height}
         borderRadius={layout.borderRadius}
-        style={{ marginTop: spacing.sm + spacing.xs }}
+        style={{ marginTop: spacing.smPlus }}
       />
     </View>
   );
@@ -103,37 +106,14 @@ export function StatsPillSkeleton() {
         width={70}
         height={44}
         borderRadius={layout.borderRadius}
-        style={{ marginLeft: spacing.xs + 2 }}
+        style={{ marginLeft: spacing.xsPlus }}
       />
       <Shimmer
         width={75}
         height={44}
         borderRadius={layout.borderRadius}
-        style={{ marginLeft: spacing.xs + 2 }}
+        style={{ marginLeft: spacing.xsPlus }}
       />
-    </View>
-  );
-}
-
-export function WellnessCardSkeleton() {
-  const { isDark } = useTheme();
-
-  return (
-    <View style={[styles.wellnessCard, isDark && styles.cardDark]}>
-      <Shimmer width={120} height={18} borderRadius={layout.borderRadiusXs} />
-      <View style={styles.wellnessGrid}>
-        {[1, 2, 3, 4].map((i) => (
-          <View key={i} style={styles.wellnessItem}>
-            <Shimmer width={40} height={40} borderRadius={layout.borderRadiusSm} />
-            <Shimmer
-              width={60}
-              height={14}
-              borderRadius={layout.borderRadiusXs}
-              style={{ marginTop: spacing.sm }}
-            />
-          </View>
-        ))}
-      </View>
     </View>
   );
 }
@@ -145,8 +125,8 @@ const styles = StyleSheet.create({
   activityCard: {
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadius,
-    marginHorizontal: layout.cardMargin,
-    marginBottom: layout.cardMargin,
+    marginHorizontal: CARD_MARGIN,
+    marginBottom: CARD_MARGIN,
     overflow: 'hidden',
   },
   cardDark: {
@@ -159,19 +139,5 @@ const styles = StyleSheet.create({
   },
   pillRow: {
     flexDirection: 'row',
-  },
-  wellnessGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: spacing.md,
-  },
-  wellnessItem: {
-    alignItems: 'center',
-  },
-  wellnessCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: layout.cardMargin,
   },
 });

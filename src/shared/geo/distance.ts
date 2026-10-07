@@ -3,24 +3,15 @@
  * Pure functions for center computation and haversine distance.
  */
 
+import type { LatLngShort } from 'veloqrs';
+
 // IUGG mean earth radius. Matches the Rust geo crate's MEAN_EARTH_RADIUS, so
 // distances computed either side of the FFI boundary agree.
 const EARTH_RADIUS_M = 6_371_008.8;
 const DEG_TO_RAD = Math.PI / 180;
 
-/**
- * A coordinate as `lat`/`lng`, the shape routes, sections and MapLibre inputs
- * are written in.
- *
- * The one declaration of it. There were four, two of them called `LatLng` and
- * clashing by name with the `latitude`/`longitude` point that crosses the FFI,
- * so an import of the wrong one typechecked at the declaration and failed at the
- * field.
- */
-export interface LatLngShort {
-  lat: number;
-  lng: number;
-}
+/** The one declaration lives beside the engine module's point types. */
+export type { LatLngShort };
 
 export interface Bounds {
   minLat: number;

@@ -68,6 +68,17 @@ export const ROUTE_OUTLINE_MAX_POINTS = 150;
 export type LatLngPair = readonly [number, number];
 export type RouteTrack = readonly LatLng[] | readonly LatLngPair[];
 
+/**
+ * A fix that carries a position. The recording store pads the track with
+ * `[0, 0]` for samples taken without one, so the origin is the absence of a
+ * fix, not a place to draw.
+ */
+export function isPositioned(latitude: number, longitude: number): boolean {
+  return (
+    Number.isFinite(latitude) && Number.isFinite(longitude) && (latitude !== 0 || longitude !== 0)
+  );
+}
+
 function asLatLng(p: LatLng | LatLngPair): LatLng {
   return Array.isArray(p) ? { latitude: p[0], longitude: p[1] } : (p as LatLng);
 }
@@ -90,15 +101,14 @@ export function composeRouteOutline(
   const sampled: LatLng[] = [];
   for (let i = 0; i < gps.length; i += stride) {
     const p = asLatLng(gps[i]);
-    if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) sampled.push(p);
+    if (isPositioned(p.latitude, p.longitude)) sampled.push(p);
   }
   const lastIndex = gps.length - 1;
   const last = asLatLng(gps[lastIndex]);
   if (
     sampled.length > 0 &&
     lastIndex % stride !== 0 &&
-    Number.isFinite(last.latitude) &&
-    Number.isFinite(last.longitude)
+    isPositioned(last.latitude, last.longitude)
   ) {
     sampled.push(last);
   }

@@ -58,21 +58,6 @@ export async function setThemePreference(preference: ThemePreference): Promise<v
   await setSetting(STORAGE_KEY, preference);
 }
 
-/**
- * Get current saved preference.
- */
-export async function getThemePreference(): Promise<ThemePreference> {
-  const store = useThemePreferenceStore.getState();
-  if (store.hydrated) {
-    return store.preference;
-  }
-  try {
-    return normalizePreference(await getSetting(STORAGE_KEY));
-  } catch {
-    return 'system';
-  }
-}
-
 export function useResolvedColorScheme(): NonNullable<ColorSchemeName> {
   const preference = useThemePreferenceStore((s) => s.preference);
   const systemScheme = useColorScheme();

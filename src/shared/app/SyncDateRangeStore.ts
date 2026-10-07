@@ -1,7 +1,7 @@
 /**
  * Global store for sync date range and GPS sync progress.
  *
- * When the user extends the timeline slider past the default 90 days,
+ * When the user extends the timeline slider past the default activity window,
  * this store is updated and GlobalDataSync responds by fetching more data.
  *
  * GPS sync progress is also stored here so all screens can read from a single
@@ -11,6 +11,7 @@
 import { create } from 'zustand';
 import { formatLocalDate } from '@/shared/format/format';
 import { debug } from '@/shared/debug/debug';
+import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 import {
   ExtendedFetchState,
   IDLE_EXTENDED_FETCH,
@@ -27,6 +28,11 @@ export interface GpsSyncProgress {
   total: number;
   percent: number;
   message: string;
+  /**
+   * On a 'complete' write: the sync settled but Rust is still detecting, so
+   * the surfaces keep showing the message until `detectionApplied` lands.
+   */
+  analysingInBackground?: boolean;
 }
 
 /**
@@ -34,12 +40,6 @@ export interface GpsSyncProgress {
  * can say why, rather than the drag producing nothing visible.
  */
 export type ExpandRangeResult = 'expanded' | 'unchanged' | 'locked';
-
-export interface TerrainSnapshotProgress {
-  status: 'idle' | 'rendering';
-  completed: number;
-  total: number;
-}
 
 interface SyncDateRangeState {
   /** Oldest date to sync (YYYY-MM-DD) */
@@ -70,10 +70,10 @@ interface SyncDateRangeState {
    * after one ends without bringing it a line, asks as it always did.
    */
   gpsSyncPendingIds: ReadonlySet<string>;
-  /** Terrain snapshot rendering progress */
-  terrainSnapshotProgress: TerrainSnapshotProgress;
   /** Whether GPS sync is currently in progress */
   isGpsSyncing: boolean;
+  /** Detection outlived the sync's follow and has not announced its end. */
+  isAnalysingInBackground: boolean;
   /** Timestamp of last successful GPS sync */
   lastSyncTimestamp: string | null;
   /**
@@ -94,7 +94,7 @@ interface SyncDateRangeState {
   expandRange: (oldest: string, newest: string) => ExpandRangeResult;
   /** Restore range from engine without triggering re-computation */
   initializeRange: (oldest: string, newest: string) => void;
-  /** Reset to default 90 days and lock expansion */
+  /** Reset to the default activity window and lock expansion */
   reset: () => void;
   /** The engine accepted a window download. */
   windowAccepted: () => void;
@@ -106,24 +106,20 @@ interface SyncDateRangeState {
   markExpansionProcessed: () => void;
   /** Update GPS sync progress (called from GlobalDataSync) */
   setGpsSyncProgress: (progress: GpsSyncProgress) => void;
+  /** The run the sync stopped following has landed. */
+  backgroundAnalysisEnded: () => void;
   /** What the bulk GPS run is about to fetch. Cleared when the run ends. */
   setGpsSyncPendingIds: (ids: readonly string[]) => void;
-  /** Update terrain snapshot progress (called from TerrainSnapshotWebView) */
-  setTerrainSnapshotProgress: (progress: TerrainSnapshotProgress) => void;
-  /** Unlock expansion (called after initial sync completes) */
-  unlockExpansion: () => void;
   /** Unlock expansion after a delay (prevents race conditions with UI updates) */
   delayedUnlockExpansion: () => void;
-  /** Clear pending unlock timeout (for cleanup) */
-  clearUnlockTimeout: () => void;
 }
 
 function getDefaultRange() {
   const today = new Date();
-  const ninetyDaysAgo = new Date(today);
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  const defaultStart = new Date(today);
+  defaultStart.setDate(defaultStart.getDate() - DEFAULT_ACTIVITY_DAYS);
   return {
-    oldest: formatLocalDate(ninetyDaysAgo),
+    oldest: formatLocalDate(defaultStart),
     newest: formatLocalDate(today),
   };
 }
@@ -134,12 +130,6 @@ const defaultGpsSyncProgress: GpsSyncProgress = {
   total: 0,
   percent: 0,
   message: '',
-};
-
-const defaultTerrainSnapshotProgress: TerrainSnapshotProgress = {
-  status: 'idle',
-  completed: 0,
-  total: 0,
 };
 
 /**
@@ -162,8 +152,8 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   hasExpanded: false,
   gpsSyncProgress: defaultGpsSyncProgress,
   gpsSyncPendingIds: EMPTY_PENDING_IDS,
-  terrainSnapshotProgress: defaultTerrainSnapshotProgress,
   isGpsSyncing: false,
+  isAnalysingInBackground: false,
   lastSyncTimestamp: null,
   isExpansionLocked: false,
   syncGeneration: 0,
@@ -223,7 +213,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     const newGeneration = current.syncGeneration + 1;
     if (__DEV__) {
       log.log(
-        `[SyncDateRange] Reset to 90 days (${range.oldest} - ${range.newest}), ` +
+        `[SyncDateRange] Reset to ${DEFAULT_ACTIVITY_DAYS} days (${range.oldest} - ${range.newest}), ` +
           `expansion LOCKED, generation ${current.syncGeneration} -> ${newGeneration}`
       );
     }
@@ -237,8 +227,8 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       gpsSyncProgress: defaultGpsSyncProgress,
       gpsSyncPendingIds: EMPTY_PENDING_IDS,
       isGpsSyncing: false,
+      isAnalysingInBackground: false,
       lastSyncTimestamp: null,
-      terrainSnapshotProgress: defaultTerrainSnapshotProgress,
       isExpansionLocked: true, // Lock expansion until initial sync completes
       syncGeneration: newGeneration, // Invalidate in-flight fetches
     });
@@ -274,6 +264,8 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     const updates: Partial<SyncDateRangeState> = {
       gpsSyncProgress: progress,
       isGpsSyncing: isSyncing,
+      isAnalysingInBackground:
+        progress.status === 'complete' && progress.analysingInBackground === true,
     };
     // A run that has ended holds nothing, so the cards it was covering are
     // free to ask. Cleared here rather than at each of the three call sites
@@ -288,15 +280,8 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     set(updates);
   },
 
-  setTerrainSnapshotProgress: (progress: TerrainSnapshotProgress) => {
-    set({ terrainSnapshotProgress: progress });
-  },
-
-  unlockExpansion: () => {
-    if (__DEV__) {
-      log.log('[SyncDateRange] Expansion manually UNLOCKED');
-    }
-    set({ isExpansionLocked: false });
+  backgroundAnalysisEnded: () => {
+    set({ isAnalysingInBackground: false });
   },
 
   delayedUnlockExpansion: () => {
@@ -316,12 +301,5 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
         set({ isExpansionLocked: false });
       }
     }, 500);
-  },
-
-  clearUnlockTimeout: () => {
-    if (_unlockTimeoutId) {
-      clearTimeout(_unlockTimeoutId);
-      _unlockTimeoutId = null;
-    }
   },
 }));

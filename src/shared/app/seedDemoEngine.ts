@@ -11,8 +11,6 @@
  * engine, and it owns the section-detection run that follows.
  */
 
-import { toActivityMetrics } from '@/shared/activity/activityMetrics';
-import { PACE_SNAPSHOT_WINDOW_DAYS } from './constants';
 import { getEngine } from '@/shared/native/engine';
 import { present } from 'veloqrs/src/delegates/optional';
 import type { Activity, WellnessData } from '@/types';
@@ -23,11 +21,6 @@ const PACE_CURVE_WINDOWS = [42, 90, 365];
 
 type DemoEngine = NonNullable<ReturnType<typeof getEngine>>;
 type DemoCurves = typeof import('@/shared/demo/fitness/curves');
-
-/** Midnight today, in the epoch seconds the pace snapshot table keys on. */
-function todayTimestamp(): number {
-  return Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
-}
 
 export function seedDemoEngine(): void {
   const engine = getEngine();
@@ -78,9 +71,7 @@ export function seedDemoEngine(): void {
 
     const activities = fixtures.activities as unknown as Activity[];
     if (activities.length > 0) {
-      engine.setActivityMetrics(activities.map(toActivityMetrics));
-      // The feed reads bodies, not the typed metrics row, so a demo activity
-      // without one would not appear at all.
+      // The engine derives metrics from the bodies it stores for the feed.
       engine.upsertActivityBodies(
         activities.map((a) => ({
           activityId: a.id,
@@ -98,20 +89,6 @@ export function seedDemoEngine(): void {
     seedActivityBodies(engine, activities);
     seedCurves(engine, curves);
     seedCalendarEvents(engine);
-
-    const { criticalSpeed, dPrime, r2 } = curves.demoPaceCurve;
-    if (criticalSpeed && criticalSpeed > 0) {
-      // Under the window the sync writes, so the demo library's pace milestone
-      // reads its snapshot rather than skipping it as an unknown range.
-      engine.savePaceSnapshot(
-        'Run',
-        criticalSpeed,
-        PACE_SNAPSHOT_WINDOW_DAYS,
-        dPrime ?? undefined,
-        r2 ?? undefined,
-        todayTimestamp()
-      );
-    }
 
     engine.triggerRefresh('activities');
   } catch (err) {
@@ -146,6 +123,7 @@ function seedCurves(engine: DemoEngine, curves: DemoCurves): void {
   const pace = JSON.stringify({
     list: [
       {
+        end_date_local: curves.demoPaceCurve.endDate,
         distance: curves.demoPaceCurve.distances,
         values: curves.demoPaceCurve.times,
         paceModels: [

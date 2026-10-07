@@ -2,6 +2,7 @@
  * Minimalist bottom navigation tab bar.
  * Gradient fade from content, subtle icons and labels.
  */
+import { markTabPress } from '@/shared/debug/tabSwitchTiming';
 import React, { memo, useCallback, useRef } from 'react';
 import { StyleSheet, TouchableOpacity, View, Text, Platform } from 'react-native';
 
@@ -9,7 +10,7 @@ import { DENSE_TEXT_SCALE } from './DenseText';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { usePathname } from 'expo-router';
+import { usePathname, useSegments } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -18,6 +19,7 @@ import { brand, colorWithOpacity, ink, spacing, typography } from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
+import { SyncProgressStrip } from './SyncProgressStrip';
 
 const log = debug.create('BottomTabBar');
 
@@ -51,6 +53,7 @@ function BottomTabBarComponent() {
 
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const segments = useSegments();
   // Demo mode counts as a session, `enterDemoMode` sets `isAuthenticated`.
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { isDark } = useTheme();
@@ -95,6 +98,7 @@ function BottomTabBarComponent() {
       if (Platform.OS === 'ios') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
+      markTabPress(route);
       navigateTab(route);
     },
     [pathname]
@@ -104,6 +108,11 @@ function BottomTabBarComponent() {
   // user would otherwise see five destinations none of them can reach, painted
   // over the login card's footer line.
   if (!isAuthenticated) return null;
+
+  // Stack screens own their whole bottom edge. Drawing the bar over them hides
+  // the last rows of a list and lets a stray touch leave a live recording.
+  // Reading the group, not a pathname list, covers a new stack screen unedited.
+  if (segments[0] !== '(tabs)') return null;
 
   const totalHeight = GRADIENT_HEIGHT + TAB_BAR_HEIGHT + insets.bottom;
 
@@ -121,8 +130,15 @@ function BottomTabBarComponent() {
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
+        {/* Sits in the fade zone above the icons, over the page and out of its flow */}
+        <View
+          style={[styles.syncSlot, { bottom: TAB_BAR_HEIGHT + insets.bottom }]}
+          pointerEvents="none"
+        >
+          <SyncProgressStrip />
+        </View>
         {/* Icons row - positioned at bottom above safe area */}
-        <View style={[styles.tabRow, { marginBottom: insets.bottom }]}>
+        <View accessibilityRole="tablist" style={[styles.tabRow, { marginBottom: insets.bottom }]}>
           {MENU_ITEMS.map((item) => {
             const isActive =
               item.route === '/'
@@ -171,6 +187,12 @@ function BottomTabBarComponent() {
 export const BottomTabBar = memo(BottomTabBarComponent);
 
 const styles = StyleSheet.create({
+  syncSlot: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: GRADIENT_HEIGHT,
+  },
   container: {
     position: 'absolute',
     left: 0,

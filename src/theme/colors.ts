@@ -106,6 +106,19 @@ export const sectionPalette = [
   '#EC407A',
 ] as const;
 
+// A separate warm/purple family so routes stay visually distinct from sections
+// even when overlapping on the same map. A route takes the next colour in order.
+export const routePalette = [
+  '#7C4DFF',
+  '#AA00FF',
+  '#D500F9',
+  '#651FFF',
+  '#6200EA',
+  '#B388FF',
+  '#EA80FC',
+  '#CE93D8',
+] as const;
+
 export function sectionPaletteIndex(sectionId: string): number {
   let hash = 0;
   for (let i = 0; i < sectionId.length; i++) {
@@ -178,9 +191,14 @@ export const mapLayerColors = {
   sectionCreation: '#22C55E',
   /** Context track shown beyond a section while its bounds are being expanded. */
   extension: '#FF6B00',
-  /** Endpoints of a neighbouring section, muted so they read as background. */
-  nearbyStart: 'rgba(34,197,94,0.6)',
-  nearbyEnd: 'rgba(239,68,68,0.6)',
+  /** Time won against the reference on the section line, the diverging scale's one end. */
+  deltaWon: '#2563eb',
+  /** Time lost against the reference, the scale's other end. */
+  deltaLost: '#f97316',
+  /** Level with the reference, the scale's middle. */
+  deltaNeutral: '#e5e7eb',
+  /** A stretch the attempt did not cover. */
+  deltaNoData: '#888888',
   /** Live recording position dot. */
   userLocation: '#2196F3',
   /** The export privacy home and the radius trimmed around it. */
@@ -210,6 +228,8 @@ export const colors = {
   surface: '#FFFFFF',
   background: '#F8F9FA',
   backgroundAlt: '#F1F3F5',
+  regionTintIdle: colorWithOpacity(ink.black, 0.02),
+  regionTintActive: colorWithOpacity(ink.black, 0.05),
 
   // Text
   textPrimary: '#18181B',
@@ -222,7 +242,7 @@ export const colors = {
   // exemption textDisabled carries does not reach it.
   textMuted: '#52525B',
   textOnDark: '#FFFFFF',
-  textOnPrimary: '#18181B', // Dark text on gold
+  textOnPrimary: '#18181B', // Dark ink for a filled primary, accent or accentLight control in both themes (4.73:1 on light teal, 9.52:1 on dark teal)
   // A chevron is often the only thing saying a row opens, and an idle status
   // icon is the only thing saying the GPS is still looking, so both owe 3:1.
   // Same hue, lifted until they hold it on white, background and backgroundAlt.
@@ -308,6 +328,9 @@ export const colors = {
   walk: '#8B5CF6', // Violet-500
   hike: '#A78BFA', // Violet-400
   workout: '#6366F1', // Indigo-500
+  // Selected sport chip fills for the two hues that clear 4.5:1 under neither ink: white on these is 5.70 and 6.29.
+  walkChipFill: '#7C3AED',
+  workoutChipFill: '#4F46E5',
 
   // Fitness metric colors (matching intervals.icu)
   fitness: brand.blue, // CTL - Brand blue
@@ -332,6 +355,9 @@ export const colors = {
   // hues, lifted.
   chartGoldMark: '#8A7224',
   chartGreenMark: '#15803D',
+  // Second and third place beside the gold of first, mark grade.
+  chartSilverMark: '#6B7480',
+  chartBronzeMark: '#9A5A24',
   // The gold a PR time is set in. Mark grade is not text grade: `chartGoldMark`
   // reaches 4.18:1 on white, which is the 3:1 a trophy owes and not the 4.5:1
   // text owes, and text has no 1.4.11 exemption. Same hue again, one step
@@ -398,7 +424,6 @@ export const colors = {
   // Direction indicator colors
   sameDirection: brand.blue,
   reverseDirection: '#EC4899', // Pink
-  consensusRoute: brand.gold, // Gold for main route
 
   // Form zone colors (matching intervals.icu)
   formTransition: '#64B5F6', // Light blue - transition zone
@@ -475,7 +500,7 @@ export const chartStreamColors = {
   // series from another on the canvas and the chip that keys it is the same
   // hue, so both move together.
   power: colors.markYellow,
-  heartrate: '#E63946',
+  heartrate: '#DC2F3C',
   cadence: '#F97316',
   speed: '#2A9D8F',
   pace: '#818CF8',
@@ -487,6 +512,29 @@ export const chartStreamColors = {
   temp: '#E76F51',
   time: '#6C757D',
 } as const;
+
+// The ink a selected chart chip prints over its stream hue. The hue does not
+// change with the theme, so neither does the ink: light (white) where it clears
+// 4.5:1, dark where white does not.
+export const chartStreamInk: Record<keyof typeof chartStreamColors, 'light' | 'dark'> = {
+  power: 'dark',
+  heartrate: 'light',
+  cadence: 'dark',
+  speed: 'dark',
+  pace: 'dark',
+  elevation: 'dark',
+  grade: 'dark',
+  wbal: 'dark',
+  gap: 'dark',
+  distance: 'light',
+  temp: 'dark',
+  time: 'light',
+};
+
+/** The ink colour a stream's chip label takes. */
+export function chartInkColor(stream: keyof typeof chartStreamColors): string {
+  return chartStreamInk[stream] === 'light' ? colors.textOnDark : colors.textOnPrimary;
+}
 
 // Style-picker chip swatches (map style selection): one representative
 // background per map style. Theme-independent - each depicts the style itself.
@@ -692,6 +740,8 @@ export const darkColors = {
   // one token in both themes is the same defect the other way round.
   chartGoldMark: brand.goldLight,
   chartGreenMark: '#86EFAC',
+  chartSilverMark: '#C3CAD3',
+  chartBronzeMark: '#D9904F',
 
   // Secondary - Blue (charts, data)
   secondary: brand.blue, // Full blue for dark mode
@@ -704,6 +754,8 @@ export const darkColors = {
   surfaceElevated: '#1F1F23',
   surfaceCard: '#232328',
   surfaceOverlay: 'rgba(24, 24, 27, 0.95)',
+  regionTintIdle: colorWithOpacity(ink.white, 0.05),
+  regionTintActive: colorWithOpacity(ink.white, 0.1),
 
   // Text
   textPrimary: '#FAFAFA',
@@ -753,6 +805,7 @@ export const darkColors = {
 
   // Chart colors for dark mode (optimized for visibility)
   chartFitness: brand.blueLight, // Brighter blue for CTL
+  chartPurple: '#C084FC', // Custom tag ground; same hue as the ATL series, tuned on its own
   chartFatigue: '#C084FC', // Brighter purple for ATL
   chartForm: brand.blueLight, // Brighter blue for TSB (neutral, zone-based at runtime)
   chartHR: '#F87171', // Red for heart rate
@@ -952,6 +1005,31 @@ export const zoneColors = {
   zone5: '#DD0447', // Red-pink - VO2max (intervals.icu)
   zone6: '#6633CC', // Purple - Anaerobic (intervals.icu)
   zone7: '#1A1A1A', // Near-black - Neuromuscular (intervals.icu)
+} as const;
+
+/**
+ * Each zone fill darkened to 4.5:1 for text on its own 18% tint over the light
+ * screen ground. Zones 6 and 7 already clear it and keep their fill.
+ */
+export const zoneTextColors = {
+  zone1: '#006F5A',
+  zone2: '#006F00',
+  zone3: '#806607',
+  zone4: '#994C08',
+  zone5: '#BC033C',
+  zone6: '#6633CC',
+  zone7: '#1A1A1A',
+} as const;
+
+/** Each zone fill lifted to 4.5:1 for text on its 28% tint over the dark screen ground. */
+export const zoneTextColorsDark = {
+  zone1: '#26AD93',
+  zone2: '#26AD26',
+  zone3: '#FFCB0E',
+  zone4: '#FF7F0E',
+  zone5: '#E95C87',
+  zone6: '#9C7ADE',
+  zone7: '#818181',
 } as const;
 
 // =============================================================================

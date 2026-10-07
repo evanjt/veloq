@@ -20,3 +20,22 @@ export function setFeedHeadIds(ids: readonly string[]): void {
 export function feedHeadIds(): readonly string[] {
   return head;
 }
+
+const HEAD_COUNT = 5;
+
+/**
+ * The ids of the first cards that own a track, or `held` while pages before
+ * the first one held are evicted: the list then starts weeks below the top, so
+ * its first cards are not the ones on screen.
+ */
+export function headPreviewIds(
+  activities: readonly { id: string; stream_types?: string[] | null | undefined }[],
+  hasPreviousPage: boolean,
+  held: string[]
+): string[] {
+  if (hasPreviousPage) return held;
+  return activities
+    .filter((a) => a.stream_types?.includes('latlng'))
+    .slice(0, HEAD_COUNT)
+    .map((a) => a.id);
+}

@@ -5,7 +5,7 @@
  * it decides what the form number on every screen means: an absolute TSB, or
  * TSB as a share of CTL. It is lifted off the profile the same way the unit
  * preferences are, and kept in a store rather than a hook because
- * `widgetSnapshot.ts` reads it and is not a component. It sits beside
+ * the widget bridge reads it and is not a component. It sits beside
  * `UnitPreferenceStore`, which lifts the unit preferences off the same record.
  */
 import { create } from 'zustand';

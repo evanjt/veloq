@@ -12,6 +12,7 @@ import React, { memo, useId } from 'react';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 
 import { colors, mapPreviewColors, ink } from '@/theme';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 export interface NormalisedPoint {
   x: number;
@@ -19,7 +20,7 @@ export interface NormalisedPoint {
 }
 
 /** Coordinates to 0..1 of their own bounding box, y flipped for the screen. */
-export function normalizeTrackPoints(points: { lat: number; lng: number }[]): NormalisedPoint[] {
+export function normalizeTrackPoints(points: LatLngShort[]): NormalisedPoint[] {
   if (points.length < 2) return [];
 
   const lats = points.map((p) => p.lat);

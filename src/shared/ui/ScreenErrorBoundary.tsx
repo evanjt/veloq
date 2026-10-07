@@ -1,10 +1,11 @@
 import React, { Component, ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
+import { Button } from './Button';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 
@@ -53,25 +54,18 @@ export class ScreenErrorBoundary extends Component<Props, State> {
 
   override render() {
     if (this.state.hasError) {
-      return (
-        <ScreenErrorFallback
-          screenName={this.props.screenName}
-          error={this.state.error}
-          onRetry={this.handleRetry}
-        />
-      );
+      return <ScreenErrorFallback error={this.state.error} onRetry={this.handleRetry} />;
     }
     return <React.Fragment key={this.state.retryKey}>{this.props.children}</React.Fragment>;
   }
 }
 
 interface FallbackProps {
-  screenName?: string | undefined;
   error: Error | null;
   onRetry: () => void;
 }
 
-function ScreenErrorFallback({ screenName, error, onRetry }: FallbackProps) {
+function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
   const { isDark, colors: themeColors } = useTheme();
   const { t } = useTranslation();
 
@@ -83,21 +77,22 @@ function ScreenErrorFallback({ screenName, error, onRetry }: FallbackProps) {
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
       <Text style={[styles.title, { color: themeColors.text }]}>{t('emptyState.error.title')}</Text>
-      {screenName && (
-        <Text style={[styles.screenName, { color: themeColors.textSecondary }]}>{screenName}</Text>
-      )}
       {__DEV__ && error?.message && (
         <Text style={[styles.devError, { color: themeColors.textSecondary }]} numberOfLines={4}>
           {error.message}
         </Text>
       )}
       <View style={styles.buttons}>
-        <Button mode="outlined" onPress={() => router.back()} style={styles.button} compact>
-          {t('common.back')}
-        </Button>
-        <Button mode="contained" onPress={onRetry} style={styles.button} compact>
-          {t('common.retry')}
-        </Button>
+        {router.canGoBack() && (
+          <Button
+            label={t('common.back')}
+            variant="secondary"
+            size="sm"
+            onPress={() => router.back()}
+            style={styles.button}
+          />
+        )}
+        <Button label={t('common.retry')} size="sm" onPress={onRetry} style={styles.button} />
       </View>
     </View>
   );
@@ -119,11 +114,6 @@ const styles = StyleSheet.create({
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  screenName: {
-    ...typography.bodySmall,
-    marginTop: spacing.xs,
     textAlign: 'center',
   },
   devError: {

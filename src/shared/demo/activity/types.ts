@@ -27,14 +27,12 @@ export interface ApiActivity {
   icu_ftp: number | null;
   icu_atl: number;
   icu_ctl: number;
-  average_watts: number | null;
-  weighted_average_watts: number | null;
+  icu_average_watts: number | null;
+  icu_weighted_avg_watts: number | null;
   icu_hr_zones: number[];
   icu_power_zones: number[];
   icu_zone_times: { id: string; secs: number }[] | null;
   stream_types: string[];
-  locality: string | null;
-  country: string | null;
   skyline_chart_bytes?: string | undefined;
 }
 

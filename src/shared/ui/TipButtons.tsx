@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, ink, spacing, layout, typography, colorWithOpacity } from '@/theme';
-import { pressable } from '@/shared/ui';
+import { colors, spacing, layout, typography } from '@/theme';
+import { pressable, pressRipple } from '@/shared/ui';
 
 const SIZE_LABELS: Record<string, string> = {
   tip_small: 'support.tipSmall',
@@ -43,6 +43,7 @@ export function TipButtons({ products, isPurchasing, onTip, isDark, small }: Tip
             isDark && styles.tipButtonDark,
             isPurchasing && styles.tipButtonDisabled,
           ])}
+          android_ripple={pressRipple}
         >
           <Text
             style={[small ? styles.tipPriceSmall : styles.tipPrice, isDark && styles.tipTextDark]}
@@ -95,23 +96,23 @@ const styles = StyleSheet.create({
   tipPrice: {
     ...typography.bodySmall,
     fontWeight: '700',
-    color: ink.white,
+    color: colors.textOnPrimary,
   },
   tipPriceSmall: {
     ...typography.caption,
     fontWeight: '700',
-    color: ink.white,
+    color: colors.textOnPrimary,
   },
   tipLabel: {
     ...typography.caption,
     fontSize: typography.label.fontSize,
-    color: colorWithOpacity(ink.white, 0.75),
+    color: colors.textOnPrimary,
     marginTop: spacing.xxs,
   },
   tipLabelDark: {
-    color: colorWithOpacity(ink.white, 0.7),
+    color: colors.textOnPrimary,
   },
   tipTextDark: {
-    color: ink.white,
+    color: colors.textOnPrimary,
   },
 });

@@ -17,16 +17,14 @@ import {
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/features/settings/lib/autobackup';
 
-import { PACE_SNAPSHOT_WINDOW_DAYS } from './constants';
-import { getEngine } from '@/shared/native/engine';
 import { SyncState } from 'veloqrs';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { useSyncState } from '@/shared/native/useSyncStatus';
 import { usePushedWritesOnForeground } from '@/shared/native/usePushedWritesOnForeground';
-import { PICKUP_DEADLINE_MS } from '@/shared/app/extendedFetch';
+import { usePickupDeadline } from '@/shared/app/usePickupDeadline';
 import { syncSettledForExpansion } from '@/shared/app/expansionLock';
 
 export function GlobalDataSync() {
@@ -37,7 +35,6 @@ export function GlobalDataSync() {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
   const syncStateChanged = useSyncDateRange((s) => s.syncStateChanged);
-  const expirePickup = useSyncDateRange((s) => s.expirePickup);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
 
@@ -67,18 +64,14 @@ export function GlobalDataSync() {
   // The widened-range download is the engine holding its sync slot, so that is
   // what the flag follows. It used to follow `isFetching` above, which is a
   // SQLite read settling in milliseconds against a download taking seconds.
-  const syncStatus = useSyncStatus();
-  const isEngineSyncing = syncStatus?.state === SyncState.Syncing;
+  const isEngineSyncing = useSyncState() === SyncState.Syncing;
   useEffect(() => {
     syncStateChanged(isEngineSyncing);
   }, [isEngineSyncing, syncStateChanged]);
 
   // A window the engine accepted but never reports the slot for ends in a
   // named state, or the banner stays up for the rest of the session.
-  useEffect(() => {
-    const timer = setInterval(expirePickup, PICKUP_DEADLINE_MS);
-    return () => clearInterval(timer);
-  }, [expirePickup]);
+  usePickupDeadline();
 
   // Use the route data sync hook to automatically sync GPS data.
   // Always enabled - GPS tracks are needed for heatmap even when route matching is off.
@@ -113,42 +106,10 @@ export function GlobalDataSync() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.charts.paceCurve.all,
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.charts.bestEfforts.all,
+      });
       onSyncComplete();
-
-      // Seed pace snapshots for trend tracking (fire-and-forget).
-      // pace_history is normally only populated when viewing the pace curve screen.
-      // Seeding here ensures a baseline exists after first sync so pace milestones
-      // can appear once critical speed changes.
-      try {
-        const engine = getEngine();
-        if (engine) {
-          const sportTypes = engine.getAvailableSportTypes?.() ?? [];
-          const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
-
-          for (const sport of ['Run', 'Swim'] as const) {
-            if (!sportTypes.includes(sport)) continue;
-            const curve = engine.getPaceCurve(sport, PACE_SNAPSHOT_WINDOW_DAYS, false);
-            if (!curve) {
-              // Not fetched yet. Ask for it; the next sync-complete pass seeds
-              // the snapshot, and the pace curve screen would anyway.
-              engine.syncPaceCurve(sport, PACE_SNAPSHOT_WINDOW_DAYS, false);
-              continue;
-            }
-            if (curve.criticalSpeed && curve.criticalSpeed > 0) {
-              engine.savePaceSnapshot(
-                sport,
-                curve.criticalSpeed,
-                PACE_SNAPSHOT_WINDOW_DAYS,
-                curve.dPrime ?? undefined,
-                curve.r2 ?? undefined,
-                todayTs
-              );
-            }
-          }
-        }
-      } catch {
-        // best-effort - pace milestone will still work when user visits pace curve
-      }
     }
   }, [progress.status, queryClient]);
 

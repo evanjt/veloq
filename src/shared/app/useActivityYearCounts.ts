@@ -8,6 +8,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
@@ -23,6 +24,7 @@ export function useActivityYearCounts() {
   useEngineChannel('activities', queryKeys.calendar.yearCounts);
 
   return useQuery({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.calendar.yearCounts,
     queryFn: (): Record<string, number> => {
       const stored = getEngine()?.getSetting(ACTIVITY_YEAR_COUNTS_KEY);

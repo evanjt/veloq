@@ -1,5 +1,6 @@
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
-import { colors, darkColors, brand } from './colors';
+
+import { colors, darkColors, brand, ink } from './colors';
 export type { VerdictRung, InsightTone } from './colors';
 
 export {
@@ -19,6 +20,8 @@ export {
   mapPreviewColors,
   mapLayerColors,
   chartStreamColors,
+  chartStreamInk,
+  chartInkColor,
   mapStyleSwatch,
   mapStylePreview,
   insightIcon,
@@ -40,11 +43,13 @@ export {
   ink,
   loupeChrome,
   sectionPalette,
+  routePalette,
   sectionPaletteIndex,
   sectionPaletteExpression,
 } from './colors';
 export { spacing, MIN_TAP_TARGET } from './spacing';
 export { layout } from './layout';
+export { slopToMinTapTarget } from './tapTarget';
 export { typography } from './typography';
 export {
   FAMILY_BARS,
@@ -54,7 +59,7 @@ export {
   UNDER_BAR,
   type TokenFamily,
 } from './tokenFamilies';
-export { shadows, createShadow, cardShadow, smallElementShadow } from './shadows';
+export { shadows, createShadow, smallElementShadow, mapTextShadow } from './shadows';
 export { chartStyles } from './chartStyles';
 
 export const lightTheme = {
@@ -70,9 +75,9 @@ export const lightTheme = {
     background: colors.background,
     surface: colors.surface,
     error: colors.error,
-    onPrimary: '#FFFFFF', // White text on teal
-    onSecondary: '#FFFFFF',
-    onTertiary: '#18181B', // Dark text on gold
+    onPrimary: ink.white, // White text on teal
+    onSecondary: ink.white,
+    onTertiary: colors.textPrimary, // Dark text on gold
     onBackground: colors.textPrimary,
     onSurface: colors.textPrimary,
     outline: colors.border,
@@ -93,9 +98,9 @@ export const darkTheme = {
     background: darkColors.background,
     surface: darkColors.surface,
     error: darkColors.error,
-    onPrimary: '#18181B', // Dark text on bright teal
-    onSecondary: '#FFFFFF',
-    onTertiary: '#18181B', // Dark text on gold
+    onPrimary: colors.textPrimary, // Dark text on bright teal
+    onSecondary: ink.white,
+    onTertiary: colors.textPrimary, // Dark text on gold
     onBackground: darkColors.textPrimary,
     onSurface: darkColors.textPrimary,
     outline: darkColors.border,

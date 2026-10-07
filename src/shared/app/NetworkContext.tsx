@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  ReactNode,
+} from 'react';
 import { AppState } from 'react-native';
 import * as Network from 'expo-network';
 import { onlineManager } from '@tanstack/react-query';
@@ -8,9 +16,31 @@ import { getEngine } from '@/shared/native/engine';
 interface NetworkContextValue {
   /** Whether device has network connectivity */
   isOnline: boolean;
+  /**
+   * Whether the offline banner is up. It trails `isOnline` going false by
+   * `OFFLINE_BANNER_DELAY_MS` and follows it back on the same render, so the
+   * banner and the top edge it takes move together.
+   */
+  offlineBannerShown: boolean;
 }
 
 const NetworkContext = createContext<NetworkContextValue | null>(null);
+
+/**
+ * How often an app held open in the foreground re-reads the network. A
+ * quarter of the hour Rust believes a pushed state for (`STALE_AFTER` in
+ * `net/connectivity.rs`), so the engine's copy never ages out while the app
+ * is on screen, at one native read every quarter hour.
+ */
+export const FOREGROUND_REREAD_MS = 15 * 60 * 1000;
+
+/**
+ * How long the banner waits after `isOnline` goes false, on top of the three
+ * second debounce. A network handoff can report the internet unreachable for
+ * longer than the debounce, and a banner that slides in and out again moves
+ * every screen's top edge twice for nothing.
+ */
+export const OFFLINE_BANNER_DELAY_MS = 5000;
 
 /**
  * Hand the edge to Rust as well as to TanStack.
@@ -33,9 +63,15 @@ function pushToEngine(online: boolean): void {
 }
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
-  const [networkState, setNetworkState] = useState<NetworkContextValue>({
+  const [networkState, setNetworkState] = useState<{ isOnline: boolean }>({
     isOnline: true, // Assume online initially
   });
+
+  // Whether an offline spell has lasted the banner's delay. Read only beside
+  // `isOnline` below, so an online reading hides the banner on the render it
+  // lands. Armed where `isOnline` goes false and cleared where it comes back.
+  const [bannerDue, setBannerDue] = useState(false);
+  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounce timer for going-offline transitions (3s delay prevents OfflineBanner flashing)
   const offlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,6 +88,27 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     let hasReceivedListenerUpdate = false;
 
+    const clearBannerTimer = () => {
+      if (bannerTimerRef.current) {
+        clearTimeout(bannerTimerRef.current);
+        bannerTimerRef.current = null;
+      }
+    };
+
+    const goOffline = () => {
+      setNetworkState({ isOnline: false });
+      onlineManager.setOnline(false);
+      pushToEngine(false);
+      // An offline reading while the delay is counting leaves it counting, so
+      // a re-read inside the spell does not push the banner further out.
+      if (bannerTimerRef.current === null) {
+        bannerTimerRef.current = setTimeout(() => {
+          bannerTimerRef.current = null;
+          if (!cancelled) setBannerDue(true);
+        }, OFFLINE_BANNER_DELAY_MS);
+      }
+    };
+
     const applyNetworkState = (state: Network.NetworkState) => {
       const isOnline = state.isConnected === true && state.isInternetReachable !== false;
 
@@ -63,6 +120,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
       if (isOnline) {
         // Going online: update immediately
+        clearBannerTimer();
+        setBannerDue(false);
         setNetworkState({ isOnline: true });
         // TanStack has no React Native connectivity source of its own, so
         // without this it believes it is permanently online and
@@ -71,16 +130,12 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         pushToEngine(true);
       } else if (!hasReadingRef.current) {
         // The first reading is the answer the seed was standing in for.
-        setNetworkState({ isOnline: false });
-        onlineManager.setOnline(false);
-        pushToEngine(false);
+        goOffline();
       } else {
         // Going offline: debounce by 3s to avoid flashing during brief hiccups
         offlineTimerRef.current = setTimeout(() => {
           if (cancelled) return;
-          setNetworkState({ isOnline: false });
-          onlineManager.setOnline(false);
-          pushToEngine(false);
+          goOffline();
         }, 3000);
       }
 
@@ -113,6 +168,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       if (offlineTimerRef.current) {
         clearTimeout(offlineTimerRef.current);
       }
+      clearBannerTimer();
       subscription.remove();
       // Nothing is watching the network any more, so leaving the manager
       // offline would strand every query behind `networkMode`.
@@ -140,8 +196,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   });
   const applyRef = useRef<(state: Network.NetworkState) => void>(() => {});
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (status) => {
-      if (status !== 'active') return;
+    const restate = () => {
       pushToEngine(onlineRef.current);
       Network.getNetworkStateAsync()
         .then((state) => applyRef.current(state))
@@ -149,11 +204,45 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
           // A reading that will not come back leaves the last one standing,
           // which is what the engine was just handed.
         });
+    };
+
+    // Rust stops believing a push after `STALE_AFTER`, an hour, which is
+    // meant for an app nobody opens. An app held open with no network change
+    // gets no foreground and no listener event, so it is re-stated on a clock
+    // while it is active, and never while it is not.
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const startClock = () => {
+      if (interval === null) interval = setInterval(restate, FOREGROUND_REREAD_MS);
+    };
+    const stopClock = () => {
+      if (interval !== null) clearInterval(interval);
+      interval = null;
+    };
+    if (AppState.currentState === 'active') startClock();
+
+    const subscription = AppState.addEventListener('change', (status) => {
+      if (status !== 'active') {
+        stopClock();
+        return;
+      }
+      restate();
+      startClock();
     });
-    return () => subscription.remove();
+    return () => {
+      stopClock();
+      subscription.remove();
+    };
   }, []);
 
-  return <NetworkContext.Provider value={networkState}>{children}</NetworkContext.Provider>;
+  const value = useMemo(
+    () => ({
+      isOnline: networkState.isOnline,
+      offlineBannerShown: !networkState.isOnline && bannerDue,
+    }),
+    [networkState.isOnline, bannerDue]
+  );
+
+  return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
 }
 
 /**

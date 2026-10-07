@@ -26,6 +26,26 @@ export function paceMinutesFromSpeed(speedMs: number, referenceMeters = 1000): n
 }
 
 /**
+ * Speed in m/s from a pace in minutes per reference distance, the inverse of
+ * `paceMinutesFromSpeed`. A zero or non-finite pace, which is how a stopped
+ * sample reads, gives 0.
+ */
+export function speedFromPaceMinutes(paceMinutes: number, referenceMeters = 1000): number {
+  if (!(paceMinutes > 0) || !Number.isFinite(paceMinutes)) return 0;
+  return referenceMeters / (paceMinutes * 60);
+}
+
+/**
+ * Pace for one stream sample. A missing sample (NaN, from a null in the stream)
+ * stays NaN so the chart and scrub treat it as absent, where
+ * `paceMinutesFromSpeed` would turn it into a 0:00 pace nobody ran. A stopped
+ * sample still reads 0.
+ */
+export function paceMinutesFromSample(speedMs: number, referenceMeters = 1000): number {
+  return Number.isNaN(speedMs) ? NaN : paceMinutesFromSpeed(speedMs, referenceMeters);
+}
+
+/**
  * Total elevation gain (m): sum of positive deltas between consecutive valid
  * altitude samples. Null/undefined/non-finite samples are skipped without
  * resetting the previous reference, so a dropout doesn't fabricate a gain.

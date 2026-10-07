@@ -1,47 +1,52 @@
-// Banners (demo, offline, cache loading) render above the Stack and own their top
-// safe-area padding. When a banner shows, screens must exclude the top edge to avoid
+// Banners render above the Stack and the topmost owns the top safe-area padding. When a banner shows, screens must exclude the top edge to avoid
 // double padding. This context tracks banner state and exposes the right edges.
 
-import React, { createContext, useContext, useMemo, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Edge } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
-import { pickTopBanner } from './topBanner';
+import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
+import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
+import { pickTopBanner, padsStatusBar, type TopBanner } from './topBanner';
 
 import { useNetwork } from './NetworkContext';
 
 interface TopSafeAreaContextValue {
   hasTopBanner: boolean;
   topInset: number;
-  activeBanner: 'demo' | 'offline' | 'syncError' | null;
+  activeBanner: TopBanner;
   screenEdges: Edge[];
-  setSyncBannerVisible: (visible: boolean) => void;
 }
 
 const TopSafeAreaContext = createContext<TopSafeAreaContextValue | null>(null);
 
-export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
+export function TopSafeAreaProvider({
+  children,
+  startupErrorShown = false,
+}: {
+  children: ReactNode;
+  startupErrorShown?: boolean;
+}) {
   const insets = useSafeAreaInsets();
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const hideDemoBanner = useAuthStore((s) => s.hideDemoBanner);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { isOnline } = useNetwork();
+  const { offlineBannerShown } = useNetwork();
   const { lastError } = useSyncHealth();
-  const [, setSyncBannerVisibleState] = useState(false);
-
-  const setSyncBannerVisible = useCallback((visible: boolean) => {
-    setSyncBannerVisibleState(visible);
-  }, []);
-
+  const trackFetchNoticeShown = useTrackFetchNotice((s) => s.failedCount > 0 && !s.dismissed);
+  const engineInitFailed = useEngineStatus((s) => s.initFailed);
   const value = useMemo(() => {
     const activeBanner = pickTopBanner({
-      isOnline,
+      startupErrorShown,
+      offlineBannerShown,
       isAuthenticated,
       isDemoMode,
       hideDemoBanner,
       lastError: lastError ?? null,
+      trackFetchNoticeShown,
+      engineInitFailed,
     });
 
     // Sync banner is now an overlay - doesn't affect layout or safe area
@@ -57,16 +62,17 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       topInset: insets.top,
       activeBanner,
       screenEdges,
-      setSyncBannerVisible,
     };
   }, [
+    startupErrorShown,
     isDemoMode,
     hideDemoBanner,
     isAuthenticated,
-    isOnline,
+    offlineBannerShown,
     lastError,
+    trackFetchNoticeShown,
+    engineInitFailed,
     insets.top,
-    setSyncBannerVisible,
   ]);
 
   // Banner animations are handled by Reanimated SlideInUp/SlideOutUp on each banner component
@@ -79,6 +85,15 @@ export function useTopSafeArea(): TopSafeAreaContextValue {
     throw new Error('useTopSafeArea must be used within a TopSafeAreaProvider');
   }
   return context;
+}
+
+/**
+ * Whether this banner carries the status-bar inset. Outside a provider, as in
+ * a standalone render, it does.
+ */
+export function useBannerPadsStatusBar(self: Exclude<TopBanner, null>): boolean {
+  const context = useContext(TopSafeAreaContext);
+  return padsStatusBar(context?.activeBanner, self);
 }
 
 export function useScreenSafeAreaEdges(): Edge[] {

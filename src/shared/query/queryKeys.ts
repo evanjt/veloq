@@ -18,6 +18,20 @@ export const queryKeys = {
       all: ['activities-infinite'] as const,
       byAthlete: (athleteId: string) => ['activities-infinite', athleteId] as const,
     },
+    range: {
+      all: ['activities-range'] as const,
+      byRange: (athleteId: string, oldest: string, newest: string) =>
+        ['activities-range', athleteId, oldest, newest] as const,
+    },
+    search: {
+      all: ['activities-search'] as const,
+      byFilter: (
+        athleteId: string,
+        needle: string,
+        groups: readonly string[],
+        range: { oldest: string; newest: string } | null
+      ) => ['activities-search', athleteId, needle, groups, range?.oldest, range?.newest] as const,
+    },
     detail: (id: string) => ['activity', id] as const,
     labels: ['activity-labels'] as const,
     labelsFor: (ids: readonly string[]) => ['activity-labels', ids.join(',')] as const,
@@ -25,27 +39,18 @@ export const queryKeys = {
     intervals: (id: string) => ['activity-intervals', id] as const,
     mapPreview: (activityId: string) => ['map-preview-streams', activityId] as const,
     previewTrack: (activityId: string) => ['activity-preview-track', activityId] as const,
-    highlight: (id: string, announcePrs: boolean) =>
-      ['activity-highlight', id, announcePrs] as const,
   },
 
   strength: {
     all: ['strength'] as const,
     exerciseSets: (activityId: string) => ['strength', 'exercise-sets', activityId] as const,
+    exerciseDetail: (category: number) => ['strength', 'exercise-detail', category] as const,
     muscleGroups: (activityId: string) => ['strength', 'muscle-groups', activityId] as const,
     // The whole strength tab, keyed on the period alone: nothing it draws
     // depends on which muscle is selected, so one entry serves a drag across
     // the diagram.
     screenData: (period: string, weekCount: number) =>
       ['strength', 'screen-data', period, weekCount] as const,
-    // The exercise key takes the null the screen holds before a selection. The
-    // query is disabled then, but the key is still built, so a non-null type
-    // here only moved the missing value behind an assertion.
-    activitiesForExercise: (
-      period: string,
-      muscleSlug: string | null,
-      exerciseCategory: number | null
-    ) => ['strength', 'activities-for-exercise', period, muscleSlug, exerciseCategory] as const,
   },
 
   wellness: {
@@ -59,9 +64,15 @@ export const queryKeys = {
 
   stats: {
     all: ['engine-stats'] as const,
-    monthly: (startTs: number, endTs: number) =>
-      ['engine-stats', 'monthly', startTs, endTs] as const,
-    period: (startTs: number, endTs: number) => ['engine-stats', 'period', startTs, endTs] as const,
+    training: {
+      all: ['engine-stats', 'training'] as const,
+      byDay: (day: string) => ['engine-stats', 'training', day] as const,
+    },
+    period: {
+      all: ['engine-stats', 'period'] as const,
+      byWindow: (startTs: number, endTs: number) =>
+        ['engine-stats', 'period', startTs, endTs] as const,
+    },
   },
 
   athleteSummary: {
@@ -79,6 +90,10 @@ export const queryKeys = {
       all: ['paceCurve'] as const,
       bySport: (sport: string, days: number, gap: boolean) =>
         ['paceCurve', sport, days, gap] as const,
+    },
+    bestEfforts: {
+      all: ['bestEfforts'] as const,
+      byDays: (days: number) => ['bestEfforts', days] as const,
     },
   },
 

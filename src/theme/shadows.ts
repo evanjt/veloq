@@ -1,4 +1,11 @@
-import { Platform, ViewStyle } from 'react-native';
+import { Platform, TextStyle, ViewStyle } from 'react-native';
+
+import { brand, ink } from './colors';
+
+export const mapTextShadow: Pick<TextStyle, 'textShadowOffset' | 'textShadowRadius'> = {
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 3,
+};
 
 /**
  * Platform-specific shadow utilities for iOS optimization.
@@ -27,7 +34,7 @@ export function createShadow(
     iosOpacityMultiplier?: number;
   }
 ): ShadowStyle {
-  const { color = '#000', iosOpacityMultiplier = 1.5 } = options ?? {};
+  const { color = ink.black, iosOpacityMultiplier = 1.5 } = options ?? {};
 
   // Map elevation to shadow properties
   // Based on Material Design elevation to iOS shadow mapping
@@ -101,7 +108,7 @@ export const shadows = {
   /** Teal glow for primary interactive elements (buttons, links) */
   primaryGlow: Platform.select({
     ios: {
-      shadowColor: '#14B8A6',
+      shadowColor: brand.teal,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.35,
       shadowRadius: 10,
@@ -110,7 +117,7 @@ export const shadows = {
       elevation: 4,
     },
     default: {
-      shadowColor: '#14B8A6',
+      shadowColor: brand.teal,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.3,
       shadowRadius: 10,
@@ -120,7 +127,7 @@ export const shadows = {
   /** Teal glow (alias for primaryGlow) */
   tealGlow: Platform.select({
     ios: {
-      shadowColor: '#14B8A6',
+      shadowColor: brand.teal,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.35,
       shadowRadius: 10,
@@ -129,7 +136,7 @@ export const shadows = {
       elevation: 4,
     },
     default: {
-      shadowColor: '#14B8A6',
+      shadowColor: brand.teal,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.3,
       shadowRadius: 10,
@@ -139,7 +146,7 @@ export const shadows = {
   /** Gold glow for achievements, PRs, and celebration moments ONLY */
   goldGlow: Platform.select({
     ios: {
-      shadowColor: '#D4AF37',
+      shadowColor: brand.gold,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.35,
       shadowRadius: 12,
@@ -148,7 +155,7 @@ export const shadows = {
       elevation: 4,
     },
     default: {
-      shadowColor: '#D4AF37',
+      shadowColor: brand.gold,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.3,
       shadowRadius: 12,
@@ -158,7 +165,7 @@ export const shadows = {
   /** Blue glow for data highlights and chart interactions */
   blueGlow: Platform.select({
     ios: {
-      shadowColor: '#5B9BD5',
+      shadowColor: brand.blue,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.3,
       shadowRadius: 8,
@@ -167,7 +174,7 @@ export const shadows = {
       elevation: 3,
     },
     default: {
-      shadowColor: '#5B9BD5',
+      shadowColor: brand.blue,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.25,
       shadowRadius: 8,
@@ -177,7 +184,7 @@ export const shadows = {
   /** Subtle teal glow (for hover/focus states) */
   primaryGlowSubtle: Platform.select({
     ios: {
-      shadowColor: '#14B8A6',
+      shadowColor: brand.teal,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.2,
       shadowRadius: 6,
@@ -186,7 +193,7 @@ export const shadows = {
       elevation: 2,
     },
     default: {
-      shadowColor: '#14B8A6',
+      shadowColor: brand.teal,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.15,
       shadowRadius: 6,
@@ -196,7 +203,7 @@ export const shadows = {
   /** Subtle gold accent glow (for achievement pressed states) */
   goldGlowSubtle: Platform.select({
     ios: {
-      shadowColor: '#D4AF37',
+      shadowColor: brand.gold,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.2,
       shadowRadius: 6,
@@ -205,7 +212,7 @@ export const shadows = {
       elevation: 2,
     },
     default: {
-      shadowColor: '#D4AF37',
+      shadowColor: brand.gold,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.15,
       shadowRadius: 6,
@@ -215,7 +222,7 @@ export const shadows = {
   /** Subtle blue accent glow (for data focus states) */
   blueGlowSubtle: Platform.select({
     ios: {
-      shadowColor: '#5B9BD5',
+      shadowColor: brand.blue,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.15,
       shadowRadius: 4,
@@ -224,7 +231,7 @@ export const shadows = {
       elevation: 2,
     },
     default: {
-      shadowColor: '#5B9BD5',
+      shadowColor: brand.blue,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.12,
       shadowRadius: 4,
@@ -233,36 +240,12 @@ export const shadows = {
 };
 
 /**
- * Creates shadow styles for a specific card with custom opacity.
- * Use this when the preset shadows don't fit your needs.
- */
-export function cardShadow(opacity: number = 0.1): ShadowStyle {
-  return Platform.select({
-    ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: opacity * 1.5, // Boost for iOS visibility
-      shadowRadius: 12,
-    },
-    android: {
-      elevation: 4,
-    },
-    default: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: opacity,
-      shadowRadius: 12,
-    },
-  }) as ShadowStyle;
-}
-
-/**
  * Creates shadow for small interactive elements like handles and buttons.
  */
 export function smallElementShadow(): ShadowStyle {
   return Platform.select({
     ios: {
-      shadowColor: '#000',
+      shadowColor: ink.black,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
       shadowRadius: 4,
@@ -271,7 +254,7 @@ export function smallElementShadow(): ShadowStyle {
       elevation: 4,
     },
     default: {
-      shadowColor: '#000',
+      shadowColor: ink.black,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
       shadowRadius: 4,

@@ -108,11 +108,13 @@ export function getIsMetric(): boolean {
 }
 
 /**
- * Get a human-readable label for the intervals.icu preference.
+ * The unit system the intervals.icu preference selects.
  */
-export function getIntervalsPreferenceLabel(prefs: IntervalsUnitPreferences | null): string | null {
+export function getIntervalsUnitSystem(
+  prefs: IntervalsUnitPreferences | null
+): 'metric' | 'imperial' | null {
   if (!prefs) return null;
-  return prefs.measurementPreference === 'meters' ? 'Metric' : 'Imperial';
+  return prefs.measurementPreference === 'meters' ? 'metric' : 'imperial';
 }
 
 /**

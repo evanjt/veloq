@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 // Gesture thresholds
 const SWIPE_THRESHOLD_RATIO = 0.2; // 20% of screen width
@@ -194,13 +194,14 @@ export function SwipeableTabs({
   return (
     <View style={styles.container}>
       {/* Material-style Tab Bar - dynamically rendered */}
-      <View style={[styles.tabBar, isDark && styles.tabBarDark]}>
+      <View accessibilityRole="tablist" style={[styles.tabBar, isDark && styles.tabBarDark]}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
             <Pressable
               key={tab.key}
               style={pressable(styles.tab)}
+              android_ripple={pressRipple}
               onPress={() => handleTabPress(tab.key)}
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
@@ -222,6 +223,7 @@ export function SwipeableTabs({
                 style={[
                   styles.tabText,
                   isActive && styles.tabTextActive,
+                  isDark && isActive && styles.tabTextActiveDark,
                   isDark && !isActive && styles.tabTextDark,
                 ]}
               >
@@ -324,8 +326,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   tabTextActive: {
-    color: colors.primary,
+    color: colors.linkTeal,
     fontWeight: '600',
+  },
+  tabTextActiveDark: {
+    color: darkColors.linkTeal,
   },
   tabTextDark: {
     color: darkColors.textMuted,
@@ -367,8 +372,8 @@ const styles = StyleSheet.create({
     left: spacing.md,
     height: 3,
     backgroundColor: colors.primary,
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
+    borderTopLeftRadius: layout.borderRadiusXs,
+    borderTopRightRadius: layout.borderRadiusXs,
   },
   contentContainer: {
     flex: 1,

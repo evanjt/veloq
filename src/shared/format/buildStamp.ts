@@ -3,8 +3,10 @@
  *
  * `app.config.js` stamps the commit into `extra.buildCommit` and
  * expo-constants regenerates that on every native build, so the phone names
- * what it runs rather than only which version it claims to be. A build made
- * outside a checkout carries no stamp.
+ * what it runs rather than only which version it claims to be. A build off a
+ * dirty tree adds `+` and the start of the hash of its inputs, so two builds
+ * off different edits read differently. A build made outside a checkout
+ * carries no stamp.
  */
 
 import Constants from 'expo-constants';
