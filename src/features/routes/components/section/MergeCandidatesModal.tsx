@@ -9,8 +9,9 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
-import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { formatDistance } from '@/shared/format/format';
+import { SportIcons } from '@/shared/activity/SportIcons';
 import type { MergeCandidate } from 'veloqrs';
 import {
   colors,
@@ -38,6 +39,7 @@ export const MergeCandidatesModal = memo(function MergeCandidatesModal({
 }: MergeCandidatesModalProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const bg = isDark ? darkColors.surface : colors.surface;
   const text = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -49,11 +51,7 @@ export const MergeCandidatesModal = memo(function MergeCandidatesModal({
       onPress={() => onSelect(item)}
       activeOpacity={0.6}
     >
-      <MaterialCommunityIcons
-        name={getActivityIcon(item.sportType)}
-        size={22}
-        color={textSecondary}
-      />
+      <SportIcons sportTypes={item.sportTypes} size={22} color={textSecondary} />
       <View style={styles.rowContent}>
         <Text style={[styles.rowName, { color: text }]} numberOfLines={1}>
           {item.name ?? item.sectionId}
@@ -61,8 +59,13 @@ export const MergeCandidatesModal = memo(function MergeCandidatesModal({
         <Text style={[styles.rowMeta, { color: textSecondary }]}>
           {t('sections.visitsCount', { count: item.visitCount })}
           {' · '}
-          {Math.round(item.distanceMeters)}m{' · '}
+          {formatDistance(item.distanceMeters, isMetric)}
+          {' · '}
           {Math.round(item.overlapPct * 100)}% {t('sections.overlapLabel')}
+          {' · '}
+          {t('sections.distanceAway', {
+            distance: formatDistance(item.centerDistanceMeters, isMetric),
+          })}
         </Text>
       </View>
       <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />

@@ -50,6 +50,9 @@ export function SportTypeSelector({
               },
             ]}
             onPress={() => onSelect(type)}
+            accessibilityRole="button"
+            accessibilityLabel={t(`activityTypes.${type}`, type)}
+            accessibilityState={{ selected: isSelected }}
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons

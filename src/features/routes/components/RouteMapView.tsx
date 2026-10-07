@@ -1,7 +1,6 @@
 /**
  * Hero map view for route detail page.
- * Displays the consensus route prominently with faded individual traces behind.
- * The consensus route is the "common core" that 80%+ of activities pass through.
+ * Displays the representative activity's route with faded individual traces behind.
  * Supports interaction (zoom/pan) and fullscreen mode like ActivityMapView.
  */
 
@@ -21,9 +20,10 @@ import {
   type MapSourceSpec,
   MapSurface,
   pointFeature,
+  useDrawnMapStyle,
   useMapPreferences,
 } from '@/features/maps';
-import type { RouteGroup, RoutePoint } from '@/types';
+import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
 
 /** Minimal route group type for map display - only needs points and distance for signature */
 type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {
@@ -32,6 +32,7 @@ type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {
 
 interface RouteMapViewProps {
   routeGroup: RouteGroupForMap;
+  selectedSportType?: ActivityType | undefined;
   height?: number | undefined;
   /** Enable map interaction (zoom, pan). Default false for preview, true for detail. */
   interactive?: boolean | undefined;
@@ -51,6 +52,7 @@ const FIT_PADDING = 40;
 
 export function RouteMapView({
   routeGroup,
+  selectedSportType,
   height = 200,
   interactive = false,
   highlightedActivityId = null,
@@ -60,9 +62,12 @@ export function RouteMapView({
   activitySignatures = {},
 }: RouteMapViewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { getStyleForActivity } = useMapPreferences();
-  const mapStyle = getStyleForActivity(routeGroup.type);
-  const activityColor = getActivityColor(routeGroup.type);
+  const { getStyleForActivity, preferences } = useMapPreferences();
+  const chosenStyle = selectedSportType
+    ? getStyleForActivity(selectedSportType)
+    : preferences.defaultStyle;
+  const mapStyle = useDrawnMapStyle(chosenStyle);
+  const activityColor = getActivityColor(selectedSportType ?? 'Other');
 
   // Memoised so the empty fallback is one array rather than a fresh one each
   // render, which recomputed every projection below it.
@@ -70,7 +75,7 @@ export function RouteMapView({
   const displayPoints = useMemo(() => points ?? [], [points]);
   const routeCoords = useMemo(() => lngLatFromShort(displayPoints), [displayPoints]);
 
-  // 10% padding leaves room for traces that stray outside the consensus line.
+  // 10% padding leaves room for traces that stray outside the representative line.
   const bounds = useMemo(() => boundsOfLngLat(routeCoords, 0.1), [routeCoords]);
 
   const activityTraces = useMemo(
@@ -83,12 +88,15 @@ export function RouteMapView({
 
   const fadedTraces = useMemo(
     () =>
-      featureCollection(
-        activityTraces
-          .filter((trace) => trace.id !== highlightedActivityId)
-          .map((trace) => lineFeature(trace.points, { id: trace.id }))
-      ),
-    [activityTraces, highlightedActivityId]
+      featureCollection(activityTraces.map((trace) => lineFeature(trace.points, { id: trace.id }))),
+    [activityTraces]
+  );
+
+  // The highlighted attempt is drawn by its own source, so the faded layer
+  // skips it by filter and the collection above stays the same across a scrub.
+  const fadedFilter = useMemo<unknown[] | undefined>(
+    () => (highlightedActivityId ? ['!=', ['get', 'id'], highlightedActivityId] : undefined),
+    [highlightedActivityId]
   );
 
   // A lap selection wins over a whole-activity selection.
@@ -138,12 +146,19 @@ export function RouteMapView({
   );
 
   // Highlighting one activity pushes everything else back rather than hiding it.
-  const consensusOpacity = highlightedActivityId ? 0.3 : 1;
+  const representativeOpacity = highlightedActivityId ? 0.3 : 1;
   const fadedOpacity = highlightedActivityId ? 0.1 : 0.2;
 
   const layers = useMemo<MapLayerSpec[]>(
-    () => buildRouteLayers({ activityColor, consensusOpacity, fadedOpacity, includeRoute: true }),
-    [activityColor, consensusOpacity, fadedOpacity]
+    () =>
+      buildRouteLayers({
+        activityColor,
+        representativeOpacity,
+        fadedOpacity,
+        fadedFilter,
+        includeRoute: true,
+      }),
+    [activityColor, representativeOpacity, fadedOpacity, fadedFilter]
   );
 
   // Fullscreen has room to show the other attempts at full strength.
@@ -151,11 +166,12 @@ export function RouteMapView({
     () =>
       buildRouteLayers({
         activityColor,
-        consensusOpacity: 1,
+        representativeOpacity: 1,
         fadedOpacity: 0.2,
+        fadedFilter,
         includeRoute: false,
       }),
-    [activityColor]
+    [activityColor, fadedFilter]
   );
 
   const handleMapPress = useCallback(() => {
@@ -217,7 +233,7 @@ export function RouteMapView({
           routeCoordinates={routeCoords}
           routeColor={activityColor}
           bounds={bounds ?? undefined}
-          initialStyle={mapStyle}
+          initialStyle={chosenStyle}
           onClose={closeFullscreen}
           overlaySources={overlaySources}
           overlayLayers={fullscreenLayers}
@@ -228,18 +244,21 @@ export function RouteMapView({
 }
 
 /**
- * Layer stack, back to front: other attempts, then the consensus route, then
+ * Layer stack, back to front: other attempts, then the representative route, then
  * whatever the caller singled out, then the endpoint dots.
  */
 function buildRouteLayers({
   activityColor,
-  consensusOpacity,
+  representativeOpacity,
   fadedOpacity,
+  fadedFilter,
   includeRoute,
 }: {
   activityColor: string;
-  consensusOpacity: number;
+  representativeOpacity: number;
   fadedOpacity: number;
+  /** Hides the highlighted attempt from the faded layer. */
+  fadedFilter: unknown[] | undefined;
   /** Off in fullscreen, where the shell draws the route itself. */
   includeRoute: boolean;
 }): MapLayerSpec[] {
@@ -252,7 +271,7 @@ function buildRouteLayers({
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
             'line-color': mapLayerColors.casing,
-            'line-opacity': consensusOpacity,
+            'line-opacity': representativeOpacity,
             'line-width': 5,
           },
         },
@@ -263,7 +282,7 @@ function buildRouteLayers({
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
             'line-color': activityColor,
-            'line-opacity': consensusOpacity,
+            'line-opacity': representativeOpacity,
             'line-width': 4,
           },
         },
@@ -275,6 +294,7 @@ function buildRouteLayers({
       id: 'faded-traces-line',
       type: 'line',
       source: 'faded-traces',
+      filter: fadedFilter,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': activityColor,
@@ -335,7 +355,7 @@ const styles = StyleSheet.create({
     bottom: spacing.sm,
     right: spacing.sm,
     backgroundColor: colorWithOpacity(ink.black, 0.5),
-    borderRadius: spacing.xsPlus,
+    borderRadius: layout.borderRadiusSm,
     padding: spacing.xs,
   },
 });

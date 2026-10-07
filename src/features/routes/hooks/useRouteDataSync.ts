@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { InteractionManager } from 'react-native';
+import { FLOW_ADD_ONE, markFlow } from '@/shared/debug/flowTiming';
+import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { feedHeadIds } from '@/shared/activity/feedHead';
@@ -8,14 +9,22 @@ import { headFirst } from '@/features/routes/lib/gpsFetchOrder';
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
+import { engineErrorTag } from '@/shared/native/engineError';
 import { engine, hasStarted } from 'veloqrs';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
-import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
+import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
-import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
+import {
+  DETECTION_FOREGROUND_MS,
+  followDetection,
+  type DetectionEngine,
+} from '@/features/routes/lib/detectionRun';
+import { scalePercent } from '@/features/routes/lib/scalePercent';
+import { endGpsSync } from '@/features/routes/lib/gpsSyncEnding';
 import { routeSyncPlan } from '@/features/routes/lib/routeSyncPlan';
 import { deferSyncRun, takeDeferredSyncRun } from '@/features/routes/lib/deferredSyncRun';
 import { debug } from '@/shared/debug/debug';
@@ -58,6 +67,24 @@ export function useRouteDataSync(
   useEffect(() => {
     setGpsSyncProgress(progress);
   }, [progress, setGpsSyncProgress]);
+
+  // The sync stopped following a run that Rust kept going. Its end is what
+  // takes the "still analysing" state off the screen. The run may also have
+  // ended between the follow giving up and the progress write, in which case
+  // no announcement is coming, so the flag is checked against the engine too.
+  const detectionEnded = useEngineSubscription(['detectionApplied']);
+  const backgroundAnalysisEnded = useSyncDateRange((s) => s.backgroundAnalysisEnded);
+  const analysingInBackground = useSyncDateRange((s) => s.isAnalysingInBackground);
+  useEffect(() => {
+    if (!analysingInBackground) return;
+    let running = true;
+    try {
+      running = engine.getSectionDetectionProgress() != null;
+    } catch {
+      running = false;
+    }
+    if (!running) backgroundAnalysisEnded();
+  }, [detectionEnded, analysingInBackground, backgroundAnalysisEnded]);
   const {
     isAuthenticatedRef,
     isDemoModeRef,
@@ -115,15 +142,11 @@ export function useRouteDataSync(
           if (__DEV__) {
             console.warn('[RouteDataSync] Native module not available');
           }
-          if (isMountedRef.current) {
-            updateProgress({
-              status: 'complete',
-              completed: 0,
-              total: 0,
-              percent: 0,
-              message: 'Native module unavailable',
-            });
-          }
+          endGpsSync('no-engine', {
+            updateProgress,
+            isMounted: isMountedRef.current,
+            withGpsCount: 0,
+          });
           markSyncComplete(abortController);
           return;
         }
@@ -131,10 +154,15 @@ export function useRouteDataSync(
         // Check engine state for already-synced activities
         const engineActivityIds = new Set(nativeModule.engine.getActivityIds());
 
-        // Filter to activities with GPS that aren't already in the engine
+        // Filter to activities with GPS that aren't already in the engine and
+        // whose track the engine has not refused for good
+        const refusedTrackIds = new Set(nativeModule.engine.getRefusedTrackIds());
         const withGps = headFirst(
           activitiesToSync.filter(
-            (a) => a.stream_types?.includes('latlng') && !engineActivityIds.has(a.id)
+            (a) =>
+              a.stream_types?.includes('latlng') &&
+              !engineActivityIds.has(a.id) &&
+              !refusedTrackIds.has(a.id)
           ),
           feedHeadIds()
         );
@@ -161,14 +189,14 @@ export function useRouteDataSync(
         const plan = routeSyncPlan({ online, isDemo, newGpsCount: withGps.length });
 
         // Batch-fetch FIT files for WeightTraining activities not yet processed.
-        // The empty list asks the engine for its own queue: the sport is a
-        // column there, so filtering a whole-library parsed array here for
-        // `WeightTraining` only sent the engine ids it can select itself.
+        // The engine keeps the queue: the sport is a column there, so filtering
+        // a whole-library parsed array here for `WeightTraining` only sent the
+        // engine ids it can select itself.
         if (
           plan.fetchStrength &&
           typeof nativeModule.engine.getUnprocessedStrengthIds === 'function'
         ) {
-          const unprocessed = nativeModule.engine.getUnprocessedStrengthIds([]);
+          const unprocessed = nativeModule.engine.getUnprocessedStrengthIds();
           if (unprocessed.length > 0) {
             if (__DEV__) {
               log.log(
@@ -182,7 +210,7 @@ export function useRouteDataSync(
               if (__DEV__) {
                 log.log(
                   `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
-                    hasStarted(outcome) ? 'started' : `refused (${outcome})`
+                    hasStarted(outcome) ? 'started' : `refused (${outcome.outcome})`
                   }`
                 );
               }
@@ -199,21 +227,26 @@ export function useRouteDataSync(
         let stillAnalysing = false;
 
         if (plan.recoverDetection) {
-          // Drain any completed-but-uncollected detection results. If a prior
-          // detection finished after the TS poll loop timed out, the result
-          // sits in the global handle and blocks all future start() calls.
-          const drainStatus = nativeModule.engine.pollSectionDetection();
-          if (drainStatus === 'complete') {
-            if (__DEV__) {
-              log.log('[RouteDataSync] Drained stale detection result');
-            }
-            engine.triggerRefresh('sections');
-            engine.triggerRefresh('groups');
-          }
+          // A finished run settles itself on its worker, so this poll almost
+          // always reads an empty slot. It still collects a run that ended
+          // while nothing was left to settle it, which would block start().
+          // Its outcome can describe an earlier run. The worker announces
+          // catalogue changes when they land.
+          nativeModule.engine.pollSectionDetection();
 
-          // Check if section detection was interrupted and needs to recover
-          const stats = engine.getStats();
-          if (stats?.sectionsDirty && isMountedRef.current) {
+          // Check if section detection was interrupted and needs to recover.
+          // A failed read leaves recovery to the next sync rather than failing
+          // this one, whose activities have already landed.
+          let sectionsDirty = false;
+          try {
+            sectionsDirty = engine.getStats()?.sectionsDirty === true;
+          } catch (error) {
+            console.warn(
+              '[RouteDataSync] Could not read whether detection is owed:',
+              engineErrorTag(error) ?? error
+            );
+          }
+          if (sectionsDirty && isMountedRef.current) {
             if (__DEV__) {
               log.log(
                 '[RouteDataSync] No new GPS, but sectionsDirty - triggering section detection'
@@ -231,16 +264,24 @@ export function useRouteDataSync(
             // The end arrives on `detectionApplied`, so nothing here ticks
             // the drain: a tick that saw completion would take it from
             // whichever screen is also following the same run.
-            const started = nativeModule.engine.pollSectionDetection() === 'running';
+            const started = nativeModule.engine.getSectionDetectionProgress() != null;
             if (started) {
               const outcome = await followDetection(
                 nativeModule.engine as unknown as DetectionEngine,
                 {
                   isActive: () => isMountedRef.current && !abortController.signal.aborted,
-                  timeoutMs: 60000,
+                  timeoutMs: DETECTION_FOREGROUND_MS,
+                  onProgress: (progress) =>
+                    updateProgress({
+                      status: 'computing',
+                      completed: 0,
+                      total: 0,
+                      percent: scalePercent(progress.percent, 0, 75),
+                      message: i18n.t('cache.analyzingRoutes'),
+                    }),
                 }
               ).settled;
-              // A minute is the follow's budget, not the run's. Rust keeps
+              // The shared foreground budget is the follow's, not the run's. Rust keeps
               // going and the sections land when it does, so the banner says
               // that rather than that everything is synced.
               stillAnalysing = outcome === 'timeout';
@@ -277,23 +318,17 @@ export function useRouteDataSync(
             try {
               const { total, remaining } = await backfillTimeStreams((completed, streams) => {
                 if (!isMountedRef.current) return;
-                updateProgress({
-                  status: 'fetching',
-                  completed,
-                  total: streams,
-                  percent: 50,
-                  message: i18n.t('cache.fetchingTimeStreams', {
-                    percent: 50,
-                    completed,
-                    total: streams,
-                  }),
-                });
+                updateProgress(timeStreamsProgress(completed, streams, i18n.t));
               }, abortController.signal);
               if (__DEV__ && total > 0) {
                 log.log(`[RouteDataSync] Backfilled ${total - remaining}/${total} time streams`);
               }
-            } catch {
-              // Non-critical - will retry next sync
+            } catch (error) {
+              // Not fatal to the sync: the next one asks again.
+              console.warn(
+                '[RouteDataSync] Time stream backfill failed:',
+                engineErrorTag(error) ?? error
+              );
             }
           }
 
@@ -305,6 +340,7 @@ export function useRouteDataSync(
               completed: engineActivityIds.size,
               total: engineActivityIds.size,
               percent: 100,
+              analysingInBackground: stillAnalysing,
               message: stillAnalysing
                 ? i18n.t('cache.syncedStillAnalysing', { count: engineActivityIds.size })
                 : online
@@ -319,6 +355,8 @@ export function useRouteDataSync(
         if (__DEV__) {
           log.log(`[RouteDataSync] Starting GPS fetch for ${withGps.length} activities...`);
         }
+
+        if (withGps.length === 1) markFlow(FLOW_ADD_ONE);
 
         // Fetch GPS data (demo or real API mode)
         if (isDemo) {
@@ -412,18 +450,16 @@ export function useRouteDataSync(
   }, [isSyncingRef]);
 
   // Auto-sync when activities change or after engine reset
-  // Use InteractionManager to avoid blocking navigation animations
+  // Idle scheduling keeps the sync off the frames of a navigation animation
   useEffect(() => {
     if (!enabled || !activities || activities.length === 0) {
       return undefined;
     }
 
-    // Defer heavy processing until after navigation/animations complete
-    const task = InteractionManager.runAfterInteractions(() => {
+    // Defer heavy processing until the thread is idle
+    return runWhenIdle(() => {
       syncActivities(activities);
     });
-
-    return () => task.cancel();
   }, [enabled, activities, syncActivities, syncTrigger]);
 
   return {

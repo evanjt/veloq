@@ -4,71 +4,84 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, ScrollView, StatusBar, InteractionManager, Alert } from 'react-native';
+import { View, ScrollView, StatusBar, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
+import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 import { logScreenRender } from '@/shared/debug/renderTimer';
+import { FLOW_SECTION_OPEN, completeFlowAfterFrame } from '@/shared/debug/flowTiming';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useMergeSections } from '@/features/routes/hooks/useMergeSections';
-import { useNearbySections } from '@/features/routes/hooks/useNearbySections';
-import { useSectionActions } from '@/features/routes/hooks/useSectionActions';
-import { useSectionChartData } from '@/features/routes/hooks/useSectionChartData';
 import {
+  useMergeSections,
+  useSectionActions,
+  useRouteSettings,
+  useSectionChartData,
   useSectionTimeStreamSync,
+  toPerformanceRecord,
   toPerformanceView,
   EMPTY_PERFORMANCE_VIEW,
-} from '@/features/routes/hooks/useSectionPerformances';
-import { RANGE_DAYS } from '@/features/routes/constants';
-import {
+  RANGE_DAYS,
   useSectionDetailData,
   useSectionDetailPerformance,
-} from '@/features/routes/hooks/useSectionDetailData';
-import { useSectionDataRefresh } from '@/features/routes/hooks/useSectionDataRefresh';
-import { useSectionUIState } from '@/features/routes/hooks/useSectionUIState';
-import { useSectionActivityData } from '@/features/routes/hooks/useSectionActivityData';
-import { useSectionChartDataEnriched } from '@/features/routes/hooks/useSectionChartDataEnriched';
-import { useSectionMapData } from '@/features/routes/hooks/useSectionMapData';
-import { useGpxExport } from '@/features/settings/hooks/exportIndex';
-import { useTheme } from '@/shared/app';
-import { useCacheDays } from '@/shared/app/useCacheDays';
-import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
-import { useSectionLedger } from '@/features/routes/hooks/useSectionLedger';
-import {
-  useSectionLaps,
+  useSectionDataRefresh,
+  useSectionUIState,
+  useSectionActivityData,
+  useSectionChartDataEnriched,
+  useSectionMapData,
+  useSectionTrim,
+  useSectionLedger,
   hasPartialExclusion,
-  sectionHeartRate,
-} from '@/features/routes/hooks/useSectionLaps';
-import {
   DataRangeFooter,
   DetailFallback,
+  isSportOffered,
+  rescanRefusalKey,
+  shouldShowSportChips,
   SectionTrimOverlay,
   SportTypeSelector,
-  useLedgerActivityNames,
-} from '@/features/routes';
-import { getEngine } from '@/shared/native/engine';
-import { useDebugStore } from '@/features/settings/stores/DebugStore';
-import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { Button, ScreenErrorBoundary, useHeroMapHeight } from '@/shared/ui';
-import {
+  useRevealMapOnDraw,
   SectionHeader,
   SectionActionRow,
   SectionContentArea,
-  SectionHistoryPanel,
-  SectionLapList,
+  type SectionStreamsState,
+  type SectionDeltaLine,
   SectionDebugPanel,
+  SectionDetailLinks,
   MergeConfirmDialog,
   MergeCandidatesModal,
-} from '@/features/routes/components/section';
-import { styles } from '@/features/routes/components/section/SectionDetail.styles';
+  sectionDetailStyles as styles,
+} from '@/features/routes';
+import { useGpxExport, useDebugStore } from '@/features/settings';
+import { useTheme } from '@/shared/app';
+import { useCacheDays } from '@/shared/app/useCacheDays';
+import { isEngineReady } from '@/shared/native/engine';
+import { useFFITimer } from '@/shared/debug/useFFITimer';
+import { Button, EngineReadFailure, useHeroMapHeight } from '@/shared/ui';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
-import { colors } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import type { RoutePoint } from '@/types';
+import type {
+  FfiSectionChartPoint,
+  FfiSectionCorrelation,
+  FfiSectionSportCount,
+  FfiAttemptHistograms,
+  FfiSectionTrendCurves,
+} from 'veloqrs';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 /** Trimming needs room to place the handles, so the map grows past the hero fraction. */
 const EDIT_MAP_FRACTION = 0.6;
 
-export default function SectionDetailScreen() {
+const EMPTY_SPORT_COUNTS: FfiSectionSportCount[] = [];
+const NO_CORRELATIONS: FfiSectionCorrelation[] = [];
+const EMPTY_EXCLUDED_POINTS: FfiSectionChartPoint[] = [];
+
+/** Until the lap times are read there is no trend to draw. */
+const NO_TREND_CURVES: FfiSectionTrendCurves = {};
+const NO_HISTOGRAMS: FfiAttemptHistograms = {};
+
+function SectionDetailScreenContent() {
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('SectionDetailScreen');
@@ -76,10 +89,19 @@ export default function SectionDetailScreen() {
     perfEndRef.current?.();
   });
 
+  useEffect(() => {
+    completeFlowAfterFrame(FLOW_SECTION_OPEN);
+  }, []);
+
   const { t } = useTranslation();
-  const { id, activityId: navActivityId } = useLocalSearchParams<{
+  const {
+    id,
+    activityId: navActivityId,
+    previewVersion,
+  } = useLocalSearchParams<{
     id: string;
     activityId?: string;
+    previewVersion?: string;
   }>();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -88,8 +110,20 @@ export default function SectionDetailScreen() {
 
   // Everything the screen can paint before its time streams land, in one call.
   const [sectionRefreshTick, setSectionRefreshTick] = useState(0);
+  const [deltaLine, setDeltaLine] = useState<SectionDeltaLine | null>(null);
   const bumpSectionRefresh = useCallback(() => setSectionRefreshTick((k) => k + 1), []);
-  const { data: detail } = useSectionDetailData(id, sectionRefreshTick);
+  const hasFocused = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocused.current) bumpSectionRefresh();
+      hasFocused.current = true;
+    }, [bumpSectionRefresh])
+  );
+  const {
+    data: detail,
+    status: detailStatus,
+    retirement,
+  } = useSectionDetailData(id, sectionRefreshTick);
 
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays(detail?.activityCount);
@@ -98,12 +132,8 @@ export default function SectionDetailScreen() {
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
   // Nearby sections and merge candidates
-  const { nearby } = useNearbySections(detail?.nearby ?? []);
-  const {
-    candidates: mergeCandidates,
-    merge: mergeSections,
-    isMerging,
-  } = useMergeSections(detail?.mergeCandidates ?? []);
+  const mergeCandidates = detail?.mergeCandidates ?? [];
+  const { merge: mergeSections, previewDropped } = useMergeSections();
 
   const {
     highlightedActivityId,
@@ -122,21 +152,10 @@ export default function SectionDetailScreen() {
     setSelectedSportType,
   } = useSectionUIState();
 
-  // Defer map loading until after interactions complete for faster perceived load
-  useEffect(() => {
-    const handle = InteractionManager.runAfterInteractions(() => {
-      setMapReady(true);
-    });
-    return () => handle.cancel();
-  }, [setMapReady]);
+  useAfterNavigationTransition(useCallback(() => setMapReady(true), [setMapReady]));
 
-  // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
-  const isCustomId = id?.startsWith('custom_');
-
-  const { section, sectionRefreshKey, handleTrimRefresh } = useSectionDataRefresh(
-    id,
-    detail?.section
-  );
+  const { section, sectionRefreshKey, handleTrimRefresh } = useSectionDataRefresh(detail?.section);
+  const isCustomSection = section?.sectionType === 'custom';
 
   // Trims, renames and exclusions invalidate the bundle as well as the hook's
   // own key, so both move together.
@@ -162,32 +181,12 @@ export default function SectionDetailScreen() {
     [detail]
   );
   const ledger = useSectionLedger(id, sectionRefreshKey, bundledLedger);
-  const ledgerActivityNames = useLedgerActivityNames(ledger.history);
-  const [shownVersion, setShownVersion] = useState<number | null>(null);
+  const previewNumber = Number(previewVersion);
+  const shownVersion = previewVersion && Number.isInteger(previewNumber) ? previewNumber : null;
   const shadowTrack = useMemo<[number, number][] | undefined>(() => {
     if (shownVersion == null) return undefined;
     return ledger.versionPolyline(shownVersion).map((p) => [p.lat, p.lng]);
   }, [shownVersion, ledger]);
-  const handleRevert = useCallback(
-    (version: number) => {
-      Alert.alert(t('sectionHistory.revert'), t('sectionHistory.revertConfirm', { version }), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('sectionHistory.revert'),
-          onPress: () => {
-            if (ledger.revert(version)) {
-              setShownVersion(null);
-              handleSectionRefresh();
-            }
-          },
-        },
-      ]);
-    },
-    [ledger, handleSectionRefresh, t]
-  );
-  const handleUnpin = useCallback(() => {
-    if (ledger.unpin()) handleSectionRefresh();
-  }, [ledger, handleSectionRefresh]);
 
   const {
     isTrimming,
@@ -220,8 +219,9 @@ export default function SectionDetailScreen() {
     setEditName,
     effectiveReferenceId,
     showExcluded,
-    excludedActivityIds,
     isRematching,
+    isRematchHeld,
+    rescanRefusal,
     handleStartEditing,
     handleSaveName,
     handleCancelEdit,
@@ -236,13 +236,18 @@ export default function SectionDetailScreen() {
     handleUnflagLift,
   } = useSectionActions({
     id,
-    isCustomId: !!isCustomId,
+    isCustomId: isCustomSection,
     section,
     isSectionDisabled,
     onSectionRefresh: handleSectionRefresh,
     sectionRefreshKey,
     preComputedExcludedActivityIds: detail?.excludedActivityIds,
   });
+  const refusalKey = rescanRefusalKey(rescanRefusal);
+
+  const scrollRef = useRef<ScrollView>(null);
+  useRevealMapOnDraw(scrollRef, highlightedActivityId);
+  useRevealMapOnDraw(scrollRef, shownVersion);
 
   const handleActivitySelect = useCallback(
     (activityId: string | null, activityPoints?: RoutePoint[]) => {
@@ -262,26 +267,47 @@ export default function SectionDetailScreen() {
     [detail]
   );
 
-  const { allActivityTraces, sportTypeCounts, effectiveSportType, filteredActivities } =
-    useSectionActivityData(section, selectedSportType, preComputedActivityData);
-
   // Section times come from activity streams, so wait for the gap the bundle
   // reported to close before reading the records.
   const portionActivityIds = useMemo(() => {
     if (!section?.activityPortions) return [];
     return Array.from(new Set(section.activityPortions.map((p) => p.activityId)));
   }, [section]);
-  const { ready: streamsReady } = useSectionTimeStreamSync(
-    portionActivityIds,
-    detail?.missingTimeStreamIds
-  );
+  const {
+    ready: streamsReady,
+    error: streamsError,
+    refetch: refetchStreams,
+  } = useSectionTimeStreamSync(portionActivityIds, detail?.missingTimeStreamIds);
 
-  // Second call: everything that needs lap times.
-  const performance = useSectionDetailPerformance(
+  const streams: SectionStreamsState = streamsError
+    ? { status: 'failed', error: streamsError, onRetry: refetchStreams }
+    : !streamsReady
+      ? { status: 'loading', onRetry: refetchStreams }
+      : { status: 'ready', onRetry: refetchStreams };
+
+  // Second call: everything that needs lap times. With no chip picked, the
+  // engine answers for the sport with the most outings and says which.
+  const { data: performance, error: performanceReadError } = useSectionDetailPerformance(
     id,
     RANGE_DAYS[sectionTimeRange],
-    effectiveSportType,
+    selectedSportType,
     streamsReady
+  );
+  if (
+    performance &&
+    selectedSportType &&
+    !isSportOffered(selectedSportType, performance.sportCounts)
+  ) {
+    setSelectedSportType(undefined);
+  }
+  const effectiveSportType = performance?.sportType ?? selectedSportType;
+  const sportCounts = performance?.sportCounts ?? EMPTY_SPORT_COUNTS;
+  const showSportChips = shouldShowSportChips(sportCounts);
+
+  const { allActivityTraces, filteredActivities } = useSectionActivityData(
+    section,
+    effectiveSportType,
+    preComputedActivityData
   );
 
   const {
@@ -300,63 +326,62 @@ export default function SectionDetailScreen() {
     performanceRecords,
     sectionActivitiesUnsorted: filteredActivities,
     sectionWithTraces: null,
-    sectionTimeRange,
-    sportFilter: effectiveSportType,
     preComputedChart: performance?.chartData ?? null,
   });
 
+  const excludedPoints = performance?.excludedPoints ?? EMPTY_EXCLUDED_POINTS;
   const { calendarSummary, combinedChartData } = useSectionChartDataEnriched({
-    id,
-    section,
     chartData,
     showExcluded,
-    excludedActivityIds,
+    excludedPoints,
     preComputedCalendarSummary: performance?.calendarSummary ?? null,
   });
 
-  const traversalCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
+  // The chart's own laps at every range, so the header and the chart under it
+  // never count different things. Absent until the lap times are read.
+  const traversalCount = performance ? chartData.length : undefined;
 
-  // Heart rate over the laps that carried a stream, excluded laps left out.
-  // The coverage travels with it: on the corpus only 3.2 per cent of laps carry
-  // one, so a bare mean would read as the whole section.
-  const avgHr = useMemo(() => sectionHeartRate(performanceRecords), [performanceRecords]);
+  // Every lap of the sport, the excluded ones flagged, for the lap list and
+  // its undo.
+  const lapRecords = useMemo(
+    () => (performance ? performance.lapRecords.map(toPerformanceRecord) : []),
+    [performance]
+  );
+  const partlyExcluded = useMemo(() => hasPartialExclusion(lapRecords), [lapRecords]);
 
-  // Per-lap exclusion, keyed the way the junction rows are.
-  const laps = useSectionLaps(id, sectionRefreshKey, detail?.excludedLaps);
-  const partlyExcluded = useMemo(
-    () => hasPartialExclusion(performanceRecords, laps.excludedLaps),
-    [performanceRecords, laps.excludedLaps]
-  );
-  const handleExcludeLap = useCallback(
-    (activityId: string, startIndex: number) => {
-      laps.excludeLap(activityId, startIndex);
-      handleSectionRefresh();
-    },
-    [laps, handleSectionRefresh]
-  );
-  const handleIncludeLap = useCallback(
-    (activityId: string, startIndex: number) => {
-      laps.includeLap(activityId, startIndex);
-      handleSectionRefresh();
-    },
-    [laps, handleSectionRefresh]
-  );
-
-  const { nearbyPolylines, isRunning } = useSectionMapData(nearby, effectiveSportType, section);
+  const { isRunning } = useSectionMapData(effectiveSportType, section);
 
   const computedForwardStats = forwardStats;
   const computedReverseStats = reverseStats;
   const computedBestForward = bestForwardRecord ?? null;
   const computedBestReverse = bestReverseRecord ?? null;
+  const bestForwardIsRecord = performance?.bestForwardIsRecord ?? false;
+  const bestReverseIsRecord = performance?.bestReverseIsRecord ?? false;
 
   if (!section) {
     return (
       <DetailFallback
         isDark={isDark}
         insetTop={insets.top}
-        onBack={() => router.back()}
-        loading={getEngine() == null}
+        status={detailStatus}
+        loading={!isEngineReady()}
+        onRetry={bumpSectionRefresh}
         notFoundMessage={t('sections.sectionNotFound')}
+        retired={
+          retirement
+            ? {
+                title: t(`sectionHistory.kind_${retirement.kind}` as never),
+                linkLabel: retirement.into
+                  ? t('sectionHistory.retiredInto', {
+                      name: retirement.intoName ?? retirement.into,
+                    })
+                  : undefined,
+                onOpenLink: retirement.into
+                  ? () => router.replace(`/section/${retirement.into}`)
+                  : undefined,
+              }
+            : undefined
+        }
       />
     );
   }
@@ -365,18 +390,23 @@ export default function SectionDetailScreen() {
   const iconName: MaterialIconName = 'road-variant';
 
   return (
-    <ScreenErrorBoundary screenName="Section Detail">
+    <>
       <View
         testID="section-detail-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
         <StatusBar barStyle="light-content" />
         <ScrollView
+          ref={scrollRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {performanceReadError !== undefined ? (
+            <EngineReadFailure error={performanceReadError} testID="section-performance-failure" />
+          ) : null}
+
           {/* Hero Map Section - expands when editing */}
           <SectionHeader
             section={section}
@@ -385,7 +415,9 @@ export default function SectionDetailScreen() {
             activityColor={activityColor}
             iconName={iconName}
             activityCount={traversalCount}
-            avgHr={avgHr}
+            scopeSport={showSportChips ? effectiveSportType : undefined}
+            sportType={effectiveSportType}
+            scopeRange={sectionTimeRange}
             mapReady={mapReady}
             isTrimming={isTrimming}
             isExpandMode={isExpandMode}
@@ -399,13 +431,9 @@ export default function SectionDetailScreen() {
             shadowTrack={shadowTrack}
             highlightedActivityId={highlightedActivityId}
             highlightedLapPoints={highlightedActivityPoints}
+            deltaLine={deltaLine}
             allActivityTraces={allActivityTraces}
-            nearbyPolylines={nearbyPolylines}
-            onNearbyPress={
-              isTrimming ? undefined : (sectionId) => router.push(`/section/${sectionId}`)
-            }
             onUnflagLift={isTrimming ? undefined : handleUnflagLift}
-            onBack={() => router.back()}
             onStartEditing={handleStartEditing}
             onSaveName={handleSaveName}
             onCancelEdit={handleCancelEdit}
@@ -416,9 +444,9 @@ export default function SectionDetailScreen() {
           {!isTrimming && (
             <SectionActionRow
               isDark={isDark}
-              isCustomId={!!isCustomId}
               isSectionDisabled={isSectionDisabled}
               isRematching={isRematching}
+              isRematchHeld={isRematchHeld}
               section={section}
               startTrim={startTrim}
               handleDeleteSection={handleDeleteSection}
@@ -428,6 +456,18 @@ export default function SectionDetailScreen() {
               pinnedVersion={ledger.pinnedVersion}
               partlyExcluded={partlyExcluded}
             />
+          )}
+          {!isTrimming && refusalKey !== null && (
+            <View style={styles.rescanRefusal} testID="rescan-refused">
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={13}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+              <Text style={[styles.rescanRefusalText, isDark && styles.rescanRefusalTextDark]}>
+                {t(refusalKey)}
+              </Text>
+            </View>
           )}
 
           {/* Trim panel - replaces chart when trimming */}
@@ -452,15 +492,15 @@ export default function SectionDetailScreen() {
             />
           )}
 
-          {/* Sport type pills for cross-sport sections */}
-          {!isTrimming && sportTypeCounts.length > 1 && (
+          {/* Sport type pills */}
+          {!isTrimming && showSportChips && (
             <SportTypeSelector
-              options={sportTypeCounts.map(({ type, count }) => ({ type, count }))}
-              selectedType={selectedSportType ?? section?.sportType}
+              options={sportCounts.map(({ sportType, count }) => ({ type: sportType, count }))}
+              selectedType={effectiveSportType}
               onSelect={(st) => {
-                const isSelected =
-                  selectedSportType === st || (!selectedSportType && st === section?.sportType);
-                setSelectedSportType(isSelected && selectedSportType ? undefined : st);
+                // Tapping the chip already picked hands the choice back to the
+                // engine's default.
+                setSelectedSportType(selectedSportType === st ? undefined : st);
               }}
               isDark={isDark}
             />
@@ -470,15 +510,23 @@ export default function SectionDetailScreen() {
           {!isTrimming && (
             <SectionContentArea
               efficiencyTrend={detail ? (detail.efficiencyTrend ?? null) : undefined}
+              correlations={performance?.correlations ?? NO_CORRELATIONS}
+              correlationFloor={performance?.correlationFloor ?? 0}
               isDark={isDark}
               section={section}
               isSectionDisabled={isSectionDisabled}
               mergeCandidates={mergeCandidates}
               combinedChartData={combinedChartData}
+              trendCurves={performance?.trendCurves ?? NO_TREND_CURVES}
+              histograms={performance?.histograms ?? NO_HISTOGRAMS}
+              curves={performance?.curves}
+              onDeltaLineChange={setDeltaLine}
               forwardStats={computedForwardStats}
               reverseStats={computedReverseStats}
               bestForwardRecord={computedBestForward}
               bestReverseRecord={computedBestReverse}
+              bestForwardIsRecord={bestForwardIsRecord}
+              bestReverseIsRecord={bestReverseIsRecord}
               calendarSummary={calendarSummary}
               effectiveSportType={effectiveSportType}
               isRunning={isRunning}
@@ -486,7 +534,7 @@ export default function SectionDetailScreen() {
               navActivityId={navActivityId}
               effectiveReferenceId={effectiveReferenceId}
               showExcluded={showExcluded}
-              excludedActivityIds={excludedActivityIds}
+              hasExcluded={excludedPoints.length > 0}
               sectionTimeRange={sectionTimeRange}
               onActivitySelect={handleActivitySelect}
               onExcludeActivity={handleExcludeActivity}
@@ -494,6 +542,7 @@ export default function SectionDetailScreen() {
               onSetAsReference={handleSetAsReference}
               onToggleShowExcluded={handleToggleShowExcluded}
               onTimeRangeChange={setSectionTimeRange}
+              streams={streams}
               onToggleDisable={handleToggleDisable}
               onMergePress={() => {
                 if (mergeCandidates.length === 1) {
@@ -502,31 +551,19 @@ export default function SectionDetailScreen() {
                   setShowMergePicker(true);
                 }
               }}
-            />
-          )}
-
-          {!isTrimming && (
-            <SectionLapList
-              isDark={isDark}
-              records={performanceRecords}
-              excludedLaps={laps.excludedLaps}
-              onExcludeLap={handleExcludeLap}
-              onIncludeLap={handleIncludeLap}
-            />
-          )}
-
-          {!isTrimming && (
-            <SectionHistoryPanel
-              isDark={isDark}
-              history={ledger.history}
-              versions={ledger.versions}
-              pinnedVersion={ledger.pinnedVersion}
-              shownVersion={shownVersion}
-              onShowVersion={setShownVersion}
-              onRevert={handleRevert}
-              onUnpin={handleUnpin}
-              activityNames={ledgerActivityNames}
-            />
+            >
+              <SectionDetailLinks
+                hasLaps={lapRecords.some((record) => record.laps.length > 1)}
+                historyCount={ledger.history.length}
+                onOpenLaps={() =>
+                  router.push({
+                    pathname: '/section/laps/[id]',
+                    params: { id, range: sectionTimeRange, sport: effectiveSportType ?? '' },
+                  })
+                }
+                onOpenHistory={() => router.push(`/section/history/${id}`)}
+              />
+            </SectionContentArea>
           )}
 
           {!isTrimming && (
@@ -535,9 +572,10 @@ export default function SectionDetailScreen() {
                 <Button
                   testID="section-export-gpx"
                   label={gpxExporting ? t('export.exporting') : t('export.gpx')}
+                  loading={gpxExporting}
                   icon={
                     <MaterialCommunityIcons
-                      name={gpxExporting ? 'progress-download' : 'download'}
+                      name="download"
                       size={20}
                       color={colors.textOnPrimary}
                     />
@@ -549,7 +587,7 @@ export default function SectionDetailScreen() {
                         latitude: p.lat,
                         longitude: p.lng,
                       })),
-                      sport: section.sportType,
+                      sport: effectiveSportType,
                     })
                   }
                   disabled={gpxExporting}
@@ -580,17 +618,18 @@ export default function SectionDetailScreen() {
       {mergeTarget && section && (
         <MergeConfirmDialog
           visible={!!mergeTarget}
+          previewDropped={previewDropped}
           primary={{
             id: section.id,
             name: section.name ?? section.id,
-            sportType: section.sportType,
+            sportTypes: section.sportTypes,
             visitCount: section.visitCount,
             distanceMeters: section.distanceMeters,
           }}
           secondary={{
             id: mergeTarget.sectionId,
             name: mergeTarget.name ?? mergeTarget.sectionId,
-            sportType: mergeTarget.sportType,
+            sportTypes: mergeTarget.sportTypes,
             visitCount: mergeTarget.visitCount,
             distanceMeters: mergeTarget.distanceMeters,
           }}
@@ -602,9 +641,49 @@ export default function SectionDetailScreen() {
             }
           }}
           onCancel={() => setMergeTarget(null)}
-          loading={isMerging}
         />
       )}
-    </ScreenErrorBoundary>
+    </>
   );
 }
+
+const disabledStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.lg,
+    backgroundColor: colors.background,
+  },
+  containerDark: { backgroundColor: darkColors.background },
+  title: { fontSize: typography.body.fontSize, color: colors.textSecondary },
+  link: { fontSize: typography.label.fontSize, color: colors.linkTeal, fontWeight: '500' },
+  linkDark: { color: darkColors.linkTeal },
+});
+
+/** Sections are stored while route matching is off, and none of them opens. */
+function SectionDetailScreen() {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const matchingEnabled = useRouteSettings((s) => s.settings.enabled);
+  if (matchingEnabled) return <SectionDetailScreenContent />;
+  return (
+    <View
+      testID="section-detail-disabled"
+      style={[disabledStyles.container, isDark && disabledStyles.containerDark]}
+    >
+      <Text style={disabledStyles.title}>
+        {t('insights.routesDisabledLine1', 'Routes & Sections disabled')}
+      </Text>
+      <Text
+        style={[disabledStyles.link, isDark && disabledStyles.linkDark]}
+        onPress={() => useRouteSettings.getState().setEnabled(true)}
+      >
+        {t('insights.routesDisabledLine2', 'Tap to enable')}
+      </Text>
+    </View>
+  );
+}
+
+export default withScreenBoundary(SectionDetailScreen, 'Section Detail');

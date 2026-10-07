@@ -12,7 +12,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Platform,
   Alert,
   Animated,
   ActivityIndicator,
@@ -29,37 +28,35 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { useSections, generateSectionName } from '@/features/routes/hooks/useSections';
-import { type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
-import type { SectionHideFlags } from '@/features/routes/lib/routesScreenQuery';
-import { Shimmer } from '@/shared/ui';
+import { useSections } from '@/features/routes/hooks/useSections';
+import { SportFilterMenu } from './SportFilterMenu';
+import type { SectionHideFlags, SectionsSortOption } from '@/features/routes/lib/routesScreenQuery';
+import { EmptyState } from '@/shared/ui';
+import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import { SectionsListHeader } from './SectionsListHeader';
 import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { navigateTo } from '@/shared/app/navigation';
+import {
+  FLOW_ADD_ONE,
+  FLOW_SECTION_OPEN,
+  completeFlowAfterFrame,
+  markFlow,
+} from '@/shared/debug/flowTiming';
 import { debug } from '@/shared/debug/debug';
 import { getEngine } from '@/shared/native/engine';
+import { engineErrorKey } from '@/shared/native/engineError';
 import type { FrequentSection } from '@/types';
 import { type SectionWithPolyline } from 'veloqrs';
-import { convertSectionWithPolylineToApp } from '@/features/routes/lib/sectionConversions';
+import { convertSectionWithPolylineToApp } from '@/shared/ffi/sectionConversions';
 import { computeCenter, haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 
 const log = debug.create('SectionsList');
 
 interface SectionsListProps {
-  /** Filter by sport type */
-  sportType?: string | undefined;
-  /** Pre-fetched data from parent to avoid duplicate FFI calls */
-  prefetchedData?: {
-    sections: FrequentSection[];
-    count: number;
-    autoCount: number;
-    isLoading: boolean;
-    error: Error | null;
-  };
   /** Pre-loaded engine sections with polylines from batch FFI call */
   batchSections?: SectionWithPolyline[] | undefined;
   /** Callback to load more sections (pagination) */
@@ -68,6 +65,8 @@ interface SectionsListProps {
   hasMore?: boolean | undefined;
   /** Total section count from engine (for accurate filter badge counts) */
   totalSectionCount?: number | undefined;
+  /** Sections the search and filters leave, for the header beside the list. */
+  shownSectionCount?: number | undefined;
   /** User's current location for "Nearby" sort */
   userLocation?: LatLngShort | null | undefined;
   /** Active sort option */
@@ -78,6 +77,12 @@ interface SectionsListProps {
   searchQuery: string;
   /** Called when the search term changes */
   onSearchChange: (next: string) => void;
+  /** The sports the athlete has activities in, offered in the sport filter menu */
+  sportOptions?: string[] | undefined;
+  /** The sport the list is narrowed to, if any */
+  sportType?: string | undefined;
+  /** Called with the sport chosen, or undefined for all sports */
+  onSportChange?: (next: string | undefined) => void;
   /** Which kinds the engine is hiding */
   hiddenFilters: SectionHideFlags;
   /** Called when a filter chip is pressed */
@@ -90,21 +95,13 @@ interface SectionsListProps {
   customSectionCount: number;
   /** Retired auto sections over the catalogue rather than the page */
   retiredSectionCount: number;
+  /** The page read failed: shown with a retry, never as an empty library */
+  loadError?: Error | null | undefined;
+  /** Reads the page again after a failure */
+  onRetry?: (() => void) | undefined;
 }
 
 export type { SectionsSortOption };
-
-function SectionRowSkeleton() {
-  return (
-    <View style={styles.skeletonRow}>
-      <Shimmer width={50} height={36} borderRadius={layout.borderRadiusSm} />
-      <View style={styles.skeletonText}>
-        <Shimmer width="60%" height={14} borderRadius={layout.borderRadiusXs} />
-        <Shimmer width="40%" height={12} borderRadius={layout.borderRadiusXs} />
-      </View>
-    </View>
-  );
-}
 
 interface SectionListItemProps {
   index: number;
@@ -228,30 +225,34 @@ const SectionListItem = memo(
 );
 
 export const SectionsList = memo(function SectionsList({
-  sportType,
-  prefetchedData,
   batchSections,
   onLoadMore,
   hasMore = false,
   totalSectionCount,
+  shownSectionCount,
   userLocation,
   sortOption,
   onSortChange,
   searchQuery,
   onSearchChange,
+  sportOptions = [],
+  sportType,
+  onSportChange,
   hiddenFilters,
   onHiddenFiltersChange,
   unacceptedAutoCount,
   acceptedAutoCount,
   customSectionCount,
   retiredSectionCount,
+  loadError,
+  onRetry,
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
   // The list record already carries its polyline, so a row needs no call of
-  // its own. The centre is the list's proximity sort and the name fallback is
-  // its label: both are the screen's, not the record's.
+  // its own. The centre is the list's proximity sort, the screen's and not
+  // the record's.
   const preloadedEngineSections = useMemo(() => {
     if (!batchSections) return undefined;
     return batchSections.map((record) => {
@@ -264,23 +265,15 @@ export const SectionsList = memo(function SectionsList({
             maxLng: record.bounds.maxLng,
           })
         : undefined;
-      if (!section.name) section.name = generateSectionName(section);
       return section;
     });
   }, [batchSections]);
 
-  // Only call hook if data not pre-fetched from parent
-  // When batch sections are available, skip engine FFI calls but keep custom loading
-  const hookData = useSections({
-    sportType,
-    includeCustom: true,
-    enabled: !prefetchedData,
-    preloadedEngineSections,
-  });
-
-  // Use pre-fetched data if provided, otherwise use hook data
-  const data = prefetchedData ?? hookData;
-  const { sections: unifiedSections, count: totalCount, isLoading } = data;
+  const {
+    sections: unifiedSections,
+    count: totalCount,
+    isLoading,
+  } = useSections({ preloadedEngineSections });
 
   const { removeSection } = useCustomSections();
   const { rescan, isScanning, refusal: rescanRefusal } = useSectionRescan();
@@ -322,11 +315,16 @@ export const SectionsList = memo(function SectionsList({
 
   const isReady = !isLoading;
 
+  useEffect(() => {
+    if (isReady) completeFlowAfterFrame(FLOW_ADD_ONE);
+  }, [isReady, unifiedSections]);
+
   // Note: Activity traces are no longer pre-loaded to reduce memory usage
-  // Polylines are now lazy-loaded via useSectionPolyline in SectionRow
+  // Each row draws the polyline its page carries
 
   // Navigate to section detail page
   const handleSectionPress = useCallback((id: string) => {
+    markFlow(FLOW_SECTION_OPEN);
     navigateTo(`/section/${id}`);
   }, []);
 
@@ -346,8 +344,12 @@ export const SectionsList = memo(function SectionsList({
         {
           text: t('common.confirm'),
           onPress: () => {
-            const count = getEngine()?.acceptAllSections() ?? 0;
-            setAcceptAllResult(count);
+            // A failure is said as one, never as a count of none accepted.
+            try {
+              setAcceptAllResult(getEngine()?.acceptAllSections() ?? 0);
+            } catch (error) {
+              Alert.alert(t('alerts.error'), t(engineErrorKey(error, 'engine.failure.database')));
+            }
           },
         },
       ]
@@ -355,11 +357,23 @@ export const SectionsList = memo(function SectionsList({
   }, [t, unacceptedAutoCount]);
 
   const renderEmpty = () => {
+    if (loadError) {
+      return (
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('emptyState.error.title')}
+          description={t('emptyState.error.description')}
+          actionLabel={t('common.retry')}
+          onAction={onRetry}
+        />
+      );
+    }
+
     if (!isReady) {
       return (
         <View style={styles.skeletonList}>
           {[0, 1, 2, 3, 4].map((i) => (
-            <SectionRowSkeleton key={i} />
+            <RowSkeleton key={i} />
           ))}
         </View>
       );
@@ -476,20 +490,24 @@ export const SectionsList = memo(function SectionsList({
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
-      Alert.alert(t('sections.deleteSection'), t('sections.deleteSectionConfirm'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeSection(item.id);
-            } catch (error) {
-              log.error('Failed to delete section:', error);
-            }
+      Alert.alert(
+        t('sections.deleteSection'),
+        t('sections.deleteSectionConfirm', { name: item.name || item.id }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.delete'),
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await removeSection(item.id);
+              } catch (error) {
+                log.error('Failed to delete section:', error);
+              }
+            },
           },
-        },
-      ]);
+        ]
+      );
     },
     [removeSection, t]
   );
@@ -564,6 +582,7 @@ export const SectionsList = memo(function SectionsList({
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
           displaySectionCount={displaySectionCount}
+          shownSectionCount={shownSectionCount ?? displaySectionCount}
           unacceptedAutoCount={unacceptedAutoCount}
           acceptAllResult={acceptAllResult}
           isScanning={isScanning}
@@ -573,6 +592,13 @@ export const SectionsList = memo(function SectionsList({
           onAcceptAll={handleAcceptAll}
           onRescan={handleRescan}
         />
+        {onSportChange && (sportOptions.length > 1 || sportType !== undefined) && (
+          <SportFilterMenu
+            options={sportOptions.map((type) => ({ type }))}
+            selectedType={sportType}
+            onSelect={onSportChange}
+          />
+        )}
         <SectionsListFiltersBar
           regularSectionsCount={regularSections.length}
           sortOption={sortOption}
@@ -601,7 +627,7 @@ export const SectionsList = memo(function SectionsList({
         keyboardShouldPersistTaps="handled"
         onEndReached={hasMore ? onLoadMore : undefined}
         onEndReachedThreshold={0.5}
-        removeClippedSubviews={Platform.OS === 'ios'}
+        removeClippedSubviews
         maxToRenderPerBatch={10}
         windowSize={5}
         initialNumToRender={8}
@@ -609,6 +635,8 @@ export const SectionsList = memo(function SectionsList({
     </View>
   );
 });
+
+const LIST_EMPTY_VERTICAL_PADDING = spacing.xxl * 2;
 
 const styles = StyleSheet.create({
   outerContainer: {
@@ -642,7 +670,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: layout.screenPadding * 2,
-    paddingVertical: spacing.xxl * 2,
+    paddingVertical: LIST_EMPTY_VERTICAL_PADDING,
   },
   emptyTitle: {
     fontSize: typography.cardTitle.fontSize,
@@ -664,95 +692,6 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textMuted,
-  },
-  infoNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginHorizontal: spacing.md,
-  },
-  infoNoticeDark: {},
-  infoText: {
-    flex: 1,
-    fontSize: typography.caption.fontSize,
-    color: colors.textDisabled,
-    lineHeight: 16,
-  },
-  infoTextDark: {
-    color: darkColors.textDisabled,
-  },
-  sportFilterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xxs,
-  },
-  sportFilterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sportFilterChipDark: {
-    borderColor: darkColors.border,
-  },
-  sportFilterLabel: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  sectionCounts: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xxs,
-  },
-  countBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadius / 2,
-  },
-  customBadge: {
-    backgroundColor: colors.primary + '20',
-  },
-  autoBadge: {
-    backgroundColor: colors.success + '20',
-  },
-  disabledBadge: {
-    backgroundColor: colors.warning + '20',
-  },
-  showHiddenBadge: {
-    backgroundColor: colors.primary + '20',
-  },
-  countBadgeHidden: {
-    backgroundColor: colors.gray200,
-    opacity: 0.7,
-  },
-  countText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-  },
-  countTextHidden: {
-    textDecorationLine: 'line-through',
-  },
-  suggestionsContainer: {
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.lg,
-  },
-  suggestionsTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
   disabledSection: {
     opacity: 0.6,
@@ -783,18 +722,6 @@ const styles = StyleSheet.create({
   deleteAction: {
     backgroundColor: colors.error,
   },
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xxs,
-  },
-  rescanButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   showAction: {
     backgroundColor: colors.success,
   },
@@ -804,16 +731,5 @@ const styles = StyleSheet.create({
   },
   skeletonList: {
     paddingTop: spacing.md,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  skeletonText: {
-    flex: 1,
-    gap: spacing.xs,
   },
 });

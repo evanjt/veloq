@@ -8,6 +8,9 @@
 
 import { engine } from 'veloqrs';
 
+import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
+import { engineErrorTag } from '@/shared/native/engineError';
+
 /** The channel `EngineObserver.tiles_generated` lands on. */
 const GENERATED_CHANNEL = 'tilesGenerated';
 
@@ -28,24 +31,27 @@ export function awaitTilePass(
     return Promise.resolve();
   }
 
-  const progress = engine.getHeatmapTileProgress();
+  // The figures only size the banner and the budget, so a failed read waits on
+  // the default budget rather than failing the sync it sits in.
+  let progress: number[] | null = null;
+  try {
+    progress = engine.getHeatmapTileProgress();
+  } catch (error) {
+    console.warn('[TilePass] Could not read the pass progress:', engineErrorTag(error) ?? error);
+  }
   const [processed, total] = progress && progress.length >= 2 ? progress : [0, 0];
   onStarted?.(processed, total);
 
-  return new Promise((resolve) => {
-    let timer: ReturnType<typeof setTimeout>;
-    let unsubscribe: (() => void) | undefined;
-
-    const settle = (announced: boolean) => {
-      clearTimeout(timer);
-      unsubscribe?.();
-      // One read to retire the finished handle, the way the old poll did. A
-      // pass that outran the budget is still running and is left alone.
-      if (announced) engine.pollTileGeneration();
-      resolve();
-    };
-
-    timer = setTimeout(() => settle(false), budgetFor(total));
-    unsubscribe = engine.subscribe(GENERATED_CHANNEL, () => settle(true));
-  });
+  return awaitEngineAnnouncement<boolean>({
+    channel: GENERATED_CHANNEL,
+    timeoutMs: budgetFor(total),
+    // One read to retire the finished handle. A pass that outran the budget
+    // is still running and is left alone.
+    read: () => {
+      engine.pollTileGeneration();
+      return true;
+    },
+    onDeadline: () => false,
+    subscribe: (channel, listener) => engine.subscribe(channel, listener),
+  }).then(() => undefined);
 }

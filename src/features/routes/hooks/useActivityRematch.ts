@@ -10,40 +10,30 @@ import type { SectionMatch } from 'veloqrs';
 interface UseActivityRematchResult {
   /** All section matches found for the activity. */
   matches: SectionMatch[];
+  /** Whether a scan has returned, even with no matches. */
+  hasScanned: boolean;
   /** Scan an activity against all sections. */
   scan: (activityId: string) => void;
   /** Force-match an activity to a specific section with relaxed thresholds. */
   rematch: (activityId: string, sectionId: string) => boolean;
-  /** Whether a scan or rematch is in progress. */
-  isRematching: boolean;
 }
 
 export function useActivityRematch(): UseActivityRematchResult {
   const [matches, setMatches] = useState<SectionMatch[]>([]);
-  const [isRematching, setIsRematching] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
 
   const scan = useCallback((activityId: string) => {
     const engine = getEngine();
     if (!engine) return;
-    setIsRematching(true);
-    try {
-      const results = engine.matchActivityToSections(activityId);
-      setMatches(results);
-    } finally {
-      setIsRematching(false);
-    }
+    setMatches(engine.matchActivityToSections(activityId));
+    setHasScanned(true);
   }, []);
 
   const rematch = useCallback((activityId: string, sectionId: string): boolean => {
     const engine = getEngine();
     if (!engine) return false;
-    setIsRematching(true);
-    try {
-      return engine.rematchActivityToSection(activityId, sectionId);
-    } finally {
-      setIsRematching(false);
-    }
+    return engine.rematchActivityToSection(activityId, sectionId);
   }, []);
 
-  return { matches, scan, rematch, isRematching };
+  return { matches, hasScanned, scan, rematch };
 }

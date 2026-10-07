@@ -3,15 +3,16 @@
  * Shows a collapsible year > month breakdown of traversal times and PRs.
  */
 
+import { useMetricSystem } from '@/shared/app';
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
-import { formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
+import { formatDuration, formatPace, formatSwimPace, getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
-import { pressable } from '@/shared/ui';
+import { Card, pressable, pressRipple } from '@/shared/ui';
 
 const REVERSE_COLOR = colors.reverseDirection;
 
@@ -25,14 +26,20 @@ interface CalendarDirectionBest {
 
 interface CalendarMonthSummary {
   month: number;
+  /** Laps, both directions. */
   traversalCount: number;
+  /** Distinct activities the laps came from. */
+  activityCount: number;
   forward?: CalendarDirectionBest;
   reverse?: CalendarDirectionBest;
 }
 
 interface CalendarYearSummary {
   year: number;
+  /** Laps, both directions. */
   traversalCount: number;
+  /** Distinct activities the laps came from. */
+  activityCount: number;
   forward?: CalendarDirectionBest;
   reverse?: CalendarDirectionBest;
   months: CalendarMonthSummary[];
@@ -65,6 +72,7 @@ export function SectionStatsCards({
   referenceActivityId,
 }: SectionStatsCardsProps) {
   const { t } = useTranslation();
+  const isMetric = useMetricSystem();
   const [expandedYears, setExpandedYears] = useState<Set<number>>(() => {
     if (calendarSummary.years.length > 0) {
       return new Set([calendarSummary.years[0].year]);
@@ -85,7 +93,7 @@ export function SectionStatsCards({
   }, []);
 
   const monthNames = useMemo(() => {
-    const formatter = new Intl.DateTimeFormat(undefined, { month: 'short' });
+    const formatter = new Intl.DateTimeFormat(getIntlLocale(), { month: 'short' });
     return Array.from({ length: 12 }, (_, i) => formatter.format(new Date(2024, i, 1)));
   }, []);
 
@@ -94,25 +102,20 @@ export function SectionStatsCards({
   }
 
   return (
-    <View style={[styles.cardContainer, isDark && styles.cardContainerDark]}>
+    <Card variant="flat" padding="none">
       <View style={styles.calendarSection}>
         {calendarSummary.years.map((yearData) => {
           const isYearExpanded = expandedYears.has(yearData.year);
           const yearFwd = yearData.forward;
           const yearRev = yearData.reverse;
-          const yearBest =
-            yearFwd && yearRev
-              ? yearFwd.bestTime <= yearRev.bestTime
-                ? yearFwd
-                : yearRev
-              : (yearFwd ?? yearRev);
-          const yearBestDisplay = yearBest
-            ? isSwimming
-              ? formatSwimPace(yearBest.bestPace)
-              : isRunning
-                ? formatPace(yearBest.bestPace)
-                : formatDuration(yearBest.bestTime)
-            : '';
+          const formatYearBest = (entry: typeof yearFwd) =>
+            entry
+              ? isSwimming
+                ? formatSwimPace(entry.bestPace, isMetric)
+                : isRunning
+                  ? formatPace(entry.bestPace, isMetric)
+                  : formatDuration(entry.bestTime)
+              : '';
           const isYearFwdPr =
             yearFwd &&
             calendarSummary.forwardPr &&
@@ -126,21 +129,38 @@ export function SectionStatsCards({
             <View key={yearData.year}>
               <Pressable
                 style={pressable([styles.calendarYearRow, isDark && styles.calendarYearRowDark])}
+                android_ripple={pressRipple}
                 onPress={() => toggleYear(yearData.year)}
               >
                 <MaterialCommunityIcons
                   name={isYearExpanded ? 'chevron-down' : 'chevron-right'}
-                  size={20}
+                  size={STATS_ICON_SIZE}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.calendarYearText, isDark && styles.textLight]}>
                   {yearData.year}
                 </Text>
                 <Text style={[styles.calendarYearSubtitle, isDark && styles.textMuted]}>
-                  {t('sections.traversalsSummary', {
-                    count: yearData.traversalCount,
-                    time: yearBestDisplay,
-                  })}
+                  {yearFwd && yearRev ? (
+                    <>
+                      {`${t('sections.traversalsCount', { count: yearData.traversalCount })} · `}
+                      <Text style={{ color: activityColor }}>{'● '}</Text>
+                      <Text testID={`year-best-forward-${yearData.year}`}>
+                        {formatYearBest(yearFwd)}
+                      </Text>
+                      {'  '}
+                      <Text style={{ color: REVERSE_COLOR }}>{'● '}</Text>
+                      <Text testID={`year-best-reverse-${yearData.year}`}>
+                        {formatYearBest(yearRev)}
+                      </Text>
+                    </>
+                  ) : (
+                    t('sections.traversalsSummary', {
+                      count: yearData.traversalCount,
+                      time: formatYearBest(yearFwd ?? yearRev),
+                    })
+                  )}
+                  {` · ${t('sections.calendarActivities', { count: yearData.activityCount })}`}
                 </Text>
                 {isYearFwdPr && (
                   <MaterialCommunityIcons
@@ -192,6 +212,7 @@ export function SectionStatsCards({
                           <View style={styles.calendarMonthEntryRow}>
                             <Pressable
                               style={pressable(styles.calendarMonthEntry)}
+                              android_ripple={pressRipple}
                               onPress={() => router.push(`/activity/${fwd.bestActivityId}`)}
                             >
                               <View
@@ -205,9 +226,9 @@ export function SectionStatsCards({
                                 ]}
                               >
                                 {isSwimming
-                                  ? formatSwimPace(fwd.bestPace)
+                                  ? formatSwimPace(fwd.bestPace, isMetric)
                                   : isRunning
-                                    ? formatPace(fwd.bestPace)
+                                    ? formatPace(fwd.bestPace, isMetric)
                                     : formatDuration(fwd.bestTime)}
                               </Text>
                               {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
@@ -230,27 +251,12 @@ export function SectionStatsCards({
                               )}
                             </Pressable>
                             {onSetAsReference && (
-                              <Pressable
+                              <ReferenceStar
+                                isReference={fwd.bestActivityId === referenceActivityId}
+                                isDark={isDark}
+                                label={t('sections.legendReference')}
                                 onPress={() => onSetAsReference(fwd.bestActivityId)}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                style={pressable(styles.referenceButton)}
-                              >
-                                <MaterialCommunityIcons
-                                  name={
-                                    fwd.bestActivityId === referenceActivityId
-                                      ? 'star'
-                                      : 'star-outline'
-                                  }
-                                  size={16}
-                                  color={
-                                    fwd.bestActivityId === referenceActivityId
-                                      ? colors.primary
-                                      : isDark
-                                        ? darkColors.textSecondary
-                                        : colors.textSecondary
-                                  }
-                                />
-                              </Pressable>
+                              />
                             )}
                           </View>
                         )}
@@ -258,6 +264,7 @@ export function SectionStatsCards({
                           <View style={styles.calendarMonthEntryRow}>
                             <Pressable
                               style={pressable(styles.calendarMonthEntry)}
+                              android_ripple={pressRipple}
                               onPress={() => router.push(`/activity/${rev.bestActivityId}`)}
                             >
                               <View
@@ -271,9 +278,9 @@ export function SectionStatsCards({
                                 ]}
                               >
                                 {isSwimming
-                                  ? formatSwimPace(rev.bestPace)
+                                  ? formatSwimPace(rev.bestPace, isMetric)
                                   : isRunning
-                                    ? formatPace(rev.bestPace)
+                                    ? formatPace(rev.bestPace, isMetric)
                                     : formatDuration(rev.bestTime)}
                               </Text>
                               {(isMonthRevYearBest || isMonthRevOverallPr) && (
@@ -296,27 +303,12 @@ export function SectionStatsCards({
                               )}
                             </Pressable>
                             {onSetAsReference && (
-                              <Pressable
+                              <ReferenceStar
+                                isReference={rev.bestActivityId === referenceActivityId}
+                                isDark={isDark}
+                                label={t('sections.legendReference')}
                                 onPress={() => onSetAsReference(rev.bestActivityId)}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                style={pressable(styles.referenceButton)}
-                              >
-                                <MaterialCommunityIcons
-                                  name={
-                                    rev.bestActivityId === referenceActivityId
-                                      ? 'star'
-                                      : 'star-outline'
-                                  }
-                                  size={16}
-                                  color={
-                                    rev.bestActivityId === referenceActivityId
-                                      ? colors.primary
-                                      : isDark
-                                        ? darkColors.textSecondary
-                                        : colors.textSecondary
-                                  }
-                                />
-                              </Pressable>
+                              />
                             )}
                           </View>
                         )}
@@ -328,20 +320,47 @@ export function SectionStatsCards({
           );
         })}
       </View>
-    </View>
+    </Card>
   );
 }
 
+interface ReferenceStarProps {
+  isReference: boolean;
+  isDark: boolean;
+  label: string;
+  onPress: () => void;
+}
+
+function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarProps) {
+  return (
+    <Pressable
+      testID="calendar-reference-button"
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={REFERENCE_HIT_SLOP}
+      style={pressable(styles.referenceButton)}
+      android_ripple={pressRipple}
+    >
+      {isReference && (
+        <Text style={[styles.referenceTag, isDark && styles.referenceTagDark]}>{label}</Text>
+      )}
+      <MaterialCommunityIcons
+        name={isReference ? 'star' : 'star-outline'}
+        size={16}
+        color={
+          isReference ? colors.primary : isDark ? darkColors.textSecondary : colors.textSecondary
+        }
+      />
+    </Pressable>
+  );
+}
+
+const REFERENCE_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 };
+const STATS_ICON_SIZE = 20;
+const STATS_LABEL_INSET = spacing.md + STATS_ICON_SIZE + spacing.xs;
+
 const styles = StyleSheet.create({
-  cardContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    overflow: 'hidden',
-    marginBottom: spacing.md,
-  },
-  cardContainerDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
   textLight: {
     color: colors.textOnDark,
   },
@@ -374,7 +393,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.xs,
-    paddingLeft: spacing.md + 20 + spacing.xs,
+    paddingLeft: STATS_LABEL_INSET,
     paddingRight: spacing.md,
     gap: spacing.sm,
   },
@@ -405,10 +424,19 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   referenceButton: {
-    width: 44,
-    height: 44,
+    minWidth: 24,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xxs,
+  },
+  referenceTag: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  referenceTagDark: {
+    color: colors.textOnDark,
   },
   calendarDirDot: {
     width: 8,
@@ -426,10 +454,10 @@ const styles = StyleSheet.create({
   prTag: {
     fontSize: typography.caption.fontSize,
     fontWeight: '700',
-    color: colors.chartGoldMark,
+    color: colors.chartGoldText,
     marginLeft: spacing.xs,
   },
   prTagDark: {
-    color: darkColors.chartGoldMark,
+    color: darkColors.chartGoldText,
   },
 });

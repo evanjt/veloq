@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Alert } from 'react-native';
 import type { TFunction } from 'i18next';
 import { getEngine } from '@/shared/native/engine';
@@ -8,14 +8,9 @@ export function useRouteReference(
   representativeId: string | undefined,
   t: TFunction
 ) {
-  // Local override for immediate UI feedback after setting a new reference
-  // (useGroupDetail doesn't subscribe to engine events, so engineGroup.representativeId is stale)
-  const [overrideRepresentativeId, setOverrideRepresentativeId] = useState<string | null>(null);
-  const effectiveRepresentativeId = overrideRepresentativeId ?? representativeId;
-
   const handleSetAsReference = useCallback(
     (activityId: string) => {
-      if (!id || activityId === effectiveRepresentativeId) return;
+      if (!id || activityId === representativeId) return;
       Alert.alert(t('routes.setAsReference'), t('routes.setAsReferenceConfirm'), [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -23,21 +18,16 @@ export function useRouteReference(
           onPress: () => {
             const engine = getEngine();
             if (!engine) return;
-            const success = engine.setRouteRepresentative(id, activityId);
-            if (success) {
-              setOverrideRepresentativeId(activityId);
-            }
+            engine.setRouteRepresentative(id, activityId);
           },
         },
       ]);
     },
-    [id, effectiveRepresentativeId, t]
+    [id, representativeId, t]
   );
 
   return {
-    overrideRepresentativeId,
-    setOverrideRepresentativeId,
-    effectiveRepresentativeId,
+    effectiveRepresentativeId: representativeId,
     handleSetAsReference,
   };
 }

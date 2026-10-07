@@ -1,7 +1,6 @@
 /**
- * Horizontal picker of ranked riding areas. Each chip carries the locality
- * label (or the numbered fallback) plus the visit or section count that
- * ranked it.
+ * Horizontal picker of ranked riding areas. Each chip carries the area's
+ * letter, in display order, plus the visit or section count that ranked it.
  *
  * The row runs off the screen on a phone, and a chip cut mid-word by the edge
  * reads as a layout bug rather than as more content. A fade sits over whichever
@@ -26,8 +25,8 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { fallbackLetter } from '@/features/routes/lib/labelPreviewCentres';
 import type { CentreLabel } from '@/features/routes/lib/labelPreviewCentres';
-import type { PreviewCentre } from '../../../../../modules/veloqrs/src/delegates/preview';
-import { pressable } from '@/shared/ui';
+import type { PreviewCentre } from 'veloqrs';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface PreviewCentrePickerProps {
   centres: PreviewCentre[];
@@ -79,11 +78,9 @@ export function PreviewCentrePicker({
       >
         {centres.map((centre, i) => {
           const active = centre.binKey === selectedBinKey;
-          const label =
-            labels[i]?.label ??
-            t('settings.previewAreaFallback', {
-              letter: labels[i]?.fallbackLetter ?? fallbackLetter(i),
-            });
+          const label = t('settings.previewAreaFallback', {
+            letter: labels[i]?.fallbackLetter ?? fallbackLetter(i),
+          });
           const detail =
             centre.source === 'sections'
               ? t('settings.previewAreaSections', { count: centre.sectionCount })
@@ -96,7 +93,11 @@ export function PreviewCentrePicker({
                 { backgroundColor: surface, borderColor: border },
                 active && styles.chipActive,
               ])}
+              android_ripple={pressRipple}
               onPress={() => onSelect(centre)}
+              accessibilityRole="button"
+              accessibilityLabel={`${label}, ${detail}`}
+              accessibilityState={{ selected: active }}
               testID={`preview-centre-${centre.binKey}`}
             >
               <Text

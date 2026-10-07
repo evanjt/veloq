@@ -2,13 +2,16 @@
  * Stats row shown above/below the section scatter chart.
  *
  * Displays the direction arrow, a localized "forward" / "reverse" label,
- * a traversal count badge, the average time/pace, and the direction's PR
- * (best) time/pace with a trophy icon.
+ * a traversal count badge, the average time/pace, and the direction's best
+ * time/pace. The engine says whether that best is the direction's record: a
+ * record carries a trophy and the gold value, any other best (the best of a
+ * range, a lone lap, a tie) reads as "Best" in the muted value style.
  *
  * Extracted from SectionScatterChart so the scatter component owns only
  * the chart surface itself.
  */
 
+import { useMetricSystem } from '@/shared/app';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -26,6 +29,8 @@ export interface StatsRowProps {
   direction: 'forward' | 'reverse';
   stats: DirectionSummaryStats | null;
   bestRecord: DirectionBestRecord | null;
+  /** True when `bestRecord` is the direction's record, as the engine judges it. */
+  bestIsRecord: boolean;
   pointCount: number;
   /** Direction accent color (activity color for forward, reverseDirection for reverse). */
   color: string;
@@ -33,8 +38,6 @@ export interface StatsRowProps {
   showPace: boolean;
   /** When true, format pace as min/100m instead of min/km. */
   isSwimming?: boolean;
-  /** Section distance in meters - used to convert `avgTime` into pace when `showPace` is true. */
-  sectionDistance: number;
   isDark: boolean;
 }
 
@@ -42,15 +45,24 @@ export function StatsRow({
   direction,
   stats,
   bestRecord,
+  bestIsRecord,
   pointCount,
   color,
   showPace,
   isSwimming = false,
-  sectionDistance,
   isDark,
 }: StatsRowProps) {
   const { t } = useTranslation();
+  const isMetric = useMetricSystem();
   if (pointCount === 0) return null;
+
+  const bestValue = bestRecord
+    ? showPace && bestRecord.bestPace
+      ? isSwimming
+        ? formatSwimPace(bestRecord.bestPace, isMetric)
+        : formatPace(bestRecord.bestPace, isMetric)
+      : formatDuration(bestRecord.bestTime)
+    : '';
 
   return (
     <View style={styles.statsRow}>
@@ -70,27 +82,32 @@ export function StatsRow({
       <View style={styles.statsMiddle}>
         {stats?.avgTime != null && (
           <Text style={[styles.statsValue, isDark && styles.textMuted]}>
-            {showPace && sectionDistance > 0
-              ? `${isSwimming ? formatSwimPace(sectionDistance / stats.avgTime) : formatPace(sectionDistance / stats.avgTime)} ${t('sections.avg')}`
+            {showPace && stats.avgSpeed != null && stats.avgSpeed > 0
+              ? `${isSwimming ? formatSwimPace(stats.avgSpeed, isMetric) : formatPace(stats.avgSpeed, isMetric)} ${t('sections.avg')}`
               : `${formatDuration(stats.avgTime)} ${t('sections.avg')}`}
           </Text>
         )}
       </View>
       {bestRecord && (
         <View style={styles.prBadge}>
-          <MaterialCommunityIcons
-            name="trophy"
-            size={11}
-            color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
-          />
-          <Text style={[styles.prTime, isDark && styles.prTimeDark]}>
-            {showPace
-              ? bestRecord.bestPace
-                ? isSwimming
-                  ? formatSwimPace(bestRecord.bestPace)
-                  : formatPace(bestRecord.bestPace)
-                : formatDuration(bestRecord.bestTime)
-              : formatDuration(bestRecord.bestTime)}
+          {bestIsRecord && (
+            <View testID={`stats-row-trophy-${direction}`}>
+              <MaterialCommunityIcons
+                name="trophy"
+                size={11}
+                color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
+              />
+            </View>
+          )}
+          <Text
+            testID={`stats-row-best-${direction}`}
+            style={
+              bestIsRecord
+                ? [styles.prTime, isDark && styles.prTimeDark]
+                : [styles.statsValue, isDark && styles.textMuted]
+            }
+          >
+            {bestIsRecord ? bestValue : `${bestValue} ${t('sections.best')}`}
           </Text>
         </View>
       )}

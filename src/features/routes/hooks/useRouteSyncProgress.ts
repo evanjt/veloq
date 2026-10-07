@@ -13,6 +13,7 @@ export interface SyncProgress {
   total: number;
   percent: number;
   message: string;
+  analysingInBackground?: boolean;
 }
 
 interface UseRouteSyncProgressResult {

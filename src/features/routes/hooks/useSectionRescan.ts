@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { hasStarted, StartOutcome } from 'veloqrs';
+import { useFocusEffect } from 'expo-router';
+import { hasStarted, StartOutcome, type StartVerdict } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
+import { attemptEngineRead } from '@/shared/native/engineError';
 import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
 import {
   DETECTION_FOREGROUND_MS,
@@ -27,13 +29,13 @@ interface SectionRescanState {
    * tell a run that is already going, which frees on its own, from a detection
    * the backfill is holding.
    */
-  rescan: () => StartOutcome;
-  forceRescan: () => StartOutcome;
+  rescan: () => StartVerdict;
+  forceRescan: () => StartVerdict;
   /**
    * The last refusal, for the screen to name. Held as state because the
    * verdict is returned once and every consumer of it was dropping it.
    */
-  refusal: StartOutcome | null;
+  refusal: StartVerdict | null;
   /**
    * Ask the running scan to stop. False when there was none.
    *
@@ -56,16 +58,14 @@ interface SectionRescanState {
 /**
  * The before and after of a rescan. A SQL count, not a summary load: the
  * totals are read on every tap and the summaries were only ever a way of
- * reaching the number beside them.
+ * reaching the number beside them. Null when the count could not be read, so a
+ * failed read never becomes a before or after of zero.
  */
-function getSectionCount(): number {
+function getSectionCount(): number | null {
   const engine = getEngine();
-  if (!engine) return 0;
-  try {
-    return engine.getSectionCount();
-  } catch {
-    return 0;
-  }
+  if (!engine) return null;
+  const read = attemptEngineRead(() => engine.getSectionCount());
+  return read.ok ? read.value : null;
 }
 
 export function useSectionRescan(): SectionRescanState {
@@ -75,9 +75,9 @@ export function useSectionRescan(): SectionRescanState {
   const [failed, setFailed] = useState(false);
   const [stillRunning, setStillRunning] = useState(false);
   const isMountedRef = useRef(true);
-  const [refusal, setRefusal] = useState<StartOutcome | null>(null);
+  const [refusal, setRefusal] = useState<StartVerdict | null>(null);
   const followRef = useRef<(() => void) | null>(null);
-  const beforeCountRef = useRef(0);
+  const beforeCountRef = useRef<number | null>(null);
   // A run this hook did not start has no honest "before" to report, so the
   // poll shows its progress and publishes no result when it settles.
   const adoptedRef = useRef(false);
@@ -132,7 +132,9 @@ export function useSectionRescan(): SectionRescanState {
         return;
       }
       if (!adoptedRef.current) {
-        setResult({ before: beforeCountRef.current, after: getSectionCount() });
+        const before = beforeCountRef.current;
+        const after = getSectionCount();
+        if (before !== null && after !== null) setResult({ before, after });
       }
       adoptedRef.current = false;
     });
@@ -140,7 +142,7 @@ export function useSectionRescan(): SectionRescanState {
 
   /** Record the verdict, and keep a started run free of a stale refusal. */
   const adopt = useCallback(
-    (outcome: StartOutcome) => {
+    (outcome: StartVerdict) => {
       setRefusal(hasStarted(outcome) ? null : outcome);
       if (hasStarted(outcome)) startPolling();
       return outcome;
@@ -178,24 +180,26 @@ export function useSectionRescan(): SectionRescanState {
   }, []);
 
   // A detect started elsewhere, by another screen or by the preview's Keep,
-  // is invisible unless whoever mounts next picks it up. Adopt it so the
-  // progress follows the run rather than the screen that began it.
-  useEffect(() => {
-    const engine = getEngine();
-    if (!engine) return;
-    // Defensive like every other FFI read here: a host that cannot answer must
-    // not cost the screen its mount.
-    let running = false;
-    try {
-      running = engine.pollSectionDetection?.() === 'running';
-    } catch {
-      running = false;
-    }
-    if (running) {
-      adoptedRef.current = true;
-      startPolling();
-    }
-  }, [startPolling]);
+  // is invisible unless whoever shows next picks it up. Adopt it on every
+  // focus, since a screen under the preview does not remount when Keep pops back.
+  useFocusEffect(
+    useCallback(() => {
+      const engine = getEngine();
+      if (!engine) return;
+      // Defensive like every other FFI read here: a host that cannot answer must
+      // not cost the screen its mount.
+      let running = false;
+      try {
+        running = engine.getSectionDetectionProgress?.() != null;
+      } catch {
+        running = false;
+      }
+      if (running) {
+        adoptedRef.current = true;
+        startPolling();
+      }
+    }, [startPolling])
+  );
 
   useEffect(() => {
     isMountedRef.current = true;

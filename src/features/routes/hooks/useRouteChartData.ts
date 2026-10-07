@@ -3,15 +3,21 @@ import { decodeCoords } from 'veloqrs';
 import type { RouteGroup as EngineRouteGroup, FfiMapSignature } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import type { PerformanceDataPoint } from '../types';
+import type { DirectionBestRecord } from '../lib/performanceTypes';
 import type { RoutePerformancePoint } from './useRoutePerformances';
-import { chartBestIndex } from '@/features/routes/lib/chartBestIndex';
+import type { LatLngShort } from '@/shared/geo/distance';
+
+export interface RouteDirectionBests {
+  forward: DirectionBestRecord | null;
+  reverse: DirectionBestRecord | null;
+}
 
 export function useRouteChartData(
   performances: RoutePerformancePoint[],
-  bestPerformance: RoutePerformancePoint | null,
   engineGroup: EngineRouteGroup | null | undefined,
   excludedChartData: (PerformanceDataPoint & { x: number })[],
-  preComputedSignatures?: FfiMapSignature[]
+  preComputedSignatures?: FfiMapSignature[],
+  directionBests?: RouteDirectionBests
 ) {
   // Load simplified GPS signatures for mini trace preview (single batch FFI call)
   const signatures = useMemo(() => {
@@ -25,7 +31,7 @@ export function useRouteChartData(
       }
 
       const activityIdSet = new Set(engineGroup.activityIds);
-      const result: Record<string, { points: { lat: number; lng: number }[] }> = {};
+      const result: Record<string, { points: LatLngShort[] }> = {};
 
       for (const sig of allSigs) {
         if (!activityIdSet.has(sig.activityId)) continue;
@@ -36,6 +42,7 @@ export function useRouteChartData(
       }
       return result;
     } catch {
+      // empty-on-error: mini-trace thumbnails beside each point; the chart's points come from the performances passed in.
       return {};
     }
   }, [engineGroup, preComputedSignatures]);
@@ -69,6 +76,8 @@ export function useRouteChartData(
           activityName: perf.name,
           direction: perf.direction as 'same' | 'reverse',
           matchPercentage: perf.matchPercentage,
+          isBest: perf.isRecord,
+          outsideDistanceBand: perf.outsideDistanceBand,
           sectionTime: Math.round(perf.duration),
           lapPoints: activityPoints,
         };
@@ -80,16 +89,13 @@ export function useRouteChartData(
     const max = speeds.length > 0 ? Math.max(...speeds) : 1;
     const padding = (max - min) * 0.15 || 0.5;
 
-    // The engine's pick where it has one, and the same rule locally where it
-    // does not: a record is a beat in its own direction, so the ring and the
-    // tooltip beside it cannot name different attempts.
-    let bestIdx = 0;
-    if (bestPerformance) {
-      bestIdx = dataPoints.findIndex((d) => d.activityId === bestPerformance.activityId);
-      if (bestIdx === -1) bestIdx = 0;
-    } else {
-      bestIdx = chartBestIndex(dataPoints);
-    }
+    // The ring follows the engine's record stamp, forward before reverse.
+    // No stamped point rings nothing rather than the first point.
+    const bestIdx =
+      [
+        dataPoints.findIndex((d) => d.isBest && d.direction !== 'reverse'),
+        dataPoints.findIndex((d) => d.isBest),
+      ].find((i) => i >= 0) ?? -1;
 
     const hasAnyReverse = dataPoints.some((d) => d.direction === 'reverse');
 
@@ -100,48 +106,24 @@ export function useRouteChartData(
       bestIndex: bestIdx,
       hasReverseRuns: hasAnyReverse,
     };
-  }, [performances, bestPerformance, signatures]);
+  }, [performances, signatures]);
 
-  // Enrich chart data with PR info for tooltip display
+  // The tooltip's reference is the engine's best per direction, which already leaves out
+  // out-of-band, partial, excluded and untimed attempts and other sports.
   const enrichedChartData = useMemo(() => {
     if (chartData.length === 0) return chartData;
 
-    let fwdBestTime: number | undefined;
-    let fwdBestSpeed: number | undefined;
-    let revBestTime: number | undefined;
-    let revBestSpeed: number | undefined;
-
-    for (const p of chartData) {
-      const time = Math.round(p.sectionTime ?? 0);
-      if (time <= 0) continue;
-      if (p.direction === 'reverse') {
-        if (revBestTime === undefined || time < revBestTime) {
-          revBestTime = time;
-          revBestSpeed = p.speed;
-        }
-      } else {
-        if (fwdBestTime === undefined || time < fwdBestTime) {
-          fwdBestTime = time;
-          fwdBestSpeed = p.speed;
-        }
-      }
-    }
-
     return chartData.map((p) => {
-      const isReverse = p.direction === 'reverse';
-      const dirBestTime = isReverse ? revBestTime : fwdBestTime;
-      const dirBestSpeed = isReverse ? revBestSpeed : fwdBestSpeed;
-      const time = Math.round(p.sectionTime ?? 0);
-      const isBest = dirBestTime !== undefined && time > 0 && time === dirBestTime;
+      const reference =
+        p.direction === 'reverse' ? directionBests?.reverse : directionBests?.forward;
       return {
         ...p,
-        bestTime: dirBestTime,
-        bestSpeed: dirBestSpeed,
-        isBest,
-        sectionTime: time || undefined,
+        bestTime: reference?.bestTime,
+        bestSpeed: reference?.bestSpeed,
+        sectionTime: Math.round(p.sectionTime ?? 0) || undefined,
       };
     });
-  }, [chartData]);
+  }, [chartData, directionBests]);
 
   // Merge excluded points into chart data when showing excluded
   const combinedChartData = useMemo(() => {

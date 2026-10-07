@@ -1,13 +1,3 @@
-/** Summary statistics to display in the chart header */
-export interface ChartSummaryStats {
-  bestTime: number | null;
-  avgTime: number | null;
-  totalActivities: number;
-  lastActivity: Date | null;
-  currentTime?: number | null;
-  bestDate?: Date | null;
-}
-
 /** Per-direction best record for display alongside the scatter chart */
 export interface DirectionBestRecord {
   bestTime: number;

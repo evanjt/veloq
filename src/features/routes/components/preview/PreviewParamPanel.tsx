@@ -24,20 +24,27 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import Slider from '@react-native-community/slider';
 import { useTranslation } from 'react-i18next';
 import { formatDistance } from '@/shared/format/format';
-import { useTheme } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
 import { colors, darkColors, brand, opacity, spacing, layout, typography } from '@/theme';
 import {
   DETECTION_PARAM_RANGES,
   DETECTION_PRESETS,
   DETECTION_PRESET_NAMES,
   isPastClamp,
+  isPastTestedRange,
   parseParamInput,
   presetOf,
   type DetectionParamKey,
   type DetectionPresetName,
 } from '../../lib/detectionParams';
-import type { PreviewParams } from '../../../../../modules/veloqrs/src/delegates/preview';
-import { pressable } from '@/shared/ui';
+import {
+  distanceEditorUnit,
+  fromEditorValue,
+  toEditorText,
+  type EditorUnit,
+} from '../../lib/paramUnits';
+import type { PreviewParams } from 'veloqrs';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface PreviewParamPanelProps {
   params: PreviewParams;
@@ -50,11 +57,24 @@ interface Editing {
   key: DetectionParamKey;
   label: string;
   text: string;
+  /** What the editor opened with, so an untouched save cannot round the stored metres. */
+  initial: string;
+  unit: EditorUnit | null;
+}
+
+/** The unit a parameter is edited in, null for a count or a ratio. */
+function editorUnitOf(key: DetectionParamKey, isMetric: boolean): EditorUnit | null {
+  if (key === 'maxSectionLength') return distanceEditorUnit(isMetric, true);
+  if (key === 'proximityThreshold' || key === 'minSectionLength') {
+    return distanceEditorUnit(isMetric, false);
+  }
+  return null;
 }
 
 export function PreviewParamPanel({ params, onChange, disabled = false }: PreviewParamPanelProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -64,16 +84,24 @@ export function PreviewParamPanel({ params, onChange, disabled = false }: Previe
 
   const open = (key: DetectionParamKey, label: string) => () => {
     if (disabled) return;
-    setEditing({ key, label, text: String(params[key]) });
+    const unit = editorUnitOf(key, isMetric);
+    const text = toEditorText(params[key], unit);
+    setEditing({ key, label, text, initial: text, unit });
   };
 
   const save = () => {
     if (!editing) return;
-    const value = parseParamInput(editing.key, editing.text);
+    if (editing.text === editing.initial) {
+      setEditing(null);
+      return;
+    }
+    const typed = parseParamInput(editing.key, editing.text);
     // A refusal leaves the editor open with what was typed still in it: the
     // athlete is one character from a value that works, and closing on them
     // would throw the rest of the entry away.
-    if (value === null) return;
+    if (typed === null) return;
+    const value = fromEditorValue(typed, editing.unit);
+    if (value <= 0) return;
     onChange({ ...params, [editing.key]: value });
     setEditing(null);
   };
@@ -97,19 +125,24 @@ export function PreviewParamPanel({ params, onChange, disabled = false }: Previe
       style={[styles.card, { backgroundColor: surface, borderColor: border }]}
       contentContainerStyle={styles.cardContent}
       testID="preview-param-panel"
-      pointerEvents="box-none"
     >
       {row(
         'proximityThreshold',
-        t('settings.sectionProximity', { distance: formatDistance(params.proximityThreshold) })
+        t('settings.sectionProximity', {
+          distance: formatDistance(params.proximityThreshold, isMetric),
+        })
       )}
       {row(
         'minSectionLength',
-        t('settings.sectionMinLength', { distance: formatDistance(params.minSectionLength) })
+        t('settings.sectionMinLength', {
+          distance: formatDistance(params.minSectionLength, isMetric),
+        })
       )}
       {row(
         'maxSectionLength',
-        t('settings.sectionMaxLength', { distance: formatDistance(params.maxSectionLength) })
+        t('settings.sectionMaxLength', {
+          distance: formatDistance(params.maxSectionLength, isMetric),
+        })
       )}
       {row('minActivities', t('settings.sectionMinActivities', { count: params.minActivities }))}
       {row(
@@ -177,6 +210,7 @@ function ParamRow({
 }) {
   const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
   const trackBg = isDark ? darkColors.inputTrack : colors.inputTrack;
+  const { t } = useTranslation();
   const { min, max, step } = DETECTION_PARAM_RANGES[paramKey];
   return (
     <View style={styles.paramRow}>
@@ -186,6 +220,7 @@ function ParamRow({
         testID={`param-edit-${paramKey}`}
         accessibilityRole="button"
         style={pressable()}
+        android_ripple={pressRipple}
       >
         <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
       </Pressable>
@@ -203,6 +238,11 @@ function ParamRow({
         maximumTrackTintColor={trackBg}
         thumbTintColor={brand.tealLight}
       />
+      {isPastTestedRange(paramKey, value) && (
+        <Text testID={`param-range-note-${paramKey}`} style={[styles.paramLabel, { color: txt }]}>
+          {t('settings.sectionParamPastRange')}
+        </Text>
+      )}
     </View>
   );
 }
@@ -236,6 +276,7 @@ function PresetChip({
         { borderColor: active ? brand.tealLight : border },
         disabled && styles.presetChipDisabled,
       ])}
+      android_ripple={pressRipple}
     >
       <Text style={[styles.presetChipLabel, { color: active ? brand.tealLight : txt }]}>
         {label}
@@ -265,13 +306,21 @@ function ParamEditor({
 
   const { min, max } = DETECTION_PARAM_RANGES[editing.key];
   const parsed = parseParamInput(editing.key, editing.text);
-  const pastClamp = parsed !== null && isPastClamp(editing.key, parsed);
+  const pastClamp =
+    parsed !== null && isPastClamp(editing.key, fromEditorValue(parsed, editing.unit));
+  const pastRange =
+    parsed !== null && isPastTestedRange(editing.key, fromEditorValue(parsed, editing.unit));
+  const bound = (metres: number) =>
+    editing.unit
+      ? `${toEditorText(metres, editing.unit)} ${editing.unit.label}`
+      : toEditorText(metres, null);
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onCancel} testID="param-editor">
-      <Pressable style={pressable(styles.scrim)} onPress={onCancel}>
+      <Pressable style={pressable(styles.scrim)} android_ripple={pressRipple} onPress={onCancel}>
         <Pressable
           style={pressable([styles.sheet, { backgroundColor: surface, borderColor: border }])}
+          android_ripple={pressRipple}
           onPress={() => {}}
         >
           <Text style={[styles.sheetTitle, { color: textPrimary }]}>{editing.label}</Text>
@@ -285,8 +334,16 @@ function ParamEditor({
             style={[styles.sheetInput, { color: textPrimary, borderColor: border }]}
           />
           <Text style={[styles.sheetNote, { color: textSecondary }]}>
-            {t('settings.sectionParamRange', { min, max })}
+            {t('settings.sectionParamRange', { min: bound(min), max: bound(max) })}
           </Text>
+          {pastRange && (
+            <Text
+              testID="param-editor-range-note"
+              style={[styles.sheetNote, { color: textSecondary }]}
+            >
+              {t('settings.sectionParamPastRange')}
+            </Text>
+          )}
           {pastClamp && (
             <Text
               testID="param-editor-clamp-note"
@@ -301,6 +358,7 @@ function ParamEditor({
               testID="param-editor-cancel"
               accessibilityRole="button"
               style={pressable()}
+              android_ripple={pressRipple}
             >
               <Text style={[styles.sheetAction, { color: textSecondary }]}>
                 {t('common.cancel')}
@@ -311,6 +369,7 @@ function ParamEditor({
               testID="param-editor-save"
               accessibilityRole="button"
               style={pressable()}
+              android_ripple={pressRipple}
             >
               <Text style={[styles.sheetAction, { color: brand.tealLight }]}>
                 {t('common.save')}

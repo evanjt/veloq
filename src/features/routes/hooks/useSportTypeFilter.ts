@@ -1,21 +1,12 @@
 import { useMemo, useState } from 'react';
-import type { RouteGroup as EngineRouteGroup, FfiActivityMetrics } from 'veloqrs';
+import type { FfiActivityMetrics } from 'veloqrs';
 
 /**
  * The sport picker on a route that has been covered by more than one sport.
  *
- * It starts on the sport most of the route's activities carry. It used to start
- * on the group's scalar `sportType`, which is whichever member represents the
- * group: a route ridden four times and walked once opened on `Walk` whenever
- * the walk happened to be the representative. The scalar no longer answers
- * anything, so the members are what is counted.
+ * It starts on the sport most of the route's activities carry.
  */
-export function useSportTypeFilter(
-  allMetrics: Map<string, FfiActivityMetrics>,
-  // Kept so the callers do not all change with this hook. Nothing on the group
-  // is read any more: its sports are its members'.
-  _engineGroup?: EngineRouteGroup | null
-) {
+export function useSportTypeFilter(allMetrics: Map<string, FfiActivityMetrics>) {
   const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
 
   // One pass over the members, since the list and the default are both the

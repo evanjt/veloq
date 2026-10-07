@@ -11,23 +11,16 @@
 import { useCallback } from 'react';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
-import {
-  engine,
-  getFetchRunProgress,
-  cancelFetchAndStore,
-  startFetchAndStore,
-  DownloadPriority,
-  takeFetchAndStoreResult,
-  type ActivitySportMapping,
-} from 'veloqrs';
+import { engineErrorTag } from '@/shared/native/engineError';
+import { engine, DownloadPriority, type ActivitySportMapping } from 'veloqrs';
 import { present } from 'veloqrs/src/delegates/optional';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { toActivityMetrics } from '@/shared/activity/activityMetrics';
-import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
+import { activityStartEpoch } from '@/shared/activity/streamWindow';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
-import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
+import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { debug } from '@/shared/debug/debug';
 import {
@@ -35,7 +28,7 @@ import {
   followDetection,
   type DetectionEngine,
 } from '@/features/routes/lib/detectionRun';
-import { fetchWithRetry, type FetchPass } from '@/features/routes/lib/gpsFetchRetry';
+import { scalePercent } from '@/features/routes/lib/scalePercent';
 import { reportTrackFetchRun } from '@/features/routes/lib/trackFetchNotice';
 import {
   abandonDownload,
@@ -62,17 +55,6 @@ interface FetchDeps {
   abortSignal: AbortSignal;
   /** Function to update progress state */
   updateProgress: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void;
-}
-
-/**
- * Scale a Rust-reported 0–100 percent into an arbitrary sub-range of the
- * overall sync progress bar.
- */
-function scalePercent(rustPercent: number, rangeStart: number, rangeEnd: number): number {
-  return Math.min(
-    Math.round(rangeEnd),
-    Math.round(rangeStart + (rustPercent / 100) * (rangeEnd - rangeStart))
-  );
 }
 
 /**
@@ -274,7 +256,8 @@ export function useGpsDataFetcher() {
         // during detection. Without this, the section detail chart is blank in demo mode
         // because the junction table ends up with NULL lap_time on every portion.
         const { getActivityStreams } = require('@/data/demo/fixtures');
-        const { storableTimeStreams } = require('@/features/activity');
+        const { storableTimeStreams } =
+          require('@/features/activity') as typeof import('@/features/activity');
         const demoTimeStreams = storableTimeStreams(
           ids,
           (id: string) => (getActivityStreams(id) as { time?: number[] } | null)?.time,
@@ -297,7 +280,7 @@ export function useGpsDataFetcher() {
         // indeterminate, it does not tear the follow down and take the
         // announcement with it. The timer that remains reads progress alone.
         let demoStillAnalysing = false;
-        if (nativeModule.engine.pollSectionDetection() === 'running') {
+        if (nativeModule.engine.getSectionDetectionProgress() != null) {
           const outcome = await followDetection(nativeModule.engine as unknown as DetectionEngine, {
             isActive: () => isMountedRef.current && !abortSignal.aborted,
             timeoutMs: DETECTION_FOREGROUND_MS,
@@ -338,6 +321,7 @@ export function useGpsDataFetcher() {
             total: activities.length,
             percent: 100,
             message,
+            analysingInBackground: demoStillAnalysing,
           });
         }
 
@@ -462,23 +446,16 @@ export function useGpsDataFetcher() {
         });
       }
 
-      // One pass over a set of ids. Rust downloads the GPS data and stores it
-      // directly: no FFI round-trip, the data never crosses to TypeScript and
-      // back. `stored` is what earlier passes already put away, so the bar
-      // counts against the whole set and a retry never sends it backwards.
+      // One run over the whole set. Rust downloads the GPS data, stores it
+      // directly and re-offers what failed on the attempt store's own backoff,
+      // so the data never crosses to TypeScript and nothing here retries.
       const downloadBudget = isRouteMatchingEnabled() ? 50 : 100;
-      let stored = 0;
 
-      const runPass = async (ids: string[]): Promise<FetchPass | null> => {
-        const pending = new Set(ids);
+      const runDownload = async (ids: string[]) => {
         // The run id is what makes the result ours. One slot was shared by
         // this sync, the headless push task and the map's own download, and a
         // push arriving mid-sync took whichever result landed first.
-        const run = startFetchAndStore(
-          ids,
-          sportTypes.filter((s) => pending.has(s.activityId)),
-          DownloadPriority.Bulk
-        );
+        const run = engine.startFetchAndStore(ids, sportTypes, DownloadPriority.Bulk);
 
         // Poll this run's own progress every 100ms. Rust fetches each
         // activity's map and then its time stream, and only clears `active`
@@ -491,10 +468,10 @@ export function useGpsDataFetcher() {
         // When route matching is on: download = 0-50%, detection = 50-75%, tiles = 75-100%.
         // When off: download = 0-100%.
         const outcome = await pollDownloadProgress({
-          read: runProgressReader(run, getFetchRunProgress),
+          read: runProgressReader(run, (r) => engine.getFetchRunProgress(r)),
           isActive: () => isMountedRef.current && !abortSignal.aborted,
           onProgress: (progress) => {
-            const completed = Math.min(stored + progress.completed, activityIds.length);
+            const completed = Math.min(progress.completed, activityIds.length);
             const gpsFraction = activityIds.length > 0 ? completed / activityIds.length : 0;
             const combined = Math.round(gpsFraction * downloadBudget);
             updateProgress({
@@ -513,31 +490,20 @@ export function useGpsDataFetcher() {
         // thread runs to its end on its own. Tell it to stop. Called rather
         // than passed by name, so the binding is invoked where it is read and
         // the reachability guard can see a call site.
-        abandonDownload(outcome, () => cancelFetchAndStore());
+        abandonDownload(outcome, () => engine.cancelFetchAndStore(run));
 
         // Get result (just IDs - no GPS data transfer!)
-        const passResult = takeFetchAndStoreResult(run);
+        const outcomeResult = engine.takeFetchAndStoreResult(run);
         if (__DEV__) {
           log.log(
             '[fetchApiGps] takeFetchAndStoreResult returned:',
-            passResult ? `${passResult.successCount}/${passResult.total}` : 'null'
+            outcomeResult ? `${outcomeResult.successCount}/${outcomeResult.total}` : 'null'
           );
         }
-        if (!passResult) return null;
-
-        stored += passResult.syncedIds.length;
-        return passResult;
+        return outcomeResult;
       };
 
-      const result = await fetchWithRetry(activityIds, {
-        pass: runPass,
-        isActive: () => isMountedRef.current && !abortSignal.aborted,
-        onRetry: (ids, attempt) => {
-          console.warn(
-            `[fetchApiGps] Retrying ${ids.length} failed GPS download(s), attempt ${attempt}`
-          );
-        },
-      });
+      const result = await runDownload(activityIds);
 
       if (!result) {
         // The store thread died: the poll saw the download go inactive and the
@@ -555,8 +521,8 @@ export function useGpsDataFetcher() {
       reportTrackFetchRun(result);
       if (result.failedIds.length > 0) {
         console.warn(
-          `[fetchApiGps] ${result.failedIds.length} GPS download(s) still failing after ` +
-            `${result.attempts} attempt(s): ${result.failedIds.slice(0, 5).join(', ')}`
+          `[fetchApiGps] ${result.failedIds.length} GPS download(s) still failing: ` +
+            result.failedIds.slice(0, 5).join(', ')
         );
       }
 
@@ -564,7 +530,7 @@ export function useGpsDataFetcher() {
         // Log Rust result in Expo console (timing logged via adb logcat)
         log.log(
           `[RUST: fetch_and_store] Complete: ${result.successCount}/${result.total} synced, ` +
-            `${result.failedIds.length} failed, ${result.recoveredIds.length} recovered on retry`
+            `${result.failedIds.length} failed`
         );
       }
 
@@ -619,9 +585,21 @@ export function useGpsDataFetcher() {
       // engine needs re-detection, or date range expanded).
       const { hasExpanded } = useSyncDateRange.getState();
       const routeMatchingOn = isRouteMatchingEnabled();
+      // A failed read leaves a re-detection to the next sync rather than failing
+      // this one, whose activities have already landed.
+      const sectionsDirty = (): boolean => {
+        try {
+          return engine.getStats()?.sectionsDirty === true;
+        } catch (error) {
+          console.warn(
+            '[fetchApiGps] Could not read whether detection is owed:',
+            engineErrorTag(error) ?? error
+          );
+          return false;
+        }
+      };
       const needsDetection =
-        routeMatchingOn &&
-        (result.syncedIds.length > 0 || engine.getStats()?.sectionsDirty === true || hasExpanded);
+        routeMatchingOn && (result.syncedIds.length > 0 || sectionsDirty() || hasExpanded);
 
       // Set when the follow gives up on a detection that is still running, so
       // the banner at the end says so rather than claiming the sync is done.
@@ -651,7 +629,7 @@ export function useGpsDataFetcher() {
         // `formatGpsSyncProgress`, so the banner shows a moving marquee
         // rather than a stuck number. A large-corpus detection legitimately
         // runs for minutes; this keeps it honest.
-        if (nativeModule.engine.pollSectionDetection() === 'running') {
+        if (nativeModule.engine.getSectionDetectionProgress() != null) {
           const outcome = await followDetection(nativeModule.engine as unknown as DetectionEngine, {
             isActive: () => isMountedRef.current && !abortSignal.aborted,
             timeoutMs: DETECTION_FOREGROUND_MS,
@@ -691,12 +669,19 @@ export function useGpsDataFetcher() {
       // only waits for the drain.
       if (isMountedRef.current && !abortSignal.aborted) {
         try {
-          const { total, remaining } = await backfillTimeStreams(() => {}, abortSignal);
+          const { total, remaining } = await backfillTimeStreams((completed, streams) => {
+            if (!isMountedRef.current) return;
+            updateProgress(timeStreamsProgress(completed, streams, i18n.t));
+          }, abortSignal);
           if (__DEV__ && total > 0) {
             log.log(`[fetchApiGps] Backfilled ${total - remaining}/${total} time streams`);
           }
-        } catch {
-          // Non-critical - will retry on next sync
+        } catch (error) {
+          // Not fatal to the sync: the next one asks again.
+          console.warn(
+            '[fetchApiGps] Time stream backfill failed:',
+            engineErrorTag(error) ?? error
+          );
         }
       }
 
@@ -712,6 +697,7 @@ export function useGpsDataFetcher() {
           total: activities.length,
           percent: 100,
           message: synced,
+          analysingInBackground: stillAnalysing,
         });
       }
 

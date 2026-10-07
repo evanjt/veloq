@@ -78,6 +78,7 @@ export function SectionsListFiltersBar({
                   styles.sortChipLabel,
                   isDark && styles.textMuted,
                   isActive && styles.sortChipLabelActive,
+                  isActive && isDark && { color: darkColors.linkTeal },
                 ]}
               >
                 {chip.label}
@@ -111,6 +112,7 @@ export function SectionsListFiltersBar({
               styles.sortChipLabel,
               isDark && styles.textMuted,
               !hiddenFilters.custom && styles.sortChipLabelActive,
+              !hiddenFilters.custom && isDark && { color: darkColors.linkTeal },
             ]}
           >
             {customCount} {t('routes.custom')}
@@ -143,6 +145,7 @@ export function SectionsListFiltersBar({
               styles.sortChipLabel,
               isDark && styles.textMuted,
               !hiddenFilters.disabled && styles.sortChipLabelActive,
+              !hiddenFilters.disabled && isDark && { color: darkColors.linkTeal },
             ]}
           >
             {trueDisabledCount} {t('sections.removed')}
@@ -175,6 +178,7 @@ export function SectionsListFiltersBar({
               styles.sortChipLabel,
               isDark && styles.textMuted,
               hiddenFilters.unaccepted && styles.sortChipLabelActive,
+              hiddenFilters.unaccepted && isDark && { color: darkColors.linkTeal },
             ]}
           >
             {t('sections.acceptedOnly')}
@@ -217,7 +221,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   sortChipLabelActive: {
-    color: colors.primary,
+    color: colors.linkTeal,
   },
   textMuted: {
     color: darkColors.textMuted,

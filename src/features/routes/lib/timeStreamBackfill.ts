@@ -6,7 +6,10 @@
  * waits.
  */
 
+import type { TFunction } from 'i18next';
 import { engine } from 'veloqrs';
+
+import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 
 import { awaitTimeStreams } from './awaitTimeStreams';
 
@@ -46,4 +49,16 @@ export async function backfillTimeStreams(
   });
 
   return { total, remaining };
+}
+
+/** The banner row for a drain in progress. Both sync paths write it, so the
+ *  row names the stage on either. */
+export function timeStreamsProgress(completed: number, total: number, t: TFunction): SyncProgress {
+  return {
+    status: 'fetching',
+    completed,
+    total,
+    percent: 50,
+    message: t('cache.fetchingTimeStreams', { percent: 50, completed, total }),
+  };
 }

@@ -9,12 +9,9 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import { getEngine } from '@/shared/native/engine';
 import { useEngineRead, useEngineSubscription } from '@/shared/native/useEngineSubscription';
-import { generateSectionName } from '@/features/routes/lib/sectionNaming';
-import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import { decodeCoords, type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
-import type { FrequentSection } from '@/types';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 // ============================================================================
 // Engine Type Helper
@@ -23,19 +20,7 @@ import type { FrequentSection } from '@/types';
 export { useEngineSubscription };
 export type { EngineEvent } from '@/shared/native/useEngineSubscription';
 
-/**
- * Factory function to create engine hooks with a consistent pattern.
- *
- * The pattern:
- * 1. Store a refresh trigger counter (not the actual data)
- * 2. Subscribe to engine events
- * 3. Query fresh data from Rust on each render via useMemo
- *
- * @param queryFn - Function to query data from the engine
- * @param events - Engine events to subscribe to
- * @param fallback - Fallback value when engine is unavailable or error occurs
- */
-export // ============================================================================
+// ============================================================================
 // Data Hooks with Options
 // ============================================================================
 
@@ -53,6 +38,8 @@ interface UseEngineGroupsResult {
   groups: RouteGroup[];
   /** Total number of groups */
   totalCount: number;
+  /** What the engine threw, when the read failed. Empty groups with no error is an empty library. */
+  error?: unknown;
 }
 
 /**
@@ -82,8 +69,8 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
         groups: filtered,
         totalCount: allGroups.length,
       };
-    } catch {
-      return { groups: [], totalCount: 0 };
+    } catch (error) {
+      return { groups: [], totalCount: 0, error };
     }
   }, [readGroups, minActivities, sortBy, enabled]);
 }
@@ -97,73 +84,28 @@ interface UseEngineSectionsOptions {
   enabled?: boolean;
 }
 
-interface UseEngineSectionsResult {
-  /** List of frequent sections */
-  sections: FrequentSection[];
-  /** Total number of sections */
-  totalCount: number;
-}
-
-/**
- * Hook for accessing frequent sections from the Rust engine.
- * Sections are queried fresh from Rust/SQLite on each refresh (no long-term JS memory storage).
- */
-export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEngineSectionsResult {
-  const { sportType, minVisits = 1, enabled = true } = options;
-  const readSections = useEngineRead(['sections']);
-
-  return useMemo(() => {
-    if (!enabled) return { sections: [], totalCount: 0 };
-    try {
-      const engine = readSections((open) => open);
-      if (!engine) return { sections: [], totalCount: 0 };
-
-      const nativeSections = engine.getSectionsFiltered(sportType, minVisits);
-
-      // Convert from native GpsPoint to app RoutePoint format and apply display names
-      const convertedSections: FrequentSection[] = nativeSections.map((native) => {
-        const converted = convertNativeSectionToApp(native);
-        return {
-          ...converted,
-          name: generateSectionName(converted),
-        };
-      });
-
-      return {
-        sections: convertedSections,
-        totalCount: convertedSections.length,
-      };
-    } catch (e) {
-      if (__DEV__) {
-        console.warn('[useEngineSections] threw', e);
-      }
-      return { sections: [], totalCount: 0 };
-    }
-  }, [readSections, sportType, minVisits, enabled]);
-}
-
 /** What the regional map draws one section with. */
 export interface MapSection {
   id: string;
   name: string;
-  sportType: string;
   visitCount: number;
   distanceMeters: number;
-  polyline: { lat: number; lng: number }[];
+  polyline: LatLngShort[];
 }
 
 interface UseMapSectionsResult {
   sections: MapSection[];
   totalCount: number;
+  /** What the engine threw, when the read failed. */
+  error?: unknown;
 }
 
 /**
  * Sections for the regional map's overlay.
  *
- * Six fields and a line, against `useEngineSections`, which took the whole
- * record: the activity ids, one `activity_portions` entry per traversal and the
- * point density for every section, converted each portion here and then read
- * none of it. The label is still built in JavaScript because it is built from
+ * Six fields and a line, not the whole record: the activity ids, one
+ * `activity_portions` entry per traversal and the point density for every
+ * section go unread by the map. The label is still built in JavaScript because it is built from
  * the athlete's own units, which Rust does not hold.
  */
 export function useMapSections(options: UseEngineSectionsOptions = {}): UseMapSectionsResult {
@@ -178,15 +120,7 @@ export function useMapSections(options: UseEngineSectionsOptions = {}): UseMapSe
 
       const sections: MapSection[] = engine.getMapSections(sportType, minVisits).map((native) => ({
         id: native.id,
-        name: generateSectionName({
-          id: native.id,
-          name: native.name ?? undefined,
-          sportType: native.sportType,
-          distanceMeters: native.distanceMeters,
-          klass: native.klass ?? undefined,
-          maxGradePercent: native.maxGradePercent ?? undefined,
-        }),
-        sportType: native.sportType,
+        name: native.name ?? '',
         visitCount: native.visitCount,
         distanceMeters: native.distanceMeters,
         polyline: decodeCoords(native.encodedPolyline).map((p) => ({
@@ -196,11 +130,8 @@ export function useMapSections(options: UseEngineSectionsOptions = {}): UseMapSe
       }));
 
       return { sections, totalCount: sections.length };
-    } catch (e) {
-      if (__DEV__) {
-        console.warn('[useMapSections] threw', e);
-      }
-      return { sections: [], totalCount: 0 };
+    } catch (error) {
+      return { sections: [], totalCount: 0, error };
     }
   }, [readSections, sportType, minVisits, enabled]);
 }
@@ -209,16 +140,16 @@ export function useMapSections(options: UseEngineSectionsOptions = {}): UseMapSe
  * Total section count without loading any polylines or summaries. Cheap SQL
  * COUNT via `getSectionCount()`. Use this to drive UI that only needs to know
  * whether sections exist (e.g. a toggle button) while deferring the heavy
- * polyline load behind a separate `useEngineSections({ enabled })` gate.
+ * polyline load behind a separate `useMapSections({ enabled })` gate.
  */
-export function useEngineSectionCount(): number {
+export function useEngineSectionCount(): { count: number; error?: unknown } {
   const readSections = useEngineRead(['sections']);
 
   return useMemo(() => {
     try {
-      return readSections((engine) => engine.getSectionCount()) ?? 0;
-    } catch {
-      return 0;
+      return { count: readSections((engine) => engine.getSectionCount()) ?? 0 };
+    } catch (error) {
+      return { count: 0, error };
     }
   }, [readSections]);
 }
@@ -237,6 +168,8 @@ interface UseSectionSummariesResult {
   totalCount: number;
   /** Filtered section summaries (queried on-demand, no polylines) */
   summaries: SectionSummary[];
+  /** What the engine threw, when the read failed. */
+  error?: unknown;
 }
 
 /**
@@ -248,7 +181,7 @@ export function useSectionSummaries(
   options: UseSectionSummariesOptions = {}
 ): UseSectionSummariesResult {
   const { sportType, minVisits = 1, enabled = true } = options;
-  const readSections = useEngineRead(['sections']);
+  const readSections = useEngineRead(['sections', 'detectionApplied']);
 
   return useMemo(() => {
     if (!enabled) return { totalCount: 0, summaries: [] };
@@ -263,14 +196,9 @@ export function useSectionSummaries(
         'visits'
       );
 
-      const summaries = rawSummaries.map((s) => ({
-        ...s,
-        name: s.name || generateSectionName(s),
-      }));
-
-      return { totalCount, summaries };
-    } catch {
-      return { totalCount: 0, summaries: [] };
+      return { totalCount, summaries: rawSummaries };
+    } catch (error) {
+      return { totalCount: 0, summaries: [], error };
     }
   }, [readSections, sportType, minVisits, enabled]);
 }
@@ -287,6 +215,8 @@ interface UseGroupSummariesResult {
   totalCount: number;
   /** Filtered group summaries (queried on-demand, no activity ID arrays) */
   summaries: GroupSummary[];
+  /** What the engine threw, when the read failed. */
+  error?: unknown;
 }
 
 /**
@@ -305,8 +235,8 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
 
       // Filter + sort pushed into Rust.
       return engine.getFilteredGroupSummaries(minActivities, sortBy);
-    } catch {
-      return { totalCount: 0, summaries: [] };
+    } catch (error) {
+      return { totalCount: 0, summaries: [], error };
     }
   }, [readGroups, minActivities, sortBy]);
 }
@@ -315,24 +245,19 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
 // Simple hooks without factory (unique patterns)
 // ============================================================================
 
-interface UseConsensusRouteResult {
-  /** Consensus route points [{ lat, lng }, ...] or null if not available */
-  points: { lat: number; lng: number }[] | null;
-  /** Whether the consensus is being computed */
+interface UseRepresentativeRouteResult {
+  /** Representative route points [{ lat, lng }, ...] or null if not available */
+  points: LatLngShort[] | null;
+  /** Whether the representative track is being loaded */
   isLoading: boolean;
 }
 
 /**
- * Hook for getting the consensus (representative) route for a group.
+ * Hook for getting the representative route for a group.
  */
-export function useConsensusRoute(groupId: string | null): UseConsensusRouteResult {
-  const [points, setPoints] = useState<
-    | {
-        lat: number;
-        lng: number;
-      }[]
-    | null
-  >(null);
+export function useRepresentativeRoute(groupId: string | null): UseRepresentativeRouteResult {
+  const readGroups = useEngineRead(groupId ? ['groups'] : []);
+  const [points, setPoints] = useState<LatLngShort[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -342,8 +267,7 @@ export function useConsensusRoute(groupId: string | null): UseConsensusRouteResu
     }
 
     setIsLoading(true);
-    const engine = getEngine();
-    const encoded = engine?.getConsensusRoute(groupId);
+    const encoded = readGroups((engine) => engine.getRepresentativeRoute(groupId));
     const decoded = encoded ? decodeCoords(encoded) : [];
 
     if (decoded.length > 0) {
@@ -352,105 +276,7 @@ export function useConsensusRoute(groupId: string | null): UseConsensusRouteResu
       setPoints(null);
     }
     setIsLoading(false);
-  }, [groupId]);
-
-  return { points, isLoading };
-}
-
-interface UseSectionDetailResult {
-  /** Full section data (with polyline) or null if not found */
-  section: FrequentSection | null;
-}
-
-/**
- * Query-on-demand hook for a single section's full data.
- * Fetches from Rust/SQLite with LRU caching.
- * Converts GpsPoint format to RoutePoint format.
- */
-export function useSectionDetail(sectionId: string | null): UseSectionDetailResult {
-  const readSections = useEngineRead(['sections']);
-
-  const section = useMemo(() => {
-    if (!sectionId) return null;
-
-    const engine = readSections((open) => open);
-    if (!engine) return null;
-
-    try {
-      const native = engine.getSectionById(sectionId);
-      if (native) {
-        const converted = convertNativeSectionToApp(native);
-        return {
-          ...converted,
-          name: converted.name || generateSectionName(converted),
-        };
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }, [sectionId, readSections]);
-
-  return { section };
-}
-
-interface UseGroupDetailResult {
-  /** Full group data or null if not found */
-  group: RouteGroup | null;
-}
-
-/**
- * Query-on-demand hook for a single group's full data.
- * Fetches from Rust/SQLite with LRU caching.
- */
-export function useGroupDetail(groupId: string | null): UseGroupDetailResult {
-  const readGroups = useEngineRead(['groups']);
-
-  const group = useMemo(() => {
-    if (!groupId) return null;
-
-    const engine = readGroups((open) => open);
-    if (!engine) return null;
-
-    try {
-      return engine.getGroupById(groupId);
-    } catch {
-      return null;
-    }
   }, [groupId, readGroups]);
 
-  return { group };
-}
-
-interface UseSectionPolylineResult {
-  /** Section polyline as RoutePoints (lat/lng), or empty array if not found */
-  polyline: { lat: number; lng: number }[];
-}
-
-/**
- * Lazy-load a single section's polyline on-demand.
- * This is fast (Rust query with LRU caching) and avoids loading ALL polylines upfront.
- * Use this in list row components to fetch polylines only for visible items.
- */
-export function useSectionPolyline(sectionId: string | null): UseSectionPolylineResult {
-  const readSections = useEngineRead(['sections']);
-
-  const polyline = useMemo(() => {
-    if (!sectionId) return [];
-
-    const engine = readSections((open) => open);
-    if (!engine) return [];
-
-    try {
-      // Coordinate-encoded from Rust, like every other track that crosses.
-      return decodeCoords(engine.getSectionPolyline(sectionId)).map((p) => ({
-        lat: p.latitude,
-        lng: p.longitude,
-      }));
-    } catch {
-      return [];
-    }
-  }, [sectionId, readSections]);
-
-  return { polyline };
+  return { points, isLoading };
 }

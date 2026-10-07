@@ -1,15 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import {
-  colors,
-  darkColors,
-  spacing,
-  layout,
-  shadows,
-  typography,
-  colorWithOpacity,
-  ink,
-} from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -34,98 +25,17 @@ export const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.black, 0.3),
     borderRadius: layout.borderRadius,
   },
-  map: {
-    flex: 1,
-  },
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: layout.borderRadius,
-  },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  marker: {
-    width: 12,
-    height: 12,
-    borderRadius: layout.borderRadiusFull,
-    borderWidth: 1.5,
-    borderColor: colors.textOnDark,
-  },
-  startMarker: {
-    backgroundColor: colorWithOpacity(colors.success, 0.75),
-  },
-  endMarker: {
-    backgroundColor: colorWithOpacity(colors.error, 0.75),
-  },
-  nearbyMarker: {
-    width: 10,
-    height: 10,
-    borderRadius: layout.borderRadiusFull,
-    borderWidth: 1.5,
-    borderColor: colors.textOnDark,
-    opacity: 0.5,
-  },
-  nearbyStartMarker: {
-    backgroundColor: colorWithOpacity(colors.success, 0.6),
-  },
-  nearbyEndMarker: {
-    backgroundColor: colorWithOpacity(colors.error, 0.6),
-  },
-  nearbyPopup: {
-    position: 'absolute',
-    bottom: spacing.sm,
-    left: spacing.sm,
-    right: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-    padding: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...shadows.card,
-  },
-  nearbyPopupDark: {
-    backgroundColor: darkColors.surface,
-  },
-  nearbyPopupContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  nearbyPopupInfo: {
-    flex: 1,
-  },
-  nearbyPopupName: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.xxs,
-  },
-  nearbyPopupMeta: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  nearbyPopupViewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  nearbyPopupViewText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  nearbyPopupClose: {
-    padding: spacing.xs,
   },
   expandOverlay: {
     position: 'absolute',
     bottom: spacing.sm,
     right: spacing.sm,
     backgroundColor: colorWithOpacity(ink.black, 0.5),
-    borderRadius: spacing.xsPlus,
+    borderRadius: layout.borderRadiusSm,
     padding: spacing.xs,
   },
   controlsContainer: {

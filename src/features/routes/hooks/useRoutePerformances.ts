@@ -12,25 +12,19 @@ import { toActivityType } from '@/types';
 import type {
   RouteGroup as EngineRouteGroup,
   RoutePerformanceResult,
-  FfiActivityMetrics,
+  FfiRoutePerformance,
+  FfiAttemptHistograms,
+  FfiSectionTrendCurves,
 } from 'veloqrs';
 import { toDirectionStats, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { safeGetTime } from '@/shared/format/format';
-import { calculateSpeed } from '@/shared/math';
 import type { DirectionBestRecord } from '../lib/performanceTypes';
-
-/** Match info returned from the Rust engine (uses camelCase from serde) */
-interface RustMatchInfo {
-  activityId: string;
-  matchPercentage: number;
-  direction: string;
-}
 
 export interface RoutePerformancePoint {
   activityId: string;
   date: Date;
   name: string;
-  /** Speed in m/s (computed from engine metrics: distance / movingTime) */
+  /** Speed in m/s (the engine's own figure) */
   speed: number;
   /** Duration in seconds (elapsed_time from engine) */
   duration: number;
@@ -50,6 +44,10 @@ export interface RoutePerformancePoint {
   direction: MatchDirection;
   /** Match percentage (0-100), undefined if no match data */
   matchPercentage?: number | undefined;
+  /** The engine's record stamp: this attempt beats every other counted one in its direction */
+  isRecord: boolean;
+  /** Recorded distance lies outside the route's distance band */
+  outsideDistanceBand: boolean;
 }
 
 interface UseRoutePerformancesResult {
@@ -58,25 +56,33 @@ interface UseRoutePerformancesResult {
   /** Performance data points sorted by date */
   performances: RoutePerformancePoint[];
   /** Whether data is loading */
-  isLoading: boolean;
-  /** Best performance (fastest average speed) */
+  // Engine's forward best, or reverse best when no forward effort is available.
   best: RoutePerformancePoint | null;
   /** Best performance in forward/same direction */
   bestForwardRecord: DirectionBestRecord | null;
   /** Best performance in reverse direction */
   bestReverseRecord: DirectionBestRecord | null;
+  /** True when `bestForwardRecord` strictly beats every other counted forward attempt. */
+  bestForwardIsRecord: boolean;
+  /** True when `bestReverseRecord` strictly beats every other counted reverse attempt. */
+  bestReverseIsRecord: boolean;
+  currentDirectionBest: DirectionBestRecord | null;
   /** Summary stats for forward direction */
   forwardStats: DirectionStats | null;
   /** Summary stats for reverse direction */
   reverseStats: DirectionStats | null;
-  /** Current activity's rank (1 = fastest) */
+  // Rank one is reserved for a strict record.
   currentRank: number | null;
-  /** Attempts on the route carrying a moving time, the population the rank is over */
+  // Timed comparable attempts in the current direction.
   attemptCount: number;
   /** Share of those attempts slower than the current one, 0 to 100 */
   percentileRank: number | null;
-  /** Activity metrics inlined from route performances (avoids duplicate FFI call) */
-  activityMetrics: Map<string, FfiActivityMetrics>;
+  /** The engine's trend curve and band per direction and axis, for the scatter chart. */
+  trendCurves: FfiSectionTrendCurves;
+  /** The engine's attempt-time bins per direction, for the histogram plot. */
+  histograms: FfiAttemptHistograms;
+  /** What the engine threw, when a read failed. Empty performances with no error is a group with none. */
+  error?: unknown;
 }
 
 /** Groups and performances a caller already read as part of a screen bundle. */
@@ -86,13 +92,16 @@ export interface PreComputedRoutePerformances {
   result?: RoutePerformanceResult | undefined;
 }
 
+const NO_TREND_CURVES: FfiSectionTrendCurves = {};
+const NO_HISTOGRAMS: FfiAttemptHistograms = {};
+
 export function useRoutePerformances(
   activityId: string | undefined,
   routeGroupId?: string,
   sportType?: string,
   preComputed?: PreComputedRoutePerformances
 ): UseRoutePerformancesResult {
-  const { groups: queriedGroups } = useEngineGroups({
+  const { groups: queriedGroups, error: groupsError } = useEngineGroups({
     minActivities: 1,
     enabled: preComputed === undefined,
   });
@@ -119,7 +128,7 @@ export function useRoutePerformances(
     return {
       id: engineGroup.groupId,
       name: engineGroup.customName ?? '',
-      type: toActivityType(engineGroup.sportType),
+      type: toActivityType(undefined),
       activityIds: engineGroup.activityIds,
       activityCount: engineGroup.activityIds.length,
       firstDate: '',
@@ -145,11 +154,10 @@ export function useRoutePerformances(
   // the result inside it, which is stable, and not on the wrapper.
   const preComputedResult = preComputed?.result;
 
-  // Get route performance data from Rust engine (includes inlined metrics as of Issue C optimization)
-  // This provides match info, direction stats, current rank, AND activity metrics (no separate FFI call)
+  // Route performance data from the Rust engine: one row per attempt with its speed, direction
+  // and match percentage, plus direction stats and current rank.
   const rustData = useMemo((): {
-    matchInfoMap: Map<string, RustMatchInfo>;
-    activityMetrics: Map<string, FfiActivityMetrics>;
+    rows: readonly FfiRoutePerformance[];
     forwardStats: DirectionStats | null;
     reverseStats: DirectionStats | null;
     currentRank: number | null;
@@ -158,10 +166,15 @@ export function useRoutePerformances(
     bestActivityId: string | null;
     bestForward: DirectionBestRecord | null;
     bestReverse: DirectionBestRecord | null;
+    bestForwardIsRecord: boolean;
+    bestReverseIsRecord: boolean;
+    currentDirectionBest: DirectionBestRecord | null;
+    trendCurves: FfiSectionTrendCurves;
+    histograms: FfiAttemptHistograms;
+    error?: unknown;
   } => {
     const emptyResult = {
-      matchInfoMap: new Map<string, RustMatchInfo>(),
-      activityMetrics: new Map(),
+      rows: [] as readonly FfiRoutePerformance[],
       forwardStats: null,
       reverseStats: null,
       currentRank: null,
@@ -170,6 +183,11 @@ export function useRoutePerformances(
       bestActivityId: null,
       bestForward: null,
       bestReverse: null,
+      bestForwardIsRecord: false,
+      bestReverseIsRecord: false,
+      currentDirectionBest: null,
+      trendCurves: NO_TREND_CURVES,
+      histograms: NO_HISTOGRAMS,
     };
 
     if (!engineGroup) return emptyResult;
@@ -182,29 +200,8 @@ export function useRoutePerformances(
         if (!engine) return emptyResult;
         result = engine.getRoutePerformances(engineGroup.groupId, activityId || '', sportType);
       }
-      const performances = result.performances || [];
-
-      // Build lookup map by activity ID
-      const map = new Map<string, RustMatchInfo>();
-      for (const perf of performances) {
-        if (perf.matchPercentage != null) {
-          map.set(perf.activityId, {
-            activityId: perf.activityId,
-            matchPercentage: perf.matchPercentage,
-            direction: perf.direction ?? 'same',
-          });
-        }
-      }
-
-      // Build metrics map from inlined activity_metrics (Issue C optimization - eliminates duplicate FFI call)
-      const metricsMap = new Map();
-      for (const m of result.activityMetrics || []) {
-        metricsMap.set(m.activityId, m);
-      }
-
       return {
-        matchInfoMap: map,
-        activityMetrics: metricsMap,
+        rows: result.performances ?? [],
         forwardStats: toDirectionStats(result.forwardStats),
         reverseStats: toDirectionStats(result.reverseStats),
         currentRank: result.currentRank ?? null,
@@ -213,15 +210,19 @@ export function useRoutePerformances(
         bestActivityId: result.best?.activityId ?? null,
         bestForward: toDirectionBest(result.bestForward),
         bestReverse: toDirectionBest(result.bestReverse),
+        bestForwardIsRecord: result.bestForward?.isRecord ?? false,
+        bestReverseIsRecord: result.bestReverse?.isRecord ?? false,
+        currentDirectionBest: toDirectionBest(result.currentDirectionBest),
+        trendCurves: result.trendCurves ?? NO_TREND_CURVES,
+        histograms: result.histograms ?? NO_HISTOGRAMS,
       };
-    } catch {
-      return emptyResult;
+    } catch (error) {
+      return { ...emptyResult, error };
     }
   }, [engineGroup, activityId, sportType, preComputedResult]);
 
   const {
-    matchInfoMap,
-    activityMetrics,
+    rows,
     forwardStats: rustForwardStats,
     reverseStats: rustReverseStats,
     bestActivityId,
@@ -229,7 +230,7 @@ export function useRoutePerformances(
     bestReverse: rustBestReverse,
   } = rustData;
 
-  // Build performances from inlined metrics (Issue C: no separate FFI call) + match info from Rust
+  // The chart points are the engine's rows, dated and sorted.
   const { performances, best, bestForwardRecord, bestReverseRecord } = useMemo(() => {
     if (!engineGroup || engineGroup.activityIds.length === 0) {
       return {
@@ -240,40 +241,26 @@ export function useRoutePerformances(
       };
     }
 
-    if (activityMetrics.size === 0) {
-      return {
-        performances: [],
-        best: null,
-        bestForwardRecord: null,
-        bestReverseRecord: null,
-      };
-    }
-
-    // Build performance points from inlined metrics (already fetched in rustData)
-    // Filter out activities with invalid speed (would crash chart)
+    // The engine includes attempts with no speed; they cannot be plotted.
     const points: RoutePerformancePoint[] = [];
-    for (const m of activityMetrics.values()) {
-      const speed = calculateSpeed(m.distance, m.movingTime);
-      if (speed <= 0) continue;
-
-      const matchInfo = matchInfoMap.get(m.activityId);
-      const matchPercentage = matchInfo?.matchPercentage;
-      const direction = (matchInfo?.direction ?? 'same') as MatchDirection;
-
+    for (const p of rows) {
+      if (!(p.speed > 0)) continue;
       points.push({
-        activityId: m.activityId,
-        date: fromUnixSeconds(m.date) ?? new Date(),
-        name: m.name,
-        speed,
-        duration: m.movingTime,
-        movingTime: m.movingTime,
-        distance: m.distance || 0,
-        elevationGain: m.elevationGain || 0,
-        avgHr: m.avgHr ?? undefined,
-        avgPower: m.avgPower ?? undefined,
-        isCurrent: m.activityId === activityId,
-        direction,
-        matchPercentage,
+        activityId: p.activityId,
+        date: fromUnixSeconds(p.date) ?? new Date(),
+        name: p.name,
+        speed: p.speed,
+        duration: p.movingTime,
+        movingTime: p.movingTime,
+        distance: p.distance || 0,
+        elevationGain: p.elevationGain || 0,
+        avgHr: p.avgHr ?? undefined,
+        avgPower: p.avgPower ?? undefined,
+        isCurrent: p.activityId === activityId,
+        direction: (p.direction ?? 'same') as MatchDirection,
+        matchPercentage: p.matchPercentage ?? undefined,
+        isRecord: p.isRecord ?? false,
+        outsideDistanceBand: p.outsideDistanceBand ?? false,
       });
     }
 
@@ -291,15 +278,7 @@ export function useRoutePerformances(
       bestForwardRecord: rustBestForward,
       bestReverseRecord: rustBestReverse,
     };
-  }, [
-    engineGroup,
-    activityId,
-    matchInfoMap,
-    activityMetrics,
-    bestActivityId,
-    rustBestForward,
-    rustBestReverse,
-  ]);
+  }, [engineGroup, activityId, rows, bestActivityId, rustBestForward, rustBestReverse]);
 
   // avg_speed now comes pre-computed from Rust's DirectionStats - no TS
   // augmentation needed.
@@ -307,15 +286,19 @@ export function useRoutePerformances(
   return {
     routeGroup,
     performances,
-    isLoading: false,
     best,
     bestForwardRecord,
     bestReverseRecord,
+    bestForwardIsRecord: rustData.bestForwardIsRecord,
+    bestReverseIsRecord: rustData.bestReverseIsRecord,
+    currentDirectionBest: rustData.currentDirectionBest,
     forwardStats: rustForwardStats,
     reverseStats: rustReverseStats,
     currentRank: rustData.currentRank,
     attemptCount: rustData.attemptCount,
     percentileRank: rustData.percentileRank,
-    activityMetrics: rustData.activityMetrics,
+    trendCurves: rustData.trendCurves,
+    histograms: rustData.histograms,
+    error: groupsError ?? rustData.error,
   };
 }

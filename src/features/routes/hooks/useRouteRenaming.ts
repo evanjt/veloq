@@ -18,6 +18,7 @@ export function useRouteRenaming(
   const [editName, setEditName] = useState('');
   const [customName, setCustomName] = useState<string | null>(null);
   const nameInputRef = useRef<TextInput>(null);
+  const openedWithName = useRef<string | null>(null);
 
   const readNames = useCallback(
     () => preComputedNames ?? getEngine()?.getAllRouteNames() ?? {},
@@ -46,6 +47,7 @@ export function useRouteRenaming(
   // Handle starting to edit the route name
   const handleStartEditing = useCallback(() => {
     const currentName = customName || routeGroupBaseName || '';
+    openedWithName.current = currentName.trim();
     setEditName(currentName);
     setIsEditing(true);
     // Focus input after a short delay to ensure it's rendered
@@ -66,9 +68,15 @@ export function useRouteRenaming(
       return;
     }
 
+    // An unchanged field is not a rename. Writing it would turn a shown number
+    // into a typed name fixed in the current language.
+    if (trimmedName === openedWithName.current) {
+      return;
+    }
+
     // Uniqueness runs over the engine's name map, the same source the current
-    // name was seeded from. Every group gets a row on creation, so it is the
-    // whole set, custom and auto-generated alike.
+    // name was seeded from. It holds every group's shown name, typed names and
+    // numbered labels alike.
     const isDuplicate = Object.entries(readNames()).some(
       ([existingId, name]) => existingId !== id && name === trimmedName
     );

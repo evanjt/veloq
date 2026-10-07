@@ -1,58 +1,79 @@
 /**
  * Fallback screen for route/section detail: skeleton while the engine is
- * still initialising, EmptyState once it is ready and the item is missing.
+ * still initialising, the not-found text when the item is missing, and a failure
+ * message with Retry when the read failed or the engine is closed.
  */
 
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, StyleSheet } from 'react-native';
+import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { ChartSkeleton, EmptyState } from '@/shared/ui';
-import { colors, darkColors, opacity, spacing, layout } from '@/theme';
+import { ChartSkeleton, EmptyState, HERO_HEADER_HEIGHT } from '@/shared/ui';
+import { engineErrorKey } from '@/shared/native/engineError';
+import type { DetailReadStatus } from '../lib/detailReadResult';
+import { colors, darkColors, spacing } from '@/theme';
+import { overMapHeaderTint } from '@/shared/app/screenHeaders';
 
 interface DetailFallbackProps {
   isDark: boolean;
   insetTop: number;
-  onBack: () => void;
-  /** True while the engine has not initialised yet; false means not found. */
+  /** The read's outcome: only `missing` shows the not-found text. */
+  status: DetailReadStatus;
+  /** True while the engine is not open yet, so a closed read shows the skeleton. */
   loading: boolean;
   notFoundMessage: string;
+  /** A missing record the ledger knows: how it left, and where it went when that is live. */
+  retired?:
+    | { title: string; linkLabel?: string | undefined; onOpenLink?: (() => void) | undefined }
+    | undefined;
+  /** Re-runs the read after a failure. */
+  onRetry: () => void;
 }
 
 export function DetailFallback({
   isDark,
   insetTop,
-  onBack,
+  status,
   loading,
   notFoundMessage,
+  retired,
+  onRetry,
 }: DetailFallbackProps) {
   const { t } = useTranslation();
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
-      <View style={[styles.floatingHeader, { paddingTop: insetTop }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={onBack}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back')}
-        >
-          <MaterialCommunityIcons
-            name="arrow-left"
-            size={24}
-            color={isDark ? colors.textOnDark : colors.textPrimary}
-          />
-        </TouchableOpacity>
-      </View>
-      {loading ? (
+      <Stack.Screen options={{ headerTintColor: overMapHeaderTint({ overHero: false, isDark }) }} />
+      <View style={{ height: insetTop + HERO_HEADER_HEIGHT }} />
+      {status.kind === 'closed' && loading ? (
         <View style={styles.skeletonWrap}>
           <ChartSkeleton height={280} />
           <ChartSkeleton height={200} />
         </View>
       ) : (
         <View style={styles.emptyWrap}>
-          <EmptyState icon="map-marker-question-outline" title={notFoundMessage} />
+          {status.kind === 'missing' && retired ? (
+            <EmptyState
+              icon="map-marker-question-outline"
+              title={retired.title}
+              actionLabel={retired.linkLabel}
+              onAction={retired.onOpenLink}
+            />
+          ) : status.kind === 'missing' ? (
+            <EmptyState icon="map-marker-question-outline" title={notFoundMessage} />
+          ) : (
+            <EmptyState
+              icon="alert-circle-outline"
+              title={t(
+                engineErrorKey(
+                  status.kind === 'failed' ? status.error : undefined,
+                  'engine.failure.notOpen'
+                )
+              )}
+              actionLabel={t('common.retry')}
+              onAction={onRetry}
+            />
+          )}
         </View>
       )}
     </View>
@@ -66,20 +87,6 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: darkColors.background,
-  },
-  floatingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: opacity.overlay.scrim,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   skeletonWrap: {
     paddingHorizontal: spacing.md,

@@ -2,7 +2,8 @@
  * Route grouping preview: see what a grouping setting would do to the routes
  * you already have, before it is applied.
  *
- * The two knobs are pure local state and nothing is applied from here. Moving
+ * The two knobs are local state until Keep, which asks first and then writes
+ * both values and starts the regroup. Discard writes nothing. Moving
  * one regroups the whole library in the engine, off the calling thread, and
  * repaints the lines the routes screen already draws: the most-ridden group
  * opaque, a pair this setting would merge in the merge colour, a route whose
@@ -13,26 +14,31 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, InteractionManager, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Straight from the module, not the app barrel: the barrel reaches the
 // in-app purchase binding, which a screen that only needs the theme should not.
 import { useTheme } from '@/shared/app/useTheme';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { Button, ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
-import { GroupSort, SectionSort } from 'veloqrs';
+import { GroupSort, SectionSort, hasStarted } from 'veloqrs';
 import {
   groupingParamsOf,
   GroupingParamPanel,
   GroupingPreviewMap,
   paintPreview,
+  rescanRefusalKey,
   useRouteGroupingPreview,
+  useSectionRescan,
   type GroupingParams,
   type GroupingRoute,
 } from '@/features/routes';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 /**
  * How many of today's routes are drawn. They arrive sorted by ride count
@@ -48,25 +54,30 @@ interface RouteRow extends GroupingRoute {
 function readRoutes(): RouteRow[] {
   const engine = getEngine();
   if (!engine?.getRoutesScreenData) return [];
-  const data = engine.getRoutesScreenData({
-    groupLimit: ROUTES_DRAWN,
-    groupOffset: 0,
-    sectionLimit: 0,
-    sectionOffset: 0,
-    minGroupActivityCount: 2,
-    groupSort: GroupSort.Activities,
-    groupSearch: '',
-    sectionSort: SectionSort.Visits,
-    sectionSearch: '',
-    sectionFilters: {
-      hideCustom: false,
-      hideAuto: false,
-      hideDisabled: false,
-      hideUnaccepted: false,
-    },
-    userLat: Number.NaN,
-    userLng: Number.NaN,
-  });
+  let data: ReturnType<typeof engine.getRoutesScreenData>;
+  try {
+    data = engine.getRoutesScreenData({
+      groupLimit: ROUTES_DRAWN,
+      groupOffset: 0,
+      sectionLimit: 0,
+      sectionOffset: 0,
+      minGroupActivityCount: 2,
+      groupSort: GroupSort.Activities,
+      groupSearch: '',
+      sectionSort: SectionSort.Visits,
+      sectionSearch: '',
+      sectionFilters: {
+        hideCustom: false,
+        hideAuto: false,
+        hideDisabled: false,
+        hideUnaccepted: false,
+      },
+      userLat: Number.NaN,
+      userLng: Number.NaN,
+    });
+  } catch {
+    return [];
+  }
   return (data?.groups ?? []).map((g) => ({
     groupId: g.groupId,
     representativeId: g.representativeId,
@@ -75,7 +86,7 @@ function readRoutes(): RouteRow[] {
   }));
 }
 
-export default function RouteGroupingPreviewScreen() {
+function RouteGroupingPreviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -89,18 +100,14 @@ export default function RouteGroupingPreviewScreen() {
   const [params, setParams] = useState<GroupingParams>(() =>
     groupingParamsOf(client?.getMatchStrictness())
   );
+  const [applied] = useState<GroupingParams>(params);
+  const { rescan } = useSectionRescan();
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const { status, groups, refused, request } = useRouteGroupingPreview(client);
 
-  // One blocking read, once. It is the routes screen's own read and costs a
-  // few hundred milliseconds at library size, so it waits for the push
-  // transition rather than stalling the frame it arrives on. The lines do not
-  // change while the screen is open: what changes is which of them share a
-  // group.
-  useEffect(() => {
-    const handle = InteractionManager.runAfterInteractions(() => setRoutes(readRoutes()));
-    return () => handle.cancel();
-  }, []);
+  // The routes screen's blocking read waits for the push transition.
+  // The lines stay fixed while grouping changes on this screen.
+  useAfterNavigationTransition(useCallback(() => setRoutes(readRoutes()), []));
 
   // The knobs open on what is applied, so the first paint is the answer for
   // that rather than an empty map waiting for a drag.
@@ -116,6 +123,41 @@ export default function RouteGroupingPreviewScreen() {
   );
 
   const onChange = useCallback((next: GroupingParams) => setParams(next), []);
+
+  // Offered only once a knob differs from what the grouper runs at, so a Keep
+  // never rewrites the value already held.
+  const changed =
+    params.minMatchPercentage !== applied.minMatchPercentage ||
+    params.endpointThreshold !== applied.endpointThreshold;
+
+  const handleKeep = useCallback(() => {
+    Alert.alert(t('settings.groupingKeepTitle'), t('settings.groupingKeepWarning'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.confirm'),
+        onPress: () => {
+          if (!client) return;
+          client.setMatchStrictness(params.minMatchPercentage, params.endpointThreshold);
+          // Through the rescan hook so the athlete sees the regroup run. The
+          // setting is already written when the engine refuses, so stay and
+          // say why rather than report a change that has not run.
+          const outcome = rescan();
+          if (!hasStarted(outcome)) {
+            const reasonKey = rescanRefusalKey(outcome);
+            const saved = t('settings.previewKeepRefused');
+            Alert.alert(
+              t('settings.previewKeepRefusedTitle'),
+              reasonKey ? `${saved} ${t(reasonKey)}` : saved
+            );
+            return;
+          }
+          router.back();
+        },
+      },
+    ]);
+  }, [t, client, params, rescan]);
+
+  const handleDiscard = useCallback(() => router.back(), []);
 
   // A run that timed out has been cancelled and nothing is coming, so the row
   // has to say so: without its own branch the text stayed on "grouping" with
@@ -141,6 +183,7 @@ export default function RouteGroupingPreviewScreen() {
           <GroupingPreviewMap
             routes={routes}
             painted={diff?.routes ?? []}
+            mergedCount={diff?.mergedCount ?? 0}
             mapStyle={isDark ? 'dark' : 'light'}
           />
         </View>
@@ -165,6 +208,24 @@ export default function RouteGroupingPreviewScreen() {
         )}
 
         <GroupingParamPanel params={params} onChange={onChange} />
+
+        {changed && (
+          <View style={styles.actionRow}>
+            <Button
+              label={t('settings.previewDiscard')}
+              variant="secondary"
+              onPress={handleDiscard}
+              testID="grouping-discard-button"
+              style={styles.action}
+            />
+            <Button
+              label={t('settings.previewKeep')}
+              onPress={handleKeep}
+              testID="grouping-keep-button"
+              style={styles.action}
+            />
+          </View>
+        )}
       </View>
     </ScreenSafeAreaView>
   );
@@ -177,4 +238,8 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   statusText: { ...typography.bodyMedium },
   note: { ...typography.caption },
+  actionRow: { flexDirection: 'row', gap: spacing.sm },
+  action: { flex: 1 },
 });
+
+export default withScreenBoundary(RouteGroupingPreviewScreenContent, 'RouteGroupingPreview');

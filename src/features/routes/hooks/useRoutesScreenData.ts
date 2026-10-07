@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { InteractionManager } from 'react-native';
+import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { useFocusEffect } from 'expo-router';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from './useEngine';
@@ -32,8 +32,25 @@ interface PaginatedRoutesData extends RoutesScreenData {
   groupsDirty: boolean;
 }
 
+/** A failed read is its own state, so a screen never takes it for an empty library. */
+export type RoutesScreenStatus = 'loading' | 'error' | 'loaded';
+
+interface PageRead {
+  data: PaginatedRoutesData | null;
+  error: Error | null;
+}
+
+function asError(e: unknown): Error {
+  return e instanceof Error ? e : new Error(String(e));
+}
+
 interface UseRoutesScreenDataResult {
   data: PaginatedRoutesData | null;
+  status: RoutesScreenStatus;
+  /** The last read's failure, kept beside any earlier page so a screen can tell it apart from empty. */
+  error: Error | null;
+  /** Reads the first page again. */
+  retry: () => void;
   loadMoreGroups: () => void;
   loadMoreSections: () => void;
   hasMoreGroups: boolean;
@@ -54,7 +71,8 @@ const NO_FILTERS: SectionHiddenFilters = {
  * not touch. At offset zero there is nothing to append to, so the first page can
  * be read while rendering and the refs catch up in an effect.
  *
- * Measured on the S22 against its own library (1105 activities, 91 groups, 63
+ * Measured on the S22 with a standalone `aarch64-linux-android` engine binary
+ * (no app build) against its own library (1105 activities, 91 groups, 63
  * sections): 0.89 ms warm, 1.44 ms on the first call after load, against a
  * 100 ms mount budget. `benches/routes_screen_read_cost.rs` is the bench.
  */
@@ -66,13 +84,14 @@ function readFirstPage(query: {
   sectionSort: SectionSort;
   sectionSearch: string;
   sectionFilters: SectionHiddenFilters;
+  groupSportType?: string | undefined;
   sectionSportType?: string | undefined;
   userLat: number;
   userLng: number;
-}): PaginatedRoutesData | null {
+}): PageRead {
   try {
     const engine = getEngine();
-    if (!engine) return null;
+    if (!engine) return { data: null, error: null };
 
     const result = engine.getRoutesScreenData({
       groupLimit: query.groupLimit,
@@ -85,15 +104,18 @@ function readFirstPage(query: {
       sectionSort: query.sectionSort,
       sectionSearch: query.sectionSearch,
       sectionFilters: query.sectionFilters,
+      ...(query.groupSportType !== undefined && { groupSportType: query.groupSportType }),
       ...(query.sectionSportType !== undefined && { sectionSportType: query.sectionSportType }),
       userLat: query.userLat,
       userLng: query.userLng,
     });
-    if (!result) return null;
+    if (!result) return { data: null, error: null };
 
-    return {
+    const data = {
       activityCount: result.activityCount,
       groupCount: result.groupCount,
+      filteredGroupCount: result.filteredGroupCount,
+      filteredSectionCount: result.filteredSectionCount,
       sectionCount: result.sectionCount,
       oldestDate: result.oldestDate,
       newestDate: result.newestDate,
@@ -101,14 +123,16 @@ function readFirstPage(query: {
       acceptedAutoCount: result.acceptedAutoCount,
       customCount: result.customCount,
       retiredCount: result.retiredCount,
+      availableSportTypes: result.availableSportTypes,
       groups: result.groups,
       sections: result.sections,
       hasMoreGroups: result.hasMoreGroups,
       hasMoreSections: result.hasMoreSections,
       groupsDirty: result.groupsDirty ?? false,
     } as PaginatedRoutesData;
-  } catch {
-    return null;
+    return { data, error: null };
+  } catch (e) {
+    return { data: null, error: asError(e) };
   }
 }
 
@@ -120,6 +144,7 @@ export function useRoutesScreenData(opts?: {
   sectionSort?: SectionSort;
   sectionSearch?: string;
   sectionFilters?: SectionHiddenFilters;
+  groupSportType?: string | undefined;
   sectionSportType?: string | undefined;
   userLocation?: LatLngShort | null;
 }): UseRoutesScreenDataResult {
@@ -130,6 +155,7 @@ export function useRoutesScreenData(opts?: {
   const sectionSort = opts?.sectionSort ?? SectionSort.Visits;
   const sectionSearch = opts?.sectionSearch ?? '';
   const sectionFilters = opts?.sectionFilters ?? NO_FILTERS;
+  const groupSportType = opts?.groupSportType;
   const sectionSportType = opts?.sectionSportType;
   const userLat = opts?.userLocation?.lat ?? Number.NaN;
   const userLng = opts?.userLocation?.lng ?? Number.NaN;
@@ -158,6 +184,8 @@ export function useRoutesScreenData(opts?: {
       }
     }, [])
   );
+
+  const [retryTick, setRetryTick] = useState(0);
 
   // Track pagination offsets
   const [groupOffset, setGroupOffset] = useState(0);
@@ -198,6 +226,7 @@ export function useRoutesScreenData(opts?: {
       sectionFilters.hideAuto ? 1 : 0,
       sectionFilters.hideDisabled ? 1 : 0,
       sectionFilters.hideUnaccepted ? 1 : 0,
+      groupSportType ?? '',
       sectionSportType ?? '',
       Number.isFinite(userLat) ? userLat.toFixed(6) : 'nan',
       Number.isFinite(userLng) ? userLng.toFixed(6) : 'nan',
@@ -220,18 +249,19 @@ export function useRoutesScreenData(opts?: {
     sectionSort,
     sectionSearch,
     sectionFilters,
+    groupSportType,
     sectionSportType,
     userLat,
     userLng,
   ]);
 
   // Compute data from engine, accumulating the page onto the ones before it. Runs
-  // inside InteractionManager for every page after the first, which arrives while
+  // when the thread is idle for every page after the first, which arrives while
   // the list is on screen and scrolling.
-  const computeData = useCallback((): PaginatedRoutesData | null => {
+  const computeData = useCallback((): PageRead => {
     try {
       const engine = getEngine();
-      if (!engine) return lastResultRef.current;
+      if (!engine) return { data: lastResultRef.current, error: null };
 
       const result = engine.getRoutesScreenData({
         groupLimit,
@@ -244,11 +274,12 @@ export function useRoutesScreenData(opts?: {
         sectionSort,
         sectionSearch,
         sectionFilters,
+        ...(groupSportType !== undefined && { groupSportType }),
         ...(sectionSportType !== undefined && { sectionSportType }),
         userLat,
         userLng,
       });
-      if (!result) return lastResultRef.current;
+      if (!result) return { data: lastResultRef.current, error: null };
 
       // Accumulate groups
       if (groupOffset === 0) {
@@ -280,6 +311,8 @@ export function useRoutesScreenData(opts?: {
       const data = {
         activityCount: result.activityCount,
         groupCount: result.groupCount,
+        filteredGroupCount: result.filteredGroupCount,
+        filteredSectionCount: result.filteredSectionCount,
         sectionCount: result.sectionCount,
         oldestDate: result.oldestDate,
         newestDate: result.newestDate,
@@ -287,6 +320,7 @@ export function useRoutesScreenData(opts?: {
         acceptedAutoCount: result.acceptedAutoCount,
         customCount: result.customCount,
         retiredCount: result.retiredCount,
+        availableSportTypes: result.availableSportTypes,
         groups: [...groupsRef.current],
         sections: [...sectionsRef.current],
         hasMoreGroups: result.hasMoreGroups,
@@ -295,12 +329,12 @@ export function useRoutesScreenData(opts?: {
       } as PaginatedRoutesData;
 
       lastResultRef.current = data;
-      return data;
-    } catch {
+      return { data, error: null };
+    } catch (e) {
       // On error, stop pagination to prevent infinite loops
       hasMoreGroupsRef.current = false;
       hasMoreSectionsRef.current = false;
-      return lastResultRef.current;
+      return { data: lastResultRef.current, error: asError(e) };
     } finally {
       // Always clear loading guards so next page can be requested
       isLoadingGroupsRef.current = false;
@@ -316,6 +350,7 @@ export function useRoutesScreenData(opts?: {
     sectionSort,
     sectionSearch,
     sectionFilters,
+    groupSportType,
     sectionSportType,
     userLat,
     userLng,
@@ -325,7 +360,7 @@ export function useRoutesScreenData(opts?: {
   // than a skeleton the list used to fill from a summary read of its own. It
   // takes no accumulator with it: at offset zero the page IS the accumulation,
   // and a render that touches a ref is a render that can be discarded.
-  const [data, setData] = useState<PaginatedRoutesData | null>(() =>
+  const [read, setRead] = useState<PageRead>(() =>
     readFirstPage({
       groupLimit,
       sectionLimit,
@@ -334,6 +369,7 @@ export function useRoutesScreenData(opts?: {
       sectionSort,
       sectionSearch,
       sectionFilters,
+      groupSportType,
       sectionSportType,
       userLat,
       userLng,
@@ -342,6 +378,7 @@ export function useRoutesScreenData(opts?: {
 
   // The accumulators catch up to that page once, off the render path, so the
   // next page appends to it rather than replacing it.
+  const { data, error } = read;
   const seeded = useRef(false);
   useEffect(() => {
     if (seeded.current || !data) return;
@@ -354,17 +391,18 @@ export function useRoutesScreenData(opts?: {
   }, [data]);
 
   useEffect(() => {
-    let cancelled = false;
-    const handle = InteractionManager.runAfterInteractions(() => {
-      if (cancelled) return;
-      const next = computeData();
-      if (!cancelled) setData(next);
-    });
-    return () => {
-      cancelled = true;
-      handle.cancel();
-    };
-  }, [combinedTrigger, computeData]);
+    return runWhenIdle(() => setRead(computeData()));
+  }, [combinedTrigger, computeData, retryTick]);
+
+  const retry = useCallback(() => {
+    groupsRef.current = [];
+    sectionsRef.current = [];
+    isLoadingGroupsRef.current = false;
+    isLoadingSectionsRef.current = false;
+    setGroupOffset(0);
+    setSectionOffset(0);
+    setRetryTick((t) => t + 1);
+  }, []);
 
   const loadMoreGroups = useCallback(() => {
     if (hasMoreGroupsRef.current && !isLoadingGroupsRef.current) {
@@ -382,6 +420,9 @@ export function useRoutesScreenData(opts?: {
 
   return {
     data,
+    status: data ? 'loaded' : error ? 'error' : 'loading',
+    error,
+    retry,
     loadMoreGroups,
     loadMoreSections,
     hasMoreGroups: data?.hasMoreGroups ?? false,

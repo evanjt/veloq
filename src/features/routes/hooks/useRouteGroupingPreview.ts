@@ -11,17 +11,14 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  RouteGroupPreview,
-  RouteGroupingPreviewClient,
-} from '../../../../modules/veloqrs/src/delegates/routeGroupingPreview';
+import type { RouteGroupPreview, RouteGroupingPreviewClient } from 'veloqrs';
 import type { GroupingParams } from '../lib/groupingParams';
 import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 
 /**
  * How long a knob has to stand still before the library is regrouped.
  *
- * Measured on an S22 over a real 585-activity library: one run is 198 ms at
+ * Measured on an S22 with a standalone `aarch64-linux-android` engine binary (no app build) over a real 585-activity library: one run is 198 ms at
  * the strictest setting, 386 at the default and 442 at the loosest, so 400 is
  * about the length of a run rather than a guess above it. Lower and a drag
  * starts the next run before the last has finished, which buys nothing: the
@@ -48,7 +45,7 @@ export interface RouteGroupingPreviewState {
   status: RouteGroupingStatus;
   /** The payload for the settled knobs, or null until one arrives. */
   groups: RouteGroupPreview[] | null;
-  /** True when a start was refused: a run already going, or nothing to group. */
+  /** True when there is nothing to group. A run already going is waited out, not refused. */
   refused: boolean;
   /** Ask for a regroup at these values. Debounced. */
   request: (params: GroupingParams) => void;

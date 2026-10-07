@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -10,12 +10,6 @@ export const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: darkColors.background,
   },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
-  },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -23,7 +17,29 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  rescanRefusal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  rescanRefusalText: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  rescanRefusalTextDark: {
+    color: darkColors.textSecondary,
+  },
+  actionChips: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexShrink: 1,
+  },
   actionPill: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xsPlus,
@@ -35,40 +51,6 @@ export const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
-  },
-  actionCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: layout.borderRadiusFull,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  acceptRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-  },
-  acceptChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    borderWidth: 1,
-    gap: spacing.xs,
-  },
-  acceptText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
-  },
-  pinnedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  pinnedText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
   },
   scrollView: {
     flex: 1,
@@ -85,27 +67,10 @@ export const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
-  floatingHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colorWithOpacity(ink.black, 0.4),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   contentSection: {
     padding: layout.screenPadding,
     paddingTop: spacing.lg,
+    gap: spacing.md,
   },
   disabledBanner: {
     flexDirection: 'row',
@@ -116,7 +81,6 @@ export const styles = StyleSheet.create({
     borderColor: colors.warning + '30',
     borderRadius: layout.borderRadius,
     padding: spacing.md,
-    marginBottom: spacing.lg,
   },
   disabledBannerDark: {
     backgroundColor: colors.warning + '20',
@@ -138,7 +102,6 @@ export const styles = StyleSheet.create({
     borderColor: colors.info + '25',
     borderRadius: layout.borderRadius,
     padding: spacing.md,
-    marginBottom: spacing.lg,
   },
   mergeBannerDark: {
     backgroundColor: colors.info + '15',
@@ -152,15 +115,5 @@ export const styles = StyleSheet.create({
   },
   mergeBannerTextDark: {
     color: darkColors.infoText,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: typography.body.fontSize,
-    color: colors.textPrimary,
-    marginTop: spacing.md,
   },
 });

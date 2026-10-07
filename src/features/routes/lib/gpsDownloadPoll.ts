@@ -66,8 +66,8 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
  * one thing that separates them.
  */
 export function runProgressReader(
-  run: bigint,
-  readRun: (run: bigint) => DownloadProgressRead
+  run: number,
+  readRun: (run: number) => DownloadProgressRead
 ): () => DownloadProgressRead {
   return () => readRun(run);
 }

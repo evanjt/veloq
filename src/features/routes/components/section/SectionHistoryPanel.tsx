@@ -11,11 +11,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { formatDuration, getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { Button, Card } from '@/shared/ui';
 import type {
   SectionGeometryVersion,
   SectionHistoryEvent,
 } from '@/features/routes/hooks/useSectionLedger';
 import {
+  FIXED_LABEL_LEDGER_KINDS,
   ledgerDate,
   parseEventDetails,
   type EventDetails,
@@ -23,9 +25,20 @@ import {
 
 export const MAX_CHIPS = 6;
 
+interface SectionLink {
+  id: string;
+  name: string | null;
+  available: boolean;
+}
+
+interface LinkedHistoryEvent extends SectionHistoryEvent {
+  splitFrom?: SectionLink | null;
+  splitInto?: SectionLink[];
+}
+
 export interface SectionHistoryPanelProps {
   isDark: boolean;
-  history: SectionHistoryEvent[];
+  history: LinkedHistoryEvent[];
   versions: SectionGeometryVersion[];
   pinnedVersion: number | null;
   shownVersion: number | null;
@@ -34,6 +47,43 @@ export interface SectionHistoryPanelProps {
   onUnpin: () => void;
   /** Activity display names by id. Ids absent from it draw as themselves. */
   activityNames?: Record<string, string>;
+  /** The line to show when the ledger could not be read, in place of the empty one. */
+  failureKey?: string | null;
+}
+
+function SplitTarget({
+  link,
+  isDark,
+  direction,
+}: {
+  link: SectionLink;
+  isDark: boolean;
+  direction: 'from' | 'into';
+}) {
+  const { t } = useTranslation();
+  const name = link.name?.trim() || link.id;
+  const testID = `section-history-split-${direction}-${link.id}`;
+  if (!link.available) {
+    return (
+      <View testID={testID} style={[styles.chip, styles.splitTarget, isDark && styles.chipDark]}>
+        <Text style={[styles.chipText, isDark && styles.textDark]}>
+          {link.name
+            ? `${link.name} · ${t('sectionHistory.unavailable')}`
+            : t('sectionHistory.unavailable')}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Button
+      testID={testID}
+      label={name}
+      variant="ghost"
+      size="sm"
+      style={[styles.chip, styles.splitTarget, isDark && styles.chipDark]}
+      onPress={() => router.push(`/section/${link.id}`)}
+    />
+  );
 }
 
 /**
@@ -95,35 +145,37 @@ export function SectionHistoryPanel({
   onRevert,
   onUnpin,
   activityNames,
+  failureKey = null,
 }: SectionHistoryPanelProps) {
   const { t } = useTranslation();
   const locale = getIntlLocale();
   const newest = useMemo(() => Math.max(0, ...versions.map((v) => v.version)), [versions]);
 
-  const kindLine = (e: SectionHistoryEvent, d: EventDetails): string => {
+  // A record is held within one sport, so a line about one names it.
+  const inSport = (sport: string | undefined, line: string): string =>
+    sport ? `${t(`activityTypes.${sport}` as never, { defaultValue: sport })} · ${line}` : line;
+
+  const kindLine = (e: LinkedHistoryEvent, d: EventDetails): string => {
     switch (e.kind) {
       case 'split':
         return t('sectionHistory.kind_split', { count: d.siblings });
       case 'reverted':
         return t('sectionHistory.kind_reverted', { version: d.version ?? e.geometryVersion ?? '' });
-      case 'formed':
-      case 'restored':
-      case 'recut':
-      case 'dissolved':
-      case 'merged':
-      case 'superseded':
-      case 'pr_rebased':
-      case 'baseline':
-      case 'reference_reanchored':
-      case 'algorithm_changed':
-        return t(`sectionHistory.kind_${e.kind}` as never);
+      case 'reference_anchored':
+        return t(
+          d.moved === false
+            ? 'sectionHistory.kind_reference_anchored_in_place'
+            : 'sectionHistory.kind_reference_anchored'
+        );
       default:
-        return e.kind;
+        return FIXED_LABEL_LEDGER_KINDS.has(e.kind)
+          ? t(`sectionHistory.kind_${e.kind}` as never)
+          : e.kind;
     }
   };
 
   return (
-    <View style={[styles.card, isDark && styles.cardDark]} testID="section-history-panel">
+    <Card variant="flat" testID="section-history-panel">
       <View style={styles.header}>
         <MaterialCommunityIcons
           name="history"
@@ -139,7 +191,9 @@ export function SectionHistoryPanel({
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="pin-off" size={12} color={colors.primary} />
-            <Text style={styles.pillText}>{t('sectionHistory.unpin')}</Text>
+            <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
+              {t('sectionHistory.unpin')}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -170,7 +224,7 @@ export function SectionHistoryPanel({
                   onPress={() => onShowVersion(isShown ? null : v.version)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.pillText}>
+                  <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
                     {isShown ? t('sectionHistory.hideOnMap') : t('sectionHistory.showOnMap')}
                   </Text>
                 </TouchableOpacity>
@@ -182,7 +236,9 @@ export function SectionHistoryPanel({
                     activeOpacity={0.7}
                   >
                     <MaterialCommunityIcons name="undo-variant" size={12} color={colors.primary} />
-                    <Text style={styles.pillText}>{t('sectionHistory.revert')}</Text>
+                    <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
+                      {t('sectionHistory.revert')}
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -191,7 +247,11 @@ export function SectionHistoryPanel({
         </View>
       )}
 
-      {history.length === 0 ? (
+      {failureKey ? (
+        <Text testID="section-history-failed" style={[styles.empty, isDark && styles.textDark]}>
+          {t(failureKey as never)}
+        </Text>
+      ) : history.length === 0 ? (
         <Text style={[styles.empty, isDark && styles.textDark]}>{t('sectionHistory.empty')}</Text>
       ) : (
         history.map((e) => {
@@ -206,19 +266,46 @@ export function SectionHistoryPanel({
                 })}
               </Text>
               <Text style={[styles.kind, isDark && styles.textDark]}>{kindLine(e, d)}</Text>
+              {e.kind === 'formed' && e.splitFrom && (
+                <View style={styles.block}>
+                  <Text style={[styles.label, isDark && styles.textDark]}>
+                    {t('sectionHistory.splitFrom')}
+                  </Text>
+                  <SplitTarget link={e.splitFrom} isDark={isDark} direction="from" />
+                </View>
+              )}
+              {e.kind === 'split' && e.splitInto && e.splitInto.length > 0 && (
+                <View style={styles.block}>
+                  <Text style={[styles.label, isDark && styles.textDark]}>
+                    {t('sectionHistory.splitInto')}
+                  </Text>
+                  <View style={styles.chips}>
+                    {e.splitInto.map((link) => (
+                      <SplitTarget key={link.id} link={link} isDark={isDark} direction="into" />
+                    ))}
+                  </View>
+                </View>
+              )}
               {e.kind === 'pr_rebased' && d.prFrom != null && d.prTo != null && (
                 <Text style={[styles.meta, isDark && styles.textDark]}>
-                  {t('sectionHistory.prMoved', {
-                    from: formatDuration(d.prFrom),
-                    to: formatDuration(d.prTo),
-                  })}
+                  {inSport(
+                    d.prSport,
+                    t('sectionHistory.prMoved', {
+                      from: formatDuration(d.prFrom),
+                      to: formatDuration(d.prTo),
+                    })
+                  )}
                 </Text>
               )}
-              {e.kind !== 'pr_rebased' && d.prTime != null && (
-                <Text style={[styles.meta, isDark && styles.textDark]}>
-                  {t('sectionHistory.prEra', { time: formatDuration(d.prTime) })}
-                </Text>
-              )}
+              {e.kind !== 'pr_rebased' &&
+                d.prs.map((record) => (
+                  <Text key={record.sport ?? ''} style={[styles.meta, isDark && styles.textDark]}>
+                    {inSport(
+                      record.sport,
+                      t('sectionHistory.prEra', { time: formatDuration(record.time) })
+                    )}
+                  </Text>
+                ))}
               {d.around.length > 0 && (
                 <>
                   <Text style={[styles.label, isDark && styles.textDark]}>
@@ -249,21 +336,11 @@ export function SectionHistoryPanel({
           );
         })
       )}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginHorizontal: layout.screenPadding,
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: layout.borderRadius,
-    backgroundColor: colors.surface,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -309,7 +386,7 @@ const styles = StyleSheet.create({
   },
   pillText: {
     ...typography.caption,
-    color: colors.primary,
+    color: colors.linkTeal,
   },
   event: {
     paddingVertical: spacing.sm,
@@ -346,6 +423,11 @@ const styles = StyleSheet.create({
   },
   chipDark: {
     backgroundColor: darkColors.surfaceElevated,
+  },
+  splitTarget: {
+    minHeight: layout.minTapTarget,
+    maxWidth: '100%',
+    justifyContent: 'center',
   },
   chipText: {
     ...typography.caption,

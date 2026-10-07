@@ -11,13 +11,13 @@
  * the shape the decision asked for: an in-app line in front of the athlete.
  *
  * A dismissal belongs to the set of activities it was shown for, and it is
- * persisted: the same set failing again after a relaunch stays closed, a
- * different set is news. Held in memory it came back on every launch for one
+ * persisted: the same set, or any part of it, failing again after a relaunch
+ * stays closed, and only an id outside it is news. Held in memory it came back on every launch for one
  * walk whose track could never download.
  */
 
 import { create } from 'zustand';
-import { getSetting, setSetting } from '@/shared/storage';
+import { getSetting, removeSetting, setSetting } from '@/shared/storage';
 
 /** Where the dismissed set is kept, as its key. */
 export const DISMISSED_KEY = 'veloq-track-fetch-dismissed';
@@ -27,19 +27,16 @@ export interface TrackFetchRun {
   failedIds: string[];
 }
 
-/**
- * How many tracks a finished run leaves missing. Zero is the ordinary answer
- * and clears a notice a previous run put up, because the refresh it asked for
- * has now happened.
- */
-export function tracksStillMissing(run: TrackFetchRun | null): number {
-  if (!run) return 0;
-  return run.failedIds.length;
-}
-
 /** One key per set of activities, whatever order the run listed them in. */
 export function failureKey(failedIds: readonly string[]): string {
   return [...failedIds].sort().join(',');
+}
+
+/** Whether every failing id was in the set the athlete closed, so only a new id is news. */
+export function isDismissed(failedIds: readonly string[], dismissedKey: string | null): boolean {
+  if (failedIds.length === 0 || dismissedKey === null) return false;
+  const closed = new Set(dismissedKey.split(','));
+  return failedIds.every((id) => closed.has(id));
 }
 
 interface TrackFetchNoticeState {
@@ -66,7 +63,7 @@ export const useTrackFetchNotice = create<TrackFetchNoticeState>((set, get) => (
     set({
       failedIds: ids,
       failedCount: ids.length,
-      dismissed: ids.length > 0 && failureKey(ids) === get().dismissedKey,
+      dismissed: isDismissed(ids, get().dismissedKey),
     });
   },
   dismiss: () => {
@@ -96,6 +93,15 @@ export async function loadTrackFetchNotice(): Promise<void> {
   const { failedIds } = useTrackFetchNotice.getState();
   useTrackFetchNotice.setState({
     dismissedKey: key,
-    dismissed: failedIds.length > 0 && key !== null && failureKey(failedIds) === key,
+    dismissed: isDismissed(failedIds, key),
   });
+}
+
+/**
+ * Forget the dismissed set, which names the athlete's activities, so the wipe
+ * leaves no dismissal behind for the next library to inherit.
+ */
+export async function forgetTrackFetchDismissal(): Promise<void> {
+  useTrackFetchNotice.setState({ dismissedKey: null, dismissed: false });
+  await removeSetting(DISMISSED_KEY).catch(() => {});
 }

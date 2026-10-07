@@ -3,7 +3,7 @@ import type { RouteGroup as EngineRouteGroup } from 'veloqrs';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { DebugInfoPanel } from './DebugInfoPanel';
 import { DebugWarningBanner } from './DebugWarningBanner';
-import type { RouteStats } from '../lib/computeRouteStats';
+import type { RouteHeadline } from '../lib/routeHeadline';
 import type { RoutePerformancePoint } from '../hooks/useRoutePerformances';
 
 interface FfiMetric {
@@ -13,7 +13,7 @@ interface FfiMetric {
 
 interface RouteDetailDebugPanelProps {
   engineGroup: EngineRouteGroup;
-  routeStats: RouteStats;
+  routeStats: RouteHeadline;
   bestPerformance: RoutePerformancePoint | null;
   pageMetrics: FfiMetric[];
   isDark: boolean;
@@ -72,10 +72,9 @@ export function RouteDetailDebugPanel({
                 ? engineGroup.groupId.slice(0, 20) + '...'
                 : engineGroup.groupId,
           },
-          { label: 'Type', value: engineGroup.sportType || '-' },
           { label: 'Activities', value: String(actCount) },
           {
-            label: 'Avg Distance',
+            label: 'Distance',
             value: routeStats.distance > 0 ? formatDistance(routeStats.distance, isMetric) : '-',
           },
           {

@@ -1,16 +1,21 @@
 import { View } from 'react-native';
 
+import type { FfiAttemptHistograms, FfiSectionTrendCurves } from 'veloqrs';
 import type { ActivityType, PerformanceDataPoint, RoutePoint } from '@/types';
-import { ScatterLegend, SectionScatterChart } from './section';
+import { PerformanceChartPanel } from './section';
 import type { SectionScatterChartProps } from './section';
 import { styles } from './RouteDetailScreen.styles';
 
 interface RouteDetailChartProps {
   chartData: (PerformanceDataPoint & { x: number })[];
+  trendCurves: FfiSectionTrendCurves;
+  histograms?: FfiAttemptHistograms | undefined;
   activityType: ActivityType;
   isDark: boolean;
   bestForwardRecord: SectionScatterChartProps['bestForwardRecord'];
   bestReverseRecord: SectionScatterChartProps['bestReverseRecord'];
+  bestForwardIsRecord: boolean;
+  bestReverseIsRecord: boolean;
   forwardStats: SectionScatterChartProps['forwardStats'];
   reverseStats: SectionScatterChartProps['reverseStats'];
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
@@ -26,10 +31,14 @@ interface RouteDetailChartProps {
 
 export function RouteDetailChart({
   chartData,
+  trendCurves,
+  histograms,
   activityType,
   isDark,
   bestForwardRecord,
   bestReverseRecord,
+  bestForwardIsRecord,
+  bestReverseIsRecord,
   forwardStats,
   reverseStats,
   onActivitySelect,
@@ -44,13 +53,17 @@ export function RouteDetailChart({
 }: RouteDetailChartProps) {
   return (
     <View testID="route-detail-chart" style={styles.chartSection}>
-      <SectionScatterChart
+      <PerformanceChartPanel
+        histograms={histograms}
         chartData={chartData}
+        trendCurves={trendCurves}
         activityType={activityType}
         isDark={isDark}
         useTimeAxis
         bestForwardRecord={bestForwardRecord}
         bestReverseRecord={bestReverseRecord}
+        bestForwardIsRecord={bestForwardIsRecord}
+        bestReverseIsRecord={bestReverseIsRecord}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
         onActivitySelect={onActivitySelect}
@@ -62,11 +75,6 @@ export function RouteDetailChart({
         hasExcluded={hasExcluded}
         onToggleShowExcluded={onToggleShowExcluded}
         highlightedActivityId={highlightedActivityId}
-      />
-      <ScatterLegend
-        isDark={isDark}
-        showReverse={!!bestReverseRecord}
-        showThisActivity={!!highlightedActivityId}
       />
     </View>
   );

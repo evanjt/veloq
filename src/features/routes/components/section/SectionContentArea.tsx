@@ -4,39 +4,63 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme';
-import { SectionPerformanceSection } from './SectionPerformanceSection';
+import { SectionPerformanceSection, type SectionStreamsState } from './SectionPerformanceSection';
 import { SectionStatsCards } from './SectionStatsCards';
 import { SectionInfoCard } from './SectionInfoCard';
 import { SectionEfficiencyCard } from './SectionEfficiencyCard';
+import { SectionCorrelationCard } from './SectionCorrelationCard';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import type { CalendarSummary } from './SectionStatsCards';
-import type { EfficiencyTrend, MergeCandidate } from 'veloqrs';
+import type {
+  EfficiencyTrend,
+  FfiSectionCorrelation,
+  FfiAttemptHistograms,
+  FfiSectionLapCurves,
+  FfiSectionTrendCurves,
+  MergeCandidate,
+} from 'veloqrs';
 import type { DirectionStats, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
+import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import { styles } from './SectionDetail.styles';
 
 export interface SectionContentAreaProps {
   isDark: boolean;
   /** The screen bundle's efficiency trend, passed to the card. */
   efficiencyTrend?: EfficiencyTrend | null | undefined;
+  /** The engine's wellness correlations for the range and sport on screen. */
+  correlations: FfiSectionCorrelation[];
+  /** The pairs the engine required before a correlation carries a figure. */
+  correlationFloor: number;
   section: FrequentSection;
   isSectionDisabled: boolean;
   mergeCandidates: MergeCandidate[];
   combinedChartData: (PerformanceDataPoint & { x: number })[];
+  /** The engine's trend curves for the range and sport on screen. */
+  trendCurves: FfiSectionTrendCurves;
+  /** The engine's attempt-time bins for the range and sport on screen. */
+  histograms?: FfiAttemptHistograms | undefined;
+  /** The engine's lap delta curves for the range and sport on screen. */
+  curves?: FfiSectionLapCurves | undefined;
+  /** Called with the attempt the delta plot emphasises while it is shown, else null. */
+  onDeltaLineChange?: ((line: SectionDeltaLine | null) => void) | undefined;
   forwardStats: DirectionStats | null;
   reverseStats: DirectionStats | null;
   bestForwardRecord: SectionPerformanceRecord | null;
   bestReverseRecord: SectionPerformanceRecord | null;
+  bestForwardIsRecord: boolean;
+  bestReverseIsRecord: boolean;
   calendarSummary: CalendarSummary | null;
-  /** The sport whose efforts are on screen. Units follow it, not the
-   *  section's own label, which is only the dominant sport of the ground. */
+  /** The sport whose efforts are on screen, the one the engine answered for.
+   *  Units follow it: a section has no sport of its own. */
   effectiveSportType?: string | undefined;
   isRunning: boolean;
   activityColor: string;
   navActivityId?: string | undefined;
   effectiveReferenceId?: string | undefined;
   showExcluded: boolean;
-  excludedActivityIds: Set<string>;
+  /** The range and sport hold excluded attempts the eye toggle can show. */
+  hasExcluded: boolean;
   sectionTimeRange: SectionTimeRange;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
   onExcludeActivity: (activityId: string) => void;
@@ -46,19 +70,31 @@ export interface SectionContentAreaProps {
   onTimeRangeChange: (range: SectionTimeRange) => void;
   onToggleDisable: () => void;
   onMergePress: () => void;
+  /** The state of the time streams the lap times wait on. */
+  streams?: SectionStreamsState | undefined;
+  /** Rows that open the supporting detail pages. */
+  children?: React.ReactNode;
 }
 
 export function SectionContentArea({
   isDark,
   efficiencyTrend,
+  correlations,
+  correlationFloor,
   section,
   isSectionDisabled,
   mergeCandidates,
   combinedChartData,
+  trendCurves,
+  histograms,
+  curves,
+  onDeltaLineChange,
   forwardStats,
   reverseStats,
   bestForwardRecord,
   bestReverseRecord,
+  bestForwardIsRecord,
+  bestReverseIsRecord,
   calendarSummary,
   effectiveSportType,
   isRunning,
@@ -66,7 +102,7 @@ export function SectionContentArea({
   navActivityId,
   effectiveReferenceId,
   showExcluded,
-  excludedActivityIds,
+  hasExcluded,
   sectionTimeRange,
   onActivitySelect,
   onExcludeActivity,
@@ -76,6 +112,8 @@ export function SectionContentArea({
   onTimeRangeChange,
   onToggleDisable,
   onMergePress,
+  streams,
+  children,
 }: SectionContentAreaProps) {
   const { t } = useTranslation();
 
@@ -128,23 +166,30 @@ export function SectionContentArea({
       {/* Performance chart with eye toggle */}
       <SectionPerformanceSection
         isDark={isDark}
-        sportType={effectiveSportType ?? section.sportType}
+        sportType={effectiveSportType}
         chartData={combinedChartData}
+        trendCurves={trendCurves}
+        histograms={histograms}
+        curves={curves}
+        onDeltaLineChange={onDeltaLineChange}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
         bestForwardRecord={bestForwardRecord}
         bestReverseRecord={bestReverseRecord}
+        bestForwardIsRecord={bestForwardIsRecord}
+        bestReverseIsRecord={bestReverseIsRecord}
         onActivitySelect={onActivitySelect}
         onExcludeActivity={onExcludeActivity}
         onIncludeActivity={onIncludeActivity}
         onSetAsReference={onSetAsReference}
         referenceActivityId={effectiveReferenceId}
         showExcluded={showExcluded}
-        hasExcluded={excludedActivityIds.size > 0}
+        hasExcluded={hasExcluded}
         onToggleShowExcluded={onToggleShowExcluded}
         highlightedActivityId={navActivityId}
         sectionTimeRange={sectionTimeRange}
         onTimeRangeChange={onTimeRangeChange}
+        streams={streams}
       />
 
       {/* Summary card */}
@@ -154,15 +199,24 @@ export function SectionContentArea({
         bestReverseRecord={bestReverseRecord}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
-        sportType={effectiveSportType ?? section.sportType}
+        sportType={effectiveSportType}
         isDark={isDark}
+        activityColor={activityColor}
+        pending={streams?.status === 'loading'}
       />
 
       {/* Aerobic efficiency across matched efforts, when the engine has it */}
       <SectionEfficiencyCard
         sectionId={section.id}
+        sportType={effectiveSportType}
         isDark={isDark}
         bundledTrend={efficiencyTrend}
+      />
+
+      <SectionCorrelationCard
+        correlations={correlations}
+        floor={correlationFloor}
+        isDark={isDark}
       />
 
       {/* Calendar performance history */}
@@ -176,6 +230,8 @@ export function SectionContentArea({
           referenceActivityId={effectiveReferenceId}
         />
       )}
+
+      {children}
     </View>
   );
 }

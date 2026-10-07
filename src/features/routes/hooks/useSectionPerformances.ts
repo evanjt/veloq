@@ -3,6 +3,8 @@ import { engine, type SectionPerformanceResult } from 'veloqrs';
 import type { FrequentSection, DirectionStats } from '@/types';
 import { toDirectionStats, castDirection, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { awaitTimeStreams } from '@/features/routes/lib/awaitTimeStreams';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import type { DirectionBests } from '@/features/insights';
 
 /** How long to wait for Rust to finish a time-stream batch before rendering
  *  whatever landed. Missing streams only cost precision, not correctness. */
@@ -28,6 +30,10 @@ export interface SectionLap {
   endIndex: number;
   /** Mean heart rate over the lap, when the activity carried a stream. */
   avgHr: number | null;
+  /** Mean watts over the lap, when the activity carried a power stream. */
+  avgPower: number | null;
+  /** The athlete excluded this lap. Only the lap list's records carry one. */
+  excluded: boolean;
 }
 
 /**
@@ -46,6 +52,8 @@ export interface SectionPerformanceRecord {
   bestTime: number;
   /** Best (highest) pace across all laps (m/s) */
   bestPace: number;
+  bestForwardTime: number | null;
+  bestReverseTime: number | null;
   /** Average time across all laps */
   avgTime: number;
   /** Average pace across all laps (m/s) */
@@ -65,12 +73,16 @@ interface UseSectionPerformancesResult {
   isFetchingFromApi: boolean;
   /** Error message if loading failed */
   error: string | null;
-  /** Best overall record (fastest time) */
-  bestRecord: SectionPerformanceRecord | null;
   /** Best record in forward/same direction */
   bestForwardRecord: SectionPerformanceRecord | null;
   /** Best record in reverse direction */
   bestReverseRecord: SectionPerformanceRecord | null;
+  /** Whether the forward best strictly beats another forward outing */
+  bestForwardIsPr: boolean;
+  /** Whether the reverse best strictly beats another reverse outing */
+  bestReverseIsPr: boolean;
+  /** Both directions' bests with the engine's PR verdict on each */
+  bests: DirectionBests;
   /** Summary stats for forward direction */
   forwardStats: DirectionStats | null;
   /** Summary stats for reverse direction */
@@ -82,27 +94,29 @@ interface UseSectionPerformancesResult {
 /** Performance records in the shape the section screens render. */
 export interface SectionPerformanceView {
   records: SectionPerformanceRecord[];
-  bestRecord: SectionPerformanceRecord | null;
   bestForwardRecord: SectionPerformanceRecord | null;
   bestReverseRecord: SectionPerformanceRecord | null;
+  bestForwardIsPr: boolean;
+  bestReverseIsPr: boolean;
   forwardStats: DirectionStats | null;
   reverseStats: DirectionStats | null;
 }
 
 export const EMPTY_PERFORMANCE_VIEW: SectionPerformanceView = {
   records: [],
-  bestRecord: null,
   bestForwardRecord: null,
   bestReverseRecord: null,
+  bestForwardIsPr: false,
+  bestReverseIsPr: false,
   forwardStats: null,
   reverseStats: null,
 };
 
-/** Convert FFI records to the render shape (Date conversion, direction cast). */
-export function toPerformanceView(result: SectionPerformanceResult): SectionPerformanceView {
-  const toActivityRecord = (
-    r: SectionPerformanceResult['records'][0]
-  ): SectionPerformanceRecord => ({
+/** One FFI record in the render shape (Date conversion, direction cast). */
+export function toPerformanceRecord(
+  r: SectionPerformanceResult['records'][0]
+): SectionPerformanceRecord {
+  return {
     activityId: r.activityId,
     activityName: r.activityName,
     activityDate: fromUnixSeconds(r.activityDate) ?? new Date(),
@@ -116,21 +130,33 @@ export function toPerformanceView(result: SectionPerformanceResult): SectionPerf
       startIndex: l.startIndex,
       endIndex: l.endIndex,
       avgHr: l.avgHr ?? null,
+      avgPower: l.avgPower ?? null,
+      excluded: l.excluded,
     })),
     lapCount: r.lapCount,
     bestTime: r.bestTime,
     bestPace: r.bestPace,
+    bestForwardTime: r.bestForwardTime ?? null,
+    bestReverseTime: r.bestReverseTime ?? null,
     avgTime: r.avgTime,
     avgPace: r.avgPace,
     direction: castDirection(r.direction),
     sectionDistance: r.sectionDistance,
-  });
+  };
+}
 
+/** Convert FFI records to the render shape (Date conversion, direction cast). */
+export function toPerformanceView(result: SectionPerformanceResult): SectionPerformanceView {
   return {
-    records: result.records.map(toActivityRecord),
-    bestRecord: result.bestRecord ? toActivityRecord(result.bestRecord) : null,
-    bestForwardRecord: result.bestForwardRecord ? toActivityRecord(result.bestForwardRecord) : null,
-    bestReverseRecord: result.bestReverseRecord ? toActivityRecord(result.bestReverseRecord) : null,
+    records: result.records.map(toPerformanceRecord),
+    bestForwardRecord: result.bestForwardRecord
+      ? toPerformanceRecord(result.bestForwardRecord)
+      : null,
+    bestReverseRecord: result.bestReverseRecord
+      ? toPerformanceRecord(result.bestReverseRecord)
+      : null,
+    bestForwardIsPr: result.bestForwardIsPr,
+    bestReverseIsPr: result.bestReverseIsPr,
     forwardStats: toDirectionStats(result.forwardStats),
     reverseStats: toDirectionStats(result.reverseStats),
   };
@@ -217,7 +243,7 @@ export function useSectionTimeStreamSync(
     // An empty list settles inside, so there is one exit and one cleanup.
     fetchMissingStreams(run.signal);
     return () => run.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The fetch key retries the current activity set.
   }, [allActivityIds, fetchKey]);
 
   const refetch = useCallback(() => {
@@ -256,30 +282,54 @@ export function useSectionPerformances(
     refetch,
   } = useSectionTimeStreamSync(allActivityIds);
 
+  // Detection that adds a traversal to this section moves none of the other
+  // keys, so the records are read again when the engine announces it.
+  const readSections = useEngineRead(['sections', 'detectionApplied']);
+
   // Get performance records from Rust engine
   // Rust auto-loads time streams from SQLite if not in memory
-  const { records, bestRecord, bestForwardRecord, bestReverseRecord, forwardStats, reverseStats } =
-    useMemo(() => {
-      if (!section || !fetchComplete) {
-        return EMPTY_PERFORMANCE_VIEW;
-      }
-      try {
-        // Get typed performance result directly from Rust engine (no JSON parsing)
-        return toPerformanceView(engine.getSectionPerformances(section.id, sportType));
-      } catch {
-        // Engine may not have data yet - return empty
-        return EMPTY_PERFORMANCE_VIEW;
-      }
-    }, [section, fetchComplete, sportType]);
+  const {
+    records,
+    bestForwardRecord,
+    bestReverseRecord,
+    bestForwardIsPr,
+    bestReverseIsPr,
+    forwardStats,
+    reverseStats,
+  } = useMemo(() => {
+    if (!section || !fetchComplete) {
+      return EMPTY_PERFORMANCE_VIEW;
+    }
+    try {
+      // Get typed performance result directly from Rust engine (no JSON parsing)
+      const result = readSections((client) => client.getSectionPerformances(section.id, sportType));
+      return result ? toPerformanceView(result) : EMPTY_PERFORMANCE_VIEW;
+    } catch {
+      // Engine may not have data yet - return empty
+      return EMPTY_PERFORMANCE_VIEW;
+    }
+  }, [section, fetchComplete, sportType, readSections]);
+
+  const bests = useMemo<DirectionBests>(
+    () => ({
+      forward: bestForwardRecord,
+      reverse: bestReverseRecord,
+      forwardIsPr: bestForwardIsPr,
+      reverseIsPr: bestReverseIsPr,
+    }),
+    [bestForwardRecord, bestReverseRecord, bestForwardIsPr, bestReverseIsPr]
+  );
 
   return {
     records,
     isLoading: !fetchComplete,
     isFetchingFromApi: isLoading,
     error,
-    bestRecord,
     bestForwardRecord,
     bestReverseRecord,
+    bestForwardIsPr,
+    bestReverseIsPr,
+    bests,
     forwardStats,
     reverseStats,
     refetch,

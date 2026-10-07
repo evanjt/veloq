@@ -6,10 +6,8 @@
 
 import { useMemo } from 'react';
 import { labelPreviewCentres, type CentreLabel } from '@/features/routes/lib/labelPreviewCentres';
-import type {
-  PreviewCentre,
-  PreviewClient,
-} from '../../../../modules/veloqrs/src/delegates/preview';
+import { attemptEngineRead } from '@/shared/native/engineError';
+import type { PreviewCentre, PreviewClient } from 'veloqrs';
 
 const DEFAULT_LIMIT = 6;
 
@@ -17,22 +15,21 @@ export interface UsePreviewCentresResult {
   centres: PreviewCentre[];
   /** Aligned with centres; label null means use the numbered fallback. */
   labels: CentreLabel[];
+  /** What the ranking read threw; the empty list then is a failure, not a quiet map. */
+  error: unknown;
 }
 
 export function usePreviewCentres(
   client: PreviewClient | null,
   limit: number = DEFAULT_LIMIT
 ): UsePreviewCentresResult {
-  const centres = useMemo(() => {
-    if (!client) return [];
-    try {
-      return client.getPreviewCentres(limit);
-    } catch {
-      return [];
-    }
+  const ranking = useMemo((): { centres: PreviewCentre[]; error: unknown } => {
+    if (!client) return { centres: [], error: undefined };
+    const read = attemptEngineRead(() => client.getPreviewCentres(limit));
+    return read.ok ? { centres: read.value, error: undefined } : { centres: [], error: read.error };
   }, [client, limit]);
 
-  const labels = useMemo(() => labelPreviewCentres(centres), [centres]);
+  const labels = useMemo(() => labelPreviewCentres(ranking.centres), [ranking.centres]);
 
-  return { centres, labels };
+  return { centres: ranking.centres, labels, error: ranking.error };
 }

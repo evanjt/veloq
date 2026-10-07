@@ -2,36 +2,42 @@
  * Hook for section merge operations: finding candidates and executing merges.
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { getEngine } from '@/shared/native/engine';
-import type { MergeCandidate } from 'veloqrs';
+import { useTranslation } from 'react-i18next';
+import type { MergeDropped } from 'veloqrs';
+import { announceDepartedRides } from '../lib/departedRides';
 
 interface UseMergeSectionsResult {
-  /** Sections that are candidates for merging with the given section. */
-  candidates: MergeCandidate[];
   /** Merge secondary section into primary. Returns merged section ID or null. */
   merge: (primaryId: string, secondaryId: string) => string | null;
-  /** Whether a merge is currently in progress. */
-  isMerging: boolean;
+  /**
+   * The donor rides a merge would leave out of the kept section. A failed
+   * read is an empty list, so the dialog says nothing it cannot back.
+   */
+  previewDropped: (primaryId: string, secondaryId: string) => MergeDropped[];
 }
 
-/**
- * The candidates come from `getSectionDetailData`, which the screen reads before
- * it mounts this hook.
- */
-export function useMergeSections(candidates: MergeCandidate[]): UseMergeSectionsResult {
-  const [isMerging, setIsMerging] = useState(false);
+export function useMergeSections(): UseMergeSectionsResult {
+  const { t } = useTranslation();
 
-  const merge = useCallback((primaryId: string, secondaryId: string): string | null => {
-    const engine = getEngine();
-    if (!engine) return null;
-    setIsMerging(true);
-    try {
-      return engine.mergeSections(primaryId, secondaryId);
-    } finally {
-      setIsMerging(false);
-    }
-  }, []);
+  const merge = useCallback(
+    (primaryId: string, secondaryId: string): string | null => {
+      const engine = getEngine();
+      if (!engine) return null;
+      const outcome = engine.mergeSections(primaryId, secondaryId);
+      if (!outcome) return null;
+      announceDepartedRides(outcome.departed, t);
+      return outcome.sectionId;
+    },
+    [t]
+  );
 
-  return { candidates, merge, isMerging };
+  const previewDropped = useCallback(
+    (primaryId: string, secondaryId: string): MergeDropped[] =>
+      getEngine()?.mergePreview(primaryId, secondaryId) ?? [],
+    []
+  );
+
+  return { merge, previewDropped };
 }

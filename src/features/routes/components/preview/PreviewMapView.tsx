@@ -17,20 +17,21 @@ import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
 // app shell still has to draw, and the barrel is what such a caller stubs.
-import { useIsOnline } from '@/shared/app/NetworkContext';
 import {
   AttributionOverlay,
   type AttributionOverlayRef,
   computeAttribution,
   EMPTY_FEATURE_COLLECTION,
   getNextStyle,
+  isDarkStyle,
   getStyleIcon,
   type LngLat,
+  type LngLatBounds,
   type MapCameraState,
   type MapStyleType,
   MapSurface,
   type MapSurfaceRef,
-  offlineMapStyle,
+  useDrawnMapStyle,
 } from '@/features/maps';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
 import {
@@ -38,17 +39,14 @@ import {
   previewCameraBounds,
   type PreviewAreaCentre,
 } from '@/features/routes/lib/previewMapCamera';
-import type {
-  PreviewResult,
-  PreviewSection,
-} from '../../../../../modules/veloqrs/src/delegates/preview';
+import type { PreviewResult, PreviewSection } from 'veloqrs';
 import {
   buildPreviewLayers,
   buildPreviewSources,
   previewLayerSwatch,
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 /** Zoom assumed before the surface reports one, matching the camera fallback. */
 const DEFAULT_ATTRIBUTION_ZOOM = 11;
@@ -102,11 +100,11 @@ export function PreviewMapView({
 }: PreviewMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const isOnline = useIsOnline();
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
-  // A finished run supersedes the live catalogue: its rows already carry the
-  // current sections, as matched rows and as gone ones.
+  // A finished run supersedes the live catalogue for what is proposed and what
+  // is gone. A matched row's own line is the proposed one, so the live line it
+  // replaces comes from the live catalogue, keyed by the row's live id.
   const sections = useMemo(() => result?.sections ?? currentSections, [result, currentSections]);
 
   const decoded = useMemo(() => {
@@ -116,6 +114,14 @@ export function PreviewMapView({
     }
     return byId;
   }, [sections]);
+
+  const liveDecoded = useMemo(() => {
+    const byId = new Map<string, LngLat[]>();
+    for (const section of currentSections) {
+      byId.set(section.id, decodePolyline(section.polyline));
+    }
+    return byId;
+  }, [currentSections]);
 
   const features = useMemo(() => {
     const current: GeoJSON.Feature[] = [];
@@ -139,10 +145,13 @@ export function PreviewMapView({
         continue;
       }
       proposed.push(feature);
-      if (section.liveId !== null) current.push(feature);
+      if (section.liveId !== null) {
+        const liveCoords = liveDecoded.get(section.liveId) ?? [];
+        if (liveCoords.length >= 2) current.push(lineFeature(section, liveCoords));
+      }
     }
     return { current, proposed, gone };
-  }, [result, sections, decoded]);
+  }, [result, sections, decoded, liveDecoded]);
 
   // The box the camera clamps to, drawn so the athlete can see which ground
   // the selected area covers. Same bounds as the camera and the label, so the
@@ -224,7 +233,7 @@ export function PreviewMapView({
     const fallback: LngLat = centre ? [centre.lng, centre.lat] : [0, 0];
     return { center: fallback, zoom: 11 };
     // The first camera is a mount-time value; later moves go through the ref.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The initial camera is captured once on mount.
   }, []);
 
   // Frame each area once. Keying the refit on the geometry moved the camera
@@ -247,6 +256,7 @@ export function PreviewMapView({
   const [viewport, setViewport] = useState<{
     center: LngLat;
     zoom: number;
+    bounds: LngLatBounds;
   } | null>(null);
 
   // Every other map in the app takes the athlete's global basemap, and on this
@@ -264,7 +274,7 @@ export function PreviewMapView({
   const themeStyle: MapStyleType = isDark ? 'dark' : 'light';
   // Imagery is never kept offline, so the satellite choice draws the vector
   // basemap until the connection is back rather than a grey grid.
-  const mapStyle: MapStyleType = offlineMapStyle(chosenStyle ?? themeStyle, isOnline, themeStyle);
+  const mapStyle: MapStyleType = useDrawnMapStyle(chosenStyle ?? themeStyle);
   const cycleStyle = useCallback(() => {
     setChosenStyle(getNextStyle(mapStyle));
   }, [mapStyle]);
@@ -275,6 +285,7 @@ export function PreviewMapView({
         is3D: false,
         center: viewport?.center ?? (centre ? [centre.lng, centre.lat] : null),
         zoom: viewport?.zoom ?? DEFAULT_ATTRIBUTION_ZOOM,
+        bounds: viewport?.bounds ?? null,
       }),
     [mapStyle, viewport, centre]
   );
@@ -287,7 +298,7 @@ export function PreviewMapView({
   }, [attribution]);
 
   const handleRegionDidChange = useCallback((state: MapCameraState) => {
-    setViewport({ center: state.center, zoom: state.zoom });
+    setViewport({ center: state.center, zoom: state.zoom, bounds: state.bounds });
   }, []);
 
   const handlePress = useCallback(
@@ -317,7 +328,11 @@ export function PreviewMapView({
         onRegionDidChange={handleRegionDidChange}
         testID="preview-map"
       />
-      <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
+      <AttributionOverlay
+        ref={attributionRef}
+        initialAttribution={attribution}
+        isDark={isDarkStyle(mapStyle)}
+      />
       {/* Opposite corner to the legend, which owns the right-hand side. */}
       <TouchableOpacity
         style={[styles.styleButton, { backgroundColor: chipBg, borderColor: chipBorder }]}
@@ -403,6 +418,7 @@ function LegendChip({
         { backgroundColor: background, borderColor: border },
         !on && styles.legendChipOff,
       ])}
+      android_ripple={pressRipple}
       onPress={onPress}
       testID={testID}
       accessibilityRole="switch"

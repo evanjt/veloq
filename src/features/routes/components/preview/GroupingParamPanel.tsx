@@ -18,14 +18,22 @@ import Slider from '@react-native-community/slider';
 import { useTranslation } from 'react-i18next';
 import { formatDistance } from '@/shared/format/format';
 import { useTheme } from '@/shared/app/useTheme';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors, darkColors, brand, opacity, spacing, layout, typography } from '@/theme';
 import {
   GROUPING_PARAM_RANGES,
+  isPastGroupingRange,
   parseGroupingInput,
   type GroupingParamKey,
   type GroupingParams,
 } from '../../lib/groupingParams';
-import { pressable } from '@/shared/ui';
+import {
+  distanceEditorUnit,
+  fromEditorValue,
+  toEditorText,
+  type EditorUnit,
+} from '../../lib/paramUnits';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface GroupingParamPanelProps {
   params: GroupingParams;
@@ -38,6 +46,14 @@ interface Editing {
   key: GroupingParamKey;
   label: string;
   text: string;
+  /** What the editor opened with, so an untouched save cannot round the stored metres. */
+  initial: string;
+  unit: EditorUnit | null;
+}
+
+/** The unit a parameter is edited in, null for the match percentage. */
+function editorUnitOf(key: GroupingParamKey, isMetric: boolean): EditorUnit | null {
+  return key === 'endpointThreshold' ? distanceEditorUnit(isMetric, false) : null;
 }
 
 export function GroupingParamPanel({
@@ -47,6 +63,7 @@ export function GroupingParamPanel({
 }: GroupingParamPanelProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -55,22 +72,30 @@ export function GroupingParamPanel({
 
   const open = (key: GroupingParamKey, label: string) => () => {
     if (disabled) return;
-    setEditing({ key, label, text: String(params[key]) });
+    const unit = editorUnitOf(key, isMetric);
+    const text = toEditorText(params[key], unit);
+    setEditing({ key, label, text, initial: text, unit });
   };
 
   const save = () => {
     if (!editing) return;
-    const value = parseGroupingInput(editing.key, editing.text);
+    if (editing.text === editing.initial) {
+      setEditing(null);
+      return;
+    }
+    const typed = parseGroupingInput(editing.key, editing.text);
     // A refusal leaves the editor open with what was typed still in it: the
     // athlete is one character from a value that works.
-    if (value === null) return;
+    if (typed === null) return;
+    const value = fromEditorValue(typed, editing.unit);
+    if (value <= 0) return;
     onChange({ ...params, [editing.key]: value });
     setEditing(null);
   };
 
   const matchLabel = t('settings.groupingMatchShare', { percent: params.minMatchPercentage });
   const endsLabel = t('settings.groupingEndsApart', {
-    distance: formatDistance(params.endpointThreshold),
+    distance: formatDistance(params.endpointThreshold, isMetric),
   });
 
   return (
@@ -129,6 +154,7 @@ function ParamRow({
 }) {
   const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
   const trackBg = isDark ? darkColors.inputTrack : colors.inputTrack;
+  const { t } = useTranslation();
   const { min, max, step } = GROUPING_PARAM_RANGES[paramKey];
   return (
     <View style={styles.paramRow}>
@@ -138,6 +164,7 @@ function ParamRow({
         testID={`grouping-edit-${paramKey}`}
         accessibilityRole="button"
         style={pressable()}
+        android_ripple={pressRipple}
       >
         <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
       </Pressable>
@@ -155,6 +182,14 @@ function ParamRow({
         maximumTrackTintColor={trackBg}
         thumbTintColor={brand.tealLight}
       />
+      {isPastGroupingRange(paramKey, value) && (
+        <Text
+          testID={`grouping-range-note-${paramKey}`}
+          style={[styles.paramLabel, { color: txt }]}
+        >
+          {t('settings.sectionParamPastRange')}
+        </Text>
+      )}
     </View>
   );
 }
@@ -178,12 +213,20 @@ function ParamEditor({
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const { min, max } = GROUPING_PARAM_RANGES[editing.key];
+  const parsed = parseGroupingInput(editing.key, editing.text);
+  const pastRange =
+    parsed !== null && isPastGroupingRange(editing.key, fromEditorValue(parsed, editing.unit));
+  const bound = (metres: number) =>
+    editing.unit
+      ? `${toEditorText(metres, editing.unit)} ${editing.unit.label}`
+      : toEditorText(metres, null);
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onCancel} testID="grouping-editor">
-      <Pressable style={pressable(styles.scrim)} onPress={onCancel}>
+      <Pressable style={pressable(styles.scrim)} android_ripple={pressRipple} onPress={onCancel}>
         <Pressable
           style={pressable([styles.sheet, { backgroundColor: surface, borderColor: border }])}
+          android_ripple={pressRipple}
           onPress={() => {}}
         >
           <Text style={[styles.sheetTitle, { color: textPrimary }]}>{editing.label}</Text>
@@ -197,14 +240,23 @@ function ParamEditor({
             style={[styles.sheetInput, { color: textPrimary, borderColor: border }]}
           />
           <Text style={[styles.sheetNote, { color: textSecondary }]}>
-            {t('settings.sectionParamRange', { min, max })}
+            {t('settings.sectionParamRange', { min: bound(min), max: bound(max) })}
           </Text>
+          {pastRange && (
+            <Text
+              testID="grouping-editor-range-note"
+              style={[styles.sheetNote, { color: textSecondary }]}
+            >
+              {t('settings.sectionParamPastRange')}
+            </Text>
+          )}
           <View style={styles.sheetActions}>
             <Pressable
               onPress={onCancel}
               testID="grouping-editor-cancel"
               accessibilityRole="button"
               style={pressable()}
+              android_ripple={pressRipple}
             >
               <Text style={[styles.sheetAction, { color: textSecondary }]}>
                 {t('common.cancel')}
@@ -215,6 +267,7 @@ function ParamEditor({
               testID="grouping-editor-save"
               accessibilityRole="button"
               style={pressable()}
+              android_ripple={pressRipple}
             >
               <Text style={[styles.sheetAction, { color: brand.tealLight }]}>
                 {t('common.save')}

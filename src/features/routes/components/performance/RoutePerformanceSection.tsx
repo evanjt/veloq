@@ -7,6 +7,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
+import { pressable, pressRipple } from '@/shared/ui';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { navigateTo } from '@/shared/app/navigation';
@@ -14,10 +15,11 @@ import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, mapLayerColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionScatterChart, ScatterLegend } from '@/features/routes/components/section';
 import { formatRouteStanding } from '@/features/routes/lib/routeStanding';
+import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
 
 interface RoutePerformanceSectionProps {
   activityId: string;
@@ -34,15 +36,18 @@ export function RoutePerformanceSection({
   const {
     routeGroup,
     performances,
-    isLoading,
-    best,
     bestForwardRecord,
     bestReverseRecord,
+    bestForwardIsRecord,
+    bestReverseIsRecord,
+    currentDirectionBest,
     forwardStats,
     reverseStats,
     currentRank,
     attemptCount,
     percentileRank,
+    trendCurves,
+    error,
   } = useRoutePerformances(activityId);
 
   const activityColor = getActivityColor(activityType);
@@ -61,17 +66,19 @@ export function RoutePerformanceSection({
       direction: perf.direction as 'same' | 'reverse',
       matchPercentage: perf.matchPercentage,
       sectionTime: Math.round(perf.duration),
+      outsideDistanceBand: perf.outsideDistanceBand,
     }));
   }, [performances]);
 
-  // The engine ranks and counts the attempts. Only the gap is subtracted here,
-  // off the same record the header already shows.
+  // The gap uses the engine's best for this attempt's direction.
   const standing = useMemo(() => {
     const current = performances.find((p) => p.activityId === activityId);
     const gapToBestSeconds =
-      current && best && best.movingTime > 0 ? current.movingTime - best.movingTime : null;
+      current && currentDirectionBest && currentDirectionBest.bestTime > 0
+        ? current.movingTime - currentDirectionBest.bestTime
+        : null;
     return { currentRank, attemptCount, percentileRank, gapToBestSeconds };
-  }, [performances, activityId, best, currentRank, attemptCount, percentileRank]);
+  }, [performances, activityId, currentDirectionBest, currentRank, attemptCount, percentileRank]);
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
@@ -79,22 +86,29 @@ export function RoutePerformanceSection({
     }
   }, [routeGroup]);
 
-  if (!routeGroup || isLoading) {
+  if (error !== undefined) {
+    return <EngineReadFailure error={error} testID="route-performance-failure" />;
+  }
+
+  if (!routeGroup) {
     return null;
   }
 
   const bestTimeDisplay =
-    best && Number.isFinite(best.duration) && best.duration > 0
-      ? formatDuration(best.duration)
+    currentDirectionBest &&
+    Number.isFinite(currentDirectionBest.bestTime) &&
+    currentDirectionBest.bestTime > 0
+      ? formatDuration(currentDirectionBest.bestTime)
       : null;
-  const isCurrentBest = !!best && currentRank === 1;
+  const isCurrentBest = !!currentDirectionBest && currentRank === 1;
   const standingText = formatRouteStanding(standing, t);
 
   return (
     <View style={[styles.card, isDark && styles.cardDark]}>
       <Pressable
         onPress={handleRoutePress}
-        style={({ pressed }) => [styles.header, pressed && { opacity: 0.7 }]}
+        style={pressable(styles.header)}
+        android_ripple={pressRipple}
       >
         <View style={[styles.iconBadge, { borderColor: activityColor }]}>
           <MaterialCommunityIcons name="map-marker-path" size={12} color={activityColor} />
@@ -105,7 +119,7 @@ export function RoutePerformanceSection({
           </Text>
           <View style={styles.metaRow}>
             <Text style={[styles.meta, isDark && styles.textMuted]}>
-              {routeGroup.activityCount} {t('routes.activities')}
+              {t('maps.activitiesCount', { count: routeGroup.activityCount })}
             </Text>
             {bestTimeDisplay && (
               <>
@@ -132,6 +146,27 @@ export function RoutePerformanceSection({
         />
       </Pressable>
 
+      <View style={styles.lineKey}>
+        <View style={styles.lineKeyItem}>
+          <View
+            testID="route-key-activity"
+            style={[styles.swatch, { backgroundColor: activityColor }]}
+          />
+          <Text style={[styles.meta, isDark && styles.textMuted]}>
+            {t('activityDetail.lineKeyActivity')}
+          </Text>
+        </View>
+        <View style={styles.lineKeyItem}>
+          <View
+            testID="route-key-route"
+            style={[styles.swatch, { backgroundColor: mapLayerColors.routeOverlay }]}
+          />
+          <Text style={[styles.meta, isDark && styles.textMuted]}>
+            {t('activityDetail.lineKeyRoute')}
+          </Text>
+        </View>
+      </View>
+
       {standingText && (
         <Text testID="route-standing" style={[styles.standing, isDark && styles.textMuted]}>
           {standingText}
@@ -142,16 +177,24 @@ export function RoutePerformanceSection({
         <View style={styles.chartWrap}>
           <SectionScatterChart
             chartData={chartData}
+            trendCurves={trendCurves}
             activityType={activityType}
             isDark={isDark}
             useTimeAxis
             bestForwardRecord={bestForwardRecord}
             bestReverseRecord={bestReverseRecord}
+            bestForwardIsRecord={bestForwardIsRecord}
+            bestReverseIsRecord={bestReverseIsRecord}
             forwardStats={forwardStats}
             reverseStats={reverseStats}
             highlightedActivityId={activityId}
           />
-          <ScatterLegend isDark={isDark} showReverse={!!bestReverseRecord} showThisActivity />
+          <ScatterLegend
+            isDark={isDark}
+            showReverse={!!bestReverseRecord}
+            showThisActivity
+            showOutsideBand={chartData.some((d) => d.outsideDistanceBand === true)}
+          />
         </View>
       )}
     </View>
@@ -206,6 +249,23 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  lineKey: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  lineKeyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  swatch: {
+    width: spacing.md,
+    height: spacing.xs,
+    borderRadius: layout.borderRadiusFull,
   },
   standing: {
     fontSize: typography.label.fontSize,

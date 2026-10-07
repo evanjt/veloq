@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { spacing, workoutStepColors } from '@/theme';
+import { layout, spacing, workoutStepColors } from '@/theme';
 import type { WorkoutStep } from '@/types';
 
 interface WorkoutStepBarProps {
@@ -36,10 +36,10 @@ export const WorkoutStepBar = React.memo(function WorkoutStepBar({
               {
                 width: `${widthPercent}%`,
                 backgroundColor: color,
-                borderTopLeftRadius: i === 0 ? 3 : 0,
-                borderBottomLeftRadius: i === 0 ? 3 : 0,
-                borderTopRightRadius: i === flatSteps.length - 1 ? 3 : 0,
-                borderBottomRightRadius: i === flatSteps.length - 1 ? 3 : 0,
+                borderTopLeftRadius: i === 0 ? layout.borderRadiusXs : 0,
+                borderBottomLeftRadius: i === 0 ? layout.borderRadiusXs : 0,
+                borderTopRightRadius: i === flatSteps.length - 1 ? layout.borderRadiusXs : 0,
+                borderBottomRightRadius: i === flatSteps.length - 1 ? layout.borderRadiusXs : 0,
               },
             ]}
           />

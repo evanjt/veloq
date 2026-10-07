@@ -6,19 +6,12 @@ import type { RouteGroup } from '@/types';
 import { toActivityType } from '@/features/routes/types';
 
 /**
- * Convert batch GroupWithPolyline to RouteGroup with pre-loaded consensus points.
- * Avoids per-row useConsensusRoute FFI calls.
+ * Convert batch GroupWithPolyline to RouteGroup with pre-loaded representative points.
+ * Avoids per-row useRepresentativeRoute FFI calls.
  */
 export function batchGroupToRouteGroup(group: GroupWithPolyline): RouteGroup {
-  const sportType = group.sportType || 'Ride';
   // Decode delta+varint encoded polyline to RoutePoint[]
-  // encodedPolyline after Rust rebuild; consensusPolyline on stale bindings
-  const polylineData =
-    (group as Record<string, unknown>).encodedPolyline ??
-    (group as Record<string, unknown>).consensusPolyline;
-  const consensusPoints = (
-    polylineData instanceof ArrayBuffer ? decodeCoords(polylineData) : []
-  ).map((p) => ({
+  const representativePoints = decodeCoords(group.encodedPolyline).map((p) => ({
     lat: p.latitude,
     lng: p.longitude,
   }));
@@ -36,13 +29,13 @@ export function batchGroupToRouteGroup(group: GroupWithPolyline): RouteGroup {
     // does not mint it in this list's order, so one invented here changes
     // under the athlete. `RouteRow` renders its own localised default.
     name: group.customName ?? '',
-    type: toActivityType(sportType),
+    type: toActivityType(undefined),
     activityCount: group.activityCount,
     activityIds: [],
     signature: null,
-    consensusPoints,
+    representativePoints,
     distance: group.distanceMeters > 0 ? group.distanceMeters : undefined,
-    sportTypes: group.sportTypes ?? [sportType],
+    sportTypes: group.sportTypes,
     center,
   };
 }

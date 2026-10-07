@@ -16,6 +16,8 @@
  * following nothing.
  */
 
+import { createAwakeClock } from '@/shared/app/awakeClock';
+
 /** The channel Rust announces a finished run on. */
 const CHANNEL = 'detectionApplied';
 
@@ -45,7 +47,7 @@ export interface DetectionProgress {
 /** The engine surface a follower needs, so any caller's handle fits. */
 export interface DetectionEngine {
   subscribe(event: string, listener: () => void): () => void;
-  pollSectionDetection(): string;
+  pollSectionDetectionRun(runId: string): string;
   getSectionDetectionProgress(): DetectionProgress | null | undefined;
   /** False when the observer was withheld, so nothing will ever announce. */
   eventsAreLive?(): boolean;
@@ -81,14 +83,14 @@ export interface FollowOptions {
 }
 
 function terminal(status: string): DetectionOutcome | null {
-  if (status === 'complete' || status === 'idle' || status === 'error') return status;
+  if (status === 'idle' || status === 'complete' || status === 'error') return status;
   return null;
 }
 
 export interface DetectionFollow {
   /** Resolves once the run ends, or once one of the budgets runs out. */
   settled: Promise<DetectionOutcome>;
-  /** Drops the subscription and the timers now, answering 'abandoned'. */
+  /** Drops the subscription and the ticker now, answering 'abandoned'. */
   cancel: () => void;
 }
 
@@ -116,28 +118,28 @@ export function followDetection(
     let settled = false;
     let unsubscribe: (() => void) | null = null;
     let ticker: ReturnType<typeof setInterval> | null = null;
-    let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
-    let lapseTimer: ReturnType<typeof setTimeout> | null = null;
+    let lapsed = false;
+    let runId = '';
 
     const settle = (outcome: DetectionOutcome) => {
       if (settled) return;
       settled = true;
       unsubscribe?.();
       if (ticker) clearInterval(ticker);
-      if (timeoutTimer) clearTimeout(timeoutTimer);
-      if (lapseTimer) clearTimeout(lapseTimer);
       resolve(outcome);
     };
 
     // Read the terminal status once, on the event. A host that cannot answer
     // must not leave the caller following a run that has already ended.
     const readTerminal = () => {
-      let status = 'error';
+      let reply = '0:error';
       try {
-        status = engine.pollSectionDetection();
+        reply = engine.pollSectionDetectionRun(runId);
       } catch {
-        status = 'error';
+        reply = '0:error';
       }
+      const [id, status] = reply.split(':');
+      if (!runId && /^\d+$/.test(id) && id !== '0') runId = id;
       const outcome = terminal(status);
       if (outcome) settle(outcome);
       return outcome;
@@ -159,10 +161,24 @@ export function followDetection(
     // is the only thing left that can end the run.
     const pollsTerminal = !canAnnounce(engine);
 
+    // The budgets are read on the progress tick against a clock that drops
+    // the time the process was suspended, so a resume does not expire them.
+    const awake = createAwakeClock(progressIntervalMs);
+    const startedAt = awake();
+
     ticker = setInterval(() => {
       if (isActive && !isActive()) {
         settle('abandoned');
         return;
+      }
+      const elapsed = awake() - startedAt;
+      if (timeoutMs !== undefined && elapsed >= timeoutMs) {
+        settle('timeout');
+        return;
+      }
+      if (onLapse && lapseAfterMs !== undefined && !lapsed && elapsed >= lapseAfterMs) {
+        lapsed = true;
+        onLapse();
       }
       if (pollsTerminal && readTerminal()) return;
       if (!onProgress) return;
@@ -173,13 +189,6 @@ export function followDetection(
         // A read that cannot answer costs the bar a tick, not the run.
       }
     }, progressIntervalMs);
-
-    if (timeoutMs !== undefined) {
-      timeoutTimer = setTimeout(() => settle('timeout'), timeoutMs);
-    }
-    if (onLapse && lapseAfterMs !== undefined) {
-      lapseTimer = setTimeout(onLapse, lapseAfterMs);
-    }
   });
 
   return { settled, cancel };

@@ -11,11 +11,8 @@ import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
-import type {
-  PreviewSection,
-  PreviewSectionStatus,
-} from '../../../../../modules/veloqrs/src/delegates/preview';
-import { pressable } from '@/shared/ui';
+import type { PreviewSection, PreviewSectionStatus } from 'veloqrs';
+import { pressable, pressRipple } from '@/shared/ui';
 
 const STATUS_KEYS: Record<PreviewSectionStatus, string> = {
   unchanged: 'settings.previewStatusUnchanged',
@@ -26,10 +23,11 @@ const STATUS_KEYS: Record<PreviewSectionStatus, string> = {
 
 interface PreviewSectionPopoverProps {
   section: PreviewSection;
+  newNumber: number | null;
   onClose: () => void;
 }
 
-export function PreviewSectionPopover({ section, onClose }: PreviewSectionPopoverProps) {
+export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSectionPopoverProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
@@ -54,7 +52,7 @@ export function PreviewSectionPopover({ section, onClose }: PreviewSectionPopove
     >
       <View style={styles.headerRow}>
         <Text style={[styles.name, { color: textPrimary }]} numberOfLines={1}>
-          {section.name ?? t('sections.defaultName')}
+          {section.name ?? t('settings.previewNewSectionName', { number: newNumber ?? 1 })}
         </Text>
         <Pressable
           onPress={onClose}
@@ -63,6 +61,7 @@ export function PreviewSectionPopover({ section, onClose }: PreviewSectionPopove
           accessibilityLabel={t('common.close')}
           testID="preview-popover-close"
           style={pressable()}
+          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons name="close" size={20} color={textSecondary} />
         </Pressable>

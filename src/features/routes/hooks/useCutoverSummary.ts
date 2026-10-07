@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
+import { engineErrorTag } from '@/shared/native/engineError';
 import type { CutoverCounts, CutoverPhase, CutoverSettingsReset, RoutesStatus } from 'veloqrs';
 
 import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
@@ -35,6 +36,7 @@ const PHASES: CutoverPhase[] = [
   'diffing',
   'complete',
   'failed',
+  'failed_after_apply',
 ];
 
 export interface CutoverSummary {
@@ -80,7 +82,14 @@ function read(sawRun: boolean): CutoverSummary {
     if (progress.running) {
       return { phase, isRunning: true, counts: null, settingsReset: null, sawRun: true };
     }
-    const diff = engine.getCutoverDiff?.();
+    // The phase stands on its own read, so a failed diff withholds the counts
+    // rather than the phase.
+    let diff;
+    try {
+      diff = engine.getCutoverDiff?.();
+    } catch (error) {
+      console.warn('[Cutover] Could not read the stored diff:', engineErrorTag(error) ?? error);
+    }
     return {
       phase,
       isRunning: false,

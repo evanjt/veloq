@@ -11,7 +11,7 @@
  */
 
 import { UNIFIED_CONFIG } from '@/shared/native/unifiedConfig.generated';
-import type { PreviewParams } from '../../../../modules/veloqrs/src/delegates/preview';
+import type { PreviewParams } from 'veloqrs';
 
 export type DetectionParamKey = keyof PreviewParams;
 
@@ -87,6 +87,16 @@ export function isPastClamp(key: DetectionParamKey, value: number): boolean {
   const clamp = DETECTION_PARAM_RANGES[key].clamp;
   if (!clamp) return false;
   return value < clamp.min || value > clamp.max;
+}
+
+/**
+ * Whether a value lies outside the range the detector was tested over and has
+ * no clamp to say so. A parameter with a clamp is covered by `isPastClamp`.
+ */
+export function isPastTestedRange(key: DetectionParamKey, value: number): boolean {
+  const { min, max, clamp } = DETECTION_PARAM_RANGES[key];
+  if (clamp) return false;
+  return value < min || value > max;
 }
 
 /**

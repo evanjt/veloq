@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import {
+  classifyDetailRead,
+  type DetailRead,
+  type DetailReadStatus,
+} from '../lib/detailReadResult';
+import { attemptEngineRead } from '@/shared/native/engineError';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type {
   ActivityMetrics,
   MergeCandidate,
-  NearbySectionSummary,
   Section as NativeSection,
   SectionDetailData,
   SectionPerformanceData,
   EfficiencyTrend,
 } from 'veloqrs';
-
-/** Map overlay radius the section detail screen has always used. */
-export const NEARBY_RADIUS_METERS = 500;
 
 /**
  * The section detail reads that do not depend on time streams.
@@ -26,7 +28,6 @@ export const NEARBY_RADIUS_METERS = 500;
 export interface SectionDetailBundle {
   activityCount: number;
   section: NativeSection | undefined;
-  nearby: NearbySectionSummary[];
   mergeCandidates: MergeCandidate[];
   excludedActivityIds: string[];
   hasOriginalBounds: boolean;
@@ -36,23 +37,29 @@ export interface SectionDetailBundle {
   history: SectionDetailData['history'];
   geometryVersions: SectionDetailData['geometryVersions'];
   pinnedVersion: SectionDetailData['pinnedVersion'];
-  excludedLaps: SectionDetailData['excludedLaps'];
   efficiencyTrend: EfficiencyTrend | null;
 }
 
+/** How a section that no longer has a row left the catalogue. */
+export type SectionDeparture = NonNullable<SectionDetailData['retirement']>;
+
+type SectionDetailRead = DetailRead<SectionDetailBundle> & { retirement: SectionDeparture | null };
+
 type Engine = NonNullable<ReturnType<typeof getEngine>>;
 
-function fetchSectionDetailData(engine: Engine, sectionId: string): SectionDetailBundle | null {
-  if (!sectionId) return null;
+function fetchSectionDetailData(engine: Engine, sectionId: string): SectionDetailRead {
+  if (!sectionId) return { status: { kind: 'missing' }, data: null, retirement: null };
 
-  try {
-    const result = engine.getSectionDetailData(sectionId, NEARBY_RADIUS_METERS);
-    if (!result) return null;
-
-    return {
+  let retirement: SectionDeparture | null = null;
+  const read = classifyDetailRead(
+    () => {
+      const result = engine.getSectionDetailData(sectionId);
+      retirement = result?.section ? null : (result?.retirement ?? null);
+      return result;
+    },
+    (result): SectionDetailBundle => ({
       activityCount: result.activityCount,
       section: result.section,
-      nearby: result.nearby,
       mergeCandidates: result.mergeCandidates,
       excludedActivityIds: result.excludedActivityIds,
       hasOriginalBounds: result.hasOriginalBounds,
@@ -62,12 +69,11 @@ function fetchSectionDetailData(engine: Engine, sectionId: string): SectionDetai
       history: result.history,
       geometryVersions: result.geometryVersions,
       pinnedVersion: result.pinnedVersion,
-      excludedLaps: result.excludedLaps,
       efficiencyTrend: result.efficiencyTrend ?? null,
-    };
-  } catch {
-    return null;
-  }
+    }),
+    (result) => !result.section
+  );
+  return { ...read, retirement };
 }
 
 /**
@@ -79,8 +85,14 @@ function fetchSectionDetailData(engine: Engine, sectionId: string): SectionDetai
 export function useSectionDetailData(
   sectionId: string | undefined,
   refreshKey = 0
-): { data: SectionDetailBundle | null; refresh: () => void } {
-  const readSection = useEngineRead(['sections'], [refreshKey]);
+): {
+  data: SectionDetailBundle | null;
+  status: DetailReadStatus;
+  /** Set only while the status is missing and the ledger knows how the section left. */
+  retirement: SectionDeparture | null;
+  refresh: () => void;
+} {
+  const readSection = useEngineRead(['sections', 'detectionApplied'], [refreshKey]);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -90,13 +102,14 @@ export function useSectionDetailData(
     };
   }, []);
 
-  const initialData = useMemo(
+  const initial = useMemo<SectionDetailRead>(
     () =>
-      sectionId
-        ? (readSection((engine) => fetchSectionDetailData(engine, sectionId)) ?? null)
-        : null,
+      (sectionId
+        ? readSection((engine) => fetchSectionDetailData(engine, sectionId))
+        : undefined) ?? { status: { kind: 'closed' }, data: null, retirement: null },
     [sectionId, readSection]
   );
+  const initialData = initial.data;
 
   // `refresh()` re-reads the bundle out of band, so the state holds its result
   // until the memo above reads a newer one. Retiring it while rendering rather
@@ -113,12 +126,17 @@ export function useSectionDetailData(
     const engine = getEngine();
     if (!isMountedRef.current || !sectionId || !engine) return;
     const result = fetchSectionDetailData(engine, sectionId);
-    if (result && isMountedRef.current) {
-      setData(result);
+    if (result.data && isMountedRef.current) {
+      setData(result.data);
     }
   }, [sectionId]);
 
-  return { data: data ?? initialData, refresh };
+  return {
+    data: data ?? initialData,
+    status: initial.status,
+    retirement: initial.retirement,
+    refresh,
+  };
 }
 
 /**
@@ -132,19 +150,19 @@ export function useSectionDetailPerformance(
   sectionId: string | undefined,
   timeRangeDays: number,
   sportFilter: string | undefined,
-  enabled: boolean
-): SectionPerformanceData | null {
-  const readPerformance = useEngineRead(['sections']);
+  enabled: boolean,
+  refreshKey = 0
+): { data: SectionPerformanceData | null; error: unknown } {
+  const readPerformance = useEngineRead(['sections', 'detectionApplied'], [refreshKey]);
 
   return useMemo(() => {
-    if (!enabled || !sectionId) return null;
-    const records = readPerformance((engine) => {
-      try {
-        return engine.getSectionDetailPerformance(sectionId, timeRangeDays, sportFilter) ?? null;
-      } catch {
-        return null;
-      }
-    });
-    return records ?? null;
+    if (!enabled || !sectionId) return { data: null, error: undefined };
+    const read = readPerformance((engine) =>
+      attemptEngineRead(
+        () => engine.getSectionDetailPerformance(sectionId, timeRangeDays, sportFilter) ?? null
+      )
+    );
+    if (!read) return { data: null, error: undefined };
+    return read.ok ? { data: read.value, error: undefined } : { data: null, error: read.error };
   }, [sectionId, timeRangeDays, sportFilter, enabled, readPerformance]);
 }

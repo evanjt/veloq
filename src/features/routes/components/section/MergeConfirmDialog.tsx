@@ -3,12 +3,13 @@
  * Shows both sections side-by-side and lets user pick the primary.
  */
 
-import React, { memo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
-import { getActivityIcon } from '@/shared/activity/activityUtils';
+import type { MergeDropped } from 'veloqrs';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { formatDistance, formatShortDate } from '@/shared/format/format';
+import { SportIcons } from '@/shared/activity/SportIcons';
 import {
   colors,
   darkColors,
@@ -23,10 +24,13 @@ import {
 interface SectionInfo {
   id: string;
   name: string;
-  sportType: string;
+  /** Every sport that has taken the section. */
+  sportTypes: readonly string[];
   visitCount: number;
   distanceMeters: number;
 }
+
+const MAX_NAMED_RIDES = 5;
 
 interface MergeConfirmDialogProps {
   visible: boolean;
@@ -34,6 +38,8 @@ interface MergeConfirmDialogProps {
   secondary: SectionInfo;
   onConfirm: (primaryId: string, secondaryId: string) => void;
   onCancel: () => void;
+  /** The donor rides the merge would leave out, for the chosen kept section. */
+  previewDropped: (primaryId: string, secondaryId: string) => MergeDropped[];
   loading?: boolean;
 }
 
@@ -43,10 +49,12 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
   secondary,
   onConfirm,
   onCancel,
+  previewDropped,
   loading,
 }: MergeConfirmDialogProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const bg = isDark ? darkColors.surface : colors.surface;
   const text = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -58,6 +66,10 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
 
   const actualPrimary = selectedPrimary === primary.id ? primary : secondary;
   const actualSecondary = selectedPrimary === primary.id ? secondary : primary;
+  const dropped = useMemo(
+    () => (visible ? previewDropped(actualPrimary.id, actualSecondary.id) : []),
+    [visible, previewDropped, actualPrimary.id, actualSecondary.id]
+  );
 
   const renderOption = (section: SectionInfo, isSelected: boolean) => (
     <TouchableOpacity
@@ -71,16 +83,12 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
           {section.name}
         </Text>
         <View style={styles.optionStats}>
-          <MaterialCommunityIcons
-            name={getActivityIcon(section.sportType)}
-            size={14}
-            color={textSecondary}
-          />
+          <SportIcons sportTypes={section.sportTypes} size={14} color={textSecondary} />
           <Text style={[styles.optionStat, { color: textSecondary }]}>
             {t('sections.visitsCount', { count: section.visitCount })}
           </Text>
           <Text style={[styles.optionStat, { color: textSecondary }]}>
-            {Math.round(section.distanceMeters)}m
+            {formatDistance(section.distanceMeters, isMetric)}
           </Text>
         </View>
       </View>
@@ -108,6 +116,30 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
             })}
           </Text>
 
+          {dropped.length > 0 && (
+            <View style={styles.dropped} testID="merge-dropped-rides">
+              <Text style={[styles.droppedTitle, { color: text }]}>
+                {t('sections.mergeDroppedRides', { count: dropped.length })}
+              </Text>
+              {dropped.slice(0, MAX_NAMED_RIDES).map((ride) => (
+                <Text
+                  key={ride.activityId}
+                  style={[styles.optionStat, { color: textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {ride.name
+                    ? `${ride.name}, ${formatShortDate(new Date(ride.startDate * 1000))}`
+                    : formatShortDate(new Date(ride.startDate * 1000))}
+                </Text>
+              ))}
+              {dropped.length > MAX_NAMED_RIDES && (
+                <Text style={[styles.optionStat, { color: textSecondary }]}>
+                  {t('sections.mergeDroppedMore', { count: dropped.length - MAX_NAMED_RIDES })}
+                </Text>
+              )}
+            </View>
+          )}
+
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
               <Text style={[styles.cancelText, { color: textSecondary }]}>
@@ -121,7 +153,7 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
               activeOpacity={0.7}
             >
               {loading ? (
-                <ActivityIndicator size="small" color={ink.white} />
+                <ActivityIndicator size="small" color={colors.textOnPrimary} />
               ) : (
                 <Text style={styles.mergeText}>{t('sections.merge')}</Text>
               )}
@@ -166,7 +198,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.sm,
-    borderRadius: spacing.sm,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: colors.divider,
     gap: spacing.sm,
@@ -212,6 +244,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     textAlign: 'center',
   },
+  dropped: {
+    gap: spacing.xxs,
+    marginBottom: spacing.md,
+  },
+  droppedTitle: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '500',
+  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -229,7 +269,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: spacing.sm,
+    borderRadius: layout.borderRadiusSm,
     minWidth: 80,
     alignItems: 'center',
   },
@@ -237,7 +277,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   mergeText: {
-    color: ink.white,
+    color: colors.textOnPrimary,
     fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
