@@ -9,8 +9,9 @@
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { render, screen, within } from '@testing-library/react-native';
+import { Platform, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { Card } from '@/shared/ui/Card';
@@ -26,8 +27,12 @@ jest.mock('react-native-iap', () => ({
 
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
-  impactAsync: jest.fn(),
+  impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
+}));
+
+jest.mock('@/features/activity/components/ActivityCardContextMenu', () => ({
+  ActivityCardContextMenu: () => null,
 }));
 
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
@@ -128,5 +133,23 @@ describe('the feed card draws no place line', () => {
 
     expect(screen.queryByText('Lausanne')).toBeNull();
     expect(screen.queryByText(/Switzerland/)).toBeNull();
+  });
+});
+
+describe('the feed card long-press', () => {
+  it.each(['ios', 'android'] as const)('fires one medium impact on %s', (os) => {
+    const originalOS = Platform.OS;
+    Platform.OS = os;
+    (Haptics.impactAsync as jest.Mock).mockClear();
+    try {
+      renderCard();
+
+      fireEvent(screen.getByTestId('activity-card-a1'), 'longPress');
+
+      expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
+      expect(Haptics.impactAsync).toHaveBeenCalledWith('medium');
+    } finally {
+      Platform.OS = originalOS;
+    }
   });
 });

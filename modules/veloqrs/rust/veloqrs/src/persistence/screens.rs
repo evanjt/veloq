@@ -1803,6 +1803,7 @@ pub mod pooled {
             highlights: crate::FfiActivityHighlightsBundle {
                 indicators: indicators::activity_indicators(conn, &ids),
                 route_highlights: derivations::route_highlights(conn, &ids),
+                new_ground: crate::persistence::new_ground::pooled::new_ground_of(conn, &ids),
                 strength_cards: crate::objects::strength::strength_cards(conn, &ids),
             },
             section_traces,
@@ -2124,6 +2125,10 @@ pub mod pooled {
             )
             .into_iter()
             .map(|c| crate::FfiSectionChange {
+                section_name: names
+                    .get(&c.section_id)
+                    .cloned()
+                    .unwrap_or_else(|| c.section_id.clone()),
                 section_id: c.section_id,
                 kind: c.kind,
                 at: c.at,
@@ -2433,16 +2438,7 @@ pub mod pooled {
             ),
             history: crate::persistence::sections::history::pooled::linked_section_history(
                 conn, section_id, &names,
-            )
-            .into_iter()
-            .map(|h| crate::FfiSectionHistoryEvent {
-                id: h.id as f64,
-                at: h.at,
-                kind: h.kind,
-                details: h.details,
-                geometry_version: h.geometry_version.map(|v| v as f64),
-            })
-            .collect(),
+            ),
             geometry_versions:
                 crate::persistence::sections::history::pooled::section_geometry_versions(
                     conn, section_id,
@@ -5213,6 +5209,87 @@ mod tests {
             .map(|e| e.section_name.as_str())
             .collect();
         assert_eq!(names, vec!["Col du Test"]);
+        crate::persistence::read_cache::close();
+    }
+
+    /// Scenario: the same fortnight holds a re-cut on a section the athlete
+    /// renamed, on one with no name of its own, and on the lower part of a
+    /// split of a named section.
+    ///
+    /// Expected behaviour: each change row carries the name the athlete is
+    /// shown for its section, so the feed needs no catalogue read to label it.
+    #[test]
+    fn the_insights_section_changes_carry_the_name_shown_for_the_section() {
+        let _serial = crate::test_globals::serial_global_state();
+        let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
+        for (index, (id, section_type, name)) in [
+            ("ridge", "auto", Some("Ridge Generated")),
+            ("summit", "custom", Some("Harbour Climb")),
+            ("lower", "auto", None),
+            ("plain", "auto", None),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let polyline = serde_json::to_string(&track(30 + index * 5)).expect("polyline");
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                                           distance_meters, is_user_defined)
+                     VALUES (?1, ?2, ?3, 'Ride', ?4, 800.0, ?5)",
+                    rusqlite::params![id, section_type, name, polyline, section_type == "custom"],
+                )
+                .expect("section");
+        }
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_history (section_id, at, kind, details)
+                 VALUES ('lower', '2026-01-01T00:00:00Z', 'formed',
+                         '{\"split_from\":\"summit\",\"discriminator\":\"2\",\"line_order\":1}')",
+                [],
+            )
+            .expect("birth");
+        engine
+            .set_section_name("ridge", Some("Col du Test"))
+            .expect("rename");
+        for id in ["ridge", "lower", "plain"] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_history (section_id, at, kind, details)
+                     VALUES (?1, datetime('now'), 'recut', NULL)",
+                    rusqlite::params![id],
+                )
+                .expect("recut");
+        }
+
+        let bundle = pooled::insights_data(&engine.db, &coverage_params());
+
+        let mut shown: Vec<(&str, &str)> = bundle
+            .recent_section_changes
+            .iter()
+            .map(|c| (c.section_id.as_str(), c.section_name.as_str()))
+            .collect();
+        shown.sort_unstable();
+        let plain_number: u32 = engine
+            .db
+            .query_row(
+                "SELECT number FROM section_numbers WHERE section_id = 'plain'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("number");
+        let plain_label = format!("{} {plain_number}", crate::persistence::get_section_word());
+        assert_eq!(
+            shown,
+            vec![
+                ("lower", "Harbour Climb / 1"),
+                ("plain", plain_label.as_str()),
+                ("ridge", "Col du Test"),
+            ]
+        );
         crate::persistence::read_cache::close();
     }
 

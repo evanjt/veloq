@@ -45,7 +45,7 @@ export const settingsStyles = StyleSheet.create({
   // Hint/caption text below controls
   hintText: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
@@ -54,7 +54,7 @@ export const settingsStyles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
 

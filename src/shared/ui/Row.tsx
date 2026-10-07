@@ -44,7 +44,7 @@ export function Row({ children, testID, onPress, accessibilityLabel, disabled }:
         testID="row-chevron"
         name="chevron-right"
         size={20}
-        color={isDark ? darkColors.textMuted : colors.textSecondary}
+        color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
     </Pressable>
   );

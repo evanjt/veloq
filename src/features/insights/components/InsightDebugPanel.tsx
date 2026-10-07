@@ -39,7 +39,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const mutedColor = isDark ? darkColors.textMuted : colors.textSecondary;
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   // A module-level getter, so reading it each render costs nothing, and the
   // render that opens the panel is the one that picks up the latest run.

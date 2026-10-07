@@ -37,7 +37,7 @@ jest.mock('@/features/routes/lib/timeStreamBackfill', () => ({
   backfillTimeStreams: jest.fn(async () => ({ total: 0, remaining: 0 })),
 }));
 
-const { startFetchAndStore, takeFetchAndStoreResult } = require('veloqrs');
+const { engine, startFetchAndStore, takeFetchAndStoreResult } = require('veloqrs');
 
 const activity = (id: string) =>
   ({ id, type: 'Ride', start_date_local: '2026-01-01T08:00:00' }) as never;
@@ -59,6 +59,8 @@ describe('the foreground sync reading a download result', () => {
   beforeEach(() => {
     startFetchAndStore.mockReset();
     takeFetchAndStoreResult.mockReset();
+    engine.setActivityMetrics.mockClear();
+    engine.triggerRefresh.mockClear();
   });
 
   it('reports the activities of the run it started, whichever run finishes first', async () => {
@@ -93,5 +95,19 @@ describe('the foreground sync reading a download result', () => {
     const outcome = await result.current.fetchApiGps([activity('a1')], deps());
 
     expect(outcome.syncedIds).toEqual([]);
+  });
+
+  it('writes no metrics row from TypeScript and still refreshes the lists', async () => {
+    startFetchAndStore.mockReturnValue(1);
+    takeFetchAndStoreResult.mockImplementation((run?: number) =>
+      run === 1 ? resultFor(['a1']) : null
+    );
+    const { result } = renderHook(() => useGpsDataFetcher());
+
+    await result.current.fetchApiGps([activity('a1')], deps());
+
+    expect(engine.setActivityMetrics).not.toHaveBeenCalled();
+    expect(engine.triggerRefresh).toHaveBeenCalledWith('activities');
+    expect(engine.triggerRefresh).toHaveBeenCalledWith('groups');
   });
 });

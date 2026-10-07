@@ -17,7 +17,7 @@ export function DataSourcesSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('settings.dataSources').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
@@ -28,7 +28,7 @@ export function DataSourcesSection() {
                 <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
                   {t('settings.hideDemoBanner')}
                 </Text>
-                <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
+                <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
                   {t('settings.hideDemoBannerHint')}
                 </Text>
               </View>
@@ -40,7 +40,7 @@ export function DataSourcesSection() {
               />
             </View>
             <View style={styles.dataSourcesContent}>
-              <Text style={[styles.dataSourcesText, isDark && settingsStyles.textMuted]}>
+              <Text style={[styles.dataSourcesText, isDark && settingsStyles.textSecondary]}>
                 {t('attribution.demoData')}
               </Text>
             </View>
@@ -49,7 +49,7 @@ export function DataSourcesSection() {
         )}
 
         <View style={styles.dataSourcesContent}>
-          <Text style={[styles.dataSourcesText, isDark && settingsStyles.textMuted]}>
+          <Text style={[styles.dataSourcesText, isDark && settingsStyles.textSecondary]}>
             {t('settings.dataSourcesDescription')}
           </Text>
           <View style={styles.dataSourcesLogos}>
@@ -66,7 +66,7 @@ export function DataSourcesSection() {
               </View>
             ))}
           </View>
-          <Text style={[styles.trademarkText, isDark && settingsStyles.textMuted]}>
+          <Text style={[styles.trademarkText, isDark && settingsStyles.textSecondary]}>
             {t('attribution.garminTrademark')}
           </Text>
         </View>

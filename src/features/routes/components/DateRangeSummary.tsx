@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 
 interface DateRangeSummaryProps {
   activityCount: number;
@@ -59,7 +59,7 @@ export function DateRangeSummary({
           style={[styles.syncBanner, isDark && styles.syncBannerDark]}
         >
           <ActivityIndicator size="small" color={themeColors.primary} style={styles.syncIcon} />
-          <Text style={[styles.syncText, isDark && styles.textMuted]}>{syncMessage}</Text>
+          <Text style={[styles.syncText, isDark && styles.textSecondary]}>{syncMessage}</Text>
         </Animated.View>
       )}
 
@@ -77,28 +77,25 @@ export function DateRangeSummary({
             </Text>
           </View>
           {!isLoading && oldestDate && newestDate && (
-            <Text style={[styles.dateText, isDark && styles.textMuted]}>
+            <Text style={[styles.dateText, isDark && styles.textSecondary]}>
               {formatDate(oldestDate)} - {formatDate(newestDate)}
             </Text>
           )}
         </View>
 
-        <Pressable
-          style={pressable(styles.expandButton)}
-          android_ripple={pressRipple}
+        <Button
+          variant="ghost"
+          size="sm"
           onPress={handleExpandPress}
-          accessibilityRole="button"
-          accessibilityLabel={t('routesScreen.expandDateRange')}
-        >
-          <MaterialCommunityIcons
-            name="calendar-expand-horizontal"
-            size={18}
-            color={themeColors.primary}
-          />
-          <Text style={[styles.expandText, { color: themeColors.primary }]}>
-            {t('routesScreen.expandDateRange')}
-          </Text>
-        </Pressable>
+          icon={
+            <MaterialCommunityIcons
+              name="calendar-expand-horizontal"
+              size={18}
+              color={themeColors.primary}
+            />
+          }
+          label={t('routesScreen.expandDateRange')}
+        />
       </View>
     </View>
   );
@@ -152,21 +149,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
-  expandButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
-  expandText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
-    marginLeft: spacing.xs,
-  },
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
 });

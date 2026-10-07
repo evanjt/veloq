@@ -88,11 +88,6 @@ const buildSharedStyles = (isDark: boolean) => {
     textSecondary: {
       color: isDark ? darkColors.textSecondary : colors.textSecondary,
     },
-
-    /** Muted text color */
-    textMuted: {
-      color: isDark ? darkColors.textMuted : colors.textMuted,
-    },
   });
 };
 

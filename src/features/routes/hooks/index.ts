@@ -18,6 +18,7 @@ export { useRoutesScreenData } from './useRoutesScreenData';
 export { useSectionChartData } from './useSectionChartData';
 export { useSectionActions, type UseSectionActionsResult } from './useSectionActions';
 export { useSectionDataRefresh } from './useSectionDataRefresh';
+export { useSectionMergeFlow } from './useSectionMergeFlow';
 export { useSectionUIState } from './useSectionUIState';
 export { useRevealMapOnDraw, useRevealMapOnHighlight } from './useRevealMapOnDraw';
 export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';

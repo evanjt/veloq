@@ -18,15 +18,19 @@ static CPU_POOL: Once = Once::new();
 /// it is built, and a pool already built cannot be renamed.
 pub fn name_cpu_pool() {
     CPU_POOL.call_once(|| {
-        if let Err(err) = rayon::ThreadPoolBuilder::new()
-            .thread_name(|i| format!("veloq-cpu-{i}"))
-            .build_global()
-        {
+        if let Err(err) = cpu_pool_builder().build_global() {
             log::warn!(
                 "veloqrs: [threads] the rayon pool was already built, its workers keep the name of whatever thread reached it first: {err}"
             );
         }
     });
+}
+
+/// The pool's shape: named workers, each started at background priority.
+fn cpu_pool_builder() -> rayon::ThreadPoolBuilder {
+    rayon::ThreadPoolBuilder::new()
+        .thread_name(|i| format!("veloq-cpu-{i}"))
+        .start_handler(|_| lower_background_priority())
 }
 
 /// Longest thread name the kernel keeps whole.
@@ -53,4 +57,134 @@ where
         .name(name.to_string())
         .spawn(work)
         .unwrap_or_else(|err| panic!("veloqrs: [threads] could not spawn {name}: {err}"))
+}
+
+/// Spawn a worker nobody is waiting on, named and run at background priority.
+///
+/// Use it for compute and backfill passes. A sync the athlete is watching stays
+/// on `spawn_named`.
+pub fn spawn_background<F, T>(name: &str, work: F) -> JoinHandle<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    spawn_named(name, move || {
+        lower_background_priority();
+        work()
+    })
+}
+
+/// Lower the calling thread below the JavaScript and render threads.
+///
+/// A new thread starts at its creator's priority, which for a worker begun from
+/// an FFI call is the foreground one, so a pass nobody waits on would compete
+/// with the frame on equal terms. Nice 10 on Android and Linux, which only ever
+/// lowers: a thread already further down is left there. The utility QoS class
+/// on iOS. A refusal is logged and the thread runs where it was.
+pub fn lower_background_priority() {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        const BACKGROUND_NICE: libc::c_int = 10;
+        // SAFETY: both calls take plain integers and touch only the calling thread.
+        unsafe {
+            let tid = libc::gettid() as libc::id_t;
+            *libc::__errno_location() = 0;
+            let current = libc::getpriority(libc::PRIO_PROCESS, tid);
+            if current >= BACKGROUND_NICE {
+                return;
+            }
+            if libc::setpriority(libc::PRIO_PROCESS, tid, BACKGROUND_NICE) != 0 {
+                log::warn!(
+                    "veloqrs: [threads] could not lower a worker to nice {BACKGROUND_NICE}: {}",
+                    std::io::Error::last_os_error()
+                );
+            }
+        }
+    }
+    #[cfg(target_os = "ios")]
+    {
+        // SAFETY: sets the QoS class of the calling thread only.
+        let status =
+            unsafe { libc::pthread_set_qos_class_self_np(libc::qos_class_t::QOS_CLASS_UTILITY, 0) };
+        if status != 0 {
+            log::warn!("veloqrs: [threads] could not set the utility QoS class: {status}");
+        }
+    }
+}
+
+#[cfg(all(test, any(target_os = "linux", target_os = "android")))]
+mod tests {
+    use super::*;
+
+    fn nice_of_current_thread() -> i32 {
+        // SAFETY: reads the calling thread's own priority.
+        unsafe {
+            *libc::__errno_location() = 0;
+            libc::getpriority(libc::PRIO_PROCESS, libc::gettid() as libc::id_t)
+        }
+    }
+
+    /// Run on a fresh thread so a lowered priority never leaks into the test runner.
+    fn on_fresh_thread<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> T {
+        spawn_named("veloq-test-nice", work).join().unwrap()
+    }
+
+    #[test]
+    fn background_worker_runs_at_lowered_priority() {
+        let spawner = nice_of_current_thread();
+        let worker = spawn_background("veloq-test-bg", nice_of_current_thread)
+            .join()
+            .unwrap();
+        assert_eq!(worker, spawner.max(10));
+    }
+
+    #[test]
+    fn named_worker_keeps_the_spawners_priority() {
+        let spawner = nice_of_current_thread();
+        let worker = spawn_named("veloq-test-fg", nice_of_current_thread)
+            .join()
+            .unwrap();
+        assert_eq!(worker, spawner);
+    }
+
+    #[test]
+    fn lowering_twice_leaves_the_priority_where_the_first_put_it() {
+        let (first, second) = on_fresh_thread(|| {
+            lower_background_priority();
+            let first = nice_of_current_thread();
+            lower_background_priority();
+            (first, nice_of_current_thread())
+        });
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn a_thread_already_below_background_is_not_raised() {
+        let nice = on_fresh_thread(|| {
+            // SAFETY: lowers the calling thread only.
+            unsafe {
+                libc::setpriority(libc::PRIO_PROCESS, libc::gettid() as libc::id_t, 15);
+            }
+            lower_background_priority();
+            nice_of_current_thread()
+        });
+        assert_eq!(nice, 15);
+    }
+
+    #[test]
+    fn cpu_pool_workers_start_at_background_priority() {
+        let pool = cpu_pool_builder().num_threads(2).build().unwrap();
+        let spawner = nice_of_current_thread();
+        let niceness: Vec<i32> = pool.install(|| {
+            use rayon::prelude::*;
+            (0..64)
+                .into_par_iter()
+                .map(|_| nice_of_current_thread())
+                .collect()
+        });
+        assert!(
+            niceness.iter().all(|n| *n == spawner.max(10)),
+            "{niceness:?}"
+        );
+    }
 }

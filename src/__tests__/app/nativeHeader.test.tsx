@@ -13,7 +13,12 @@
 import fs from 'fs';
 import path from 'path';
 
-import { SCREEN_HEADERS, SCREEN_SHEETS, sheetScreenOptions } from '@/shared/app/screenHeaders';
+import {
+  SCREEN_HEADERS,
+  SCREEN_SHEETS,
+  headerLargeTitle,
+  sheetScreenOptions,
+} from '@/shared/app/screenHeaders';
 import type { ScreenHeader } from '@/shared/app/screenHeaders';
 import { resolvedLocale } from '../i18n/resolvedLocale';
 
@@ -106,5 +111,38 @@ describe('sheet routes', () => {
 
   it('registers every sheet in the header table without a header', () => {
     for (const name of Object.keys(SCREEN_SHEETS)) expect(SCREEN_HEADERS[name]).toBeNull();
+  });
+});
+
+describe('large titles', () => {
+  const table: Record<string, ScreenHeader | null> = {
+    flagged: { titleKey: 'about.title', largeTitle: true },
+    unflagged: { titleKey: 'about.title' },
+    overMapFlagged: { overMap: true, largeTitle: true },
+    dynamicFlagged: { titleKey: 'about.title', dynamic: true, largeTitle: true },
+    none: null,
+  };
+
+  it('is true on iOS for an entry that sets the flag', () => {
+    expect(headerLargeTitle('flagged', 'ios', table)).toBe(true);
+  });
+
+  it('is false on every other platform', () => {
+    expect(headerLargeTitle('flagged', 'android', table)).toBe(false);
+    expect(headerLargeTitle('flagged', 'web', table)).toBe(false);
+  });
+
+  it('is false for an entry without the flag', () => {
+    expect(headerLargeTitle('unflagged', 'ios', table)).toBe(false);
+  });
+
+  it('is false for a transparent over-map header and for a custom title', () => {
+    expect(headerLargeTitle('overMapFlagged', 'ios', table)).toBe(false);
+    expect(headerLargeTitle('dynamicFlagged', 'ios', table)).toBe(false);
+  });
+
+  it('is false for a headerless entry and for an unknown route', () => {
+    expect(headerLargeTitle('none', 'ios', table)).toBe(false);
+    expect(headerLargeTitle('missing', 'ios', table)).toBe(false);
   });
 });

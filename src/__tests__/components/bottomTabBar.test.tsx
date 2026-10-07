@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -106,5 +107,24 @@ describe('BottomTabBar', () => {
 
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
+  });
+
+  it('fires the selection haptic on Android too, and none for the current tab', () => {
+    const originalOS = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      authState.isAuthenticated = true;
+      const { getByLabelText } = render(<BottomTabBar />);
+
+      fireEvent.press(getByLabelText('navigation.feed'));
+      expect(Haptics.selectionAsync).not.toHaveBeenCalled();
+
+      fireEvent.press(getByLabelText('navigation.fitness'));
+
+      expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
+      expect(Haptics.impactAsync).not.toHaveBeenCalled();
+    } finally {
+      Platform.OS = originalOS;
+    }
   });
 });

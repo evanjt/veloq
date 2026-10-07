@@ -140,7 +140,7 @@ const WorkoutCard = React.memo(function WorkoutCard({
         />{' '}
         {workout.name}
       </Text>
-      <Text style={[styles.workoutMeta, isDark && styles.textMuted]}>
+      <Text style={[styles.workoutMeta, isDark && styles.textSecondary]}>
         {formatDuration(workout.moving_time)}
         {workout.icu_training_load > 0 && ` \u00B7 ${Math.round(workout.icu_training_load)} TSS`}
         {targetLabel && ` \u00B7 ${targetLabel}`}
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: darkColors.textPrimary,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   workoutCard: {

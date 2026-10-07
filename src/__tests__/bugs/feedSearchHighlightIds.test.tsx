@@ -176,6 +176,7 @@ function searchActivityBodies(query: { needle: string; sportGroups: number[] }) 
 const getActivityHighlightsBundle = jest.fn((_activityIds: string[]) => ({
   indicators: [],
   routeHighlights: [],
+  newGround: [],
   strengthCards: [],
 }));
 

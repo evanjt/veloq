@@ -81,6 +81,7 @@ pub(crate) mod indicators;
 pub mod job_runs;
 #[cfg(feature = "lock-trace")]
 pub mod lock_trace;
+pub mod new_ground;
 pub mod read_cache;
 pub mod read_pool;
 pub(crate) mod record_backup;
@@ -1072,6 +1073,9 @@ pub struct TileGenerationHandle {
     pub generated: Arc<AtomicU32>,
     /// Total tiles to process
     pub total: Arc<AtomicU32>,
+    /// Nanoseconds the worker spent from the request to the last tile, set
+    /// before the count is sent. Zero until the pass ends.
+    elapsed_nanos: Arc<AtomicU64>,
     /// The stop this pass checks. Cancelling costs a stale heatmap the next
     /// pass redraws, which is why the dirty marker survives a cancelled run.
     cancel: CancelToken,
@@ -1091,6 +1095,14 @@ impl TileGenerationHandle {
     /// Test and bench path; production uses `poll_state()` via the HeatmapManager poll loop.
     pub fn recv_blocking(&self) -> Option<u32> {
         self.receiver.recv().ok()
+    }
+
+    /// How long the pass took, measured by its own worker from the request
+    /// through the catalogue snapshot to the last tile. Read after the count
+    /// arrives: it does not depend on when the handle was taken, so a caller
+    /// that collects a finished pass late still gets the whole of its cost.
+    pub fn generation_elapsed(&self) -> std::time::Duration {
+        std::time::Duration::from_nanos(self.elapsed_nanos.load(Ordering::SeqCst))
     }
 
     /// Ask the pass to stop at its next tile.

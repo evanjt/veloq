@@ -11,7 +11,8 @@
 //! - `one_added/*`, the pass a sync's single new activity starts over a
 //!   library whose tiles are already drawn: the activity is stored through the
 //!   engine, its invalidation sweep runs to its end, and only the pass that
-//!   sweep requests is timed.
+//!   sweep requests is timed, by the pass itself from its request to its last
+//!   tile.
 
 use criterion::{BenchmarkId, Criterion, SamplingMode, criterion_group, criterion_main};
 use std::path::PathBuf;
@@ -335,6 +336,11 @@ fn bench_one_added(c: &mut Criterion) {
             let mut total = Duration::ZERO;
             for _ in 0..iters {
                 with_persistent_engine(|engine| {
+                    assert_eq!(
+                        engine.activity_count(),
+                        target,
+                        "a sample must start from the baseline library"
+                    );
                     engine
                         .add_activity(
                             added.id.clone(),
@@ -344,11 +350,12 @@ fn bench_one_added(c: &mut Criterion) {
                         .expect("added activity stored")
                 })
                 .expect("engine installed");
-                // The sweep has ended once it has asked for its pass.
+                // The sweep has ended once it has asked for its pass. The
+                // pass times itself from that request to its last tile, so
+                // the wait for the handle is not part of the reading.
                 let pass = await_requested_pass();
-                let start = Instant::now();
                 let redrawn = pass.recv_blocking().expect("the pass reported its outcome");
-                total += start.elapsed();
+                total += pass.generation_elapsed();
                 assert!(redrawn > 0, "the added activity's tiles were not redrawn");
 
                 // Back to the baseline, tiles drawn, outside the timing.

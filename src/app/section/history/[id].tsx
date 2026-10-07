@@ -33,7 +33,7 @@ function SectionHistoryScreenContent() {
         : undefined,
     [detail]
   );
-  const ledger = useSectionLedger(id, refreshKey, bundledLedger);
+  const ledger = useSectionLedger(id, bundledLedger);
   const activityNames = useLedgerActivityNames(ledger.history);
   const revert = useCallback(
     (version: number) => {
@@ -86,7 +86,6 @@ function SectionHistoryScreenContent() {
           onRevert={revert}
           onUnpin={unpin}
           activityNames={activityNames}
-          failureKey={ledger.failureKey}
         />
       </ScrollView>
     </View>

@@ -517,10 +517,10 @@ function InsightsScreenContent() {
             <MaterialCommunityIcons
               name="map-marker-off-outline"
               size={14}
-              color={isDark ? darkColors.textMuted : colors.textSecondary}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
             <View>
-              <Text style={[styles.disabledHintText, isDark && styles.textMuted]}>
+              <Text style={[styles.disabledHintText, isDark && styles.textSecondary]}>
                 {t('insights.routesDisabledLine1', 'Routes & Sections disabled')}
               </Text>
               <Text style={[styles.disabledHintLink, isDark && { color: darkColors.linkTeal }]}>
@@ -532,7 +532,7 @@ function InsightsScreenContent() {
         <IconButton
           icon="information-outline"
           size={20}
-          iconColor={isDark ? darkColors.textMuted : colors.textMuted}
+          iconColor={isDark ? darkColors.textSecondary : colors.textSecondary}
           onPress={() => Alert.alert(t('insights.aboutTitle'), aboutInsightsBody(t, activeTab))}
           style={styles.infoButton}
         />
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   routeTabPage: {

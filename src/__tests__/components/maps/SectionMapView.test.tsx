@@ -10,7 +10,8 @@
 import React from 'react';
 import { Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, act, waitFor } from '@testing-library/react-native';
+import * as Location from 'expo-location';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
 import type { FrequentSection, RoutePoint } from '@/types';
@@ -19,10 +20,20 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
 const mockFitBounds = jest.fn();
+const mockSetCamera = jest.fn();
+const mockApply = jest.fn();
 jest.mock('@/features/maps/lib/htmlBuilders/mapSurface', () => {
   const actual = jest.requireActual('@/features/maps/lib/htmlBuilders/mapSurface');
   return {
     ...actual,
+    buildSetCameraScript: (...args: unknown[]) => {
+      mockSetCamera(...args);
+      return actual.buildSetCameraScript(...args);
+    },
+    buildApplyScript: (patch: unknown) => {
+      mockApply(patch);
+      return actual.buildApplyScript(patch);
+    },
     buildFitBoundsScript: (...args: unknown[]) => {
       mockFitBounds(...args);
       return actual.buildFitBoundsScript(...args);
@@ -283,5 +294,92 @@ describe('SectionMapView', () => {
     expect(screen.queryByTestId('section-map-3d-loading')).toBeNull();
     expect(screen.queryByTestId('webview')).toBeNull();
     expect(screen.getByTestId('section-map-container')).toBeTruthy();
+  });
+
+  describe('locate button', () => {
+    const requestPermission = Location.requestForegroundPermissionsAsync as jest.Mock;
+    const getPosition = Location.getCurrentPositionAsync as jest.Mock;
+
+    beforeEach(() => {
+      mockSetCamera.mockClear();
+      mockApply.mockClear();
+      requestPermission.mockReset().mockResolvedValue({ status: 'granted' });
+      getPosition.mockReset().mockResolvedValue({ coords: { longitude: 7.5, latitude: 46.5 } });
+    });
+
+    function markSurfaceReady() {
+      act(() => {
+        fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+          nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) },
+        });
+      });
+    }
+
+    function sourcesSent(): Record<string, { data: GeoJSON.FeatureCollection }> {
+      return Object.assign({}, ...mockApply.mock.calls.map(([patch]) => patch.sources ?? {}));
+    }
+
+    it('is found by its label and is not pressable while a fix is awaited', async () => {
+      renderSection();
+      expect(screen.getByLabelText('maps.goToLocation')).toBeTruthy();
+
+      fireEvent.press(screen.getByLabelText('maps.goToLocation'));
+      expect(screen.getByLabelText('maps.goToLocation').props.accessibilityState.disabled).toBe(
+        true
+      );
+      await waitFor(() => expect(mockSetCamera).toHaveBeenCalled());
+    });
+
+    it('reuses a recent fix, lands at the shared zoom and draws the dot', async () => {
+      renderSection();
+      markSurfaceReady();
+      expect(sourcesSent()['user-location'].data.features).toEqual([]);
+
+      fireEvent.press(screen.getByLabelText('maps.goToLocation'));
+      await waitFor(() => expect(mockSetCamera).toHaveBeenCalledTimes(1));
+      fireEvent.press(screen.getByLabelText('maps.goToLocation'));
+      await waitFor(() => expect(mockSetCamera).toHaveBeenCalledTimes(2));
+
+      expect(getPosition).toHaveBeenCalledTimes(1);
+      expect(mockSetCamera).toHaveBeenLastCalledWith({ center: [7.5, 46.5], zoom: 13 }, 500);
+      const dot = mockApply.mock.calls
+        .map(([patch]) => patch.sources?.['user-location']?.data)
+        .filter(Boolean)
+        .pop();
+      expect(dot.features[0].geometry).toEqual({ type: 'Point', coordinates: [7.5, 46.5] });
+    });
+
+    it('leaves the map and the dot alone when permission is refused', async () => {
+      requestPermission.mockResolvedValue({ status: 'denied' });
+      renderSection();
+      markSurfaceReady();
+
+      fireEvent.press(screen.getByLabelText('maps.goToLocation'));
+      await waitFor(() =>
+        expect(screen.getByLabelText('maps.goToLocation').props.accessibilityState.disabled).toBe(
+          false
+        )
+      );
+
+      expect(mockSetCamera).not.toHaveBeenCalled();
+      expect(sourcesSent()['user-location'].data.features).toEqual([]);
+    });
+
+    it('eases onto the fix at the shared locate zoom and reuses a fresh fix', async () => {
+      getPosition.mockResolvedValue({ coords: { latitude: 46.948, longitude: 7.447 } });
+      renderSection();
+      const locate = screen.getByRole('button', { name: 'maps.goToLocation' });
+
+      await act(async () => {
+        fireEvent.press(locate);
+      });
+      await act(async () => {
+        fireEvent.press(locate);
+      });
+
+      expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
+      expect(mockSetCamera).toHaveBeenCalledTimes(2);
+      expect(mockSetCamera).toHaveBeenLastCalledWith({ center: [7.447, 46.948], zoom: 13 }, 500);
+    });
   });
 });

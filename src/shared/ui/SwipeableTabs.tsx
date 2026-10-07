@@ -19,7 +19,7 @@ import Animated, {
   runOnJS,
   Easing,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import * as haptics from './haptics';
 import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
 import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
@@ -118,7 +118,7 @@ export function SwipeableTabs({
   }, []);
 
   const triggerHaptic = useCallback(() => {
-    Haptics.selectionAsync().catch(() => {});
+    haptics.selection();
   }, []);
 
   const updateTab = useCallback(
@@ -298,7 +298,7 @@ export function SwipeableTabs({
                         isActive
                           ? colors.primary
                           : isDark
-                            ? darkColors.textMuted
+                            ? darkColors.textSecondary
                             : colors.textSecondary
                       }
                     />
@@ -393,7 +393,7 @@ export function SwipeableTabs({
                         isActive
                           ? colors.primary
                           : isDark
-                            ? darkColors.textMuted
+                            ? darkColors.textSecondary
                             : colors.textSecondary
                       }
                     />
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
     color: darkColors.linkTeal,
   },
   tabTextDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
   },
   tabBadge: {
     backgroundColor: colors.gray200,
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   tabBadgeNegative: {
-    backgroundColor: colors.textMuted,
+    backgroundColor: colors.textSecondary,
   },
   tabBadgeText: {
     fontSize: typography.label.fontSize,

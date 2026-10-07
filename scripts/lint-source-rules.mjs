@@ -131,7 +131,7 @@ const DARK_COUNTERPART_TOKENS = ['linkTeal'];
  * to remove. Like the ground baseline it only shrinks: an entry that has
  * stopped writing fails the rule rather than going quiet.
  */
-const METRICS_WRITE_BASELINE = ['src/features/routes/hooks/useGpsDataFetcher.ts'];
+const METRICS_WRITE_BASELINE = [];
 
 const REFERENCE_LOCALE = 'src/i18n/locales/en-GB.json';
 

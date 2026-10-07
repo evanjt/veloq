@@ -205,7 +205,6 @@ describe('the containers below the section chart', () => {
           onRevert={() => {}}
           onUnpin={() => {}}
           activityNames={{}}
-          failureKey={null}
         />
       )
     );

@@ -128,7 +128,7 @@ function StorageBreakdownBar({
             <View style={[styles.storageLegendDot, { backgroundColor: seg.color }]} />
             <Text
               testID="storage-legend-label"
-              style={[styles.storageLegendText, isDark && styles.textMuted]}
+              style={[styles.storageLegendText, isDark && styles.textSecondary]}
             >
               {t(seg.labelKey)} {formatFileSize(seg.bytes)}
             </Text>
@@ -153,7 +153,7 @@ function StorageBreakdownBar({
             style={[
               styles.storageLegendText,
               { marginTop: spacing.xxs },
-              isDark && styles.textMuted,
+              isDark && styles.textSecondary,
             ]}
           >
             {t('settings.storageUsedAndFree', {
@@ -272,7 +272,7 @@ export function StorageStatsPanel({
               styles.statLabel,
               routeMatchingEnabled
                 ? [styles.statLabelClickable, isDark && { color: darkColors.linkTeal }]
-                : isDark && styles.textMuted,
+                : isDark && styles.textSecondary,
             ]}
           >
             {t('settings.routesCount')} ›
@@ -295,7 +295,7 @@ export function StorageStatsPanel({
               styles.statLabel,
               routeMatchingEnabled
                 ? [styles.statLabelClickable, isDark && { color: darkColors.linkTeal }]
-                : isDark && styles.textMuted,
+                : isDark && styles.textSecondary,
             ]}
           >
             {t('settings.sectionsCount')} ›
@@ -304,14 +304,14 @@ export function StorageStatsPanel({
       </View>
 
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-        <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+        <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
           {t('settings.dateRange')}
         </Text>
         <Text style={[styles.infoValue, isDark && styles.textLight]}>{dateRangeText}</Text>
       </View>
 
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-        <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+        <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
           {t('settings.lastSynced')}
         </Text>
         <Text style={[styles.infoValue, isDark && styles.textLight]}>
@@ -320,14 +320,16 @@ export function StorageStatsPanel({
       </View>
 
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-        <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+        <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
           {t('settings.cachedQueries')}
         </Text>
         <Text style={[styles.infoValue, isDark && styles.textLight]}>{totalQueries}</Text>
       </View>
 
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-        <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.database')}</Text>
+        <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
+          {t('settings.database')}
+        </Text>
         <Text style={[styles.infoValue, isDark && styles.textLight]}>
           {formatFileSize(routesSize)}
         </Text>
@@ -341,7 +343,7 @@ export function StorageStatsPanel({
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
         <Text
           testID="settings-map-cache-label"
-          style={[styles.infoLabel, isDark && styles.textMuted]}
+          style={[styles.infoLabel, isDark && styles.textSecondary]}
         >
           {t('settings.mapCache')}
         </Text>
@@ -378,7 +380,7 @@ export function StorageStatsPanel({
           tiles may hold, what raising it buys, and what it costs. */}
       <View style={[styles.infoRow, styles.budgetRow, isDark && styles.infoRowDark]}>
         <View style={styles.budgetHeader}>
-          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+          <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
             {t('settings.tileCacheLimit')}
           </Text>
           <Pressable
@@ -401,7 +403,7 @@ export function StorageStatsPanel({
         </View>
         <Text
           testID="settings-tile-cache-subtitle"
-          style={[styles.budgetHint, isDark && styles.textMuted]}
+          style={[styles.budgetHint, isDark && styles.textSecondary]}
         >
           {t('settings.tileCacheLimitHint')}
         </Text>
@@ -549,7 +551,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   storageBarContainer: {

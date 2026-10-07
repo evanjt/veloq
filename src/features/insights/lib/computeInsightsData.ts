@@ -1,4 +1,4 @@
-import { getAllSectionDisplayNames, ledgerDate, isRouteMatchingEnabled } from '@/features/routes';
+import { ledgerDate, isRouteMatchingEnabled } from '@/features/routes';
 import type { SectionChangeInput } from '../generators/sectionChanged';
 import { normalizeStrengthProgression, normalizeStrengthSummary } from '@/features/strength';
 import { getEngine } from '@/shared/native/engine';
@@ -41,21 +41,12 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
  * Can come from TanStack Query (React) or direct API fetch (background task).
  */
 /**
- * Visible changes the ledger recorded, named.
+ * Visible changes the ledger recorded.
  *
- * The rows ride the insights bundle. Names come from the display-name memo,
- * and the encoded line is decoded for the card's graphic.
+ * The rows ride the insights bundle with the name the athlete is shown for
+ * each section, and the encoded line is decoded for the card's graphic.
  */
 function namedSectionChanges(changes: readonly SectionChange[]): SectionChangeInput[] {
-  if (changes.length === 0) return [];
-  let names: Record<string, string>;
-  try {
-    names = getAllSectionDisplayNames();
-  } catch {
-    // A naming lookup that cannot answer leaves the ledger's changes listed
-    // under their ids, never a feed that drops them.
-    names = {};
-  }
   return changes.map((c) => {
     let points: SectionChangeInput['points'];
     try {
@@ -68,7 +59,7 @@ function namedSectionChanges(changes: readonly SectionChange[]): SectionChangeIn
     }
     return {
       sectionId: c.sectionId,
-      sectionName: names[c.sectionId] ?? c.sectionId,
+      sectionName: c.sectionName,
       kind: c.kind,
       at: ledgerDate(c.at).getTime(),
       points,

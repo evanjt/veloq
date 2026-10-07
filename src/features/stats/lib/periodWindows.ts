@@ -1,4 +1,4 @@
-import { getMonday } from '@/shared/format/format';
+import { calendarDaysBetween, getMonday } from '@/shared/format/format';
 
 export type WindowRange = 'week' | 'month' | '3m' | '6m' | 'year';
 
@@ -14,19 +14,8 @@ export interface DayWindow {
   end: Date;
 }
 
-const MS_PER_DAY = 86_400_000;
-
 function dayOf(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-/** Whole calendar days from `from` to `to`, counted over local dates so a DST shift cannot move it. */
-function daysBetween(from: Date, to: Date): number {
-  return Math.round(
-    (Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) -
-      Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) /
-      MS_PER_DAY
-  );
 }
 
 function addDays(date: Date, days: number): Date {
@@ -39,7 +28,7 @@ function addDays(date: Date, days: number): Date {
  * ever set against the same part of an earlier period.
  */
 function previousEndFor(currentStart: Date, today: Date, previousStart: Date, naturalEnd: Date) {
-  const aligned = addDays(previousStart, daysBetween(currentStart, today));
+  const aligned = addDays(previousStart, calendarDaysBetween(currentStart, today));
   return aligned < naturalEnd ? aligned : naturalEnd;
 }
 

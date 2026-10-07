@@ -14,6 +14,11 @@ import {
   useLastBackupTimestamp,
   useAutoBackupEnabled,
   useNotificationPreferences,
+  SettingsNavRow,
+  RecordingPermissionSection,
+  FooterSection,
+  SupportSection,
+  settingsStyles,
   useMapPreferences,
   useDashboardPreferences,
 } from '@/features/settings';
@@ -25,10 +30,6 @@ import { navigateTo } from '@/shared/app/navigation';
 import { formatFileSize, formatMonthYear, getIntlLocale } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
-import { RecordingPermissionSection } from '@/features/settings/components/RecordingPermissionSection';
-import { FooterSection, SupportSection } from '@/features/settings/components';
-import { settingsStyles } from '@/features/settings/components/settingsStyles';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 interface AccountRowProps {
@@ -94,14 +95,14 @@ function AccountRow({
           <Text style={[styles.accountName, isDark && settingsStyles.textLight]} numberOfLines={1}>
             {athlete?.name || t('settings.account')}
           </Text>
-          <Text style={[styles.accountBadge, isDark && settingsStyles.textMuted]}>
+          <Text style={[styles.accountBadge, isDark && settingsStyles.textSecondary]}>
             {badgeLabel}
           </Text>
         </View>
         <MaterialCommunityIcons
           name="chevron-right"
           size={20}
-          color={isDark ? darkColors.textMuted : colors.textSecondary}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
       </Pressable>
     </View>
@@ -230,7 +231,7 @@ function SettingsScreenContent() {
         {/* Grouped by what the athlete is doing, not by which subsystem owns
               the screen: that is how the heatmap toggle came to sit under sync. */}
         <Text
-          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}
           testID="settings-group-shows"
         >
           {t('settings.groupShows', 'Appearance').toUpperCase()}
@@ -262,7 +263,7 @@ function SettingsScreenContent() {
         </View>
 
         <Text
-          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}
           testID="settings-group-collects"
         >
           {t('settings.groupCollects', 'Data & recording').toUpperCase()}
@@ -296,7 +297,7 @@ function SettingsScreenContent() {
         {/* Detection is a computation, but what the athlete manages on that
               screen is the catalogue it keeps, so it sits here. */}
         <Text
-          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}
           testID="settings-group-keeps"
         >
           {t('settings.groupKeeps', 'Library & backup').toUpperCase()}
@@ -330,7 +331,7 @@ function SettingsScreenContent() {
         {/* Background jobs is a status screen rather than a preference, and
               it is here because it is where the app reports on itself. */}
         <Text
-          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}
           testID="settings-group-tells"
         >
           {t('settings.groupTells', 'Notifications').toUpperCase()}

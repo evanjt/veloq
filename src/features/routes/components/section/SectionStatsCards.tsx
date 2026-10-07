@@ -143,7 +143,7 @@ export function SectionStatsCards({
                 <Text style={[styles.calendarYearText, isDark && styles.textLight]}>
                   {yearData.year}
                 </Text>
-                <Text style={[styles.calendarYearSubtitle, isDark && styles.textMuted]}>
+                <Text style={[styles.calendarYearSubtitle, isDark && styles.textSecondary]}>
                   {yearFwd && yearRev ? (
                     <>
                       {`${t('sections.traversalsCount', { count: yearData.traversalCount })} · `}
@@ -204,10 +204,10 @@ export function SectionStatsCards({
                       key={monthData.month}
                       style={[styles.calendarMonthRow, isDark && styles.calendarMonthRowDark]}
                     >
-                      <Text style={[styles.calendarMonthName, isDark && styles.textMuted]}>
+                      <Text style={[styles.calendarMonthName, isDark && styles.textSecondary]}>
                         {monthNames[monthData.month - 1]}
                       </Text>
-                      <Text style={[styles.calendarMonthCount, isDark && styles.textMuted]}>
+                      <Text style={[styles.calendarMonthCount, isDark && styles.textSecondary]}>
                         {monthData.traversalCount}
                       </Text>
                       <View style={styles.calendarMonthEntries}>
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   calendarSection: {},

@@ -19,7 +19,7 @@ jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly()
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({
     isDark: false,
-    colors: { text: '#111', textMuted: '#666' },
+    colors: { text: '#111', textSecondary: '#666' },
   }),
 }));
 jest.mock('@/shared/ui', () => ({

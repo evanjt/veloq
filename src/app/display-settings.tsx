@@ -11,7 +11,7 @@ import {
 } from '@/shared/app/ThemeProvider';
 import { useUnitPreference, type UnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { colors, darkColors, spacing } from '@/theme';
-import { DisplaySettings } from '@/features/settings/components';
+import { DisplaySettings } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function DisplaySettingsScreenContent() {

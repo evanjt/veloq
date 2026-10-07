@@ -3,11 +3,7 @@ import { StyleSheet, ScrollView } from 'react-native';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
-import {
-  ActivitySyncRow,
-  BackgroundJobsActivityBar,
-  SyncRangePanel,
-} from '@/features/settings/components';
+import { ActivitySyncRow, BackgroundJobsActivityBar, SyncRangePanel } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function SyncSettingsScreenContent() {

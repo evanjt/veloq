@@ -124,3 +124,30 @@ fn test_pooled_trend_needs_three_paced_heart_rate_laps() {
             .is_none()
     );
 }
+
+#[test]
+fn test_summary_names_are_the_names_the_name_read_gives() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("section_summary_names.db");
+    seed_section("mine", "custom", Some("Mine"), true);
+    seed_section("mine_bare", "custom", None, true);
+    seed_section("auto_named", "auto", Some("Stored"), false);
+    seed_section("auto_bare", "auto", None, false);
+
+    let sections = SectionManager::new();
+    let names = sections.get_all_names().unwrap();
+    let summaries = sections
+        .get_summaries(crate::FfiSectionFilter::default(), None)
+        .unwrap()
+        .summaries;
+
+    assert_eq!(summaries.len(), 4);
+    for summary in summaries {
+        assert_eq!(
+            summary.name.as_ref(),
+            names.get(&summary.id),
+            "the summary of {} names it as the name read does",
+            summary.id
+        );
+    }
+}

@@ -561,12 +561,8 @@ describe('dark-text-counterpart', () => {
 });
 
 describe('metrics-one-writer', () => {
-  const FETCHER = 'src/features/routes/hooks/useGpsDataFetcher.ts';
-  const STILL_WRITING = { [FETCHER]: 'engine.setActivityMetrics(metrics);\n' };
-
   it('fails a metrics write from the background insight task', () => {
     const root = fixture({
-      ...STILL_WRITING,
       'src/features/insights/backgroundInsightTask.ts': [
         "const { toActivityMetrics } = require('@/shared/activity/activityMetrics');",
         'engine.setActivityMetrics([toActivityMetrics(activity)]);',
@@ -581,7 +577,6 @@ describe('metrics-one-writer', () => {
 
   it('fails a write through the raw binding or a destructured writer', () => {
     const root = fixture({
-      ...STILL_WRITING,
       'src/shared/a.ts': 'engine.activities().setMetrics(rows);\n',
       'src/shared/b.ts': 'const { setActivityMetricsExtended } = engine;\n',
     });
@@ -592,9 +587,8 @@ describe('metrics-one-writer', () => {
     expect(output).toContain('src/shared/b.ts:1');
   });
 
-  it('passes the real background insight task, the listed fetcher and the test tree', () => {
+  it('passes the real background insight task, a comment and the test tree', () => {
     const root = fixture({
-      ...STILL_WRITING,
       'src/features/insights/backgroundInsightTask.ts': real(
         'src/features/insights/backgroundInsightTask.ts'
       ),
@@ -603,15 +597,6 @@ describe('metrics-one-writer', () => {
     });
 
     expect(runRule('metrics-one-writer', root).status).toBe(0);
-  });
-
-  it('fails when a listed writer has stopped writing, so the list only shrinks', () => {
-    const root = fixture({ [FETCHER]: 'export {};\n' });
-
-    const { status, output } = runRule('metrics-one-writer', root);
-
-    expect(status).toBe(1);
-    expect(output).toContain(`${FETCHER}  is fixed`);
   });
 });
 

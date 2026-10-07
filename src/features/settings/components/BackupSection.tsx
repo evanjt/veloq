@@ -384,7 +384,7 @@ export function BackupSection() {
 
   const iconColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const labelStyle = [settingsStyles.actionRowText, isDark && settingsStyles.textLight];
-  const detailStyle = [styles.detail, isDark && settingsStyles.textMuted];
+  const detailStyle = [styles.detail, isDark && settingsStyles.textSecondary];
   const errorStyle = [styles.detail, styles.error, isDark && styles.errorDark];
   const divider = (
     <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
@@ -395,7 +395,7 @@ export function BackupSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('backup.sectionBackup').toUpperCase()}
       </Text>
       <Card variant="flat" padding="none">
@@ -464,7 +464,7 @@ export function BackupSection() {
         </Row>
       </Card>
 
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('backup.sectionRestore').toUpperCase()}
       </Text>
       <Card variant="flat" padding="none">
@@ -621,7 +621,7 @@ export function BackupSection() {
         )}
       </Card>
 
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('backup.sectionDestinations').toUpperCase()}
       </Text>
       <Card variant="flat" padding="none">
@@ -692,7 +692,7 @@ export function BackupSection() {
         </View>
       </Card>
 
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('backup.sectionExport').toUpperCase()}
       </Text>
       <Card variant="flat" padding="none">

@@ -736,7 +736,10 @@ export const TerrainSnapshotWebView = forwardRef<
           capturedAt
         );
         if (typeof data.elapsed === 'number') {
-          recordAppMetric(snapshotPageMetric(data.fastPath === true), data.elapsed);
+          recordAppMetric(
+            snapshotPageMetric(data.fastPath === true, { flat: !is3D, standIn }),
+            data.elapsed
+          );
         }
         recordSnapshotPhases(data.phases);
         recordSnapshotTiles(data.tileStats);

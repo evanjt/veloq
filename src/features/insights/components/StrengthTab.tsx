@@ -160,7 +160,7 @@ export const StrengthTab = React.memo(function StrengthTab({
             <MaterialCommunityIcons
               name={periodAwaitingDownload ? 'cloud-download-outline' : 'dumbbell'}
               size={32}
-              color={isDark ? darkColors.textMuted : colors.textDisabled}
+              color={isDark ? darkColors.textSecondary : colors.textDisabled}
             />
           )}
           <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
@@ -185,7 +185,7 @@ export const StrengthTab = React.memo(function StrengthTab({
               <MaterialCommunityIcons
                 name="cloud-download-outline"
                 size={typography.caption.fontSize}
-                color={isDark ? darkColors.textMuted : colors.textSecondary}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
               <Text style={[styles.owedText, isDark && styles.emptyTextDark]}>
                 {t('strength.periodOwed', { count: screen?.owedCount ?? 0 })}
@@ -235,7 +235,7 @@ export const StrengthTab = React.memo(function StrengthTab({
               <MaterialCommunityIcons
                 name="scale-balance"
                 size={14}
-                color={isDark ? darkColors.textMuted : colors.textDisabled}
+                color={isDark ? darkColors.textSecondary : colors.textDisabled}
               />
               <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
                 {t('strength.infoWeighting')}

@@ -32,15 +32,6 @@ fn zone_seconds(times: Option<&[u32]>, columns: usize) -> Vec<f64> {
     out
 }
 
-pub(super) fn metrics_input(mut metrics: ActivityMetrics) -> crate::FfiActivityMetrics {
-    let power_zones = metrics.power_zone_times.take();
-    let hr_zones = metrics.hr_zone_times.take();
-    let mut input = crate::FfiActivityMetrics::from(metrics);
-    input.power_zone_times = power_zones;
-    input.hr_zone_times = hr_zones;
-    input
-}
-
 impl PersistentEngine {
     // ========================================================================
     // Activity Metrics & Route Performances
@@ -49,24 +40,15 @@ impl PersistentEngine {
     /// Set activity metrics for performance calculations.
     /// This persists the metrics to the database and keeps them in memory.
     ///
-    /// The row is written whole, stats columns included. A page write that
-    /// listed only the core columns replaced the row and emptied the rest, so
-    /// a training load stored earlier did not survive the next sync.
+    /// The row is written whole, stats and zone columns included. A page write
+    /// that listed only the core columns replaced the row and emptied the
+    /// rest, so a training load stored earlier did not survive the next sync.
+    /// Also maintains the heatmap from the stored rows.
     pub fn set_activity_metrics(&mut self, metrics: Vec<ActivityMetrics>) -> SqlResult<()> {
-        self.set_activity_metrics_extended(metrics.into_iter().map(metrics_input).collect())
-    }
-
-    /// Set activity metrics with extended fields (training load, FTP, zone times).
-    /// Persists all fields to the database. Extended fields are only used for SQL aggregate queries.
-    /// Also maintains the heatmap from the stored activity metrics.
-    pub fn set_activity_metrics_extended(
-        &mut self,
-        metrics: Vec<crate::FfiActivityMetrics>,
-    ) -> SqlResult<()> {
         if metrics.is_empty() {
             return Ok(());
         }
-        let rows: Vec<&crate::FfiActivityMetrics> = metrics.iter().collect();
+        let rows: Vec<&ActivityMetrics> = metrics.iter().collect();
 
         self.db.execute_batch("BEGIN IMMEDIATE")?;
 
@@ -91,18 +73,26 @@ impl PersistentEngine {
         }
 
         for m in metrics {
-            let core: ActivityMetrics = m.into();
-            self.activity_metrics.insert(core.activity_id.clone(), core);
+            self.activity_metrics.insert(m.activity_id.clone(), m);
         }
         self.invalidate_perf_cache();
 
         Ok(())
     }
 
+    /// The engine's own write for rows that arrive over the bridge, which
+    /// carry no zone seconds.
+    pub fn set_activity_metrics_extended(
+        &mut self,
+        metrics: Vec<crate::FfiActivityMetrics>,
+    ) -> SqlResult<()> {
+        self.set_activity_metrics(metrics.into_iter().map(ActivityMetrics::from).collect())
+    }
+
     /// Write metrics within the caller-owned transaction.
     pub(super) fn write_activity_metrics(
         &self,
-        metrics: &[&crate::FfiActivityMetrics],
+        metrics: &[&ActivityMetrics],
         strict: bool,
     ) -> SqlResult<usize> {
         let mut unplaced = 0usize;
@@ -211,7 +201,7 @@ impl PersistentEngine {
                 if let Some(date) = old_date {
                     touched_days.insert(date.div_euclid(86_400));
                 }
-                touched_days.insert((m.date as i64).div_euclid(86_400));
+                touched_days.insert(m.date.div_euclid(86_400));
             }
 
             for day in touched_days {
@@ -324,8 +314,8 @@ mod tests {
         assert_eq!(engine.activity_metrics.len(), 50);
     }
 
-    fn extended(i: usize) -> crate::FfiActivityMetrics {
-        let mut m = crate::FfiActivityMetrics::from(metric(i));
+    fn extended(i: usize) -> ActivityMetrics {
+        let mut m = metric(i);
         m.training_load = Some(88.0);
         m.ftp = Some(250);
         m.power_zone_times = Some(vec![10, 20, 30, 40, 50, 60, 70]);
@@ -350,9 +340,7 @@ mod tests {
     fn a_page_write_stores_the_stats_it_was_given() {
         let mut engine = PersistentEngine::in_memory().unwrap();
 
-        engine
-            .set_activity_metrics(vec![ActivityMetrics::from(extended(1))])
-            .unwrap();
+        engine.set_activity_metrics(vec![extended(1)]).unwrap();
 
         assert_eq!(
             stored_load(&engine, "a1"),
@@ -363,13 +351,9 @@ mod tests {
     #[test]
     fn a_page_write_does_not_erase_stats_already_stored() {
         let mut engine = PersistentEngine::in_memory().unwrap();
-        engine
-            .set_activity_metrics_extended(vec![extended(2)])
-            .unwrap();
+        engine.set_activity_metrics(vec![extended(2)]).unwrap();
 
-        engine
-            .set_activity_metrics(vec![ActivityMetrics::from(extended(2))])
-            .unwrap();
+        engine.set_activity_metrics(vec![extended(2)]).unwrap();
 
         assert_eq!(
             stored_load(&engine, "a2"),
@@ -382,7 +366,7 @@ mod tests {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let mut m = extended(5);
         m.hr_zone_times = Some(vec![1, 2, 3, 4, 5, 6, 7, 900]);
-        engine.set_activity_metrics_extended(vec![m]).unwrap();
+        engine.set_activity_metrics(vec![m]).unwrap();
 
         let seconds = derivations::pooled::zone_distribution(&engine.db, "Ride", "hr", 0, i64::MAX);
 
@@ -431,12 +415,16 @@ mod tests {
     }
 
     #[test]
-    fn the_ffi_read_keeps_stats_without_zone_vectors() {
-        let back = crate::FfiActivityMetrics::from(ActivityMetrics::from(extended(5)));
+    fn a_write_over_the_bridge_stores_stats_and_leaves_the_zone_columns_empty() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
-        assert_eq!(back.training_load, Some(88.0));
-        assert_eq!(back.ftp, Some(250));
-        assert_eq!(back.power_zone_times, None);
-        assert_eq!(back.hr_zone_times, None);
+        engine
+            .set_activity_metrics_extended(vec![crate::FfiActivityMetrics::from(extended(5))])
+            .unwrap();
+
+        assert_eq!(
+            stored_load(&engine, "a5"),
+            (Some(88.0), Some(250), Some(0.0))
+        );
     }
 }

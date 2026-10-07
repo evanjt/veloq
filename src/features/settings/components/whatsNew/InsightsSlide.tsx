@@ -25,7 +25,7 @@ const insightItems = (isDark: boolean): { icon: string; labelKey: ParseKeys; col
 export function InsightsSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bgColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.04);
 
   return (

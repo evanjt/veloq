@@ -32,6 +32,8 @@ export interface RoutesStatus {
   stream: StreamBackfillProgress & { phase: StreamBackfillPhase };
   /** Activities with no stored series, on the elevation count's terms. */
   streamRemaining: number | null;
+  /** Bytes those activities' series would download, null on the same terms. */
+  streamRemainingBytes: number | null;
   elevation: ElevationBackfillProgress & { phase: ElevationBackfillPhase };
   /**
    * Stored tracks still owed a fetch. Null while a pass is running, which
@@ -65,6 +67,7 @@ export function getRoutesStatusData(host: DelegateHost): RoutesStatus | null {
       phase: narrow(STREAM_PHASES, status.stream.phase, 'idle'),
     },
     streamRemaining: status.streamRemaining ?? null,
+    streamRemainingBytes: status.streamRemainingBytes ?? null,
     elevation: {
       ...status.elevation,
       phase: narrow(ELEVATION_PHASES, status.elevation.phase, 'idle'),

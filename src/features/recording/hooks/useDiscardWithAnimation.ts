@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Animated, Easing } from 'react-native';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
@@ -44,7 +44,7 @@ export function useDiscardWithAnimation(): UseDiscardWithAnimation {
   useEffect(() => clearDiscardTimer, [clearDiscardTimer]);
 
   const handleDiscardPressIn = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    haptics.medium();
     Animated.timing(discardAnim, {
       toValue: 1,
       duration: DISCARD_HOLD_MS,
@@ -53,7 +53,7 @@ export function useDiscardWithAnimation(): UseDiscardWithAnimation {
     }).start();
     discardTimerRef.current = setTimeout(() => {
       clearDiscardTimer();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      haptics.success();
       useRecordingStore.getState().reset();
       clearRecordingBackup();
       router.replace('/');

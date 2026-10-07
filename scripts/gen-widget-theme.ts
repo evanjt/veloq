@@ -39,7 +39,6 @@ const PALETTE_KEYS: (keyof WidgetPalette)[] = [
   'chartFitness',
   'chartFatigue',
   'chartCasing',
-  'textMuted',
   'formHighRisk',
   'formOptimal',
   'formGreyZone',

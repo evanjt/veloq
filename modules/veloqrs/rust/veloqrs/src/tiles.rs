@@ -37,7 +37,8 @@ impl Default for HeatmapConfig {
 /// Pre-computed 256-entry colour lookup table mapping intensity to RGBA.
 /// Gradient: transparent → deep teal → brand teal → pale teal highlight.
 /// Alpha starts high enough that the light map, which darkens the colour channels
-/// in its paint, keeps the faintest stop at 3:1 over its land and roads.
+/// in its paint, keeps the faintest stop at 3:1 over its land and roads. The light
+/// paint inverts lightness, so the ramp darkens as density rises there.
 fn build_colour_lut() -> [[u8; 4]; 256] {
     let mut lut = [[0u8; 4]; 256];
 
@@ -284,6 +285,27 @@ fn halo_range(frac: f64) -> std::ops::RangeInclusive<i64> {
 /// Much tighter than `tiles_for_bounds`: a long point-to-point activity
 /// enumerates ~O(segments) tiles instead of the full bbox rectangle.
 pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::HashSet<(u32, u32)> {
+    walk_track_tiles(points, zoom, true)
+}
+
+/// The tiles a track passes through at a given zoom and no more: every tile
+/// holding a valid point and every tile a segment between two of them crosses,
+/// with none of the drawing halo [`tiles_along_track`] adds. This is the
+/// ground the track covers, where that set is the ground a stroke is drawn on.
+pub fn tiles_touched_by_track(
+    points: &[GpsPoint],
+    zoom: u8,
+) -> std::collections::HashSet<(u32, u32)> {
+    walk_track_tiles(points, zoom, false)
+}
+
+/// The one walk behind both sets. `halo` adds, for each point, the
+/// neighbours its drawing margin reaches.
+fn walk_track_tiles(
+    points: &[GpsPoint],
+    zoom: u8,
+    halo: bool,
+) -> std::collections::HashSet<(u32, u32)> {
     let max_xy: i64 = (1i64 << zoom).max(1);
     let mut tiles: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
 
@@ -303,10 +325,14 @@ pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::Has
         let gy = lat_to_tile_y(point.latitude, zoom);
         let tx = gx.floor() as i64;
         let ty = gy.floor() as i64;
-        for dy in halo_range(gy - ty as f64) {
-            for dx in halo_range(gx - tx as f64) {
-                add(&mut tiles, tx + dx, ty + dy);
+        if halo {
+            for dy in halo_range(gy - ty as f64) {
+                for dx in halo_range(gx - tx as f64) {
+                    add(&mut tiles, tx + dx, ty + dy);
+                }
             }
+        } else {
+            add(&mut tiles, tx, ty);
         }
 
         if let Some((px, py)) = prev_valid {
@@ -1597,34 +1623,107 @@ mod tests {
         (la.max(lb) + 0.05) / (la.min(lb) + 0.05)
     }
 
+    // The raster paint of the heatmap layer on the light map. These mirror the
+    // light paint in `heatmapRasterPaint`, and a contract test holds the two
+    // together.
+    const LIGHT_RASTER_OPACITY: f32 = 1.0;
+    const LIGHT_BRIGHTNESS_MIN: f32 = 0.3;
+    const LIGHT_BRIGHTNESS_MAX: f32 = 0.0;
+    const LIGHT_HUE_ROTATE_DEGREES: f32 = 180.0;
+
+    /// The light map grounds the layer is drawn over, as opaque sRGB.
+    fn light_grounds() -> [(&'static str, [f32; 3]); 9] {
+        [
+            ("land", [248.0, 244.0, 240.0]),
+            ("road white", [255.0, 255.0, 255.0]),
+            ("road yellow", [255.0, 238.0, 170.0]),
+            ("road orange", [255.0, 204.0, 136.0]),
+            ("park", [226.0, 236.0, 212.0]),
+            ("wood", [227.0, 239.0, 212.0]),
+            ("grass", [176.0, 213.0, 154.0]),
+            ("residential", [245.0, 236.0, 224.0]),
+            ("water", [158.0, 189.0, 255.0]),
+        ]
+    }
+
+    /// One LUT entry composited over a ground the way the GL JS raster shader
+    /// writes it: hue rotation, then `mix(brightness_min, brightness_max, rgb)`
+    /// scaled by alpha. Saturation and contrast are neutral in the light paint.
+    fn composite_on_light_map(entry: [u8; 4], ground: [f32; 3]) -> [f32; 3] {
+        let angle = LIGHT_HUE_ROTATE_DEGREES.to_radians();
+        let (sin, cos) = (angle.sin(), angle.cos());
+        let w = [
+            (2.0 * cos + 1.0) / 3.0,
+            (-(3.0_f32.sqrt()) * sin - cos + 1.0) / 3.0,
+            (3.0_f32.sqrt() * sin - cos + 1.0) / 3.0,
+        ];
+        let rgb = [
+            entry[0] as f32 / 255.0,
+            entry[1] as f32 / 255.0,
+            entry[2] as f32 / 255.0,
+        ];
+        let rotated = [
+            rgb[0] * w[0] + rgb[1] * w[1] + rgb[2] * w[2],
+            rgb[0] * w[2] + rgb[1] * w[0] + rgb[2] * w[1],
+            rgb[0] * w[1] + rgb[1] * w[2] + rgb[2] * w[0],
+        ];
+        let alpha = entry[3] as f32 / 255.0 * LIGHT_RASTER_OPACITY;
+        let mut over = [0.0_f32; 3];
+        for ch in 0..3 {
+            let painted = (LIGHT_BRIGHTNESS_MIN
+                + (LIGHT_BRIGHTNESS_MAX - LIGHT_BRIGHTNESS_MIN) * rotated[ch])
+                .clamp(0.0, 1.0);
+            over[ch] = painted * 255.0 * alpha + ground[ch] * (1.0 - alpha);
+        }
+        over
+    }
+
+    const NAMED_STOPS: [f32; 7] = [0.04, 0.14, 0.32, 0.58, 0.80, 0.94, 1.0];
+
+    fn lut_entry_at(stop: f32) -> [u8; 4] {
+        COLOUR_LUT[(stop * 255.0).round() as usize]
+    }
+
     #[test]
     fn faint_stops_hold_three_to_one_on_light_map_grounds() {
-        // The light map paints the layer at full opacity with the colour channels
-        // scaled by its brightness ceiling, so only the LUT alpha is left to tune.
-        const LIGHT_BRIGHTNESS_MAX: f32 = 0.45;
-        let grounds: [[f32; 3]; 4] = [
-            [248.0, 244.0, 240.0],
-            [255.0, 255.0, 255.0],
-            [255.0, 238.0, 170.0],
-            [255.0, 204.0, 136.0],
-        ];
-        let lut = &*COLOUR_LUT;
         for stop in [0.04_f32, 0.14, 0.32] {
-            let entry = lut[(stop * 255.0).round() as usize];
-            let alpha = entry[3] as f32 / 255.0;
-            for ground in grounds {
-                let mut over = [0.0_f32; 3];
-                for ch in 0..3 {
-                    over[ch] = entry[ch] as f32 * LIGHT_BRIGHTNESS_MAX * alpha
-                        + ground[ch] * (1.0 - alpha);
-                }
+            for (name, ground) in light_grounds() {
+                let over = composite_on_light_map(lut_entry_at(stop), ground);
                 let ratio = contrast_ratio(over, ground);
                 assert!(
                     ratio >= 3.0,
-                    "stop {stop} over {ground:?} is {ratio:.2}:1, below 3:1"
+                    "stop {stop} over {name} is {ratio:.2}:1, below 3:1"
                 );
             }
         }
+    }
+
+    #[test]
+    fn light_map_ramp_darkens_as_density_rises() {
+        for (name, ground) in light_grounds() {
+            let lums: Vec<f32> = NAMED_STOPS
+                .iter()
+                .map(|&stop| luminance(composite_on_light_map(lut_entry_at(stop), ground)))
+                .collect();
+            for pair in lums.windows(2) {
+                assert!(
+                    pair[1] < pair[0],
+                    "over {name} a denser stop is not darker: {lums:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn light_map_separates_faintest_from_densest_over_land() {
+        let land = light_grounds()[0].1;
+        let faintest = composite_on_light_map(lut_entry_at(0.04), land);
+        let densest = composite_on_light_map(COLOUR_LUT[255], land);
+        let ratio = contrast_ratio(faintest, densest);
+        assert!(
+            ratio >= 3.0,
+            "faintest to densest over land is {ratio:.2}:1, below 3:1"
+        );
     }
 
     #[test]

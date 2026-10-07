@@ -154,7 +154,7 @@ export function ExportPrivacyRow() {
   }, []);
 
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const hint = [styles.hint, isDark && settingsStyles.textMuted];
+  const hint = [styles.hint, isDark && settingsStyles.textSecondary];
 
   return (
     <View style={styles.block} testID="export-privacy-row">

@@ -1188,3 +1188,99 @@ jobs:
     expect(output).toContain('is never saved');
   });
 });
+
+/**
+ * Scenario: a tag release uploads to the stores in deploy jobs. A job that
+ * skips itself for a missing credential, or is never started because the
+ * artefact was not found, ends green with nothing uploaded.
+ *
+ * Expected behaviour: the guard refuses both shapes in a workflow a tag
+ * starts, and passes a deploy that fails when its credential or artefact is
+ * missing.
+ */
+describe('a tag release fails when a store deploy is skipped', () => {
+  const RELEASE = `name: Release
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      aab_path: \${{ steps.prepare.outputs.aab_path }}
+    steps:
+      - id: prepare
+        name: Prepare release artifacts
+        run: |
+          AAB=$(find artifacts -name "*.aab" | head -1)
+          if [ -z "$AAB" ]; then
+            echo "::error::No AAB found" >&2
+            exit 1
+          fi
+          echo "aab_path=$AAB" >> $GITHUB_OUTPUT
+  deploy-play-store:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for Play Store credentials
+        id: check_creds
+        env:
+          PLAY_JSON: \${{ secrets.PLAY_JSON }}
+        run: |
+          if [ -z "$PLAY_JSON" ]; then
+            echo "::error::PLAY_JSON is not configured" >&2
+            exit 1
+          fi
+      - run: echo upload
+`;
+  const withRelease = (release: string) => ({
+    ...CLEAN,
+    '.github/workflows/release.yml': release,
+  });
+
+  it('passes a deploy that fails when its credential is missing', () => {
+    const { status } = runGuard(fixture(withRelease(RELEASE)));
+    expect(status).toBe(0);
+  });
+
+  it('refuses a deploy step that skips itself for a missing credential', () => {
+    const output = refused(
+      withRelease(
+        RELEASE.replace(
+          /echo "::error::PLAY_JSON is not configured" >&2\n\s+exit 1/,
+          'echo "skip=true" >> $GITHUB_OUTPUT'
+        )
+      )
+    );
+    expect(output).toContain('.github/workflows/release.yml (job deploy-play-store step');
+    expect(output).toContain('skips');
+  });
+
+  it('refuses a deploy job that runs only when the artefact was found', () => {
+    const output = refused(
+      withRelease(
+        RELEASE.replace(
+          '  deploy-play-store:\n    needs: release\n',
+          "  deploy-play-store:\n    needs: release\n    if: needs.release.outputs.aab_path != ''\n"
+        )
+      )
+    );
+    expect(output).toContain('.github/workflows/release.yml (job deploy-play-store)');
+    expect(output).toContain('artefact');
+  });
+
+  it('leaves a workflow no tag starts free to skip a deploy', () => {
+    const files = withRelease(
+      RELEASE.replace(
+        /on:\n  push:\n    tags:\n      - "\[0-9\]\+\.\[0-9\]\+\.\[0-9\]\+"/,
+        'on:\n  workflow_dispatch:'
+      ).replace(
+        /echo "::error::PLAY_JSON is not configured" >&2\n\s+exit 1/,
+        'echo "skip=true" >> $GITHUB_OUTPUT'
+      )
+    );
+    const { status } = runGuard(fixture(files));
+    expect(status).toBe(0);
+  });
+});

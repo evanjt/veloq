@@ -204,7 +204,7 @@ export function WhatsNewModal() {
   if (!showModal || slideCount === 0) return null;
 
   const bgColor = isDark ? darkColors.surface : colors.surface;
-  const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
 
   const canToggleMode = missedSlides.length > 0 && allSlides.length > missedSlides.length;

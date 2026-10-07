@@ -1,0 +1,143 @@
+# First sync grows the section catalogue
+# Tests: while a first download of a real library is still running, the
+# sections list refreshes as the engine conditions each batch, so the section
+# count read twice rises between the two readings.
+#
+# Demo mode cannot answer this: it stores its whole library in one call and the
+# engine cuts once at the end, so the mid-download cadence never runs. This
+# flow signs in to a real library of more than 100 GPS activities on a fresh
+# install, which is why it carries no tier tag and no suite picks it up.
+#
+# Run it on the S22 or an emulator through the wrapper, never on the owner's
+# own handset, passing the key on the command line so none is stored here:
+#
+#   scripts/with-maestro.sh test .maestro/first-sync-section-growth.yaml -e API_KEY=<key>
+#
+# It clears the app's data first, so the library on the device is replaced by
+# the one the key belongs to. Delete the screenshots it leaves afterwards.
+
+appId: com.veloq.app.dev
+tags:
+  - real-account
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- tapOn:
+    id: "login-apikey-section"
+- extendedWaitUntil:
+    visible:
+      id: "login-apikey-input"
+    timeout: 5000
+- tapOn:
+    id: "login-apikey-input"
+- inputText: ${API_KEY}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "login-apikey-button"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "login-apikey-button"
+
+# The first sync starts here. Dismiss what a fresh install raises, in the order
+# setup-demo-mode.yaml meets it.
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 60000
+    optional: true
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+- runFlow:
+    when:
+      visible: "Done"
+    commands:
+      - tapOn: "Done"
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+- runFlow:
+    when:
+      visible: "Close"
+    commands:
+      - tapOn: "Close"
+
+- openLink: "veloq://insights?tab=routes"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 30000
+- tapOn:
+    text: "Sections"
+
+# Read the section count every few seconds while the sync strip is up. The
+# first reading is the baseline, taken with no filter so the label opens with
+# the total; the flow passes when a later reading is higher
+# and the strip was still showing at that reading, so the growth came from the
+# download and not from a cut after it. The poll count bounds the wait at about
+# twenty minutes.
+- evalScript: ${output.polls = 0; output.first = null; output.latest = null; output.grown = false; output.strip = false; output.shotFirst = false; output.shotGrown = false}
+
+- repeat:
+    while:
+      true: ${output.polls < 240 && !output.grown}
+    commands:
+      - evalScript: ${output.polls = output.polls + 1; output.strip = false; output.seen = false}
+      - runFlow:
+          when:
+            visible:
+              id: "sections-count"
+          commands:
+            - copyTextFrom:
+                id: "sections-count"
+            - evalScript: ${output.seen = true; output.latest = parseInt(maestro.copiedText.match(/^\d+/)[0], 10); if (output.first === null) { output.first = output.latest }}
+      - runFlow:
+          when:
+            visible:
+              id: "sync-progress-strip"
+          commands:
+            - evalScript: ${output.strip = true}
+      - runFlow:
+          when:
+            true: ${output.seen && output.first !== null && !output.shotFirst}
+          commands:
+            - evalScript: ${output.shotFirst = true}
+            - takeScreenshot: "screenshots/first-sync-sections-before"
+      - evalScript: ${output.grown = output.seen && output.strip && output.latest > output.first}
+      - runFlow:
+          when:
+            true: ${output.grown && !output.shotGrown}
+          commands:
+            - evalScript: ${output.shotGrown = true}
+            - takeScreenshot: "screenshots/first-sync-sections-after"
+      - runFlow:
+          when:
+            true: ${!output.grown}
+          commands:
+            - extendedWaitUntil:
+                visible: "no such text is ever rendered, this only paces the poll"
+                timeout: 5000
+                optional: true
+
+- assertTrue:
+    condition: ${output.grown}
+    label: "the section count rose between two readings while the sync strip was showing"

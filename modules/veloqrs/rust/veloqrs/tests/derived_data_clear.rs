@@ -523,6 +523,7 @@ fn activity_keyed_seeds() -> Vec<(&'static str, &'static str)> {
 /// run log.
 const REACHED_OTHERWISE: &[&str] = &[
     "activity_climb_bests",
+    "activity_new_ground",
     "gps_tracks",
     "signatures",
     "time_streams",

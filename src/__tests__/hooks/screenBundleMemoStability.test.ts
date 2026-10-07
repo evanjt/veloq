@@ -49,7 +49,6 @@ beforeEach(() => {
   (getEngine as jest.Mock).mockReturnValue({
     getSectionsForActivity: jest.fn(() => []),
     getSectionCount: jest.fn(() => 0),
-    getActivityMetricsForIds: jest.fn(() => []),
     getMapSignaturesForIds: jest.fn(() => []),
     subscribe: jest.fn(() => () => {}),
   });

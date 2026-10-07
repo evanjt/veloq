@@ -1,16 +1,16 @@
 /**
  * A section's ledger: the changes it went through, the geometry versions
- * still stored, and the version it is pinned to, if any. Re-reads when the
- * section refreshes and after a revert or unpin.
+ * still stored, and the version it is pinned to, if any. The section screen
+ * read carries the ledger, so this hook reads none of it: a revert or an
+ * unpin writes, and the caller re-reads the screen read that holds the result.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/shared/native/engine';
-import { engineErrorKey, engineErrorTag, type EngineFailureKey } from '@/shared/native/engineError';
-import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { engineErrorTag } from '@/shared/native/engineError';
+import type { FfiSectionEventDetails } from 'veloqrs';
 import type { RoutePoint } from '@/types';
-import { parseEventDetails, type SectionLink } from '@/features/routes/lib/sectionLedger';
 import { announceDepartedRides } from '@/features/routes/lib/departedRides';
 
 /** A ledger row, with the engine's 64-bit ids as numbers. */
@@ -18,10 +18,8 @@ export interface SectionHistoryEvent {
   id: number;
   at: string;
   kind: string;
-  details?: string | undefined;
+  details?: FfiSectionEventDetails | undefined;
   geometryVersion: number | null;
-  splitFrom?: SectionLink | null;
-  splitInto?: SectionLink[];
 }
 
 /** A stored geometry version, version as a number. */
@@ -36,19 +34,15 @@ export interface SectionLedger {
   history: SectionHistoryEvent[];
   versions: SectionGeometryVersion[];
   pinnedVersion: number | null;
-  /** Why the ledger could not be read, or null when it was. An empty ledger is not a failed one. */
-  failureKey: EngineFailureKey | null;
-  reload: () => void;
   versionPolyline: (version: number) => RoutePoint[];
   revert: (version: number) => boolean;
   unpin: () => boolean;
 }
 
-const EMPTY: Pick<SectionLedger, 'history' | 'versions' | 'pinnedVersion' | 'failureKey'> = {
+const EMPTY: Pick<SectionLedger, 'history' | 'versions' | 'pinnedVersion'> = {
   history: [],
   versions: [],
   pinnedVersion: null,
-  failureKey: null,
 };
 
 /** The ledger as a screen bundle carries it, with the engine's 64-bit ids raw. */
@@ -57,7 +51,7 @@ export interface BundledLedger {
     id: bigint | number;
     at: string;
     kind: string;
-    details?: string | null;
+    details?: FfiSectionEventDetails | null;
     geometryVersion?: bigint | number | null;
   }[];
   geometryVersions: readonly {
@@ -69,63 +63,23 @@ export interface BundledLedger {
   pinnedVersion?: bigint | number | null | undefined;
 }
 
-/**
- * `bundled` lets a caller that already read the ledger as part of a screen
- * bundle skip this hook's three FFI calls. A revert or an unpin bumps `tick`
- * and the bundle behind it has not been re-read, so the hook goes back to the
- * engine from then on.
- */
-/** The three reads the bundle replaces, in the shape the bundle carries. */
-function readLedger(
-  engine: NonNullable<ReturnType<typeof getEngine>>,
-  sectionId: string
-): BundledLedger {
-  return {
-    history: engine.getSectionHistory(sectionId),
-    geometryVersions: engine.getSectionGeometryVersions(sectionId),
-    pinnedVersion: engine.getPinnedSectionVersion(sectionId),
-  };
-}
-
 export function useSectionLedger(
   sectionId: string | undefined,
-  refreshKey = 0,
   bundled?: BundledLedger
 ): SectionLedger {
   const { t } = useTranslation();
-  const [tick, setTick] = useState(0);
-  const reload = useCallback(() => setTick((k) => k + 1), []);
-  const readSection = useEngineRead([], [refreshKey]);
 
   const state = useMemo(() => {
-    let source: BundledLedger | undefined;
-    try {
-      source =
-        bundled !== undefined && tick === 0
-          ? bundled
-          : sectionId
-            ? readSection((engine) => readLedger(engine, sectionId))
-            : undefined;
-    } catch (error) {
-      console.warn('[SectionLedger] Could not read the ledger:', engineErrorTag(error) ?? error);
-      return { ...EMPTY, failureKey: engineErrorKey(error, 'engine.failure.database') };
-    }
-    if (!source) return EMPTY;
+    if (!bundled) return EMPTY;
 
-    const history: SectionHistoryEvent[] = source.history.map((e) => {
-      const details = e.details ?? undefined;
-      const links = parseEventDetails(details);
-      return {
-        id: Number(e.id),
-        at: e.at,
-        kind: e.kind,
-        details,
-        geometryVersion: e.geometryVersion == null ? null : Number(e.geometryVersion),
-        splitFrom: links.splitFromLink ?? null,
-        splitInto: links.splitIntoLinks,
-      };
-    });
-    const versions: SectionGeometryVersion[] = source.geometryVersions.map((v) => ({
+    const history: SectionHistoryEvent[] = bundled.history.map((e) => ({
+      id: Number(e.id),
+      at: e.at,
+      kind: e.kind,
+      details: e.details ?? undefined,
+      geometryVersion: e.geometryVersion == null ? null : Number(e.geometryVersion),
+    }));
+    const versions: SectionGeometryVersion[] = bundled.geometryVersions.map((v) => ({
       version: Number(v.version),
       createdAt: v.createdAt,
       milestone: v.milestone,
@@ -134,10 +88,9 @@ export function useSectionLedger(
     return {
       history: history.reverse(),
       versions: versions.reverse(),
-      pinnedVersion: source.pinnedVersion == null ? null : Number(source.pinnedVersion),
-      failureKey: null,
+      pinnedVersion: bundled.pinnedVersion == null ? null : Number(bundled.pinnedVersion),
     };
-  }, [sectionId, readSection, tick, bundled]);
+  }, [bundled]);
 
   const versionPolyline = useCallback(
     (version: number): RoutePoint[] => {
@@ -166,20 +119,17 @@ export function useSectionLedger(
       if (!engine || !sectionId) return false;
       const departed = engine.revertSectionToVersion(sectionId, version);
       if (!departed) return false;
-      reload();
       announceDepartedRides(departed, t);
       return true;
     },
-    [sectionId, reload, t]
+    [sectionId, t]
   );
 
   const unpin = useCallback((): boolean => {
     const engine = getEngine();
     if (!engine || !sectionId) return false;
-    const ok = engine.unpinSection(sectionId);
-    if (ok) reload();
-    return ok;
-  }, [sectionId, reload]);
+    return engine.unpinSection(sectionId);
+  }, [sectionId]);
 
-  return { ...state, reload, versionPolyline, revert, unpin };
+  return { ...state, versionPolyline, revert, unpin };
 }

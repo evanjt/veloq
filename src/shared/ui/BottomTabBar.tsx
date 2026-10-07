@@ -4,14 +4,14 @@
  */
 import { markTabPress } from '@/shared/debug/tabSwitchTiming';
 import React, { memo, useCallback, useRef } from 'react';
-import { StyleSheet, TouchableOpacity, View, Text, Platform } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, Text } from 'react-native';
 
 import { DENSE_TEXT_SCALE } from './DenseText';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { usePathname, useSegments } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import * as haptics from './haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -95,9 +95,7 @@ function BottomTabBarComponent() {
         log.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       }
 
-      if (Platform.OS === 'ios') {
-        Haptics.selectionAsync().catch(() => {});
-      }
+      haptics.selection();
       markTabPress(route);
       navigateTab(route);
     },

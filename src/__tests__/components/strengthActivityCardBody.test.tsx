@@ -7,7 +7,9 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { StrengthActivityCard } from '@/features/strength/components/StrengthActivityCard';
 import { Card } from '@/shared/ui/Card';
@@ -17,7 +19,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
-  impactAsync: jest.fn(),
+  impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Medium: 'medium' },
 }));
 jest.mock('expo-router', () => ({
@@ -92,5 +94,24 @@ describe('the strength activity card body diagrams', () => {
     mockAthlete = null;
 
     expect(draw()).toEqual({ front: 'male', back: 'male', surface: 'raised' });
+  });
+});
+
+describe('the strength activity card long-press', () => {
+  it.each(['ios', 'android'] as const)('fires one medium impact on %s', (os) => {
+    const originalOS = Platform.OS;
+    Platform.OS = os;
+    mockAthlete = null;
+    (Haptics.impactAsync as jest.Mock).mockClear();
+    try {
+      draw();
+
+      fireEvent(screen.getByTestId('activity-card-a1'), 'longPress');
+
+      expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
+      expect(Haptics.impactAsync).toHaveBeenCalledWith('medium');
+    } finally {
+      Platform.OS = originalOS;
+    }
   });
 });

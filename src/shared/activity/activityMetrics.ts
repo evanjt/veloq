@@ -28,11 +28,6 @@ function wholeNumber(value: number): number {
  * and power curves for route comparisons.
  */
 export function toActivityMetrics(activity: Activity): ActivityMetrics {
-  const powerZoneTimes = activity.icu_zone_times
-    ? powerZoneEntries(activity.icu_zone_times).map((z) => z.secs)
-    : undefined;
-  const hrZoneTimes = activity.icu_hr_zone_times ?? undefined;
-
   return {
     activityId: activity.id,
     name: activity.name,
@@ -52,7 +47,5 @@ export function toActivityMetrics(activity: Activity): ActivityMetrics {
     }),
     ...(activity.icu_training_load !== undefined && { trainingLoad: activity.icu_training_load }),
     ...(activity.icu_ftp !== undefined && { ftp: wholeNumber(activity.icu_ftp) }),
-    ...(powerZoneTimes !== undefined && { powerZoneTimes }),
-    ...(hrZoneTimes !== undefined && { hrZoneTimes }),
   };
 }

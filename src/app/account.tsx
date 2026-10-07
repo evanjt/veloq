@@ -4,7 +4,7 @@ import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing } from '@/theme';
-import { ProfileAccountSection } from '@/features/settings/components';
+import { ProfileAccountSection } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function AccountScreenContent() {

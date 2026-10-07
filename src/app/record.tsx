@@ -21,7 +21,7 @@ import {
 import { SignalStatus, signalColor, type SignalLevel } from '@/shared/ui';
 import { Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
@@ -47,7 +47,7 @@ import {
   sessionReturnRoute,
 } from '@/features/recording';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
-import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
+import { requestNotificationPermission } from '@/features/settings';
 import { getEngine } from '@/shared/native/engine';
 import { readCalendarEvents } from '@/features/home';
 import { navigateTo, replaceTo } from '@/shared/app/navigation';
@@ -156,7 +156,7 @@ function RecordScreenContent() {
   }, []);
 
   const start = useCallback((type: ActivityType, pairedEventId?: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    haptics.medium();
     navigateTo(recordingEntryHref(type, pairedEventId));
   }, []);
 

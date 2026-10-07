@@ -73,7 +73,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
               <MaterialCommunityIcons
                 name="information-outline"
                 size={16}
-                color={isDark ? darkColors.textMuted : colors.textSecondary}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
             </IconButton>
           </View>

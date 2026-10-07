@@ -44,7 +44,7 @@ export function SearchBar({ value, onChangeText, placeholder, testID, style }: S
         testID={testID}
         style={[styles.input, isDark && styles.inputDark]}
         placeholder={placeholder}
-        placeholderTextColor={themeColors.textMuted}
+        placeholderTextColor={themeColors.textSecondary}
         value={value}
         onChangeText={onChangeText}
         onSubmitEditing={Keyboard.dismiss}
@@ -63,7 +63,7 @@ export function SearchBar({ value, onChangeText, placeholder, testID, style }: S
           style={pressable()}
           android_ripple={pressRipple}
         >
-          <MaterialCommunityIcons name="close-circle" size={18} color={themeColors.textMuted} />
+          <MaterialCommunityIcons name="close-circle" size={18} color={themeColors.textSecondary} />
         </Pressable>
       )}
     </View>

@@ -194,7 +194,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     return <View style={{ width, height: totalHeight }} />;
   }
 
-  const labelColor = isDark ? darkColors.textMuted : colors.textMuted;
+  const labelColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const casingColor = isDark ? darkColors.chartCasing : colors.chartCasing;
   const fitnessLineColor = isDark ? colors.fitnessBlue : colorWithOpacity(colors.fitnessBlue, 0.85);
   const fatigueLineColor = isDark ? colors.chartPink : colorWithOpacity(colors.chartPink, 0.75);
@@ -303,7 +303,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
             <RNText
               style={[
                 styles.rangeLabel,
-                { color: isDark ? darkColors.textMuted : colors.textMuted },
+                { color: isDark ? darkColors.textSecondary : colors.textSecondary },
               ]}
             >
               {fitnessData.length}d

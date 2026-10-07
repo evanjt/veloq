@@ -10,8 +10,8 @@
  * container to re-fetch fresh section data from the engine.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Keyboard, TextInput } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -53,16 +53,9 @@ interface UseSectionActionsArgs {
 }
 
 export interface UseSectionActionsResult {
-  // --- name edit state ---
-  /** Whether the inline rename input is visible. */
-  isEditing: boolean;
-  /** Current edit input value (not yet committed). */
-  editName: string;
+  // --- name state ---
   /** Committed custom name override (takes precedence over section.name). */
   customName: string | null;
-  /** Ref to focus the rename input after it mounts. */
-  nameInputRef: React.RefObject<TextInput | null>;
-  setEditName: (name: string) => void;
 
   // --- reference selection state ---
   /** Effective reference activity id (override > section.representativeActivityId). */
@@ -83,12 +76,8 @@ export interface UseSectionActionsResult {
   rescanRefusal: StartVerdict | null;
 
   // --- actions ---
-  /** Begin editing the section name (focuses input after ~100ms). */
-  handleStartEditing: () => void;
-  /** Commit the rename through the engine. */
-  handleSaveName: () => void;
-  /** Cancel editing without saving. */
-  handleCancelEdit: () => void;
+  /** Commit the rename through the engine. A blank name is ignored. */
+  handleSaveName: (name: string) => void;
   /** Delete a custom section (prompts for confirmation). */
   handleDeleteSection: () => void;
   /** Prompt to set/reset an activity as the section reference. */
@@ -124,12 +113,11 @@ export function useSectionActions({
   const { rescan, refusal: rescanRefusal, isScanning: isRematching } = useSectionRescan();
   const isRematchHeld = useDetectionHold() !== null;
 
-  // --- name edit state ---
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
+  // --- name state ---
+  // The text being typed belongs to the header's editor, so a keystroke does
+  // not render the screen that calls this hook.
   const [customName, setCustomName] = useState<string | null>(section?.name ?? null);
   const [nameShownFor, setNameShownFor] = useState(section?.name);
-  const nameInputRef = useRef<TextInput>(null);
 
   // Sync custom name when the section's name changes (e.g. after initial load
   // or after rename invalidates the query cache).
@@ -172,43 +160,27 @@ export function useSectionActions({
     setExcludedActivityIds(new Set(ids));
   }, [id, sectionRefreshKey, preComputedExcludedActivityIds]);
 
-  // --- name edit actions ---
-  const handleStartEditing = useCallback(() => {
-    const currentName = customName || section?.name || '';
-    setEditName(currentName);
-    setIsEditing(true);
-    setTimeout(() => {
-      nameInputRef.current?.focus();
-    }, 100);
-  }, [customName, section?.name]);
+  // --- name actions ---
+  const handleSaveName = useCallback(
+    (name: string) => {
+      const trimmedName = name.trim();
+      if (!trimmedName || !id) {
+        return;
+      }
 
-  const handleSaveName = useCallback(() => {
-    // Dismiss keyboard and close edit UI immediately for responsive feel
-    Keyboard.dismiss();
-    setIsEditing(false);
+      // Update local state immediately for instant feedback
+      const previousName = customName ?? section?.name ?? null;
+      setCustomName(trimmedName);
 
-    const trimmedName = editName.trim();
-    if (!trimmedName || !id) {
-      return;
-    }
-
-    // Update local state immediately for instant feedback
-    const previousName = customName ?? section?.name ?? null;
-    setCustomName(trimmedName);
-
-    // Fire rename in background - don't await, cache invalidation happens async
-    renameSection(id, trimmedName).catch((error: unknown) => {
-      setCustomName((current) => (current === trimmedName ? previousName : current));
-      Alert.alert(t('sections.renameFailedTitle'), t(renameFailureMessageKey(error)));
-      if (__DEV__) console.error('Failed to save section name:', error);
-    });
-  }, [customName, editName, id, renameSection, section?.name, t]);
-
-  const handleCancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setEditName('');
-    Keyboard.dismiss();
-  }, []);
+      // Fire rename in background - don't await, cache invalidation happens async
+      renameSection(id, trimmedName).catch((error: unknown) => {
+        setCustomName((current) => (current === trimmedName ? previousName : current));
+        Alert.alert(t('sections.renameFailedTitle'), t(renameFailureMessageKey(error)));
+        if (__DEV__) console.error('Failed to save section name:', error);
+      });
+    },
+    [customName, id, renameSection, section?.name, t]
+  );
 
   // --- delete ---
   const handleDeleteSection = useCallback(() => {
@@ -247,9 +219,11 @@ export function useSectionActions({
       const engine = getEngine();
       if (!engine) return;
 
-      // Check if this activity is already the reference
+      // Check if this activity is already the reference. Setting a reference
+      // marks the section user-defined, and the screen read that supplied
+      // `section` carries the flag.
       const currentRef = effectiveReferenceId;
-      const isUserDefinedRef = engine.getSectionReferenceInfo(id).isUserDefined;
+      const isUserDefinedRef = section?.isUserDefined === true;
 
       if (currentRef === activityId && isUserDefinedRef) {
         // Already the user-defined reference - offer to reset
@@ -313,7 +287,7 @@ export function useSectionActions({
         ]);
       }
     },
-    [id, t, effectiveReferenceId, isCustomId, queryClient, onSectionRefresh]
+    [id, t, effectiveReferenceId, section?.isUserDefined, isCustomId, queryClient, onSectionRefresh]
   );
 
   // --- disable/enable ---
@@ -416,12 +390,8 @@ export function useSectionActions({
   }, [rescan]);
 
   return {
-    // name edit
-    isEditing,
-    editName,
+    // name
     customName,
-    nameInputRef,
-    setEditName,
     // reference
     effectiveReferenceId,
     // exclusion
@@ -432,9 +402,7 @@ export function useSectionActions({
     isRematchHeld,
     rescanRefusal,
     // actions
-    handleStartEditing,
     handleSaveName,
-    handleCancelEdit,
     handleDeleteSection,
     handleSetAsReference,
     handleToggleDisable,

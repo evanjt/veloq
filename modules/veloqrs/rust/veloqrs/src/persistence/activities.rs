@@ -15,13 +15,11 @@ use crate::{
 };
 use crate::{LibraryCoverage, RangeCoverage};
 
-fn metrics_from_body(raw: &str, date: i64, id: &str) -> SqlResult<crate::FfiActivityMetrics> {
+fn metrics_from_body(raw: &str, date: i64, id: &str) -> SqlResult<ActivityMetrics> {
     let mut record: ActivityRecord = serde_json::from_str(raw)
         .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
     record.id = id.to_string();
-    Ok(super::fitness::metrics_input(
-        crate::objects::sync::activity_metrics_row(record, date),
-    ))
+    Ok(crate::objects::sync::activity_metrics_row(record, date))
 }
 
 struct RemovalMemory {
@@ -323,7 +321,7 @@ fn spawn_tile_sweep(tiles_path: String, ground: Vec<SweepGround>, reason: &'stat
     // Read under the caller's engine lock, so the pass is asked of this
     // library and not of one signed in while the sweep ran.
     let install = crate::persistence::engine_install();
-    crate::threads::spawn_named("veloq-sweep", move || {
+    crate::threads::spawn_background("veloq-sweep", move || {
         // Held for the life of the sweep, the pass request included. Dropping
         // it takes this sweep's registration and leaves every sibling's, so a
         // sweep that ends cannot make another one unstoppable.
@@ -1772,7 +1770,6 @@ impl PersistentEngine {
             }
             self.activity_metadata.insert(id, metadata);
         }
-        let metrics: ActivityMetrics = metrics.into();
         self.activity_metrics.insert(id.to_owned(), metrics);
         self.rebuild_spatial_index();
         self.set_groups_dirty(true);
@@ -1947,6 +1944,8 @@ impl PersistentEngine {
             .execute("DELETE FROM activities WHERE id = ?", params![id])?
             > 0;
         delete_activity_keyed_rows(&self.db, id, KeepAthleteRows::No)?;
+        // Every activity after this one was measured against its ground.
+        super::new_ground::invalidate(&self.db)?;
         if let Some(date) = metric_date {
             super::schema::recompute_heatmap_day(&self.db, date)?;
         }
@@ -2205,6 +2204,7 @@ impl PersistentEngine {
         for id in &removed_ids {
             delete_activity_keyed_rows(&tx, id, KeepAthleteRows::Yes)?;
         }
+        super::new_ground::invalidate(&tx)?;
         super::schema::recompute_all_heatmap(&tx)?;
         let activities_kept: u32 =
             tx.query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))?;
@@ -3926,7 +3926,7 @@ impl PersistentEngine {
         if rows.is_empty() {
             return Ok(());
         }
-        let metrics: Vec<crate::FfiActivityMetrics> = rows
+        let metrics: Vec<ActivityMetrics> = rows
             .iter()
             .map(|(id, date, raw)| metrics_from_body(raw, *date, id))
             .collect::<SqlResult<_>>()?;
@@ -3953,8 +3953,8 @@ impl PersistentEngine {
             return Err(error);
         }
         for metric in metrics {
-            let core: ActivityMetrics = metric.into();
-            self.activity_metrics.insert(core.activity_id.clone(), core);
+            self.activity_metrics
+                .insert(metric.activity_id.clone(), metric);
         }
         self.invalidate_perf_cache();
         Ok(())
@@ -3973,11 +3973,6 @@ impl PersistentEngine {
                 "synced activity page lengths differ".into(),
             ));
         }
-        let inputs: Vec<_> = metrics
-            .iter()
-            .cloned()
-            .map(super::fitness::metrics_input)
-            .collect();
         self.db.execute_batch("BEGIN IMMEDIATE")?;
         let result = (|| {
             let mut body = self.db.prepare(
@@ -4003,7 +3998,7 @@ impl PersistentEngine {
             }
             drop(body);
             drop(invalidate);
-            self.write_activity_metrics(&inputs.iter().collect::<Vec<_>>(), true)?;
+            self.write_activity_metrics(&metrics.iter().collect::<Vec<_>>(), true)?;
             for upstream_id in upstream_ids {
                 mark.execute(params![athlete_id, upstream_id])?;
             }
@@ -5616,6 +5611,7 @@ mod tests {
             "section_activities",
             "processed_activities",
             "activity_climb_bests",
+            "activity_new_ground",
             "push_runs",
         ];
         let uncovered: Vec<&String> = tables

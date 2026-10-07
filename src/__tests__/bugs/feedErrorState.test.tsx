@@ -84,7 +84,7 @@ jest.mock('@/features/activity/components', () => ({ ActivityCard: () => null })
 
 it('shows the translated failure line, not the thrown message', () => {
   (getEngine as jest.Mock).mockReturnValue({
-    getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [] }),
+    getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
     searchActivityBodies: () => ({ bodies: [], matchedCount: 0, hasMore: false }),
     getSyncStatus: () => ({ state: 0, inFlight: 0, completed: 0, total: 0 }),
     subscribe: () => () => {},

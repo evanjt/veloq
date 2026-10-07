@@ -114,7 +114,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
     return { linePath: lp, areaPath: ap, yMin: padded.min, yMax: padded.max, yTicks: ticks };
   }, [sparklineData, chartWidth]);
 
-  const textMuted = isDark ? darkColors.textMuted : colors.textMuted;
+  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const gridColor = chartColors.gridFaint;
 
   return (
@@ -197,7 +197,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
                         width: CHART_PADDING.left - 4,
                         textAlign: 'right',
                       },
-                      { color: textMuted },
+                      { color: textSecondary },
                     ]}
                   >
                     {tick}
@@ -215,13 +215,13 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
                 >
                   <Text
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[styles.axisLabel, { color: textMuted }]}
+                    style={[styles.axisLabel, { color: textSecondary }]}
                   >
                     {formatDaysAgo(t, sparklineData.length - 1)}
                   </Text>
                   <Text
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[styles.axisLabel, { color: textMuted }]}
+                    style={[styles.axisLabel, { color: textSecondary }]}
                   >
                     {t('time.today')}
                   </Text>

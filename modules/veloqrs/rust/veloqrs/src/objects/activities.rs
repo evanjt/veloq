@@ -470,6 +470,7 @@ impl ActivityManager {
                 conn,
                 &activity_ids,
             ),
+            new_ground: crate::persistence::new_ground::pooled::new_ground_of(conn, &activity_ids),
             strength_cards: super::strength::strength_cards(conn, &activity_ids),
         })
     }

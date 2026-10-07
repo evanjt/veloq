@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, slopToMinTapTarget } from '@/theme';
+import { pressable, pressRipple } from '@/shared/ui';
 import type { SectionsSortOption } from './SectionsList';
 
 const CHIP_BORDER_WIDTH = 1;
@@ -56,16 +57,16 @@ export function SectionsListFiltersBar({
         sortChips.map((chip) => {
           const isActive = sortOption === chip.key;
           return (
-            <TouchableOpacity
+            <Pressable
               key={chip.key}
-              style={[
+              style={pressable([
                 styles.sortChip,
                 isDark && styles.sortChipDark,
                 isActive && styles.sortChipActive,
-              ]}
+              ])}
+              android_ripple={pressRipple}
               onPress={() => onSortChange(chip.key)}
               hitSlop={chipHitSlop}
-              activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={chip.label}
               accessibilityState={{ selected: isActive }}
@@ -84,26 +85,26 @@ export function SectionsListFiltersBar({
               <Text
                 style={[
                   styles.sortChipLabel,
-                  isDark && styles.textMuted,
+                  isDark && styles.textSecondary,
                   isActive && styles.sortChipLabelActive,
                   isActive && isDark && { color: darkColors.linkTeal },
                 ]}
               >
                 {chip.label}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       {customCount > 0 && (
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={pressable([
             styles.sortChip,
             isDark && styles.sortChipDark,
             !hiddenFilters.custom && styles.sortChipActive,
-          ]}
+          ])}
+          android_ripple={pressRipple}
           onPress={() => onFilterPress('custom')}
           hitSlop={chipHitSlop}
-          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={t('routes.customCount', { count: customCount })}
           accessibilityState={{ selected: !hiddenFilters.custom }}
@@ -122,25 +123,25 @@ export function SectionsListFiltersBar({
           <Text
             style={[
               styles.sortChipLabel,
-              isDark && styles.textMuted,
+              isDark && styles.textSecondary,
               !hiddenFilters.custom && styles.sortChipLabelActive,
               !hiddenFilters.custom && isDark && { color: darkColors.linkTeal },
             ]}
           >
             {t('routes.customCount', { count: customCount })}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
       {trueDisabledCount > 0 && (
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={pressable([
             styles.sortChip,
             isDark && styles.sortChipDark,
             !hiddenFilters.disabled && styles.sortChipActive,
-          ]}
+          ])}
+          android_ripple={pressRipple}
           onPress={() => onFilterPress('disabled')}
           hitSlop={chipHitSlop}
-          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={t('sections.removedCount', { count: trueDisabledCount })}
           accessibilityState={{ selected: !hiddenFilters.disabled }}
@@ -159,25 +160,25 @@ export function SectionsListFiltersBar({
           <Text
             style={[
               styles.sortChipLabel,
-              isDark && styles.textMuted,
+              isDark && styles.textSecondary,
               !hiddenFilters.disabled && styles.sortChipLabelActive,
               !hiddenFilters.disabled && isDark && { color: darkColors.linkTeal },
             ]}
           >
             {t('sections.removedCount', { count: trueDisabledCount })}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
       {unacceptedAutoCount > 0 && acceptedAutoCount > 0 && (
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={pressable([
             styles.sortChip,
             isDark && styles.sortChipDark,
             hiddenFilters.unaccepted && styles.sortChipActive,
-          ]}
+          ])}
+          android_ripple={pressRipple}
           onPress={() => onFilterPress('unaccepted')}
           hitSlop={chipHitSlop}
-          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={t('sections.acceptedOnly')}
           accessibilityState={{ selected: hiddenFilters.unaccepted }}
@@ -196,14 +197,14 @@ export function SectionsListFiltersBar({
           <Text
             style={[
               styles.sortChipLabel,
-              isDark && styles.textMuted,
+              isDark && styles.textSecondary,
               hiddenFilters.unaccepted && styles.sortChipLabelActive,
               hiddenFilters.unaccepted && isDark && { color: darkColors.linkTeal },
             ]}
           >
             {t('sections.acceptedOnly')}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
   sortChipLabelActive: {
     color: colors.linkTeal,
   },
-  textMuted: {
-    color: darkColors.textMuted,
+  textSecondary: {
+    color: darkColors.textSecondary,
   },
 });

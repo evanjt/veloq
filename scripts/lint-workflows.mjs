@@ -40,6 +40,9 @@
 //              the job writes into the checkout, so a compiled library, a
 //              generated project or node_modules never keys a cache
 //   profile    workflows build the shipped Rust profile, including E2E builds
+//   deploys    a workflow only a tag starts never skips a store deploy: no step sets
+//              `skip=true` for a missing credential and no job runs only when an
+//              earlier job found its artefact, so a green run means an upload
 //
 // Usage: node scripts/lint-workflows.mjs [--root <dir>]
 
@@ -692,6 +695,40 @@ function checkSchedule(file, workflow, triggers) {
   if (!problems.includes(null)) fail(file, 'on.schedule', problems[0]);
 }
 
+/** A release workflow: a tag starts it, and no branch or pull request does. */
+function startsOnTagOnly(triggers) {
+  return (
+    Boolean(triggers.push?.tags) &&
+    !triggers.push.branches &&
+    !('pull_request' in triggers) &&
+    !('schedule' in triggers)
+  );
+}
+
+/**
+ * A tag release is read by its colour, so a deploy that skips itself for a
+ * missing credential, or is never started for a missing artefact, ends green
+ * with nothing uploaded.
+ */
+function checkTagDeploys(file, id, job) {
+  if (/\bneeds\.[\w-]+\.outputs\./.test(text(job.if))) {
+    fail(
+      file,
+      `job ${id}`,
+      'runs only when an earlier job found its artefact, so a missing artefact skips the deploy and the run ends green. Fail the job that looks for it instead.'
+    );
+  }
+  (job.steps ?? []).forEach((step, i) => {
+    if (/\bskip\s*=\s*true\b/.test(text(step.run))) {
+      fail(
+        file,
+        `job ${id} step ${step.name ?? step.uses ?? i + 1}`,
+        'skips the deploy when something is missing, so the run ends green with nothing uploaded. Exit non-zero instead.'
+      );
+    }
+  });
+}
+
 function checkAggregators(file, workflow) {
   const jobs = workflow.jobs ?? {};
   const ids = Object.keys(jobs);
@@ -759,6 +796,7 @@ for (const [file, { doc, isAction }] of parsed) {
     checkKeys(file, id, job.steps ?? []);
     checkRustSaves(file, id, job.steps ?? []);
     checkCall(file, id, job, workflows);
+    if (startsOnTagOnly(triggers)) checkTagDeploys(file, id, job);
   }
   checkSchedule(file, doc, triggers);
   checkAggregators(file, doc);

@@ -7,15 +7,7 @@
  */
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Alert,
-  Animated,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, FlatList, Alert, Animated, ActivityIndicator } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
@@ -31,7 +23,7 @@ import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useSections } from '@/features/routes/hooks/useSections';
 import { SportFilterMenu } from './SportFilterMenu';
 import type { SectionHideFlags, SectionsSortOption } from '@/features/routes/lib/routesScreenQuery';
-import { EmptyState } from '@/shared/ui';
+import { Button, EmptyState } from '@/shared/ui';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -390,7 +382,7 @@ export const SectionsList = memo(function SectionsList({
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
             {t('routes.noFrequentSections')}
           </Text>
-          <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
+          <Text style={[styles.emptySubtitle, isDark && styles.textSecondary]}>
             {t('routes.sectionsDescription')}
           </Text>
         </View>
@@ -407,7 +399,7 @@ export const SectionsList = memo(function SectionsList({
         <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
           {t('routes.noSectionsMatchFilter')}
         </Text>
-        <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
+        <Text style={[styles.emptySubtitle, isDark && styles.textSecondary]}>
           {t('routes.adjustSportTypeFilter')}
         </Text>
       </View>
@@ -548,32 +540,22 @@ export const SectionsList = memo(function SectionsList({
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
         )}
-        <TouchableOpacity
+        <Button
           testID="sections-retired-link"
+          variant="ghost"
           style={styles.retiredLink}
           onPress={() => router.push('/section-retired' as Href)}
-          accessibilityRole="button"
-          accessibilityLabel={t('sectionHistory.seeRetired')}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="history" size={16} color={colors.textSecondary} />
-          <Text style={[styles.retiredLinkText, isDark && styles.textMuted]}>
-            {t('sectionHistory.seeRetired')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+          icon={<MaterialCommunityIcons name="history" size={16} color={colors.primary} />}
+          label={t('sectionHistory.seeRetired')}
+        />
+        <Button
           testID="sections-named-corridors-link"
+          variant="ghost"
           style={styles.retiredLink}
           onPress={() => router.push('/named-corridors' as Href)}
-          accessibilityRole="button"
-          accessibilityLabel={t('namedCorridors.link')}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="tag-outline" size={16} color={colors.textSecondary} />
-          <Text style={[styles.retiredLinkText, isDark && styles.textMuted]}>
-            {t('namedCorridors.link')}
-          </Text>
-        </TouchableOpacity>
+          icon={<MaterialCommunityIcons name="tag-outline" size={16} color={colors.primary} />}
+          label={t('namedCorridors.link')}
+        />
         <DataRangeFooter days={cacheDays} isDark={isDark} />
       </View>
     );
@@ -659,15 +641,8 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   retiredLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-  },
-  retiredLinkText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
+    alignSelf: 'center',
+    marginVertical: spacing.xs,
   },
   emptyContainer: {
     flex: 1,
@@ -694,8 +669,8 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
-    color: darkColors.textMuted,
+  textSecondary: {
+    color: darkColors.textSecondary,
   },
   disabledSection: {
     opacity: 0.6,

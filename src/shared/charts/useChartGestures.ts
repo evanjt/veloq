@@ -30,7 +30,7 @@ import {
   DerivedValue,
   AnimatedStyle,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { light as lightHaptic } from '@/shared/ui/haptics';
 import { CHART_CONFIG } from './constants';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
@@ -287,7 +287,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     longPressTimer.current = setTimeout(() => {
       touchX.value = gestureInitialX.value;
       gestureReady.value = true;
-      if (haptics) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (haptics) lightHaptic();
     }, activationDelay);
   }, [touchX, gestureInitialX, gestureReady, activationDelay, haptics]);
 

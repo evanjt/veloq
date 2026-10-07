@@ -8,6 +8,7 @@ import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { AthleteSummary } from '@/types';
 import { mondayAnchors, weekAnchorSeconds } from '@/features/fitness/lib/weekWindow';
+import { TIME } from '@/shared/app/time';
 
 /**
  * Get ISO week number for a date
@@ -18,7 +19,7 @@ export function getISOWeekNumber(date: Date): number {
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / TIME.DAY + 1) / 7);
 }
 
 /**

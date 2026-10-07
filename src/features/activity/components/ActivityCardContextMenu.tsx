@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, Share, Platform } from 'react-native';
 import { Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useTheme } from '@/shared/app';
@@ -109,7 +109,7 @@ export function ActivityCardContextMenu({
 
   const handleStyleSelect = useCallback(
     (style: MapStyleType) => {
-      Haptics.selectionAsync().catch(() => {});
+      haptics.selection();
       setActivityOverride(activity.id, { style });
     },
     [activity.id, setActivityOverride]
@@ -117,14 +117,14 @@ export function ActivityCardContextMenu({
 
   const handleToggle3D = useCallback(
     (value: boolean) => {
-      Haptics.selectionAsync().catch(() => {});
+      haptics.selection();
       setActivityOverride(activity.id, { terrain3D: value });
     },
     [activity.id, setActivityOverride]
   );
 
   const handleReset = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    haptics.light();
     clearActivityOverride(activity.id);
   }, [activity.id, clearActivityOverride]);
 

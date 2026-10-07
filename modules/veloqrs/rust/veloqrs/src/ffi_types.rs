@@ -184,10 +184,6 @@ pub struct FfiActivityMetrics {
     pub training_load: Option<f64>,
     /// FTP used for this activity (optional)
     pub ftp: Option<u16>,
-    /// Power zone times in seconds per zone (optional)
-    pub power_zone_times: Option<Vec<u32>>,
-    /// HR zone times in seconds per zone (optional)
-    pub hr_zone_times: Option<Vec<u32>>,
 }
 
 impl From<crate::ActivityMetrics> for FfiActivityMetrics {
@@ -205,8 +201,6 @@ impl From<crate::ActivityMetrics> for FfiActivityMetrics {
             sport_type: m.sport_type,
             training_load: m.training_load,
             ftp: m.ftp,
-            power_zone_times: None,
-            hr_zone_times: None,
         }
     }
 }
@@ -226,8 +220,8 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
             sport_type: m.sport_type,
             training_load: m.training_load,
             ftp: m.ftp,
-            power_zone_times: m.power_zone_times,
-            hr_zone_times: m.hr_zone_times,
+            power_zone_times: None,
+            hr_zone_times: None,
         }
     }
 }
@@ -909,9 +903,61 @@ pub struct FfiSectionHistoryEvent {
     /// reverted, pr_rebased, baseline, algorithm_changed, name_released or
     /// name_taken.
     pub kind: String,
-    /// JSON: the era snapshot, lineage links and what was around the change.
-    pub details: Option<String>,
+    /// What the row recorded, read from the stored payload. Absent when the
+    /// row stored none or stored something unreadable.
+    pub details: Option<FfiSectionEventDetails>,
     pub geometry_version: Option<f64>,
+}
+
+/// The fixed fields of a ledger row's stored payload. Keys a row does not
+/// carry read as empty lists and absent options, and keys this record does
+/// not name are ignored, so a row written by an older or newer build reads.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionEventDetails {
+    /// Activities that arrived while the change was pending.
+    pub around: Vec<String>,
+    /// Activities a fork at the line's end collected.
+    pub fork_around: Vec<String>,
+    /// The era's records, one per sport; a row written before records were
+    /// held per sport carries one record and no sport.
+    pub prs: Vec<FfiSectionEraRecord>,
+    /// A re-based record's time before and after, within `pr_sport`.
+    pub pr_from: Option<f64>,
+    pub pr_to: Option<f64>,
+    pub pr_sport: Option<String>,
+    /// The sections a split left behind, in line order.
+    pub siblings: Vec<String>,
+    pub version: Option<f64>,
+    /// The activity a re-anchor moved the line off, and the one it moved to.
+    pub reanchored_from: Option<String>,
+    pub reanchored_to: Option<String>,
+    /// Whether an anchoring moved the line; absent on a row that does not say.
+    pub moved: Option<bool>,
+    /// The section a split piece was carved from, with its standing now.
+    pub split_from: Option<FfiSectionLink>,
+    /// The pieces a split left, with their standing now.
+    pub split_into: Vec<FfiSectionLink>,
+    /// The serde tag of each boundary reason the detector gave the change.
+    pub reasons: Vec<String>,
+}
+
+/// One sport's record on a section when an era ended.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionEraRecord {
+    pub sport: Option<String>,
+    /// Seconds.
+    pub time: f64,
+}
+
+/// A section the ledger names, with whether the catalogue still shows it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionLink {
+    pub id: String,
+    pub name: Option<String>,
+    pub available: bool,
 }
 
 /// One ledger change on a section that names an activity, for that activity's
@@ -1025,6 +1071,10 @@ pub struct FfiBackgroundJobsData {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionChange {
     pub section_id: String,
+    /// The name the athlete is shown for the section: their own, else its
+    /// number, else the composition from its split parent. The id when the
+    /// section has none.
+    pub section_name: String,
     pub kind: String,
     pub at: String,
     /// The section's line as it now stands, delta+varint encoded and thinned
@@ -3169,8 +3219,6 @@ mod tests {
         // invent one.
         assert!(ffi.training_load.is_none());
         assert!(ffi.ftp.is_none());
-        assert!(ffi.power_zone_times.is_none());
-        assert!(ffi.hr_zone_times.is_none());
     }
 
     #[test]
@@ -3190,19 +3238,26 @@ mod tests {
     }
 
     #[test]
-    fn activity_metric_zone_vectors_are_input_only_on_ffi() {
-        let mut metrics = activity_metrics();
-        metrics.power_zone_times = Some(vec![10, 20]);
-        metrics.hr_zone_times = Some(vec![30, 40]);
-        let mut outbound = FfiActivityMetrics::from(metrics);
-        assert_eq!(outbound.power_zone_times, None);
-        assert_eq!(outbound.hr_zone_times, None);
-
-        outbound.power_zone_times = Some(vec![10, 20]);
-        outbound.hr_zone_times = Some(vec![30, 40]);
-        let input = crate::ActivityMetrics::from(outbound);
-        assert_eq!(input.power_zone_times, Some(vec![10, 20]));
-        assert_eq!(input.hr_zone_times, Some(vec![30, 40]));
+    fn activity_metrics_from_the_ffi_carry_no_zone_seconds() {
+        let ffi = FfiActivityMetrics {
+            activity_id: "act_1".to_string(),
+            name: "Ride".to_string(),
+            date: 1_700_000_000.0,
+            distance: 1000.0,
+            moving_time: 300,
+            elapsed_time: 300,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            sport_type: "Ride".to_string(),
+            training_load: Some(40.0),
+            ftp: Some(250),
+        };
+        let row = crate::ActivityMetrics::from(ffi);
+        assert_eq!(row.training_load, Some(40.0));
+        assert_eq!(row.ftp, Some(250));
+        assert_eq!(row.power_zone_times, None);
+        assert_eq!(row.hr_zone_times, None);
     }
 
     #[test]
@@ -3795,8 +3850,34 @@ pub struct FfiExerciseActivities {
 pub struct FfiActivityHighlightsBundle {
     pub indicators: Vec<FfiActivityIndicator>,
     pub route_highlights: Vec<FfiActivityRouteHighlight>,
+    /// Tile coverage against earlier activities, for the activities with any.
+    pub new_ground: Vec<FfiActivityNewGround>,
     /// One row per strength activity among the ids, with what its card paints.
     pub strength_cards: Vec<FfiStrengthCardSummary>,
+}
+
+/// What an activity's card says about its ground, decided once in the engine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiNewGroundBadge {
+    /// Every z17 tile the activity touched was untouched by earlier ones.
+    EntirelyNew,
+    /// At least half of them were.
+    MostlyNew,
+}
+
+/// How much of an activity's ground no earlier activity had covered, counted
+/// in z17 tiles. It is coverage of a fixed grid, not metres of new road.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiActivityNewGround {
+    pub activity_id: String,
+    /// `new_tiles` over `tiles`, from 0 to 1.
+    pub fraction: f64,
+    /// Tiles the activity touches.
+    pub tiles: u32,
+    /// Tiles no earlier activity touched.
+    pub new_tiles: u32,
+    /// The badge the card shows, absent below half.
+    pub badge: Option<FfiNewGroundBadge>,
 }
 
 // ============================================================================

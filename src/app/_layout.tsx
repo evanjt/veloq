@@ -2,7 +2,7 @@
 // This prevents inactive screens from re-rendering during navigation
 import { enableFreeze } from 'react-native-screens';
 
-import { LogBox, AppState, View, ActivityIndicator } from 'react-native';
+import { LogBox, AppState, Platform, View, ActivityIndicator } from 'react-native';
 
 import { installGlobalCrashHandler, setCrashScreen } from '@/shared/debug/crashLog';
 
@@ -20,6 +20,7 @@ import { reportFeedOpened } from '@/shared/native/feedSeen';
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { handleAppBackground } from '@/shared/app/appBackground';
+import { useInteractionPacing } from '@/shared/app/useInteractionPacing';
 import { isHeatmapEnabled, registerMapSurfaceReclaimer } from '@/features/maps';
 import { useEngineStatus, useRouteReoptimization } from '@/features/routes';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -34,6 +35,7 @@ import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import {
   SCREEN_HEADERS,
+  headerLargeTitle,
   overMapHeaderTint,
   screenAnimation,
   sheetScreenOptions,
@@ -64,7 +66,6 @@ import {
 import { DemoBanner } from '@/shared/app/DemoBanner';
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
-import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/whatsNew';
 import {
   captureQuarantineReport,
   LibraryRebuiltNotice,
@@ -80,6 +81,13 @@ import {
   useNotificationPreferences,
   refreshPushTokenRegistration,
   reconcilePushRegistrationOnLaunch,
+  WhatsNewModal,
+  TourReturnPill,
+  initializeNotifications,
+  setupNotificationReceivedHandler,
+  setupNotificationResponseHandler,
+  handleInitialNotificationResponse,
+  hasNotificationPermission,
 } from '@/features/settings';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
@@ -102,13 +110,6 @@ import {
   completeLaunchIdentity,
   getCachedAthleteId,
 } from '@/features/auth';
-import {
-  initializeNotifications,
-  setupNotificationReceivedHandler,
-  setupNotificationResponseHandler,
-  handleInitialNotificationResponse,
-  hasNotificationPermission,
-} from '@/features/settings/lib/notificationService';
 
 // Registers the background insight task at module scope (required by TaskManager)
 import { registerBackgroundNotificationTask } from '@/features/insights';
@@ -494,6 +495,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     });
   }, [athleteId, isAuthenticated, routeParts, router]);
 
+  const interactionTouch = useInteractionPacing(pushInteracting);
+
   if (isLoading) {
     return (
       <View
@@ -511,7 +514,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1 }} {...interactionTouch}>
       {children}
       <RestorePromptSheet
         visible={restorePromptVisible}
@@ -519,6 +522,15 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       />
     </View>
   );
+}
+
+function pushInteracting(interacting: boolean): void {
+  try {
+    getEngine()?.setInteracting(interacting);
+  } catch {
+    // The native module is not loaded yet. The value is advisory and expires
+    // in Rust, so a dropped push costs slower background work at worst.
+  }
 }
 
 export default function RootLayout() {
@@ -643,6 +655,7 @@ export default function RootLayout() {
                             // no header: during a ride leaving is the stop flow, and
                             // before one starts the close control is the way off.
                             gestureEnabled: name !== 'recording/[type]',
+                            headerLargeTitle: headerLargeTitle(name, Platform.OS),
                             ...sheetScreenOptions(name),
                             ...(header?.overMap && {
                               headerTransparent: true,

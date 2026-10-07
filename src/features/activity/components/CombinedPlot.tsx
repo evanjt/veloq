@@ -16,7 +16,7 @@ import Animated, {
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, layout, chartStyles, ink, colorWithOpacity } from '@/theme';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
@@ -189,7 +189,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         isActiveRef.current = true;
         if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
         // Haptic feedback on interaction start
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        haptics.light();
       }
 
       // Build metric values with actual data (not normalized)

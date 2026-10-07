@@ -51,15 +51,15 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   xLabelDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
   },
   xAxisHint: {
     fontSize: typography.micro.fontSize,
     fontWeight: '400',
-    color: colors.textMuted,
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   xAxisHintDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
   },
 });

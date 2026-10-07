@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, ink, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { Button, IconButton, pressable, pressRipple } from '@/shared/ui';
 import { useActivities } from '@/features/activity';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -24,7 +25,7 @@ const HARD_RESYNC_LABEL = 'Hard Re-sync';
 function StatRow({ label, value, isDark }: { label: string; value: string; isDark: boolean }) {
   return (
     <View style={styles.statRow}>
-      <Text style={[styles.statLabel, isDark && styles.textMuted]}>{label}</Text>
+      <Text style={[styles.statLabel, isDark && styles.textSecondary]}>{label}</Text>
       <Text style={[styles.statValue, isDark && styles.textLight]}>{value}</Text>
     </View>
   );
@@ -49,13 +50,13 @@ function Section({
 
   return (
     <View style={[styles.section, isDark && styles.sectionDark]}>
-      <TouchableOpacity
-        style={styles.sectionHeader}
+      <Pressable
+        style={pressable(styles.sectionHeader)}
+        android_ripple={pressRipple}
         onPress={() => setOpen(!open)}
         accessibilityRole="button"
         accessibilityLabel={title}
         accessibilityState={{ expanded: open }}
-        activeOpacity={0.7}
       >
         <View style={styles.sectionHeaderLeft}>
           <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
@@ -66,7 +67,7 @@ function Section({
           size={20}
           color={mutedColor}
         />
-      </TouchableOpacity>
+      </Pressable>
       {open && <View style={styles.sectionContent}>{children}</View>}
     </View>
   );
@@ -278,25 +279,20 @@ export function SyncDebugTab() {
         <StatRow label="Aligned" value={String(alignment.alignedCount)} isDark={isDark} />
 
         {alignment.missingFromEngine.length > 0 && (
-          <TouchableOpacity
+          <Button
+            variant="ghost"
+            size="sm"
             style={styles.expandButton}
             onPress={() => setShowMissing(!showMissing)}
-            accessibilityRole="button"
-            accessibilityLabel={`${showMissing ? 'Hide' : 'Show'} missing IDs (${alignment.missingFromEngine.length})`}
-            accessibilityState={{ expanded: showMissing }}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[styles.expandText, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
-            >
-              {showMissing ? 'Hide' : 'Show'} missing IDs ({alignment.missingFromEngine.length})
-            </Text>
-            <MaterialCommunityIcons
-              name={showMissing ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.primary}
-            />
-          </TouchableOpacity>
+            icon={
+              <MaterialCommunityIcons
+                name={showMissing ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.primary}
+              />
+            }
+            label={`${showMissing ? 'Hide' : 'Show'} missing IDs (${alignment.missingFromEngine.length})`}
+          />
         )}
         {showMissing && (
           <View style={styles.idList}>
@@ -314,25 +310,20 @@ export function SyncDebugTab() {
         )}
 
         {alignment.extraInEngine.length > 0 && (
-          <TouchableOpacity
+          <Button
+            variant="ghost"
+            size="sm"
             style={styles.expandButton}
             onPress={() => setShowExtra(!showExtra)}
-            accessibilityRole="button"
-            accessibilityLabel={`${showExtra ? 'Hide' : 'Show'} extra IDs (${alignment.extraInEngine.length})`}
-            accessibilityState={{ expanded: showExtra }}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[styles.expandText, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
-            >
-              {showExtra ? 'Hide' : 'Show'} extra IDs ({alignment.extraInEngine.length})
-            </Text>
-            <MaterialCommunityIcons
-              name={showExtra ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.primary}
-            />
-          </TouchableOpacity>
+            icon={
+              <MaterialCommunityIcons
+                name={showExtra ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.primary}
+              />
+            }
+            label={`${showExtra ? 'Hide' : 'Show'} extra IDs (${alignment.extraInEngine.length})`}
+          />
         )}
         {showExtra && (
           <View style={styles.idList}>
@@ -410,23 +401,13 @@ export function SyncDebugTab() {
 
       {/* Actions */}
       <Section title="Actions" icon="wrench" isDark={isDark}>
-        <TouchableOpacity
-          style={[styles.actionButton, isDark && styles.actionButtonDark]}
+        <Button
+          variant="secondary"
+          style={styles.actionButton}
           onPress={handleForceSync}
-          accessibilityRole="button"
-          accessibilityLabel={FORCE_SYNC_LABEL}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="refresh" size={18} color={colors.primary} />
-          <Text
-            style={[
-              styles.actionButtonText,
-              { color: isDark ? darkColors.linkTeal : colors.linkTeal },
-            ]}
-          >
-            {FORCE_SYNC_LABEL}
-          </Text>
-        </TouchableOpacity>
+          icon={<MaterialCommunityIcons name="refresh" size={18} color={colors.primary} />}
+          label={FORCE_SYNC_LABEL}
+        />
         {forceSyncStatus !== '' && (
           <Text style={[styles.statusText, { color: mutedColor }]}>{forceSyncStatus}</Text>
         )}
@@ -437,64 +418,48 @@ export function SyncDebugTab() {
               Remove Activities:
             </Text>
             <View style={styles.stepper}>
-              <TouchableOpacity
-                style={[styles.stepperBtn, isDark && styles.stepperBtnDark]}
+              <IconButton
+                variant="secondary"
                 onPress={() => setRemoveCount(Math.max(1, removeCount - 1))}
-                accessibilityRole="button"
                 accessibilityLabel={`${i18n.t('stats.less')} ${i18n.t('stats.activities')}`}
-                activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
                   name="minus"
                   size={16}
                   color={isDark ? darkColors.textPrimary : colors.textPrimary}
                 />
-              </TouchableOpacity>
+              </IconButton>
               <Text style={[styles.stepperValue, isDark && styles.textLight]}>{removeCount}</Text>
-              <TouchableOpacity
-                style={[styles.stepperBtn, isDark && styles.stepperBtnDark]}
+              <IconButton
+                variant="secondary"
                 onPress={() => setRemoveCount(Math.min(50, removeCount + 1))}
-                accessibilityRole="button"
                 accessibilityLabel={`${i18n.t('stats.more')} ${i18n.t('stats.activities')}`}
-                activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
                   name="plus"
                   size={16}
                   color={isDark ? darkColors.textPrimary : colors.textPrimary}
                 />
-              </TouchableOpacity>
+              </IconButton>
             </View>
           </View>
-          <TouchableOpacity
-            style={[styles.dangerButton, isRemoving && styles.dangerButtonDisabled]}
+          <Button
+            variant="destructive"
             onPress={handleRemoveActivities}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove ${removeCount} and re-sync`}
-            accessibilityState={{ disabled: isRemoving || !apiActivities?.length }}
-            activeOpacity={0.7}
             disabled={isRemoving || !apiActivities?.length}
-          >
-            <MaterialCommunityIcons name="delete-outline" size={18} color={ink.white} />
-            <Text style={styles.dangerButtonText}>
-              {isRemoving ? 'Removing...' : `Remove ${removeCount} & Re-sync`}
-            </Text>
-          </TouchableOpacity>
+            icon={<MaterialCommunityIcons name="delete-outline" size={18} color={ink.white} />}
+            label={isRemoving ? 'Removing...' : `Remove ${removeCount} & Re-sync`}
+          />
         </View>
 
         <View style={styles.hardResyncSection}>
-          <TouchableOpacity
-            style={styles.dangerButton}
+          <Button
+            variant="destructive"
             onPress={handleHardResync}
-            accessibilityRole="button"
-            accessibilityLabel={HARD_RESYNC_LABEL}
-            accessibilityState={{ disabled: !engine }}
-            activeOpacity={0.7}
             disabled={!engine}
-          >
-            <MaterialCommunityIcons name="nuke" size={18} color={ink.white} />
-            <Text style={styles.dangerButtonText}>{HARD_RESYNC_LABEL}</Text>
-          </TouchableOpacity>
+            icon={<MaterialCommunityIcons name="nuke" size={18} color={ink.white} />}
+            label={HARD_RESYNC_LABEL}
+          />
           <Text style={[styles.hintText, { color: mutedColor }]}>
             Clears all engine data and triggers a full re-sync from scratch.
           </Text>
@@ -568,7 +533,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: 'right',
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   textLight: {
@@ -595,15 +560,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   expandButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+    alignSelf: 'flex-start',
     marginTop: spacing.xs,
-    paddingVertical: spacing.xs,
-  },
-  expandText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
   },
   idList: {
     marginTop: spacing.xs,
@@ -615,21 +573,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: layout.borderRadiusSm,
     marginBottom: spacing.sm,
-  },
-  actionButtonDark: {
-    backgroundColor: darkColors.background,
-  },
-  actionButtonText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
   },
   statusText: {
     fontSize: typography.caption.fontSize,
@@ -656,17 +600,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  stepperBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: layout.borderRadiusSm,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperBtnDark: {
-    backgroundColor: darkColors.background,
-  },
   stepperValue: {
     fontSize: typography.body.fontSize,
     fontWeight: '700',
@@ -682,23 +615,5 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     marginTop: spacing.xs,
     paddingHorizontal: spacing.xs,
-  },
-  dangerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.smPlus,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.error,
-    borderRadius: layout.borderRadiusSm,
-  },
-  dangerButtonDisabled: {
-    opacity: 0.5,
-  },
-  dangerButtonText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: ink.white,
   },
 });

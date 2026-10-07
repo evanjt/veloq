@@ -6,13 +6,19 @@
  */
 
 import React, { useMemo } from 'react';
-import { Pressable, View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { Pressable, View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
+import {
+  IconButton,
+  ScreenSafeAreaView,
+  TAB_BAR_SAFE_PADDING,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import {
   useNamedCorridors,
@@ -81,7 +87,7 @@ function NamedCorridorsScreenContent() {
         {corridors.length === 0 ? (
           <Text
             testID="named-corridors-empty"
-            style={[styles.empty, isDark && styles.textMutedDark]}
+            style={[styles.empty, isDark && styles.textSecondaryDark]}
           >
             {t('namedCorridors.empty')}
           </Text>
@@ -96,7 +102,7 @@ function NamedCorridorsScreenContent() {
                 <FootprintPreview footprint={corridor.footprint} isDark={isDark} />
                 <View style={styles.body}>
                   <Text style={[styles.name, isDark && styles.textDark]}>{corridor.name}</Text>
-                  <Text style={[styles.meta, isDark && styles.textMutedDark]}>
+                  <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>
                     {t('namedCorridors.created', {
                       date: ledgerDate(corridor.createdAt).toLocaleDateString(locale, {
                         day: 'numeric',
@@ -108,20 +114,21 @@ function NamedCorridorsScreenContent() {
                   {corridor.dormant ? (
                     <Text
                       testID={`named-corridor-${corridor.intentId}-dormant`}
-                      style={[styles.meta, isDark && styles.textMutedDark]}
+                      style={[styles.meta, isDark && styles.textSecondaryDark]}
                     >
                       {t('namedCorridors.dormant')}
                     </Text>
                   ) : (
-                    <TouchableOpacity
+                    <Pressable
                       testID={`named-corridor-${corridor.intentId}-open`}
                       onPress={() => router.push(`/section/${corridor.sectionId}`)}
+                      style={pressable()}
+                      android_ripple={pressRipple}
                       accessibilityRole="button"
                       accessibilityLabel={t('namedCorridors.onSection', {
                         name: sectionNames[corridor.sectionId ?? ''] ?? corridor.sectionId,
                         percent: Math.round(corridor.coverage * 100),
                       })}
-                      activeOpacity={0.7}
                     >
                       <Text style={[styles.link, isDark && { color: darkColors.linkTeal }]}>
                         {t('namedCorridors.onSection', {
@@ -129,27 +136,24 @@ function NamedCorridorsScreenContent() {
                           percent: Math.round(corridor.coverage * 100),
                         })}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   )}
                   {!corridor.dormant && !corridor.primary && (
                     <Text
                       testID={`named-corridor-${corridor.intentId}-secondary`}
-                      style={[styles.meta, isDark && styles.textMutedDark]}
+                      style={[styles.meta, isDark && styles.textSecondaryDark]}
                     >
                       {t('namedCorridors.secondary')}
                     </Text>
                   )}
                 </View>
-                <Pressable
+                <IconButton
                   testID={`named-corridor-${corridor.intentId}-delete`}
                   onPress={() => confirmRemove(corridor)}
-                  style={pressable(styles.deleteButton)}
                   accessibilityLabel={t('namedCorridors.delete')}
-                  accessibilityRole="button"
-                  android_ripple={pressRipple}
                 >
                   <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />
-                </Pressable>
+                </IconButton>
               </View>
             </View>
           ))
@@ -171,12 +175,6 @@ const styles = StyleSheet.create({
   cardDark: { backgroundColor: darkColors.surface },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   body: { flex: 1, gap: spacing.xs },
-  deleteButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   name: { ...typography.body, color: colors.textPrimary },
   meta: { ...typography.caption, color: colors.textSecondary },
   link: { ...typography.bodySmall, color: colors.linkTeal },
@@ -187,7 +185,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   textDark: { color: darkColors.textPrimary },
-  textMutedDark: { color: darkColors.textSecondary },
+  textSecondaryDark: { color: darkColors.textSecondary },
 });
 
 export default withScreenBoundary(NamedCorridorsScreenContent, 'Named Corridors');

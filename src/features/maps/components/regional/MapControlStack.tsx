@@ -178,7 +178,7 @@ export function MapControlStack({
                   ? colors.textOnDark
                   : colors.textSecondary
                 : isDark
-                  ? darkColors.textMuted
+                  ? darkColors.textSecondary
                   : colors.textDisabled
           }
         />

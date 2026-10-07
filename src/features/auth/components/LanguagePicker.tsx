@@ -79,7 +79,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                 styles.dialectLegendChip,
               ]}
             >
-              <Text style={[styles.variantChipText, isDark && styles.textMuted]}>
+              <Text style={[styles.variantChipText, isDark && styles.textSecondary]}>
                 {t('settings.dialect')}
               </Text>
             </View>
@@ -156,7 +156,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                               style={[
                                 styles.variantChipText,
                                 isVariantSelected && styles.variantChipTextSelected,
-                                isDark && !isVariantSelected && styles.textMuted,
+                                isDark && !isVariantSelected && styles.textSecondary,
                               ]}
                             >
                               {variant.label}
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   textDark: {
     color: darkColors.textSecondary,
   },
-  textMuted: {
-    color: darkColors.textMuted,
+  textSecondary: {
+    color: darkColors.textSecondary,
   },
 });

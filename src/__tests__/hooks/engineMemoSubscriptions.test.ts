@@ -25,6 +25,7 @@ import { useDetailCoordinates } from '@/features/activity/hooks/useDetailCoordin
 import { useSectionDetailPerformance } from '@/features/routes/hooks/useSectionDetailData';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
 import { useLedgerActivityNames } from '@/features/routes/hooks/useLedgerActivityNames';
+import { NO_EVENT_DETAILS } from '@/features/routes/lib/sectionLedger';
 import { useStrengthTabState } from '@/features/strength/hooks/useStrengthScreenData';
 import { useEngineMapActivities } from '@/features/maps/hooks/useEngineMapActivities';
 import { useActivityDetailData } from '@/features/activity/hooks/useActivityDetailData';
@@ -121,7 +122,7 @@ const getActivityDetailData = jest.fn(() => ({
   matchedSections: [],
   customSections: [],
   encounters: [],
-  highlights: { indicators: [], routeHighlights: [], strengthCards: [] },
+  highlights: { indicators: [], routeHighlights: [], newGround: [], strengthCards: [] },
   sectionTraces: [],
   prSectionIds: [],
 }));
@@ -481,7 +482,7 @@ describe('useWorkoutSections', () => {
 });
 
 describe('useLedgerActivityNames', () => {
-  const history = [{ details: JSON.stringify({ around: ['act-1'] }) }];
+  const history = [{ details: { ...NO_EVENT_DETAILS, around: ['act-1'] } }];
 
   it('re-reads the names when activities change', () => {
     const { result } = renderHook(() =>

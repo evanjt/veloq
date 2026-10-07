@@ -189,7 +189,7 @@ export const InsightListCard = React.memo(function InsightListCard({
       <MaterialCommunityIcons
         name="chevron-right"
         size={16}
-        color={isDark ? darkColors.textMuted : colors.textMuted}
+        color={isDark ? darkColors.textSecondary : colors.textSecondary}
         style={styles.chevron}
       />
     </Card>

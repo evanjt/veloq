@@ -89,7 +89,7 @@ export function SectionLapList({
                   <Text style={[styles.activityName, isDark && styles.textDark]} numberOfLines={1}>
                     {r.activityName}
                   </Text>
-                  <Text style={[styles.activityDate, isDark && styles.textMutedDark]}>
+                  <Text style={[styles.activityDate, isDark && styles.textSecondaryDark]}>
                     {r.activityDate.toLocaleDateString(locale, {
                       day: 'numeric',
                       month: 'short',
@@ -106,7 +106,10 @@ export function SectionLapList({
                     {formatDuration(best)}
                   </Text>
                 ) : null}
-                <Text style={[styles.lapCount, isDark && styles.textMutedDark]} numberOfLines={1}>
+                <Text
+                  style={[styles.lapCount, isDark && styles.textSecondaryDark]}
+                  numberOfLines={1}
+                >
                   ×{r.laps.length}
                 </Text>
               </View>
@@ -117,7 +120,7 @@ export function SectionLapList({
               <Text style={[styles.activityName, isDark && styles.textDark]} numberOfLines={1}>
                 {r.activityName}
               </Text>
-              <Text style={[styles.activityDate, isDark && styles.textMutedDark]}>
+              <Text style={[styles.activityDate, isDark && styles.textSecondaryDark]}>
                 {r.activityDate.toLocaleDateString(locale, {
                   day: 'numeric',
                   month: 'short',
@@ -143,7 +146,7 @@ export function SectionLapList({
                         {formatDuration(lap.time)}
                       </Text>
                       {lap.avgPower != null && Number.isFinite(lap.avgPower) && lap.avgPower > 0 ? (
-                        <Text style={[styles.lapPower, isDark && styles.textMutedDark]}>
+                        <Text style={[styles.lapPower, isDark && styles.textSecondaryDark]}>
                           {formatPower(lap.avgPower)}
                         </Text>
                       ) : null}
@@ -157,7 +160,7 @@ export function SectionLapList({
                           activeOpacity={0.7}
                           hitSlop={pillHitSlop}
                         >
-                          <Text style={[styles.pillMuted, isDark && styles.textMutedDark]}>
+                          <Text style={[styles.pillMuted, isDark && styles.textSecondaryDark]}>
                             {t('sections.lapExcluded')}
                           </Text>
                           <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
@@ -237,5 +240,5 @@ const styles = StyleSheet.create({
   pillText: { ...typography.caption, color: colors.linkTeal },
   pillMuted: { ...typography.caption, color: colors.textSecondary },
   textDark: { color: darkColors.textPrimary },
-  textMutedDark: { color: darkColors.textSecondary },
+  textSecondaryDark: { color: darkColors.textSecondary },
 });

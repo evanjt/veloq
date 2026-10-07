@@ -10,6 +10,7 @@ import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { zoneColors } from '@/theme/colors';
 import type { SportSettings, Zone } from '@/types';
+import { TIME } from '@/shared/app/time';
 
 function readSportSettings(): SportSettings[] {
   const engine = getEngine();
@@ -33,7 +34,7 @@ export function useSportSettings() {
     queryFn: readSportSettings,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 24,
+    gcTime: TIME.DAY,
   });
 }
 

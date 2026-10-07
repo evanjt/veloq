@@ -23,6 +23,7 @@ import type { BackupEntry } from './backends/types';
 import { backupCarriers } from './backends/carriers';
 import { forgetBackupFolder } from './backends/folderBackend';
 import { isBackupTransferError, type BackupFailureKind } from './backends/errors';
+import { TIME } from '@/shared/app/time';
 
 const log = debug.create('AutoBackup');
 const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
@@ -36,8 +37,8 @@ const SETTING_LAST_FAILURE = '__last_backup_failure';
 /** Set once the platform zip is this library's own, or its offer was answered. */
 const SETTING_PLATFORM_RECORD_ANSWERED = '__platform_record_answered';
 
-const MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const STALE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const MIN_INTERVAL_MS = TIME.DAY; // 24 hours
+const STALE_INTERVAL_MS = 7 * TIME.DAY; // 7 days
 
 /** Check if auto-backup is enabled (defaults to false). */
 export function isAutoBackupEnabled(): boolean {

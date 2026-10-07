@@ -241,7 +241,7 @@ export const SectionInlinePlot = memo(
                     <Text
                       testID={`section-inline-partial-${suffix}`}
                       accessibilityLabel={t('sections.partial')}
-                      style={[styles.partialBadge, isDark && styles.textMuted]}
+                      style={[styles.partialBadge, isDark && styles.textSecondary]}
                     >
                       {t('sections.partial')}
                     </Text>
@@ -249,7 +249,7 @@ export const SectionInlinePlot = memo(
                     showDirection && (
                       <Text
                         accessibilityLabel={t(isReverse ? 'sections.reverse' : 'sections.forward')}
-                        style={[styles.directionBadge, isDark && styles.textMuted]}
+                        style={[styles.directionBadge, isDark && styles.textSecondary]}
                       >
                         {isReverse ? '↩' : '→'}
                       </Text>
@@ -257,13 +257,16 @@ export const SectionInlinePlot = memo(
                   )}
                   <View style={styles.directionInfo}>
                     <View style={styles.metaRow}>
-                      <RNText style={[styles.meta, isDark && styles.textMuted]}>
+                      <RNText style={[styles.meta, isDark && styles.textSecondary]}>
                         {formatDistance(encounter.distanceMeters, isMetric)}
                         {encounter.historyTimes.length > 0 &&
                           ` · ${t('sections.visitsCount', { count: encounter.visitCount })}`}
                         {encounter.lapTime > 0 && (
                           <>
-                            <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>
+                            <RNText style={[styles.meta, isDark && styles.textSecondary]}>
+                              {' '}
+                              ·{' '}
+                            </RNText>
                             <RNText style={[styles.timeValue, isDark && styles.textLight]}>
                               {formatLap(encounter.lapPace, encounter.lapTime, sportType, isMetric)}
                             </RNText>
@@ -274,7 +277,7 @@ export const SectionInlinePlot = memo(
                         <Text
                           testID={`section-inline-partial-${suffix}`}
                           accessibilityLabel={t('sections.partial')}
-                          style={[styles.partialMeta, isDark && styles.textMuted]}
+                          style={[styles.partialMeta, isDark && styles.textSecondary]}
                         >
                           {t('sections.partial')}
                         </Text>
@@ -448,7 +451,7 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   timeValue: {

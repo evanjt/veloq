@@ -66,6 +66,7 @@ fn one_read_answers_what_the_four_exports_answer() {
         status.stream_remaining,
         get_stream_backfill_remaining().ok()
     );
+    assert_eq!(status.stream_remaining_bytes, Some(0.0));
 }
 
 #[test]
@@ -106,4 +107,5 @@ fn a_count_the_engine_cannot_answer_is_null() {
 
     assert_eq!(status.elevation_remaining, None);
     assert_eq!(status.stream_remaining, None);
+    assert_eq!(status.stream_remaining_bytes, None);
 }

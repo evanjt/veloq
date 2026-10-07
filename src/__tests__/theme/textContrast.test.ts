@@ -113,26 +113,25 @@ describe('body text clears AA on every surface it is drawn on', () => {
   });
 
   /**
-   * `textMuted` was the same grey in both themes, so the token meant to be a
-   * shade darker on white and a shade lighter on black was neither: 4.34:1 on
-   * `backgroundAlt` and 3.24:1 on `surfaceCard`, read at 269 sites. It is body
-   * copy, a caption or a unit, not an inactive control, so the exemption
-   * `textDisabled` carries does not reach it.
+   * Two tokens holding the same pair in both themes distinguish nothing, so the
+   * next sweep mixes them. A third grey rung was one: after the contrast repair it held
+   * `textSecondary`'s two values at 269 sites.
    */
-  it.each(Object.keys(LIGHT_SURFACES))('light textMuted on %s', (surface) => {
-    const ground = LIGHT_SURFACES[surface as keyof typeof LIGHT_SURFACES];
-    expect(contrastRatio(colors.textMuted, ground)).toBeGreaterThanOrEqual(AA_TEXT);
-  });
+  it('gives no two text rungs the same light and dark pair', () => {
+    const owners = new Map<string, string>();
+    const duplicates: string[] = [];
+    for (const [token, family] of Object.entries(TOKEN_FAMILIES)) {
+      if (family !== 'text' || !token.startsWith('text')) continue;
+      const light = (colors as Record<string, unknown>)[token];
+      const dark = (darkColors as Record<string, unknown>)[token];
+      if (typeof light !== 'string' || typeof dark !== 'string') continue;
+      const key = `${light.toLowerCase()}|${dark.toLowerCase()}`;
+      const first = owners.get(key);
+      if (first) duplicates.push(`${token} repeats ${first}`);
+      else owners.set(key, token);
+    }
 
-  it.each(Object.keys(DARK_SURFACES))('dark textMuted on %s', (surface) => {
-    const ground = DARK_SURFACES[surface as keyof typeof DARK_SURFACES];
-    expect(contrastRatio(darkColors.textMuted, ground)).toBeGreaterThanOrEqual(AA_TEXT);
-  });
-
-  it('draws the muted grey darker on white than on black, which one grey cannot', () => {
-    expect(relativeLuminance(colors.textMuted)).toBeLessThan(
-      relativeLuminance(darkColors.textMuted)
-    );
+    expect(duplicates).toEqual([]);
   });
 
   /**
@@ -186,12 +185,10 @@ describe('body text clears AA on every surface it is drawn on', () => {
     expect(worst).toBeGreaterThan(AA_TEXT);
   });
 
-  it('holds the worst pair of the four with headroom, not on the line', () => {
+  it('holds the worst body text pair with headroom, not on the line', () => {
     const worst = Math.min(
       ...Object.values(LIGHT_SURFACES).map((g) => contrastRatio(colors.textSecondary, g)),
-      ...Object.values(DARK_SURFACES).map((g) => contrastRatio(darkColors.textSecondary, g)),
-      ...Object.values(LIGHT_SURFACES).map((g) => contrastRatio(colors.textMuted, g)),
-      ...Object.values(DARK_SURFACES).map((g) => contrastRatio(darkColors.textMuted, g))
+      ...Object.values(DARK_SURFACES).map((g) => contrastRatio(darkColors.textSecondary, g))
     );
 
     expect(worst).toBeGreaterThan(AA_TEXT);

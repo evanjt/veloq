@@ -19,7 +19,6 @@ export interface ThemeColors {
   // Text
   text: string;
   textSecondary: string;
-  textMuted: string;
 
   // Semantic
   success: string;
@@ -72,7 +71,6 @@ export function useTheme(): Theme {
     // Text
     text: isDark ? darkColors.textPrimary : colors.textPrimary,
     textSecondary: isDark ? darkColors.textSecondary : colors.textSecondary,
-    textMuted: isDark ? darkColors.textMuted : colors.textMuted,
 
     // Semantic
     success: isDark ? darkColors.success : colors.success,

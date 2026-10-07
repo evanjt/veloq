@@ -55,15 +55,9 @@ function renderHeader(section: FrequentSection, onUnflagLift?: () => void) {
       isExpandMode={false}
       trimStart={0}
       trimEnd={1}
-      isEditing={false}
-      editName=""
       customName={null}
-      nameInputRef={React.createRef()}
       highlight={createMapHighlightStore()}
-      onStartEditing={jest.fn()}
       onSaveName={jest.fn()}
-      onCancelEdit={jest.fn()}
-      onEditNameChange={jest.fn()}
     />
   );
 }
@@ -128,15 +122,9 @@ describe('section traversal count scope', () => {
         isExpandMode={false}
         trimStart={0}
         trimEnd={1}
-        isEditing={false}
-        editName=""
         customName={null}
-        nameInputRef={React.createRef()}
         highlight={createMapHighlightStore()}
-        onStartEditing={jest.fn()}
         onSaveName={jest.fn()}
-        onCancelEdit={jest.fn()}
-        onEditNameChange={jest.fn()}
         {...extra}
       />
     );

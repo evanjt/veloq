@@ -23,7 +23,6 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import * as Location from 'expo-location';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { colors, spacing } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
@@ -50,6 +49,8 @@ import {
   EMPTY_FEATURE_COLLECTION,
   cameraAfter3D,
   type Camera3DState,
+  buildUserLocationCollection,
+  useLocateUser,
 } from '@/features/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompassArrow, ComponentErrorBoundary, HERO_HEADER_HEIGHT } from '@/shared/ui';
@@ -175,7 +176,7 @@ export const SectionMapView = memo(function SectionMapView({
     if (is3DMode) camera3DRef.current = null;
   }, [is3DMode]);
   const [is3DReady, setIs3DReady] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const { userLocation, locationLoading, locate } = useLocateUser();
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -296,28 +297,10 @@ export const SectionMapView = memo(function SectionMapView({
     }).start();
   }, [is3DMode, is3DReady, bearingAnim]);
 
-  // Get user location and refocus camera
-  const handleGetLocation = useCallback(async () => {
-    try {
-      setLocationLoading(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLocationLoading(false);
-        return;
-      }
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      setLocationLoading(false);
-      const target = is3DMode && is3DReady ? map3DRef.current : surfaceRef.current;
-      target?.setCamera(
-        { center: [location.coords.longitude, location.coords.latitude], zoom: 14 },
-        500
-      );
-    } catch {
-      setLocationLoading(false);
-    }
-  }, [is3DMode, is3DReady]);
+  const handleGetLocation = useCallback(
+    () => locate(is3DMode && is3DReady ? map3DRef.current : surfaceRef.current),
+    [locate, is3DMode, is3DReady]
+  );
 
   const sectionLayerData = useSectionMapLayers({
     section,
@@ -420,30 +403,38 @@ export const SectionMapView = memo(function SectionMapView({
     ]
   );
 
+  const userLocationGeoJSON = useMemo(
+    () => buildUserLocationCollection(userLocation),
+    [userLocation]
+  );
+
   const inlineSources = useMemo(
     () =>
       buildSectionSources({
         ...specInput,
+        userLocationGeoJSON,
         showExtensionAndSection: true,
         trimCasingWidth: 5,
         trimLineWidth: 4,
         traceCasingWidth: 5,
         traceLineWidth: 4,
       }),
-    [specInput]
+    [specInput, userLocationGeoJSON]
   );
 
   const inlineLayers = useMemo(
     () =>
       buildSectionLayers({
         ...specInput,
+        userLocationGeoJSON,
+        hasUserLocation: userLocation !== null,
         showExtensionAndSection: true,
         trimCasingWidth: 5,
         trimLineWidth: 4,
         traceCasingWidth: 5,
         traceLineWidth: 4,
       }),
-    [specInput]
+    [specInput, userLocationGeoJSON, userLocation]
   );
 
   // Fullscreen already draws the section through BaseMapView's own route line,
@@ -624,7 +615,11 @@ export const SectionMapView = memo(function SectionMapView({
 
               {/* GPS location */}
               <TouchableOpacity
-                style={[styles.controlButton, isDark && styles.controlButtonDark]}
+                style={[
+                  styles.controlButton,
+                  isDark && styles.controlButtonDark,
+                  userLocation !== null && styles.controlButtonActive,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel={t('maps.goToLocation')}
                 accessibilityState={{ disabled: locationLoading }}

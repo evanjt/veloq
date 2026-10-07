@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debug } from '@/shared/debug/debug';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
 import { OAUTH } from '@/features/auth';
+import { TIME } from '@/shared/app/time';
 
 const log = debug.create('PushToken');
 
@@ -21,7 +22,7 @@ const TOKEN_REGISTERED_KEY = 'veloq-push-token-registered';
  * prove the pipeline is alive (app foreground, silent-push task) so a user who
  * rarely opens the app does not silently fall off the notification list.
  */
-const TOKEN_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const TOKEN_REFRESH_INTERVAL_MS = TIME.DAY;
 
 /**
  * Re-register the push token if the last successful registration is older

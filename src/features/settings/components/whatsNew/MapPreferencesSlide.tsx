@@ -48,7 +48,9 @@ export function MapPreferencesSlide() {
           style={styles.segmented}
         />
       </View>
-      <Text style={[styles.hint, { color: isDark ? darkColors.textMuted : colors.textMuted }]}>
+      <Text
+        style={[styles.hint, { color: isDark ? darkColors.textSecondary : colors.textSecondary }]}
+      >
         {t('whatsNew.v022.mapStylesHint' as never)}
       </Text>
     </View>

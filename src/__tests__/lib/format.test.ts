@@ -32,6 +32,7 @@ import {
   formatSwimPace,
   formatFileSize,
   formatRelativeDate,
+  calendarDaysBetween,
   formatTimeDelta,
   formatPerformanceDelta,
   speedToSecsPerKm,
@@ -561,5 +562,30 @@ describe('formatDateOrDash', () => {
   it('renders a date string the way the full date does', () => {
     expect(formatDateOrDash('2024-01-15')).toBe(formatFullDate('2024-01-15'));
     expect(formatDateOrDash('2024-01-15')).toMatch(/15/);
+  });
+});
+
+describe('calendarDaysBetween', () => {
+  it('is zero for two moments on one calendar day', () => {
+    expect(calendarDaysBetween(new Date(2024, 4, 10, 0, 5), new Date(2024, 4, 10, 23, 55))).toBe(0);
+  });
+
+  it('counts a midnight crossing as one day however close the moments are', () => {
+    expect(calendarDaysBetween(new Date(2024, 4, 10, 23, 59), new Date(2024, 4, 11, 0, 1))).toBe(1);
+  });
+
+  it('does not count a day short of a full 24 hours', () => {
+    expect(calendarDaysBetween(new Date(2024, 4, 10, 23, 0), new Date(2024, 4, 11, 1, 0))).toBe(1);
+    expect(calendarDaysBetween(new Date(2024, 4, 10, 1, 0), new Date(2024, 4, 10, 23, 0))).toBe(0);
+  });
+
+  it('is negative when the second date is earlier', () => {
+    expect(calendarDaysBetween(new Date(2024, 4, 12), new Date(2024, 4, 10))).toBe(-2);
+  });
+
+  it('counts whole days across a spring and an autumn clock change in any zone', () => {
+    expect(calendarDaysBetween(new Date(2024, 0, 1, 12), new Date(2024, 11, 31, 12))).toBe(365);
+    expect(calendarDaysBetween(new Date(2024, 2, 1), new Date(2024, 3, 30))).toBe(60);
+    expect(calendarDaysBetween(new Date(2024, 9, 1), new Date(2024, 10, 30))).toBe(60);
   });
 });

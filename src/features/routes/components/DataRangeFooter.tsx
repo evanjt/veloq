@@ -6,13 +6,12 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 import { formatDaySpan, type SpanTranslator } from '@/shared/format';
 
 interface DataRangeFooterProps {
@@ -30,22 +29,16 @@ export function DataRangeFooter({ days, isDark = false }: DataRangeFooterProps) 
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
-      <Text style={[styles.text, isDark && styles.textMuted]}>
+      <Text style={[styles.text, isDark && styles.textSecondary]}>
         {t('routes.dataRangeHint', { duration: formatDaySpan(days, t as SpanTranslator) })}
       </Text>
-      <Pressable
-        style={pressable(styles.button)}
-        android_ripple={pressRipple}
+      <Button
+        variant="ghost"
+        size="sm"
+        style={styles.button}
         onPress={handleExpandPress}
-        accessibilityRole="button"
-        accessibilityLabel={t('routes.expandInSettings')}
-        hitSlop={8}
-      >
-        <Text style={[styles.buttonText, isDark && { color: darkColors.linkTeal }]}>
-          {t('routes.expandInSettings')}
-        </Text>
-        <MaterialCommunityIcons name="chevron-right" size={14} color={colors.primary} />
-      </Pressable>
+        label={t('routes.expandInSettings')}
+      />
     </View>
   );
 }
@@ -64,18 +57,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  textMuted: {
-    color: darkColors.textMuted,
+  textSecondary: {
+    color: darkColors.textSecondary,
   },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginTop: spacing.xs,
-    paddingVertical: spacing.xs,
-  },
-  buttonText: {
-    ...typography.caption,
-    color: colors.linkTeal,
-    fontWeight: '500',
   },
 });

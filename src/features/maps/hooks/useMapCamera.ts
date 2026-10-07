@@ -12,12 +12,12 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Animated } from 'react-native';
-import * as Location from 'expo-location';
 import { type LatLng, getMapLibreBounds } from '@/shared/geo/polyline';
 import type { MapCameraState, MapSurfaceRef } from '@/features/maps/components/MapSurface';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
+import { useLocateUser } from './useLocateUser';
 
 /** Bounds returned by getMapLibreBounds */
 interface MapBounds {
@@ -59,6 +59,8 @@ interface UseMapCameraResult {
   bearingAnim: Animated.Value;
   /** Whether GPS location is currently loading */
   locationLoading: boolean;
+  /** The last fix the locate button found, [lng, lat], for the dot */
+  userLocation: [number, number] | null;
   /** Called once the surface reports it is ready */
   handleMapReady: () => void;
   /** Called when the surface reports it cannot render a basemap */
@@ -84,7 +86,7 @@ export function useMapCamera({
   const surfaceRef = useRef<MapSurfaceRef>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const { userLocation, locationLoading, locate } = useLocateUser();
   const bearingAnim = useRef(new Animated.Value(0)).current;
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
@@ -157,27 +159,10 @@ export function useMapCamera({
     }).start();
   }, [bearingAnim, is3DMode, is3DReady, map3DRef]);
 
-  const handleGetLocation = useCallback(async () => {
-    try {
-      setLocationLoading(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLocationLoading(false);
-        return;
-      }
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      setLocationLoading(false);
-      const target = is3DMode && is3DReady ? map3DRef.current : surfaceRef.current;
-      target?.setCamera(
-        { center: [location.coords.longitude, location.coords.latitude], zoom: 14 },
-        500
-      );
-    } catch {
-      setLocationLoading(false);
-    }
-  }, [is3DMode, is3DReady, map3DRef]);
+  const handleGetLocation = useCallback(
+    () => locate(is3DMode && is3DReady ? map3DRef.current : surfaceRef.current),
+    [locate, is3DMode, is3DReady, map3DRef]
+  );
 
   return {
     surfaceRef,
@@ -191,6 +176,7 @@ export function useMapCamera({
     settledCameraRef,
     bearingAnim,
     locationLoading,
+    userLocation,
     handleMapReady,
     handleMapFailed,
     resetSurface,

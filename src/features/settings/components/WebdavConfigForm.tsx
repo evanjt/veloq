@@ -188,7 +188,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
         <TextInput
           style={[styles.input, isDark && styles.inputDark]}
           placeholder={t('backup.serverUrl')}
-          placeholderTextColor={isDark ? darkColors.textMuted : colors.textSecondary}
+          placeholderTextColor={isDark ? darkColors.textSecondary : colors.textSecondary}
           value={webdavUrl}
           onChangeText={setWebdavUrl}
           onBlur={handleSaveWebdav}
@@ -198,7 +198,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
         />
         {plainHttp && (
           <View style={styles.plainLanRow}>
-            <Text style={[styles.plainLanText, isDark && styles.textMuted]}>
+            <Text style={[styles.plainLanText, isDark && styles.textSecondary]}>
               {t('backup.webdavPlainLan', 'Allow an unencrypted server on my own network')}
             </Text>
             <Switch
@@ -212,7 +212,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
         <TextInput
           style={[styles.input, isDark && styles.inputDark]}
           placeholder={t('backup.username')}
-          placeholderTextColor={isDark ? darkColors.textMuted : colors.textSecondary}
+          placeholderTextColor={isDark ? darkColors.textSecondary : colors.textSecondary}
           value={webdavUser}
           onChangeText={setWebdavUser}
           onBlur={handleSaveWebdav}
@@ -222,7 +222,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
         <TextInput
           style={[styles.input, isDark && styles.inputDark]}
           placeholder={t('backup.password')}
-          placeholderTextColor={isDark ? darkColors.textMuted : colors.textSecondary}
+          placeholderTextColor={isDark ? darkColors.textSecondary : colors.textSecondary}
           value={webdavPass}
           onChangeText={setWebdavPass}
           onBlur={handleSaveWebdav}
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   connectionErrorDark: {
     color: darkColors.errorDeep,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
 });

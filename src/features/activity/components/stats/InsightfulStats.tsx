@@ -23,6 +23,7 @@ import { StatDetailModal } from './StatDetailModal';
 import { Card } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui';
 import type { StatDetail } from './types';
+import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 
 interface InsightfulStatsProps {
   activity: Activity;
@@ -31,6 +32,7 @@ interface InsightfulStatsProps {
   /** The max HR from the detail screen read, the one the zones chart divides by. Without one, the default. */
   maxHR?: number | undefined;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
+  newGround?: ActivityNewGround | undefined;
 }
 
 export function InsightfulStats({
@@ -38,6 +40,7 @@ export function InsightfulStats({
   wellness,
   maxHR,
   fitnessImpact,
+  newGround,
 }: InsightfulStatsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -52,6 +55,7 @@ export function InsightfulStats({
     isMetric,
     maxHR: maxHR ?? DEFAULT_MAX_HR,
     fitnessImpact,
+    newGround,
   });
 
   const handleStatPress = useCallback((stat: StatDetail) => {

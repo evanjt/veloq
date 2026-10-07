@@ -12,7 +12,6 @@
   <color name="widget_chart_fitness">#42A5F5</color>
   <color name="widget_chart_fatigue">#EC4899</color>
   <color name="widget_chart_casing">#80000000</color>
-  <color name="widget_text_muted">#A1A1AA</color>
   <color name="widget_form_high_risk">#EF5350</color>
   <color name="widget_form_optimal">#66BB6A</color>
   <color name="widget_form_grey_zone">#9E9E9E</color>

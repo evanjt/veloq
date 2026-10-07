@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Text as RNText } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
@@ -75,9 +75,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   }, [activity.id]);
 
   const handleLongPress = useCallback(() => {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    haptics.medium();
     setMenuVisible(true);
   }, []);
 

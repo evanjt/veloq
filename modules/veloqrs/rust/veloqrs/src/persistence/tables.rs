@@ -143,6 +143,11 @@ static TABLES: &[Table] = &[
         "the server's series, quantised; a fetch refills it",
     ),
     t(
+        "activity_new_ground",
+        Derived,
+        "how many of each activity's z17 tiles no earlier activity touched, rewritten whole by one pass",
+    ),
+    t(
         "activity_stream_backfill",
         Derived,
         "how many times the backfill asked upstream and got nothing storable",

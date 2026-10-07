@@ -99,12 +99,12 @@ export function StreamHistoryRow({ isDark }: StreamHistoryRowProps) {
     return (
       <Row testID="settings-stream-history">
         <View style={styles.infoRow}>
-          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+          <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
             {t('settings.streamHistory')}
           </Text>
           <Text
             testID="settings-stream-failed"
-            style={[styles.failure, isDark && styles.textMuted]}
+            style={[styles.failure, isDark && styles.textSecondary]}
             numberOfLines={2}
           >
             {t(store.failureKey)}
@@ -123,7 +123,7 @@ export function StreamHistoryRow({ isDark }: StreamHistoryRowProps) {
   return (
     <Row testID="settings-stream-history">
       <View style={styles.infoRow}>
-        <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+        <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
           {t('settings.streamHistory')}
         </Text>
         <View style={styles.infoValueRow}>
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
 });

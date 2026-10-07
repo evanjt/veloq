@@ -36,6 +36,7 @@ function engine() {
         estimateBytes: 0,
       },
       streamRemaining: phase === 'fetching' ? null : 245,
+      streamRemainingBytes: phase === 'fetching' ? null : 5_145_000,
       cutover: { phase: 'idle', running: false },
     }),
     subscribe: (event: string, callback: () => void) => {
@@ -75,6 +76,15 @@ describe('useStreamBackfill', () => {
 
     expect(result.current.isRunning).toBe(true);
     expect(result.current.total).toBe(10);
+  });
+
+  it('carries the owed queue size at rest and none while a pass runs', () => {
+    const { result } = renderHook(() => useStreamBackfill());
+    expect(result.current.remainingBytes).toBe(5_145_000);
+
+    announce('streamBackfillPhase', 'fetching');
+
+    expect(result.current.remainingBytes).toBeNull();
   });
 
   it('returns to rest on a terminal phase', () => {

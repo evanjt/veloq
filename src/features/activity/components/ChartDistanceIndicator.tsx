@@ -1,6 +1,6 @@
 import React, { useImperativeHandle, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   colors,
@@ -71,7 +71,7 @@ export const ChartDistanceIndicator = React.memo(
             variant="secondary"
             style={styles.distanceIndicatorButton}
             onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
+              haptics.selection();
               onXAxisModeToggle();
             }}
             icon={

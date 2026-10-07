@@ -8,7 +8,7 @@
   "src/features/insights/components/content/HrvTrendContent.tsx": 2,
   "src/features/insights/components/content/SectionTrendContent.tsx": 1,
   "src/features/maps/components/SectionCreationOverlay.tsx": 2,
-  "src/features/routes/components/SyncDebugTab.tsx": 9,
+  "src/features/routes/components/SyncDebugTab.tsx": 7,
   "src/features/routes/components/TodayBanner.tsx": 2,
   "src/features/routes/components/section/PerformanceTooltip.tsx": 1,
   "src/features/settings/components/FooterSection.tsx": 4,

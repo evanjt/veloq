@@ -4,8 +4,9 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
 import { useMapPreferences } from '../stores/MapPreferencesContext';
-import { ACTIVITY_CATEGORIES, clearTerrainPreviews, type MapStyleType } from '@/features/maps';
+import { clearTerrainPreviews, type MapStyleType } from '@/features/maps';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { Row } from '@/shared/ui/Row';
@@ -232,7 +233,7 @@ export function MapsSection() {
           );
         })}
 
-        <Text style={[styles.hintText, isDark && settingsStyles.textMuted]}>
+        <Text style={[styles.hintText, isDark && settingsStyles.textSecondary]}>
           {t('settings.defaultMapHint')}
         </Text>
       </View>
@@ -241,7 +242,7 @@ export function MapsSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('settings.maps').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>

@@ -67,7 +67,7 @@ export function PerformanceTooltip({
     return (
       <View style={styles.tooltipContainer}>
         <View style={styles.tooltipPlaceholder}>
-          <Text style={[styles.chartHint, isDark && styles.textMuted]}>
+          <Text style={[styles.chartHint, isDark && styles.textSecondary]}>
             {t('sections.scrubHint')}
           </Text>
         </View>
@@ -123,11 +123,11 @@ export function PerformanceTooltip({
             )}
           </View>
           <View style={styles.tooltipMeta}>
-            <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+            <Text style={[styles.tooltipDate, isDark && styles.textSecondary]}>
               {formatShortDateWithYear(selectedPoint.date)}
             </Text>
             {selectedPoint.sectionTime != null && (
-              <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+              <Text style={[styles.tooltipDate, isDark && styles.textSecondary]}>
                 {' \u00b7 '}
                 {formatDuration(selectedPoint.sectionTime)}
               </Text>
@@ -135,7 +135,7 @@ export function PerformanceTooltip({
             {selectedPoint.avgPower != null &&
               Number.isFinite(selectedPoint.avgPower) &&
               selectedPoint.avgPower > 0 && (
-                <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+                <Text style={[styles.tooltipDate, isDark && styles.textSecondary]}>
                   {' \u00b7 '}
                   {formatPower(selectedPoint.avgPower)}
                 </Text>
@@ -235,7 +235,7 @@ export function PerformanceTooltip({
           <MaterialCommunityIcons
             name="chevron-right"
             size={14}
-            color={isDark ? darkColors.textMuted : colors.border}
+            color={isDark ? darkColors.textSecondary : colors.border}
           />
         </View>
       </TouchableOpacity>
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   },
   chartHint: {
     fontSize: typography.label.fontSize,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   selectedTooltip: {
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     color: darkColors.chartGoldText,
   },
   lapBadge: {
-    backgroundColor: colors.textMuted + '20',
+    backgroundColor: colors.textSecondary + '20',
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   },
   tooltipDate: {
     fontSize: typography.label.fontSize,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   reverseBadge: {
     padding: spacing.xxs,
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: darkColors.textPrimary,
   },
-  textMuted: {
-    color: darkColors.textMuted,
+  textSecondary: {
+    color: darkColors.textSecondary,
   },
 });

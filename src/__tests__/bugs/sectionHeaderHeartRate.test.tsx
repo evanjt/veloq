@@ -53,15 +53,9 @@ describe('the section header stats', () => {
         isExpandMode={false}
         trimStart={0}
         trimEnd={1}
-        isEditing={false}
-        editName=""
         customName={null}
-        nameInputRef={React.createRef()}
         highlight={createMapHighlightStore()}
-        onStartEditing={jest.fn()}
         onSaveName={jest.fn()}
-        onCancelEdit={jest.fn()}
-        onEditNameChange={jest.fn()}
         {...legacyHeartRate}
       />
     );

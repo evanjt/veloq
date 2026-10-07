@@ -9,6 +9,7 @@ import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import type { FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
 import { formatDuration, getIntlLocale } from '@/shared/format/format';
 import { colors, controlHeight, darkColors, spacing, typography, layout } from '@/theme';
 import { Button, Card } from '@/shared/ui';
@@ -19,26 +20,14 @@ import type {
 import {
   FIXED_LABEL_LEDGER_KINDS,
   ledgerDate,
-  parseEventDetails,
-  type EventDetails,
+  NO_EVENT_DETAILS,
 } from '@/features/routes/lib/sectionLedger';
 
 export const MAX_CHIPS = 6;
 
-interface SectionLink {
-  id: string;
-  name: string | null;
-  available: boolean;
-}
-
-interface LinkedHistoryEvent extends SectionHistoryEvent {
-  splitFrom?: SectionLink | null;
-  splitInto?: SectionLink[];
-}
-
 export interface SectionHistoryPanelProps {
   isDark: boolean;
-  history: LinkedHistoryEvent[];
+  history: SectionHistoryEvent[];
   versions: SectionGeometryVersion[];
   pinnedVersion: number | null;
   shownVersion: number | null;
@@ -47,8 +36,6 @@ export interface SectionHistoryPanelProps {
   onUnpin: () => void;
   /** Activity display names by id. Ids absent from it draw as themselves. */
   activityNames?: Record<string, string>;
-  /** The line to show when the ledger could not be read, in place of the empty one. */
-  failureKey?: string | null;
 }
 
 function SplitTarget({
@@ -56,7 +43,7 @@ function SplitTarget({
   isDark,
   direction,
 }: {
-  link: SectionLink;
+  link: FfiSectionLink;
   isDark: boolean;
   direction: 'from' | 'into';
 }) {
@@ -147,7 +134,6 @@ export function SectionHistoryPanel({
   onRevert,
   onUnpin,
   activityNames,
-  failureKey = null,
 }: SectionHistoryPanelProps) {
   const { t } = useTranslation();
   const locale = getIntlLocale();
@@ -157,10 +143,10 @@ export function SectionHistoryPanel({
   const inSport = (sport: string | undefined, line: string): string =>
     sport ? `${t(`activityTypes.${sport}` as never, { defaultValue: sport })} · ${line}` : line;
 
-  const kindLine = (e: LinkedHistoryEvent, d: EventDetails): string => {
+  const kindLine = (e: SectionHistoryEvent, d: FfiSectionEventDetails): string => {
     switch (e.kind) {
       case 'split':
-        return t('sectionHistory.kind_split', { count: d.siblings });
+        return t('sectionHistory.kind_split', { count: d.siblings.length });
       case 'reverted':
         return t('sectionHistory.kind_reverted', { version: d.version ?? e.geometryVersion ?? '' });
       case 'reference_anchored':
@@ -256,15 +242,11 @@ export function SectionHistoryPanel({
         </View>
       )}
 
-      {failureKey ? (
-        <Text testID="section-history-failed" style={[styles.empty, isDark && styles.textDark]}>
-          {t(failureKey as never)}
-        </Text>
-      ) : history.length === 0 ? (
+      {history.length === 0 ? (
         <Text style={[styles.empty, isDark && styles.textDark]}>{t('sectionHistory.empty')}</Text>
       ) : (
         history.map((e) => {
-          const d = parseEventDetails(e.details);
+          const d = e.details ?? NO_EVENT_DETAILS;
           return (
             <View key={e.id} style={styles.event} testID={`section-history-event-${e.kind}`}>
               <Text style={[styles.date, isDark && styles.textDark]}>
@@ -275,21 +257,21 @@ export function SectionHistoryPanel({
                 })}
               </Text>
               <Text style={[styles.kind, isDark && styles.textDark]}>{kindLine(e, d)}</Text>
-              {e.kind === 'formed' && e.splitFrom && (
+              {e.kind === 'formed' && d.splitFrom && (
                 <View style={styles.block}>
                   <Text style={[styles.label, isDark && styles.textDark]}>
                     {t('sectionHistory.splitFrom')}
                   </Text>
-                  <SplitTarget link={e.splitFrom} isDark={isDark} direction="from" />
+                  <SplitTarget link={d.splitFrom} isDark={isDark} direction="from" />
                 </View>
               )}
-              {e.kind === 'split' && e.splitInto && e.splitInto.length > 0 && (
+              {e.kind === 'split' && d.splitInto.length > 0 && (
                 <View style={styles.block}>
                   <Text style={[styles.label, isDark && styles.textDark]}>
                     {t('sectionHistory.splitInto')}
                   </Text>
                   <View style={styles.chips}>
-                    {e.splitInto.map((link) => (
+                    {d.splitInto.map((link) => (
                       <SplitTarget key={link.id} link={link} isDark={isDark} direction="into" />
                     ))}
                   </View>

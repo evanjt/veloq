@@ -213,7 +213,7 @@ function AboutScreenContent() {
               <Text style={[styles.attributionName, shared.text]}>Wahoo</Text>
             </View>
           </View>
-          <Text style={[styles.trademarkText, shared.textMuted]}>
+          <Text style={[styles.trademarkText, shared.textSecondary]}>
             {t('attribution.garminTrademark')}
           </Text>
         </View>

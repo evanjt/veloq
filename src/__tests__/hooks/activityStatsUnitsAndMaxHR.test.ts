@@ -132,3 +132,35 @@ describe('activity stat card marks', () => {
     }
   });
 });
+
+describe('the New ground card', () => {
+  const withGround = (fraction: number, tiles: number, newTiles: number) => {
+    const { result } = renderHook(() =>
+      useActivityStats({
+        activity: ride,
+        isMetric: true,
+        maxHR: DEFAULT_MAX_HR,
+        newGround: { fraction, tiles, newTiles, badge: null },
+      })
+    );
+    return result.current.stats.find((s) => s.title === 'activity.stats.newGround');
+  };
+
+  it('reads the share of tiles and names what it counts', () => {
+    const card = withGround(0.625, 8, 5);
+
+    expect(card?.value).toBe('62%');
+    expect(card?.context).toBe('activity.stats.newGroundContext');
+    expect(row(card, 'activity.stats.newGroundTiles')).toBe('8');
+    expect(row(card, 'activity.stats.newGroundNewTiles')).toBe('5');
+  });
+
+  it('does not round a ride one tile short of entirely new up to 100%', () => {
+    expect(withGround(249 / 250, 250, 249)?.value).toBe('99%');
+    expect(withGround(1, 250, 250)?.value).toBe('100%');
+  });
+
+  it('is left out when the engine has no coverage for the activity', () => {
+    expect(stat(ride, 'activity.stats.newGround', {})).toBeUndefined();
+  });
+});

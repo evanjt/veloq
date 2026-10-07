@@ -1,13 +1,10 @@
 /**
- * Scenario: the cross-feature import ratchet runs in `npm run audit`.
+ * Scenario: the cross-feature import ban runs in `npm run audit`.
  *
  * Expected behaviour: `src/features/CLAUDE.md` says a cross-feature import goes
- * through the barrel, `@/features/maps`, never a deep path. Most of the tree
- * still breaks that, so the lint holds a per-edge baseline instead of demanding
- * zero. A deep import above its edge's baseline fails, one on an edge the
- * baseline never listed fails, and an edge the tree has already beaten fails
- * with the number to paste back, or the ratchet stalls at its seed. A barrel
- * import, a feature reaching into itself and a test file are not counted.
+ * through the barrel, `@/features/maps`, never a deep path. Any deep import
+ * fails, and no baseline file can excuse one. A barrel import, a light entry, a
+ * feature reaching into itself and a test file are not counted.
  *
  * A `require()` inside a function is a deliberate deferral, so it may stay on its
  * deep path when a permitted-list entry names its file and specifier and gives
@@ -36,15 +33,14 @@ function runLint(root?: string, ...flags: string[]): { status: number; output: s
   }
 }
 
-describe('cross-feature import ratchet', () => {
+describe('cross-feature import ban', () => {
   const roots: string[] = [];
 
   afterAll(() => {
     for (const root of roots) rmSync(root, { recursive: true, force: true });
   });
 
-  // A fixture tree. Paths are repository relative, so a baseline written here
-  // is read the same way the real one is.
+  // A fixture tree. Paths are repository relative.
   const withTree = (files: Record<string, string>): string => {
     const root = mkdtempSync(join(tmpdir(), 'feature-imports-'));
     roots.push(root);
@@ -56,20 +52,14 @@ describe('cross-feature import ratchet', () => {
     return root;
   };
 
-  const baselineIn = (root: string, edges: Record<string, number>): string => {
-    const path = join(root, 'baseline.json');
-    writeFileSync(path, `${JSON.stringify(edges, null, 2)}\n`);
-    return path;
-  };
-
-  it('fails a deep import on an edge the baseline does not list', () => {
+  it('fails a deep import and names the file and line', () => {
     const root = withTree({
       'src/features/a/x.ts': "import { y } from '@/features/b/lib/y';\nexport const x = y;\n",
       'src/features/b/lib/y.ts': 'export const y = 1;\n',
     });
     const { status, output } = runLint(root);
     expect(status).toBe(1);
-    expect(output).toContain('a -> b  1, baseline 0');
+    expect(output).toContain('a -> b  1');
     expect(output).toContain('src/features/a/x.ts:1  a -> b  @/features/b/lib/y');
   });
 
@@ -88,50 +78,16 @@ describe('cross-feature import ratchet', () => {
     expect(output).not.toContain('for: c');
   });
 
-  it('fails one deep import more than the edge is allowed', () => {
-    const root = withTree({
-      'src/features/a/x.ts': "import { y } from '@/features/b/lib/y';\n",
-      'src/features/a/z.ts': "import { w } from '@/features/b/lib/w';\n",
-      'src/features/b/lib/y.ts': 'export const y = 1;\n',
-    });
-    const { status, output } = runLint(root, '--baseline', baselineIn(root, { 'a -> b': 1 }));
-    expect(status).toBe(1);
-    expect(output).toContain('a -> b  2, baseline 1');
-  });
-
-  it('passes an edge sitting exactly on its baseline', () => {
+  it('does not let a baseline file excuse a deep import', () => {
     const root = withTree({
       'src/features/a/x.ts': "import { y } from '@/features/b/lib/y';\n",
       'src/features/b/lib/y.ts': 'export const y = 1;\n',
     });
-    const { status, output } = runLint(root, '--baseline', baselineIn(root, { 'a -> b': 1 }));
-    expect(status).toBe(0);
-    expect(output).toContain('lint-feature-imports: OK');
-  });
-
-  it('fails an edge the tree has already beaten, and prints the number to paste', () => {
-    const root = withTree({
-      'src/features/a/x.ts': "import { y } from '@/features/b/lib/y';\n",
-      'src/features/b/lib/y.ts': 'export const y = 1;\n',
-    });
-    const { status, output } = runLint(root, '--baseline', baselineIn(root, { 'a -> b': 3 }));
+    const baseline = join(root, 'baseline.json');
+    writeFileSync(baseline, JSON.stringify({ 'a -> b': 1 }));
+    const { status, output } = runLint(root, '--baseline', baseline);
     expect(status).toBe(1);
-    expect(output).toContain('a -> b  1, baseline 3');
-  });
-
-  it('fails a baseline edge the tree no longer has at all', () => {
-    const root = withTree({
-      'src/features/a/x.ts': 'export const x = 1;\n',
-      'src/features/b/lib/y.ts': 'export const y = 1;\n',
-    });
-    const { status, output } = runLint(root, '--baseline', baselineIn(root, { 'a -> b': 2 }));
-    expect(status).toBe(1);
-    expect(output).toContain('a -> b  0, baseline 2');
-  });
-
-  it('ignores a baseline edge whose features are not in the tree at all', () => {
-    const root = withTree({ 'src/features/a/x.ts': 'export const x = 1;\n' });
-    expect(runLint(root, '--baseline', baselineIn(root, { 'routes -> maps': 22 })).status).toBe(0);
+    expect(output).toContain('a -> b  1');
   });
 
   it('passes a barrel import, spelled bare or through index', () => {
@@ -147,7 +103,7 @@ describe('cross-feature import ratchet', () => {
   });
 
   describe('light entry', () => {
-    it('passes an import of another feature light entry with no baseline', () => {
+    it('passes an import of another feature light entry', () => {
       const root = withTree({
         'src/features/a/x.ts': "import { y } from '@/features/b/light';\nexport const x = y;\n",
         'src/features/b/light.ts': "export { y } from './lib/y';\n",
@@ -176,7 +132,7 @@ describe('cross-feature import ratchet', () => {
       });
       const { status, output } = runLint(root);
       expect(status).toBe(1);
-      expect(output).toContain('a -> b  1, baseline 0');
+      expect(output).toContain('a -> b  1');
     });
 
     it.each([
@@ -230,7 +186,7 @@ describe('cross-feature import ratchet', () => {
     });
     const { status, output } = runLint(root);
     expect(status).toBe(1);
-    expect(output).toContain('a -> b  1, baseline 0');
+    expect(output).toContain('a -> b  1');
   });
 
   it('counts a deep import from src/app under the ~app owner', () => {
@@ -240,7 +196,7 @@ describe('cross-feature import ratchet', () => {
     });
     const { status, output } = runLint(root);
     expect(status).toBe(1);
-    expect(output).toContain('~app -> b  1, baseline 0');
+    expect(output).toContain('~app -> b  1');
   });
 
   it('counts a re-export and a dynamic import, which reach as far as an import', () => {
@@ -251,7 +207,7 @@ describe('cross-feature import ratchet', () => {
     });
     const { status, output } = runLint(root);
     expect(status).toBe(1);
-    expect(output).toContain('a -> b  2, baseline 0');
+    expect(output).toContain('a -> b  2');
   });
 
   it('does not count a specifier that only appears in a comment or a string', () => {
@@ -272,7 +228,7 @@ describe('cross-feature import ratchet', () => {
     expect(runLint(root).status).toBe(0);
   });
 
-  it('prints the current counts as the baseline file wants them', () => {
+  it('prints the deep count of each edge as json', () => {
     const root = withTree({
       'src/features/a/x.ts': "import { y } from '@/features/b/lib/y';\n",
       'src/features/b/lib/y.ts': 'export const y = 1;\n',
@@ -305,7 +261,7 @@ describe('cross-feature import ratchet', () => {
     it('counts an unlisted function-scope require as a deep import', () => {
       const { status, output } = runLint(lazyTree());
       expect(status).toBe(1);
-      expect(output).toContain('a -> b  1, baseline 0');
+      expect(output).toContain('a -> b  1');
     });
 
     it('does not count a function-scope require the list permits', () => {
@@ -331,7 +287,7 @@ describe('cross-feature import ratchet', () => {
       });
       const { status, output } = runLint(root, '--lazy', lazyIn(root, [entry()]));
       expect(status).toBe(1);
-      expect(output).toContain('a -> b  1, baseline 0');
+      expect(output).toContain('a -> b  1');
       expect(output).toContain('src/features/a/z.ts:1');
     });
 
@@ -418,19 +374,16 @@ describe('cross-feature import ratchet', () => {
       expect(runLint(root, '--lazy', lazyIn(root, [entry()])).status).toBe(0);
     });
 
-    it('permits a lazy require alongside a baseline edge without lending it ground', () => {
+    it('permits a lazy require alongside a deep import without lending it ground', () => {
       const root = lazyTree({
         'src/features/a/z.ts': "import { w } from '@/features/b/lib/w';\n",
         'src/features/b/lib/w.ts': 'export const w = 1;\n',
       });
-      const baseline = baselineIn(root, { 'a -> b': 1 });
-      const lazy = lazyIn(root, [entry()]);
-      expect(runLint(root, '--baseline', baseline, '--lazy', lazy).status).toBe(0);
-      // Listing the require must not leave the edge looking beaten at 2.
-      const loose = baselineIn(root, { 'a -> b': 2 });
-      const { status, output } = runLint(root, '--baseline', loose, '--lazy', lazy);
+      const { status, output } = runLint(root, '--lazy', lazyIn(root, [entry()]));
       expect(status).toBe(1);
-      expect(output).toContain('a -> b  1, baseline 2');
+      expect(output).toContain('a -> b  1');
+      expect(output).toContain('src/features/a/z.ts:1');
+      expect(output).not.toContain('src/features/a/x.ts:1');
     });
 
     it('reports a malformed list instead of passing', () => {
@@ -438,6 +391,79 @@ describe('cross-feature import ratchet', () => {
       const { status, output } = runLint(root, '--lazy', lazyIn(root, { not: 'a list' }));
       expect(status).toBe(1);
       expect(output).toContain('must be a JSON array');
+    });
+  });
+
+  describe('forbidden direction', () => {
+    // maps is a rendering layer: routes and activity hand it their data, and it
+    // imports nothing from routes, by the barrel or by a deep path.
+    const routesLib = { 'src/features/routes/lib/y.ts': 'export const y = 1;\n' };
+
+    it('fails a barrel import from maps into routes', () => {
+      const root = withTree({
+        'src/features/maps/x.ts': "import { y } from '@/features/routes';\nexport const x = y;\n",
+        'src/features/routes/index.ts': 'export const y = 1;\n',
+      });
+      const { status, output } = runLint(root);
+      expect(status).toBe(1);
+      expect(output).toContain('maps -> routes');
+      expect(output).toContain('src/features/maps/x.ts:1');
+    });
+
+    it('fails a deep import from maps into routes even when a baseline file lists the edge', () => {
+      const root = withTree({
+        'src/features/maps/x.ts':
+          "import { y } from '@/features/routes/lib/y';\nexport const x = y;\n",
+        ...routesLib,
+      });
+      const baseline = join(root, 'baseline.json');
+      writeFileSync(baseline, JSON.stringify({ 'maps -> routes': 1 }));
+      const { status, output } = runLint(root, '--baseline', baseline);
+      expect(status).toBe(1);
+      expect(output).toContain('maps -> routes');
+    });
+
+    it('fails a relative import from maps into routes', () => {
+      const root = withTree({
+        'src/features/maps/components/x.ts':
+          "import { y } from '../../routes/lib/y';\nexport const x = y;\n",
+        ...routesLib,
+      });
+      expect(runLint(root).status).toBe(1);
+    });
+
+    it('fails a function-scope require from maps into routes that the lazy list permits', () => {
+      const root = withTree({
+        'src/features/maps/x.ts':
+          "export const load = () => require('@/features/routes/lib/y').y;\n",
+        ...routesLib,
+      });
+      const lazy = join(root, 'lazy.json');
+      writeFileSync(
+        lazy,
+        JSON.stringify([
+          { file: 'src/features/maps/x.ts', spec: '@/features/routes/lib/y', reason: 'deferred' },
+        ])
+      );
+      const { status, output } = runLint(root, '--lazy', lazy);
+      expect(status).toBe(1);
+      expect(output).toContain('maps -> routes');
+    });
+
+    it('passes routes importing maps through its barrel', () => {
+      const root = withTree({
+        'src/features/routes/x.ts': "import { m } from '@/features/maps';\nexport const x = m;\n",
+        'src/features/maps/index.ts': 'export const m = 1;\n',
+      });
+      expect(runLint(root).status).toBe(0);
+    });
+
+    it('passes maps importing another feature', () => {
+      const root = withTree({
+        'src/features/maps/x.ts': "import { s } from '@/features/settings';\nexport const x = s;\n",
+        'src/features/settings/index.ts': 'export const s = 1;\n',
+      });
+      expect(runLint(root).status).toBe(0);
     });
   });
 });

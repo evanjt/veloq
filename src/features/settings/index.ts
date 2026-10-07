@@ -31,7 +31,7 @@ export { restorePromptDue, backupIsFound } from './lib/restorePrompt';
 export { useLastBackupTimestamp, useAutoBackupEnabled } from './hooks/useLastBackupTimestamp';
 export { resumeRecordImport } from './lib/backup';
 export { sweepIdleBackupFiles } from './lib/backupCache';
-export { DIVIDER_INSET } from './components/settingsStyles';
+export { DIVIDER_INSET, settingsStyles } from './components/settingsStyles';
 export { StreamConsentCard } from './components/StreamConsentCard';
 export { useDebugStore, initializeDebugStore } from './stores/DebugStore';
 export {
@@ -50,3 +50,31 @@ export { reconcilePushRegistrationOnLaunch } from './lib/reconcilePushRegistrati
 export { withDatabaseSnapshot } from './lib/clearSnapshot';
 export { useGpxExport, useImportDatabaseBackup } from './hooks/exportIndex';
 export { WhatsNewModal, TourReturnPill } from './components/whatsNew';
+export {
+  ActivitySyncRow,
+  BackgroundJobsActivityBar,
+  BackupSection,
+  CutoverStatus,
+  DataCacheSection,
+  DataSourcesSection,
+  DisplaySettings,
+  ElevationBackfillStatus,
+  FooterSection,
+  MapsSection,
+  NotificationSection,
+  ProfileAccountSection,
+  RecordingPermissionSection,
+  SettingsNavRow,
+  SummaryCardSection,
+  SupportSection,
+  SyncRangePanel,
+} from './components';
+export {
+  initializeNotifications,
+  setupNotificationReceivedHandler,
+  setupNotificationResponseHandler,
+  handleInitialNotificationResponse,
+  hasNotificationPermission,
+  requestNotificationPermission,
+  presentActivityNotification,
+} from './lib/notificationService';

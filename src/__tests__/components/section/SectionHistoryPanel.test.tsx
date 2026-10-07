@@ -1,6 +1,8 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { SectionHistoryPanel } from '@/features/routes/components/section/SectionHistoryPanel';
+import { NO_EVENT_DETAILS } from '@/features/routes/lib/sectionLedger';
+import type { FfiSectionEventDetails } from 'veloqrs';
 import { router } from 'expo-router';
 
 jest.mock('react-i18next', () => ({
@@ -11,19 +13,29 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+/** A ledger row's details, with only the fields the case names. */
+const details = (fields: Partial<FfiSectionEventDetails>): FfiSectionEventDetails => ({
+  ...NO_EVENT_DETAILS,
+  ...fields,
+});
+
 const history = [
   {
     id: 2,
     at: '2026-08-20 00:00:00',
     kind: 'recut',
-    details: JSON.stringify({ pr_time: 400, around: ['act_a', 'act_b'], fork_around: ['act_f'] }),
+    details: details({
+      prs: [{ time: 400 }],
+      around: ['act_a', 'act_b'],
+      forkAround: ['act_f'],
+    }),
     geometryVersion: 2,
   },
   {
     id: 3,
     at: '2026-08-21 00:00:00',
     kind: 'pr_rebased',
-    details: JSON.stringify({ from_time: 400, to_time: 520 }),
+    details: details({ prFrom: 400, prTo: 520 }),
     geometryVersion: null,
   },
   { id: 1, at: '2026-08-01 00:00:00', kind: 'formed', details: undefined, geometryVersion: 1 },
@@ -34,11 +46,11 @@ const perSportHistory = [
     id: 5,
     at: '2026-09-29 00:00:00',
     kind: 'dissolved',
-    details: JSON.stringify({
-      prs: {
-        Ride: { activity_id: 'b1', time: 65 },
-        Run: { activity_id: 'r1', time: 250 },
-      },
+    details: details({
+      prs: [
+        { sport: 'Ride', time: 65 },
+        { sport: 'Run', time: 250 },
+      ],
     }),
     geometryVersion: null,
   },
@@ -46,7 +58,7 @@ const perSportHistory = [
     id: 6,
     at: '2026-09-30 00:00:00',
     kind: 'pr_rebased',
-    details: JSON.stringify({ sport: 'Run', from_time: 250, to_time: 240 }),
+    details: details({ prSport: 'Run', prFrom: 250, prTo: 240 }),
     geometryVersion: null,
   },
 ];
@@ -119,25 +131,13 @@ describe('SectionHistoryPanel', () => {
     expect(getByText('sectionHistory.empty')).toBeTruthy();
   });
 
-  it('names a ledger that could not be read rather than calling it empty', () => {
-    const { getByTestId, queryByText } = renderPanel({
-      history: [],
-      versions: [],
-      failureKey: 'engine.failure.database',
-    });
-    expect(getByTestId('section-history-failed').props.children).toBe('engine.failure.database');
-    expect(queryByText('sectionHistory.empty')).toBeNull();
-  });
-
   it('shows a translated line for a reference_anchored event, by whether the line moved', () => {
     const event = (id: number, moved: boolean) => ({
       id,
       at: '2026-08-23 00:00:00',
       kind: 'reference_anchored',
-      details: JSON.stringify({ moved }),
+      details: details({ moved }),
       geometryVersion: 2,
-      splitFrom: null,
-      splitInto: [],
     });
     const { getByText, queryByText } = renderPanel({ history: [event(6, true), event(7, false)] });
 
@@ -153,10 +153,10 @@ describe('SectionHistoryPanel', () => {
           id: 4,
           at: '2026-08-21 00:00:00',
           kind: 'formed',
-          details: JSON.stringify({ split_from: 'parent' }),
+          details: details({
+            splitFrom: { id: 'parent', name: 'Col de la Croix', available: true },
+          }),
           geometryVersion: 1,
-          splitFrom: { id: 'parent', name: 'Col de la Croix', available: true },
-          splitInto: [],
         },
       ],
     });
@@ -175,13 +175,14 @@ describe('SectionHistoryPanel', () => {
           id: 5,
           at: '2026-08-22 00:00:00',
           kind: 'split',
-          details: JSON.stringify({ siblings: ['child-1', 'child-2'] }),
+          details: details({
+            siblings: ['child-1', 'child-2'],
+            splitInto: [
+              { id: 'child-1', name: 'Col de la Croix / 1', available: true },
+              { id: 'child-2', name: 'Col de la Croix / 1 / 2', available: true },
+            ],
+          }),
           geometryVersion: null,
-          splitFrom: null,
-          splitInto: [
-            { id: 'child-1', name: 'Col de la Croix / 1', available: true },
-            { id: 'child-2', name: 'Col de la Croix / 1 / 2', available: true },
-          ],
         },
       ],
     });
@@ -203,10 +204,8 @@ describe('SectionHistoryPanel', () => {
           id: 6,
           at: '2026-08-23 00:00:00',
           kind: 'formed',
-          details: JSON.stringify({ split_from: 'retired-parent' }),
+          details: details({ splitFrom: { id: 'retired-parent', available: false } }),
           geometryVersion: 1,
-          splitFrom: { id: 'retired-parent', name: null, available: false },
-          splitInto: [],
         },
       ],
     });

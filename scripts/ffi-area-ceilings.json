@@ -10,7 +10,8 @@
     "VeloqEngine.getStats",
     "VeloqEngine.initOutcome",
     "VeloqEngine.launchData",
-    "VeloqEngine.pushRuns"
+    "VeloqEngine.pushRuns",
+    "setInteracting"
   ],
   "features/activity": [
     "ActivityManager.debugClone",
@@ -91,7 +92,6 @@
     "ActivityManager.getMissingTimeStreams",
     "ActivityManager.getRefusedTrackIds",
     "ActivityManager.remove",
-    "ActivityManager.setMetrics",
     "ActivityManager.setTimeStreams",
     "DetectionManager.cancel",
     "DetectionManager.forceRedetect",
@@ -126,7 +126,6 @@
     "SectionManager.excludeActivity",
     "SectionManager.excludeLap",
     "SectionManager.expandBounds",
-    "SectionManager.getAllNames",
     "SectionManager.getById",
     "SectionManager.getCount",
     "SectionManager.getDetailData",
@@ -135,11 +134,7 @@
     "SectionManager.getExcludedActivities",
     "SectionManager.getExtensionTrack",
     "SectionManager.getGeometryVersionCoords",
-    "SectionManager.getGeometryVersions",
-    "SectionManager.getHistory",
     "SectionManager.getNamedCorridors",
-    "SectionManager.getPinnedVersion",
-    "SectionManager.getReferenceInfo",
     "SectionManager.getSections",
     "SectionManager.getSummaries",
     "SectionManager.includeActivity",

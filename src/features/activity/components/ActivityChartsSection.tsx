@@ -37,6 +37,7 @@ import type { HrZoneBand, ActivityFitnessImpact } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { EngineBodyStatus } from '@/shared/native/engineBodies';
 import type { IntervalsOutcome } from '../hooks/useActivities';
+import type { ActivityNewGround } from '../hooks/useActivitySectionHighlights';
 import {
   getAvailableCharts,
   chartConfigsFor,
@@ -96,6 +97,8 @@ interface ActivityChartsSectionProps {
   /** The max HR from the detail screen read, for the zones chart and the stat card */
   maxHR?: number | undefined;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
+  /** Tile coverage against earlier activities, for the new ground stat */
+  newGround?: ActivityNewGround | undefined;
   /** The engine-resolved zone bands and time in each, from the detail screen read */
   hrZones?: HrZoneBand[] | undefined;
   onPointSelect: (index: number | null) => void;
@@ -123,6 +126,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   customSectionCount,
   maxHR,
   fitnessImpact,
+  newGround,
   hrZones,
   onPointSelect,
   onInteractionChange,
@@ -358,7 +362,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 testID="intervals-not-downloaded"
                 style={[styles.intervalsCard, isDark && styles.cardDark, styles.intervalsPending]}
               >
-                <Text style={[styles.intervalsTitle, isDark && styles.textMuted]}>
+                <Text style={[styles.intervalsTitle, isDark && styles.textSecondary]}>
                   {t('activityDetail.intervalsNotDownloaded')}
                 </Text>
               </View>
@@ -378,7 +382,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   onPress={() => setIntervalsExpanded((v) => !v)}
                 >
                   <View style={styles.intervalsBarLeft}>
-                    <Text style={[styles.intervalsTitle, isDark && styles.textMuted]}>
+                    <Text style={[styles.intervalsTitle, isDark && styles.textSecondary]}>
                       {t('activityDetail.tabs.intervals')}
                     </Text>
                     {intervalZoneSummary.map((z, i) => (
@@ -437,6 +441,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             wellness={activityWellness}
             maxHR={maxHR}
             fitnessImpact={fitnessImpact}
+            newGround={newGround}
           />
         </ComponentErrorBoundary>
 
@@ -651,7 +656,7 @@ const styles = StyleSheet.create({
   cardDark: {
     backgroundColor: darkColors.surface,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   intervalsCard: {

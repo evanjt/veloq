@@ -223,7 +223,7 @@ export const SummaryCard = React.memo(function SummaryCard({
             <Text
               style={[
                 styles.scrubDate,
-                { color: isDark ? darkColors.textMuted : colors.textMuted },
+                { color: isDark ? darkColors.textSecondary : colors.textSecondary },
               ]}
             >
               {scrubValues.dateLabel}
@@ -402,7 +402,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                   android_ripple={pressRipple}
                   onPress={() => navigateTo(metric.navigationTarget)}
                 >
-                  <Text style={[styles.metricLabel, isDark && styles.textMuted]}>
+                  <Text style={[styles.metricLabel, isDark && styles.textSecondary]}>
                     {metric.label}
                   </Text>
                   {isLoading ? (
@@ -589,18 +589,15 @@ const styles = StyleSheet.create({
   },
   metricDivider: {
     fontSize: typography.caption.fontSize,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     marginHorizontal: spacing.xs,
   },
   metricDividerDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
   },
 
   // Text color utilities
   textSecondary: {
     color: darkColors.textSecondary,
-  },
-  textMuted: {
-    color: darkColors.textMuted,
   },
 });

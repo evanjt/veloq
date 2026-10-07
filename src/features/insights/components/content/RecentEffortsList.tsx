@@ -77,7 +77,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={16}
-                color={isDark ? darkColors.textMuted : colors.textMuted}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
             </View>
           </Pressable>

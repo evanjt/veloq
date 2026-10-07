@@ -4,7 +4,7 @@ import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 
 import { useTheme } from '@/shared/app';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
@@ -43,7 +43,7 @@ function ControlBarInner({
   const { isDark } = useTheme();
 
   const handleHapticPress = useCallback((action: () => void) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    haptics.medium();
     action();
   }, []);
 

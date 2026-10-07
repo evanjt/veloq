@@ -1373,7 +1373,7 @@ impl PersistentEngine {
                     let completion_slot = Arc::clone(&checkpoint_slot);
                     #[cfg(test)]
                     let worker_guard = crate::test_globals::detection_worker_started();
-                    crate::threads::spawn_named("veloq-save", move || {
+                    crate::threads::spawn_background("veloq-save", move || {
                         #[cfg(test)]
                         let _worker_guard = worker_guard.running();
                         // The guard holds the sender, so the notice lands
@@ -1467,7 +1467,7 @@ impl PersistentEngine {
         DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         #[cfg(test)]
         let worker_guard = crate::test_globals::detection_worker_started();
-        crate::threads::spawn_named("veloq-detect", move || {
+        crate::threads::spawn_background("veloq-detect", move || {
             #[cfg(test)]
             let _worker_guard = worker_guard.running();
             // The guard holds both senders, so whether the run applied,

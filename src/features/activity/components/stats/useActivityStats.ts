@@ -20,6 +20,7 @@ import { storedDecoupling } from '@/features/activity/lib/decoupling';
 import type { Activity, WellnessData } from '@/types';
 import type { ActivityFitnessImpact } from 'veloqrs';
 import type { StatDetail } from './types';
+import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 import { colors, darkColors } from '@/theme';
 import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
 import { formAsPercent } from '@/shared/app/FormPreferenceStore';
@@ -52,6 +53,8 @@ interface UseActivityStatsOptions {
   /** The max HR the zones chart divides by, from the detail screen read. */
   maxHR: number;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
+  /** Tile coverage against earlier activities; the card is left out without it. */
+  newGround?: ActivityNewGround | undefined;
 }
 
 interface UseActivityStatsResult {
@@ -65,6 +68,7 @@ export function useActivityStats({
   isMetric,
   maxHR,
   fitnessImpact,
+  newGround,
 }: UseActivityStatsOptions): UseActivityStatsResult {
   const { t } = useTranslation();
   // The card marks are icons and text on the card surface, so they take the
@@ -152,6 +156,24 @@ export function useActivityStats({
           { label: t('activity.stats.fitnessCTL'), value: signed(fitnessImpact.fitness) },
           { label: t('activity.stats.fatigueATL'), value: signed(fitnessImpact.fatigue) },
           { label: t('activity.stats.formTSB'), value: signed(fitnessImpact.form) },
+        ],
+      });
+    }
+
+    // What it measures is tile coverage, so the card says that and never
+    // metres of new road.
+    if (newGround) {
+      result.push({
+        title: t('activity.stats.newGround'),
+        // Floored, so a ride one tile short of entirely new does not read 100%.
+        value: `${Math.floor(newGround.fraction * 100)}%`,
+        icon: 'compass-outline',
+        color: green,
+        context: t('activity.stats.newGroundContext'),
+        explanation: t('activity.explanations.newGround'),
+        details: [
+          { label: t('activity.stats.newGroundTiles'), value: `${newGround.tiles}` },
+          { label: t('activity.stats.newGroundNewTiles'), value: `${newGround.newTiles}` },
         ],
       });
     }
@@ -413,7 +435,7 @@ export function useActivityStats({
     }
 
     return result;
-  }, [activity, wellness, fitnessImpact, t, green, amber, isDark, isMetric, maxHR]);
+  }, [activity, wellness, fitnessImpact, newGround, t, green, amber, isDark, isMetric, maxHR]);
 
   return { stats };
 }

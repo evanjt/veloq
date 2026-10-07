@@ -7,12 +7,14 @@
  */
 
 import React from 'react';
+import { router } from 'expo-router';
 import { fireEvent, render, renderHook } from '@testing-library/react-native';
 
 import { SectionPRContent } from '@/features/insights/components/content/SectionPRContent';
 import { StalePRContent } from '@/features/insights/components/content/StalePRContent';
 import { SectionTrendContent } from '@/features/insights/components/content/SectionTrendContent';
-import { RouteOverlayPicker } from '@/features/recording/components/RouteOverlayPicker';
+import RouteOverlaySheet from '@/app/sheets/route-overlay';
+import { openSheet } from '@/shared/app/sheetRequest';
 import { useRouteGroups } from '@/features/routes/hooks/useRouteGroups';
 import { engineErrorTag } from '@/shared/native/engineError';
 import type { Insight } from '@/types';
@@ -30,9 +32,11 @@ jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(),
   ImpactFeedbackStyle: { Medium: 'medium' },
 }));
+const mockSheetParams: { request?: string } = {};
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  router: { push: jest.fn() },
+  router: { push: jest.fn(), back: jest.fn() },
+  useLocalSearchParams: () => mockSheetParams,
 }));
 jest.mock('@/features/activity', () => ({
   ActivityCardContextMenu: () => null,
@@ -126,17 +130,11 @@ describe('insight sheets', () => {
   });
 });
 
-describe('RouteOverlayPicker', () => {
+describe('RouteOverlaySheet', () => {
   it('shows the failure instead of "no saved routes"', () => {
-    const { getByTestId, queryByText } = render(
-      <RouteOverlayPicker
-        visible
-        activityType="Ride"
-        selectedRouteId={null}
-        onSelect={jest.fn()}
-        onClose={jest.fn()}
-      />
-    );
+    openSheet('sheets/route-overlay', { activityType: 'Ride', selectedRouteId: null });
+    mockSheetParams.request = (router.push as jest.Mock).mock.calls.at(-1)[0].params.request;
+    const { getByTestId, queryByText } = render(<RouteOverlaySheet />);
     expect(getByTestId('route-groups-failure').props.children).toBe('engine.failure.database');
     expect(queryByText('No saved routes for this sport yet.')).toBeNull();
   });

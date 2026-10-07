@@ -132,7 +132,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
           </View>
           <View style={styles.metaRow}>
             {distance && distance > 0 && (
-              <Text style={[styles.metaText, isDark && styles.textMuted]}>
+              <Text style={[styles.metaText, isDark && styles.textSecondary]}>
                 {formatDistance(distance, isMetric)}
               </Text>
             )}
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
 });

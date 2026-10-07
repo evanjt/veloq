@@ -74,7 +74,7 @@ export function HeatmapRow() {
         <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
           {t('settings.heatmapGeneration', 'Heatmap')}
         </Text>
-        <Text style={[styles.hint, isDark && settingsStyles.textMuted]}>
+        <Text style={[styles.hint, isDark && settingsStyles.textSecondary]}>
           {enabled && size > 0
             ? t('settings.heatmapStorageUsed', {
                 defaultValue: 'Using {{size}} of device storage',

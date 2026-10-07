@@ -2,8 +2,7 @@ import type { Insight, SectionTrendData, SupportingSection, TFunc } from '../typ
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom, maxAgeDaysFor } from '../lib/config';
 import { sectionPairKey } from '../lib/sectionIdentity';
-
-const DAY_MS = 86_400_000;
+import { TIME } from '@/shared/app/time';
 
 function fallbackEligible(
   trends: SectionTrendData[],
@@ -75,7 +74,7 @@ export function generateSectionTrendInsights(
       timestamp: now,
       confidence: confidenceFrom('section_trend', best.traversalCount),
       meta: {
-        sourceTimestamp: now - newestAge * DAY_MS,
+        sourceTimestamp: now - newestAge * TIME.DAY,
         comparisonKind: 'self',
         repetitionCount: best.traversalCount,
       },

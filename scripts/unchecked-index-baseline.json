@@ -5,7 +5,6 @@
   "scripts/lib": 45,
   "src/app": 4,
   "src/app/recording": 1,
-  "src/app/section": 1,
   "src/features/activity/components": 25,
   "src/features/activity/hooks": 7,
   "src/features/activity/lib": 6,

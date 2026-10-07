@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { readLibraryCount } from '@/shared/native/libraryCount';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { calendarDaysBetween } from '@/shared/format/format';
 import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 
 /**
@@ -30,26 +31,7 @@ export function useCacheDays(preComputedActivityCount?: number): number {
       return DEFAULT_ACTIVITY_DAYS;
     }
 
-    // Parse ISO date strings
-    const oldestDate = new Date(oldest);
-    const newestDate = new Date(newest);
-
-    // Use calendar days (ignoring time) for accurate day counting
-    const oldestDay = new Date(
-      oldestDate.getFullYear(),
-      oldestDate.getMonth(),
-      oldestDate.getDate()
-    );
-    const newestDay = new Date(
-      newestDate.getFullYear(),
-      newestDate.getMonth(),
-      newestDate.getDate()
-    );
-
-    // Calculate days difference and add 1 to include both start and end days
-    const diffMs = newestDay.getTime() - oldestDay.getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
-
-    return diffDays;
+    // Plus one to include both the first and the last day
+    return calendarDaysBetween(new Date(oldest), new Date(newest)) + 1;
   }, [oldest, newest, preComputedActivityCount, readActivities]);
 }

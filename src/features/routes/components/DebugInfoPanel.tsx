@@ -19,7 +19,7 @@ export function DebugInfoPanel({ entries, isDark }: DebugInfoPanelProps) {
       <Text style={[styles.title, isDark && styles.titleDark]}>Debug Info</Text>
       {entries.map((entry) => (
         <View key={entry.label} style={styles.row}>
-          <Text style={[styles.label, isDark && styles.textMuted]}>{entry.label}</Text>
+          <Text style={[styles.label, isDark && styles.textSecondary]}>{entry.label}</Text>
           <Text
             testID={`debug-value-${entry.label}`}
             style={[styles.value, isDark && styles.valueDark]}
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     color: colors.textSecondary,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   value: {

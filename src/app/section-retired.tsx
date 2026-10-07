@@ -37,7 +37,7 @@ function SectionRetiredScreenContent() {
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
       <ScrollView contentContainerStyle={styles.content} testID="section-retired-list">
         {retired.length === 0 ? (
-          <Text style={[styles.empty, isDark && styles.textMutedDark]}>
+          <Text style={[styles.empty, isDark && styles.textSecondaryDark]}>
             {t('sectionHistory.retiredEmpty')}
           </Text>
         ) : (
@@ -50,7 +50,7 @@ function SectionRetiredScreenContent() {
               <Text style={[styles.kind, isDark && styles.textDark]}>
                 {t(`sectionHistory.kind_${r.kind}` as never)}
               </Text>
-              <Text style={[styles.meta, isDark && styles.textMutedDark]}>
+              <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>
                 {ledgerDate(r.at).toLocaleDateString(locale, {
                   day: 'numeric',
                   month: 'short',
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   textDark: { color: darkColors.textPrimary },
-  textMutedDark: { color: darkColors.textSecondary },
+  textSecondaryDark: { color: darkColors.textSecondary },
 });
 
 export default withScreenBoundary(SectionRetiredScreenContent, 'Retired Sections');

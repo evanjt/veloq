@@ -472,7 +472,7 @@ object WidgetRenderer {
       fitness = res(context, R.color.widget_chart_fitness),
       fatigue = res(context, R.color.widget_chart_fatigue),
       casing = res(context, R.color.widget_chart_casing),
-      axisText = res(context, R.color.widget_text_muted),
+      axisText = res(context, R.color.widget_text_secondary),
       grid = res(context, R.color.widget_border),
     )
 

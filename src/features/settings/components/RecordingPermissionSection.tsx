@@ -31,7 +31,7 @@ export function RecordingPermissionSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('settings.recording', 'Recording').toUpperCase()}
       </Text>
       <View
@@ -47,7 +47,7 @@ export function RecordingPermissionSection() {
             <Text style={[styles.statusText, isDark && settingsStyles.textLight]}>
               {t('recording.writePermissionNotGranted', 'Write permission not granted')}
             </Text>
-            <Text style={[styles.description, isDark && settingsStyles.textMuted]}>
+            <Text style={[styles.description, isDark && settingsStyles.textSecondary]}>
               {t(
                 'recording.writePermissionLocalOnly',
                 'Recording works without it. The ride stays on this device until you grant upload access.'

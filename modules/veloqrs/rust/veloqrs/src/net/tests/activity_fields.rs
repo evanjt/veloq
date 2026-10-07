@@ -38,3 +38,22 @@ fn the_list_request_asks_for_the_stored_decoupling() {
             .any(|field| field == "decoupling")
     );
 }
+
+/// Scenario: the list request named no `description`, so an activity never
+/// opened online had no text on its detail screen. `polyline` is not a field of
+/// the Activity schema, so asking for it returns nothing and is left out.
+#[test]
+fn the_list_request_asks_for_the_description_and_not_a_polyline() {
+    let fields: Vec<&str> = ACTIVITY_FIELDS.split(',').collect();
+    assert!(fields.contains(&"description"));
+    assert!(!fields.contains(&"polyline"));
+    assert!(
+        super::stored_activity_fields()
+            .split(',')
+            .any(|field| field == "description")
+    );
+
+    let record: ActivityRecord =
+        serde_json::from_str(r#"{"id":"42","description":"Windy, legs heavy"}"#).unwrap();
+    assert_eq!(record.description.as_deref(), Some("Windy, legs heavy"));
+}

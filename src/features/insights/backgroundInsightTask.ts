@@ -4,8 +4,11 @@ import { AppState, Platform } from 'react-native';
 
 import { getSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
-import { presentActivityNotification } from '@/features/settings/lib/notificationService';
-import type { NotificationPreferences } from '@/features/settings';
+import {
+  presentActivityNotification,
+  refreshPushTokenRegistration,
+  type NotificationPreferences,
+} from '@/features/settings';
 
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 import type { ActivityInfo } from './lib/activityHighlight';
@@ -406,9 +409,6 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       await ensureCredentialsHydrated();
       const { athleteId, authMethod } = getStoredCredentials();
       if (athleteId && authMethod === 'oauth') {
-        const {
-          refreshPushTokenRegistration,
-        } = require('@/features/settings/lib/pushTokenRegistration');
         await refreshPushTokenRegistration(athleteId);
       }
     } catch {

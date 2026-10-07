@@ -95,7 +95,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
           <MaterialCommunityIcons
             name="close"
             size={14}
-            color={isDark ? darkColors.textMuted : colors.textDisabled}
+            color={isDark ? darkColors.textSecondary : colors.textDisabled}
           />
         </Pressable>
       ) : (
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   bodyHintDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
   },
   subtitleRow: {
     flexDirection: 'row',
