@@ -88,7 +88,7 @@ jobs:
       ipa_path: ${{ steps.prepare.outputs.ipa_path }}
     steps:
       - name: Checkout (for changelog)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Get version from tag
         id: version
@@ -195,7 +195,7 @@ jobs:
       # Upload AAB for deploy job (release/* gets cleaned up)
       - name: Upload AAB for deployment
         if: steps.prepare.outputs.aab_path != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-aab
           path: ${{ steps.prepare.outputs.aab_path }}
@@ -204,7 +204,7 @@ jobs:
       # Upload IPA for deploy job
       - name: Upload IPA for deployment
         if: steps.prepare.outputs.ipa_path != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-ipa
           path: ${{ steps.prepare.outputs.ipa_path }}
@@ -234,7 +234,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.check_creds.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup fastlane
         if: steps.check_creds.outputs.skip != 'true'
@@ -310,7 +310,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.check_creds.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup fastlane
         if: steps.check_creds.outputs.skip != 'true'

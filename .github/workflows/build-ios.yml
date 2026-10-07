@@ -89,7 +89,7 @@ jobs:
       producer_commit: ${{ steps.producer.outputs.commit }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -117,7 +117,7 @@ jobs:
       - name: Restore finished simulator app
         id: app-cache
         if: env.REUSE_APP == 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             artifacts/simulator-app.zip
@@ -153,7 +153,7 @@ jobs:
       - name: Restore ccache store
         id: ccache
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/Library/Caches/ccache
           key: ccache-ios-v3-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.native.outputs.ccache }}
@@ -195,7 +195,7 @@ jobs:
       - name: Restore Rust iOS libraries
         id: rust-ios-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: modules/veloqrs/build/rust/ios
           key: rust-ios-v5-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.toolchain }}-${{ steps.targets.outputs.selection }}
@@ -220,7 +220,7 @@ jobs:
       # post step, which runs only when the whole job succeeds.
       - name: Save Rust iOS libraries
         if: github.ref == 'refs/heads/main' && steps.rust-ios-cache.outputs.cache-hit != 'true' && steps.build-rust.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: modules/veloqrs/build/rust/ios
           key: ${{ steps.rust-ios-cache.outputs.cache-primary-key }}
@@ -237,7 +237,7 @@ jobs:
       - name: Restore CocoaPods
         id: pods-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ios/Pods
@@ -257,7 +257,7 @@ jobs:
 
       - name: Save CocoaPods
         if: github.ref == 'refs/heads/main' && steps.app-cache.outputs.cache-hit != 'true' && steps.pods-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ios/Pods
@@ -349,7 +349,7 @@ jobs:
 
       - name: Save finished simulator app
         if: success() && github.ref == 'refs/heads/main' && env.RELEASE_BUILD != 'true' && steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             artifacts/simulator-app.zip
@@ -375,7 +375,7 @@ jobs:
           fi
 
       - name: Upload simulator artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.simulator-artifact.outputs.name }}
           path: upload/*-ios-simulator.zip
@@ -383,7 +383,7 @@ jobs:
 
       - name: Upload build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ios-build-log
           path: ios-build.log
@@ -484,7 +484,7 @@ jobs:
       # After both xcodebuild runs, and whether or not the signed build passed.
       - name: Save ccache store
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.ccache.outcome == 'success' && steps.ccache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/Library/Caches/ccache
           key: ${{ steps.ccache.outputs.cache-primary-key }}
@@ -503,7 +503,7 @@ jobs:
 
       - name: Upload build logs on failure
         if: failure() && steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ios-build-logs-${{ steps.version.outputs.filename }}
           path: |
@@ -576,7 +576,7 @@ jobs:
 
       - name: Upload IPA artifact
         if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ios-ipa-${{ steps.version.outputs.filename }}
           path: artifacts/*.ipa
