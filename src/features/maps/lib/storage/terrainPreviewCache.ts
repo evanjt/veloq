@@ -33,10 +33,11 @@
  * deliberately not the generation window: the queue is two workers deep and a
  * fast scroll would fill it with cards the athlete has gone past.
  *
- * Until a preview arrives the card is not blank. It draws the Skia route line
- * with its PR sections and end dots under a short skeleton, so a library that
- * has never been scrolled reads as lines rather than as loading, and the line
- * is the design rather than a placeholder for a picture that is owed.
+ * Until a preview arrives the card spins, and only the pool giving up moves it
+ * off, onto the same "nothing to draw" mark a card with no GPS gets. There is no
+ * route line drawn in the meantime, so a card always ends on its picture or on
+ * that mark. A cached file the card cannot decode is dropped and drawn again,
+ * once, before the card settles on the mark.
  *
  * The cap is entries, 150 of them, and recency decides what goes. It is not a
  * byte budget: a JPEG at this height varies little, so entries track bytes
@@ -53,9 +54,20 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { excludeFromBackup } from '@/shared/native/backupExclusion';
 import { TERRAIN_PREVIEW_DIR } from '@/shared/storage/terrainPreviewRoot';
 
 const TERRAIN_DIR = TERRAIN_PREVIEW_DIR;
+
+/**
+ * A save writes here first and moves into place, so the name that makes a file
+ * a cached preview only ever points at a whole one. Not `.jpg`, so the launch
+ * listing never indexes a write that was cut off.
+ */
+const PARTIAL_SUFFIX = '.partial';
+// A feed remount reloads the index while a save from the old pool may still be
+// writing, so its half-written file is not a leftover yet.
+const partialsInFlight = new Set<string>();
 
 const MAX_CACHED_PREVIEWS = 150;
 
@@ -111,6 +123,8 @@ function cacheKey(
 /** In-memory index of cached compound keys, least recently served first. */
 let cachedKeys: string[] = [];
 let initialized = false;
+/** Keys whose save has taken a slot under the cap but not yet indexed. */
+const slotsInFlight = new Set<string>();
 
 /**
  * Load index from disk on app start.
@@ -127,7 +141,7 @@ export async function initTerrainPreviewCache(): Promise<void> {
 
     const dirInfo = await FileSystem.getInfoAsync(TERRAIN_DIR);
     if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(TERRAIN_DIR, { intermediates: true });
+      await makeDir();
       cachedKeys = [];
       initialized = true;
       for (const cb of cacheReadyListeners) cb();
@@ -135,6 +149,13 @@ export async function initTerrainPreviewCache(): Promise<void> {
     }
 
     const files = await FileSystem.readDirectoryAsync(TERRAIN_DIR);
+    for (const partial of files.filter(
+      (f) => f.endsWith(PARTIAL_SUFFIX) && !partialsInFlight.has(f)
+    )) {
+      await FileSystem.deleteAsync(`${TERRAIN_DIR}${partial}`, { idempotent: true }).catch(
+        () => {}
+      );
+    }
     const keysOnDisk = files.filter((f) => f.endsWith('.jpg')).map((f) => f.replace('.jpg', ''));
     const storedOrder = await readStoredOrder();
     // The stored order is the whole point: without it the only record of
@@ -143,6 +164,12 @@ export async function initTerrainPreviewCache(): Promise<void> {
     cachedKeys = storedOrder
       ? reconcileTerrainOrder(storedOrder, keysOnDisk)
       : await orderByWriteTime(keysOnDisk.map((k) => `${k}.jpg`));
+    const surplus = cachedKeys.splice(0, Math.max(0, cachedKeys.length - MAX_CACHED_PREVIEWS));
+    for (const gone of surplus) {
+      await FileSystem.deleteAsync(`${TERRAIN_DIR}${gone}.jpg`, { idempotent: true }).catch(
+        () => {}
+      );
+    }
     writeStoredOrder();
     initialized = true;
     for (const cb of cacheReadyListeners) cb();
@@ -241,7 +268,20 @@ export function isTerrainCacheInitialized(): boolean {
 async function ensureDir(): Promise<void> {
   const dirInfo = await FileSystem.getInfoAsync(TERRAIN_DIR);
   if (!dirInfo.exists) {
-    await FileSystem.makeDirectoryAsync(TERRAIN_DIR, { intermediates: true });
+    await makeDir();
+  }
+}
+
+/**
+ * The backup attribute lives on the directory, and a clear deletes it. Launch
+ * asks once, but on a fresh install the feed clears and remakes the directory
+ * after that, so without asking here it goes into the backup for the session.
+ */
+async function makeDir(): Promise<void> {
+  await FileSystem.makeDirectoryAsync(TERRAIN_DIR, { intermediates: true });
+  const plain = TERRAIN_DIR.startsWith('file://') ? TERRAIN_DIR.slice(7) : TERRAIN_DIR;
+  if (excludeFromBackup(plain) === false) {
+    console.warn('[terrainPreviewCache] previews are not excluded from the device backup');
   }
 }
 
@@ -344,39 +384,56 @@ export async function saveTerrainPreview(
   base64: string,
   options?: { downgradedTo?: PreviewDowngrade }
 ): Promise<string> {
-  await ensureDir();
-
   const key = cacheKey(activityId, style, is3D, options?.downgradedTo);
+  const doomed: string[] = [];
 
+  // Everything that decides membership runs before the first await. Two saves
+  // that overlap at the cap would otherwise each read the same count, each
+  // evict one key and settle one above it.
   // The drape finally rendered, so its stand-in is not just superseded, it is
   // wrong: leaving it indexed would report the activity as downgraded forever.
   if (!options?.downgradedTo) {
     const stale = cacheKey(activityId, style, is3D, 'flat');
     if (cachedKeys.includes(stale)) {
       cachedKeys = cachedKeys.filter((k) => k !== stale);
-      await FileSystem.deleteAsync(`${TERRAIN_DIR}${stale}.jpg`, { idempotent: true }).catch(
-        () => {}
-      );
+      doomed.push(stale);
     }
   }
 
-  // Evict the coldest if at cap (and the key to save isn't already cached)
-  if (!cachedKeys.includes(key) && cachedKeys.length >= MAX_CACHED_PREVIEWS) {
-    const evictKey = cachedKeys.shift();
-    if (evictKey) {
-      const evictPath = `${TERRAIN_DIR}${evictKey}.jpg`;
-      await FileSystem.deleteAsync(evictPath, { idempotent: true }).catch(() => {});
+  // Saves in flight hold a slot already, though their key is not indexed yet.
+  if (!cachedKeys.includes(key) && !slotsInFlight.has(key)) {
+    while (cachedKeys.length + slotsInFlight.size >= MAX_CACHED_PREVIEWS && cachedKeys.length > 0) {
+      doomed.push(cachedKeys.shift() as string);
     }
+    slotsInFlight.add(key);
   }
 
   const filePath = `${TERRAIN_DIR}${key}.jpg`;
-  await FileSystem.writeAsStringAsync(filePath, base64, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  try {
+    await ensureDir();
+    for (const gone of doomed) {
+      await FileSystem.deleteAsync(`${TERRAIN_DIR}${gone}.jpg`, { idempotent: true }).catch(
+        () => {}
+      );
+    }
+    const partialName = `${key}.jpg${PARTIAL_SUFFIX}`;
+    const partialPath = `${TERRAIN_DIR}${partialName}`;
+    partialsInFlight.add(partialName);
+    try {
+      await FileSystem.writeAsStringAsync(partialPath, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      await FileSystem.moveAsync({ from: partialPath, to: filePath });
+    } finally {
+      partialsInFlight.delete(partialName);
+    }
 
-  // Update index - remove if already present, add to end
-  cachedKeys = cachedKeys.filter((k) => k !== key);
-  cachedKeys.push(key);
+    // Update index - remove if already present, add to end
+    cachedKeys = cachedKeys.filter((k) => k !== key);
+    cachedKeys.push(key);
+  } finally {
+    slotsInFlight.delete(key);
+  }
   // One write for the whole call: the stale drop, the eviction and the append
   // have all landed in the index by here.
   writeStoredOrder();
@@ -401,6 +458,29 @@ export async function deleteTerrainPreviewsForActivity(activityId: string): Prom
   for (const key of toDelete) {
     const path = `${TERRAIN_DIR}${key}.jpg`;
     await FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {});
+  }
+}
+
+/**
+ * Delete one render of one activity, and its flat stand-in, which is what the
+ * card would have been served in its place. For a file the card could not show:
+ * the activity's other styles and renders are fine and stay.
+ *
+ * The index is dropped before the file, for the same reason as above.
+ */
+export async function deleteTerrainPreview(
+  activityId: string,
+  style: string,
+  is3D: boolean
+): Promise<void> {
+  const keys = [cacheKey(activityId, style, is3D), cacheKey(activityId, style, is3D, 'flat')];
+  const toDelete = cachedKeys.filter((k) => keys.includes(k));
+  if (toDelete.length === 0) return;
+  cachedKeys = cachedKeys.filter((k) => !keys.includes(k));
+  writeStoredOrder();
+
+  for (const key of toDelete) {
+    await FileSystem.deleteAsync(`${TERRAIN_DIR}${key}.jpg`, { idempotent: true }).catch(() => {});
   }
 }
 
@@ -482,7 +562,7 @@ export async function getTerrainPreviewCacheSize(): Promise<number> {
 }
 
 // ============================================================================
-// Pending snapshot queue (background task -> foreground generation)
+// Pending snapshot list (background task -> early pool mount)
 //
 // All the list does is mount the render pool without waiting out its 500 ms
 // defer. It used to also fill a priority set and ring a listener, and neither
@@ -501,9 +581,9 @@ interface PendingSnapshot {
 }
 
 /**
- * Queue an activity for priority terrain snapshot generation.
- * Called from the background notification task after GPS data is ingested.
- * The feed screen reads this queue on mount and generates snapshots first.
+ * Note an activity the background notification task has just ingested GPS for.
+ * The feed reads the list on mount only to start the snapshot pool early; it
+ * changes no order, and the card asks for its own preview as usual.
  */
 export async function addPendingSnapshot(activityId: string): Promise<void> {
   try {
@@ -521,8 +601,8 @@ export async function addPendingSnapshot(activityId: string): Promise<void> {
 }
 
 /**
- * Get and clear the pending snapshot queue.
- * Called by the feed screen on mount to prioritize these activities.
+ * Get and clear the pending list. The feed calls it on mount, and any entry
+ * means the snapshot pool mounts without its usual defer.
  */
 export async function consumePendingSnapshots(): Promise<string[]> {
   try {
@@ -534,4 +614,9 @@ export async function consumePendingSnapshots(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/** Forget the pending list, whose entries are the athlete's activity ids. */
+export async function forgetPendingSnapshots(): Promise<void> {
+  await AsyncStorage.removeItem(PENDING_SNAPSHOTS_KEY).catch(() => {});
 }

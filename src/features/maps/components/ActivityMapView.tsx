@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { LatLng } from '@/shared/geo/polyline';
+import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import {
   getTerrainPreviewUri,
@@ -28,6 +29,7 @@ import {
   pointFeature,
 } from '@/features/maps/lib/coordinates';
 import { HIGHLIGHT_THROTTLE_MS, REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
+import { cameraAfter3D } from '@/features/maps/lib/cameraAfter3D';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
 import { SECTION_END_ICON, SECTION_START_ICON, TROPHY_ICON } from '@/features/maps/lib/mapIcons';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
@@ -133,6 +135,8 @@ interface ActivityMapViewProps {
   routeOverlay?: LatLng[] | null | undefined;
   /** Section overlays for sections tab - all matched sections with activity portions */
   sectionOverlays?: SectionOverlay[] | null | undefined;
+  /** Sections-tab card label per sectionId, so numbered markers match the cards */
+  sectionRowLabels?: ReadonlyMap<string, string> | undefined;
   /** Active tab - controls section line color and legend visibility */
   activeTab?: string | undefined;
   /** Section ID to highlight (dims other sections when set) */
@@ -153,8 +157,6 @@ interface ActivityMapViewProps {
     bearing: number;
     pitch: number;
   } | null;
-  /** Activity country - used for demo mode satellite default on Swiss activities */
-  country?: string | null | undefined;
   /** Activity streams - required to compute per-point gradient coloring */
   streams?: ActivityStreams | null | undefined;
 }
@@ -181,17 +183,18 @@ export const ActivityMapView = memo(function ActivityMapView({
   onCreationErrorDismiss,
   routeOverlay,
   sectionOverlays,
+  sectionRowLabels,
   activeTab,
   highlightedSectionId,
   onSectionMarkerPress,
   onCameraCapture,
   initial3DCamera,
-  country,
   streams,
 }: ActivityMapViewProps) {
   const { getStyleForActivity } = useMapPreferences();
-  const preferredStyle = getStyleForActivity(activityType, activityId, country);
-  const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
+  const preferredStyle = getStyleForActivity(activityType, activityId);
+  const [chosenStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
+  const mapStyle = useDrawnMapStyle(chosenStyle);
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
@@ -206,12 +209,19 @@ export const ActivityMapView = memo(function ActivityMapView({
     bearing: number;
     pitch: number;
   } | null>(null);
+  // The last camera an athlete's gesture left. The page also posts one for its
+  // own resize and fit, which is not an angle anyone chose.
+  const gestureCameraRef = useRef<typeof camera3DRef.current>(null);
   const prev3DModeRef = useRef(false);
   // A page that could not draw is not the athlete choosing the flat map. The
   // caller persists what it is told, ahead of the per-sport and the global
   // preference and with nothing to clear it, so one failed load turned 3D off
   // for that activity for ever on a device where nobody touched the toggle.
   const modeFromFailureRef = useRef(false);
+  // The athlete's own toggle or a failed page both settle the mode for this
+  // visit, so a camera that arrives afterwards must not override either.
+  const userChose3DRef = useRef(false);
+  const hadInitialCameraRef = useRef(!!initial3DCamera);
 
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
@@ -236,11 +246,13 @@ export const ActivityMapView = memo(function ActivityMapView({
     mapFailed,
     bounds,
     currentCenterRef,
+    currentBoundsRef,
     currentZoomRef,
     bearingAnim,
     locationLoading,
     handleMapReady,
     handleMapFailed,
+    resetSurface,
     handleRegionIsChanging,
     handleRegionDidChange: handleCameraRegionDidChange,
     settledCameraRef,
@@ -272,10 +284,21 @@ export const ActivityMapView = memo(function ActivityMapView({
     coordinates,
     routeOverlay,
     sectionOverlays,
+    sectionRowLabels,
     highlightIndex,
     activeTab,
     streams,
   });
+
+  // The 3D page takes the matched route as a collection; 2D reads the same
+  // geometry as a single feature.
+  const routeOverlayCollection = useMemo(
+    () =>
+      overlayGeoJSON.type === 'Feature'
+        ? ({ type: 'FeatureCollection', features: [overlayGeoJSON] } as GeoJSON.FeatureCollection)
+        : overlayGeoJSON,
+    [overlayGeoJSON]
+  );
 
   // "Color by gradient" toggle - session-local, per-activity.
   // Off by default so the normal solid-color experience is unchanged.
@@ -311,10 +334,10 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Update map style when preference changes (unless user manually toggled)
   useEffect(() => {
-    if (!userOverride && !initialStyle && mapStyle !== preferredStyle) {
+    if (!userOverride && !initialStyle && chosenStyle !== preferredStyle) {
       setMapStyle(preferredStyle);
     }
-  }, [userOverride, initialStyle, mapStyle, preferredStyle]);
+  }, [userOverride, initialStyle, chosenStyle, preferredStyle]);
 
   const toggleMapStyle = useCallback(() => {
     setUserOverride(true);
@@ -323,8 +346,19 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Toggle 3D mode
   const toggle3D = useCallback(() => {
+    userChose3DRef.current = true;
     setIs3DMode((current) => !current);
   }, []);
+
+  // Streams stored after the screen opened turn the camera from null into one.
+  // Switch on once, and leave the preference alone since the athlete did not ask.
+  useEffect(() => {
+    if (!initial3DCamera || hadInitialCameraRef.current) return;
+    hadInitialCameraRef.current = true;
+    if (userChose3DRef.current || modeFromFailureRef.current) return;
+    modeFromFailureRef.current = true;
+    setIs3DMode(true);
+  }, [initial3DCamera]);
 
   // Notify parent when 3D mode changes (outside of render cycle)
   // Also fire onCameraCapture when exiting 3D mode with a saved camera
@@ -336,8 +370,10 @@ export const ActivityMapView = memo(function ActivityMapView({
       prev3DModeRef.current = is3DMode;
       return;
     }
-    if (prev3DModeRef.current && !is3DMode && camera3DRef.current) {
-      onCameraCapture?.(camera3DRef.current);
+    const gestureCamera = gestureCameraRef.current;
+    if (!is3DMode) gestureCameraRef.current = null;
+    if (prev3DModeRef.current && !is3DMode && gestureCamera && !modeFromFailureRef.current) {
+      onCameraCapture?.(gestureCamera);
     }
     prev3DModeRef.current = is3DMode;
     // The failure keeps the local state and leaves the preference alone, so
@@ -356,8 +392,13 @@ export const ActivityMapView = memo(function ActivityMapView({
       styleInitRef.current = false;
       return;
     }
-    onStyleChange?.(mapStyle);
-  }, [mapStyle, onStyleChange]);
+    onStyleChange?.(chosenStyle);
+  }, [chosenStyle, onStyleChange]);
+
+  // A camera from an earlier 3D visit is not where this one was left.
+  useEffect(() => {
+    if (is3DMode) camera3DRef.current = null;
+  }, [is3DMode]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -381,11 +422,17 @@ export const ActivityMapView = memo(function ActivityMapView({
   // Track 3D camera state for capture on exit, and mirror into the shared
   // center/zoom refs so the attribution pipeline reflects the 3D viewport.
   const handleCameraStateChange = useCallback(
-    (camera: { center: [number, number]; zoom: number; bearing: number; pitch: number }) => {
+    (
+      camera: { center: [number, number]; zoom: number; bearing: number; pitch: number },
+      gesture: boolean
+    ) => {
       camera3DRef.current = camera;
+      if (gesture) gestureCameraRef.current = camera;
       if (is3DModeRef.current) {
         currentCenterRef.current = camera.center;
         currentZoomRef.current = camera.zoom;
+        // The 3D camera reports no extent, so the credit follows its centre.
+        currentBoundsRef.current = null;
         const newAttribution = computeAttribution({
           style: mapStyleRef.current,
           is3D: true,
@@ -396,7 +443,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         onAttributionChangeRef.current?.(newAttribution);
       }
     },
-    [currentCenterRef, currentZoomRef]
+    [currentCenterRef, currentZoomRef, currentBoundsRef]
   );
 
   // The 3D layer is the only thing that can clear its own spinner, so a page
@@ -404,6 +451,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // Same landing as the error boundary below.
   const handleMap3DFailed = useCallback(() => {
     modeFromFailureRef.current = true;
+    userChose3DRef.current = true;
     setIs3DReady(false);
     setIs3DMode(false);
   }, []);
@@ -412,6 +460,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // with a wasted WebView on top of it. Same landing, plus a reason.
   const handleTerrainUnavailable = useCallback(() => {
     modeFromFailureRef.current = true;
+    userChose3DRef.current = true;
     setIs3DReady(false);
     setIs3DMode(false);
     setTerrainUnavailable(true);
@@ -436,21 +485,31 @@ export const ActivityMapView = memo(function ActivityMapView({
   // The card that was just tapped was drawn from a JPEG of this activity, in
   // this style and this camera, and it is already on disk. The surface behind
   // it takes 1.4 s on ground it has seen and up to 4.3 s on ground it has not
-  // measured on an S22, and it used to spend all of that dark. The image
+  // (S22, debug Android build with production JavaScript, so a release build
+  // reads faster), and it used to spend all of that dark. The image
   // is the feed's aspect, so covering the hero may crop it, which is worth it
   // for the seconds it stands.
   const posterUri = useMemo(() => {
     if (!activityId) return null;
-    return hasTerrainPreview(activityId, mapStyle, is3DMode)
-      ? getTerrainPreviewUri(activityId, mapStyle, is3DMode)
-      : null;
+    // The card and this screen decide smart 3D from different inputs, so the
+    // card may have written only the other render. Its picture of the same
+    // ground still beats a dark surface.
+    for (const mode of [is3DMode, !is3DMode]) {
+      if (hasTerrainPreview(activityId, mapStyle, mode)) {
+        return getTerrainPreviewUri(activityId, mapStyle, mode);
+      }
+    }
+    return null;
   }, [activityId, mapStyle, is3DMode]);
 
   const surfaceReady = is3DMode ? is3DReady : mapReady || mapFailed;
   const [camera2DOnHide, setCamera2DOnHide] = useState<MapCameraSpec | null>(null);
   useEffect(() => {
-    if (!show2DSurface) setCamera2DOnHide(settledCameraRef.current);
-  }, [show2DSurface, settledCameraRef]);
+    if (!show2DSurface) {
+      setCamera2DOnHide(settledCameraRef.current);
+      resetSurface();
+    }
+  }, [show2DSurface, settledCameraRef, resetSurface]);
 
   // Stop in-flight animations on unmount to prevent updates on unmounted component
   useEffect(() => {
@@ -574,6 +633,13 @@ export const ActivityMapView = memo(function ActivityMapView({
     ]
   );
 
+  // Held while the point is, so the 3D page is sent a highlight only when it moves.
+  const highlightCoordinate = useMemo(
+    (): [number, number] | null =>
+      highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : null,
+    [highlightPoint]
+  );
+
   // Keyed on whether there is a highlight, not where it is, so a scrub leaves
   // the layer list alone.
   const hasHighlightPoint = !!highlightPoint;
@@ -635,8 +701,9 @@ export const ActivityMapView = memo(function ActivityMapView({
         is3D: is3DModeRef.current,
         center: currentCenterRef.current,
         zoom: currentZoomRef.current,
+        bounds: currentBoundsRef.current,
       }),
-    [currentCenterRef, currentZoomRef]
+    [currentCenterRef, currentZoomRef, currentBoundsRef]
   );
 
   // Compose camera region-did-change with attribution debounce
@@ -716,7 +783,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 ref={surfaceRef}
                 mapStyle={mapStyle}
                 initialCamera={
-                  camera2DOnHide ?? {
+                  cameraAfter3D(camera3DRef.current, camera2DOnHide) ?? {
                     bounds: { sw: bounds.sw, ne: bounds.ne },
                     padding: TRACK_FIT_PADDING,
                   }
@@ -752,9 +819,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                 coordinates={routeCoords}
                 mapStyle={mapStyle}
                 routeColor={activityColor}
-                highlightCoordinate={
-                  highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : null
-                }
+                routeGradient={gradientActive ? gradientLineExpression : null}
+                highlightCoordinate={highlightCoordinate}
                 tracesGeoJSON={
                   consolidatedPortionsGeoJSON.features.length > 0
                     ? consolidatedPortionsGeoJSON
@@ -765,6 +831,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                     ? sectionBoundariesGeoJSON
                     : undefined
                 }
+                routesGeoJSON={routeOverlayCollection}
                 highlightedSectionId={highlightedSectionId}
                 sectionMarkersGeoJSON={
                   sectionMarkersGeoJSON.features.length > 0 ? sectionMarkersGeoJSON : undefined
@@ -801,6 +868,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           <AttributionOverlay
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
+            isDark={isDarkStyle(mapStyle)}
             onClearanceChange={onAttributionClearanceChange}
           />
         )}
@@ -824,6 +892,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           onGetLocation={handleGetLocation}
           enableFullscreen={enableFullscreen}
           onOpenFullscreen={openFullscreen}
+          mapHeight={height}
         />
       )}
 
@@ -839,7 +908,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           routeCoordinates={routeCoords}
           routeColor={activityColor}
           bounds={bounds}
-          initialStyle={mapStyle}
+          initialStyle={chosenStyle}
           onClose={closeFullscreen}
           overlaySources={fullscreenSources}
           overlayLayers={fullscreenLayers}

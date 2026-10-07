@@ -1,22 +1,18 @@
 export { buildMap3DHtml } from './map3D';
 export type { Map3DHtmlConfig } from './map3D';
-export { buildSetRouteScript, buildUpdateLayersScript, LAYER_KEYS } from './map3DScripts';
+export {
+  buildSetRouteGradientScript,
+  buildSetRouteScript,
+  buildStyleOverlayScript,
+  buildUpdateLayersScript,
+  LAYER_KEYS,
+} from './map3DScripts';
 export type { LayerKey, UpdateLayersParams } from './map3DScripts';
 export { buildRenderSnapshotScript } from './terrainSnapshotScripts';
 export type { SnapshotRequest } from './terrainSnapshotScripts';
 export { buildSnapshotWorkerHtml } from './snapshotWorker';
-export {
-  consoleBridgeScript,
-  mapLibreHead,
-  tileProtocolsScript,
-  vectorProtocolScript,
-} from './shared';
-export {
-  resolveStyleForWebView,
-  resolveStyleExpression,
-  LIGHT_STYLE_URL,
-  TERRAIN_STYLE_OPTIONS,
-} from './styleResolution';
+export { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
+export { resolveStyleForWebView, resolveStyleExpression, LIGHT_STYLE_URL } from './styleResolution';
 export type { ResolvedWebViewStyle, WebViewStyleOptions } from './styleResolution';
 export {
   buildMapSurfaceHtml,
@@ -29,8 +25,6 @@ export {
   buildClusterLeavesScript,
   buildClusterExpansionZoomScript,
   buildProjectPointsScript,
-  buildHeatmapTileReplyScript,
-  buildBundledAssetReplyScript,
 } from './mapSurface';
 export type {
   MapCameraSpec,

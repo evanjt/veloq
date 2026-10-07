@@ -36,9 +36,10 @@ export const styles = StyleSheet.create({
   },
   controlsContainer: {
     position: 'absolute',
-    top: 48,
     right: layout.cardMargin,
     gap: spacing.sm,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
     zIndex: 100,
     elevation: 100,
   },

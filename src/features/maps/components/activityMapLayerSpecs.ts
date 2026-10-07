@@ -17,6 +17,10 @@ import {
   SECTION_START_ICON_ID,
   TROPHY_ICON_ID,
 } from '@/features/maps/lib/mapIcons';
+import {
+  sectionCreationLinePaint,
+  sectionCreationMarkerPaint,
+} from '@/features/maps/lib/sectionCreationPaint';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 
@@ -233,8 +237,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'section-creation-line',
       layout: roundLine,
       paint: {
-        'line-color': colors.success,
-        'line-width': 6,
+        ...sectionCreationLinePaint,
         'line-opacity': creationMode ? 1 : 0,
       },
     },
@@ -243,15 +246,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'circle',
       source: 'section-creation-markers',
       paint: {
-        'circle-radius': 11,
-        'circle-color': [
-          'case',
-          ['==', ['get', 'position'], 'start'],
-          mapLayerColors.startSolid,
-          mapLayerColors.endSolid,
-        ],
-        'circle-stroke-width': 2,
-        'circle-stroke-color': mapLayerColors.casing,
+        ...sectionCreationMarkerPaint('position'),
         'circle-opacity': creationMode ? 1 : 0,
         'circle-stroke-opacity': creationMode ? 1 : 0,
       },

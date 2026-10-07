@@ -1,62 +1,72 @@
+import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  ACTIVITY_CATEGORIES,
+  FILTER_CHIP,
   DEFAULT_MAP_PERIOD,
-  filterMapActivities,
   getPeriodStart,
-  groupTypesByCategory,
+  MapNameSearch,
   type MapPeriod,
   PERIOD_OPTIONS,
   RegionalMapView,
   SyncProgressBanner,
   useEngineMapActivities,
+  useHeatmapPreference,
 } from '@/features/maps';
 import {
   ComponentErrorBoundary,
-  ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
   Shimmer,
   pressable,
+  pressRipple,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache, useActivities } from '@/features/activity';
+import { useRouteSettings } from '@/features/routes';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { MapDistanceBand } from 'veloqrs';
 import { colors, darkColors, ink, spacing, typography, layout, colorWithOpacity } from '@/theme';
+import { SportChipRow } from '@/shared/ui/SportChipRow';
+import { ACTIVITY_CATEGORIES, groupTypesByCategory } from '@/shared/activity/sportCategories';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { formatMonthYear } from '@/shared/format/format';
 
 // Stable date references - creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders
 // that make Android MapLibre snap the camera back.
 const ALL_TIME_END = new Date('2099-12-31');
-const ALL_TYPES = new Set<string>();
 
-type DistanceKey = 'all' | 'xshort' | 'short' | 'medium' | 'long';
+const MAX_SEARCH_RESULTS = 5;
 
 // Distance thresholds in meters (metric) and labels for both systems
-function getDistanceOptions(isMetric: boolean): { key: DistanceKey; label: string }[] {
+function getDistanceOptions(
+  isMetric: boolean,
+  anyLabel: string
+): { key: MapDistanceBand; label: string }[] {
   return isMetric
     ? [
-        { key: 'all', label: 'Any' },
-        { key: 'xshort', label: '<5km' },
-        { key: 'short', label: '5–10km' },
-        { key: 'medium', label: '10–50km' },
-        { key: 'long', label: '50km+' },
+        { key: MapDistanceBand.All, label: anyLabel },
+        { key: MapDistanceBand.XShort, label: '<5km' },
+        { key: MapDistanceBand.Short, label: '5–10km' },
+        { key: MapDistanceBand.Medium, label: '10–50km' },
+        { key: MapDistanceBand.Long, label: '50km+' },
       ]
     : [
-        { key: 'all', label: 'Any' },
-        { key: 'xshort', label: '<3mi' },
-        { key: 'short', label: '3–6mi' },
-        { key: 'medium', label: '6–30mi' },
-        { key: 'long', label: '30mi+' },
+        { key: MapDistanceBand.All, label: anyLabel },
+        { key: MapDistanceBand.XShort, label: '<3mi' },
+        { key: MapDistanceBand.Short, label: '3–6mi' },
+        { key: MapDistanceBand.Medium, label: '6–30mi' },
+        { key: MapDistanceBand.Long, label: '30mi+' },
       ];
 }
 
-export default function MapScreen() {
+function MapScreenContent() {
+  useTabFirstFrame('/map');
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('MapScreen');
@@ -88,89 +98,92 @@ export default function MapScreen() {
   const newestSyncedDate = cacheStats.newestDate;
 
   // Filter state
-  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [period, setPeriod] = useState<MapPeriod>(DEFAULT_MAP_PERIOD);
-  const [distanceFilter, setDistanceFilter] = useState<DistanceKey>('all');
+  const [distanceFilter, setDistanceFilter] = useState<MapDistanceBand>(MapDistanceBand.All);
+  const [nameNeedle, setNameNeedle] = useState('');
+  const [focusActivityId, setFocusActivityId] = useState<string | undefined>(undefined);
+  const [resultsOpen, setResultsOpen] = useState(false);
 
   // Memoize period start date to keep reference stable across renders
   const periodStart = useMemo(() => getPeriodStart(period), [period]);
 
-  // Get ALL activities from engine (date filtering only - sport+distance filtering in JS
-  // so we always have full counts for category chips even when some types are deselected)
-  const { activities: allActivities, availableTypes } = useEngineMapActivities({
+  const showRoutes = useHeatmapPreference((s) => s.routesVisible);
+  const showSections = useHeatmapPreference((s) => s.sectionsVisible);
+  const sectionsEnabled = useRouteSettings((s) => s.settings.enabled);
+
+  const selectedTypes = useMemo(
+    () =>
+      new Set(
+        [...selectedCategories].flatMap((category) => ACTIVITY_CATEGORIES[category]?.types ?? [])
+      ),
+    [selectedCategories]
+  );
+
+  const {
+    activities: displayActivities,
+    availableTypes,
+    categoryCounts,
+    totalCount,
+    routeCount,
+    routeLines,
+    sectionCount,
+    sections,
+  } = useEngineMapActivities({
     startDate: periodStart,
     endDate: ALL_TIME_END,
-    selectedTypes: ALL_TYPES,
+    selectedTypes,
+    distanceBand: distanceFilter,
+    isMetric,
+    nameNeedle,
+    showRoutes,
+    showSections,
+    sectionsEnabled,
     enabled: isReady,
   });
 
-  // Apply sport type + distance filters JS-side
-  const displayActivities = useMemo(
-    () =>
-      filterMapActivities(
-        allActivities,
-        selectedTypes,
-        availableTypes.length,
-        distanceFilter,
-        isMetric
-      ),
-    [allActivities, selectedTypes, availableTypes.length, distanceFilter, isMetric]
-  );
-
-  // Everything is selected until the athlete narrows it. Choosing while
-  // rendering keeps the first frame after the data lands from showing an empty
-  // map, and it converges: the set is no longer empty once it runs.
-  if (availableTypes.length > 0 && selectedTypes.size === 0) {
-    setSelectedTypes(new Set(availableTypes));
-  }
-
   const router = useRouter();
+  const { activity: selectActivityId, section: selectSectionId } = useLocalSearchParams<{
+    activity?: string;
+    section?: string;
+  }>();
 
   // Format synced date range for display
   const dateRangeLabel = useMemo(() => {
     if (!oldestSyncedDate || !newestSyncedDate) return '';
-    const fmt = (d: string) => {
-      const date = new Date(d);
-      return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-    };
-    return `${fmt(oldestSyncedDate)} – ${fmt(newestSyncedDate)}`;
+    return `${formatMonthYear(oldestSyncedDate)} – ${formatMonthYear(newestSyncedDate)}`;
   }, [oldestSyncedDate, newestSyncedDate]);
 
-  // Group available types by category, count from ALL activities (not filtered by sport type)
-  // so counts stay stable when toggling chips - chips never move position
+  // The engine counts chips before sport and distance filters, so they stay put.
   const categorySorted = useMemo(() => {
     const groups = groupTypesByCategory(availableTypes);
-    const counts = new Map<string, number>();
-    for (const activity of allActivities) {
-      const category = Object.entries(ACTIVITY_CATEGORIES).find(([, c]) =>
-        c.types.includes(activity.type)
-      )?.[0];
-      if (category) {
-        counts.set(category, (counts.get(category) ?? 0) + 1);
-      }
-    }
+    const counts = new Map(categoryCounts.map(({ category, count }) => [category, count]));
     return Array.from(groups.entries())
-      .map(([category, types]) => ({
+      .map(([category]) => ({
         category,
-        types,
         count: counts.get(category) ?? 0,
-        active: types.every((t) => selectedTypes.has(t)),
       }))
       .sort((a, b) => b.count - a.count);
-  }, [availableTypes, allActivities, selectedTypes]);
+  }, [availableTypes, categoryCounts]);
 
-  // Toggle all types in a category
+  const changeNeedle = (text: string) => {
+    setNameNeedle(text);
+    setFocusActivityId(undefined);
+    setResultsOpen(text.trim().length > 0);
+  };
+
+  const chooseResult = (id: string) => {
+    setResultsOpen(false);
+    setFocusActivityId(id);
+  };
+
+  const results = resultsOpen ? displayActivities.slice(0, MAX_SEARCH_RESULTS) : [];
+
   const toggleCategory = (category: string) => {
-    const group = categorySorted.find((g) => g.category === category);
-    const typesInCategory = group?.types ?? [];
-    setSelectedTypes((prev) => {
-      const next = new Set(prev);
-      const allSelected = typesInCategory.every((t) => next.has(t));
-      if (allSelected) {
-        typesInCategory.forEach((t) => next.delete(t));
-      } else {
-        typesInCategory.forEach((t) => next.add(t));
-      }
+    setSelectedCategories((previous) => {
+      const next = new Set(previous);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
       return next;
     });
   };
@@ -206,167 +219,151 @@ export default function MapScreen() {
   }
 
   return (
-    <ScreenErrorBoundary screenName="Map">
-      <View style={styles.container} testID="map-screen">
-        {/* Main map view */}
-        <ComponentErrorBoundary componentName="Map">
-          <RegionalMapView
-            activities={displayActivities}
-            showAttribution={false}
-            onAttributionChange={setAttribution}
-          />
-        </ComponentErrorBoundary>
+    <View style={styles.container} testID="map-screen">
+      {/* Main map view */}
+      <ComponentErrorBoundary componentName="Map">
+        <RegionalMapView
+          activities={displayActivities}
+          routeCount={routeCount}
+          routeLines={routeLines}
+          sectionCount={sectionCount}
+          sections={sections}
+          onAttributionChange={setAttribution}
+          selectActivityId={selectActivityId}
+          focusActivityId={focusActivityId}
+          sectionsEnabled={sectionsEnabled}
+          selectSectionId={sectionsEnabled ? selectSectionId : undefined}
+        />
+      </ComponentErrorBoundary>
 
-        {/* Bottom info bar with sport filters */}
-        <View
-          style={[
-            styles.infoBar,
-            { paddingBottom: TAB_BAR_SAFE_PADDING + 16 },
-            isDark && styles.infoBarDark,
-          ]}
+      {/* Bottom info bar with sport filters */}
+      <View
+        style={[
+          styles.infoBar,
+          { paddingBottom: TAB_BAR_SAFE_PADDING + 16 },
+          isDark && styles.infoBarDark,
+        ]}
+      >
+        {/* Attribution pill */}
+        <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
+          <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
+            {attribution}
+          </Text>
+        </View>
+
+        <MapNameSearch
+          needle={nameNeedle}
+          onChangeNeedle={changeNeedle}
+          results={results}
+          onChoose={chooseResult}
+        />
+
+        {/* Time period chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
         >
-          {/* Attribution pill */}
-          <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
-            <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
-              {attribution}
-            </Text>
-          </View>
-
-          {/* Time period chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipRow}
-          >
-            {PERIOD_OPTIONS.map(({ id: key, labelKey }) => (
-              <Pressable
-                key={key}
-                onPress={() => setPeriod(key)}
-                style={pressable([
-                  styles.chip,
+          {PERIOD_OPTIONS.map(({ id: key, labelKey }) => (
+            <Pressable
+              key={key}
+              onPress={() => setPeriod(key)}
+              style={pressable([
+                styles.chip,
+                period === key
+                  ? styles.chipFilterActive
+                  : isDark
+                    ? styles.chipDark
+                    : styles.chipInactive,
+              ])}
+              android_ripple={pressRipple}
+            >
+              <Text
+                style={[
+                  styles.chipText,
                   period === key
-                    ? styles.chipFilterActive
+                    ? styles.chipTextFilterActive
                     : isDark
-                      ? styles.chipDark
-                      : styles.chipInactive,
-                ])}
+                      ? styles.chipTextDark
+                      : styles.chipTextInactive,
+                ]}
               >
-                <Text
-                  style={[
-                    styles.chipText,
-                    period === key
-                      ? styles.chipTextActive
-                      : isDark
-                        ? styles.chipTextDark
-                        : styles.chipTextInactive,
-                  ]}
-                >
-                  {t(labelKey as never)}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          {/* Distance chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipRow}
-          >
-            {getDistanceOptions(isMetric).map(({ key, label }) => (
-              <Pressable
-                key={key}
-                onPress={() => setDistanceFilter(key)}
-                style={pressable([
-                  styles.chip,
-                  distanceFilter === key
-                    ? styles.chipFilterActive
-                    : isDark
-                      ? styles.chipDark
-                      : styles.chipInactive,
-                ])}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    distanceFilter === key
-                      ? styles.chipTextActive
-                      : isDark
-                        ? styles.chipTextDark
-                        : styles.chipTextInactive,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          {/* Sport type filter chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipRow}
-          >
-            {categorySorted.map(({ category, count, active }) => {
-              const config = ACTIVITY_CATEGORIES[category];
-              if (!config) return null;
-              return (
-                <Pressable
-                  key={category}
-                  style={pressable([
-                    styles.chip,
-                    active
-                      ? { backgroundColor: config.color }
-                      : isDark
-                        ? styles.chipDark
-                        : styles.chipInactive,
-                  ])}
-                  onPress={() => toggleCategory(category)}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      active
-                        ? styles.chipTextActive
-                        : isDark
-                          ? styles.chipTextDark
-                          : styles.chipTextInactive,
-                    ]}
-                  >
-                    {t(`maps.activityTypes.${config.labelKey}`, category)}
-                    <Text
-                      style={[
-                        styles.chipCount,
-                        active
-                          ? styles.chipCountActive
-                          : isDark
-                            ? styles.chipCountDark
-                            : styles.chipCountInactive,
-                      ]}
-                    >
-                      {' '}
-                      {count}
-                    </Text>
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          {/* Activity count and date range */}
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-              {displayActivities.length} {t('mapScreen.activities', 'activities')}
-              {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
-            </Text>
-            <Pressable onPress={() => router.push('/sync-settings' as never)} style={pressable()}>
-              <Text style={styles.infoLink}>{t('mapScreen.expandRange', 'Expand range')}</Text>
+                {t(labelKey as never)}
+              </Text>
             </Pressable>
-          </View>
+          ))}
+        </ScrollView>
+
+        {/* Distance chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
+        >
+          {getDistanceOptions(isMetric, t('mapScreen.distanceAny')).map(({ key, label }) => (
+            <Pressable
+              key={key}
+              onPress={() => setDistanceFilter(key)}
+              style={pressable([
+                styles.chip,
+                distanceFilter === key
+                  ? styles.chipFilterActive
+                  : isDark
+                    ? styles.chipDark
+                    : styles.chipInactive,
+              ])}
+              android_ripple={pressRipple}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  distanceFilter === key
+                    ? styles.chipTextFilterActive
+                    : isDark
+                      ? styles.chipTextDark
+                      : styles.chipTextInactive,
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* Sport type filter chips */}
+        <SportChipRow
+          chips={categorySorted.map(({ category, count }) => ({
+            key: category,
+            label: `maps.activityTypes.${ACTIVITY_CATEGORIES[category]?.labelKey ?? 'other'}`,
+            count,
+          }))}
+          selected={selectedCategories}
+          onToggle={toggleCategory}
+          isDark={isDark}
+        />
+
+        {/* Activity count and date range */}
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+            {t('mapScreen.activitySummary', {
+              count: totalCount,
+              mapped: displayActivities.length,
+              defaultValue: '{{count}} activities · {{mapped}} on the map',
+            })}
+            {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
+          </Text>
+          <Pressable
+            onPress={() => router.push('/sync-settings' as never)}
+            style={pressable()}
+            android_ripple={pressRipple}
+          >
+            <Text style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}>
+              {t('mapScreen.expandRange', 'Expand range')}
+            </Text>
+          </Pressable>
         </View>
       </View>
-    </ScreenErrorBoundary>
+    </View>
   );
 }
 
@@ -415,10 +412,10 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   infoBarDark: {
-    backgroundColor: 'rgba(20, 20, 22, 0.92)',
+    backgroundColor: colorWithOpacity(darkColors.backgroundAlt, 0.92),
   },
   chipFilterActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: FILTER_CHIP.fill,
   },
   chipRow: {
     flexDirection: 'row',
@@ -436,31 +433,18 @@ const styles = StyleSheet.create({
   chipDark: {
     backgroundColor: colorWithOpacity(ink.white, 0.15),
   },
+  chipTextFilterActive: {
+    color: FILTER_CHIP.ink,
+  },
   chipText: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
-  },
-  chipTextActive: {
-    color: ink.white,
   },
   chipTextInactive: {
     color: colors.textSecondary,
   },
   chipTextDark: {
     color: colorWithOpacity(ink.white, 0.8),
-  },
-  chipCount: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
-  },
-  chipCountActive: {
-    color: colorWithOpacity(ink.white, 0.7),
-  },
-  chipCountInactive: {
-    color: colorWithOpacity(ink.black, 0.35),
-  },
-  chipCountDark: {
-    color: colorWithOpacity(ink.white, 0.45),
   },
   infoRow: {
     flexDirection: 'row',
@@ -478,7 +462,7 @@ const styles = StyleSheet.create({
   },
   infoLink: {
     fontSize: typography.bodyCompact.fontSize,
-    color: colors.primary,
+    color: colors.linkTeal,
     fontWeight: '600',
   },
   attributionPill: {
@@ -488,11 +472,11 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.white, 0.8),
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
-    borderTopLeftRadius: spacing.sm,
+    borderTopLeftRadius: layout.borderRadiusSm,
     zIndex: 1,
   },
   attributionPillDark: {
-    backgroundColor: 'rgba(30, 30, 30, 0.8)',
+    backgroundColor: colorWithOpacity(darkColors.surfaceElevated, 0.8),
   },
   attributionText: {
     fontSize: typography.pillLabel.fontSize,
@@ -502,3 +486,5 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
 });
+
+export default withScreenBoundary(MapScreenContent, 'Map');

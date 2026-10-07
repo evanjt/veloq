@@ -5,34 +5,45 @@ import React, {
   forwardRef,
   useEffect,
   useCallback,
+  useState,
 } from 'react';
+import { sectionCreation3DLayers } from '@/features/maps/lib/sectionCreationPaint';
 import { View, StyleSheet, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
-import { colors, darkColors, mapLayerColors, colorWithOpacity } from '@/theme';
+import { colors, darkColors, mapLayerColors } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
 import { planHighlightSend } from '@/features/maps/lib/highlightThrottle';
-import { heatmapTileTemplate } from '@/features/maps/hooks/useHeatmapTiles';
+import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
+import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
+import { useHeatmapGeneration } from '@/features/maps/lib/heatmapGeneration';
 import {
   buildMap3DHtml,
+  buildFitBoundsScript,
+  buildSetCameraScript,
+  buildSetRouteGradientScript,
   buildSetRouteScript,
+  buildStyleOverlayScript,
   buildUpdateLayersScript,
   LAYER_KEYS,
   resolveStyleExpression,
-  TERRAIN_STYLE_OPTIONS,
 } from '@/features/maps/lib/htmlBuilders';
-import type { LayerKey, UpdateLayersParams } from '@/features/maps/lib/htmlBuilders';
+import type {
+  LayerKey,
+  MapCameraSpec,
+  MapPadding,
+  UpdateLayersParams,
+} from '@/features/maps/lib/htmlBuilders';
+import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { diffSpec, type SentSpec } from '@/features/maps/lib/mapSurfacePatch';
 import { registerReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
-import { useLiveTileCacheBudget } from '@/features/maps/hooks/useLiveTileCacheBudget';
-import { useLiveTileCacheClear } from '@/features/maps/hooks/useLiveTileCacheClear';
 import type { MapStyleType } from './mapStyles';
-import { TERRAIN_3D_CONFIG, terrain3DSource } from './mapStyles';
+import { HILLSHADE_INSERT_INDEX_SCRIPT, TERRAIN_3D_CONFIG, terrain3DSource } from './mapStyles';
 import { jsLiteral, jsLiteralList } from '@/features/maps/lib/webViewLiterals';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 
@@ -46,6 +57,8 @@ interface Map3DWebViewProps {
   mapStyle: MapStyleType;
   /** Route line color */
   routeColor?: string | undefined;
+  /** `line-gradient` expression for the route line, or null for the flat colour. */
+  routeGradient?: object | null | undefined;
   /** Initial camera pitch in degrees (0-85) */
   initialPitch?: number | undefined;
   /** Terrain exaggeration factor */
@@ -62,6 +75,12 @@ interface Map3DWebViewProps {
   tracesGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for section boundary ticks (perpendicular start/end markers) */
   sectionBoundariesGeoJSON?: GeoJSON.FeatureCollection | undefined;
+  /** Trim overlay for a section being edited: the kept line, the extension line
+   *  and the trimmed end points, tagged by `properties.kind`. Empty restores the
+   *  full line. */
+  sectionTrimGeoJSON?: GeoJSON.FeatureCollection | undefined;
+  /** GeoJSON for the selected activity or lap, drawn over the section traces */
+  highlightedTraceGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for section marker circles (numbered/PR labels) */
   sectionMarkersGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for activity point markers - colored circles per activity, used by
@@ -69,6 +88,8 @@ interface Map3DWebViewProps {
    *  instead of drawing every full activity polyline. Features must carry
    *  `properties.color` (hex string) and may carry `properties.size`. */
   pointMarkersGeoJSON?: GeoJSON.FeatureCollection | undefined;
+  /** Legs from fanned-out stacked starts back to their shared spot */
+  spiderLinesGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** Highlight marker position as [lng, lat] (from chart scrubbing) */
   highlightCoordinate?: [number, number] | null | undefined;
   /** Section ID currently highlighted (from list row press). Dims other portions. */
@@ -80,6 +101,10 @@ interface Map3DWebViewProps {
 export interface Map3DWebViewRef {
   /** Reset bearing to north and pitch to look straight down */
   resetOrientation: () => void;
+  /** Fit a bounding box. `duration` of 0 jumps. */
+  fitBounds: (bounds: LngLatBounds, padding?: MapPadding, duration?: number) => void;
+  /** Move to a centre and zoom. `duration` of 0 jumps. */
+  setCamera: (camera: MapCameraSpec, duration?: number) => void;
 }
 
 interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
@@ -92,12 +117,15 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   /** Called when bearing changes (for compass sync) */
   onBearingChange?: ((bearing: number) => void) | undefined;
   /** Called when the full camera state updates (center, zoom, bearing, pitch) */
-  onCameraStateChange?: (camera: {
-    center: [number, number];
-    zoom: number;
-    bearing: number;
-    pitch: number;
-  }) => void;
+  onCameraStateChange?: (
+    camera: {
+      center: [number, number];
+      zoom: number;
+      bearing: number;
+      pitch: number;
+    },
+    gesture: boolean
+  ) => void;
   /** Saved camera override - if provided, skips fitBounds and uses this on first load */
   initialCamera?:
     | {
@@ -113,7 +141,7 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   /** Called when user taps on a section line feature */
   onSectionClick?: ((sectionId: string) => void) | undefined;
   /** Called when user taps on an activity point marker (global map only) */
-  onActivityClick?: ((activityId: string) => void) | undefined;
+  onActivityClick?: ((activityId: string, hits: GeoJSON.Feature[]) => void) | undefined;
   /** GeoJSON for section creation line (start to end highlight) */
   sectionCreationGeoJSON?: GeoJSON.FeatureCollection | GeoJSON.Feature | null | undefined;
   /** Section creation start marker [lng, lat] */
@@ -138,6 +166,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       coordinates = EMPTY_COORDS,
       mapStyle,
       routeColor = colors.primary,
+      routeGradient = null,
       initialPitch = 60,
       terrainExaggeration = 1.5,
       initialCenter,
@@ -145,9 +174,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routesGeoJSON,
       sectionsGeoJSON,
       tracesGeoJSON,
-      sectionBoundariesGeoJSON,
       sectionMarkersGeoJSON,
       pointMarkersGeoJSON,
+      spiderLinesGeoJSON,
+      sectionBoundariesGeoJSON,
+      sectionTrimGeoJSON,
+      highlightedTraceGeoJSON,
       highlightCoordinate,
       highlightedSectionId,
       showHeatmap = false,
@@ -182,7 +214,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const tracesGeoJSONRef = useRef(tracesGeoJSON);
     const sectionMarkersGeoJSONRef = useRef(sectionMarkersGeoJSON);
     const pointMarkersGeoJSONRef = useRef(pointMarkersGeoJSON);
+    const spiderLinesGeoJSONRef = useRef(spiderLinesGeoJSON);
     const sectionBoundariesGeoJSONRef = useRef(sectionBoundariesGeoJSON);
+    const sectionTrimGeoJSONRef = useRef(sectionTrimGeoJSON);
+    const highlightedTraceGeoJSONRef = useRef(highlightedTraceGeoJSON);
     const highlightedSectionIdRef = useRef(highlightedSectionId);
 
     // Store callback refs to avoid stale closures in message handler
@@ -199,14 +234,45 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const initialZoomRef = useRef(initialZoom);
     const initialCameraRef = useRef(initialCamera);
     // Track mapStyle in ref - style changes are applied via setStyle() injection
+    // `appliedStyleRef` is what the page shows, `pageStyleRef` what its html was
+    // built with, which is what any reload comes back up in.
     const mapStyleRef = useRef(mapStyle);
+    const appliedStyleRef = useRef(mapStyle);
+    const pageStyleRef = useRef(mapStyle);
     // Read by the page memo and the style injector, neither of which may depend
     // on it: the page memo would regenerate the HTML and reload the whole
     // WebView for a toggle the live injection below already handles, which
     // reboots maplibre and refetches every DEM and hillshade tile.
     const showHeatmapRef = useRef(showHeatmap);
     showHeatmapRef.current = showHeatmap;
-    const initialMapStyleRef = useRef(mapStyle);
+    // Read by the page memo, the style injector and the route swap. The colour
+    // changes on the same tap as the route, so keying the page on it rebuilt
+    // the page for every selection.
+    const routeColorRef = useRef(routeColor);
+    routeColorRef.current = routeColor;
+    const routeGradientRef = useRef(routeGradient);
+    routeGradientRef.current = routeGradient;
+    // The gradient the page holds. A page that was rebuilt or restyled holds none.
+    const drawnGradientRef = useRef<object | null>(null);
+    const coordinatesRef = useRef(coordinates);
+    coordinatesRef.current = coordinates;
+    const boundsRef = useRef<ReturnType<typeof getBoundsFromPoints> | null>(null);
+    // What the page was built with, and what it shows now. A page that stops
+    // being ready goes back to its built route, since a reload restores that.
+    const pageRouteRef = useRef<{ coordinates: [number, number][]; color: string }>({
+      coordinates,
+      color: routeColor,
+    });
+    const drawnRouteRef = useRef(pageRouteRef.current);
+    // Read by the page memo and the style injector for the same reason: a
+    // finished pass is injected onto the source that is already there.
+    const heatmapGeneration = useHeatmapGeneration();
+    const heatmapGenerationRef = useRef(heatmapGeneration);
+    heatmapGenerationRef.current = heatmapGeneration;
+    const sentHeatmapGenerationRef = useRef(heatmapGeneration);
+    // Counts finished style swaps, so the effects that feed the page's fixed
+    // sources send their current state again once a swap has settled.
+    const [styleEpoch, setStyleEpoch] = useState(0);
 
     // Cleanup on unmount - stop WebView loading and mark map as not ready.
     // The WebView is captured on mount: React detaches the ref before this
@@ -219,14 +285,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       };
     }, []);
 
-    // The ceiling is baked into the HTML when the page is built, so a change
-    // made while this map is open has to be sent in.
-    const injectScript = useCallback((script: string) => {
-      webViewRef.current?.injectJavaScript(script);
-    }, []);
-    useLiveTileCacheBudget(injectScript);
-    useLiveTileCacheClear(injectScript);
-
     // Keep refs in sync with props
     useEffect(() => {
       routesGeoJSONRef.current = routesGeoJSON;
@@ -234,7 +292,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       tracesGeoJSONRef.current = tracesGeoJSON;
       sectionMarkersGeoJSONRef.current = sectionMarkersGeoJSON;
       pointMarkersGeoJSONRef.current = pointMarkersGeoJSON;
+      spiderLinesGeoJSONRef.current = spiderLinesGeoJSON;
       sectionBoundariesGeoJSONRef.current = sectionBoundariesGeoJSON;
+      sectionTrimGeoJSONRef.current = sectionTrimGeoJSON;
+      highlightedTraceGeoJSONRef.current = highlightedTraceGeoJSON;
       highlightedSectionIdRef.current = highlightedSectionId;
     }, [
       routesGeoJSON,
@@ -242,7 +303,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       tracesGeoJSON,
       sectionMarkersGeoJSON,
       pointMarkersGeoJSON,
+      spiderLinesGeoJSON,
       sectionBoundariesGeoJSON,
+      sectionTrimGeoJSON,
+      highlightedTraceGeoJSON,
       highlightedSectionId,
     ]);
 
@@ -252,6 +316,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const sentLayersRef = useRef<Partial<Record<LayerKey, SentSpec<unknown>>>>({});
     const forgetLayers = useCallback(() => {
       sentLayersRef.current = {};
+      drawnRouteRef.current = pageRouteRef.current;
+      drawnGradientRef.current = null;
     }, []);
 
     // Update GeoJSON layers dynamically without reloading WebView
@@ -266,7 +332,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         tracesGeoJSON: tracesGeoJSONRef.current,
         sectionMarkersGeoJSON: sectionMarkersGeoJSONRef.current,
         pointMarkersGeoJSON: pointMarkersGeoJSONRef.current,
+        spiderLinesGeoJSON: spiderLinesGeoJSONRef.current,
         sectionBoundariesGeoJSON: sectionBoundariesGeoJSONRef.current,
+        sectionTrimGeoJSON: sectionTrimGeoJSONRef.current,
+        highlightedTraceGeoJSON: highlightedTraceGeoJSONRef.current,
         highlightedSectionId: highlightedSectionIdRef.current,
       };
 
@@ -290,21 +359,25 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       webViewRef.current.injectJavaScript(buildUpdateLayersScript(patch));
     }, []);
 
+    // Bring the page's route and colour to the current ones. Called when either
+    // changes and when a page reports ready, so a route that arrived while the
+    // page was booting or a reload that restored an older one is not lost.
+    const syncRoute = useCallback(() => {
+      if (!webViewRef.current || !mapReadyRef.current) return;
+      const drawn = drawnRouteRef.current;
+      const coords = coordinatesRef.current;
+      const color = routeColorRef.current;
+      const gradient = routeGradientRef.current;
+      if (drawnGradientRef.current !== gradient) {
+        drawnGradientRef.current = gradient;
+        webViewRef.current.injectJavaScript(buildSetRouteGradientScript(gradient));
+      }
+      if (drawn.coordinates === coords && drawn.color === color) return;
+      drawnRouteRef.current = { coordinates: coords, color };
+      webViewRef.current.injectJavaScript(buildSetRouteScript(coords, boundsRef.current, color));
+    }, []);
+
     // Handle messages from WebView - dispatch via the shared 3D bridge.
-    const handleMessage = useMap3DBridge({
-      webViewRef,
-      mapReadyRef,
-      savedCameraRef,
-      onMapClickRef,
-      onSectionClickRef,
-      onActivityClickRef,
-      updateLayers,
-      onMapReady,
-      onMapFailed,
-      onTerrainUnavailable,
-      onBearingChange,
-      onCameraStateChange,
-    });
 
     // Update layers when GeoJSON props change (without reloading WebView)
     useEffect(() => {
@@ -317,7 +390,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       tracesGeoJSON,
       sectionMarkersGeoJSON,
       pointMarkersGeoJSON,
+      spiderLinesGeoJSON,
       sectionBoundariesGeoJSON,
+      sectionTrimGeoJSON,
+      highlightedTraceGeoJSON,
       highlightedSectionId,
       updateLayers,
     ]);
@@ -325,23 +401,18 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     // Apply style changes via setStyle() injection - avoids full WebView reload.
     // Builds a complete style object with terrain, sky, hillshade, and route layers,
     // then applies atomically via map.setStyle() (same pattern as TerrainSnapshotWebView).
-    useEffect(() => {
-      // Skip when style hasn't actually changed from what's rendered
-      if (mapStyle === mapStyleRef.current) return;
-      mapStyleRef.current = mapStyle;
-
+    const syncStyle = useCallback(() => {
+      const mapStyle = mapStyleRef.current;
+      // Skip when style hasn't actually changed from what's rendered. A change
+      // made before the page is ready is kept back for its ready message.
       if (!webViewRef.current || !mapReadyRef.current) return;
+      if (mapStyle === appliedStyleRef.current) return;
+      appliedStyleRef.current = mapStyle;
 
       const isSatellite = mapStyle === 'satellite';
       const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
 
-      // Vector tiles stay on their TileJSON URL here: rewriting them to
-      // cached-vector:// after a setStyle left features blank until the cache
-      // warmed, which is only tolerable on a cold page load.
-      const { styleJSON: styleConfig, url: lightStyleUrl } = resolveStyleExpression(
-        mapStyle,
-        TERRAIN_STYLE_OPTIONS
-      );
+      const { styleJSON: styleConfig } = resolveStyleExpression(mapStyle);
 
       // Serialize shared terrain config for injection
       const terrainSourceJSON = JSON.stringify(terrain3DSource());
@@ -360,13 +431,16 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         (function() {
           if (!window.map) return;
 
+          ${buildStyleOverlayScript()}
+
           var isSatellite = ${isSatellite};
           var isDark = ${isDark};
           var coords = window._routeCoords || [];
-          var routeColor = ${jsLiteral(routeColor)};
+          var routeColor = ${jsLiteral(routeColorRef.current)};
           var terrainSource = ${terrainSourceJSON};
           var skyConfig = ${skyConfigJSON};
           var hillshadePaint = ${hillshadePaintJSON};
+          ${HILLSHADE_INSERT_INDEX_SCRIPT}
           var hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
           // Build style: either JSON object or fetch URL-based style
@@ -377,17 +451,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
             // Insert hillshade before the first transportation/building layer found
             if (!isSatellite) {
-              var candidateSet = {};
-              for (var ci = 0; ci < hillshadeInsertCandidates.length; ci++) {
-                candidateSet[hillshadeInsertCandidates[ci]] = true;
-              }
-              var hillshadeIdx = styleObj.layers.length;
-              for (var li = 0; li < styleObj.layers.length; li++) {
-                if (candidateSet[styleObj.layers[li].id]) {
-                  hillshadeIdx = li;
-                  break;
-                }
-              }
+              var hillshadeIdx = hillshadeInsertIndex(styleObj.layers, hillshadeInsertCandidates);
               styleObj.layers.splice(hillshadeIdx, 0, {
                 id: 'hillshading',
                 type: 'hillshade',
@@ -397,38 +461,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               });
             }
 
-            // Re-add route layers if route exists
-            if (coords.length > 0) {
-              var startPt = coords[0];
-              var endPt = coords[coords.length - 1];
-
-              styleObj.sources['route'] = {
-                type: 'geojson',
-                data: { type: 'Feature', properties: {},
-                  geometry: { type: 'LineString', coordinates: coords } },
-                tolerance: 0,
-              };
-              styleObj.sources['start-end-markers'] = {
-                type: 'geojson',
-                data: { type: 'FeatureCollection', features: [
-                  { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
-                  { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
-                ]},
-              };
-              styleObj.layers.push(
-                { id: 'route-outline', type: 'line', source: 'route',
-                  layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 5, 'line-opacity': 0.8 } },
-                { id: 'route-line', type: 'line', source: 'route',
-                  layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': routeColor, 'line-width': 3 } },
-                { id: 'start-end-border', type: 'circle', source: 'start-end-markers',
-                  paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} } },
-                { id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
-                  paint: { 'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}] } }
-              );
-            }
+            // The route, its markers and the scrub marker are always part of
+            // the style, empty and hidden when there is nothing to draw, so a
+            // later setRoute or scrub finds its source.
+            var overlays = veloqOverlays(coords, routeColor);
+            for (var sid in overlays.sources) styleObj.sources[sid] = overlays.sources[sid];
+            for (var oi = 0; oi < overlays.layers.length; oi++) styleObj.layers.push(overlays.layers[oi]);
 
             window.map.setStyle(styleObj);
             console.log('[3D] Style changed via setStyle()');
@@ -438,12 +476,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // present in activity-detail mode (when route coordinates exist).
             window.map.once('style.load', function() {
               if (!window.map.getSource('heatmap-tiles')) {
-                var isLight = ${jsLiteral(mapStyle)} === 'light';
                 window.map.addSource('heatmap-tiles', {
                   type: 'raster',
-                  tiles: [${jsLiteral(heatmapTileTemplate())}],
+                  tiles: [${jsLiteral(heatmapTileTemplate(heatmapGenerationRef.current))}],
                   tileSize: 256,
-                  minzoom: 5,
+                  minzoom: ${HEATMAP_SOURCE_MINZOOM},
                   maxzoom: 17
                 });
                 var heatmapBeforeId = window.map.getLayer('route-outline') ? 'route-outline' : undefined;
@@ -452,32 +489,14 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                   type: 'raster',
                   source: 'heatmap-tiles',
                   layout: { visibility: ${showHeatmapRef.current} ? 'visible' : 'none' },
-                  paint: {
-                    'raster-opacity': isLight ? 0.82 : 0.72,
-                    'raster-contrast': isLight ? 0.25 : 0,
-                    'raster-brightness-max': isLight ? 0.7 : 1,
-                    'raster-saturation': isLight ? 0.4 : 0,
-                    'raster-fade-duration': 0,
-                    'raster-resampling': 'linear'
-                  }
+                  paint: ${JSON.stringify(heatmapRasterPaint(mapStyle))}
                 }, heatmapBeforeId);
               }
             });
           }
 
           var styleJSON = ${styleConfig};
-          if (styleJSON) {
-            applyNewStyle(styleJSON);
-          } else {
-            // Light style is URL-based - fetch and apply without rewriting vector URLs.
-            // Let MapLibre handle TileJSON resolution natively for reliable tile loading.
-            fetch(${jsLiteral(lightStyleUrl)})
-              .then(function(r) { return r.json(); })
-              .then(function(s) {
-                applyNewStyle(s);
-              })
-              .catch(function(e) { console.warn('[3D] Failed to fetch light style:', e); });
-          }
+          applyNewStyle(styleJSON);
         })();
         true;
       `);
@@ -485,15 +504,54 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // A setStyle wipes every source, so the page holds nothing to patch.
       forgetLayers();
       // After style change, re-apply GeoJSON overlay layers once the new style settles
-      setTimeout(() => updateLayers(), 500);
+      // The scrub marker and section creation state ride the same timer, since
+      // the page holds only the fixed sources until they are sent again.
+      setTimeout(() => {
+        updateLayers();
+        setStyleEpoch((n) => n + 1);
+      }, 500);
       // `showHeatmap` is read from its ref above: this effect bails when the
       // style has not changed, and a toggle goes through the injection below.
-    }, [mapStyle, routeColor, terrainExaggeration, forgetLayers, updateLayers]);
+    }, [terrainExaggeration, forgetLayers, updateLayers]);
+
+    useEffect(() => {
+      mapStyleRef.current = mapStyle;
+      syncStyle();
+    }, [mapStyle, syncStyle]);
+
+    // A page that has just loaded was built with `pageStyleRef`, whichever
+    // style the toggle has shown since.
+    const syncStyleOnReady = useCallback(() => {
+      appliedStyleRef.current = pageStyleRef.current;
+      syncStyle();
+    }, [syncStyle]);
+
+    const handleMessage = useMap3DBridge({
+      mapReadyRef,
+      savedCameraRef,
+      onMapClickRef,
+      onSectionClickRef,
+      onActivityClickRef,
+      updateLayers,
+      syncRoute,
+      syncStyle: syncStyleOnReady,
+      onMapReady,
+      onMapFailed,
+      onTerrainUnavailable,
+      onBearingChange,
+      onCameraStateChange,
+    });
 
     // Expose reset method to parent
     useImperativeHandle(
       ref,
       () => ({
+        fitBounds: (bounds, padding, duration) => {
+          webViewRef.current?.injectJavaScript(buildFitBoundsScript(bounds, padding, duration));
+        },
+        setCamera: (camera, duration) => {
+          webViewRef.current?.injectJavaScript(buildSetCameraScript(camera, duration));
+        },
         resetOrientation: () => {
           webViewRef.current?.injectJavaScript(`
         if (window.map) {
@@ -561,7 +619,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       }
 
       return cancel;
-    }, [highlightCoordinate, sendHighlight]);
+    }, [highlightCoordinate, sendHighlight, styleEpoch]);
 
     // Update section creation layers dynamically (line + start/end markers)
     useEffect(() => {
@@ -607,24 +665,13 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             if (lineSource) {
               if (lineData) {
                 lineSource.setData(lineData);
-                window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'visible');
                 window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'visible');
               } else {
-                window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'none');
                 window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'none');
               }
             } else if (lineData) {
               window.map.addSource('section-creation-line', { type: 'geojson', data: lineData });
-              window.map.addLayer({
-                id: 'section-creation-line-outline', type: 'line', source: 'section-creation-line',
-                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 8, 'line-opacity': 0.6 },
-              });
-              window.map.addLayer({
-                id: 'section-creation-line-fill', type: 'line', source: 'section-creation-line',
-                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: { 'line-color': ${jsLiteral(mapLayerColors.sectionCreation)}, 'line-width': 6, 'line-opacity': 1 },
-              });
+              ${JSON.stringify(sectionCreation3DLayers(true).filter((l) => l.type === 'line'))}.forEach(function(l) { window.map.addLayer(l); });
             }
             // Update section creation markers - re-create if missing
             var markersData = ${markersJSON};
@@ -632,24 +679,15 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             if (markerSource) {
               if (markersData) {
                 markerSource.setData(markersData);
-                window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'visible');
                 window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'visible');
                 window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'visible');
               } else {
-                window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'none');
                 window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'none');
                 window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'none');
               }
             } else if (markersData) {
               window.map.addSource('section-creation-markers', { type: 'geojson', data: markersData });
-              window.map.addLayer({
-                id: 'section-creation-marker-border', type: 'circle', source: 'section-creation-markers',
-                paint: { 'circle-radius': 10, 'circle-color': ${jsLiteral(mapLayerColors.casing)} },
-              });
-              window.map.addLayer({
-                id: 'section-creation-marker-fill', type: 'circle', source: 'section-creation-markers',
-                paint: { 'circle-radius': 8, 'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.9))}, ${jsLiteral(colorWithOpacity(colors.error, 0.9))}] },
-              });
+              ${JSON.stringify(sectionCreation3DLayers(true).filter((l) => l.type === 'circle'))}.forEach(function(l) { window.map.addLayer(l); });
               window.map.addLayer({
                 id: 'section-creation-marker-icon', type: 'symbol', source: 'section-creation-markers',
                 layout: { 'text-field': ['case', ['==', ['get', 'type'], 'start'], '\\u25B6', '\\u25A0'], 'text-font': ${jsLiteralList(BUNDLED_TEXT_FONT)}, 'text-size': 10, 'text-allow-overlap': true, 'text-ignore-placement': true },
@@ -660,7 +698,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         })();
         true;
       `);
-    }, [sectionCreationGeoJSON, sectionCreationStart, sectionCreationEnd]);
+    }, [sectionCreationGeoJSON, sectionCreationStart, sectionCreationEnd, styleEpoch]);
 
     // Toggle heatmap visibility dynamically (without regenerating HTML).
     // Visibility, not opacity: a hidden raster layer still fetches its tiles.
@@ -674,6 +712,20 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         true;
       `);
     }, [showHeatmap]);
+
+    // MapLibre does not ask again for a tile URL it has resolved, so a finished
+    // pass reaches the page as a new URL on the existing source.
+    useEffect(() => {
+      if (sentHeatmapGenerationRef.current === heatmapGeneration) return;
+      if (!webViewRef.current || !mapReadyRef.current) return;
+      sentHeatmapGenerationRef.current = heatmapGeneration;
+      webViewRef.current.injectJavaScript(`
+        if (window.map && window.map.getSource('heatmap-tiles')) {
+          window.map.getSource('heatmap-tiles').setTiles([${jsLiteral(heatmapTileTemplate(heatmapGeneration))}]);
+        }
+        true;
+      `);
+    }, [heatmapGeneration]);
 
     // The page reports its own failures, but it can only do that once it has
     // loaded. A main frame that never arrives has to be reported from here.
@@ -717,19 +769,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       return getBoundsFromPoints(points, 0.1);
     }, [coordinates]);
 
-    // Only the route the page was built with. A later one is injected, so the
-    // page is not rebuilt to draw it.
-    const builtCoordinatesRef = useRef(coordinates);
-    const builtBoundsRef = useRef(bounds);
-    builtBoundsRef.current = bounds;
+    boundsRef.current = bounds;
 
-    // Swap the drawn route on the page that is already up.
+    // Swap the drawn route and its colour on the page that is already up.
     useEffect(() => {
-      if (coordinates === builtCoordinatesRef.current) return;
-      builtCoordinatesRef.current = coordinates;
-      if (!webViewRef.current || !mapReadyRef.current) return;
-      webViewRef.current.injectJavaScript(buildSetRouteScript(coordinates, bounds));
-    }, [coordinates, bounds]);
+      syncRoute();
+    }, [coordinates, routeColor, routeGradient, bounds, syncRoute]);
 
     // Use initial center/zoom when no coordinates provided
 
@@ -739,8 +784,17 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const html = useMemo(() => {
       // Reset map ready state when HTML regenerates
       mapReadyRef.current = false;
+      pageStyleRef.current = mapStyle;
       // A rebuilt page holds nothing, so the next update sends everything.
       sentLayersRef.current = {};
+      // Built from what is selected now, not from what was when the page first
+      // mounted, so a rebuild for pitch or exaggeration keeps the selection.
+      pageRouteRef.current = {
+        coordinates: coordinatesRef.current,
+        color: routeColorRef.current,
+      };
+      drawnRouteRef.current = pageRouteRef.current;
+      drawnGradientRef.current = null;
 
       // Use saved camera position if available (from previous style change),
       // then fall back to initialCamera override (from parent), then to initial props.
@@ -751,24 +805,23 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const pitch = savedCamera ? savedCamera.pitch : initialPitch;
 
       return buildMap3DHtml({
-        coordinates: builtCoordinatesRef.current,
-        bounds: builtBoundsRef.current,
+        coordinates: coordinatesRef.current,
+        bounds: boundsRef.current,
         centerOverride,
         zoom,
         bearing,
         pitch,
         hasSavedCamera: !!savedCamera,
         terrainExaggeration,
-        // Use initial style ref - subsequent style changes are handled via
-        // setStyle() injection without regenerating HTML.
-        initStyle: initialMapStyleRef.current,
-        // mapStyle (current prop) is intentionally captured via closure here,
-        // so the heatmap `isLightMap` calc reflects the style in effect at the
-        // time the memo re-ran. It's not a memo dependency because style changes
-        // go through setStyle() injection, not HTML regeneration.
+        // The style in effect when the page is built, so a rebuild after a
+        // basemap toggle does not come up in the first-mounted one. It is not a
+        // memo dependency because style changes go through setStyle() injection,
+        // not HTML regeneration.
+        initStyle: mapStyle,
         mapStyle,
-        routeColor,
+        routeColor: routeColorRef.current,
         showHeatmap: showHeatmapRef.current,
+        heatmapGeneration: heatmapGenerationRef.current,
         devicePixelRatio: Math.min(PixelRatio.get(), 2), // Cap at 2x for 3D terrain
       });
       // `mapStyle` is read above and deliberately not a dependency: it is
@@ -780,8 +833,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // `showHeatmap` comes from its ref for the same reason `mapStyle` does:
       // the toggle is injected onto the layer that is already there, and
       // listing it here reloaded the page and dropped the camera with it.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [routeColor, initialPitch, terrainExaggeration]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Style and geometry updates enter the existing page through injection.
+    }, [initialPitch, terrainExaggeration]);
 
     return (
       <View style={styles.container}>

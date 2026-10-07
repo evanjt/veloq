@@ -7,7 +7,7 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react';
-import { getSetting, setSetting } from '@/shared/storage';
+import { getSetting, removeSetting, setSetting } from '@/shared/storage';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
 import { isActivityType } from '@/types';
@@ -41,11 +41,7 @@ interface MapPreferencesContextValue {
     activityTypes: ActivityType[],
     style: MapStyleType | null
   ) => Promise<void>;
-  getStyleForActivity: (
-    activityType: ActivityType,
-    activityId?: string,
-    country?: string | null
-  ) => MapStyleType;
+  getStyleForActivity: (activityType: ActivityType, activityId?: string) => MapStyleType;
   setTerrain3DMode: (activityType: ActivityType | null, mode: Terrain3DMode) => Promise<void>;
   setTerrain3DModeGroup: (activityTypes: ActivityType[], mode: Terrain3DMode) => Promise<void>;
   getTerrain3DMode: (activityType: ActivityType, activityId?: string) => Terrain3DMode;
@@ -55,6 +51,17 @@ interface MapPreferencesContextValue {
   hasActivityOverride: (activityId: string) => boolean;
   getActivityOverride: (activityId: string) => ActivityMapOverride | undefined;
 }
+
+type MapPreferenceActions = Pick<
+  MapPreferencesContextValue,
+  | 'setDefaultStyle'
+  | 'setGlobalMapStyle'
+  | 'setActivityGroupStyle'
+  | 'setTerrain3DMode'
+  | 'setTerrain3DModeGroup'
+  | 'setActivityOverride'
+  | 'clearActivityOverride'
+>;
 
 const DEFAULT_PREFERENCES: MapPreferences = {
   defaultStyle: 'light',
@@ -145,6 +152,21 @@ function parseStoredPreferences(value: unknown): MapPreferences | null {
 }
 
 const MapPreferencesContext = createContext<MapPreferencesContextValue | null>(null);
+// Setters get their own context so a writer does not render on every value change.
+const MapPreferenceActionsContext = createContext<MapPreferenceActions | null>(null);
+
+/** Each mounted provider's way to drop the overrides it holds. */
+const overrideForgetters = new Set<() => void>();
+
+/**
+ * Forget every per-activity override, in each mounted provider and stored.
+ * They are keyed by the athlete's activity ids, so the wipe takes them, and a
+ * provider still holding them would write them all back with its next change.
+ */
+export async function forgetActivityMapOverrides(): Promise<void> {
+  for (const forget of overrideForgetters) forget();
+  await removeSetting(ACTIVITY_OVERRIDES_KEY).catch(() => {});
+}
 
 export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<MapPreferences>(DEFAULT_PREFERENCES);
@@ -152,6 +174,14 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     {}
   );
   const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const forget = () => setActivityOverrides({});
+    overrideForgetters.add(forget);
+    return () => {
+      overrideForgetters.delete(forget);
+    };
+  }, []);
 
   // Load preferences on mount with migration support
   useEffect(() => {
@@ -269,13 +299,16 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   // Get style for a specific activity type, with optional per-activity override
   // In demo mode, Swiss activities default to satellite for scenic mountain imagery
   const getStyleForActivity = useCallback(
-    (activityType: ActivityType, activityId?: string, country?: string | null): MapStyleType => {
+    (activityType: ActivityType, activityId?: string): MapStyleType => {
       if (activityId) {
         const override = activityOverrides[activityId];
         if (override?.style) return override.style;
       }
-      if (country === 'Switzerland' && useAuthStore.getState().isDemoMode) {
-        return 'satellite';
+      if (activityId && useAuthStore.getState().isDemoMode) {
+        // Loaded on demand: the demo fixtures are generated when the module first loads.
+        const { isSwissDemoActivity } =
+          require('@/shared/demo/activity/demoRegion') as typeof import('@/shared/demo/activity/demoRegion');
+        if (isSwissDemoActivity(activityId)) return 'satellite';
       }
       return preferences.activityTypeStyles[activityType] ?? preferences.defaultStyle;
     },
@@ -452,13 +485,46 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     ]
   );
 
-  return <MapPreferencesContext.Provider value={value}>{children}</MapPreferencesContext.Provider>;
+  const actions = useMemo<MapPreferenceActions>(
+    () => ({
+      setDefaultStyle,
+      setGlobalMapStyle,
+      setActivityGroupStyle,
+      setTerrain3DMode,
+      setTerrain3DModeGroup,
+      setActivityOverride,
+      clearActivityOverride,
+    }),
+    [
+      setDefaultStyle,
+      setGlobalMapStyle,
+      setActivityGroupStyle,
+      setTerrain3DMode,
+      setTerrain3DModeGroup,
+      setActivityOverride,
+      clearActivityOverride,
+    ]
+  );
+
+  return (
+    <MapPreferenceActionsContext.Provider value={actions}>
+      <MapPreferencesContext.Provider value={value}>{children}</MapPreferencesContext.Provider>
+    </MapPreferenceActionsContext.Provider>
+  );
 }
 
 export function useMapPreferences(): MapPreferencesContextValue {
   const context = useContext(MapPreferencesContext);
   if (!context) {
     throw new Error('useMapPreferences must be used within a MapPreferencesProvider');
+  }
+  return context;
+}
+
+export function useMapPreferenceActions(): MapPreferenceActions {
+  const context = useContext(MapPreferenceActionsContext);
+  if (!context) {
+    throw new Error('useMapPreferenceActions must be used within a MapPreferencesProvider');
   }
   return context;
 }

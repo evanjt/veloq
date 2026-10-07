@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 import { colors, typography } from '@/theme';
 import type { MapSurfaceRef } from '../MapSurface';
@@ -11,8 +12,8 @@ import { CLUSTER_CIRCLE_LAYER_ID } from './regionalMapLayerSpecs';
  * WebView canvas, so they are invisible to accessibility tools and to Maestro.
  * This component asks the page which clusters are currently drawn and where
  * they sit on screen, then places a matching node over each one. Each node
- * carries a testID so automated tests can assert on cluster visibility, and it
- * participates in the accessibility tree.
+ * participates in the accessibility tree, and carries a testID so a flow
+ * running with a screen reader on can assert on cluster visibility.
  *
  * The overlay is invisible by default - it does not duplicate the drawn glyphs.
  * Set `visible` to show it for debugging or design work.
@@ -43,31 +44,30 @@ const INITIAL_QUERY_DELAY_MS = 250;
  * Whether the nodes are worth the round trip into the page.
  *
  * Nothing reads them otherwise. The counts the athlete sees are symbol glyphs
- * the map draws inside the canvas, and these nodes exist for the two readers
- * that cannot see into it: an assistive technology, and Maestro. With neither
- * present and the overlay invisible, every pan settle was paying an
- * `injectJavaScript`, a `queryRenderedFeatures` with a projection per cluster,
- * a `postMessage` back and a React commit of one absolute `View` per cluster,
- * for nodes nobody would read.
+ * the map draws inside the canvas, and these nodes exist for the one reader
+ * that cannot see into it, an assistive technology. With none present and the
+ * overlay invisible, every pan settle was paying an `injectJavaScript`, a
+ * `queryRenderedFeatures` with a projection per cluster, a `postMessage` back
+ * and a React commit of one absolute `View` per cluster, for nodes nobody would
+ * read.
+ *
+ * A Maestro flow that asserts on the nodes turns TalkBack or VoiceOver on,
+ * which this already honours. The build it drives is no signal: the debug APK
+ * embeds its bundle with `__DEV__` false, and a Metro session, where it is
+ * true, is a developer's.
  */
 export function clusterOverlayNeeded(options: {
   visible: boolean;
   screenReaderOn: boolean;
-  underTest: boolean;
 }): boolean {
-  return options.visible || options.screenReaderOn || options.underTest;
+  return options.visible || options.screenReaderOn;
 }
-
-/**
- * A debug build is what Maestro drives, so the nodes it asserts on are there
- * for it. A release build is where the per-pan cost is the athlete's.
- */
-const UNDER_TEST = __DEV__;
 
 export const ClusterCountOverlay = React.forwardRef<
   ClusterCountOverlayRef,
   ClusterCountOverlayProps
 >(function ClusterCountOverlay({ surfaceRef, visible = false }, ref) {
+  const { t } = useTranslation();
   const [clusters, setClusters] = useState<ClusterPoint[]>([]);
   const [screenReaderOn, setScreenReaderOn] = useState(false);
   const latestSeq = useRef(0);
@@ -91,7 +91,7 @@ export const ClusterCountOverlay = React.forwardRef<
     };
   }, []);
 
-  const needed = clusterOverlayNeeded({ visible, screenReaderOn, underTest: UNDER_TEST });
+  const needed = clusterOverlayNeeded({ visible, screenReaderOn });
 
   const refresh = useCallback(async () => {
     if (!needed) return;
@@ -141,7 +141,7 @@ export const ClusterCountOverlay = React.forwardRef<
         <View
           key={`cluster-${cluster.id}`}
           testID={`map-cluster-count-${cluster.id}`}
-          accessibilityLabel={`${cluster.count} activities`}
+          accessibilityLabel={t('sections.activitiesCount', { count: cluster.count })}
           style={[styles.countHitbox, { left: cluster.x - 16, top: cluster.y - 8 }]}
         >
           {visible && <Text style={styles.countLabelVisible}>{cluster.count}</Text>}

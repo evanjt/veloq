@@ -27,17 +27,3 @@ export function jsLiteral(value: string | number | boolean | null | undefined): 
 export function jsLiteralList(values: readonly string[]): string {
   return `[${values.map(jsLiteral).join(', ')}]`;
 }
-
-/** `z/x/y.png`, the only shape a heatmap tile path may take. */
-const TILE_PATH = /^\d{1,2}\/\d{1,7}\/\d{1,7}\.png$/;
-
-/**
- * The tile path a page asked for, or null when it is not one.
- *
- * The path arrives in a message from the WebView and was joined straight onto
- * the tile directory, so `../..` read outside it. Matching the shape is the
- * whole check: there is nothing else a tile path can be.
- */
-export function heatmapTilePath(posted: unknown): string | null {
-  return typeof posted === 'string' && TILE_PATH.test(posted) ? posted : null;
-}

@@ -1,5 +1,5 @@
 /**
- * Whether the map draws the heatmap.
+ * Whether the map draws the heatmap, and whether it draws route lines.
  *
  * It lives here rather than in the routes and detection store because it is
  * something the map draws, and settings offers it on the maps spoke beside the
@@ -19,14 +19,20 @@ import { debug } from '@/shared/debug/debug';
 const log = debug.create('HeatmapPreference');
 
 const HEATMAP_KEY = 'veloq-heatmap-enabled';
+const ROUTES_VISIBLE_KEY = 'veloq-map-routes-visible';
 const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 
 const DEFAULT_ENABLED = true;
 
 interface HeatmapPreferenceState {
   enabled: boolean;
+  /** Whether the global map draws route lines. Off until the athlete turns it on. */
+  routesVisible: boolean;
+  sectionsVisible: boolean;
   isLoaded: boolean;
   setEnabled: (enabled: boolean) => Promise<void>;
+  setRoutesVisible: (visible: boolean) => void;
+  setSectionsVisible: (visible: boolean) => void;
   initialize: () => Promise<void>;
 }
 
@@ -44,10 +50,13 @@ async function adoptedFromRouteSettings(): Promise<boolean> {
 
 export const useHeatmapPreference = create<HeatmapPreferenceState>((set) => ({
   enabled: DEFAULT_ENABLED,
+  routesVisible: false,
+  sectionsVisible: true,
   isLoaded: false,
 
   initialize: async () => {
     try {
+      set({ routesVisible: (await getSetting(ROUTES_VISIBLE_KEY)) === 'true' });
       const own = await getSetting(HEATMAP_KEY);
       if (own !== null && own !== undefined) {
         set({ enabled: own === 'true', isLoaded: true });
@@ -61,6 +70,15 @@ export const useHeatmapPreference = create<HeatmapPreferenceState>((set) => ({
       set({ isLoaded: true });
     }
   },
+
+  setRoutesVisible: (visible: boolean) => {
+    set({ routesVisible: visible });
+    setSetting(ROUTES_VISIBLE_KEY, String(visible)).catch((error) => {
+      log.error('Failed to save the routes visibility:', error);
+    });
+  },
+
+  setSectionsVisible: (visible: boolean) => set({ sectionsVisible: visible }),
 
   setEnabled: async (enabled: boolean) => {
     set({ enabled });

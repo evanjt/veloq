@@ -7,7 +7,7 @@
  * timestamps but is written out only once the watchdog decides the queue is
  * wedged; and a debug APK is embedded with `--dev false`, so an installed
  * build has none of it. The FFI ring survives a release build, which is why
- * these go through `recordFFIMetric` rather than a log channel: they appear in
+ * these go through `recordAppMetric` rather than a log channel: they appear in
  * the dashboard's table as calls, mean, max and p95 beside the engine calls.
  *
  * The names are the contract. They are read back out of
@@ -15,7 +15,7 @@
  * gap in whatever was being compared across it.
  */
 
-import { recordFFIMetric } from '@/shared/debug/renderTimer';
+import { recordAppMetric } from '@/shared/debug/renderTimer';
 
 /** WebView mount to `mapReady`, per worker. */
 export const SNAPSHOT_BOOT = 'snapshot.boot';
@@ -39,9 +39,9 @@ export function snapshotRenderMetric(shape: {
  * The page's own elapsed, by the path it took.
  *
  * The fast path is a camera jump over a style already mounted; `setStyle` is
- * the whole style, its sources and its tiles. They differ by an order of
- * magnitude and the host cannot tell them apart from the outside, so the page
- * says which it took on the message that carries the image.
+ * the whole style, its sources and its tiles. Their durations overlap and the
+ * host cannot tell them apart from the outside, so the page says which it took
+ * on the message that carries the image.
  */
 export function snapshotPageMetric(fastPath: boolean): string {
   return fastPath ? 'snapshot.page.fast' : 'snapshot.page.setStyle';
@@ -57,15 +57,15 @@ export function snapshotPageMetric(fastPath: boolean): string {
  */
 export function recordSnapshotTiming(name: string, startedAt: number | null, now: number): void {
   if (startedAt == null || now < startedAt) return;
-  recordFFIMetric(name, now - startedAt);
+  recordAppMetric(name, now - startedAt);
 }
 
 /**
  * The four stages inside one page render, in the order they happen.
  *
- * The whole of a render measures inside the page, and the fast path is 6%
- * cheaper than a full `setStyle` rather than an order of magnitude, so the
- * style is not what the seconds are. These split what is left: the style
+ * The whole of a render measures inside the page, and the fast path is not
+ * reliably cheaper than a full `setStyle`, so the style is not what the
+ * seconds are. These split what is left: the style
  * document and the call that mounts it, the tile and terrain wait, the
  * fourteen `readPixels` probes, and the JPEG encode.
  *
@@ -95,7 +95,7 @@ export function recordSnapshotPhases(phases: unknown): void {
   for (const phase of SNAPSHOT_PHASES) {
     const value = (phases as Record<string, unknown>)[phase];
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) continue;
-    recordFFIMetric(snapshotPhaseMetric(phase), value);
+    recordAppMetric(snapshotPhaseMetric(phase), value);
   }
 }
 
@@ -117,6 +117,6 @@ export function recordSnapshotTiles(tileStats: unknown): void {
     counts.set(prefix, (counts.get(prefix) ?? 0) + loaded);
   }
   for (const [prefix, count] of counts) {
-    if (Number.isSafeInteger(count)) recordFFIMetric(`snapshot.tiles.${prefix}`, count);
+    if (Number.isSafeInteger(count)) recordAppMetric(`snapshot.tiles.${prefix}`, count);
   }
 }

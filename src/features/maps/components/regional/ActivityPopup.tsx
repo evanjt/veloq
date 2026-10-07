@@ -2,13 +2,13 @@ import React, { memo, useMemo, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, spacing, shadows } from '@/theme';
+import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { getActivityTypeConfig } from '../ActivityTypeFilter';
+import { getActivityTypeConfig } from '../../lib/activityCategories';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export interface SelectedActivity {
   activity: ActivityBoundsItem;
@@ -130,10 +130,13 @@ export const ActivityPopup = memo(function ActivityPopup({
           testID="activity-popup-view-details"
           onPress={onViewDetails}
           style={pressable(styles.viewDetailsInline)}
+          android_ripple={pressRipple}
           accessibilityLabel={t('maps.viewDetails')}
           accessibilityRole="button"
         >
-          <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
+          <Text style={[styles.viewDetailsText, isDark && { color: darkColors.linkTeal }]}>
+            {t('maps.viewDetails')}
+          </Text>
           <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
         </Pressable>
         <View style={styles.popupHeaderButtons}>
@@ -141,6 +144,7 @@ export const ActivityPopup = memo(function ActivityPopup({
             testID="activity-popup-zoom"
             onPress={onZoom}
             style={pressable(styles.popupIconButton)}
+            android_ripple={pressRipple}
             accessibilityLabel={t('maps.zoomToActivity')}
             accessibilityRole="button"
           >
@@ -150,6 +154,7 @@ export const ActivityPopup = memo(function ActivityPopup({
             testID="activity-popup-close"
             onPress={onClose}
             style={pressable(styles.popupIconButton)}
+            android_ripple={pressRipple}
             accessibilityLabel={t('maps.closePopup')}
             accessibilityRole="button"
           >
@@ -196,7 +201,7 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     backgroundColor: colors.surface,
-    borderRadius: spacing.md,
+    borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     ...shadows.modal,
@@ -267,6 +272,6 @@ const styles = StyleSheet.create({
   viewDetailsText: {
     fontSize: typography.label.fontSize,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.linkTeal,
   },
 });

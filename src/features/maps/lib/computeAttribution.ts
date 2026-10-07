@@ -14,6 +14,7 @@ import {
   getCombinedSatelliteAttribution,
   type MapStyleType,
 } from '@/features/maps/components/mapStyles';
+import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 
 export interface ComputeAttributionArgs {
   style: MapStyleType;
@@ -22,6 +23,8 @@ export interface ComputeAttributionArgs {
   center: [number, number] | null;
   /** Current viewport zoom level. Only used for satellite style. */
   zoom: number;
+  /** Current viewport extent. When known, every source drawn across it is credited. */
+  bounds?: LngLatBounds | null;
 }
 
 /**
@@ -32,12 +35,19 @@ export interface ComputeAttributionArgs {
  * other styles, returns the base attribution for that style. When `is3D` is
  * true, appends the terrain source attribution.
  */
-export function computeAttribution({ style, is3D, center, zoom }: ComputeAttributionArgs): string {
+export function computeAttribution({
+  style,
+  is3D,
+  center,
+  zoom,
+  bounds,
+}: ComputeAttributionArgs): string {
   if (style === 'satellite' && center) {
     const satAttribution = getCombinedSatelliteAttribution(
       center[1], // lat
       center[0], // lng
-      zoom
+      zoom,
+      bounds ?? undefined
     );
     return is3D ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
   }

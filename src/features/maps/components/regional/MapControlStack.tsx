@@ -322,8 +322,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   controlButton: {
-    width: 40,
-    height: 40,
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
@@ -341,25 +341,25 @@ const styles = StyleSheet.create({
   },
   // Dual button styles (location + fit-all combined)
   dualButtonContainer: {
-    width: 40,
+    width: layout.minTapTarget,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: colorWithOpacity(ink.white, 0.95),
     overflow: 'hidden',
     ...shadows.mapOverlay,
   },
   dualButtonHalf: {
-    width: 40,
-    height: 32,
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
     justifyContent: 'center',
     alignItems: 'center',
   },
   dualButtonTop: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: layout.borderRadiusXl,
+    borderTopRightRadius: layout.borderRadiusXl,
   },
   dualButtonBottom: {
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: layout.borderRadiusXl,
+    borderBottomRightRadius: layout.borderRadiusXl,
   },
   dualButtonDivider: {
     height: 1,
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   },
   // Layer toggle styles (activities/sections/routes combined)
   layerToggleContainer: {
-    width: 40,
+    width: layout.minTapTarget,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: colorWithOpacity(ink.white, 0.95),
     overflow: 'hidden',
@@ -381,8 +381,8 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceCard,
   },
   layerToggleItem: {
-    width: 40,
-    height: 32,
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -390,11 +390,11 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusXl,
   },
   layerToggleTop: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: layout.borderRadiusXl,
+    borderTopRightRadius: layout.borderRadiusXl,
   },
   layerToggleBottom: {
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: layout.borderRadiusXl,
+    borderBottomRightRadius: layout.borderRadiusXl,
   },
 });

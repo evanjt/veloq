@@ -12,7 +12,6 @@
  * out, so there is no platform-specific tap path on the React Native side.
  */
 import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
-import { getTileCacheBudgetMb } from '@/features/maps/lib/storage/tileCacheSettings';
 import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolution';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
@@ -505,7 +504,7 @@ function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         var layers = (window._veloq.interactiveLayers || []).filter(function(id) {
           return !!map.getLayer(id);
         });
-        if (layers.length === 0) return null;
+        if (layers.length === 0) return [];
         // A finger covers about 30 px and a section line is 2.4 px of dash at
         // its widest, a third of it gap, so a point query missed most taps and
         // ran the empty-space branch. Sections sit last in the precedence
@@ -518,18 +517,19 @@ function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         try {
           features = map.queryRenderedFeatures(box, { layers: layers });
         } catch (e) {
-          return null;
+          return [];
         }
-        if (!features || features.length === 0) return null;
-        // Preserve the caller's precedence rather than paint order.
+        if (!features || features.length === 0) return [];
+        // Preserve the caller's precedence rather than paint order. Every hit
+        // in the winning layer comes back, the winner first, so points stacked
+        // under one finger can be told apart by the caller.
         for (var i = 0; i < layers.length; i++) {
-          for (var j = 0; j < features.length; j++) {
-            if (features[j].layer && features[j].layer.id === layers[i]) {
-              return features[j];
-            }
-          }
+          var won = features.filter(function(f) {
+            return f.layer && f.layer.id === layers[i];
+          });
+          if (won.length > 0) return won;
         }
-        return features[0];
+        return [features[0]];
       }
 
       function describe(feature) {
@@ -545,11 +545,13 @@ function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       }
 
       map.on('click', function(e) {
+        var hits = hitTest(e.point);
         _post({
           type: 'mapClick',
           coordinate: [e.lngLat.lng, e.lngLat.lat],
           point: [e.point.x, e.point.y],
-          feature: describe(hitTest(e.point)),
+          feature: describe(hits[0]),
+          features: hits.map(describe),
         });
       });
 
@@ -577,7 +579,7 @@ function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
             type: 'mapLongPress',
             coordinate: [lngLat.lng, lngLat.lat],
             point: [pressOrigin.x, pressOrigin.y],
-            feature: describe(hitTest([pressOrigin.x, pressOrigin.y])),
+            feature: describe(hitTest([pressOrigin.x, pressOrigin.y])[0]),
           });
         }, ${config.longPressMs});
       }, { passive: true });
@@ -749,7 +751,7 @@ ${consoleBridgeScript()}
 
     setTimeout(function() { _sendMapFailed('ready timeout'); }, ${MAP_SURFACE_READY_TIMEOUT_MS});
 
-${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
+${tileProtocolsScript()}
 
     var _bounds = ${boundsJSON};
     var _center = ${centerJSON};
@@ -818,6 +820,20 @@ ${surfaceRuntimeScript(config)}
         window._veloq.attachEvents();
         window._veloq.drain();
         _sendMapReady();
+
+        // idle fires once every requested tile has drawn, so the transitions
+        // are the only thing posted, not each tile.
+        var _tilesLoading = false;
+        window.map.on('dataloading', function(e) {
+          if (_tilesLoading || e.dataType !== 'source' || !e.tile) return;
+          _tilesLoading = true;
+          window._veloq.post({ type: 'tilesLoading' });
+        });
+        window.map.on('idle', function() {
+          if (!_tilesLoading) return;
+          _tilesLoading = false;
+          window._veloq.post({ type: 'tilesSettled' });
+        });
       });
     } catch (e) {
       window._rn_log('SCRIPT ERROR: ' + e.message + ' at ' + (e.stack || ''));
@@ -870,6 +886,19 @@ export function buildSetStyleScript(
 
 /** Move the camera. `duration` of 0 jumps. */
 export function buildSetCameraScript(camera: MapCameraSpec, duration = 0): string {
+  if (camera.bounds) {
+    const maxZoom = camera.maxZoom !== undefined ? `maxZoom: ${camera.maxZoom},` : '';
+    return `
+    if (window.map) {
+      window.map.fitBounds(${JSON.stringify([camera.bounds.sw, camera.bounds.ne])}, {
+        padding: ${paddingExpression(camera.padding, 40)},
+        ${maxZoom}
+        duration: ${duration},
+      });
+    }
+    true;
+  `;
+  }
   const options: Record<string, unknown> = {};
   if (camera.center) options.center = camera.center;
   if (camera.zoom !== undefined) options.zoom = camera.zoom;
@@ -968,88 +997,6 @@ export function buildProjectPointsScript(
     window._veloq && window._veloq.projectPoints(${JSON.stringify(requestId)}, ${JSON.stringify(
       points
     )});
-    true;
-  `;
-}
-
-/**
- * Answer a pending `bundled://` request with base64 bytes, or tell the page to
- * fetch it itself when the app does not carry that asset.
- *
- * The page decoded what shape it asked for when it made the request, so the
- * reply only carries bytes. They are walked out of the binary string with
- * `charCodeAt`: `new Blob` would re-encode them as UTF-8 and mangle the PNG.
- */
-export function buildBundledAssetReplyScript(requestId: string, base64: string | null): string {
-  const id = JSON.stringify(requestId);
-  if (!base64) {
-    return `
-      (function() {
-        var pending = window._bundledRequests && window._bundledRequests[${id}];
-        if (pending) pending.fallback();
-      })();
-      true;
-    `;
-  }
-  return `
-    (function() {
-      var pending = window._bundledRequests && window._bundledRequests[${id}];
-      if (!pending) return;
-      try {
-        var binary = atob('${base64}');
-        var bytes = new Uint8Array(binary.length);
-        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        if (pending.kind === 'json') {
-          pending.deliver({ data: JSON.parse(new TextDecoder().decode(bytes)) });
-        } else if (pending.kind === 'image') {
-          pending.deliver(window._veloqBlobToImage(new Blob([bytes])));
-        } else {
-          pending.deliver({ data: bytes.buffer });
-        }
-      } catch (e) {
-        pending.fallback();
-      }
-    })();
-    true;
-  `;
-}
-
-/**
- * Resolve a pending `heatmap-file://` request with base64 PNG bytes, or reject
- * it when the tile is missing.
- *
- * `addProtocol` wants `{ data: ArrayBuffer }` for a raster tile. The bytes are
- * walked out of the binary string with `charCodeAt` rather than handed to
- * `new Blob`, which would re-encode them as UTF-8 and mangle the PNG.
- */
-export function buildHeatmapTileReplyScript(requestId: string, base64: string | null): string {
-  const id = JSON.stringify(requestId);
-  if (!base64) {
-    return `
-      (function() {
-        var pending = window._heatmapRequests && window._heatmapRequests[${id}];
-        if (pending) {
-          delete window._heatmapRequests[${id}];
-          pending.reject(new Error('tile unavailable'));
-        }
-      })();
-      true;
-    `;
-  }
-  return `
-    (function() {
-      var pending = window._heatmapRequests && window._heatmapRequests[${id}];
-      if (!pending) return;
-      delete window._heatmapRequests[${id}];
-      try {
-        var binary = atob(${JSON.stringify(base64)});
-        var bytes = new Uint8Array(binary.length);
-        for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
-        pending.resolve({ data: bytes.buffer });
-      } catch (err) {
-        pending.reject(new Error('heatmap base64 decode failed: ' + err));
-      }
-    })();
     true;
   `;
 }

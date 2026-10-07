@@ -289,3 +289,51 @@ export function isLikelyInterestingTerrain(
   }
   return true;
 }
+
+export interface Terrain3DInput {
+  mode: 'off' | 'always' | 'smart';
+  /** [lng, lat] points of the track, empty before it loads */
+  coordinates: [number, number][];
+  altitude: number[] | undefined;
+  gain: number;
+  distance: number;
+  /** The athlete's saved camera for this activity, if any */
+  override: TerrainCamera | null;
+}
+
+export interface Terrain3DVerdict {
+  show3D: boolean;
+  camera: TerrainCamera | null;
+}
+
+/**
+ * The one decision every surface shows for whether an activity renders in 3D.
+ * In smart mode a saved camera wins, then the altitude analysis when there is
+ * altitude. Only without altitude does the gain prefilter decide, since it is a
+ * coarse stand-in and never a veto over the analysis.
+ */
+export function resolveTerrain3D(input: Terrain3DInput): Terrain3DVerdict {
+  const { mode, coordinates, altitude, gain, distance, override } = input;
+  if (mode !== 'always' && mode !== 'smart') return { show3D: false, camera: null };
+
+  const hasTrack = coordinates.length >= 2;
+  const hasAltitude = !!altitude && altitude.length > 0;
+
+  if (mode === 'always') {
+    const camera =
+      override ?? (hasTrack ? calculateTerrainCamera(coordinates, altitude).camera : null);
+    return { show3D: true, camera };
+  }
+
+  if (override) return { show3D: true, camera: override };
+  if (hasAltitude) {
+    if (!hasTrack) return { show3D: false, camera: null };
+    const result = calculateTerrainCamera(coordinates, altitude);
+    return { show3D: result.hasInterestingTerrain, camera: result.camera };
+  }
+  if (!isLikelyInterestingTerrain(gain, distance)) return { show3D: false, camera: null };
+  return {
+    show3D: true,
+    camera: hasTrack ? calculateTerrainCamera(coordinates, altitude).camera : null,
+  };
+}

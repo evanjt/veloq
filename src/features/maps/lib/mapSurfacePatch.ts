@@ -2,9 +2,10 @@
  * What a map surface patch has to carry, decided without stringifying the
  * whole map.
  *
- * Two savings live here. The specs callers hand to `MapSurface` are memoised,
- * so an unchanged source arrives as the same object every render: comparing
- * the object first means a tap that only repaints one layer no longer
+ * Two savings live here. The data callers hand to `MapSurface` is memoised,
+ * so an unchanged source arrives with every field identical to the last
+ * send, whether or not the wrapper around it is the same object: comparing
+ * the fields first means a tap that only repaints one layer no longer
  * serialises every track on screen to discover nothing moved. And a line that
  * grows at its end, which is every recording in progress, ships the points it
  * gained rather than all the points it has.
@@ -73,21 +74,26 @@ const samePoint = (a: GeoJSON.Position | undefined, b: GeoJSON.Position | undefi
   !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
 
 /**
- * How to get the page from `sent` points to `next` points.
+ * How to get the page from the first `sentLength` points of `sent` to `next`.
  *
  * An append is only offered when the line is longer and still joins where it
  * did: the first point and the point the tail hangs off both have to match.
  * Two O(1) comparisons, so a trim, a reversal or a re-cut falls back to the
- * whole line rather than corrupting it. The points themselves are compared by
- * value because a recording rebuilds its tuples on every fix.
+ * whole line rather than corrupting it. The points are compared by value, since
+ * a caller may rebuild its tuples. The length is carried apart from the array
+ * because the live map appends to the one it sent.
  */
-export function planGrowth(sent: GeoJSON.Position[] | null, next: GeoJSON.Position[]): GrowthPlan {
-  if (!sent || sent.length === 0) return { kind: 'whole' };
-  if (next.length < sent.length) return { kind: 'whole' };
+export function planGrowth(
+  sent: GeoJSON.Position[] | null,
+  next: GeoJSON.Position[],
+  sentLength: number = sent?.length ?? 0
+): GrowthPlan {
+  if (!sent || sentLength === 0) return { kind: 'whole' };
+  if (next.length < sentLength) return { kind: 'whole' };
   if (!samePoint(sent[0], next[0])) return { kind: 'whole' };
-  if (!samePoint(sent[sent.length - 1], next[sent.length - 1])) return { kind: 'whole' };
-  if (next.length === sent.length) return { kind: 'unchanged' };
-  return { kind: 'append', coordinates: next.slice(sent.length) };
+  if (!samePoint(sent[sentLength - 1], next[sentLength - 1])) return { kind: 'whole' };
+  if (next.length === sentLength) return { kind: 'unchanged' };
+  return { kind: 'append', coordinates: next.slice(sentLength) };
 }
 
 /** What the caller wants on the map this render. */
@@ -120,7 +126,23 @@ type SentSource = {
   json: string | null;
   /** The points the page has, for a growing line. */
   line: GeoJSON.Position[] | null;
+  /** How many of them it has, since the array may have grown since. */
+  lineLength: number;
 };
+
+/**
+ * Whether a source is the one last sent: the same object, or a wrapper with
+ * the same keys whose every value is identical. A caller that builds the
+ * wrapper fresh around memoised data is unchanged all the same.
+ */
+export function sameFields(a: MapSourceSpec, b: MapSourceSpec): boolean {
+  if (a === b) return true;
+  const left = a as unknown as Record<string, unknown>;
+  const right = b as unknown as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every((key) => key in right && left[key] === right[key]);
+}
 
 /** Stands in for an absent list, so an absent one keeps its identity too. */
 const EMPTY: never[] = [];
@@ -156,7 +178,7 @@ export function createSurfacePatcher() {
 
       for (const [id, spec] of Object.entries(specs.sources)) {
         const prior = sentSources[id];
-        if (prior && prior.spec === spec) {
+        if (prior && sameFields(prior.spec, spec)) {
           nextSources[id] = prior;
           continue;
         }
@@ -165,8 +187,8 @@ export function createSurfacePatcher() {
         if (line) {
           // A growing line is never serialised: the plan is decided from the
           // points, and that is the whole point of the flag.
-          const plan = planGrowth(prior?.line ?? null, line);
-          nextSources[id] = { spec, json: null, line };
+          const plan = planGrowth(prior?.line ?? null, line, prior?.lineLength);
+          nextSources[id] = { spec, json: null, line, lineLength: line.length };
           if (plan.kind === 'append') {
             appends[id] = plan.coordinates;
             hasAppend = true;
@@ -179,7 +201,7 @@ export function createSurfacePatcher() {
 
         const json = JSON.stringify(spec);
         serialised += 1;
-        nextSources[id] = { spec, json, line: null };
+        nextSources[id] = { spec, json, line: null, lineLength: 0 };
         if (prior && prior.json === json) continue;
         changed[id] = spec;
         hasSourceChange = true;

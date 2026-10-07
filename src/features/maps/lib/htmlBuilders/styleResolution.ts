@@ -1,12 +1,4 @@
-/**
- * One place that turns a `MapStyleType` into something a WebView map can load.
- * Callers state their difference through options rather than branching
- * themselves, so the dark style's vector cache and the light style URL are
- * decided once.
- *
- * The defaults are what the seven 2D surfaces want, so they state nothing. The
- * three 3D paths pass `TERRAIN_STYLE_OPTIONS`, which is the only opt-out.
- */
+/** Turn a map style into a WebView style with optional source routing. */
 import {
   getCombinedSatelliteStyle,
   rewriteSatelliteUrls,
@@ -24,10 +16,7 @@ export const LIGHT_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 export interface WebViewStyleOptions {
   /**
    * Route the basemap tiles through the tile store rather than straight at the
-   * host: the intercept on Android, the `cached-vector://` and `cached-ground://`
-   * protocols where nothing can intercept. On by default: every 2D surface wants
-   * it, and rewriting after a `setStyle` is what the 3D paths avoid, since it
-   * leaves features blank until the cache warms.
+   * host: the intercept on Android and the scheme handler on iOS. On by default.
    */
   cacheVectorTiles?: boolean;
   /**
@@ -43,18 +32,6 @@ export interface WebViewStyleOptions {
    */
   bundledAssets?: boolean;
 }
-
-/**
- * The 3D surfaces opt out of both. They load a style once on a cold page and
- * let MapLibre resolve the light TileJSON itself, so neither the bundle nor the
- * cached protocol buys them anything, and the rewrite costs them blank features
- * after a style swap. `map3D` keeps the cached protocol, it builds its page
- * fresh each time.
- */
-export const TERRAIN_STYLE_OPTIONS: WebViewStyleOptions = {
-  bundledLightStyle: false,
-  cacheVectorTiles: false,
-};
 
 /**
  * Either an inline style object to hand straight to MapLibre, or a URL for it

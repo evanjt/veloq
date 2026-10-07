@@ -13,15 +13,26 @@
  */
 import { MAP_3D_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
-import { TERRAIN_3D_CONFIG, terrain3DSource } from '@/features/maps/components/mapStyles';
+import {
+  HILLSHADE_INSERT_INDEX_SCRIPT,
+  TERRAIN_3D_CONFIG,
+  terrain3DSource,
+} from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import { resolveStyleExpression, LIGHT_STYLE_URL, TERRAIN_STYLE_OPTIONS } from './styleResolution';
-import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
-import { getTileCacheBudgetMb } from '@/features/maps/lib/storage/tileCacheSettings';
+import { resolveStyleExpression } from './styleResolution';
+import { SURFACE_HIT_TEST_RADIUS_PX } from './mapSurface';
+import {
+  consoleBridgeScript,
+  mapLibreHead,
+  terrainVisibilityScript,
+  tileProtocolsScript,
+} from './shared';
 import { jsLiteral, jsLiteralList } from '@/features/maps/lib/webViewLiterals';
+import { sectionCreation3DLayers } from '@/features/maps/lib/sectionCreationPaint';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
-import { heatmapTileTemplate } from '@/features/maps/hooks/useHeatmapTiles';
-import { colors, colorWithOpacity } from '@/theme';
+import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
+import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
+import { colors, colorWithOpacity, mapLayerColors, sectionPalette } from '@/theme';
 
 /**
  * What the app says when it declines a tile request of its own.
@@ -74,6 +85,8 @@ export interface Map3DHtmlConfig {
   routeColor: string;
   /** When true, heatmap raster overlay is visible on first render. */
   showHeatmap: boolean;
+  /** Finished tile passes so far, which versions the heatmap tile URL. */
+  heatmapGeneration?: number | undefined;
   /** Device pixel ratio to hand to MapLibre (already capped by caller). */
   devicePixelRatio: number;
 }
@@ -98,6 +111,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
     mapStyle,
     routeColor,
     showHeatmap,
+    heatmapGeneration = 0,
     devicePixelRatio,
   } = config;
 
@@ -121,12 +135,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
     isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
   );
 
-  // Satellite and dark are inline objects on cached tile protocols; light is
-  // URL-based so MapLibre resolves the TileJSON itself.
-  const { styleJSON: styleConfig } = resolveStyleExpression(initStyle, {
-    ...TERRAIN_STYLE_OPTIONS,
-    cacheVectorTiles: true,
-  });
+  const { styleJSON: styleConfig } = resolveStyleExpression(initStyle);
 
   return `${mapLibreHead({ title: '3D Map' })}
 <body>
@@ -135,16 +144,14 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
 ${consoleBridgeScript()}
 
     // The ready signal is the only thing that clears the loading spinner, so
-    // it is armed before anything that can throw. The renderer is inlined and
-    // the light style is still fetched at runtime, so the page has to be able
-    // to report its own failure without either of them.
+    // it is armed before anything that can throw. The page reports setup failures.
     var mapReadySent = false;
     var mapFailedSent = false;
 
     function sendMapReady() {
       if (mapReadySent || mapFailedSent) return;
       mapReadySent = true;
-      window._rn_log('sending mapReady - sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
+      window._rn_log('sending mapReady');
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
       }
@@ -218,9 +225,12 @@ ${consoleBridgeScript()}
     const _terrainSource = ${initTerrainSourceJSON};
     const _skyConfig = ${initSkyConfigJSON};
     const _hillshadePaint = ${initHillshadePaintJSON};
+    ${HILLSHADE_INSERT_INDEX_SCRIPT}
     const _hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
-${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
+${tileProtocolsScript()}
+
+${terrainVisibilityScript()}
 
     // Create map with appropriate style
     // Use saved camera state if available, otherwise use bounds or center/zoom
@@ -248,18 +258,10 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
       return opts;
     }
 
-    // Satellite/dark use inline style JSON; light uses URL directly.
-    // Light mode URL-based init lets MapLibre handle TileJSON resolution
-    // and vector tile loading natively - more reliable than fetch+rewrite.
     try {
     var styleJSON = ${styleConfig};
-    if (styleJSON) {
-      window._rn_log('creating map with inline style (satellite/dark)');
-      window.map = new maplibregl.Map(buildMapOptions(styleJSON));
-    } else {
-      window._rn_log('creating map with light style URL');
-      window.map = new maplibregl.Map(buildMapOptions(${jsLiteral(LIGHT_STYLE_URL)}));
-    }
+    window._rn_log('creating map with inline style');
+    window.map = new maplibregl.Map(buildMapOptions(styleJSON));
 
     var map = window.map;
 
@@ -283,11 +285,12 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
     });
 
     // Track camera changes and save state for restoration
-    function saveCameraState() {
+    function saveCameraState(e) {
       if (window.ReactNativeWebView) {
         var c = map.getCenter();
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'cameraState',
+          gesture: !!(e && e.originalEvent),
           camera: {
             center: [c.lng, c.lat],
             zoom: map.getZoom(),
@@ -314,6 +317,31 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
     map.on('rotateend', saveCameraState);
     map.on('pitchend', saveCameraState);
 
+    // The opening camera is turned off a hiding ridge once, and only while the
+    // athlete has neither saved a camera nor moved this one.
+    var _athleteMoved = false, _openingChecked = false;
+    ['movestart', 'zoomstart', 'rotatestart', 'pitchstart'].forEach(function(name) {
+      map.on(name, function(e) { if (e && e.originalEvent) _athleteMoved = true; });
+    });
+
+    function turnOpeningCamera() {
+      if (_openingChecked) return;
+      _openingChecked = true;
+      if (${hasSavedCamera} || _athleteMoved || coordinates.length < 2 || !window._pickUnhiddenCamera) return;
+      try {
+        var c = map.getCenter();
+        var opening = { center: [c.lng, c.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+        var spans = bounds ? [bounds.ne[0] - bounds.sw[0], bounds.ne[1] - bounds.sw[1]] : [0, 0];
+        var picked = window._pickUnhiddenCamera(map, opening, coordinates, spans);
+        if (picked !== opening) {
+          window._rn_log('Terrain hides the route, opening at bearing ' + picked.bearing + ' pitch ' + picked.pitch);
+          map.jumpTo(picked);
+        }
+      } catch (e) {
+        window._rn_log('opening camera check failed: ' + e.message);
+      }
+    }
+
     map.on('load', function() {
       window._rn_log('map load event fired');
 
@@ -337,13 +365,9 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
 
       // Add hillshade before the first transportation/building layer found
       if (!isSatellite) {
-        var _hillshadeBefore = undefined;
-        for (var ci = 0; ci < _hillshadeInsertCandidates.length; ci++) {
-          if (map.getLayer(_hillshadeInsertCandidates[ci])) {
-            _hillshadeBefore = _hillshadeInsertCandidates[ci];
-            break;
-          }
-        }
+        var _styleLayers = map.getStyle().layers;
+        var _hillshadeIdx = hillshadeInsertIndex(_styleLayers, _hillshadeInsertCandidates);
+        var _hillshadeBefore = _hillshadeIdx < _styleLayers.length ? _styleLayers[_hillshadeIdx].id : undefined;
         window._rn_log('hillshade insert before: ' + (_hillshadeBefore || 'end'));
         map.addLayer({
           id: 'hillshading',
@@ -372,6 +396,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
             }] : [],
           },
           tolerance: 0,
+          lineMetrics: true,
         });
 
         // Route outline (for contrast)
@@ -385,7 +410,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
             visibility: hasRoute ? 'visible' : 'none',
           },
           paint: {
-            'line-color': '#FFFFFF',
+            'line-color': ${jsLiteral(mapLayerColors.casing)},
             'line-width': 5,
             'line-opacity': 0.8,
           },
@@ -420,7 +445,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           layout: { visibility: hasRoute ? 'visible' : 'none' },
           paint: {
             'circle-radius': 7,
-            'circle-color': '#FFFFFF',
+            'circle-color': ${jsLiteral(mapLayerColors.casing)},
           },
         });
         // Colored fill (green start, red end)
@@ -439,10 +464,20 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
       // Swap the drawn route without rebuilding the page. Injected from React
       // Native when the selected activity changes.
       window._veloq3d = window._veloq3d || {};
-      window._veloq3d.setRoute = function(next) {
+      window._veloq3d.gradient = null;
+      window._veloq3d.setRouteGradient = function(expression) {
+        window._veloq3d.gradient = expression;
+        try {
+          if (map.getLayer('route-line')) map.setPaintProperty('route-line', 'line-gradient', expression);
+        } catch (e) {
+          window._rn_log('setRouteGradient failed: ' + e.message);
+        }
+      };
+      window._veloq3d.setRoute = function(next, color) {
         try {
           var on = next && next.length > 0;
           window._routeCoords = next || [];
+          if (color && map.getLayer('route-line')) map.setPaintProperty('route-line', 'line-color', color);
           map.getSource('route').setData({
             type: 'FeatureCollection',
             features: on ? [{
@@ -469,14 +504,14 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         id: 'highlight-border',
         type: 'circle',
         source: 'highlight-point',
-        paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' },
+        paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} },
         layout: { visibility: 'none' },
       });
       map.addLayer({
         id: 'highlight-fill',
         type: 'circle',
         source: 'highlight-point',
-        paint: { 'circle-radius': 5, 'circle-color': '#00BCD4' },
+        paint: { 'circle-radius': 5, 'circle-color': ${jsLiteral(sectionPalette[0])} },
         layout: { visibility: 'none' },
       });
 
@@ -486,45 +521,14 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
-      map.addLayer({
-        id: 'section-creation-line-outline',
-        type: 'line',
-        source: 'section-creation-line',
-        layout: { 'line-join': 'round', 'line-cap': 'round', visibility: 'none' },
-        paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.6 },
-      });
-      map.addLayer({
-        id: 'section-creation-line-fill',
-        type: 'line',
-        source: 'section-creation-line',
-        layout: { 'line-join': 'round', 'line-cap': 'round', visibility: 'none' },
-        paint: { 'line-color': '#22C55E', 'line-width': 6, 'line-opacity': 1 },
-      });
+      ${JSON.stringify(sectionCreation3DLayers(false).filter((l) => l.type === 'line'))}.forEach(function(l) { map.addLayer(l); });
 
       // Section creation start/end markers
       map.addSource('section-creation-markers', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
-      map.addLayer({
-        id: 'section-creation-marker-border',
-        type: 'circle',
-        source: 'section-creation-markers',
-        paint: { 'circle-radius': 10, 'circle-color': '#FFFFFF' },
-        layout: { visibility: 'none' },
-      });
-      map.addLayer({
-        id: 'section-creation-marker-fill',
-        type: 'circle',
-        source: 'section-creation-markers',
-        paint: {
-          'circle-radius': 8,
-          'circle-color': ['case',
-            ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.9))},
-            ${jsLiteral(colorWithOpacity(colors.error, 0.9))}],
-        },
-        layout: { visibility: 'none' },
-      });
+      ${JSON.stringify(sectionCreation3DLayers(false).filter((l) => l.type === 'circle'))}.forEach(function(l) { map.addLayer(l); });
       map.addLayer({
         id: 'section-creation-marker-icon',
         type: 'symbol',
@@ -537,22 +541,54 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           'text-ignore-placement': true,
           visibility: 'none',
         },
-        paint: { 'text-color': '#FFFFFF' },
+        paint: { 'text-color': ${jsLiteral(mapLayerColors.casing)} },
       });
 
       // Click handler - posts map coordinates back to React Native
       map.on('click', function(e) {
+        // A finger covers about 30 px and a section line is a thin dash, so both
+        // queries take a box around the tap, as the 2D page does.
+        var hitR = ${SURFACE_HIT_TEST_RADIUS_PX};
+        var hitBox = [[e.point.x - hitR, e.point.y - hitR], [e.point.x + hitR, e.point.y + hitR]];
         // Check if the click hit an activity point marker first (global map points)
         try {
           if (map.getLayer('activity-points-layer')) {
-            var activityFeatures = map.queryRenderedFeatures(e.point, { layers: ['activity-points-layer'] });
+            var activityFeatures = map.queryRenderedFeatures(hitBox, { layers: ['activity-points-layer'] });
             if (activityFeatures && activityFeatures.length > 0) {
               var aProps = activityFeatures[0].properties;
               var activityId = aProps && aProps.id;
               if (activityId && window.ReactNativeWebView) {
+                // Every point under the tap goes with it: starts stacked on one
+                // spot are told apart on the React Native side, which fans them out.
+                var hits = activityFeatures.map(function(f) {
+                  return { type: 'Feature', properties: f.properties, geometry: f.geometry };
+                });
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                   type: 'activityClick',
-                  activityId: String(activityId)
+                  activityId: String(activityId),
+                  features: hits
+                }));
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          // queryRenderedFeatures may fail if layer was just removed - ignore
+        }
+        // Section markers on the activity map, ahead of creation-mode map clicks
+        try {
+          var markerLayers = ['section-marker-circle-3d', 'section-marker-pr-icon-3d'].filter(function(id) {
+            return map.getLayer(id);
+          });
+          if (markerLayers.length > 0) {
+            var markerFeatures = map.queryRenderedFeatures(e.point, { layers: markerLayers });
+            if (markerFeatures && markerFeatures.length > 0) {
+              var mProps = markerFeatures[0].properties;
+              var markerSectionId = mProps && mProps.sectionId;
+              if (markerSectionId && window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'sectionClick',
+                  sectionId: String(markerSectionId)
                 }));
                 return;
               }
@@ -564,7 +600,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         // Then check section line features
         try {
           if (map.getLayer('sections-layer')) {
-            var sectionFeatures = map.queryRenderedFeatures(e.point, { layers: ['sections-layer'] });
+            var sectionFeatures = map.queryRenderedFeatures(hitBox, { layers: ['sections-layer'] });
             if (sectionFeatures && sectionFeatures.length > 0) {
               var props = sectionFeatures[0].properties;
               var sectionId = props && (props.sectionId || props.id);
@@ -596,12 +632,11 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
       // missing layer id silently drops the addLayer in some MapLibre versions. Probe
       // for it and only insert behind it when present.
       var showHeatmap = ${showHeatmap};
-      var isLightMap = ${jsLiteral(mapStyle)} === 'light';
       map.addSource('heatmap-tiles', {
         type: 'raster',
-        tiles: [${jsLiteral(heatmapTileTemplate())}],
+        tiles: [${jsLiteral(heatmapTileTemplate(heatmapGeneration))}],
         tileSize: 256,
-        minzoom: 5,
+        minzoom: ${HEATMAP_SOURCE_MINZOOM},
         maxzoom: 17
       });
       var heatmapBeforeId = map.getLayer('route-outline') ? 'route-outline' : undefined;
@@ -613,14 +648,7 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
         type: 'raster',
         source: 'heatmap-tiles',
         layout: { visibility: showHeatmap ? 'visible' : 'none' },
-        paint: {
-          'raster-opacity': isLightMap ? 0.82 : 0.72,
-          'raster-contrast': isLightMap ? 0.25 : 0,
-          'raster-brightness-max': isLightMap ? 0.7 : 1,
-          'raster-saturation': isLightMap ? 0.4 : 0,
-          'raster-fade-duration': 0,
-          'raster-resampling': 'linear'
-        }
+        paint: ${JSON.stringify(heatmapRasterPaint(mapStyle))}
       }, heatmapBeforeId);
 
       // Terrain-first ready detection - only wait for DEM terrain and route sources,
@@ -637,6 +665,8 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
           requestAnimationFrame(function() { sendMapReady(); });
         }
       });
+
+      map.once('idle', turnOpeningCamera);
 
       // Fallback for when sourcedata doesn't fire (e.g. cached tiles)
       map.once('idle', function() {

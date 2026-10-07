@@ -1,10 +1,14 @@
 /**
- * What the bundled glyphs cover, without the glyphs themselves.
+ * What the app bundle carries of the basemap's sprite and glyphs.
  *
- * `bundledBasemap.ts` pulls 2.5 MB of base64 in, so anything that only needs to
- * know which stacks exist reads them here instead. A layer spec naming its font
- * is the common case: it runs on every map screen and carries none of the data.
+ * The files sit under `modules/veloqrs/assets/basemap` and the platform
+ * interceptor answers `veloq-asset/<path>` out of them, so this module names
+ * what exists and holds none of the bytes. Only the Latin ranges are carried:
+ * every range of the three stacks is 104 MB, which is CJK.
  */
+
+export const BUNDLED_SPRITE_DIR = 'sprites/ofm_f384';
+export const BUNDLED_SPRITE_FILES = ['ofm.json', 'ofm.png', 'ofm@2x.json', 'ofm@2x.png'];
 
 export const BUNDLED_GLYPH_STACKS = ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'];
 

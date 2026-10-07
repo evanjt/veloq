@@ -14,7 +14,7 @@
  * Extracted from RegionalMapView.tsx - pure refactor, no behaviour change.
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import type { MapCameraState } from '@/features/maps/components/MapSurface';
 
@@ -34,6 +34,10 @@ interface UseSectionAutoToggleParams {
   baseHandleRegionDidChange: (state: MapCameraState) => void;
   /** Base toggleSections callback (from useMapHandlers). */
   baseToggleSections: () => void;
+  /** A section popup was opened by a link: the overlay stays as it is. */
+  holdSections?: boolean | undefined;
+  /** Route matching is on; off, the zoom never changes the overlay. */
+  enabled?: boolean | undefined;
 }
 
 interface UseSectionAutoToggleResult {
@@ -48,6 +52,8 @@ export function useSectionAutoToggle({
   setShowSections,
   baseHandleRegionDidChange,
   baseToggleSections,
+  holdSections = false,
+  enabled = true,
 }: UseSectionAutoToggleParams): UseSectionAutoToggleResult {
   // Ref mirror for showSections - read inside handleRegionDidChange to keep
   // callback identity stable. Changing onRegionDidChange prop causes Android
@@ -56,17 +62,27 @@ export function useSectionAutoToggle({
   showSectionsRef.current = showSections;
 
   // Track whether user manually toggled sections (if so, don't auto-show/hide).
-  const userToggledSectionsRef = useRef(false);
+  // A held overlay starts in the same state: hiding it would close the popup
+  // the link opened on the first camera settle.
+  const userToggledSectionsRef = useRef(holdSections);
 
   // Debounce timer for auto-show/hide sections - defers setShowSections to
   // avoid React re-renders during gesture momentum that cause Android MapLibre
   // snap-back.
   const showSectionsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const clearPendingAutoToggle = useCallback(() => {
+    if (showSectionsDebounceRef.current) clearTimeout(showSectionsDebounceRef.current);
+    showSectionsDebounceRef.current = null;
+  }, []);
+
+  useEffect(() => clearPendingAutoToggle, [clearPendingAutoToggle]);
+
   const toggleSections = useCallback(() => {
     userToggledSectionsRef.current = true;
+    clearPendingAutoToggle();
     baseToggleSections();
-  }, [baseToggleSections]);
+  }, [baseToggleSections, clearPendingAutoToggle]);
 
   // Read showSections from a ref rather than the closure so the callback keeps
   // its identity across renders.
@@ -74,14 +90,15 @@ export function useSectionAutoToggle({
     (state: MapCameraState) => {
       baseHandleRegionDidChange(state);
 
-      if (userToggledSectionsRef.current) return;
+      if (!enabled || userToggledSectionsRef.current) return;
 
       const zoomLevel = state.zoom;
 
       // Defer the visibility change so it does not land mid-gesture. Matches
       // the settle debounce used for zoom and centre in useMapHandlers.
-      if (showSectionsDebounceRef.current) clearTimeout(showSectionsDebounceRef.current);
+      clearPendingAutoToggle();
       showSectionsDebounceRef.current = setTimeout(() => {
+        if (userToggledSectionsRef.current) return;
         if (zoomLevel >= SECTIONS_AUTO_SHOW_ZOOM && !showSectionsRef.current) {
           setShowSections(true);
         } else if (zoomLevel < SECTIONS_AUTO_HIDE_ZOOM && showSectionsRef.current) {
@@ -89,7 +106,7 @@ export function useSectionAutoToggle({
         }
       }, AUTO_TOGGLE_DEBOUNCE_MS);
     },
-    [baseHandleRegionDidChange, setShowSections]
+    [enabled, baseHandleRegionDidChange, setShowSections, clearPendingAutoToggle]
   );
 
   return { handleRegionDidChange, toggleSections };

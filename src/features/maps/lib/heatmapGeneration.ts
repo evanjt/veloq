@@ -85,3 +85,15 @@ export function reportHeatmapView(center: [number, number], zoom: number): void 
     // it had, which is what it did before this existed.
   }
 }
+
+/**
+ * Tell the engine no map is showing any ground, so the next pass keeps its
+ * plain zoom order rather than putting first a view nobody has open.
+ */
+export function clearHeatmapView(): void {
+  try {
+    engine.clearHeatmapPriorityView();
+  } catch {
+    // No engine yet: there is no view to forget.
+  }
+}

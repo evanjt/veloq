@@ -8,18 +8,19 @@ import { Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location'; // 30 seconds
 import { normalizeBounds } from '@/shared/geo/polyline';
-import { activitySpatialIndex, mapBoundsToViewport } from '@/shared/geo/spatialIndex';
-import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
+import { planClusterZoom, stackedOn } from '@/features/maps/lib/clusterZoom';
+import type { LngLatBounds } from '@/features/maps/lib/coordinates';
+import { sectionIdsAtTap } from '@/features/maps/lib/sectionIdsAtTap';
 import { trackStillWanted, waitForGpsTrack } from '@/features/maps/lib/gpsTrackWait';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
-import { decodeCoords, DownloadPriority, startFetchAndStore } from 'veloqrs';
+import { decodeCoords, DownloadPriority } from 'veloqrs';
 import { present } from 'veloqrs/src/delegates/optional';
-import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
+import { activityStartEpoch } from '@/shared/activity/streamWindow';
 import { getEngine } from '@/shared/native/engine';
 import type { ActivityBoundsItem } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { Map3DWebViewRef } from '../Map3DWebView';
-import type { MapCameraState, MapPressEvent, MapSurfaceRef } from '../MapSurface';
+import type { MapCameraState, MapFeatureHit, MapPressEvent, MapSurfaceRef } from '../MapSurface';
 import {
   CLUSTER_SOURCE_ID,
   CLUSTER_CIRCLE_LAYER_ID,
@@ -28,21 +29,17 @@ import {
   UNCLUSTERED_POINT_LAYER_ID,
 } from './regionalMapLayerSpecs';
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
-import {
-  REGION_CHANGE_DEBOUNCE_MS,
-  REGION_SETTLE_DEBOUNCE_MS,
-  VIEWPORT_CULLING_THRESHOLD,
-} from '@/features/maps/lib/mapBudgets';
+import { REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 // Cache for last known location (avoid slow GPS re-acquisition)
 const LOCATION_CACHE_MAX_AGE_MS = 30000;
 
 /** The ease onto a cluster whose leaves never arrived. */
 const CLUSTER_EXPAND_DURATION_MS = 400;
 
-/** State for spider/fan-out expansion of clusters at max zoom */
+/** Points no zoom will pull apart, fanned out: a cluster at max zoom, or stacked starts. */
 export interface SpiderState {
-  center: [number, number]; // [lng, lat] cluster center
-  leaves: GeoJSON.Feature[]; // individual activity features from the cluster
+  center: [number, number]; // [lng, lat]
+  leaves: GeoJSON.Feature[]; // one activity feature each, carrying its id and colour
 }
 
 interface UseMapHandlersOptions {
@@ -50,6 +47,7 @@ interface UseMapHandlersOptions {
   selected: SelectedActivity | null;
   setSelected: (value: SelectedActivity | null) => void;
   setSelectedSectionId: (value: string | null) => void;
+  setSectionChoices: (value: string[]) => void;
   showActivities: boolean;
   setShowActivities: (value: boolean | ((prev: boolean) => boolean)) => void;
   showSections: boolean;
@@ -60,12 +58,9 @@ interface UseMapHandlersOptions {
   userLocation: [number, number] | null;
   setUserLocation: (value: [number, number] | null) => void;
   setLocationLoading: (value: boolean) => void;
-  setVisibleActivityIds: (value: Set<string> | null) => void;
   currentZoomRef: React.MutableRefObject<number>;
   currentCenterRef: React.MutableRefObject<[number, number] | null>;
-  setAboveTraceZoom: (value: boolean) => void;
-  traceZoomThreshold: number;
-  onCameraSettled?: (center: [number, number], zoom: number) => void;
+  onCameraSettled?: (center: [number, number], zoom: number, bounds?: LngLatBounds) => void;
   surfaceRef: React.RefObject<MapSurfaceRef | null>;
   map3DRef: React.RefObject<Map3DWebViewRef | null>;
   bearingAnim: Animated.Value;
@@ -80,8 +75,12 @@ interface UseMapHandlersResult {
   handleClosePopup: () => void;
   handleViewDetails: () => void;
   handleZoomToActivity: () => void;
+  /** Open the popup for an activity and bring its bounds on screen. */
+  handleFocusActivity: (activity: ActivityBoundsItem) => void;
   /** Single tap entry point. The page has already resolved which layer was hit. */
   handleSurfacePress: (event: MapPressEvent) => void;
+  /** A tap on bare terrain, shared by the 2D surface and the 3D page. */
+  handleEmptyPress: () => void;
   handleRegionIsChanging: (state: MapCameraState) => void;
   handleRegionDidChange: (state: MapCameraState) => void;
   handleGetLocation: () => Promise<void>;
@@ -92,22 +91,28 @@ interface UseMapHandlersResult {
   handleFitAll: () => void;
 }
 
+function asPointFeature(hit: MapFeatureHit): GeoJSON.Feature {
+  return {
+    type: 'Feature',
+    properties: hit.properties,
+    geometry: hit.geometry as GeoJSON.Geometry,
+  };
+}
+
 export function useMapHandlers({
   activities,
   selected,
   setSelected,
   setSelectedSectionId,
+  setSectionChoices,
   setShowActivities,
   setShowSections,
   setShowRoutes,
   setSelectedRoute,
   setUserLocation,
   setLocationLoading,
-  setVisibleActivityIds,
   currentZoomRef,
   currentCenterRef,
-  setAboveTraceZoom,
-  traceZoomThreshold,
   onCameraSettled,
   surfaceRef,
   map3DRef,
@@ -119,18 +124,20 @@ export function useMapHandlers({
 }: UseMapHandlersOptions): UseMapHandlersResult {
   const router = useRouter();
 
+  // The 2D surface is unmounted while 3D shows, so a camera move has to go to
+  // whichever of the two is on screen.
+  const cameraTarget = useCallback(
+    () => (is3DMode ? map3DRef.current : surfaceRef.current),
+    [is3DMode, map3DRef, surfaceRef]
+  );
+
   // Ref to access current selected without adding it as callback dependency
   // This keeps callbacks stable for React.memo optimization
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
 
   // Debounce timers for region change handlers
-  const visibleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const zoomCenterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track previous visible IDs to avoid creating new Set references when content hasn't changed
-  const prevVisibleKeyRef = useRef<string>('');
-  // Track previous viewport bounds to skip queryViewport FFI calls when camera hasn't moved
-  const prevBoundsKeyRef = useRef<string>('');
   // Track previous center/zoom to skip redundant ref updates and threshold checks
   const prevCenterRef = useRef<[number, number] | null>(null);
   const prevZoomRef = useRef<number>(-1);
@@ -144,7 +151,6 @@ export function useMapHandlers({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
       if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
     };
   }, []);
@@ -201,7 +207,7 @@ export function useMapHandlers({
           // result, so its result is never read. It is filed under its own run
           // and evicted in turn, which is what stops it being handed to the
           // sync or the push task as theirs.
-          startFetchAndStore(
+          getEngine()?.startFetchAndStore(
             [activity.id],
             [
               present({
@@ -248,21 +254,41 @@ export function useMapHandlers({
     }
   }, [router, setSelected]);
 
+  const fitToActivity = useCallback(
+    (activity: ActivityBoundsItem) => {
+      const normalized = normalizeBounds(activity.bounds);
+      cameraTarget()?.fitBounds(
+        {
+          sw: [normalized.minLng, normalized.minLat],
+          ne: [normalized.maxLng, normalized.maxLat],
+        },
+        REGIONAL_FIT_PADDING,
+        500
+      );
+    },
+    [cameraTarget]
+  );
+
   // Zoom to selected activity bounds - uses ref for stable callback
   const handleZoomToActivity = useCallback(() => {
     const current = selectedRef.current;
-    if (!current) return;
+    if (current) fitToActivity(current.activity);
+  }, [fitToActivity]);
 
-    const normalized = normalizeBounds(current.activity.bounds);
-    surfaceRef.current?.fitBounds(
-      {
-        sw: [normalized.minLng, normalized.minLat],
-        ne: [normalized.maxLng, normalized.maxLat],
-      },
-      REGIONAL_FIT_PADDING,
-      500
-    );
-  }, [surfaceRef]);
+  const handleFocusActivity = useCallback(
+    (activity: ActivityBoundsItem) => {
+      handleMarkerTap(activity);
+      fitToActivity(activity);
+    },
+    [handleMarkerTap, fitToActivity]
+  );
+
+  const handleEmptyPress = useCallback(() => {
+    if (selectedRef.current) setSelected(null);
+    setSelectedSectionId(null);
+    setSectionChoices([]);
+    setSpider(null);
+  }, [setSelected, setSelectedSectionId, setSectionChoices, setSpider]);
 
   // One tap handler for the whole surface. The page resolves which layer the
   // finger landed on, so there is no platform-specific hit test left here.
@@ -271,19 +297,19 @@ export function useMapHandlers({
       const feature = event.feature;
 
       if (!feature) {
-        // Empty space: dismiss whatever is open.
-        if (selectedRef.current) setSelected(null);
-        setSpider(null);
+        handleEmptyPress();
         return;
       }
 
       if (feature.layerId === SECTIONS_LINE_LAYER_ID) {
-        // The overlay carries six fields per section, so the popup's own record
-        // is read here, for the one section that was tapped.
-        const sectionId = feature.properties?.id;
-        if (typeof sectionId === 'string') setSelectedSectionId(sectionId);
+        const ids = sectionIdsAtTap(event.features?.length ? event.features : [feature]);
+        setSectionChoices(ids.length > 1 ? ids : []);
+        if (ids.length === 1) setSelectedSectionId(ids[0] ?? null);
+        if (ids.length > 1) setSelectedSectionId(null);
         return;
       }
+
+      setSectionChoices([]);
 
       if (feature.layerId === SPIDER_POINT_LAYER_ID) {
         const activityId = feature.properties?.id;
@@ -344,12 +370,33 @@ export function useMapHandlers({
       }
 
       if (feature.layerId === UNCLUSTERED_POINT_LAYER_ID) {
+        // Starts no zoom will pull apart, thirty rides from one garage, fan out.
+        const hits = event.features && event.features.length > 0 ? event.features : [feature];
+        const stacked = stackedOn(hits.map(asPointFeature));
+        if (stacked.length > 1) {
+          setSpider({
+            center: (stacked[0].geometry as GeoJSON.Point).coordinates as [number, number],
+            leaves: stacked,
+          });
+          return;
+        }
+      }
+
+      if (feature.layerId === UNCLUSTERED_POINT_LAYER_ID) {
         const activityId = feature.properties?.id;
         const activity = activities.find((a) => a.id === activityId);
         if (activity) handleMarkerTap(activity);
       }
     },
-    [activities, handleMarkerTap, setSelected, setSelectedSectionId, setSpider, surfaceRef]
+    [
+      activities,
+      handleEmptyPress,
+      handleMarkerTap,
+      setSelectedSectionId,
+      setSectionChoices,
+      setSpider,
+      surfaceRef,
+    ]
   );
 
   // Ref for spider dismissal during gestures (avoids adding setSpider to hot path deps)
@@ -375,10 +422,9 @@ export function useMapHandlers({
     [bearingAnim, currentZoomLevel]
   );
 
-  // Handle region change end - track zoom level, center, and update visible activities.
+  // Handle region change end - track zoom level and center.
   // Zoom and center are debounced because they drive attribution recalculation,
-  // which is expensive for satellite. Visible ids are debounced separately to
-  // batch rapid pan/zoom sequences.
+  // which is expensive for satellite.
   const handleRegionDidChange = useCallback(
     (state: MapCameraState) => {
       const { zoom, center, bounds } = state;
@@ -389,12 +435,6 @@ export function useMapHandlers({
       if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
       zoomCenterDebounceRef.current = setTimeout(() => {
         if (Math.abs(zoom - prevZoomRef.current) > 0.01) {
-          // Check trace threshold crossing BEFORE updating prev
-          const wasAbove = prevZoomRef.current >= traceZoomThreshold;
-          const nowAbove = zoom >= traceZoomThreshold;
-          if (wasAbove !== nowAbove) {
-            setAboveTraceZoom(nowAbove);
-          }
           prevZoomRef.current = zoom;
           currentZoomRef.current = zoom;
         }
@@ -407,59 +447,13 @@ export function useMapHandlers({
         // Persist camera position for restore on next visit (fire-and-forget)
         if (zoom > 0) {
           saveMapCameraState(center, zoom);
-          onCameraSettled?.(center, zoom);
+          onCameraSettled?.(center, zoom, bounds);
         }
       }, REGION_SETTLE_DEBOUNCE_MS);
 
-      // Below the culling threshold the whole set is drawn: filtering costs
-      // more than it saves, and the resulting state change would churn the
-      // marker source on every pan.
-      if (activities.length >= VIEWPORT_CULLING_THRESHOLD) {
-        if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
-        visibleDebounceRef.current = setTimeout(() => {
-          const [west, south] = bounds.sw;
-          const [east, north] = bounds.ne;
-
-          // Skip the spatial-index query when the viewport hasn't moved.
-          const boundsKey = `${east.toFixed(4)},${north.toFixed(4)},${west.toFixed(4)},${south.toFixed(4)}`;
-          if (boundsKey === prevBoundsKeyRef.current) return;
-          prevBoundsKeyRef.current = boundsKey;
-
-          if (activitySpatialIndex.ready) {
-            const viewport = mapBoundsToViewport([west, south], [east, north]);
-            const visibleIds = activitySpatialIndex.queryViewport(viewport);
-
-            // Only update state when content actually changes - a new Set with
-            // identical content would recompute the markers and post them again.
-            const key =
-              visibleIds.length +
-              ':' +
-              (visibleIds.length <= 500
-                ? visibleIds.sort().join(',')
-                : visibleIds.slice(0, 20).sort().join(','));
-            if (key !== prevVisibleKeyRef.current) {
-              prevVisibleKeyRef.current = key;
-              if (visibleIds.length > 0 || activitySpatialIndex.size === 0) {
-                setVisibleActivityIds(new Set(visibleIds));
-              }
-            }
-          }
-        }, REGION_CHANGE_DEBOUNCE_MS);
-      }
-
       markUserInteracted();
     },
-    [
-      activities.length,
-      currentZoomLevel,
-      currentZoomRef,
-      currentCenterRef,
-      setAboveTraceZoom,
-      traceZoomThreshold,
-      setVisibleActivityIds,
-      onCameraSettled,
-      markUserInteracted,
-    ]
+    [currentZoomLevel, currentZoomRef, currentCenterRef, onCameraSettled, markUserInteracted]
   );
 
   // Cache last location to avoid slow GPS re-acquisition
@@ -497,12 +491,12 @@ export function useMapHandlers({
       setUserLocation(coords);
       setLocationLoading(false);
 
-      surfaceRef.current?.setCamera({ center: coords, zoom: 13 }, 500);
+      cameraTarget()?.setCamera({ center: coords, zoom: 13 }, 500);
     } catch {
       setLocationLoading(false);
       // Silently fail - location is optional
     }
-  }, [surfaceRef, setUserLocation, setLocationLoading]);
+  }, [cameraTarget, setUserLocation, setLocationLoading]);
 
   // Toggle activities visibility - clear selection when hiding
   const toggleActivities = useCallback(() => {
@@ -521,10 +515,11 @@ export function useMapHandlers({
       if (current) {
         // We're hiding sections, clear selection
         setSelectedSectionId(null);
+        setSectionChoices([]);
       }
       return !current;
     });
-  }, [setShowSections, setSelectedSectionId]);
+  }, [setShowSections, setSelectedSectionId, setSectionChoices]);
 
   // Toggle routes visibility - clear selection when hiding
   const toggleRoutes = useCallback(() => {
@@ -578,19 +573,21 @@ export function useMapHandlers({
     // Validate bounds
     if (!Number.isFinite(minLat) || !Number.isFinite(maxLat)) return;
 
-    surfaceRef.current?.fitBounds(
+    cameraTarget()?.fitBounds(
       { sw: [minLng, minLat], ne: [maxLng, maxLat] },
       REGIONAL_FIT_PADDING,
       500
     );
-  }, [activities, surfaceRef]);
+  }, [activities, cameraTarget]);
 
   return {
     handleMarkerTap,
     handleClosePopup,
     handleViewDetails,
     handleZoomToActivity,
+    handleFocusActivity,
     handleSurfacePress,
+    handleEmptyPress,
     handleRegionIsChanging,
     handleRegionDidChange,
     handleGetLocation,

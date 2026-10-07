@@ -15,6 +15,9 @@ import { sectionPaletteIndex } from '@/theme';
 import { buildGradientLineStops } from '@/features/maps/lib/gradientLineColor';
 import type { ActivityStreams } from '@/types';
 import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
+import { buildSectionMarkers } from '../lib/sectionMarkers';
+
+const EMPTY_ROW_LABELS: ReadonlyMap<string, string> = new Map();
 
 /** Data about a single section overlay used by the rendering layer */
 export interface SectionOverlayGeoJSON {
@@ -32,10 +35,12 @@ interface UseMapLayersParams {
   coordinates: LatLng[];
   /** Route overlay coordinates (e.g., matched route trace) */
   routeOverlay?: LatLng[] | null | undefined;
-  /** Section overlays for the sections tab */
+  /** Section overlays: all of them on the sections tab, the PR ones drawn on the charts tab */
   sectionOverlays?: SectionOverlay[] | null | undefined;
   /** Index into coordinates to highlight (from chart scrubbing) */
   highlightIndex?: number | null | undefined;
+  /** Sections-tab card label per sectionId; numbered markers read it so marker N is card N */
+  sectionRowLabels?: ReadonlyMap<string, string> | undefined;
   /** Active tab - controls marker style (numbered on sections, PR on charts) */
   activeTab?: string | undefined;
   /** Activity streams - used to build per-point gradient colors */
@@ -79,6 +84,7 @@ export function useMapLayers({
   coordinates,
   routeOverlay,
   sectionOverlays,
+  sectionRowLabels,
   highlightIndex,
   activeTab,
   streams,
@@ -126,9 +132,16 @@ export function useMapLayers({
     overlayGeoJSON.type === 'Feature' ||
     (overlayGeoJSON.type === 'FeatureCollection' && overlayGeoJSON.features.length > 0);
 
+  // Filtered here rather than by the caller, so a chart scrub, which re-renders
+  // the caller every tick, cannot hand every section source a new array.
+  const shownOverlays = useMemo(
+    () => (activeTab === 'charts' ? sectionOverlays?.filter((o) => o.isPR) : sectionOverlays),
+    [sectionOverlays, activeTab]
+  );
+
   // ----- section overlays GeoJSON -----
   const { sectionOverlaysGeoJSON, consolidatedPortionsGeoJSON } = useMemo(() => {
-    if (!sectionOverlays || sectionOverlays.length === 0) {
+    if (!shownOverlays || shownOverlays.length === 0) {
       return {
         sectionOverlaysGeoJSON: null as SectionOverlayGeoJSON[] | null,
         consolidatedPortionsGeoJSON: EMPTY_FEATURE_COLLECTION,
@@ -140,7 +153,7 @@ export function useMapLayers({
     const portionFeatures: GeoJSON.Feature[] = [];
     const overlayData: SectionOverlayGeoJSON[] = [];
 
-    sectionOverlays.forEach((overlay) => {
+    shownOverlays.forEach((overlay) => {
       const overlayKey = overlay.overlayKey ?? overlay.id;
 
       const validSectionPoints = overlay.sectionPolyline.filter(
@@ -235,7 +248,7 @@ export function useMapLayers({
             } as GeoJSON.FeatureCollection)
           : EMPTY_FEATURE_COLLECTION,
     };
-  }, [sectionOverlays]);
+  }, [shownOverlays]);
 
   // ----- section marker GeoJSON -----
   // Sections tab: numbered markers (1, 2, 3...) for all sections
@@ -250,57 +263,8 @@ export function useMapLayers({
       : sectionOverlaysGeoJSON;
     if (overlaysToRender.length === 0) return EMPTY_FEATURE_COLLECTION;
 
-    const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
-
-    overlaysToRender.forEach((overlay, index) => {
-      const sectionGeom = overlay.sectionGeo?.geometry as GeoJSON.LineString | undefined;
-      const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
-      const coords = portionGeom?.coordinates || sectionGeom?.coordinates;
-      if (!coords || coords.length < 2) return;
-
-      const midIndex = Math.floor(coords.length / 2);
-      const midCoord = coords[midIndex];
-      if (
-        !midCoord ||
-        typeof midCoord[0] !== 'number' ||
-        typeof midCoord[1] !== 'number' ||
-        !Number.isFinite(midCoord[0]) ||
-        !Number.isFinite(midCoord[1])
-      ) {
-        return;
-      }
-
-      const prevIndex = Math.max(0, midIndex - 1);
-      const nextIndex = Math.min(coords.length - 1, midIndex + 1);
-      const prevCoord = coords[prevIndex];
-      const nextCoord = coords[nextIndex];
-
-      const dx = nextCoord[0] - prevCoord[0];
-      const dy = nextCoord[1] - prevCoord[1];
-      const len = Math.sqrt(dx * dx + dy * dy);
-
-      const offsetDistance = 0.00035; // ~35 meters at equator
-      const offsetLng = len > 0 ? (-dy / len) * offsetDistance : 0;
-      const offsetLat = len > 0 ? (dx / len) * offsetDistance : 0;
-
-      const markerLng = midCoord[0] + offsetLng;
-      const markerLat = midCoord[1] + offsetLat;
-      if (!Number.isFinite(markerLng) || !Number.isFinite(markerLat)) return;
-
-      features.push({
-        type: 'Feature',
-        properties: {
-          sectionId: overlay.id,
-          label: isPRMarker ? 'PR' : String(index + 1),
-          isPR: isPRMarker,
-          colorIndex: sectionPaletteIndex(overlay.id),
-        },
-        geometry: { type: 'Point', coordinates: [markerLng, markerLat] },
-      });
-    });
-
-    return { type: 'FeatureCollection', features };
-  }, [sectionOverlaysGeoJSON, activeTab]);
+    return buildSectionMarkers(overlaysToRender, sectionRowLabels ?? EMPTY_ROW_LABELS, isPRMarker);
+  }, [sectionOverlaysGeoJSON, activeTab, sectionRowLabels]);
 
   // ----- section boundary ticks -----
   // Perpendicular short line segments at each section's start and end.
@@ -409,10 +373,16 @@ export function useMapLayers({
   // stops so the expression stays compact regardless of track length.
   const gradientLineExpression = useMemo(() => {
     if (!streams || validCoordinates.length < 2) return null;
-    const stops = buildGradientLineStops(streams.grade_smooth, streams.distance);
+    const hasPosition = coordinates.map((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
+    const stops = buildGradientLineStops(
+      streams.grade_smooth,
+      streams.distance,
+      undefined,
+      hasPosition
+    );
     if (!stops) return null;
     return ['interpolate', ['linear'], ['line-progress'], ...stops];
-  }, [streams, validCoordinates.length]);
+  }, [streams, coordinates, validCoordinates.length]);
 
   return {
     routeGeoJSON,

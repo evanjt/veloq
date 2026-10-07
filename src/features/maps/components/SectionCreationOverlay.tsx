@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import {
+  Pressable,
   View,
   StyleSheet,
   TouchableOpacity,
@@ -16,10 +17,20 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, typography, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  shadows,
+  colorWithOpacity,
+  ink,
+} from '@/theme';
 import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeTone';
 import { formatDistance } from '@/shared/format/format';
-import { useMetricSystem } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export type CreationState =
   | 'idle'
@@ -65,17 +76,6 @@ interface SectionCreationOverlayProps {
   onReset: () => void;
   /** Called to dismiss error and retry */
   onDismissError?: (() => void) | undefined;
-}
-
-/**
- * Get warning message for large sections.
- * Returns null if section size is acceptable.
- */
-function getSectionSizeWarning(pointCount: number | null): string | null {
-  if (pointCount === null) return null;
-  if (pointCount >= 7000) return 'Section may be too large to save';
-  if (pointCount >= 5000) return 'Large section - may affect performance';
-  return null;
 }
 
 /**
@@ -155,6 +155,13 @@ export function SectionCreationOverlay({
     setExpanded(!expanded);
   };
 
+  const { isDark } = useTheme();
+  const palette = isDark ? darkColors : colors;
+  const pillStyle = isDark ? { backgroundColor: darkColors.surfaceOverlay } : null;
+  const ruleStyle = isDark ? { borderTopColor: darkColors.border } : null;
+  const mutedText = { color: palette.textSecondary };
+  const detailsStyle = isDark ? { backgroundColor: colorWithOpacity(ink.white, 0.06) } : null;
+
   const isComplete = state === 'complete';
   const isCreating = state === 'creating';
   const isError = state === 'error';
@@ -163,12 +170,15 @@ export function SectionCreationOverlay({
   // The icon's fill and the line's text tone. Both used to be the one fill, so
   // the line read at 1.47:1 on a pill that is 95 per cent white.
   const statusTone = ((): SizeTone => {
-    if (isError) return { fill: colors.error, text: colors.errorDeep };
-    if (isCreating) return sectionSizeTone(null);
-    if (isComplete) return sectionSizeTone(sectionPointCount);
-    return sectionSizeTone(null);
+    if (isError) return { fill: palette.error, text: palette.errorDeep };
+    if (isCreating) return sectionSizeTone(null, isDark);
+    if (isComplete) return sectionSizeTone(sectionPointCount, isDark);
+    return sectionSizeTone(null, isDark);
   })();
-  const sizeWarning = isComplete ? getSectionSizeWarning(sectionPointCount) : null;
+  const sizeWarning =
+    isComplete && sectionPointCount !== null && sectionPointCount >= 5000
+      ? t('routes.largeSectionPerformanceWarning')
+      : null;
 
   // Auto-expand on error to show details
   const shouldExpand = expanded || isError;
@@ -179,6 +189,8 @@ export function SectionCreationOverlay({
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         {/* Cancel/Retry button */}
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={isError ? t('common.retry') : t('common.cancel')}
           style={[styles.iconButton, isError ? styles.retryButton : styles.cancelButton]}
           onPress={isError && onDismissError ? onDismissError : onCancel}
           activeOpacity={0.8}
@@ -193,10 +205,13 @@ export function SectionCreationOverlay({
 
         {/* Center status pill - expandable */}
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityState={{ expanded: shouldExpand, disabled: isCreating }}
           style={[
             styles.statusPill,
+            pillStyle,
             shouldExpand && styles.statusPillExpanded,
-            isError && styles.statusPillError,
+            isError && [styles.statusPillError, { borderColor: palette.error }],
           ]}
           onPress={toggleExpanded}
           activeOpacity={0.9}
@@ -218,21 +233,28 @@ export function SectionCreationOverlay({
               <MaterialCommunityIcons
                 name={shouldExpand ? 'chevron-down' : 'chevron-up'}
                 size={16}
-                color={colors.textSecondary}
+                color={palette.textSecondary}
               />
             )}
           </View>
 
           {/* Error details - expanded */}
           {shouldExpand && isError && error && (
-            <View style={styles.expandedContent}>
+            <View style={[styles.expandedContent, ruleStyle]}>
               {/* Technical details toggle */}
-              <TouchableOpacity
-                style={styles.technicalToggle}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showTechnicalDetails }}
+                style={pressable(styles.technicalToggle)}
                 onPress={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                android_ripple={pressRipple}
               >
-                <MaterialCommunityIcons name="bug-outline" size={14} color={colors.textSecondary} />
-                <Text style={styles.technicalToggleText}>
+                <MaterialCommunityIcons
+                  name="bug-outline"
+                  size={14}
+                  color={palette.textSecondary}
+                />
+                <Text style={[styles.technicalToggleText, mutedText]}>
                   {showTechnicalDetails
                     ? t('common.hideDetails' as never)
                     : t('common.showDetails' as never)}
@@ -240,20 +262,20 @@ export function SectionCreationOverlay({
                 <MaterialCommunityIcons
                   name={showTechnicalDetails ? 'chevron-up' : 'chevron-down'}
                   size={14}
-                  color={colors.textSecondary}
+                  color={palette.textSecondary}
                 />
-              </TouchableOpacity>
+              </Pressable>
 
               {showTechnicalDetails && (
-                <View style={styles.technicalDetails}>
+                <View style={[styles.technicalDetails, detailsStyle]}>
                   {error.technicalDetails && (
                     <View style={styles.detailRow}>
                       <MaterialCommunityIcons
                         name="code-tags"
                         size={14}
-                        color={colors.textSecondary}
+                        color={palette.textSecondary}
                       />
-                      <Text style={styles.technicalText} selectable>
+                      <Text style={[styles.technicalText, mutedText]} selectable>
                         {error.technicalDetails}
                       </Text>
                     </View>
@@ -263,9 +285,9 @@ export function SectionCreationOverlay({
                       <MaterialCommunityIcons
                         name="identifier"
                         size={14}
-                        color={colors.textSecondary}
+                        color={palette.textSecondary}
                       />
-                      <Text style={styles.technicalText} selectable>
+                      <Text style={[styles.technicalText, mutedText]} selectable>
                         ID: {error.activityId}
                       </Text>
                     </View>
@@ -275,14 +297,14 @@ export function SectionCreationOverlay({
                       <MaterialCommunityIcons
                         name="arrow-expand-horizontal"
                         size={14}
-                        color={colors.textSecondary}
+                        color={palette.textSecondary}
                       />
-                      <Text style={styles.technicalText}>
+                      <Text style={[styles.technicalText, mutedText]}>
                         Range: {error.indices.start} → {error.indices.end}
                       </Text>
                     </View>
                   )}
-                  <Text style={styles.helpText}>
+                  <Text style={[styles.helpText, mutedText]}>
                     {t('routes.shareDetailsWithDeveloper' as never)}
                   </Text>
                 </View>
@@ -292,11 +314,11 @@ export function SectionCreationOverlay({
 
           {/* Expanded details - normal selection */}
           {shouldExpand && hasSelection && !isError && (
-            <View style={styles.expandedContent}>
+            <View style={[styles.expandedContent, ruleStyle]}>
               {getProgress() && (
                 <View style={styles.detailRow}>
-                  <MaterialCommunityIcons name="percent" size={14} color={colors.textSecondary} />
-                  <Text style={styles.detailText}>{getProgress()}</Text>
+                  <MaterialCommunityIcons name="percent" size={14} color={palette.textSecondary} />
+                  <Text style={[styles.detailText, mutedText]}>{getProgress()}</Text>
                 </View>
               )}
               {sectionPointCount !== null && (
@@ -304,9 +326,9 @@ export function SectionCreationOverlay({
                   <MaterialCommunityIcons
                     name="map-marker-multiple"
                     size={14}
-                    color={colors.textSecondary}
+                    color={palette.textSecondary}
                   />
-                  <Text style={styles.detailText}>
+                  <Text style={[styles.detailText, mutedText]}>
                     {t('routes.pointCountHint', { count: sectionPointCount })}
                   </Text>
                 </View>
@@ -318,10 +340,17 @@ export function SectionCreationOverlay({
                 </View>
               )}
               {/* Reset option in expanded view */}
-              <TouchableOpacity style={styles.resetRow} onPress={onReset}>
-                <MaterialCommunityIcons name="refresh" size={14} color={colors.primary} />
-                <Text style={styles.resetText}>{t('common.reset' as never)}</Text>
-              </TouchableOpacity>
+              <Pressable
+                accessibilityRole="button"
+                style={pressable(styles.resetRow)}
+                onPress={onReset}
+                android_ripple={pressRipple}
+              >
+                <MaterialCommunityIcons name="refresh" size={14} color={palette.primary} />
+                <Text style={[styles.resetText, { color: palette.linkTeal }]}>
+                  {t('common.reset' as never)}
+                </Text>
+              </Pressable>
             </View>
           )}
         </TouchableOpacity>
@@ -329,6 +358,8 @@ export function SectionCreationOverlay({
         {/* Create button - only when complete, or cancel on error */}
         {isComplete ? (
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('routes.createSection')}
             style={[styles.iconButton, styles.confirmButton]}
             onPress={onConfirm}
             activeOpacity={0.8}
@@ -338,6 +369,8 @@ export function SectionCreationOverlay({
           </TouchableOpacity>
         ) : isError ? (
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('common.cancel')}
             style={[styles.iconButton, styles.cancelButton]}
             onPress={onCancel}
             activeOpacity={0.8}
@@ -449,7 +482,6 @@ const styles = StyleSheet.create({
   },
   resetText: {
     ...typography.caption,
-    color: colors.primary,
     fontWeight: '600',
   },
   technicalToggle: {
@@ -465,7 +497,7 @@ const styles = StyleSheet.create({
   },
   technicalDetails: {
     backgroundColor: colorWithOpacity(ink.black, 0.03),
-    borderRadius: spacing.xs,
+    borderRadius: layout.borderRadiusXs,
     padding: spacing.sm,
     gap: spacing.xs,
   },

@@ -8,8 +8,8 @@
  * the whole set was uploaded again, and re-clustered, once the real starts
  * landed.
  *
- * The fallbacks are for an activity the engine holds no signature for, which is
- * one that has no GPS track yet.
+ * The bounding box centre is the fallback for an activity the engine holds no
+ * signature for, which is one that has no GPS track yet.
  */
 
 import type { ActivityBoundsItem } from '@/types';
@@ -19,15 +19,18 @@ import { getBoundsCenter } from '@/shared/geo/polyline';
 /** `[longitude, latitude]`, the order GeoJSON and MapLibre take. */
 export type LngLat = [number, number];
 
+/**
+ * An activity's start, which the engine gives `[lat, lng]`, as `[lng, lat]`.
+ * Null when there is none or either coordinate is not finite. The one reader
+ * of that tuple, for the marker and the drawn start dot alike.
+ */
+export function startLngLat(start: ActivityBoundsItem['startPoint']): LngLat | null {
+  if (!start) return null;
+  const [lat, lng] = start;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return [lng, lat];
+}
+
 export function startCenterFor(activity: ActivityBoundsItem): LngLat {
-  const start = activity.startPoint;
-  if (start && Number.isFinite(start[0]) && Number.isFinite(start[1])) {
-    return [start[1], start[0]];
-  }
-  // A track cached during sync, still in [lat, lng] order.
-  const first = activity.latlngs?.[0];
-  if (first && Number.isFinite(first[0]) && Number.isFinite(first[1])) {
-    return [first[1], first[0]];
-  }
-  return getBoundsCenter(activity.bounds);
+  return startLngLat(activity.startPoint) ?? getBoundsCenter(activity.bounds);
 }
