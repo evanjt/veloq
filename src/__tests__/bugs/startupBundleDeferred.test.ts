@@ -8,7 +8,7 @@
  * Expected behaviour: no engine call happens during render, several events
  * arriving before the deferred read runs cost one call rather than one each,
  * the last bundle stays on screen while the next read is pending, and the
- * record carries only the summary card, the preview tracks, the sparklines and the new ids.
+ * record carries the summary card, preview tracks, sparklines and ring state.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -128,7 +128,7 @@ describe('useStartupData', () => {
     expect(result.current.data).toBe(first);
   });
 
-  it('carries only the summary card, the preview tracks, the sparklines and the new ids', () => {
+  it('carries the summary card, preview tracks, sparklines and ring state', () => {
     const { result } = renderHook(() => useStartupData([]));
     flushInteractions();
 
@@ -136,6 +136,7 @@ describe('useStartupData', () => {
     expect(result.current.data?.previewTracks.size).toBe(0);
     expect(Object.keys(result.current.data ?? {}).sort()).toEqual([
       'newActivityIds',
+      'nextRingExpiryAt',
       'previewTracks',
       'sparklines',
       'summaryCardData',

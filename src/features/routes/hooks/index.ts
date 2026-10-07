@@ -21,7 +21,6 @@ export { useSectionActions, type UseSectionActionsResult } from './useSectionAct
 export { useSectionDataRefresh } from './useSectionDataRefresh';
 export { useSectionUIState } from './useSectionUIState';
 export { useRevealMapOnDraw } from './useRevealMapOnDraw';
-export { useSectionActivityData } from './useSectionActivityData';
 export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';
 export { useSectionMapData } from './useSectionMapData';
 export { useRouteHighlight } from './useRouteHighlight';

@@ -97,6 +97,8 @@ function DetectionSettingsScreenContent() {
             ])}
             android_ripple={pressRipple}
             onPress={() => router.push('/detection-preview' as Href)}
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.previewSections')}
             testID="detection-preview-row"
           >
             <MaterialCommunityIcons name="map-search-outline" size={20} color={textSecondary} />
@@ -113,6 +115,8 @@ function DetectionSettingsScreenContent() {
             ])}
             android_ripple={pressRipple}
             onPress={() => router.push('/route-grouping-preview' as Href)}
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.previewRouteGrouping')}
             testID="route-grouping-preview-row"
           >
             <MaterialCommunityIcons name="source-branch" size={20} color={textSecondary} />
@@ -135,6 +139,8 @@ function DetectionSettingsScreenContent() {
             ])}
             android_ripple={pressRipple}
             onPress={isScanning ? cancelScan : handleRescan}
+            accessibilityRole="button"
+            accessibilityLabel={isScanning ? t('common.cancel') : t('settings.reanalyzeSections')}
             testID="detection-rescan-button"
           >
             {isScanning ? (

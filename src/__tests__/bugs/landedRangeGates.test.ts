@@ -59,9 +59,13 @@ function git(cwd: string, env: NodeJS.ProcessEnv, ...args: string[]): string {
   });
 }
 
-function write(root: string, files: Record<string, string>): void {
+function write(root: string, files: Record<string, string | null>): void {
   for (const [path, contents] of Object.entries(files)) {
     const full = join(root, path);
+    if (contents === null) {
+      rmSync(full);
+      continue;
+    }
     mkdirSync(dirname(full), { recursive: true });
     writeFileSync(full, contents, { mode: path.endsWith('.sh') ? 0o755 : 0o644 });
   }
@@ -109,6 +113,7 @@ function fixture(): Fixture {
   write(root, {
     'scripts/merge-gates.sh': SCOPED_GATES,
     'src/base.ts': 'export const base = 1;\n',
+    'modules/veloqrs/android/src/main/java/example/Widget.kt': 'class Widget {}\n',
     '.gitignore': 'node_modules\n',
   });
   symlinkSync(join(REPO, 'node_modules'), join(root, 'node_modules'));
@@ -139,7 +144,7 @@ function fixture(): Fixture {
  */
 function land(
   { root, env }: Fixture,
-  files: Record<string, string>,
+  files: Record<string, string | null>,
   neighbour: Record<string, string> = {}
 ): { status: number; output: string } {
   git(root, env, 'checkout', '-q', '-b', 'branch');
@@ -181,7 +186,7 @@ describe('a landing is judged on the range it would land', () => {
   }, 120_000);
 
   it('runs the suite whose file the landing touched', () => {
-    expect(ran(fx)).toMatch(/cargo test .*--test app/);
+    expect(ran(fx)).toMatch(/cargo nextest run .*--test app/);
   });
 
   it('runs the schema suites a migration maps to', () => {
@@ -202,6 +207,18 @@ describe('a landing is judged on the range it would land', () => {
     expect(git(fx.root, fx.env, 'rev-parse', 'HEAD').trim()).toBe(before);
     expect(existsSync(join(fx.root, 'src/landed.ts'))).toBe(false);
   });
+});
+
+describe('a deleted Android module source', () => {
+  it('still selects the JVM gate', () => {
+    const fx = fixture();
+    const result = land(fx, {
+      'modules/veloqrs/android/src/main/java/example/Widget.kt': null,
+    });
+
+    expect(result.output).toContain('merge gate: ./scripts/check-android-jvm.sh');
+    expect(result.status).not.toBe(0);
+  }, 120_000);
 });
 
 describe('another session’s files in the checkout', () => {

@@ -552,6 +552,8 @@ export const SectionsList = memo(function SectionsList({
           testID="sections-retired-link"
           style={styles.retiredLink}
           onPress={() => router.push('/section-retired' as Href)}
+          accessibilityRole="button"
+          accessibilityLabel={t('sectionHistory.seeRetired')}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="history" size={16} color={colors.textSecondary} />
@@ -563,6 +565,8 @@ export const SectionsList = memo(function SectionsList({
           testID="sections-named-corridors-link"
           style={styles.retiredLink}
           onPress={() => router.push('/named-corridors' as Href)}
+          accessibilityRole="button"
+          accessibilityLabel={t('namedCorridors.link')}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="tag-outline" size={16} color={colors.textSecondary} />

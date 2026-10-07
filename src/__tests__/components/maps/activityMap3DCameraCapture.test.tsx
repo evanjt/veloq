@@ -133,7 +133,7 @@ describe('leaving the 3D view', () => {
     const view = open3D(capture);
     post({ type: 'cameraState', camera: CAMERA, gesture: false });
 
-    fireEvent(view.getByTestId('activity-map-3d-toggle'), 'pressIn');
+    fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
 
     expect(capture).not.toHaveBeenCalled();
   });
@@ -143,7 +143,7 @@ describe('leaving the 3D view', () => {
     const view = open3D(capture);
     post({ type: 'cameraState', camera: CAMERA, gesture: true });
 
-    fireEvent(view.getByTestId('activity-map-3d-toggle'), 'pressIn');
+    fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
 
     expect(capture).toHaveBeenCalledWith(CAMERA);
   });

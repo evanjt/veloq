@@ -57,7 +57,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
             <Text style={[styles.meta, isDark && styles.metaDark]}>
               {t('strength.exerciseSets', { sets: exercise.totalSets })} ·{' '}
               {t('strength.exerciseWorkoutCount', { count: exercise.activityCount })}
-              {` · ${exercise.totalReps} ${t('strength.reps')}`}
+              {` · ${t('strength.repsCount', { count: exercise.totalReps })}`}
               {exercise.volumeKg > 0 ? ` · ${formatWeight(exercise.volumeKg, isMetric)}` : ''}
             </Text>
           </View>

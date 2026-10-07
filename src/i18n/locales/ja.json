@@ -368,7 +368,6 @@
     "wbal": "W'bal"
   },
   "common": {
-    "activities": "アクティビティ",
     "back": "戻る",
     "close": "閉じる",
     "cancel": "キャンセル",
@@ -1250,6 +1249,8 @@
     "sportFilterTitle": "スポーツ",
     "createSection": "区間を作成",
     "custom": "カスタム",
+    "customCount_one": "{{count}}カスタムセクション",
+    "customCount_other": "{{count}}カスタムセクション",
     "dataRangeHint": "{{duration}}のアクティビティデータに基づく",
     "duplicateNameMessage": "別の名前を選択してください。各ルートには一意の名前が必要です。",
     "duplicateNameTitle": "名前が既に存在します",
@@ -1284,7 +1285,6 @@
     "standingBest": "{{total}} 回中の自己最速",
     "standingRank": "{{total}} 回中 {{rank}} 位、自己ベストとの差 {{gap}}",
     "standingRankPercentile": "{{total}} 回中 {{rank}} 位、うち {{percent}}% より速い、自己ベストとの差 {{gap}}",
-    "visits": "訪問",
     "largeSectionPerformanceWarning": "長い区間は処理に時間がかかる場合があります。"
   },
   "routesScreen": {
@@ -1308,6 +1308,8 @@
     "removeSection": "セクションを削除",
     "removeSectionConfirm": "このセクションはアクティビティ詳細やインサイトに表示されなくなります。セクションリストから復元できます。",
     "removed": "削除済み",
+    "removedCount_one": "{{count}}削除済みセクション",
+    "removedCount_other": "{{count}}削除済みセクション",
     "restoreSection": "セクションを復元",
     "partial": "一部",
     "placeSecond": "2番目に速い",
@@ -1373,13 +1375,13 @@
     "setAsReferenceConfirm": "このアクティビティを基準として使用しますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "setReferenceError": "リファレンスの設定に失敗しました。セクションまたはアクティビティが変更された可能性があります。もう一度お試しください。",
     "editBounds": "範囲を編集",
-    "points": "ポイント",
+    "pointsCount_one": "{{count}}ポイント",
+    "pointsCount_other": "{{count}}ポイント",
     "resetBounds": "元に戻す",
     "trimPrecisionHint": "ハンドルを上下にドラッグして微調整",
     "trimMode": "トリム",
     "expandMode": "拡張",
     "resetBoundsConfirm": "自動検出された元の範囲に戻しますか？\n\nセクションはすべてのアクティビティと再照合されます。",
-    "traversals": "通過回数",
     "liftGround": "リフト",
     "notLift": "リフトではない",
     "trimFailed": "セクション範囲のトリミングに失敗しました",
@@ -1458,6 +1460,7 @@
     "nameTaken": "このセクション名はすでに使われています。別の名前を入力してください。"
   },
   "settings": {
+    "developerDashboard": "開発者ダッシュボード",
     "account": "アカウント",
     "activities": "アクティビティ",
     "appearance": "外観",
@@ -1724,7 +1727,6 @@
     "completeActivitiesYearComparison": "年比較を見るにはアクティビティを完了してください",
     "completeDecouplingHint": "デカップリング分析を見るにはパワーと心拍データ付きの持続的な運動を完了してください",
     "completePowerActivities": "FTPトレンドを見るにはパワー付きアクティビティを完了してください",
-    "current": "現在",
     "decouplingExplanation": "デカップリングは心臓ドリフトを測定します - 持続的な運動中にパワー出力に対して心拍数がどれだけ上昇するかです。",
     "decouplingProvenance": "intervals.icu による計算",
     "estimatedFtp": "推定FTP",
@@ -1750,7 +1752,6 @@
     "paceCurve": "ペースカーブ",
     "powerCurve": "パワーカーブ",
     "powerZones": "パワーゾーン",
-    "previous": "前回",
     "rangeNotDownloaded": "まだダウンロードされていません",
     "rangePartlyDownloaded": "この期間の一部はまだダウンロードされていません",
     "calendarRange": "{{start}}〜{{end}}",
@@ -1789,6 +1790,13 @@
     "seasonBests": "シーズンベスト",
     "swimPaceCurve": "スイムペースカーブ",
     "trainingZones": "トレーニングゾーン"
+  },
+  "refresh": {
+    "busy": "現在の同期が終わると更新されます。",
+    "notReady": "同期の準備中です。少ししてからもう一度お試しください。",
+    "offline": "接続が回復すると更新されます。",
+    "notConfigured": "同期するにはサインインしてください。",
+    "failed": "同期を開始できませんでした。"
   },
   "sync": {
     "ridesDownloaded": "{{total}}件中{{completed}}件のアクティビティをダウンロード",
@@ -1940,9 +1948,13 @@
     "downloading": "筋トレのワークアウトをダウンロード中",
     "downloadingHint": "セットのデータはワークアウトファイルと一緒に届きます。届き次第、表示が更新されます。",
     "sets": "セット",
+    "setsCount_one": "{{count}}セット",
+    "setsCount_other": "{{count}}セット",
     "muscleGroupVolume": "筋肉群ボリューム",
     "relativeWeightedSets": "選択期間の相対的な重み付きセット",
     "reps": "レップ",
+    "repsCount_one": "{{count}}レップ",
+    "repsCount_other": "{{count}}レップ",
     "tapMuscleGroup": "筋肉群をタップして詳細を表示",
     "relativeVolume": "相対ボリューム",
     "balanceObservedPairs": "現在の{{period}}で追跡された拮抗筋ペアの観測結果",

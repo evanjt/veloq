@@ -6,17 +6,21 @@ import { getEngine } from './engine';
  * from them. Best effort: a failed write leaves the rings as they were, so none
  * of these may throw into the caller.
  */
-function report(event: FfiFeedSeen): void {
+function report(event: FfiFeedSeen): boolean {
   try {
-    getEngine()?.recordFeedSeen(event);
+    const engine = getEngine();
+    if (!engine) return false;
+    engine.recordFeedSeen(event);
+    return true;
   } catch {
     // empty-on-error: the next open or close writes the marker again.
+    return false;
   }
 }
 
 /** The feed came into view: launch, or the app returning to the foreground. */
-export function reportFeedOpened(): void {
-  report(FfiFeedSeen.Opened.new());
+export function reportFeedOpened(): boolean {
+  return report(FfiFeedSeen.Opened.new());
 }
 
 /** The app left the foreground with the feed as the athlete last saw it. */

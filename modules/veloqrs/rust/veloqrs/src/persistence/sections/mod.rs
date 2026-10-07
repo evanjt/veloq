@@ -2807,13 +2807,13 @@ pub(crate) mod pooled {
             .unwrap_or_default()
     }
 
-    /// The stored catalogue, narrowed by sport and distinct outings. A pin
-    /// exempts only the outing floor, never the sport filter.
-    pub(crate) fn catalogue_sections(
+    /// Stored catalogue rows and their portions, narrowed by sport and distinct
+    /// outings. A pin exempts only the outing floor, never the sport filter.
+    pub(crate) fn catalogue_section_rows(
         conn: &Connection,
         sport_type: Option<&str>,
         min_visits: Option<u32>,
-    ) -> Vec<FrequentSection> {
+    ) -> Vec<(Section, Vec<SectionPortion>)> {
         let Ok(mut stmt) = conn.prepare(
             "SELECT s.id FROM sections s
              WHERE s.section_type IN ('auto', 'custom')
@@ -2845,8 +2845,20 @@ pub(crate) mod pooled {
         ids.into_iter()
             .filter_map(|id| {
                 let section = super::queries::pooled::section_raw(conn, &id)?;
-                Some(to_frequent(section, section_portions(conn, &id)))
+                Some((section, section_portions(conn, &id)))
             })
+            .collect()
+    }
+
+    /// The frequent-section view of the same stored catalogue rows.
+    pub(crate) fn catalogue_sections(
+        conn: &Connection,
+        sport_type: Option<&str>,
+        min_visits: Option<u32>,
+    ) -> Vec<FrequentSection> {
+        catalogue_section_rows(conn, sport_type, min_visits)
+            .into_iter()
+            .map(|(section, portions)| to_frequent(section, portions))
             .collect()
     }
 

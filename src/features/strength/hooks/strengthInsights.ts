@@ -9,7 +9,18 @@ import { INSIGHTS_CONFIG, confidenceFrom } from '@/features/insights';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
-function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: TFunc): Insight {
+const STRENGTH_TARGET = '/insights?tab=strength';
+
+function weekMark(weekly: StrengthSummary[]) {
+  return { date: weekly.at(-1)?.startTs ?? 0 };
+}
+
+function buildStrengthBalanceInsight(
+  pair: StrengthBalancePair,
+  weekly: StrengthSummary[],
+  now: number,
+  t: TFunc
+): Insight {
   const dominant = pair.dominantLabel ?? pair.leftLabel;
   const title =
     pair.status === 'one-sided'
@@ -43,6 +54,27 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
       comparisonKind: 'self',
     },
     supportingData: {
+      history: {
+        kind: 'bars',
+        target: STRENGTH_TARGET,
+        mark: weekMark(weekly),
+        series: [
+          {
+            label: pair.leftLabel,
+            points: weekly.map((week) => ({
+              date: week.startTs ?? 0,
+              value: week.balance.find((entry) => entry.id === pair.id)?.leftWeightedSets ?? 0,
+            })),
+          },
+          {
+            label: pair.rightLabel,
+            points: weekly.map((week) => ({
+              date: week.startTs ?? 0,
+              value: week.balance.find((entry) => entry.id === pair.id)?.rightWeightedSets ?? 0,
+            })),
+          },
+        ],
+      },
       dataPoints: [
         {
           label: pair.leftLabel,
@@ -77,6 +109,7 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
 
 function buildStrengthProgressionInsight(
   progression: StrengthProgressionRecord,
+  weekly: StrengthSummary[],
   monthlyWeightedSets: number,
   now: number,
   t: TFunc
@@ -140,6 +173,20 @@ function buildStrengthProgressionInsight(
       signalDelta: progression.signalDelta ?? undefined,
     },
     supportingData: {
+      history: {
+        kind: 'bars',
+        target: STRENGTH_TARGET,
+        mark: weekMark(weekly),
+        series: [
+          {
+            label: t('insights.strengthProgression.sparklineLabel'),
+            points: progression.weeklyWeightedSets.map((value, index) => ({
+              date: weekly[index]?.startTs ?? 0,
+              value,
+            })),
+          },
+        ],
+      },
       dataPoints: [
         {
           label: t('strength.recentAvg'),
@@ -162,8 +209,6 @@ function buildStrengthProgressionInsight(
           unit: t('strength.sets'),
         },
       ],
-      sparklineData: progression.weeklyWeightedSets,
-      sparklineLabel: t('insights.strengthProgression.sparklineLabel'),
       // The engine's own direction, past its change threshold, judged by the
       // metric's polarity.
       trend: {
@@ -200,7 +245,12 @@ function buildStrengthProgressionInsight(
   };
 }
 
-function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: TFunc): Insight {
+function buildStrengthSnapshotInsight(
+  summary: StrengthSummary,
+  weekly: StrengthSummary[],
+  now: number,
+  t: TFunc
+): Insight {
   const dominant = [...summary.muscleVolumes].sort((a, b) => b.weightedSets - a.weightedSets)[0];
   const dominantName = dominant ? nameOf(dominant.slug, t) : null;
   const subtitle = dominantName
@@ -235,6 +285,17 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
       comparisonKind: 'self',
     },
     supportingData: {
+      history: {
+        kind: 'bars',
+        target: STRENGTH_TARGET,
+        mark: weekMark(weekly),
+        series: [
+          {
+            label: t('insights.strengthSnapshot.sessionsLabel'),
+            points: weekly.map((week) => ({ date: week.startTs ?? 0, value: week.activityCount })),
+          },
+        ],
+      },
       dataPoints: [
         { label: t('insights.strengthSnapshot.sessionsLabel'), value: summary.activityCount },
         { label: t('insights.strengthSnapshot.setsLabel'), value: summary.totalSets },
@@ -269,14 +330,14 @@ export function generateStrengthInsights(
   // Surface a snapshot only when there is enough volume to be informative,
   // passing at the same minimum as the per-muscle gate.
   if (monthlySummary.totalSets >= INSIGHTS_CONFIG.repetition.strength_min_sets) {
-    insights.push(buildStrengthSnapshotInsight(monthlySummary, now, t));
+    insights.push(buildStrengthSnapshotInsight(monthlySummary, weeklySummaries, now, t));
   }
 
   const balancePair = buildStrengthBalancePairs(monthlySummary.balance, t).find(
     (pair) => pair.status === 'watch' || pair.status === 'imbalanced' || pair.status === 'one-sided'
   );
   if (balancePair) {
-    insights.push(buildStrengthBalanceInsight(balancePair, now, t));
+    insights.push(buildStrengthBalanceInsight(balancePair, weeklySummaries, now, t));
   }
 
   const monthlyWeightedSets = new Map(
@@ -285,6 +346,7 @@ export function generateStrengthInsights(
   for (const progression of progressions) {
     const insight = buildStrengthProgressionInsight(
       progression,
+      weeklySummaries,
       monthlyWeightedSets.get(progression.muscleSlug) ?? 0,
       now,
       t

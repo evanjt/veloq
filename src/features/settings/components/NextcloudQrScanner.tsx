@@ -30,6 +30,8 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
           {t('backup.cameraPermissionNeeded', 'Camera access is required to scan QR codes')}
         </Text>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('backup.grantCameraAccess', 'Grant Camera Access')}
           style={pressable(styles.grantButton)}
           android_ripple={pressRipple}
           onPress={requestPermission}
@@ -39,6 +41,8 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
           </Text>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.cancel')}
           style={pressable(styles.cancelButton)}
           android_ripple={pressRipple}
           onPress={onClose}
@@ -67,6 +71,8 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
           onPress={onClose}
           style={pressable(styles.closeButton)}
           android_ripple={pressRipple}

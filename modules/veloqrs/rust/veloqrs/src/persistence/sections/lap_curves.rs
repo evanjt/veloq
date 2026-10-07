@@ -518,7 +518,7 @@ pub(crate) mod pooled {
             Some(sport) => format!("{section_id}:{sport}"),
             None => section_id.to_string(),
         };
-        crate::persistence::read_cache::lap_curves(&key, || {
+        crate::persistence::read_cache::lap_curves(conn, &key, || {
             lap_curves(conn, section_id, sport_type_filter)
         })
     }

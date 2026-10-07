@@ -21,7 +21,6 @@ import { useTranslation } from 'react-i18next';
 import { colors, typography, layout, chartStyles, ink, colorWithOpacity } from '@/theme';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
-import { CHART_CONFIG } from '@/constants';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { ChartCanvas, CurveArea, CurveLine } from '@/shared/charts';
 import {
@@ -40,6 +39,7 @@ import {
   type ChartDistanceIndicatorHandle,
 } from './ChartDistanceIndicator';
 import { useSeriesAccessors } from './useSeriesAccessors';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 export type { ChartMetricValue };
 
@@ -237,7 +237,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Use activateAfterLongPress to require a brief hold before scrubbing starts
   // This prevents accidental scrubbing when scrolling the page
   const gesture = Gesture.Pan()
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
+    .activateAfterLongPress(PREVIEW_HOLD_MS)
     .onStart((e) => {
       'worklet';
       touchX.value = e.x;

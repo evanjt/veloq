@@ -61,6 +61,9 @@ export function SectionsListFiltersBar({
               ]}
               onPress={() => onSortChange(chip.key)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={chip.label}
+              accessibilityState={{ selected: isActive }}
             >
               <MaterialCommunityIcons
                 name={chip.icon}
@@ -95,6 +98,9 @@ export function SectionsListFiltersBar({
           ]}
           onPress={() => onFilterPress('custom')}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('routes.customCount', { count: customCount })}
+          accessibilityState={{ selected: !hiddenFilters.custom }}
         >
           <MaterialCommunityIcons
             name="account"
@@ -115,7 +121,7 @@ export function SectionsListFiltersBar({
               !hiddenFilters.custom && isDark && { color: darkColors.linkTeal },
             ]}
           >
-            {customCount} {t('routes.custom')}
+            {t('routes.customCount', { count: customCount })}
           </Text>
         </TouchableOpacity>
       )}
@@ -128,6 +134,9 @@ export function SectionsListFiltersBar({
           ]}
           onPress={() => onFilterPress('disabled')}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('sections.removedCount', { count: trueDisabledCount })}
+          accessibilityState={{ selected: !hiddenFilters.disabled }}
         >
           <MaterialCommunityIcons
             name={hiddenFilters.disabled ? 'eye-off' : 'eye'}
@@ -148,7 +157,7 @@ export function SectionsListFiltersBar({
               !hiddenFilters.disabled && isDark && { color: darkColors.linkTeal },
             ]}
           >
-            {trueDisabledCount} {t('sections.removed')}
+            {t('sections.removedCount', { count: trueDisabledCount })}
           </Text>
         </TouchableOpacity>
       )}
@@ -161,6 +170,9 @@ export function SectionsListFiltersBar({
           ]}
           onPress={() => onFilterPress('unaccepted')}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('sections.acceptedOnly')}
+          accessibilityState={{ selected: hiddenFilters.unaccepted }}
         >
           <MaterialCommunityIcons
             name="pin"

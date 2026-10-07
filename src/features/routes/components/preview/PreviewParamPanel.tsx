@@ -317,12 +317,15 @@ function ParamEditor({
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onCancel} testID="param-editor">
-      <Pressable style={pressable(styles.scrim)} android_ripple={pressRipple} onPress={onCancel}>
+      <View style={styles.scrim}>
         <Pressable
-          style={pressable([styles.sheet, { backgroundColor: surface, borderColor: border }])}
+          style={pressable(StyleSheet.absoluteFill)}
           android_ripple={pressRipple}
-          onPress={() => {}}
-        >
+          onPress={onCancel}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.cancel')}
+        />
+        <View style={[styles.sheet, { backgroundColor: surface, borderColor: border }]}>
           <Text style={[styles.sheetTitle, { color: textPrimary }]}>{editing.label}</Text>
           <TextInput
             testID="param-editor-input"
@@ -376,8 +379,8 @@ function ParamEditor({
               </Text>
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

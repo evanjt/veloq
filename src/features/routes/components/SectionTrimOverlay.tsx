@@ -298,7 +298,7 @@ export function SectionTrimOverlay({
           </>
         )}
         <Text style={[styles.infoMuted, { color: mutedColor }]}>
-          {endIndex - startIndex + 1} / {pointCount} {t('sections.points', 'points')}
+          {endIndex - startIndex + 1} / {t('sections.pointsCount', { count: pointCount })}
         </Text>
         <View style={{ flex: 1 }} />
         <ToggleButton

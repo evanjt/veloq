@@ -1,0 +1,71 @@
+# A clipped encounter card must still reveal and perform its Hide action when
+# it returns to view on Android.
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-activity
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+- openLink: "veloq://activity/demo-test-0?tab=sections"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+- tapOn:
+    text: "Sections"
+    optional: true
+- assertVisible:
+    id: "activity-sections-list"
+- assertVisible:
+    id: "section-inline-plot-0"
+- assertVisible:
+    id: "section-inline-plot-1"
+- repeat:
+    times: 4
+    commands:
+      - swipe:
+          start: 50%, 80%
+          end: 50%, 55%
+          duration: 500
+- assertNotVisible:
+    id: "section-inline-plot-0"
+- assertNotVisible:
+    id: "section-inline-plot-1"
+- repeat:
+    times: 12
+    commands:
+      - swipe:
+          start: 50%, 65%
+          end: 50%, 85%
+          duration: 500
+- assertVisible:
+    id: "section-inline-plot-0"
+- assertVisible:
+    id: "section-inline-plot-1"
+- swipe:
+    start: 80%, 68%
+    end: 20%, 68%
+    duration: 800
+- assertVisible:
+    text: "Hide"
+- swipe:
+    start: 80%, 76%
+    end: 20%, 76%
+    duration: 800
+- assertVisible:
+    text: "Hide"
+- assertNotVisible:
+    text: "Hide"
+    index: 1
+- tapOn:
+    text: "Hide"
+- assertNotVisible:
+    text: "Hide"
+- assertVisible:
+    id: "activity-sections-list"

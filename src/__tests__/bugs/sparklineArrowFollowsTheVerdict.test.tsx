@@ -26,6 +26,12 @@ jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 const t = (key: string) => key;
 
+const history = (values: number[]) => ({
+  kind: 'sparkline' as const,
+  series: [{ label: 'Series', points: values.map((value, date) => ({ value, date })) }],
+  target: '/fitness',
+});
+
 const EFFICIENCY = {
   sectionId: 'river',
   sectionName: 'River Loop',
@@ -78,7 +84,7 @@ describe('the sheet sparkline', () => {
 
   it('draws a move the generator judged flat on the neutral rung, with no arrow', () => {
     const { glyphCount, line } = drawn({
-      sparklineData: [100, 100.05, 100.1],
+      history: history([100, 100.05, 100.1]),
       trend: { direction: 'flat', verdict: 'flat' },
     });
 
@@ -87,7 +93,7 @@ describe('the sheet sparkline', () => {
   });
 
   it('draws a series that carries no verdict on the neutral rung, with no arrow', () => {
-    const { glyphCount, line } = drawn({ sparklineData: [10, 12, 15] });
+    const { glyphCount, line } = drawn({ history: history([10, 12, 15]) });
 
     expect(line).toBe(verdictColor('neutral', false));
     expect(glyphCount).toBe(0);
@@ -95,7 +101,7 @@ describe('the sheet sparkline', () => {
 
   it('draws a move with a direction and no judgement as its bare arrow on the neutral rung', () => {
     const { glyph, line } = drawn({
-      sparklineData: [10, 12, 15],
+      history: history([10, 12, 15]),
       trend: { direction: 'up', verdict: 'moved' },
     });
 

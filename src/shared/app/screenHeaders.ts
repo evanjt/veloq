@@ -33,6 +33,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'recording/[type]': null,
   routes: null,
   'sheets/activity-type': null,
+  'sheets/insight': null,
 
   'activity/[id]': { overMap: true },
   'exercise/[category]': { titleKey: 'strength.history' },
@@ -84,6 +85,7 @@ export function screenAnimation(name: string): 'none' | 'default' {
  */
 export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/activity-type': [0.6, 1],
+  'sheets/insight': [0.5, 1],
 };
 
 /** The stack options that make a listed route a sheet, or undefined for any other route. */

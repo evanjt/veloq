@@ -3,7 +3,9 @@
 //!
 //! One worker sleeps until the earliest pending recording is due or the
 //! connection comes back, then drains the queue itself through
-//! `upload_recording::drain`, in the foreground or not.
+//! `upload_recording::drain`, in the foreground or not. It sweeps the landed
+//! uploads through `upload_recording::sweep` when it starts and after each
+//! drain, which is what deletes a ride once intervals.icu has it.
 //!
 //! The worker re-reads the queue on every wake and never trusts a clock it
 //! computed earlier. Anything that can make a recording due sooner than the
@@ -14,7 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crate::net::connectivity;
-use crate::net::upload_recording::{Live, drain};
+use crate::net::upload_recording::{Live, drain, sweep};
 use crate::objects::error::with_reader;
 use crate::persistence::recordings::pooled;
 
@@ -26,6 +28,10 @@ pub const RESTING_WAIT: Duration = Duration::from_secs(5 * 60);
 
 /// The schedule, with everything it reads and does handed in.
 ///
+/// `sweep` finishes what an upload could not in the moment. It runs once when
+/// the loop starts, for whatever an earlier process left, and after every
+/// drain, for what that drain landed.
+///
 /// `next_due` answers the epoch millisecond the earliest pending recording is
 /// due at, `None` when nothing is pending or the queue cannot be read. `wait`
 /// sleeps for at most the duration and returns false to end the loop, which is
@@ -36,7 +42,9 @@ pub fn schedule_loop(
     mut wait: impl FnMut(Duration) -> bool,
     mut offline: impl FnMut() -> bool,
     mut drain: impl FnMut(),
+    mut sweep: impl FnMut(),
 ) {
+    sweep();
     loop {
         let rest = match next_due() {
             None => RESTING_WAIT,
@@ -46,6 +54,7 @@ pub fn schedule_loop(
             Some(_) if offline() => RESTING_WAIT,
             Some(_) => {
                 drain();
+                sweep();
                 RESTING_WAIT
             }
         };
@@ -81,6 +90,7 @@ pub fn start_or_wake() {
                 },
                 connectivity::is_offline,
                 || drain(&Live, &|| chrono::Utc::now().timestamp_millis()),
+                || sweep(&Live, &|| chrono::Utc::now().timestamp_millis()),
             );
         });
     }
@@ -98,6 +108,8 @@ mod tests {
     struct Run {
         drained: usize,
         waits: Vec<Duration>,
+        /// What ran, in order: `d` a drain, `s` a sweep.
+        order: String,
     }
 
     fn run(
@@ -109,6 +121,7 @@ mod tests {
         let now = Cell::new(start);
         let drained = Cell::new(0);
         let waits = RefCell::new(Vec::new());
+        let order = RefCell::new(String::new());
         schedule_loop(
             || now.get(),
             || due(now.get()),
@@ -118,11 +131,16 @@ mod tests {
                 waits.borrow().len() < wakes
             },
             || offline(now.get()),
-            || drained.set(drained.get() + 1),
+            || {
+                drained.set(drained.get() + 1);
+                order.borrow_mut().push('d');
+            },
+            || order.borrow_mut().push('s'),
         );
         Run {
             drained: drained.get(),
             waits: waits.into_inner(),
+            order: order.into_inner(),
         }
     }
 
@@ -187,5 +205,19 @@ mod tests {
             3,
         );
         assert_eq!(r.drained, 2, "silent while offline, then once per wake");
+    }
+
+    #[test]
+    fn the_sweep_runs_once_at_the_start_and_after_every_drain() {
+        let r = run(0, |_| Some(0), |_| false, 2);
+        assert_eq!(r.order, "sdsds");
+    }
+
+    #[test]
+    fn a_wake_with_nothing_drained_runs_no_sweep_after_the_first() {
+        let r = run(1_000, |_| None, |_| false, 3);
+        assert_eq!(r.order, "s");
+        let r = run(1_000, |_| Some(0), |_| true, 3);
+        assert_eq!(r.order, "s", "nothing drained while offline");
     }
 }

@@ -71,6 +71,80 @@ function makeProgression(
 }
 
 describe('generateStrengthInsights', () => {
+  it('carries dated weekly balance, sessions and progression into card history', () => {
+    const pair = (
+      leftWeightedSets: number,
+      rightWeightedSets: number
+    ): StrengthSummary['balance'][number] => ({
+      id: 'push_pull',
+      leftSlug: 'chest',
+      rightSlug: 'upper-back',
+      leftWeightedSets,
+      rightWeightedSets,
+      dominantSlug: 'chest',
+      ratio: 2,
+      status: 'imbalanced',
+    });
+    const monthly = makeSummary([{ slug: 'chest', weightedSets: 16 }], 8, [pair(16, 8)]);
+    const dates = [1000, 2000, 3000, 4000];
+    const weekly = dates.map((startTs, index) => ({
+      ...makeSummary(
+        [{ slug: 'chest', weightedSets: index + 2 }],
+        index + 1,
+        index === 1 ? [] : [pair(index + 2, index + 1)]
+      ),
+      startTs,
+    }));
+
+    const result = generateStrengthInsights(
+      monthly,
+      weekly,
+      [makeProgression('chest', [2, 3, 4, 5])],
+      5000,
+      t
+    );
+    const history = (id: string) =>
+      result.find((insight) => insight.id === id)?.supportingData?.history;
+
+    expect(history('strength_balance-push_pull')).toEqual({
+      kind: 'bars',
+      target: '/insights?tab=strength',
+      mark: { date: 4000 },
+      series: [
+        {
+          label: 'Chest',
+          points: dates.map((date, index) => ({ date, value: index === 1 ? 0 : index + 2 })),
+        },
+        {
+          label: 'Upper Back',
+          points: dates.map((date, index) => ({ date, value: index === 1 ? 0 : index + 1 })),
+        },
+      ],
+    });
+    expect(history('strength_snapshot')).toEqual({
+      kind: 'bars',
+      target: '/insights?tab=strength',
+      mark: { date: 4000 },
+      series: [
+        {
+          label: 'insights.strengthSnapshot.sessionsLabel',
+          points: dates.map((date, index) => ({ date, value: index + 1 })),
+        },
+      ],
+    });
+    expect(history('strength_progression-chest')).toEqual({
+      kind: 'bars',
+      target: '/insights?tab=strength',
+      mark: { date: 4000 },
+      series: [
+        {
+          label: 'insights.strengthProgression.sparklineLabel',
+          points: dates.map((date, index) => ({ date, value: index + 2 })),
+        },
+      ],
+    });
+  });
+
   it('emits a balance insight when a major antagonist pair is skewed', () => {
     const monthly = makeSummary(
       [
@@ -149,7 +223,10 @@ describe('generateStrengthInsights', () => {
     );
     const progression = result.find((insight) => insight.id === 'strength_progression-hamstring');
     expect(progression!.title).toContain('Hamstrings');
-    expect(progression!.supportingData?.sparklineData).toEqual([2, 3, 6, 7]);
+    expect(progression!.supportingData?.history).toMatchObject({
+      kind: 'bars',
+      series: [{ points: [2, 3, 6, 7].map((value) => ({ value })) }],
+    });
   });
 
   it('does not emit strength insights when there is no meaningful signal', () => {
@@ -206,7 +283,10 @@ describe('generateStrengthInsights', () => {
     );
     const progression = result.find((insight) => insight.id === 'strength_progression-chest');
 
-    expect(progression!.supportingData?.sparklineData).toEqual([1, 2, 5, 6]);
+    expect(progression!.supportingData?.history).toMatchObject({
+      kind: 'bars',
+      series: [{ points: [1, 2, 5, 6].map((value) => ({ value })) }],
+    });
     expect(progression!.iconTone).toBe('neutral');
   });
 

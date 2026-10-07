@@ -346,6 +346,45 @@ mod tests {
     }
 
     #[test]
+    fn activity_year_counts_read_pairs_and_ignore_bad_settings() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("year_counts.db");
+        let settings = SettingsManager::new();
+
+        assert!(
+            settings
+                .cache_screen_data()
+                .unwrap()
+                .activity_year_counts
+                .is_empty()
+        );
+        settings
+            .set_setting(
+                crate::objects::sync::ACTIVITY_YEAR_COUNTS_KEY.into(),
+                r#"{"2024":12,"2025":34}"#.into(),
+            )
+            .unwrap();
+        let counts = settings.cache_screen_data().unwrap().activity_year_counts;
+        assert_eq!(counts.len(), 2);
+        assert_eq!((counts[0].year, counts[0].count), (2024, 12));
+        assert_eq!((counts[1].year, counts[1].count), (2025, 34));
+
+        settings
+            .set_setting(
+                crate::objects::sync::ACTIVITY_YEAR_COUNTS_KEY.into(),
+                "malformed".into(),
+            )
+            .unwrap();
+        assert!(
+            settings
+                .cache_screen_data()
+                .unwrap()
+                .activity_year_counts
+                .is_empty()
+        );
+    }
+
+    #[test]
     fn a_batch_write_counts_only_the_pairs_that_changed() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("settings.db");

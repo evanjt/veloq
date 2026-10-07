@@ -13,6 +13,7 @@ import type {
   FfiRoutesScreenData,
   FfiRoutesScreenQuery,
   GroupSummary,
+  LiveRouteOverlap,
 } from '../generated/veloqrs';
 import type { FfiActivityRouteHighlight } from './shared-types';
 import { validateId, validateName } from '../conversions';
@@ -74,6 +75,15 @@ export function getRepresentativeRoute(host: DelegateHost, groupId: string): Arr
   return host.timed('getRepresentativeRoute', () =>
     host.engine.routes().getRepresentativeRoute(groupId)
   );
+}
+
+export function liveRouteOverlaps(
+  host: DelegateHost,
+  groupIds: string[],
+  coordinates: number[]
+): Promise<LiveRouteOverlap[]> {
+  if (!host.ready || groupIds.length === 0) return Promise.resolve([]);
+  return host.engine.routes().liveOverlaps(groupIds, coordinates);
 }
 
 export function getRoutePerformances(

@@ -34,9 +34,14 @@
   },
   "insights": {
     "noInsightsHint": "Complete more activities to see personalized insights",
+    "data": {
+      "hrChange": "Modeled change at average pace"
+    },
     "efficiencyTrend": {
       "changeSubtitle": "Modeled +{{hrChange}} bpm at average pace over {{efforts}} efforts",
-      "changeBody": "Over {{efforts}} efforts on {{name}}, heart rate times pace increased. At the average pace this is a modeled +{{hrChange}} bpm; measured heart rate may differ."
+      "changeBody": "Over {{efforts}} efforts on {{name}}, heart rate times pace increased. At the average pace this is a modeled +{{hrChange}} bpm; measured heart rate may differ.",
+      "subtitle": "Modeled {{hrChange}} bpm at average pace over {{efforts}} efforts",
+      "body": "Over {{efforts}} efforts on {{name}}, heart rate times pace has improved. At your average pace that is a modeled {{hrChange}} bpm; your heart rate itself may not have changed."
     },
     "strengthSnapshot": {
       "methodologyDescription": "Summarizes strength volume across the most recent 4 weeks: workout count, total sets, and number of tracked muscle groups."
@@ -105,5 +110,8 @@
   "sectionHistory": {
     "kind_algorithm_changed": "Re-analyzed by a newer detector",
     "kind_reference_reanchored": "Redrawn from another ride, the one it came from left intervals.icu"
+  },
+  "sections": {
+    "aerobicEfficiencyDetail": "{{efforts}} matched efforts, modeled change of {{hrChange}} bpm at average pace"
   }
 }

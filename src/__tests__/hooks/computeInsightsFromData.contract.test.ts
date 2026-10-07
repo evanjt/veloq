@@ -330,7 +330,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
     );
   });
 
-  it('draws the chronic weeks and leaves the compared week off the strip', () => {
+  it('draws dated weeks and marks the compared week', () => {
     const ffiData = buildFfiData();
     ffiData.weeklyTotals = [100, 200, 300, 400, 500].map((tss, week) => ({
       start: 1_697_000_000 + week * 604_800,
@@ -339,10 +339,20 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
 
     const { insights } = computeInsightsFromData(ffiData, t, buildSummaryCardData());
 
-    const weekly = insights.find(
-      (insight) => insight.supportingData?.sparklineLabel === 'insights.data.weeklyLoad'
-    );
-    expect(weekly?.supportingData?.sparklineData).toEqual([100, 200, 300, 400]);
+    const weekly = insights.find((insight) => insight.supportingData?.history?.kind === 'bars');
+    expect(weekly?.supportingData?.history).toMatchObject({
+      kind: 'bars',
+      mark: { date: 1_697_000_000 + 4 * 604_800 },
+      series: [
+        {
+          label: 'insights.data.weeklyLoad',
+          points: [100, 200, 300, 400, 500].map((value, week) => ({
+            value,
+            date: 1_697_000_000 + week * 604_800,
+          })),
+        },
+      ],
+    });
   });
 
   it('returns [] when ffiData is null', () => {

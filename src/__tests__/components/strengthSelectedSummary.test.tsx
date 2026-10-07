@@ -28,7 +28,10 @@ jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => mockIs
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: { count?: number }) =>
+      options?.count == null ? key : `${options.count} ${key}`,
+  }),
 }));
 
 jest.mock('@/features/strength/components/BodyPairWithLoupe', () => ({
@@ -73,7 +76,7 @@ describe('selected muscle summary', () => {
   it('shows weighted sets and volume beside the name', () => {
     draw(volume);
     expect(screen.getByTestId('strength-selected-summary').props.children).toBe(
-      '· 12.5 strength.sets · 3420 kg'
+      '· 12.5 strength.setsCount · 3420 kg'
     );
   });
 
@@ -81,7 +84,7 @@ describe('selected muscle summary', () => {
     mockIsMetric = false;
     draw(volume);
     expect(screen.getByTestId('strength-selected-summary').props.children).toBe(
-      '· 12.5 strength.sets · 7540 lbs'
+      '· 12.5 strength.setsCount · 7540 lbs'
     );
   });
 

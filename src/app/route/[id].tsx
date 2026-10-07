@@ -316,6 +316,9 @@ function RouteDetailScreenContent() {
                 })
               }
               disabled={gpxExporting}
+              accessibilityRole="button"
+              accessibilityLabel={t('export.gpx')}
+              accessibilityState={{ disabled: gpxExporting }}
               activeOpacity={0.7}
             >
               {gpxExporting ? (

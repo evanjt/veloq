@@ -4512,9 +4512,55 @@ const FfiConverterTypeFfiBulkExportResult = (() => {
   return new FFIConverter();
 })();
 
+export type FfiYearCount = {
+  year: number;
+  count: number;
+};
+
+/**
+ * Generated factory for {@link FfiYearCount} record objects.
+ */
+export const FfiYearCount = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiYearCount, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiYearCount>,
+  });
+})();
+
+const FfiConverterTypeFfiYearCount = (() => {
+  type TypeName = FfiYearCount;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        year: FfiConverterUInt32.readFromCursor(c),
+        count: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.year, c);
+      FfiConverterUInt32.writeIntoCursor(value.count, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.year) +
+        FfiConverterUInt32.allocationSize(value.count)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
 export type FfiCacheScreenData = {
   streamRetentionDays: number;
   streamStoreBytes: number;
+  activityYearCounts: Array<FfiYearCount>;
 };
 
 /**
@@ -4541,16 +4587,25 @@ const FfiConverterTypeFfiCacheScreenData = (() => {
       return {
         streamRetentionDays: FfiConverterFloat64.readFromCursor(c),
         streamStoreBytes: FfiConverterFloat64.readFromCursor(c),
+        activityYearCounts:
+          FfiConverterSequenceTypeFfiYearCount.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterFloat64.writeIntoCursor(value.streamRetentionDays, c);
       FfiConverterFloat64.writeIntoCursor(value.streamStoreBytes, c);
+      FfiConverterSequenceTypeFfiYearCount.writeIntoCursor(
+        value.activityYearCounts,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterFloat64.allocationSize(value.streamRetentionDays) +
-        FfiConverterFloat64.allocationSize(value.streamStoreBytes)
+        FfiConverterFloat64.allocationSize(value.streamStoreBytes) +
+        FfiConverterSequenceTypeFfiYearCount.allocationSize(
+          value.activityYearCounts,
+        )
       );
     }
   }
@@ -8665,6 +8720,10 @@ const FfiConverterTypeFfiStrengthBalancePair = (() => {
  */
 export type FfiStrengthSummary = {
   /**
+   * Start of the summary's range in Unix seconds, or zero for an undated aggregate.
+   */
+  startTs: number;
+  /**
    * Per-muscle-group volume data
    */
   muscleVolumes: Array<FfiMuscleVolume>;
@@ -8704,6 +8763,7 @@ const FfiConverterTypeFfiStrengthSummary = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     readFromCursor(c: Cursor): TypeName {
       return {
+        startTs: FfiConverterFloat64.readFromCursor(c),
         muscleVolumes:
           FfiConverterSequenceTypeFfiMuscleVolume.readFromCursor(c),
         activityCount: FfiConverterUInt32.readFromCursor(c),
@@ -8713,6 +8773,7 @@ const FfiConverterTypeFfiStrengthSummary = (() => {
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.startTs, c);
       FfiConverterSequenceTypeFfiMuscleVolume.writeIntoCursor(
         value.muscleVolumes,
         c,
@@ -8726,6 +8787,7 @@ const FfiConverterTypeFfiStrengthSummary = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
+        FfiConverterFloat64.allocationSize(value.startTs) +
         FfiConverterSequenceTypeFfiMuscleVolume.allocationSize(
           value.muscleVolumes,
         ) +
@@ -13463,6 +13525,81 @@ const FfiConverterTypeFfiRoutesStatusData = (() => {
 })();
 
 /**
+ * An activity row in the section detail read.
+ */
+export type FfiSectionActivityRow = {
+  activityId: string;
+  name: string;
+  sportType: string;
+  /**
+   * Unix seconds, as stored by the engine.
+   */
+  startTime: number;
+  distance: number;
+  movingTime: number;
+  /**
+   * Metres per second; zero when moving time is zero.
+   */
+  averageSpeed: number;
+};
+
+/**
+ * Generated factory for {@link FfiSectionActivityRow} record objects.
+ */
+export const FfiSectionActivityRow = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionActivityRow,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionActivityRow>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionActivityRow = (() => {
+  type TypeName = FfiSectionActivityRow;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        sportType: FfiConverterString.readFromCursor(c),
+        startTime: FfiConverterFloat64.readFromCursor(c),
+        distance: FfiConverterFloat64.readFromCursor(c),
+        movingTime: FfiConverterUInt32.readFromCursor(c),
+        averageSpeed: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterString.writeIntoCursor(value.sportType, c);
+      FfiConverterFloat64.writeIntoCursor(value.startTime, c);
+      FfiConverterFloat64.writeIntoCursor(value.distance, c);
+      FfiConverterUInt32.writeIntoCursor(value.movingTime, c);
+      FfiConverterFloat64.writeIntoCursor(value.averageSpeed, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterFloat64.allocationSize(value.startTime) +
+        FfiConverterFloat64.allocationSize(value.distance) +
+        FfiConverterUInt32.allocationSize(value.movingTime) +
+        FfiConverterFloat64.allocationSize(value.averageSpeed)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One renderable chart point on the section-detail chart. One entry per
  * lap traversal (activities with multiple laps expand into multiple points).
  */
@@ -14204,9 +14341,9 @@ export type FfiSectionDetailData = {
    */
   hasOriginalBounds: boolean;
   /**
-   * Metrics for every activity on the section
+   * Display rows for every activity on the section
    */
-  activityMetrics: Array<FfiActivityMetrics>;
+  activityRows: Array<FfiSectionActivityRow>;
   /**
    * Simplified GPS signatures for scrub-time trace display
    */
@@ -14264,8 +14401,8 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
           FfiConverterSequenceTypeFfiMergeCandidate.readFromCursor(c),
         excludedActivityIds: FfiConverterSequenceString.readFromCursor(c),
         hasOriginalBounds: FfiConverterBool.readFromCursor(c),
-        activityMetrics:
-          FfiConverterSequenceTypeFfiActivityMetrics.readFromCursor(c),
+        activityRows:
+          FfiConverterSequenceTypeFfiSectionActivityRow.readFromCursor(c),
         mapSignatures:
           FfiConverterSequenceTypeFfiMapSignature.readFromCursor(c),
         missingTimeStreamIds: FfiConverterSequenceString.readFromCursor(c),
@@ -14291,8 +14428,8 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
       );
       FfiConverterSequenceString.writeIntoCursor(value.excludedActivityIds, c);
       FfiConverterBool.writeIntoCursor(value.hasOriginalBounds, c);
-      FfiConverterSequenceTypeFfiActivityMetrics.writeIntoCursor(
-        value.activityMetrics,
+      FfiConverterSequenceTypeFfiSectionActivityRow.writeIntoCursor(
+        value.activityRows,
         c,
       );
       FfiConverterSequenceTypeFfiMapSignature.writeIntoCursor(
@@ -14326,8 +14463,8 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
         ) +
         FfiConverterSequenceString.allocationSize(value.excludedActivityIds) +
         FfiConverterBool.allocationSize(value.hasOriginalBounds) +
-        FfiConverterSequenceTypeFfiActivityMetrics.allocationSize(
-          value.activityMetrics,
+        FfiConverterSequenceTypeFfiSectionActivityRow.allocationSize(
+          value.activityRows,
         ) +
         FfiConverterSequenceTypeFfiMapSignature.allocationSize(
           value.mapSignatures,
@@ -16159,6 +16296,14 @@ export type FfiStartupData = {
    * activity query, so this set is what marks them.
    */
   newActivityIds: Array<string>;
+  /**
+   * Unix second when the next displayed ring expires.
+   */
+  nextRingExpiryAt?: number;
+  /**
+   * Whether a displayed ring still needs its first showing recorded.
+   */
+  ringStampRequired: boolean;
 };
 
 /**
@@ -16189,6 +16334,8 @@ const FfiConverterTypeFfiStartupData = (() => {
         sparklines:
           FfiConverterOptionalTypeFfiWellnessSparklines.readFromCursor(c),
         newActivityIds: FfiConverterSequenceString.readFromCursor(c),
+        nextRingExpiryAt: FfiConverterOptionalFloat64.readFromCursor(c),
+        ringStampRequired: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -16202,6 +16349,8 @@ const FfiConverterTypeFfiStartupData = (() => {
         c,
       );
       FfiConverterSequenceString.writeIntoCursor(value.newActivityIds, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.nextRingExpiryAt, c);
+      FfiConverterBool.writeIntoCursor(value.ringStampRequired, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -16212,7 +16361,9 @@ const FfiConverterTypeFfiStartupData = (() => {
         FfiConverterOptionalTypeFfiWellnessSparklines.allocationSize(
           value.sparklines,
         ) +
-        FfiConverterSequenceString.allocationSize(value.newActivityIds)
+        FfiConverterSequenceString.allocationSize(value.newActivityIds) +
+        FfiConverterOptionalFloat64.allocationSize(value.nextRingExpiryAt) +
+        FfiConverterBool.allocationSize(value.ringStampRequired)
       );
     }
   }
@@ -17806,6 +17957,51 @@ const FfiConverterTypeLibraryCoverage = (() => {
         FfiConverterUInt32.allocationSize(value.fetched) +
         FfiConverterUInt32.allocationSize(value.tracksUpstream) +
         FfiConverterUInt32.allocationSize(value.tracksStored)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+export type LiveRouteOverlap = {
+  groupId: string;
+  percentage: number;
+};
+
+/**
+ * Generated factory for {@link LiveRouteOverlap} record objects.
+ */
+export const LiveRouteOverlap = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<LiveRouteOverlap, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<LiveRouteOverlap>,
+  });
+})();
+
+const FfiConverterTypeLiveRouteOverlap = (() => {
+  type TypeName = LiveRouteOverlap;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        groupId: FfiConverterString.readFromCursor(c),
+        percentage: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.groupId, c);
+      FfiConverterFloat64.writeIntoCursor(value.percentage, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.groupId) +
+        FfiConverterFloat64.allocationSize(value.percentage)
       );
     }
   }
@@ -24205,8 +24401,11 @@ const FfiConverterTypeMapManager = new FfiConverterObject(
  *
  * Every call is one transaction, so nothing here needs a promise chain around
  * it the way the AsyncStorage index did: two writers racing is what SQLite
- * already answers. The FIT file and a manual entry's body stay TypeScript's
- * to write and delete; the upload reads them from the paths the row names.
+ * already answers. The FIT file and a manual entry's body are TypeScript's to
+ * write, and the upload reads them from the paths the row names. Once
+ * intervals.icu reads a landed upload back, the upload worker's sweep deletes
+ * the row and both files; a recording the athlete deletes from the library
+ * goes through `delete_own_recording`, and TypeScript deletes its files.
  */
 export interface RecordingManagerLike {
   /**
@@ -24270,11 +24469,6 @@ export interface RecordingManagerLike {
    */
   markReconciled(id: string) /*throws*/ : void;
   /**
-   * intervals.icu has the effort the athlete set, so the sweep that sends
-   * an owed one can stop.
-   */
-  markRpeSent(id: string) /*throws*/ : void;
-  /**
    * Name the library's athlete on every ride that has none. Returns how
    * many were named.
    */
@@ -24326,8 +24520,11 @@ export type RecordingManagerInterface = RecordingManagerLike;
  *
  * Every call is one transaction, so nothing here needs a promise chain around
  * it the way the AsyncStorage index did: two writers racing is what SQLite
- * already answers. The FIT file and a manual entry's body stay TypeScript's
- * to write and delete; the upload reads them from the paths the row names.
+ * already answers. The FIT file and a manual entry's body are TypeScript's to
+ * write, and the upload reads them from the paths the row names. Once
+ * intervals.icu reads a landed upload back, the upload worker's sweep deletes
+ * the row and both files; a recording the athlete deletes from the library
+ * goes through `delete_own_recording`, and TypeScript deletes its files.
  */
 export class RecordingManager
   extends UniffiAbstractObject
@@ -24622,26 +24819,6 @@ export class RecordingManager
       ),
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
-          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-  }
-
-  /**
-   * intervals.icu has the effort the athlete set, so the sweep that sends
-   * an owed one can stop.
-   */
-  markRpeSent(id: string): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_rpe_sent(
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
           callStatus,
@@ -25190,6 +25367,14 @@ export interface RouteManagerLike {
     sortKey: string | undefined,
   ) /*throws*/ : FfiGroupSummariesResult;
   includeActivity(routeId: string, activityId: string) /*throws*/ : void;
+  /**
+   * Measure the recorded line against the listed groups off the JS thread.
+   */
+  liveOverlaps(
+    groupIds: Array<string>,
+    coordinates: Array<number>,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<Array<LiveRouteOverlap>>;
   setName(routeId: string, name: string) /*throws*/ : void;
   setRepresentative(routeId: string, activityId: string) /*throws*/ : void;
 }
@@ -25528,6 +25713,68 @@ export class RouteManager
       },
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
+  }
+
+  /**
+   * Measure the recorded line against the listed groups off the JS thread.
+   */
+  async liveOverlaps(
+    groupIds: Array<string>,
+    coordinates: Array<number>,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<Array<LiveRouteOverlap>> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_live_overlaps(
+            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+            FfiConverterSequenceString.lower(
+              groupIds,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterSequenceFloat64.lower(
+              coordinates,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterSequenceTypeLiveRouteOverlap.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   setName(routeId: string, name: string): void /*throws*/ {
@@ -28788,24 +29035,6 @@ export interface SyncManagerLike {
    */
   clearCredentials(): void;
   /**
-   * Answer whether intervals.icu still holds the activity an upload created.
-   *
-   * A 200 from the upload says the server took the bytes, not that the ride
-   * survived: it can be rejected, deduplicated against an existing activity
-   * or lost afterwards, and the device's copy is the only other one. So the
-   * recording is not deleted until this reads the activity back. `Ok` means
-   * present, `Http` with 404 means gone, and everything else means unknown,
-   * which is not an answer and must not be treated as one.
-   *
-   * It goes through `run_write` for the credential handling rather than for
-   * the verb: a confirmation refused for a dead credential parks the service
-   * exactly as a refused upload does.
-   */
-  confirmActivityUploaded(
-    intervalsId: string,
-    asyncOpts_?: { signal: AbortSignal },
-  ): Promise<FfiCallOutcome>;
-  /**
    * Current status snapshot.
    */
   getSyncStatus(): FfiSyncStatus;
@@ -28913,19 +29142,6 @@ export interface SyncManagerLike {
    * same list costs nothing.
    */
   syncTimeStreams(activityIds: Array<string>): FfiStartResult;
-  /**
-   * Set the effort the athlete gave an uploaded ride, as its `icu_rpe`.
-   *
-   * A separate call because the upload takes no effort field. It names the
-   * activity the upload created, so a failure here never sends the file
-   * again: the recording keeps the effort owed and the next pass retries
-   * only this.
-   */
-  updateActivityRpe(
-    intervalsId: string,
-    rpe: number,
-    asyncOpts_?: { signal: AbortSignal },
-  ): Promise<FfiCallOutcome>;
 }
 /**
  * @deprecated Use `SyncManagerLike` instead.
@@ -29006,71 +29222,6 @@ export class SyncManager
       },
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
-  }
-
-  /**
-   * Answer whether intervals.icu still holds the activity an upload created.
-   *
-   * A 200 from the upload says the server took the bytes, not that the ride
-   * survived: it can be rejected, deduplicated against an existing activity
-   * or lost afterwards, and the device's copy is the only other one. So the
-   * recording is not deleted until this reads the activity back. `Ok` means
-   * present, `Http` with 404 means gone, and everything else means unknown,
-   * which is not an answer and must not be treated as one.
-   *
-   * It goes through `run_write` for the credential handling rather than for
-   * the verb: a confirmation refused for a dead credential parks the service
-   * exactly as a refused upload does.
-   */
-  async confirmActivityUploaded(
-    intervalsId: string,
-    asyncOpts_?: { signal: AbortSignal },
-  ): Promise<FfiCallOutcome> {
-    const __stack = uniffiIsDebug ? new Error().stack : undefined;
-    try {
-      return await uniffiRustCallAsync(
-        /*rustCaller:*/ uniffiCaller,
-        /*rustFutureFunc:*/ () => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
-            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(
-              intervalsId,
-              nativeModule().rustbuffer_alloc,
-            ),
-          );
-        },
-        /*pollFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
-        /*cancelFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
-        /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
-        /*freeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
-        // Async returns always go through the JS-side converter: the
-        // FFI symbol returns the future handle (u64), and the user-level
-        // RustBuffer comes back via the shared `rust_future_complete_*`
-        // export. The bytes the runtime hands back must be deserialized
-        // here using the per-callable return-type converter.
-        // Borrowed view over foreign memory: the call site owns the free,
-        // as on the sync paths. Unconditional, a no-op where buffers are
-        // already JS-owned.
-        /*liftFunc:*/ (__rb) => {
-          try {
-            return FfiConverterTypeFfiCallOutcome.lift(__rb);
-          } finally {
-            nativeModule().rustbuffer_free(__rb);
-          }
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-        /*asyncOpts:*/ asyncOpts_,
-      );
-    } catch (__error: any) {
-      if (uniffiIsDebug && __error instanceof Error) {
-        __error.stack = __stack;
-      }
-      throw __error;
-    }
   }
 
   /**
@@ -29433,67 +29584,6 @@ export class SyncManager
       return FfiConverterTypeFfiStartResult.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
-   * Set the effort the athlete gave an uploaded ride, as its `icu_rpe`.
-   *
-   * A separate call because the upload takes no effort field. It names the
-   * activity the upload created, so a failure here never sends the file
-   * again: the recording keeps the effort owed and the next pass retries
-   * only this.
-   */
-  async updateActivityRpe(
-    intervalsId: string,
-    rpe: number,
-    asyncOpts_?: { signal: AbortSignal },
-  ): Promise<FfiCallOutcome> {
-    const __stack = uniffiIsDebug ? new Error().stack : undefined;
-    try {
-      return await uniffiRustCallAsync(
-        /*rustCaller:*/ uniffiCaller,
-        /*rustFutureFunc:*/ () => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_update_activity_rpe(
-            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(
-              intervalsId,
-              nativeModule().rustbuffer_alloc,
-            ),
-            FfiConverterUInt32.lower(rpe, nativeModule().rustbuffer_alloc),
-          );
-        },
-        /*pollFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
-        /*cancelFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
-        /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
-        /*freeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
-        // Async returns always go through the JS-side converter: the
-        // FFI symbol returns the future handle (u64), and the user-level
-        // RustBuffer comes back via the shared `rust_future_complete_*`
-        // export. The bytes the runtime hands back must be deserialized
-        // here using the per-callable return-type converter.
-        // Borrowed view over foreign memory: the call site owns the free,
-        // as on the sync paths. Unconditional, a no-op where buffers are
-        // already JS-owned.
-        /*liftFunc:*/ (__rb) => {
-          try {
-            return FfiConverterTypeFfiCallOutcome.lift(__rb);
-          } finally {
-            nativeModule().rustbuffer_free(__rb);
-          }
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-        /*asyncOpts:*/ asyncOpts_,
-      );
-    } catch (__error: any) {
-      if (uniffiIsDebug && __error instanceof Error) {
-        __error.stack = __stack;
-      }
-      throw __error;
     }
   }
 
@@ -31059,6 +31149,11 @@ const FfiConverterSequenceTypeFfiClimbBests = new FfiConverterArray(
   FfiConverterTypeFfiClimbBests,
 );
 
+// FfiConverter for Array<FfiYearCount>
+const FfiConverterSequenceTypeFfiYearCount = new FfiConverterArray(
+  FfiConverterTypeFfiYearCount,
+);
+
 // FfiConverter for FfiCalendarDirectionBest | undefined
 const FfiConverterOptionalTypeFfiCalendarDirectionBest =
   new FfiConverterOptional(FfiConverterTypeFfiCalendarDirectionBest);
@@ -31355,6 +31450,11 @@ const FfiConverterSequenceTypeFfiMergeCandidate = new FfiConverterArray(
   FfiConverterTypeFfiMergeCandidate,
 );
 
+// FfiConverter for Array<FfiSectionActivityRow>
+const FfiConverterSequenceTypeFfiSectionActivityRow = new FfiConverterArray(
+  FfiConverterTypeFfiSectionActivityRow,
+);
+
 // FfiConverter for Array<FfiSectionHistoryEvent>
 const FfiConverterSequenceTypeFfiSectionHistoryEvent = new FfiConverterArray(
   FfiConverterTypeFfiSectionHistoryEvent,
@@ -31541,6 +31641,11 @@ const FfiConverterOptionalTypeFfiRecordingEntry = new FfiConverterOptional(
 // FfiConverter for Array<FfiRecordingEntry>
 const FfiConverterSequenceTypeFfiRecordingEntry = new FfiConverterArray(
   FfiConverterTypeFfiRecordingEntry,
+);
+
+// FfiConverter for Array<LiveRouteOverlap>
+const FfiConverterSequenceTypeLiveRouteOverlap = new FfiConverterArray(
+  FfiConverterTypeLiveRouteOverlap,
 );
 
 // FfiConverter for Array<FfiNamedCorridor>
@@ -32887,14 +32992,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_rpe_sent() !==
-    24514
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_mark_rpe_sent",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_stamp_ownerless() !==
     1030
   ) {
@@ -33060,6 +33157,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_include_activity",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_live_overlaps() !==
+    41802
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_live_overlaps",
     );
   }
   if (
@@ -33831,14 +33936,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded() !==
-    16648
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status() !==
     46855
   ) {
@@ -33948,14 +34045,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_update_activity_rpe() !==
-    55281
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_syncmanager_update_activity_rpe",
     );
   }
   if (
@@ -34408,6 +34497,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRoutesScreenQuery,
     FfiConverterTypeFfiRoutesStatusData,
     FfiConverterTypeFfiSection,
+    FfiConverterTypeFfiSectionActivityRow,
     FfiConverterTypeFfiSectionChange,
     FfiConverterTypeFfiSectionChartData,
     FfiConverterTypeFfiSectionChartPoint,
@@ -34468,12 +34558,14 @@ export default Object.freeze({
     FfiConverterTypeFfiWellnessSparklines,
     FfiConverterTypeFfiWellnessSummary,
     FfiConverterTypeFfiWorkoutSection,
+    FfiConverterTypeFfiYearCount,
     FfiConverterTypeFfiZoneDistribution,
     FfiConverterTypeFitnessManager,
     FfiConverterTypeGpxFile,
     FfiConverterTypeGroupSummary,
     FfiConverterTypeHeatmapManager,
     FfiConverterTypeLibraryCoverage,
+    FfiConverterTypeLiveRouteOverlap,
     FfiConverterTypeMapActivityComplete,
     FfiConverterTypeMapDistanceBand,
     FfiConverterTypeMapManager,

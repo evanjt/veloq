@@ -50,7 +50,35 @@ pub fn cache_screen_data(
     Ok(crate::FfiCacheScreenData {
         stream_retention_days: stream_retention_days as f64,
         stream_store_bytes: stream_store_bytes as f64,
+        activity_year_counts: activity_year_counts(conn)?,
     })
+}
+
+fn activity_year_counts(
+    conn: &rusqlite::Connection,
+) -> Result<Vec<crate::FfiYearCount>, crate::objects::error::VeloqError> {
+    let stored = crate::persistence::settings::setting_from(
+        conn,
+        crate::objects::sync::ACTIVITY_YEAR_COUNTS_KEY,
+    )
+    .map_err(|error| crate::objects::error::VeloqError::Database {
+        msg: error.to_string(),
+    })?;
+    let Some(stored) = stored else {
+        return Ok(Vec::new());
+    };
+    let Ok(counts) = serde_json::from_str::<std::collections::BTreeMap<String, u32>>(&stored)
+    else {
+        return Ok(Vec::new());
+    };
+    Ok(counts
+        .into_iter()
+        .filter_map(|(year, count)| {
+            year.parse()
+                .ok()
+                .map(|year| crate::FfiYearCount { year, count })
+        })
+        .collect())
 }
 
 /// The best stored set in each session for one exercise category.
@@ -756,14 +784,16 @@ impl super::PersistentEngine {
         preview_activity_ids: &[String],
         now: i64,
     ) -> crate::FfiStartupData {
+        let conn = self.cold_connection();
+        let snapshot = crate::persistence::feed_rings::feed_ring_snapshot(conn, now);
         pooled::startup_data(
-            self.cold_connection(),
+            conn,
             current_start,
             current_end,
             prev_start,
             prev_end,
             preview_activity_ids,
-            now,
+            snapshot,
         )
     }
 
@@ -1506,7 +1536,8 @@ pub mod pooled {
         sections: bool,
         name_needle: String,
     ) -> crate::FfiMapScreenData {
-        let chips = crate::persistence::read_cache::sport_types(|| available_sport_types(conn));
+        let chips =
+            crate::persistence::read_cache::sport_types(conn, || available_sport_types(conn));
         screen_data(
             conn,
             start_date,
@@ -2260,7 +2291,9 @@ pub mod pooled {
                 range.end_ts as i64,
             )
             .ok()?;
-            weekly.push(crate::objects::strength::aggregate_strength_sets(&sets));
+            let mut summary = crate::objects::strength::aggregate_strength_sets(&sets);
+            summary.start_ts = range.start_ts;
+            weekly.push(summary);
         }
         let progressions = crate::objects::strength::strength_progressions(&monthly, &weekly);
         Some(crate::FfiStrengthInsightSeries {
@@ -2328,10 +2361,22 @@ pub mod pooled {
             })
             .unwrap_or_default();
 
-        let activity_metrics: Vec<crate::FfiActivityMetrics> = activity_ids
+        let activity_rows: Vec<crate::FfiSectionActivityRow> = activity_ids
             .iter()
             .filter_map(|id| activities::metrics_of(conn, id))
-            .map(crate::FfiActivityMetrics::from)
+            .map(|m| crate::FfiSectionActivityRow {
+                activity_id: m.activity_id,
+                name: m.name,
+                sport_type: m.sport_type,
+                start_time: m.date as f64,
+                distance: m.distance,
+                moving_time: m.moving_time,
+                average_speed: if m.moving_time > 0 {
+                    m.distance / f64::from(m.moving_time)
+                } else {
+                    0.0
+                },
+            })
             .collect();
 
         let pinned_version =
@@ -2379,7 +2424,7 @@ pub mod pooled {
             merge_candidates: merging::merge_candidates(conn, section_id, &names),
             excluded_activity_ids: sections::excluded_activity_ids(conn, section_id),
             has_original_bounds: sections::has_original_bounds(conn, section_id),
-            activity_metrics,
+            activity_rows,
             map_signatures: activities::map_signatures_for_ids(conn, &activity_ids),
             missing_time_stream_ids: activities::activities_missing_time_streams(
                 conn,
@@ -2428,7 +2473,7 @@ pub mod pooled {
         prev_start: i64,
         prev_end: i64,
         preview_activity_ids: &[String],
-        now: i64,
+        rings: crate::persistence::feed_rings::RingSnapshot,
     ) -> crate::FfiStartupData {
         crate::FfiStartupData {
             summary_card: summary_card(conn, current_start, current_end, prev_start, prev_end),
@@ -2443,7 +2488,9 @@ pub mod pooled {
             )
             .ok()
             .flatten(),
-            new_activity_ids: crate::persistence::feed_rings::feed_ring_ids(conn, now),
+            new_activity_ids: rings.ids,
+            next_ring_expiry_at: rings.next_expiry_at.map(|at| at as f64),
+            ring_stamp_required: rings.unstamped,
         }
     }
 
@@ -2489,7 +2536,7 @@ pub mod pooled {
     /// `None` for an activity with no signature or an empty one: there is
     /// nothing to draw.
     pub fn preview_track(conn: &Connection, activity_id: &str) -> Option<crate::FfiPreviewTrack> {
-        let sig = crate::persistence::read_cache::signature(activity_id, || {
+        let sig = crate::persistence::read_cache::signature(conn, activity_id, || {
             crate::persistence::activities::pooled::signature(conn, activity_id)
         })?;
         if sig.points.is_empty() {
@@ -3270,10 +3317,7 @@ mod tests {
 
     #[test]
     fn test_insights_recent_section_record_reaches_the_screen() {
-        // The pooled read goes through the process-wide read cache, which is keyed by section and not
-        // by database, so another test's performances for the same ids must not be served here.
         let _serial = crate::test_globals::serial_global_state();
-        crate::persistence::read_cache::clear();
         let dir = tempfile::TempDir::new().expect("directory");
         let path = dir.path().join("recent_insights.db");
         let engine = engine_with_a_recent_section_record(path.to_str().unwrap());
@@ -3435,10 +3479,7 @@ mod tests {
 
     #[test]
     fn test_insights_partial_laps_have_no_recent_record() {
-        // The pooled read goes through the process-wide read cache, which is keyed by section and not
-        // by database, so another test's performances for the same ids must not be served here.
         let _serial = crate::test_globals::serial_global_state();
-        crate::persistence::read_cache::clear();
         let dir = tempfile::TempDir::new().expect("directory");
         let path = dir.path().join("partial_insights.db");
         let engine = engine_with_a_recent_section_record(path.to_str().unwrap());
@@ -3860,15 +3901,14 @@ mod tests {
         let dir = TempDir::new().expect("tempdir");
         let path = dir.path().join("section_detail_parity.db");
         let db_path = path.to_str().expect("utf-8");
-        // The pooled overlay resolves through `read_cache`, whose stamp is one
-        // process-wide path. Bind it to this database or the read answers with
-        // whatever the last test left in the slot.
+        // Bound to this database, so the pooled overlay resolves through
+        // `read_cache` as it does for the pool's own readers.
         crate::persistence::read_pool::bind(db_path);
         let engine = engine_with_a_traversed_section(db_path);
 
         let through_the_pool = pooled::section_detail_data(&engine.db, "auto1");
         assert_eq!(through_the_pool.activity_count, 2);
-        assert_eq!(through_the_pool.activity_metrics.len(), 2);
+        assert_eq!(through_the_pool.activity_rows.len(), 2);
         assert_eq!(
             through_the_pool.section.as_ref().map(|s| s.id.as_str()),
             Some("auto1")
@@ -4631,9 +4671,21 @@ mod tests {
         let ids: Vec<String> = Vec::new();
 
         assert!(
-            pooled::startup_data(&engine.db, window.0, window.1, window.2, window.3, &ids, 0)
-                .sparklines
-                .is_none(),
+            pooled::startup_data(
+                &engine.db,
+                window.0,
+                window.1,
+                window.2,
+                window.3,
+                &ids,
+                crate::persistence::feed_rings::RingSnapshot {
+                    ids: vec![],
+                    next_expiry_at: None,
+                    unstamped: false,
+                }
+            )
+            .sparklines
+            .is_none(),
             "an athlete with no wellness has no line to draw"
         );
 
@@ -4646,8 +4698,19 @@ mod tests {
             )
             .expect("wellness");
 
-        let data =
-            pooled::startup_data(&engine.db, window.0, window.1, window.2, window.3, &ids, 0);
+        let data = pooled::startup_data(
+            &engine.db,
+            window.0,
+            window.1,
+            window.2,
+            window.3,
+            &ids,
+            crate::persistence::feed_rings::RingSnapshot {
+                ids: vec![],
+                next_expiry_at: None,
+                unstamped: false,
+            },
+        );
         let lines = data.sparklines.expect("a day of wellness");
         assert_eq!(lines.fitness, vec![70]);
         assert_eq!(lines.form, vec![10], "form is fitness less fatigue");

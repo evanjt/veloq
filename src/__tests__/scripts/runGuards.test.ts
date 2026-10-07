@@ -51,6 +51,8 @@ const NOT_GATES: Record<string, string> = {
   'check-merge-lint.sh': 'merge-gates.sh, over the merged tree',
   'check-merge-message.sh': 'commit-msg, while a merge is in progress',
   'check-merge-tests.sh': 'merge-gates.sh, to pick the suites a merge touched',
+  'check-android-jvm.sh': 'the merge suite planner, when Android module sources change',
+  'check-ios-project.mjs': 'the merge suite planner, when iOS or plugin sources change',
   'check-retired-history.sh':
     'land-branch.sh and the merge hooks, with the target and the incoming branch as arguments',
   'check-staged-tree.sh': 'pre-commit, before and after the gates run',

@@ -113,6 +113,8 @@ export function MapsSection() {
           {t('settings.defaultStyle')}
         </Text>
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={`${t('settings.terrain3D')}: ${terrain3DLabel}`}
           style={styles.terrain3DBadge}
           onPress={cycleTerrain3DMode}
           activeOpacity={0.6}
@@ -161,6 +163,8 @@ export function MapsSection() {
             {t('settings.exploreMapStyle')}
           </Text>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`${t('settings.exploreMapStyle')}: ${t((STYLE_LABELS[exploreStyle] ?? 'settings.light') as 'settings.light')}`}
             style={[styles.pill, { backgroundColor: pillBg }]}
             onPress={cycleGlobalMapStyle}
             activeOpacity={0.6}
@@ -202,6 +206,8 @@ export function MapsSection() {
                 {t(labelKey as 'maps.activityTypes.ride')}
               </Text>
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`${t(labelKey as 'maps.activityTypes.ride')}: ${t(styleKey as 'settings.default')}`}
                 style={[styles.pill, { backgroundColor: pillBg }]}
                 testID={`map-style-pill-${key}`}
                 onPress={() => cycleActivityGroupStyle(types)}
@@ -212,13 +218,18 @@ export function MapsSection() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`${t(labelKey as 'maps.activityTypes.ride')}: 3D ${t(terrainKey as 'settings.terrain3DSmart', { defaultValue: 'Smart' })}`}
                 style={[styles.pill, { backgroundColor: pillBg }]}
                 testID={`map-terrain-pill-${key}`}
                 onPress={() => cycleTerrain3DGroup(types)}
                 activeOpacity={0.6}
               >
                 <Text style={[styles.pillText, { color: mutedColor }]}>
-                  3D: {t(terrainKey as 'settings.terrain3DSmart', { defaultValue: 'Smart' })}
+                  3D:{' '}
+                  {t(terrainKey as 'settings.terrain3DSmart', {
+                    defaultValue: 'Smart',
+                  })}
                 </Text>
               </TouchableOpacity>
             </View>

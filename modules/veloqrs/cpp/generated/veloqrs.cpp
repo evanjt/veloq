@@ -598,8 +598,6 @@ RustBuffer uniffi_veloqrs_fn_method_recordingmanager_list_visible_recordings(
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
     /*handle*/ uint64_t ptr, RustBuffer id, RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_recordingmanager_mark_rpe_sent(
-    /*handle*/ uint64_t ptr, RustBuffer id, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_recordingmanager_stamp_ownerless(
     /*handle*/ uint64_t ptr, RustBuffer athlete_id,
     RustCallStatus *uniffi_out_err);
@@ -654,6 +652,8 @@ RustBuffer uniffi_veloqrs_fn_method_routemanager_get_summaries(
 void uniffi_veloqrs_fn_method_routemanager_include_activity(
     /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_routemanager_live_overlaps(
+    /*handle*/ uint64_t ptr, RustBuffer group_ids, RustBuffer coordinates);
 void uniffi_veloqrs_fn_method_routemanager_set_name(
     /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer name,
     RustCallStatus *uniffi_out_err);
@@ -907,9 +907,6 @@ void uniffi_veloqrs_fn_method_syncmanager_cancel(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
-/*handle*/ uint64_t
-uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
-    /*handle*/ uint64_t ptr, RustBuffer intervals_id);
 RustBuffer uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_syncmanager_library_coverage(
@@ -949,8 +946,6 @@ RustBuffer uniffi_veloqrs_fn_method_syncmanager_sync_power_curve(
 RustBuffer uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
     /*handle*/ uint64_t ptr, RustBuffer activity_ids,
     RustCallStatus *uniffi_out_err);
-/*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_update_activity_rpe(
-    /*handle*/ uint64_t ptr, RustBuffer intervals_id, uint32_t rpe);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_heatmapmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_heatmapmanager(
@@ -1362,7 +1357,6 @@ uint16_t uniffi_veloqrs_checksum_method_recordingmanager_list_recordings();
 uint16_t
 uniffi_veloqrs_checksum_method_recordingmanager_list_visible_recordings();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled();
-uint16_t uniffi_veloqrs_checksum_method_recordingmanager_mark_rpe_sent();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_stamp_ownerless();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_transition();
 uint16_t
@@ -1383,6 +1377,7 @@ uint16_t uniffi_veloqrs_checksum_method_routemanager_get_representative_route();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_screen_data();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_summaries();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_include_activity();
+uint16_t uniffi_veloqrs_checksum_method_routemanager_live_overlaps();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_set_name();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_set_representative();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_accept();
@@ -1481,7 +1476,6 @@ uint16_t uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_bodies_stored();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_cancel();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_clear_credentials();
-uint16_t uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_get_sync_status();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_library_coverage();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_offline_estimate();
@@ -1496,7 +1490,6 @@ uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_now();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams();
-uint16_t uniffi_veloqrs_checksum_method_syncmanager_update_activity_rpe();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_cancel();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_priority_view();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
@@ -7671,19 +7664,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_rpe_sent"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_rpe_sent"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_recordingmanager_mark_rpe_sent(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_stamp_ownerless"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -7926,6 +7906,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_routemanager_include_activity(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_routemanager_live_overlaps"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_routemanager_live_overlaps"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_routemanager_live_overlaps(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_routemanager_set_name"] =
@@ -9082,19 +9074,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt,
-                                    "ubrn_uniffi_veloqrs_fn_method_syncmanager_"
-                                    "confirm_activity_uploaded"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_method_syncmanager_get_sync_status"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -9263,19 +9242,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_syncmanager_update_activity_rpe"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_fn_method_syncmanager_update_activity_rpe"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_syncmanager_update_activity_rpe(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_clone_heatmapmanager"] =
@@ -12476,18 +12442,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_rpe_sent"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "recordingmanager_mark_rpe_sent"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_mark_rpe_sent(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_stamp_"
         "ownerless"] = jsi::Function::createFromHostFunction(
       rt,
@@ -12694,6 +12648,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_routemanager_include_activity(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_routemanager_live_overlaps"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_routemanager_live_overlaps"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_routemanager_live_overlaps(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name"] =
@@ -13722,18 +13689,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_"
-        "uploaded"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "syncmanager_confirm_activity_uploaded"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded(
-                rt, thisVal, args, count);
-      });
   props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -13901,18 +13856,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_update_activity_rpe"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "syncmanager_update_activity_rpe"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_syncmanager_update_activity_rpe(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_cancel"] =
@@ -17637,22 +17580,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
   return jsi::Value::undefined();
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_mark_rpe_sent(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_recordingmanager_mark_rpe_sent(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_stamp_ownerless(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -17970,6 +17897,19 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_include_activity(
                                                         args[count - 1]);
 
   return jsi::Value::undefined();
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_live_overlaps(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_fn_method_routemanager_live_overlaps(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]));
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_set_name(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -19508,18 +19448,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
 
   return jsi::Value::undefined();
 }
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]));
-
-  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
-                                                         value);
-}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -19746,19 +19674,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
                                                         args[count - 1]);
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_update_activity_rpe(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_fn_method_syncmanager_update_activity_rpe(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]));
-
-  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
-                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -22338,14 +22253,6 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_recordingmanager_mark_rpe_sent(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_recordingmanager_mark_rpe_sent();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_method_recordingmanager_stamp_ownerless(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -22486,6 +22393,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_routemanager_include_activity(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_routemanager_include_activity();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_routemanager_live_overlaps(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_routemanager_live_overlaps();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -23201,15 +23116,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -23324,14 +23230,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_syncmanager_update_activity_rpe(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_syncmanager_update_activity_rpe();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

@@ -86,6 +86,7 @@ export function normalizeStrengthProgression(raw: {
  * one, so both map it here.
  */
 export function normalizeStrengthSummary(raw: {
+  startTs?: number;
   muscleVolumes?: {
     slug: string;
     primarySets: number;
@@ -109,6 +110,7 @@ export function normalizeStrengthSummary(raw: {
   }[];
 }): StrengthSummary {
   return {
+    ...(raw.startTs === undefined ? {} : { startTs: raw.startTs }),
     muscleVolumes: (raw.muscleVolumes ?? []).map((v) => ({
       slug: v.slug,
       primarySets: v.primarySets,

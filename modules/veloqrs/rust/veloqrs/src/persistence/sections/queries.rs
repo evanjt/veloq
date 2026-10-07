@@ -366,15 +366,6 @@ pub(crate) mod pooled {
         section_type: Option<SectionType>,
         names: &BTreeMap<String, String>,
     ) -> Vec<Section> {
-        sections_by_type_with_ids(conn, section_type, names).0
-    }
-
-    /// Visible stored ids include rows whose other columns cannot be decoded.
-    pub(crate) fn sections_by_type_with_ids(
-        conn: &Connection,
-        section_type: Option<SectionType>,
-        names: &BTreeMap<String, String>,
-    ) -> (Vec<Section>, HashSet<String>) {
         let query = match section_type {
             Some(st) => format!(
                 "SELECT {} FROM sections WHERE section_type = '{}' AND {}",
@@ -391,35 +382,24 @@ pub(crate) mod pooled {
             Ok(stmt) => stmt,
             Err(error) => {
                 log::error!("sections list query failed: {error}");
-                return (Vec::new(), HashSet::new());
+                return Vec::new();
             }
         };
-        let mut stored_ids = HashSet::new();
         let mut sections = Vec::new();
-        let rows = stmt.query_map([], |row| {
-            let id: String = row.get(0)?;
-            Ok((id, section_from_row(conn, row)))
-        });
+        let rows = stmt.query_map([], |row| section_from_row(conn, row));
         match rows {
             Ok(rows) => {
                 for row in rows {
                     match row {
-                        Ok((id, Ok(section))) => {
-                            stored_ids.insert(id);
-                            sections.push(section);
-                        }
-                        Ok((id, Err(error))) => {
-                            log::error!("sections row {id} decode failed: {error}");
-                            stored_ids.insert(id);
-                        }
-                        Err(error) => log::error!("sections row id read failed: {error}"),
+                        Ok(section) => sections.push(section),
+                        Err(error) => log::error!("sections row decode failed: {error}"),
                     }
                 }
             }
             Err(error) => log::error!("sections list query failed: {error}"),
         }
         finish(conn, &mut sections, names);
-        (sections, stored_ids)
+        sections
     }
 
     /// Every visible section a given activity traverses, most-traversed first

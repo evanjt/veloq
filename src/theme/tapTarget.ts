@@ -13,11 +13,20 @@ import { MIN_TAP_TARGET } from './spacing';
  */
 export const minTapTarget = MIN_TAP_TARGET[Platform.OS === 'android' ? 'android' : 'ios'];
 
+function slopEach(drawn: number): number {
+  return Math.max(0, Math.ceil((minTapTarget - drawn) / 2));
+}
+
 /**
- * The vertical hit slop that lifts a control drawn `drawnHeight` tall to the
- * platform minimum, split across both edges.
+ * The hit slop that lifts a control drawn `drawnHeight` tall to the platform
+ * minimum, split across both edges. Given `drawnWidth` too, it lifts the width
+ * the same way, for a control whose width is fixed.
  */
-export function slopToMinTapTarget(drawnHeight: number): { top: number; bottom: number } {
-  const each = Math.max(0, Math.ceil((minTapTarget - drawnHeight) / 2));
-  return { top: each, bottom: each };
+export function slopToMinTapTarget(
+  drawnHeight: number,
+  drawnWidth?: number
+): { top: number; bottom: number; left: number; right: number } {
+  const vertical = slopEach(drawnHeight);
+  const horizontal = drawnWidth === undefined ? 0 : slopEach(drawnWidth);
+  return { top: vertical, bottom: vertical, left: horizontal, right: horizontal };
 }

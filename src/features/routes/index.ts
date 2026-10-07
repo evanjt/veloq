@@ -69,7 +69,6 @@ export {
   useRouteRenaming,
   useRoutesScreenData,
   useSectionActions,
-  useSectionActivityData,
   useSectionChartData,
   useSectionChartDataEnriched,
   useSectionDataRefresh,

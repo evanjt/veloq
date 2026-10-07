@@ -52,8 +52,7 @@ function insight(overrides: Partial<Insight> = {}, scores?: SectionRankingScores
   } as Insight;
 }
 
-const sheet = (i: Insight) =>
-  render(<InsightDetailSheet insight={i} visible onClose={() => undefined} />);
+const sheet = (i: Insight) => render(<InsightDetailSheet insight={i} onClose={() => undefined} />);
 
 describe('the ranking factors group on an insight sheet', () => {
   beforeAll(() => initializeI18n('en-GB'));

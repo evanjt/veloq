@@ -60,6 +60,8 @@ export function SupportSection() {
         {/* Action buttons */}
         <View style={styles.actionRow}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('support.review')}
             onPress={handleReview}
             style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
             android_ripple={pressRipple}
@@ -70,6 +72,8 @@ export function SupportSection() {
             </Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('support.idea')}
             onPress={() => WebBrowser.openBrowserAsync(`${GITHUB_ISSUES_URL}?labels=enhancement`)}
             style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
             android_ripple={pressRipple}
@@ -78,6 +82,8 @@ export function SupportSection() {
             <Text style={[styles.actionButtonText, { color: textColor }]}>{t('support.idea')}</Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('support.forum')}
             onPress={() => WebBrowser.openBrowserAsync(FORUM_URL)}
             style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
             android_ripple={pressRipple}
@@ -110,6 +116,8 @@ export function SupportSection() {
             </View>
           ) : (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('support.sponsorGitHub')}
               testID="support-sponsor-button"
               onPress={() => WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL)}
               style={pressable([styles.sponsorButton, isDark && styles.sponsorButtonDark])}
@@ -126,6 +134,8 @@ export function SupportSection() {
 
         {/* intervals.icu row */}
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.subscribe')}
           onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')}
           style={pressable(styles.row)}
           android_ripple={pressRipple}
@@ -143,6 +153,8 @@ export function SupportSection() {
         <View style={[styles.divider, { backgroundColor: dividerColor }]} />
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('support.shareCrashLog')}
           testID="support-crash-log"
           onPress={handleShareCrashLog}
           style={pressable(styles.row)}

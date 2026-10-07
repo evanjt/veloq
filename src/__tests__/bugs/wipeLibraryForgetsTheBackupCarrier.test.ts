@@ -78,7 +78,7 @@ const mockSettings = new Map<string, string>();
 /** The tray and the schedule, by notification identifier. */
 const mockTray = new Set<string>();
 const mockScheduled = new Set<string>();
-/** WorkManager's queued activity pushes, by unique work name. */
+/** WorkManager's activity push records, by unique work name. */
 const mockPushJobs = new Set<string>();
 
 jest.mock('expo-file-system/legacy', () => {
@@ -238,9 +238,9 @@ const mockEngine = {
   restoreRecordZip: jest.fn(async () => ({ unplaced: 0, missingActivityIds: [] as string[] })),
 };
 
-/** The Android module that cancels the queued pushes, looked up when the wipe runs. */
+/** The Android module that cancels and prunes activity pushes. */
 (globalThis as unknown as { expo: { modules: Record<string, unknown> } }).expo.modules.VeloqPush = {
-  cancelQueuedActivityPushes: () => mockPushJobs.clear(),
+  cancelQueuedActivityPushes: async () => mockPushJobs.clear(),
 };
 
 /** The image loader's disk cache, which holds the profile photo it fetched. */
@@ -1050,7 +1050,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { storage: ['veloq-insight-task-runs'] },
   },
   {
-    where: "WorkManager's database: a queued activity-push-<athlete>-<activity> job",
+    where: "WorkManager's database: activity-push-<athlete>-<activity> jobs and finished records",
     writers: ['modules/veloqrs/android/src/main/java/com/veloq/ActivityPushWorker.kt'],
     holds: 'the athlete id and an activity id',
     wiped: { pushJobs: true },

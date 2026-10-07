@@ -176,8 +176,8 @@ describe('the filter chips count the catalogue, not the page', () => {
   it('shows the custom and retired figures it was given', () => {
     const { getByText } = renderList();
 
-    expect(getByText('18 Custom')).toBeTruthy();
-    expect(getByText('7 Removed')).toBeTruthy();
+    expect(getByText('18 custom sections')).toBeTruthy();
+    expect(getByText('7 removed sections')).toBeTruthy();
   });
 
   it('keeps them when the page holds none of either', () => {
@@ -186,9 +186,9 @@ describe('the filter chips count the catalogue, not the page', () => {
       retiredSectionCount: 2,
     });
 
-    expect(getByText('4 Custom')).toBeTruthy();
-    expect(getByText('2 Removed')).toBeTruthy();
-    expect(queryByText('0 Removed')).toBeNull();
+    expect(getByText('4 custom sections')).toBeTruthy();
+    expect(getByText('2 removed sections')).toBeTruthy();
+    expect(queryByText('0 removed sections')).toBeNull();
   });
 });
 

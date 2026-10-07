@@ -144,6 +144,14 @@ describe('ActivityMapPreview', () => {
     expect(queryByTestId('map-attribution-text')).toBeNull();
   });
 
+  it('shows the cached image at full opacity on its first frame', () => {
+    const { getByTestId } = render(<ActivityMapPreview activity={activity} />);
+
+    const preview = getByTestId('activity-map-preview-ready-demo-1');
+    const { Image } = require('react-native');
+    expect(preview.findByType(Image).props.fadeDuration).toBe(0);
+  });
+
   it('draws none over a satellite snapshot either, where the credit was longest', () => {
     mockMapStyle = 'satellite';
 

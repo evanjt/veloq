@@ -368,7 +368,6 @@
     "wbal": "W'bal"
   },
   "common": {
-    "activities": "活动",
     "back": "返回",
     "close": "关闭",
     "cancel": "取消",
@@ -1250,6 +1249,8 @@
     "sportFilterTitle": "运动",
     "createSection": "创建路段",
     "custom": "自定义",
+    "customCount_one": "{{count}}个自定义路段",
+    "customCount_other": "{{count}}个自定义路段",
     "dataRangeHint": "基于{{duration}}的活动数据",
     "duplicateNameMessage": "请选择一个不同的名称。每条路线必须有唯一的名称。",
     "duplicateNameTitle": "名称已存在",
@@ -1284,7 +1285,6 @@
     "standingBest": "{{total}} 次中最快的一次",
     "standingRank": "{{total}} 次中第 {{rank}} 名，比最佳成绩慢 {{gap}}",
     "standingRankPercentile": "{{total}} 次中第 {{rank}} 名，快过其中 {{percent}}%，比最佳成绩慢 {{gap}}",
-    "visits": "访问",
     "largeSectionPerformanceWarning": "较长的路段可能需要更长时间处理。"
   },
   "routesScreen": {
@@ -1308,6 +1308,8 @@
     "removeSection": "移除路段",
     "removeSectionConfirm": "此路段将不再显示在活动详情或洞察中。您可以从路段列表中恢复它。",
     "removed": "已移除",
+    "removedCount_one": "{{count}}个已移除路段",
+    "removedCount_other": "{{count}}个已移除路段",
     "restoreSection": "恢复路段",
     "partial": "部分",
     "placeSecond": "第二快",
@@ -1373,13 +1375,13 @@
     "setAsReferenceConfirm": "将此活动用作参考？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
     "setReferenceError": "设置参考失败。路段或活动可能已更改。请重试。",
     "editBounds": "编辑边界",
-    "points": "个点",
+    "pointsCount_one": "{{count}}个点",
+    "pointsCount_other": "{{count}}个点",
     "resetBounds": "恢复原始",
     "trimPrecisionHint": "上下拖动滑块以进行更精细的控制",
     "trimMode": "裁剪",
     "expandMode": "扩展",
     "resetBoundsConfirm": "恢复到自动检测的原始边界？\n\n该路段将与您的所有活动重新匹配。",
-    "traversals": "次通过",
     "liftGround": "缆车",
     "notLift": "不是缆车",
     "trimFailed": "裁剪路段边界失败",
@@ -1458,6 +1460,7 @@
     "nameTaken": "已有其他路段使用此名称，请选择其他名称。"
   },
   "settings": {
+    "developerDashboard": "开发者面板",
     "account": "账户",
     "activities": "活动",
     "appearance": "外观",
@@ -1724,7 +1727,6 @@
     "completeActivitiesYearComparison": "完成活动后即可查看年度对比",
     "completeDecouplingHint": "完成一次带功率和心率数据的持续性训练后即可查看脱耦分析",
     "completePowerActivities": "完成带功率的活动后即可查看您的 FTP 趋势",
-    "current": "当前",
     "decouplingExplanation": "脱耦测量心脏漂移，在持续性训练中心率相对于功率输出上升的程度。",
     "decouplingProvenance": "由 intervals.icu 计算",
     "estimatedFtp": "估算 FTP",
@@ -1750,7 +1752,6 @@
     "paceCurve": "配速曲线",
     "powerCurve": "功率曲线",
     "powerZones": "功率区间",
-    "previous": "上一个",
     "rangeNotDownloaded": "尚未下载",
     "rangePartlyDownloaded": "此范围的部分内容尚未下载",
     "calendarRange": "{{start}}至{{end}}",
@@ -1789,6 +1790,13 @@
     "seasonBests": "赛季最佳",
     "swimPaceCurve": "游泳配速曲线",
     "trainingZones": "训练区间"
+  },
+  "refresh": {
+    "busy": "当前同步完成后将刷新。",
+    "notReady": "同步仍在准备中。请稍后重试。",
+    "offline": "连接恢复后将刷新。",
+    "notConfigured": "登录以同步。",
+    "failed": "无法启动同步。"
   },
   "sync": {
     "ridesDownloaded": "已下载 {{total}} 个活动中的 {{completed}} 个",
@@ -1940,9 +1948,13 @@
     "downloading": "正在下载力量训练",
     "downloadingHint": "组数数据随训练文件一起下载。下载完成后将自动更新。",
     "sets": "组",
+    "setsCount_one": "{{count}}组",
+    "setsCount_other": "{{count}}组",
     "muscleGroupVolume": "肌肉群训练量",
     "relativeWeightedSets": "所选周期内的相对加权组数",
     "reps": "次",
+    "repsCount_one": "{{count}}次",
+    "repsCount_other": "{{count}}次",
     "tapMuscleGroup": "点击肌肉群查看详情",
     "relativeVolume": "相对训练量",
     "balanceObservedPairs": "当前{{period}}内追踪的拮抗肌对分布",

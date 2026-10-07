@@ -3,7 +3,7 @@ import type { Insight, SectionPR, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom, maxPerCategoryFor } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
-import { sparkline } from '../lib/sparkline';
+import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
 
 const DAY_MS = 86_400_000;
@@ -39,7 +39,13 @@ export function generateSectionPRInsights(
         supportingData: {
           // What the card draws: the efforts the engine already held when it
           // found the record, oldest first. Nothing is derived here.
-          ...sparkline(pr.recentEfforts, t('insights.data.recentEfforts')),
+          ...sparkline(
+            pr.recentEfforts,
+            t('insights.data.recentEfforts'),
+            `/section/${pr.sectionId}${pr.bestActivityId ? `?activityId=${encodeURIComponent(pr.bestActivityId)}` : ''}`,
+            'timeline',
+            markedActivity(pr.recentEfforts, pr.bestActivityId)
+          ),
           sections: [
             {
               sectionId: pr.sectionId,

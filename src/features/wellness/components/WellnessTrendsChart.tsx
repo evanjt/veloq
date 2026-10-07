@@ -17,7 +17,6 @@ import {
   colorWithOpacity,
   ink,
 } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
 import { useChartColors } from '@/shared/charts';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
@@ -31,6 +30,7 @@ import {
 import type { WellnessData } from '@/types';
 
 import type { TimeRange } from '../hooks';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 interface WellnessTrendsChartProps {
   data?: WellnessData[] | undefined;
@@ -449,7 +449,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
           runOnJS(clearSelection)();
         })
         .minDistance(0)
-        .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION),
+        .activateAfterLongPress(PREVIEW_HOLD_MS),
     [updateSelectedIdx, clearSelection, isActive, activeX]
   );
 

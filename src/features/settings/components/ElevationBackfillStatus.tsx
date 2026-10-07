@@ -126,6 +126,8 @@ export function ElevationBackfillStatus() {
 
       {pausable && (
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.elevationBackfillPause')}
           style={pressable(styles.pauseRow)}
           android_ripple={pressRipple}
           onPress={() => getEngine()?.pauseElevationBackfill()}
@@ -142,6 +144,8 @@ export function ElevationBackfillStatus() {
 
       {isPaused && (
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.elevationBackfillResume')}
           style={pressable(styles.pauseRow)}
           android_ripple={pressRipple}
           onPress={() => getEngine()?.resumeElevationBackfill()}
@@ -166,6 +170,8 @@ export function ElevationBackfillStatus() {
       )}
 
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('settings.elevationBackfillWhy')}
         style={pressable(styles.whyRow)}
         android_ripple={pressRipple}
         onPress={() => setShowWhy(true)}
@@ -199,6 +205,8 @@ export function ElevationBackfillStatus() {
             </RNText>
             <View style={styles.dialogActions}>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
                 style={pressable(styles.closeBtn)}
                 android_ripple={pressRipple}
                 onPress={() => setShowWhy(false)}

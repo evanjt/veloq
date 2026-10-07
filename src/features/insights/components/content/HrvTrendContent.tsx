@@ -75,7 +75,11 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
     setChartWidth(e.nativeEvent.layout.width);
   }, []);
 
-  const sparklineData = insight.supportingData?.sparklineData;
+  const history = insight.supportingData?.history;
+  const sparklineData =
+    history && history.kind !== 'line'
+      ? history.series[0]?.points.map((point) => point.value)
+      : undefined;
   const avgPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvAverage');
   const latestPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvLatest');
 
@@ -139,9 +143,9 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
       {sparklineData && sparklineData.length >= 2 ? (
         <ChartErrorBoundary height={CHART_HEIGHT}>
           <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-            {insight.supportingData?.sparklineLabel ? (
+            {history && history.kind !== 'line' ? (
               <Text style={[styles.chartLabel, isDark && styles.chartLabelDark]}>
-                {insight.supportingData.sparklineLabel}
+                {history.series[0]?.label}
               </Text>
             ) : null}
             <View style={styles.chartWrapper} onLayout={onChartLayout}>

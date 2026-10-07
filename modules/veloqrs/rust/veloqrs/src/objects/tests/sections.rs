@@ -91,6 +91,13 @@ fn test_get_sections_empty_filter_skips_unreadable_stored_custom_row() {
         activity_id: None,
     };
     for _ in 0..2 {
+        crate::persistence::with_persistent_engine(|engine| {
+            let rows = crate::persistence::sections::pooled::catalogue_section_rows(
+                &engine.db, None, None,
+            );
+            assert!(rows.iter().all(|(section, _)| section.id != id));
+        })
+        .expect("engine");
         let listed = sections.get_sections(filter.clone()).expect("section list");
         assert!(
             listed.iter().all(|section| section.id != id),

@@ -28,6 +28,13 @@ jest.mock('expo-router', () => ({
   }),
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('@/features/activity/components/ActivityDetailSkeleton', () => ({
+  ActivityDetailSkeleton: ({ onPosterSettled }: { onPosterSettled?: () => void }) => {
+    const React = require('react');
+    React.useEffect(() => onPosterSettled?.(), [onPosterSettled]);
+    return null;
+  },
+}));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false, colors: { text: '#000', textSecondary: '#888' } }),
   useMetricSystem: () => true,
@@ -124,6 +131,14 @@ function answer(overrides: Record<string, unknown>) {
 }
 
 describe('activity detail for an activity that is not stored', () => {
+  beforeEach(() => {
+    jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+  });
+  afterEach(() => jest.restoreAllMocks());
+
   it('says it is downloading while the body wait runs', () => {
     answer({});
 

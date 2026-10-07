@@ -93,7 +93,9 @@ function ExerciseDetailScreen() {
               />
               <Text style={isDark && styles.textDark}>
                 {t('strength.bestSet')}: {formatWeight(session.bestSet.weightKg ?? 0, isMetric)} ·{' '}
-                {session.bestSet.repetitions ?? '--'} {t('strength.reps')}
+                {session.bestSet.repetitions == null
+                  ? `-- ${t('strength.reps')}`
+                  : t('strength.repsCount', { count: session.bestSet.repetitions })}
               </Text>
               <Text style={[styles.method, isDark && styles.secondaryDark]}>
                 {t('strength.estimatedOneRepMax')}:{' '}

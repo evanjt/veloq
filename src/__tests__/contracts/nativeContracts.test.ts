@@ -188,17 +188,16 @@ const CONTRACTS: Contract[] = [
       file: 'src/shared/app/useOldestActivityDate.ts',
       ts: "OLDEST_ACTIVITY_DATE_KEY = 'oldest_activity_date'",
     },
-    {
-      rustFile: 'objects/sync.rs',
-      rust: 'ACTIVITY_YEAR_COUNTS_KEY: &str = "activity_year_counts"',
-      file: 'src/shared/app/useActivityYearCounts.ts',
-      ts: "ACTIVITY_YEAR_COUNTS_KEY = 'activity_year_counts'",
-    },
   ].map(({ rustFile = 'persistence/settings.rs', rust, file, ts }) => ({
     agree: `the engine's clear takes the setting ${file} reads as ${ts.split(' =')[0]}`,
     a: { file: `${RUST}/${rustFile}`, has: rust },
     b: { file, has: ts },
   })),
+  {
+    agree: 'the history range reads typed year counts from the settings screen',
+    a: { file: `${RUST}/ffi_types.rs`, has: 'pub activity_year_counts: Vec<FfiYearCount>' },
+    b: { file: 'src/features/settings/hooks/useActivityYearCounts.ts', has: '.activityYearCounts' },
+  },
   {
     agree: 'the wipe and the open use the panic log name the engine appends to',
     a: { file: `${RUST}/persistence/mod.rs`, has: `.join("${PANIC_LOG_NAME}")` },
@@ -358,11 +357,33 @@ const CONTRACTS: Contract[] = [
     agree: 'the Android push module defines the cancellation the wipe calls',
     a: {
       file: `${TILE_ANDROID}/VeloqPushModule.kt`,
-      has: 'Function("cancelQueuedActivityPushes")',
+      has: 'AsyncFunction("cancelQueuedActivityPushes")',
     },
     b: {
       file: 'src/features/insights/lib/activityPushJobs.ts',
       has: '?.cancelQueuedActivityPushes()',
+    },
+  },
+  {
+    agree: 'the Android wipe removes finished push records after cancellation',
+    a: {
+      file: `${TILE_ANDROID}/ActivityPushWorker.kt`,
+      has: /cancelAllWorkByTag\(ActivityPushWorker::class\.java\.name\)\.result\.get\(\)[\s\S]*?pruneWork\(\)\.result\.get\(\)/,
+    },
+    b: {
+      file: 'src/features/insights/lib/activityPushJobs.ts',
+      has: 'await requireOptionalNativeModule<VeloqPushModule>',
+    },
+  },
+  {
+    agree: 'the library wipe waits for native push records to be removed',
+    a: {
+      file: 'src/features/insights/lib/activityPushJobs.ts',
+      has: 'await requireOptionalNativeModule<VeloqPushModule>',
+    },
+    b: {
+      file: 'src/shared/storage/gpsStorage.ts',
+      has: 'await cancelQueuedActivityPushes()',
     },
   },
   {

@@ -422,6 +422,8 @@
     "zoneNames.power7": "Conventional training term spelled as in English."
   },
   "fr": {
+    "sections.pointsCount_one": "Point has the same spelling in French and English.",
+    "sections.pointsCount_other": "Points has the same spelling in French and English.",
     "about.version": "French word or phrase with the same spelling.",
     "activity.calories": "French word or phrase with the same spelling.",
     "activity.distance": "French word or phrase with the same spelling.",
@@ -492,7 +494,6 @@
     "sections.correlationVarMotivation": "Established loanword with the same spelling.",
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
-    "sections.points": "French word or phrase with the same spelling.",
     "sensors.kinds.cadence": "French word or phrase with the same spelling.",
     "settings.exportPrivacyRadius": "Metre symbol after a numeric placeholder.",
     "settings.previewAreaSections_one": "French word or phrase with the same spelling.",
@@ -637,6 +638,8 @@
     "zoneNames.power5": "Conventional training term spelled as in English."
   },
   "nl": {
+    "strength.setsCount_one": "Set is an established Dutch training term.",
+    "strength.setsCount_other": "Sets is an established Dutch training term.",
     "about.disclaimerTitle": "Established Dutch loanword or technical term.",
     "activity.muscle.setCount_one": "Established Dutch loanword or technical term.",
     "activity.muscle.setCount_other": "Established Dutch loanword or technical term.",

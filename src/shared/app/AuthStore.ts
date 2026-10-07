@@ -25,6 +25,18 @@ async function holdOutgoingRecording(athleteId: string | null): Promise<void> {
 }
 
 /**
+ * An athlete signed in: stop auto-uploading every ride that is not theirs
+ * before the upload schedule can send one. A forced sign-out holds the queue
+ * rather than demoting it, so whoever signs in next can meet rides that are
+ * not theirs; theirs keep their place.
+ */
+async function holdIncomingAthletesQueue(athleteId: string): Promise<void> {
+  const { holdRecordingsOfOtherAthletes } =
+    require('@/features/recording') as typeof import('@/features/recording');
+  await holdRecordingsOfOtherAthletes(athleteId);
+}
+
+/**
  * Validates that a credential is non-null and non-empty after trimming.
  * Empty strings and whitespace-only strings are invalid.
  */
@@ -463,6 +475,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ sessionExpired: null });
   },
 }));
+
+// Every way an athlete arrives sets `athleteId`: launch reading the keychain,
+// either sign-in, demo mode. Held on the change rather than in each, so a new
+// way in cannot skip it. It runs inside the store's own write, so a failure
+// is logged and never reaches the sign-in that made it.
+useAuthStore.subscribe((state, previous) => {
+  if (!state.athleteId || state.athleteId === previous.athleteId) return;
+  holdIncomingAthletesQueue(state.athleteId).catch((err: unknown) => {
+    if (__DEV__) {
+      console.warn(`[AuthStore] Could not hold another athlete's recordings: ${String(err)}`);
+    }
+  });
+});
 
 // Helper to get credentials for API client (synchronous access)
 export function getStoredCredentials(): {

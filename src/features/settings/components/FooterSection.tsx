@@ -44,6 +44,8 @@ export function FooterSection() {
     <>
       {getAllSlides().length > 0 && (
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.appTour')}
           style={styles.toggleRow}
           onPress={() => useWhatsNewStore.getState().startTour('tutorial')}
           activeOpacity={0.7}
@@ -61,6 +63,8 @@ export function FooterSection() {
       )}
 
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={t('about.title')}
         style={styles.toggleRow}
         onPress={() => navigateTo('/about')}
         activeOpacity={0.7}
@@ -73,7 +77,13 @@ export function FooterSection() {
         <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
       </TouchableOpacity>
 
-      <Pressable onPress={handleVersionTap} style={pressable()} android_ripple={pressRipple}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('settings.version')}
+        onPress={handleVersionTap}
+        style={pressable()}
+        android_ripple={pressRipple}
+      >
         <Text
           testID="settings-version-text"
           style={[styles.versionText, isDark && settingsStyles.textMuted]}
@@ -101,6 +111,8 @@ export function FooterSection() {
       )}
       {debugEnabled && (
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.developerDashboard')}
           testID="settings-developer-dashboard-link"
           style={styles.toggleRow}
           onPress={() => navigateTo('/debug')}

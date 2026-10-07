@@ -114,7 +114,11 @@ export function generateRouteInsights(
         timestamp: now,
         confidence: confidenceFrom('route', row.attemptCount),
         supportingData: {
-          ...sparkline(row.recentEfforts, t('insights.data.recentEfforts')),
+          ...sparkline(
+            row.recentEfforts,
+            t('insights.data.recentEfforts'),
+            `/route/${row.routeId}`
+          ),
           routes,
         },
         methodology,

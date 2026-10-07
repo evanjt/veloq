@@ -2243,7 +2243,7 @@ fn routes_screen_data(
         accepted_auto_count: section_page.accepted_auto_count,
         custom_count: section_page.custom_count,
         retired_count: section_page.retired_count,
-        available_sport_types: read_cache::sport_types(|| {
+        available_sport_types: read_cache::sport_types(conn, || {
             screens::pooled::available_sport_types(conn)
         }),
     }

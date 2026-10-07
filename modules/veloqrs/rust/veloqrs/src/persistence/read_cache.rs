@@ -190,8 +190,8 @@ pub(crate) fn close() {
 }
 
 /// The sports the map filter offers, cached until the database moves.
-pub fn sport_types(fill: impl FnOnce() -> Vec<String>) -> Vec<String> {
-    cached(&READ_CACHE.sport_types, fill)
+pub fn sport_types(conn: &Connection, fill: impl FnOnce() -> Vec<String>) -> Vec<String> {
+    cached(conn, &READ_CACHE.sport_types, fill)
 }
 
 /// One section's performances under one sport filter, cached until the
@@ -200,33 +200,35 @@ pub fn sport_types(fill: impl FnOnce() -> Vec<String>) -> Vec<String> {
 /// An empty result is cached like any other: a section with no traversals is a
 /// real answer, and the next detect that gives it one moves the stamp.
 pub fn performances(
+    conn: &Connection,
     key: &str,
     fill: impl FnOnce() -> crate::SectionPerformanceResult,
 ) -> Arc<crate::SectionPerformanceResult> {
-    cached_by_key(&READ_CACHE.performances, key, fill)
+    cached_by_key(conn, &READ_CACHE.performances, key, fill)
 }
 
 /// One section's lap delta curves under one sport filter, cached until the
 /// database moves. `None` is an answer like any other: a section with no lap
 /// to compare stays so until a write moves the stamp.
 pub fn lap_curves(
+    conn: &Connection,
     key: &str,
     fill: impl FnOnce() -> Option<crate::FfiSectionLapCurves>,
 ) -> Arc<Option<crate::FfiSectionLapCurves>> {
-    cached_by_key(&READ_CACHE.lap_curves, key, fill)
+    cached_by_key(conn, &READ_CACHE.lap_curves, key, fill)
 }
 
 /// Serve one keyed entry, filling it on a miss, under the same rules as
 /// [`cached`].
 fn cached_by_key<V>(
+    conn: &Connection,
     slot: &Mutex<LruCache<String, Arc<V>>>,
     key: &str,
     fill: impl FnOnce() -> V,
 ) -> Arc<V> {
-    if !super::read_pool::reader_current() {
+    if !serves(conn) {
         return Arc::new(fill());
     }
-    database_moved();
     let Some(generation) = cache_generation() else {
         return Arc::new(fill());
     };
@@ -249,14 +251,12 @@ fn cached_by_key<V>(
 /// One raw section, cached until the database moves. Names are overlaid only
 /// after this read so a rename never bakes an old name into the value.
 pub fn section(
+    conn: &Connection,
     section_id: &str,
     fill: impl FnOnce() -> Option<tracematch::FrequentSection>,
 ) -> Option<Arc<tracematch::FrequentSection>> {
-    if !super::read_pool::reader_current() {
+    if !serves(conn) {
         return fill().map(Arc::new);
-    }
-    if database_moved() {
-        clear();
     }
     let generation = cache_generation()?;
     {
@@ -281,12 +281,12 @@ pub fn section(
 /// intents is the common one, and the fill short-circuits it with a single
 /// `EXISTS` probe rather than resolving a catalogue nobody has named.
 pub fn named_overlay(
+    conn: &Connection,
     fill: impl FnOnce() -> crate::persistence::sections::named::NamedOverlay,
 ) -> Arc<crate::persistence::sections::named::NamedOverlay> {
-    if !super::read_pool::reader_current() {
+    if !serves(conn) {
         return Arc::new(fill());
     }
-    database_moved();
     let Some(generation) = cache_generation() else {
         return Arc::new(fill());
     };
@@ -308,12 +308,12 @@ pub fn named_overlay(
 
 /// Each live split child's parent and part, cached until the database moves.
 pub fn split_lineage(
+    conn: &Connection,
     fill: impl FnOnce() -> crate::persistence::sections::numbers::SplitLineage,
 ) -> Arc<crate::persistence::sections::numbers::SplitLineage> {
-    if !super::read_pool::reader_current() {
+    if !serves(conn) {
         return Arc::new(fill());
     }
-    database_moved();
     let Some(generation) = cache_generation() else {
         return Arc::new(fill());
     };
@@ -339,13 +339,13 @@ pub fn split_lineage(
 /// detection catches up, and that write moves the stamp anyway, so the only
 /// thing caching the absence would buy is a stale empty card.
 pub fn signature(
+    conn: &Connection,
     activity_id: &str,
     fill: impl FnOnce() -> Option<RouteSignature>,
 ) -> Option<Arc<RouteSignature>> {
-    if !super::read_pool::reader_current() {
+    if !serves(conn) {
         return fill().map(Arc::new);
     }
-    database_moved();
     let Some(generation) = cache_generation() else {
         return fill().map(Arc::new);
     };
@@ -372,11 +372,10 @@ pub fn signature(
 /// fill runs outside the guard for the same reason: it queries SQLite, and
 /// holding the slot across that would serialise every reader behind the first
 /// miss.
-fn cached<T: Clone>(slot: &Mutex<Option<T>>, fill: impl FnOnce() -> T) -> T {
-    if !super::read_pool::reader_current() {
+fn cached<T: Clone>(conn: &Connection, slot: &Mutex<Option<T>>, fill: impl FnOnce() -> T) -> T {
+    if !serves(conn) {
         return fill();
     }
-    database_moved();
     let Some(generation) = cache_generation() else {
         return fill();
     };
@@ -396,18 +395,33 @@ fn cached<T: Clone>(slot: &Mutex<Option<T>>, fill: impl FnOnce() -> T) -> T {
     value
 }
 
-/// Clear cached values before publishing a new database stamp.
+/// Whether this cache may answer a read on `conn`, after dropping what it
+/// holds if the bound database has moved.
 ///
-/// A stamp that cannot be read is reported as moved: the honest answer to "is
-/// this still current" with no way to ask is no, and the cost of that is one
-/// query nobody saved.
-fn database_moved() -> bool {
+/// Only a connection to the bound database is served. Everything here was
+/// filled from that database's rows and is keyed by ids alone, so a read on
+/// any other database, an engine opened apart from the pool or one held in
+/// memory, would be answered with another library's rows. Such a read goes
+/// to its own database. The paths compared are the ones SQLite resolved for
+/// each connection, which an in-memory database leaves empty.
+fn serves(conn: &Connection) -> bool {
+    if !super::read_pool::reader_current() {
+        return false;
+    }
     let mut stamp = lock(&READ_CACHE.stamp);
+    let on_bound = stamp_connection(&mut stamp)
+        .and_then(Connection::path)
+        .is_some_and(|bound| !bound.is_empty() && conn.path() == Some(bound));
+    if on_bound {
+        database_moved_under(&mut stamp);
+    }
+    on_bound
+}
+
+/// The connection the stamp is read on, opened on first use after a bind.
+fn stamp_connection(stamp: &mut Stamp) -> Option<&Connection> {
     if stamp.conn.is_none() {
-        let Some(path) = stamp.path.clone() else {
-            clear();
-            return true;
-        };
+        let path = stamp.path.clone()?;
         match Connection::open_with_flags(
             &path,
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -415,13 +429,25 @@ fn database_moved() -> bool {
             Ok(conn) => stamp.conn = Some(conn),
             Err(e) => {
                 log::warn!("veloqrs: [ReadCache] stamp connection to '{path}': {e:?}");
-                clear();
-                return true;
+                return None;
             }
         }
     }
+    stamp.conn.as_ref()
+}
 
-    let current: Option<i64> = stamp.conn.as_ref().and_then(|conn| {
+#[cfg(test)]
+fn database_moved() -> bool {
+    database_moved_under(&mut lock(&READ_CACHE.stamp))
+}
+
+/// Clear cached values before publishing a new database stamp.
+///
+/// A stamp that cannot be read is reported as moved: the honest answer to "is
+/// this still current" with no way to ask is no, and the cost of that is one
+/// query nobody saved.
+fn database_moved_under(stamp: &mut Stamp) -> bool {
+    let current: Option<i64> = stamp_connection(stamp).and_then(|conn| {
         conn.query_row("PRAGMA data_version", [], |row| row.get(0))
             .ok()
     });
@@ -471,7 +497,7 @@ mod tests {
 
         let fills = AtomicUsize::new(0);
         let read = || {
-            sport_types(|| {
+            sport_types(&writer, || {
                 fills.fetch_add(1, Ordering::SeqCst);
                 let mut stmt = writer
                     .prepare("SELECT name FROM sports ORDER BY name")
@@ -513,17 +539,20 @@ mod tests {
         let dir = TempDir::new().expect("tempdir");
         let first = dir.path().join("first.db");
         let first = first.to_str().expect("utf-8").to_string();
-        Connection::open(&first).expect("first");
+        let first_conn = Connection::open(&first).expect("first");
         bind(&first);
-        assert_eq!(sport_types(|| vec!["Ride".to_string()]), vec!["Ride"]);
+        assert_eq!(
+            sport_types(&first_conn, || vec!["Ride".to_string()]),
+            vec!["Ride"]
+        );
 
         let second = dir.path().join("second.db");
         let second = second.to_str().expect("utf-8").to_string();
-        Connection::open(&second).expect("second");
+        let second_conn = Connection::open(&second).expect("second");
         bind(&second);
 
         assert_eq!(
-            sport_types(Vec::new),
+            sport_types(&second_conn, Vec::new),
             Vec::<String>::new(),
             "the new database has to be asked, not the old one's answer served"
         );
@@ -552,7 +581,7 @@ mod tests {
         let (release, resume) = std::sync::mpsc::channel();
         let reader = std::thread::spawn(move || {
             read_pool::with_read_conn(|conn| {
-                sport_types(|| {
+                sport_types(conn, || {
                     let name: String = conn
                         .query_row("SELECT name FROM sports", [], |row| row.get(0))
                         .unwrap();
@@ -568,7 +597,7 @@ mod tests {
         read_pool::bind(&new_path);
         let read_new = || {
             read_pool::with_read_conn(|conn| {
-                sport_types(|| {
+                sport_types(conn, || {
                     vec![
                         conn.query_row("SELECT name FROM sports", [], |row| row.get(0))
                             .unwrap(),
@@ -600,7 +629,7 @@ mod tests {
         let (release, resume) = std::sync::mpsc::channel();
         let old = std::thread::spawn(move || {
             read_pool::with_read_conn(|conn| {
-                sport_types(|| {
+                sport_types(conn, || {
                     let name = conn
                         .query_row("SELECT name FROM sports", [], |row| row.get(0))
                         .unwrap();
@@ -617,7 +646,7 @@ mod tests {
             .unwrap();
         let read = || {
             read_pool::with_read_conn(|conn| {
-                sport_types(|| {
+                sport_types(conn, || {
                     conn.prepare("SELECT name FROM sports ORDER BY name")
                         .unwrap()
                         .query_map([], |row| row.get(0))
@@ -648,7 +677,7 @@ mod tests {
         read_pool::bind(&path);
         let read = || {
             read_pool::with_read_conn(|conn| {
-                sport_types(|| {
+                sport_types(conn, || {
                     conn.prepare("SELECT name FROM sports ORDER BY name")
                         .unwrap()
                         .query_map([], |row| row.get(0))
@@ -690,7 +719,7 @@ mod tests {
         read_pool::bind(&path);
         fn read() -> Vec<String> {
             read_pool::with_read_conn(|conn| {
-                sport_types(|| {
+                sport_types(conn, || {
                     conn.prepare("SELECT name FROM sports ORDER BY name")
                         .unwrap()
                         .query_map([], |row| row.get(0))
@@ -759,7 +788,7 @@ mod tests {
             read_pool::with_read_conn(|conn| {
                 entered.send(()).unwrap();
                 resume.recv().unwrap();
-                sport_types(|| {
+                sport_types(conn, || {
                     vec![
                         conn.query_row("SELECT name FROM sports", [], |row| row.get(0))
                             .unwrap(),
@@ -775,7 +804,7 @@ mod tests {
         assert_eq!(reader.join().unwrap(), vec!["old"]);
 
         let current = read_pool::with_read_conn(|conn| {
-            sport_types(|| {
+            sport_types(conn, || {
                 vec![
                     conn.query_row("SELECT name FROM sports", [], |row| row.get(0))
                         .unwrap(),

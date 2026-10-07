@@ -84,7 +84,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
             numberOfLines={1}
           >
-            {`· ${formatSetCount(selectedVolume.weightedSets)} ${t('strength.sets')} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`}
+            {`· ${t('strength.setsCount', { count: Number(formatSetCount(selectedVolume.weightedSets)) })} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`}
           </Text>
           <MaterialCommunityIcons
             name="close"

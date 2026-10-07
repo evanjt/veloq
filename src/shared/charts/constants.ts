@@ -23,16 +23,6 @@ export const CHART_CONFIG = {
   MAX_DATA_POINTS: 200,
 
   /**
-   * Long press duration for gesture activation.
-   *
-   * Duration in milliseconds to distinguish between scroll and long-press gestures.
-   * 200ms provides responsive hold-to-scrub activation without conflicting with scrolling.
-   *
-   * @defaultValue 200
-   */
-  LONG_PRESS_DURATION: 200,
-
-  /**
    * Minimum distance for pan gesture.
    *
    * Minimum movement in pixels before pan gesture is recognized.

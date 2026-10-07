@@ -145,19 +145,19 @@ describe('section traversal count scope', () => {
     const tree = renderScoped({ scopeSport: 'Run', scopeRange: '6m' });
 
     expect(
-      tree.getByText('22 sections.traversals · activityTypes.Run · period.long.6m')
+      tree.getByText('sections.traversalsCount · activityTypes.Run · period.long.6m')
     ).toBeTruthy();
   });
 
   it('names only the range for a single-sport section', () => {
     const tree = renderScoped({ scopeRange: '1y' });
 
-    expect(tree.getByText('22 sections.traversals · period.long.1y')).toBeTruthy();
+    expect(tree.getByText('sections.traversalsCount · period.long.1y')).toBeTruthy();
   });
 
   it('adds nothing for a single-sport section over all time', () => {
     const tree = renderScoped({ scopeRange: 'all' });
 
-    expect(tree.getByText('22 sections.traversals')).toBeTruthy();
+    expect(tree.getByText('sections.traversalsCount')).toBeTruthy();
   });
 });

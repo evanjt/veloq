@@ -14,6 +14,9 @@ import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PersistentEngineStats } from 'veloqrs';
 
+const FORCE_SYNC_LABEL = 'Force Sync';
+const HARD_RESYNC_LABEL = 'Hard Re-sync';
+
 // ============================================================================
 // Reusable UI (matches debug.tsx patterns)
 // ============================================================================
@@ -49,6 +52,9 @@ function Section({
       <TouchableOpacity
         style={styles.sectionHeader}
         onPress={() => setOpen(!open)}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ expanded: open }}
         activeOpacity={0.7}
       >
         <View style={styles.sectionHeaderLeft}>
@@ -275,6 +281,9 @@ export function SyncDebugTab() {
           <TouchableOpacity
             style={styles.expandButton}
             onPress={() => setShowMissing(!showMissing)}
+            accessibilityRole="button"
+            accessibilityLabel={`${showMissing ? 'Hide' : 'Show'} missing IDs (${alignment.missingFromEngine.length})`}
+            accessibilityState={{ expanded: showMissing }}
             activeOpacity={0.7}
           >
             <Text
@@ -308,6 +317,9 @@ export function SyncDebugTab() {
           <TouchableOpacity
             style={styles.expandButton}
             onPress={() => setShowExtra(!showExtra)}
+            accessibilityRole="button"
+            accessibilityLabel={`${showExtra ? 'Hide' : 'Show'} extra IDs (${alignment.extraInEngine.length})`}
+            accessibilityState={{ expanded: showExtra }}
             activeOpacity={0.7}
           >
             <Text
@@ -401,6 +413,8 @@ export function SyncDebugTab() {
         <TouchableOpacity
           style={[styles.actionButton, isDark && styles.actionButtonDark]}
           onPress={handleForceSync}
+          accessibilityRole="button"
+          accessibilityLabel={FORCE_SYNC_LABEL}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="refresh" size={18} color={colors.primary} />
@@ -410,7 +424,7 @@ export function SyncDebugTab() {
               { color: isDark ? darkColors.linkTeal : colors.linkTeal },
             ]}
           >
-            Force Sync
+            {FORCE_SYNC_LABEL}
           </Text>
         </TouchableOpacity>
         {forceSyncStatus !== '' && (
@@ -426,6 +440,8 @@ export function SyncDebugTab() {
               <TouchableOpacity
                 style={[styles.stepperBtn, isDark && styles.stepperBtnDark]}
                 onPress={() => setRemoveCount(Math.max(1, removeCount - 1))}
+                accessibilityRole="button"
+                accessibilityLabel={`${i18n.t('stats.less')} ${i18n.t('stats.activities')}`}
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
@@ -438,6 +454,8 @@ export function SyncDebugTab() {
               <TouchableOpacity
                 style={[styles.stepperBtn, isDark && styles.stepperBtnDark]}
                 onPress={() => setRemoveCount(Math.min(50, removeCount + 1))}
+                accessibilityRole="button"
+                accessibilityLabel={`${i18n.t('stats.more')} ${i18n.t('stats.activities')}`}
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
@@ -451,6 +469,9 @@ export function SyncDebugTab() {
           <TouchableOpacity
             style={[styles.dangerButton, isRemoving && styles.dangerButtonDisabled]}
             onPress={handleRemoveActivities}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${removeCount} and re-sync`}
+            accessibilityState={{ disabled: isRemoving || !apiActivities?.length }}
             activeOpacity={0.7}
             disabled={isRemoving || !apiActivities?.length}
           >
@@ -465,11 +486,14 @@ export function SyncDebugTab() {
           <TouchableOpacity
             style={styles.dangerButton}
             onPress={handleHardResync}
+            accessibilityRole="button"
+            accessibilityLabel={HARD_RESYNC_LABEL}
+            accessibilityState={{ disabled: !engine }}
             activeOpacity={0.7}
             disabled={!engine}
           >
             <MaterialCommunityIcons name="nuke" size={18} color={ink.white} />
-            <Text style={styles.dangerButtonText}>Hard Re-sync</Text>
+            <Text style={styles.dangerButtonText}>{HARD_RESYNC_LABEL}</Text>
           </TouchableOpacity>
           <Text style={[styles.hintText, { color: mutedColor }]}>
             Clears all engine data and triggers a full re-sync from scratch.

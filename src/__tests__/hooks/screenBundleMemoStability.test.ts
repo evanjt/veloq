@@ -11,15 +11,10 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useSectionMatches } from '@/features/routes/hooks/useSectionMatches';
 import { useSectionOverlays } from '@/features/activity/hooks/useSectionOverlays';
-import { useSectionActivityData } from '@/features/routes/hooks/useSectionActivityData';
+import { useSectionDetailData } from '@/features/routes/hooks/useSectionDetailData';
 import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
-import type {
-  ActivityMetrics,
-  FfiMapSignature,
-  SectionEncounter,
-  SectionWithPolyline,
-} from 'veloqrs';
+import type { SectionEncounter, SectionWithPolyline } from 'veloqrs';
 import type { FrequentSection, Section } from '@/types';
 
 jest.mock('veloqrs', () =>
@@ -275,80 +270,48 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
   });
 });
 
-describe('useSectionActivityData over a rebuilt bundle wrapper', () => {
-  const section = {
-    id: 's1',
-    sportTypes: ['Ride'],
-    activityIds: ['act-1'],
-    visitCount: 3,
-    distanceMeters: 1200,
-  } as unknown as FrequentSection;
-  const activityMetrics = [
-    {
-      activityId: 'act-1',
-      name: 'Morning ride',
-      date: 1_700_000_000,
-      distance: 20_000,
-      movingTime: 3600,
-      elapsedTime: 3700,
-      elevationGain: 120,
-      sportType: 'Ride',
-      avgHr: 148,
-    } as unknown as ActivityMetrics,
-  ];
-  const mapSignatures = [
-    { activityId: 'act-1', encodedCoords: new ArrayBuffer(0) } as unknown as FfiMapSignature,
-  ];
+describe('section detail traces', () => {
+  const firstSignature = { activityId: 'act-1', encodedCoords: new ArrayBuffer(0) };
+  const firstBundle = {
+    activityCount: 1,
+    section: { id: 's1' },
+    mapSignatures: [firstSignature],
+  };
 
-  it('decodes each signature once across re-renders', () => {
-    const { result, rerender } = renderHook(
-      ({ sport }: { sport: string | undefined }) =>
-        useSectionActivityData(section, sport, { activityMetrics, mapSignatures }),
-      { initialProps: { sport: undefined as string | undefined } }
-    );
-
+  it('decodes signatures once across re-renders of the same detail read', () => {
+    (getEngine as jest.Mock).mockReturnValue({
+      subscribe: () => () => {},
+      getSectionDetailData: () => firstBundle,
+    });
+    const { result, rerender } = renderHook(() => useSectionDetailData('s1'));
     const first = result.current.allActivityTraces;
     expect(first?.['act-1']).toHaveLength(2);
     expect(mockDecodeCoords).toHaveBeenCalledTimes(1);
 
-    rerender({ sport: undefined });
-    rerender({ sport: undefined });
-
+    rerender({});
     expect(result.current.allActivityTraces).toBe(first);
     expect(mockDecodeCoords).toHaveBeenCalledTimes(1);
   });
 
-  it('does not re-decode when only the sport filter changes', () => {
-    const { result, rerender } = renderHook(
-      ({ sport }: { sport: string | undefined }) =>
-        useSectionActivityData(section, sport, { activityMetrics, mapSignatures }),
-      { initialProps: { sport: undefined as string | undefined } }
-    );
-
-    const first = result.current.allActivityTraces;
-    rerender({ sport: 'Run' });
-
-    expect(result.current.allActivityTraces).toBe(first);
-    expect(result.current.filteredActivities).toEqual([]);
-    expect(mockDecodeCoords).toHaveBeenCalledTimes(1);
-  });
-
-  it('re-decodes when the signatures change', () => {
-    const { result, rerender } = renderHook(
-      ({ sigs }: { sigs: FfiMapSignature[] }) =>
-        useSectionActivityData(section, undefined, { activityMetrics, mapSignatures: sigs }),
-      { initialProps: { sigs: mapSignatures } }
-    );
-
-    const first = result.current.allActivityTraces;
-    rerender({
-      sigs: [
-        ...mapSignatures,
-        { activityId: 'act-2', encodedCoords: new ArrayBuffer(0) } as unknown as FfiMapSignature,
-      ],
+  it('re-decodes when a refreshed detail read carries new signatures', () => {
+    let bundle = firstBundle;
+    (getEngine as jest.Mock).mockReturnValue({
+      subscribe: () => () => {},
+      getSectionDetailData: () => bundle,
     });
+    const { result, rerender } = renderHook(
+      ({ refreshKey }: { refreshKey: number }) => useSectionDetailData('s1', refreshKey),
+      { initialProps: { refreshKey: 0 } }
+    );
+    const first = result.current.allActivityTraces;
+    bundle = {
+      ...firstBundle,
+      mapSignatures: [firstSignature, { activityId: 'act-2', encodedCoords: new ArrayBuffer(0) }],
+    };
+    rerender({ refreshKey: 1 });
 
     expect(result.current.allActivityTraces).not.toBe(first);
+    expect(result.current.allActivityTraces?.['act-2']).toHaveLength(2);
     expect(mockDecodeCoords).toHaveBeenCalledTimes(3);
   });
 });

@@ -131,6 +131,8 @@ export function NotificationSection() {
           </Text>
         ) : (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('notifications.settings.privacyHint')}
             onPress={() => Linking.openURL('https://veloq.fit/privacy')}
             style={pressable(styles.privacyRow)}
             android_ripple={pressRipple}

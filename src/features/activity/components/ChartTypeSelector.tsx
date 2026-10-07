@@ -6,9 +6,9 @@ import { pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, layout, typography, spacing, colorWithOpacity } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
 import { isolateNumeric } from '@/shared/format';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 /** Chart type translation key type */
 type ChartTypeKey =
@@ -145,7 +145,7 @@ export function ChartTypeSelector({
             onPress={() => handlePress(config.id)}
             onLongPress={() => handleLongPress(config.id)}
             onPressOut={handlePressOut}
-            delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+            delayLongPress={PREVIEW_HOLD_MS}
           >
             <View style={styles.chipLabelRow}>
               <MaterialCommunityIcons name={config.icon} size={11} color={textColor} />

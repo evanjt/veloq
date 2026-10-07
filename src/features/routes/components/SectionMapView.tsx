@@ -559,7 +559,7 @@ export const SectionMapView = memo(function SectionMapView({
               <TouchableOpacity
                 testID="section-map-style-toggle"
                 style={[styles.controlButton, isDark && styles.controlButtonDark]}
-                onPressIn={toggleMapStyle}
+                onPress={toggleMapStyle}
                 activeOpacity={0.6}
                 hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               >
@@ -579,7 +579,7 @@ export const SectionMapView = memo(function SectionMapView({
                     isDark && styles.controlButtonDark,
                     is3DMode && styles.controlButtonActive,
                   ]}
-                  onPressIn={toggle3D}
+                  onPress={toggle3D}
                   activeOpacity={0.6}
                   hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                 >
@@ -599,8 +599,9 @@ export const SectionMapView = memo(function SectionMapView({
 
               {/* Compass */}
               <TouchableOpacity
+                testID="section-map-compass"
                 style={[styles.controlButton, isDark && styles.controlButtonDark]}
-                onPressIn={resetOrientation}
+                onPress={resetOrientation}
                 activeOpacity={0.6}
                 hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               >
@@ -639,7 +640,7 @@ export const SectionMapView = memo(function SectionMapView({
                 <TouchableOpacity
                   testID="section-map-fullscreen"
                   style={[styles.controlButton, isDark && styles.controlButtonDark]}
-                  onPressIn={openFullscreen}
+                  onPress={openFullscreen}
                   activeOpacity={0.6}
                   hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                 >

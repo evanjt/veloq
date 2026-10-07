@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Modal, View, StyleSheet, Pressable, ScrollView, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -14,30 +14,23 @@ import {
   colorWithOpacity,
   layout,
   insightToneColor,
-  ink,
 } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
 import type { Insight } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
 
-/** Share of the window the sheet rises to. */
-const SHEET_FRACTION = 0.85;
-
 interface InsightDetailSheetProps {
-  insight: Insight | null;
-  visible: boolean;
+  insight: Insight;
   onClose: () => void;
 }
 
 export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   insight,
-  visible,
   onClose,
 }: InsightDetailSheetProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const { height: windowHeight } = useWindowDimensions();
 
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
@@ -46,7 +39,6 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
     }
   }, [insight?.navigationTarget, onClose]);
 
-  if (!insight) return null;
   const toneColor = insightToneColor(insight.iconTone, isDark);
 
   // Content components for these categories already have embedded navigation
@@ -58,137 +50,92 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <Pressable style={pressable(styles.backdrop)} android_ripple={pressRipple} onPress={onClose}>
-        <View style={styles.backdropFill} />
-      </Pressable>
-      <View
-        style={[
-          styles.sheet,
-          isDark && styles.sheetDark,
-          { height: windowHeight * SHEET_FRACTION },
-        ]}
-        testID="insight-detail-sheet"
+    <View style={[styles.sheet, isDark && styles.sheetDark]} testID="insight-detail-sheet">
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        nestedScrollEnabled={true}
       >
-        {/* Drag handle */}
-        <View style={styles.handleContainer}>
-          <View style={[styles.handle, isDark && styles.handleDark]} />
+        {/* Compact header row */}
+        <View style={styles.headerRow}>
+          <View style={[styles.iconCircle, { backgroundColor: colorWithOpacity(toneColor, 0.12) }]}>
+            <MaterialCommunityIcons name={insight.icon as never} size={16} color={toneColor} />
+          </View>
+          <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={2}>
+            {insight.title}
+          </Text>
+          <Pressable
+            style={pressable(styles.closeButton)}
+            android_ripple={pressRipple}
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
+          >
+            <MaterialCommunityIcons
+              name="close"
+              size={20}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+          </Pressable>
         </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          nestedScrollEnabled={true}
-        >
-          {/* Compact header row */}
-          <View style={styles.headerRow}>
-            <View
-              style={[styles.iconCircle, { backgroundColor: colorWithOpacity(toneColor, 0.12) }]}
-            >
-              <MaterialCommunityIcons name={insight.icon as never} size={16} color={toneColor} />
-            </View>
-            <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={2}>
-              {insight.title}
+        {/* Subtitle */}
+        {insight.subtitle ? (
+          <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>{insight.subtitle}</Text>
+        ) : null}
+
+        {/* Body text */}
+        {insight.body ? (
+          <Text style={[styles.body, isDark && styles.bodyDark]}>{insight.body}</Text>
+        ) : null}
+
+        {/* Category-specific content (charts, sparklines, data) */}
+        <View style={styles.contentSection}>
+          <InsightDetailContent insight={insight} />
+        </View>
+
+        {/* Methodology transparency - single "How was this calculated?" block */}
+        {insight.methodology ||
+        insight.meta?.ranking ||
+        insight.supportingData?.formula ||
+        insight.supportingData?.algorithmDescription ? (
+          <View style={styles.methodologySection}>
+            <MethodologySection insight={insight} />
+          </View>
+        ) : null}
+
+        {/* Navigation link */}
+        {hasNavTarget ? (
+          <Pressable
+            style={pressable([styles.navLink, isDark && styles.navLinkDark])}
+            android_ripple={pressRipple}
+            onPress={handleNavigate}
+          >
+            <Text style={[styles.navLinkText, isDark && styles.navLinkTextDark]}>
+              {t('insights.viewInDetail')}
             </Text>
-            <Pressable
-              style={pressable(styles.closeButton)}
-              android_ripple={pressRipple}
-              onPress={onClose}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.close')}
-            >
-              <MaterialCommunityIcons
-                name="close"
-                size={20}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
-            </Pressable>
-          </View>
-
-          {/* Subtitle */}
-          {insight.subtitle ? (
-            <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>{insight.subtitle}</Text>
-          ) : null}
-
-          {/* Body text */}
-          {insight.body ? (
-            <Text style={[styles.body, isDark && styles.bodyDark]}>{insight.body}</Text>
-          ) : null}
-
-          {/* Category-specific content (charts, sparklines, data) */}
-          <View style={styles.contentSection}>
-            <InsightDetailContent insight={insight} />
-          </View>
-
-          {/* Methodology transparency - single "How was this calculated?" block */}
-          {insight.methodology ||
-          insight.meta?.ranking ||
-          insight.supportingData?.formula ||
-          insight.supportingData?.algorithmDescription ? (
-            <View style={styles.methodologySection}>
-              <MethodologySection insight={insight} />
-            </View>
-          ) : null}
-
-          {/* Navigation link */}
-          {hasNavTarget ? (
-            <Pressable
-              style={pressable([styles.navLink, isDark && styles.navLinkDark])}
-              android_ripple={pressRipple}
-              onPress={handleNavigate}
-            >
-              <Text style={[styles.navLinkText, isDark && styles.navLinkTextDark]}>
-                {t('insights.viewInDetail')}
-              </Text>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={18}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
-            </Pressable>
-          ) : null}
-        </ScrollView>
-      </View>
-    </Modal>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={18}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+          </Pressable>
+        ) : null}
+      </ScrollView>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-  },
-  backdropFill: {
-    flex: 1,
-    backgroundColor: colorWithOpacity(ink.black, 0.5),
-  },
   sheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    flex: 1,
     backgroundColor: colors.surface,
-    borderTopLeftRadius: layout.borderRadiusXl,
-    borderTopRightRadius: layout.borderRadiusXl,
-    overflow: 'hidden',
   },
   sheetDark: {
     backgroundColor: darkColors.surface,
-  },
-  handleContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colors.gray300,
-  },
-  handleDark: {
-    backgroundColor: darkColors.borderLight,
   },
   scrollView: {
     flex: 1,

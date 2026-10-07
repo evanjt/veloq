@@ -11,7 +11,7 @@ import { join } from 'path';
 const enUS = resolvedLocale('en-US');
 
 const BRITISH =
-  /\b\w*(?:isation|ise|ised|ises|ising|ysed|ysing|yse|catalogue|colour|behaviour|favour|centre|metre|licence|grey|programme)\w*\b/gi;
+  /\b\w*(?:isation|ise|ised|ises|ising|ysed|ysing|yse|catalogue|colour|behaviour|favour|centre|metre|licence|grey|programme|modell|travell|cancell|labell|levell|fuell|signall)\w*\b/gi;
 
 // Words that end in the stems above and are spelt the same in American English.
 const ALLOWED = new Set([
@@ -73,7 +73,6 @@ const ALLOWED = new Set([
   'anticlockwise',
   'prise',
   'wiseguy',
-  'metre',
 ]);
 
 const STORE_DIR = ['con', 'fig'].join('');
@@ -123,6 +122,23 @@ describe('en-US register', () => {
       'Visualise',
       'catalogue',
       'analysed',
+    ]);
+  });
+
+  it('flags doubled-l spellings and metre', () => {
+    expect(
+      britishForms(
+        'Modelled travelling cancelled labelled levelled fuelled signalling metres modeled traveled canceled labeled leveled fueled signaling meters'
+      )
+    ).toEqual([
+      'Modelled',
+      'travelling',
+      'cancelled',
+      'labelled',
+      'levelled',
+      'fuelled',
+      'signalling',
+      'metres',
     ]);
   });
 });

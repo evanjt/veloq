@@ -128,11 +128,33 @@ export interface SupportingTrend {
   verdict: TrendVerdict;
 }
 
+export type HistoryMark = { date: number } | { from: number; to: number };
+
+export interface HistorySeries {
+  label: string;
+  points: SeriesPoint[];
+}
+
+export type InsightHistory =
+  | {
+      kind: 'timeline' | 'sparkline' | 'bars';
+      series: HistorySeries[];
+      mark?: HistoryMark;
+      target: string;
+    }
+  | {
+      kind: 'line';
+      points: LatLngShort[];
+      target: string;
+    };
+
 export interface InsightSupportingData {
   dataPoints?: DataPoint[];
   sections?: SupportingSection[];
   routes?: SupportingRoute[];
   activities?: SupportingActivity[];
+  history?: InsightHistory;
+  /** Undated strength progression series. */
   sparklineData?: number[];
   sparklineLabel?: string;
   /** The direction and verdict of the series or comparison the card reports. */
@@ -207,6 +229,11 @@ export interface PeriodStats {
   totalTss: number;
 }
 
+export interface WeeklyTotal {
+  start: number;
+  stats: PeriodStats;
+}
+
 /**
  * One period against an earlier one, as the engine took it. The ratio and the
  * metric it is under are `insights_data`'s; whether the gap is worth a card is
@@ -234,6 +261,7 @@ export interface SeriesPoint {
   value: number;
   /** Epoch seconds. */
   date: number;
+  activityId?: string | undefined;
 }
 
 export interface FtpTrend {
@@ -275,6 +303,7 @@ export interface SectionPR {
   traversalCount: number;
   /** The last efforts on the section, oldest first, for the card's graphic. */
   recentEfforts?: SeriesPoint[];
+  bestActivityId?: string | undefined;
   /** The section's line, thinned by the engine for the card's thumbnail. */
   previewPoints?: LatLngShort[];
 }

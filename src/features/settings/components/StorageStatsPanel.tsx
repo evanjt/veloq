@@ -258,6 +258,8 @@ export function StorageStatsPanel({
       {/* Cache Stats - inline */}
       <View testID="settings-storage-stats" style={styles.statRow}>
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.activities')}
           style={styles.statItem}
           onPress={() => navigateTo('/map')}
           activeOpacity={0.7}
@@ -275,6 +277,8 @@ export function StorageStatsPanel({
         </TouchableOpacity>
         <View style={styles.statDivider} />
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.routesCount')}
           style={styles.statItem}
           onPress={() => navigateTo('/insights?tab=routes')}
           disabled={!routeMatchingEnabled}
@@ -296,6 +300,8 @@ export function StorageStatsPanel({
         </TouchableOpacity>
         <View style={styles.statDivider} />
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.sectionsCount')}
           style={styles.statItem}
           onPress={() => navigateTo('/insights?tab=sections')}
           disabled={!routeMatchingEnabled}
@@ -367,11 +373,15 @@ export function StorageStatsPanel({
             {total.bytes > 0
               ? total.complete
                 ? formatFileSize(total.bytes)
-                : t('settings.sizeAtLeast', { size: formatFileSize(total.bytes) })
+                : t('settings.sizeAtLeast', {
+                    size: formatFileSize(total.bytes),
+                  })
               : '-'}
           </Text>
           {total.bytes > 0 && (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('settings.clearCache')}
               onPress={onClearMapCache}
               style={pressable(styles.clearInlineButton)}
               android_ripple={pressRipple}
@@ -433,7 +443,9 @@ export function StorageStatsPanel({
           </Text>
           {freeStorage !== null && (
             <Text testID="settings-tile-cache-free" style={styles.budgetFooterText}>
-              {t('settings.tileCacheFree', { size: formatFileSize(freeStorage) })}
+              {t('settings.tileCacheFree', {
+                size: formatFileSize(freeStorage),
+              })}
             </Text>
           )}
         </View>
@@ -446,6 +458,8 @@ export function StorageStatsPanel({
         onRequestClose={() => setPickingBudget(false)}
       >
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.tileCacheLimit')}
           testID="settings-tile-cache-picker"
           style={styles.modalOverlay}
           activeOpacity={1}
@@ -459,6 +473,9 @@ export function StorageStatsPanel({
               const selected = mb === budgetMb;
               return (
                 <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={formatFileSize(mb * BYTES_PER_BUDGET_MB)}
+                  accessibilityState={{ selected: selected }}
                   key={mb}
                   testID={`settings-tile-cache-choice-${mb}`}
                   style={[styles.modalOption, selected && styles.modalOptionSelected]}
@@ -469,7 +486,9 @@ export function StorageStatsPanel({
                     style={[
                       styles.modalOptionText,
                       isDark && styles.textLight,
-                      selected && { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+                      selected && {
+                        color: isDark ? darkColors.linkTeal : colors.linkTeal,
+                      },
                     ]}
                   >
                     {formatFileSize(mb * BYTES_PER_BUDGET_MB)}

@@ -1,5 +1,6 @@
 import type { Insight } from '../types';
 import { NO_POPULATION, maxPerCategoryFor } from '../lib/config';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 /**
  * Section changed insights.
@@ -21,6 +22,7 @@ export interface SectionChangeInput {
   kind: string;
   /** Epoch ms of the change. */
   at: number;
+  points?: LatLngShort[] | undefined;
 }
 
 const KINDS = new Set(['recut', 'split', 'restored', 'reverted']);
@@ -55,6 +57,16 @@ export function generateSectionChangedInsights(
       // seen loses it.
       isNew: false,
       confidence: NO_POPULATION,
+      supportingData:
+        change.points && change.points.length >= 2
+          ? {
+              history: {
+                kind: 'line',
+                points: change.points,
+                target: `/section/${change.sectionId}`,
+              },
+            }
+          : undefined,
       meta: {
         sourceTimestamp: change.at,
         comparisonKind: 'none',

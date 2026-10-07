@@ -116,13 +116,15 @@ describe('Expo SDK dependency guard', () => {
     expect(result.output).toContain('@react-native/jest-preset');
   });
 
-  it('accepts the specified screens repair and rejects a further screens bump', () => {
+  it('requires the specified screens repair in both package files', () => {
     const base = {
       bundled: { 'react-native-screens': '4.25.2' },
       declared: { 'react-native-screens': '4.28.0' },
       locked: { 'react-native-screens': '4.28.0' },
     };
     expect(runGuard(base).status).toBe(0);
+    expect(runGuard({ ...base, declared: { 'react-native-screens': '4.25.2' } }).status).toBe(1);
+    expect(runGuard({ ...base, locked: { 'react-native-screens': '4.25.2' } }).status).toBe(1);
     expect(runGuard({ ...base, locked: { 'react-native-screens': '4.29.0' } }).status).toBe(1);
   });
 });

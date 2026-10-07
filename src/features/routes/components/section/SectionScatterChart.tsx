@@ -45,7 +45,7 @@ import type {
 } from '@/features/routes/lib/performanceTypes';
 import { StatsRow } from './StatsRow';
 import { PerformanceTooltip } from './PerformanceTooltip';
-import { pressable, pressRipple, ToggleButton } from '@/shared/ui';
+import { ChipSelector, pressable, pressRipple } from '@/shared/ui';
 
 /** Horizontal room the chart leaves at the window edge. */
 const CHART_INSET = 32;
@@ -319,24 +319,21 @@ export function SectionScatterChart({
         </View>
       )}
       {!mini && controlledDirection === undefined && hasForward && hasReverse && (
-        <View style={styles.directionControl}>
-          {(['forward', 'reverse'] as const).map((direction) => (
-            <ToggleButton
-              key={direction}
-              testID={`section-chart-direction-${direction}`}
-              label={t(direction === 'reverse' ? 'sections.reverse' : 'sections.forward')}
-              selected={selectedDirection === direction}
-              onPress={() => {
-                setRequestedDirection(direction);
-                setSelectedPoint(null);
-                onActivitySelect?.(null);
-              }}
-              style={{
-                borderColor: direction === 'reverse' ? colors.reverseDirection : activityColor,
-              }}
-            />
-          ))}
-        </View>
+        <ChipSelector
+          style={styles.directionControl}
+          options={(['forward', 'reverse'] as const).map((direction) => ({
+            value: direction,
+            label: t(direction === 'reverse' ? 'sections.reverse' : 'sections.forward'),
+            accent: direction === 'reverse' ? colors.reverseDirection : activityColor,
+          }))}
+          value={selectedDirection}
+          optionTestID={(direction) => `section-chart-direction-${direction}`}
+          onChange={(direction) => {
+            setRequestedDirection(direction);
+            setSelectedPoint(null);
+            onActivitySelect?.(null);
+          }}
+        />
       )}
       {/* Forward stats row above chart */}
       {!mini && selectedDirection === 'forward' && forwardPoints.length > 0 && (
@@ -625,11 +622,7 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   directionControl: {
-    flexDirection: 'row',
     alignSelf: 'center',
-    gap: spacing.xs,
-    borderRadius: layout.borderRadiusMd,
-    backgroundColor: colors.backgroundAlt,
     marginBottom: spacing.xs,
   },
   tapTarget: {

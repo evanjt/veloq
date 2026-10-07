@@ -107,6 +107,8 @@ export function RoutePerformanceSection({
     <View style={[styles.card, isDark && styles.cardDark]}>
       <Pressable
         onPress={handleRoutePress}
+        accessibilityRole="button"
+        accessibilityLabel={routeGroup.name}
         style={pressable(styles.header)}
         android_ripple={pressRipple}
       >

@@ -235,11 +235,9 @@ if (isNewArchitectureEnabled()) {
 }
 
 // The Rust library comes from modules/veloqrs/scripts/build-rust.js, the one
-// builder Gradle, the iOS scripts and CI share. This task declares what the
-// library is compiled from, so Gradle skips it while nothing changed, and the
-// builder fingerprints the same inputs, so a run with no Gradle history (a
-// fresh checkout, a CI cache restore) still compiles only what changed. A
-// failed compile fails the task and leaves no library behind.
+// builder Gradle, the iOS scripts and CI share. This task declares the known
+// inputs, but the builder fingerprints all inputs and decides whether Cargo
+// runs. A failed compile fails the task and leaves no library behind.
 def rustTreeDir = file("${projectDir}/../rust")
 def rustBuilder = file("${projectDir}/../scripts/build-rust.js")
 def rustTask = tasks.register("buildRustLibrary") {
@@ -261,6 +259,7 @@ def rustTask = tasks.register("buildRustLibrary") {
     name ==~ /(RUSTC?|RUSTFLAGS|CARGO_(ENCODED_RUSTFLAGS|BUILD_.*|PROFILE_.*|TARGET_.*)|(CC|CXX|AR|CFLAGS|CXXFLAGS|TARGET_CC|TARGET_CFLAGS|TARGET_CXXFLAGS)(_.*)?|LIBSQLITE3_FLAGS)/
   }.sort())
   outputs.dir(rustOutDir)
+  outputs.upToDateWhen { false }
 
   doLast {
     def command = ["node", rustBuilder.absolutePath, "android", "--out", rustOutDir.absolutePath,

@@ -68,3 +68,5 @@ export { setVisibleRange } from './lib/previewRange';
 export { ringsLeavingView } from './lib/ringsLeavingView';
 
 export type { ActivityType } from './types';
+
+export { loadActivityDetailScreenContent } from './loadActivityDetailScreenContent';

@@ -8,7 +8,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { RangeCoverage } from 'veloqrs';
-import { CHART_CONFIG } from '@/constants';
 import {
   chartStyles,
   colors,
@@ -37,6 +36,7 @@ import {
   metersToLongDistance,
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 interface SeasonComparisonProps {
   /** Height of the chart */
@@ -163,7 +163,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
-        .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
+        .activateAfterLongPress(PREVIEW_HOLD_MS)
         .minDistance(0)
         .onStart((e) => {
           'worklet';
@@ -481,7 +481,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                 style={[styles.legendDot, { backgroundColor: colorPrevious }]}
               />
               <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
-                {t('stats.previous')}
+                {currentYear - 1}
               </Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
                 {totals.previousTotal}
@@ -494,7 +494,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                 style={[styles.legendDot, { backgroundColor: colorCurrent }]}
               />
               <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
-                {t('stats.current')}
+                {currentYear}
               </Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
                 {totals.currentTotal}

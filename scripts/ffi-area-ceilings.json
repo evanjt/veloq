@@ -81,9 +81,7 @@
     "ActivityManager.saveProvisional",
     "RecordingManager.addRecording",
     "RecordingManager.getRecording",
-    "RecordingManager.uploadRecording",
-    "SyncManager.confirmActivityUploaded",
-    "SyncManager.updateActivityRpe"
+    "RecordingManager.uploadRecording"
   ],
   "features/routes": [
     "ActivityManager.add",
@@ -116,6 +114,7 @@
     "RouteManager.getScreenData",
     "RouteManager.getSummaries",
     "RouteManager.includeActivity",
+    "RouteManager.liveOverlaps",
     "RouteManager.setName",
     "RouteManager.setRepresentative",
     "SectionManager.accept",

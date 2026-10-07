@@ -65,6 +65,7 @@ let mockHasPreviousPage = false;
 let mockIsRefetching = false;
 let mockSummaryRefetch = jest.fn();
 const mockRecordFeedSeen = jest.fn();
+const mockRefreshStartupData = jest.fn();
 const mockFetchPreviousPage = jest.fn();
 const mockSyncListeners = new Map<string, Set<() => void>>();
 let mockSyncCompleted = 0;
@@ -96,7 +97,7 @@ jest.mock('@/features/home', () => ({
   feedEmptyState: jest.requireActual('@/features/home/lib/feedEmptyState').feedEmptyState,
   summaryCardTarget: jest.requireActual('@/features/home/lib/summaryCardTargets').summaryCardTarget,
   useSummaryCardData: () => ({ showSparkline: false, refetch: mockSummaryRefetch }),
-  useStartupData: () => ({ data: mockStartupData, refresh: jest.fn() }),
+  useStartupData: () => ({ data: mockStartupData, refresh: mockRefreshStartupData }),
   SummaryCard: () => null,
   NotificationOptInCard: () => null,
   SupportCard: () => null,
@@ -255,6 +256,40 @@ it('dismisses a new card when it leaves view and keeps the callback stable', asy
   });
   feed.rerenderFeed();
   expect(screen.getByTestId('home-activity-list').props.onViewableItemsChanged).toBe(callback);
+});
+
+it('dismisses a card that was visible before startup IDs arrived', async () => {
+  const feed = renderFeed();
+  const list = await screen.findByTestId('home-activity-list');
+  const callback = list.props.onViewableItemsChanged;
+
+  act(() => {
+    callback({
+      viewableItems: [{ key: 'a1', index: 0, isViewable: true }],
+      changed: [{ key: 'a1', index: 0, isViewable: true }],
+    });
+  });
+  mockStartupData = { previewTracks: new Map(), newActivityIds: new Set(['a1']) };
+  feed.rerenderFeed();
+  expect(screen.getByTestId('home-activity-list').props.onViewableItemsChanged).toBe(callback);
+
+  act(() => {
+    callback({
+      viewableItems: [],
+      changed: [{ key: 'a1', index: 0, isViewable: false }],
+    });
+    callback({
+      viewableItems: [],
+      changed: [{ key: 'a1', index: 0, isViewable: false }],
+    });
+  });
+
+  expect(mockRecordFeedSeen).toHaveBeenCalledTimes(1);
+  expect(mockRecordFeedSeen).toHaveBeenCalledWith({
+    tag: 'Dismissed',
+    inner: { activityIds: ['a1'] },
+  });
+  expect(mockRefreshStartupData).toHaveBeenCalledTimes(1);
 });
 
 it('replaces a startup preview when its track moves under the same activity id', async () => {

@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { Animated, StyleSheet } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ActivityMapControls } from '@/features/maps/components/ActivityMapControls';
@@ -23,14 +23,14 @@ const METRICS = {
   insets: { top: INSET_TOP, left: 0, right: 0, bottom: 0 },
 };
 
-function renderControls() {
+function renderControls(handlers: Partial<React.ComponentProps<typeof ActivityMapControls>> = {}) {
   return render(
     <SafeAreaProvider initialMetrics={METRICS}>
       <ActivityMapControls
         isDark={false}
         mapStyle="satellite"
         onToggleStyle={jest.fn()}
-        hasGradientData={false}
+        hasGradientData={true}
         gradientActive={false}
         onToggleGradient={jest.fn()}
         is3DMode={false}
@@ -43,6 +43,7 @@ function renderControls() {
         enableFullscreen={true}
         onOpenFullscreen={jest.fn()}
         mapHeight={400}
+        {...handlers}
       />
     </SafeAreaProvider>
   );
@@ -55,5 +56,26 @@ describe('the activity map control column', () => {
     const column = screen.getByTestId('activity-map-controls');
     const top = StyleSheet.flatten(column.props.style).top;
     expect(top).toBeGreaterThanOrEqual(INSET_TOP + HERO_HEADER_HEIGHT);
+  });
+
+  it.each([
+    ['activity-map-style-toggle', 'onToggleStyle'],
+    ['activity-map-gradient-toggle', 'onToggleGradient'],
+    ['activity-map-3d-toggle', 'onToggle3D'],
+    ['maps.resetOrientation', 'onResetOrientation'],
+    ['activity-map-fullscreen', 'onOpenFullscreen'],
+  ] as const)('activates %s on release', (control, handlerName) => {
+    const handler = jest.fn();
+    renderControls({ [handlerName]: handler });
+
+    const button =
+      control === 'maps.resetOrientation'
+        ? screen.getByLabelText(control)
+        : screen.getByTestId(control);
+    fireEvent(button, 'pressIn');
+    expect(handler).not.toHaveBeenCalled();
+
+    fireEvent.press(button);
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 });

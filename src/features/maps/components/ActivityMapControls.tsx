@@ -59,7 +59,7 @@ export function ActivityMapControls({
         accessibilityRole="button"
         accessibilityLabel={t('maps.toggleStyle')}
         style={[styles.controlButton, isDark && styles.controlButtonDark]}
-        onPressIn={onToggleStyle}
+        onPress={onToggleStyle}
         activeOpacity={0.6}
         hitSlop={HIT_SLOP}
       >
@@ -82,7 +82,7 @@ export function ActivityMapControls({
             isDark && styles.controlButtonDark,
             gradientActive && styles.controlButtonActive,
           ]}
-          onPressIn={onToggleGradient}
+          onPress={onToggleGradient}
           activeOpacity={0.6}
           hitSlop={HIT_SLOP}
         >
@@ -107,7 +107,7 @@ export function ActivityMapControls({
             isDark && styles.controlButtonDark,
             is3DMode && styles.controlButtonActive,
           ]}
-          onPressIn={onToggle3D}
+          onPress={onToggle3D}
           activeOpacity={0.6}
           hitSlop={HIT_SLOP}
         >
@@ -124,7 +124,7 @@ export function ActivityMapControls({
         accessibilityRole="button"
         accessibilityLabel={t('maps.resetOrientation')}
         style={[styles.controlButton, isDark && styles.controlButtonDark]}
-        onPressIn={onResetOrientation}
+        onPress={onResetOrientation}
         activeOpacity={0.6}
         hitSlop={HIT_SLOP}
       >
@@ -168,7 +168,7 @@ export function ActivityMapControls({
           accessibilityRole="button"
           accessibilityLabel={t('maps.openFullscreen')}
           style={[styles.controlButton, isDark && styles.controlButtonDark]}
-          onPressIn={onOpenFullscreen}
+          onPress={onOpenFullscreen}
           activeOpacity={0.6}
           hitSlop={HIT_SLOP}
         >

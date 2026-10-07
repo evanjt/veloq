@@ -28,7 +28,7 @@ import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { StreamConsentCard } from '@/features/settings';
 import { navigateTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { requestSyncRefresh } from '@/shared/native/syncRefresh';
+import { SyncRefreshNotice, useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -269,6 +269,7 @@ function FeedScreenContent() {
     hasFilter: filtering,
   });
   const standingBy = emptyState === 'standby';
+  const { notice, requestRefresh } = useSyncRefreshNotice();
 
   // Batch-fetch section highlights (PRs) for the whole loaded feed. Keying this
   // on the filtered list would re-read the bundle on every search keystroke,
@@ -289,7 +290,7 @@ function FeedScreenContent() {
   const handleRefresh = useCallback(async () => {
     setPullRefreshing(true);
     try {
-      requestSyncRefresh();
+      requestRefresh();
       // Reset the infinite query if page params are stale (don't cover today),
       // otherwise invalidate for smooth stale-while-revalidate.
       const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
@@ -326,7 +327,14 @@ function FeedScreenContent() {
     } finally {
       setPullRefreshing(false);
     }
-  }, [queryClient, refetchSummary, refreshStartupData, searchQuery, selectedTypeGroups]);
+  }, [
+    queryClient,
+    refetchSummary,
+    refreshStartupData,
+    searchQuery,
+    selectedTypeGroups,
+    requestRefresh,
+  ]);
 
   // Load more when scrolling to the end, from whichever read the list holds
   const {
@@ -543,7 +551,6 @@ function FeedScreenContent() {
             onSelect={selectTypeGroup}
             selectedRange={rangePreset}
             onSelectRange={selectRange}
-            isDark={isDark}
           />
         </View>
 
@@ -675,6 +682,7 @@ function FeedScreenContent() {
   // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
   return (
     <ScreenSafeAreaView style={shared.container} testID="home-screen">
+      <SyncRefreshNotice message={notice} />
       <StreamConsentCard />
       <View style={styles.homeCards}>
         <NotificationOptInCard />

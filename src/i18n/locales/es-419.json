@@ -155,6 +155,10 @@
     "batteryOptOpenSettings": "Abrir configuración de batería",
     "writeScopeNotGranted": "No se otorgó el permiso de escritura"
   },
+  "refresh": {
+    "busy": "Se actualizará después de la sincronización en curso.",
+    "notReady": "La sincronización se está preparando. Vuelve a intentarlo en un momento."
+  },
   "routes": {
     "sectionsDescription": "Las secciones se detectan cuando recorres las mismas calles varias veces, incluso en rutas diferentes",
     "largeSectionPerformanceWarning": "Las secciones grandes pueden tardar más en procesarse."

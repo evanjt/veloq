@@ -58,8 +58,10 @@ describe('generateStalePRInsights', () => {
 
     const [card] = generateStalePRInsights([row], t, NOW);
 
-    expect(card.supportingData?.sparklineData).toEqual([281, 274, 263]);
-    expect(card.supportingData?.sparklineLabel).toBe('insights.data.recentEfforts');
+    expect(card.supportingData?.history).toMatchObject({
+      kind: 'timeline',
+      series: [{ label: 'insights.data.recentEfforts', points: row.recentEfforts }],
+    });
   });
 
   it('carries no line when the row has too few efforts to draw one', () => {
@@ -73,8 +75,7 @@ describe('generateStalePRInsights', () => {
 
     const [card] = generateStalePRInsights([row], t, NOW);
 
-    expect(card.supportingData?.sparklineData).toBeUndefined();
-    expect(card.supportingData?.sparklineLabel).toBeUndefined();
+    expect(card.supportingData?.history).toBeUndefined();
   });
 
   it('renders nothing when the bundle carries none, rather than deciding for itself', () => {

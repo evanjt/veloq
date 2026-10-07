@@ -73,7 +73,7 @@ export function DateRangeSummary({
             <Text style={[styles.countText, isDark && styles.textLight]}>
               {isLoading
                 ? t('mapScreen.loadingActivities')
-                : `${activityCount} ${t('common.activities')}`}
+                : t('sections.activitiesCount', { count: activityCount })}
             </Text>
           </View>
           {!isLoading && oldestDate && newestDate && (
@@ -87,6 +87,8 @@ export function DateRangeSummary({
           style={pressable(styles.expandButton)}
           android_ripple={pressRipple}
           onPress={handleExpandPress}
+          accessibilityRole="button"
+          accessibilityLabel={t('routesScreen.expandDateRange')}
         >
           <MaterialCommunityIcons
             name="calendar-expand-horizontal"

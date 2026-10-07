@@ -26,7 +26,6 @@ import { ActivityLedgerChanges } from './ActivityLedgerChanges';
 import { findRowIndexAtPageY } from './scrubHitTest';
 import { DataRangeFooter } from '@/features/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { CHART_CONFIG } from '@/constants';
 import { getEngine } from '@/shared/native/engine';
 import {
   groupSectionEncounters,
@@ -36,6 +35,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 const log = debug.create('ActivitySectionsSection');
 
@@ -365,13 +365,13 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   );
 
   // Scrub gesture: a Pan that only activates AFTER the user holds their finger
-  // still for LONG_PRESS_DURATION. Once activated, every finger move fires
+  // still for PREVIEW_HOLD_MS. Once activated, every finger move fires
   // onUpdate continuously, so dragging through rows updates the highlight
   // smoothly. activateAfterLongPress is the canonical RNGH primitive for
   // "press-and-hold, then drag" and coordinates cleanly with nested Swipeables.
   const scrubGesture = useMemo(() => {
     return Gesture.Pan()
-      .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
+      .activateAfterLongPress(PREVIEW_HOLD_MS)
       .onStart((e) => {
         'worklet';
         runOnJS(startScrubAt)(e.absoluteY);

@@ -844,7 +844,7 @@ pub(crate) mod pooled {
             &mut names,
             &overlay.by_section,
             || {
-                crate::persistence::read_cache::split_lineage(|| {
+                crate::persistence::read_cache::split_lineage(conn, || {
                     crate::persistence::sections::numbers::split_lineage(conn)
                 })
             },
@@ -869,7 +869,7 @@ pub(crate) mod pooled {
             &mut names,
             &overlay.by_section,
             || {
-                crate::persistence::read_cache::split_lineage(|| {
+                crate::persistence::read_cache::split_lineage(conn, || {
                     crate::persistence::sections::numbers::split_lineage(conn)
                 })
             },
@@ -887,7 +887,7 @@ pub(crate) mod pooled {
     /// `EXISTS` probe is the engine's own short-circuit: without a named
     /// intent there is nothing to resolve and the catalogue is not read.
     fn resolved_overlay(conn: &Connection) -> Arc<super::NamedOverlay> {
-        crate::persistence::read_cache::named_overlay(|| {
+        crate::persistence::read_cache::named_overlay(conn, || {
             let has_named: bool = conn
                 .query_row(
                     "SELECT EXISTS(SELECT 1 FROM section_intents WHERE kind = 'named')",

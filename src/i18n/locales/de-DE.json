@@ -368,7 +368,6 @@
     "wbal": "W'bal"
   },
   "common": {
-    "activities": "Aktivitäten",
     "back": "Zurück",
     "close": "Schließen",
     "cancel": "Abbrechen",
@@ -1250,6 +1249,8 @@
     "sportFilterTitle": "Sportart",
     "createSection": "Abschnitt erstellen",
     "custom": "Benutzerdefiniert",
+    "customCount_one": "{{count}} benutzerdefinierter Abschnitt",
+    "customCount_other": "{{count}} benutzerdefinierte Abschnitte",
     "dataRangeHint": "Basierend auf {{duration}} Aktivitätsdaten",
     "duplicateNameMessage": "Bitte wähle einen anderen Namen. Jede Route muss einen eindeutigen Namen haben.",
     "duplicateNameTitle": "Name bereits vorhanden",
@@ -1284,7 +1285,6 @@
     "standingBest": "Deine schnellste von {{total}}",
     "standingRank": "Platz {{rank}} von {{total}}, {{gap}} hinter deiner Bestzeit",
     "standingRankPercentile": "Platz {{rank}} von {{total}}, schneller als {{percent}} % davon, {{gap}} hinter deiner Bestzeit",
-    "visits": "Besuche",
     "largeSectionPerformanceWarning": "Große Abschnitte können länger zur Verarbeitung brauchen."
   },
   "routesScreen": {
@@ -1308,6 +1308,8 @@
     "removeSection": "Abschnitt entfernen",
     "removeSectionConfirm": "Dieser Abschnitt wird nicht mehr in Aktivitätsdetails oder Insights angezeigt. Du kannst ihn aus der Abschnittsliste wiederherstellen.",
     "removed": "Entfernt",
+    "removedCount_one": "{{count}} entfernter Abschnitt",
+    "removedCount_other": "{{count}} entfernte Abschnitte",
     "restoreSection": "Abschnitt wiederherstellen",
     "partial": "Teilweise",
     "placeSecond": "Zweitschnellste",
@@ -1373,13 +1375,13 @@
     "setAsReferenceConfirm": "Diese Aktivität als Referenz verwenden?\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen. Dabei können Aktivitäten hinzugefügt oder entfernt werden.",
     "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuche es erneut.",
     "editBounds": "Grenzen bearbeiten",
-    "points": "Punkte",
+    "pointsCount_one": "{{count}} Punkt",
+    "pointsCount_other": "{{count}} Punkte",
     "resetBounds": "Auf Original zurücksetzen",
     "trimPrecisionHint": "Regler nach oben oder unten ziehen für feinere Steuerung",
     "trimMode": "Zuschneiden",
     "expandMode": "Erweitern",
     "resetBoundsConfirm": "Auf die ursprünglich automatisch erkannten Grenzen zurücksetzen?\n\nDer Abschnitt wird erneut mit allen deinen Aktivitäten abgeglichen.",
-    "traversals": "Durchfahrten",
     "liftGround": "Lift",
     "notLift": "Kein Lift",
     "trimFailed": "Abschnittsgrenzen konnten nicht zugeschnitten werden",
@@ -1458,6 +1460,7 @@
     "nameTaken": "Ein anderer Abschnitt trägt diesen Namen bereits. Wähle einen anderen Namen."
   },
   "settings": {
+    "developerDashboard": "Entwicklerübersicht",
     "account": "Konto",
     "activities": "Aktivitäten",
     "appearance": "Erscheinungsbild",
@@ -1724,7 +1727,6 @@
     "completeActivitiesYearComparison": "Absolviere Aktivitäten, um den Jahresvergleich zu sehen",
     "completeDecouplingHint": "Absolviere eine längere Belastung mit Leistungs- und Herzfrequenzdaten, um die Entkopplungsanalyse zu sehen",
     "completePowerActivities": "Absolviere Aktivitäten mit Leistungsmesser, um deinen FTP-Trend zu sehen",
-    "current": "Aktuell",
     "decouplingExplanation": "Entkopplung misst den kardialen Drift - wie sehr deine Herzfrequenz im Verhältnis zur Leistungsabgabe bei Dauerbelastungen steigt.",
     "decouplingProvenance": "Berechnet von intervals.icu",
     "estimatedFtp": "Geschätzte FTP",
@@ -1750,7 +1752,6 @@
     "paceCurve": "Tempokurve",
     "powerCurve": "Leistungskurve",
     "powerZones": "Leistungszonen",
-    "previous": "Vorherig",
     "rangeNotDownloaded": "Noch nicht heruntergeladen",
     "rangePartlyDownloaded": "Ein Teil des Zeitraums ist noch nicht heruntergeladen",
     "calendarRange": "{{start}} bis {{end}}",
@@ -1789,6 +1790,13 @@
     "seasonBests": "Saisonbestleistungen",
     "swimPaceCurve": "Schwimmtempokurve",
     "trainingZones": "Trainingszonen"
+  },
+  "refresh": {
+    "busy": "Wird nach der laufenden Synchronisierung aktualisiert.",
+    "notReady": "Die Synchronisierung wird vorbereitet. Versuche es gleich noch einmal.",
+    "offline": "Wird aktualisiert, sobald eine Verbindung besteht.",
+    "notConfigured": "Zum Synchronisieren anmelden.",
+    "failed": "Die Synchronisierung konnte nicht gestartet werden."
   },
   "sync": {
     "ridesDownloaded": "{{completed}} von {{total}} Fahrten heruntergeladen",
@@ -1940,9 +1948,13 @@
     "downloading": "Krafttrainings werden heruntergeladen",
     "downloadingHint": "Die Satzdaten kommen mit den Trainingsdateien. Die Ansicht aktualisiert sich, sobald sie da sind.",
     "sets": "Sätze",
+    "setsCount_one": "{{count}} Satz",
+    "setsCount_other": "{{count}} Sätze",
     "muscleGroupVolume": "Muskelgruppen-Volumen",
     "relativeWeightedSets": "Relative gewichtete Sätze über den ausgewählten Zeitraum",
     "reps": "Wdh.",
+    "repsCount_one": "{{count}} Wiederholung",
+    "repsCount_other": "{{count}} Wiederholungen",
     "tapMuscleGroup": "Tippe auf eine Muskelgruppe für Details",
     "relativeVolume": "Relatives Volumen",
     "balanceObservedPairs": "Beobachtet über die erfassten Antagonistenpaare im aktuellen {{period}}",

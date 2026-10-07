@@ -110,7 +110,9 @@ export function ExerciseTable({
             {group.bestSet && (
               <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
                 {t('strength.bestSet')}: {formatWeight(group.bestSet.weightKg ?? 0, isMetric)} ·{' '}
-                {group.bestSet.repetitions ?? '--'} {t('strength.reps')}
+                {group.bestSet.repetitions == null
+                  ? `-- ${t('strength.reps')}`
+                  : t('strength.repsCount', { count: group.bestSet.repetitions })}
               </Text>
             )}
             {group.restSeconds.length > 0 && (

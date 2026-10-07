@@ -107,22 +107,6 @@ export async function recordProvisionalUpload(
 }
 
 /**
- * Replay the write for every landed upload whose row never took it, and answer
- * how many were reconciled. An engine closed at the moment of the upload is
- * the case this exists for.
- */
-export async function reconcileProvisionalUploads(): Promise<number> {
-  const owed = (await listRecordings()).filter(
-    (entry) => entry.engineActivityId && entry.intervalsActivityId && !entry.engineReconciled
-  );
-  let reconciled = 0;
-  for (const entry of owed) {
-    if (await recordProvisionalUpload(entry, entry.intervalsActivityId)) reconciled += 1;
-  }
-  return reconciled;
-}
-
-/**
  * Write the engine row for every recording whose save never got one, and
  * answer how many were written.
  *

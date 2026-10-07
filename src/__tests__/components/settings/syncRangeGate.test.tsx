@@ -18,7 +18,7 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 const mockSyncDateRange = jest.fn();
 let mockSliderRangeChange: ((start: Date, end: Date) => void) | null = null;
 let mockResetKeys: (number | undefined)[] = [];
-let mockYearCounts: Record<string, number> = {};
+let mockYearCounts: { year: number; count: number }[] = [];
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -50,7 +50,7 @@ jest.mock('@/shared/app/useOldestActivityDate', () => ({
   useOldestActivityDate: () => ({ data: new Date('2015-01-01T00:00:00') }),
 }));
 
-jest.mock('@/shared/app/useActivityYearCounts', () => ({
+jest.mock('@/features/settings/hooks/useActivityYearCounts', () => ({
   useActivityYearCounts: () => ({ data: mockYearCounts }),
 }));
 
@@ -88,7 +88,7 @@ describe('the history slider gate', () => {
     jest.clearAllMocks();
     mockSliderRangeChange = null;
     mockResetKeys = [];
-    mockYearCounts = {};
+    mockYearCounts = [];
   });
 
   describe('putting the handle back', () => {
@@ -104,7 +104,11 @@ describe('the history slider gate', () => {
       jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
         buttons?.[0]?.onPress?.();
       });
-      mockYearCounts = { '2015': 700, '2025': 40, '2026': 60 };
+      mockYearCounts = [
+        { year: 2015, count: 700 },
+        { year: 2025, count: 40 },
+        { year: 2026, count: 60 },
+      ];
       render(<SyncRangePanel />);
       const before = distinctKeys();
       dragInAct('2015-01-01');
@@ -115,7 +119,10 @@ describe('the history slider gate', () => {
     it('after the expansion latch refuses the drag', () => {
       jest.spyOn(Alert, 'alert').mockImplementation(() => {});
       mockSyncDateRange.mockReturnValue('locked');
-      mockYearCounts = { '2025': 40, '2026': 60 };
+      mockYearCounts = [
+        { year: 2025, count: 40 },
+        { year: 2026, count: 60 },
+      ];
       render(<SyncRangePanel />);
       const before = distinctKeys();
       dragInAct('2025-01-01');
@@ -136,7 +143,11 @@ describe('the history slider gate', () => {
         buttons?.[buttons.length - 1]?.onPress?.();
       });
       mockSyncDateRange.mockReturnValue('expanded');
-      mockYearCounts = { '2015': 700, '2025': 40, '2026': 60 };
+      mockYearCounts = [
+        { year: 2015, count: 700 },
+        { year: 2025, count: 40 },
+        { year: 2026, count: 60 },
+      ];
       render(<SyncRangePanel />);
       const before = distinctKeys();
       dragInAct('2015-01-01');
@@ -146,7 +157,10 @@ describe('the history slider gate', () => {
 
     it('not when a small widening goes through', () => {
       mockSyncDateRange.mockReturnValue('expanded');
-      mockYearCounts = { '2025': 40, '2026': 60 };
+      mockYearCounts = [
+        { year: 2025, count: 40 },
+        { year: 2026, count: 60 },
+      ];
       render(<SyncRangePanel />);
       const before = distinctKeys();
       dragInAct('2025-01-01');
@@ -156,7 +170,10 @@ describe('the history slider gate', () => {
   });
 
   it('expands straight away when the widening is small', () => {
-    mockYearCounts = { '2025': 40, '2026': 60 };
+    mockYearCounts = [
+      { year: 2025, count: 40 },
+      { year: 2026, count: 60 },
+    ];
     dragTo(2025);
 
     expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
@@ -164,7 +181,11 @@ describe('the history slider gate', () => {
 
   it('asks before expanding when the widening is large', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockYearCounts = { '2015': 700, '2025': 40, '2026': 60 };
+    mockYearCounts = [
+      { year: 2015, count: 700 },
+      { year: 2025, count: 40 },
+      { year: 2026, count: 60 },
+    ];
     dragTo(2015);
 
     expect(alert).toHaveBeenCalled();
@@ -175,7 +196,11 @@ describe('the history slider gate', () => {
     jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
       buttons?.[buttons.length - 1]?.onPress?.();
     });
-    mockYearCounts = { '2015': 700, '2025': 40, '2026': 60 };
+    mockYearCounts = [
+      { year: 2015, count: 700 },
+      { year: 2025, count: 40 },
+      { year: 2026, count: 60 },
+    ];
     dragTo(2015);
 
     expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
@@ -185,7 +210,11 @@ describe('the history slider gate', () => {
     jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
       buttons?.[0]?.onPress?.();
     });
-    mockYearCounts = { '2015': 700, '2025': 40, '2026': 60 };
+    mockYearCounts = [
+      { year: 2015, count: 700 },
+      { year: 2025, count: 40 },
+      { year: 2026, count: 60 },
+    ];
     dragTo(2015);
 
     expect(mockSyncDateRange).not.toHaveBeenCalled();
@@ -193,7 +222,7 @@ describe('the history slider gate', () => {
 
   it('does not block the user behind a count it does not have', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockYearCounts = {};
+    mockYearCounts = [];
     dragTo(2015);
 
     expect(alert).not.toHaveBeenCalled();
@@ -203,7 +232,10 @@ describe('the history slider gate', () => {
   it('says why when the expansion latch refuses the drag', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockSyncDateRange.mockReturnValue('locked');
-    mockYearCounts = { '2025': 40, '2026': 60 };
+    mockYearCounts = [
+      { year: 2025, count: 40 },
+      { year: 2026, count: 60 },
+    ];
     dragTo(2025);
 
     expect(alert).toHaveBeenCalledWith('settings.rangeLockedTitle', 'settings.rangeLockedMessage');
@@ -212,14 +244,17 @@ describe('the history slider gate', () => {
   it('stays quiet when the expansion goes through', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockSyncDateRange.mockReturnValue('expanded');
-    mockYearCounts = { '2025': 40, '2026': 60 };
+    mockYearCounts = [
+      { year: 2025, count: 40 },
+      { year: 2026, count: 60 },
+    ];
     dragTo(2025);
 
     expect(alert).not.toHaveBeenCalled();
   });
 
   it('ignores a drag that does not widen the range', () => {
-    mockYearCounts = { '2015': 700 };
+    mockYearCounts = [{ year: 2015, count: 700 }];
     render(<SyncRangePanel />);
     mockSliderRangeChange?.(new Date('2026-08-01T00:00:00'), new Date());
 

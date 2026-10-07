@@ -368,7 +368,6 @@
     "wbal": "W'bal"
   },
   "common": {
-    "activities": "activiteiten",
     "back": "Terug",
     "close": "Sluiten",
     "cancel": "Annuleren",
@@ -1250,6 +1249,8 @@
     "sportFilterTitle": "Sport",
     "createSection": "Sectie aanmaken",
     "custom": "Aangepast",
+    "customCount_one": "{{count}} aangepaste sectie",
+    "customCount_other": "{{count}} aangepaste secties",
     "dataRangeHint": "Gebaseerd op {{duration}} activiteitsgegevens",
     "duplicateNameMessage": "Kies een andere naam. Elke route moet een unieke naam hebben.",
     "duplicateNameTitle": "Naam bestaat al",
@@ -1284,7 +1285,6 @@
     "standingBest": "Je snelste van {{total}}",
     "standingRank": "Plaats {{rank}} van {{total}}, {{gap}} van je beste",
     "standingRankPercentile": "Plaats {{rank}} van {{total}}, sneller dan {{percent}}% ervan, {{gap}} van je beste",
-    "visits": "bezoeken",
     "largeSectionPerformanceWarning": "Grote secties kunnen langer duren om te verwerken."
   },
   "routesScreen": {
@@ -1308,6 +1308,8 @@
     "removeSection": "Sectie verwijderen",
     "removeSectionConfirm": "Deze sectie verschijnt niet meer in activiteitsdetails of inzichten. Je kunt hem herstellen vanuit de sectielijst.",
     "removed": "Verwijderd",
+    "removedCount_one": "{{count}} verwijderde sectie",
+    "removedCount_other": "{{count}} verwijderde secties",
     "restoreSection": "Sectie herstellen",
     "partial": "Gedeeltelijk",
     "placeSecond": "2e snelste",
@@ -1373,13 +1375,13 @@
     "setAsReferenceConfirm": "Deze activiteit als referentie gebruiken?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
     "setReferenceError": "Referentie instellen mislukt. De sectie of activiteit is mogelijk gewijzigd. Probeer het opnieuw.",
     "editBounds": "Grenzen bewerken",
-    "points": "punten",
+    "pointsCount_one": "{{count}} punt",
+    "pointsCount_other": "{{count}} punten",
     "resetBounds": "Herstellen naar origineel",
     "trimPrecisionHint": "Sleep de hendel omhoog of omlaag voor fijnere controle",
     "trimMode": "Bijsnijden",
     "expandMode": "Uitbreiden",
     "resetBoundsConfirm": "Herstellen naar de oorspronkelijk automatisch gedetecteerde grenzen?\n\nHet traject wordt opnieuw vergeleken met al je activiteiten.",
-    "traversals": "doorgangen",
     "liftGround": "Lift",
     "notLift": "Geen lift",
     "trimFailed": "Kan trajectgrenzen niet bijsnijden",
@@ -1458,6 +1460,7 @@
     "nameTaken": "Een ander gedeelte heeft al deze naam. Kies een andere naam."
   },
   "settings": {
+    "developerDashboard": "Ontwikkelaarsdashboard",
     "account": "Account",
     "activities": "Activiteiten",
     "appearance": "Weergave",
@@ -1724,7 +1727,6 @@
     "completeActivitiesYearComparison": "Voltooi activiteiten om de jaar-op-jaar vergelijking te zien",
     "completeDecouplingHint": "Voltooi een langere inspanning met vermogens- en hartslaggegevens om de ontkoppelingsanalyse te zien",
     "completePowerActivities": "Voltooi activiteiten met vermogensmeter om je FTP-trend te zien",
-    "current": "Huidig",
     "decouplingExplanation": "Ontkoppeling meet hartdrift - hoeveel je hartslag stijgt ten opzichte van vermogensafgifte tijdens langdurige inspanningen.",
     "decouplingProvenance": "Berekend door intervals.icu",
     "estimatedFtp": "Geschatte FTP",
@@ -1750,7 +1752,6 @@
     "paceCurve": "Tempocurve",
     "powerCurve": "Vermogenscurve",
     "powerZones": "Vermogenszones",
-    "previous": "Vorige",
     "rangeNotDownloaded": "Nog niet gedownload",
     "rangePartlyDownloaded": "Een deel van deze periode is nog niet gedownload",
     "calendarRange": "{{start}} tot {{end}}",
@@ -1789,6 +1790,13 @@
     "seasonBests": "Seizoensbesten",
     "swimPaceCurve": "Zwemtempocurve",
     "trainingZones": "Trainingszones"
+  },
+  "refresh": {
+    "busy": "Wordt bijgewerkt na de huidige synchronisatie.",
+    "notReady": "Synchronisatie wordt voorbereid. Probeer het zo opnieuw.",
+    "offline": "Wordt bijgewerkt zodra er verbinding is.",
+    "notConfigured": "Meld je aan om te synchroniseren.",
+    "failed": "De synchronisatie kon niet worden gestart."
   },
   "sync": {
     "ridesDownloaded": "{{completed}} van {{total}} ritten gedownload",
@@ -1940,9 +1948,13 @@
     "downloading": "Krachttrainingen worden gedownload",
     "downloadingHint": "De setgegevens komen mee met de trainingsbestanden. Dit wordt bijgewerkt zodra ze binnen zijn.",
     "sets": "sets",
+    "setsCount_one": "{{count}} set",
+    "setsCount_other": "{{count}} sets",
     "muscleGroupVolume": "Spiergroepvolume",
     "relativeWeightedSets": "Relatieve gewogen sets over de geselecteerde periode",
     "reps": "herhalingen",
+    "repsCount_one": "{{count}} herhaling",
+    "repsCount_other": "{{count}} herhalingen",
     "tapMuscleGroup": "Tik op een spiergroep voor details",
     "relativeVolume": "Relatief volume",
     "balanceObservedPairs": "Waargenomen over bijgehouden antagonistische paren in de huidige {{period}}",

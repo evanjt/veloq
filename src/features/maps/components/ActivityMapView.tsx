@@ -476,6 +476,12 @@ export const ActivityMapView = memo(function ActivityMapView({
     }).start();
   }, [map3DOpacity]);
 
+  const handleMap3DReloading = useCallback(() => {
+    map3DOpacity.stopAnimation();
+    map3DOpacity.setValue(0);
+    setIs3DReady(false);
+  }, [map3DOpacity]);
+
   // The 3D layer draws over the 2D one once it is ready, and fullscreen draws
   // over both, so in either case the inline 2D surface is invisible and comes
   // down rather than being hidden. Where it was is captured on the way out, so
@@ -765,6 +771,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           <Image
             testID={ACTIVITY_MAP_POSTER_TEST_ID}
             source={{ uri: posterUri }}
+            fadeDuration={0}
             style={styles.mapLayer}
             resizeMode="cover"
           />
@@ -837,6 +844,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                   sectionMarkersGeoJSON.features.length > 0 ? sectionMarkersGeoJSON : undefined
                 }
                 onMapReady={handleMap3DReady}
+                onMapReloading={handleMap3DReloading}
                 onMapFailed={handleMap3DFailed}
                 onTerrainUnavailable={handleTerrainUnavailable}
                 onBearingChange={handleBearingChange}
@@ -854,7 +862,7 @@ export const ActivityMapView = memo(function ActivityMapView({
 
         {/* 3D loading spinner */}
         {is3DMode && !is3DReady && !isFullscreen && !posterUri && (
-          <View style={styles.loadingOverlay} testID="activity-map-3d-loading">
+          <View style={styles.loadingOverlay} pointerEvents="none" testID="activity-map-3d-loading">
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         )}

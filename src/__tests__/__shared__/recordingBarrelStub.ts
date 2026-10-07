@@ -52,6 +52,8 @@ const SOURCES: Record<string, string> = {
   adoptOwnerlessRecordings: 'lib/storage/recordingLibrary',
   getVisibleRecording: 'lib/storage/recordingLibrary',
   recordingFitExists: 'lib/storage/recordingLibrary',
+  holdRecordingsOfOtherAthletes: 'lib/storage/recordingLibrary',
+  startUploadQueue: 'lib/upload/startUploadQueue',
   adoptOwnerlessRecordingBackup: 'lib/storage/recordingBackup',
   settleOwnerlessAdoptions: 'lib/storage/recordingBackup',
   readRecordingTrack: 'lib/storage/recordingTrack',

@@ -10,28 +10,14 @@
 import { useMemo } from 'react';
 import { fromUnixSeconds, castDirection, ensureFinite } from '@/shared/ffi/ffiConversions';
 import type { FfiSectionChartData } from 'veloqrs';
-import type { Activity, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
-import type { SectionPerformanceRecord } from './useSectionPerformances';
-
-interface SectionWithTraces {
-  activityTraces?: Record<string, RoutePoint[]>;
-}
+import type { PerformanceDataPoint } from '@/types';
 
 interface UseSectionChartDataParams {
-  section: FrequentSection | null;
-  performanceRecords: SectionPerformanceRecord[] | undefined;
-  sectionActivitiesUnsorted: Activity[];
-  sectionWithTraces: (FrequentSection & SectionWithTraces) | null;
   /** The chart payload the screen read returned for the range and sport. */
   preComputedChart: FfiSectionChartData | null;
 }
 
 export interface UseSectionChartDataResult {
-  // Lookups (still derived in TS - cheap maps)
-  portionMap: Map<string, { activityId: string; direction?: string; distanceMeters?: number }>;
-  performanceRecordMap: Map<string, SectionPerformanceRecord>;
-  sectionActivities: Activity[];
-
   // Chart data (from Rust)
   chartData: (PerformanceDataPoint & { x: number })[];
   minSpeed: number;
@@ -44,34 +30,8 @@ export interface UseSectionChartDataResult {
 }
 
 export function useSectionChartData({
-  section,
-  performanceRecords,
-  sectionActivitiesUnsorted,
-  sectionWithTraces,
   preComputedChart,
 }: UseSectionChartDataParams): UseSectionChartDataResult {
-  // Cheap O(n) lookup maps - keep in TS, consumed by the section detail screen.
-  const portionMap = useMemo(() => {
-    if (!section?.activityPortions) return new Map();
-    return new Map(section.activityPortions.map((p: { activityId: string }) => [p.activityId, p]));
-  }, [section]);
-
-  const performanceRecordMap = useMemo(() => {
-    if (!performanceRecords) return new Map<string, SectionPerformanceRecord>();
-    return new Map(performanceRecords.map((r) => [r.activityId, r]));
-  }, [performanceRecords]);
-
-  const sectionActivities = useMemo(() => {
-    if (sectionActivitiesUnsorted.length === 0) return [];
-    return [...sectionActivitiesUnsorted].sort((a, b) => {
-      const recordA = performanceRecordMap.get(a.id);
-      const recordB = performanceRecordMap.get(b.id);
-      const paceA = recordA?.bestPace ?? (a.moving_time > 0 ? a.distance / a.moving_time : 0);
-      const paceB = recordB?.bestPace ?? (b.moving_time > 0 ? b.distance / b.moving_time : 0);
-      return paceB - paceA;
-    });
-  }, [sectionActivitiesUnsorted, performanceRecordMap]);
-
   const rustChart = preComputedChart;
 
   const { chartData, minSpeed, maxSpeed, hasReverseRuns } = useMemo(() => {
@@ -97,7 +57,6 @@ export function useSectionChartData({
       date: fromUnixSeconds(p.activityDate) ?? new Date(),
       activityName: p.activityName,
       direction: castDirection(p.direction),
-      lapPoints: sectionWithTraces?.activityTraces?.[p.activityId],
       sectionTime: ensureFinite(p.sectionTime, 0),
       sectionDistance: ensureFinite(p.sectionDistance, 0),
       lapCount: 1,
@@ -111,7 +70,7 @@ export function useSectionChartData({
       maxSpeed: maxSpeed + padding,
       hasReverseRuns: rustChart.hasReverseRuns,
     };
-  }, [rustChart, sectionWithTraces]);
+  }, [rustChart]);
 
   const { bestTimeValue, lastActivityDate } = useMemo(() => {
     if (!rustChart) {
@@ -135,9 +94,6 @@ export function useSectionChartData({
   }, [rustChart]);
 
   return {
-    portionMap,
-    performanceRecordMap,
-    sectionActivities,
     chartData,
     minSpeed,
     maxSpeed,

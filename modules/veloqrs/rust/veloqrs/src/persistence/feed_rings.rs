@@ -140,15 +140,48 @@ fn newest_start(conn: &Connection) -> rusqlite::Result<Option<i64>> {
 }
 
 /// The ids that ring now, read from a connection that holds no engine lock.
-pub fn feed_ring_ids(conn: &Connection, now: i64) -> Vec<String> {
+pub struct RingSnapshot {
+    pub ids: Vec<String>,
+    pub next_expiry_at: Option<i64>,
+    pub unstamped: bool,
+}
+
+/// The displayed rings, their next expiry, and whether this read must record
+/// a first showing through the engine writer.
+pub fn feed_ring_snapshot(conn: &Connection, now: i64) -> RingSnapshot {
     let state = load(conn);
     if state.seen_through.is_none() {
-        return Vec::new();
+        return RingSnapshot {
+            ids: Vec::new(),
+            next_expiry_at: None,
+            unstamped: false,
+        };
     }
     match candidates(conn, &state) {
-        Ok(c) => new_activity_ids(&state, &c, now),
-        Err(_) => Vec::new(),
+        Ok(c) => {
+            let ids = new_activity_ids(&state, &c, now);
+            let unstamped = ids.iter().any(|id| !state.shown.contains_key(id));
+            let next_expiry_at = ids
+                .iter()
+                .filter_map(|id| state.shown.get(id))
+                .map(|stamp| stamp + RING_LIFETIME_SECS)
+                .min();
+            RingSnapshot {
+                ids,
+                next_expiry_at,
+                unstamped,
+            }
+        }
+        Err(_) => RingSnapshot {
+            ids: Vec::new(),
+            next_expiry_at: None,
+            unstamped: false,
+        },
     }
+}
+
+pub fn feed_ring_ids(conn: &Connection, now: i64) -> Vec<String> {
+    feed_ring_snapshot(conn, now).ids
 }
 
 impl PersistentEngine {
@@ -333,6 +366,36 @@ mod tests {
         engine.record_feed_seen(&FeedSeen::Closed, 130).unwrap();
         assert_eq!(feed_ring_ids(&engine.db, 140), vec!["c".to_string()]);
         assert!(feed_ring_ids(&engine.db, 120 + DAY + 1).is_empty());
+    }
+
+    #[test]
+    fn a_ring_arriving_during_an_open_feed_expires_from_its_first_read() {
+        let (_d, engine) = engine_with(&[("old", 10)]);
+        engine.record_feed_seen(&FeedSeen::Opened, 100).unwrap();
+        engine.record_feed_seen(&FeedSeen::Closed, 110).unwrap();
+        engine.record_feed_seen(&FeedSeen::Opened, 120).unwrap();
+        engine.db.execute(
+            "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+             VALUES ('later', 'Ride', 0, 0, 0, 0, 20)",
+            [],
+        ).unwrap();
+
+        let bundle = |now| engine.startup_data(0, 0, 0, 0, &[], now);
+        let first = bundle(200);
+        assert_eq!(first.new_activity_ids, vec!["later"]);
+        assert!(first.ring_stamp_required);
+        engine.record_feed_seen(&FeedSeen::Opened, 200).unwrap();
+        assert_eq!(bundle(200).next_ring_expiry_at, Some((200 + DAY) as f64));
+        assert_eq!(load(&engine.db).shown.get("later"), Some(&200));
+        assert_eq!(bundle(200 + DAY - 1).new_activity_ids, vec!["later"]);
+        assert!(bundle(200 + DAY).new_activity_ids.is_empty());
+        engine
+            .record_feed_seen(&FeedSeen::Closed, 200 + DAY + 1)
+            .unwrap();
+        engine
+            .record_feed_seen(&FeedSeen::Opened, 200 + DAY + 2)
+            .unwrap();
+        assert!(bundle(200 + DAY + 2).new_activity_ids.is_empty());
     }
 
     #[test]

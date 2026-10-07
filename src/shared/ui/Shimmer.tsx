@@ -16,15 +16,10 @@ interface ShimmerProps {
   height?: number;
   borderRadius?: number;
   style?: ViewStyle;
+  animated?: boolean;
 }
 
-export function Shimmer({
-  width = '100%',
-  height = 20,
-  borderRadius = layout.borderRadiusSm,
-  style,
-}: ShimmerProps) {
-  const { isDark } = useTheme();
+function ShimmerHighlight({ color, borderRadius }: { color: string; borderRadius: number }) {
   const opacity = useSharedValue(0.3);
 
   React.useEffect(() => {
@@ -34,10 +29,23 @@ export function Shimmer({
     );
   }, [opacity]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
+  return (
+    <Animated.View
+      style={[StyleSheet.absoluteFill, { backgroundColor: color, borderRadius }, animatedStyle]}
+    />
+  );
+}
+
+export function Shimmer({
+  width = '100%',
+  height = 20,
+  borderRadius = layout.borderRadiusSm,
+  style,
+  animated = true,
+}: ShimmerProps) {
+  const { isDark } = useTheme();
   const baseColor = isDark ? darkColors.surface : colors.border;
   const highlightColor = isDark ? darkColors.border : colors.divider;
 
@@ -54,16 +62,7 @@ export function Shimmer({
         style,
       ]}
     >
-      <Animated.View
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            backgroundColor: highlightColor,
-            borderRadius,
-          },
-          animatedStyle,
-        ]}
-      />
+      {animated && <ShimmerHighlight color={highlightColor} borderRadius={borderRadius} />}
     </View>
   );
 }
@@ -81,18 +80,25 @@ export function ActivityCardSkeleton() {
   );
 }
 
-export function ChartSkeleton({ height = 200 }: { height?: number }) {
+export function ChartSkeleton({
+  height = 200,
+  animated = true,
+}: {
+  height?: number;
+  animated?: boolean;
+}) {
   return (
     <View>
       <View style={styles.chartHeader}>
-        <Shimmer width={140} height={20} borderRadius={layout.borderRadiusXs} />
-        <Shimmer width={80} height={16} borderRadius={layout.borderRadiusXs} />
+        <Shimmer width={140} height={20} borderRadius={layout.borderRadiusXs} animated={animated} />
+        <Shimmer width={80} height={16} borderRadius={layout.borderRadiusXs} animated={animated} />
       </View>
       <Shimmer
         width="100%"
         height={height}
         borderRadius={layout.borderRadius}
         style={{ marginTop: spacing.smPlus }}
+        animated={animated}
       />
     </View>
   );

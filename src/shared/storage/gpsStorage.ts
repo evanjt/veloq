@@ -444,7 +444,7 @@ export async function wipeLibrary(): Promise<void> {
     releasePushRegistration(),
   ]);
   // Once the token is released, so no push for this athlete lands after it.
-  cancelQueuedActivityPushes();
+  await cancelQueuedActivityPushes();
   clearImageDiskCache();
   await dismissAllNotifications();
   // After the engine wipe, so no refresh can write the previous library back

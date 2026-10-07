@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, layout, typography } from '@/theme';
+import { colors, controlHeight, spacing, layout, slopToMinTapTarget, typography } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
 
 const SIZE_LABELS: Record<string, string> = {
@@ -37,6 +37,7 @@ export function TipButtons({ products, isPurchasing, onTip, isDark, small }: Tip
           )} ${product.displayPrice}`}
           accessibilityState={{ disabled: isPurchasing }}
           onPress={() => onTip(product.id)}
+          hitSlop={small ? TIP_SLOP.small : TIP_SLOP.full}
           disabled={isPurchasing}
           style={pressable([
             small ? styles.tipButtonSmall : styles.tipButton,
@@ -61,6 +62,11 @@ export function TipButtons({ products, isPurchasing, onTip, isDark, small }: Tip
   );
 }
 
+const TIP_SLOP = {
+  small: slopToMinTapTarget(controlHeight.buttonSm),
+  full: slopToMinTapTarget(controlHeight.button),
+} as const;
+
 const styles = StyleSheet.create({
   tipRow: {
     flexDirection: 'row',
@@ -75,7 +81,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: layout.borderRadiusSm,
     alignItems: 'center',
-    minHeight: layout.minTapTarget,
+    minHeight: controlHeight.button,
     justifyContent: 'center',
   },
   tipButtonSmall: {
@@ -84,7 +90,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: layout.borderRadiusSm,
     alignItems: 'center',
-    minHeight: layout.minTapTarget,
+    minHeight: controlHeight.buttonSm,
     justifyContent: 'center',
   },
   tipButtonDark: {

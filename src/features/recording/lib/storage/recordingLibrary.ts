@@ -279,11 +279,6 @@ export async function markRecordingReconciled(id: string): Promise<RecordingLibr
   return getRecording(id);
 }
 
-/** intervals.icu has the effort the athlete set, so nothing is owed. */
-export async function markRecordingRpeSent(id: string): Promise<void> {
-  library().markRecordingRpeSent(id);
-}
-
 /**
  * The install the engine is open under. An upload outcome carries it back, so
  * one that outlived a restore or a wipe is refused rather than written into

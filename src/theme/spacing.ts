@@ -42,6 +42,20 @@ export const spacing = {
  */
 export const MIN_TAP_TARGET = { ios: 44, android: 48 } as const;
 
+/**
+ * The height each kind of control is drawn at. A control is drawn at its rung
+ * and reaches `MIN_TAP_TARGET` through hit slop, so the target holds while a
+ * filter row or a button bar stays compact.
+ */
+export const controlHeight = {
+  // A selector chip: a bodyCompact line, 18, with 4 above and below.
+  chip: 26,
+  // A small button: a bodySmall line with 6 above and below.
+  buttonSm: 32,
+  // A button, and the square an icon-only button is drawn in.
+  button: 40,
+} as const;
+
 export const layout = {
   screenPadding: spacing.md, // 16 - Aligns to 8px grid
   cardPadding: spacing.md, // 16 - Aligns to 8px grid

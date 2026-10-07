@@ -16,7 +16,6 @@ import {
   getRecording,
   clearPermissionBlocked,
   transitionRecording,
-  markRecordingRpeSent,
   deleteRecording,
   getVisibleUnuploadedCount,
   listVisibleRecordings,
@@ -202,10 +201,6 @@ const mockEngine = {
       delete row.lastAttemptAt;
     }
   },
-  markRecordingRpeSent: (id: string) => {
-    const row = rows.get(id);
-    if (row) row.rpeSent = true;
-  },
   listVisibleRecordings: (athleteId?: string) =>
     mockEngine.listRecordings().filter((r) => visibleTo(r, athleteId)),
   getVisibleRecording: (id: string, athleteId?: string) => {
@@ -306,9 +301,6 @@ describe('saveRecording', () => {
     const entry = await saveOne({ notes: 'legs heavy', rpe: 8 });
     expect(rows.get(entry.id)).toMatchObject({ notes: 'legs heavy', rpe: 8, rpeSent: false });
     expect(await getRecording(entry.id)).toMatchObject({ notes: 'legs heavy', rpe: 8 });
-
-    await markRecordingRpeSent(entry.id);
-    expect(rows.get(entry.id)?.rpeSent).toBe(true);
   });
 
   it('stores no effort when the slider was never moved, and no empty notes', async () => {

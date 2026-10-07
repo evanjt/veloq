@@ -97,6 +97,8 @@ pub(crate) trait Uplink {
     fn send_manual(&self, ride: &FfiRecordingEntry, body: ManualActivityBody) -> FfiCallOutcome;
     /// Set the effort on the activity the upload created.
     fn send_rpe(&self, intervals_id: &str, rpe: u32) -> FfiCallOutcome;
+    /// Read the activity an upload created back off intervals.icu.
+    fn read_back(&self, intervals_id: &str) -> FfiCallOutcome;
 }
 
 /// The uplink the app runs: the held credential and the shared transport.
@@ -132,6 +134,12 @@ impl Uplink for Live {
         crate::runtime::block_on(crate::objects::sync::send_activity_rpe(
             intervals_id.to_string(),
             rpe,
+        ))
+    }
+
+    fn read_back(&self, intervals_id: &str) -> FfiCallOutcome {
+        crate::runtime::block_on(crate::objects::sync::read_back_activity(
+            intervals_id.to_string(),
         ))
     }
 }
@@ -562,6 +570,189 @@ pub(crate) fn drain(uplink: &dyn Uplink, now_ms: &dyn Fn() -> i64) {
             return;
         }
     }
+}
+
+/// What the server's read-back of a landed upload says about it.
+#[derive(Debug, PartialEq)]
+enum ReadBack {
+    Present,
+    /// The server's own 404, and nothing else.
+    Gone,
+    /// A network failure, a refused credential, a 500: not an answer, and the
+    /// ride keeps its files.
+    Unknown,
+}
+
+fn read_back_verdict(answer: &FfiCallOutcome) -> ReadBack {
+    match (answer.kind, answer.status) {
+        (FfiCallKind::Ok, _) => ReadBack::Present,
+        (_, Some(404)) => ReadBack::Gone,
+        _ => ReadBack::Unknown,
+    }
+}
+
+/// Finish what the uploads could not in the moment, under the install open
+/// when it starts, in the order each step depends on the last: the provisional
+/// row takes the server's id, an owed effort goes up, and a landed ride is read
+/// back and, once intervals.icu has it and it owes nothing, deleted with its
+/// files. A 200 from the upload says the server took the bytes, not that the
+/// activity survived, so until it reads back the device's copy is the only one.
+pub(crate) fn sweep(uplink: &dyn Uplink, now_ms: &dyn Fn() -> i64) {
+    let install = crate::persistence::engine_install();
+    let mut changed = reconcile_landed(install);
+    // Both requests go under the credential held, so only that athlete's rides
+    // are asked about, and with nobody signed in there is nothing to ask with.
+    if let Some(athlete) = uplink.signed_in() {
+        changed |= send_owed_efforts(install, &athlete, uplink);
+        changed |= confirm_landed(install, &athlete, uplink, now_ms);
+    }
+    if changed {
+        notify(Announcement::RecordingsChanged);
+    }
+}
+
+fn rows(install: u64) -> Vec<FfiRecordingEntry> {
+    under(install, |e| e.list_recordings())
+        .and_then(Result::ok)
+        .unwrap_or_default()
+}
+
+/// Whether the ride is one the signed-in athlete may settle: their own, or an
+/// unstamped one from before the stamp existed.
+fn settled_by(ride: &FfiRecordingEntry, athlete: &str) -> bool {
+    ride.athlete_id
+        .as_deref()
+        .is_none_or(|owner| owner == athlete)
+}
+
+/// Write the server's id onto every provisional row a landed upload could not
+/// reach, an engine closed at the moment of the upload being the case this is
+/// for. False from the engine is settled too: the row already carries an id
+/// or has gone.
+fn reconcile_landed(install: u64) -> bool {
+    let mut changed = false;
+    for ride in rows(install) {
+        let (Some(engine_id), Some(intervals_id)) = (
+            ride.engine_activity_id.as_deref(),
+            ride.intervals_activity_id.as_deref(),
+        ) else {
+            continue;
+        };
+        if ride.engine_reconciled {
+            continue;
+        }
+        match under(install, |e| {
+            e.record_upload(engine_id, intervals_id)?;
+            e.set_recording_reconciled(&ride.id)
+        }) {
+            Some(Ok(())) => changed = true,
+            Some(Err(err)) => log::warn!(
+                "veloqrs: [upload] could not record the upload of {}: {err}",
+                ride.id
+            ),
+            None => return changed,
+        }
+    }
+    changed
+}
+
+/// Send every effort a landed upload could not, as its own request: the
+/// upload already landed, and sending the file again would make a second
+/// activity.
+fn send_owed_efforts(install: u64, athlete: &str, uplink: &dyn Uplink) -> bool {
+    let mut changed = false;
+    for ride in rows(install) {
+        if ride.upload_status != "uploaded"
+            || ride.rpe_sent
+            || ride.athlete_id.as_deref() != Some(athlete)
+        {
+            continue;
+        }
+        let (Some(intervals_id), Some(rpe)) = (ride.intervals_activity_id.as_deref(), ride.rpe)
+        else {
+            continue;
+        };
+        if uplink.send_rpe(intervals_id, rpe).kind != FfiCallKind::Ok {
+            log::warn!(
+                "veloqrs: [upload] could not set the effort of {}, the next sweep retries it",
+                ride.id
+            );
+            continue;
+        }
+        if let Some(Ok(())) = under(install, |e| e.set_recording_rpe_sent(&ride.id)) {
+            changed = true;
+        }
+    }
+    changed
+}
+
+/// Read every landed upload back. One the server has, owing nothing, is
+/// deleted with its files; one it answers 404 for parks with its files kept;
+/// anything else is not an answer and waits for the next sweep.
+///
+/// A ride whose provisional row has not taken the server's id is left until
+/// it has, since deleting the recording would lose the only record of the
+/// reconcile still owed. One still owing its effort is read back, so a
+/// vanished upload parks, but never deleted: the effort lives only on its row.
+fn confirm_landed(
+    install: u64,
+    athlete: &str,
+    uplink: &dyn Uplink,
+    now_ms: &dyn Fn() -> i64,
+) -> bool {
+    let mut changed = false;
+    for ride in rows(install) {
+        if ride.upload_status != "uploaded"
+            || !settled_by(&ride, athlete)
+            || (ride.engine_activity_id.is_some() && !ride.engine_reconciled)
+        {
+            continue;
+        }
+        let Some(intervals_id) = ride.intervals_activity_id.as_deref() else {
+            continue;
+        };
+        match read_back_verdict(&uplink.read_back(intervals_id)) {
+            ReadBack::Present if ride.rpe.is_some() && !ride.rpe_sent => {}
+            ReadBack::Present => changed |= delete_confirmed(install, &ride.id, athlete),
+            ReadBack::Gone => {
+                let rejected = UploadTransition::Rejected {
+                    install: install as f64,
+                    error: "intervals.icu no longer has this activity".to_string(),
+                };
+                if moved(install, &ride.id, rejected, now_ms()) {
+                    log::warn!(
+                        "veloqrs: [upload] {intervals_id} is not on intervals.icu, keeping {}",
+                        ride.id
+                    );
+                    changed = true;
+                }
+            }
+            ReadBack::Unknown => {}
+        }
+    }
+    changed
+}
+
+/// Delete a confirmed ride and then the files its row named. The row goes
+/// first: a file left behind by a failed removal is an orphan, while a row
+/// left pointing at a deleted file would read as a ride whose FIT went missing.
+fn delete_confirmed(install: u64, id: &str, athlete: &str) -> bool {
+    let Some(Ok(Some(ride))) = under(install, |e| e.delete_own_recording(id, Some(athlete))) else {
+        return false;
+    };
+    for path in std::iter::once(ride.fit_path.as_str()).chain(ride.streams_path.as_deref()) {
+        if path.is_empty() {
+            continue;
+        }
+        let path = crate::net::transport::strip_file_scheme(path);
+        if let Err(err) = std::fs::remove_file(path)
+            && err.kind() != std::io::ErrorKind::NotFound
+        {
+            log::warn!("veloqrs: [upload] could not delete {path}: {err}");
+        }
+    }
+    log::info!("veloqrs: [upload] confirmed and deleted recording {id}");
+    true
 }
 
 #[cfg(test)]

@@ -89,6 +89,7 @@ describe('the native stack header', () => {
 describe('sheet routes', () => {
   it('presents each listed sheet as a formSheet with a grabber and no header', () => {
     expect(Object.keys(SCREEN_SHEETS)).toContain('sheets/activity-type');
+    expect(SCREEN_SHEETS['sheets/insight']).toEqual([0.5, 1]);
     for (const name of Object.keys(SCREEN_SHEETS)) {
       expect(sheetScreenOptions(name)).toMatchObject({
         presentation: 'formSheet',

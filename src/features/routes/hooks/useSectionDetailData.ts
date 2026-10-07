@@ -7,14 +7,15 @@ import {
 } from '../lib/detailReadResult';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { decodeCoords } from 'veloqrs';
 import type {
-  ActivityMetrics,
   MergeCandidate,
   Section as NativeSection,
   SectionDetailData,
   SectionPerformanceData,
   EfficiencyTrend,
 } from 'veloqrs';
+import type { RoutePoint } from '@/types';
 
 /**
  * The section detail reads that do not depend on time streams.
@@ -31,7 +32,7 @@ export interface SectionDetailBundle {
   mergeCandidates: MergeCandidate[];
   excludedActivityIds: string[];
   hasOriginalBounds: boolean;
-  activityMetrics: ActivityMetrics[];
+  activityRows: SectionDetailData['activityRows'];
   mapSignatures: SectionDetailData['mapSignatures'];
   missingTimeStreamIds: string[];
   history: SectionDetailData['history'];
@@ -63,7 +64,7 @@ function fetchSectionDetailData(engine: Engine, sectionId: string): SectionDetai
       mergeCandidates: result.mergeCandidates,
       excludedActivityIds: result.excludedActivityIds,
       hasOriginalBounds: result.hasOriginalBounds,
-      activityMetrics: result.activityMetrics,
+      activityRows: result.activityRows,
       mapSignatures: result.mapSignatures,
       missingTimeStreamIds: result.missingTimeStreamIds,
       history: result.history,
@@ -91,6 +92,7 @@ export function useSectionDetailData(
   /** Set only while the status is missing and the ledger knows how the section left. */
   retirement: SectionDeparture | null;
   refresh: () => void;
+  allActivityTraces: Record<string, RoutePoint[]> | undefined;
 } {
   const readSection = useEngineRead(['sections', 'detectionApplied'], [refreshKey]);
   const isMountedRef = useRef(true);
@@ -131,11 +133,31 @@ export function useSectionDetailData(
     }
   }, [sectionId]);
 
+  const bundledSignatures = (data ?? initialData)?.mapSignatures;
+  const allActivityTraces = useMemo(() => {
+    if (!bundledSignatures?.length) return undefined;
+    try {
+      const traces: Record<string, RoutePoint[]> = {};
+      for (const signature of bundledSignatures) {
+        const points = decodeCoords(signature.encodedCoords).map((point) => ({
+          lat: point.latitude,
+          lng: point.longitude,
+        }));
+        if (points.length >= 2) traces[signature.activityId] = points;
+      }
+      return Object.keys(traces).length ? traces : undefined;
+    } catch {
+      // empty-on-error: malformed display traces do not affect the section's figures.
+      return undefined;
+    }
+  }, [bundledSignatures]);
+
   return {
     data: data ?? initialData,
     status: initial.status,
     retirement: initial.retirement,
     refresh,
+    allActivityTraces,
   };
 }
 

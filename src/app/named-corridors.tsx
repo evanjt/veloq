@@ -116,6 +116,11 @@ function NamedCorridorsScreenContent() {
                     <TouchableOpacity
                       testID={`named-corridor-${corridor.intentId}-open`}
                       onPress={() => router.push(`/section/${corridor.sectionId}`)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('namedCorridors.onSection', {
+                        name: sectionNames[corridor.sectionId ?? ''] ?? corridor.sectionId,
+                        percent: Math.round(corridor.coverage * 100),
+                      })}
                       activeOpacity={0.7}
                     >
                       <Text style={[styles.link, isDark && { color: darkColors.linkTeal }]}>
@@ -140,6 +145,7 @@ function NamedCorridorsScreenContent() {
                   onPress={() => confirmRemove(corridor)}
                   style={pressable(styles.deleteButton)}
                   accessibilityLabel={t('namedCorridors.delete')}
+                  accessibilityRole="button"
                   android_ripple={pressRipple}
                 >
                   <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />

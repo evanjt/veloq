@@ -37,6 +37,8 @@ export function DataRangeFooter({ days, isDark = false }: DataRangeFooterProps) 
         style={pressable(styles.button)}
         android_ripple={pressRipple}
         onPress={handleExpandPress}
+        accessibilityRole="button"
+        accessibilityLabel={t('routes.expandInSettings')}
         hitSlop={8}
       >
         <Text style={[styles.buttonText, isDark && { color: darkColors.linkTeal }]}>

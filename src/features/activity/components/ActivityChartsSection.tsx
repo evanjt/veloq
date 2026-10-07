@@ -44,7 +44,17 @@ import type {
   ActivityType,
   WellnessData,
 } from '@/types';
-import { colors, darkColors, spacing, layout, opacity, shadows, typography } from '@/theme';
+import {
+  colors,
+  controlHeight,
+  darkColors,
+  spacing,
+  layout,
+  opacity,
+  shadows,
+  slopToMinTapTarget,
+  typography,
+} from '@/theme';
 
 /** The chart an activity opens on: power where the sport measures it, pace for a swim. */
 function defaultChartFor(type: ActivityType): ChartTypeId {
@@ -547,6 +557,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 { top: Math.max(insets.top, insets.left, 16) + 8 },
               ]}
               onPress={closeChartFullscreen}
+              hitSlop={CLOSE_SLOP}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
@@ -601,6 +612,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 });
 
 const BOTTOM_BAR_HEIGHT = 80;
+
+const CLOSE_SLOP = slopToMinTapTarget(controlHeight.button, controlHeight.button);
 
 const styles = StyleSheet.create({
   tabScrollView: {
@@ -723,8 +736,8 @@ const styles = StyleSheet.create({
   fullscreenCloseButton: {
     position: 'absolute',
     left: spacing.md,
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
+    width: controlHeight.button,
+    height: controlHeight.button,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: opacity.overlay.medium,
     justifyContent: 'center',

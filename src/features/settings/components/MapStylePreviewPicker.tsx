@@ -32,6 +32,9 @@ function MapStylePreviewPickerComponent({ value, onValueChange }: MapStylePrevie
 
         return (
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t(labelKey as 'settings.light')}
+            accessibilityState={{ selected: isSelected }}
             key={style}
             style={styles.previewItem}
             onPress={() => onValueChange(style)}

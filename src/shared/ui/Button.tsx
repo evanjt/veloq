@@ -14,6 +14,10 @@
  * fade on iOS against a Material ripple on Android, and the tap target, which
  * takes each platform's own minimum through `layout.minTapTarget`.
  *
+ * **Drawn compact, reached through slop.** A button is drawn at its rung of
+ * `controlHeight` and the rest of the platform minimum is hit slop, so the
+ * target holds and a button bar does not read as a row of boxes.
+ *
  * Tokens only. No hex literal and no `fontSize` number, which is what makes
  * converting the eighty-odd call sites mechanical rather than a redesign.
  */
@@ -31,7 +35,17 @@ import {
 } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import {
+  colorWithOpacity,
+  colors,
+  controlHeight,
+  darkColors,
+  ink as inkTone,
+  layout,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
 export type ButtonSize = 'sm' | 'md';
@@ -123,6 +137,7 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled, busy: loading }}
+      hitSlop={BUTTON_SLOP[size]}
       android_ripple={inert ? undefined : ripple}
       disabled={inert}
       onPress={onPress}
@@ -162,16 +177,25 @@ export interface ToggleButtonProps {
   selected?: boolean;
   disabled?: boolean;
   size?: ButtonSize;
+  /** The ground when selected, for an option that stands for a sport or a series. */
+  fill?: string;
+  /** The label on `fill`, which has to clear 4.5:1 on it. */
+  ink?: string;
+  /** A number after the label, drawn lighter, such as how many items the option holds. */
+  count?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
 /**
- * One of a pair, for the control rows that pick between two things.
+ * The app's selector chip: one option among a few, the chosen one filled.
  *
- * The selected state is a heavier border as well as a colour, so it survives
- * greyscale and colour blindness, and it is on `accessibilityState.selected`
- * so a screen reader reads it at all. Colour alone is not a state.
+ * Every selector draws this one chip, whether it sits in a filter row, a
+ * section page's plot switch or a settings row, so a row of them reads as one
+ * control. The chosen chip is a solid fill against a faint wash, a step in
+ * lightness as well as in hue, so the state survives greyscale and colour
+ * blindness, and it is on `accessibilityState.selected` so a screen reader
+ * reads it at all. Colour alone is not a state.
  */
 export function ToggleButton({
   label,
@@ -179,11 +203,20 @@ export function ToggleButton({
   selected = false,
   disabled = false,
   size = 'sm',
+  fill,
+  ink,
+  count,
   style,
   testID,
 }: ToggleButtonProps) {
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
+  const labelInk = selected ? (ink ?? colors.textOnPrimary) : palette.textSecondary;
+  const countInk = selected
+    ? colorWithOpacity(labelInk, 0.8)
+    : isDark
+      ? colorWithOpacity(inkTone.white, 0.45)
+      : colorWithOpacity(inkTone.black, 0.35);
 
   return (
     <Pressable
@@ -191,16 +224,15 @@ export function ToggleButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected, disabled }}
+      hitSlop={CHIP_SLOP[size]}
       android_ripple={disabled ? undefined : ripple}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.base,
-        styles[size],
+        styles.chip,
+        size === 'sm' ? styles.chipSm : styles.chipMd,
         {
-          backgroundColor: selected ? palette.primaryLight : palette.surface,
-          borderColor: selected ? palette.primary : palette.border,
-          borderWidth: selected ? 2 : StyleSheet.hairlineWidth * 2,
+          backgroundColor: selected ? (fill ?? palette.primary) : chipWash(isDark),
           opacity: disabled ? 0.5 : pressedOpacity(pressed),
         },
         style,
@@ -209,15 +241,20 @@ export function ToggleButton({
       <Text
         testID={testID && `${testID}-label`}
         numberOfLines={1}
-        style={[
-          size === 'sm' ? styles.labelSm : styles.labelMd,
-          { color: selected ? colors.textOnPrimary : palette.textSecondary },
-        ]}
+        style={[styles.chipLabel, { color: labelInk }]}
       >
         {label}
+        {count !== undefined && (
+          <Text style={[styles.chipCount, { color: countInk }]}> {count}</Text>
+        )}
       </Text>
     </Pressable>
   );
+}
+
+/** The ground of a chip that is not chosen. */
+function chipWash(isDark: boolean): string {
+  return isDark ? colorWithOpacity(inkTone.white, 0.15) : colorWithOpacity(inkTone.black, 0.08);
 }
 
 export interface ToggleButtonRowProps<T extends string> {
@@ -250,6 +287,17 @@ export function ToggleButtonRow<T extends string>({
   );
 }
 
+const BUTTON_HEIGHT = { sm: controlHeight.buttonSm, md: controlHeight.button } as const;
+const CHIP_HEIGHT = { sm: controlHeight.chip, md: controlHeight.button } as const;
+const BUTTON_SLOP = {
+  sm: slopToMinTapTarget(BUTTON_HEIGHT.sm),
+  md: slopToMinTapTarget(BUTTON_HEIGHT.md),
+} as const;
+const CHIP_SLOP = {
+  sm: slopToMinTapTarget(CHIP_HEIGHT.sm),
+  md: slopToMinTapTarget(CHIP_HEIGHT.md),
+} as const;
+
 const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: 'row',
@@ -262,15 +310,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: layout.borderRadiusMd,
-    // The floor is the platform's own, so a short button is still a tap target.
-    minHeight: layout.minTapTarget,
     overflow: 'hidden',
   },
   sm: {
+    minHeight: BUTTON_HEIGHT.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
   md: {
+    minHeight: BUTTON_HEIGHT.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
@@ -281,4 +329,25 @@ const styles = StyleSheet.create({
   },
   labelSm: typography.bodySmall,
   labelMd: typography.bodyBold,
+  chip: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: layout.borderRadiusFull,
+    overflow: 'hidden',
+  },
+  chipSm: {
+    minHeight: CHIP_HEIGHT.sm,
+    paddingHorizontal: spacing.smPlus,
+  },
+  chipMd: {
+    minHeight: CHIP_HEIGHT.md,
+    paddingHorizontal: spacing.md,
+  },
+  chipLabel: {
+    ...typography.bodyCompact,
+    fontWeight: '600',
+  },
+  chipCount: {
+    ...typography.caption,
+  },
 });

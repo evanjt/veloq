@@ -1026,11 +1026,6 @@ interface NativeModuleInterface {
     id: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
-  ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_rpe_sent(
-    uniffiSelf: bigint,
-    id: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_stamp_ownerless(
     uniffiSelf: bigint,
     athleteId: Uint8Array,
@@ -1138,6 +1133,11 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_live_overlaps(
+    uniffiSelf: bigint,
+    groupIds: Uint8Array,
+    coordinates: Uint8Array,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_routemanager_set_name(
     uniffiSelf: bigint,
     routeId: Uint8Array,
@@ -1635,10 +1635,6 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
-  ubrn_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
-    uniffiSelf: bigint,
-    intervalsId: Uint8Array,
-  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1716,11 +1712,6 @@ interface NativeModuleInterface {
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_syncmanager_update_activity_rpe(
-    uniffiSelf: bigint,
-    intervalsId: Uint8Array,
-    rpe: number,
-  ): bigint;
   ubrn_uniffi_veloqrs_fn_constructor_veloqengine_create(
     dbPath: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -2028,7 +2019,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_recordings(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_visible_recordings(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled(): number;
-  ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_rpe_sent(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_stamp_ownerless(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_transition(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_unuploaded_visible_count(): number;
@@ -2050,6 +2040,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_live_overlaps(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_set_representative(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new(): number;
@@ -2146,7 +2137,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_bodies_stored(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(): number;
-  ubrn_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_library_coverage(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_offline_estimate(): number;
@@ -2161,7 +2151,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams(): number;
-  ubrn_uniffi_veloqrs_checksum_method_syncmanager_update_activity_rpe(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_progress(): number;

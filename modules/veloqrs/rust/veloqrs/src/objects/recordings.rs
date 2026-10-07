@@ -16,8 +16,11 @@ fn db(err: rusqlite::Error) -> VeloqError {
 ///
 /// Every call is one transaction, so nothing here needs a promise chain around
 /// it the way the AsyncStorage index did: two writers racing is what SQLite
-/// already answers. The FIT file and a manual entry's body stay TypeScript's
-/// to write and delete; the upload reads them from the paths the row names.
+/// already answers. The FIT file and a manual entry's body are TypeScript's to
+/// write, and the upload reads them from the paths the row names. Once
+/// intervals.icu reads a landed upload back, the upload worker's sweep deletes
+/// the row and both files; a recording the athlete deletes from the library
+/// goes through `delete_own_recording`, and TypeScript deletes its files.
 #[derive(uniffi::Object)]
 pub struct RecordingManager {
     pub(crate) _private: (),
@@ -89,12 +92,6 @@ impl RecordingManager {
     /// reconcile sweep can stop replaying this one.
     fn mark_reconciled(&self, id: String) -> Result<(), VeloqError> {
         with_engine(|e| e.set_recording_reconciled(&id).map_err(db))?
-    }
-
-    /// intervals.icu has the effort the athlete set, so the sweep that sends
-    /// an owed one can stop.
-    fn mark_rpe_sent(&self, id: String) -> Result<(), VeloqError> {
-        with_engine(|e| e.set_recording_rpe_sent(&id).map_err(db))?
     }
 
     /// Move one recording's upload by a named transition, refused when the row

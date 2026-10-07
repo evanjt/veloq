@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { requestSyncRefresh } from '@/shared/native/syncRefresh';
+import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 
 type Refetcher = () => Promise<unknown>;
 
@@ -14,10 +14,11 @@ type Refetcher = () => Promise<unknown>;
 export function useFitnessRefresh(refetchWellness: Refetcher) {
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { notice, requestRefresh } = useSyncRefreshNotice();
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    requestSyncRefresh();
+    requestRefresh();
     try {
       await Promise.all([
         refetchWellness(),
@@ -32,7 +33,7 @@ export function useFitnessRefresh(refetchWellness: Refetcher) {
       // no way back short of leaving the screen.
       setIsRefreshing(false);
     }
-  }, [refetchWellness, queryClient]);
+  }, [refetchWellness, queryClient, requestRefresh]);
 
-  return { isRefreshing, onRefresh };
+  return { isRefreshing, onRefresh, notice };
 }

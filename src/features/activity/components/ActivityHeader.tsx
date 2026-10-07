@@ -24,6 +24,7 @@ import {
 import { engine } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import { colors, colorWithOpacity, mapTextShadow, opacity, spacing, typography } from '@/theme';
+import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
 
 interface ActivityHeaderProps {
   activity: ActivityDetail;
@@ -99,6 +100,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
           {debugEnabled ? (
             <Pressable
               testID="activity-detail-name"
+              delayLongPress={CONFIRM_HOLD_MS}
               onLongPress={() => {
                 const doClone = (n: number) => {
                   const created = engine.debugCloneActivity(activityId, n);

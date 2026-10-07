@@ -66,6 +66,10 @@ export function NotificationPrivacyDialog({
           </Text>
           <View style={styles.dialogActions}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                alreadyEnabled ? t('notifications.privacy.turnOff') : t('common.cancel')
+              }
               style={pressable(styles.cancelBtn)}
               android_ripple={pressRipple}
               onPress={onCancel}
@@ -75,6 +79,8 @@ export function NotificationPrivacyDialog({
               </Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('notifications.privacy.accept')}
               style={pressable(styles.acceptBtn)}
               android_ripple={pressRipple}
               onPress={onAccept}

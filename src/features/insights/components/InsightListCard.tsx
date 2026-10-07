@@ -29,10 +29,13 @@ interface InsightListCardProps {
 
 /** Build a tiny sparkline path from sparkline data or data points */
 function getSparklineData(insight: Insight): number[] | null {
-  if (insight.supportingData?.sparklineData && insight.supportingData.sparklineData.length >= 3) {
-    return insight.supportingData.sparklineData;
+  const history = insight.supportingData?.history;
+  if (history && history.kind !== 'line') {
+    const points = history.series[0]?.points;
+    return points && points.length >= 3 ? points.map((point) => point.value) : null;
   }
-  return null;
+  const strengthSeries = insight.supportingData?.sparklineData;
+  return strengthSeries && strengthSeries.length >= 3 ? strengthSeries : null;
 }
 
 const SPARK_W = 48;

@@ -139,6 +139,51 @@ static TILE_WIPE_GATE: Mutex<()> = Mutex::new(());
 /// Signalled when the pass in [`TILE_PASS`] ends.
 static TILE_PASS_ENDED: Condvar = Condvar::new();
 
+#[derive(Clone, PartialEq, Eq)]
+struct TilePassRetry {
+    path: String,
+    install: u64,
+}
+
+static TILE_PASS_RETRY: Mutex<Option<TilePassRetry>> = Mutex::new(None);
+
+fn tile_pass_retry() -> MutexGuard<'static, Option<TilePassRetry>> {
+    TILE_PASS_RETRY.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn schedule_tile_pass_retry(engine: &PersistentEngine) {
+    let Some(path) = engine.heatmap_tiles_path().map(str::to_string) else {
+        return;
+    };
+    let mut pending = tile_pass_retry();
+    let spawn = pending.is_none();
+    *pending = Some(TilePassRetry {
+        path,
+        install: super::engine_install(),
+    });
+    drop(pending);
+    if spawn {
+        crate::threads::spawn_named("veloq-tileretry", run_tile_pass_retry);
+    }
+}
+
+fn run_tile_pass_retry() {
+    loop {
+        std::thread::sleep(Duration::from_millis(100));
+        let Some(target) = tile_pass_retry().clone() else {
+            return;
+        };
+        if !request_pass(Some(&target.path), target.install) {
+            continue;
+        }
+        let mut pending = tile_pass_retry();
+        if pending.as_ref() == Some(&target) {
+            *pending = None;
+            return;
+        }
+    }
+}
+
 /// How long a wipe waits for a running pass to end. The pass checks its stop
 /// between tiles and a tile is tens of milliseconds, but the track load before
 /// the first check cannot be left, and on a large library it is seconds.
@@ -231,6 +276,12 @@ impl TilePassGuard {
                 return None;
             }
             Err(e) => {
+                if matches!(
+                    e.sqlite_error_code(),
+                    Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)
+                ) {
+                    schedule_tile_pass_retry(engine);
+                }
                 log::warn!("[heatmap] Could not claim the tile pass: {e}");
                 return None;
             }
@@ -268,6 +319,25 @@ fn stop_tile_pass(wait: Duration) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+pub(crate) fn finish_test_tile_pass() {
+    loop {
+        stop_tile_pass(TILE_PASS_STOP_WAIT).expect("a tile pass did not stop after its test");
+        let parked = super::persistent_engine_ffi::TILE_GENERATION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+        if let Some(handle) = parked {
+            handle.recv_blocking();
+            continue;
+        }
+        if tile_pass_slot().is_none() && tile_pass_retry().is_none() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(2));
+    }
 }
 
 /// Counts the tiles of the first band as the workers finish them, and says
@@ -821,23 +891,26 @@ pub(crate) fn request_tile_pass_if_dirty(install: u64) {
     request_pass(None, install);
 }
 
-fn request_pass(tiles_path: Option<&str>, install: u64) {
+fn request_pass(tiles_path: Option<&str>, install: u64) -> bool {
     if let Some(tiles_path) = tiles_path {
         let mut held = deferred_passes();
         if held.depth > 0 {
             held.owed = Some((tiles_path.to_string(), install));
-            return;
+            return true;
         }
     }
     super::with_persistent_engine_for(install, |engine| {
         let wanted = match tiles_path {
-            Some(path) => engine.heatmap_tiles_path() == Some(path),
+            Some(path) => engine.heatmap_tiles_path() == Some(path) && engine.is_heatmap_dirty(),
             None => engine.is_heatmap_dirty(),
         };
         if wanted {
-            engine.start_tile_pass();
+            engine.start_tile_pass()
+        } else {
+            true
         }
-    });
+    })
+    .unwrap_or(true)
 }
 
 /// Pass requests held back while a sync stores, and the last one owed.
@@ -1907,6 +1980,30 @@ mod tests {
         use super::*;
         use crate::test_globals::serial_global_state;
 
+        #[test]
+        fn test_serial_guard_stops_a_pass_before_releasing_the_global_state() {
+            let serial = serial_global_state();
+            let _tmp = crate::test_globals::init_global_engine("tiles-serial.db");
+            let cancel = crate::persistence::CancelToken::new();
+            let pass = claim_pass(&cancel).expect("pass claimed");
+            let worker_cancel = cancel.clone();
+            let (release, released) = std::sync::mpsc::channel::<()>();
+            let worker = std::thread::spawn(move || {
+                while !worker_cancel.is_cancelled() {
+                    if released.recv_timeout(Duration::from_millis(10)).is_ok() {
+                        break;
+                    }
+                }
+                drop(pass);
+            });
+
+            drop(serial);
+            let stopped = cancel.is_cancelled() && tile_pass_slot().is_none();
+            let _ = release.send(());
+            worker.join().expect("worker stopped");
+            assert!(stopped, "the next test can inherit a running tile pass");
+        }
+
         /// Claim the pass against the process-wide engine, which is the one
         /// the guard releases through.
         fn claim_pass(cancel: &crate::persistence::CancelToken) -> Option<TilePassGuard> {
@@ -1955,6 +2052,34 @@ mod tests {
                 panic!("a panicked pass left no backoff");
             };
             assert!(until > now_ms() + attempt_backoff_ms(0) - 5_000);
+        }
+
+        #[test]
+        fn a_pass_on_another_engine_releases_its_lease() {
+            let _serial = serial_global_state();
+            let _installed = crate::test_globals::init_global_engine("installed.db");
+            let other_dir = tempfile::tempdir().expect("tempdir");
+            let db_path = other_dir.path().join("other.db");
+            let other = PersistentEngine::new(db_path.to_str().expect("database path"))
+                .expect("other engine");
+            let key = tile_pass_key();
+
+            let held = TilePassGuard::claim(&other, &crate::persistence::CancelToken::new())
+                .expect("the pass starts");
+            assert_eq!(
+                other.claim_job(&key, now_ms()).expect("claim"),
+                Claim::InFlight
+            );
+            drop(held);
+
+            assert_eq!(
+                other.claim_job(&key, now_ms()).expect("claim"),
+                Claim::Taken,
+                "the pass left its lease on the other engine"
+            );
+            other
+                .release_job(&key, Release::Deferred, now_ms())
+                .expect("release");
         }
 
         #[test]

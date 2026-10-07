@@ -7,11 +7,10 @@
 # so a full suite serialises every other session's landing behind it.
 set -e
 
-# `--diff-filter=d` drops what the merge removed: a deleted suite names a
-# `--test` target cargo no longer has, and cargo refuses the whole command
-# rather than skipping it, so one deletion blocks every merge that carries it.
-# A deletion is still gated, by `cargo check --tests` in `merge-gates.sh`,
-# which is what catches a caller left behind.
+# Deleted paths still select their platform checks. A removed Android class or
+# iOS resource can break a build even though no source remains at that path.
+# The planner reads test targets from the merged tree, so a deleted Rust suite
+# cannot name a Cargo target that no longer exists.
 #
 # From `pre-merge-commit` the merged tree is staged over the old head, so the
 # index holds the merge. In the landing tree the candidate is already committed
@@ -20,9 +19,9 @@ set -e
 # what would land. When the lander checks whether the target fails the same
 # gate, it selects suites from that same range while running the target's code.
 if [ -n "${VELOQ_MERGE_BASE:-}" ]; then
-  changed=$(git diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" "${VELOQ_MERGE_TEST_REVISION:-HEAD}")
+  changed=$(git diff --name-only "$VELOQ_MERGE_BASE" "${VELOQ_MERGE_TEST_REVISION:-HEAD}")
 else
-  changed=$(git diff --cached --name-only --diff-filter=d HEAD)
+  changed=$(git diff --cached --name-only HEAD)
 fi
 [ -n "$changed" ] || exit 0
 
