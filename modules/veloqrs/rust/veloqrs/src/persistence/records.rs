@@ -34,6 +34,92 @@ pub fn is_personal_record(time_secs: f64, rival_secs: Option<f64>) -> bool {
     rival_secs - time_secs >= PR_TOLERANCE_SECS
 }
 
+/// The podium place, 1 to 3, an effort takes among the other outings over the
+/// same ground, or `None` for fourth and below.
+///
+/// A place is one plus the number of other outings that beat the effort, so a
+/// tie for second is second for both. An effort with no other outing has
+/// beaten nothing and takes no place, and a tie for first beats nobody, so it
+/// takes none either: `Some(1)` is exactly [`is_personal_record`].
+pub fn podium_place(time_secs: f64, rivals: &[f64]) -> Option<u32> {
+    if rivals.is_empty() || !time_secs.is_finite() || time_secs <= 0.0 {
+        return None;
+    }
+    let faster = rivals
+        .iter()
+        .filter(|r| r.is_finite() && **r > 0.0 && time_secs - **r >= PR_TOLERANCE_SECS)
+        .count() as u32;
+    let place = faster + 1;
+    if place == 1 {
+        let best = rivals
+            .iter()
+            .copied()
+            .filter(|r| r.is_finite() && *r > 0.0)
+            .fold(None, |b: Option<f64>, r| Some(b.map_or(r, |b| b.min(r))));
+        return is_personal_record(time_secs, best).then_some(1);
+    }
+    (place <= 3).then_some(place)
+}
+
+/// How far from a route's usual distance an attempt may be and still count
+/// toward the route's record, as a fraction of that distance.
+///
+/// A route groups attempts whose distances differ by up to half, so a corner
+/// cut or a GPS drop is a faster time over less ground, not a faster time.
+/// Cycling and running attempts sit within five per cent of their route's
+/// usual distance, and every other sport has the wider ten per cent until its
+/// own spread is measured.
+pub fn route_distance_band(sport: &str) -> f64 {
+    if crate::sport::is_cycling(sport) || crate::sport::is_running(sport) {
+        0.05
+    } else {
+        0.10
+    }
+}
+
+/// The statistical median of the finite, positive distances, which is the
+/// mean of the two middle values for an even count. `None` when there are
+/// none.
+pub fn median_distance(distances: impl IntoIterator<Item = f64>) -> Option<f64> {
+    let mut sorted: Vec<f64> = distances
+        .into_iter()
+        .filter(|d| d.is_finite() && *d > 0.0)
+        .collect();
+    if sorted.is_empty() {
+        return None;
+    }
+    sorted.sort_by(f64::total_cmp);
+    let mid = sorted.len() / 2;
+    Some(if sorted.len() % 2 == 1 {
+        sorted[mid]
+    } else {
+        (sorted[mid - 1] + sorted[mid]) / 2.0
+    })
+}
+
+/// True when an attempt's distance is within the sport's band around the
+/// route's usual distance. The edge is inside. A route with no usual distance
+/// leaves every attempt inside.
+pub fn within_route_distance_band(sport: &str, distance: f64, centre: Option<f64>) -> bool {
+    let Some(centre) = centre else {
+        return true;
+    };
+    (distance - centre).abs() <= route_distance_band(sport) * centre
+}
+
+/// The distances that count toward one bucket's record, given every timed
+/// attempt's distance in the bucket (one sport, one direction): the ones
+/// inside the band around the bucket's median. The median is taken over every
+/// timed attempt, so the band judges each attempt against the route as it is
+/// usually run.
+pub fn counted_for_route_record(sport: &str, distances: &[f64]) -> Vec<bool> {
+    let centre = median_distance(distances.iter().copied());
+    distances
+        .iter()
+        .map(|d| within_route_distance_band(sport, *d, centre))
+        .collect()
+}
+
 /// The best and the second best of a set of times, ignoring the unusable.
 ///
 /// Two efforts tied at the fastest time give the same value twice, which is
@@ -80,6 +166,33 @@ pub fn rival_of(
     }
 }
 
+/// The best other outing in a section result's selected sport and direction.
+pub fn section_record_rival(
+    result: &crate::SectionPerformanceResult,
+    record: &crate::SectionPerformanceRecord,
+) -> Option<f64> {
+    result
+        .records
+        .iter()
+        .filter(|other| other.activity_id != record.activity_id)
+        .flat_map(|other| &other.laps)
+        .filter(|lap| {
+            lap.direction == record.direction
+                && covers_enough_for_record(lap.coverage, lap.distance, record.section_distance)
+        })
+        .map(|lap| lap.time)
+        .filter(|time| time.is_finite() && *time > 0.0)
+        .reduce(f64::min)
+}
+
+/// Whether a section's per-direction best strictly beats another outing.
+pub fn is_section_record_pr(
+    result: &crate::SectionPerformanceResult,
+    record: &crate::SectionPerformanceRecord,
+) -> bool {
+    is_personal_record(record.best_time, section_record_rival(result, record))
+}
+
 /// Share of a section a traversal must cover before it can be its record.
 ///
 /// The rule this replaced compared the lap's own track length against the
@@ -120,6 +233,17 @@ pub fn complete_traversal_sql() -> String {
     complete_traversal_sql_for("sa", "s")
 }
 
+/// A complete traversal as a `WHERE` fragment, to append after a condition:
+/// not a `partial` overlap, and covering enough of the section to stand as a
+/// traversal of it. The ranking, the section ledger and the encounters share
+/// it, so none of them can take a fragment the record screen refuses.
+pub fn complete_traversal_clause(sa: &str, s: &str) -> String {
+    format!(
+        " AND {sa}.direction != 'partial' AND ({})",
+        complete_traversal_sql_for(sa, s)
+    )
+}
+
 /// The same predicate over whichever aliases the caller joined under.
 ///
 /// A query that reaches the junction twice, as the stale read's subquery does,
@@ -135,7 +259,47 @@ pub fn complete_traversal_sql_for(sa: &str, s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn podium_places_follow_the_strictly_faster_count() {
+        let others = [100.0, 110.0, 120.0, 130.0];
+        assert_eq!(podium_place(95.0, &others), Some(1));
+        assert_eq!(podium_place(105.0, &others), Some(2));
+        assert_eq!(podium_place(115.0, &others), Some(3));
+        assert_eq!(podium_place(125.0, &others), None);
+        assert_eq!(podium_place(200.0, &others), None);
+    }
+
+    #[test]
+    fn a_tie_for_second_is_second_for_both_and_a_tie_for_first_is_unplaced() {
+        assert_eq!(podium_place(110.0, &[100.0, 110.0, 130.0]), Some(2));
+        assert_eq!(podium_place(100.0, &[100.0, 110.0]), None);
+    }
+
+    #[test]
+    fn a_lone_or_unmeasured_effort_takes_no_place() {
+        assert_eq!(podium_place(100.0, &[]), None);
+        assert_eq!(podium_place(0.0, &[90.0]), None);
+        assert_eq!(podium_place(f64::NAN, &[90.0]), None);
+    }
+
     use super::*;
+
+    #[test]
+    fn the_median_of_an_even_count_is_the_mean_of_the_middle_two() {
+        assert_eq!(
+            median_distance([4000.0, 5000.0, 6000.0, 9000.0]),
+            Some(5500.0)
+        );
+        assert_eq!(median_distance([4000.0, 5000.0, 6000.0]), Some(5000.0));
+        assert_eq!(median_distance([0.0, f64::NAN]), None);
+    }
+
+    #[test]
+    fn the_band_is_five_per_cent_for_cycling_and_running_and_ten_otherwise() {
+        assert_eq!(route_distance_band("Ride"), 0.05);
+        assert_eq!(route_distance_band("Run"), 0.05);
+        assert_eq!(route_distance_band("Walk"), 0.10);
+    }
 
     #[test]
     fn beating_the_best_time_is_a_record() {
