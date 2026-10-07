@@ -235,37 +235,7 @@ impl PersistentEngine {
 
     /// Give the lease back, saying how the work ended.
     pub fn release_job(&self, key: &JobKey, release: Release, now: i64) -> SqlResult<()> {
-        match release {
-            Release::Done => {
-                self.db.execute(
-                    "DELETE FROM job_attempts WHERE key = ?",
-                    params![key.as_str()],
-                )?;
-            }
-            Release::Deferred => {
-                self.db.execute(
-                    "UPDATE job_attempts SET lease_gen = 0 WHERE key = ?",
-                    params![key.as_str()],
-                )?;
-                self.db.execute(
-                    "DELETE FROM job_attempts WHERE key = ? AND attempts = 0",
-                    params![key.as_str()],
-                )?;
-            }
-            Release::Failed { refusal, error } => {
-                self.db.execute(
-                    "UPDATE job_attempts
-                     SET attempts = attempts + 1,
-                         last_attempt_at = ?,
-                         last_refusal = ?,
-                         last_error = ?,
-                         lease_gen = 0
-                     WHERE key = ?",
-                    params![now, format!("{refusal:?}"), error, key.as_str()],
-                )?;
-            }
-        }
-        Ok(())
+        release_job_in(&self.db, key, release, now)
     }
 
     /// What the store holds for `key`, if anything.
@@ -288,4 +258,45 @@ impl PersistentEngine {
             )
             .optional()
     }
+}
+
+/// [`PersistentEngine::release_job`] on a connection of its own, for work that
+/// claimed through an engine it can no longer reach.
+pub(crate) fn release_job_in(
+    db: &rusqlite::Connection,
+    key: &JobKey,
+    release: Release,
+    now: i64,
+) -> SqlResult<()> {
+    match release {
+        Release::Done => {
+            db.execute(
+                "DELETE FROM job_attempts WHERE key = ?",
+                params![key.as_str()],
+            )?;
+        }
+        Release::Deferred => {
+            db.execute(
+                "UPDATE job_attempts SET lease_gen = 0 WHERE key = ?",
+                params![key.as_str()],
+            )?;
+            db.execute(
+                "DELETE FROM job_attempts WHERE key = ? AND attempts = 0",
+                params![key.as_str()],
+            )?;
+        }
+        Release::Failed { refusal, error } => {
+            db.execute(
+                "UPDATE job_attempts
+                 SET attempts = attempts + 1,
+                     last_attempt_at = ?,
+                     last_refusal = ?,
+                     last_error = ?,
+                     lease_gen = 0
+                 WHERE key = ?",
+                params![now, format!("{refusal:?}"), error, key.as_str()],
+            )?;
+        }
+    }
+    Ok(())
 }
