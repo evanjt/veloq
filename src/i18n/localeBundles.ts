@@ -7,7 +7,12 @@
  * `require` is still bundled by Metro, but it is not evaluated until called.
  */
 
-import { LOCALE_FALLBACKS, type SupportedLocale } from './types';
+import {
+  LOCALE_FALLBACKS,
+  type DeepPartial,
+  type SupportedLocale,
+  type TranslationResource,
+} from './types';
 
 /**
  * The locale every chain ends at, so it is always loaded: a key missing from
@@ -18,12 +23,16 @@ export const ROOT_LOCALE: SupportedLocale = 'en-GB';
 type Bundle = Record<string, unknown>;
 
 const LOADERS: Record<SupportedLocale, () => Bundle> = {
-  'en-AU': () => require('./locales/en-AU.json'),
-  'en-US': () => require('./locales/en-US.json'),
+  'en-AU': () =>
+    require('./locales/en-AU.json') as typeof import('./locales/en-AU.json') satisfies DeepPartial<TranslationResource>,
+  'en-US': () =>
+    require('./locales/en-US.json') as typeof import('./locales/en-US.json') satisfies DeepPartial<TranslationResource>,
   'en-GB': () => require('./locales/en-GB.json'),
   es: () => require('./locales/es.json'),
-  'es-ES': () => require('./locales/es-ES.json'),
-  'es-419': () => require('./locales/es-419.json'),
+  'es-ES': () =>
+    require('./locales/es-ES.json') as typeof import('./locales/es-ES.json') satisfies DeepPartial<TranslationResource>,
+  'es-419': () =>
+    require('./locales/es-419.json') as typeof import('./locales/es-419.json') satisfies DeepPartial<TranslationResource>,
   fr: () => require('./locales/fr.json'),
   'de-DE': () => require('./locales/de-DE.json'),
   'de-CH': () => require('./locales/de-CH.json'),

@@ -4,7 +4,7 @@
  * sentence.
  *
  * The bundles stay in TypeScript and i18next stays the only thing that
- * resolves one. Rust holds the fifteen resolved strings for whichever locale
+ * resolves one. Rust holds the seventeen resolved strings for whichever locale
  * was last pushed, and formats with those.
  *
  * `setNameTranslations` is the same gesture for two words and keeps them in a
@@ -19,13 +19,14 @@ import { debug } from '@/shared/debug/debug';
 const log = debug.create('NotificationTemplates');
 
 /**
- * Every key a notification sentence is built from: the twelve clause
- * templates and the three titles.
+ * Every key a notification sentence is built from: the thirteen clause
+ * templates, the three titles and the two fitness milestone sentences.
  *
  * Named here rather than derived from the bundle, so a key that loses its
  * reader still fails `unusedKeys.test.ts` and a renamed one fails the parity
- * test beside it. They interpolate `{{name}}`, `{{delta}}` and `{{count}}`
- * and nothing else, and no locale carries a plural variant of any of them.
+ * test beside it. They interpolate `{{name}}`, `{{delta}}`, `{{count}}`,
+ * `{{current}}` and `{{change}}` and nothing else, and no locale carries a
+ * plural variant of any of them.
  */
 export const NOTIFICATION_TEMPLATE_KEYS = [
   'notifications.activityBody.aSection',
@@ -37,16 +38,18 @@ export const NOTIFICATION_TEMPLATE_KEYS = [
   'notifications.activityBody.sectionPrDelta',
   'notifications.activityBody.sectionPrCount',
   'notifications.activityBody.sectionPrMany',
+  'notifications.activityBody.sectionPrManyOne',
   'notifications.activityBody.fasterOnRoute',
   'notifications.activityBody.fasterOnRouteDelta',
-  'notifications.activityBody.onRoute',
   'notifications.activityPr.title',
   'notifications.activityFaster.title',
   'notifications.activityRecorded.title',
+  'insights.ftpIncrease',
+  'insights.paceImproved',
 ] as const;
 
 /**
- * Resolve the fifteen against the current bundle and store them.
+ * Resolve the seventeen against the current bundle and store them.
  *
  * Call it only once the bundle is in i18next's store. Before that every key
  * resolves as itself, and a bundle of keys is what the handler would render.
