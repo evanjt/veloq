@@ -121,6 +121,7 @@
     "lint:muscle-polygons": "node scripts/generate-muscle-polygons.mjs --check",
     "lint:reachability": "node scripts/reachability-audit.mjs",
     "lint:render-engine-reads": "node scripts/lint-render-engine-reads.mjs",
+    "lint:untyped-require": "node scripts/lint-untyped-require.mjs",
     "lint:feature-imports": "node scripts/lint-feature-imports.mjs",
     "lint:engine-surface": "node scripts/lint-engine-surface.mjs --engine-ceiling 98 --store-ceiling 19",
     "lint:widget-layouts": "node scripts/lint-widget-layouts.mjs",
