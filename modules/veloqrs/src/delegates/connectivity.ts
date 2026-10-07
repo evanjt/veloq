@@ -35,10 +35,5 @@ export function setNetworkOnline(host: DelegateHost, online: boolean): void {
 
 /** What was last pushed and how old it is. Null when nothing has been. */
 export function getNetworkPush(host: DelegateHost): NetworkPush | null {
-  try {
-    return host.timed('getNetworkPush', () => ffiGetNetworkPush() ?? null);
-  } catch (e) {
-    console.error('[Engine] getNetworkPush threw:', e);
-    return null;
-  }
+  return host.timed('getNetworkPush', () => ffiGetNetworkPush() ?? null);
 }

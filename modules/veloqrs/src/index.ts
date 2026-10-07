@@ -11,8 +11,6 @@ import NativeVeloqrs from './NativeVeloqrs';
 // Import generated functions for top-level aliases
 import {
   BasemapManager,
-  getDownloadProgress as ffiGetDownloadProgress,
-  type DownloadProgressResult,
   type FfiActivityMetrics,
   type FfiGpsPoint,
   type FfiRouteGroup,
@@ -26,8 +24,10 @@ import {
   type FfiEfficiencyTrend,
   type FfiEfficiencyPoint,
   type FfiPeriodStats,
+  type FfiDayLoad,
   type FfiPeriodComparison,
   type FfiMonthlyStats,
+  type FfiZoneDistribution,
   type FfiSummaryCardData,
   type FfiFtpTrend,
   type FfiPaceTrend,
@@ -35,10 +35,20 @@ import {
   type FfiInsightsParams,
   type FfiRecentPr,
   type FfiStartupData,
-  type FfiWidgetSnapshotData,
   type FfiMapScreenData,
+  type FfiBestEffortsData,
+  type FfiBestEffortsSport,
+  type FfiBestEffort,
+  type FfiClimbBests,
+  type FfiClimbBest,
+  type FfiTrainingScreenData,
+  type FfiTrainingScreenWindows,
+  type FfiFitnessScreenData,
   type FfiPreviewTrack,
   type FfiActivityDetailData,
+  type FfiActivityFitnessImpact,
+  type FfiActivityLedgerChange,
+  type FfiHrZoneBand,
   type FfiSectionTrace,
   type FfiSectionDetailData,
   type FfiSectionPerformanceData,
@@ -47,6 +57,9 @@ import {
   type FfiSectionFilters,
   FfiGroupSort,
   FfiSectionSort,
+  FfiFeedGroup,
+  type FfiActivityBodiesQuery,
+  type FfiActivityBodiesPage,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
   type FfiStalePrOpportunity,
@@ -65,35 +78,25 @@ if (!installed && __DEV__) {
 }
 
 // Re-export all generated types and functions
-// eslint-disable-next-line import/export -- getDownloadProgress is deliberately wrapped below
 export * from './generated/veloqrs';
 
 // Re-export conversions, types, and utilities
 export { validateId, validateName } from './conversions';
-export { decodeCoords, decodeCoordsFlat, type LatLng } from './coords';
-export type {
-  RoutePoint,
-  SectionDetectionProgress,
-  CustomSection,
-  FetchProgressEvent,
-} from './conversions';
+export { decodeCoords, decodeCoordsFlat, type LatLng, type LatLngShort } from './coords';
+export type { SectionDetectionProgress, CustomSection, FetchProgressEvent } from './conversions';
 
 // Re-export EngineClient and its locally-defined types
-export {
-  EngineClient,
-  type HeatmapDay,
-  type SectionEncounter,
-  type BulkExportStatus,
-} from './EngineClient';
+export { EngineClient, type HeatmapDay, type SectionEncounter } from './EngineClient';
 
 // Sync service (SyncManager) consumer types
 export type { SyncStatus, SyncAuthMethod } from './delegates/sync';
 export type {
   FfiCallOutcome as CallOutcome,
-  FfiManualActivity as ManualActivity,
+  FfiUploadResult as UploadResult,
 } from './generated/veloqrs';
 export {
   FfiCallKind as CallKind,
+  FfiUploadOutcome as UploadOutcome,
   FfiSyncErrorReason as SyncErrorReason,
   FfiSyncStep as SyncStep,
 } from './generated/veloqrs';
@@ -101,7 +104,11 @@ export {
 // The verdict every start answers with, and the one place that says which
 // refusals lift on their own. See `delegates/start.ts`.
 export { FfiStartOutcome as StartOutcome } from './generated/veloqrs';
-export { isRetryableStart, hasStarted } from './delegates/start';
+export type { FfiStartResult as StartResult } from './generated/veloqrs';
+export type StartVerdict =
+  | import('./generated/veloqrs').FfiStartOutcome
+  | import('./generated/veloqrs').FfiStartResult;
+export { isRetryableStart, hasStarted, startOutcome } from './delegates/start';
 
 // Why the engine did not open, for the banner to translate. See
 // `delegates/init.ts`.
@@ -132,6 +139,11 @@ export type {
   PreviewSection,
   PreviewSectionStatus,
 } from './delegates/preview';
+
+export type {
+  RouteGroupPreview,
+  RouteGroupingPreviewClient,
+} from './delegates/routeGroupingPreview';
 
 // The typed wellness day the fitness and wellness screens read
 export type {
@@ -167,6 +179,11 @@ export type PeriodStats = FfiPeriodStats;
 export type PeriodComparison = FfiPeriodComparison;
 export { FfiLoadMetric as LoadMetric } from './generated/veloqrs';
 export type MonthlyStats = FfiMonthlyStats;
+/** A sport's seconds per zone with the athlete's own zone names. */
+export type ZoneDistributionData = FfiZoneDistribution;
+/** One local day's recorded activity load and whether it is complete. */
+export type DayLoad = FfiDayLoad;
+export { FfiDayLoadStatus as DayLoadStatus } from './generated/veloqrs';
 export type SummaryCardData = FfiSummaryCardData;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;
@@ -176,11 +193,24 @@ export type InsightsParams = FfiInsightsParams;
 export type RecentPR = FfiRecentPr;
 // Startup batch types
 export type StartupData = FfiStartupData;
-export type WidgetSnapshotData = FfiWidgetSnapshotData;
 export type MapScreenData = FfiMapScreenData;
+// Best Efforts screen types
+export type BestEffortsData = FfiBestEffortsData;
+export type BestEffortsSport = FfiBestEffortsSport;
+export type BestEffort = FfiBestEffort;
+export type ClimbBests = FfiClimbBests;
+export type ClimbBest = FfiClimbBest;
+// Training screen types
+export type TrainingScreenData = FfiTrainingScreenData;
+export type TrainingScreenWindows = FfiTrainingScreenWindows;
+// Fitness screen types
+export type FitnessScreenData = FfiFitnessScreenData;
 export type PreviewTrack = FfiPreviewTrack;
 // Activity detail batch types
 export type ActivityDetailData = FfiActivityDetailData;
+export type ActivityFitnessImpact = FfiActivityFitnessImpact;
+export type ActivityLedgerChange = FfiActivityLedgerChange;
+export type HrZoneBand = FfiHrZoneBand;
 export type SectionTrace = FfiSectionTrace;
 // Section detail batch types
 export type SectionDetailData = FfiSectionDetailData;
@@ -190,6 +220,10 @@ export type RoutesScreenData = FfiRoutesScreenData;
 export type RoutesScreenQuery = FfiRoutesScreenQuery;
 export type SectionHiddenFilters = FfiSectionFilters;
 export { FfiGroupSort as GroupSort, FfiSectionSort as SectionSort };
+// Feed search over the whole library
+export type ActivityBodiesQuery = FfiActivityBodiesQuery;
+export type ActivityBodiesPage = FfiActivityBodiesPage;
+export { FfiFeedGroup as FeedSportGroup };
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type StalePrOpportunity = FfiStalePrOpportunity;
@@ -204,22 +238,19 @@ export type EftpChange = FfiEftpChange;
 export type {
   FfiSectionMatch as SectionMatch,
   FfiMergeCandidate as MergeCandidate,
-  FfiNearbySectionSummary as NearbySectionSummary,
-  FfiActivitySectionHighlight as ActivitySectionHighlight,
   FfiActivityRouteHighlight as ActivityRouteHighlight,
 } from './EngineClient';
+/** A ride a merge would take out of the merged section. */
+export type { FfiMergeDropped as MergeDropped } from './generated/veloqrs';
 // Strength training types
 export type {
   FfiExerciseSet as ExerciseSet,
+  FfiExerciseGroup as ExerciseGroup,
+  FfiExerciseSession as ExerciseSession,
+  FfiExerciseDetailData as ExerciseDetailData,
   FfiMuscleGroup as MuscleGroup,
   FfiActivityNotification as ActivityNotification,
 } from './generated/veloqrs';
-
-// Wraps the generated call; the explicit export deliberately wins over `export *`.
-// eslint-disable-next-line import/export
-export function getDownloadProgress(): DownloadProgressResult {
-  return ffiGetDownloadProgress();
-}
 
 export const engine = EngineClient.getInstance();
 

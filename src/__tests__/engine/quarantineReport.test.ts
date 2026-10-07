@@ -3,9 +3,10 @@
  * one takes its place. Init then reports success, so nothing on the handle
  * says the library the athlete had is gone.
  *
- * Expected behaviour: the client passes Rust's report through, once, and
- * answers null before the engine is open and when the call throws. What the
- * athlete is shown for it is a separate decision and is not covered here.
+ * Expected behaviour: the client passes Rust's report through, once, answers
+ * null before the engine is open, and hands a failed take to the caller, which
+ * keeps it from costing the launch. What the athlete is shown for it is a
+ * separate decision and is not covered here.
  */
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
@@ -73,13 +74,14 @@ describe('the quarantine report', () => {
     expect(client.takeQuarantineReport()).toBeNull();
   });
 
-  it('is null when the call throws, rather than costing the launch', () => {
+  it('hands a failed take to the caller rather than reading it as no quarantine', () => {
     const client = closedClient();
     client.initWithPath(DB);
+    const failure = new Error('engine gone');
     mockTake.mockImplementation(() => {
-      throw new Error('engine gone');
+      throw failure;
     });
 
-    expect(client.takeQuarantineReport()).toBeNull();
+    expect(() => client.takeQuarantineReport()).toThrow(failure);
   });
 });

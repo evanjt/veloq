@@ -63,7 +63,9 @@ export function setHeatmapPriorityView(
 ): void {
   if (!host.ready) return;
   try {
-    host.engine.heatmap().setPriorityView(latitude, longitude, Math.round(zoom));
+    host.timed('setPriorityView', () =>
+      host.engine.heatmap().setPriorityView(latitude, longitude, Math.round(zoom))
+    );
   } catch (e) {
     console.warn('[EngineClient] Failed to set the heatmap priority view:', e);
   }
@@ -73,7 +75,7 @@ export function setHeatmapPriorityView(
 export function clearHeatmapPriorityView(host: DelegateHost): void {
   if (!host.ready) return;
   try {
-    host.engine.heatmap().clearPriorityView();
+    host.timed('clearPriorityView', () => host.engine.heatmap().clearPriorityView());
   } catch (e) {
     console.warn('[EngineClient] Failed to clear the heatmap priority view:', e);
   }
@@ -82,35 +84,20 @@ export function clearHeatmapPriorityView(host: DelegateHost): void {
 /**
  * Stop the tile pass and the invalidation sweep, if either is running.
  *
- * Called before anything that makes their output worthless: turning the
- * heatmap off, or clearing the tiles. Both keep writing to disk otherwise, and
- * a pass that finishes after a clear puts back the tiles the clear took.
+ * Called when their output stops being wanted, as when the heatmap is turned
+ * off, so neither holds a core for it. It does not make a clear safe: a pass
+ * saves the tile it has in flight after a cancel, which is why
+ * `clearHeatmapTiles` stops the pass and waits for it itself.
  * Returns whether there was anything to stop.
  */
 export function cancelHeatmapWork(host: DelegateHost): boolean {
   if (!host.ready) return false;
   try {
-    return host.engine.heatmap().cancel();
+    return host.timed('cancel', () => host.engine.heatmap().cancel());
   } catch (e) {
     console.warn('[EngineClient] Failed to cancel heatmap work:', e);
     return false;
   }
-}
-
-/**
- * Get total size of heatmap tile cache in bytes (fast native scan).
- *
- * Blocking, and linear in cached tiles: 40,061 of them measured 170 ms on the
- * CPH2653, past the 100 ms a mount has for the whole screen. Anything on a
- * mount path uses `startHeatmapCacheSize` and `pollHeatmapCacheSize`.
- */
-export function getHeatmapCacheSize(host: DelegateHost, basePath: string): number {
-  if (!host.ready) return 0;
-  return Number(
-    host.timed('getHeatmapCacheSize', () =>
-      host.engine.heatmap().getCacheSize(nativePath(basePath))
-    )
-  );
 }
 
 /**
@@ -145,29 +132,29 @@ function nativePath(basePath: string): string {
   return basePath.startsWith('file://') ? basePath.slice(7) : basePath;
 }
 
-/** Clear all heatmap tiles from disk. */
-export function clearHeatmapTiles(host: DelegateHost, basePath: string): number {
-  if (!host.ready) return 0;
-  // Normalize file:// URLs - Rust expects plain filesystem paths
-  const normalizedPath = basePath.startsWith('file://') ? basePath.slice(7) : basePath;
-  return host.timed('clearHeatmapTiles', () => host.engine.heatmap().clearTiles(normalizedPath));
+/**
+ * Stop any tile pass, then clear every heatmap tile under `basePath`.
+ *
+ * On a Rust thread: the stop waits out a pass that is drawing, and the walk is
+ * tens of thousands of files. Rejects when a tile could not be removed, since
+ * that is heat still on disk, and when there is no engine to do it.
+ */
+export async function clearHeatmapTiles(host: DelegateHost, basePath: string): Promise<void> {
+  if (!host.ready) throw new Error('The engine is not open, so no heatmap tile was cleared');
+  await host.engine.heatmap().clearTiles(nativePath(basePath));
 }
 
 /** Get heatmap tile generation progress: [processed, total] */
 export function getHeatmapTileProgress(host: DelegateHost): number[] | null {
   if (!host.ready) return null;
-  try {
-    return host.engine.heatmap().getProgress();
-  } catch {
-    return null;
-  }
+  return host.timed('getProgress', () => host.engine.heatmap().getProgress());
 }
 
 /** Poll tile generation status: 'idle' | 'running' | 'complete' */
 export function pollTileGeneration(host: DelegateHost): string {
   if (!host.ready) return 'idle';
   try {
-    return host.engine.heatmap().poll();
+    return host.timed('poll', () => host.engine.heatmap().poll());
   } catch {
     return 'error';
   }

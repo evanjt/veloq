@@ -7,28 +7,9 @@
  * `JSON.stringify` raise `Do not know how to serialize a BigInt`, and `tsc`
  * cannot see it, so the first caller to persist one fails in release on every
  * launch. Every timestamp, duration, rowid, version and byte count crosses as
- * an `f64` instead, which is exact to 2^53.
+ * an `f64` instead, which is exact to 2^53. That no generated record field is
+ * a `bigint` is `lint:ffi-bigint`.
  */
-
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-const GENERATED = resolve('modules/veloqrs/src/generated/veloqrs.ts');
-
-/** `  fieldName?: /*i64*\/ bigint;` as the generator emits a record field. */
-const BIGINT_FIELD = /^\s{2}([A-Za-z_][A-Za-z0-9_]*)\??:\s*\/\*[iu]\d+\*\/\s*bigint;/;
-
-describe('the generated bindings', () => {
-  it('declare no record field as bigint', () => {
-    const offenders = readFileSync(GENERATED, 'utf-8')
-      .split('\n')
-      .map((line, i) => ({ line: i + 1, match: BIGINT_FIELD.exec(line) }))
-      .filter((row) => row.match)
-      .map((row) => `veloqrs.ts:${row.line} ${row.match![1]}`);
-
-    expect(offenders).toEqual([]);
-  });
-});
 
 describe('a record the engine hands back', () => {
   /** One of each shape the sweep touched, with the fields it converted. */
@@ -46,6 +27,13 @@ describe('a record the engine hands back', () => {
     },
     sectionHistoryEvent: { id: 7, geometryVersion: 3 },
     heatmapDay: { date: 1_768_435_200, maxDuration: 5_400 },
+    retiredSection: {
+      sectionId: 's1',
+      kind: 'merged',
+      at: '2026-01-01',
+      into: 's2',
+      versions: [1, 2, 3],
+    },
     exportResult: { totalBytes: 9_000_000 },
   };
 

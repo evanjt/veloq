@@ -7,13 +7,15 @@
 // Iteration inside a function is covered by clippy::iter_over_hash_type. This
 // covers the return type, which that lint does not see.
 
+// Read off the disk on purpose: both roots sit inside the tracematch submodule,
+// whose files the superproject's index does not hold.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOTS = [
   'modules/veloqrs/rust/tracematch/src/sections',
   'modules/veloqrs/rust/tracematch/src/grouping.rs',
-];
+].map((path) => join(process.cwd(), path));
 
 const BANNED = /->\s*[^;{]*\b(HashMap|HashSet)\s*</;
 

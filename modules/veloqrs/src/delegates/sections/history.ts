@@ -8,8 +8,9 @@
  */
 
 import { decodeCoords } from '../../coords';
-import type { RoutePoint } from '../../conversions';
+import type { LatLngShort } from '../../coords';
 import type {
+  FfiDepartedRide,
   FfiRetiredSection,
   FfiSectionChange,
   FfiSectionGeometryVersion,
@@ -24,12 +25,7 @@ export type SectionChange = FfiSectionChange;
 
 export function getSectionHistory(host: DelegateHost, sectionId: string): SectionHistoryEvent[] {
   if (!host.ready) return [];
-  try {
-    return host.engine.sections().getHistory(sectionId);
-  } catch (e) {
-    console.error('[Engine] getSectionHistory failed:', sectionId, e);
-    return [];
-  }
+  return host.timed('getHistory', () => host.engine.sections().getHistory(sectionId));
 }
 
 export function getSectionGeometryVersions(
@@ -37,12 +33,9 @@ export function getSectionGeometryVersions(
   sectionId: string
 ): SectionGeometryVersion[] {
   if (!host.ready) return [];
-  try {
-    return host.engine.sections().getGeometryVersions(sectionId);
-  } catch (e) {
-    console.error('[Engine] getSectionGeometryVersions failed:', sectionId, e);
-    return [];
-  }
+  return host.timed('getGeometryVersions', () =>
+    host.engine.sections().getGeometryVersions(sectionId)
+  );
 }
 
 /** A stored version's line, or an empty list when it was pruned. */
@@ -50,37 +43,38 @@ export function getSectionGeometryVersionPolyline(
   host: DelegateHost,
   sectionId: string,
   version: number
-): RoutePoint[] {
+): LatLngShort[] {
   if (!host.ready) return [];
-  try {
-    return decodeCoords(
-      host.engine.sections().getGeometryVersionCoords(sectionId, BigInt(version))
-    ).map((p) => ({ lat: p.latitude, lng: p.longitude }));
-  } catch (e) {
-    console.error('[Engine] getSectionGeometryVersionPolyline failed:', sectionId, version, e);
-    return [];
-  }
+  const coords = host.timed('getGeometryVersionCoords', () =>
+    host.engine.sections().getGeometryVersionCoords(sectionId, version)
+  );
+  return decodeCoords(coords).map((p) => ({ lat: p.latitude, lng: p.longitude }));
 }
 
 export function revertSectionToVersion(
   host: DelegateHost,
   sectionId: string,
   version: number
-): boolean {
-  if (!host.ready) return false;
+): FfiDepartedRide[] | null {
+  if (!host.ready) return null;
   try {
-    host.engine.sections().revertToVersion(sectionId, BigInt(version));
-    return true;
+    const departed = host.timed('revertToVersion', () =>
+      host.engine.sections().revertToVersion(sectionId, version)
+    );
+    host.notifyAll('sections');
+    return departed;
   } catch (e) {
+    // empty-on-error: a write; null is its failure and [] is no ride departing.
     console.error('[Engine] revertSectionToVersion failed:', sectionId, version, e);
-    return false;
+    return null;
   }
 }
 
 export function unpinSection(host: DelegateHost, sectionId: string): boolean {
   if (!host.ready) return false;
   try {
-    host.engine.sections().unpin(sectionId);
+    host.timed('unpin', () => host.engine.sections().unpin(sectionId));
+    host.notify('sections');
     return true;
   } catch (e) {
     console.error('[Engine] unpinSection failed:', sectionId, e);
@@ -90,32 +84,13 @@ export function unpinSection(host: DelegateHost, sectionId: string): boolean {
 
 export function getPinnedSectionVersion(host: DelegateHost, sectionId: string): number | null {
   if (!host.ready) return null;
-  try {
-    const v = host.engine.sections().getPinnedVersion(sectionId);
-    return v == null ? null : Number(v);
-  } catch (e) {
-    console.error('[Engine] getPinnedSectionVersion failed:', sectionId, e);
-    return null;
-  }
+  const v = host.timed('getPinnedVersion', () =>
+    host.engine.sections().getPinnedVersion(sectionId)
+  );
+  return v ?? null;
 }
 
 export function getRetiredSections(host: DelegateHost): RetiredSection[] {
   if (!host.ready) return [];
-  try {
-    return host.engine.sections().getRetired();
-  } catch (e) {
-    console.error('[Engine] getRetiredSections failed:', e);
-    return [];
-  }
-}
-
-/** Visible changes on live sections in the last `days`, newest first. */
-export function getRecentSectionChanges(host: DelegateHost, days: number): SectionChange[] {
-  if (!host.ready) return [];
-  try {
-    return host.engine.sections().getRecentChanges(days);
-  } catch (e) {
-    console.error('[Engine] getRecentSectionChanges failed:', e);
-    return [];
-  }
+  return host.timed('getRetired', () => host.engine.sections().getRetired());
 }

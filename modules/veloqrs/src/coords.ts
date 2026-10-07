@@ -1,36 +1,117 @@
 /**
- * Decode delta+zigzag-varint encoded GPS coordinates from Rust.
+ * Decode the engine's one track encoding, `codec::encode_polyline` in veloqrs.
+ * The store holds the same stream inside a five-byte frame, and every encoded
+ * track crossing the bridge carries it unframed.
  *
- * Wire format:
- *   - point_count as varint
- *   - First point: lat_scaled as zigzag varint i64, lng_scaled as zigzag varint i64
- *   - Subsequent: delta_lat as zigzag varint, delta_lng as zigzag varint
- *   - Optional trailing elevation section, present only when at least one
- *     point carries an elevation:
- *       - 0xE1 tag byte
- *       - mode byte: bit 0 set means a presence bitmap follows, bit 1 set
- *         means exact f64 LE payloads rather than quantised deltas
- *       - presence bitmap of ceil(count/8) bytes, LSB first, when bit 0 is set
- *       - per elevation-bearing point, in point order: a zigzag varint delta
- *         of the 0.1 m quantised value, or 8 little-endian f64 bytes
+ * Stream:
+ *   - point count as varint
+ *   - elevation mode byte: 0 none, 1 every point, 2 some points
+ *   - in mode 2, a presence bitmap of ceil(count/8) bytes, LSB first
+ *   - per point: zigzag varint deltas of latitude and longitude at 1e6 counts
+ *     per degree, then, where the point carries one, the zigzag varint delta of
+ *     its elevation at 0.1 m
  *
- * Coordinates scaled by 1e7 (~0.011m precision).
- *
- * A truncated or malformed elevation section stops where the bytes run out,
- * keeps the elevations already decoded, and never disturbs the coordinates.
+ * A stream that is truncated, malformed, or claims more points than its bytes
+ * could hold decodes to nothing, as the engine's own decoder refuses it.
+ * `tests/fixtures/track_codec_vectors.json` in veloqrs pins the bytes both
+ * sides read.
  */
 
-const SCALE = 1e7;
+const SCALE = 1e6;
 const ELE_SCALE = 10;
-const ELE_TAG = 0xe1;
-const ELE_MIXED = 0b01;
-const ELE_EXACT = 0b10;
+const ELE_ALL = 1;
+const ELE_MIXED = 2;
+
+/** A coordinate as `lat`/`lng`, the shape routes, sections and map inputs are written in. */
+export interface LatLngShort {
+  lat: number;
+  lng: number;
+}
 
 export interface LatLng {
   latitude: number;
   longitude: number;
   /** Metres; absent (never null or NaN) when the point carries none. */
   elevation?: number;
+}
+
+/**
+ * Reads one little-endian base-128 varint at `pos` and returns it with the
+ * position after it, or null when the bytes run out inside it. The value
+ * accumulates by multiplication rather than the 32-bit shift operators, which
+ * would wrap a value past 31 bits. The result is exact to 2^53.
+ */
+function varintAt(bytes: Uint8Array, pos: number): [number, number] | null {
+  let result = 0;
+  let scale = 1;
+  while (pos < bytes.length) {
+    const byte = bytes[pos++];
+    result += (byte & 0x7f) * scale;
+    if ((byte & 0x80) === 0) return [result, pos];
+    scale *= 128;
+  }
+  return null;
+}
+
+/** Zigzag decode without bitwise operators, which truncate to 32 bits. */
+function unzigzag(v: number): number {
+  return v % 2 === 0 ? v / 2 : -(v + 1) / 2;
+}
+
+/**
+ * Walks the stream, handing each point to `visit`. False when the stream is
+ * malformed, in which case the caller discards whatever was visited.
+ */
+function walk(
+  buf: ArrayBuffer,
+  start: (count: number) => void,
+  visit: (lat: number, lng: number, elevation: number | undefined) => void
+): boolean {
+  if (!(buf instanceof ArrayBuffer) || buf.byteLength === 0) return false;
+  const bytes = new Uint8Array(buf);
+
+  const head = varintAt(bytes, 0);
+  if (head === null) return false;
+  const [count] = head;
+  let pos = head[1];
+  // A varint can claim any count; two bytes a point is the least a point takes.
+  if (count > Math.floor((bytes.length - pos) / 2)) return false;
+
+  if (pos >= bytes.length) return false;
+  const mode = bytes[pos++];
+  let bitmap: Uint8Array | null = null;
+  if (mode === ELE_MIXED) {
+    const len = Math.ceil(count / 8);
+    if (bytes.length < pos + len) return false;
+    bitmap = bytes.subarray(pos, pos + len);
+    pos += len;
+  }
+
+  start(count);
+  let lat = 0;
+  let lng = 0;
+  let ele = 0;
+  for (let i = 0; i < count; i++) {
+    const dLat = varintAt(bytes, pos);
+    if (dLat === null) return false;
+    const dLng = varintAt(bytes, dLat[1]);
+    if (dLng === null) return false;
+    pos = dLng[1];
+    lat += unzigzag(dLat[0]);
+    lng += unzigzag(dLng[0]);
+
+    const hasEle = mode === ELE_ALL || (bitmap !== null && (bitmap[i >> 3] & (1 << (i % 8))) !== 0);
+    let elevation: number | undefined;
+    if (hasEle) {
+      const dEle = varintAt(bytes, pos);
+      if (dEle === null) return false;
+      pos = dEle[1];
+      ele += unzigzag(dEle[0]);
+      elevation = ele / ELE_SCALE;
+    }
+    visit(lat / SCALE, lng / SCALE, elevation);
+  }
+  return true;
 }
 
 /**
@@ -41,124 +122,34 @@ export interface LatLng {
  * as objects. A point that is two slots of one typed array allocates nothing,
  * and the caller that wants a pair builds only the pairs it keeps.
  *
- * Elevations are not carried: no caller of this wants them, and reading them
- * would cost the allocation this exists to avoid.
+ * Elevations are read past and not kept: no caller of this wants them.
  */
 export function decodeCoordsFlat(buf: ArrayBuffer): Float64Array {
-  if (!(buf instanceof ArrayBuffer) || buf.byteLength === 0) {
-    return new Float64Array(0);
-  }
-  const bytes = new Uint8Array(buf);
-  let pos = 0;
-
-  const readVarint = (): number => {
-    let result = 0;
-    let shift = 0;
-    while (pos < bytes.length) {
-      const byte = bytes[pos++];
-      result |= (byte & 0x7f) << shift;
-      if ((byte & 0x80) === 0) break;
-      shift += 7;
-    }
-    return result >>> 0;
-  };
-
-  const readZigzag = (): number => {
-    const v = readVarint();
-    return (v >>> 1) ^ -(v & 1);
-  };
-
-  const count = readVarint();
-  const out = new Float64Array(count * 2);
-
-  let lat = 0;
-  let lng = 0;
+  let out = new Float64Array(0);
   let written = 0;
-
-  for (let i = 0; i < count; i++) {
-    if (pos >= bytes.length) break;
-    lat += readZigzag();
-    lng += readZigzag();
-    out[written++] = lat / SCALE;
-    out[written++] = lng / SCALE;
-  }
-
-  // A truncated stream stops where the bytes ran out, the same as the object
-  // decoder, so the pairs that did arrive are all real.
-  return written === out.length ? out : out.subarray(0, written);
+  const ok = walk(
+    buf,
+    (count) => {
+      out = new Float64Array(count * 2);
+    },
+    (lat, lng) => {
+      out[written++] = lat;
+      out[written++] = lng;
+    }
+  );
+  return ok ? out : new Float64Array(0);
 }
 
 export function decodeCoords(buf: ArrayBuffer): LatLng[] {
-  if (!(buf instanceof ArrayBuffer) || buf.byteLength === 0) {
-    return [];
-  }
-  const bytes = new Uint8Array(buf);
-  let pos = 0;
-
-  const readVarint = (): number => {
-    let result = 0;
-    let shift = 0;
-    while (pos < bytes.length) {
-      const byte = bytes[pos++];
-      result |= (byte & 0x7f) << shift;
-      if ((byte & 0x80) === 0) break;
-      shift += 7;
-    }
-    return result >>> 0;
-  };
-
-  const readZigzag = (): number => {
-    const v = readVarint();
-    return (v >>> 1) ^ -(v & 1);
-  };
-
-  const count = readVarint();
   const points: LatLng[] = [];
-
-  let lat = 0;
-  let lng = 0;
-
-  for (let i = 0; i < count; i++) {
-    if (pos >= bytes.length) break;
-    lat += readZigzag();
-    lng += readZigzag();
-    points.push({
-      latitude: lat / SCALE,
-      longitude: lng / SCALE,
-    });
-  }
-
-  // Elevation section, mirroring the Rust read_elevations early returns.
-  if (pos >= bytes.length || bytes[pos] !== ELE_TAG) return points;
-  pos++;
-  if (pos >= bytes.length) return points;
-  const mode = bytes[pos++];
-
-  const exact = (mode & ELE_EXACT) !== 0;
-  let bitmap: Uint8Array | null = null;
-  if ((mode & ELE_MIXED) !== 0) {
-    const len = Math.ceil(points.length / 8);
-    if (bytes.length < pos + len) return points;
-    bitmap = bytes.subarray(pos, pos + len);
-    pos += len;
-  }
-
-  const view = new DataView(buf);
-  let prev = 0;
-  for (let i = 0; i < points.length; i++) {
-    if (bitmap !== null && (bitmap[i >> 3] & (1 << (i % 8))) === 0) {
-      continue;
+  const ok = walk(
+    buf,
+    () => {},
+    (latitude, longitude, elevation) => {
+      points.push(
+        elevation === undefined ? { latitude, longitude } : { latitude, longitude, elevation }
+      );
     }
-    if (exact) {
-      if (bytes.length < pos + 8) return points;
-      points[i].elevation = view.getFloat64(pos, true);
-      pos += 8;
-    } else {
-      if (pos >= bytes.length) return points;
-      prev += readZigzag();
-      points[i].elevation = prev / ELE_SCALE;
-    }
-  }
-
-  return points;
+  );
+  return ok ? points : [];
 }

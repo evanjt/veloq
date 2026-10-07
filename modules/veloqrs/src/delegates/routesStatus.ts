@@ -11,9 +11,17 @@
 
 import { getRoutesStatusData as ffiGetRoutesStatusData } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
-import type { ElevationBackfillPhase, ElevationBackfillProgress } from './elevation';
-import type { StreamBackfillPhase, StreamBackfillProgress } from './streamBackfill';
-import type { CutoverPhase } from './cutover';
+import {
+  ELEVATION_PHASES,
+  type ElevationBackfillPhase,
+  type ElevationBackfillProgress,
+} from './elevation';
+import {
+  STREAM_PHASES,
+  type StreamBackfillPhase,
+  type StreamBackfillProgress,
+} from './streamBackfill';
+import { CUTOVER_PHASES, type CutoverPhase } from './cutover';
 import type { SectionDetectionProgress } from '../conversions';
 
 export interface RoutesStatus {
@@ -34,72 +42,38 @@ export interface RoutesStatus {
   elevationPaused: boolean;
   cutover: { phase: CutoverPhase; running: boolean };
   /** Tiles processed and tiles in the sweep, `[0, 0]` when none runs. */
-  heatmapTiles: [number, number];
 }
 
-const ELEVATION_PHASES: ElevationBackfillPhase[] = [
-  'idle',
-  'fetching',
-  'complete',
-  'partial',
-  'failed',
-  'paused',
-];
-
-const STREAM_PHASES: StreamBackfillPhase[] = [
-  'idle',
-  'fetching',
-  'complete',
-  'partial',
-  'stopped',
-  'failed',
-];
-
-const CUTOVER_PHASES: CutoverPhase[] = [
-  'idle',
-  'draining',
-  'archiving',
-  'detecting',
-  'diffing',
-  'complete',
-  'failed',
-];
-
 /** An unrecognised phase reads as idle rather than as a finished run. */
-function narrow<T extends string>(phases: T[], phase: string, fallback: T): T {
+function narrow<T extends string>(phases: readonly T[], phase: string, fallback: T): T {
   return phases.includes(phase as T) ? (phase as T) : fallback;
 }
 
 /**
- * Read every figure at once. Null is the engine being unable to answer, which
- * each caller reads its own way: a count is not a zero and a phase is not idle.
+ * Read every figure at once. Null is the engine not being open, and a failed
+ * read throws, which each caller reads its own way: a count is not a zero and a
+ * phase is not idle.
  */
 export function getRoutesStatusData(host: DelegateHost): RoutesStatus | null {
   if (!host.ready) return null;
-  try {
-    const status = host.timed('getRoutesStatusData', () => ffiGetRoutesStatusData());
-    return {
-      detection: status.detection ?? null,
-      detectionOutcome: status.detectionOutcome,
-      stream: {
-        ...status.stream,
-        phase: narrow(STREAM_PHASES, status.stream.phase, 'idle'),
-      },
-      streamRemaining: status.streamRemaining ?? null,
-      elevation: {
-        ...status.elevation,
-        phase: narrow(ELEVATION_PHASES, status.elevation.phase, 'idle'),
-      },
-      elevationRemaining: status.elevationRemaining ?? null,
-      elevationPaused: status.elevationPaused,
-      cutover: {
-        phase: narrow(CUTOVER_PHASES, status.cutover.phase, 'idle'),
-        running: status.cutover.running,
-      },
-      heatmapTiles: [status.heatmapTiles[0] ?? 0, status.heatmapTiles[1] ?? 0],
-    };
-  } catch (e) {
-    console.error('[Engine] getRoutesStatusData threw:', e);
-    return null;
-  }
+  const status = host.timed('getRoutesStatusData', () => ffiGetRoutesStatusData());
+  return {
+    detection: status.detection ?? null,
+    detectionOutcome: status.detectionOutcome,
+    stream: {
+      ...status.stream,
+      phase: narrow(STREAM_PHASES, status.stream.phase, 'idle'),
+    },
+    streamRemaining: status.streamRemaining ?? null,
+    elevation: {
+      ...status.elevation,
+      phase: narrow(ELEVATION_PHASES, status.elevation.phase, 'idle'),
+    },
+    elevationRemaining: status.elevationRemaining ?? null,
+    elevationPaused: status.elevationPaused,
+    cutover: {
+      phase: narrow(CUTOVER_PHASES, status.cutover.phase, 'idle'),
+      running: status.cutover.running,
+    },
+  };
 }

@@ -12,9 +12,9 @@
 // lands on whoever next changes the FFI surface and cannot regenerate, which
 // happened three commits after the first one landed.
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { treeSources } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -26,17 +26,6 @@ const CRATE = join(ROOT, 'modules/veloqrs/rust/veloqrs/src');
 
 /** The one error type the bindings can render. */
 const ALLOWED = 'VeloqError';
-
-function walk(dir, out = []) {
-  if (!existsSync(dir)) return out;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const { name } = entry;
-    const full = join(dir, name);
-    if (entry.isDirectory()) walk(full, out);
-    else if (name.endsWith('.rs')) out.push(full);
-  }
-  return out;
-}
 
 // The return type of the signature beginning at `line`, which may wrap over
 // several lines: everything from the `->` to the `{` that opens the body.
@@ -85,8 +74,10 @@ function throwType(ret) {
     .replace(/^crate::/, '');
 }
 
-for (const file of walk(CRATE)) {
-  const lines = readFileSync(file, 'utf8').split('\n');
+for (const [rel, bytes] of treeSources(ROOT, [relative(ROOT, CRATE)])) {
+  if (!rel.endsWith('.rs')) continue;
+  const file = join(ROOT, rel);
+  const lines = bytes.toString('utf8').split('\n');
   lines.forEach((line, i) => {
     if (!/^\s*#\[uniffi::export/.test(line)) return;
     for (const j of exportedSignatures(lines, i)) {

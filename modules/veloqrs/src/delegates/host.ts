@@ -7,6 +7,7 @@
  */
 
 import type { VeloqEngineLike } from '../generated/veloqrs';
+import type { CallPlace } from '../EngineClient';
 
 /**
  * The typed UniFFI engine handle. Typing this against the generated
@@ -35,7 +36,7 @@ export interface DelegateHost {
    */
   write(name: string, run: () => void): void;
   /** Wraps an FFI call with DEV-mode timing logs and optional metric recording. */
-  timed<T>(name: string, fn: () => T): T;
+  timed<T>(name: string, fn: () => T, place?: CallPlace): T;
   /** Emit a change notification to subscribers of a single event channel. */
   notify(event: string): void;
   /** Emit change notifications across multiple event channels at once. */

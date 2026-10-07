@@ -13,6 +13,11 @@ import type {
   SettingPair,
   SuggestedHome as FfiSuggestedHome,
   ExportPrivacyPreview as FfiExportPrivacyPreview,
+  FfiGpsPoint,
+  GpxFile as FfiGpxFile,
+  FfiBackupScreenData,
+  FfiCacheScreenData,
+  FfiBackgroundJobsData,
 } from '../generated/veloqrs';
 
 export function setNameTranslations(
@@ -27,40 +32,41 @@ export function setAthleteProfile(host: DelegateHost, json: string): void {
   host.write('setAthleteProfile', () => {
     try {
       host.engine.settings().setAthleteProfile(json);
-    } catch {
-      // Settings write failed - non-critical
+    } catch (e) {
+      console.error('[Engine] setAthleteProfile failed:', e);
     }
   });
 }
 
 export function getAthleteProfile(host: DelegateHost): string {
   if (!host.ready) return '';
-  try {
-    return host.timed('getAthleteProfile', () => host.engine.settings().getAthleteProfile()) ?? '';
-  } catch {
-    return '';
-  }
+  return host.timed('getAthleteProfile', () => host.engine.settings().getAthleteProfile()) ?? '';
 }
 
 export function setSportSettings(host: DelegateHost, json: string): void {
   host.write('setSportSettings', () => {
     try {
       host.engine.settings().setSportSettings(json);
-    } catch {
-      // Settings write failed - non-critical
+    } catch (e) {
+      console.error('[Engine] setSportSettings failed:', e);
     }
   });
 }
 
 export function getSportSettings(host: DelegateHost): string {
   if (!host.ready) return '';
-  try {
-    return host.timed('getSportSettings', () => host.engine.settings().getSportSettings()) ?? '';
-  } catch {
-    return '';
-  }
+  return host.timed('getSportSettings', () => host.engine.settings().getSportSettings()) ?? '';
 }
 
+/**
+ * The heart rate zone, numbered from 1, a reading falls in for a sport type,
+ * from the athlete's own zones. Null when the engine is not open or the reading
+ * is not a positive number. A failed read throws the engine's error.
+ */
+export function hrZoneFor(host: DelegateHost, sportType: string, bpm: number): number | null {
+  if (!host.ready) return null;
+  return host.timed('hrZoneFor', () => host.engine.settings().hrZoneFor(sportType, bpm)) ?? null;
+}
 
 /**
  * Where the athlete's rides start and finish most often, for the export
@@ -69,12 +75,26 @@ export function getSportSettings(host: DelegateHost): string {
  */
 export function suggestExportHome(host: DelegateHost): FfiSuggestedHome | null {
   if (!host.ready) return null;
-  try {
-    return host.timed('suggestExportHome', () => host.engine.settings().suggestExportHome()) ?? null;
-  } catch (e) {
-    console.error('[Engine] suggestExportHome threw:', e);
-    return null;
-  }
+  return host.timed('suggestExportHome', () => host.engine.settings().suggestExportHome()) ?? null;
+}
+
+export function getBackupScreenData(host: DelegateHost): FfiBackupScreenData | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getBackupScreenData', () => host.engine.settings().backupScreenData());
+}
+
+export function getCacheScreenData(host: DelegateHost): FfiCacheScreenData | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getCacheScreenData', () => host.engine.settings().cacheScreenData());
+}
+
+/**
+ * Each background job's last run and what the jobs still owe. Read when a job
+ * settles or activities land, never on the progress poll.
+ */
+export function getBackgroundJobsData(host: DelegateHost): FfiBackgroundJobsData | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getBackgroundJobsData', () => host.engine.settings().backgroundJobsData());
 }
 
 /**
@@ -88,23 +108,39 @@ export function exportPrivacyPreview(
   radiusM: number
 ): FfiExportPrivacyPreview | null {
   if (!host.ready) return null;
-  try {
-    return host.timed('exportPrivacyPreview', () =>
-      host.engine.settings().exportPrivacyPreview(homeLat, homeLng, radiusM)
-    );
-  } catch (e) {
-    console.error('[Engine] exportPrivacyPreview threw:', e);
-    return null;
-  }
+  return host.timed('exportPrivacyPreview', () =>
+    host.engine.settings().exportPrivacyPreview(homeLat, homeLng, radiusM)
+  );
+}
+
+/**
+ * The GPX file for one shared track with the export privacy trim applied, or
+ * null when the trim leaves too little to be a track. Throws when the engine
+ * cannot answer, because a file shared without the trim would carry the door.
+ */
+export function buildGpxFile(
+  host: DelegateHost,
+  name: string,
+  sport: string | undefined,
+  time: string | undefined,
+  points: FfiGpsPoint[]
+): FfiGpxFile | null {
+  if (!host.ready) throw new Error('Engine not ready');
+  return (
+    host.timed('buildGpxFile', () =>
+      host.engine.settings().buildGpxFile(name, sport, time, points)
+    ) ?? null
+  );
+}
+
+export function engineInstall(host: DelegateHost): number {
+  if (!host.ready) return 0;
+  return host.timed('engineInstall', () => host.engine.settings().engineInstall());
 }
 
 export function getSetting(host: DelegateHost, key: string): string | undefined {
   if (!host.ready) return undefined;
-  try {
-    return host.engine.settings().getSetting(key) ?? undefined;
-  } catch {
-    return undefined;
-  }
+  return host.timed('getSetting', () => host.engine.settings().getSetting(key)) ?? undefined;
 }
 
 export function setSetting(host: DelegateHost, key: string, value: string): void {
@@ -119,18 +155,20 @@ export function setSetting(host: DelegateHost, key: string, value: string): void
 
 /**
  * Write several settings in one transaction, skipping each pair whose value
- * is already stored. Returns how many were written, or 0 when the engine is
- * not up. One commit is two fsyncs on the calling thread, so a launch that
- * changes several keys pays it once.
+ * is already stored. A batch written before the engine opens is held and
+ * replayed at `initWithPath`, like every other write here. One commit is two
+ * fsyncs on the calling thread, so a launch that changes several keys pays it
+ * once.
  */
-export function setSettings(host: DelegateHost, pairs: SettingPair[]): number {
-  if (!host.ready || pairs.length === 0) return 0;
-  try {
-    return host.timed('setSettings', () => host.engine.settings().setSettings(pairs));
-  } catch {
-    // Settings write failed - non-critical
-    return 0;
-  }
+export function setSettings(host: DelegateHost, pairs: SettingPair[]): void {
+  if (pairs.length === 0) return;
+  host.write('setSettings', () => {
+    try {
+      host.engine.settings().setSettings(pairs);
+    } catch {
+      // Settings write failed - non-critical
+    }
+  });
 }
 
 /**
@@ -159,15 +197,12 @@ export function setNotificationTemplates(
 }
 
 /** The templates the last push left, or undefined before any push. */
-export function notificationTemplates(
-  host: DelegateHost
-): FfiNotificationTemplates | undefined {
+export function notificationTemplates(host: DelegateHost): FfiNotificationTemplates | undefined {
   if (!host.ready) return undefined;
-  try {
-    return host.engine.settings().notificationTemplates() ?? undefined;
-  } catch {
-    return undefined;
-  }
+  return (
+    host.timed('notificationTemplates', () => host.engine.settings().notificationTemplates()) ??
+    undefined
+  );
 }
 
 /**
@@ -176,19 +211,14 @@ export function notificationTemplates(
  */
 export function streamRetentionDays(host: DelegateHost): number | undefined {
   if (!host.ready) return undefined;
-  try {
-    return Number(host.engine.settings().streamRetentionDays());
-  } catch {
-    return undefined;
-  }
+  return host.timed('streamRetentionDays', () => host.engine.settings().streamRetentionDays());
 }
 
 /** Set the window and evict what now falls outside it. */
 export function setStreamRetentionDays(host: DelegateHost, days: number): void {
-  const window = BigInt(Math.trunc(days));
   host.write('setStreamRetentionDays', () => {
     try {
-      host.engine.settings().setStreamRetentionDays(window);
+      host.engine.settings().setStreamRetentionDays(days);
     } catch {
       // A failed write leaves the previous window in force, which is the safe
       // side: nothing is evicted that the athlete did not ask to evict.
@@ -199,11 +229,7 @@ export function setStreamRetentionDays(host: DelegateHost, days: number): void {
 /** Bytes the stream store holds, for the cache readout. */
 export function streamStoreBytes(host: DelegateHost): number {
   if (!host.ready) return 0;
-  try {
-    return Number(host.engine.settings().streamStoreBytes());
-  } catch {
-    return 0;
-  }
+  return host.timed('streamStoreBytes', () => host.engine.settings().streamStoreBytes());
 }
 
 export function deleteSetting(host: DelegateHost, key: string): void {

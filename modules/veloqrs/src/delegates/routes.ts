@@ -1,7 +1,7 @@
 /**
  * Route delegates.
  *
- * Wraps route group CRUD, performance queries, consensus polylines, exclusion
+ * Wraps route group CRUD, performance queries, representative polylines, exclusion
  * management, and the batched Routes screen payload. Mutations emit notifications
  * on the 'groups' channel so route lists re-fetch after rename/exclude.
  */
@@ -22,6 +22,8 @@ const EMPTY_ROUTE_PERFORMANCE_RESULT: FfiRoutePerformanceResult = {
   performances: [],
   activityMetrics: [],
   attemptCount: 0,
+  trendCurves: {},
+  histograms: {},
 };
 
 export function getGroups(host: DelegateHost): FfiRouteGroup[] {
@@ -47,12 +49,6 @@ export function getFilteredGroupSummaries(
   );
 }
 
-export function getGroupById(host: DelegateHost, groupId: string): FfiRouteGroup | null {
-  if (!host.ready) return null;
-  validateId(groupId, 'group ID');
-  return host.timed('getGroupById', () => host.engine.routes().getById(groupId)) ?? null;
-}
-
 export function setRouteName(host: DelegateHost, routeId: string, name: string): void {
   validateId(routeId, 'route ID');
   validateName(name, 'route name');
@@ -72,10 +68,12 @@ export function getAllRouteNames(host: DelegateHost): Record<string, string> {
 /** No track at all, in the encoded form the engine returns. */
 const EMPTY_TRACK = new Uint8Array([]).buffer;
 
-export function getConsensusRoute(host: DelegateHost, groupId: string): ArrayBuffer {
+export function getRepresentativeRoute(host: DelegateHost, groupId: string): ArrayBuffer {
   if (!host.ready) return EMPTY_TRACK;
   validateId(groupId, 'group ID');
-  return host.timed('getConsensusRoute', () => host.engine.routes().getConsensusRoute(groupId));
+  return host.timed('getRepresentativeRoute', () =>
+    host.engine.routes().getRepresentativeRoute(groupId)
+  );
 }
 
 export function getRoutePerformances(
@@ -143,11 +141,10 @@ export function getRoutesScreenData(
   query: FfiRoutesScreenQuery
 ): FfiRoutesScreenData | undefined {
   if (!host.ready) return undefined;
-  try {
-    return host.timed('getRoutesScreenData', () => host.engine.routes().getScreenData(query));
-  } catch {
-    return undefined;
-  }
+  // The first page is read while the screen mounts; every later page is read
+  // from a scroll, so it is held to the frame budget.
+  const place = query.groupOffset === 0 && query.sectionOffset === 0 ? 'mount' : 'gesture';
+  return host.timed('getRoutesScreenData', () => host.engine.routes().getScreenData(query), place);
 }
 
 export function setRouteRepresentative(
@@ -183,7 +180,7 @@ export function getActivityRouteHighlights(
 /**
  * Everything the route detail screen paints with in one round-trip: engine
  * counts, the route and its ranking list, every attempt across sports, the
- * consensus polyline, names, exclusions and per-activity signatures.
+ * representative polyline, names, exclusions and per-activity signatures.
  */
 export type RouteDetailData = Omit<FfiRouteDetailData, 'routeNames'> & {
   routeNames: Record<string, string>;

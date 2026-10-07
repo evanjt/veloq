@@ -52,6 +52,21 @@ describe('the cutover diff delegate', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
+  it('passes the counts record through, so a field the engine adds reaches the card', () => {
+    const counts = {
+      current: 1,
+      proposed: 2,
+      unchanged: 0,
+      changed: 1,
+      new: 1,
+      gone: 0,
+      merged: 4,
+    };
+    mockDiff.mockReturnValue(record({ counts }));
+
+    expect(getCutoverDiff(host(true))?.counts).toEqual(counts);
+  });
+
   it('gives the card the counts, with new spelled as the card spells it', () => {
     mockDiff.mockReturnValue(record());
 
@@ -86,11 +101,12 @@ describe('the cutover diff delegate', () => {
     expect(mockDiff).not.toHaveBeenCalled();
   });
 
-  it('answers null rather than throwing when the call itself throws', () => {
+  it('hands a failed read to the caller rather than reading it as no stored diff', () => {
+    const failure = new Error('engine gone');
     mockDiff.mockImplementation(() => {
-      throw new Error('engine gone');
+      throw failure;
     });
 
-    expect(getCutoverDiff(host(true))).toBeNull();
+    expect(() => getCutoverDiff(host(true))).toThrow(failure);
   });
 });

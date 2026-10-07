@@ -21,9 +21,9 @@
 // tens of thousands of lines that nobody reads, and the point is to fail that
 // diff rather than the device.
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, dirname, relative, resolve } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { treeSources } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -47,28 +47,13 @@ const ROOTS = [
 ];
 const EXT = /\.(kt|kts|java|swift|m|mm|h)$/;
 
-function walk(dir, out = []) {
-  if (!existsSync(dir)) return out;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const { name } = entry;
-    const full = join(dir, name);
-    if (entry.isDirectory()) {
-      if (name === 'node_modules' || name === 'build' || name === 'Pods') continue;
-      walk(full, out);
-    } else if (entry.isFile() && EXT.test(name)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
+const SKIPPED = new Set(['node_modules', 'build', 'Pods']);
 
 const offenders = [];
 for (const r of ROOTS) {
-  for (const file of walk(join(ROOT, r))) {
-    const text = readFileSync(file, 'utf8');
-    if (text.includes(SYMBOL)) {
-      offenders.push(relative(ROOT, file).split('\\').join('/'));
-    }
+  for (const [rel, bytes] of treeSources(ROOT, [r])) {
+    if (!EXT.test(rel) || rel.split('/').some((part) => SKIPPED.has(part))) continue;
+    if (bytes.toString('utf8').includes(SYMBOL)) offenders.push(rel);
   }
 }
 

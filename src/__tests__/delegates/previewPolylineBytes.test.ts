@@ -19,7 +19,6 @@ function row(overrides: Partial<FfiPreviewSection> = {}): FfiPreviewSection {
   return {
     id: 's1',
     status: 'new',
-    sport: 'Ride',
     polyline: new Uint8Array(BYTES).buffer,
     visits: 3,
     distanceM: 1200,

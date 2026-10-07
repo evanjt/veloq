@@ -45,6 +45,22 @@ for f in src/generated/veloqrs.ts src/generated/veloqrs-ffi.ts \
   sed "${SED_INPLACE[@]}" -e 's/ \xe2\x80\x94 /, /g' -e 's/\xe2\x80\x94/-/g' "$f"
 done
 
+# The generator emits the error variants' `static instanceOf` without `override`, and
+# it hides the static of the same name on `UniffiError`, so `noImplicitOverride` refuses
+# it in the typechecked bindings. A class that extends `UniffiError` is one whose
+# `extends` line names it; the next class opening ends that span. A line that already
+# says `override` is left alone, so a second run changes nothing.
+if [ -f src/generated/veloqrs.ts ]; then
+  tmp="$(mktemp)"
+  awk '
+    /^  (export )?class / { in_error = 0 }
+    /extends UniffiError/ { in_error = 1 }
+    in_error && /^    static instanceOf\(/ { sub(/static instanceOf/, "static override instanceOf") }
+    { print }
+  ' src/generated/veloqrs.ts > "$tmp" && cat "$tmp" > src/generated/veloqrs.ts
+  rm -f "$tmp"
+fi
+
 # Restore the custom iOS TurboModule files, but only the ones the generator
 # actually took. See restore-ios-turbomodule.sh for why that matters.
 "$(dirname "$0")/restore-ios-turbomodule.sh" "$(pwd)"
