@@ -4,19 +4,25 @@
 //! to Kotlin and Swift. All FFI functions are prefixed with `ffi_` to avoid
 //! naming conflicts with the internal API.
 
+use std::time::Instant;
+
+use log::info;
+use tracematch::GpsPoint;
+
 use crate::init_logging;
 use crate::objects::observer::Announcement;
-use log::info;
 
-/// How many leftover time streams are asked for at once.
-///
-/// Only activities outside the stream retention window reach here: a widened
-/// fetch carries `time` with the track and stores it there. The governor paces
-/// the requests either way, so this bounds the memory a chunk holds rather
-/// than the rate.
-const TIME_STREAM_CONCURRENCY: usize = 25;
-use std::time::Instant;
-use tracematch::GpsPoint;
+use crate::objects::sync::TIME_STREAM_CONCURRENCY;
+
+async fn park_track_auth_failure(
+    result: &crate::http::ActivityMapResult,
+    transport: &crate::net::Transport,
+    athlete_id: &str,
+) {
+    if result.error.as_deref() == Some("unauthorized") {
+        crate::objects::park_auth_expired(transport, athlete_id).await;
+    }
+}
 
 /// Result of polling download progress.
 /// Used by TypeScript to show real-time progress without cross-thread callbacks.
@@ -28,17 +34,6 @@ pub struct DownloadProgressResult {
     pub total: u32,
     /// Whether a download is currently active
     pub active: bool,
-}
-
-// ============================================================================
-// Frequent Sections Detection
-// ============================================================================
-
-/// Input mapping activity IDs to sport types
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct ActivitySportType {
-    pub activity_id: String,
-    pub sport_type: String,
 }
 
 /// Check a credential and report the athlete it belongs to, without storing it.
@@ -58,44 +53,29 @@ pub async fn validate_credentials(
     crate::objects::sync::validate_credentials_detached(method, secret).await
 }
 
-/// Ask the running fetch-and-store to stop. Returns whether there was one.
+/// Ask one fetch-and-store run to stop. Returns whether that run was still in
+/// the queue.
 ///
 /// Cooperative and scoped to the run: the loop checks between activities, so
 /// the one in flight finishes and lands, and the attach tail still runs over
-/// whatever did. The flag is cleared by the reset every run makes, so a cancel
-/// cannot outlive the download it was aimed at.
+/// whatever did. The flag belongs to that run's queue entry and ends with the run, so a
+/// cancel cannot reach a later download.
 #[uniffi::export]
-pub fn cancel_fetch_and_store() -> bool {
-    crate::http::cancel_download()
-}
-
-/// Get current download progress for FFI polling.
-///
-/// TypeScript should poll this every 100ms during fetch operations
-/// to get smooth progress updates without cross-thread callback issues.
-///
-/// Returns DownloadProgressResult with completed/total/active fields.
-/// When active is false, the download has completed (or never started).
-#[uniffi::export]
-pub fn get_download_progress() -> DownloadProgressResult {
-    let (completed, total, active) = crate::http::get_download_progress();
-    DownloadProgressResult {
-        completed,
-        total,
-        active,
-    }
+pub fn cancel_fetch_and_store(run: f64) -> bool {
+    crate::http::cancel_download(crate::ffi_types::uint_from_wire(run))
 }
 
 /// Progress for one fetch run, by the id `start_fetch_and_store` returned.
 ///
-/// `get_download_progress` answers for the queue head and reports active for
+/// The global read answers for the queue head and reports active for
 /// any non-empty queue, so a caller whose own run has already finished kept
 /// reading active for as long as somebody else's held the slot, and its screen
 /// sat on a bar counting someone else's activities. A run that has left the
 /// queue reads inactive here, whatever is still downloading.
 #[uniffi::export]
-pub fn get_fetch_run_progress(run: u64) -> DownloadProgressResult {
-    let (completed, total, active) = crate::http::run_download_progress(run);
+pub fn get_fetch_run_progress(run: f64) -> DownloadProgressResult {
+    let (completed, total, active) =
+        crate::http::run_download_progress(crate::ffi_types::uint_from_wire(run));
     DownloadProgressResult {
         completed,
         total,
@@ -209,6 +189,21 @@ pub fn validate_backup_database(path: String) -> Result<FfiBackupValidation, cra
     })
 }
 
+/// Convert a SQLite backup to the record format through a migrated copy.
+#[uniffi::export]
+pub async fn convert_legacy_database_to_record_backup(
+    source_path: String,
+    dest_path: String,
+) -> Result<(), crate::VeloqError> {
+    crate::runtime::ASYNC_RUNTIME
+        .spawn_blocking(move || {
+            crate::persistence::record_backup::convert_legacy_database(&source_path, &dest_path)
+        })
+        .await
+        .unwrap_or_else(|e| Err(format!("Backup conversion thread died: {e}")))
+        .map_err(|msg| crate::VeloqError::Database { msg })
+}
+
 /// Stored points for one fetched track.
 ///
 /// `elevations` shares the index space of `latlngs`, so each coordinate reads
@@ -313,94 +308,132 @@ pub(crate) fn counts_as_failure(refusal: &TrackRefusal) -> bool {
     matches!(refusal, TrackRefusal::Fetch(_))
 }
 
+/// The refusal the engine records, when it is a final answer. A failed fetch
+/// says nothing about the activity and is never recorded, so it stays a
+/// candidate.
+pub(crate) fn final_refusal(
+    refusal: &TrackRefusal,
+) -> Option<crate::persistence::TrackRefusalKind> {
+    match refusal {
+        TrackRefusal::Fetch(_) => None,
+        TrackRefusal::NoTrack => Some(crate::persistence::TrackRefusalKind::NoTrack),
+        TrackRefusal::TooShort => Some(crate::persistence::TrackRefusalKind::TooShort),
+    }
+}
+
 /// Store one downloaded track, attach it to the catalogue, then announce it.
 ///
-/// Returns whether the track landed and how many portions attached. The
-/// announcement is made after `with_persistent_engine` returns: the binding
-/// blocks this thread until JavaScript answers, and a listener reading the
-/// engine under the write lock would deadlock.
+/// Returns whether the track landed, how many portions attached and the engine
+/// install that stored it. `None` means the run's install has closed.
+/// The announcement follows the engine lock:
+/// the binding blocks this thread until JavaScript answers, and a listener
+/// reading the engine under the write lock would deadlock.
 fn store_downloaded_track(
+    install: u64,
     activity_id: &str,
     coords: Vec<GpsPoint>,
+    series: crate::persistence::ElevationSeries,
     sport: String,
     streams: &[crate::net::types::StreamDto],
     times: &[u32],
-) -> (bool, u32) {
+) -> Option<(bool, u32, u64)> {
+    store_track(
+        install,
+        activity_id,
+        coords,
+        series,
+        sport,
+        streams,
+        times,
+        true,
+    )
+}
+
+/// `store_downloaded_track` with the attach optional. A caller that indexes
+/// the activity straight afterwards stores without it, because the index
+/// attaches once itself and a second match rewrites the same junction rows.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn store_track(
+    install: u64,
+    activity_id: &str,
+    coords: Vec<GpsPoint>,
+    series: crate::persistence::ElevationSeries,
+    sport: String,
+    streams: &[crate::net::types::StreamDto],
+    times: &[u32],
+    attach: bool,
+) -> Option<(bool, u32, u64)> {
     let elevation_state = elevation_state_of(&coords);
+    let elevation_source = crate::persistence::elevation_source_of(&coords, series);
 
     // Store directly in engine, then attach: junction rows against the
     // existing catalogue so visits and laps are current while the download
     // runs. New sections wait for conditioning.
-    let (stored, attached_portions) = crate::persistence::with_persistent_engine(|engine| {
-        let ok = engine
-            .add_activity(activity_id.to_string(), coords, sport)
-            .is_ok();
-        if ok {
-            // The insert replaces the row and resets the column, so
-            // provenance is recorded after the points land.
-            if let Err(e) =
-                engine.record_elevation_state(&[(activity_id.to_string(), elevation_state)])
-            {
-                log::warn!(
-                    "[Elevation] {} stored without provenance: {}",
-                    activity_id,
-                    e
-                );
+    let (stored, attached_portions, time_stream_persisted) =
+        crate::persistence::with_persistent_engine_for(install, |engine| {
+            let mut time_stream_persisted = false;
+            let added = engine.add_activity(activity_id.to_string(), coords, sport);
+            let ok = added.is_ok();
+            let track_changed = added.is_ok_and(|changed| !changed.is_empty());
+            if ok {
+                // The insert replaces the row and resets the column, so
+                // provenance is recorded after the points land.
+                if let Err(e) = engine
+                    .record_elevation_state(&[(activity_id.to_string(), elevation_state)])
+                    .and_then(|()| {
+                        engine
+                            .record_elevation_source(&[(activity_id.to_string(), elevation_source)])
+                    })
+                {
+                    log::warn!(
+                        "[Elevation] {} stored without provenance: {}",
+                        activity_id,
+                        e
+                    );
+                }
+                // Empty unless the fetch was widened. The track is already down,
+                // so a failure here costs the series and not the activity.
+                if !streams.is_empty()
+                    && let Err(e) = engine.store_activity_streams(activity_id, streams)
+                {
+                    log::warn!("[Streams] {} stored without its series: {}", activity_id, e);
+                }
+                // The wide response already carried `time` in this same index
+                // space. Dropping it left every activity just stored named by
+                // `get_activities_missing_time_streams`, and the pass behind this
+                // one fetched the heaviest series in the response a second time,
+                // one activity at a time. Empty for a narrow fetch, which carries
+                // no `time` at all and still owes that pass.
+                if !times.is_empty() {
+                    // Deferred: the attach below fills this activity's lap times
+                    // at insert, and the batch's backfill runs once in
+                    // `attach_finalize`.
+                    time_stream_persisted = !engine
+                        .store_time_streams_flat(&[activity_id.to_string()], times, &[0])
+                        .is_empty();
+                }
             }
-            // Empty unless the fetch was widened. The track is already down,
-            // so a failure here costs the series and not the activity.
-            if !streams.is_empty()
-                && let Err(e) = engine.store_activity_streams(activity_id, streams)
-            {
-                log::warn!("[Streams] {} stored without its series: {}", activity_id, e);
-            }
-            // The wide response already carried `time` in this same index
-            // space. Dropping it left every activity just stored named by
-            // `get_activities_missing_time_streams`, and the pass behind this
-            // one fetched the heaviest series in the response a second time,
-            // one activity at a time. Empty for a narrow fetch, which carries
-            // no `time` at all and still owes that pass.
-            if !times.is_empty() {
-                // Deferred: the attach below fills this activity's lap times
-                // at insert, and the batch's backfill runs once in
-                // `attach_finalize`.
-                engine.store_time_streams_flat(&[activity_id.to_string()], times, &[0]);
-            }
-        }
-        let portions = if ok {
-            engine.attach_stored_activity(activity_id).1
-        } else {
-            0
-        };
-        (ok, portions)
-    })
-    .unwrap_or((false, 0));
+            let portions = if ok && attach {
+                engine.attach_after_store(activity_id, track_changed)
+            } else {
+                0
+            };
+            (ok, portions, time_stream_persisted)
+        })?;
 
     if stored {
         crate::objects::observer::notify(Announcement::GpsTrackStored(activity_id.to_string()));
         // Announced with the write lock released, the same reason the track is.
-        if !times.is_empty() {
+        if time_stream_persisted {
             crate::objects::observer::notify(Announcement::TimeStreamsStored(vec![
                 activity_id.to_string(),
             ]));
         }
     }
 
-    (stored, attached_portions)
+    Some((stored, attached_portions, install))
 }
 
-/// Start a background fetch that downloads GPS data and stores it directly
-/// in the persistent engine. This eliminates the FFI round-trip where GPS
-/// data would otherwise be sent to TypeScript and back.
-///
-/// Poll get_download_progress() to monitor progress.
-/// When active becomes false, call take_fetch_and_store_result() to get the result.
-///
-/// This is ~3x faster than the separate fetch + addActivities approach because:
-/// - No ~1.7MB GPS data transfer from Rust to TypeScript
-/// - No ~865KB GPS data transfer from TypeScript back to Rust
-/// - Direct storage in SQLite without serialization overhead
-///
 /// Start one fetch+store run and answer its id.
 ///
 /// The id is what `take_fetch_and_store_result` reads back with. Three callers
@@ -411,49 +444,101 @@ pub fn start_fetch_and_store(
     activity_ids: Vec<String>,
     sport_types: Vec<ActivitySportMapping>,
     priority: crate::http::DownloadPriority,
-) -> u64 {
-    use crate::elapsed_ms;
-    use std::collections::HashMap;
+) -> f64 {
     init_logging();
-
-    let ffi_start = Instant::now();
     let run = next_fetch_run();
-    let activity_count = activity_ids.len();
-    info!(
-        "[RUST: start_fetch_and_store] FFI called with {} activities (run {})",
-        activity_count, run
-    );
-
     // Credentials are held by the sync service, never passed per call. Without
     // one there is nothing to fetch, so settle the progress + result contract
     // immediately rather than spawning a thread that can only fail.
-    let Ok(fetcher) = crate::http::ActivityFetcher::from_credentials() else {
+    // The athlete is read with the transport, so the run is gated on the one
+    // whose credential it carries.
+    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
         info!("[RUST: start_fetch_and_store] No credentials set");
         store_fetch_run_result(
             run,
             FetchAndStoreResult {
                 synced_ids: vec![],
+                total: activity_ids.len() as u32,
                 failed_ids: activity_ids,
-                total: activity_count as u32,
                 success_count: 0,
                 total_points: 0,
             },
         );
-        return run;
+        return run as f64;
     };
+    start_fetch_and_store_run(
+        run,
+        activity_ids,
+        sport_types,
+        priority,
+        crate::http::ActivityFetcher::with_transport(transport),
+        Some(athlete_id),
+    ) as f64
+}
+
+#[cfg(test)]
+pub(crate) fn start_fetch_and_store_with_fetcher(
+    activity_ids: Vec<String>,
+    sport_types: Vec<ActivitySportMapping>,
+    priority: crate::http::DownloadPriority,
+    fetcher: crate::http::ActivityFetcher,
+) -> f64 {
+    start_fetch_and_store_run(
+        next_fetch_run(),
+        activity_ids,
+        sport_types,
+        priority,
+        fetcher,
+        None,
+    ) as f64
+}
+
+/// `signed_in_as` is the athlete whose credential the fetcher carries. The run
+/// stops dispatching, storing and asking for time streams once that athlete is
+/// no longer the one signed in, the way a cancel stops it. Only the test seam
+/// above passes `None`, for a fetcher aimed at a mock with no credential held.
+fn start_fetch_and_store_run(
+    run: u64,
+    activity_ids: Vec<String>,
+    sport_types: Vec<ActivitySportMapping>,
+    priority: crate::http::DownloadPriority,
+    fetcher: crate::http::ActivityFetcher,
+    signed_in_as: Option<String>,
+) -> u64 {
+    use crate::elapsed_ms;
+    use std::collections::HashMap;
+
+    let signed_in = move || {
+        signed_in_as
+            .as_deref()
+            .is_none_or(crate::objects::sync::still_signed_in)
+    };
+
+    let ffi_start = Instant::now();
+    info!(
+        "[RUST: start_fetch_and_store] FFI called with {} activities (run {})",
+        activity_ids.len(),
+        run
+    );
+    let install = crate::persistence::engine_install();
 
     // Build sport type lookup, and alongside it the set of activities inside
     // the stream retention window, which is what the fetch widens for.
     let sport_map_start = Instant::now();
     // The setting and the clock are read once for the whole batch. Asking the
     // engine per row ran a `SELECT` and a `Utc::now` apiece, under the write
-    // lock, for a window that cannot move mid-sync.
-    let retention = crate::persistence::with_persistent_engine(|engine| {
+    // lock, for a window that cannot move mid-sync. It is one settings row, so
+    // it comes through the read pool and does not wait behind a sync page
+    // holding the write lock. An install that moved since `install` was read
+    // is a wipe in progress, and widens nothing, as the locked read did.
+    let retention = crate::objects::error::with_reader(|conn| {
         (
-            engine.stream_retention_days(),
+            crate::persistence::streams::pooled::retention_days(conn),
             chrono::Utc::now().timestamp(),
         )
-    });
+    })
+    .ok()
+    .filter(|_| crate::persistence::engine_install() == install);
     let wide_ids: std::collections::HashSet<String> = match retention {
         Some((days, now)) => sport_types
             .iter()
@@ -490,7 +575,7 @@ pub fn start_fetch_and_store(
     let activity_ids_clone = activity_ids.clone();
 
     // Spawn background thread
-    std::thread::spawn(move || {
+    crate::threads::spawn_named("veloq-gps", move || {
         // The run leaves the queue on the way out of this thread however it
         // leaves. A panic unwinds this one thread and the process carries on,
         // so the tail below is not reached and the only consumer polls forever.
@@ -498,6 +583,19 @@ pub fn start_fetch_and_store(
         // during a background download runs after it rather than over it.
         let _slot = crate::http::hold_download_slot(run);
         let thread_start = Instant::now();
+        if crate::http::download_cancelled(run) || crate::persistence::engine_install() != install {
+            store_fetch_run_result(
+                run,
+                FetchAndStoreResult {
+                    synced_ids: vec![],
+                    failed_ids: vec![],
+                    total: 0,
+                    success_count: 0,
+                    total_points: 0,
+                },
+            );
+            return;
+        }
         info!(
             "[RUST: start_fetch_and_store] Thread started for {} activities",
             activity_ids.len()
@@ -513,35 +611,19 @@ pub fn start_fetch_and_store(
         // written, then lost the lot to a kill. Storage now runs alongside the
         // download.
         let fetch_start = Instant::now();
-        let (result_tx, result_rx) = std::sync::mpsc::channel::<crate::http::ActivityMapResult>();
-        let fetch_ids = activity_ids_clone.clone();
-        // Its own fetcher over a clone of the same transport, so the pooled
-        // client, the governor and the retry policy are still shared and the
-        // time-stream pass below keeps the one it was given.
-        let downloader = crate::http::ActivityFetcher::with_transport(fetcher.transport().clone());
-        let fetch = std::thread::spawn(move || {
-            crate::runtime::block_on(downloader.fetch_activity_maps_into(
-                run,
-                fetch_ids,
-                wide_ids,
-                None,
-                move |result| {
-                    // A send that fails means the storing loop has stopped,
-                    // which is a cancel: the result is dropped rather than
-                    // queued for nobody.
-                    result_tx.send(result).ok();
-                },
-            ));
-        });
-
         // Store directly in persistent engine (NO FFI round-trip!)
         use crate::persistence::sections::conditioning;
+        // Each store sweeps its tiles and would ask for a pass as the sweep
+        // ends. The tail below starts the one pass the whole run owes.
+        let tile_passes = crate::persistence::tiles::defer_tile_passes();
         let storage_start = Instant::now();
         let mut synced_ids = Vec::new();
         let mut failed_ids = Vec::new();
         let mut total_points: usize = 0;
         let mut total_attached_portions: u32 = 0;
         let mut fetch_success_count = 0usize;
+        let mut auth_checked = false;
+        let mut install_closed = false;
         let num_results = activity_ids_clone.len();
 
         // PERF ASSESSMENT: Storage is currently SEQUENTIAL (one activity at a time)
@@ -551,76 +633,246 @@ pub fn start_fetch_and_store(
             num_results
         );
 
-        for (idx, result) in result_rx.into_iter().enumerate() {
-            if result.success {
-                fetch_success_count += 1;
-            }
-            // Between activities, never inside one: a track stops being half
-            // written here, and the rows already stored stay whole.
-            if crate::http::download_cancelled(run) {
-                info!(
-                    "[RUST: start_fetch_and_store] Cancelled after {}/{} activities",
-                    idx, num_results
-                );
-                break;
-            }
-            let activity_start = Instant::now();
-            // The same gate the single-activity path uses, so the two cannot
-            // drift on what counts as a usable track.
-            match usable_track(&result) {
-                Ok(coords) => {
-                    {
+        // A bulk run asks the attempt store about every id, so a track that
+        // failed is remembered by the engine and backs off on its schedule. A
+        // run for one activity somebody is waiting on is not held back by it.
+        let uses_store = priority == crate::http::DownloadPriority::Bulk;
+        let mut offered = activity_ids_clone.clone();
+        let mut pass = 0u32;
+
+        'passes: loop {
+            pass += 1;
+            let mut backing_off: Vec<String> = Vec::new();
+            let mut to_fetch = offered.clone();
+            if uses_store {
+                let Some(claims) = crate::objects::tracks::claim_tracks(
+                    install,
+                    &offered,
+                    crate::persistence::attempts::now_ms(),
+                ) else {
+                    install_closed = true;
+                    break 'passes;
+                };
+                to_fetch = claims.taken;
+                backing_off = claims.backing_off;
+                // Ids that only just failed free on the store's own schedule,
+                // so a later pass waits for that rather than for a timer here.
+                if to_fetch.is_empty()
+                    && pass > 1
+                    && let Some(frees_at) = claims.frees_at
+                {
+                    let wait = frees_at - crate::persistence::attempts::now_ms();
+                    if wait <= crate::objects::tracks::MAX_RETRY_WAIT_MS {
+                        pass -= 1;
+                        let ready =
+                            Instant::now() + std::time::Duration::from_millis(wait.max(0) as u64);
+                        while Instant::now() < ready
+                            && !crate::http::download_cancelled(run)
+                            && signed_in()
                         {
-                            total_points += coords.len();
+                            std::thread::sleep(std::time::Duration::from_millis(50));
+                        }
+                        if crate::http::download_cancelled(run) || !signed_in() {
+                            break 'passes;
+                        }
+                        continue 'passes;
+                    }
+                }
+            }
+            // Still owed, and reported so, but not asked for in this pass.
+            failed_ids.extend(backing_off);
+            if to_fetch.is_empty() {
+                break 'passes;
+            }
 
-                            // Get sport type
-                            let sport = sport_map
-                                .get(&result.activity_id)
-                                .cloned()
-                                .unwrap_or_else(|| "Ride".to_string());
+            let (result_tx, result_rx) = std::sync::mpsc::channel::<(
+                crate::http::ActivityMapResult,
+                tokio::sync::OwnedSemaphorePermit,
+            )>();
+            let fetch_ids = to_fetch.clone();
+            let fetch_signed_in = signed_in.clone();
+            let pass_wide = wide_ids.clone();
+            // Its own fetcher over a clone of the same transport, so the pooled
+            // client, the governor and the retry policy are still shared and the
+            // time-stream pass below keeps the one it was given.
+            let downloader =
+                crate::http::ActivityFetcher::with_transport(fetcher.transport().clone());
+            let fetch = crate::threads::spawn_named("veloq-gps-fetch", move || {
+                crate::runtime::block_on(downloader.fetch_activity_maps_into(
+                    run,
+                    fetch_ids,
+                    pass_wide,
+                    None,
+                    fetch_signed_in,
+                    move |result, permit| {
+                        // A send that fails means the storing loop has stopped,
+                        // which is a cancel: the result is dropped rather than
+                        // queued for nobody.
+                        result_tx.send((result, permit)).ok();
+                    },
+                ));
+            });
+            let mut pass_failed: Vec<(String, String)> = Vec::new();
+            let mut pass_landed: Vec<String> = Vec::new();
+            let mut pass_refused: Vec<(String, crate::persistence::TrackRefusalKind)> = Vec::new();
 
-                            // Capture point count before moving coords
-                            let point_count = coords.len();
+            for (idx, (result, _permit)) in result_rx.into_iter().enumerate() {
+                // Between activities, never inside one: a track stops being half
+                // written here, and the rows already stored stay whole.
+                if crate::http::download_cancelled(run) {
+                    info!(
+                        "[RUST: start_fetch_and_store] Cancelled after {}/{} activities",
+                        idx, num_results
+                    );
+                    break;
+                }
+                // A sign-out ends the run like a cancel: what lands after it
+                // belongs to an athlete the app has been asked to forget.
+                if !signed_in() {
+                    info!(
+                        "[RUST: start_fetch_and_store] Signed out after {}/{} activities",
+                        idx, num_results
+                    );
+                    break;
+                }
+                if crate::persistence::engine_install() != install {
+                    install_closed = true;
+                    break;
+                }
+                if !auth_checked && result.error.as_deref() == Some("unauthorized") {
+                    auth_checked = true;
+                    if let Some(Ok((transport, athlete_id))) = crate::objects::current_session() {
+                        crate::runtime::block_on(park_track_auth_failure(
+                            &result,
+                            &transport,
+                            &athlete_id,
+                        ));
+                    }
+                }
+                if result.success {
+                    fetch_success_count += 1;
+                }
+                let activity_start = Instant::now();
+                // The same gate the single-activity path uses, so the two cannot
+                // drift on what counts as a usable track.
+                match usable_track(&result) {
+                    Ok(coords) => {
+                        {
+                            {
+                                // Get sport type
+                                let sport = sport_map
+                                    .get(&result.activity_id)
+                                    .cloned()
+                                    .unwrap_or_else(|| "Ride".to_string());
 
-                            let (stored, attached_portions) = store_downloaded_track(
-                                &result.activity_id,
-                                coords,
-                                sport,
-                                &result.streams,
-                                &result.times,
-                            );
-                            total_attached_portions += attached_portions;
+                                // Capture point count before moving coords
+                                let point_count = coords.len();
 
-                            let activity_time = elapsed_ms(activity_start);
-                            if stored {
-                                if idx == 0 || idx == num_results - 1 || activity_time > 10 {
-                                    info!(
-                                        "[RUST: PERF] Storage[{}/{}]: {} ({} points) in {} ms",
-                                        idx + 1,
-                                        num_results,
+                                let Some((stored, attached_portions, store_install)) =
+                                    store_downloaded_track(
+                                        install,
+                                        &result.activity_id,
+                                        coords,
+                                        crate::persistence::ElevationSeries::upstream(
+                                            result.elevation_corrected,
+                                        ),
+                                        sport,
+                                        &result.streams,
+                                        &result.times,
+                                    )
+                                else {
+                                    install_closed = true;
+                                    break;
+                                };
+                                total_points += point_count;
+                                total_attached_portions += attached_portions;
+
+                                let activity_time = elapsed_ms(activity_start);
+                                if stored {
+                                    if idx == 0 || idx == num_results - 1 || activity_time > 10 {
+                                        info!(
+                                            "[RUST: PERF] Storage[{}/{}]: {} ({} points) in {} ms",
+                                            idx + 1,
+                                            num_results,
+                                            result.activity_id,
+                                            point_count,
+                                            activity_time
+                                        );
+                                    }
+                                    pass_landed.push(result.activity_id.clone());
+                                    synced_ids.push(result.activity_id);
+                                    // Conditioning cadence: during a long
+                                    // backfill, a detection run fires every
+                                    // CONDITIONING_BATCH_ADDS stores so the
+                                    // catalogue grows while the download runs.
+                                    conditioning::note_stored_for(store_install, 1);
+                                    if crate::persistence::engine_install() == install {
+                                        conditioning::maybe_condition_backfill();
+                                    }
+                                } else {
+                                    pass_failed.push((
                                         result.activity_id,
-                                        point_count,
-                                        activity_time
-                                    );
+                                        "the track did not store".to_string(),
+                                    ));
                                 }
-                                synced_ids.push(result.activity_id);
-                                // Conditioning cadence: during a long
-                                // backfill, a detection run fires every
-                                // CONDITIONING_BATCH_ADDS stores so the
-                                // catalogue grows while the download runs.
-                                conditioning::note_stored(1);
-                                conditioning::maybe_condition_backfill();
-                            } else {
-                                failed_ids.push(result.activity_id);
                             }
                         }
                     }
-                }
-                Err(refusal) => {
-                    if counts_as_failure(&refusal) {
-                        failed_ids.push(result.activity_id);
+                    Err(refusal) => {
+                        if counts_as_failure(&refusal) {
+                            let error = result.error.clone().unwrap_or_default();
+                            pass_failed.push((result.activity_id, error));
+                        } else {
+                            // No track to get is a final answer, not a failure,
+                            // and it is remembered so the next run does not ask.
+                            if let Some(kind) = final_refusal(&refusal) {
+                                pass_refused.push((result.activity_id.clone(), kind));
+                            }
+                            pass_landed.push(result.activity_id);
+                        }
                     }
                 }
+            }
+
+            // The fetch thread is done once the channel closed, but a cancel drops
+            // the receiver first, so join it rather than leave it detached against
+            // a run this one has already reported on.
+            let _ = fetch.join();
+            let stopped = install_closed || crate::http::download_cancelled(run) || !signed_in();
+            let retry = !stopped
+                && pass < crate::objects::tracks::MAX_TRACK_PASSES
+                && pass_failed
+                    .iter()
+                    .any(|(_, error)| !crate::objects::tracks::network_absent(error));
+            if uses_store {
+                let unattempted: Vec<String> = to_fetch
+                    .iter()
+                    .filter(|id| {
+                        !pass_landed.contains(id) && !pass_failed.iter().any(|(f, _)| f == *id)
+                    })
+                    .cloned()
+                    .collect();
+                // Only the pass that ends the run counts a failure, so a run
+                // that retries is one settled run.
+                let settled = if retry || stopped {
+                    Vec::new()
+                } else {
+                    crate::objects::tracks::settled_failures(&pass_failed)
+                };
+                crate::objects::tracks::release_tracks(
+                    install,
+                    &pass_landed,
+                    &pass_refused,
+                    &pass_failed,
+                    &settled,
+                    &unattempted,
+                    crate::persistence::attempts::now_ms(),
+                );
+            }
+            offered = pass_failed.iter().map(|(id, _)| id.clone()).collect();
+            if !retry {
+                failed_ids.append(&mut offered);
+                break 'passes;
             }
         }
 
@@ -628,29 +880,46 @@ pub fn start_fetch_and_store(
         // fetch these itself, concurrently with this download; doing it here
         // keeps every request behind the one governor and leaves the section
         // maths with nothing left to fetch.
-        if !synced_ids.is_empty() {
-            let missing = crate::persistence::with_persistent_engine(|engine| {
+        if !synced_ids.is_empty() && !install_closed {
+            let missing = crate::persistence::with_persistent_engine_for(install, |engine| {
                 engine.get_activities_missing_time_streams(&synced_ids)
-            })
-            .unwrap_or_default();
+            });
+            let missing = missing.unwrap_or_else(|| {
+                install_closed = true;
+                Vec::new()
+            });
             // A chunk at a time, fetched together rather than one after the
             // other. Serially this was one round trip per activity on the tail
             // of the sync, after the concurrent batch had already finished.
             // The chunk is what bounds the memory: a two-hour ride at 1 Hz is
             // about 29 KB of `u32`, so a whole 500-activity pass held in one
             // go would be tens of megabytes for no reason.
-            for chunk in missing.chunks(TIME_STREAM_CONCURRENCY) {
+            'time_streams: for chunk in missing.chunks(TIME_STREAM_CONCURRENCY) {
                 if crate::http::download_cancelled(run) {
                     info!("[RUST: start_fetch_and_store] Cancelled before the remaining streams");
                     break;
                 }
+                if !signed_in() {
+                    info!("[RUST: start_fetch_and_store] Signed out before the remaining streams");
+                    break;
+                }
+                if crate::persistence::engine_install() != install {
+                    install_closed = true;
+                    break;
+                }
+                // The URL names the activity upstream, the chunk names it locally.
+                let upstream = crate::persistence::with_persistent_engine_for(install, |engine| {
+                    engine.intervals_ids(chunk)
+                })
+                .unwrap_or_default();
                 let fetched = crate::runtime::block_on(async {
                     let requests = chunk.iter().map(|activity_id| {
                         let transport = fetcher.transport().clone();
+                        let named = upstream.get(activity_id).unwrap_or(activity_id).clone();
                         async move {
                             let result = crate::net::endpoints::fetch_time_stream(
                                 &transport,
-                                activity_id,
+                                &named,
                                 crate::governor::Lane::Backfill,
                             )
                             .await;
@@ -659,7 +928,18 @@ pub fn start_fetch_and_store(
                     });
                     futures::future::join_all(requests).await
                 });
+                // One refusal speaks for the rest of the list, as it does for
+                // the tracks: the chunk already fetched is kept, and nothing
+                // further is asked for.
+                let mut refused = false;
                 for (activity_id, result) in fetched {
+                    if crate::http::download_cancelled(run) || !signed_in() {
+                        break 'time_streams;
+                    }
+                    if crate::persistence::engine_install() != install {
+                        install_closed = true;
+                        break 'time_streams;
+                    }
                     match result {
                         // An empty answer is stored as a zero-length row, the
                         // same as the backfill lane does. This request asked
@@ -667,47 +947,64 @@ pub fn start_fetch_and_store(
                         // none, so the row records that the question was put
                         // and the activity leaves the missing list for good.
                         Ok(times) => {
-                            let stored = crate::persistence::with_persistent_engine(|engine| {
-                                engine.store_time_streams_flat(
-                                    std::slice::from_ref(&activity_id),
-                                    &times,
-                                    &[0],
-                                );
-                            });
+                            let stored =
+                                crate::persistence::with_persistent_engine_for(install, |engine| {
+                                    engine.store_time_streams_flat(
+                                        std::slice::from_ref(&activity_id),
+                                        &times,
+                                        &[0],
+                                    )
+                                });
                             // Announced with the engine lock released, and only
                             // when the write landed.
-                            if stored.is_some() {
+                            if stored.is_none() {
+                                install_closed = true;
+                                break 'time_streams;
+                            } else if stored.is_some_and(|p| !p.is_empty()) {
                                 crate::objects::observer::notify(Announcement::TimeStreamsStored(
                                     vec![activity_id.clone()],
                                 ));
-                            } else {
-                                crate::objects::sync::discarded("time_stream", &activity_id);
                             }
                         }
+                        Err(crate::net::transport::NetError::Unauthorized) => refused = true,
                         Err(e) => info!(
                             "[RUST: start_fetch_and_store] Time stream {} failed: {}",
                             activity_id, e
                         ),
                     }
                 }
+                if refused {
+                    if let Some(Ok((transport, athlete_id))) = crate::objects::current_session() {
+                        crate::runtime::block_on(crate::objects::park_auth_expired(
+                            &transport,
+                            &athlete_id,
+                        ));
+                    }
+                    break;
+                }
             }
 
             // Attach batch tail: one regroup (ingest marked groups dirty) or
             // one indicator recompute for the whole batch, never per activity.
             // Runs after the time streams so lap times are real, not estimated.
-            crate::persistence::with_persistent_engine(|engine| {
-                engine.attach_finalize(total_attached_portions)
-            });
+            let finalised = if install_closed {
+                None
+            } else {
+                crate::persistence::with_persistent_engine_for(install, |engine| {
+                    engine.attach_finalize(total_attached_portions)
+                })
+            };
+            if finalised.is_none() {
+                install_closed = true;
+            }
             // Sync-end cadence: a batch too small for the backfill threshold
             // still gets its detection run, started here rather than by the
             // app after the fact.
-            conditioning::condition_pending();
+            if finalised.is_some() {
+                conditioning::condition_pending_for_install(install);
+            }
         }
 
-        // The fetch thread is done once the channel closed, but a cancel drops
-        // the receiver first, so join it rather than leave it detached against
-        // a run this one has already reported on.
-        let _ = fetch.join();
         info!(
             "[RUST: start_fetch_and_store] Fetch complete: {}/{} successful ({} ms)",
             fetch_success_count,
@@ -742,22 +1039,26 @@ pub fn start_fetch_and_store(
         let total_time = elapsed_ms(thread_start);
 
         // Spawn background heatmap tile generation with the new GPS data
-        if success_count > 0 {
-            let handle = crate::persistence::with_persistent_engine(|engine| {
+        if success_count > 0 && !install_closed {
+            crate::persistence::with_persistent_engine_for(install, |engine| {
                 engine.mark_heatmap_dirty();
                 // The ground the athlete's own regions need, pinned, on the
                 // same trigger and for the same reason: a sync that stored a
                 // track is what moves the bounds both passes key on.
                 crate::basemap::seed_ground_background(engine.activity_bounds());
-                engine.generate_tiles_background()
+                let centres = engine.preview_centres(u32::MAX);
+                crate::basemap::seed_terrain_background(
+                    centres
+                        .into_iter()
+                        .map(|centre| (centre.lat, centre.lng))
+                        .collect(),
+                );
+                engine.start_tile_pass();
             });
-            if let Some(Some(h)) = handle {
-                let mut guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner());
-                *guard = Some(h);
-            }
         }
+        // After the start and outside the lock: a pass held back during the
+        // run is asked for now, and the pass just started refuses it.
+        drop(tile_passes);
 
         // File the result under this run, so only the caller that started it
         // can read it back.
@@ -834,9 +1135,10 @@ fn take_fetch_run_result(run: u64) -> Option<FetchAndStoreResult> {
 /// run has finished.
 
 #[uniffi::export]
-pub fn take_fetch_and_store_result(run: u64) -> Option<FetchAndStoreResult> {
+pub fn take_fetch_and_store_result(run: f64) -> Option<FetchAndStoreResult> {
     init_logging();
 
+    let run = crate::ffi_types::uint_from_wire(run);
     let result = take_fetch_run_result(run);
 
     if let Some(ref r) = result {
@@ -963,15 +1265,18 @@ pub fn is_elevation_backfill_paused() -> bool {
 /// stop attempting runs for this install.
 ///
 /// Raises rather than answering zero when it cannot answer at all. The launch
-/// trigger stamps the app version on a zero and the cutover trigger reads one
-/// as permission to cut, so an absent engine or a locked database has to reach
-/// the caller as the null its delegate already handles.
+/// trigger stamps the app version on a zero and the cutover start reads one
+/// as permission to cut (it answers held while the queue is non-empty), so an
+/// absent engine or a locked database has to reach the caller as the null its
+/// delegate already handles.
 #[uniffi::export]
 pub fn get_elevation_backfill_remaining() -> Result<u32, crate::VeloqError> {
-    let remaining = crate::objects::error::with_engine(|e| e.elevation_backfill_remaining())?
-        .map_err(|e| crate::VeloqError::Database {
-            msg: format!("{}", e),
-        })?;
+    let remaining = crate::objects::error::with_reader(|conn| {
+        crate::net::elevation_backfill::pooled_elevation_backfill_remaining(conn)
+    })?
+    .map_err(|e| crate::VeloqError::Database {
+        msg: format!("{}", e),
+    })?;
     Ok(remaining.try_into().unwrap_or(u32::MAX))
 }
 
@@ -998,8 +1303,16 @@ pub fn start_stream_backfill() -> crate::objects::FfiStartOutcome {
     crate::net::stream_backfill::start_stream_backfill()
 }
 
+/// Record the athlete's yes to a large automatic download and start the pass.
+#[uniffi::export]
+pub fn consent_stream_backfill() -> crate::objects::FfiStartOutcome {
+    init_logging();
+    crate::net::stream_backfill::consent_stream_backfill()
+}
+
 /// Ask the stream backfill to stop. It ends at its next batch boundary, so the
-/// activities already stored stay stored.
+/// activities already stored stay stored. Stopping a pass held for the
+/// athlete's answer is the no.
 #[uniffi::export]
 pub fn stop_stream_backfill() {
     init_logging();
@@ -1014,8 +1327,11 @@ pub fn stop_stream_backfill() {
 /// the job being done.
 #[uniffi::export]
 pub fn get_stream_backfill_remaining() -> Result<u32, crate::VeloqError> {
-    let remaining = crate::objects::error::with_engine(|e| {
-        e.stream_backfill_remaining(crate::net::stream_backfill::STREAM_ATTEMPT_LIMIT)
+    let remaining = crate::objects::error::with_reader(|conn| {
+        crate::persistence::streams::pooled::backfill_remaining(
+            conn,
+            crate::net::stream_backfill::STREAM_ATTEMPT_LIMIT,
+        )
     })?
     .map_err(|e| crate::VeloqError::Database {
         msg: format!("{}", e),
@@ -1034,13 +1350,16 @@ pub fn get_stream_backfill_progress() -> StreamBackfillProgress {
         stored: snapshot.stored,
         failed: snapshot.failed,
         percent: snapshot.percent(),
+        estimate_requests: snapshot.estimate_requests,
+        estimate_bytes: snapshot.estimate_bytes as f64,
     }
 }
 
 /// What a poller sees while the stream backfill runs and after it settles.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct StreamBackfillProgress {
-    /// One of idle, fetching, complete, partial, stopped, failed.
+    /// One of idle, fetching, complete, partial, stopped, failed,
+    /// awaiting_consent.
     pub phase: String,
     /// Activities this pass has finished with, however they ended.
     pub completed: u32,
@@ -1052,6 +1371,10 @@ pub struct StreamBackfillProgress {
     pub failed: u32,
     /// Whole-percent progress. An empty queue is 100, not 0.
     pub percent: u32,
+    /// Requests the held pass would make. Meaningful while awaiting consent.
+    pub estimate_requests: u32,
+    /// Bytes on the wire the held pass would download.
+    pub estimate_bytes: f64,
 }
 
 /// Whether the Corridor-to-Unified cutover is pending.
@@ -1070,7 +1393,8 @@ pub fn is_cutover_running() -> bool {
 /// no unit of work to count, unlike the elevation queue.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct CutoverProgress {
-    /// idle, draining, archiving, detecting, diffing, complete or failed.
+    /// idle, draining, archiving, detecting, diffing, complete, failed, or
+    /// failed_after_apply once the new catalogue had landed.
     pub phase: String,
     /// Whether a run holds the slot right now.
     pub running: bool,
@@ -1116,8 +1440,6 @@ pub struct FfiRoutesStatusData {
     pub elevation_remaining: Option<u32>,
     pub elevation_paused: bool,
     pub cutover: CutoverProgress,
-    /// Tiles processed and tiles in the sweep, `[0, 0]` when none runs.
-    pub heatmap_tiles: Vec<u32>,
 }
 
 /// Read every routes background-job figure at once. Safe to poll at any time.
@@ -1157,19 +1479,6 @@ pub fn get_routes_status_data() -> FfiRoutesStatusData {
         get_elevation_backfill_remaining().ok()
     };
 
-    let heatmap_tiles = {
-        let handle = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        match handle.as_ref() {
-            Some(handle) => {
-                let (processed, total) = handle.get_progress();
-                vec![processed, total]
-            }
-            None => vec![0, 0],
-        }
-    };
-
     FfiRoutesStatusData {
         detection,
         detection_outcome,
@@ -1179,16 +1488,12 @@ pub fn get_routes_status_data() -> FfiRoutesStatusData {
         elevation_remaining,
         elevation_paused: is_elevation_backfill_paused(),
         cutover: get_cutover_progress(),
-        heatmap_tiles,
     }
 }
 
-/// Start the cutover on a background thread. Returns whether a run was
-/// started: false means no engine, not owed, or already running. A full cut is
-/// a cold detect over the whole library, so it must never be driven from the
-/// calling thread.
+/// Start the cutover on a background thread, returning the start verdict.
 #[uniffi::export]
-pub fn start_detector_cutover() -> bool {
+pub fn start_detector_cutover() -> crate::objects::FfiStartOutcome {
     crate::persistence::cutover::start_cutover()
 }
 
@@ -1216,7 +1521,11 @@ pub fn get_cutover_progress() -> CutoverProgress {
 /// Which claims the change card may make on this build.
 #[uniffi::export]
 pub fn get_change_card_support() -> crate::FfiChangeCardSupport {
-    let s = crate::persistence::with_persistent_engine(|e| e.change_card_support());
+    let s = crate::objects::error::with_reader(|conn| {
+        crate::persistence::cutover::change_card_support_from(conn).ok()
+    })
+    .ok()
+    .flatten();
     let s = s.unwrap_or(crate::persistence::cutover::ChangeCardSupport {
         deterministic: false,
         same_result_drip_or_batch: false,
@@ -1245,7 +1554,7 @@ pub fn get_change_card_support() -> crate::FfiChangeCardSupport {
 /// dropped alone, never taking the diff it rides in.
 #[uniffi::export]
 pub fn get_cutover_diff() -> Option<crate::FfiCutoverDiff> {
-    let json = crate::persistence::with_persistent_engine(|e| e.cutover_diff()).flatten()?;
+    let json = crate::persistence::cutover::cutover_diff_payload()?;
     parse_cutover_diff(&json)
 }
 
@@ -1272,19 +1581,36 @@ fn parse_cutover_diff(json: &str) -> Option<crate::FfiCutoverDiff> {
 /// The three steps each already exist and were only ever composed by the batch
 /// path, in a thread that reports through that slot. Composing them here is
 /// what lets a native caller hold an id and get a sentence out of it.
-#[uniffi::export]
-pub fn fetch_and_index_activity(
+#[cfg(test)]
+pub(crate) fn fetch_and_index_activity(
     activity_id: String,
+    sport_type: String,
+) -> Result<crate::FfiIndexActivitySummary, crate::VeloqError> {
+    fetch_and_index_activity_for(
+        crate::persistence::engine_install(),
+        &activity_id,
+        sport_type,
+    )
+}
+
+/// [`fetch_and_index_activity`] against the library a caller started in: a
+/// store or index after the install has moved is refused.
+pub(crate) fn fetch_and_index_activity_for(
+    install: u64,
+    activity_id: &str,
     sport_type: String,
 ) -> Result<crate::FfiIndexActivitySummary, crate::VeloqError> {
     init_logging();
     let started = Instant::now();
+    let activity_id = activity_id.to_string();
 
     let fetcher = crate::http::ActivityFetcher::from_credentials().map_err(|msg| {
         crate::VeloqError::NotFound {
             msg: format!("credentials: {}", msg),
         }
     })?;
+
+    let signed_in_as = crate::objects::current_session().and_then(|s| s.ok().map(|(_, id)| id));
 
     // One id, and narrow: the extra series a wide fetch brings are for the
     // chart screens, and this call is paying a push's budget for a track and
@@ -1300,6 +1626,20 @@ pub fn fetch_and_index_activity(
     let result = results.pop().ok_or_else(|| crate::VeloqError::NotFound {
         msg: format!("no result for {}", activity_id),
     })?;
+    if result.error.as_deref() == Some("unauthorized")
+        && let Some(Ok((transport, athlete_id))) = crate::objects::current_session()
+    {
+        crate::runtime::block_on(park_track_auth_failure(&result, &transport, &athlete_id));
+    }
+
+    // A plain sign-out keeps the library, so the install cannot see it: the
+    // credential the fetch ran on is what says nothing more may be stored.
+    if !signed_in_as
+        .as_deref()
+        .is_some_and(crate::objects::sync::still_signed_in)
+    {
+        return Err(crate::VeloqError::NotInitialized);
+    }
 
     // Every refusal is the same answer to the caller, there is no track to
     // index, and the message is which of the four it was.
@@ -1312,20 +1652,24 @@ pub fn fetch_and_index_activity(
     })?;
 
     let point_count = coords.len();
-    let (stored, _attached) = store_downloaded_track(
+    let (stored, _attached, _install) = store_track(
+        install,
         &activity_id,
         coords,
+        crate::persistence::ElevationSeries::upstream(result.elevation_corrected),
         sport_type,
         &result.streams,
         &result.times,
-    );
+        false,
+    )
+    .ok_or(crate::VeloqError::NotInitialized)?;
     if !stored {
         return Err(crate::VeloqError::Database {
             msg: format!("store failed for {}", activity_id),
         });
     }
 
-    let summary = crate::persistence::with_persistent_engine(|engine| {
+    let summary = crate::persistence::with_persistent_engine_for(install, |engine| {
         let summary = engine.index_new_activity(&activity_id);
         // Inside the take that indexed, so this costs no second one. A
         // foreground engine in another process is now behind the file by a
@@ -1368,6 +1712,7 @@ mod tests {
                 activity_id: "a1".to_string(),
                 latlngs,
                 elevations: None,
+                elevation_corrected: false,
                 body_bytes: 0,
                 streams: Vec::new(),
                 times: Vec::new(),
@@ -1407,6 +1752,20 @@ mod tests {
             assert!(counts_as_failure(&TrackRefusal::Fetch(
                 "timeout".to_string()
             )));
+        }
+
+        #[test]
+        fn only_a_final_refusal_is_recorded() {
+            use crate::persistence::TrackRefusalKind;
+            assert_eq!(final_refusal(&TrackRefusal::Fetch("timeout".into())), None);
+            assert_eq!(
+                final_refusal(&TrackRefusal::NoTrack),
+                Some(TrackRefusalKind::NoTrack)
+            );
+            assert_eq!(
+                final_refusal(&TrackRefusal::TooShort),
+                Some(TrackRefusalKind::TooShort)
+            );
         }
 
         #[test]
@@ -1467,10 +1826,10 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
 
-    use super::{elevation_state_of, store_downloaded_track, track_points};
+    use super::{elevation_state_of, store_downloaded_track, store_track, track_points};
     use crate::objects::observer::{EngineObserver, set_observer};
     use crate::persistence::{
-        ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, PERSISTENT_ENGINE,
+        ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ElevationSeries, PERSISTENT_ENGINE,
     };
     use crate::test_globals::{init_global_engine, serial_global_state};
     use tracematch::GpsPoint;
@@ -1525,9 +1884,9 @@ mod tests {
             // either, which answers "is this lock free right now" when the
             // question is "did the announcing thread let go of it".
             //
-            // The two are told apart by waiting, not by timing. A write lock
-            // this thread still holds can never be taken again, because a
-            // `RwLock` write is not reentrant, so no amount of retrying will
+            // The two are told apart by waiting, not by timing. The engine
+            // lock this thread still holds can never be taken again, because a
+            // `Mutex` is not reentrant, so no amount of retrying will
             // find it free. A neighbour's hold is milliseconds and frees on its
             // own. So retrying up to a ceiling answers the real question and
             // still fails, rather than hanging, on the regression it guards:
@@ -1553,15 +1912,192 @@ mod tests {
         fn detection_applied(&self) {}
         fn tiles_generated(&self) {}
         fn backfill_phase(&self, _phase: String) {}
+        fn stream_backfill_phase(&self, _phase: String) {}
         fn preview_phase(&self, _phase: String) {}
         fn cutover_settled(&self) {}
         fn preview_finished(&self) {}
+        fn recordings_changed(&self) {}
+        fn upload_permission_refused(&self) {}
     }
 
     fn downloaded_track(seed: f64) -> Vec<GpsPoint> {
         (0..8)
             .map(|i| GpsPoint::new(46.2 + seed + f64::from(i) * 0.001, 7.35 + seed))
             .collect()
+    }
+
+    fn elevated_track(seed: f64) -> Vec<GpsPoint> {
+        (0..8)
+            .map(|i| {
+                GpsPoint::with_elevation(
+                    46.2 + seed + f64::from(i) * 0.001,
+                    7.35 + seed,
+                    500.0 + f64::from(i),
+                )
+            })
+            .collect()
+    }
+
+    fn stored_source(id: &str) -> Option<u8> {
+        crate::persistence::with_persistent_engine(|engine| engine.elevation_source_of_track(id))
+            .expect("engine")
+    }
+
+    /// Scenario: the bulk ingest, the single fetch and the first-use step all
+    /// store through here, from a response whose elevation is the corrected
+    /// series, the device one, or neither.
+    ///
+    /// Expected behaviour: each track records the series its points carry, a
+    /// track with no elevation claims none, and storing the same activity again
+    /// records it again rather than leaving the reset of the replace.
+    #[test]
+    fn a_stored_track_records_the_series_its_elevation_came_from() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine("gps_elevation_source.db");
+        let install = crate::persistence::engine_install();
+        let store = |id: &str, points: Vec<GpsPoint>, series: ElevationSeries| {
+            store_track(install, id, points, series, "Ride".into(), &[], &[], false)
+                .expect("current install")
+                .0
+        };
+
+        assert!(store(
+            "ridge",
+            elevated_track(0.0),
+            ElevationSeries::Corrected
+        ));
+        assert!(store(
+            "valley",
+            elevated_track(0.1),
+            ElevationSeries::Device
+        ));
+        assert!(store(
+            "flat",
+            downloaded_track(0.2),
+            ElevationSeries::Corrected
+        ));
+
+        assert_eq!(
+            stored_source("ridge"),
+            Some(crate::persistence::ELEVATION_SOURCE_CORRECTED)
+        );
+        assert_eq!(
+            stored_source("valley"),
+            Some(crate::persistence::ELEVATION_SOURCE_DEVICE)
+        );
+        assert_eq!(
+            stored_source("flat"),
+            Some(crate::persistence::ELEVATION_SOURCE_UNKNOWN)
+        );
+
+        assert!(store(
+            "ridge",
+            elevated_track(0.0),
+            ElevationSeries::Corrected
+        ));
+        assert_eq!(
+            stored_source("ridge"),
+            Some(crate::persistence::ELEVATION_SOURCE_CORRECTED),
+            "a re-ingest keeps the series"
+        );
+        assert!(store(
+            "valley",
+            elevated_track(0.1),
+            ElevationSeries::Corrected
+        ));
+        assert_eq!(
+            stored_source("valley"),
+            Some(crate::persistence::ELEVATION_SOURCE_CORRECTED),
+            "a re-ingest from the other series records that one"
+        );
+    }
+
+    /// Scenario: the push path stores a track and then indexes it, and the
+    /// index attaches the activity to the catalogue itself.
+    /// Expected behaviour: storing without the attach writes no junction rows,
+    /// and the one index that follows writes the same rows an attaching store
+    /// does.
+    #[test]
+    fn a_store_without_attach_leaves_the_junction_rows_to_the_index() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine("store_without_attach.db");
+        let install = crate::persistence::engine_install();
+        for id in ["seed-a", "seed-b", "seed-c"] {
+            store_downloaded_track(
+                install,
+                id,
+                downloaded_track(0.0),
+                ElevationSeries::Corrected,
+                "Ride".into(),
+                &[],
+                &[],
+            )
+            .expect("current install");
+        }
+        crate::persistence::with_persistent_engine(|engine| {
+            let handle = engine.detect_sections_background();
+            let (sections, _) = handle.recv().expect("the detect ran");
+            engine.apply_sections(sections).unwrap();
+            assert!(!engine.get_sections().is_empty(), "a catalogue to match");
+        })
+        .expect("engine");
+
+        let (stored, portions, _) = store_track(
+            install,
+            "pushed",
+            downloaded_track(0.0),
+            ElevationSeries::Corrected,
+            "Ride".into(),
+            &[],
+            &[],
+            false,
+        )
+        .expect("current install");
+        assert!(stored);
+        assert_eq!(portions, 0, "no attach ran in the store");
+        let after_store = crate::persistence::with_persistent_engine(|engine| {
+            engine.get_sections_for_activity("pushed").len()
+        })
+        .expect("engine");
+        assert_eq!(after_store, 0, "the store wrote no junction rows");
+
+        let summary = crate::persistence::with_persistent_engine(|engine| {
+            engine.index_new_activity("pushed").unwrap()
+        })
+        .expect("engine");
+        assert!(summary.matched_sections >= 1, "{summary:?}");
+        let after_index = crate::persistence::with_persistent_engine(|engine| {
+            engine.get_sections_for_activity("pushed").len()
+        })
+        .expect("engine");
+        assert!(after_index >= 1);
+    }
+
+    #[test]
+    fn a_track_from_a_closed_install_does_not_enter_the_new_library() {
+        let _serial = serial_global_state();
+        let _old = init_global_engine("old-download.db");
+        let install = crate::persistence::engine_install();
+        let _new = init_global_engine("new-download.db");
+
+        let stored = store_downloaded_track(
+            install,
+            "old-athlete",
+            downloaded_track(0.0),
+            ElevationSeries::Corrected,
+            "Ride".into(),
+            &[],
+            &[],
+        );
+
+        assert!(stored.is_none(), "the old run must stop after reinstall");
+        assert!(
+            crate::persistence::with_persistent_engine(|engine| {
+                engine.get_gps_track("old-athlete").is_none()
+            })
+            .expect("new engine"),
+            "the new library must have no track from the old run"
+        );
     }
 
     #[test]
@@ -1571,8 +2107,17 @@ mod tests {
         let recorder = TrackRecorder::new();
         set_observer(Some(recorder.clone()));
 
-        let (stored, _portions) =
-            store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[], &[]);
+        let (stored, _portions, _install) = store_downloaded_track(
+            crate::persistence::engine_install(),
+            "a1",
+            downloaded_track(0.0),
+            ElevationSeries::Corrected,
+            "Ride".into(),
+            &[],
+            &[],
+        )
+        .expect("current install");
+        crate::objects::observer::flush();
         set_observer(None);
 
         assert!(stored, "the fixture track must store");
@@ -1614,6 +2159,7 @@ mod tests {
 
         recorder.gps_track_stored("a1".to_string());
         neighbour.join().expect("the neighbour thread");
+        crate::objects::observer::flush();
         set_observer(None);
 
         let (id, free, _points) = recorder
@@ -1638,8 +2184,16 @@ mod tests {
         let _tmp = init_global_engine("gps_times.db");
 
         let times: Vec<u32> = (0..8).map(|i| i * 10).collect();
-        let (stored, _portions) =
-            store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[], &times);
+        let (stored, _portions, _install) = store_downloaded_track(
+            crate::persistence::engine_install(),
+            "a1",
+            downloaded_track(0.0),
+            ElevationSeries::Corrected,
+            "Ride".into(),
+            &[],
+            &times,
+        )
+        .expect("current install");
 
         assert!(stored, "the fixture track must store");
         let missing = crate::persistence::with_persistent_engine(|engine| {
@@ -1660,7 +2214,15 @@ mod tests {
         let _serial = serial_global_state();
         let _tmp = init_global_engine("gps_no_times.db");
 
-        store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[], &[]);
+        store_downloaded_track(
+            crate::persistence::engine_install(),
+            "a1",
+            downloaded_track(0.0),
+            ElevationSeries::Corrected,
+            "Ride".into(),
+            &[],
+            &[],
+        );
 
         let missing = crate::persistence::with_persistent_engine(|engine| {
             engine.get_activities_missing_time_streams(&["a1".to_string()])
@@ -1684,7 +2246,15 @@ mod tests {
 
         let track = downloaded_track(0.0);
         let long: Vec<u32> = (0..(track.len() as u32 + 3)).map(|i| i * 10).collect();
-        store_downloaded_track("a1", track, "Ride".into(), &[], &long);
+        store_downloaded_track(
+            crate::persistence::engine_install(),
+            "a1",
+            track,
+            ElevationSeries::Corrected,
+            "Ride".into(),
+            &[],
+            &long,
+        );
 
         let missing = crate::persistence::with_persistent_engine(|engine| {
             // The store caches it in memory, and the in-memory check runs
@@ -1709,8 +2279,35 @@ mod tests {
         let recorder = TrackRecorder::new();
         set_observer(Some(recorder.clone()));
 
-        store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[], &[]);
-        store_downloaded_track("a1", downloaded_track(0.5), "Ride".into(), &[], &[]);
+        let install = crate::persistence::engine_install();
+        assert!(
+            store_downloaded_track(
+                install,
+                "a1",
+                downloaded_track(0.0),
+                ElevationSeries::Corrected,
+                "Ride".into(),
+                &[],
+                &[],
+            )
+            .is_some_and(|(stored, _, _)| stored)
+        );
+        crate::objects::observer::flush();
+        assert_eq!(recorder.seen().len(), 1);
+        assert_eq!(crate::persistence::engine_install(), install);
+        assert!(
+            store_downloaded_track(
+                install,
+                "a1",
+                downloaded_track(0.5),
+                ElevationSeries::Corrected,
+                "Ride".into(),
+                &[],
+                &[],
+            )
+            .is_some_and(|(stored, _, _)| stored)
+        );
+        crate::objects::observer::flush();
         set_observer(None);
 
         let ids: Vec<String> = recorder.seen().into_iter().map(|(id, _, _)| id).collect();
@@ -1973,3 +2570,23 @@ mod cutover_diff {
         assert!(parse_cutover_diff(r#"{"token":"t"}"#).is_none());
     }
 }
+
+#[cfg(test)]
+#[path = "tests/track_auth.rs"]
+mod track_auth_tests;
+
+#[cfg(test)]
+#[path = "tests/ffi_backfill.rs"]
+mod ffi_backfill_tests;
+
+#[cfg(test)]
+#[path = "tests/fetch_retention.rs"]
+mod fetch_retention_tests;
+
+#[cfg(test)]
+#[path = "tests/fetch_retry.rs"]
+mod fetch_retry_tests;
+
+#[cfg(test)]
+#[path = "tests/cutover_reads_under_a_writer.rs"]
+mod cutover_reads_under_a_writer_tests;

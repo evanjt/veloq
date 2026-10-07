@@ -29,15 +29,24 @@ pub fn name_cpu_pool() {
     });
 }
 
+/// Longest thread name the kernel keeps whole.
+const MAX_THREAD_NAME_BYTES: usize = 15;
+
 /// Spawn a worker under a name a sampler can read.
 ///
-/// Keep the name under fifteen characters: Linux truncates `comm` there, and a
-/// truncated name is worse than a short one to group by.
+/// Keep the name to fifteen bytes or fewer: the kernel's `comm` holds sixteen
+/// including the terminator, and a truncated name is worse than a short one to
+/// group by. A longer name panics in a debug build.
 pub fn spawn_named<F, T>(name: &str, work: F) -> JoinHandle<T>
 where
     F: FnOnce() -> T + Send + 'static,
     T: Send + 'static,
 {
+    debug_assert!(
+        name.len() <= MAX_THREAD_NAME_BYTES,
+        "veloqrs: [threads] {name} is {} bytes and Linux truncates thread names to {MAX_THREAD_NAME_BYTES}",
+        name.len()
+    );
     // `Builder::spawn` fails only where `thread::spawn` panics, when the OS
     // refuses the thread, so this is the call it replaces and not a new risk.
     Builder::new()

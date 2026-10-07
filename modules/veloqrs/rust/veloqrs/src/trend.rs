@@ -54,6 +54,26 @@ pub fn classify_value(baseline: f64, current: f64, deadband: f64) -> Option<i8> 
     value_improvement(baseline, current).map(|pct| classify_change(pct, deadband))
 }
 
+/// A three-way trend over one series of times, oldest to newest. Sections and
+/// routes both stand on it, so neither reads a thinner history than the other.
+///
+/// The median of the last three efforts against the median of the three
+/// before. Under six traversals there are not two windows to compare and the
+/// verdict is stable: it used to fall back to the first effort against the
+/// last, which is one day against one day, so a headwind on the first ride
+/// read as a season of progress while the card said "Recent median".
+pub fn median_window_trend(times: &[f64], deadband: f64) -> i8 {
+    if times.len() < 6 {
+        return 0;
+    }
+    let n = times.len();
+    let mut recent: Vec<f64> = times[n - 3..].to_vec();
+    let mut previous: Vec<f64> = times[n - 6..n - 3].to_vec();
+    recent.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    previous.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    classify_time(previous[1], recent[1], deadband).unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,5 +134,84 @@ mod tests {
         assert_eq!(classify_change(-0.05, 0.03), -1);
         assert_eq!(classify_change(0.03, 0.03), 0);
         assert_eq!(classify_change(f64::NAN, 0.03), 0);
+    }
+}
+
+/// Scenario: a section the athlete has ridden a handful of times. The card
+/// says "Recent median" under a verdict that, below six traversals, compared
+/// one day against one day.
+///
+/// Expected behaviour: the verdict is the medians the card names, and nothing
+/// at all until there are two windows of three to compare.
+#[cfg(test)]
+mod median_window_trend_tests {
+    use super::median_window_trend;
+
+    const TWO_PERCENT: f64 = 0.02;
+
+    #[test]
+    fn five_traversals_with_a_fast_last_one_are_no_trend() {
+        // 380, 400, 405, 410, 372: first against last called this improving
+        // while the middle three were the athlete's slowest.
+        let times = [380.0, 400.0, 405.0, 410.0, 372.0];
+        assert_eq!(median_window_trend(&times, TWO_PERCENT), 0);
+    }
+
+    #[test]
+    fn five_traversals_are_no_trend_in_either_direction() {
+        assert_eq!(
+            median_window_trend(&[405.0, 400.0, 395.0, 385.0, 380.0], TWO_PERCENT),
+            0
+        );
+        assert_eq!(
+            median_window_trend(&[380.0, 385.0, 395.0, 400.0, 405.0], TWO_PERCENT),
+            0
+        );
+    }
+
+    #[test]
+    fn six_traversals_speak_in_either_direction() {
+        assert_eq!(
+            median_window_trend(&[405.0, 400.0, 395.0, 385.0, 380.0, 375.0], TWO_PERCENT),
+            1
+        );
+        assert_eq!(
+            median_window_trend(&[375.0, 380.0, 385.0, 395.0, 400.0, 405.0], TWO_PERCENT),
+            -1
+        );
+    }
+
+    #[test]
+    fn three_traversals_are_no_trend() {
+        // A headwind on the first ride is not a season of progress.
+        assert_eq!(median_window_trend(&[400.0, 395.0, 380.0], TWO_PERCENT), 0);
+    }
+
+    #[test]
+    fn six_traversals_compare_the_two_medians() {
+        // Medians 400 then 380, five per cent faster.
+        let times = [405.0, 400.0, 395.0, 385.0, 380.0, 375.0];
+        assert_eq!(median_window_trend(&times, TWO_PERCENT), 1);
+    }
+
+    #[test]
+    fn a_rising_median_is_a_decline() {
+        let times = [375.0, 380.0, 385.0, 395.0, 400.0, 405.0];
+        assert_eq!(median_window_trend(&times, TWO_PERCENT), -1);
+    }
+
+    #[test]
+    fn a_move_inside_the_deadband_is_stable() {
+        // Medians 400 then 398, half a per cent.
+        let times = [401.0, 400.0, 399.0, 399.0, 398.0, 397.0];
+        assert_eq!(median_window_trend(&times, TWO_PERCENT), 0);
+    }
+
+    #[test]
+    fn the_windows_are_the_newest_six_and_the_order_inside_one_does_not_matter() {
+        let times = [900.0, 900.0, 405.0, 400.0, 395.0, 385.0, 380.0, 375.0];
+        let shuffled = [900.0, 900.0, 400.0, 405.0, 395.0, 375.0, 380.0, 385.0];
+        assert_eq!(median_window_trend(&times, TWO_PERCENT), 1);
+        assert_eq!(median_window_trend(&shuffled, TWO_PERCENT), 1);
     }
 }

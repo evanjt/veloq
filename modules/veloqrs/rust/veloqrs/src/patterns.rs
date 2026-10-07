@@ -50,11 +50,64 @@ const KMEANS_CONVERGENCE_THRESHOLD: f64 = 1e-6;
 // Public API
 // ============================================================================
 
+/// The device's local wall clock encoded as UTC, the encoding activity dates
+/// carry, so a weekday or a day count taken against them agrees.
+pub fn local_wall_clock_now() -> i64 {
+    chrono::Local::now().naive_local().and_utc().timestamp()
+}
+
+/// A detected recurring training pattern from k-means clustering, with the
+/// fields clustering and selection rank on. Only the fields a surface draws
+/// cross the FFI, as [`crate::FfiActivityPattern`].
+#[derive(Debug, Clone)]
+pub struct ActivityPattern {
+    pub sport_type: String,
+    pub cluster_id: u8,
+    pub primary_day: u8,
+    /// "winter", "spring", "summer", "autumn" or "all"
+    pub season_label: String,
+    pub activity_count: u32,
+    pub avg_duration_secs: u32,
+    pub avg_tss: f64,
+    pub avg_distance_meters: f64,
+    pub frequency_per_month: f64,
+    /// Weighted confidence score (0.0-1.0)
+    pub confidence: f64,
+    pub days_since_last: u32,
+}
+
+impl From<ActivityPattern> for crate::FfiActivityPattern {
+    fn from(p: ActivityPattern) -> Self {
+        Self {
+            sport_type: p.sport_type,
+            primary_day: p.primary_day,
+            avg_duration_secs: p.avg_duration_secs,
+            avg_tss: p.avg_tss,
+            activity_count: p.activity_count,
+        }
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    static COMPUTATIONS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn pattern_computations() -> u64 {
+    COMPUTATIONS.with(std::cell::Cell::get)
+}
+
 /// Compute activity patterns from in-memory metrics and SQLite section data.
+/// `now` is in the activity dates' own encoding, see `local_wall_clock_now`.
 pub fn compute_activity_patterns(
     db: &Connection,
     activity_metrics: &HashMap<String, ActivityMetrics>,
-) -> Vec<crate::FfiActivityPattern> {
+    now: i64,
+) -> Vec<ActivityPattern> {
+    #[cfg(test)]
+    COMPUTATIONS.with(|count| count.set(count.get() + 1));
+
     if activity_metrics.is_empty() {
         return Vec::new();
     }
@@ -101,7 +154,7 @@ pub fn compute_activity_patterns(
             best_k
         );
 
-        // Convert each valid cluster to an FfiActivityPattern
+        // Convert each valid cluster to an ActivityPattern
         for (cluster_idx, cluster) in clusters.iter().enumerate() {
             if let Some(pattern) = build_pattern(
                 &sport_features,
@@ -109,6 +162,7 @@ pub fn compute_activity_patterns(
                 cluster,
                 sport_type,
                 cluster_idx as u8,
+                now,
             ) {
                 patterns.push(pattern);
             }
@@ -127,23 +181,16 @@ pub fn compute_activity_patterns(
 
 /// Get the best-matching pattern for today's day of week and current season.
 /// Returns the highest-confidence pattern within +/-1 day tolerance.
-pub fn pattern_for_today(
-    all_patterns: &[crate::FfiActivityPattern],
-) -> Option<crate::FfiActivityPattern> {
+pub fn pattern_for_today(all_patterns: &[ActivityPattern], now: i64) -> Option<ActivityPattern> {
     if all_patterns.is_empty() {
         return None;
     }
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
 
     let today_dow = day_of_week_from_timestamp(now);
     let current_season = season_from_timestamp(now);
 
     // Filter patterns matching today (+/-1 day tolerance) and current season
-    let mut candidates: Vec<&crate::FfiActivityPattern> = all_patterns
+    let mut candidates: Vec<&ActivityPattern> = all_patterns
         .iter()
         .filter(|p| {
             let day_diff = (p.primary_day as i8 - today_dow as i8).unsigned_abs();
@@ -615,14 +662,15 @@ fn compute_cluster_silhouette(
 // Pattern Building
 // ============================================================================
 
-/// Build an FfiActivityPattern from a cluster, applying quality gates.
+/// Build an ActivityPattern from a cluster, applying quality gates.
 fn build_pattern(
     features: &[&ActivityFeature],
     _normalised: &[[f64; 4]],
     cluster: &ActivityCluster,
     sport_type: &str,
     cluster_id: u8,
-) -> Option<crate::FfiActivityPattern> {
+    now: i64,
+) -> Option<ActivityPattern> {
     let member_features: Vec<&&ActivityFeature> =
         cluster.members.iter().map(|&i| &features[i]).collect();
 
@@ -682,16 +730,12 @@ fn build_pattern(
     let season_label = compute_season_label(&member_features);
 
     // Days since last activity in this cluster
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
     let days_since_last = crate::calendar_days_between(max_date, now);
 
     // Confidence score
     let confidence = compute_confidence(cluster.silhouette, count, span_days, frequency_per_month);
 
-    Some(crate::FfiActivityPattern {
+    Some(ActivityPattern {
         sport_type: sport_type.to_string(),
         cluster_id,
         primary_day,
@@ -828,6 +872,46 @@ mod tests {
     /// A Tuesday, so the two weekly groups sit on different days.
     const FIXTURE_EPOCH: i64 = 1_704_153_600;
     const FIXTURE_WEEK: i64 = 7 * 86_400;
+    const FIXTURE_NOW: i64 = FIXTURE_EPOCH + 60 * FIXTURE_WEEK;
+
+    fn pattern_on(day: u8, days_since_last: u32) -> ActivityPattern {
+        ActivityPattern {
+            sport_type: "Ride".into(),
+            cluster_id: 0,
+            primary_day: day,
+            season_label: "all".into(),
+            activity_count: 20,
+            avg_duration_secs: 3600,
+            avg_tss: 50.0,
+            avg_distance_meters: 30_000.0,
+            frequency_per_month: 8.0,
+            confidence: 0.8,
+            days_since_last,
+        }
+    }
+
+    // 2024-01-03 08:00 as a wall clock encoded in UTC, a Wednesday.
+    const WEDNESDAY_MORNING: i64 = FIXTURE_EPOCH + 2 * 86_400 + 8 * 3_600;
+
+    #[test]
+    fn today_is_the_weekday_of_the_wall_clock_passed_in() {
+        let mut thursday = pattern_on(3, 0);
+        thursday.confidence = 0.5;
+        let monday = pattern_on(0, 0);
+        let chosen = pattern_for_today(&[monday, thursday], WEDNESDAY_MORNING).expect("a pattern");
+        assert_eq!(chosen.primary_day, 3);
+    }
+
+    #[test]
+    fn days_since_last_counts_against_the_wall_clock_passed_in() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let rows = fixture_rows();
+        let last = rows.iter().map(|r| r.date).max().expect("rows");
+        let next_morning = (last.div_euclid(86_400) + 1) * 86_400 + 8 * 3_600;
+        let patterns = compute_activity_patterns(&db, &as_map(rows), next_morning);
+        assert!(!patterns.is_empty());
+        assert!(patterns.iter().all(|p| p.days_since_last >= 1));
+    }
 
     fn metrics(
         id: &str,
@@ -898,7 +982,7 @@ mod tests {
     }
 
     /// Every field a caller can see, in the order the patterns are returned.
-    fn shapes(patterns: &[crate::FfiActivityPattern]) -> Vec<String> {
+    fn shapes(patterns: &[ActivityPattern]) -> Vec<String> {
         patterns
             .iter()
             .map(|p| {
@@ -923,7 +1007,11 @@ mod tests {
         let db = Connection::open_in_memory().expect("in-memory db");
         let rows = fixture_rows();
 
-        let baseline = shapes(&compute_activity_patterns(&db, &as_map(rows.clone())));
+        let baseline = shapes(&compute_activity_patterns(
+            &db,
+            &as_map(rows.clone()),
+            FIXTURE_NOW,
+        ));
         assert!(
             baseline.len() >= 2,
             "fixture must cluster into something to compare, got {:?}",
@@ -937,7 +1025,11 @@ mod tests {
                 ordered.reverse();
             }
             assert_eq!(
-                shapes(&compute_activity_patterns(&db, &as_map(ordered))),
+                shapes(&compute_activity_patterns(
+                    &db,
+                    &as_map(ordered),
+                    FIXTURE_NOW
+                )),
                 baseline,
                 "map order {} changed the patterns",
                 shift
@@ -974,7 +1066,11 @@ mod tests {
         let db = Connection::open_in_memory().expect("in-memory db");
         let rows = same_date_rows();
 
-        let baseline = shapes(&compute_activity_patterns(&db, &as_map(rows.clone())));
+        let baseline = shapes(&compute_activity_patterns(
+            &db,
+            &as_map(rows.clone()),
+            FIXTURE_NOW,
+        ));
         assert!(!baseline.is_empty(), "fixture must produce a pattern");
 
         for shift in 1..12usize {
@@ -984,7 +1080,11 @@ mod tests {
                 ordered.reverse();
             }
             assert_eq!(
-                shapes(&compute_activity_patterns(&db, &as_map(ordered))),
+                shapes(&compute_activity_patterns(
+                    &db,
+                    &as_map(ordered),
+                    FIXTURE_NOW
+                )),
                 baseline,
                 "map order {} changed the patterns",
                 shift
@@ -1014,20 +1114,24 @@ mod tests {
     fn patterns_of_a_single_activity_are_empty() {
         let db = Connection::open_in_memory().expect("in-memory db");
         let rows = vec![metrics("solo", "Ride", FIXTURE_EPOCH, 3_600, 30_000.0)];
-        assert!(compute_activity_patterns(&db, &as_map(rows)).is_empty());
+        assert!(compute_activity_patterns(&db, &as_map(rows), FIXTURE_NOW).is_empty());
     }
 
     #[test]
     fn patterns_of_an_empty_library_are_empty() {
         let db = Connection::open_in_memory().expect("in-memory db");
-        assert!(compute_activity_patterns(&db, &HashMap::new()).is_empty());
+        assert!(compute_activity_patterns(&db, &HashMap::new(), FIXTURE_NOW).is_empty());
     }
 
     #[test]
     fn a_sport_under_the_cluster_floor_contributes_nothing() {
         let db = Connection::open_in_memory().expect("in-memory db");
         let mut rows = fixture_rows();
-        let with_rides_only = shapes(&compute_activity_patterns(&db, &as_map(rows.clone())));
+        let with_rides_only = shapes(&compute_activity_patterns(
+            &db,
+            &as_map(rows.clone()),
+            FIXTURE_NOW,
+        ));
 
         for i in 0..MIN_CLUSTER_SIZE - 1 {
             rows.push(metrics(
@@ -1040,7 +1144,7 @@ mod tests {
         }
 
         assert_eq!(
-            shapes(&compute_activity_patterns(&db, &as_map(rows))),
+            shapes(&compute_activity_patterns(&db, &as_map(rows), FIXTURE_NOW)),
             with_rides_only
         );
     }

@@ -5,7 +5,6 @@
 //! by any tracematch algorithm - they exist solely for the app's storage and UI.
 
 use serde::{Deserialize, Serialize};
-use tracematch::GpsPoint;
 
 // ============================================================================
 // Activity Metrics
@@ -75,6 +74,13 @@ pub struct RoutePerformance {
     pub direction: String,
     /// Match percentage (0-100), None if no match data available
     pub match_percentage: Option<f64>,
+    /// True when the recorded distance sits outside the band around the
+    /// route's usual distance, so the attempt holds no record and is not
+    /// counted in the rank.
+    pub outside_distance_band: bool,
+    /// True when this attempt strictly beats every other counted attempt in
+    /// its sport and direction, under the one record rule.
+    pub is_record: bool,
 }
 
 /// Complete route performance result.
@@ -85,19 +91,21 @@ pub struct RoutePerformanceResult {
     pub performances: Vec<RoutePerformance>,
     /// Activity metrics for all activities in the route (inlined to avoid duplicate FFI call)
     pub activity_metrics: Vec<ActivityMetrics>,
-    /// Best performance (fastest speed) - overall regardless of direction
+    /// Fastest forward performance, or fastest reverse when none ran forward.
     pub best: Option<RoutePerformance>,
     /// Best performance in forward/same direction
     pub best_forward: Option<RoutePerformance>,
     /// Best performance in reverse direction
     pub best_reverse: Option<RoutePerformance>,
+    /// Best performance in the current activity's direction.
+    pub current_direction_best: Option<RoutePerformance>,
     /// Summary stats for forward/same direction
     pub forward_stats: Option<DirectionStats>,
     /// Summary stats for reverse direction
     pub reverse_stats: Option<DirectionStats>,
-    /// Current activity's rank (1 = fastest), if current_activity_id was provided
+    /// Current activity's standing, with rank one reserved for a strict record.
     pub current_rank: Option<u32>,
-    /// Attempts with a moving time, over the same population as `current_rank`
+    /// Timed comparable attempts in the current direction.
     pub attempt_count: u32,
     /// Share of those attempts slower than the current one, 0 to 100.
     /// `None` for a lone attempt or an activity that is not on the route.
@@ -132,9 +140,16 @@ pub struct SectionLap {
     /// Mean heart rate over the lap, when the activity carried a stream.
     #[serde(default, alias = "avg_hr")]
     pub avg_hr: Option<f64>,
+    /// Mean watts over the lap, when the activity carried a power stream.
+    #[serde(default, alias = "avg_power")]
+    pub avg_power: Option<f64>,
     /// Share of the section this lap spans, `None` until it is measured.
     #[serde(default)]
     pub coverage: Option<f64>,
+    /// The athlete excluded this traversal. Only a read that asked for
+    /// excluded rows carries one, and it never counts.
+    #[serde(default)]
+    pub excluded: bool,
 }
 
 /// Section performance record for an activity.
@@ -159,6 +174,12 @@ pub struct SectionPerformanceRecord {
     /// Best pace in m/s
     #[serde(alias = "best_pace")]
     pub best_pace: f64,
+    /// Best eligible forward lap time.
+    #[serde(default)]
+    pub best_forward_time: Option<f64>,
+    /// Best eligible reverse lap time.
+    #[serde(default)]
+    pub best_reverse_time: Option<f64>,
     /// Average lap time in seconds
     #[serde(alias = "avg_time")]
     pub avg_time: f64,
@@ -195,9 +216,6 @@ pub struct DirectionStats {
 pub struct SectionPerformanceResult {
     /// Performance records sorted by date (oldest first)
     pub records: Vec<SectionPerformanceRecord>,
-    /// Best record (fastest time) - overall regardless of direction
-    #[serde(alias = "best_record")]
-    pub best_record: Option<SectionPerformanceRecord>,
     /// Best record in forward/same direction
     #[serde(alias = "best_forward_record")]
     pub best_forward_record: Option<SectionPerformanceRecord>,
@@ -210,69 +228,6 @@ pub struct SectionPerformanceResult {
     /// Summary stats for reverse direction
     #[serde(alias = "reverse_stats")]
     pub reverse_stats: Option<DirectionStats>,
-}
-
-// ============================================================================
-// Custom Section Types
-// ============================================================================
-
-/// A user-created custom section definition.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CustomSection {
-    /// Unique identifier (e.g., "custom_1234567890_abc123")
-    pub id: String,
-    /// User-defined name
-    pub name: String,
-    /// GPS polyline defining the section path
-    pub polyline: Vec<GpsPoint>,
-    /// Activity this section was created from
-    pub source_activity_id: String,
-    /// Start index in the source activity's GPS track
-    pub start_index: u32,
-    /// End index in the source activity's GPS track
-    pub end_index: u32,
-    /// Sport type (e.g., "Ride", "Run")
-    pub sport_type: String,
-    /// Distance in meters
-    pub distance_meters: f64,
-    /// ISO 8601 timestamp when section was created
-    pub created_at: String,
-}
-
-/// A match between a custom section and an activity.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CustomSectionMatch {
-    /// Activity ID that matched the section
-    pub activity_id: String,
-    /// Start index in the activity's GPS track
-    pub start_index: u32,
-    /// End index in the activity's GPS track
-    pub end_index: u32,
-    /// Direction: "same" or "reverse"
-    pub direction: String,
-    /// Distance of the matched portion in meters
-    pub distance_meters: f64,
-}
-
-/// Configuration for custom section matching.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CustomSectionMatchConfig {
-    /// Maximum distance in meters between section and activity points (default: 50m)
-    pub proximity_threshold: f64,
-    /// Minimum percentage of section that must be covered (default: 0.8 = 80%)
-    pub min_coverage: f64,
-}
-
-impl Default for CustomSectionMatchConfig {
-    fn default() -> Self {
-        Self {
-            proximity_threshold: 50.0,
-            min_coverage: 0.8,
-        }
-    }
 }
 
 // ============================================================================
@@ -297,10 +252,6 @@ pub struct CalendarDirectionBest {
     pub best_activity_id: String,
     /// Name of best activity
     pub best_activity_name: String,
-    /// Unix timestamp of best activity
-    pub best_activity_date: i64,
-    /// True if time was estimated (no time stream)
-    pub is_estimated: bool,
 }
 
 /// Best performance in a calendar month, split by direction.
@@ -309,8 +260,11 @@ pub struct CalendarDirectionBest {
 pub struct CalendarMonthSummary {
     /// Month number (1-12)
     pub month: u32,
-    /// Total traversals in this month (both directions)
+    /// Total traversals in this month (both directions), one per lap
     pub traversal_count: u32,
+    /// Distinct activities those traversals came from
+    #[serde(default)]
+    pub activity_count: u32,
     /// Best forward/same direction performance (None if no forward traversals)
     pub forward: Option<CalendarDirectionBest>,
     /// Best reverse direction performance (None if no reverse traversals)
@@ -323,8 +277,11 @@ pub struct CalendarMonthSummary {
 pub struct CalendarYearSummary {
     /// Calendar year
     pub year: i32,
-    /// Total traversals in this year
+    /// Total traversals in this year, one per lap
     pub traversal_count: u32,
+    /// Distinct activities those traversals came from
+    #[serde(default)]
+    pub activity_count: u32,
     /// Best forward/same direction performance this year
     pub forward: Option<CalendarDirectionBest>,
     /// Best reverse direction performance this year

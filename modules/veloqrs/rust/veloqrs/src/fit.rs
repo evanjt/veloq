@@ -1,4 +1,4 @@
-//! FIT file parser for strength training exercise sets.
+//! FIT file parser: strength training exercise sets and the recorded track.
 //!
 //! Uses the `fitparser` crate to parse FIT files, extracting `set` messages
 //! (MesgNum::Set). Also provides exercise name and muscle group lookup tables.
@@ -45,21 +45,74 @@ pub fn parse_fit_strength_sets(data: &[u8]) -> Result<Vec<FitExerciseSet>, FitPa
     if data.is_empty() {
         return Err(FitParseError::Empty);
     }
-    let mut cursor = Cursor::new(data);
     // Decoded once and handed on. Reporting the failure used to mean decoding
     // the file here and again inside `parse_fit_sets`, so every strength
     // upload parsed its FIT twice.
-    let records =
-        fitparser::from_reader(&mut cursor).map_err(|e| FitParseError::Decode(format!("{}", e)))?;
+    let records = decode(data).map_err(|e| FitParseError::Decode(format!("{}", e)))?;
     Ok(sets_from_records(&records))
+}
+
+/// Decode a FIT file with every enum field left as its number.
+///
+/// By default the decoder names a one-element enum field, so a `category`
+/// written with a single slot arrived as `"squat"` while the same field written
+/// with three slots arrived as numbers. The numbers are what the category and
+/// set type tables below key on, whichever way the device wrote the field.
+fn decode(data: &[u8]) -> fitparser::Result<Vec<fitparser::FitDataRecord>> {
+    let options = [fitparser::de::DecodeOption::ReturnNumericEnumValues]
+        .into_iter()
+        .collect();
+    fitparser::de::from_reader_with_options(&mut Cursor::new(data), &options)
+}
+
+/// The positions a FIT file records, in order, in degrees.
+///
+/// A record with no fix carries no position and is skipped, which is how an
+/// indoor ride comes back as an empty track rather than an error. An
+/// unreadable file is an error, so a caller never takes it for a ride that
+/// stayed indoors.
+pub fn parse_fit_track(data: &[u8]) -> Result<Vec<crate::GpsPoint>, FitParseError> {
+    if data.is_empty() {
+        return Err(FitParseError::Empty);
+    }
+    let records = decode(data).map_err(|e| FitParseError::Decode(format!("{}", e)))?;
+    let mut track = Vec::new();
+    for record in &records {
+        if record.kind() != fitparser::profile::MesgNum::Record {
+            continue;
+        }
+        let mut lat = None;
+        let mut lng = None;
+        for field in record.fields() {
+            match field.name() {
+                "position_lat" => lat = semicircles_to_degrees(field.value()),
+                "position_long" => lng = semicircles_to_degrees(field.value()),
+                _ => {}
+            }
+        }
+        if let (Some(lat), Some(lng)) = (lat, lng) {
+            track.push(crate::GpsPoint::new(lat, lng));
+        }
+    }
+    Ok(track)
+}
+
+/// A FIT position is a signed 32-bit count of 2^-31 half turns.
+fn semicircles_to_degrees(value: &fitparser::Value) -> Option<f64> {
+    let semicircles = match value {
+        fitparser::Value::SInt32(v) => f64::from(*v),
+        fitparser::Value::SInt64(v) => *v as f64,
+        fitparser::Value::Float64(v) => *v,
+        _ => return None,
+    };
+    Some(semicircles * (180.0 / 2_147_483_648.0))
 }
 
 /// Parse a FIT binary file and extract exercise set data.
 ///
 /// Returns an empty vec if the file has no set messages or is invalid.
 pub fn parse_fit_sets(data: &[u8]) -> Vec<FitExerciseSet> {
-    let mut cursor = Cursor::new(data);
-    let records = match fitparser::from_reader(&mut cursor) {
+    let records = match decode(data) {
         Ok(r) => r,
         Err(_) => return Vec::new(),
     };
@@ -95,21 +148,8 @@ fn sets_from_records(records: &[fitparser::FitDataRecord]) -> Vec<FitExerciseSet
                     exercise_name_val = top_candidate(field.value());
                 }
                 "set_type" => {
-                    // FIT SDK SetType enum (v21.133): 0=active, 1=rest
-                    // Our internal convention: 0=active, 1=rest (same as FIT SDK)
-                    match field.value() {
-                        fitparser::Value::String(s) => {
-                            set_type = Some(match s.to_lowercase().as_str() {
-                                "active" => 0,
-                                "rest" => 1,
-                                _ => 0,
-                            });
-                        }
-                        fitparser::Value::UInt8(v) => {
-                            // Raw FIT enum: 0=active, 1=rest - matches our convention
-                            set_type = Some(*v);
-                        }
-                        _ => {}
+                    if let fitparser::Value::SInt64(v) = field.value() {
+                        set_type = Some(stored_set_type(*v));
                     }
                 }
                 "repetitions" => {
@@ -160,20 +200,35 @@ fn sets_from_records(records: &[fitparser::FitDataRecord]) -> Vec<FitExerciseSet
 /// The FIT invalid value for a `uint16` field: the slot holds nothing.
 const INVALID_U16: u16 = 0xFFFF;
 
+/// FIT's `SetType` (Profile v21.133) numbers rest 0 and active 1. The stored
+/// convention is the reverse, 0 active and 1 rest, and every reader of
+/// `exercise_sets.set_type` keys on it, so the number is mapped rather than
+/// copied. A value the profile does not name counts as active, as it did when
+/// the decoder named the field.
+fn stored_set_type(fit_value: i64) -> u8 {
+    const FIT_REST: i64 = 0;
+    if fit_value == FIT_REST { 1 } else { 0 }
+}
+
 /// The watch's top candidate from a field that lists several.
 ///
 /// `category` and `category_subtype` are parallel arrays ranked by the
 /// watch's confidence, so the first slot is its answer. `0xFFFE` there is the
 /// exercise category `unknown` and means the set was not recognised; reading
 /// past it to a later slot would name the set by its least likely candidate.
+///
+/// A field written with one slot decodes as a scalar rather than an array:
+/// `category`, an enum, as `SInt64`, and `category_subtype`, a plain `uint16`,
+/// as `UInt16`.
 fn top_candidate(value: &fitparser::Value) -> Option<u16> {
-    let first = match value {
+    let slot = |v: &fitparser::Value| match v {
         fitparser::Value::UInt16(v) => Some(*v),
-        fitparser::Value::Array(arr) => match arr.first() {
-            Some(fitparser::Value::UInt16(v)) => Some(*v),
-            _ => None,
-        },
+        fitparser::Value::SInt64(v) => u16::try_from(*v).ok(),
         _ => None,
+    };
+    let first = match value {
+        fitparser::Value::Array(arr) => arr.first().and_then(slot),
+        scalar => slot(scalar),
     };
     first.filter(|v| *v != INVALID_U16)
 }
@@ -242,7 +297,7 @@ pub struct MuscleActivation {
 ///
 /// Category IDs follow FIT SDK Profile v21.133 ExerciseCategory enum.
 /// A slug added here needs its English name in `exerciseMuscleMap.ts`, which
-/// `muscleSlugParity.test.ts` checks.
+/// the contract table in `nativeContracts.test.ts` checks.
 pub fn exercise_muscle_groups(category: u16) -> Vec<MuscleActivation> {
     let (primary, secondary): (&[&str], &[&str]) = match category {
         0 => (&["chest", "triceps"], &["deltoids"]), // Bench Press
@@ -335,8 +390,47 @@ pub fn aggregate_muscle_groups(sets: &[FitExerciseSet]) -> Vec<MuscleActivation>
     result
 }
 
+/// A FIT the app's own writer produced for a ride of 30 positions, kept as hex
+/// text because a binary activity file is refused from the tree.
+#[cfg(test)]
+pub(crate) fn recorded_ride_fit() -> Vec<u8> {
+    let hex: String = include_str!("../tests/fixtures/recorded_ride_fit.hex")
+        .split_whitespace()
+        .collect();
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("hex fixture"))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
+    /// Scenario: a ride's provisional row is written from the FIT the device
+    /// saved, at save time or by the replay at the next launch, so the track
+    /// has to come back out of the file the app's own writer produced.
+    ///
+    /// Expected behaviour: every record's position, in order, in degrees.
+    #[test]
+    fn the_track_comes_back_out_of_a_fit_the_app_wrote() {
+        let data = super::recorded_ride_fit();
+        let track = super::parse_fit_track(&data).expect("a readable FIT");
+        assert_eq!(track.len(), 30);
+        for (i, point) in track.iter().enumerate() {
+            let lat = 46.948 + i as f64 * 0.0001;
+            let lng = 7.4474 + i as f64 * 0.00005;
+            assert!(
+                (point.latitude - lat).abs() < 1e-6 && (point.longitude - lng).abs() < 1e-6,
+                "point {i} read as {point:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_unreadable_fit_is_an_error_not_an_empty_track() {
+        assert!(super::parse_fit_track(&[]).is_err());
+        assert!(super::parse_fit_track(b"not a fit file").is_err());
+    }
+
     use super::*;
 
     fn candidates(slots: &[u16]) -> fitparser::Value {
@@ -366,19 +460,111 @@ mod tests {
         assert_eq!(top_candidate(&fitparser::Value::UInt16(0xFFFF)), None);
     }
 
+    /// A field holding one slot is not an array once decoded. Asked for numeric
+    /// enum values, fitparser hands its value over as `SInt64`.
     #[test]
-    fn a_single_value_is_its_own_candidate() {
-        assert_eq!(top_candidate(&fitparser::Value::UInt16(23)), Some(23));
+    fn a_single_slot_is_its_own_candidate() {
+        assert_eq!(top_candidate(&fitparser::Value::SInt64(28)), Some(28));
+        assert_eq!(top_candidate(&fitparser::Value::SInt64(0)), Some(0));
         assert_eq!(
-            top_candidate(&fitparser::Value::UInt16(0xFFFE)),
+            top_candidate(&fitparser::Value::SInt64(0xFFFE)),
             Some(0xFFFE)
         );
     }
 
     #[test]
-    fn a_field_of_another_type_is_no_category() {
-        assert_eq!(top_candidate(&fitparser::Value::String("row".into())), None);
-        assert_eq!(top_candidate(&fitparser::Value::UInt8(7)), None);
+    fn a_single_slot_outside_the_category_range_is_no_category() {
+        assert_eq!(top_candidate(&fitparser::Value::SInt64(0xFFFF)), None);
+        assert_eq!(top_candidate(&fitparser::Value::SInt64(-1)), None);
+        assert_eq!(top_candidate(&fitparser::Value::SInt64(0x1_0000)), None);
+    }
+
+    /// The FIT CRC-16 the SDK specifies, over the header and over the file.
+    fn fit_crc(bytes: &[u8]) -> u16 {
+        const TABLE: [u16; 16] = [
+            0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401, 0xA001, 0x6C00, 0x7800,
+            0xB401, 0x5000, 0x9C01, 0x8801, 0x4400,
+        ];
+        bytes.iter().fold(0u16, |crc, byte| {
+            let tmp = TABLE[(crc & 0xF) as usize];
+            let crc = (crc >> 4) & 0x0FFF;
+            let crc = crc ^ tmp ^ TABLE[(byte & 0xF) as usize];
+            let tmp = TABLE[(crc & 0xF) as usize];
+            let crc = (crc >> 4) & 0x0FFF;
+            crc ^ tmp ^ TABLE[((byte >> 4) & 0xF) as usize]
+        })
+    }
+
+    /// A FIT file of `Set` messages. Local message 0 writes `category` with
+    /// one slot and local message 1 with three, which is how a watch that
+    /// ranks candidates writes it.
+    fn fit_file(sets: &[(u8, u8, u16, &[u16])]) -> Vec<u8> {
+        const SET: u16 = 225;
+        let definition = |local: u8, slots: u8| {
+            let mut bytes = vec![0x40 | local, 0, 0];
+            bytes.extend_from_slice(&SET.to_le_bytes());
+            bytes.push(3);
+            bytes.extend_from_slice(&[5, 1, 0x00]); // set_type, enum
+            bytes.extend_from_slice(&[3, 2, 0x84]); // repetitions, uint16
+            bytes.extend_from_slice(&[7, 2 * slots, 0x84]); // category, uint16[]
+            bytes
+        };
+
+        let mut data = definition(0, 1);
+        data.extend(definition(1, 3));
+        for (local, set_type, reps, category) in sets {
+            data.push(*local);
+            data.push(*set_type);
+            data.extend_from_slice(&reps.to_le_bytes());
+            for slot in *category {
+                data.extend_from_slice(&slot.to_le_bytes());
+            }
+        }
+
+        let mut file = vec![14, 0x20];
+        file.extend_from_slice(&2132u16.to_le_bytes());
+        file.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        file.extend_from_slice(b".FIT");
+        let header_crc = fit_crc(&file);
+        file.extend_from_slice(&header_crc.to_le_bytes());
+        file.extend(data);
+        let file_crc = fit_crc(&file);
+        file.extend_from_slice(&file_crc.to_le_bytes());
+        file
+    }
+
+    /// Scenario: a device writes a set's `category` as a single `uint16`. The
+    /// decoder turns a one-slot enum into its name, `"squat"`, which no slot
+    /// reader takes, so the set was stored as no category at all.
+    ///
+    /// Expected behaviour: the one slot is the category, the three-slot form
+    /// still reads its first slot, and a rest set still reads as rest.
+    #[test]
+    fn a_set_written_with_one_category_slot_keeps_its_category() {
+        // The file carries FIT's own `set_type`, where 1 is active and 0 rest.
+        let file = fit_file(&[
+            (0, 1, 5, &[28]),
+            (0, 0, 0xFFFF, &[0xFFFF]),
+            (1, 1, 8, &[0, 24, 0xFFFE]),
+        ]);
+
+        let sets = parse_fit_strength_sets(&file).expect("the file decodes");
+
+        let read: Vec<(u16, u8, Option<u16>)> = sets
+            .iter()
+            .map(|s| (s.exercise_category, s.set_type, s.repetitions))
+            .collect();
+        assert_eq!(
+            read,
+            vec![(28, 0, Some(5)), (0xFFFF, 1, None), (0, 0, Some(8))]
+        );
+        assert_eq!(
+            parse_fit_sets(&file)
+                .iter()
+                .map(|s| s.exercise_category)
+                .collect::<Vec<_>>(),
+            vec![28, 0xFFFF, 0]
+        );
     }
 
     #[test]
