@@ -2,20 +2,22 @@
  * Section detection delegates.
  *
  * Orchestrates the Rust-side detection pipeline: start, poll, progress, force
- * redetect, and potential-section discovery. Emits 'sections' notifications
- * when a run completes.
+ * redetect, and potential-section discovery. The 'sections' refresh after a
+ * run comes from the engine's `detectionApplied` notice, not from a poll.
  */
 
 import type { SectionDetectionProgress } from '../conversions';
 import {
   FfiStartOutcome,
+  type FfiStartResult,
   type FfiMatchStrictness,
   type FfiSectionConfig,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
+import { startResult } from './start';
 
-export function startSectionDetection(host: DelegateHost): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
+export function startSectionDetection(host: DelegateHost): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
   return host.timed('startSectionDetection', () => host.engine.detection().start());
 }
 
@@ -33,11 +35,7 @@ export function cancelSectionDetection(host: DelegateHost): boolean {
 export function pollSectionDetection(host: DelegateHost): string {
   if (!host.ready) return 'idle';
   try {
-    const status = host.timed('pollSectionDetection', () => host.engine.detection().poll());
-    if (status === 'complete') {
-      host.notify('sections');
-    }
-    return status;
+    return host.timed('pollSectionDetection', () => host.engine.detection().poll());
   } catch (e) {
     // Logging the underlying error before collapsing to "error" - without
     // this, a Rust-side panic or DB failure in the detection apply path
@@ -48,20 +46,27 @@ export function pollSectionDetection(host: DelegateHost): string {
   }
 }
 
+export function pollSectionDetectionRun(host: DelegateHost, runId: string): string {
+  if (!host.ready) return '0:idle';
+  try {
+    return host.timed('pollSectionDetectionRun', () => host.engine.detection().pollFollowed(runId));
+  } catch (e) {
+    console.error('[Engine] pollSectionDetectionRun threw:', e);
+    return '0:error';
+  }
+}
+
 /**
  * How the last finished run ended, taking nothing.
  *
- * `pollSectionDetection` receives the completion from the worker's channel, so
- * whichever caller polls first applies the run and every other caller then sees
- * idle. Only the follower may do that. A status surface reads this and the
- * progress instead: neither touches the channel.
+ * The worker applies and settles its own run, so a poll after it ends reads
+ * idle and the verdict lives here. A status surface reads this and the
+ * progress, and neither touches the worker's channel.
  */
 export function lastSectionDetectionOutcome(host: DelegateHost): string {
   if (!host.ready) return 'idle';
   try {
-    return host.timed('lastSectionDetectionOutcome', () =>
-      host.engine.detection().lastOutcome()
-    );
+    return host.timed('lastSectionDetectionOutcome', () => host.engine.detection().lastOutcome());
   } catch (e) {
     console.error('[Engine] lastSectionDetectionOutcome threw:', e);
     return 'idle';
@@ -74,16 +79,12 @@ export function lastSectionDetectionOutcome(host: DelegateHost): string {
  * The progress read answers only for a run holding the slot now, and the phase
  * behind it is process-global and starts at idle, so a relaunch with work
  * outstanding reads as nothing to report. This is the durable half. Null means
- * the engine could not answer, which must not read as nothing left to do.
+ * the engine is not open, and a failed count throws, so neither reads as
+ * nothing left to do.
  */
 export function sectionDetectionAwaiting(host: DelegateHost): number | null {
   if (!host.ready) return null;
-  try {
-    return host.timed('sectionDetectionAwaiting', () => host.engine.detection().awaitingCount());
-  } catch (e) {
-    console.error('[Engine] sectionDetectionAwaiting threw:', e);
-    return null;
-  }
+  return host.timed('sectionDetectionAwaiting', () => host.engine.detection().awaitingCount());
 }
 
 export function getSectionDetectionProgress(host: DelegateHost): SectionDetectionProgress | null {
@@ -92,7 +93,6 @@ export function getSectionDetectionProgress(host: DelegateHost): SectionDetectio
     host.timed('getSectionDetectionProgress', () => host.engine.detection().getProgress()) ?? null
   );
 }
-
 
 export function setSectionConfig(host: DelegateHost, config: FfiSectionConfig): void {
   host.write('setSectionConfig', () => host.engine.detection().setConfig(config));
@@ -124,12 +124,12 @@ export function getMatchStrictness(host: DelegateHost): FfiMatchStrictness | nul
   return host.timed('getMatchStrictness', () => host.engine.detection().getMatchStrictness());
 }
 
-export function forceRedetectSections(host: DelegateHost): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
+export function forceRedetectSections(host: DelegateHost): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
   try {
     return host.timed('forceRedetectSections', () => host.engine.detection().forceRedetect());
   } catch (e) {
     console.error('[Engine] forceRedetectSections failed:', e);
-    return FfiStartOutcome.Failed;
+    return startResult(FfiStartOutcome.Failed);
   }
 }

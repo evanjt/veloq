@@ -26,6 +26,7 @@ const mockNativeEngine = {
 };
 
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
+  __esModule: true,
   FfiInitOutcome: { Opened: 1, NotAttempted: 5, Failed: 6 },
   VeloqEngine: {
     create: () => mockNativeEngine,

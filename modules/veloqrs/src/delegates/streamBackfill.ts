@@ -13,6 +13,7 @@
 import {
   startStreamBackfill as ffiStartStreamBackfill,
   stopStreamBackfill as ffiStopStreamBackfill,
+  consentStreamBackfill as ffiConsentStreamBackfill,
   getStreamBackfillProgress as ffiGetStreamBackfillProgress,
   getStreamBackfillRemaining as ffiGetStreamBackfillRemaining,
   type StreamBackfillProgress,
@@ -24,14 +25,20 @@ import type { DelegateHost } from './host';
  * Live and terminal states the pass reports. `stopped` is the athlete's own
  * stop, `partial` is the connection going away, and both mean the same thing
  * for the queue: the rows the pass did not reach are unchanged.
+ * `awaiting_consent` is the engine holding a queue past the large-download
+ * threshold until the athlete answers.
  */
-export type StreamBackfillPhase =
-  | 'idle'
-  | 'fetching'
-  | 'complete'
-  | 'partial'
-  | 'stopped'
-  | 'failed';
+export const STREAM_PHASES = [
+  'idle',
+  'fetching',
+  'complete',
+  'partial',
+  'stopped',
+  'failed',
+  'awaiting_consent',
+] as const;
+
+export type StreamBackfillPhase = (typeof STREAM_PHASES)[number];
 
 export type { StreamBackfillProgress };
 
@@ -51,8 +58,23 @@ export function startStreamBackfill(host: DelegateHost): FfiStartOutcome {
 }
 
 /**
+ * Record the athlete's yes to a large automatic download and start the pass.
+ * Later automatic starts skip the ask.
+ */
+export function consentStreamBackfill(host: DelegateHost): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
+  try {
+    return host.timed('consentStreamBackfill', () => ffiConsentStreamBackfill());
+  } catch (e) {
+    console.error('[Engine] consentStreamBackfill threw:', e);
+    return FfiStartOutcome.Failed;
+  }
+}
+
+/**
  * Ask the pass in flight to stop. It ends at its next batch boundary, so what
- * is already stored stays stored and nothing is half written.
+ * is already stored stays stored and nothing is half written. Stopping a pass
+ * held for the athlete's answer is the no.
  */
 export function stopStreamBackfill(host: DelegateHost): void {
   if (!host.ready) return;
@@ -71,21 +93,11 @@ export function stopStreamBackfill(host: DelegateHost): void {
  */
 export function getStreamBackfillRemaining(host: DelegateHost): number | null {
   if (!host.ready) return null;
-  try {
-    return host.timed('getStreamBackfillRemaining', () => ffiGetStreamBackfillRemaining());
-  } catch (e) {
-    console.error('[Engine] getStreamBackfillRemaining threw:', e);
-    return null;
-  }
+  return host.timed('getStreamBackfillRemaining', () => ffiGetStreamBackfillRemaining());
 }
 
 /** Read the pass's progress. Null when the engine is not ready. */
 export function getStreamBackfillProgress(host: DelegateHost): StreamBackfillProgress | null {
   if (!host.ready) return null;
-  try {
-    return host.timed('getStreamBackfillProgress', () => ffiGetStreamBackfillProgress());
-  } catch (e) {
-    console.error('[Engine] getStreamBackfillProgress threw:', e);
-    return null;
-  }
+  return host.timed('getStreamBackfillProgress', () => ffiGetStreamBackfillProgress());
 }

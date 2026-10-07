@@ -28,7 +28,8 @@ export interface LaunchDataInput {
 /**
  * Apply the launch state and read back the stats the date-range store opens
  * from. `undefined` when the engine is not up: launch has nothing to seed and
- * the caller carries on rather than failing the whole block.
+ * the caller carries on rather than failing the whole block. A failed call
+ * throws, and the caller decides what of launch still runs.
  */
 export function launchData(
   host: DelegateHost,
@@ -40,17 +41,15 @@ export function launchData(
   const tilesPath = input.heatmapEnabled ? heatmapTilesPath() : null;
   host.heatmapTilesPath = tilesPath;
   if (!host.ready) return undefined;
-  try {
-    return host.timed('launchData', () =>
+  return host.timed(
+    'launchData',
+    () =>
       host.engine.launchData(
         input.routeWord,
         input.sectionWord,
         input.athleteId ?? undefined,
         tilesPath ?? undefined
-      )
-    );
-  } catch (e) {
-    console.warn('[EngineClient] Launch data failed:', e);
-    return undefined;
-  }
+      ),
+    'launch'
+  );
 }

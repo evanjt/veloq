@@ -2,15 +2,8 @@
  * Point conversions, validators, and shared types for the veloqrs module.
  */
 
-import type { FfiCatalogueCounts, FfiDetectionProgress } from "./generated/veloqrs";
-
-/**
- * Simple point type with lat/lng (used by app code).
- */
-export interface RoutePoint {
-  lat: number;
-  lng: number;
-}
+import type { FfiDetectionProgress } from './generated/veloqrs';
+import type { LatLngShort } from './coords';
 
 /**
  * Progress state for section detection.
@@ -28,7 +21,7 @@ export interface CustomSection {
   /** User-defined or auto-generated name */
   name: string;
   /** GPS points defining the section */
-  polyline: RoutePoint[];
+  polyline: LatLngShort[];
   /** Start index in the source activity's GPS track */
   startIndex: number;
   /** End index in the source activity's GPS track */
@@ -68,18 +61,16 @@ const CONTROL_CHAR_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
  * Throws an error if the name is invalid.
  */
 export function validateName(name: string, fieldName: string): void {
-  if (typeof name !== "string") {
+  if (typeof name !== 'string') {
     throw new Error(`Invalid ${fieldName}: must be a string`);
   }
   if (name.length > MAX_NAME_LENGTH) {
     throw new Error(
-      `Invalid ${fieldName}: exceeds maximum length of ${MAX_NAME_LENGTH} characters`,
+      `Invalid ${fieldName}: exceeds maximum length of ${MAX_NAME_LENGTH} characters`
     );
   }
   if (CONTROL_CHAR_REGEX.test(name)) {
-    throw new Error(
-      `Invalid ${fieldName}: contains disallowed control characters`,
-    );
+    throw new Error(`Invalid ${fieldName}: contains disallowed control characters`);
   }
 }
 
@@ -88,7 +79,7 @@ export function validateName(name: string, fieldName: string): void {
  * Throws an error if the ID is invalid.
  */
 export function validateId(id: string, fieldName: string): void {
-  if (typeof id !== "string") {
+  if (typeof id !== 'string') {
     throw new Error(`Invalid ${fieldName}: must be a string`);
   }
   if (id.length === 0) {
@@ -96,45 +87,10 @@ export function validateId(id: string, fieldName: string): void {
   }
   if (id.length > MAX_NAME_LENGTH) {
     throw new Error(
-      `Invalid ${fieldName}: exceeds maximum length of ${MAX_NAME_LENGTH} characters`,
+      `Invalid ${fieldName}: exceeds maximum length of ${MAX_NAME_LENGTH} characters`
     );
   }
   if (CONTROL_CHAR_REGEX.test(id)) {
-    throw new Error(
-      `Invalid ${fieldName}: contains disallowed control characters`,
-    );
+    throw new Error(`Invalid ${fieldName}: contains disallowed control characters`);
   }
-}
-
-
-/**
- * How a proposed catalogue compares with the live one, as the preview result
- * and the cutover diff both carry it.
- */
-export interface CatalogueCounts {
-  current: number;
-  proposed: number;
-  unchanged: number;
-  changed: number;
-  new: number;
-  gone: number;
-}
-
-/**
- * The engine's counts record, as the app's own type.
- *
- * The generator used to rename `new` to `new_`, because it is a reserved word
- * in the languages it also emits, and this is where that one spelling
- * difference was absorbed. It spells it `new` again since 0.31.0-5, so the two
- * shapes now agree field for field and this is a plain widening.
- */
-export function toCatalogueCounts(counts: FfiCatalogueCounts): CatalogueCounts {
-  return {
-    current: counts.current,
-    proposed: counts.proposed,
-    unchanged: counts.unchanged,
-    changed: counts.changed,
-    new: counts.new,
-    gone: counts.gone,
-  };
 }

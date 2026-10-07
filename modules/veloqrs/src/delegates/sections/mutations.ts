@@ -8,10 +8,13 @@
  */
 
 import { validateId, validateName } from '../../conversions';
-import { decodeCoords } from '../../coords';
-import type { FfiGpsPoint, FfiIndexActivitySummary } from '../../generated/veloqrs';
+import type {
+  FfiDepartedRide,
+  FfiIndexActivitySummary,
+  FfiMergeDropped,
+  FfiMergeOutcome,
+} from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
-import { present } from '../optional';
 
 /**
  * Mark or unmark a section as a lift.
@@ -21,11 +24,7 @@ import { present } from '../optional';
  * to remember that, but a caller expecting a column write will be surprised by
  * how long it lasts.
  */
-export function setSectionIsLift(
-  host: DelegateHost,
-  sectionId: string,
-  isLift: boolean
-): boolean {
+export function setSectionIsLift(host: DelegateHost, sectionId: string, isLift: boolean): boolean {
   if (!host.ready) return false;
   validateId(sectionId, 'section ID');
   try {
@@ -38,18 +37,32 @@ export function setSectionIsLift(
   }
 }
 
-export function setSectionName(host: DelegateHost, sectionId: string, name: string): boolean {
-  if (!host.ready) return false;
+export type SetSectionNameOutcome = 'saved' | 'nameTaken' | 'failed';
+
+/** The engine's refusal text for a name another section already shows. */
+const NAME_TAKEN_MESSAGE = 'Another section is already named';
+
+export function isNameTakenError(error: unknown): boolean {
+  const text = error instanceof Error ? error.message : String(error);
+  return text.includes(NAME_TAKEN_MESSAGE);
+}
+
+export function setSectionName(
+  host: DelegateHost,
+  sectionId: string,
+  name: string
+): SetSectionNameOutcome {
+  if (!host.ready) return 'failed';
   validateId(sectionId, 'section ID');
   validateName(name, 'section name');
   try {
     host.timed('setSectionName', () => host.engine.sections().setName(sectionId, name));
     host.notify('sections');
     host.notify('groups');
-    return true;
+    return 'saved';
   } catch (e) {
     console.error('[Engine] setSectionName failed:', sectionId, e);
-    return false;
+    return isNameTakenError(e) ? 'nameTaken' : 'failed';
   }
 }
 
@@ -68,14 +81,9 @@ export function removeNamedCorridor(host: DelegateHost, intentId: string): boole
 }
 
 /**
- * Build a new custom section from a slice of an activity's GPS track.
- * The caller must provide `getGpsTrack` (the facade supplies it) so this
- * delegate doesn't need to duplicate the activity lookup logic.
- *
- * The track arrives coordinate-encoded and the slice goes back to Rust as
- * points, which is the one crossing that stays boxed: `create` takes a point
- * array and a section is a couple of hundred points, so an encoder in
- * TypeScript would buy nothing.
+ * Build a new custom section from an inclusive index range of an activity's
+ * stored track. The engine slices the track itself and refuses a range the
+ * track cannot hold, so nothing here decodes or re-boxes points.
  */
 export function createSectionFromIndices(
   host: DelegateHost,
@@ -83,28 +91,13 @@ export function createSectionFromIndices(
   startIndex: number,
   endIndex: number,
   sportType: string,
-  name: string | undefined,
-  getGpsTrack: (activityId: string) => ArrayBuffer
+  name: string | undefined
 ): string {
   if (!host.ready) return '';
   validateId(activityId, 'activity ID');
 
-  const track = decodeCoords(getGpsTrack(activityId));
-  if (track.length === 0) {
-    throw new Error(`No GPS track found for activity ${activityId}`);
-  }
-
-  const sectionTrack: FfiGpsPoint[] = track
-    .slice(startIndex, endIndex + 1)
-    .map((p) => present({ latitude: p.latitude, longitude: p.longitude, elevation: p.elevation }));
-  if (sectionTrack.length < 2) {
-    throw new Error('Section must have at least 2 points');
-  }
-
   const sectionId = host.timed('createSection', () =>
-    host.engine
-      .sections()
-      .create(sportType, sectionTrack, 0.0, name || undefined, activityId, startIndex, endIndex)
+    host.engine.sections().create(sportType, name || undefined, activityId, startIndex, endIndex)
   );
 
   if (sectionId) {
@@ -133,32 +126,39 @@ export function setSectionReference(
   host: DelegateHost,
   sectionId: string,
   activityId: string
-): boolean {
-  if (!host.ready) return false;
+): FfiDepartedRide[] | null {
+  if (!host.ready) return null;
   validateId(sectionId, 'section ID');
   validateId(activityId, 'activity ID');
   try {
-    host.timed('setSectionReference', () =>
+    const departed = host.timed('setSectionReference', () =>
       host.engine.sections().setReference(sectionId, activityId)
     );
     host.notify('sections');
-    return true;
+    return departed;
   } catch (e) {
+    // empty-on-error: a write; null is its failure and [] is no ride departing.
     console.error('[Engine] setSectionReference failed:', sectionId, activityId, e);
-    return false;
+    return null;
   }
 }
 
-export function resetSectionReference(host: DelegateHost, sectionId: string): boolean {
-  if (!host.ready) return false;
+export function resetSectionReference(
+  host: DelegateHost,
+  sectionId: string
+): FfiDepartedRide[] | null {
+  if (!host.ready) return null;
   validateId(sectionId, 'section ID');
   try {
-    host.timed('resetSectionReference', () => host.engine.sections().resetReference(sectionId));
+    const departed = host.timed('resetSectionReference', () =>
+      host.engine.sections().resetReference(sectionId)
+    );
     host.notify('sections');
-    return true;
+    return departed;
   } catch (e) {
+    // empty-on-error: a write; null is its failure and [] is no ride departing.
     console.error('[Engine] resetSectionReference failed:', sectionId, e);
-    return false;
+    return null;
   }
 }
 
@@ -200,6 +200,7 @@ export function indexNewActivity(
     }
     return summary;
   } catch (e) {
+    // empty-on-error: a write; null is its failure and a summary says what it did.
     console.error('[Engine] indexNewActivity failed:', activityId, e);
     return null;
   }
@@ -209,7 +210,7 @@ export function mergeSections(
   host: DelegateHost,
   primaryId: string,
   secondaryId: string
-): string | null {
+): FfiMergeOutcome | null {
   if (!host.ready) return null;
   validateId(primaryId, 'primary section ID');
   validateId(secondaryId, 'secondary section ID');
@@ -221,14 +222,35 @@ export function mergeSections(
     host.notify('groups');
     return result;
   } catch (e) {
+    // empty-on-error: a write; null is its failure and every outcome is a record.
     console.error('[Engine] mergeSections failed:', e);
+    return null;
+  }
+}
+
+/** The donor rides a merge would leave out of the section. Null when the read fails. */
+export function mergePreview(
+  host: DelegateHost,
+  primaryId: string,
+  secondaryId: string
+): FfiMergeDropped[] | null {
+  if (!host.ready) return null;
+  validateId(primaryId, 'primary section ID');
+  validateId(secondaryId, 'secondary section ID');
+  try {
+    return host.timed('mergePreview', () =>
+      host.engine.sections().mergePreview(primaryId, secondaryId)
+    );
+  } catch (e) {
+    // empty-on-error: an advisory list; the dialog then names nothing and the merge itself is unaffected.
+    console.error('[Engine] mergePreview failed:', e);
     return null;
   }
 }
 
 // Accept-family mutations emit only `'sections'`. Group composition does not
 // change on accept (only sections themselves gain `is_user_defined = 1`),
-// and no current consumer of `useGroupDetail` reads section-accept state.
+// and no current group view reads section-accept state.
 // If a future group view starts depending on accept state, also emit `'groups'`.
 export function acceptSection(host: DelegateHost, sectionId: string): boolean {
   if (!host.ready) return false;
@@ -245,13 +267,7 @@ export function acceptSection(host: DelegateHost, sectionId: string): boolean {
 
 export function acceptAllSections(host: DelegateHost): number {
   if (!host.ready) return 0;
-  try {
-    const count = host.timed('acceptAllSections', () => host.engine.sections().acceptAll());
-    host.notify('sections');
-    return count;
-  } catch (e) {
-    console.error('[Engine] acceptAllSections failed:', e);
-    return 0;
-  }
+  const count = host.timed('acceptAllSections', () => host.engine.sections().acceptAll());
+  host.notify('sections');
+  return count;
 }
-

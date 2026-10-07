@@ -18,9 +18,9 @@
 // and its own declaration. Naming it bare, as the export list does, is fine.
 // Anything else is the cursor path and fails here.
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { treeSources } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -45,12 +45,13 @@ function lineOf(text, index) {
 }
 
 const offenders = [];
-const dir = join(ROOT, GENERATED);
-const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.ts')) : [];
+const files = [...treeSources(ROOT, [GENERATED])].filter(
+  ([rel]) => rel.endsWith('.ts') && !rel.slice(GENERATED.length + 1).includes('/')
+);
 
-for (const name of files) {
-  const path = join(dir, name);
-  const text = readFileSync(path, 'utf8');
+for (const [rel, bytes] of files) {
+  const path = join(ROOT, rel);
+  const text = bytes.toString('utf8');
   const where = relative(ROOT, path).split('\\').join('/');
 
   const foreign = new Set();

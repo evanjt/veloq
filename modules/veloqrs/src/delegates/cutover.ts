@@ -14,19 +14,14 @@ import {
   getCutoverProgress as ffiGetCutoverProgress,
   getCutoverDiff as ffiGetCutoverDiff,
   getChangeCardSupport as ffiGetChangeCardSupport,
+  FfiStartOutcome,
+  type FfiCatalogueCounts,
+  type FfiChangeCardSupport,
 } from '../generated/veloqrs';
-import type { FfiChangeCardSupport } from '../generated/veloqrs';
-import { toCatalogueCounts } from '../conversions';
 import type { DelegateHost } from './host';
 
-export interface CutoverCounts {
-  current: number;
-  proposed: number;
-  unchanged: number;
-  changed: number;
-  new: number;
-  gone: number;
-}
+/** How a proposed catalogue compares with the live one. */
+export type CutoverCounts = FfiCatalogueCounts;
 
 /** The five detector values the flip resets to the validated configuration. */
 export interface CutoverSettings {
@@ -83,22 +78,8 @@ export function isCutoverRunning(host: DelegateHost): boolean {
   }
 }
 
-/** How far a running cutover has got. */
-export type CutoverPhase =
-  | 'idle'
-  | 'draining'
-  | 'archiving'
-  | 'detecting'
-  | 'diffing'
-  | 'complete'
-  | 'failed';
-
-export interface CutoverProgress {
-  phase: CutoverPhase;
-  running: boolean;
-}
-
-const CUTOVER_PHASES: readonly string[] = [
+/** Every phase the engine reports. Anything else reads as idle. */
+export const CUTOVER_PHASES = [
   'idle',
   'draining',
   'archiving',
@@ -106,20 +87,29 @@ const CUTOVER_PHASES: readonly string[] = [
   'diffing',
   'complete',
   'failed',
-];
+  // Failed once the new catalogue had landed: the sections were re-cut and
+  // only the summary of the change is still owed.
+  'failed_after_apply',
+] as const;
+
+/** How far a running cutover has got. */
+export type CutoverPhase = (typeof CUTOVER_PHASES)[number];
+
+export interface CutoverProgress {
+  phase: CutoverPhase;
+  running: boolean;
+}
 
 /**
- * Start the cutover on a Rust worker. Returns whether a run began: false means
- * the engine is not ready, the migration is not owed, or one is already in
- * flight. Safe to call at every launch.
+ * Start the cutover on a Rust worker and return the start verdict.
  */
-export function startDetectorCutover(host: DelegateHost): boolean {
-  if (!host.ready) return false;
+export function startDetectorCutover(host: DelegateHost): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   try {
     return host.timed('startDetectorCutover', () => ffiStartDetectorCutover());
   } catch (e) {
     console.error('[Engine] startDetectorCutover threw:', e);
-    return false;
+    return FfiStartOutcome.Failed;
   }
 }
 
@@ -142,14 +132,11 @@ export function cancelDetectorCutover(host: DelegateHost): void {
 /** Poll the running cutover. An unknown phase reads as idle. */
 export function getCutoverProgress(host: DelegateHost): CutoverProgress | null {
   if (!host.ready) return null;
-  try {
-    const p = host.timed('getCutoverProgress', () => ffiGetCutoverProgress());
-    const phase = CUTOVER_PHASES.includes(p.phase) ? (p.phase as CutoverPhase) : 'idle';
-    return { phase, running: p.running };
-  } catch (e) {
-    console.error('[Engine] getCutoverProgress threw:', e);
-    return null;
-  }
+  const p = host.timed('getCutoverProgress', () => ffiGetCutoverProgress());
+  const phase = (CUTOVER_PHASES as readonly string[]).includes(p.phase)
+    ? (p.phase as CutoverPhase)
+    : 'idle';
+  return { phase, running: p.running };
 }
 
 /**
@@ -163,18 +150,13 @@ export function getCutoverProgress(host: DelegateHost): CutoverProgress | null {
  */
 export function getCutoverDiff(host: DelegateHost): CutoverDiff | null {
   if (!host.ready) return null;
-  try {
-    const diff = host.timed('getCutoverDiff', () => ffiGetCutoverDiff());
-    if (!diff) return null;
-    return {
-      token: diff.token,
-      counts: toCatalogueCounts(diff.counts),
-      settingsReset: diff.settingsReset ?? null,
-    };
-  } catch (e) {
-    console.error('[Engine] getCutoverDiff threw:', e);
-    return null;
-  }
+  const diff = host.timed('getCutoverDiff', () => ffiGetCutoverDiff());
+  if (!diff) return null;
+  return {
+    token: diff.token,
+    counts: diff.counts,
+    settingsReset: diff.settingsReset ?? null,
+  };
 }
 
 export type ChangeCardSupport = FfiChangeCardSupport;
@@ -196,7 +178,7 @@ const NO_SUPPORT: ChangeCardSupport = {
 export function getChangeCardSupport(host: DelegateHost): ChangeCardSupport {
   if (!host.ready) return NO_SUPPORT;
   try {
-    return ffiGetChangeCardSupport();
+    return host.timed('getChangeCardSupport', () => ffiGetChangeCardSupport());
   } catch (e) {
     console.error('[Engine] getChangeCardSupport threw:', e);
     return NO_SUPPORT;

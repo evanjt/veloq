@@ -7,14 +7,11 @@
  *
  * Expected behaviour: the runtime's optional path refuses a JavaScript
  * implementation, which is the hazard, and the generated `setObserver` takes
- * a bare observer so the object goes through `lower` and the handle map.
+ * a bare observer so the object goes through `lower` and the handle map. The
+ * contract table holds the generated signature to the Rust one.
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { FfiConverterObjectWithCallbacks, FfiConverterOptional } from 'uniffi-bindgen-react-native';
-
-const GENERATED = join(__dirname, '../../../modules/veloqrs/src/generated/veloqrs.ts');
 
 /** A factory for a type that has no Rust-backed instance in this process. */
 const foreignOnlyFactory = {
@@ -53,11 +50,5 @@ describe('lowering a JavaScript observer', () => {
     expect(() => optional.lower({ syncProgress() {} }, alloc)).toThrow(
       'Cannot lower this object to a pointer'
     );
-  });
-
-  it('is never wrapped in an optional by the generated setObserver', () => {
-    const source = readFileSync(GENERATED, 'utf8');
-    expect(source).toMatch(/setObserver\(observer: EngineObserver\): void/);
-    expect(source).not.toContain('FfiConverterOptionalTypeEngineObserver');
   });
 });

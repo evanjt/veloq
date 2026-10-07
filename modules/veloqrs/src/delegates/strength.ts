@@ -7,73 +7,89 @@
 
 import { FfiStartOutcome } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
+import { startResult } from './start';
 import type {
   FfiExerciseActivities,
+  FfiStartResult,
+  FfiExerciseDetailData,
+  FfiExerciseSession,
   FfiExerciseSet,
   FfiMuscleGroup,
   FfiMuscleGroupDetail,
   FfiStrengthInsightSeries,
   FfiStrengthScreenData,
+  FfiStrengthSummary,
 } from '../generated/veloqrs';
 
-export function getExerciseSets(host: DelegateHost, activityId: string): FfiExerciseSet[] {
+const EMPTY_SESSION: FfiExerciseSession = {
+  sets: [],
+  groups: [],
+  activeSetCount: 0,
+  exerciseCount: 0,
+  totalVolumeKg: 0,
+  totalDurationSecs: 0,
+};
+
+export function getExerciseSets(host: DelegateHost, activityId: string): FfiExerciseSession {
+  if (!host.ready) return EMPTY_SESSION;
   return host.timed('getExerciseSets', () => host.engine.strength().getExerciseSets(activityId));
 }
 
+export function getExerciseDetailData(
+  host: DelegateHost,
+  exerciseCategory: number
+): FfiExerciseDetailData | null {
+  if (!host.ready) return null;
+  return host.timed('getExerciseDetailData', () =>
+    host.engine.strength().getExerciseDetailData(exerciseCategory)
+  );
+}
+
 export function isFitProcessed(host: DelegateHost, activityId: string): boolean {
+  if (!host.ready) return false;
   return host.timed('isFitProcessed', () => host.engine.strength().isFitProcessed(activityId));
 }
 
-export function fetchAndParseExerciseSets(
-  host: DelegateHost,
-  activityId: string
-): FfiStartOutcome {
+export function fetchAndParseExerciseSets(host: DelegateHost, activityId: string): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
   return host.timed('fetchAndParseExerciseSets', () =>
     host.engine.strength().fetchAndParseExerciseSets(activityId)
   );
 }
 
 export function getMuscleGroups(host: DelegateHost, activityId: string): FfiMuscleGroup[] {
+  if (!host.ready) return [];
   return host.timed('getMuscleGroups', () => host.engine.strength().getMuscleGroups(activityId));
 }
 
-export function getUnprocessedStrengthIds(host: DelegateHost, activityIds: string[]): string[] {
+export function getUnprocessedStrengthIds(host: DelegateHost): string[] {
+  if (!host.ready) return [];
   return host.timed('getUnprocessedStrengthIds', () =>
-    host.engine.strength().getUnprocessedStrengthIds(activityIds)
+    host.engine.strength().getUnprocessedStrengthIds()
   );
 }
 
-export function batchFetchExerciseSets(
-  host: DelegateHost,
-  activityIds: string[]
-): FfiStartOutcome {
+export function batchFetchExerciseSets(host: DelegateHost, activityIds: string[]): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
   return host.timed('batchFetchExerciseSets', () =>
     host.engine.strength().batchFetchExerciseSets(activityIds)
   );
 }
 
-/**
- * Parse raw FIT bytes locally (no network) and store any strength sets for
- * the activity. Returns the number of sets inserted. Use this when the FIT
- * buffer is already in hand - e.g. right after recording or when replaying a
- * local backup - so Strength data is available without waiting for
- * intervals.icu to process and re-emit the file.
- */
-export function importSetsFromFit(
-  host: DelegateHost,
-  activityId: string,
-  fitBytes: Uint8Array
-): number {
-  // The binding takes an ArrayBuffer; a Uint8Array view over a larger or
-  // offset buffer would hand the native side the wrong bytes.
-  const buffer = fitBytes.buffer.slice(
-    fitBytes.byteOffset,
-    fitBytes.byteOffset + fitBytes.byteLength
-  ) as ArrayBuffer;
-  return host.timed('importSetsFromFit', () =>
-    host.engine.strength().importSetsFromFit(activityId, buffer)
-  );
-}
+const EMPTY_SUMMARY: FfiStrengthSummary = {
+  muscleVolumes: [],
+  activityCount: 0,
+  totalSets: 0,
+  balance: [],
+};
+
+const EMPTY_SCREEN_DATA: FfiStrengthScreenData = {
+  summary: EMPTY_SUMMARY,
+  weekly: [],
+  progressions: [],
+  exercises: [],
+  owedCount: 0,
+};
 
 export type StrengthInsightSeries = FfiStrengthInsightSeries;
 export type StrengthScreenData = FfiStrengthScreenData;
@@ -89,14 +105,13 @@ export function getStrengthScreenData(
   endTs: number,
   weekRanges: { startTs: number; endTs: number }[]
 ): FfiStrengthScreenData {
+  if (!host.ready) return EMPTY_SCREEN_DATA;
   return host.timed('getStrengthScreenData', () =>
-    host.engine
-      .strength()
-      .getScreenData(
-        BigInt(startTs),
-        BigInt(endTs),
-        weekRanges.map((r) => ({ startTs: r.startTs, endTs: r.endTs }))
-      )
+    host.engine.strength().getScreenData(
+      startTs,
+      endTs,
+      weekRanges.map((r) => ({ startTs: r.startTs, endTs: r.endTs }))
+    )
   );
 }
 
@@ -119,6 +134,7 @@ export function getMuscleDetail(
 }
 
 export function hasStrengthData(host: DelegateHost): boolean {
+  if (!host.ready) return false;
   return host.timed('hasStrengthData', () => host.engine.strength().hasStrengthData());
 }
 
@@ -129,9 +145,19 @@ export function getActivitiesForExercise(
   muscleSlug: string,
   exerciseCategory: number
 ): FfiExerciseActivities {
+  if (!host.ready) return { activities: [] };
   return host.timed('getActivitiesForExercise', () =>
-    host.engine
-      .strength()
-      .getActivitiesForExercise(BigInt(startTs), BigInt(endTs), muscleSlug, exerciseCategory)
+    host.engine.strength().getActivitiesForExercise(startTs, endTs, muscleSlug, exerciseCategory)
+  );
+}
+
+/** Insert pre-parsed sets without the network. Held in order until the engine opens. */
+export function bulkInsertExerciseSets(
+  host: DelegateHost,
+  activityId: string,
+  sets: FfiExerciseSet[]
+): void {
+  host.write('bulkInsertExerciseSets', () =>
+    host.engine.strength().bulkInsertExerciseSets(activityId, sets)
   );
 }

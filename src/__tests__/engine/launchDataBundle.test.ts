@@ -13,7 +13,6 @@ import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 const STATS = {
   activityCount: 490,
   signatureCacheSize: 0,
-  consensusCacheSize: 0,
   groupCount: 0,
   sectionCount: 0,
   groupsDirty: false,
@@ -21,6 +20,7 @@ const STATS = {
   gpsTrackCount: 0,
   oldestDate: BigInt(1700000000),
   newestDate: BigInt(1760000000),
+  activityWindowOldest: '2026-07-08',
 };
 
 const mockSettings = { getSetting: jest.fn(), setSetting: jest.fn() };
@@ -113,19 +113,20 @@ describe('EngineClient.launchData', () => {
     expect(client.heatmapTilesPath).toBeNull();
   });
 
-  it('answers undefined rather than throwing when the engine is down', () => {
+  it('hands a failed call to the caller rather than answering no stats', () => {
     const client = openClient();
+    const failure = new Error('closed');
     mockNativeEngine.launchData.mockImplementation(() => {
-      throw new Error('closed');
+      throw failure;
     });
 
-    expect(
+    expect(() =>
       client.launchData({
         routeWord: 'Route',
         sectionWord: 'Section',
         athleteId: '12345',
         heatmapEnabled: true,
       })
-    ).toBeUndefined();
+    ).toThrow(failure);
   });
 });

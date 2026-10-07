@@ -26,8 +26,9 @@ export interface RouteGroupPreview {
  * How one run ended.
  *
  * `cancelled` is the ordinary end of a run rather than a failure: every knob
- * movement supersedes the one in flight. `refused` is a run already going or a
- * library with no signatures, and the screen paints the same for both.
+ * movement supersedes the one in flight. `refused` is a library with no
+ * signatures to group. A run already going is cancelled and waited out by the
+ * engine, so it never reads as a refusal.
  */
 export type RouteGroupingOutcome =
   | { state: 'grouped'; groups: RouteGroupPreview[] }

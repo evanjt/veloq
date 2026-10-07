@@ -122,15 +122,6 @@ describe('FFI Binding Validation', () => {
       // state, and a caller polling its own run must not queue behind the
       // engine lock to do it.
       //
-      // `fetch_and_index_activity` sits beside the rest of that fetch
-      // lifecycle, for the reason `cancel_fetch_and_store` does. It is the
-      // blocking single-activity sibling of `start_fetch_and_store`, over the
-      // same fetch and the same store, and its caller is the case that pair
-      // cannot serve: a push handler in Kotlin or Swift holding an activity
-      // id, a budget in seconds and no run loop to poll a global slot on.
-      // Hanging it on an object would make that handler build a handle across
-      // the FFI first, an allocation and a failure mode inside that budget,
-      // for a call that is one shot rather than a session.
       // `validate_credentials` is standalone because a sign-in screen has no
       // engine: the layout opens one only once the athlete is authenticated.
       // The check reads nothing from the database, builds its own transport
@@ -144,13 +135,18 @@ describe('FFI Binding Validation', () => {
       // them once rather than four times. Hanging the bundle on the engine
       // object would put a read of four slots behind the engine lock the
       // separate reads it replaces did not all take.
+      // `consent_stream_backfill` is standalone beside `start_stream_backfill`:
+      // the pass is a process slot, and the answer is recorded as a setting
+      // row before it starts.
       expect(STANDALONE_EXPORTS.length).toBe(30);
     });
 
     it('should include the known standalone FFI functions', () => {
       const names = new Set(STANDALONE_EXPORTS.map((e) => e.name));
-      expect(names.has('get_download_progress')).toBe(true);
+      expect(names.has('get_download_progress')).toBe(false);
       expect(names.has('validate_backup_database')).toBe(true);
+      // Conversion opens a picked database copy before the live engine exists.
+      expect(names.has('convert_legacy_database_to_record_backup')).toBe(true);
       expect(names.has('start_fetch_and_store')).toBe(true);
       expect(names.has('take_fetch_and_store_result')).toBe(true);
       // A fetch that could not be called off stranded the progress flag and
@@ -161,10 +157,10 @@ describe('FFI Binding Validation', () => {
       // an engine method would be the wrong home and would queue behind the
       // lock the cancel exists to stop taking.
       expect(names.has('cancel_fetch_and_store')).toBe(true);
-      // One id in, a summary out, blocking. The native push handler this was
-      // built for has no run loop to poll the global slot the batch reports
-      // through, so the composition it needs lives beside that batch.
-      expect(names.has('fetch_and_index_activity')).toBe(true);
+      // The push handlers reach the Rust function through JNI and C symbols; a
+      // UniFFI export would put a blocking network fetch one import away from
+      // the JS thread.
+      expect(names.has('fetch_and_index_activity')).toBe(false);
       // A caller queued behind a 500-activity sync used to poll the global
       // flag and watch someone else's numbers long after its own had landed.
       expect(names.has('get_fetch_run_progress')).toBe(true);
@@ -214,7 +210,7 @@ describe('FFI Binding Validation', () => {
     });
 
     it('should have correct snake_case to camelCase conversion', () => {
-      expect(RUST_TO_TS_NAME['get_download_progress']).toBe('getDownloadProgress');
+      expect(RUST_TO_TS_NAME['get_fetch_run_progress']).toBe('getFetchRunProgress');
       expect(RUST_TO_TS_NAME['compute_polyline_overlap']).toBe('computePolylineOverlap');
     });
   });
@@ -283,8 +279,8 @@ describe('FFI Binding Validation', () => {
       tsImports = extractGeneratedImports();
     });
 
-    it('should import standalone flat functions used in index.ts', () => {
-      const standaloneFunctions = ['getDownloadProgress'];
+    it('should import the generated values used in index.ts', () => {
+      const standaloneFunctions = ['BasemapManager'];
 
       const missing: string[] = [];
       for (const fn of standaloneFunctions) {
@@ -371,6 +367,74 @@ describe('FFI Binding Validation', () => {
       );
 
       expect(orphans).toEqual([]);
+    });
+  });
+
+  // A method lives on a generated class, so the class body is what is read.
+  describe('Generated bindings cover the manifest methods', () => {
+    const GENERATED_PATH = path.join(VELOQRS_SRC_DIR, 'generated', 'veloqrs.ts');
+    const generatedSource = fs.readFileSync(GENERATED_PATH, 'utf-8');
+
+    /** The method names declared inside `export class <object>`, or null if absent. */
+    function classMethods(source: string, object: string): Set<string> | null {
+      const start = source.search(new RegExp(`^export class ${object}\\b`, 'm'));
+      if (start < 0) return null;
+      const rest = source.slice(start);
+      const end = rest.slice(1).search(/^\}/m);
+      const body = end < 0 ? rest : rest.slice(0, end + 2);
+      const names = new Set<string>();
+      for (const m of body.matchAll(/^ {2}(?:static )?(?:async )?(\w+)\s*\(/gm)) {
+        names.add(m[1]);
+      }
+      return names;
+    }
+
+    /** Both directions of drift between the manifest's methods and the generated classes. */
+    function methodDrift(source: string) {
+      const missing: string[] = [];
+      const orphans: string[] = [];
+      const rustNames = new Set(Object.values(RUST_TO_TS_NAME));
+      for (const object of UNIFFI_OBJECTS) {
+        const methods = classMethods(source, object);
+        const named = new Set(
+          METHOD_EXPORTS.filter((e) => e.object === object).map((e) => e.camelName)
+        );
+        if (methods === null) {
+          missing.push(`${object} (no generated class)`);
+          continue;
+        }
+        for (const name of named) {
+          // `new` is a constructor, and a reserved word gets a trailing underscore.
+          if (name === 'new') continue;
+          if (!methods.has(name) && !methods.has(`${name}_`)) missing.push(`${object}.${name}`);
+        }
+        for (const name of methods) {
+          if (rustNames.has(name) && !named.has(name)) orphans.push(`${object}.${name}`);
+        }
+      }
+      return { missing, orphans };
+    }
+
+    it('generates a class method for every manifest method', () => {
+      expect(methodDrift(generatedSource).missing).toEqual([]);
+    });
+
+    it('generates no class method the manifest has dropped', () => {
+      expect(methodDrift(generatedSource).orphans).toEqual([]);
+    });
+
+    it('reports a manifest method deleted from the generated class', () => {
+      const target = METHOD_EXPORTS.find(
+        (e) => e.object === 'SettingsManager' && e.camelName === 'deleteSetting'
+      );
+      expect(target).toBeDefined();
+      const name = target!.camelName;
+      const stripped = generatedSource
+        .split('\n')
+        .filter((line) => !new RegExp(`^ {2}(?:async )?${name}\\s*\\(`).test(line))
+        .join('\n');
+      expect(stripped).not.toEqual(generatedSource);
+      expect(methodDrift(stripped).missing).toContain(`SettingsManager.${name}`);
     });
   });
 

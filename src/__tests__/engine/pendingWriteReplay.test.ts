@@ -10,6 +10,15 @@
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 
+import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => require('../../../modules/veloqrs/src/EngineClient').EngineClient.getInstance(),
+}));
+jest.mock('@/shared/storage', () => ({
+  getSetting: jest.fn(async () => JSON.stringify({ enabled: false })),
+}));
+
 const mockSync = {
   setCredentials: jest.fn(),
   clearCredentials: jest.fn(),
@@ -19,9 +28,15 @@ const mockSettings = {
   setAthleteProfile: jest.fn(),
   setSportSettings: jest.fn(),
   setSetting: jest.fn(),
+  setSettings: jest.fn(() => 2),
 };
-const mockFitness = { savePaceSnapshot: jest.fn() };
-const mockActivities = { setMetrics: jest.fn(), setCurveBody: jest.fn() };
+const mockFitness = { savePaceSnapshot: jest.fn(), upsertWellness: jest.fn() };
+const mockActivities = {
+  setMetrics: jest.fn(),
+  setCurveBody: jest.fn(),
+  setTimeStreams: jest.fn(),
+  upsertActivityBodies: jest.fn(),
+};
 
 let initSucceeds = true;
 const mockNativeEngine = {
@@ -30,8 +45,7 @@ const mockNativeEngine = {
   setObserver: jest.fn(),
   destroy: jest.fn(),
   clear: jest.fn(),
-  startClearAll: jest.fn(),
-  pollClearAll: jest.fn(() => 'complete'),
+  runClearAll: jest.fn(() => Promise.resolve()),
   sync: () => mockSync,
   settings: () => mockSettings,
   fitness: () => mockFitness,
@@ -63,6 +77,41 @@ describe('writes made before the engine opens', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     initSucceeds = true;
+  });
+
+  it('replays the saved detection opt-out when the engine opens', async () => {
+    const client = closedClient();
+
+    await initializeRouteSettings();
+    expect(mockSettings.setSetting).not.toHaveBeenCalled();
+
+    expect(client.initWithPath(DB)).toBe(true);
+    expect(mockSettings.setSetting).toHaveBeenCalledWith('__detection_enabled', '0');
+  });
+
+  it('replays a settings batch written before init, in order, once', () => {
+    const client = closedClient();
+    const pairs = [
+      { key: 'language', value: 'de' },
+      { key: 'units', value: 'metric' },
+    ];
+
+    client.setSettings(pairs);
+    expect(mockSettings.setSettings).not.toHaveBeenCalled();
+
+    expect(client.initWithPath(DB)).toBe(true);
+
+    expect(mockSettings.setSettings).toHaveBeenCalledTimes(1);
+    expect(mockSettings.setSettings).toHaveBeenCalledWith(pairs);
+  });
+
+  it('writes a settings batch straight away once the engine is open', () => {
+    const client = closedClient();
+    client.initWithPath(DB);
+
+    client.setSettings([{ key: 'language', value: 'fr' }]);
+
+    expect(mockSettings.setSettings).toHaveBeenCalledWith([{ key: 'language', value: 'fr' }]);
   });
 
   it('replays a credential written before init, exactly once', () => {
@@ -120,6 +169,52 @@ describe('writes made before the engine opens', () => {
     ]);
   });
 
+  it('replays time streams written before init and skips empty batches', () => {
+    const client = closedClient();
+
+    client.setTimeStreams([{ activityId: 'a1', times: [1, 2] }]);
+    client.setTimeStreams([]);
+    client.setTimeStreams([{ activityId: 'a2', times: [3] }]);
+    expect(mockActivities.setTimeStreams).not.toHaveBeenCalled();
+
+    client.initWithPath(DB);
+
+    expect(mockActivities.setTimeStreams.mock.calls).toEqual([
+      [['a1'], [1, 2], [0, 2]],
+      [['a2'], [3], [0, 1]],
+    ]);
+  });
+
+  it('replays activity bodies written before init and skips empty batches', () => {
+    const client = closedClient();
+    const first = { activityId: 'a1', date: 1, raw: '{"name":"first"}' };
+    const second = { activityId: 'a2', date: 2, raw: '{"name":"second"}' };
+
+    client.upsertActivityBodies([first]);
+    client.upsertActivityBodies([]);
+    client.upsertActivityBodies([second]);
+    expect(mockActivities.upsertActivityBodies).not.toHaveBeenCalled();
+
+    client.initWithPath(DB);
+
+    expect(mockActivities.upsertActivityBodies.mock.calls).toEqual([[[first]], [[second]]]);
+  });
+
+  it('replays wellness written before init and skips empty batches', () => {
+    const client = closedClient();
+    const first = { date: '2026-01-01', ctl: 12 };
+    const second = { date: '2026-01-02', hrv: 45 };
+
+    client.upsertWellness([first]);
+    client.upsertWellness([]);
+    client.upsertWellness([second]);
+    expect(mockFitness.upsertWellness).not.toHaveBeenCalled();
+
+    client.initWithPath(DB);
+
+    expect(mockFitness.upsertWellness.mock.calls).toEqual([[[first]], [[second]]]);
+  });
+
   it('stamps a dateless pace snapshot with the write time, not the replay time', () => {
     jest.useFakeTimers();
     try {
@@ -133,7 +228,7 @@ describe('writes made before the engine opens', () => {
       client.initWithPath(DB);
 
       expect(mockFitness.savePaceSnapshot).toHaveBeenCalledTimes(1);
-      expect(mockFitness.savePaceSnapshot.mock.calls[0][4]).toBe(BigInt(writtenAt));
+      expect(mockFitness.savePaceSnapshot.mock.calls[0][4]).toBe(writtenAt);
     } finally {
       jest.useRealTimers();
     }
@@ -170,7 +265,7 @@ describe('writes made before the engine opens', () => {
 
     await client.clear();
 
-    expect(mockNativeEngine.startClearAll).toHaveBeenCalledTimes(1);
+    expect(mockNativeEngine.runClearAll).toHaveBeenCalledTimes(1);
     expect(client.ready).toBe(true);
     client.initWithPath(DB);
     expect(mockSettings.setSetting).not.toHaveBeenCalled();

@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// FFI timing regression gate. Parses a captured Metro/logcat log for the FFI
-// timing markers emitted by logFFIStart() in src/shared/debug/renderTimer.ts and
-// compares per-call p95 against scripts/ffi-baseline.json budgets.
+// FFI timing gate. Reads the FFI ring a release build keeps (the Developer
+// Dashboard's per-call summary, or a shared debug snapshot that carries it as
+// `ffiMetrics`) and holds each call to the budget of the place it runs from,
+// then to a regression factor over the committed baseline for that call.
 //
-// Marker format (one per line, color dot is one of 🔴🟡🟢):
-//   🔴 [FFI] getSections: 312.4ms
+// A call is named `name@place`, the place being gesture, tap, mount or launch.
+// An untagged call is held to the tap and mount budget.
 //
-// Usage: node scripts/ffi-timing-gate.mjs [logPath]
-//   logPath defaults to /tmp/veloq-logcat.log
+// Usage: node scripts/ffi-timing-gate.mjs <ringJsonPath> [--baseline path]
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -15,57 +15,46 @@ import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..');
-const logPath = process.argv[2] ?? '/tmp/veloq-logcat.log';
-const baselinePath = join(here, 'ffi-baseline.json');
 
-// logcat prefixes the JS console line, so match anywhere on the line.
-const FFI_LINE = /\[FFI\]\s+(\S+):\s+([\d.]+)ms/;
+export const PLACE_BUDGET_MS = { gesture: 8.3, tap: 100, mount: 100, launch: 200 };
+const DEFAULT_PLACE = 'tap';
 
-function readLog(path) {
+const round = (n) => Math.round(n * 10) / 10;
+
+export function placeOf(name) {
+  const at = name.lastIndexOf('@');
+  const place = at === -1 ? '' : name.slice(at + 1);
+  return Object.hasOwn(PLACE_BUDGET_MS, place) ? place : DEFAULT_PLACE;
+}
+
+export function judge(summary, baseline) {
+  const factor = baseline.regressionFactor ?? 1.3;
+  const failures = [];
+  for (const [name, stat] of Object.entries(summary)) {
+    const place = placeOf(name);
+    const budget = PLACE_BUDGET_MS[place];
+    if (stat.p95Ms > budget) {
+      failures.push(`${name}: p95 ${stat.p95Ms}ms exceeds the ${place} budget ${budget}ms`);
+      continue;
+    }
+    const held = baseline.budgets?.[name];
+    if (held && stat.p95Ms > held.p95Ms * factor) {
+      failures.push(
+        `${name}: p95 ${stat.p95Ms}ms exceeds baseline ${held.p95Ms}ms x${factor} = ${round(held.p95Ms * factor)}ms`
+      );
+    }
+  }
+  return failures;
+}
+
+function readJson(path) {
   try {
-    return readFileSync(path, 'utf8');
+    return JSON.parse(readFileSync(path, 'utf8'));
   } catch (err) {
-    console.error(`Cannot read log at ${path}: ${err.message}`);
-    console.error('Capture one first (see scripts/ffi-timing-gate.mjs header / package.json).');
+    console.error(`Cannot read ${path}: ${err.message}`);
     process.exit(2);
   }
 }
-
-function parseTimings(text) {
-  const byName = new Map();
-  for (const line of text.split('\n')) {
-    const m = line.match(FFI_LINE);
-    if (!m) continue;
-    const name = m[1];
-    const ms = Number(m[2]);
-    if (!Number.isFinite(ms)) continue;
-    if (!byName.has(name)) byName.set(name, []);
-    byName.get(name).push(ms);
-  }
-  return byName;
-}
-
-function percentile(sorted, p) {
-  if (sorted.length === 0) return 0;
-  const idx = Math.min(sorted.length - 1, Math.floor(sorted.length * p));
-  return sorted[idx];
-}
-
-function aggregate(byName) {
-  const out = {};
-  for (const [name, durations] of byName) {
-    const sorted = [...durations].sort((a, b) => a - b);
-    out[name] = {
-      count: sorted.length,
-      p50: round(percentile(sorted, 0.5)),
-      p95: round(percentile(sorted, 0.95)),
-      max: round(sorted[sorted.length - 1]),
-    };
-  }
-  return out;
-}
-
-const round = (n) => Math.round(n * 10) / 10;
 
 // Static check: flag heavy FFI calls whose result is consumed only for a count.
 // These should use a dedicated count FFI instead of deserializing everything.
@@ -99,38 +88,29 @@ function walk(dir, fn) {
 }
 
 function main() {
-  const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
-  const factor = baseline.regressionFactor ?? 1.3;
-  const text = readLog(logPath);
-  const stats = aggregate(parseTimings(text));
-
-  const names = Object.keys(stats).sort();
+  const args = process.argv.slice(2);
+  const flag = args.indexOf('--baseline');
+  const baselinePath = flag === -1 ? join(here, 'ffi-baseline.json') : args[flag + 1];
+  const ringPath = args.find((a, i) => !a.startsWith('--') && i !== flag + 1);
+  if (!ringPath) {
+    console.error('Usage: node scripts/ffi-timing-gate.mjs <ringJsonPath> [--baseline path]');
+    process.exit(2);
+  }
+  const dump = readJson(ringPath);
+  const summary = dump.ffiMetrics ?? dump;
+  const names = Object.keys(summary).sort();
   if (names.length === 0) {
-    console.error(`No [FFI] markers found in ${logPath}.`);
-    console.error('Ensure PERF_DEBUG is on (dev build) and the log was captured during use.');
+    console.error(`No FFI calls in ${ringPath}. Turn debug on in a release build and use the app.`);
     process.exit(2);
   }
 
-  console.log('FFI timing summary (parsed from ' + logPath + '):');
+  console.log(`FFI ring summary (read from ${ringPath}):`);
   for (const name of names) {
-    const s = stats[name];
-    console.log(`  ${name}: count=${s.count} p50=${s.p50}ms p95=${s.p95}ms max=${s.max}ms`);
+    const s = summary[name];
+    console.log(`  ${name}: calls=${s.calls} p95=${s.p95Ms}ms max=${s.maxMs ?? '?'}ms`);
   }
 
-  const regressions = [];
-  for (const [name, budget] of Object.entries(baseline.budgets)) {
-    const s = stats[name];
-    if (!s) {
-      console.log(`  (no samples for budgeted call ${name})`);
-      continue;
-    }
-    const limit = budget.p95Ms * factor;
-    if (s.p95 > limit) {
-      regressions.push(
-        `${name}: p95 ${s.p95}ms exceeds budget ${budget.p95Ms}ms x${factor} = ${round(limit)}ms`
-      );
-    }
-  }
+  const failures = judge(summary, readJson(baselinePath));
 
   const warnings = staticScan();
   if (warnings.length > 0) {
@@ -138,13 +118,13 @@ function main() {
     for (const w of warnings) console.warn('  ' + w);
   }
 
-  if (regressions.length > 0) {
-    console.error('\nFFI timing regressions:');
-    for (const r of regressions) console.error('  ' + r);
+  if (failures.length > 0) {
+    console.error('\nFFI timing failures:');
+    for (const f of failures) console.error('  ' + f);
     process.exit(1);
   }
 
-  console.log('\nNo FFI timing regressions beyond threshold.');
+  console.log('\nEvery call is inside its place budget and its baseline.');
   process.exit(0);
 }
 

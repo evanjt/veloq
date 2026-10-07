@@ -1,24 +1,10 @@
 import { saveProvisionalActivity } from '../../../modules/veloqrs/src/delegates/activities';
 import type { DelegateHost } from '../../../modules/veloqrs/src/delegates/host';
-import type {
-  FfiActivityBody,
-  FfiActivityMetrics,
-} from '../../../modules/veloqrs/src/generated/veloqrs';
+import type { FfiActivityBody } from '../../../modules/veloqrs/src/generated/veloqrs';
 
 jest.mock('../../../modules/veloqrs/src/conversions', () => ({ validateId: jest.fn() }));
 
 const BODY: FfiActivityBody = { activityId: 'local-test', date: 1000, raw: '{}' };
-const METRICS: FfiActivityMetrics = {
-  activityId: 'local-test',
-  name: 'Ride',
-  date: 1000,
-  distance: 50,
-  movingTime: 30,
-  elapsedTime: 30,
-  elevationGain: 0,
-  sportType: 'Ride',
-};
-
 function fixture(ready = true) {
   const save = jest.fn();
   const notify = jest.fn();
@@ -39,17 +25,18 @@ it('waits for the native commit before notifying activity readers', async () => 
       commit = resolve;
     })
   );
-  const pending = saveProvisionalActivity(host, 'local-test', [], BODY, METRICS);
+  const pending = saveProvisionalActivity(host, 'local-test', 'file:///recordings/r.fit', BODY);
   expect(notify).not.toHaveBeenCalled();
   commit();
   expect(await pending).toBe(true);
+  expect(save).toHaveBeenCalledWith('local-test', 'file:///recordings/r.fit', BODY);
   expect(notify).toHaveBeenCalledWith('activities', 'groups');
 });
 
 it('does not notify readers when the native transaction rejects', async () => {
   const { host, save, notify } = fixture();
   save.mockRejectedValue(new Error('disk full'));
-  await expect(saveProvisionalActivity(host, 'local-test', [], BODY, METRICS)).rejects.toThrow(
+  await expect(saveProvisionalActivity(host, 'local-test', undefined, BODY)).rejects.toThrow(
     'disk full'
   );
   expect(notify).not.toHaveBeenCalled();
@@ -57,7 +44,7 @@ it('does not notify readers when the native transaction rejects', async () => {
 
 it('answers false without reaching Rust when the engine is closed', async () => {
   const { host, save, notify } = fixture(false);
-  expect(await saveProvisionalActivity(host, 'local-test', [], BODY, METRICS)).toBe(false);
+  expect(await saveProvisionalActivity(host, 'local-test', undefined, BODY)).toBe(false);
   expect(save).not.toHaveBeenCalled();
   expect(notify).not.toHaveBeenCalled();
 });

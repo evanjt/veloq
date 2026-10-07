@@ -7,21 +7,23 @@
  */
 
 import type {
-  FfiEftpChange,
+  FfiBestEffortsData,
+  FfiDayLoad,
+  FfiFeedSeen,
+  FfiFitnessScreenData,
   FfiFtpTrend,
   FfiInsightsData,
   FfiInsightsParams,
   FfiPaceTrend,
-  FfiMonthlyStats,
   FfiPeriodStats,
-  FfiStalePrOpportunity,
   FfiStartupData,
   FfiSummaryCardData,
+  FfiTrainingScreenData,
+  FfiTrainingScreenWindows,
   FfiWellnessSummary,
-  FfiWidgetSnapshotData,
+  FfiZoneDistribution,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
-import type { HeatmapDay } from './shared-types';
 import { present } from './optional';
 
 // Pre-initialization defaults (typed to match UniFFI-generated types)
@@ -32,14 +34,9 @@ const EMPTY_PERIOD_STATS: FfiPeriodStats = {
   totalTss: 0,
 };
 
-const EMPTY_FTP_TREND: FfiFtpTrend = { sampleCount: 0, history: [] };
+const EMPTY_FTP_TREND: FfiFtpTrend = { sampleCount: 0, history: [], changes: [] };
 
 const EMPTY_PACE_TREND: FfiPaceTrend = { sampleCount: 0, history: [] };
-
-export function getActivityMetricIds(host: DelegateHost): string[] {
-  if (!host.ready) return [];
-  return host.timed('getActivityMetricIds', () => host.engine.fitness().getActivityMetricIds());
-}
 
 /** No library yet: every number zero or absent, and no arrow to draw. */
 const EMPTY_WELLNESS_SUMMARY: FfiWellnessSummary = { fitness: 0, form: 0 };
@@ -62,14 +59,7 @@ export function getSummaryCardData(
     };
   }
   return host.timed('getSummaryCardData', () =>
-    host.engine
-      .fitness()
-      .getSummaryCardData(
-        BigInt(currentStart),
-        BigInt(currentEnd),
-        BigInt(prevStart),
-        BigInt(prevEnd)
-      )
+    host.engine.fitness().getSummaryCardData(currentStart, currentEnd, prevStart, prevEnd)
   );
 }
 
@@ -92,14 +82,21 @@ export function getStartupData(
   );
 }
 
+export function recordFeedSeen(host: DelegateHost, event: FfiFeedSeen): void {
+  if (!host.ready) return;
+  host.timed('recordFeedSeen', () => host.engine.fitness().recordFeedSeen(event));
+}
+
 export function getZoneDistribution(
   host: DelegateHost,
   sportType: string,
-  zoneType: string
-): number[] {
-  if (!host.ready) return [];
+  zoneType: string,
+  startTs: number,
+  endTs: number
+): FfiZoneDistribution {
+  if (!host.ready) return { seconds: [], names: [] };
   return host.timed('getZoneDistribution', () =>
-    host.engine.fitness().getZoneDistribution(sportType, zoneType)
+    host.engine.fitness().getZoneDistribution(sportType, zoneType, startTs, endTs)
   );
 }
 
@@ -114,23 +111,31 @@ export function savePaceSnapshot(
 ): void {
   // Stamped at the call, not at the write: a snapshot held until the engine
   // opens still belongs to the moment the curve was fitted.
-  const ts = BigInt(date ?? Math.floor(Date.now() / 1000));
+  const ts = date ?? Math.floor(Date.now() / 1000);
   host.write('savePaceSnapshot', () => {
     try {
-      host
-        .engine
-        .fitness()
-        .savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, ts, BigInt(windowDays));
+      host.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, ts, windowDays);
     } catch {
       // Pace snapshot save failed - non-critical
     }
   });
 }
 
-/** The activities that moved the accepted eFTP, oldest first. */
-export function getEftpChanges(host: DelegateHost): FfiEftpChange[] {
-  if (!host.ready) return [];
-  return host.timed('getEftpChanges', () => host.engine.fitness().getEftpChanges());
+/**
+ * Everything the fitness tab paints with that stays fixed while it is
+ * mounted: the eFTP trend over the chart's three months with the activities
+ * that moved it, and the last stored running and swimming critical speeds.
+ * Stale when `activities` fires.
+ */
+export function getFitnessScreenData(host: DelegateHost): FfiFitnessScreenData {
+  if (!host.ready) {
+    return {
+      ftpTrend: EMPTY_FTP_TREND,
+      runPaceTrend: EMPTY_PACE_TREND,
+      swimPaceTrend: EMPTY_PACE_TREND,
+    };
+  }
+  return host.timed('getFitnessScreenData', () => host.engine.fitness().getFitnessScreenData());
 }
 
 export function getAvailableSportTypes(host: DelegateHost): string[] {
@@ -151,37 +156,47 @@ export function getPeriodStats(
   endTs: number
 ): FfiPeriodStats | null {
   if (!host.ready) return null;
-  return host.timed('getPeriodStats', () =>
-    host.engine.fitness().getPeriodStats(BigInt(startTs), BigInt(endTs))
+  return host.timed('getPeriodStats', () => host.engine.fitness().getPeriodStats(startTs, endTs));
+}
+
+/**
+ * Recorded activity load per local day over a window, oldest first.
+ *
+ * A day with activities and no recorded load is `Unavailable` and one with only
+ * some is `Partial`. Days with no activities are absent.
+ */
+export function getDailyActivityLoads(
+  host: DelegateHost,
+  startTs: number,
+  endTs: number
+): FfiDayLoad[] {
+  if (!host.ready) return [];
+  return host.timed('getDailyActivityLoads', () =>
+    host.engine.fitness().getDailyActivityLoads(startTs, endTs)
   );
 }
 
 /**
- * A window's totals grouped by calendar month, oldest first.
- *
- * Months with no activity are absent rather than zero: a caller drawing a fixed
- * twelve bars fills the gaps itself, and rows of zeroes would be the same answer
- * with more rows.
+ * Everything the training tab paints with that stays fixed while it is
+ * mounted: the heatmap days, the monthly rows, and the year and month to date
+ * against the same spans of last year. Stale when `activities` fires.
  */
-export function getMonthlyStats(
+export function getTrainingScreenData(
   host: DelegateHost,
-  startTs: number,
-  endTs: number
-): FfiMonthlyStats[] {
-  if (!host.ready) return [];
-  return host.timed('getMonthlyStats', () =>
-    host.engine.fitness().getMonthlyStats(BigInt(startTs), BigInt(endTs))
-  );
-}
-
-export function getActivityHeatmap(
-  host: DelegateHost,
-  startDate: string,
-  endDate: string
-): HeatmapDay[] {
-  if (!host.ready) return [];
-  return host.timed('getActivityHeatmap', () =>
-    host.engine.fitness().getActivityHeatmap(startDate, endDate)
+  windows: FfiTrainingScreenWindows
+): FfiTrainingScreenData {
+  if (!host.ready) {
+    return {
+      heatmap: [],
+      months: [],
+      yearCurrent: EMPTY_PERIOD_STATS,
+      yearPrevious: EMPTY_PERIOD_STATS,
+      monthCurrent: EMPTY_PERIOD_STATS,
+      monthPrevious: EMPTY_PERIOD_STATS,
+    };
+  }
+  return host.timed('getTrainingScreenData', () =>
+    host.engine.fitness().getTrainingScreenData(windows)
   );
 }
 
@@ -235,6 +250,17 @@ export interface WellnessSparklines {
   form: number[];
   hrv: number[];
   rhr: number[];
+  /** Beside `hrv` and `rhr`: whether each day had a reading of its own. */
+  hrvRead: boolean[];
+  rhrRead: boolean[];
+  /** Last plotted value minus the first; absent under two values. */
+  fitnessDelta?: number | undefined;
+  fatigueDelta?: number | undefined;
+  formDelta?: number | undefined;
+  hrvDelta?: number | undefined;
+  rhrDelta?: number | undefined;
+  /** Indices into `fitness` of the days fitness rose by more than one point. */
+  fitnessRiseDays?: number[];
 }
 
 export interface HrvTrendResult {
@@ -251,8 +277,8 @@ export interface HrvTrendResult {
  * atomics stay fresh.
  */
 export function upsertWellness(host: DelegateHost, rows: WellnessRowInput[]): void {
-  if (!host.ready || rows.length === 0) return;
-  host.timed('upsertWellness', () =>
+  if (rows.length === 0) return;
+  host.write('upsertWellness', () =>
     host.engine.fitness().upsertWellness(
       rows.map((r) =>
         present({
@@ -286,10 +312,9 @@ export function upsertWellness(host: DelegateHost, rows: WellnessRowInput[]): vo
 export function getWellnessDays(host: DelegateHost, oldest: string, newest: string): WellnessDay[] {
   if (!host.ready) return [];
   const days =
-    host.timed('getWellnessDays', () => host.engine.fitness().getWellnessDays(oldest, newest)) ?? [];
-  // Sleep is an i64 the whole way down and reaches JS as a bigint; every
-  // screen reading it does arithmetic against plain numbers.
-  return days.map((d) => present({ ...d, sleepSecs: d.sleepSecs }));
+    host.timed('getWellnessDays', () => host.engine.fitness().getWellnessDays(oldest, newest)) ??
+    [];
+  return days.map((d) => present(d));
 }
 
 export function getWellnessLatestDate(host: DelegateHost): string | null {
@@ -304,31 +329,6 @@ export function getWellnessSparklines(host: DelegateHost, days: number): Wellnes
   return (
     host.timed('getWellnessSparklines', () => host.engine.fitness().getWellnessSparklines(days)) ??
     null
-  );
-}
-
-export function computeHrvTrend(host: DelegateHost, days: number): HrvTrendResult | null {
-  if (!host.ready) return null;
-  return host.timed('computeHrvTrend', () => host.engine.fitness().computeHrvTrend(days)) ?? null;
-}
-
-export function findStalePrOpportunities(
-  host: DelegateHost,
-  staleThresholdDays: number,
-  minGainPercent: number,
-  maxOpportunities: number,
-  excludeSectionIds: string[]
-): FfiStalePrOpportunity[] {
-  if (!host.ready) return [];
-  return host.timed('findStalePrOpportunities', () =>
-    host.engine
-      .fitness()
-      .findStalePrOpportunities(
-        staleThresholdDays,
-        minGainPercent,
-        maxOpportunities,
-        excludeSectionIds
-      )
   );
 }
 
@@ -386,9 +386,7 @@ export interface PaceCurveRow extends CurveRow {
 }
 
 /** The engine hands the activities over as a `Map`; the app reads an object. */
-function activitiesOf(
-  activities: Map<string, CurveActivityRow>
-): Record<string, CurveActivityRow> {
+function activitiesOf(activities: Map<string, CurveActivityRow>): Record<string, CurveActivityRow> {
   return Object.fromEntries(activities);
 }
 
@@ -402,9 +400,7 @@ export function getPowerCurve(
   days: number
 ): PowerCurveRow | null {
   if (!host.ready) return null;
-  const row = host.timed('getPowerCurve', () =>
-    host.engine.fitness().getPowerCurve(sport, BigInt(days))
-  );
+  const row = host.timed('getPowerCurve', () => host.engine.fitness().getPowerCurve(sport, days));
   if (!row) return null;
   return {
     ...row,
@@ -422,7 +418,7 @@ export function getPaceCurve(
 ): PaceCurveRow | null {
   if (!host.ready) return null;
   const row = host.timed('getPaceCurve', () =>
-    host.engine.fitness().getPaceCurve(sport, BigInt(days), gap)
+    host.engine.fitness().getPaceCurve(sport, days, gap)
   );
   if (!row) return null;
   return {
@@ -432,13 +428,22 @@ export function getPaceCurve(
   };
 }
 
+/**
+ * Everything the Best Efforts screen paints with over the last `days` days, or
+ * all time when `days` is 0. Null before the engine is ready.
+ */
+export function getBestEffortsData(host: DelegateHost, days: number): FfiBestEffortsData | null {
+  if (!host.ready) return null;
+  return host.timed('getBestEffortsData', () => host.engine.fitness().getBestEffortsData(days));
+}
+
 /** An activity's stored interval body, or null if never fetched. */
 export function getIntervalBody(host: DelegateHost, activityId: string): string | null {
   if (!host.ready) return null;
   return (
-    (host.timed('getIntervalBody', () =>
-      host.engine.fitness().getIntervalBody(activityId)
-    ) as string | undefined) ?? null
+    (host.timed('getIntervalBody', () => host.engine.fitness().getIntervalBody(activityId)) as
+      | string
+      | undefined) ?? null
   );
 }
 
@@ -451,7 +456,7 @@ export function getCalendarEventBodies(
   if (!host.ready) return [];
   return (
     host.timed('getCalendarEventBodies', () =>
-      host.engine.fitness().getCalendarEventBodies(BigInt(oldestTs), BigInt(newestTs))
+      host.engine.fitness().getCalendarEventBodies(oldestTs, newestTs)
     ) ?? []
   );
 }
@@ -474,48 +479,41 @@ export function getWeeklySummaries(
 }[] {
   if (!host.ready || weekStarts.length === 0) return [];
   const rows = host.timed('getWeeklySummaries', () =>
-    host.engine
-      .fitness()
-      .getWeeklySummaries(weekStarts.map(BigInt), BigInt(weekLengthSecs))
+    host.engine.fitness().getWeeklySummaries(weekStarts, weekLengthSecs)
   );
-  return rows.map((r) => ({
-    weekStart: r.weekStart,
-    count: r.count,
-    movingTime: r.movingTime,
-    distance: r.distance,
-    trainingLoad: r.trainingLoad,
-  }));
+  return rows;
 }
 
 /**
- * Everything the home-screen widget snapshot is composed from, in one
- * round-trip: wellness sparklines, the summary card, and the latest activity
- * with its record flag and GPS track.
- *
- * `maxGpsPoints` is the widget's own point budget. The track used to cross
- * whole on every background transition and every settled sync, for JavaScript
- * to keep 150 points of it. Zero asks for the whole track.
+ * The home-screen widget snapshot as the JSON the widgets read, composed by the
+ * engine from its rows and `contextJson`, the words and settings only the app
+ * knows. Undefined when the engine is not open; a failed read throws, which the
+ * caller reads as "unknown" and keeps the last file.
  */
-export function getWidgetSnapshot(
+export function composeWidgetSnapshot(
   host: DelegateHost,
-  currentStart: number,
-  currentEnd: number,
-  prevStart: number,
-  prevEnd: number,
-  sparklineDays: number,
-  maxGpsPoints: number
-): FfiWidgetSnapshotData | undefined {
+  contextJson: string,
+  nowSeconds: number,
+  nowWallSeconds: number
+): string | undefined {
   if (!host.ready) return undefined;
-  return host.timed('getWidgetSnapshot', () =>
-    host.engine
-      .fitness()
-      .getWidgetSnapshot(
-        BigInt(currentStart),
-        BigInt(currentEnd),
-        BigInt(prevStart),
-        BigInt(prevEnd),
-        sparklineDays,
-        maxGpsPoints
-      )
+  return host.timed('composeWidgetSnapshot', () =>
+    host.engine.fitness().composeWidgetSnapshot(contextJson, nowSeconds, nowWallSeconds)
   );
+}
+
+/**
+ * Store the widget context, so the Android push worker composes the snapshot in
+ * the app's words with no JavaScript running. Answers whether anything was
+ * written; a refused write answers false, and the worker keeps the last context.
+ */
+export function setWidgetContext(host: DelegateHost, contextJson: string): boolean {
+  if (!host.ready) return false;
+  try {
+    return host.timed('setWidgetContext', () =>
+      host.engine.fitness().setWidgetContext(contextJson)
+    );
+  } catch {
+    return false;
+  }
 }

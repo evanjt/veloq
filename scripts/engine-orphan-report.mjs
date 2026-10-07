@@ -6,15 +6,25 @@
  * from the path the app actually uses (the rename_section case: promoted
  * on rename, no FFI caller, deleted 2026-07-28).
  *
- * Report-only. Run: npm run ffi:orphans
+ * Run: npm run ffi:orphans to list them. `--check` fails when a method with no
+ * callers, or a test-only method, is missing from scripts/engine-orphan-allowlist.json,
+ * or when a listed method no longer exists, so the list only shrinks.
  */
 
+// Reads the crate off the disk on purpose: it judges the tree it is run in, and a test
+// hands it a fixture root that is not a repository.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// `--root DIR` points the report at another tree, which is how a test hands it a fixture.
+const rootArg = process.argv.indexOf('--root');
+const ROOT =
+  rootArg === -1
+    ? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+    : path.resolve(process.argv[rootArg + 1]);
 const CRATE = path.join(ROOT, 'modules/veloqrs/rust/veloqrs');
+const ALLOWLIST = path.join(ROOT, 'scripts/engine-orphan-allowlist.json');
 const SRC = path.join(CRATE, 'src');
 const TESTS = path.join(CRATE, 'tests');
 
@@ -109,3 +119,31 @@ console.log(
   '\nNote: a src caller can be another engine method or an FFI object; this report' +
     '\ndoes not prove reachability from the app, only that non-test code uses it.'
 );
+
+if (process.argv.includes('--check')) {
+  const allow = JSON.parse(fs.readFileSync(ALLOWLIST, 'utf8'));
+  const problems = [];
+  const lists = [
+    ['testOnly', testOnly, 'a test-only method'],
+    ['noCallers', orphans, 'a method with no callers'],
+  ];
+  for (const [key, found, label] of lists) {
+    const listed = allow[key] ?? {};
+    const names = new Set(found.map((f) => f.name));
+    for (const f of found) {
+      if (!listed[f.name]) {
+        problems.push(
+          `${f.name} (${f.file}) is ${label} and is not in ${key}; call it from the app, delete it, or mark it #[doc(hidden)]`
+        );
+      }
+    }
+    for (const name of Object.keys(listed)) {
+      if (!names.has(name))
+        problems.push(`${name} is listed in ${key} but is no longer ${label}; remove the entry`);
+    }
+  }
+  if (problems.length > 0) {
+    console.error(problems.join('\n'));
+    process.exit(1);
+  }
+}

@@ -5,7 +5,7 @@
     "modules": []
   },
   "android": {
-    "modules": [],
+    "modules": ["com.veloq.VeloqPushModule"],
     "packageClassNames": ["com.veloq.VeloqrsPackage"]
   }
 }

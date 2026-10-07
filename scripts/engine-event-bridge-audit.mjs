@@ -11,14 +11,19 @@
 //      useEngineSubscription / createEngineHook OR have every queryKey group they
 //      use invalidated in GlobalDataSync. Orphans are flagged.
 //   2. Every initialize* store hydrator imported into backup.ts must be called in
-//      the STORE_INITIALISERS table, so a restored preference
+//      the storeInitialisers table, so a restored preference
 //      key isn't silently left un-hydrated.
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { treeView } from './lib/indexedSources.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// `--root` points the audit at another tree, so the rule itself can be tested.
+const rootFlag = process.argv.indexOf('--root');
+const ROOT =
+  rootFlag === -1
+    ? join(dirname(fileURLToPath(import.meta.url)), '..')
+    : resolve(process.argv[rootFlag + 1]);
 const SHARED_APP_DIR = join(ROOT, 'src/shared/app');
 const FEATURES_DIR = join(ROOT, 'src/features');
 const QUERY_KEYS_FILE = join(ROOT, 'src/shared/query/queryKeys.ts');
@@ -27,21 +32,13 @@ const BACKUP_FILE = join(ROOT, 'src/features/settings/lib/backup.ts');
 
 const rel = (p) => relative(ROOT, p);
 
+const tree = treeView(ROOT, ['src/shared', 'src/features']);
+
 function walk(dir) {
-  const out = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const { name } = entry;
-    const full = join(dir, name);
-    if (entry.isDirectory()) out.push(...walk(full));
-    else if (/\.tsx?$/.test(name)) out.push(full);
-  }
-  return out;
+  return tree.files(dir, (name) => /\.tsx?$/.test(name));
 }
 
-// Top-level query key groups: queryKeys.<group> = { ... }. We treat the group
-// as the unit of invalidation because GlobalDataSync invalidates by group root
-// (e.g. queryKeys.strength.all), and TanStack partial-key matching covers the
-// members.
+// Top-level query key groups: queryKeys.<group> = { ... }.
 function parseQueryKeyGroups(src) {
   const groups = new Set();
   // Match `  groupName: {` at the first indent level inside `export const queryKeys = {`.
@@ -50,6 +47,38 @@ function parseQueryKeyGroups(src) {
   let m;
   while ((m = re.exec(body))) groups.add(m[1]);
   return groups;
+}
+
+// The root of each member's key tuple, as `group.member` -> first element.
+// TanStack matches a key by prefix, so invalidating ['activities'] reaches only
+// keys that start with 'activities': a member whose tuple starts with another
+// string is not covered by its group's `all`.
+function parseMemberRoots(src) {
+  const roots = new Map();
+  const body = src.slice(src.indexOf('queryKeys'));
+  const groupRe = /^ {2}([a-zA-Z]\w*):\s*\{/gm;
+  const starts = [...body.matchAll(groupRe)];
+  starts.forEach((g, i) => {
+    const end = i + 1 < starts.length ? starts[i + 1].index : body.length;
+    const groupBody = body.slice(g.index, end);
+    const memberRe = /^ {4}(\w+):\s*(?:\([^)]*\)\s*=>\s*)?\[\s*'([^']+)'/gm;
+    let m;
+    while ((m = memberRe.exec(groupBody))) roots.set(`${g[1]}.${m[1]}`, m[2]);
+  });
+  return roots;
+}
+
+// Roots GlobalDataSync invalidates: the root of every queryKeys.<group>.<member>
+// it names.
+function parseInvalidatedRoots(src, memberRoots) {
+  const invalidated = new Set();
+  const re = /queryKeys\.(\w+)\.(\w+)/g;
+  let m;
+  while ((m = re.exec(src))) {
+    const root = memberRoots.get(`${m[1]}.${m[2]}`);
+    if (root) invalidated.add(root);
+  }
+  return invalidated;
 }
 
 // Query key groups GlobalDataSync invalidates (any queryKeys.<group>.* reference
@@ -89,10 +118,10 @@ const EXEMPT = new Set(['src/features/routes/hooks/useCustomSections.ts']);
 // from GlobalDataSync's invalidation set. We scope the audit to exactly that
 // shape: useQuery + centralized query key. Derive-from-input useMemo hooks and
 // action hooks are excluded - they have no sync-driven refresh expectation.
-function findEngineHookOrphans(knownGroups, invalidatedGroups) {
+function findEngineHookOrphans(knownGroups, invalidatedGroups, memberRoots, invalidatedRoots) {
   const orphans = [];
   for (const file of [...walk(SHARED_APP_DIR), ...walk(FEATURES_DIR)]) {
-    const src = readFileSync(file, 'utf8');
+    const src = tree.text(file);
     if (!ENGINE_READ.test(src)) continue;
     if (!/\buseQuery\b/.test(src)) continue;
 
@@ -109,10 +138,18 @@ function findEngineHookOrphans(knownGroups, invalidatedGroups) {
     if (EXEMPT.has(rel(file))) continue;
 
     const uncovered = [...usedGroups].filter((g) => !invalidatedGroups.has(g));
+    // A used member with a known root is covered only when that root is
+    // invalidated, whatever its group's other members are.
+    const memberRe = /queryKeys\.(\w+)\.(\w+)\b/g;
+    while ((m = memberRe.exec(src))) {
+      const name = `${m[1]}.${m[2]}`;
+      const root = memberRoots.get(name);
+      if (root && !invalidatedRoots.has(root) && !uncovered.includes(name)) uncovered.push(name);
+    }
     if (uncovered.length > 0) {
       orphans.push({
         file: rel(file),
-        reason: `query key group(s) not invalidated by GlobalDataSync: ${uncovered.join(', ')}`,
+        reason: `query key(s) not invalidated by GlobalDataSync: ${uncovered.join(', ')}`,
       });
     }
   }
@@ -120,7 +157,7 @@ function findEngineHookOrphans(knownGroups, invalidatedGroups) {
 }
 
 // Every initialize* hydrator imported into backup.ts must be invoked in the
-// STORE_INITIALISERS table. A restored preference whose initializer is missing
+// storeInitialisers table. A restored preference whose initializer is missing
 // reads pre-restore in-memory state until the next app launch.
 function findReinitGaps(src) {
   const imported = new Set();
@@ -128,9 +165,9 @@ function findReinitGaps(src) {
   let m;
   while ((m = importRe.exec(src))) imported.add(m[1]);
 
-  // Registration is the STORE_INITIALISERS table, which reinitializeAllStores
+  // Registration is the storeInitialisers table, which reinitializeAllStores
   // settles over.
-  const bodyStart = src.indexOf('STORE_INITIALISERS');
+  const bodyStart = src.indexOf('storeInitialisers');
   if (bodyStart === -1) {
     return { missing: [...imported], noBody: true };
   }
@@ -147,16 +184,24 @@ function findReinitGaps(src) {
 }
 
 function main() {
-  const queryKeysSrc = readFileSync(QUERY_KEYS_FILE, 'utf8');
-  const globalSyncSrc = readFileSync(GLOBAL_SYNC_FILE, 'utf8');
-  const backupSrc = readFileSync(BACKUP_FILE, 'utf8');
+  const queryKeysSrc = tree.text(QUERY_KEYS_FILE);
+  const globalSyncSrc = tree.text(GLOBAL_SYNC_FILE);
+  const backupSrc = tree.text(BACKUP_FILE);
 
   const knownGroups = parseQueryKeyGroups(queryKeysSrc);
   const invalidatedGroups = parseInvalidatedGroups(globalSyncSrc, knownGroups);
 
+  const memberRoots = parseMemberRoots(queryKeysSrc);
+  const invalidatedRoots = parseInvalidatedRoots(globalSyncSrc, memberRoots);
+
   let failed = false;
 
-  const orphans = findEngineHookOrphans(knownGroups, invalidatedGroups);
+  const orphans = findEngineHookOrphans(
+    knownGroups,
+    invalidatedGroups,
+    memberRoots,
+    invalidatedRoots
+  );
   if (orphans.length > 0) {
     failed = true;
     console.error('Engine-event bridge orphans (engine-derived data with no refresh path):');
@@ -170,13 +215,13 @@ function main() {
   const { missing, noBody } = findReinitGaps(backupSrc);
   if (noBody) {
     failed = true;
-    console.error('Could not locate STORE_INITIALISERS in backup.ts - restore reinit check skipped.');
+    console.error('Could not locate storeInitialisers in backup.ts - restore reinit check skipped.');
   } else if (missing.length > 0) {
     failed = true;
-    console.error('Imported store initializers missing from STORE_INITIALISERS:');
+    console.error('Imported store initializers missing from storeInitialisers:');
     for (const name of missing) console.error(`  ${name}`);
     console.error('');
-    console.error('Fix: add the initialize* function to the STORE_INITIALISERS table in backup.ts,');
+    console.error('Fix: add the initialize* function to the storeInitialisers table in backup.ts,');
     console.error('     or drop the unused import.');
     console.error('');
   }

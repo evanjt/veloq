@@ -22,13 +22,16 @@ import type { DelegateHost } from './host';
  * Live and terminal states the backfill reports. `paused` is the athlete's
  * own stop: it holds until they resume it or the app is next launched.
  */
-export type ElevationBackfillPhase =
-  | 'idle'
-  | 'fetching'
-  | 'complete'
-  | 'partial'
-  | 'failed'
-  | 'paused';
+export const ELEVATION_PHASES = [
+  'idle',
+  'fetching',
+  'complete',
+  'partial',
+  'failed',
+  'paused',
+] as const;
+
+export type ElevationBackfillPhase = (typeof ELEVATION_PHASES)[number];
 
 export type { ElevationBackfillProgress };
 
@@ -84,7 +87,7 @@ export function resumeElevationBackfill(host: DelegateHost): boolean {
 export function isElevationBackfillPaused(host: DelegateHost): boolean {
   if (!host.ready) return false;
   try {
-    return ffiIsElevationBackfillPaused();
+    return host.timed('isElevationBackfillPaused', () => ffiIsElevationBackfillPaused());
   } catch (e) {
     console.error('[Engine] isElevationBackfillPaused threw:', e);
     return false;
@@ -95,26 +98,15 @@ export function isElevationBackfillPaused(host: DelegateHost): boolean {
  * How many stored tracks the backfill still has to ask upstream about. Zero
  * is the definitive "nothing left to do" the launch trigger stamps on, so an
  * engine that is not ready answers null, never zero. Rust raises rather than
- * answering zero for the same reason, so a locked database lands in the catch
- * below and reads as null too.
+ * answering zero for the same reason, and the error reaches the caller.
  */
 export function getElevationBackfillRemaining(host: DelegateHost): number | null {
   if (!host.ready) return null;
-  try {
-    return host.timed('getElevationBackfillRemaining', () => ffiGetElevationBackfillRemaining());
-  } catch (e) {
-    console.error('[Engine] getElevationBackfillRemaining threw:', e);
-    return null;
-  }
+  return host.timed('getElevationBackfillRemaining', () => ffiGetElevationBackfillRemaining());
 }
 
 /** Read the backfill's progress. Null when the engine is not ready. */
 export function getElevationBackfillProgress(host: DelegateHost): ElevationBackfillProgress | null {
   if (!host.ready) return null;
-  try {
-    return host.timed('getElevationBackfillProgress', () => ffiGetElevationBackfillProgress());
-  } catch (e) {
-    console.error('[Engine] getElevationBackfillProgress threw:', e);
-    return null;
-  }
+  return host.timed('getElevationBackfillProgress', () => ffiGetElevationBackfillProgress());
 }

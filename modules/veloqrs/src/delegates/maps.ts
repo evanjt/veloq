@@ -5,7 +5,7 @@
  * index. Date inputs are converted to Unix seconds before crossing the FFI.
  */
 
-import type { FfiMapScreenData } from '../generated/veloqrs';
+import type { FfiMapScreenData, MapDistanceBand } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 /**
@@ -16,19 +16,38 @@ export function getMapScreenData(
   host: DelegateHost,
   startDate: Date,
   endDate: Date,
-  sportTypesArray?: string[]
+  sportTypesArray: string[],
+  distanceBand: MapDistanceBand,
+  isMetric: boolean,
+  routeLines: boolean,
+  sections: boolean,
+  nameNeedle: string
 ): FfiMapScreenData | undefined {
   if (!host.ready) return undefined;
-  const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
-  const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
+  const startTs = startDate.getTime() / 1000;
+  const endTs = endDate.getTime() / 1000;
   return host.timed('getMapScreenData', () =>
-    host.engine.maps().getScreenData(startTs, endTs, sportTypesArray ?? [])
+    host.engine
+      .maps()
+      .getScreenData(
+        startTs,
+        endTs,
+        sportTypesArray,
+        distanceBand,
+        isMetric,
+        routeLines,
+        sections,
+        nameNeedle
+      )
   );
 }
 
-export function getAllMapSignatures(
-  host: DelegateHost
-): { activityId: string; encodedCoords: ArrayBuffer; centerLat: number; centerLng: number }[] {
+export function getAllMapSignatures(host: DelegateHost): {
+  activityId: string;
+  encodedCoords: ArrayBuffer;
+  centerLat: number;
+  centerLng: number;
+}[] {
   if (!host.ready) return [];
   return host.timed('getAllMapSignatures', () => host.engine.maps().getAllSignatures());
 }
@@ -41,7 +60,9 @@ export function queryViewport(
   maxLng: number
 ): string[] {
   if (!host.ready) return [];
-  return host.timed('queryViewport', () =>
-    host.engine.maps().queryViewport(minLat, maxLat, minLng, maxLng)
+  return host.timed(
+    'queryViewport',
+    () => host.engine.maps().queryViewport(minLat, maxLat, minLng, maxLng),
+    'gesture'
   );
 }

@@ -19,15 +19,15 @@
 import {
   FfiCallKind,
   FfiStartOutcome,
+  type FfiStartResult,
   RangeCoverage,
   type LibraryCoverage,
   type FfiCallOutcome,
-  type FfiManualActivity,
   type FfiOfflineEstimate,
   type FfiSyncStatus,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
-import { hasStarted } from './start';
+import { hasStarted, startResult } from './start';
 
 /** Auth scheme passed to `setSyncCredentials` (matches Rust `AuthKind::parse`). */
 export type SyncAuthMethod = 'oauth' | 'api_key';
@@ -72,17 +72,13 @@ export function offlineEstimate(
 ): OfflineEstimate | null {
   if (!host.ready) return null;
   return (
-    host.timed('offlineEstimate', () =>
-      host.engine.sync().offlineEstimate(BigInt(oldest), BigInt(newest))
-    ) ?? null
+    host.timed('offlineEstimate', () => host.engine.sync().offlineEstimate(oldest, newest)) ?? null
   );
 }
 
 export function syncNow(host: DelegateHost): FfiStartOutcome {
   if (!host.ready) return FfiStartOutcome.NotReady;
-  const outcome = host.timed('syncNow', () =>
-    host.engine.sync().syncNow()
-  ) as FfiStartOutcome;
+  const outcome = host.timed('syncNow', () => host.engine.sync().syncNow()) as FfiStartOutcome;
   if (hasStarted(outcome)) host.notify('sync');
   return outcome;
 }
@@ -140,15 +136,9 @@ const NOTHING_KNOWN: LibraryCoverage = {
 /** Ask Rust to fetch and store a power curve. The verdict says whether waiting
  *  helps: `Busy` is the same curve already in flight, `NotConfigured` is no
  *  credential and never becomes one by asking again. */
-export function syncPowerCurve(
-  host: DelegateHost,
-  sport: string,
-  days: number
-): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
-  return host.timed('syncPowerCurve', () =>
-    host.engine.sync().syncPowerCurve(sport, BigInt(days))
-  ) as FfiStartOutcome;
+export function syncPowerCurve(host: DelegateHost, sport: string, days: number): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
+  return host.timed('syncPowerCurve', () => host.engine.sync().syncPowerCurve(sport, days));
 }
 
 /** Ask Rust to fetch and store a pace curve. `gap` is honoured for running only. */
@@ -157,27 +147,29 @@ export function syncPaceCurve(
   sport: string,
   days: number,
   gap: boolean
-): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
-  return host.timed('syncPaceCurve', () =>
-    host.engine.sync().syncPaceCurve(sport, BigInt(days), gap)
-  ) as FfiStartOutcome;
+): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
+  return host.timed('syncPaceCurve', () => host.engine.sync().syncPaceCurve(sport, days, gap));
 }
 
 /** Ask Rust to fetch and store an activity's work/recovery intervals. */
-export function syncActivityIntervals(host: DelegateHost, activityId: string): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
+export function syncActivityIntervals(host: DelegateHost, activityId: string): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
   return host.timed('syncActivityIntervals', () =>
     host.engine.sync().syncActivityIntervals(activityId)
-  ) as FfiStartOutcome;
+  );
 }
 
 /** Ask Rust to refresh the calendar events in a date window. */
-export function syncCalendarEvents(host: DelegateHost, oldest: string, newest: string): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
+export function syncCalendarEvents(
+  host: DelegateHost,
+  oldest: string,
+  newest: string
+): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
   return host.timed('syncCalendarEvents', () =>
     host.engine.sync().syncCalendarEvents(oldest, newest)
-  ) as FfiStartOutcome;
+  );
 }
 
 /** Ask Rust to fetch and store an activity's streams for a series selection.
@@ -186,30 +178,26 @@ export function syncActivityStreams(
   host: DelegateHost,
   activityId: string,
   types: string
-): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
+): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
   return host.timed('syncActivityStreams', () =>
     host.engine.sync().syncActivityStreams(activityId, types)
-  ) as FfiStartOutcome;
+  );
 }
 
 /** Ask Rust to fetch and store an activity's full detail body. */
-export function syncActivityDetail(host: DelegateHost, activityId: string): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
-  return host.timed('syncActivityDetail', () =>
-    host.engine.sync().syncActivityDetail(activityId)
-  ) as FfiStartOutcome;
+export function syncActivityDetail(host: DelegateHost, activityId: string): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
+  return host.timed('syncActivityDetail', () => host.engine.sync().syncActivityDetail(activityId));
 }
 
 /** Ask Rust to fetch the `time` streams the section maths needs. Activities
  *  that already have one are skipped inside Rust. */
-export function syncTimeStreams(host: DelegateHost, activityIds: string[]): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
+export function syncTimeStreams(host: DelegateHost, activityIds: string[]): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
   // Nothing asked for is no work, not a refusal to do it.
-  if (activityIds.length === 0) return FfiStartOutcome.NotOwed;
-  return host.timed('syncTimeStreams', () =>
-    host.engine.sync().syncTimeStreams(activityIds)
-  ) as FfiStartOutcome;
+  if (activityIds.length === 0) return startResult(FfiStartOutcome.NotOwed);
+  return host.timed('syncTimeStreams', () => host.engine.sync().syncTimeStreams(activityIds));
 }
 
 /**
@@ -224,30 +212,16 @@ function engineUnavailable(action: string): FfiCallOutcome {
 }
 
 /**
- * Upload a recorded activity file. The FIT streams from `filePath` inside Rust,
- * so the bytes never cross this boundary.
- *
- * Resolves to an outcome rather than rejecting: the caller has to branch on the
- * status to decide whether the recording is retried, parked or blocked on write
- * permission. These write calls skip `host.timed` because it measures the
- * dispatch, not the request the promise is waiting on.
+ * Set the effort the athlete gave an uploaded ride, as its `icu_rpe`. It names
+ * the activity the upload created, so a failure never sends the file again.
  */
-export function uploadActivityFile(
+export function updateActivityRpe(
   host: DelegateHost,
-  filePath: string,
-  filename: string,
-  name?: string,
-  pairedEventId?: number
+  intervalsId: string,
+  rpe: number
 ): Promise<FfiCallOutcome> {
-  if (!host.ready) return Promise.resolve(engineUnavailable('upload'));
-  return host.engine
-    .sync()
-    .uploadActivity(
-      filePath,
-      filename,
-      name,
-      pairedEventId === undefined ? undefined : BigInt(pairedEventId)
-    );
+  if (!host.ready) return Promise.resolve(engineUnavailable('set the effort'));
+  return host.engine.sync().updateActivityRpe(intervalsId, rpe);
 }
 
 /**
@@ -264,15 +238,6 @@ export function confirmActivityUploaded(
 ): Promise<FfiCallOutcome> {
   if (!host.ready) return Promise.resolve(engineUnavailable('confirm the upload'));
   return host.engine.sync().confirmActivityUploaded(intervalsId);
-}
-
-/** Create an activity with no file behind it, for indoor entries. */
-export function createManualActivity(
-  host: DelegateHost,
-  activity: FfiManualActivity
-): Promise<FfiCallOutcome> {
-  if (!host.ready) return Promise.resolve(engineUnavailable('create an activity'));
-  return host.engine.sync().createManualActivity(activity);
 }
 
 /**
@@ -298,7 +263,7 @@ export function cancelSync(host: DelegateHost): void {
  */
 export function getBodiesStored(host: DelegateHost): number {
   if (!host.ready) return 0;
-  return Number(host.timed('getBodiesStored', () => host.engine.sync().bodiesStored()));
+  return host.timed('getBodiesStored', () => host.engine.sync().bodiesStored());
 }
 
 /** Current status snapshot (null before the engine is ready). */

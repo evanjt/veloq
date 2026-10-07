@@ -4,10 +4,12 @@
  * Geometry editing for existing sections: trim to a narrower sub-range, reset
  * back to the original polyline, or expand to a user-supplied wider polyline.
  * Each edit re-matches activities and fans out change events via `notifyAll`
- * because both summaries and polylines can change.
+ * because both summaries and polylines can change. Each returns the rides the
+ * edit took out of the section, or null when it failed.
  */
 
 import { validateId } from '../../conversions';
+import type { FfiDepartedRide } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 
 export function trimSection(
@@ -15,29 +17,38 @@ export function trimSection(
   sectionId: string,
   startIndex: number,
   endIndex: number
-): boolean {
-  if (!host.ready) return false;
+): FfiDepartedRide[] | null {
+  if (!host.ready) return null;
   validateId(sectionId, 'section ID');
   try {
-    host.timed('trimSection', () => host.engine.sections().trim(sectionId, startIndex, endIndex));
+    const departed = host.timed('trimSection', () =>
+      host.engine.sections().trim(sectionId, startIndex, endIndex)
+    );
     host.notifyAll('sections');
-    return true;
+    return departed;
   } catch (e) {
+    // empty-on-error: a write; null is its failure and [] is no ride departing.
     console.error('[Engine] trimSection failed:', sectionId, { startIndex, endIndex }, e);
-    return false;
+    return null;
   }
 }
 
-export function resetSectionBounds(host: DelegateHost, sectionId: string): boolean {
-  if (!host.ready) return false;
+export function resetSectionBounds(
+  host: DelegateHost,
+  sectionId: string
+): FfiDepartedRide[] | null {
+  if (!host.ready) return null;
   validateId(sectionId, 'section ID');
   try {
-    host.timed('resetSectionBounds', () => host.engine.sections().resetBounds(sectionId));
+    const departed = host.timed('resetSectionBounds', () =>
+      host.engine.sections().resetBounds(sectionId)
+    );
     host.notifyAll('sections');
-    return true;
+    return departed;
   } catch (e) {
+    // empty-on-error: a write; null is its failure and [] is no ride departing.
     console.error('[Engine] resetSectionBounds failed:', sectionId, e);
-    return false;
+    return null;
   }
 }
 
@@ -51,23 +62,24 @@ export function expandSectionBounds(
   activityId: string,
   startIndex: number,
   endIndex: number
-): boolean {
-  if (!host.ready) return false;
+): FfiDepartedRide[] | null {
+  if (!host.ready) return null;
   validateId(sectionId, 'section ID');
   validateId(activityId, 'activity ID');
   try {
-    host.timed('expandSectionBounds', () =>
+    const departed = host.timed('expandSectionBounds', () =>
       host.engine.sections().expandBounds(sectionId, activityId, startIndex, endIndex)
     );
     host.notifyAll('sections');
-    return true;
+    return departed;
   } catch (e) {
+    // empty-on-error: a write; null is its failure and [] is no ride departing.
     console.error(
       '[Engine] expandSectionBounds failed:',
       sectionId,
       { activityId, startIndex, endIndex },
       e
     );
-    return false;
+    return null;
   }
 }

@@ -5,5 +5,13 @@ ios/Frameworks/
 # Rust build artifacts
 rust/target/
 
-# Rust source-content hash (build cache marker)
+# Rust library outputs, one directory per selection (scripts/build-rust.js)
+build/
+
+# Freshness markers an earlier build wrote beside the module
+.rust-build-*
 .rust-source-hash
+
+# Copy of assets/basemap for the iOS resource bundle (scripts/sync-basemap-assets.js)
+ios/BasemapAssets/
+ios/BasemapAssets.tmp/

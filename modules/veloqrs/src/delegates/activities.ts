@@ -14,6 +14,8 @@ import type {
   FfiActivityMetrics,
   FfiActivityNotification,
   FfiActivityRouteHighlight,
+  FfiActivityBodiesPage,
+  FfiActivityBodiesQuery,
   FfiPreviewTrack,
 } from '../generated/veloqrs';
 import { validateId } from '../conversions';
@@ -32,18 +34,21 @@ export async function addActivities(
   });
 }
 
-/** Store the track, feed body and metrics together, or leave none of them. */
+/**
+ * Store the track, feed body and metrics together, or leave none of them. The
+ * track is read from the FIT at `fitPath` inside Rust, so no position crosses
+ * this boundary. A manual entry passes no path and gets a row with no track.
+ */
 export async function saveProvisionalActivity(
   host: DelegateHost,
   activityId: string,
-  coords: number[],
-  body: FfiActivityBody,
-  metrics: FfiActivityMetrics
+  fitPath: string | undefined,
+  body: FfiActivityBody
 ): Promise<boolean> {
   if (!host.ready) return false;
   validateId(activityId, 'activity ID');
   await host.timed('saveProvisionalActivity', () =>
-    host.engine.activities().saveProvisional(activityId, coords, body, metrics)
+    host.engine.activities().saveProvisional(activityId, fitPath, body)
   );
   host.notifyAll('activities', 'groups');
   return true;
@@ -53,7 +58,9 @@ export async function saveProvisionalActivity(
 export function provisionalActivityId(host: DelegateHost, recordingId: string): string {
   if (!host.ready) return '';
   validateId(recordingId, 'recording ID');
-  return host.timed('provisionalActivityId', () => host.engine.activities().provisionalId(recordingId));
+  return host.timed('provisionalActivityId', () =>
+    host.engine.activities().provisionalId(recordingId)
+  );
 }
 
 /** Record the id intervals.icu gave a locally keyed ride. */
@@ -72,6 +79,12 @@ export function recordActivityUpload(
 export function getActivityIds(host: DelegateHost): string[] {
   if (!host.ready) return [];
   return host.timed('getActivityIds', () => host.engine.activities().getIds());
+}
+
+/** The activities whose track the engine refused for good, so none is requested again. */
+export function getRefusedTrackIds(host: DelegateHost): string[] {
+  if (!host.ready) return [];
+  return host.timed('getRefusedTrackIds', () => host.engine.activities().getRefusedTrackIds());
 }
 
 /**
@@ -96,7 +109,7 @@ export function getActivityCount(host: DelegateHost): number {
  * The stored track, coordinate-encoded. Put it through `decodeCoords`.
  *
  * An empty buffer is both "no such activity" and "a track with no points", the
- * same as the section line and the consensus route, and the decoder answers `[]`
+ * same as the section line and the representative route, and the decoder answers `[]`
  * to either.
  */
 export function getGpsTrack(host: DelegateHost, activityId: string): ArrayBuffer {
@@ -118,12 +131,6 @@ export function getPreviewTrack(
   return host.timed('getPreviewTrack', () => host.engine.activities().getPreviewTrack(activityId));
 }
 
-/**
- * Apply activity metrics. If the engine hasn't been initialized yet, the
- * caller stashes these in `pendingMetrics`; that path must stay in the
- * facade since it touches private class state. This delegate only handles
- * the fully-initialized case.
- */
 /** Store a batch of computed metrics. Held until the engine opens. */
 export function setActivityMetrics(host: DelegateHost, metrics: FfiActivityMetrics[]): void {
   if (metrics.length === 0) return;
@@ -137,7 +144,7 @@ export function setTimeStreams(
   host: DelegateHost,
   streams: { activityId: string; times: number[] }[]
 ): void {
-  if (!host.ready || streams.length === 0) return;
+  if (streams.length === 0) return;
 
   const activityIds: string[] = [];
   const allTimes: number[] = [];
@@ -149,7 +156,7 @@ export function setTimeStreams(
     offsets.push(allTimes.length);
   }
 
-  host.timed('setTimeStreams', () =>
+  host.write('setTimeStreams', () =>
     host.engine.activities().setTimeStreams(activityIds, allTimes, offsets)
   );
 }
@@ -242,8 +249,8 @@ export interface ActivityBodyInput {
  * sync fills, so every downstream read is identical in both modes.
  */
 export function upsertActivityBodies(host: DelegateHost, rows: ActivityBodyInput[]): void {
-  if (!host.ready || rows.length === 0) return;
-  host.timed('upsertActivityBodies', () =>
+  if (rows.length === 0) return;
+  host.write('upsertActivityBodies', () =>
     host.engine.activities().upsertActivityBodies(
       rows.map((r) => ({
         activityId: r.activityId,
@@ -254,13 +261,6 @@ export function upsertActivityBodies(host: DelegateHost, rows: ActivityBodyInput
   );
 }
 
-/**
- * Untyped activity bodies over an inclusive timestamp window, newest first.
- *
- * The feed and detail screens read fields no Rust type models (locality,
- * calories, weather, stream_types), so they parse these rather than a
- * reconstruction from `activity_metrics`.
- */
 /**
  * One activity's untyped body, or null when the engine has not got it.
  *
@@ -277,6 +277,13 @@ export function getActivityBody(host: DelegateHost, activityId: string): string 
   );
 }
 
+/**
+ * Untyped activity bodies over an inclusive timestamp window, newest first.
+ *
+ * The feed and detail screens read fields no Rust type models (calories,
+ * weather, stream_types), so they parse these rather than a
+ * reconstruction from `activity_metrics`.
+ */
 export function getActivityBodies(
   host: DelegateHost,
   oldestTs: number,
@@ -284,10 +291,42 @@ export function getActivityBodies(
 ): string[] {
   if (!host.ready) return [];
   return (
-    host.timed('getActivityBodies', () =>
-      host.engine.activities().getActivityBodies(BigInt(oldestTs), BigInt(newestTs))
-    ) ?? []
+    readActivityBodies(host, 'getActivityBodies', {
+      oldestTs,
+      newestTs,
+      needle: '',
+      sportGroups: [],
+      offset: 0,
+    })?.bodies ?? []
   );
+}
+
+/** A feed search: the text and the chip, paged, over every stored activity. */
+export type ActivityBodiesSearch = Pick<
+  FfiActivityBodiesQuery,
+  'needle' | 'sportGroups' | 'offset' | 'limit' | 'oldestTs' | 'newestTs'
+>;
+
+/**
+ * The feed's search and sport chips over every stored activity, newest first,
+ * with the count of everything matched. The same engine read as the windowed
+ * feed with no window, so a search reaches activities no loaded window holds.
+ * Undefined when the engine is not ready.
+ */
+export function searchActivityBodies(
+  host: DelegateHost,
+  query: ActivityBodiesSearch
+): FfiActivityBodiesPage | undefined {
+  if (!host.ready) return undefined;
+  return readActivityBodies(host, 'searchActivityBodies', query);
+}
+
+function readActivityBodies(
+  host: DelegateHost,
+  label: string,
+  query: FfiActivityBodiesQuery
+): FfiActivityBodiesPage | undefined {
+  return host.timed(label, () => host.engine.activities().getActivityBodies(query));
 }
 
 /** One activity's display name, as the engine knows it. */
@@ -357,9 +396,8 @@ export function setCurveBody(
   gap: boolean,
   raw: string
 ): void {
-  const window = BigInt(days);
   host.write('setCurveBody', () =>
-    host.engine.activities().setCurveBody(kind, sport, window, gap, raw)
+    host.engine.activities().setCurveBody(kind, sport, days, gap, raw)
   );
 }
 
@@ -370,11 +408,9 @@ export function replaceCalendarEvents(
   newestTs: number,
   rows: CalendarEventBodyInput[]
 ): void {
-  const oldest = BigInt(oldestTs);
-  const newest = BigInt(newestTs);
   const events = rows.map((r) => ({ eventId: r.eventId, date: r.date, raw: r.raw }));
   host.write('replaceCalendarEvents', () =>
-    host.engine.activities().replaceCalendarEvents(oldest, newest, events)
+    host.engine.activities().replaceCalendarEvents(oldestTs, newestTs, events)
   );
 }
 
@@ -390,7 +426,7 @@ export function activityNotification(
   activityId: string,
   activityName: string,
   announcePrs: boolean,
-  milestoneTitle: string | null
+  announceMilestones: boolean
 ): FfiActivityNotification | null {
   if (!host.ready) return null;
   validateId(activityId, 'activity ID');
@@ -398,7 +434,7 @@ export function activityNotification(
     host.timed('activityNotification', () =>
       host.engine
         .activities()
-        .activityNotification(activityId, activityName, announcePrs, milestoneTitle ?? undefined)
+        .activityNotification(activityId, activityName, announcePrs, announceMilestones)
     ) ?? null
   );
 }

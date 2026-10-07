@@ -16,9 +16,11 @@
 // commit rather than a screen read quietly rejoining the queue behind the
 // writer.
 
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { treeSources } from './lib/indexedSources.mjs';
+import { withoutTestItems } from './lib/rustTestItems.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -35,33 +37,25 @@ const WRITE = process.argv.includes('--write');
 // and the `_at` / `_blocking` / `_for` forms the same lock is reached through.
 // `_for` refuses a caller whose library has been swapped out from under it,
 // which is a different question from which lock it takes: it still
-// takes the write one, so it still counts here.
-const TAKE = /\bwith_(?:persistent_)?engine(?:_at|_blocking|_for)?\s*\(/g;
+// takes the write one, so it still counts here. A clear's wipe goes through
+// `wipe_with_persistent_engine_for`, the same take with the install moved
+// before the lock is released, and counts the same. `try_with_persistent_engine_for`
+// never waits but is the same take.
+const TAKE = /\b(?:try_|wipe_)?with_(?:persistent_)?engine(?:_at|_blocking|_for)?\s*\(/g;
+// A `#[cfg(test)]` item is cut out first: a fixture that seeds an engine takes
+// the write lock because that is what a write is, and counting it would fail
+// the ratchet for writing a test. Only that item goes, so production takes
+// after a test-only import still count.
+
 // The definitions live here and take nothing.
 const EXEMPT = ['modules/veloqrs/rust/veloqrs/src/persistence/mod.rs'];
 
-/// Everything from the first `#[cfg(test)]` on is a test module, and a fixture
-/// that seeds an engine takes the write lock because that is what a write is.
-/// Counting those would fail the ratchet for writing a test.
-const beforeTests = (source) => {
-  const at = source.indexOf('#[cfg(test)]');
-  return at === -1 ? source : source.slice(0, at);
-};
-
-function walk(dir, out = []) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) walk(full, out);
-    else if (entry.name.endsWith('.rs')) out.push(full);
-  }
-  return out;
-}
-
 const counts = {};
-for (const file of walk(SRC)) {
-  const rel = relative(ROOT, file).split('\\').join('/');
-  if (EXEMPT.includes(rel)) continue;
-  const hits = (beforeTests(readFileSync(file, 'utf8')).match(TAKE) || []).length;
+for (const [rel, bytes] of treeSources(ROOT, [relative(ROOT, SRC)])) {
+  if (!rel.endsWith('.rs')) continue;
+  // Sibling test modules seed the engine under the write lock.
+  if (EXEMPT.includes(rel) || rel.includes('/tests/')) continue;
+  const hits = (withoutTestItems(bytes.toString('utf8')).match(TAKE) || []).length;
   if (hits > 0) counts[rel] = hits;
 }
 

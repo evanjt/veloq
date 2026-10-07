@@ -9,14 +9,12 @@
 
 import { validateId } from '../../conversions';
 import type {
-  FfiCalendarSummary,
   FfiEfficiencyTrend,
   FfiSection,
   FfiMapSection,
   FfiNamedCorridor,
   FfiRankedSection,
   FfiSectionDetailData,
-  FfiSectionLineage,
   FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
   FfiWorkoutSection,
@@ -25,29 +23,18 @@ import type {
 } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 import { present } from '../optional';
-import type {
-  FfiSectionMatch,
-} from '../shared-types';
+import type { FfiSectionMatch } from '../shared-types';
 
-const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = { records: [] };
-
-export function getSectionsFiltered(
-  host: DelegateHost,
-  sportType?: string,
-  minVisits?: number
-): FfiSection[] {
-  if (!host.ready) return [];
-  // FfiConverterOptional* accepts undefined for "absent" but throws on null -
-  // forward optional args as-is, do NOT coalesce to null.
-  return host.timed('getSectionsFiltered', () =>
-    host.engine.sections().getSections(present({ sportType, minVisits }))
-  );
-}
+const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
+  records: [],
+  bestForwardIsPr: false,
+  bestReverseIsPr: false,
+};
 
 /**
  * Sections as the regional map draws them: six fields and the encoded line.
  *
- * `getSectionsFiltered` carries the activity ids, one portion record per
+ * The full section record carries the activity ids, one portion record per
  * traversal and the point density per section, and the map reads none of it.
  */
 export function getMapSections(
@@ -130,22 +117,11 @@ export function getSectionById(host: DelegateHost, sectionId: string): FfiSectio
   return host.timed('getSectionById', () => host.engine.sections().getById(sectionId)) ?? null;
 }
 
-/** Coordinate-encoded, like every track that leaves the engine. */
-/** No track at all, in the encoded form the engine returns. */
-const EMPTY_TRACK = new Uint8Array([]).buffer;
-
-export function getSectionPolyline(host: DelegateHost, sectionId: string): ArrayBuffer {
-  if (!host.ready) return EMPTY_TRACK;
-  validateId(sectionId, 'section ID');
-  return host.timed('getSectionPolyline', () => host.engine.sections().getPolyline(sectionId));
-}
-
 export function getAllSectionNames(host: DelegateHost): Record<string, string> {
   if (!host.ready) return {};
   const map = host.timed('getAllSectionNames', () => host.engine.sections().getAllNames());
   return Object.fromEntries(map);
 }
-
 
 export function getSectionsByType(
   host: DelegateHost,
@@ -201,66 +177,17 @@ export function getWorkoutSections(
 export type { FfiSectionChartData };
 export type { FfiSectionChartPoint } from '../../generated/veloqrs';
 
-const EMPTY_CHART: FfiSectionChartData = {
-  points: [],
-  minSpeed: 0,
-  maxSpeed: 1,
-  bestIndex: 0,
-  hasReverseRuns: false,
-  totalActivities: 0,
-};
-
-/**
- * Pre-computed chart payload for the section-detail screen: per-lap points,
- * speed ranks, best/avg/last stats, all in one FFI round-trip. The TS hook
- * (`useSectionChartData`) becomes a thin pass-through for the render layer.
- */
-export function getSectionChartData(
-  host: DelegateHost,
-  sectionId: string,
-  timeRangeDays: number,
-  sportFilter?: string
-): FfiSectionChartData {
-  if (!host.ready) return EMPTY_CHART;
-  return host.timed('getSectionChartData', () =>
-    host.engine.sections().getChartData(sectionId, timeRangeDays, sportFilter)
-  );
-}
-
 export function getSectionEfficiencyTrend(
   host: DelegateHost,
-  sectionId: string
+  sectionId: string,
+  sportType: string
 ): FfiEfficiencyTrend | null {
   if (!host.ready) {
     return null;
   }
   return host.timed(
     'getSectionEfficiencyTrend',
-    () => host.engine.sections().getEfficiencyTrend(sectionId) ?? null
-  );
-}
-
-export function getExcludedSectionPerformances(
-  host: DelegateHost,
-  sectionId: string
-): FfiSectionPerformanceResult {
-  if (!host.ready) {
-    return EMPTY_SECTION_PERFORMANCE_RESULT;
-  }
-  return host.timed('getExcludedSectionPerformances', () =>
-    host.engine.sections().getExcludedPerformances(sectionId)
-  );
-}
-
-export function getSectionCalendarSummary(
-  host: DelegateHost,
-  sectionId: string
-): FfiCalendarSummary | null {
-  if (!host.ready) return null;
-  return (
-    host.timed('getSectionCalendarSummary', () =>
-      host.engine.sections().getCalendarSummary(sectionId)
-    ) ?? null
+    () => host.engine.sections().getEfficiencyTrend(sectionId, sportType) ?? null
   );
 }
 
@@ -286,19 +213,14 @@ export function getSectionExtensionTrack(
 ): { encodedTrack: ArrayBuffer; sectionStartIdx: number; sectionEndIdx: number } | null {
   if (!host.ready) return null;
   validateId(sectionId, 'section ID');
-  try {
-    return host.timed('getSectionExtensionTrack', () => {
-      const result = host.engine.sections().getExtensionTrack(sectionId);
-      return {
-        encodedTrack: result.encodedTrack,
-        sectionStartIdx: result.sectionStartIdx,
-        sectionEndIdx: result.sectionEndIdx,
-      };
-    });
-  } catch (e) {
-    console.error('[Engine] getSectionExtensionTrack failed:', sectionId, e);
-    return null;
-  }
+  return host.timed('getSectionExtensionTrack', () => {
+    const result = host.engine.sections().getExtensionTrack(sectionId);
+    return {
+      encodedTrack: result.encodedTrack,
+      sectionStartIdx: result.sectionStartIdx,
+      sectionEndIdx: result.sectionEndIdx,
+    };
+  });
 }
 
 export function getExcludedActivityIds(host: DelegateHost, sectionId: string): string[] {
@@ -318,18 +240,15 @@ export function matchActivityToSections(host: DelegateHost, activityId: string):
 
 /**
  * The section detail reads that do not depend on time streams: the section,
- * its neighbours and merge candidates, exclusions, bounds state, per-activity
+ * its merge candidates, exclusions, bounds state, per-activity
  * metrics and signatures, and the streams still to be fetched.
  */
 export function getSectionDetailData(
   host: DelegateHost,
-  sectionId: string,
-  nearbyRadiusMeters: number
+  sectionId: string
 ): FfiSectionDetailData | undefined {
   if (!host.ready || !sectionId) return undefined;
-  return host.timed('getSectionDetailData', () =>
-    host.engine.sections().getDetailData(sectionId, nearbyRadiusMeters)
-  );
+  return host.timed('getSectionDetailData', () => host.engine.sections().getDetailData(sectionId));
 }
 
 /**
@@ -346,18 +265,4 @@ export function getSectionDetailPerformance(
   return host.timed('getSectionDetailPerformance', () =>
     host.engine.sections().getDetailPerformance(sectionId, timeRangeDays, sportFilter)
   );
-}
-
-/**
- * Every live split sibling with the parent it was carved from and its
- * discriminator, for composing names at read time.
- */
-export function getSectionLineages(host: DelegateHost): FfiSectionLineage[] {
-  if (!host.ready) return [];
-  try {
-    return host.engine.sections().getLineages();
-  } catch (e) {
-    console.error('[Engine] getSectionLineages failed:', e);
-    return [];
-  }
 }

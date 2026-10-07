@@ -9,14 +9,16 @@
 
 import { FfiStartOutcome, SectionPreview } from '../generated/veloqrs';
 import type {
+  FfiCatalogueCounts,
   FfiPreviewResult,
   FfiPreviewSection,
   FfiSectionConfig,
+  FfiStartResult,
   SectionPreviewLike,
 } from '../generated/veloqrs';
-import { toCatalogueCounts } from '../conversions';
 import type { SectionDetectionProgress } from '../conversions';
 import type { DelegateHost } from './host';
+import { startResult } from './start';
 
 export interface PreviewCentre {
   /** "lat_bin:lng_bin" at ~5 km, an order-free ranking key. */
@@ -26,8 +28,6 @@ export interface PreviewCentre {
   visitTotal: number;
   sectionCount: number;
   source: 'sections' | 'activities';
-  /** The place the area covers, joined in the engine, or null when unnamed. */
-  locality: string | null;
 }
 
 export type PreviewSectionStatus = 'unchanged' | 'changed' | 'new' | 'gone';
@@ -39,7 +39,6 @@ export interface PreviewSection {
   status: PreviewSectionStatus;
   /** Live user name when matched. */
   name: string | null;
-  sport: string;
   /** `coords::encode` bytes, ready for `decodeCoords`. */
   polyline: ArrayBuffer;
   visits: number;
@@ -72,14 +71,7 @@ export interface PreviewResult {
   pool: { activities: number; empty: number; unreadable: number };
   elapsedMs: number;
   config: PreviewParams;
-  counts: {
-    current: number;
-    proposed: number;
-    unchanged: number;
-    changed: number;
-    new: number;
-    gone: number;
-  };
+  counts: FfiCatalogueCounts;
   sections: PreviewSection[];
 }
 
@@ -102,14 +94,18 @@ export interface PreviewClient {
   getPreviewCentres(limit: number): PreviewCentre[];
   /** Null when the read itself failed, as against an area holding nothing. */
   getPreviewCurrentSections(lat: number, lng: number): PreviewSection[] | null;
-  startPreviewDetect(lat: number, lng: number, config: FfiSectionConfig): FfiStartOutcome;
+  startPreviewDetect(
+    lat: number,
+    lng: number,
+    config: FfiSectionConfig
+  ): FfiStartOutcome | FfiStartResult;
   pollPreviewDetect(): PreviewPollStatus;
   getPreviewProgress(): SectionDetectionProgress | null;
   takePreviewResult(): PreviewResult | null;
   cancelPreviewDetect(): void;
   getSectionConfig(): FfiSectionConfig | null;
   setSectionConfig(config: FfiSectionConfig): void;
-  forceRedetectSections(): FfiStartOutcome;
+  forceRedetectSections(): FfiStartOutcome | FfiStartResult;
 }
 
 const STATUSES: PreviewSectionStatus[] = ['unchanged', 'changed', 'new', 'gone'];
@@ -131,7 +127,6 @@ export function toPreviewSection(s: FfiPreviewSection): PreviewSection {
       ? (s.status as PreviewSectionStatus)
       : 'unchanged',
     name: s.name ?? null,
-    sport: s.sport,
     polyline: s.polyline,
     visits: s.visits,
     distanceM: s.distanceM,
@@ -147,7 +142,7 @@ export function toPreviewResult(result: FfiPreviewResult): PreviewResult {
     pool: result.pool,
     elapsedMs: result.elapsedMs,
     config: result.config,
-    counts: toCatalogueCounts(result.counts),
+    counts: result.counts,
     sections: result.sections.map(toPreviewSection),
   };
 }
@@ -163,24 +158,18 @@ function previewObj(): SectionPreviewLike {
 /** Ranked riding areas, ordered visit total descending. */
 export function getPreviewCentres(host: DelegateHost, limit: number): PreviewCentre[] {
   if (!host.ready) return [];
-  try {
-    return host.timed('getPreviewCentres', () =>
-      previewObj()
-        .centres(limit)
-        .map((c) => ({
-          binKey: c.binKey,
-          lat: c.lat,
-          lng: c.lng,
-          visitTotal: c.visitTotal,
-          sectionCount: c.sectionCount,
-          source: c.source === 'sections' ? ('sections' as const) : ('activities' as const),
-          locality: c.locality ?? null,
-        }))
-    );
-  } catch (e) {
-    console.error('[Engine] getPreviewCentres threw:', e);
-    return [];
-  }
+  return host.timed('getPreviewCentres', () =>
+    previewObj()
+      .centres(limit)
+      .map((c) => ({
+        binKey: c.binKey,
+        lat: c.lat,
+        lng: c.lng,
+        visitTotal: c.visitTotal,
+        sectionCount: c.sectionCount,
+        source: c.source === 'sections' ? ('sections' as const) : ('activities' as const),
+      }))
+  );
 }
 
 /**
@@ -199,6 +188,7 @@ export function getPreviewCurrentSections(
     const rows = host.timed('getPreviewCurrentSections', () => previewObj().current(lat, lng));
     return rows ? rows.map(toPreviewSection) : [];
   } catch (e) {
+    // empty-on-error: null is the failed read, [] is no activity here, and the caller says which.
     console.error('[Engine] getPreviewCurrentSections threw:', e);
     return null;
   }
@@ -218,13 +208,13 @@ export function startPreviewDetect(
   lat: number,
   lng: number,
   config: FfiSectionConfig
-): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
+): FfiStartResult {
+  if (!host.ready) return startResult(FfiStartOutcome.NotReady);
   try {
     return host.timed('startPreviewDetect', () => previewObj().start(lat, lng, config));
   } catch (e) {
     console.error('[Engine] startPreviewDetect threw:', e);
-    return FfiStartOutcome.Failed;
+    return startResult(FfiStartOutcome.Failed);
   }
 }
 
@@ -240,24 +230,14 @@ export function pollPreviewDetect(host: DelegateHost): PreviewPollStatus {
 
 export function getPreviewProgress(host: DelegateHost): SectionDetectionProgress | null {
   if (!host.ready) return null;
-  try {
-    return host.timed('getPreviewProgress', () => previewObj().getProgress()) ?? null;
-  } catch (e) {
-    console.error('[Engine] getPreviewProgress threw:', e);
-    return null;
-  }
+  return host.timed('getPreviewProgress', () => previewObj().getProgress()) ?? null;
 }
 
 /** Take the one result payload. Null while running or after taken. */
 export function takePreviewResult(host: DelegateHost): PreviewResult | null {
   if (!host.ready) return null;
-  try {
-    const result = host.timed('takePreviewResult', () => previewObj().takeResult());
-    return result ? toPreviewResult(result) : null;
-  } catch (e) {
-    console.error('[Engine] takePreviewResult threw:', e);
-    return null;
-  }
+  const result = host.timed('takePreviewResult', () => previewObj().takeResult());
+  return result ? toPreviewResult(result) : null;
 }
 
 /**

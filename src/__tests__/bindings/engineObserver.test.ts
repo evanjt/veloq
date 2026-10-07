@@ -114,3 +114,15 @@ it('delivers nothing to a listener that unsubscribed before the microtask', asyn
 
   expect(ran).toBe(false);
 });
+
+it('refreshes the sections channel when a detection run ends', async () => {
+  const { client, observer } = clientWithFakeEngine();
+  const seen: string[] = [];
+  const off = client.subscribe('sections', () => seen.push('sections'));
+
+  observer.detectionApplied();
+  await flush();
+
+  expect(seen).toEqual(['sections']);
+  off();
+});

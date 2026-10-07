@@ -23,11 +23,12 @@
 // A tree that is not a checkout, a fixture, falls back to reading the disk.
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { gitFreeEnv } from './lib/indexedSources.mjs';
+import { ENGINE_CANDIDATE_ERE, reachesEngine } from './lib/engineReach.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -41,22 +42,9 @@ const ENGINE_CEILING = Number(flag('--engine-ceiling', '0'));
 const STORE_CEILING = Number(flag('--store-ceiling', '0'));
 const SRC = join(ROOT, 'src');
 
-// The shared module, however a file spells the reach: an import or the one
-// `require` a store uses to keep the binding chain out of its import graph.
-const REACHES_ENGINE = /(?:from|require\()\s*'@\/shared\/native\/engine'/;
-
-/** The same reach for `git grep`, which takes POSIX extended and not this. */
-const REACHES_ENGINE_ERE = "(from|require\\()[[:space:]]*'@/shared/native/engine'";
-
-// The other door: `veloqrs` exports the client itself as `engine`, so a file
-// can reach it with no shared-layer import at all. Prettier breaks a long
-// import over several lines, so this is matched over the whole file, and
-// `git grep`, which reads a line at a time, only finds the candidates.
-const IMPORTS_VELOQRS_ENGINE = /import\s*\{[^}]*\bengine\b[^}]*\}\s*from\s*'veloqrs'/;
-const IMPORTS_VELOQRS_ERE = "from[[:space:]]*'veloqrs'";
-
-const reachesEngine = (source) =>
-  REACHES_ENGINE.test(source) || IMPORTS_VELOQRS_ENGINE.test(source);
+// What counts as reaching the engine is `lib/engineReach.mjs`, which the
+// render-read lint reads too. `git grep`, which reads a line at a time, only
+// finds the candidates and the module decides over the whole file.
 
 /** Where the module belongs, and where the tests mock it. */
 const UNCOUNTED = [join(SRC, 'shared', 'native'), join(SRC, '__tests__')];
@@ -66,9 +54,12 @@ const UNCOUNTED = [join(SRC, 'shared', 'native'), join(SRC, '__tests__')];
  * when this root is not a checkout.
  */
 function indexedSources(root) {
-  const paths = git(root, ['ls-files', '-z', '--', 'src/*.ts', 'src/*.tsx']);
-  if (paths === null) return null;
-  return paths
+  const listing = git(root, ['ls-files', '-z', '--', 'src/*.ts', 'src/*.tsx']);
+  if (listing.status !== 0) {
+    if (!existsSync(join(root, '.git'))) return null;
+    unreadable(`git ls-files could not list the index: ${listing.stderr.trim()}`);
+  }
+  return listing.stdout
     .split('\0')
     .filter(Boolean)
     .map((rel) => join(root, rel));
@@ -77,9 +68,15 @@ function indexedSources(root) {
 /** The tracked files whose indexed content matches, as absolute paths. */
 function indexedMatches(root, pattern) {
   // `git grep` exits 1 when nothing matched, which is an answer and not a
-  // failure, so the empty case comes back as an empty list.
-  const hits = git(root, ['grep', '-l', '-z', '--cached', '-E', pattern, '--', 'src'], true);
-  return (hits ?? '')
+  // failure. A blob it cannot read exits 1 as well, or 0 when another file
+  // matched, and says so only on stderr: taken as no match, a pruned object
+  // dropped a call site from the count and the guard asked for the ceiling to
+  // fall. So stderr decides, not the code.
+  const hits = git(root, ['grep', '-l', '-z', '--cached', '-E', pattern, '--', 'src']);
+  if (hits.stderr !== '' || (hits.status !== 0 && hits.status !== 1)) {
+    unreadable(`git grep could not read the index:\n${hits.stderr.trim()}`);
+  }
+  return hits.stdout
     .split('\0')
     .filter(Boolean)
     .map((rel) => join(root, rel));
@@ -87,24 +84,39 @@ function indexedMatches(root, pattern) {
 
 /** A tracked file's content as the index holds it, not as the disk does. */
 function indexedContent(root, file) {
-  return git(root, ['show', `:${relative(root, file)}`], true);
+  const rel = relative(root, file);
+  const shown = git(root, ['show', `:${rel}`]);
+  if (shown.status !== 0) unreadable(`git show could not read ${rel}: ${shown.stderr.trim()}`);
+  return shown.stdout;
 }
 
-function git(root, args, emptyOnFailure = false) {
-  try {
-    return execFileSync('git', args, {
-      cwd: root,
-      // `cwd` does not decide which index git reads: a hook exports GIT_DIR,
-      // GIT_INDEX_FILE and GIT_WORK_TREE and those win. Reading another tree's
-      // index, this counted nothing and then told the reader to lower both
-      // ceilings to zero, which hands back every file a sweep took.
-      env: gitFreeEnv(),
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-  } catch {
-    return emptyOnFailure ? '' : null;
-  }
+function git(root, args) {
+  const result = spawnSync('git', args, {
+    cwd: root,
+    // `cwd` does not decide which index git reads: a hook exports GIT_DIR,
+    // GIT_INDEX_FILE and GIT_WORK_TREE and those win. Reading another tree's
+    // index, this counted nothing and then told the reader to lower both
+    // ceilings to zero, which hands back every file a sweep took.
+    env: gitFreeEnv(),
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.error) unreadable(`git could not be run: ${result.error.message}`);
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+/** A read that failed part way is a refusal, never a count. */
+function unreadable(detail) {
+  console.error(
+    'Engine surface: a file the index names could not be read, so nothing was counted.'
+  );
+  console.error('');
+  console.error(detail);
+  console.error('');
+  console.error('Do not lower the ceilings on this answer: a file the guard could not read');
+  console.error('is not a file that stopped reaching the engine.');
+  process.exit(1);
 }
 
 function walk(dir, out = []) {
@@ -140,15 +152,11 @@ if (read.length === 0) {
 
 const counted = read.filter((file) => !uncounted(file));
 const callSites = indexed
-  ? [
-      ...new Set([
-        ...indexedMatches(ROOT, REACHES_ENGINE_ERE),
-        ...indexedMatches(ROOT, IMPORTS_VELOQRS_ERE).filter((file) =>
-          IMPORTS_VELOQRS_ENGINE.test(indexedContent(ROOT, file))
-        ),
-      ]),
-    ].filter((file) => !uncounted(file))
-  : counted.filter((file) => reachesEngine(readFileSync(file, 'utf8')));
+  ? indexedMatches(ROOT, ENGINE_CANDIDATE_ERE).filter(
+      (file) =>
+        /\.tsx?$/.test(file) && !uncounted(file) && reachesEngine(indexedContent(ROOT, file), file)
+    )
+  : counted.filter((file) => reachesEngine(readFileSync(file, 'utf8'), file));
 const stores = counted.filter((file) => file.endsWith('Store.ts'));
 
 let failed = false;

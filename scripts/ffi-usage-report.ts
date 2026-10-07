@@ -11,6 +11,10 @@
  *   npx tsx scripts/ffi-usage-report.ts --client    # per EngineClient method
  *   npx tsx scripts/ffi-usage-report.ts --json
  *
+ * `--root <dir>` reads the callers out of another tree and `--ceilings <file>`
+ * judges them against another ceiling file, so the refusals can be driven by a
+ * fixture. The exports themselves are always this checkout's manifest.
+ *
  * What counts as a caller, and which exports are owned elsewhere, live in
  * lib/ffiUsage.ts beside the reasons for each.
  */
@@ -25,6 +29,8 @@ import {
   surfaceOverCeiling,
   surfaceUnderCeiling,
   type AreaSurface,
+  clientCallRows,
+  clientMethodExports,
   clientMethodReach,
   type Reach,
   callIsAttributed,
@@ -39,10 +45,21 @@ import {
   typeBindings,
 } from './lib/ffiUsage';
 
-const REPO = path.resolve(__dirname, '..');
+function flag(name: string): string | undefined {
+  const i = process.argv.indexOf(name);
+  return i === -1 ? undefined : process.argv[i + 1];
+}
+
+const REPO = path.resolve(flag('--root') ?? path.join(__dirname, '..'));
 const ROOTS = [path.join(REPO, 'src'), path.join(REPO, 'modules/veloqrs/src')];
 const EXTENSIONS = ['.ts', '.tsx'];
-const CEILINGS = path.join(REPO, 'scripts/ffi-area-ceilings.json');
+const CEILINGS = path.resolve(
+  flag('--ceilings') ?? path.join(REPO, 'scripts/ffi-area-ceilings.json')
+);
+/** The ceiling file as the refusals name it. */
+const CEILINGS_NAME = path.relative(REPO, CEILINGS).startsWith('..')
+  ? CEILINGS
+  : path.relative(REPO, CEILINGS);
 
 /**
  * The area ratchet counts the index rather than the disk.
@@ -178,6 +195,17 @@ function report(): UsageInfo[] {
     Object.assign(shared, typeBindings(source));
   }
 
+  const delegateSources = new Map(
+    files.filter(isDelegateFile).map((f) => [f, sources.get(f) ?? ''])
+  );
+  const clientPath = path.join(REPO, 'modules/veloqrs/src/EngineClient.ts');
+  const clientRows = clientMethodExports(
+    fs.existsSync(clientPath) ? fs.readFileSync(clientPath, 'utf-8') : '',
+    delegateSources,
+    keys,
+    shared
+  );
+
   for (const file of files) {
     const delegate = isDelegateFile(file);
     const engineLayer = isEngineLayerFile(file);
@@ -199,10 +227,18 @@ function report(): UsageInfo[] {
       // A call the receiver could not place is not evidence about any export
       // sharing the name, so it is recorded and kept out of the count.
       const attributed = callIsAttributed(call, keys, local, engineLayer);
-      for (const key of resolveCall(call, keys, local, engineLayer)) {
+      // A call to the client reaches the export its delegate forwards to,
+      // which the client's own method name does not say. The delegate's own
+      // body placed it, so it is attributed whatever the receiver says.
+      const viaClient = engineLayer ? [] : clientCallRows(call, clientRows, local);
+      const rows = [
+        ...resolveCall(call, keys, local, engineLayer).filter((key) => !viaClient.includes(key)),
+        ...viaClient,
+      ];
+      for (const key of rows) {
         const entry = usage.get(key);
         if (!entry) continue;
-        if (!attributed) {
+        if (!attributed && !viaClient.includes(key)) {
           entry.ambiguousCount++;
           continue;
         }
@@ -335,14 +371,14 @@ if (process.argv.includes('--areas') || process.argv.includes('--check-areas')) 
     for (const { area, stale, reachesNothing } of under) {
       console.error(
         reachesNothing
-          ? `${area} no longer reaches the engine, but scripts/ffi-area-ceilings.json lists it:`
+          ? `${area} no longer reaches the engine, but ${CEILINGS_NAME} lists it:`
           : `${area} no longer reaches ${stale.length} export(s) its ceiling lists:`
       );
       for (const key of stale) console.error(`  - ${key}`);
     }
     console.error('');
-    console.error('Remove each from scripts/ffi-area-ceilings.json, and the area itself when it');
-    console.error('reaches nothing, or the next commit that calls it again is not refused.');
+    console.error(`Remove each from ${CEILINGS_NAME}, and the area itself when it reaches`);
+    console.error('nothing, or the next commit that calls it again is not refused.');
     if (over.length === 0) process.exit(1);
     console.error('');
   }
@@ -350,7 +386,7 @@ if (process.argv.includes('--areas') || process.argv.includes('--check-areas')) 
     const known = ceilings[area] === undefined;
     console.error(
       known
-        ? `${area} reaches the engine and has no entry in scripts/ffi-area-ceilings.json:`
+        ? `${area} reaches the engine and has no entry in ${CEILINGS_NAME}:`
         : `${area} reaches ${added.length} export(s) it did not reach before:`
     );
     for (const key of added) console.error(`  - ${key}`);

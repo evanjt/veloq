@@ -14,10 +14,19 @@
  * with the same vocabulary.
  */
 
-import { FfiStartOutcome } from '../generated/veloqrs';
+import { FfiStartOutcome, type FfiStartResult } from '../generated/veloqrs';
+
+export function startResult(outcome: FfiStartOutcome): FfiStartResult {
+  return { outcome };
+}
+
+export function startOutcome(result: FfiStartOutcome | FfiStartResult): FfiStartOutcome {
+  return typeof result === 'object' ? result.outcome : result;
+}
 
 /** Whether asking again later can change the answer. Never true once started. */
-export function isRetryableStart(outcome: FfiStartOutcome): boolean {
+export function isRetryableStart(result: FfiStartOutcome | FfiStartResult): boolean {
+  const outcome = startOutcome(result);
   return (
     outcome === FfiStartOutcome.Busy ||
     outcome === FfiStartOutcome.Held ||
@@ -27,6 +36,6 @@ export function isRetryableStart(outcome: FfiStartOutcome): boolean {
 }
 
 /** Whether the job is now running. */
-export function hasStarted(outcome: FfiStartOutcome): boolean {
-  return outcome === FfiStartOutcome.Started;
+export function hasStarted(result: FfiStartOutcome | FfiStartResult): boolean {
+  return startOutcome(result) === FfiStartOutcome.Started;
 }

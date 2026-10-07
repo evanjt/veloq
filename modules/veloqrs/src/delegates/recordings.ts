@@ -3,10 +3,11 @@
  *
  * The index is a table, not a JSON blob under a lock: two writers racing is
  * what SQLite answers, and the retry policy lives beside the state it reads.
- * The FIT file and the streams sidecar stay the caller's to write and delete.
+ * The FIT file and a manual entry's body stay the caller's to write and delete.
  */
 
-import type { FfiRecordingEntry } from '../generated/veloqrs';
+import { FfiUploadOutcome, UploadRefusal, UploadTransition } from '../generated/veloqrs';
+import type { FfiRecordingEntry, FfiUploadResult } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import { present } from './optional';
 
@@ -40,6 +41,14 @@ export interface RecordingEntry {
   engineActivityId?: string;
   /** Whether the engine row has taken the id intervals.icu gave the upload. */
   engineReconciled: boolean;
+  /** The athlete this recording was saved under. */
+  athleteId?: string;
+  /** What the athlete wrote on the review screen. */
+  notes?: string;
+  /** The effort from 1 to 10, absent when the slider was never moved. */
+  rpe?: number;
+  /** Whether intervals.icu has the effort. */
+  rpeSent: boolean;
 }
 
 function toEntry(row: FfiRecordingEntry): RecordingEntry {
@@ -64,6 +73,10 @@ function toEntry(row: FfiRecordingEntry): RecordingEntry {
     intervalsActivityId: row.intervalsActivityId ?? undefined,
     engineActivityId: row.engineActivityId ?? undefined,
     engineReconciled: row.engineReconciled,
+    athleteId: row.athleteId ?? undefined,
+    notes: row.notes ?? undefined,
+    rpe: row.rpe ?? undefined,
+    rpeSent: row.rpeSent,
   });
 }
 
@@ -84,12 +97,15 @@ function toRow(entry: RecordingEntry): FfiRecordingEntry {
     createdAt: Math.trunc(entry.createdAt),
     uploadStatus: entry.uploadStatus,
     retryCount: entry.retryCount,
-    lastAttemptAt:
-      entry.lastAttemptAt === undefined ? undefined : Math.trunc(entry.lastAttemptAt),
+    lastAttemptAt: entry.lastAttemptAt === undefined ? undefined : Math.trunc(entry.lastAttemptAt),
     lastError: entry.lastError,
     intervalsActivityId: entry.intervalsActivityId,
     engineActivityId: entry.engineActivityId,
     engineReconciled: entry.engineReconciled,
+    athleteId: entry.athleteId,
+    notes: entry.notes,
+    rpe: entry.rpe,
+    rpeSent: entry.rpeSent,
   });
 }
 
@@ -111,6 +127,40 @@ export function getRecording(host: DelegateHost, id: string): RecordingEntry | n
   return row ? toEntry(row) : null;
 }
 
+/** Every recording the athlete may see, newest first: theirs and unstamped ones. */
+export function listVisibleRecordings(
+  host: DelegateHost,
+  athleteId: string | undefined
+): RecordingEntry[] {
+  if (!host.ready) return [];
+  return host
+    .timed('listVisibleRecordings', () => host.engine.recordings().listVisibleRecordings(athleteId))
+    .map(toEntry);
+}
+
+/** One recording, null when it is stamped with another athlete. */
+export function getVisibleRecording(
+  host: DelegateHost,
+  id: string,
+  athleteId: string | undefined
+): RecordingEntry | null {
+  if (!host.ready) return null;
+  const row = host.timed('getVisibleRecording', () =>
+    host.engine.recordings().getVisibleRecording(id, athleteId)
+  );
+  return row ? toEntry(row) : null;
+}
+
+export function unuploadedVisibleRecordingCount(
+  host: DelegateHost,
+  athleteId: string | undefined
+): number {
+  if (!host.ready) return 0;
+  return host.timed('unuploadedVisibleRecordingCount', () =>
+    host.engine.recordings().unuploadedVisibleCount(athleteId)
+  );
+}
+
 export function attachRecordingEngineActivity(
   host: DelegateHost,
   id: string,
@@ -126,75 +176,9 @@ export function markRecordingReconciled(host: DelegateHost, id: string): void {
   host.write('markRecordingReconciled', () => host.engine.recordings().markReconciled(id));
 }
 
-
-export function markRecordingUploading(host: DelegateHost, id: string): void {
-  host.write('markRecordingUploading', () => host.engine.recordings().markUploading(id));
-}
-
-export function markRecordingUploaded(
-  host: DelegateHost,
-  id: string,
-  intervalsActivityId?: string
-): void {
-  host.write('markRecordingUploaded', () =>
-    host.engine.recordings().markUploaded(id, intervalsActivityId)
-  );
-}
-
-/** A retriable failure. Answers the attempt count the entry now stands at. */
-export function markRecordingUploadFailed(
-  host: DelegateHost,
-  id: string,
-  error: string,
-  nowMs: number
-): number {
-  if (!host.ready) return 0;
-  return host.timed('markRecordingUploadFailed', () =>
-    host.engine.recordings().markUploadFailed(id, error, BigInt(Math.trunc(nowMs)))
-  );
-}
-
-export function markRecordingRejected(
-  host: DelegateHost,
-  id: string,
-  error: string,
-  nowMs: number
-): void {
-  host.write('markRecordingRejected', () => host.engine.recordings().markRejected(id, error, BigInt(Math.trunc(nowMs))));
-}
-
-export function markRecordingPermissionBlocked(
-  host: DelegateHost,
-  id: string,
-  nowMs: number
-): void {
-  host.write('markRecordingPermissionBlocked', () =>
-    host.engine.recordings().markPermissionBlocked(id, BigInt(Math.trunc(nowMs)))
-  );
-}
-
-/**
- * A credential was refused mid-upload. The ride goes back in the queue with its
- * attempt count intact, since a 401 is not an attempt the ride spent.
- */
-export function holdRecordingForAuth(host: DelegateHost, id: string, error: string): void {
-  host.write('holdRecordingForAuth', () => host.engine.recordings().holdForAuth(id, error));
-}
-
-/**
- * The transport failed before intervals.icu was reached. The ride keeps its
- * attempt count, since a request that never arrived says nothing about it, and
- * is stamped so the ordinary backoff still holds it back.
- */
-export function holdRecordingForNetwork(
-  host: DelegateHost,
-  id: string,
-  error: string,
-  nowMs: number
-): void {
-  host.write('holdRecordingForNetwork', () =>
-    host.engine.recordings().holdForNetwork(id, error, BigInt(Math.trunc(nowMs)))
-  );
+/** intervals.icu has the effort the athlete set. */
+export function markRecordingRpeSent(host: DelegateHost, id: string): void {
+  host.write('markRecordingRpeSent', () => host.engine.recordings().markRpeSent(id));
 }
 
 /**
@@ -211,45 +195,164 @@ export function holdRecordingsOfOtherAthletes(host: DelegateHost, athleteId: str
   );
 }
 
-export function requeueRecording(host: DelegateHost, id: string): void {
-  host.write('requeueRecording', () => host.engine.recordings().requeue(id));
+/**
+ * One move of one recording's upload. Every outcome carries `install`, the
+ * install the begin it settles answered, so an outcome that outlived a restore
+ * or a wipe is refused instead of written into another library.
+ */
+export type RecordingTransition =
+  | { kind: 'begin' }
+  | { kind: 'requeue' }
+  | { kind: 'uploaded'; install: number; intervalsActivityId?: string | undefined }
+  | {
+      kind: 'failed' | 'rejected' | 'heldForAuth' | 'heldForNetwork';
+      install: number;
+      error: string;
+    }
+  | { kind: 'permissionBlocked'; install: number };
+
+/** What a transition did. A refusal is an answer: nothing was written. */
+export interface RecordingTransitionAnswer {
+  applied: boolean;
+  /** Why nothing was written, absent when the move applied. */
+  refusal?:
+    | 'NoRecording'
+    | 'IllegalTransition'
+    | 'AnotherActivity'
+    | 'AnotherInstall'
+    | 'EngineNotReady'
+    | undefined;
+  /** The upload status the row was in when the transition read it. */
+  found?: string | undefined;
+  /** The attempts counted against the ride now. */
+  retryCount: number;
+  /** The install the transition ran under. A begin's answer is the attempt. */
+  install: number;
 }
 
-export function clearRecordingPermissionBlocked(host: DelegateHost): void {
+function toEngineTransition(transition: RecordingTransition): UploadTransition {
+  switch (transition.kind) {
+    case 'begin':
+      return UploadTransition.Begin.new();
+    case 'requeue':
+      return UploadTransition.Requeue.new();
+    case 'uploaded':
+      return UploadTransition.Uploaded.new({
+        install: transition.install,
+        ...(transition.intervalsActivityId !== undefined && {
+          intervalsActivityId: transition.intervalsActivityId,
+        }),
+      });
+    case 'failed':
+      return UploadTransition.Failed.new({ install: transition.install, error: transition.error });
+    case 'rejected':
+      return UploadTransition.Rejected.new({
+        install: transition.install,
+        error: transition.error,
+      });
+    case 'heldForAuth':
+      return UploadTransition.HeldForAuth.new({
+        install: transition.install,
+        error: transition.error,
+      });
+    case 'heldForNetwork':
+      return UploadTransition.HeldForNetwork.new({
+        install: transition.install,
+        error: transition.error,
+      });
+    case 'permissionBlocked':
+      return UploadTransition.PermissionBlocked.new({ install: transition.install });
+    default:
+      return transition satisfies never;
+  }
+}
+
+/**
+ * Move one recording's upload by a named transition, if the engine's table
+ * allows it from the state the row is in. Before the engine opens nothing is
+ * written and the answer says so.
+ */
+export function transitionRecording(
+  host: DelegateHost,
+  id: string,
+  transition: RecordingTransition,
+  nowMs: number
+): RecordingTransitionAnswer {
+  if (!host.ready) {
+    return { applied: false, refusal: 'EngineNotReady', retryCount: 0, install: 0 };
+  }
+  const answer = host.timed('transitionRecording', () =>
+    host.engine.recordings().transition(id, toEngineTransition(transition), nowMs)
+  );
+  return {
+    applied: answer.applied,
+    ...(answer.refusal !== undefined && {
+      refusal: UploadRefusal[answer.refusal] as RecordingTransitionAnswer['refusal'],
+    }),
+    found: answer.found ?? undefined,
+    retryCount: answer.retryCount,
+    install: answer.install,
+  };
+}
+
+/**
+ * Name the library's athlete on every ride adopted from an older build's
+ * storage with none. Rows of another athlete and every upload status stay as
+ * they are.
+ */
+export function stampOwnerlessRecordings(host: DelegateHost, athleteId: string): void {
+  host.write('stampOwnerlessRecordings', () => host.engine.recordings().stampOwnerless(athleteId));
+}
+
+/** Requeue the permission-blocked rides of the athlete whose scope grew, and nobody else's. */
+export function clearRecordingPermissionBlocked(host: DelegateHost, athleteId: string): void {
   host.write('clearRecordingPermissionBlocked', () =>
-    host.engine.recordings().clearPermissionBlocked()
+    host.engine.recordings().clearPermissionBlocked(athleteId)
   );
 }
 
-export function demoteRecordingsToLocalOnly(host: DelegateHost): void {
-  host.write('demoteRecordingsToLocalOnly', () =>
-    host.engine.recordings().demotePendingToLocalOnly()
-  );
+/**
+ * Start the engine's upload schedule if it is not running, and wake it. The
+ * schedule uploads each pending ride itself once it is due.
+ */
+export function wakeUploadSchedule(host: DelegateHost): void {
+  host.write('wakeUploadSchedule', () => host.engine.recordings().wakeUploadSchedule());
 }
 
-/** The next recording due an automatic upload, respecting the backoff. */
-export function nextPendingRecording(host: DelegateHost, nowMs: number): RecordingEntry | null {
+/**
+ * Upload one recording now, the whole sequence the schedule runs for a due
+ * ride. `manual` is the athlete asking: a parked ride is requeued first.
+ *
+ * Resolves to the outcome rather than rejecting, and skips `host.timed`
+ * because that measures the dispatch, not the request the promise waits on.
+ * Before the engine exists nothing was started.
+ */
+export function uploadRecording(
+  host: DelegateHost,
+  id: string,
+  manual: boolean
+): Promise<FfiUploadResult> {
+  if (!host.ready) {
+    return Promise.resolve({ outcome: FfiUploadOutcome.NotStarted });
+  }
+  return host.engine.recordings().uploadRecording(id, manual);
+}
+
+/**
+ * Remove a recording the athlete may see, answering the row so its files can
+ * be deleted too. A row stamped with another athlete is left and answers null.
+ */
+export function deleteOwnRecording(
+  host: DelegateHost,
+  id: string,
+  athleteId: string | undefined
+): RecordingEntry | null {
   if (!host.ready) return null;
-  const row = host.timed('nextPendingRecording', () =>
-    host.engine.recordings().nextPendingUpload(BigInt(Math.trunc(nowMs)))
+  const row = host.timed('deleteOwnRecording', () =>
+    host.engine.recordings().deleteOwnRecording(id, athleteId)
   );
   return row ? toEntry(row) : null;
 }
-
-/** Remove a recording, answering the row so its files can be deleted too. */
-export function deleteRecording(host: DelegateHost, id: string): RecordingEntry | null {
-  if (!host.ready) return null;
-  const row = host.timed('deleteRecording', () => host.engine.recordings().deleteRecording(id));
-  return row ? toEntry(row) : null;
-}
-
-export function unuploadedRecordingCount(host: DelegateHost): number {
-  if (!host.ready) return 0;
-  return host.timed('unuploadedRecordingCount', () =>
-    host.engine.recordings().unuploadedCount()
-  );
-}
-
 
 /**
  * Drop every row. A `.veloqdb` restore carries this table like any other but
