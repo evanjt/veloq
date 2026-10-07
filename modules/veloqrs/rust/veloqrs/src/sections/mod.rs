@@ -8,8 +8,6 @@
 use serde::{Deserialize, Serialize};
 use tracematch::GpsPoint;
 
-pub mod live;
-
 /// Section type discriminator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -42,6 +40,9 @@ pub struct Section {
     pub id: String,
     pub section_type: SectionType,
     pub name: Option<String>,
+    /// The label detection stored, which only a detect that partitions by
+    /// sport reads. Nothing shows or filters a section by it: `sport_types`
+    /// is what a section is to every reader.
     pub sport_type: String,
     pub polyline: Vec<GpsPoint>,
     pub distance_meters: f64,
@@ -102,6 +103,8 @@ pub struct Section {
     pub disabled: bool,
     /// If this auto section is superseded by a custom section, stores its ID.
     pub superseded_by: Option<String>,
+    /// Every sport whose included outings have taken the section, sorted.
+    pub sport_types: Vec<String>,
 }
 
 /// Result of cheap per-activity section indexing (post-ingest).
@@ -146,8 +149,6 @@ pub struct SectionSummary {
     pub section_type: String,
     /// Custom name (user-defined, None if not set)
     pub name: Option<String>,
-    /// Sport type ("Run", "Ride", etc.)
-    pub sport_type: String,
     /// Section length in meters
     pub distance_meters: f64,
     /// Traversals: one per pass, so ten laps count ten. Never below
@@ -179,7 +180,8 @@ pub struct SectionSummary {
     pub sport_rank_score: Option<f64>,
     /// ISO timestamp when section was created
     pub created_at: String,
-    /// All sport types present in this section's activities
+    /// Every sport whose included outings have taken the section, sorted. A
+    /// section has no sport of its own.
     pub sport_types: Vec<String>,
     /// Whether the user has accepted/pinned this section.
     pub is_user_defined: bool,
@@ -189,21 +191,69 @@ pub struct SectionSummary {
     pub superseded_by: Option<String>,
 }
 
+/// An activity's laps on a section before an edit took its rows, for an
+/// activity with some laps excluded and some included. Both lists are
+/// `start_index` values; the included ones are kept so the spacing the laps
+/// had is known when the excluded ones are matched onto the rebuilt rows.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "LapCarryRepr")]
+pub(crate) struct LapCarry {
+    pub(crate) excluded: Vec<u32>,
+    pub(crate) included: Vec<u32>,
+}
+
+/// A hold written before the included laps were kept is the excluded starts
+/// alone.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum LapCarryRepr {
+    Current {
+        excluded: Vec<u32>,
+        included: Vec<u32>,
+    },
+    ExcludedOnly(Vec<u32>),
+}
+
+impl From<LapCarryRepr> for LapCarry {
+    fn from(repr: LapCarryRepr) -> Self {
+        match repr {
+            LapCarryRepr::Current { excluded, included } => Self { excluded, included },
+            LapCarryRepr::ExcludedOnly(excluded) => Self {
+                excluded,
+                included: Vec::new(),
+            },
+        }
+    }
+}
+
 /// Match carried lap exclusions onto rebuilt junction rows by nearest
 /// `start_index`. Pairs are taken greedily in order of increasing distance,
 /// one rebuilt row per carried index, and a pairing further than half the
-/// smallest gap between adjacent rebuilt rows is refused rather than guessed.
-/// Both inputs are `start_index` values in ascending order.
-pub(crate) fn assign_carried_exclusions(carried: &[u32], rebuilt: &[u32]) -> Vec<u32> {
-    if carried.is_empty() || rebuilt.is_empty() {
+/// smallest gap between adjacent laps, before the edit or after it, is
+/// refused rather than guessed. When the capture held an included lap and
+/// every rebuilt row would end up excluded, nothing carries: a per-lap
+/// exclusion never leaves the activity fully excluded.
+/// All inputs are `start_index` values in ascending order.
+pub(crate) fn assign_carried_exclusions(carried: &LapCarry, rebuilt: &[u32]) -> Vec<u32> {
+    if carried.excluded.is_empty() || rebuilt.is_empty() {
         return Vec::new();
     }
-    let cap = rebuilt
-        .windows(2)
-        .map(|w| w[1].saturating_sub(w[0]))
+    let mut before: Vec<u32> = carried
+        .excluded
+        .iter()
+        .chain(&carried.included)
+        .copied()
+        .collect();
+    before.sort_unstable();
+    before.dedup();
+    let cap = [before.as_slice(), rebuilt]
+        .iter()
+        .flat_map(|rows| rows.windows(2).map(|w| w[1].saturating_sub(w[0])))
         .min()
         .map(|gap| gap / 2)
         .unwrap_or(u32::MAX);
+    let included = &carried.included;
+    let carried = &carried.excluded[..];
     let mut pairs: Vec<(u32, usize, usize)> = Vec::new();
     for (ci, c) in carried.iter().enumerate() {
         for (ri, r) in rebuilt.iter().enumerate() {
@@ -226,17 +276,27 @@ pub(crate) fn assign_carried_exclusions(carried: &[u32], rebuilt: &[u32]) -> Vec
         matched.push(rebuilt[ri]);
     }
     matched.sort_unstable();
+    if !included.is_empty() && matched.len() == rebuilt.len() {
+        return Vec::new();
+    }
     matched
 }
 
 #[cfg(test)]
 mod carry_tests {
-    use super::assign_carried_exclusions;
+    use super::{LapCarry, assign_carried_exclusions};
+
+    fn carry(excluded: &[u32], included: &[u32]) -> LapCarry {
+        LapCarry {
+            excluded: excluded.to_vec(),
+            included: included.to_vec(),
+        }
+    }
 
     #[test]
     fn an_unchanged_recut_keeps_every_lap() {
         assert_eq!(
-            assign_carried_exclusions(&[100, 500], &[0, 100, 500, 900]),
+            assign_carried_exclusions(&carry(&[100, 500], &[900]), &[0, 100, 500, 900]),
             vec![100, 500]
         );
     }
@@ -244,7 +304,7 @@ mod carry_tests {
     #[test]
     fn a_uniform_shift_carries() {
         assert_eq!(
-            assign_carried_exclusions(&[100, 500], &[8, 108, 508, 908]),
+            assign_carried_exclusions(&carry(&[100, 500], &[0, 900]), &[8, 108, 508, 908]),
             vec![108, 508]
         );
     }
@@ -252,29 +312,59 @@ mod carry_tests {
     #[test]
     fn an_added_lap_does_not_steal_the_exclusion() {
         assert_eq!(
-            assign_carried_exclusions(&[500], &[0, 250, 500, 750]),
+            assign_carried_exclusions(&carry(&[500], &[0]), &[0, 250, 500, 750]),
             vec![500]
         );
     }
 
     #[test]
     fn a_removed_lap_drops_its_exclusion() {
-        assert_eq!(assign_carried_exclusions(&[100, 500], &[100]), vec![100]);
+        assert_eq!(
+            assign_carried_exclusions(&carry(&[100, 500], &[900]), &[100, 900]),
+            vec![100]
+        );
     }
 
     #[test]
     fn a_pairing_past_the_half_gap_cap_is_refused() {
-        assert!(assign_carried_exclusions(&[400], &[0, 100, 200]).is_empty());
+        assert!(assign_carried_exclusions(&carry(&[400], &[0]), &[0, 100, 200]).is_empty());
     }
 
     #[test]
     fn empty_sides_carry_nothing() {
-        assert!(assign_carried_exclusions(&[], &[1, 2]).is_empty());
-        assert!(assign_carried_exclusions(&[1], &[]).is_empty());
+        assert!(assign_carried_exclusions(&carry(&[], &[1]), &[1, 2]).is_empty());
+        assert!(assign_carried_exclusions(&carry(&[1], &[2]), &[]).is_empty());
     }
 
     #[test]
-    fn a_single_rebuilt_row_has_no_gap_cap() {
-        assert_eq!(assign_carried_exclusions(&[9000], &[3]), vec![3]);
+    fn a_lone_excluded_lap_far_from_the_only_rebuilt_row_carries_nothing() {
+        assert!(assign_carried_exclusions(&carry(&[500], &[100]), &[108]).is_empty());
+    }
+
+    #[test]
+    fn a_lone_excluded_lap_shifted_a_few_indices_still_carries() {
+        assert_eq!(
+            assign_carried_exclusions(&carry(&[500], &[100]), &[100, 505]),
+            vec![505]
+        );
+    }
+
+    #[test]
+    fn every_lap_excluded_onto_the_same_laps_carries_both() {
+        assert_eq!(
+            assign_carried_exclusions(&carry(&[100, 500], &[]), &[100, 500]),
+            vec![100, 500]
+        );
+    }
+
+    #[test]
+    fn a_carry_that_would_exclude_every_rebuilt_row_is_dropped_when_a_lap_was_included() {
+        assert!(assign_carried_exclusions(&carry(&[500], &[100]), &[505]).is_empty());
+    }
+
+    #[test]
+    fn a_hold_written_with_excluded_starts_alone_still_reads() {
+        let held: LapCarry = serde_json::from_str("[100,500]").unwrap();
+        assert_eq!(held, carry(&[100, 500], &[]));
     }
 }

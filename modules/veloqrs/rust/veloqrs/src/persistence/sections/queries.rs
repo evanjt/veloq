@@ -7,19 +7,7 @@
 use super::geometry;
 use crate::persistence::PersistentEngine;
 use crate::sections::{Section, SectionSummary, SectionType};
-use rusqlite::params;
 use tracematch::GpsPoint;
-use tracematch::sections::{build_rtree, find_all_track_portions};
-
-/// What a section row says about itself beyond the catalogue record.
-pub(crate) struct SectionRowIdentity {
-    pub section_type: String,
-    pub disabled: bool,
-    pub superseded_by: Option<String>,
-    pub source_activity_id: Option<String>,
-    pub start_index: Option<u32>,
-    pub end_index: Option<u32>,
-}
 
 impl PersistentEngine {
     /// Visibility filter: exclude disabled and superseded sections.
@@ -43,6 +31,14 @@ impl PersistentEngine {
         pooled::sections_for_activity(&self.db, activity_id, &self.named_overlay_cached_names())
     }
 
+    /// Match an activity's GPS track against every existing section, the scan
+    /// the activity screen offers when detection has not attached it yet. It
+    /// cuts with the force-match's own cut, so each pass offered is a row the
+    /// attach would write.
+    pub fn match_activity_to_sections(&self, activity_id: &str) -> Vec<crate::FfiSectionMatch> {
+        pooled::activity_section_matches(&self.db, activity_id, &self.get_section_config())
+    }
+
     /// Get activity IDs for a section from the junction table (deduplicated).
     pub(super) fn get_section_activity_ids(&self, section_id: &str) -> Vec<String> {
         pooled::section_activity_ids(&self.db, section_id)
@@ -61,62 +57,26 @@ impl PersistentEngine {
         threshold_meters: f64,
         overlap_threshold: f64,
     ) -> Vec<String> {
-        let custom = self.get_section_polyline(custom_section_id);
-        let index = match crate::persistence::OverlapIndex::new(&custom) {
-            Some(i) => i,
-            None => return Vec::new(),
-        };
+        pooled::superseded_auto_sections(
+            &self.db,
+            custom_section_id,
+            threshold_meters,
+            overlap_threshold,
+        )
+    }
 
-        let query = format!(
-            "SELECT id, bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-             FROM sections WHERE section_type = '{}' AND {} AND id != ?",
-            SectionType::Auto.as_str(),
-            Self::VISIBLE_FILTER
-        );
-        let mut stmt = match self.db.prepare(&query) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("veloqrs: find_superseded_auto_sections prepare failed: {e}");
-                return Vec::new();
-            }
-        };
-
-        type Bounds = (String, Option<f64>, Option<f64>, Option<f64>, Option<f64>);
-        let rows = stmt.query_map(params![custom_section_id], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Option<f64>>(1)?,
-                row.get::<_, Option<f64>>(2)?,
-                row.get::<_, Option<f64>>(3)?,
-                row.get::<_, Option<f64>>(4)?,
-            ))
-        });
-        let rows: Vec<Bounds> = match rows {
-            Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
-            Err(e) => {
-                log::error!("veloqrs: find_superseded_auto_sections query failed: {e}");
-                return Vec::new();
-            }
-        };
-
-        let mut superseded = Vec::new();
-        for (id, min_lat, max_lat, min_lng, max_lng) in rows {
-            // Bounds are optional on the row, and a section without them is
-            // measured rather than skipped.
-            if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) =
-                (min_lat, max_lat, min_lng, max_lng)
-                && !index.bbox_can_reach(min_lat, max_lat, min_lng, max_lng, threshold_meters)
-            {
-                continue;
-            }
-
-            let auto = self.get_section_polyline(&id);
-            if index.fraction_within(&auto, threshold_meters) > overlap_threshold {
-                superseded.push(id);
-            }
-        }
-
-        superseded
+    pub(crate) fn try_find_superseded_auto_sections(
+        &self,
+        custom_section_id: &str,
+        threshold_meters: f64,
+        overlap_threshold: f64,
+    ) -> Result<Vec<String>, String> {
+        pooled::try_superseded_auto_sections(
+            &self.db,
+            custom_section_id,
+            threshold_meters,
+            overlap_threshold,
+        )
     }
 
     /// Get visible section summaries by type (lightweight, no polylines).
@@ -170,28 +130,6 @@ impl PersistentEngine {
 
     /// The raw DB row without the overlay, what caches must store, so a
     /// later overlay change never serves a baked stale name.
-    /// The row's own account of a section, which the catalogue record lacks:
-    /// its type, its visibility, and the slice a custom section was cut from.
-    pub(crate) fn section_row_identity(&self, section_id: &str) -> Option<SectionRowIdentity> {
-        self.db
-            .query_row(
-                "SELECT section_type, disabled, superseded_by, source_activity_id, start_index, \
-                 end_index FROM sections WHERE id = ?",
-                rusqlite::params![section_id],
-                |row| {
-                    Ok(SectionRowIdentity {
-                        section_type: row.get(0)?,
-                        disabled: row.get::<_, i64>(1)? != 0,
-                        superseded_by: row.get(2)?,
-                        source_activity_id: row.get(3)?,
-                        start_index: row.get(4)?,
-                        end_index: row.get(5)?,
-                    })
-                },
-            )
-            .ok()
-    }
-
     pub(crate) fn get_section_raw(&self, section_id: &str) -> Option<Section> {
         pooled::section_raw(&self.db, section_id)
     }
@@ -217,72 +155,7 @@ impl PersistentEngine {
         &self,
         section_id: &str,
     ) -> Result<(Vec<GpsPoint>, u32, u32), String> {
-        // Load section data: representative activity ID + current polyline
-        let rep_id: Option<String> = self
-            .db
-            .query_row(
-                "SELECT representative_activity_id FROM sections WHERE id = ?",
-                params![section_id],
-                |row| row.get(0),
-            )
-            .map_err(|_| format!("Section not found: {}", section_id))?;
-
-        let rep_id = rep_id.ok_or_else(|| "Section has no representative activity".to_string())?;
-
-        // Load the representative activity's full GPS track
-        let track = self
-            .get_gps_track(&rep_id)
-            .ok_or_else(|| format!("GPS track not found for activity: {}", rep_id))?;
-
-        if track.len() < 3 {
-            return Err("Representative activity track too short".to_string());
-        }
-
-        let polyline: Vec<GpsPoint> = self.stored_section_polyline(section_id)?;
-
-        if polyline.len() < 2 {
-            return Err("Section polyline too short".to_string());
-        }
-
-        // Find where the section starts/ends in the representative activity's
-        // track. Generous bar, half the proximity anchor (100 m at the
-        // default 200 m), derived so it co-varies with the slider like every
-        // other matching window.
-        let portions = find_all_track_portions(
-            &track,
-            &polyline,
-            self.section_config.proximity_threshold * 0.5,
-        );
-
-        if portions.is_empty() {
-            // Fallback: use nearest-point matching for start and end
-            let ref_tree = build_rtree(&track);
-            let start_query = [polyline[0].latitude, polyline[0].longitude];
-            let end_query = [
-                polyline[polyline.len() - 1].latitude,
-                polyline[polyline.len() - 1].longitude,
-            ];
-
-            let start_idx = ref_tree
-                .nearest_neighbor(&start_query)
-                .map(|p| p.idx as u32)
-                .unwrap_or(0);
-            let end_idx = ref_tree
-                .nearest_neighbor(&end_query)
-                .map(|p| p.idx as u32)
-                .unwrap_or(track.len() as u32 - 1);
-
-            let (s, e) = if start_idx <= end_idx {
-                (start_idx, end_idx)
-            } else {
-                (end_idx, start_idx)
-            };
-            return Ok((track, s, e));
-        }
-
-        // Use the first (longest) matching portion
-        let best = portions.iter().max_by_key(|(s, e, _)| e - s).unwrap();
-        Ok((track, best.0 as u32, best.1 as u32))
+        pooled::section_extension_track(&self.db, section_id, &self.section_config)
     }
 }
 
@@ -294,20 +167,69 @@ impl PersistentEngine {
 /// returns a named section takes the overlay as an argument: the engine passes
 /// its cached map, a pooled reader passes `named::pooled::overlay_names`.
 pub(crate) mod pooled {
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, HashSet};
 
     use rusqlite::{Connection, Row, params};
+    use tracematch::GpsPoint;
+    use tracematch::sections::{build_rtree, find_all_track_portions};
 
-    use super::super::geometry;
+    use super::super::{decode_point_density, geometry};
     use crate::persistence::PersistentEngine;
-    use crate::persistence::codec;
     use crate::sections::{Section, SectionSummary, SectionType};
+
+    /// Sections meeting the same outing floor and sport rule as the catalogue read.
+    pub(crate) fn supported_section_ids(
+        conn: &Connection,
+        sport_type: Option<&str>,
+        min_visits: u32,
+    ) -> HashSet<String> {
+        let query = format!(
+            "SELECT s.id,
+                    EXISTS(SELECT 1 FROM section_activities sa
+                           JOIN activities a ON a.id = sa.activity_id
+                           LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
+                           WHERE sa.section_id = s.id AND sa.excluded = 0
+                             AND COALESCE(am.sport_type, a.sport_type) = ?1),
+                    CASE WHEN ?2 = 0 THEN 0 WHEN ?1 IS NULL THEN s.activity_count
+                         ELSE (SELECT COUNT(DISTINCT sa.activity_id)
+                               FROM section_activities sa
+                               JOIN activities a ON a.id = sa.activity_id
+                               LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
+                               WHERE sa.section_id = s.id AND sa.excluded = 0
+                                 AND COALESCE(am.sport_type, a.sport_type) = ?1) END,
+                    CASE WHEN ?2 = 0 THEN 0 ELSE EXISTS(
+                         SELECT 1 FROM section_pins p WHERE p.section_id = s.id) END
+             FROM sections s WHERE s.{VISIBLE_FILTER}"
+        );
+        let Ok(mut stmt) = conn.prepare(&query) else {
+            return HashSet::new();
+        };
+        let Ok(rows) = stmt.query_map(params![sport_type, min_visits], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)? != 0,
+                row.get::<_, u32>(2)?,
+                row.get::<_, i64>(3)? != 0,
+            ))
+        }) else {
+            return HashSet::new();
+        };
+        rows.flatten()
+            .filter(|(_, crossed, outings, pinned)| {
+                (sport_type.is_none() || *crossed)
+                    && PersistentEngine::meets_section_floor(*outings, *pinned, min_visits)
+            })
+            .map(|(id, _, _, _)| id)
+            .collect()
+    }
 
     /// The sport an activity was recorded as, from the row rather than the
     /// memory tier the engine reads first.
     pub(crate) fn sport_of_activity(conn: &Connection, activity_id: &str) -> Option<String> {
         conn.query_row(
-            "SELECT sport_type FROM activities WHERE id = ?",
+            "SELECT COALESCE(am.sport_type, a.sport_type)
+             FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id
+             WHERE a.id = ?",
             params![activity_id],
             |row| row.get::<_, String>(0),
         )
@@ -323,7 +245,7 @@ pub(crate) mod pooled {
          disabled, superseded_by, polyline_blob, point_density_blob,
          elevation_gain_m, avg_grade_percent,
          elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score,
-         rep_start_index, rep_end_index";
+         rep_start_index, rep_end_index, sport_types";
 
     /// Visibility filter: exclude disabled and superseded sections.
     pub(crate) const VISIBLE_FILTER: &str = "disabled = 0 AND superseded_by IS NULL";
@@ -343,6 +265,13 @@ pub(crate) mod pooled {
         let rep_end: Option<u32> = row.get(34)?;
 
         let activity_ids = section_activity_ids(conn, &id);
+        let point_density = decode_point_density(
+            point_density_blob.as_deref(),
+            point_density_json.as_deref(),
+            &id,
+            10,
+            23,
+        )?;
 
         Ok(Section {
             id,
@@ -363,9 +292,7 @@ pub(crate) mod pooled {
             confidence: row.get(7)?,
             observation_count: row.get(8)?,
             average_spread: row.get(9)?,
-            point_density: point_density_blob
-                .and_then(|b| codec::deserialize(&b).ok())
-                .or_else(|| point_density_json.and_then(|j| serde_json::from_str(&j).ok())),
+            point_density,
             scale: row.get(11)?,
             is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
             stability: row.get(14)?,
@@ -387,13 +314,31 @@ pub(crate) mod pooled {
             route_ids: None,
             disabled: row.get::<_, Option<i32>>(20)?.unwrap_or(0) != 0,
             superseded_by: row.get(21)?,
+            sport_types: sport_set(row.get(35)?),
         })
     }
 
-    /// The corridor name displaces the generated one on an auto section, and
-    /// never on a section the athlete defined or cut themselves.
+    /// The sports that have taken a section, from the comma-joined column the
+    /// junction triggers keep, sorted. A section has no sport of its own: this
+    /// set is what every reader shows and filters by.
+    pub(crate) fn sport_set(stored: Option<String>) -> Vec<String> {
+        let mut sports: Vec<String> = stored
+            .unwrap_or_default()
+            .split(',')
+            .filter(|sport| !sport.is_empty())
+            .map(str::to_string)
+            .collect();
+        sports.sort();
+        sports.dedup();
+        sports
+    }
+
+    /// The corridor name displaces the row's on an auto section, and never on
+    /// a section the athlete defined or cut themselves. A section with no name
+    /// takes its numbered label.
     fn apply_overlay(section: &mut Section, names: &BTreeMap<String, String>) {
-        if section.is_user_defined || section.section_type != SectionType::Auto {
+        let own = section.is_user_defined || section.section_type != SectionType::Auto;
+        if own && section.name.is_some() {
             return;
         }
         if let Some(name) = names.get(&section.id) {
@@ -421,6 +366,15 @@ pub(crate) mod pooled {
         section_type: Option<SectionType>,
         names: &BTreeMap<String, String>,
     ) -> Vec<Section> {
+        sections_by_type_with_ids(conn, section_type, names).0
+    }
+
+    /// Visible stored ids include rows whose other columns cannot be decoded.
+    pub(crate) fn sections_by_type_with_ids(
+        conn: &Connection,
+        section_type: Option<SectionType>,
+        names: &BTreeMap<String, String>,
+    ) -> (Vec<Section>, HashSet<String>) {
         let query = match section_type {
             Some(st) => format!(
                 "SELECT {} FROM sections WHERE section_type = '{}' AND {}",
@@ -433,16 +387,39 @@ pub(crate) mod pooled {
                 SECTION_COLUMNS, VISIBLE_FILTER
             ),
         };
-        let Ok(mut stmt) = conn.prepare(&query) else {
-            return Vec::new();
+        let mut stmt = match conn.prepare(&query) {
+            Ok(stmt) => stmt,
+            Err(error) => {
+                log::error!("sections list query failed: {error}");
+                return (Vec::new(), HashSet::new());
+            }
         };
-        let rows = stmt.query_map([], |row| section_from_row(conn, row));
-        let mut sections: Vec<Section> = match rows {
-            Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
-            Err(_) => Vec::new(),
-        };
+        let mut stored_ids = HashSet::new();
+        let mut sections = Vec::new();
+        let rows = stmt.query_map([], |row| {
+            let id: String = row.get(0)?;
+            Ok((id, section_from_row(conn, row)))
+        });
+        match rows {
+            Ok(rows) => {
+                for row in rows {
+                    match row {
+                        Ok((id, Ok(section))) => {
+                            stored_ids.insert(id);
+                            sections.push(section);
+                        }
+                        Ok((id, Err(error))) => {
+                            log::error!("sections row {id} decode failed: {error}");
+                            stored_ids.insert(id);
+                        }
+                        Err(error) => log::error!("sections row id read failed: {error}"),
+                    }
+                }
+            }
+            Err(error) => log::error!("sections list query failed: {error}"),
+        }
         finish(conn, &mut sections, names);
-        sections
+        (sections, stored_ids)
     }
 
     /// Every visible section a given activity traverses, most-traversed first
@@ -477,6 +454,36 @@ pub(crate) mod pooled {
                 .then_with(|| a.id.cmp(&b.id))
         });
         sections
+    }
+
+    /// The visible custom sections that name an activity, as their source or
+    /// through a counted traversal, in catalogue order. Only those rows are
+    /// loaded, so the cost follows the activity rather than the catalogue.
+    pub(crate) fn custom_sections_naming_activity(
+        conn: &Connection,
+        activity_id: &str,
+        names: &BTreeMap<String, String>,
+    ) -> Vec<Section> {
+        let query = format!(
+            "SELECT s.id FROM sections s
+             WHERE s.section_type = 'custom' AND s.{VISIBLE_FILTER}
+               AND (s.source_activity_id = ?1
+                    OR EXISTS(SELECT 1 FROM section_activities sa
+                              WHERE sa.section_id = s.id AND sa.activity_id = ?1
+                                AND sa.excluded = 0))
+             ORDER BY s.rowid"
+        );
+        let ids: Vec<String> = match conn.prepare(&query) {
+            Ok(mut stmt) => stmt
+                .query_map([activity_id], |row| row.get(0))
+                .ok()
+                .map(|iter| iter.flatten().collect())
+                .unwrap_or_default(),
+            Err(_) => return Vec::new(),
+        };
+        ids.into_iter()
+            .filter_map(|id| section(conn, &id, names))
+            .collect()
     }
 
     /// One section with the corridor overlay applied.
@@ -524,12 +531,24 @@ pub(crate) mod pooled {
     /// a reset has to restore.
     pub(crate) fn has_original_bounds(conn: &Connection, section_id: &str) -> bool {
         conn.query_row(
-            "SELECT original_polyline_json IS NOT NULL FROM sections WHERE id = ?",
+            concat!(
+                "SELECT ",
+                crate::persistence::sections::has_original_line!(),
+                " FROM sections WHERE id = ?"
+            ),
             params![section_id],
             |row| row.get(0),
         )
         .unwrap_or(false)
     }
+
+    const SUMMARY_COLUMNS: &str = "id, section_type, name, distance_meters,
+                         representative_activity_id, created_at, confidence, scale,
+                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                         is_user_defined, disabled, superseded_by, visit_count,
+                         elevation_gain_m, avg_grade_percent,
+                         elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score,
+                         activity_count, sport_types";
 
     /// Every section as a list row, with the corridor names handed in.
     pub(crate) fn section_summaries_filtered(
@@ -538,39 +557,7 @@ pub(crate) mod pooled {
         visible_only: bool,
         names: &BTreeMap<String, String>,
     ) -> Vec<SectionSummary> {
-        // Same junction-derived sport list the canonical summaries read uses.
-        let section_sport_types: std::collections::HashMap<String, Vec<String>> = {
-            let mut stmt = match conn.prepare(
-                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT am.sport_type)
-                 FROM section_activities sa
-                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 WHERE sa.excluded = 0
-                 GROUP BY sa.section_id",
-            ) {
-                Ok(s) => s,
-                Err(_) => return Vec::new(),
-            };
-            stmt.query_map([], |row| {
-                let id: String = row.get(0)?;
-                let types_csv: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
-                let types: Vec<String> = types_csv
-                    .split(',')
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string())
-                    .collect();
-                Ok((id, types))
-            })
-            .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
-        };
-
-        let base_cols = "id, section_type, name, sport_type, distance_meters,
-                         representative_activity_id, created_at, confidence, scale,
-                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                         is_user_defined, disabled, superseded_by, visit_count,
-                         elevation_gain_m, avg_grade_percent,
-                         elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score";
+        let base_cols = SUMMARY_COLUMNS;
         let query = match (section_type, visible_only) {
             (Some(st), true) => format!(
                 "SELECT {} FROM sections WHERE section_type = '{}' AND {}",
@@ -591,23 +578,142 @@ pub(crate) mod pooled {
             (None, false) => format!("SELECT {} FROM sections", base_cols),
         };
 
-        let mut stmt = match conn.prepare(&query) {
+        summaries_for_query(conn, &query, &[], names)
+    }
+
+    /// The visible sections with a counted outing on or after `since`, in the
+    /// order the full read gives them, so a caller that only needs recent
+    /// ground does not read the whole catalogue.
+    ///
+    /// The recent activities are found by date first and their junction rows by
+    /// activity, because the planner otherwise walks every junction row.
+    pub(crate) fn section_summaries_visited_since(
+        conn: &Connection,
+        since: i64,
+        names: &BTreeMap<String, String>,
+    ) -> Vec<SectionSummary> {
+        let query = format!(
+            "SELECT {SUMMARY_COLUMNS} FROM sections
+             WHERE {}
+               AND id IN (SELECT sa.section_id FROM activity_metrics am
+                          CROSS JOIN section_activities sa ON sa.activity_id = am.activity_id
+                          WHERE sa.excluded = 0 AND am.date >= ?1)
+             ORDER BY rowid",
+            PersistentEngine::VISIBLE_FILTER
+        );
+        summaries_for_query(conn, &query, &[&since], names)
+    }
+
+    /// Every section with only the stored columns the list's filters, search,
+    /// order and counters read, so the catalogue is not decoded in full to
+    /// show one page of it. The other fields keep their defaults and the page
+    /// is filled in by `section_summaries_by_ids`.
+    ///
+    /// The shown name is applied only when `names` is given, so a read that
+    /// does not search or order by name builds none for the catalogue.
+    pub(crate) fn section_list_keys(
+        conn: &Connection,
+        names: Option<&BTreeMap<String, String>>,
+    ) -> Vec<SectionSummary> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT id, section_type, name, is_user_defined, disabled, superseded_by,
+                    visit_count, distance_meters, rank_score, sport_rank_score,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    sport_types
+             FROM sections",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            let bounds = match (
+                row.get::<_, Option<f64>>(10)?,
+                row.get::<_, Option<f64>>(11)?,
+                row.get::<_, Option<f64>>(12)?,
+                row.get::<_, Option<f64>>(13)?,
+            ) {
+                (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) => {
+                    Some(crate::FfiBounds {
+                        min_lat,
+                        max_lat,
+                        min_lng,
+                        max_lng,
+                    })
+                }
+                _ => None,
+            };
+            Ok(SectionSummary {
+                id: row.get(0)?,
+                section_type: row
+                    .get::<_, Option<String>>(1)?
+                    .unwrap_or_else(|| "auto".to_string()),
+                name: row.get(2)?,
+                is_user_defined: row.get::<_, Option<i32>>(3)?.unwrap_or(0) != 0,
+                disabled: row.get::<_, Option<i32>>(4)?.unwrap_or(0) != 0,
+                superseded_by: row.get(5)?,
+                visit_count: row.get::<_, Option<u32>>(6)?.unwrap_or(0),
+                distance_meters: row.get(7)?,
+                rank_score: row.get(8)?,
+                sport_rank_score: row.get(9)?,
+                sport_types: sport_set(row.get(14)?),
+                bounds,
+                ..Default::default()
+            })
+        });
+        let mut results: Vec<SectionSummary> = match rows {
+            Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
+            Err(_) => Vec::new(),
+        };
+        if let Some(names) = names {
+            for summary in &mut results {
+                apply_overlay_to_summary(summary, names);
+            }
+        }
+        results
+    }
+
+    /// The full list rows for these sections, in the order the ids are given.
+    pub(crate) fn section_summaries_by_ids(
+        conn: &Connection,
+        ids: &[&str],
+        names: &BTreeMap<String, String>,
+    ) -> Vec<SectionSummary> {
+        let mut found: std::collections::HashMap<String, SectionSummary> =
+            std::collections::HashMap::with_capacity(ids.len());
+        for chunk in ids.chunks(500) {
+            let marks = vec!["?"; chunk.len()].join(",");
+            let query = format!("SELECT {SUMMARY_COLUMNS} FROM sections WHERE id IN ({marks})");
+            let bound: Vec<&dyn rusqlite::ToSql> =
+                chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+            for summary in summaries_for_query(conn, &query, &bound, names) {
+                found.insert(summary.id.clone(), summary);
+            }
+        }
+        ids.iter().filter_map(|id| found.remove(*id)).collect()
+    }
+
+    fn summaries_for_query(
+        conn: &Connection,
+        query: &str,
+        bound: &[&dyn rusqlite::ToSql],
+        names: &BTreeMap<String, String>,
+    ) -> Vec<SectionSummary> {
+        let mut stmt = match conn.prepare(query) {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
 
-        let rows = stmt.query_map([], |row| {
+        let rows = stmt.query_map(bound, |row| {
             let id: String = row.get(0)?;
 
-            // Traversals off the denormalised column, outings from a DISTINCT.
-            let visit_count: u32 = row.get::<_, Option<u32>>(16)?.unwrap_or(0);
-            let activity_count = section_activity_count(conn, &id);
+            // Traversals and outings use the trigger-maintained columns.
+            let visit_count: u32 = row.get::<_, Option<u32>>(15)?.unwrap_or(0);
+            let activity_count: u32 = row.get::<_, Option<u32>>(25)?.unwrap_or(0);
 
             let bounds = match (
+                row.get::<_, Option<f64>>(8)?,
                 row.get::<_, Option<f64>>(9)?,
                 row.get::<_, Option<f64>>(10)?,
                 row.get::<_, Option<f64>>(11)?,
-                row.get::<_, Option<f64>>(12)?,
             ) {
                 (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) => {
                     Some(crate::FfiBounds {
@@ -620,38 +726,33 @@ pub(crate) mod pooled {
                 _ => None,
             };
 
-            let sport_type: String = row.get(3)?;
-            let sport_types = section_sport_types
-                .get(&id)
-                .cloned()
-                .unwrap_or_else(|| vec![sport_type.clone()]);
+            let sport_types = sport_set(row.get(26)?);
             Ok(SectionSummary {
                 id,
                 section_type: row
                     .get::<_, Option<String>>(1)?
                     .unwrap_or_else(|| "auto".to_string()),
                 name: row.get(2)?,
-                sport_type: sport_type.clone(),
-                distance_meters: row.get(4)?,
+                distance_meters: row.get(3)?,
                 visit_count,
                 activity_count,
-                representative_activity_id: row.get(5)?,
-                confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
-                scale: row.get(8)?,
+                representative_activity_id: row.get(4)?,
+                confidence: row.get::<_, Option<f64>>(6)?.unwrap_or(0.0),
+                scale: row.get(7)?,
                 bounds,
-                elevation_gain_m: row.get(17)?,
-                avg_grade_percent: row.get(18)?,
-                elevation_loss_m: row.get(19)?,
-                max_grade_percent: row.get(20)?,
-                klass: row.get(22)?,
-                is_lift: row.get::<_, Option<i32>>(23)?.unwrap_or(0) != 0,
-                rank_score: row.get(24)?,
-                sport_rank_score: row.get(25)?,
-                created_at: row.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                elevation_gain_m: row.get(16)?,
+                avg_grade_percent: row.get(17)?,
+                elevation_loss_m: row.get(18)?,
+                max_grade_percent: row.get(19)?,
+                klass: row.get(21)?,
+                is_lift: row.get::<_, Option<i32>>(22)?.unwrap_or(0) != 0,
+                rank_score: row.get(23)?,
+                sport_rank_score: row.get(24)?,
+                created_at: row.get::<_, Option<String>>(5)?.unwrap_or_default(),
                 sport_types,
-                is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
-                disabled: row.get::<_, Option<i32>>(14)?.unwrap_or(0) != 0,
-                superseded_by: row.get(15)?,
+                is_user_defined: row.get::<_, Option<i32>>(12)?.unwrap_or(0) != 0,
+                disabled: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
+                superseded_by: row.get(14)?,
             })
         });
 
@@ -665,17 +766,6 @@ pub(crate) mod pooled {
         results
     }
 
-    /// How many distinct activities still count towards a section.
-    pub(crate) fn section_activity_count(conn: &Connection, section_id: &str) -> u32 {
-        conn.query_row(
-            "SELECT COUNT(DISTINCT activity_id) FROM section_activities
-             WHERE section_id = ? AND excluded = 0",
-            params![section_id],
-            |row| row.get(0),
-        )
-        .unwrap_or(0)
-    }
-
     /// The corridor name on a list row, on the same precedence the engine uses:
     /// a user-defined section keeps its own name, an auto one takes the
     /// corridor's when there is one.
@@ -683,7 +773,8 @@ pub(crate) mod pooled {
         summary: &mut SectionSummary,
         names: &BTreeMap<String, String>,
     ) {
-        if summary.is_user_defined || summary.section_type != "auto" {
+        let own = summary.is_user_defined || summary.section_type != "auto";
+        if own && summary.name.is_some() {
             return;
         }
         if let Some(name) = names.get(&summary.id) {
@@ -734,14 +825,276 @@ pub(crate) mod pooled {
         .unwrap_or(0)
     }
 
-    /// How many sections the catalogue shows.
+    /// Auto sections a custom section covers: the fraction of the auto line
+    /// within `threshold_meters` of the custom one, strictly above
+    /// `overlap_threshold`. A failed read of the custom line or the candidate
+    /// query is logged and reads as none; an unreadable auto row is skipped.
+    pub(crate) fn superseded_auto_sections(
+        conn: &Connection,
+        custom_section_id: &str,
+        threshold_meters: f64,
+        overlap_threshold: f64,
+    ) -> Vec<String> {
+        try_superseded_auto_sections(conn, custom_section_id, threshold_meters, overlap_threshold)
+            .unwrap_or_else(|error| {
+                log::error!("veloqrs: find_superseded_auto_sections failed: {error}");
+                Vec::new()
+            })
+    }
+
+    /// [`superseded_auto_sections`], with a failed read of the custom line or
+    /// the candidate query as an error rather than an empty answer. An auto
+    /// row whose stored line cannot be read is logged and skipped: it is never
+    /// superseded unread.
+    pub(crate) fn try_superseded_auto_sections(
+        conn: &Connection,
+        custom_section_id: &str,
+        threshold_meters: f64,
+        overlap_threshold: f64,
+    ) -> Result<Vec<String>, String> {
+        let custom = geometry::stored_line(conn, custom_section_id)?;
+        let custom: Vec<f64> = custom
+            .iter()
+            .flat_map(|point| [point.latitude, point.longitude])
+            .collect();
+        let index = match crate::persistence::OverlapIndex::new(&custom) {
+            Some(i) => i,
+            None => return Ok(Vec::new()),
+        };
+
+        let query = format!(
+            "SELECT id, bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+             FROM sections WHERE section_type = '{}' AND disabled = 0
+               AND (superseded_by IS NULL OR superseded_by = ?2) AND id != ?1",
+            SectionType::Auto.as_str(),
+        );
+        let mut stmt = conn.prepare(&query).map_err(|error| error.to_string())?;
+
+        type Bounds = (String, Option<f64>, Option<f64>, Option<f64>, Option<f64>);
+        let rows: Vec<Bounds> = stmt
+            .query_map(params![custom_section_id, custom_section_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<f64>>(1)?,
+                    row.get::<_, Option<f64>>(2)?,
+                    row.get::<_, Option<f64>>(3)?,
+                    row.get::<_, Option<f64>>(4)?,
+                ))
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<rusqlite::Result<_>>()
+            .map_err(|error| error.to_string())?;
+
+        let mut superseded = Vec::new();
+        for (id, min_lat, max_lat, min_lng, max_lng) in rows {
+            // Bounds are optional on the row, and a section without them is
+            // measured rather than skipped.
+            if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) =
+                (min_lat, max_lat, min_lng, max_lng)
+                && !index.bbox_can_reach(min_lat, max_lat, min_lng, max_lng, threshold_meters)
+            {
+                continue;
+            }
+
+            let auto = match geometry::stored_line(conn, &id) {
+                Ok(line) => line,
+                Err(error) => {
+                    log::warn!(
+                        "veloqrs: [sections] skipping unreadable auto section {id}: {error}"
+                    );
+                    continue;
+                }
+            };
+            let auto: Vec<f64> = auto
+                .iter()
+                .flat_map(|point| [point.latitude, point.longitude])
+                .collect();
+            if index.fraction_within(&auto, threshold_meters) > overlap_threshold {
+                superseded.push(id);
+            }
+        }
+
+        Ok(superseded)
+    }
+
+    /// How many sections the catalogue shows, from the count the section
+    /// triggers keep.
     pub(crate) fn section_count(conn: &Connection) -> u32 {
         conn.query_row(
-            &format!("SELECT COUNT(*) FROM sections WHERE {}", VISIBLE_FILTER),
+            "SELECT COALESCE(SUM(n), 0) FROM section_visible_count",
             [],
             |row| row.get(0),
         )
         .unwrap_or(0)
+    }
+
+    /// Match an activity's track against the visible catalogue, cutting each
+    /// pass with the force-match's own cut under `config`. A section whose box
+    /// sits further than the relaxed bar from the track's box has no pass, so
+    /// it is not cut. Matches come in the order the passes start; a section
+    /// the athlete named reads by that name.
+    pub(crate) fn activity_section_matches(
+        conn: &Connection,
+        activity_id: &str,
+        config: &tracematch::SectionConfig,
+    ) -> Vec<crate::FfiSectionMatch> {
+        let track = match crate::persistence::activities::pooled::gps_track(conn, activity_id) {
+            Some(t) if t.len() >= 3 => t,
+            _ => return vec![],
+        };
+
+        let sections = crate::persistence::sections::pooled::catalogue_sections(conn, None, None);
+        if sections.is_empty() {
+            return vec![];
+        }
+
+        let reach =
+            config.proximity_threshold * crate::persistence::sections::FORCED_PROXIMITY_FACTOR;
+        let ride = tracematch::geo_utils::compute_bounds(&track);
+        let lat_reach = reach / 111_320.0;
+        let widest = ride.min_lat.abs().max(ride.max_lat.abs()) + lat_reach;
+        let lng_reach = reach / (111_320.0 * widest.min(89.0).to_radians().cos());
+        let near = |line: &[GpsPoint]| -> bool {
+            let section = tracematch::geo_utils::compute_bounds(line);
+            section.min_lat <= ride.max_lat + lat_reach
+                && section.max_lat >= ride.min_lat - lat_reach
+                && section.min_lng <= ride.max_lng + lng_reach
+                && section.max_lng >= ride.min_lng - lng_reach
+        };
+        let mut matches: Vec<(&tracematch::FrequentSection, tracematch::SectionPortion)> = sections
+            .iter()
+            .filter(|section| section.polyline.len() >= 2 && near(&section.polyline))
+            .flat_map(|section| {
+                crate::persistence::sections::forced_portions(
+                    activity_id,
+                    &track,
+                    &section.polyline,
+                    config,
+                )
+                .into_iter()
+                .map(move |portion| (section, portion))
+            })
+            .collect();
+        matches.sort_by_key(|(_, portion)| portion.start_index);
+        let names = crate::persistence::sections::named::pooled::overlay_names(conn);
+
+        matches
+            .into_iter()
+            .map(|(section, portion)| {
+                let section_name = names
+                    .get(&section.id)
+                    .cloned()
+                    .or_else(|| section.name.clone());
+                // The share of the section's length the pass covers.
+                let match_quality = if section.distance_meters > 0.0 {
+                    (portion.distance_meters / section.distance_meters).min(1.0)
+                } else {
+                    1.0
+                };
+                crate::FfiSectionMatch {
+                    section_id: section.id.clone(),
+                    section_name,
+                    start_index: portion.start_index,
+                    end_index: portion.end_index,
+                    match_quality,
+                    same_direction: portion.direction != tracematch::Direction::Reverse,
+                    distance_meters: portion.distance_meters,
+                }
+            })
+            .collect()
+    }
+
+    /// The representative activity's full GPS track and the indices where the
+    /// section's current line starts and ends within it, for the UI to let the
+    /// athlete extend the section's bounds beyond the line.
+    pub(crate) fn section_extension_track(
+        conn: &Connection,
+        section_id: &str,
+        config: &tracematch::SectionConfig,
+    ) -> Result<(Vec<GpsPoint>, u32, u32), String> {
+        let rep_id: Option<String> = conn
+            .query_row(
+                "SELECT representative_activity_id FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+
+        let rep_id = rep_id.ok_or_else(|| "Section has no representative activity".to_string())?;
+
+        let track = crate::persistence::activities::pooled::gps_track(conn, &rep_id)
+            .ok_or_else(|| format!("GPS track not found for activity: {}", rep_id))?;
+
+        if track.len() < 3 {
+            return Err("Representative activity track too short".to_string());
+        }
+
+        let polyline: Vec<GpsPoint> = geometry::stored_line(conn, section_id)?;
+
+        if polyline.len() < 2 {
+            return Err("Section polyline too short".to_string());
+        }
+
+        // The row records the range of the representative the line was cut from.
+        // It is exact, where a proximity match opens a portion up to the
+        // threshold before the line starts and keeps it open past the end, so
+        // an index taken from that match does not address the stored line.
+        let reference: (Option<String>, Option<u32>, Option<u32>) = conn
+            .query_row(
+                "SELECT representative_activity_id, rep_start_index, rep_end_index
+                 FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+        if let Some((_, start, end)) = geometry::reference(
+            reference.0.as_deref(),
+            reference.1,
+            reference.2,
+        )
+        .filter(|&(_, start, end)| {
+            end > start && (end - start) as usize == polyline.len() && end as usize <= track.len()
+        }) {
+            // The stored end is exclusive, the UI trims with an inclusive last index.
+            return Ok((track, start, end - 1));
+        }
+
+        // Find where the section starts/ends in the representative activity's
+        // track. Generous bar, half the proximity anchor (100 m at the
+        // default 200 m), derived so it co-varies with the slider like every
+        // other matching window.
+        let portions = find_all_track_portions(&track, &polyline, config.proximity_threshold * 0.5);
+
+        if portions.is_empty() {
+            // Fallback: use nearest-point matching for start and end
+            let ref_tree = build_rtree(&track);
+            let start_query = [polyline[0].latitude, polyline[0].longitude];
+            let end_query = [
+                polyline[polyline.len() - 1].latitude,
+                polyline[polyline.len() - 1].longitude,
+            ];
+
+            let start_idx = ref_tree
+                .nearest_neighbor(&start_query)
+                .map(|p| p.idx as u32)
+                .unwrap_or(0);
+            let end_idx = ref_tree
+                .nearest_neighbor(&end_query)
+                .map(|p| p.idx as u32)
+                .unwrap_or(track.len() as u32 - 1);
+
+            let (s, e) = if start_idx <= end_idx {
+                (start_idx, end_idx)
+            } else {
+                (end_idx, start_idx)
+            };
+            return Ok((track, s, e));
+        }
+
+        // Use the first (longest) matching portion
+        let best = portions.iter().max_by_key(|(s, e, _)| e - s).unwrap();
+        // The UI trims with an inclusive last index, a portion end is exclusive.
+        Ok((track, best.0 as u32, best.1.saturating_sub(1) as u32))
     }
 }
 

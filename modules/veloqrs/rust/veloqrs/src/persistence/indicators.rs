@@ -1,10 +1,10 @@
 //! Activity indicators: materialised PR and trend badges.
 //!
 //! Computed once after sync/detection, stored in `activity_indicators` table.
-//! Feed card rendering reads from this table - no on-demand computation needed.
+//! Section badges are read from this table; route highlights are computed on read.
 
 use rusqlite::{Result as SqlResult, params};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::{PersistentEngine, codec};
 
@@ -14,7 +14,7 @@ const TREND_DEADBAND: f64 = 0.02;
 
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
-const INDICATOR_ALGORITHM_VERSION: i32 = 5;
+const INDICATOR_ALGORITHM_VERSION: i32 = 6;
 
 impl PersistentEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.
@@ -28,8 +28,7 @@ impl PersistentEngine {
     /// Algorithm:
     /// 1. Clear the table
     /// 2. For each (section, direction) pair: find PR + compute per-activity trends
-    /// 3. For each route group: find PR + compute per-activity trends
-    /// 4. Bulk-insert all indicators
+    /// 3. Bulk-insert all indicators
     pub fn recompute_activity_indicators(&self) -> SqlResult<()> {
         self.rewrite_indicators(None)
     }
@@ -55,13 +54,11 @@ impl PersistentEngine {
             .unwrap_or(0);
 
         if only_section.is_none() {
-            // Step 0: Backfill any NULL lap_time values from time_streams.
-            // This ensures section_activities has real recorded times wherever possible,
-            // so the indicator computation uses actual data instead of estimates.
+            // Fill missing lap time and sensor means from stored streams.
             let backfilled = self.backfill_null_lap_times()?;
             if backfilled > 0 {
                 log::info!(
-                    "veloqrs: [indicators] Backfilled lap_time for {} section portions from time streams",
+                    "veloqrs: [indicators] Backfilled metrics for {} section portions from streams",
                     backfilled
                 );
             }
@@ -163,11 +160,11 @@ impl PersistentEngine {
     /// Groups that would earn badges but for a missing time.
     ///
     /// The pair query in `compute_section_indicators` without its
-    /// `effective_time IS NOT NULL` clause, so a non-zero answer beside a
+    /// `lap_time IS NOT NULL` clause, so a non-zero answer beside a
     /// zero-row pass means the input was missing rather than absent: the same
     /// sections, directions and sports, qualifying on coverage and on having
-    /// two distinct activities, whose times the pass could neither read nor
-    /// estimate. Run only on the zero path, so an ordinary pass pays nothing.
+    /// two distinct activities, whose times the pass could not read. Run only on the zero path, so an ordinary
+    /// pass pays nothing.
     fn untimed_repeat_groups(&self, tx: &rusqlite::Transaction) -> SqlResult<i64> {
         let complete = crate::persistence::records::complete_traversal_sql();
         tx.query_row(
@@ -200,25 +197,9 @@ impl PersistentEngine {
         now: i64,
         only_section: Option<&str>,
     ) -> SqlResult<usize> {
-        // Effective time: use lap_time if available, otherwise estimate from
-        // activity duration proportional to section distance.
-        // This handles the common case where lap_time is NULL (not yet populated
-        // from time streams) while still producing useful indicators.
-        //
-        // The denominator falls back to `activity_metrics.distance`, because
-        // `activities.distance_meters` is written by the fitness path alone and
-        // is NULL on every synced row: 316 of 316 on the library pulled from the
-        // S22 on 2026-09-18, which divided the estimate by NULL and left the
-        // whole pass with nothing to insert.
-        let activity_distance = "COALESCE(NULLIF(a.distance_meters, 0), am.distance)";
-        let effective_time_expr = format!(
-            "COALESCE(sa.lap_time,
-                      CASE WHEN {activity_distance} > 0 AND sa.distance_meters > 0
-                           THEN a.duration_secs * (sa.distance_meters / {activity_distance})
-                           ELSE NULL END)"
-        );
-        let effective_time_expr = effective_time_expr.as_str();
-
+        // Only measured lap times take part. A pass with no `lap_time` is
+        // neither a record nor a rival, the rule the section chart's reader
+        // applies, so a badge never rests on a time the chart would not list.
         // Pairs with 2+ non-excluded activities. Counting rows would let one
         // lapped session qualify against itself.
         //
@@ -239,9 +220,8 @@ impl PersistentEngine {
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN activities a ON a.id = sa.activity_id
-             LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
              WHERE sa.excluded = 0
-               AND {} IS NOT NULL
+               AND sa.lap_time IS NOT NULL
                AND s.disabled = 0
                AND s.superseded_by IS NULL
                AND sa.direction != 'partial'
@@ -249,7 +229,6 @@ impl PersistentEngine {
                AND (? IS NULL OR sa.section_id = ?)
              GROUP BY sa.section_id, sa.direction, a.sport_type
              HAVING cnt >= 2",
-            effective_time_expr,
             complete = complete
         );
 
@@ -285,19 +264,18 @@ impl PersistentEngine {
         // Same completeness filter as the pair query above so the per-traversal
         // best matches what `get_section_performances_filtered` produces.
         let traversal_sql = format!(
-            "SELECT sa.activity_id, {} as effective_time
+            "SELECT sa.activity_id, sa.lap_time
              FROM section_activities sa
              JOIN activities a ON a.id = sa.activity_id
              JOIN sections s ON s.id = sa.section_id
-             LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
              WHERE sa.section_id = ?
                AND sa.direction = ?
                AND a.sport_type = ?
                AND sa.excluded = 0
+               AND sa.lap_time IS NOT NULL
                AND sa.direction != 'partial'
                AND ({complete})
              ORDER BY a.start_date ASC",
-            effective_time_expr,
             complete = complete
         );
         let mut traversal_stmt = tx.prepare(&traversal_sql)?;
@@ -410,19 +388,11 @@ impl PersistentEngine {
         for r in rows.flatten() {
             names.insert(r.0, r.1);
         }
-        // Corridor names outrank generated row names on auto sections, so the
-        // section-PR chips and notification bodies built from these show what
-        // the user actually called the section.
+        // Corridor names outrank row names on auto sections, and a section
+        // with no name shows its numbered label, so the section-PR chips and
+        // notification bodies built from these show the name every screen does.
         self.ensure_named_overlay();
-        for (id, name) in self
-            .named_overlay
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .by_section
-            .iter()
-        {
-            names.insert(id.clone(), name.clone());
-        }
+        names.extend(self.named_overlay_cached_names());
         Ok(names)
     }
 
@@ -446,24 +416,37 @@ impl PersistentEngine {
     /// an activity whose streams land later, which is why they are filled here
     /// rather than only at insert.
     ///
-    /// A row is a candidate while either column is still NULL, and each is
-    /// filled on its own: an activity with a time stream and no strap gets its
-    /// lap time and keeps a NULL heart rate for good, which is the truth about
-    /// that lap. Returns the number of rows updated.
+    /// Missing lap times remain eligible for later streams. Missing sensor means
+    /// are eligible when their series exists. Returns the number of rows updated.
     fn backfill_null_lap_times(&self) -> SqlResult<usize> {
-        type PortionRow = (String, String, u32, u32, f64, Option<f64>, Option<f64>);
+        type PortionRow = (
+            String,
+            String,
+            u32,
+            u32,
+            f64,
+            Option<f64>,
+            Option<f64>,
+            Option<f64>,
+        );
         let portions: Vec<PortionRow> = self
             .db
             .prepare(
                 "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,
-                        sa.distance_meters, sa.lap_time, sa.avg_hr
+                        sa.distance_meters, sa.lap_time, sa.avg_hr, sa.avg_power
                  FROM section_activities sa
                  -- A traversal beginning at the activity's first point is a
                  -- lap like any other. The row to skip is the one the schema
                  -- defaults leave behind, `(0, 0)`, and the half-open end
                  -- already refuses it: a start-index floor refused every lap
                  -- that began at 0 along with it.
-                 WHERE (sa.lap_time IS NULL OR sa.avg_hr IS NULL)
+                 WHERE ((sa.lap_time IS NULL AND sa.time_empty = 0) OR (sa.avg_hr IS NULL AND sa.hr_empty = 0 AND EXISTS (
+                     SELECT 1 FROM activity_streams s
+                     WHERE s.activity_id = sa.activity_id AND s.kind = 'heartrate'
+                 )) OR (sa.avg_power IS NULL AND sa.power_empty = 0 AND EXISTS (
+                     SELECT 1 FROM activity_streams s
+                     WHERE s.activity_id = sa.activity_id AND s.kind = 'watts'
+                 )))
                    AND sa.end_index > sa.start_index",
             )?
             .query_map([], |row| {
@@ -475,6 +458,7 @@ impl PersistentEngine {
                     row.get(4)?,
                     row.get(5)?,
                     row.get(6)?,
+                    row.get(7)?,
                 ))
             })?
             .filter_map(|r| r.ok())
@@ -484,22 +468,37 @@ impl PersistentEngine {
             return Ok(0);
         }
 
-        // Collect unique activity IDs that need time streams
-        let activity_ids: std::collections::HashSet<String> = portions
+        let time_activity_ids: HashSet<String> = portions
             .iter()
-            .map(|(_, aid, _, _, _, _, _)| aid.clone())
+            .filter(|(_, _, _, _, _, lap_time, _, _)| lap_time.is_none())
+            .map(|(_, activity_id, _, _, _, _, _, _)| activity_id.clone())
+            .collect();
+        let heartrate_activity_ids: HashSet<String> = portions
+            .iter()
+            .filter(|(_, _, _, _, _, _, avg_hr, _)| avg_hr.is_none())
+            .map(|(_, activity_id, _, _, _, _, _, _)| activity_id.clone())
+            .collect();
+        let power_activity_ids: HashSet<String> = portions
+            .iter()
+            .filter(|(_, _, _, _, _, _, _, avg_power)| avg_power.is_none())
+            .map(|(_, activity_id, _, _, _, _, _, _)| activity_id.clone())
             .collect();
 
-        // Load time streams for those activities
         let mut time_streams: HashMap<String, Vec<u32>> = HashMap::new();
-        for activity_id in &activity_ids {
+        for activity_id in &time_activity_ids {
             if let Ok(stream) = self.db.query_row(
                 "SELECT times FROM time_streams WHERE activity_id = ?",
                 [activity_id],
                 |row| {
                     let bytes: Vec<u8> = row.get(0)?;
-                    let times: Vec<u32> =
-                        codec::deserialize(&bytes).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                    let times: Vec<u32> = codec::deserialize(&bytes).map_err(|e| {
+                        log::error!("time_streams {activity_id}: times decode failed: {e}");
+                        rusqlite::Error::FromSqlConversionFailure(
+                            0,
+                            rusqlite::types::Type::Blob,
+                            e.into(),
+                        )
+                    })?;
                     Ok(times)
                 },
             ) {
@@ -510,9 +509,15 @@ impl PersistentEngine {
         // One decode per activity rather than one per lap: a busy section has
         // hundreds of rows against the same series.
         let mut heart_rates: HashMap<String, Vec<Option<f64>>> = HashMap::new();
-        for activity_id in &activity_ids {
+        for activity_id in &heartrate_activity_ids {
             if let Some(series) = self.load_heartrate_series(activity_id) {
                 heart_rates.insert(activity_id.clone(), series);
+            }
+        }
+        let mut power_series: HashMap<String, Vec<Option<f64>>> = HashMap::new();
+        for activity_id in &power_activity_ids {
+            if let Some(series) = self.load_power_series(activity_id) {
+                power_series.insert(activity_id.clone(), series);
             }
         }
 
@@ -523,7 +528,7 @@ impl PersistentEngine {
             self.track_point_counts(&ids)
         };
 
-        if time_streams.is_empty() && heart_rates.is_empty() {
+        if time_streams.is_empty() && heart_rates.is_empty() && power_series.is_empty() {
             return Ok(0);
         }
 
@@ -538,11 +543,23 @@ impl PersistentEngine {
                 "UPDATE section_activities
                  SET lap_time = COALESCE(lap_time, ?),
                      lap_pace = COALESCE(lap_pace, ?),
-                     avg_hr = COALESCE(avg_hr, ?)
+                     avg_hr = COALESCE(avg_hr, ?),
+                     avg_power = COALESCE(avg_power, ?),
+                     hr_empty = hr_empty OR ?,
+                     power_empty = power_empty OR ?,
+                     time_empty = time_empty OR ?
                  WHERE section_id = ? AND activity_id = ? AND start_index = ?",
             )?;
-            for (section_id, activity_id, start_idx, end_idx, distance, had_time, had_hr) in
-                &portions
+            for (
+                section_id,
+                activity_id,
+                start_idx,
+                end_idx,
+                distance,
+                had_time,
+                had_hr,
+                had_power,
+            ) in &portions
             {
                 let (lap_time, lap_pace) = if had_time.is_some() {
                     (None, None)
@@ -564,18 +581,51 @@ impl PersistentEngine {
                         *end_idx,
                     )
                 };
-                if lap_time.is_none() && avg_hr.is_none() {
+                let avg_power = if had_power.is_some() {
+                    None
+                } else {
+                    super::sections::mean_over_traversal(
+                        power_series.get(activity_id).map(Vec::as_slice),
+                        *start_idx,
+                        *end_idx,
+                    )
+                };
+                // A series that was read and held nothing over the traversal
+                // is remembered, so the row is not decoded again until a new
+                // series of that kind is stored.
+                let hr_empty =
+                    had_hr.is_none() && avg_hr.is_none() && heart_rates.contains_key(activity_id);
+                let power_empty = had_power.is_none()
+                    && avg_power.is_none()
+                    && power_series.contains_key(activity_id);
+                // The same for a stream that cannot time the traversal.
+                let time_empty = had_time.is_none()
+                    && lap_time.is_none()
+                    && time_streams.contains_key(activity_id);
+                if lap_time.is_none()
+                    && avg_hr.is_none()
+                    && avg_power.is_none()
+                    && !hr_empty
+                    && !power_empty
+                    && !time_empty
+                {
                     continue;
                 }
                 update_stmt.execute(params![
                     lap_time,
                     lap_pace,
                     avg_hr,
+                    avg_power,
+                    hr_empty,
+                    power_empty,
+                    time_empty,
                     section_id,
                     activity_id,
                     start_idx
                 ])?;
-                updated += 1;
+                if lap_time.is_some() || avg_hr.is_some() || avg_power.is_some() {
+                    updated += 1;
+                }
             }
         }
         tx.commit()?;
@@ -655,7 +705,7 @@ mod tests {
 
     /// One activity with a time stream, in `sections` sections, each portion
     /// with no lap time yet.
-    fn engine_with_null_laps(sections: usize) -> PersistentEngine {
+    pub(super) fn engine_with_null_laps(sections: usize) -> PersistentEngine {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let coords: Vec<GpsPoint> = (0..8)
             .map(|i| GpsPoint {
@@ -858,3 +908,7 @@ mod tests {
         assert_eq!(null_lap_times(&engine), 1);
     }
 }
+
+#[cfg(test)]
+#[path = "tests/indicators_backfill.rs"]
+mod backfill_tests;

@@ -10,7 +10,6 @@
 use crate::{MatchConfig, RouteSignature};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, mpsc};
-use std::thread;
 
 use super::PersistentEngine;
 
@@ -140,7 +139,8 @@ impl PersistentEngine {
     /// that is off-lock. `None` when the library has no signatures to group,
     /// which is the empty-library case and not a failure.
     ///
-    /// Measured on an S22 over a real 585-activity library: the signature
+    /// Measured on an S22 with a standalone `aarch64-linux-android` engine binary
+    /// (no app build) over a real 585-activity library: the signature
     /// collection this does on the calling thread is 1.4 to 1.9 ms, and the
     /// grouping it spawns is 198 ms at the strictest setting, 386 at the
     /// default and 442 at the loosest. So the frame the athlete loses is the
@@ -175,7 +175,7 @@ impl PersistentEngine {
         let (tx, receiver) = mpsc::channel();
         let cancel = Arc::new(AtomicBool::new(false));
         let worker_cancel = Arc::clone(&cancel);
-        thread::spawn(move || {
+        crate::threads::spawn_named("veloq-group", move || {
             if worker_cancel.load(Ordering::SeqCst) {
                 let _ = tx.send(PreviewOutcome::Cancelled);
                 return;
@@ -203,17 +203,19 @@ impl PersistentEngine {
 /// paints in, and each group's members sorted, so one strictness gives one
 /// payload however the grouping enumerated it.
 fn group_at(signatures: &[RouteSignature], config: &MatchConfig) -> Vec<PreviewGroup> {
-    let mut groups: Vec<PreviewGroup> = tracematch::group_signatures_parallel(signatures, config)
-        .into_iter()
-        .map(|g| {
-            let mut activity_ids = g.activity_ids;
-            activity_ids.sort();
-            PreviewGroup {
-                key: g.group_id,
-                activity_ids,
-            }
-        })
-        .collect();
+    let mut groups: Vec<PreviewGroup> =
+        tracematch::group_signatures_parallel_with_matches(signatures, config)
+            .groups
+            .into_iter()
+            .map(|g| {
+                let mut activity_ids = g.activity_ids;
+                activity_ids.sort();
+                PreviewGroup {
+                    key: g.group_id,
+                    activity_ids,
+                }
+            })
+            .collect();
     groups.sort_by(|a, b| {
         b.activity_ids
             .len()
@@ -221,4 +223,58 @@ fn group_at(signatures: &[RouteSignature], config: &MatchConfig) -> Vec<PreviewG
             .then_with(|| a.key.cmp(&b.key))
     });
     groups
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::GpsPoint;
+
+    fn track(id: &str, detour: bool, jitter: f64, config: &MatchConfig) -> RouteSignature {
+        let points: Vec<GpsPoint> = (0..200)
+            .map(|j| {
+                let mid = (60..140).contains(&j);
+                let lon = if detour && mid { 7.002 } else { 7.0 };
+                GpsPoint::new(46.0 + (j as f64) * 0.00005 + jitter, lon)
+            })
+            .collect();
+        RouteSignature::from_points(id, &points, config).expect("track makes a signature")
+    }
+
+    fn sorted_sets(groups: impl IntoIterator<Item = Vec<String>>) -> Vec<Vec<String>> {
+        let mut sets: Vec<Vec<String>> = groups
+            .into_iter()
+            .map(|mut g| {
+                g.sort();
+                g
+            })
+            .collect();
+        sets.sort();
+        sets
+    }
+
+    #[test]
+    fn the_preview_splits_a_divergent_variant_as_the_writers_do() {
+        let config = MatchConfig {
+            min_match_percentage: 40.0,
+            ..MatchConfig::default()
+        };
+        let signatures = vec![
+            track("a1", false, 0.0, &config),
+            track("a2", false, 0.0000005, &config),
+            track("b1", true, 0.0000010, &config),
+            track("b2", true, 0.0000015, &config),
+        ];
+
+        let written = tracematch::group_signatures_parallel_with_matches(&signatures, &config);
+        let expected = sorted_sets(written.groups.into_iter().map(|g| g.activity_ids));
+        assert_eq!(expected.len(), 2, "fixture must be one the writers split");
+
+        let previewed = sorted_sets(
+            group_at(&signatures, &config)
+                .into_iter()
+                .map(|g| g.activity_ids),
+        );
+        assert_eq!(previewed, expected);
+    }
 }

@@ -31,6 +31,12 @@ pub(crate) struct LoadedPool {
     pub readable: usize,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum TrackLoadError {
+    Cancelled,
+    ReadFailed,
+}
+
 impl LoadedPool {
     /// Rows that would not decode. The numerator the gate is measured with.
     pub fn unreadable(&self) -> usize {
@@ -42,14 +48,14 @@ impl LoadedPool {
 /// order and ticking `progress` once per id. Chunking caps the peak at
 /// (resident tracks + one chunk's query buffers) rather than the full result
 /// set; every track still ends up resident at once, which the all-pairs
-/// detector requires. Returns None when `cancel` is raised, checked once per
-/// chunk. Reads only; the census is returned, never recorded.
+/// detector requires. Reports cancellation and database failures separately.
+/// Reads only; the census is returned, never recorded.
 pub(crate) fn load_tracks_chunked(
     conn: &Connection,
     ids: &[String],
     progress: &SectionDetectionProgress,
     cancel: &AtomicBool,
-) -> Option<LoadedPool> {
+) -> Result<LoadedPool, TrackLoadError> {
     let mut empty: u32 = 0;
     let mut corrupt: Vec<CorruptTrack> = Vec::new();
     let mut readable: usize = 0;
@@ -57,7 +63,7 @@ pub(crate) fn load_tracks_chunked(
 
     for chunk in ids.chunks(CHUNK_SIZE) {
         if cancel.load(Ordering::SeqCst) {
-            return None;
+            return Err(TrackLoadError::Cancelled);
         }
         let placeholders: String = std::iter::repeat_n("?", chunk.len())
             .collect::<Vec<_>>()
@@ -71,30 +77,60 @@ pub(crate) fn load_tracks_chunked(
                 let params_slice: Vec<&dyn rusqlite::ToSql> =
                     chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
                 let rows = stmt.query_map(params_slice.as_slice(), |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+                    Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)))
                 });
-                if let Ok(iter) = rows {
-                    for (id, blob) in iter.flatten() {
-                        match TrackRead::from_blob(&blob) {
-                            TrackRead::Present(track) => {
-                                readable += 1;
-                                loaded.insert(id, track);
-                            }
-                            TrackRead::Missing => {}
-                            TrackRead::Corrupt(reason) => corrupt.push(CorruptTrack {
+                let iter = match rows {
+                    Ok(iter) => iter,
+                    Err(e) => {
+                        log::warn!("veloqrs: [TrackPool] Batch query failed: {e}");
+                        return Err(TrackLoadError::ReadFailed);
+                    }
+                };
+                for row in iter {
+                    let (id, blob) = match row {
+                        Ok((id, Ok(blob))) => (id, blob),
+                        // A conversion failure belongs to one row, so it is
+                        // named and judged by the corrupt-pool gate.
+                        Ok((
+                            id,
+                            Err(
+                                e @ (rusqlite::Error::InvalidColumnType(..)
+                                | rusqlite::Error::FromSqlConversionFailure(..)),
+                            ),
+                        )) => {
+                            corrupt.push(CorruptTrack {
                                 activity_id: id,
-                                reason,
-                            }),
+                                reason: e.to_string(),
+                            });
+                            continue;
                         }
+                        // Anything else is the database failing, which a
+                        // retry may clear, so the run aborts.
+                        Ok((_, Err(e))) | Err(e) => {
+                            log::warn!("veloqrs: [TrackPool] Track row read failed: {e}");
+                            return Err(TrackLoadError::ReadFailed);
+                        }
+                    };
+                    match TrackRead::from_blob(&blob) {
+                        TrackRead::Present(track) => {
+                            readable += 1;
+                            loaded.insert(id, track);
+                        }
+                        TrackRead::Missing => {}
+                        TrackRead::Corrupt(reason) => corrupt.push(CorruptTrack {
+                            activity_id: id,
+                            reason,
+                        }),
                     }
                 }
             }
             Err(e) => {
                 log::warn!(
-                    "veloqrs: [TrackPool] Batch prepare failed for chunk of {}: {:?}; skipping chunk",
+                    "veloqrs: [TrackPool] Batch prepare failed for chunk of {}: {:?}",
                     chunk.len(),
                     e
                 );
+                return Err(TrackLoadError::ReadFailed);
             }
         }
     }
@@ -115,7 +151,7 @@ pub(crate) fn load_tracks_chunked(
         })
         .collect();
 
-    Some(LoadedPool {
+    Ok(LoadedPool {
         tracks,
         empty,
         corrupt,
@@ -157,9 +193,13 @@ pub(crate) fn load_seconds_chunked(
                 });
                 if let Ok(iter) = rows {
                     for (id, blob) in iter.flatten() {
-                        if let Ok(times) = crate::persistence::codec::deserialize::<Vec<u32>>(&blob)
-                        {
-                            streams.insert(id, times);
+                        match crate::persistence::codec::deserialize::<Vec<u32>>(&blob) {
+                            Ok(times) => {
+                                streams.insert(id, times);
+                            }
+                            Err(e) => {
+                                log::error!("time_streams {id}: times decode failed: {e}");
+                            }
                         }
                     }
                 }
@@ -305,7 +345,7 @@ mod tests {
         assert_eq!(pool.readable, 1);
     }
 
-    /// Cancel is checked per chunk and answered with None, so a caller that
+    /// Cancel is checked per chunk and answered separately, so a caller that
     /// raises it mid-load gets nothing rather than a partial corpus.
     #[test]
     fn a_cancelled_load_returns_nothing() {
@@ -322,7 +362,135 @@ mod tests {
         let cancel = AtomicBool::new(true);
         let ids = vec!["good".to_string()];
 
-        assert!(load_tracks_chunked(&engine.db, &ids, &progress, &cancel).is_none());
+        assert!(matches!(
+            load_tracks_chunked(&engine.db, &ids, &progress, &cancel),
+            Err(TrackLoadError::Cancelled)
+        ));
+    }
+
+    #[test]
+    fn a_failed_track_query_cannot_read_as_an_empty_pool() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .add_activity(
+                "good".to_string(),
+                vec![GpsPoint::new(40.0, 10.0)],
+                "Ride".to_string(),
+            )
+            .unwrap();
+        engine.db.execute("DROP TABLE gps_tracks", []).unwrap();
+        let progress = SectionDetectionProgress::default();
+        let cancel = AtomicBool::new(false);
+        let ids = vec!["good".to_string()];
+
+        assert!(matches!(
+            load_tracks_chunked(&engine.db, &ids, &progress, &cancel),
+            Err(TrackLoadError::ReadFailed)
+        ));
+        assert!(!cancel.load(Ordering::SeqCst));
+    }
+
+    /// Scenario: one `gps_tracks` row holds text where a blob belongs, so
+    /// rusqlite refuses the row read itself rather than the decode.
+    ///
+    /// Expected behaviour: the load either fails as a whole or names the row
+    /// as corrupt. Dropping the row would count it empty and judge the pool
+    /// without it, which is the silent short pool principle 1 forbids.
+    #[test]
+    fn a_failed_row_read_cannot_read_as_an_empty_row() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .add_activity(
+                "good".to_string(),
+                vec![GpsPoint::new(40.0, 10.0)],
+                "Ride".to_string(),
+            )
+            .unwrap();
+        store_track_blob(&mut engine, "text", b"placeholder");
+        engine
+            .db
+            .execute(
+                "UPDATE gps_tracks SET track_data = 'text' WHERE activity_id = 'text'",
+                [],
+            )
+            .unwrap();
+        let stored: String = engine
+            .db
+            .query_row(
+                "SELECT typeof(track_data) FROM gps_tracks WHERE activity_id = 'text'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            stored, "text",
+            "the row must hold text for the read to fail"
+        );
+
+        let progress = SectionDetectionProgress::default();
+        let cancel = AtomicBool::new(false);
+        let ids = vec!["good".to_string(), "text".to_string()];
+
+        let Ok(pool) = load_tracks_chunked(&engine.db, &ids, &progress, &cancel) else {
+            assert!(
+                !cancel.load(Ordering::SeqCst),
+                "the load failed, it was not cancelled"
+            );
+            return;
+        };
+        assert!(
+            pool.corrupt.iter().any(|c| c.activity_id == "text"),
+            "a row that would not read must come back named as corrupt"
+        );
+        assert!(pool.tracks.iter().all(|(id, _)| id != "text"));
+        assert_eq!(pool.readable, 1, "only the good row read");
+    }
+
+    /// Scenario: a row's `track_data` holds text, a failure local to that row.
+    ///
+    /// Expected behaviour: the load completes, the row is named as corrupt
+    /// and never reads as empty, so the corrupt-pool gate can judge it.
+    #[test]
+    fn a_row_with_a_text_blob_is_named_corrupt_and_the_load_completes() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .add_activity(
+                "good".to_string(),
+                vec![GpsPoint::new(40.0, 10.0)],
+                "Ride".to_string(),
+            )
+            .unwrap();
+        for id in ["text-a", "text-b"] {
+            store_track_blob(&mut engine, id, b"placeholder");
+            engine
+                .db
+                .execute(
+                    "UPDATE gps_tracks SET track_data = 'text' WHERE activity_id = ?",
+                    rusqlite::params![id],
+                )
+                .unwrap();
+        }
+        let progress = SectionDetectionProgress::default();
+        let cancel = AtomicBool::new(false);
+        let ids: Vec<String> = ["good", "text-a", "text-b"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let pool = load_tracks_chunked(&engine.db, &ids, &progress, &cancel)
+            .expect("a row-local failure must not abort the load");
+
+        let mut named: Vec<&str> = pool
+            .corrupt
+            .iter()
+            .map(|c| c.activity_id.as_str())
+            .collect();
+        named.sort();
+        assert_eq!(named, ["text-a", "text-b"]);
+        assert!(pool.corrupt.iter().all(|c| !c.reason.is_empty()));
+        assert_eq!(pool.tracks.len(), 1);
+        assert_eq!(pool.readable, 1);
+        assert_eq!(pool.empty, 2, "unreadable rows also yield no track");
     }
 
     /// An empty id list is a load of nothing, not a failure.

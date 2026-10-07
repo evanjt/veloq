@@ -12,7 +12,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
-use std::thread;
 use std::time::Instant;
 use tracematch::sections::{RECUT_AGREEMENT, Tunables, mutual_overlap, shares_ground};
 
@@ -54,8 +53,6 @@ pub struct PreviewCentre {
     pub visit_total: u32,
     pub section_count: u32,
     pub source: String,
-    /// The place the bin covers, or None when no activity over it names one.
-    pub locality: Option<String>,
 }
 
 /// How far apart two ranked bins have to be to count as different places.
@@ -114,11 +111,6 @@ fn bin_indices(bin_key: &str) -> Option<(i64, i64)> {
     let (lat, lng) = bin_key.split_once(':')?;
     Some((lat.parse().ok()?, lng.parse().ok()?))
 }
-
-/// Radius around a bin's anchor that an activity must start within to speak
-/// for its name. Half the bin diagonal plus slack for a box just outside the
-/// border.
-const CENTRE_LOCALITY_RADIUS_M: f64 = 5000.0;
 
 /// The five caller-exposed detection knobs, overlaid onto the engine's live
 /// config. Only these cross the boundary: trusting a whole caller-supplied
@@ -205,6 +197,8 @@ pub enum PreviewOutcome {
     Complete(PreviewPayload),
     /// Cancelled cooperatively; nothing to take.
     Cancelled,
+    /// The track pool could not be read.
+    ReadFailed,
     /// Too much of the pool is unreadable for a real detect to cut over it.
     PoolUnusable { readable: usize, unreadable: u32 },
 }
@@ -214,11 +208,16 @@ pub enum PreviewPoll {
     Running,
     Complete,
     Cancelled,
+    ReadFailed,
     /// The run refused the pool the real detect would also refuse.
     PoolUnusable,
     /// The worker died without sending (panic, failed open).
     Died,
 }
+
+#[cfg(test)]
+#[path = "tests/preview_read_failure.rs"]
+mod read_failure_tests;
 
 /// Handle for one background preview run.
 pub struct SectionPreviewHandle {
@@ -243,12 +242,14 @@ impl SectionPreviewHandle {
         match self.outcome {
             Some(PreviewOutcome::Complete(_)) => PreviewPoll::Complete,
             Some(PreviewOutcome::Cancelled) => PreviewPoll::Cancelled,
+            Some(PreviewOutcome::ReadFailed) => PreviewPoll::ReadFailed,
             Some(PreviewOutcome::PoolUnusable { .. }) => PreviewPoll::PoolUnusable,
             None => match self.receiver.try_recv() {
                 Ok(o) => {
                     self.outcome = Some(o);
                     match self.outcome {
                         Some(PreviewOutcome::Complete(_)) => PreviewPoll::Complete,
+                        Some(PreviewOutcome::ReadFailed) => PreviewPoll::ReadFailed,
                         Some(PreviewOutcome::PoolUnusable { .. }) => PreviewPoll::PoolUnusable,
                         _ => PreviewPoll::Cancelled,
                     }
@@ -380,9 +381,8 @@ pub(crate) fn cluster_for(
 // the manifest check and reach the screen as `undefined`. The names are
 // the records' own.
 pub(crate) use crate::{
-    FfiCatalogueCounts as PayloadCounts, FfiPreviewConfig as PayloadConfig,
-    FfiPreviewPool as PayloadPool, FfiPreviewResult as PreviewPayload,
-    FfiPreviewSection as PayloadSection,
+    FfiCatalogueCounts as PayloadCounts, FfiPreviewPool as PayloadPool,
+    FfiPreviewResult as PreviewPayload, FfiPreviewSection as PayloadSection,
 };
 
 /// Does an auto section's ground fall inside a component's padded box? The
@@ -394,6 +394,29 @@ fn within_component(section: &FrequentSection, padded_bbox: DegreeBox) -> bool {
         && padded_bbox.0 <= b.max_lat
         && b.min_lng <= padded_bbox.3
         && padded_bbox.2 <= b.max_lng
+}
+
+/// The live auto sections a run diffs against: those the athlete can see,
+/// inside the component. Superseded rows stay in memory as detection priors
+/// but are hidden everywhere else, so the preview never draws or counts them.
+fn scoped_live_catalogue(
+    sections: &[FrequentSection],
+    superseded_ids: &HashSet<String>,
+    padded_bbox: DegreeBox,
+    names: &std::collections::BTreeMap<String, String>,
+) -> Vec<FrequentSection> {
+    sections
+        .iter()
+        .filter(|s| !s.is_user_defined && !superseded_ids.contains(&s.id))
+        .filter(|s| within_component(s, padded_bbox))
+        .map(|s| {
+            let mut section = s.clone();
+            if let Some(name) = names.get(&s.id) {
+                section.name = Some(name.clone());
+            }
+            section
+        })
+        .collect()
 }
 
 /// Diff two catalogues. `proposed` is the new state, `live` is the old.
@@ -408,7 +431,7 @@ pub(crate) fn diff_catalogues_public(
 }
 
 fn encoded_polyline(points: &[tracematch::GpsPoint]) -> Vec<u8> {
-    crate::coords::encode(points)
+    crate::persistence::codec::encode_polyline(points)
 }
 
 /// Diff the proposed catalogue against the scoped live one: greedy 1:1
@@ -472,7 +495,6 @@ fn diff_catalogues(
             live_id: live_ref.map(|l| l.id.clone()),
             status,
             name: live_ref.and_then(|l| l.name.clone()),
-            sport: p.sport_type.clone(),
             polyline: encoded_polyline(&p.polyline),
             visits: p.visit_count,
             distance_m: p.distance_meters,
@@ -492,7 +514,6 @@ fn diff_catalogues(
             live_id: None,
             status: "gone".to_string(),
             name: l.name.clone(),
-            sport: l.sport_type.clone(),
             polyline: encoded_polyline(&l.polyline),
             visits: l.visit_count,
             distance_m: l.distance_meters,
@@ -511,107 +532,7 @@ impl PersistentEngine {
     /// bounds; otherwise activity boxes stand in, with the (0, 0, 0, 0)
     /// sentinel filtered. Ordered visit_total DESC then bin_key ASC.
     pub fn preview_centres(&self, limit: u32) -> Vec<PreviewCentre> {
-        let mut members: Vec<(f64, f64, u32)> = Vec::new();
-        let mut source = "sections";
-
-        if let Ok(mut stmt) = self.db.prepare(
-            "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng, visit_count
-             FROM sections WHERE section_type = 'auto' AND bounds_min_lat IS NOT NULL
-             ORDER BY id",
-        ) {
-            let rows = stmt.query_map([], |row| {
-                Ok((
-                    row.get::<_, f64>(0)?,
-                    row.get::<_, f64>(1)?,
-                    row.get::<_, f64>(2)?,
-                    row.get::<_, f64>(3)?,
-                    row.get::<_, u32>(4)?,
-                ))
-            });
-            if let Ok(rows) = rows {
-                for (min_lat, max_lat, min_lng, max_lng, visits) in rows.flatten() {
-                    members.push(((min_lat + max_lat) * 0.5, (min_lng + max_lng) * 0.5, visits));
-                }
-            }
-        }
-
-        if members.is_empty() {
-            source = "activities";
-            if let Ok(mut stmt) = self
-                .db
-                .prepare("SELECT min_lat, max_lat, min_lng, max_lng FROM activities")
-            {
-                let rows = stmt.query_map([], |row| {
-                    Ok((
-                        row.get::<_, f64>(0)?,
-                        row.get::<_, f64>(1)?,
-                        row.get::<_, f64>(2)?,
-                        row.get::<_, f64>(3)?,
-                    ))
-                });
-                if let Ok(rows) = rows {
-                    for (min_lat, max_lat, min_lng, max_lng) in rows.flatten() {
-                        if min_lat == 0.0 && max_lat == 0.0 && min_lng == 0.0 && max_lng == 0.0 {
-                            continue;
-                        }
-                        members.push(((min_lat + max_lat) * 0.5, (min_lng + max_lng) * 0.5, 1));
-                    }
-                }
-            }
-        }
-
-        struct Bin {
-            lat_sum: f64,
-            lng_sum: f64,
-            visit_total: u32,
-            section_count: u32,
-            n: u32,
-        }
-        let mut bins: HashMap<String, Bin> = HashMap::new();
-        for (lat, lng, visits) in members {
-            let key = format!(
-                "{}:{}",
-                (lat / BIN_DEG).floor() as i64,
-                (lng / BIN_DEG).floor() as i64
-            );
-            let bin = bins.entry(key).or_insert(Bin {
-                lat_sum: 0.0,
-                lng_sum: 0.0,
-                visit_total: 0,
-                section_count: 0,
-                n: 0,
-            });
-            bin.lat_sum += lat;
-            bin.lng_sum += lng;
-            bin.visit_total += visits;
-            if source == "sections" {
-                bin.section_count += 1;
-            }
-            bin.n += 1;
-        }
-
-        let mut centres: Vec<PreviewCentre> = bins
-            .into_iter()
-            .map(|(bin_key, b)| PreviewCentre {
-                bin_key,
-                lat: b.lat_sum / f64::from(b.n),
-                lng: b.lng_sum / f64::from(b.n),
-                visit_total: b.visit_total,
-                section_count: b.section_count,
-                source: source.to_string(),
-                locality: None,
-            })
-            .collect();
-        centres.sort_by(|a, b| {
-            b.visit_total
-                .cmp(&a.visit_total)
-                .then_with(|| a.bin_key.cmp(&b.bin_key))
-        });
-        // Between the sort and the cut, or a dense home region takes every slot
-        // in adjacent 5 km bins.
-        let mut centres = spread_centres(centres, limit as usize);
-        self.name_centres(&mut centres);
-        centres
+        pooled::preview_centres(&self.db, limit)
     }
 
     /// Sport per activity id, as `cluster_for` and the detector both key on.
@@ -620,82 +541,6 @@ impl PersistentEngine {
             .values()
             .map(|m| (m.id.clone(), m.sport_type.clone()))
             .collect()
-    }
-
-    /// Give each ranked area the name of the place it covers.
-    ///
-    /// The name is the most common `locality` among activities whose bounding
-    /// box sits within `CENTRE_LOCALITY_RADIUS_M` of the bin's anchor, ties
-    /// broken by name so the label is stable across runs. The position comes
-    /// from the activity's stored box and not from `start_latlng`: the sync
-    /// never asks intervals.icu for that field, so no stored body carries one
-    /// and a join on it matched nothing.
-    ///
-    /// The anchor is the centre of the bin box, which is the box the preview
-    /// camera frames, rather than the mean of the bin's members: that mean can
-    /// sit near an edge and name the neighbouring place.
-    fn name_centres(&self, centres: &mut [PreviewCentre]) {
-        if centres.is_empty() {
-            return;
-        }
-
-        let mut located: Vec<(f64, f64, String)> = Vec::new();
-        if let Ok(mut stmt) = self.db.prepare(
-            "SELECT a.min_lat, a.max_lat, a.min_lng, a.max_lng,
-                    json_extract(b.raw, '$.locality')
-             FROM activities a JOIN activity_bodies b ON b.activity_id = a.id
-             WHERE json_extract(b.raw, '$.locality') IS NOT NULL",
-        ) {
-            let rows = stmt.query_map([], |row| {
-                Ok((
-                    row.get::<_, f64>(0)?,
-                    row.get::<_, f64>(1)?,
-                    row.get::<_, f64>(2)?,
-                    row.get::<_, f64>(3)?,
-                    row.get::<_, String>(4)?,
-                ))
-            });
-            if let Ok(rows) = rows {
-                for (min_lat, max_lat, min_lng, max_lng, locality) in rows.flatten() {
-                    if min_lat == 0.0 && max_lat == 0.0 && min_lng == 0.0 && max_lng == 0.0 {
-                        continue;
-                    }
-                    located.push((
-                        (min_lat + max_lat) * 0.5,
-                        (min_lng + max_lng) * 0.5,
-                        locality,
-                    ));
-                }
-            }
-        }
-        if located.is_empty() {
-            return;
-        }
-
-        for centre in centres.iter_mut() {
-            let Some((lat_bin, lng_bin)) = bin_indices(&centre.bin_key) else {
-                continue;
-            };
-            let anchor_lat = (lat_bin as f64 + 0.5) * BIN_DEG;
-            let anchor_lng = (lng_bin as f64 + 0.5) * BIN_DEG;
-
-            let mut counts: HashMap<&str, u32> = HashMap::new();
-            for (lat, lng, locality) in &located {
-                let metres =
-                    super::super::haversine_distance_meters(*lat, *lng, anchor_lat, anchor_lng);
-                if metres > CENTRE_LOCALITY_RADIUS_M {
-                    continue;
-                }
-                *counts.entry(locality.as_str()).or_insert(0) += 1;
-            }
-
-            centre.locality = counts
-                .into_iter()
-                .max_by(|(a_name, a_count), (b_name, b_count)| {
-                    a_count.cmp(b_count).then_with(|| b_name.cmp(a_name))
-                })
-                .map(|(name, _)| name.to_string());
-        }
     }
 
     /// The live auto catalogue for the riding area containing (lat, lng), in
@@ -707,52 +552,12 @@ impl PersistentEngine {
     /// a pin lookup rather than a detect. Returns None when no activity's
     /// padded box contains the point.
     pub fn preview_current(&self, lat: f64, lng: f64) -> Option<Vec<PayloadSection>> {
-        let boxes: Vec<(String, tracematch::Bounds)> = self
-            .activity_metadata
-            .values()
-            .map(|m| (m.id.clone(), m.bounds))
-            .collect();
-        let sports = self.sport_map();
-        let (_component_ids, padded_bbox) =
-            cluster_for(&boxes, lat, lng, &sports, Tunables::DEFAULT.cluster_gap_m)?;
-
-        let pinned: HashSet<String> = self
-            .db
-            .prepare("SELECT section_id FROM section_pins")
-            .ok()
-            .and_then(|mut stmt| {
-                stmt.query_map([], |row| row.get::<_, String>(0))
-                    .map(|rows| rows.flatten().collect())
-                    .ok()
-            })
-            .unwrap_or_default();
-
-        let rows: Vec<PayloadSection> = self
-            .sections
-            .iter()
-            .filter(|s| !s.is_user_defined)
-            .filter(|s| within_component(s, padded_bbox))
-            .map(|s| PayloadSection {
-                id: s.id.clone(),
-                live_id: Some(s.id.clone()),
-                status: "unchanged".to_string(),
-                name: s.name.clone(),
-                sport: s.sport_type.clone(),
-                polyline: encoded_polyline(&s.polyline),
-                visits: s.visit_count,
-                distance_m: s.distance_meters,
-                elevation_gain_m: s.elevation_gain_m,
-                avg_grade_percent: s.avg_grade_percent,
-                pinned: pinned.contains(&s.id),
-            })
-            .collect();
-
-        Some(rows)
+        pooled::preview_current(&self.db, lat, lng)
     }
 
     /// Start a preview run over the component containing (lat, lng).
     ///
-    /// Snapshots everything the worker needs from memory under the read lock,
+    /// Snapshots everything the worker needs from memory under the engine `Mutex`,
     /// then spawns. The worker opens its own read-only connection, loads the
     /// component's pool, runs the pure batch detector and diffs against the
     /// live catalogue scoped to the component. A detection-suspension guard
@@ -813,13 +618,10 @@ impl PersistentEngine {
         // Live auto sections whose ground can intersect the component. The
         // diff omits everything outside, so far-away sections never surface
         // as gone.
-        let live_scoped: Vec<FrequentSection> = self
-            .sections
-            .iter()
-            .filter(|s| !s.is_user_defined)
-            .filter(|s| within_component(s, padded_bbox))
-            .cloned()
-            .collect();
+        self.ensure_named_overlay();
+        let names = self.named_overlay_cached_names();
+        let live_scoped =
+            scoped_live_catalogue(&self.sections, &self.superseded_ids, padded_bbox, &names);
 
         let db_path = self.db_path.clone();
         let (tx, rx) = mpsc::channel();
@@ -837,7 +639,7 @@ impl PersistentEngine {
         // holds the engine, rather than on the worker.
         let install_at_spawn = crate::persistence::engine_install();
 
-        thread::spawn(move || {
+        crate::threads::spawn_named("veloq-preview", move || {
             let _finish = PreviewFinished;
             let _suspend = suspend;
             // The lease is freed on the thread that knows how the run ended,
@@ -847,7 +649,7 @@ impl PersistentEngine {
             // `spawn_once`'s shape.
             let mut lease = PreviewLease::taken(install_at_spawn, key);
             // The caller set "loading" before the spawn, but under the engine
-            // read lock and the preview slot lock. The notice blocks on
+            // `Mutex` and the preview slot lock. The notice blocks on
             // JavaScript, so it is made here, off both.
             notify_phase("loading");
             // A capture outlives the body's locals, so the sender moves into one
@@ -870,7 +672,7 @@ impl PersistentEngine {
             };
 
             // Durable pin intent, read here so the snapshot never touches
-            // SQLite under the engine's read lock.
+            // SQLite under the engine `Mutex`.
             let pinned: HashSet<String> = conn
                 .prepare("SELECT section_id FROM section_pins")
                 .ok()
@@ -897,15 +699,26 @@ impl PersistentEngine {
                 }
             }
 
-            let Some(pool) = super::track_pool::load_tracks_chunked(
+            let pool = match super::track_pool::load_tracks_chunked(
                 &conn,
                 &component_ids,
                 &progress_worker,
                 &cancel_worker,
-            ) else {
-                lease.done();
-                sender.send(PreviewOutcome::Cancelled).ok();
-                return;
+            ) {
+                Ok(pool) => pool,
+                Err(error) => {
+                    lease.done();
+                    match error {
+                        super::track_pool::TrackLoadError::Cancelled => {
+                            sender.send(PreviewOutcome::Cancelled).ok();
+                        }
+                        super::track_pool::TrackLoadError::ReadFailed => {
+                            announce_phase(&progress_worker, "aborted", 0);
+                            sender.send(PreviewOutcome::ReadFailed).ok();
+                        }
+                    }
+                    return;
+                }
             };
             if cancel_worker.load(Ordering::SeqCst) {
                 lease.done();
@@ -975,13 +788,7 @@ impl PersistentEngine {
                     unreadable: pool.unreadable() as u32,
                 },
                 elapsed_ms: started.elapsed().as_millis() as f64,
-                config: PayloadConfig {
-                    proximity_threshold: effective_config.proximity_threshold,
-                    min_section_length: effective_config.min_section_length,
-                    max_section_length: effective_config.max_section_length,
-                    min_activities: effective_config.min_activities,
-                    divergence_threshold: effective_config.divergence_threshold,
-                },
+                config: crate::FfiSectionConfig::from(&effective_config),
                 counts,
                 sections,
             };
@@ -1006,6 +813,26 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
+    #[test]
+    fn preview_and_cutover_configs_are_the_settings_record() {
+        let config = tracematch::SectionConfig {
+            min_activities: 7,
+            ..tracematch::SectionConfig::default()
+        };
+        let shown = crate::FfiSectionConfig::from(&config);
+        let result_config: fn(&PreviewPayload) -> &crate::FfiSectionConfig = |p| &p.config;
+        let reset = crate::FfiCutoverSettingsReset {
+            previous: crate::FfiSectionConfig::default(),
+            current: shown.clone(),
+        };
+        assert_eq!(reset.current.min_activities, 7);
+        let _ = result_config;
+        assert_eq!(
+            serde_json::to_value(&reset.current).unwrap(),
+            serde_json::to_value(&shown).unwrap()
+        );
+    }
+
     mod spreading_the_riding_areas {
         use super::super::{PreviewCentre, spread_centres};
 
@@ -1024,7 +851,6 @@ mod tests {
                 visit_total: visits,
                 section_count: 1,
                 source: "sections".to_string(),
-                locality: None,
             }
         }
 
@@ -1198,6 +1024,20 @@ mod tests {
             .collect()
     }
 
+    #[test]
+    fn a_superseded_section_is_not_in_the_live_catalogue() {
+        let kept = section("kept", line(5.0, 10.0));
+        let hidden = section("hidden", line(5.0, 10.001));
+        let sections = vec![kept, hidden];
+        let superseded = HashSet::from(["hidden".to_string()]);
+        let everywhere = (-90.0, 90.0, -180.0, 180.0);
+
+        let live = scoped_live_catalogue(&sections, &superseded, everywhere, &Default::default());
+
+        let ids: Vec<&str> = live.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, vec!["kept"]);
+    }
+
     /// A catalogue diffed against itself is entirely unchanged. Anything else
     /// is the pairing rather than the detector, so a run reporting most of its
     /// rows gone would be a defect here rather than a different cut.
@@ -1309,7 +1149,7 @@ mod tests {
 
 /// The component resolve over a pooled connection.
 ///
-/// The engine held this on the read lock because it walks `activity_metadata`,
+/// The engine held this because it walks `activity_metadata`,
 /// which is memory. Every field it reads, the id, the sport and the bounding
 /// box, is a column on `activities` that the memory tier is loaded from at
 /// init, so the query answers the same thing and nothing needs a shared borrow
@@ -1319,13 +1159,185 @@ pub(crate) mod pooled {
     use std::collections::HashMap;
     use tracematch::Bounds;
 
-    use super::{Tunables, cluster_for};
+    use super::{
+        BIN_DEG, PayloadSection, PreviewCentre, Tunables, bin_indices, cluster_for,
+        encoded_polyline, spread_centres, within_component,
+    };
+    use std::collections::HashSet;
+
+    /// [`PersistentEngine::preview_current`](crate::persistence::PersistentEngine::preview_current)
+    /// on a connection: bounds and sports from `activities`, pins from
+    /// `section_pins`, the auto catalogue from `sections`, names from the
+    /// overlay. The engine method calls this too, so the scoping rule lives
+    /// once.
+    pub(crate) fn preview_current(
+        conn: &Connection,
+        lat: f64,
+        lng: f64,
+    ) -> Option<Vec<PayloadSection>> {
+        let mut boxes: Vec<(String, Bounds)> = Vec::new();
+        let mut sports: HashMap<String, String> = HashMap::new();
+        if let Ok(mut stmt) = conn.prepare_cached(
+            "SELECT a.id, COALESCE(am.sport_type, a.sport_type),
+                    a.min_lat, a.max_lat, a.min_lng, a.max_lng
+             FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id",
+        ) {
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    Bounds {
+                        min_lat: row.get(2)?,
+                        max_lat: row.get(3)?,
+                        min_lng: row.get(4)?,
+                        max_lng: row.get(5)?,
+                    },
+                ))
+            });
+            if let Ok(rows) = rows {
+                for (id, sport, bounds) in rows.flatten() {
+                    sports.insert(id.clone(), sport);
+                    boxes.push((id, bounds));
+                }
+            }
+        }
+        let (_component_ids, padded_bbox) =
+            cluster_for(&boxes, lat, lng, &sports, Tunables::DEFAULT.cluster_gap_m)?;
+
+        let names = crate::persistence::sections::named::pooled::overlay_names(conn);
+        let pinned: HashSet<String> =
+            crate::persistence::sections::pooled::pinned_section_ids(conn)
+                .into_iter()
+                .collect();
+
+        let rows = crate::persistence::sections::pooled::catalogue_sections(conn, None, None)
+            .into_iter()
+            .filter(|s| !s.is_user_defined)
+            .filter(|s| within_component(s, padded_bbox))
+            .map(|s| PayloadSection {
+                live_id: Some(s.id.clone()),
+                status: "unchanged".to_string(),
+                name: names.get(&s.id).cloned().or_else(|| s.name.clone()),
+                polyline: encoded_polyline(&s.polyline),
+                visits: s.visit_count,
+                distance_m: s.distance_meters,
+                elevation_gain_m: s.elevation_gain_m,
+                avg_grade_percent: s.avg_grade_percent,
+                pinned: pinned.contains(&s.id),
+                id: s.id,
+            })
+            .collect();
+        Some(rows)
+    }
+
+    /// Ranked riding areas at ~5 km, off committed rows.
+    pub(crate) fn preview_centres(conn: &Connection, limit: u32) -> Vec<PreviewCentre> {
+        let mut members: Vec<(f64, f64, u32)> = Vec::new();
+        let mut source = "sections";
+
+        if let Ok(mut stmt) = conn.prepare(
+            "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng, visit_count
+             FROM sections WHERE section_type = 'auto' AND bounds_min_lat IS NOT NULL
+             ORDER BY id",
+        ) {
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, f64>(0)?,
+                    row.get::<_, f64>(1)?,
+                    row.get::<_, f64>(2)?,
+                    row.get::<_, f64>(3)?,
+                    row.get::<_, u32>(4)?,
+                ))
+            });
+            if let Ok(rows) = rows {
+                for (min_lat, max_lat, min_lng, max_lng, visits) in rows.flatten() {
+                    members.push(((min_lat + max_lat) * 0.5, (min_lng + max_lng) * 0.5, visits));
+                }
+            }
+        }
+
+        if members.is_empty() {
+            source = "activities";
+            if let Ok(mut stmt) =
+                conn.prepare("SELECT min_lat, max_lat, min_lng, max_lng FROM activities")
+            {
+                let rows = stmt.query_map([], |row| {
+                    Ok((
+                        row.get::<_, f64>(0)?,
+                        row.get::<_, f64>(1)?,
+                        row.get::<_, f64>(2)?,
+                        row.get::<_, f64>(3)?,
+                    ))
+                });
+                if let Ok(rows) = rows {
+                    for (min_lat, max_lat, min_lng, max_lng) in rows.flatten() {
+                        if min_lat == 0.0 && max_lat == 0.0 && min_lng == 0.0 && max_lng == 0.0 {
+                            continue;
+                        }
+                        members.push(((min_lat + max_lat) * 0.5, (min_lng + max_lng) * 0.5, 1));
+                    }
+                }
+            }
+        }
+
+        struct Bin {
+            lat_sum: f64,
+            lng_sum: f64,
+            visit_total: u32,
+            section_count: u32,
+            n: u32,
+        }
+        let mut bins: HashMap<String, Bin> = HashMap::new();
+        for (lat, lng, visits) in members {
+            let key = format!(
+                "{}:{}",
+                (lat / BIN_DEG).floor() as i64,
+                (lng / BIN_DEG).floor() as i64
+            );
+            let bin = bins.entry(key).or_insert(Bin {
+                lat_sum: 0.0,
+                lng_sum: 0.0,
+                visit_total: 0,
+                section_count: 0,
+                n: 0,
+            });
+            bin.lat_sum += lat;
+            bin.lng_sum += lng;
+            bin.visit_total += visits;
+            if source == "sections" {
+                bin.section_count += 1;
+            }
+            bin.n += 1;
+        }
+
+        let mut centres: Vec<PreviewCentre> = bins
+            .into_iter()
+            .map(|(bin_key, b)| PreviewCentre {
+                bin_key,
+                lat: b.lat_sum / f64::from(b.n),
+                lng: b.lng_sum / f64::from(b.n),
+                visit_total: b.visit_total,
+                section_count: b.section_count,
+                source: source.to_string(),
+            })
+            .collect();
+        centres.sort_by(|a, b| {
+            b.visit_total
+                .cmp(&a.visit_total)
+                .then_with(|| a.bin_key.cmp(&b.bin_key))
+        });
+        // Between the sort and the cut, or a dense home region takes every slot
+        // in adjacent 5 km bins.
+        let mut centres = spread_centres(centres, limit as usize);
+        centres
+    }
 
     pub(crate) fn preview_component(conn: &Connection, lat: f64, lng: f64) -> Option<Vec<String>> {
         let Ok(mut stmt) = conn.prepare(
-            "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng
-             FROM activities
-             WHERE min_lat IS NOT NULL",
+            "SELECT a.id, COALESCE(am.sport_type, a.sport_type),
+                    a.min_lat, a.max_lat, a.min_lng, a.max_lng
+             FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id
+             WHERE a.min_lat IS NOT NULL",
         ) else {
             return None;
         };

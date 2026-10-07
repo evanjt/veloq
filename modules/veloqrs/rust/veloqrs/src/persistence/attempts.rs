@@ -127,6 +127,8 @@ pub enum Release {
     /// The work landed. The row is forgotten, so a key that lands after
     /// failing starts clean and the table cannot grow without bound.
     Done,
+    /// No work ran. Free the lease without forgetting earlier failures.
+    Deferred,
     /// The work failed. The attempt count and the backoff grow.
     Failed {
         refusal: FfiStartOutcome,
@@ -220,8 +222,11 @@ impl PersistentEngine {
         tx.execute(
             "INSERT INTO job_attempts (key, attempts, last_attempt_at, lease_gen)
              VALUES (?, 0, ?, ?)
-             ON CONFLICT(key) DO UPDATE SET last_attempt_at = excluded.last_attempt_at,
-                                            lease_gen = excluded.lease_gen",
+             ON CONFLICT(key) DO UPDATE SET
+                 last_attempt_at = CASE WHEN job_attempts.attempts > 0
+                                        THEN job_attempts.last_attempt_at
+                                        ELSE excluded.last_attempt_at END,
+                 lease_gen = excluded.lease_gen",
             params![key.as_str(), now, generation],
         )?;
         tx.commit()?;
@@ -234,6 +239,16 @@ impl PersistentEngine {
             Release::Done => {
                 self.db.execute(
                     "DELETE FROM job_attempts WHERE key = ?",
+                    params![key.as_str()],
+                )?;
+            }
+            Release::Deferred => {
+                self.db.execute(
+                    "UPDATE job_attempts SET lease_gen = 0 WHERE key = ?",
+                    params![key.as_str()],
+                )?;
+                self.db.execute(
+                    "DELETE FROM job_attempts WHERE key = ? AND attempts = 0",
                     params![key.as_str()],
                 )?;
             }

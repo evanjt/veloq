@@ -15,11 +15,13 @@
 //!   not ground coverage. Mutual-best pairing with total tie-breaks, so the plan
 //!   is a deterministic function of the two member-set families (no HashMap-order
 //!   leak into the persisted id).
-//! - ID SCHEME. Routes mint a DETERMINISTIC ordinal `r_<n>`, not the sections'
-//!   `s_<ts>__<rand>`. The route snapshot's signature is id-INCLUDED (a cold
-//!   group's representative is already the deterministic sorted-min member), so a
-//!   deterministic id makes the whole route catalogue byte-stable across two runs,
-//!   the double-run determinism routes are held to. A ts+rand id could not.
+//! - ID SCHEME. Routes mint a DETERMINISTIC ordinal `r_<n>`. Sections mint
+//!   content ids from the sport and heart cell with the next free ordinal, or
+//!   a clock `s_<ts>__<seq>` for a section with no line. The route snapshot's
+//!   signature is id-INCLUDED (a cold group's representative is already a
+//!   deterministic pick over its members), so the route id makes the catalogue
+//!   byte-stable across two runs,
+//!   the double-run determinism routes are held to.
 //!   Minted in sorted-member order so the assignment does not depend on the
 //!   grouping HashMap's iteration order. Per-device ids need no global uniqueness;
 //!   reseed adopts existing ids and continues the counter past them.
@@ -28,7 +30,9 @@
 //! non-monotone reform to damp). This layer only stops the `route_names` row
 //! being orphaned by keying it to the surviving stable id.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::sync::atomic::{self, AtomicBool};
 
 use rusqlite::{Connection, Result as SqlResult};
 
@@ -40,6 +44,9 @@ use tracematch::RouteGroup;
 
 /// `identity_state.key` for the route registry blob.
 pub(crate) const ROUTE_IDENTITY_KEY: &str = "route_identity";
+
+/// `identity_state.key` for the route catalogue's generation.
+pub(crate) const ROUTE_GROUPS_GENERATION_KEY: &str = "route_groups_generation";
 
 /// Version byte on the persisted route-registry blob. Bump on any
 /// serialisation-breaking change to [`RouteIdentity`]; an old byte then reseeds.
@@ -74,14 +81,24 @@ fn max_adopted_route_ordinal(groups: &[RouteGroup]) -> u64 {
         .unwrap_or(0)
 }
 
+fn route_id_order(a: &str, b: &str) -> Ordering {
+    let numeric = |id: &str| id.strip_prefix("r_").and_then(|n| n.parse::<u64>().ok());
+    match (numeric(a), numeric(b)) {
+        (Some(a_number), Some(b_number)) => a_number.cmp(&b_number).then_with(|| a.cmp(b)),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => a.cmp(b),
+    }
+}
+
 /// Seed the registry from the groups already persisted, adopting each existing
 /// `group_id` as its stable id so an install keeps its route ids and simply stops
-/// re-deriving them, no migration. Seniority is assigned in sorted-id order (a
-/// deterministic proxy for age at adoption time); the mint counter is lifted past
+/// re-deriving them, no migration. Seniority follows numeric minted-id order,
+/// then other ids in string order; the mint counter is lifted past
 /// any adopted `r_<n>` so a later mint cannot collide.
 pub(crate) fn reseed_identity(groups: &[RouteGroup]) -> RouteIdentity {
     let mut ids: Vec<String> = groups.iter().map(|g| g.group_id.clone()).collect();
-    ids.sort();
+    ids.sort_by(|a, b| route_id_order(a, b));
 
     let mut ri = RouteIdentity::default();
     for id in &ids {
@@ -117,7 +134,7 @@ pub(crate) fn restore_identity(conn: &Connection) -> Option<RouteIdentity> {
     match codec::deserialize::<RouteIdentity>(body) {
         Ok(state) => Some(state),
         Err(e) => {
-            log::warn!("veloqrs: [restore_identity] decode failed, reseeding: {e}");
+            log::error!("identity_state {ROUTE_IDENTITY_KEY}: blob decode failed, reseeding: {e}");
             None
         }
     }
@@ -139,6 +156,60 @@ pub(crate) fn load_identity(conn: &Connection, groups: &[RouteGroup]) -> RouteId
         }
         None => reseed_identity(groups),
     }
+}
+
+/// Which committed route catalogue `conn` holds, zero before the first group write.
+///
+/// A background regroup groups over the catalogue the engine held at its spawn
+/// and commits long after. A group write the engine commits meanwhile, a
+/// foreground regroup or a representative the athlete chose, is newer than that
+/// snapshot, and the worker's wholesale write would put its names and
+/// representatives back on older ground. So every group write advances this
+/// inside its own transaction, and the worker compares it there, holding the
+/// write lock, against the generation it captured at spawn.
+pub(crate) fn read_group_generation(conn: &Connection) -> SqlResult<u64> {
+    match conn.query_row(
+        "SELECT blob FROM identity_state WHERE key = ?",
+        rusqlite::params![ROUTE_GROUPS_GENERATION_KEY],
+        |row| row.get::<_, Vec<u8>>(0),
+    ) {
+        Ok(bytes) => Ok(bytes.try_into().map(u64::from_le_bytes).unwrap_or_default()),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(0),
+        Err(e) => Err(e),
+    }
+}
+
+/// Set once a group write commits on a connection other than the engine's,
+/// which only the background regroup does. The engine lock takes it and has
+/// the engine follow that commit before any reader runs, so no reader answers
+/// from the groups it replaced, and a lock take with nothing to follow pays for
+/// one atomic load rather than a query.
+static GROUPS_COMMITTED_OFF_ENGINE: AtomicBool = AtomicBool::new(false);
+
+/// Record a group write committed off the engine's connection. Called after
+/// the commit, never inside the transaction: a reader that took the mark
+/// before the commit was visible would find nothing to follow and clear it.
+pub(crate) fn note_group_commit_off_engine() {
+    GROUPS_COMMITTED_OFF_ENGINE.store(true, atomic::Ordering::Release);
+}
+
+/// Whether a group write has committed off the engine since the last take.
+pub(crate) fn take_group_commit_off_engine() -> bool {
+    GROUPS_COMMITTED_OFF_ENGINE.load(atomic::Ordering::Acquire)
+        && GROUPS_COMMITTED_OFF_ENGINE.swap(false, atomic::Ordering::AcqRel)
+}
+
+/// Advance the route catalogue's generation and return the new one. The caller
+/// runs this inside the transaction that writes the groups.
+pub(crate) fn advance_group_generation(conn: &Connection) -> SqlResult<u64> {
+    let next = read_group_generation(conn)?.wrapping_add(1);
+    conn.execute(
+        "INSERT INTO identity_state (key, blob, updated_at)
+         VALUES (?, ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+        rusqlite::params![ROUTE_GROUPS_GENERATION_KEY, next.to_le_bytes().to_vec()],
+    )?;
+    Ok(next)
 }
 
 /// Persist the registry. The caller runs this inside the same transaction as the
@@ -196,17 +267,20 @@ impl PersistentEngine {
         &mut self,
         prior: Vec<RouteGroup>,
         new_groups: Vec<RouteGroup>,
+        chosen: &HashSet<String>,
     ) -> (Vec<RouteGroup>, HashMap<String, String>) {
-        self.route_identity.remap(prior, new_groups)
+        self.route_identity.remap(prior, new_groups, chosen)
     }
 }
 
 impl RouteIdentity {
     /// Remap a freshly-grouped catalogue (`new_groups`, still carrying churning
-    /// UF-root ids and fresh min-member representatives) onto stable ids, matching
-    /// each group to a prior by member-set overlap. A carry inherits the prior's
-    /// stable id AND its representative (so a user's pick survives the regroup); a
-    /// group matching no prior mints a fresh deterministic id. `prior` is the
+    /// UF-root ids and the grouping's own representatives) onto stable ids,
+    /// matching each group to a prior by member-set overlap. A carry inherits the
+    /// prior's stable id, and its representative when `chosen` holds the prior's
+    /// id and the representative is still a member, so the athlete's pick
+    /// survives the regroup while the grouping's pick is made again. A group
+    /// matching no prior mints a fresh deterministic id. `prior` is the
     /// previously persisted groups, the source of the ids and reps being carried.
     ///
     /// Returns the remapped groups and the `old_group_id -> stable_id` map, so the
@@ -217,7 +291,9 @@ impl RouteIdentity {
         &mut self,
         prior: Vec<RouteGroup>,
         new_groups: Vec<RouteGroup>,
+        chosen: &HashSet<String>,
     ) -> (Vec<RouteGroup>, HashMap<String, String>) {
+        self.ordinal = self.ordinal.max(max_adopted_route_ordinal(&prior));
         let np = prior.len();
         let nc = new_groups.len();
         let prior_members: Vec<BTreeSet<String>> = prior
@@ -305,16 +381,15 @@ impl RouteIdentity {
         let mut new_first_seen: BTreeMap<String, u64> = BTreeMap::new();
         let mut id_map: HashMap<String, String> = HashMap::with_capacity(nc);
 
-        // Carries first: inherit the prior's stable id, seniority, and rep.
+        // Carries first: inherit the prior's stable id, seniority, and the rep
+        // the athlete chose.
         for j in 0..nc {
             let Some(i) = carrier_of[j] else { continue };
             let stable_id = prior[i].group_id.clone();
             let mut g = new_groups[j].clone();
-            g.representative_id = if new_members[j].contains(&prior[i].representative_id) {
-                prior[i].representative_id.clone()
-            } else {
-                g.representative_id
-            };
+            if chosen.contains(&stable_id) && new_members[j].contains(&prior[i].representative_id) {
+                g.representative_id = prior[i].representative_id.clone();
+            }
             id_map.insert(g.group_id.clone(), stable_id.clone());
             g.group_id = stable_id.clone();
             let fs = self.first_seen.get(&stable_id).copied().unwrap_or_else(|| {
@@ -369,7 +444,9 @@ impl RouteIdentity {
                     {
                         std::cmp::Ordering::Greater => true,
                         std::cmp::Ordering::Less => false,
-                        std::cmp::Ordering::Equal => prior[i].group_id < prior[b].group_id,
+                        std::cmp::Ordering::Equal => {
+                            route_id_order(&prior[i].group_id, &prior[b].group_id) == Ordering::Less
+                        }
                     },
                 }
             }
@@ -465,7 +542,8 @@ mod tests {
         // A brand-new disjoint group must mint past the reconciled floor, never
         // re-issuing the live r_5.
         let prior = engine.groups.clone();
-        let (remapped, _id_map) = engine.route_identity_remap(prior, vec![group("uf_x", &["b1"])]);
+        let (remapped, _id_map) =
+            engine.route_identity_remap(prior, vec![group("uf_x", &["b1"])], &HashSet::new());
         assert_eq!(remapped.len(), 1);
         assert_ne!(
             remapped[0].group_id, "r_5",
@@ -503,3 +581,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "tests/route_identity.rs"]
+mod identity_regressions;
