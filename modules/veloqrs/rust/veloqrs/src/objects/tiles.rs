@@ -243,7 +243,6 @@ mod tests {
     #[test]
     fn cache_size_walks_the_zxy_tree_and_a_missing_tree_is_zero() {
         let tmp = tempfile::TempDir::new().unwrap();
-        let heatmap = HeatmapManager::new();
         let base = tmp.path().join("tiles");
         let base_str = base.to_string_lossy().into_owned();
         assert_eq!(walk_cache_size(&base_str), 0);

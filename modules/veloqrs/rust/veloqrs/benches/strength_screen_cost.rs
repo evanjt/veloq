@@ -139,7 +139,7 @@ fn strength_screen_data_split_by_part() {
                 aggregate_strength_sets(&engine.get_exercise_sets_in_range(*s, *e).expect("week"))
             })
             .collect();
-        strength_screen_data(&period, PERIOD_DAYS as u32, weekly)
+        strength_screen_data(&period, weekly)
     });
 
     let (period, period_read) = time("  the period's rows", || {
@@ -159,7 +159,7 @@ fn strength_screen_data_split_by_part() {
         aggregate_strength_sets(&period)
     });
     let (by_muscle, exercise_agg) = time("  the exercises behind every muscle", || {
-        exercises_by_muscle(&period, PERIOD_DAYS as u32)
+        exercises_by_muscle(&period)
     });
 
     println!(
@@ -225,7 +225,7 @@ fn the_aggregation_grows_with_the_sets() {
             aggregate_strength_sets(&rows)
         });
         let (by_muscle, exercises) = time(&format!("{sets:>6} sets: exercises_by_muscle"), || {
-            exercises_by_muscle(&rows, 180)
+            exercises_by_muscle(&rows)
         });
         println!(
             "        {} muscles, {} exercise rows, {:.2} ms for both",

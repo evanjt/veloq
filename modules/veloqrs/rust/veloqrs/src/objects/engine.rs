@@ -269,13 +269,11 @@ impl VeloqEngine {
     }
 
     fn get_activity_count(&self) -> Result<u32, VeloqError> {
-        with_reader(|conn| crate::persistence::activities::pooled::activity_count(conn)).and_then(
-            |r| {
-                r.map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-            },
-        )
+        with_reader(crate::persistence::activities::pooled::activity_count).and_then(|r| {
+            r.map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+        })
     }
 
     /// Get activity IDs that need time streams fetched (have NULL lap_time, no time_stream).

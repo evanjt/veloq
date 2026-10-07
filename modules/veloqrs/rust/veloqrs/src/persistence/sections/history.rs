@@ -347,7 +347,7 @@ fn encode_course(points: &[GpsPoint]) -> Vec<u8> {
         .iter()
         .map(|p| GpsPoint {
             elevation: None,
-            ..p.clone()
+            ..*p
         })
         .collect();
     codec::encode_polyline(&flat)

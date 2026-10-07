@@ -1812,7 +1812,6 @@ pub mod pooled {
         conn: &Connection,
         p: &crate::FfiInsightsParams,
     ) -> crate::FfiInsightsData {
-        use crate::persistence::activities::pooled as activities;
         use crate::persistence::fitness::derivations::pooled as derivations;
         use crate::persistence::fitness::performances::pooled as performances;
         use crate::persistence::sections::named::pooled as named;

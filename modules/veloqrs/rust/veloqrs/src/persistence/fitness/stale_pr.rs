@@ -196,38 +196,6 @@ pub(crate) fn opportunities(
     out
 }
 
-/// The whole stale-PR read over one connection: today's trends, every stored
-/// sport and each sport's stale sections under their display names.
-pub(crate) fn opportunities_from(
-    conn: &rusqlite::Connection,
-    request: &StalePrRequest<'_>,
-) -> Vec<crate::FfiStalePrOpportunity> {
-    use super::derivations::pooled as derivations;
-    let ftp = derivations::ftp_trend_to(conn, &crate::persistence::wellness::today_iso());
-    let run_pace = derivations::pace_trend(conn, "Run");
-    let swim_pace = derivations::pace_trend(conn, "Swim");
-    let sport_types = derivations::try_available_sport_types(conn).unwrap_or_default();
-    let names = crate::persistence::sections::named::pooled::overlay_names(conn);
-    opportunities(
-        &StalePrTrends {
-            ftp: &ftp,
-            run_pace: &run_pace,
-            swim_pace: &swim_pace,
-        },
-        &sport_types,
-        request,
-        |sport| {
-            crate::persistence::sections::ranking::pooled::stale_ranked_sections(
-                conn,
-                sport,
-                request.stale_threshold_days,
-                &names,
-            )
-        },
-        |sport, at| derivations::fitness_on(conn, sport, at),
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

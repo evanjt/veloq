@@ -916,7 +916,7 @@ mod tests {
     /// call across a boundary, so a panic coming back over it is caught here.
     mod a_foreign_side_that_panics {
         use super::*;
-        use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+        use std::sync::atomic::{AtomicU32, Ordering};
 
         /// Every method panics the way uniffi's dispatch does when the vtable
         /// slot was never installed, and counts itself on the way out.

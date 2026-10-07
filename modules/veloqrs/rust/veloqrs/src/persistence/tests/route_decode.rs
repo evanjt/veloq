@@ -64,7 +64,7 @@ fn test_group_loaders_skip_corrupt_activity_blob() {
 
 #[test]
 fn test_group_membership_read_prefers_valid_blob() {
-    let mut engine = PersistentEngine::in_memory().unwrap();
+    let engine = PersistentEngine::in_memory().unwrap();
     let members = vec!["activity".to_string()];
     let blob = super::codec::serialize(&members).unwrap();
     insert_group(&engine, "valid", "broken json", Some(&blob));

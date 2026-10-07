@@ -2749,8 +2749,6 @@ pub fn summaries_by_sport(
 }
 
 pub(crate) mod pooled {
-    use std::collections::BTreeMap;
-
     use rusqlite::types::Type;
     use rusqlite::{Connection, params};
 

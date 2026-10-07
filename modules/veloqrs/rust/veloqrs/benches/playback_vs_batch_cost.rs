@@ -33,13 +33,13 @@ fn playback_vs_batch_cold_set() {
     let all = corpus.through_a();
     println!("\n=== playback vs batch over {} activities ===", all.len());
 
-    for arm in [Arm::Battery] {
+    {
         // Batch: the whole set at once.
-        let (mut eb, _db) = fresh_engine_for(arm);
+        let (mut eb, _db) = fresh_engine();
         let batch = ingest_step(&mut eb, "batch", &all);
 
         // Playback: one activity at a time, detection + apply after every add.
-        let (mut ep, _dp) = fresh_engine_for(arm);
+        let (mut ep, _dp) = fresh_engine();
         let mut detect_total = 0u128;
         let mut apply_total = 0u128;
         let mut curve: Vec<(usize, u128)> = Vec::new();
@@ -61,18 +61,16 @@ fn playback_vs_batch_cold_set() {
         let play = snapshot(&mut ep);
 
         let parity = play.catalogue_signature() == batch.snapshot.catalogue_signature();
-        assert_catalogue_populated(arm.label(), &batch.snapshot);
+        assert_catalogue_populated("batch", &batch.snapshot);
         let converged = ground_survival(&batch.snapshot, &play);
         println!(
-            "[{}] BATCH   detect={:>6}ms apply={:>5}ms  ({} sections)",
-            arm.label(),
+            "BATCH    detect={:>6}ms apply={:>5}ms  ({} sections)",
             batch.detection_ms,
             batch.apply_ms,
             batch.snapshot.count(),
         );
         println!(
-            "[{}] PLAYBACK detect={:>6}ms apply={:>5}ms ({} sections)  detect-slowdown={:.1}x  apply-slowdown={:.1}x",
-            arm.label(),
+            "PLAYBACK detect={:>6}ms apply={:>5}ms ({} sections)  detect-slowdown={:.1}x  apply-slowdown={:.1}x",
             detect_total,
             apply_total,
             play.count(),
@@ -97,25 +95,23 @@ fn playback_vs_batch_cold_set() {
 fn add_cost_by_library_size() {
     let corpus = corpus();
     {
-        let arm = Arm::Battery;
         // add-1 onto a 60-activity library.
-        let (mut e60, _d60) = fresh_engine_for(arm);
+        let (mut e60, _d60) = fresh_engine();
         ingest_step(&mut e60, "cold60", &corpus.through_a());
         let add1_at_60 = ingest_step(&mut e60, "add1", &[&corpus.bucket_c_single]);
 
         // add-1 onto a 150-activity library.
-        let (mut e150, _d150) = fresh_engine_for(arm);
+        let (mut e150, _d150) = fresh_engine();
         ingest_step(&mut e150, "cold150", &corpus.through_b());
         let add1_at_150 = ingest_step(&mut e150, "add1", &[&corpus.bucket_c_single]);
 
         // add-90 (window expand) onto a 60-activity library.
-        let (mut eexp, _dexp) = fresh_engine_for(arm);
+        let (mut eexp, _dexp) = fresh_engine();
         ingest_step(&mut eexp, "cold60", &corpus.through_a());
         let add90 = ingest_step(&mut eexp, "add90", &refs(&corpus.bucket_b_delta));
 
         println!(
-            "[{}] add-1@60: detect={:>5}ms apply={:>4}ms | add-1@150: detect={:>5}ms apply={:>4}ms | add-90@60: detect={:>6}ms apply={:>4}ms",
-            arm.label(),
+            "add-1@60: detect={:>5}ms apply={:>4}ms | add-1@150: detect={:>5}ms apply={:>4}ms | add-90@60: detect={:>6}ms apply={:>4}ms",
             add1_at_60.detection_ms,
             add1_at_60.apply_ms,
             add1_at_150.detection_ms,

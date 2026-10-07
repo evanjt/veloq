@@ -406,7 +406,7 @@ fn section_id_survives_sport_addition() {
     let runs_all = labelled(&src, 5..11, "c3g_run_", "Run");
     let mut after = cold;
     for (i, batch) in runs_all.chunks(2).enumerate() {
-        after = try_ingest_step(&mut engine, &format!("run-add-{i}"), &refs(&batch.to_vec()))
+        after = try_ingest_step(&mut engine, &format!("run-add-{i}"), &refs(batch))
             .expect("adding a second sport must not crash")
             .snapshot;
     }

@@ -20,10 +20,9 @@ use lifecycle_support::*;
 #[test]
 #[ignore = "about 15 s in debug; run it deliberately, in release"]
 fn year_expansion_step_costs() {
-    let arm = Arm::Battery;
     let cfg = LifecycleConfig::default();
     let corpus = LifecycleCorpus::generate(&cfg);
-    let (mut engine, _tmp) = fresh_engine_for(arm);
+    let (mut engine, _tmp) = fresh_engine();
 
     let step_a = ingest_step(&mut engine, "E_step1_A", &corpus.through_a());
     let step_b = ingest_step(&mut engine, "E_step2_B", &refs(&corpus.bucket_b_delta));
@@ -31,9 +30,9 @@ fn year_expansion_step_costs() {
     let step_d = ingest_step(&mut engine, "E_step4_D", &refs(&corpus.bucket_d_delta));
     let step_e = ingest_step(&mut engine, "E_step5_E", &refs(&corpus.bucket_e_delta));
     for step in [&step_a, &step_b, &step_c, &step_d, &step_e] {
-        step.print(arm);
+        step.print();
     }
 
     let delta = measure_delta(&step_d.snapshot, &step_e.snapshot);
-    print_delta(arm, "E_step5_E", &delta);
+    print_delta("E_step5_E", &delta);
 }
