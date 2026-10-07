@@ -79,6 +79,18 @@ it.each([
   ]);
 });
 
+it('builds the host library in debug, which carries the same metadata as release', () => {
+  const library = path.join(root, 'external target/debug/libveloqrs.so');
+  fs.mkdirSync(path.dirname(library), { recursive: true });
+  fs.writeFileSync(library, 'host metadata');
+
+  const result = generate('x86_64-unknown-linux-gnu', library);
+
+  expect(result.status).toBe(0);
+  const args = JSON.parse(fs.readFileSync(path.join(root, 'build-args.json'), 'utf8'));
+  expect(args).not.toContain('--release');
+});
+
 it('rejects missing host output before running the generator', () => {
   const result = generate('aarch64-apple-darwin', path.join(root, 'missing.dylib'));
 

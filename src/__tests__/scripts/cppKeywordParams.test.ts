@@ -7,11 +7,36 @@
  * which argument, so the failure costs a test rather than a full Android build.
  */
 import { CPP_KEYWORDS, isCppKeyword, findCppKeywordParams } from '../../../scripts/lib/cppKeywords';
-import { extractFfiExports } from '../../../scripts/lib/ffiExports';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { extractFfiExports, extractTraitMethods } from '../../../scripts/lib/ffiExports';
 
 describe('C++ keyword parameter names', () => {
   it('names no argument of the real FFI surface after a keyword', () => {
     expect(findCppKeywordParams(extractFfiExports())).toEqual([]);
+  });
+
+  it('names no argument of a callback trait method after a keyword', () => {
+    expect(extractTraitMethods().length).toBeGreaterThan(0);
+    expect(findCppKeywordParams(extractTraitMethods())).toEqual([]);
+  });
+
+  it('refuses a with_foreign trait method taking a keyword argument', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trait-'));
+    fs.writeFileSync(
+      path.join(dir, 'observer.rs'),
+      [
+        '#[uniffi::export(with_foreign)]',
+        'pub trait Watcher: Send + Sync {',
+        '    fn applied(&self, template: String);',
+        '}',
+      ].join('\n')
+    );
+    const offenders = findCppKeywordParams(extractTraitMethods(dir));
+    expect(offenders).toHaveLength(1);
+    expect(offenders[0]).toContain('Watcher::applied');
+    expect(offenders[0]).toContain('template');
   });
 
   it('names the export and the argument that will not compile', () => {

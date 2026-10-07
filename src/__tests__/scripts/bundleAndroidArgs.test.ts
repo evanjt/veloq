@@ -1,14 +1,15 @@
 /**
- * Scenario: a worktree shares the main checkout's `node_modules`, so metro
- * serves the router entry out of the cache it filled for the main checkout and
- * the bundle comes out carrying no screen at all.
+ * Scenario: a release bundle is embedded from a worktree. Metro's cache is
+ * shared by every checkout on the machine, and the worktree's installation may
+ * be links into another checkout.
  *
- * Expected behaviour: the embed command resets the cache from a worktree, and
- * does not pay for it in the main checkout.
+ * Expected behaviour: the embed command keeps the cache, whose identity is per
+ * checkout, and refuses to start from a tree whose installation is another
+ * checkout's.
  */
 
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,18 +29,20 @@ function tree(git: 'file' | 'directory'): string {
 }
 
 const argsIn = (root: string) =>
-  execFileSync('node', [SCRIPT, '--print-args'], { cwd: root, encoding: 'utf8' }).trim();
+  execFileSync('node', [SCRIPT, '--print-args'], {
+    cwd: root,
+    env: { ...process.env, NODE_ENV: 'production' },
+    encoding: 'utf8',
+  }).trim();
 
 afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-it('resets the metro cache when it runs from a worktree', () => {
-  expect(argsIn(tree('file'))).toContain('--reset-cache');
-});
-
-it('leaves the cache alone in the main checkout', () => {
-  expect(argsIn(tree('directory'))).not.toContain('--reset-cache');
+it('keeps the metro cache in a worktree and in the main checkout', () => {
+  for (const git of ['file', 'directory'] as const) {
+    expect(argsIn(tree(git))).not.toContain('--reset-cache');
+  }
 });
 
 it('writes where the Android build reads, either way', () => {
@@ -48,4 +51,32 @@ it('writes where the Android build reads, either way', () => {
       '--bundle-output android/app/src/main/assets/index.android.bundle'
     );
   }
+});
+
+it('refuses to bundle from a tree whose installation is another checkout', () => {
+  const root = tree('file');
+  const elsewhere = mkdtempSync(join(tmpdir(), 'bundle-android-main-'));
+  roots.push(elsewhere);
+  mkdirSync(join(elsewhere, 'node_modules'));
+  symlinkSync(join(elsewhere, 'node_modules'), join(root, 'node_modules'));
+
+  const run = spawnSync('node', [SCRIPT], {
+    cwd: root,
+    env: { ...process.env, NODE_ENV: 'production' },
+    encoding: 'utf8',
+  });
+
+  expect(run.status).toBe(1);
+  expect(run.stderr).toContain('npm run setup:native');
+  expect(existsSync(join(root, 'android'))).toBe(false);
+});
+
+it('rejects a release bundle under a non-production NODE_ENV', () => {
+  const run = spawnSync('node', [SCRIPT, '--print-args'], {
+    cwd: tree('file'),
+    env: { ...process.env, NODE_ENV: 'development' },
+    encoding: 'utf8',
+  });
+  expect(run.status).toBe(1);
+  expect(run.stderr).toContain('NODE_ENV=production');
 });

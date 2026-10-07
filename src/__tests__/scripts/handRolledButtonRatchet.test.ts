@@ -83,4 +83,38 @@ describe('the hand-rolled button ratchet', () => {
 
     expect(runGuard(root, {}).status).toBe(0);
   });
+  describe('Paper buttons', () => {
+    const paperImport = (names: string) =>
+      `import { ${names} } from 'react-native-paper';\nexport const A = () => null;\n`;
+
+    it.each([
+      ['Button', 'Text, Button'],
+      ['SegmentedButtons', 'SegmentedButtons'],
+      ['an aliased Button', 'Button as PaperButton'],
+    ])('refuses %s imported from react-native-paper, even in the shared ui', (_label, names) => {
+      for (const file of ['src/features/a/A.tsx', 'src/shared/ui/A.tsx']) {
+        const root = treeWith({ [file]: paperImport(names) });
+        const run = runGuard(root, {});
+
+        expect(run.status).toBe(1);
+        expect(run.output).toContain(file);
+      }
+    });
+
+    it('refuses a multi-line import', () => {
+      const root = treeWith({
+        'src/features/a/A.tsx': "import {\n  Text,\n  Button,\n} from 'react-native-paper';\n",
+      });
+
+      expect(runGuard(root, {}).status).toBe(1);
+    });
+
+    it('allows the other Paper components, including IconButton', () => {
+      const root = treeWith({
+        'src/features/a/A.tsx': paperImport('Text, IconButton, Switch, TextInput'),
+      });
+
+      expect(runGuard(root, {}).status).toBe(0);
+    });
+  });
 });

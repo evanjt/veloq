@@ -23,26 +23,9 @@ function privateLock(): NodeJS.ProcessEnv {
   return { ...process.env, VELOQ_DEVICE_LOCK: path.join(dir, 'lock'), VELOQ_DEVICE_LOCK_HELD: '' };
 }
 
-const DRIVERS = [
-  'scripts/capture-hierarchy.sh',
-  'scripts/capture-v12-fixture.sh',
-  'scripts/cold-start-scaling-harness.mjs',
-  'scripts/measure-feed-jank.sh',
-  'scripts/upgrade-test.sh',
-  'scripts/verify-backup-export.sh',
-  'scripts/verify-gpx-export.sh',
-  'scripts/with-maestro.sh',
-];
-
+// Which scripts drive the handset, and that each takes this lock, is
+// `scripts/lint-device-drivers.mjs`, which finds them rather than listing them.
 describe('the handset takes a lock of its own', () => {
-  it('is what every script driving adb runs through', () => {
-    for (const driver of DRIVERS) {
-      const source = fs.readFileSync(path.join(projectRoot, driver), 'utf8');
-      expect(source).toContain('with-device-lock.sh');
-      expect(source).toContain('VELOQ_DEVICE_LOCK_HELD');
-    }
-  });
-
   it('is not the build lock, which a build holds for a quarter of an hour', () => {
     const source = fs.readFileSync(lockPath, 'utf8');
     expect(source).toContain('veloq-device-');
@@ -52,7 +35,11 @@ describe('the handset takes a lock of its own', () => {
   });
 
   it('keys the lock on the serial, so a phone and an emulator do not queue', () => {
-    const env: NodeJS.ProcessEnv = { ...process.env, ANDROID_SERIAL: '192.168.1.118:5555' };
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      ANDROID_SERIAL: '192.168.1.118:5555',
+      VELOQ_DEVICE_LOCK_HANDSET: '0',
+    };
     delete env.VELOQ_DEVICE_LOCK;
     delete env.VELOQ_DEVICE_LOCK_HELD;
     const shown = spawnSync(script, ['sh', '-c', 'echo done'], { encoding: 'utf8', env });
@@ -231,7 +218,11 @@ describe('a hand-taken lock', () => {
   });
 
   it('derives the same lock path the wrapper does', () => {
-    const env: NodeJS.ProcessEnv = { ...process.env, ANDROID_SERIAL: '192.168.1.118:5555' };
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      ANDROID_SERIAL: '192.168.1.118:5555',
+      VELOQ_DEVICE_LOCK_HANDSET: '0',
+    };
     delete env.VELOQ_DEVICE_LOCK;
     delete env.VELOQ_DEVICE_LOCK_HELD;
     const show = (target: string) =>

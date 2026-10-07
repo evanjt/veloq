@@ -59,6 +59,24 @@ const IMPORTS_VELOQRS_ENGINE_BLOCK =
   "import {\n  engine,\n  startFetchAndStore,\n} from 'veloqrs';\n";
 const IMPORTS_VELOQRS_WITHOUT_ENGINE =
   "import { decodeCoords, type EngineEvent } from 'veloqrs';\n";
+const REQUIRES_VELOQRS_ENGINE =
+  "export function run() {\n  const { engine, decodeCoords } = require('veloqrs');\n  return engine.getStats();\n}\n";
+const REQUIRES_VELOQRS_ENGINE_TYPED =
+  "export function run() {\n  const { engine } = require('veloqrs') as typeof import('veloqrs');\n  return engine;\n}\n";
+const TAKES_ENGINE_INSTANCE =
+  "function getEngine() {\n  const mod = require('veloqrs');\n  return mod.EngineClient?.getInstance() ?? null;\n}\n";
+const TAKES_ENGINE_INSTANCE_INLINE =
+  "export const stats = () => require('veloqrs').EngineClient.getInstance().getStats();\n";
+const READS_ENGINE_OFF_REQUIRE =
+  "export const stats = () => require('veloqrs').engine.getStats();\n";
+const READS_ENGINE_OFF_NAMESPACE =
+  "import * as veloqrs from 'veloqrs';\n\nexport const stats = () => veloqrs.engine.getStats();\n";
+const NAMESPACE_WITHOUT_ENGINE =
+  "import * as veloqrs from 'veloqrs';\n\nexport const decode = veloqrs.decodeCoords;\n";
+const REQUIRES_VELOQRS_WITHOUT_ENGINE =
+  "export function tiles() {\n  const { basemapStore } = require('veloqrs');\n  return basemapStore;\n}\n";
+const SETS_ENGINE_STATICS =
+  "const { EngineClient } = require('veloqrs');\nEngineClient.setDebugEnabled(true);\n";
 
 describe('the engine call site ceiling', () => {
   it('passes when the tree sits on the ceiling', () => {
@@ -102,6 +120,68 @@ describe('the engine call site ceiling', () => {
 
   it('does not count a veloqrs import that takes no engine binding', () => {
     const root = treeWith({ 'src/features/a/decode.ts': IMPORTS_VELOQRS_WITHOUT_ENGINE });
+
+    expect(runGuard(root, 0, 0).code).toBe(0);
+  });
+
+  it.each([
+    ['a require destructure that takes the engine', REQUIRES_VELOQRS_ENGINE],
+    ['a typed require destructure that takes the engine', REQUIRES_VELOQRS_ENGINE_TYPED],
+    ['an EngineClient instance taken through a module binding', TAKES_ENGINE_INSTANCE],
+    ['an EngineClient instance taken inline from the require', TAKES_ENGINE_INSTANCE_INLINE],
+    ['the engine read off the require', READS_ENGINE_OFF_REQUIRE],
+    ['the engine read off a namespace import', READS_ENGINE_OFF_NAMESPACE],
+  ])('counts %s, which reaches the same engine', (_form, body) => {
+    const root = treeWith({ 'src/features/a/task.ts': body });
+
+    const { code, out } = runGuard(root, 0, 0);
+    expect(code).toBe(1);
+    expect(out).toContain('src/features/a/task.ts');
+  });
+
+  it.each([
+    [
+      'the module held in a variable',
+      "const v = require('veloqrs');\nexport const stats = () => v.engine.getStats();\n",
+    ],
+    [
+      'the shared engine module by a relative path',
+      "import { getEngine } from '../../shared/native/engine';\nexport const n = () => getEngine();\n",
+    ],
+    [
+      'the shared engine module by a dynamic import',
+      "export const load = async () => (await import('@/shared/native/engine')).getEngine();\n",
+    ],
+    [
+      'the engine read off a dynamic import of veloqrs',
+      "export const load = async () => (await import('veloqrs')).engine;\n",
+    ],
+    [
+      'a handle that only useEngineReady returns',
+      "import { useEngineReady } from '@/shared/native/useEngineReady';\nexport function useThing() {\n  const engine = useEngineReady();\n  return engine;\n}\n",
+    ],
+  ])('counts %s', (_form, body) => {
+    const root = treeWith({ 'src/features/a/task.ts': body });
+
+    const { code, out } = runGuard(root, 0, 0);
+    expect(code).toBe(1);
+    expect(out).toContain('src/features/a/task.ts');
+  });
+
+  it('does not count a relative import of a module that only shares the name', () => {
+    const root = treeWith({
+      'src/features/a/task.ts': "import { run } from './engine';\nexport const x = run;\n",
+    });
+
+    expect(runGuard(root, 0, 0).code).toBe(0);
+  });
+
+  it.each([
+    ['a require that takes no engine binding', REQUIRES_VELOQRS_WITHOUT_ENGINE],
+    ['the EngineClient statics, which hold no instance', SETS_ENGINE_STATICS],
+    ['a namespace import that reads no engine', NAMESPACE_WITHOUT_ENGINE],
+  ])('does not count %s', (_form, body) => {
+    const root = treeWith({ 'src/features/a/task.ts': body });
 
     expect(runGuard(root, 0, 0).code).toBe(0);
   });
@@ -198,6 +278,20 @@ describe('a checkout, where the index is the tree being committed', () => {
     expect(out).toContain('src/features/b/useFetcher.ts');
   });
 
+  it.each([
+    ['require destructure', REQUIRES_VELOQRS_ENGINE],
+    ['EngineClient instance', TAKES_ENGINE_INSTANCE],
+  ])('counts a staged %s', (_form, body) => {
+    const { root } = checkoutWith({
+      'src/features/a/useA.ts': IMPORTS_ENGINE,
+      'src/features/b/task.ts': body,
+    });
+
+    const { code, out } = runGuard(root, 1, 0);
+    expect(code).toBe(1);
+    expect(out).toContain('src/features/b/task.ts');
+  });
+
   it('reads the staged veloqrs import, not the edit on disk that dropped the engine', () => {
     const { root } = checkoutWith({ 'src/features/b/tilePass.ts': IMPORTS_VELOQRS_ENGINE });
     write(root, 'src/features/b/tilePass.ts', IMPORTS_VELOQRS_WITHOUT_ENGINE);
@@ -271,6 +365,117 @@ describe('a run under the environment a hook inherits', () => {
 
     expect(code).toBe(1);
     expect(out).toContain('read nothing');
+    expect(out).not.toContain('Lower the ceiling');
+  });
+});
+
+/**
+ * Scenario: a worktree's index named a blob its object store no longer held.
+ * `git grep --cached` printed "unable to read" for the file and exited 1, the
+ * same code as "nothing matched", and the guard took it as no match. It printed
+ * one call site fewer and asked for the ceiling to fall, which was followed, and
+ * main went red on the next full read.
+ *
+ * Expected behaviour: a blob the guard cannot read fails it and names the path,
+ * whether `git grep` or `git show` is the one that could not read it, and it
+ * never advises a lower ceiling on a count it did not finish.
+ */
+describe('an index entry whose blob cannot be read', () => {
+  function checkoutWith(files: Tree) {
+    const root = treeWith(files);
+    runGit(['init', '-q'], root);
+    runGit(['add', '-A'], root);
+    return root;
+  }
+
+  /** Delete the object the index names for `rel`, as a pruned mirror did. */
+  function dropBlob(root: string, rel: string) {
+    const sha = runGit(['rev-parse', `:${rel}`], root).trim();
+    fs.rmSync(path.join(root, '.git', 'objects', sha.slice(0, 2), sha.slice(2)));
+  }
+
+  /** A `git` first on the PATH that fails every `show`, the second read. */
+  function gitFailingShow(): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-git-shim-'));
+    const real = execFileSync('sh', ['-c', 'command -v git'], {
+      encoding: 'utf8',
+      env: gitFreeEnv(),
+    }).trim();
+    const shim = path.join(dir, 'git');
+    fs.writeFileSync(
+      shim,
+      `#!/bin/sh\nif [ "$1" = show ]; then echo "fatal: bad object $2" >&2; exit 128; fi\nexec ${JSON.stringify(real)} "$@"\n`
+    );
+    fs.chmodSync(shim, 0o755);
+    return dir;
+  }
+
+  function runGuardOnPath(root: string, pathPrefix: string) {
+    const args = [GUARD, '--root', root, '--engine-ceiling', '1', '--store-ceiling', '0'];
+    try {
+      const out = execFileSync('node', args, {
+        encoding: 'utf8',
+        env: { ...gitFreeEnv(), PATH: `${pathPrefix}${path.delimiter}${process.env.PATH}` },
+      });
+      return { code: 0, out };
+    } catch (e) {
+      const err = e as { status?: number; stdout?: string; stderr?: string };
+      return { code: err.status ?? 1, out: `${err.stdout ?? ''}${err.stderr ?? ''}` };
+    }
+  }
+
+  it('fails on an unreadable call site rather than asking for the ceiling to fall', () => {
+    const root = checkoutWith({
+      'src/features/a/useA.ts': IMPORTS_ENGINE,
+      'src/features/b/plain.ts': 'export const b = 1;\n',
+    });
+    dropBlob(root, 'src/features/a/useA.ts');
+
+    const { code, out } = runGuard(root, 1, 0);
+
+    expect(code).not.toBe(0);
+    expect(out).toContain('src/features/a/useA.ts');
+    expect(out).not.toContain('Lower the ceiling');
+  });
+
+  it('fails on an unreadable file even when the count it did finish sits on the ceiling', () => {
+    const root = checkoutWith({
+      'src/features/a/useA.ts': IMPORTS_ENGINE,
+      'src/features/b/task.ts': REQUIRES_VELOQRS_ENGINE,
+    });
+    dropBlob(root, 'src/features/b/task.ts');
+
+    const { code, out } = runGuard(root, 1, 0);
+
+    expect(code).not.toBe(0);
+    expect(out).toContain('src/features/b/task.ts');
+  });
+
+  it('still reads a tree where nothing matches one of the patterns as no match', () => {
+    const root = checkoutWith({ 'src/features/a/plain.ts': 'export const a = 1;\n' });
+
+    const { code, out } = runGuard(root, 0, 0);
+
+    expect(out).not.toContain('could not read');
+    expect(code).toBe(0);
+  });
+
+  it('fails when git show cannot read a candidate, rather than counting it out', () => {
+    const root = checkoutWith({ 'src/features/b/decode.ts': IMPORTS_VELOQRS_WITHOUT_ENGINE });
+
+    const { code, out } = runGuardOnPath(root, gitFailingShow());
+
+    expect(code).not.toBe(0);
+    expect(out).toContain('src/features/b/decode.ts');
+  });
+
+  it('fails when git show cannot read the only call site, and asks for no lower ceiling', () => {
+    const root = checkoutWith({ 'src/features/b/tilePass.ts': IMPORTS_VELOQRS_ENGINE });
+
+    const { code, out } = runGuardOnPath(root, gitFailingShow());
+
+    expect(code).not.toBe(0);
+    expect(out).toContain('src/features/b/tilePass.ts');
     expect(out).not.toContain('Lower the ceiling');
   });
 });

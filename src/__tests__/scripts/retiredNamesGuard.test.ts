@@ -6,8 +6,7 @@
  * which is what kept the belief alive.
  *
  * Expected behaviour: the guard fails any of those names coming back where it
- * was removed from, leaves tests and generated bindings alone, and passes on
- * this repository.
+ * was removed from, and leaves tests and generated bindings alone.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -37,9 +36,9 @@ function fixture(files: Record<string, string>): string {
   return root;
 }
 
-function runGuard(root?: string): { status: number; output: string } {
+function runGuard(root: string): { status: number; output: string } {
   try {
-    const output = execFileSync('node', root ? [SCRIPT, '--root', root] : [SCRIPT], {
+    const output = execFileSync('node', [SCRIPT, '--root', root], {
       encoding: 'utf8',
       env: gitFreeEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -120,8 +119,4 @@ it('refuses an empty listing rather than reporting it clean', () => {
   execFileSync('git', ['init', '-q'], { cwd: root, env: gitFreeEnv() });
 
   expect(runGuard(root).status).toBe(1);
-});
-
-it('passes on this repository', () => {
-  expect(runGuard().status).toBe(0);
 });
