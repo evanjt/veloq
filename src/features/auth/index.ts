@@ -41,10 +41,8 @@ export { demoEntryAction, resolveStoredActivityCount } from './lib/storedActivit
 export {
   useApiKeyLogin,
   useOAuthLogin,
-  useBackupRestore,
   useApiKeyPrefill,
   useSessionExpiryNotice,
-  type DetectedBackup,
   type SessionExpiryNotice,
 } from './hooks';
 
@@ -52,6 +50,5 @@ export {
   LanguagePicker,
   OAuthLoginForm,
   ApiKeyLoginForm,
-  BackupRestoreBanner,
   SessionExpiredNotice,
 } from './components';

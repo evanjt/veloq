@@ -1,24 +1,21 @@
 import React from 'react';
 import { StyleSheet, ScrollView } from 'react-native';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
-import { DataCacheSection } from '@/features/settings/components';
+import { BackgroundJobsActivityBar, DataCacheSection } from '@/features/settings/components';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function CacheSettingsScreen() {
+function CacheSettingsScreenContent() {
   const { isDark } = useTheme();
 
   return (
-    <ScreenErrorBoundary screenName="CacheSettings">
-      <ScreenSafeAreaView
-        hasNativeHeader
-        style={[styles.container, isDark && styles.containerDark]}
-      >
-        <ScrollView contentContainerStyle={styles.content}>
-          <DataCacheSection />
-        </ScrollView>
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+    <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <BackgroundJobsActivityBar />
+        <DataCacheSection />
+      </ScrollView>
+    </ScreenSafeAreaView>
   );
 }
 
@@ -33,7 +30,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
-  textLight: {
-    color: colors.textOnDark,
-  },
 });
+
+export default withScreenBoundary(CacheSettingsScreenContent, 'CacheSettings');

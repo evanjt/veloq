@@ -54,6 +54,7 @@ function MapStylePreviewPickerComponent({ value, onValueChange }: MapStylePrevie
               style={[
                 styles.label,
                 isSelected && styles.labelSelected,
+                isSelected && isDark && { color: darkColors.linkTeal },
                 isDark && !isSelected && styles.labelDark,
               ]}
             >
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   labelSelected: {
-    color: colors.primary,
+    color: colors.linkTeal,
     fontWeight: '600',
   },
   labelDark: {

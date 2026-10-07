@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
-import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
+import { getLastBackupTimestamp, isAutoBackupEnabled } from '@/features/settings/lib/autobackup';
 
 /**
  * When the last backup ran, read once each time the screen appears.
@@ -22,4 +22,22 @@ export function useLastBackupTimestamp(): number | null {
   );
 
   return at;
+}
+
+/**
+ * Whether automatic backup is on, read on focus beside the timestamp.
+ *
+ * The switch lives on a screen this one pushes, so coming back is when it can
+ * have changed.
+ */
+export function useAutoBackupEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setEnabled(isAutoBackupEnabled());
+    }, [])
+  );
+
+  return enabled;
 }

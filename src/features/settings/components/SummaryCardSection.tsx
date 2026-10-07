@@ -1,14 +1,27 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, SegmentedButtons, Switch } from 'react-native-paper';
-import { useSummaryCardData } from '@/features/home/hooks';
+import { Text, Switch } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useDashboardPreferences, getMetricDefinition, type MetricId } from '@/features/home/store';
-import { SummaryCard } from '@/features/home/components';
+import {
+  useDashboardPreferences,
+  getMetricDefinition,
+  HERO_METRICS,
+  isHeroMetricId,
+  type HeroMetricId,
+  type MetricId,
+  useSummaryCardData,
+  SummaryCard,
+} from '@/features/home';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { Row, ToggleButtonRow } from '@/shared/ui';
 import { settingsStyles } from './settingsStyles';
+
+const HERO_LABEL_KEYS = {
+  fitness: 'metrics.fitness',
+  hrv: 'metrics.hrv',
+} as const satisfies Record<HeroMetricId, string>;
 
 export function SummaryCardSection() {
   const { isDark } = useTheme();
@@ -48,14 +61,16 @@ export function SummaryCardSection() {
             heroValue={summaryCardData.heroValue}
             heroLabel={summaryCardData.heroLabel}
             heroColor={summaryCardData.heroColor}
-            heroZoneLabel={summaryCardData.heroZoneLabel}
-            heroZoneColor={summaryCardData.heroZoneColor}
             heroTrend={summaryCardData.heroTrend}
             fitnessData={summaryCardData.fitnessData}
+            fitnessDelta={summaryCardData.fitnessDelta}
+            fitnessRiseDays={summaryCardData.fitnessRiseDays}
             fatigueData={summaryCardData.fatigueData}
             formData={summaryCardData.formData}
             hrvData={summaryCardData.hrvData}
             rhrData={summaryCardData.rhrData}
+            hrvRead={summaryCardData.hrvRead}
+            rhrRead={summaryCardData.rhrRead}
             showSparkline={summaryCardData.showSparkline}
             showSparklineLabels
             supportingMetrics={summaryCardData.supportingMetrics}
@@ -80,24 +95,23 @@ export function SummaryCardSection() {
               />
             </View>
           </View>
-          <SegmentedButtons
+          <ToggleButtonRow
             value={summaryCard.heroMetric}
-            onValueChange={(value) => setSummaryCardPreferences({ heroMetric: value as MetricId })}
-            buttons={[
-              { value: 'fitness', label: t('metrics.fitness') },
-              { value: 'hrv', label: t('metrics.hrv') },
-            ]}
-            style={styles.summaryCardPicker}
+            onValueChange={(value) => {
+              if (isHeroMetricId(value)) setSummaryCardPreferences({ heroMetric: value });
+            }}
+            options={HERO_METRICS.map((hero) => ({ value: hero, label: t(HERO_LABEL_KEYS[hero]) }))}
           />
         </View>
 
         {/* Supporting Metrics */}
-        <View style={[styles.actionRow, styles.actionRowBorder]}>
+        <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+        <Row>
           <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
           <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
             {t('settings.supportingMetrics')}
           </Text>
-        </View>
+        </Row>
 
         <View style={styles.summaryCardContainer}>
           <Text style={[styles.summaryCardHint, isDark && settingsStyles.textMuted]}>
@@ -197,20 +211,6 @@ const styles = StyleSheet.create({
   sparklineToggleLabel: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  summaryCardPicker: {
-    // Handled by React Native Paper
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  actionRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   actionText: {
     ...typography.body,

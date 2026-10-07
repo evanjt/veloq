@@ -21,8 +21,9 @@ import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
 import { formatSyncProgress } from '@/shared/format/syncProgress';
-import { colors, darkColors, spacing, typography } from '@/theme';
-import { pressable } from '@/shared/ui';
+import { colors, darkColors, typography } from '@/theme';
+import { Row, pressable, pressRipple } from '@/shared/ui';
+import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
 export function ActivitySyncRow() {
   const { t } = useTranslation();
@@ -43,6 +44,7 @@ export function ActivitySyncRow() {
   const stop = useCallback(() => {
     if (stopping) return;
     setStopping(true);
+    freshLoginTimeline.markCancelRequested();
     getEngine()?.cancelSync();
   }, [stopping]);
 
@@ -55,7 +57,7 @@ export function ActivitySyncRow() {
   const libraryLines = formatLibraryCoverage(coverage, t);
 
   return (
-    <View style={styles.row} testID="activity-sync-row">
+    <Row testID="activity-sync-row">
       <ActivityIndicator size="small" color={textSecondary} />
       <View style={styles.labels}>
         <Text style={[styles.label, { color: textSecondary }]} testID="sync-progress-label">
@@ -77,23 +79,24 @@ export function ActivitySyncRow() {
         accessibilityRole="button"
         testID="sync-stop-button"
         style={pressable()}
+        android_ripple={pressRipple}
       >
-        <Text style={[styles.stop, stopping && { color: textSecondary }]} testID="sync-stop-label">
+        <Text
+          style={[
+            styles.stop,
+            isDark && { color: darkColors.linkTeal },
+            stopping && { color: textSecondary },
+          ]}
+          testID="sync-stop-label"
+        >
           {stopping ? t('settings.syncStopping') : t('settings.syncStop')}
         </Text>
       </Pressable>
-    </View>
+    </Row>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
   labels: {
     flex: 1,
   },
@@ -106,6 +109,6 @@ const styles = StyleSheet.create({
   stop: {
     ...typography.bodySmall,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.linkTeal,
   },
 });

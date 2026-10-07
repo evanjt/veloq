@@ -2,30 +2,27 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert, LayoutChangeEvent } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useActivityBoundsCache } from '@/features/activity';
-import { useRouteProcessing } from '@/features/routes/hooks/useRouteProcessing';
-import { useRouteGroups } from '@/features/routes/hooks/useRouteGroups';
-import { useSectionSummaries } from '@/features/routes/hooks/useEngine';
+import { useRouteGroups, useSectionSummaries, useRouteSettings } from '@/features/routes';
 import { useTheme } from '@/shared/app';
 import { formatFullDate } from '@/shared/format/format';
-import { estimateRoutesDatabaseSize } from '@/shared/storage/gpsStorage';
+import { formatDaySpan, type SpanTranslator } from '@/shared/format/daySpan';
+import { estimateRoutesDatabaseSize, getAthleteFilesSize } from '@/shared/storage/gpsStorage';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import {
+  clearHeatmapTileSets,
+  clearUnpinnedBasemapTiles,
   clearTerrainPreviews,
-  emitClearTileCache,
   getTerrainPreviewCacheSize,
   HEATMAP_TILES_DIR,
-  onTileCacheStats,
+  readBasemapTileSizes,
   readHeatmapTilesCacheSize,
-  requestTileCacheStats,
-  type TileCacheStats,
+  type BasemapTileSizes,
 } from '@/features/maps';
-import { getEngine } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
+import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
 import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
@@ -52,18 +49,23 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const resetSyncDateRange = useSyncDateRange((s) => s.reset);
 
   // Route matching
-  const { isProcessing: isRouteProcessing, cancel: cancelRouteProcessing } = useRouteProcessing();
-  const { groups: routeGroups, processedCount: routeProcessedCount } = useRouteGroups({
+  const {
+    groups: routeGroups,
+    processedCount: routeProcessedCount,
+    error: routeGroupsError,
+  } = useRouteGroups({
     minActivities: 2,
   });
-  const { totalCount: totalSections } = useSectionSummaries();
+  const { totalCount: totalSections, error: sectionsError } = useSectionSummaries();
   const { settings: routeSettings } = useRouteSettings();
 
-  // Map tile cache stats. Every map now caches through the WebView Cache API,
-  // so these numbers cover the whole app rather than a subset of it.
+  // Map cache figures. On both handsets every kept basemap tile lives in the
+  // Rust store, so the tile figures are the store's. The page buckets are what
+  // the web transport writes, and nothing here measures them.
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
   const [heatmapCacheSize, setHeatmapCacheSize] = useState(0);
-  const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
+  const [basemapTiles, setBasemapTiles] = useState<BasemapTileSizes | null>(null);
+  const [athleteFilesSize, setAthleteFilesSize] = useState(0);
   const [freeStorage, setFreeStorage] = useState<number | null>(null);
 
   useEffect(() => {
@@ -74,22 +76,25 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     readHeatmapTilesCacheSize().then((bytes) => {
       if (live) setHeatmapCacheSize(bytes);
     });
+    // On a Rust thread too: the first read of a session loads every source's
+    // index, and a source without one is rebuilt by walking its tree.
+    readBasemapTileSizes().then((sizes) => {
+      if (live) setBasemapTiles(sizes);
+    });
     return () => {
       live = false;
     };
   }, []);
 
   useEffect(() => {
-    const unsub = onTileCacheStats(setTileCacheStats);
-    requestTileCacheStats();
-    const timeout = setTimeout(() => {
-      setTileCacheStats((prev) => prev ?? null);
-    }, 500);
+    let live = true;
+    getAthleteFilesSize().then((bytes) => {
+      if (live) setAthleteFilesSize(bytes);
+    });
     return () => {
-      unsub();
-      clearTimeout(timeout);
+      live = false;
     };
-  }, []);
+  }, [cacheStats.totalActivities]);
 
   useEffect(() => {
     FileSystem.getFreeDiskStorageAsync()
@@ -97,16 +102,23 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       .catch(() => setFreeStorage(null));
   }, []);
 
+  const refreshBasemapTiles = useCallback(() => {
+    readBasemapTileSizes().then(setBasemapTiles);
+  }, []);
+
   const handleClearMapCache = useCallback(async () => {
     await clearTerrainPreviews();
-    // A pass still drawing would put its tiles back after this clear.
-    getEngine()?.cancelHeatmapWork();
-    getEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
-    emitClearTileCache();
+    const tilesCleared = await clearHeatmapTileSets([HEATMAP_TILES_DIR]);
+    await clearUnpinnedBasemapTiles();
+    refreshBasemapTiles();
     setTerrainCacheSize(0);
-    setHeatmapCacheSize(0);
-    setTileCacheStats(null);
-  }, []);
+    if (tilesCleared) {
+      setHeatmapCacheSize(0);
+    } else {
+      readHeatmapTilesCacheSize().then(setHeatmapCacheSize);
+      Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
+    }
+  }, [t, refreshBasemapTiles]);
 
   // Memoized date range text for cache stats (prevents Date parsing on every render)
   // `t` is rebuilt whenever the language changes, so it also re-keys the locale
@@ -122,7 +134,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     const newestDay = new Date(newest.getFullYear(), newest.getMonth(), newest.getDate());
     const days =
       Math.round((newestDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${t('stats.daysCount', { count: days })})`;
+    return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${formatDaySpan(days, t as SpanTranslator)})`;
   }, [cacheStats.oldestDate, cacheStats.newestDate, t]);
 
   const totalQueries = useQueryCacheCount(queryClient);
@@ -160,13 +172,11 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             // 3. Clear all caches (engine, tiles, filesystem)
             const cleared = await clearCache();
             await clearTerrainPreviews();
-            emitClearTileCache();
-            getEngine()?.cancelHeatmapWork();
-            getEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+            await clearUnpinnedBasemapTiles();
+            refreshBasemapTiles();
+            const tilesCleared = await clearHeatmapTileSets([HEATMAP_TILES_DIR]);
             setTerrainCacheSize(0);
-            setHeatmapCacheSize(0);
-            setTileCacheStats(null);
-            await AsyncStorage.removeItem('veloq-query-cache');
+            setHeatmapCacheSize(tilesCleared ? 0 : await readHeatmapTilesCacheSize());
 
             // 4. Yield to let GlobalDataSync re-render with new 90-day date range
             await new Promise((resolve) => setTimeout(resolve, 200));
@@ -180,7 +190,12 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             // Refresh cache sizes
             refreshCacheSizes();
 
-            Alert.alert(cleared ? t('alerts.cacheCleared') : t('settings.stillRunning'));
+            // Heat left on disk is not a cleared cache, whatever the wipe said.
+            if (!tilesCleared) {
+              Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
+            } else {
+              Alert.alert(cleared ? t('alerts.cacheCleared') : t('settings.stillRunning'));
+            }
           } catch (error) {
             // Which failure it was, where the engine said. "Not open yet" and
             // "the database refused" were one line, and neither told the
@@ -190,7 +205,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         },
       },
     ]);
-  }, [t, queryClient, resetSyncDateRange, clearCache, refreshCacheSizes]);
+  }, [t, queryClient, resetSyncDateRange, clearCache, refreshCacheSizes, refreshBasemapTiles]);
 
   return (
     <>
@@ -204,11 +219,15 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         <CacheManagementPanel
           isDark={isDark}
           isDemoMode={isDemoMode}
-          routeMatchingEnabled={routeSettings.enabled}
-          isRouteProcessing={isRouteProcessing}
-          onCancelRouteProcessing={cancelRouteProcessing}
           onClearCache={handleClearCache}
         />
+
+        {routeGroupsError !== undefined || sectionsError !== undefined ? (
+          <EngineReadFailure
+            error={routeGroupsError ?? sectionsError}
+            testID="route-counts-failure"
+          />
+        ) : null}
 
         <StorageStatsPanel
           isDark={isDark}
@@ -219,13 +238,14 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           dateRangeText={dateRangeText}
           lastSync={cacheStats.lastSync}
           totalQueries={totalQueries}
-          databaseSize={cacheSizes.routes}
           onClearMapCache={handleClearMapCache}
           routesSize={cacheSizes.routes}
-          tileCacheStats={tileCacheStats}
+          basemapTiles={basemapTiles}
           terrainCacheSize={terrainCacheSize}
           heatmapCacheSize={heatmapCacheSize}
+          athleteFilesSize={athleteFilesSize}
           freeStorage={freeStorage}
+          onBudgetApplied={refreshBasemapTiles}
         />
       </View>
     </>
@@ -250,14 +270,6 @@ const styles = StyleSheet.create({
   },
   sectionDark: {
     backgroundColor: darkColors.surfaceCard,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: spacing.md + 22 + spacing.sm, // icon + gap
-  },
-  dividerDark: {
-    backgroundColor: darkColors.border,
   },
   textMuted: {
     color: darkColors.textSecondary,

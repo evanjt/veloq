@@ -6,25 +6,23 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
-import { rescanRefusalKey } from '@/features/routes';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable } from '@/shared/ui';
+import { useRouteSettings, useSectionRescan, rescanRefusalKey } from '@/features/routes';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
 import {
-  BackgroundJobsLink,
+  BackgroundJobsActivityBar,
   CutoverStatus,
   ElevationBackfillStatus,
 } from '@/features/settings/components';
-import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function DetectionSettingsScreen() {
+function DetectionSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
-  const clearNotice = useRouteSettings((s) => s.clearNotice);
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
@@ -73,6 +71,7 @@ export default function DetectionSettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <BackgroundJobsActivityBar />
         <View style={[styles.toggleCard, { backgroundColor: surface, borderColor: border }]}>
           <View style={styles.toggleRow}>
             <MaterialCommunityIcons name="map-marker-path" size={22} color={textSecondary} />
@@ -85,14 +84,6 @@ export default function DetectionSettingsScreen() {
               color={colors.primary}
             />
           </View>
-          {clearNotice !== null && (
-            <Text
-              testID="detection-clear-notice"
-              style={[styles.toggleNote, { color: textSecondary }]}
-            >
-              {t(clearNotice)}
-            </Text>
-          )}
         </View>
 
         <View
@@ -104,6 +95,7 @@ export default function DetectionSettingsScreen() {
               styles.previewRow,
               { backgroundColor: surface, borderColor: border },
             ])}
+            android_ripple={pressRipple}
             onPress={() => router.push('/detection-preview' as Href)}
             testID="detection-preview-row"
           >
@@ -119,6 +111,7 @@ export default function DetectionSettingsScreen() {
               styles.previewRow,
               { backgroundColor: surface, borderColor: border },
             ])}
+            android_ripple={pressRipple}
             onPress={() => router.push('/route-grouping-preview' as Href)}
             testID="route-grouping-preview-row"
           >
@@ -138,8 +131,9 @@ export default function DetectionSettingsScreen() {
                     borderColor: border,
                     borderWidth: StyleSheet.hairlineWidth,
                   }
-                : { backgroundColor: brand.tealLight },
+                : { backgroundColor: colors.primary },
             ])}
+            android_ripple={pressRipple}
             onPress={isScanning ? cancelScan : handleRescan}
             testID="detection-rescan-button"
           >
@@ -152,8 +146,8 @@ export default function DetectionSettingsScreen() {
               </>
             ) : (
               <>
-                <MaterialCommunityIcons name="refresh" size={18} color={colors.textOnDark} />
-                <Text style={[styles.rescanText, { color: colors.textOnDark }]}>
+                <MaterialCommunityIcons name="refresh" size={18} color={colors.textOnPrimary} />
+                <Text style={[styles.rescanText, { color: colors.textOnPrimary }]}>
                   {t('settings.reanalyzeSections')}
                 </Text>
               </>
@@ -162,7 +156,7 @@ export default function DetectionSettingsScreen() {
 
           {rescanResult && (
             <Text style={[styles.rescanResult, { color: textSecondary }]}>
-              {rescanResult.after} {t('settings.sectionsDetected', 'sections detected')}
+              {t('settings.sectionsDetectedCount', { count: rescanResult.after })}
             </Text>
           )}
 
@@ -193,12 +187,9 @@ export default function DetectionSettingsScreen() {
             </Text>
           )}
 
-          <ElevationBackfillStatus />
-
           <CutoverStatus />
-
-          <BackgroundJobsLink />
         </View>
+        <ElevationBackfillStatus />
       </ScrollView>
     </ScreenSafeAreaView>
   );
@@ -239,11 +230,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
   },
-  toggleNote: {
-    ...typography.bodySmall,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-  },
   rescanResult: {
     ...typography.bodySmall,
     textAlign: 'center',
@@ -265,3 +251,5 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+export default withScreenBoundary(DetectionSettingsScreenContent, 'DetectionSettings');

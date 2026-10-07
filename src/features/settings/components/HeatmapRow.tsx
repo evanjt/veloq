@@ -7,22 +7,24 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Alert, View, StyleSheet } from 'react-native';
 import { Switch, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import * as FileSystem from 'expo-file-system/legacy';
 
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
 import { formatFileSize } from '@/shared/format/format';
 import {
+  clearHeatmapTileSets,
   HEATMAP_TILES_DIR,
+  LEGACY_HEATMAP_TILES_DIR,
   readHeatmapTilesCacheSize,
   useHeatmapPreference,
 } from '@/features/maps';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
+import { Row } from '@/shared/ui/Row';
 
 export function HeatmapRow() {
   const { isDark } = useTheme();
@@ -40,28 +42,29 @@ export function HeatmapRow() {
   }, [refreshSize, enabled]);
 
   const handleToggle = useCallback(
-    (next: boolean) => {
+    async (next: boolean) => {
       setEnabled(next);
       const engine = getEngine();
       if (next) {
         engine?.enableHeatmapTiles();
-      } else {
-        // Before the clear, not after: a pass still drawing writes its tiles
-        // back over the ground the clear took, and keeps a core busy doing it
-        // for a heatmap that is now switched off.
-        engine?.cancelHeatmapWork();
-        engine?.clearHeatmapTiles(HEATMAP_TILES_DIR);
-        const legacyDir = `${FileSystem.documentDirectory}heatmap-tiles/`;
-        engine?.clearHeatmapTiles(legacyDir);
-        engine?.disableHeatmapTiles();
+        refreshSize();
+        return;
+      }
+      // Off before the clear, so no pass starts while it runs, and the work
+      // already going stops rather than holding a core for a heatmap nobody
+      // wants. The clear itself waits out a pass that is still drawing.
+      engine?.disableHeatmapTiles();
+      engine?.cancelHeatmapWork();
+      if (!(await clearHeatmapTileSets([HEATMAP_TILES_DIR, LEGACY_HEATMAP_TILES_DIR]))) {
+        Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
       }
       refreshSize();
     },
-    [setEnabled, refreshSize]
+    [setEnabled, refreshSize, t]
   );
 
   return (
-    <View style={settingsStyles.actionRow} testID="heatmap-row">
+    <Row testID="heatmap-row">
       <MaterialCommunityIcons
         name="map-legend"
         size={22}
@@ -86,7 +89,7 @@ export function HeatmapRow() {
         color={colors.primary}
         testID="heatmap-switch"
       />
-    </View>
+    </Row>
   );
 }
 

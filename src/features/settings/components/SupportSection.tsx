@@ -11,7 +11,7 @@ import { getCrashLog, formatCrashLog } from '@/shared/debug/crashLog';
 import { shareFile } from '@/features/settings/lib/shareFile';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
@@ -62,6 +62,7 @@ export function SupportSection() {
           <Pressable
             onPress={handleReview}
             style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="star" size={20} color={textColor} />
             <Text style={[styles.actionButtonText, { color: textColor }]}>
@@ -71,6 +72,7 @@ export function SupportSection() {
           <Pressable
             onPress={() => WebBrowser.openBrowserAsync(`${GITHUB_ISSUES_URL}?labels=enhancement`)}
             style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="lightbulb-outline" size={20} color={textColor} />
             <Text style={[styles.actionButtonText, { color: textColor }]}>{t('support.idea')}</Text>
@@ -78,6 +80,7 @@ export function SupportSection() {
           <Pressable
             onPress={() => WebBrowser.openBrowserAsync(FORUM_URL)}
             style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="forum-outline" size={20} color={textColor} />
             <Text style={[styles.actionButtonText, { color: textColor }]}>
@@ -110,6 +113,7 @@ export function SupportSection() {
               testID="support-sponsor-button"
               onPress={() => WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL)}
               style={pressable([styles.sponsorButton, isDark && styles.sponsorButtonDark])}
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons name="github" size={18} color={textColor} />
               <Text style={[styles.sponsorText, { color: textColor }]}>
@@ -124,6 +128,7 @@ export function SupportSection() {
         <Pressable
           onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')}
           style={pressable(styles.row)}
+          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons name="heart" size={20} color={colors.chartPink} />
           <View style={styles.rowTextGroup}>
@@ -141,6 +146,7 @@ export function SupportSection() {
           testID="support-crash-log"
           onPress={handleShareCrashLog}
           style={pressable(styles.row)}
+          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons name="bug-outline" size={20} color={mutedColor} />
           <Text style={[styles.rowText, { color: textColor }]}>{t('support.shareCrashLog')}</Text>

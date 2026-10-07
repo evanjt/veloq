@@ -1,10 +1,9 @@
 /**
  * Auto-backup orchestration.
  *
- * Creates SQLite snapshots and uploads them to the configured backend.
- * Handles scheduling (throttled to once per 24h), retention (local storage
- * keeps the last MAX_LOCAL_BACKUPS, cloud backends keep everything), and
- * metadata collection.
+ * Creates the record archive and hands it to every carrier the athlete has
+ * set up. Handles scheduling (throttled to once per 24h). Nothing is deleted
+ * on a carrier, so storage there is the athlete's to manage.
  *
  * Triggers:
  * 1. After sync completion (new data arrived)
@@ -15,53 +14,30 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Network from 'expo-network';
 import Constants from 'expo-constants';
+import type { FfiUnplacedRecord } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
+import { platformRecordUri } from '@/shared/storage/platformRecord';
+import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { debug } from '@/shared/debug/debug';
-import type { BackupBackend, BackupEntry } from './backends/types';
-import { Platform } from 'react-native';
-import { localBackend } from './backends/localBackend';
-import { webdavBackend } from './backends/webdavBackend';
-import { icloudBackend } from './backends/icloudBackend';
+import type { BackupEntry } from './backends/types';
+import { backupCarriers } from './backends/carriers';
+import { forgetBackupFolder } from './backends/folderBackend';
 import { isBackupTransferError, type BackupFailureKind } from './backends/errors';
-import { runDatabaseBackup } from '../runBackup';
 
 const log = debug.create('AutoBackup');
 const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
 
 const SETTING_LAST_BACKUP = '__last_auto_backup';
-const SETTING_BACKEND_ID = '__backup_backend';
+/** Retired: the carrier set replaced the single chosen backend. */
+const SETTING_RETIRED_BACKEND_ID = '__backup_backend';
 const SETTING_AUTO_BACKUP_ENABLED = '__auto_backup_enabled';
 // Diagnostic state rather than a preference, so deliberately not in PREFERENCE_KEYS
 const SETTING_LAST_FAILURE = '__last_backup_failure';
+/** Set once the platform zip is this library's own, or its offer was answered. */
+const SETTING_PLATFORM_RECORD_ANSWERED = '__platform_record_answered';
 
 const MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const STALE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const MAX_LOCAL_BACKUPS = 5;
-
-/** Registry of available backends. */
-const backends: Record<string, BackupBackend> = {
-  local: localBackend,
-  webdav: webdavBackend,
-  ...(Platform.OS === 'ios' ? { icloud: icloudBackend } : {}),
-};
-
-/** Register a new backend (called at module load for platform-specific backends). */
-export function registerBackend(backend: BackupBackend): void {
-  backends[backend.id] = backend;
-}
-
-/** Get the user's configured backend (defaults to local). */
-export function getConfiguredBackend(): BackupBackend {
-  const engine = getEngine();
-  const backendId = engine?.getSetting(SETTING_BACKEND_ID) ?? 'local';
-  return backends[backendId] ?? localBackend;
-}
-
-/** Set the user's preferred backup backend. */
-export function setBackendPreference(backendId: string): void {
-  const engine = getEngine();
-  engine?.setSetting(SETTING_BACKEND_ID, backendId);
-}
 
 /** Check if auto-backup is enabled (defaults to false). */
 export function isAutoBackupEnabled(): boolean {
@@ -75,31 +51,44 @@ export function setAutoBackupEnabled(enabled: boolean): void {
   engine?.setSetting(SETTING_AUTO_BACKUP_ENABLED, enabled ? '1' : '0');
 }
 
-/** Get list of available backends on this device. */
-export async function getAvailableBackends(): Promise<BackupBackend[]> {
-  const available: BackupBackend[] = [];
-  for (const backend of Object.values(backends)) {
-    if (await backend.isAvailable()) {
-      available.push(backend);
-    }
-  }
-  return available;
+/**
+ * Drop the setting the single chosen backend lived in. The switch, the stamp
+ * and any WebDAV configuration stay as the athlete left them, and the files
+ * the old local backend wrote are left alone.
+ */
+export function cleanUpRetiredBackupSettings(): void {
+  getEngine()?.deleteSetting(SETTING_RETIRED_BACKEND_ID);
 }
 
 /**
- * Backends the picker may offer, which is wider than the set that is ready
- * to run. WebDAV reports unavailable until it has credentials, but the user
- * enters those in the backup screen itself, so it has to stay selectable.
- * iCloud has no such in-app step, so it is only offered once available.
+ * Forget the carriers, the toggle, the last run and the last failure.
+ *
+ * The engine's wipe keeps its settings on purpose, so without this the next
+ * athlete inherits the previous one's WebDAV choice or folder with auto-backup
+ * on, and their first sync writes their record there. The zips already in the
+ * folder stay: the folder is the athlete's own storage.
  */
-const ALWAYS_OFFERABLE = new Set(['local', 'webdav']);
+export function forgetBackupCarrier(): void {
+  const engine = getEngine();
+  for (const key of [
+    SETTING_RETIRED_BACKEND_ID,
+    SETTING_AUTO_BACKUP_ENABLED,
+    SETTING_LAST_BACKUP,
+    SETTING_LAST_FAILURE,
+  ]) {
+    engine?.deleteSetting(key);
+  }
+  forgetBackupFolder();
+}
 
-export async function getOfferableBackends(): Promise<BackupBackend[]> {
-  const available = await getAvailableBackends();
-  return Object.values(backends).filter(
-    (backend) =>
-      ALWAYS_OFFERABLE.has(backend.id) || available.some((ready) => ready.id === backend.id)
-  );
+/** Whether the platform zip needs no offer on this library. */
+export function isPlatformRecordAnswered(): boolean {
+  return getEngine()?.getSetting(SETTING_PLATFORM_RECORD_ANSWERED) === '1';
+}
+
+/** Record that the zip in the documents directory needs no offer. */
+export function markPlatformRecordAnswered(): void {
+  getEngine()?.setSetting(SETTING_PLATFORM_RECORD_ANSWERED, '1');
 }
 
 /** Get timestamp of the last auto-backup, or null if never. */
@@ -107,6 +96,12 @@ export function getLastBackupTimestamp(): number | null {
   const engine = getEngine();
   const value = engine?.getSetting(SETTING_LAST_BACKUP);
   return value != null ? Number(value) : null;
+}
+
+/** Read records awaiting a matching activity or ground for the backup screen. */
+export async function getUnplacedBackupRecords(): Promise<FfiUnplacedRecord[]> {
+  const engine = getEngine();
+  return engine ? engine.getUnplacedBackupRecords() : [];
 }
 
 export interface BackupFailure {
@@ -117,32 +112,54 @@ export interface BackupFailure {
 }
 
 /**
- * The last failure that needs the user to act, or null.
+ * The failures that need the user to act, by carrier id.
  *
  * Only permanent failures are kept. A backup that lost the network will be
  * retried without anyone doing anything, so standing text about it would be
  * noise rather than information.
  */
-export function getLastBackupFailure(): BackupFailure | null {
-  const engine = getEngine();
-  const raw = engine?.getSetting(SETTING_LAST_FAILURE);
-  if (!raw) return null;
+export function getBackupFailures(): Record<string, BackupFailure> {
+  const raw = getEngine()?.getSetting(SETTING_LAST_FAILURE);
+  if (!raw) return {};
   try {
-    const parsed = JSON.parse(raw) as BackupFailure;
-    return typeof parsed?.kind === 'string' ? parsed : null;
+    const parsed = JSON.parse(raw) as Record<string, BackupFailure>;
+    const failures: Record<string, BackupFailure> = {};
+    for (const [id, failure] of Object.entries(parsed ?? {})) {
+      if (typeof failure?.kind === 'string') failures[id] = failure;
+    }
+    return failures;
   } catch {
-    return null;
+    return {};
   }
 }
 
-function clearBackupFailure(): void {
-  getEngine()?.setSetting(SETTING_LAST_FAILURE, '');
+/** The most recent failure across carriers, or null. */
+export function getLastBackupFailure(): BackupFailure | null {
+  const all = Object.values(getBackupFailures());
+  if (all.length === 0) return null;
+  return all.reduce((latest, next) => (next.at > latest.at ? next : latest));
 }
 
-function recordBackupFailure(error: unknown): void {
+function writeBackupFailures(failures: Record<string, BackupFailure>): void {
+  getEngine()?.setSetting(
+    SETTING_LAST_FAILURE,
+    Object.keys(failures).length === 0 ? '' : JSON.stringify(failures)
+  );
+}
+
+function clearBackupFailure(carrierId: string): void {
+  const failures = getBackupFailures();
+  if (!(carrierId in failures)) return;
+  delete failures[carrierId];
+  writeBackupFailures(failures);
+}
+
+function recordBackupFailure(carrierId: string, error: unknown): void {
   if (!isBackupTransferError(error) || !error.permanent) return;
-  const failure: BackupFailure = { kind: error.kind, status: error.status, at: Date.now() };
-  getEngine()?.setSetting(SETTING_LAST_FAILURE, JSON.stringify(failure));
+  writeBackupFailures({
+    ...getBackupFailures(),
+    [carrierId]: { kind: error.kind, status: error.status, at: Date.now() },
+  });
 }
 
 /**
@@ -161,25 +178,36 @@ function shouldBackup(force = false): boolean {
   return Date.now() - lastBackup >= MIN_INTERVAL_MS;
 }
 
+/** What one carrier did in a run. */
+export type CarrierOutcome =
+  | { status: 'written' }
+  | { status: 'skipped'; reason: 'unavailable' | 'no-radio' }
+  | { status: 'failed'; kind: BackupFailureKind | 'unknown' };
+
+/** What a run did: whether the platform zip was written, and each carrier by id. */
+export interface BackupRunResult {
+  wroteZip: boolean;
+  carriers: Record<string, CarrierOutcome>;
+}
+
+const NOTHING_WRITTEN: BackupRunResult = { wroteZip: false, carriers: {} };
+
 /**
  * The backup this process is already doing, if any.
  *
  * Three triggers reach here, a settled sync, a backgrounding and a foreground,
  * and two of them can arrive a second apart. The last-backup stamp is not
- * written until the upload has finished, so both would pass `shouldBackup` and
- * both would ask Rust for a snapshot. Rust holds one backup handle and refuses
- * the second outright, throwing "A backup is already running" (the
- * `BACKUP_IN_FLIGHT` claim in `run_backup`), and all three triggers swallow
- * their errors, so the collision is a wasted database copy nobody sees. The second caller
- * joins the first instead.
+ * written until the carriers have been tried, so both would pass `shouldBackup`
+ * and both would ask Rust for an archive. Rust holds one backup handle and
+ * refuses the second outright. The second caller joins the first instead.
  */
-let inFlight: Promise<boolean> | null = null;
+let inFlight: Promise<BackupRunResult> | null = null;
 
 /**
- * Create a backup snapshot and upload it to the configured backend.
- * Returns true if a backup was created, false if skipped.
+ * Write the record archive and hand it to every available carrier.
+ * A run that is skipped resolves with nothing written.
  */
-export async function performBackup(force = false): Promise<boolean> {
+export async function performBackup(force = false): Promise<BackupRunResult> {
   if (inFlight) return inFlight;
   inFlight = runBackupOnce(force).finally(() => {
     inFlight = null;
@@ -187,84 +215,100 @@ export async function performBackup(force = false): Promise<boolean> {
   return inFlight;
 }
 
-async function runBackupOnce(force: boolean): Promise<boolean> {
-  if (!shouldBackup(force)) return false;
+async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
+  if (!shouldBackup(force)) return NOTHING_WRITTEN;
 
   const engine = getEngine();
-  if (!engine) return false;
+  if (!engine) return NOTHING_WRITTEN;
 
-  const backend = getConfiguredBackend();
-  if (!(await backend.isAvailable())) {
-    log.log('Backend not available, skipping auto-backup');
-    return false;
-  }
+  const install = engine.engineInstall();
+  // A read that fails cannot say this is still the library the backup started
+  // on, so it counts as moved and nothing more is written or uploaded.
+  const libraryMoved = (): boolean => {
+    try {
+      return engine.engineInstall() !== install;
+    } catch {
+      return true;
+    }
+  };
 
-  // A snapshot is a full copy of the database, so it is not taken for an
-  // upload that cannot start. Only the radio is checked: a reachable server
-  // that refuses has to fail, so that recordBackupFailure tells the user.
-  if (backend.isRemote && !(await isRadioUp())) {
-    log.log('Radio is down, skipping auto-backup to a remote backend');
-    return false;
-  }
-
-  const cacheDir = FileSystem.cacheDirectory;
-  if (!cacheDir) throw new Error('Device cache directory not available');
+  const recordPath = platformRecordUri();
+  if (!recordPath) throw new Error('Device documents directory not available');
 
   const timestamp = new Date().toISOString();
-  const tempFilename = `veloq-autobackup-${Date.now()}.veloqdb`;
-  const tempPath = `${cacheDir}${tempFilename}`;
+  const carriers: Record<string, CarrierOutcome> = {};
 
   try {
-    const plainPath = tempPath.startsWith('file://') ? tempPath.slice(7) : tempPath;
+    const plainPath = recordPath.startsWith('file://') ? recordPath.slice(7) : recordPath;
 
-    // Atomic SQLite snapshot, copied on a Rust thread
-    await runDatabaseBackup(engine, plainPath);
+    await inBackupSlot(() =>
+      libraryMoved() ? Promise.resolve() : engine.runRecordBackup(plainPath)
+    );
+    if (libraryMoved()) return NOTHING_WRITTEN;
+    // This library wrote the zip, so a later launch never offers it back.
+    markPlatformRecordAnswered();
 
-    // Verify snapshot was created
-    const fileInfo = await FileSystem.getInfoAsync(tempPath);
+    const fileInfo = await FileSystem.getInfoAsync(recordPath);
     if (!fileInfo.exists) {
-      throw new Error('Database snapshot was not created');
+      throw new Error('Record archive was not created');
     }
 
-    // Collect metadata
-    const metadata = engine.getBackupMetadata();
     const entry: Omit<BackupEntry, 'id'> = {
       timestamp,
       sizeBytes: 'size' in fileInfo ? fileInfo.size || 0 : 0,
       appVersion: APP_VERSION,
-      schemaVersion: Number(metadata.schema_version ?? 0),
-      activityCount: Number(metadata.activity_count ?? 0),
-      athleteId: (metadata.athlete_id as string) ?? null,
     };
 
-    // Upload to backend
-    await backend.upload(tempPath, entry);
-
-    // Update last backup timestamp
-    engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
-    clearBackupFailure();
-
-    // Local backups: enforce retention to prevent silent device storage growth.
-    // Cloud/WebDAV backups: kept indefinitely - storage is the user's responsibility.
-    if (backend.id === 'local') {
-      await enforceRetention(backend, MAX_LOCAL_BACKUPS);
+    // A carrier that cannot be tried now leaves the stamp unwritten so a later
+    // trigger retries it. A permanent failure is shown to the athlete instead,
+    // and the stamp is not written when nothing at all took the zip.
+    let retryLater = false;
+    let anyFailed = false;
+    let anyWritten = false;
+    for (const carrier of backupCarriers) {
+      if (libraryMoved()) return { wroteZip: false, carriers: {} };
+      if (!(await carrier.isAvailable())) {
+        log.log(`${carrier.id} not set up, skipping`);
+        carriers[carrier.id] = { status: 'skipped', reason: 'unavailable' };
+        continue;
+      }
+      if (libraryMoved()) return NOTHING_WRITTEN;
+      if (carrier.isRemote && !(await isRadioUp())) {
+        log.log(`Radio is down, keeping platform archive for a later ${carrier.id} upload`);
+        carriers[carrier.id] = { status: 'skipped', reason: 'no-radio' };
+        retryLater = true;
+        continue;
+      }
+      try {
+        await carrier.upload(recordPath, entry);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        log.warn(`Auto-backup to ${carrier.id} failed:`, msg);
+        if (libraryMoved()) return NOTHING_WRITTEN;
+        recordBackupFailure(carrier.id, error);
+        const kind = isBackupTransferError(error) ? error.kind : 'unknown';
+        carriers[carrier.id] = { status: 'failed', kind };
+        anyFailed = true;
+        if (!isBackupTransferError(error) || !error.permanent) retryLater = true;
+        continue;
+      }
+      if (libraryMoved()) return NOTHING_WRITTEN;
+      clearBackupFailure(carrier.id);
+      carriers[carrier.id] = { status: 'written' };
+      anyWritten = true;
     }
 
-    log.log(`Auto-backup complete: ${entry.activityCount} activities, ${entry.sizeBytes} bytes`);
-    return true;
+    if (!retryLater && (anyWritten || !anyFailed))
+      engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
+    if (libraryMoved()) return NOTHING_WRITTEN;
+    log.log(`Record backup complete: ${entry.sizeBytes} bytes`);
+    return { wroteZip: true, carriers };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     log.warn('Auto-backup failed:', msg);
-    recordBackupFailure(error);
+    if (libraryMoved()) return NOTHING_WRITTEN;
     // Rethrow the original so the caller keeps the failure kind
     throw error instanceof Error ? error : new Error(msg);
-  } finally {
-    // The name carries a timestamp, so a snapshot left behind is never reused
-    // and nothing sweeps the cache directory. Deleting it here covers the
-    // failure path as well as the success one.
-    await FileSystem.deleteAsync(tempPath, { idempotent: true }).catch((error: unknown) => {
-      log.warn('Could not delete the backup snapshot:', String(error));
-    });
   }
 }
 
@@ -278,23 +322,6 @@ async function isRadioUp(): Promise<boolean> {
     return state.isConnected !== false && state.isInternetReachable !== false;
   } catch {
     return true;
-  }
-}
-
-/** Delete old backups beyond the retention limit (local storage only). */
-async function enforceRetention(backend: BackupBackend, maxBackups: number): Promise<void> {
-  try {
-    const backups = await backend.listBackups();
-    if (backups.length <= maxBackups) return;
-
-    // Delete oldest backups beyond the limit
-    const toDelete = backups.slice(maxBackups);
-    for (const backup of toDelete) {
-      await backend.delete(backup.id);
-      log.log(`Deleted old backup: ${backup.id}`);
-    }
-  } catch {
-    // Retention cleanup is best-effort
   }
 }
 

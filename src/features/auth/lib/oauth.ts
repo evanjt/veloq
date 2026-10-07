@@ -3,7 +3,59 @@ import * as Linking from 'expo-linking';
 import * as Crypto from 'expo-crypto';
 
 import { OAUTH } from '@/features/auth/constants';
-import { NET_DEADLINE_MS, fetchWithDeadline } from '@/shared/net/fetchWithDeadline';
+import { NET_DEADLINE_MS, fetchWithDeadline, isFetchTimeout } from '@/shared/net/fetchWithDeadline';
+
+/**
+ * The proxy answered, and not with success. Distinct from a request that never
+ * reached it, which is the network's failure rather than the proxy's.
+ */
+export class OAuthProxyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OAuthProxyError';
+  }
+}
+
+class OAuthFlowError extends Error {
+  constructor(
+    message: string,
+    readonly key: OAuthFailureKey
+  ) {
+    super(message);
+    this.name = 'OAuthFlowError';
+  }
+}
+
+/** A sign-in failure the error slot can name in the athlete's language. */
+export type OAuthFailureKey =
+  | 'login.oauthFailed'
+  | 'login.oauthStateValidationFailed'
+  | 'login.oauthUnreachable'
+  | 'login.oauthProxyRefused'
+  | 'login.oauthInvalidCallback'
+  | 'login.oauthAccessDenied'
+  | 'login.oauthCodeExchangeFailed';
+
+/**
+ * The translation key for a sign-in failure the athlete can act on.
+ *
+ * A request that never reached the proxy rejects with a `TypeError` from
+ * `fetch`, or with a `FetchTimeoutError` at the deadline. Both carry English
+ * text written for a developer, so neither message is ever shown.
+ */
+export function oauthFailureKey(error: unknown): OAuthFailureKey {
+  if (!(error instanceof Error)) return 'login.oauthFailed';
+  if (error instanceof OAuthFlowError) return error.key;
+  if (
+    error.message.includes('state validation failed') ||
+    error.message.includes('missing state parameter')
+  ) {
+    return 'login.oauthStateValidationFailed';
+  }
+  if (isFetchTimeout(error) || error instanceof TypeError) return 'login.oauthUnreachable';
+  if (error instanceof OAuthProxyError) return 'login.oauthProxyRefused';
+  return 'login.oauthFailed';
+}
 
 /**
  * Module-level state for CSRF protection during OAuth flow.
@@ -113,7 +165,7 @@ async function registerStateWithProxy(state: string, codeChallenge: string): Pro
   );
 
   if (!response.ok) {
-    throw new Error('Failed to register OAuth state with proxy');
+    throw new OAuthProxyError('Failed to register OAuth state with proxy');
   }
 }
 
@@ -197,7 +249,11 @@ export function parseCallbackUrl(url: string): OAuthCallback | null {
 
     // Check for error response
     if (params.success === 'false' || params.error) {
-      throw new Error((params.error as string) || 'OAuth failed');
+      const reason = typeof params.error === 'string' ? params.error : 'OAuth failed';
+      throw new OAuthFlowError(
+        reason,
+        reason === 'access_denied' ? 'login.oauthAccessDenied' : 'login.oauthFailed'
+      );
     }
 
     const state = (params.state as string) || undefined;
@@ -262,12 +318,15 @@ async function redeemCode(code: string, verifier: string): Promise<OAuthTokenRes
   );
 
   if (!response.ok) {
-    throw new Error('OAuth code could not be redeemed');
+    throw new OAuthProxyError('OAuth code could not be redeemed');
   }
 
   const body = (await response.json()) as Partial<OAuthTokenResponse> & { success?: boolean };
   if (!body.access_token || !body.athlete_id) {
-    throw new Error('OAuth code exchange returned no token');
+    throw new OAuthFlowError(
+      'OAuth code exchange returned no token',
+      'login.oauthCodeExchangeFailed'
+    );
   }
 
   return {
@@ -291,17 +350,26 @@ export async function handleOAuthCallback(url: string): Promise<OAuthTokenRespon
   const callback = parseCallbackUrl(url);
 
   if (!callback) {
-    throw new Error('Invalid OAuth callback URL - missing token data');
+    throw new OAuthFlowError(
+      'Invalid OAuth callback URL - missing token data',
+      'login.oauthInvalidCallback'
+    );
   }
 
   // Validate state parameter for CSRF protection
   // The state should be present in the callback and match what we generated
   if (!callback.state) {
-    throw new Error('OAuth callback missing state parameter - possible CSRF attack');
+    throw new OAuthFlowError(
+      'OAuth callback missing state parameter - possible CSRF attack',
+      'login.oauthStateValidationFailed'
+    );
   }
 
   if (!validateState(callback.state)) {
-    throw new Error('OAuth state validation failed - possible CSRF attack');
+    throw new OAuthFlowError(
+      'OAuth state validation failed - possible CSRF attack',
+      'login.oauthStateValidationFailed'
+    );
   }
 
   // Spent either way: a failed redemption must not leave it for a second try.
@@ -310,7 +378,10 @@ export async function handleOAuthCallback(url: string): Promise<OAuthTokenRespon
 
   if (callback.code) {
     if (!verifier) {
-      throw new Error('OAuth callback carried a code this app did not start a flow for');
+      throw new OAuthFlowError(
+        'OAuth callback carried a code this app did not start a flow for',
+        'login.oauthInvalidCallback'
+      );
     }
     return redeemCode(callback.code, verifier);
   }
@@ -319,7 +390,10 @@ export async function handleOAuthCallback(url: string): Promise<OAuthTokenRespon
     return callback.token;
   }
 
-  throw new Error('Invalid OAuth callback URL - missing token data');
+  throw new OAuthFlowError(
+    'Invalid OAuth callback URL - missing token data',
+    'login.oauthInvalidCallback'
+  );
 }
 
 /**

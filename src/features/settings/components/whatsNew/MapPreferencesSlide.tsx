@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, SegmentedButtons } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import { ToggleButtonRow } from '@/shared/ui';
 import { useMapPreferences } from '@/features/maps';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -22,7 +23,7 @@ export function MapPreferencesSlide() {
     }
   }, [setDefaultStyle, setTerrain3DMode]);
 
-  const terrain3DButtons = [
+  const terrain3DButtons: { value: 'off' | 'smart' | 'always'; label: string }[] = [
     { value: 'off', label: t('settings.terrain3DOff' as never) as string },
     { value: 'smart', label: t('settings.terrain3DSmart' as never) as string },
     { value: 'always', label: t('settings.terrain3DAlways' as never) as string },
@@ -40,11 +41,10 @@ export function MapPreferencesSlide() {
         >
           {t('settings.terrain3D' as never)}
         </Text>
-        <SegmentedButtons
+        <ToggleButtonRow
           value={preferences.terrain3DMode || 'off'}
-          onValueChange={(value) => setTerrain3DMode(null, value as 'off' | 'smart' | 'always')}
-          buttons={terrain3DButtons}
-          density="small"
+          onValueChange={(value) => setTerrain3DMode(null, value)}
+          options={terrain3DButtons}
           style={styles.segmented}
         />
       </View>

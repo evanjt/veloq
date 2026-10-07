@@ -1,8 +1,11 @@
 /**
- * Reads the stream backfill's progress for the Settings row that starts it.
+ * Reads the stream backfill's progress for the Settings row that shows it.
  *
- * Nothing in Rust announces this pass, because nothing but this row starts one:
- * a live pass is polled and only a live pass is. At rest the answer comes from
+ * The engine starts this pass by itself after a settled sync and announces
+ * every phase it enters, so a mounted row at rest arms its follow on an
+ * announced `fetching` or `awaiting_consent`. A live pass is polled and only a
+ * live pass is; the poll disarms itself when the pass ends. The row starts one
+ * only after a stop. At rest the answer comes from
  * `getStreamBackfillRemaining`, a count of activities with no stored series,
  * which is durable and survives the process the phase does not.
  */
@@ -10,9 +13,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
+import { useSyncState } from '@/shared/native/useSyncStatus';
+import { StartOutcome } from 'veloqrs';
 import type { RoutesStatus, StreamBackfillPhase } from 'veloqrs';
 
 import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
+
+/** The channel `EngineObserver.stream_backfill_phase` lands on. */
+const PHASE_CHANNEL = 'streamBackfillPhase';
 
 const PHASES: StreamBackfillPhase[] = [
   'idle',
@@ -21,6 +29,7 @@ const PHASES: StreamBackfillPhase[] = [
   'partial',
   'stopped',
   'failed',
+  'awaiting_consent',
 ];
 
 export interface StreamBackfillState {
@@ -39,6 +48,12 @@ export interface StreamBackfillState {
    */
   remaining: number | null;
   isRunning: boolean;
+  /** The engine is holding a large download for the athlete's answer. */
+  awaitingConsent: boolean;
+  /** Requests the held pass would make, from the engine. */
+  estimateRequests: number;
+  /** Megabytes the held pass would download, from the engine's byte figure. */
+  estimateMegabytes: number;
 }
 
 const IDLE: StreamBackfillState = {
@@ -48,6 +63,9 @@ const IDLE: StreamBackfillState = {
   stored: 0,
   remaining: null,
   isRunning: false,
+  awaitingConsent: false,
+  estimateRequests: 0,
+  estimateMegabytes: 0,
 };
 
 /** An unrecognised phase reads as idle rather than as a finished pass. */
@@ -71,6 +89,9 @@ function stateOf(status: RoutesStatus | null): StreamBackfillState {
     stored: status.stream.stored,
     remaining: status.streamRemaining,
     isRunning: phase === 'fetching',
+    awaitingConsent: phase === 'awaiting_consent',
+    estimateRequests: status.stream.estimateRequests,
+    estimateMegabytes: Math.round(status.stream.estimateBytes / 1_000_000),
   };
 }
 
@@ -84,11 +105,16 @@ function same(a: StreamBackfillState, b: StreamBackfillState): boolean {
     a.completed === b.completed &&
     a.total === b.total &&
     a.stored === b.stored &&
-    a.remaining === b.remaining
+    a.remaining === b.remaining &&
+    a.awaitingConsent === b.awaitingConsent &&
+    a.estimateRequests === b.estimateRequests &&
+    a.estimateMegabytes === b.estimateMegabytes
   );
 }
 
 export interface StreamBackfillControls extends StreamBackfillState {
+  /** Why the last tap on Download did not start a pass, or null. */
+  refusal: StartOutcome | null;
   start: () => void;
   stop: () => void;
 }
@@ -96,7 +122,12 @@ export interface StreamBackfillControls extends StreamBackfillState {
 export function useStreamBackfill(): StreamBackfillControls {
   const [state, setState] = useState<StreamBackfillState>(read);
   const mounted = useRef(state);
+  const [refusal, setRefusal] = useState<StartOutcome | null>(null);
   const arm = useRef<(running: boolean) => void>(() => {});
+  const refresh = useRef<() => void>(() => {});
+  // The engine decides whether to ask when a sync settles, and announces
+  // nothing, so the read is repeated when the sync state moves.
+  const syncState = useSyncState();
 
   useEffect(() => {
     // The last state handed to React, held in the effect's own closure rather
@@ -107,6 +138,8 @@ export function useStreamBackfill(): StreamBackfillControls {
       if (!same(latest, next)) {
         latest = next;
         setState(next);
+        // A pass that is running answers the refusal that came before it.
+        if (next.isRunning) setRefusal(null);
       }
       return next;
     };
@@ -124,24 +157,51 @@ export function useStreamBackfill(): StreamBackfillControls {
       }
     };
     arm.current = follow;
+    refresh.current = () => follow(adopt(read()).isRunning);
     follow(latest.isRunning);
 
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = getEngine()?.subscribe?.(PHASE_CHANNEL, () => refresh.current());
+    } catch {
+      unsubscribe = undefined;
+    }
+
     return () => {
+      unsubscribe?.();
       follow(false);
       arm.current = () => {};
+      refresh.current = () => {};
     };
   }, []);
 
+  useEffect(() => {
+    refresh.current();
+  }, [syncState]);
+
+  // The athlete's own tap is the consent: the engine records the yes and
+  // starts, so later automatic passes do not ask again. Armed off the start
+  // rather than off the next render: the pass is already fetching by the time
+  // this returns.
   const start = useCallback(() => {
-    getEngine()?.startStreamBackfill?.();
-    // Armed off the start rather than off the next render: the pass is already
-    // fetching by the time this returns.
-    arm.current(true);
+    let outcome: StartOutcome | undefined;
+    try {
+      outcome = getEngine()?.consentStreamBackfill?.();
+    } catch {
+      outcome = StartOutcome.Failed;
+    }
+    const refused = outcome !== undefined && outcome !== StartOutcome.Started;
+    setRefusal(refused ? (outcome ?? null) : null);
+    // A refused start spawned nothing, so arming the follow would only disarm
+    // on its first idle read.
+    if (!refused) arm.current(true);
+    refresh.current();
   }, []);
 
   const stop = useCallback(() => {
     getEngine()?.stopStreamBackfill?.();
+    refresh.current();
   }, []);
 
-  return { ...state, start, stop };
+  return { ...state, refusal, start, stop };
 }

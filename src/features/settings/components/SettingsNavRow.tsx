@@ -1,8 +1,9 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing } from '@/theme';
+import { Row } from '@/shared/ui/Row';
 
 interface SettingsNavRowProps {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -16,7 +17,7 @@ export function SettingsNavRow({ icon, title, subtitle, onPress, testID }: Setti
   const { isDark } = useTheme();
 
   return (
-    <TouchableOpacity testID={testID} style={styles.row} onPress={onPress} activeOpacity={0.7}>
+    <Row testID={testID} onPress={onPress} accessibilityLabel={title}>
       <MaterialCommunityIcons
         name={icon}
         size={22}
@@ -30,24 +31,11 @@ export function SettingsNavRow({ icon, title, subtitle, onPress, testID }: Setti
           {subtitle}
         </Text>
       ) : null}
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={20}
-        color={isDark ? darkColors.textMuted : colors.textSecondary}
-      />
-    </TouchableOpacity>
+    </Row>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-    minHeight: layout.minTapTarget,
-  },
   title: {
     ...typography.body,
     flex: 1,

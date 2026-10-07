@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { TimelineSlider } from '@/features/maps';
@@ -7,6 +7,7 @@ import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useActivityYearCounts } from '@/shared/app/useActivityYearCounts';
 import { formatLocalDate } from '@/shared/format/format';
+import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
@@ -25,6 +26,7 @@ export function SyncRangePanel() {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
+  const isAnalysingInBackground = useSyncDateRange((s) => s.isAnalysingInBackground);
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
 
@@ -38,6 +40,11 @@ export function SyncRangePanel() {
     return new Date(syncOldest);
   }, [cacheStats.oldestDate, syncOldest, isExpansionLocked]);
 
+  // A refused change leaves every input of the slider's range as it was, so the
+  // handle is put back by bumping this key.
+  const [resetKey, setResetKey] = useState(0);
+  const putHandleBack = useCallback(() => setResetKey((k) => k + 1), []);
+
   const cachedEndDate = useMemo(() => new Date(), []);
 
   const isSyncing = isGpsSyncing || isFetchingExtended;
@@ -48,17 +55,21 @@ export function SyncRangePanel() {
       return { minDateForSlider: new Date(apiOldestDate), maxDateForSlider: now };
     }
     const d = new Date();
-    d.setDate(d.getDate() - 90);
+    d.setDate(d.getDate() - DEFAULT_ACTIVITY_DAYS);
     return { minDateForSlider: d, maxDateForSlider: now };
   }, [apiOldestDate]);
 
   const handleRangeChange = useCallback(
     (start: Date, _end: Date) => {
-      if (start >= cachedStartDate) return;
+      if (start >= cachedStartDate) {
+        putHandleBack();
+        return;
+      }
       // A refused drag has to say why. The latch comes off when the first sync
       // settles, and until then the slider springs back with nothing on screen.
       const expand = () => {
         if (syncDateRange(formatLocalDate(start), formatLocalDate(new Date())) === 'locked') {
+          putHandleBack();
           Alert.alert(t('settings.rangeLockedTitle'), t('settings.rangeLockedMessage'));
         }
       };
@@ -72,11 +83,11 @@ export function SyncRangePanel() {
       }
 
       Alert.alert(t('settings.largeHistoryTitle'), t('settings.largeHistoryMessage', { count }), [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel', onPress: putHandleBack },
         { text: t('settings.largeHistoryConfirm'), onPress: expand },
       ]);
     },
-    [syncDateRange, cachedStartDate, yearCounts, t]
+    [syncDateRange, cachedStartDate, yearCounts, t, putHandleBack]
   );
 
   return (
@@ -93,22 +104,17 @@ export function SyncRangePanel() {
             startDate={cachedStartDate}
             endDate={cachedEndDate}
             onRangeChange={handleRangeChange}
+            resetKey={resetKey}
             isLoading={isSyncing}
             activityCount={cacheStats.totalActivities}
-            cachedOldest={null}
-            cachedNewest={null}
             isDark={isDark}
-            showActivityFilter={false}
-            showCachedRange={false}
-            showLegend={false}
-            showSyncBanner={false}
             fixedEnd
             expandOnly
           />
         </View>
 
         {/* GPS sync progress */}
-        {isSyncing || isFetchingExtended ? (
+        {isSyncing || isFetchingExtended || isAnalysingInBackground ? (
           <View style={[styles.progressRow, isDark && styles.progressRowDark]}>
             <View style={styles.progressBarTrack}>
               <View
@@ -134,14 +140,6 @@ export function SyncRangePanel() {
 }
 
 const styles = StyleSheet.create({
-  toggleTextWrap: {
-    flex: 1,
-  },
-  toggleHint: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
   sliderWrap: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -164,7 +162,7 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     backgroundColor: colors.primary,
-    borderRadius: spacing.xxs,
+    borderRadius: layout.borderRadiusXs,
   },
   progressText: {
     fontSize: typography.caption.fontSize,
@@ -172,19 +170,5 @@ const styles = StyleSheet.create({
   },
   progressTextDark: {
     color: darkColors.textSecondary,
-  },
-  actionRowDisabled: {
-    opacity: 0.5,
-  },
-  spinner: {
-    width: 22,
-    height: 22,
-  },
-  resultText: {
-    fontSize: typography.caption.fontSize,
-    color: colors.primary,
-  },
-  resultTextDark: {
-    color: colors.primary,
   },
 });

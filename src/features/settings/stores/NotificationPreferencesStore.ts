@@ -44,6 +44,8 @@ interface NotificationPreferencesState extends NotificationPreferences {
     enabled: boolean
   ) => void;
   clearPendingUnregister: () => void;
+  markPendingUnregister: (athleteId: string) => void;
+  disableForApiKey: () => void;
   reset: () => void;
 }
 
@@ -60,14 +62,21 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<NotificationPreferences>;
-        set({
-          enabled: parsed.enabled ?? false,
-          privacyAccepted: parsed.privacyAccepted ?? false,
+        const enabled = parsed.enabled ?? false;
+        // An earlier release stored `enabled` beside `privacyAccepted` false.
+        // The athlete turned notifications on and granted the OS permission, so
+        // that answer is the consent and is written back rather than asked for
+        // again.
+        const carriedConsent = enabled && parsed.privacyAccepted !== true;
+        const loaded: NotificationPreferences = {
+          enabled,
+          privacyAccepted: carriedConsent || (parsed.privacyAccepted ?? false),
           pendingUnregister: parsed.pendingUnregister ?? false,
           pendingUnregisterAthleteId: parsed.pendingUnregisterAthleteId ?? null,
           categories: { ...DEFAULT_PREFERENCES.categories, ...parsed.categories },
-          isLoaded: true,
-        });
+        };
+        set({ ...loaded, isLoaded: true });
+        if (carriedConsent) persist(loaded);
         return;
       }
     } catch {
@@ -157,16 +166,46 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
   },
 
   clearPendingUnregister: () => {
-    const state = get();
+    const state = getNotificationPreferences();
     set({ pendingUnregister: false, pendingUnregisterAthleteId: null });
     persist({ ...state, pendingUnregister: false, pendingUnregisterAthleteId: null });
   },
 
+  markPendingUnregister: (athleteId: string) => {
+    const updated = {
+      ...getNotificationPreferences(),
+      pendingUnregister: true,
+      pendingUnregisterAthleteId: athleteId,
+    };
+    set({ pendingUnregister: true, pendingUnregisterAthleteId: athleteId });
+    persist(updated);
+  },
+
+  disableForApiKey: () => {
+    const state = getNotificationPreferences();
+    if (!state.enabled) return;
+    set({ enabled: false });
+    persist({ ...state, enabled: false });
+  },
+
   reset: () => {
-    set({ ...DEFAULT_PREFERENCES });
-    persist(DEFAULT_PREFERENCES);
+    const { pendingUnregister, pendingUnregisterAthleteId } = get();
+    const updated = { ...DEFAULT_PREFERENCES, pendingUnregister, pendingUnregisterAthleteId };
+    set(updated);
+    persist(updated);
   },
 }));
+
+/**
+ * Notifications are on and the privacy notice was never accepted. Hydration
+ * writes consent for a stored `enabled` install, so this holds only for a pair
+ * set in memory after load. Not owed until the stored preferences have loaded.
+ */
+export function isPrivacyNoticeOwed(
+  state: Pick<NotificationPreferencesState, 'isLoaded' | 'enabled' | 'privacyAccepted'>
+): boolean {
+  return state.isLoaded && state.enabled && !state.privacyAccepted;
+}
 
 export function getNotificationPreferences(): NotificationPreferences {
   const state = useNotificationPreferences.getState();

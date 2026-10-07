@@ -1,15 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { CallKind, validateCredentials } from 'veloqrs';
 
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import {
-  accountChangeAction,
-  confirmAccountChange,
-  getCachedAthleteId,
-} from '@/features/auth/lib/accountChange';
+import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
@@ -36,7 +32,12 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
 
   const [isApiKeyLoading, setIsApiKeyLoading] = useState(false);
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
+  const [pendingRetryRun, setPendingRetryRun] = useState(0);
   const { isOnline } = useNetwork();
+  const pendingReadRef = useRef(false);
+  const pendingValidationRef = useRef(false);
+  const pendingRetryRef = useRef(false);
+  const pendingGenerationRef = useRef(0);
 
   /**
    * What became of an attempt: `unreachable` is the one outcome that keeps a
@@ -59,34 +60,30 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         if (check.kind !== CallKind.Ok || !check.id) {
           const rejected = check.status === 401;
           setError(rejected ? t('login.invalidApiKey') : t('login.connectionFailed'));
+          if (rejected) await clearPendingApiKey();
           return rejected ? 'rejected' : 'unreachable';
         }
 
         // Account-identity check. Engine holds at most one account at a time,
         // so a different incoming athlete means we must wipe cached data
         // before letting the new identity in. Same-account login keeps data
-        // for instant resume; only the auth/profile blobs are dropped so the
-        // previous user's avatar can't bleed through.
+        // for instant resume; the query cache is cleared and the profile stays
+        // hidden while signed out.
         const incomingId = check.id;
-        const cachedId = await getCachedAthleteId();
-        const action = accountChangeAction(cachedId, incomingId);
-        if (cachedId && action === 'confirm-then-wipe') {
-          const proceed = await confirmAccountChange({
-            cachedAthleteId: cachedId,
-            incomingKind: 'login',
-          });
-          if (!proceed) {
-            setIsApiKeyLoading(false);
-            return 'refused';
-          }
+        const outcome = await resolveLoginLibrary(incomingId);
+        if (outcome === 'refused') {
+          await clearPendingApiKey();
+          setIsApiKeyLoading(false);
+          return 'refused';
         }
-        if (action === 'keep') {
+        if (outcome === 'keep') {
           await clearAuthOnly(queryClient);
         } else {
           await clearAccountData(queryClient);
         }
         resetSyncDateRange();
         await setCredentials(apiKey.trim(), incomingId);
+        await clearPendingApiKey();
         replaceTo('/');
         return 'signedIn';
       } catch {
@@ -107,8 +104,8 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
           return;
         case 'queue':
           // Held, not signed in. The check that would refuse it, and the
-          // athlete-identity check that guards the cached library, both run on
-          // the reconnect edge below.
+          // athlete-identity check that guards the cached library run on return.
+          pendingGenerationRef.current += 1;
           await savePendingApiKey(apiKey);
           setError(null);
           setQueuedMessage(t('login.queuedOffline'));
@@ -121,18 +118,53 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
     [isOnline, signIn, setError, t]
   );
 
+  const validatePending = useCallback(async () => {
+    if (pendingValidationRef.current) {
+      pendingRetryRef.current = true;
+      return;
+    }
+    pendingValidationRef.current = true;
+    const generation = pendingGenerationRef.current;
+    try {
+      const pending = await readPendingApiKey();
+      if (!pending || generation !== pendingGenerationRef.current) return;
+      if (!isOnline) {
+        setQueuedMessage(t('login.queuedOffline'));
+        return;
+      }
+      setQueuedMessage(null);
+      await signIn(pending);
+    } finally {
+      pendingValidationRef.current = false;
+      if (pendingRetryRef.current) {
+        pendingRetryRef.current = false;
+        setPendingRetryRun((previous) => previous + 1);
+      }
+    }
+  }, [isOnline, signIn, t]);
+
+  useEffect(() => {
+    if (pendingReadRef.current) return;
+    pendingReadRef.current = true;
+    void validatePending();
+  }, [validatePending]);
+
+  useEffect(() => {
+    if (pendingRetryRun) void validatePending();
+  }, [pendingRetryRun, validatePending]);
+
   // The radio came back, so the key that was typed without one gets the check
   // it never had. A key the server refuses is dropped rather than retried for
   // ever; one the server could not answer for at all stays held.
   useReconnect(() => {
-    void (async () => {
-      const pending = await readPendingApiKey();
-      if (!pending) return;
-      setQueuedMessage(null);
-      const outcome = await signIn(pending);
-      if (outcome !== 'unreachable') await clearPendingApiKey();
-    })();
+    void validatePending();
   });
 
-  return { handleApiKeyLogin, isApiKeyLoading, queuedMessage };
+  const discardQueuedKey = useCallback(async () => {
+    pendingGenerationRef.current += 1;
+    await clearPendingApiKey();
+    setQueuedMessage(null);
+  }, []);
+
+  return { handleApiKeyLogin, isApiKeyLoading, queuedMessage, discardQueuedKey };
 }

@@ -1,53 +1,32 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { clearTerrainPreviews, type MapStyleType, useMapPreferences } from '@/features/maps';
+import {
+  ACTIVITY_CATEGORIES,
+  clearTerrainPreviews,
+  type MapStyleType,
+  useMapPreferences,
+} from '@/features/maps';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { Row } from '@/shared/ui/Row';
 import { HeatmapRow } from './HeatmapRow';
+import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
 import { settingsStyles } from './settingsStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
-import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
-type FilterLabelKey =
-  | 'filters.cycling'
-  | 'filters.running'
-  | 'filters.hiking'
-  | 'filters.walking'
-  | 'filters.swimming'
-  | 'filters.snowSports'
-  | 'filters.waterSports'
-  | 'filters.climbing'
-  | 'filters.racketSports'
-  | 'filters.other';
-
-const MAP_ACTIVITY_GROUPS: {
+export const MAP_ACTIVITY_GROUPS: {
   key: string;
-  labelKey: FilterLabelKey;
+  labelKey: string;
   types: ActivityType[];
-}[] = [
-  { key: 'cycling', labelKey: 'filters.cycling', types: [...SPORT_FAMILIES.cycling] },
-  { key: 'running', labelKey: 'filters.running', types: [...SPORT_FAMILIES.running] },
-  { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike'] },
-  { key: 'walking', labelKey: 'filters.walking', types: ['Walk'] },
-  { key: 'swimming', labelKey: 'filters.swimming', types: [...SPORT_FAMILIES.swimming] },
-  {
-    key: 'snow',
-    labelKey: 'filters.snowSports',
-    types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard', 'Snowshoe'],
-  },
-  { key: 'water', labelKey: 'filters.waterSports', types: ['Rowing', 'Kayaking', 'Canoeing'] },
-  { key: 'climbing', labelKey: 'filters.climbing', types: ['RockClimbing'] },
-  { key: 'racket', labelKey: 'filters.racketSports', types: ['Tennis'] },
-  {
-    key: 'other',
-    labelKey: 'filters.other',
-    types: ['Workout', 'WeightTraining', 'Yoga', 'Other'],
-  },
-];
+}[] = Object.entries(ACTIVITY_CATEGORIES).map(([key, config]) => ({
+  key,
+  labelKey: `maps.activityTypes.${config.labelKey}`,
+  types: config.types as ActivityType[],
+}));
 
 const MAP_STYLES: MapStyleType[] = ['light', 'dark', 'satellite'];
 const MAP_STYLES_WITH_DEFAULT = ['default', ...MAP_STYLES] as const;
@@ -66,11 +45,7 @@ const TERRAIN_LABELS: Record<string, string> = {
   always: 'settings.terrain3DAlways',
 };
 
-interface MapsSectionProps {
-  embedded?: boolean;
-}
-
-export function MapsSection({ embedded }: MapsSectionProps = {}) {
+export function MapsSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const {
@@ -81,21 +56,7 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
     setActivityGroupStyle,
     setTerrain3DMode,
     setTerrain3DModeGroup,
-    getTerrain3DMode,
   } = useMapPreferences();
-
-  useEffect(() => {
-    const byType = mapPreferences.terrain3DModeByType;
-    for (const group of MAP_ACTIVITY_GROUPS) {
-      const lead = byType[group.types[0]];
-      if (lead === undefined) continue;
-      const needsFix = group.types.some((tp) => byType[tp] !== lead);
-      if (needsFix) {
-        setTerrain3DModeGroup(group.types, lead);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleDefaultMapStyleChange = async (value: string) => {
     await setDefaultStyle(value as MapStyleType);
@@ -127,7 +88,7 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
   };
 
   const cycleTerrain3DGroup = async (types: ActivityType[]) => {
-    const current = getTerrain3DMode(types[0]);
+    const current = mapPreferences.terrain3DModeByType[types[0]] ?? mapPreferences.terrain3DMode;
     const idx = TERRAIN_MODES.indexOf(current);
     await setTerrain3DModeGroup(types, TERRAIN_MODES[(idx + 1) % TERRAIN_MODES.length]);
     await clearTerrainPreviews();
@@ -165,6 +126,7 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
             style={[
               styles.terrain3DBadgeText,
               mapPreferences.terrain3DMode !== 'off' && styles.terrain3DBadgeActive,
+              mapPreferences.terrain3DMode !== 'off' && isDark && { color: darkColors.linkTeal },
             ]}
           >
             3D: {terrain3DLabel}
@@ -180,12 +142,13 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
       <HeatmapRow />
 
       {/* Per-activity overrides */}
-      <View style={[styles.actionRow, styles.actionRowBorder]}>
+      <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+      <Row>
         <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
         <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
           {t('settings.customiseByActivity')}
         </Text>
-      </View>
+      </Row>
 
       <View style={styles.overridesContainer}>
         {/* Explore Map row */}
@@ -217,10 +180,18 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
 
         {/* Per-activity-group rows */}
         {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
-          const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
-          const terrain3D = getTerrain3DMode(types[0]);
-          const styleKey = STYLE_LABELS[currentStyle] ?? 'settings.default';
-          const terrainKey = TERRAIN_LABELS[terrain3D] ?? 'settings.terrain3DSmart';
+          const style = groupStyleState(types, mapPreferences.activityTypeStyles);
+          const terrain = groupTerrainState(
+            types,
+            mapPreferences.terrain3DModeByType,
+            mapPreferences.terrain3DMode
+          );
+          const styleKey = style.mixed
+            ? 'settings.mixed'
+            : (STYLE_LABELS[style.value] ?? 'settings.default');
+          const terrainKey = terrain.mixed
+            ? 'settings.mixed'
+            : (TERRAIN_LABELS[terrain.value] ?? 'settings.terrain3DSmart');
 
           return (
             <View key={key} style={styles.overrideRow}>
@@ -228,10 +199,11 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
                 style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
                 numberOfLines={1}
               >
-                {t(labelKey)}
+                {t(labelKey as 'maps.activityTypes.ride')}
               </Text>
               <TouchableOpacity
                 style={[styles.pill, { backgroundColor: pillBg }]}
+                testID={`map-style-pill-${key}`}
                 onPress={() => cycleActivityGroupStyle(types)}
                 activeOpacity={0.6}
               >
@@ -241,6 +213,7 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.pill, { backgroundColor: pillBg }]}
+                testID={`map-terrain-pill-${key}`}
                 onPress={() => cycleTerrain3DGroup(types)}
                 activeOpacity={0.6}
               >
@@ -258,8 +231,6 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
       </View>
     </>
   );
-
-  if (embedded) return mapsContent;
 
   return (
     <>
@@ -301,18 +272,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   terrain3DBadgeActive: {
-    color: colors.primary,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  actionRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    color: colors.linkTeal,
   },
   actionText: {
     ...typography.body,

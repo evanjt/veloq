@@ -5,11 +5,9 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debug } from '@/shared/debug/debug';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
+import { OAUTH } from '@/features/auth';
 
 const log = debug.create('PushToken');
-
-/** Base URL for the API worker */
-const API_URL = 'https://auth.veloq.fit';
 
 /** Last successful registration refresh (ms epoch). Internal bookkeeping, not a user setting. */
 const TOKEN_REFRESHED_AT_KEY = 'veloq-push-token-refreshed-at';
@@ -32,6 +30,7 @@ const TOKEN_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
  */
 export async function refreshPushTokenRegistration(athleteId: string): Promise<void> {
   try {
+    if (!authorizationHeader(getStoredCredentials())) return;
     const raw = await AsyncStorage.getItem(TOKEN_REFRESHED_AT_KEY);
     const last = raw ? Number(raw) : 0;
     if (Number.isFinite(last) && Date.now() - last < TOKEN_REFRESH_INTERVAL_MS) {
@@ -54,6 +53,7 @@ export async function refreshPushTokenRegistration(athleteId: string): Promise<v
  */
 export async function ensurePushTokenRegistered(athleteId: string): Promise<void> {
   try {
+    if (!authorizationHeader(getStoredCredentials())) return;
     const token = await getExpoPushToken();
     if (!token) return;
     const registered = await AsyncStorage.getItem(TOKEN_REGISTERED_KEY);
@@ -73,8 +73,7 @@ export async function ensurePushTokenRegistered(athleteId: string): Promise<void
  *
  * The worker forwards it to `GET /athlete/0` and refuses a registration whose
  * athlete id is not the one that comes back, so a device speaks only for the
- * athlete it is signed in as. Both sign-ins carry: OAuth as a bearer, a
- * personal API key as Basic `API_KEY:<key>`.
+ * athlete it is signed in as. Push is available to OAuth sessions.
  */
 export function authorizationHeader(
   credentials: Pick<
@@ -82,19 +81,11 @@ export function authorizationHeader(
     'apiKey' | 'accessToken' | 'authMethod'
   >
 ): string | null {
-  const { apiKey, accessToken, authMethod } = credentials;
+  const { accessToken, authMethod } = credentials;
   if (authMethod === 'oauth' && accessToken?.trim()) {
     return `Bearer ${accessToken.trim()}`;
   }
-  if (authMethod === 'apiKey' && apiKey?.trim()) {
-    return `Basic ${base64(`API_KEY:${apiKey.trim()}`)}`;
-  }
   return null;
-}
-
-/** Hermes has no `btoa`, and this runs in the headless task too. */
-function base64(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64');
 }
 
 /**
@@ -120,18 +111,18 @@ export async function getExpoPushToken(): Promise<string | null> {
  * Only call after user has explicitly opted in.
  */
 export async function registerPushToken(athleteId: string): Promise<boolean> {
+  const credentials = getStoredCredentials();
+  const authorization = authorizationHeader(credentials);
+  if (!authorization || credentials.athleteId !== athleteId) return false;
   const token = await getExpoPushToken();
   if (!token) return false;
-
-  const authorization = authorizationHeader(getStoredCredentials());
-  if (!authorization) {
-    log.warn('No credential to register a push token with');
+  const current = getStoredCredentials();
+  if (current.athleteId !== athleteId || authorizationHeader(current) !== authorization)
     return false;
-  }
 
   try {
     const response = await fetchWithDeadline(
-      `${API_URL}/devices/register`,
+      `${OAUTH.PROXY_URL}/devices/register`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: authorization },
@@ -162,24 +153,39 @@ export async function registerPushToken(athleteId: string): Promise<boolean> {
 }
 
 /**
+ * The token to unregister: the one the server was last told about, else a
+ * fresh lookup. The lookup has no deadline of its own and sign-out waits on
+ * it, so it is abandoned at the interactive deadline. An abandoned lookup
+ * only resolves into nothing, so it cannot start a late request.
+ */
+async function tokenWithinDeadline(): Promise<string | null> {
+  const lookup = getExpoPushToken();
+  const cached = await AsyncStorage.getItem(TOKEN_REGISTERED_KEY).catch(() => null);
+  if (cached) return cached;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), NET_DEADLINE_MS.interactive);
+  });
+  try {
+    return await Promise.race([lookup, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Unregister the Expo push token from auth.veloq.fit.
  * Called on logout or when user disables notifications.
  */
 export async function unregisterPushToken(athleteId: string): Promise<boolean> {
-  const token = await getExpoPushToken();
-  if (!token) return false;
-
-  // Every sign-out path unregisters before it clears the credential, because
-  // the worker will not take the word of a device that cannot prove who it is.
   const authorization = authorizationHeader(getStoredCredentials());
-  if (!authorization) {
-    log.warn('No credential to unregister a push token with');
-    return false;
-  }
+  if (!authorization) return false;
+  const token = await tokenWithinDeadline();
+  if (!token) return false;
 
   try {
     const response = await fetchWithDeadline(
-      `${API_URL}/devices/unregister`,
+      `${OAUTH.PROXY_URL}/devices/unregister`,
       {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', Authorization: authorization },

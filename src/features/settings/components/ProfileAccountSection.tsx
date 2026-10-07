@@ -6,12 +6,12 @@ import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
-import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
+import { useUploadPermissionStore } from '@/features/recording';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import { demotePendingToLocalOnly } from '@/features/recording/lib/storage/recordingLibrary';
 import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
+import { Row } from '@/shared/ui/Row';
 import { signOutMessage } from '../lib/signOutCopy';
 
 interface Athlete {
@@ -47,12 +47,12 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       } else {
         await clearAuthOnly(queryClient);
       }
-      // Recordings stay on device; stop auto-upload so nothing lands in another account
-      await demotePendingToLocalOnly();
+      // Recordings stay on device and keep their place in the queue. The hold
+      // at the next sign-in keeps one athlete's rides out of another's account.
       resetSyncDateRange();
       useUploadPermissionStore.getState().reset();
       // Clear credentials last - AuthGate detects isAuthenticated=false and
-      // navigates to /login via InteractionManager to avoid an Android crash.
+      // navigates to /login after the navigation settles to avoid an Android crash.
       await clearCredentials();
     } catch {
       Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
@@ -112,9 +112,9 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       case 'oauth':
         return 'OAuth';
       case 'apiKey':
-        return 'API key';
+        return t('settings.authApiKey');
       case 'demo':
-        return 'Demo mode';
+        return t('settings.authDemo');
       default:
         return '';
     }
@@ -131,8 +131,8 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       WELLNESS: t('navigation.wellness', 'Wellness'),
       CALENDAR: t('navigation.training', 'Calendar'),
       SETTINGS: t('settings.title', 'Settings'),
-      CHATS: 'Chats',
-      LIBRARY: 'Library',
+      CHATS: t('settings.scopeChats', 'Chats'),
+      LIBRARY: t('settings.scopeLibrary', 'Library'),
     };
     const map = new Map<string, Set<string>>();
     for (const s of scopes.split(',')) {
@@ -150,7 +150,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       const label = categoryNames[cat] ?? cat.charAt(0) + cat.slice(1).toLowerCase();
       // WRITE implies READ per intervals.icu spec
       const hasWrite = perms.has('WRITE');
-      const level = hasWrite ? 'Write' : 'Read';
+      const level = hasWrite ? t('settings.scopeWrite', 'Write') : t('settings.scopeRead', 'Read');
       result.push({ label, level });
     }
     return result;
@@ -196,7 +196,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         </View>
         <View style={styles.profileInfo}>
           <Text style={[styles.profileName, isDark && settingsStyles.textLight]}>
-            {athlete?.name || 'Athlete'}
+            {athlete?.name || t('settings.athleteFallback', 'Athlete')}
           </Text>
           <Text style={[styles.profileEmail, isDark && settingsStyles.textMuted]}>
             {authMethod === 'demo' ? getAuthBadge() : `intervals.icu · ${getAuthBadge()}`}
@@ -234,30 +234,27 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
 
       {/* Logout row - keeps cached data for instant re-login */}
       <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
-      <TouchableOpacity
+      <Row
         testID="settings-logout-button"
-        style={settingsStyles.actionRow}
         onPress={handleLogout}
+        accessibilityLabel={t('settings.disconnectAccount')}
       >
         <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
         <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>
           {t('settings.disconnectAccount')}
         </Text>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={isDark ? darkColors.textMuted : colors.textSecondary}
-        />
-      </TouchableOpacity>
+      </Row>
 
       {/* Destructive sign-out - wipes activities/GPS/sections too */}
       {!isDemo && (
         <>
           <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
-          <TouchableOpacity
+          <Row
             testID="settings-logout-clear-button"
-            style={settingsStyles.actionRow}
             onPress={handleLogoutAndClearData}
+            accessibilityLabel={t('settings.disconnectAndClearData', {
+              defaultValue: 'Sign out and delete all data',
+            })}
           >
             <MaterialCommunityIcons name="delete-forever" size={22} color={colors.error} />
             <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>
@@ -265,12 +262,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
                 defaultValue: 'Sign out and delete all data',
               })}
             </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={isDark ? darkColors.textMuted : colors.textSecondary}
-            />
-          </TouchableOpacity>
+          </Row>
         </>
       )}
     </View>

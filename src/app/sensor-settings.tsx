@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, EmptyState } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, EmptyState, signalColor } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
@@ -18,6 +18,7 @@ import {
   isBleAvailable,
 } from '@/features/sensors';
 import type { DiscoveredSensor, KnownSensor, SensorKind } from '@/features/sensors';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const KIND_ICONS: Record<SensorKind, React.ComponentProps<typeof MaterialCommunityIcons>['name']> =
   {
@@ -26,7 +27,7 @@ const KIND_ICONS: Record<SensorKind, React.ComponentProps<typeof MaterialCommuni
     cadence: 'rotate-right',
   };
 
-export default function SensorSettingsScreen() {
+function SensorSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -121,9 +122,9 @@ export default function SensorSettingsScreen() {
               const connection = connections[sensor.id];
               const statusColor =
                 connection?.status === 'connected'
-                  ? colors.success
+                  ? signalColor('ok', isDark)
                   : connection
-                    ? colors.warning
+                    ? signalColor('warn', isDark)
                     : textSecondary;
               return (
                 <View
@@ -187,7 +188,7 @@ export default function SensorSettingsScreen() {
               >
                 {scanning ? (
                   <>
-                    <ActivityIndicator size="small" color={colors.textOnDark} />
+                    <ActivityIndicator size="small" color={colors.textOnPrimary} />
                     <Text style={styles.scanButtonText}>
                       {t('sensors.stopScan', 'Stop scanning')}
                     </Text>
@@ -197,7 +198,7 @@ export default function SensorSettingsScreen() {
                     <MaterialCommunityIcons
                       name="bluetooth-connect"
                       size={18}
-                      color={colors.textOnDark}
+                      color={colors.textOnPrimary}
                     />
                     <Text style={styles.scanButtonText}>
                       {t('sensors.scan', 'Scan for sensors')}
@@ -312,14 +313,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderRadius: layout.borderRadius,
     marginBottom: spacing.sm,
     minHeight: layout.minTapTarget,
   },
   scanButtonText: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
     fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
 });
+
+export default withScreenBoundary(SensorSettingsScreenContent, 'SensorSettings');

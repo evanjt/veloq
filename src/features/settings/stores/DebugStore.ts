@@ -49,28 +49,32 @@ export const useDebugStore = create<DebugState>((set) => ({
   },
 }));
 
-/** Synchronous getter for non-React contexts */
-export function isDebugEnabled(): boolean {
-  return useDebugStore.getState().enabled;
-}
-
 /** Initialize debug store and wire up FFI metric recording */
 export async function initializeDebugStore(): Promise<void> {
   await useDebugStore.getState().initialize();
   syncDebugToFFI();
 }
 
+let unsubscribeFromStore: (() => void) | null = null;
+
 /** Sync debug enabled state to EngineClient for FFI metric recording */
 function syncDebugToFFI(): void {
+  const { setAppMetricsEnabled, recordFFIMetric } = require('@/shared/debug/renderTimer');
+  setAppMetricsEnabled(useDebugStore.getState().enabled);
+  // Initialisation runs at launch and after every restore; hold one listener.
+  unsubscribeFromStore?.();
+  unsubscribeFromStore = null;
+  let engine: { setMetricRecorder: (r: unknown) => void; setDebugEnabled: (e: boolean) => void };
   try {
-    const { EngineClient } = require('veloqrs');
-    const { recordFFIMetric } = require('@/shared/debug/renderTimer');
-    EngineClient.setMetricRecorder(recordFFIMetric);
-    EngineClient.setDebugEnabled(useDebugStore.getState().enabled);
-    useDebugStore.subscribe((state) => {
-      EngineClient.setDebugEnabled(state.enabled);
-    });
+    engine = require('veloqrs').EngineClient;
+    engine.setMetricRecorder(recordFFIMetric);
+    engine.setDebugEnabled(useDebugStore.getState().enabled);
   } catch {
     // Native module not available (web/Expo Go)
+    engine = { setMetricRecorder: () => {}, setDebugEnabled: () => {} };
   }
+  unsubscribeFromStore = useDebugStore.subscribe((state) => {
+    setAppMetricsEnabled(state.enabled);
+    engine.setDebugEnabled(state.enabled);
+  });
 }

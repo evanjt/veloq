@@ -1,31 +1,35 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useDashboardPreferences } from '@/features/home/store';
+import { useDashboardPreferences } from '@/features/home';
 import { useMapPreferences } from '@/features/maps';
-import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useRouteSettings } from '@/features/routes';
 import { useRecordingPreferences } from '@/features/recording';
 import { useSensorStore } from '@/features/sensors';
-import { useRunningJobCount, useLastBackupTimestamp } from '@/features/settings';
+import {
+  useLastBackupTimestamp,
+  useAutoBackupEnabled,
+  useNotificationPreferences,
+} from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
+import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
 import { useThemePreferenceStore } from '@/shared/app/ThemeProvider';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { navigateTo } from '@/shared/app/navigation';
-import { formatFileSize } from '@/shared/format/format';
+import { formatFileSize, formatMonthYear, getIntlLocale } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
 import { RecordingPermissionSection } from '@/features/settings/components/RecordingPermissionSection';
 import { FooterSection, SupportSection } from '@/features/settings/components';
 import { settingsStyles } from '@/features/settings/components/settingsStyles';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 interface AccountRowProps {
   athlete?: { name?: string; profile?: string; profile_medium?: string } | undefined;
@@ -48,7 +52,11 @@ function AccountRow({
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
   const badgeLabel =
-    authMethod === 'oauth' ? 'OAuth' : authMethod === 'apiKey' ? 'API key' : 'Demo';
+    authMethod === 'oauth'
+      ? 'OAuth'
+      : authMethod === 'apiKey'
+        ? t('settings.authApiKey')
+        : t('settings.authDemo');
 
   return (
     <View
@@ -102,7 +110,7 @@ function RowDivider({ isDark }: { isDark: boolean }) {
   return <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />;
 }
 
-export default function SettingsScreen() {
+function SettingsScreenContent() {
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('SettingsScreen');
   useEffect(() => {
@@ -122,18 +130,7 @@ export default function SettingsScreen() {
   const unitPreference = useUnitPreference((s) => s.unitPreference);
   const language = useLanguageStore((s) => s.language);
 
-  const languageLabel = useMemo(() => {
-    for (const group of getAvailableLanguages()) {
-      for (const lang of group.languages) {
-        if (language === lang.value) return lang.label;
-        if (lang.variants) {
-          const v = lang.variants.find((variant) => variant.value === language);
-          if (v) return v.label;
-        }
-      }
-    }
-    return language ?? 'English';
-  }, [language]);
+  const currentLanguageLabel = languageLabel(language).label;
 
   const unitLabel =
     unitPreference === 'auto'
@@ -143,10 +140,10 @@ export default function SettingsScreen() {
         : t('settings.unitsImperial');
   const displaySubtitle = useMemo(
     () =>
-      [t(`settings.${themePreference}` as never), unitLabel, languageLabel]
+      [t(`settings.${themePreference}` as never), unitLabel, currentLanguageLabel]
         .filter(Boolean)
         .join(', '),
-    [t, themePreference, unitLabel, languageLabel]
+    [t, themePreference, unitLabel, currentLanguageLabel]
   );
 
   // Subtitle: Maps
@@ -164,13 +161,10 @@ export default function SettingsScreen() {
   const oldest = useSyncDateRange((s) => s.oldest);
   const syncSubtitle = useMemo(() => {
     if (!oldest) return '';
-    const d = new Date(oldest);
+    const label = formatMonthYear(oldest);
     return t('settings.sinceDateSubtitle', {
-      defaultValue: `Since ${d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
-      date: d.toLocaleDateString(undefined, {
-        month: 'short',
-        year: 'numeric',
-      }),
+      defaultValue: `Since ${label}`,
+      date: label,
     });
   }, [oldest, t]);
 
@@ -193,25 +187,19 @@ export default function SettingsScreen() {
       ? t('sensors.pairedCount', { count: pairedSensorCount })
       : t('sensors.nonePairedShort');
 
-  // Subtitle: Background jobs. This spoke has no preference to preview, so the
-  // state of the thing itself is what the row is for: how many are running.
-  // The hub wants the count and nothing else, so it does not take the jobs
-  // screen's hook: that one reads the awaiting count every tick, a COUNT under
-  // the engine's write lock, for a subtitle that never shows it.
-  const runningJobCount = useRunningJobCount();
-  const backgroundJobsSubtitle =
-    runningJobCount > 0
-      ? t('settings.jobsRunning', { count: runningJobCount })
-      : t('backgroundJobs.stateIdle');
-
   // Subtitle: Notifications
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
 
-  // Subtitle: Backup
+  // Subtitle: Backup. The spoke's main preference is the automatic backup
+  // switch, so a date shows only while it is on. A manual run also writes the
+  // date and would otherwise make a switched-off row read as running.
+  const autoBackupEnabled = useAutoBackupEnabled();
   const lastBackupTimestamp = useLastBackupTimestamp();
-  const lastBackupText = lastBackupTimestamp
-    ? new Date(lastBackupTimestamp).toLocaleDateString()
-    : t('backup.lastBackupNever');
+  const lastBackupText = !autoBackupEnabled
+    ? t('common.off')
+    : lastBackupTimestamp
+      ? new Date(lastBackupTimestamp).toLocaleDateString(getIntlLocale())
+      : t('backup.lastBackupNever');
 
   // Subtitle: Cache
   const [totalCacheSize, setTotalCacheSize] = useState(0);
@@ -222,167 +210,157 @@ export default function SettingsScreen() {
   const nav = useCallback((path: string) => () => navigateTo(path), []);
 
   return (
-    <ScreenErrorBoundary screenName="Settings">
-      <ScreenSafeAreaView
-        hasNativeHeader
-        testID="settings-screen"
-        style={[styles.container, isDark && styles.containerDark]}
-      >
-        <ScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
-          {/* Account */}
-          <AccountRow
-            athlete={athlete}
-            authMethod={authMethod}
-            profileImageError={profileImageError}
-            onProfileImageError={() => setProfileImageError(true)}
-            isDark={isDark}
-          />
+    <ScreenSafeAreaView
+      hasNativeHeader
+      testID="settings-screen"
+      style={[styles.container, isDark && styles.containerDark]}
+    >
+      <ScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
+        {/* Account */}
+        <AccountRow
+          athlete={athlete}
+          authMethod={authMethod}
+          profileImageError={profileImageError}
+          onProfileImageError={() => setProfileImageError(true)}
+          isDark={isDark}
+        />
 
-          {/* Grouped by what the athlete is doing, not by which subsystem owns
+        {/* Grouped by what the athlete is doing, not by which subsystem owns
               the screen: that is how the heatmap toggle came to sit under sync. */}
-          <Text
-            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
-            testID="settings-group-shows"
-          >
-            {t('settings.groupShows', 'What it shows me').toUpperCase()}
-          </Text>
-          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-            <SettingsNavRow
-              icon="palette-outline"
-              title={t('settings.display')}
-              subtitle={displaySubtitle}
-              onPress={nav('/display-settings')}
-              testID="settings-nav-display"
-            />
-            <RowDivider isDark={isDark} />
-            <SettingsNavRow
-              icon="map"
-              title={t('settings.maps')}
-              subtitle={mapsSubtitle}
-              onPress={nav('/map-settings')}
-              testID="settings-nav-maps"
-            />
-            <RowDivider isDark={isDark} />
-            <SettingsNavRow
-              icon="card-text-outline"
-              title={t('settings.summaryCard')}
-              subtitle={summaryCardEnabled ? t('common.on') : t('common.off')}
-              onPress={nav('/summary-card-settings')}
-              testID="settings-nav-summary-card"
-            />
-          </View>
+        <Text
+          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+          testID="settings-group-shows"
+        >
+          {t('settings.groupShows', 'Appearance').toUpperCase()}
+        </Text>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+          <SettingsNavRow
+            icon="palette-outline"
+            title={t('settings.display')}
+            subtitle={displaySubtitle}
+            onPress={nav('/display-settings')}
+            testID="settings-nav-display"
+          />
+          <RowDivider isDark={isDark} />
+          <SettingsNavRow
+            icon="map"
+            title={t('settings.maps')}
+            subtitle={mapsSubtitle}
+            onPress={nav('/map-settings')}
+            testID="settings-nav-maps"
+          />
+          <RowDivider isDark={isDark} />
+          <SettingsNavRow
+            icon="card-text-outline"
+            title={t('settings.summaryCard')}
+            subtitle={summaryCardEnabled ? t('common.on') : t('common.off')}
+            onPress={nav('/summary-card-settings')}
+            testID="settings-nav-summary-card"
+          />
+        </View>
 
-          <Text
-            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
-            testID="settings-group-collects"
-          >
-            {t('settings.groupCollects', 'What it collects').toUpperCase()}
-          </Text>
-          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-            <SettingsNavRow
-              icon="sync"
-              title={t('settings.localDataRange', 'Local Data Range')}
-              subtitle={syncSubtitle}
-              onPress={nav('/sync-settings')}
-              testID="settings-nav-sync"
-            />
-            <RowDivider isDark={isDark} />
-            <SettingsNavRow
-              icon="record-circle-outline"
-              title={t('recording.settings')}
-              subtitle={recordingSubtitle}
-              onPress={nav('/recording-settings')}
-              testID="settings-nav-recording"
-            />
-            <RowDivider isDark={isDark} />
-            <SettingsNavRow
-              icon="bluetooth"
-              title={t('sensors.title')}
-              subtitle={sensorsSubtitle}
-              onPress={nav('/sensor-settings')}
-              testID="settings-nav-sensors"
-            />
-          </View>
+        <Text
+          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+          testID="settings-group-collects"
+        >
+          {t('settings.groupCollects', 'Data & recording').toUpperCase()}
+        </Text>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+          <SettingsNavRow
+            icon="sync"
+            title={t('settings.localDataRange', 'Local Data Range')}
+            subtitle={syncSubtitle}
+            onPress={nav('/sync-settings')}
+            testID="settings-nav-sync"
+          />
+          <RowDivider isDark={isDark} />
+          <SettingsNavRow
+            icon="record-circle-outline"
+            title={t('recording.settings')}
+            subtitle={recordingSubtitle}
+            onPress={nav('/recording-settings')}
+            testID="settings-nav-recording"
+          />
+          <RowDivider isDark={isDark} />
+          <SettingsNavRow
+            icon="bluetooth"
+            title={t('sensors.title')}
+            subtitle={sensorsSubtitle}
+            onPress={nav('/sensor-settings')}
+            testID="settings-nav-sensors"
+          />
+        </View>
 
-          {/* Detection is a computation, but what the athlete manages on that
+        {/* Detection is a computation, but what the athlete manages on that
               screen is the catalogue it keeps, so it sits here. */}
-          <Text
-            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
-            testID="settings-group-keeps"
-          >
-            {t('settings.groupKeeps', 'What it keeps').toUpperCase()}
-          </Text>
-          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-            <SettingsNavRow
-              icon="map-marker-path"
-              title={t('settings.routesAndSections', 'Routes & Sections')}
-              subtitle={detectionSubtitle}
-              onPress={nav('/detection-settings')}
-              testID="settings-nav-detection"
-            />
-            <RowDivider isDark={isDark} />
-            <SettingsNavRow
-              icon="cloud-sync-outline"
-              title={t('backup.autoBackup')}
-              subtitle={lastBackupText}
-              onPress={nav('/backup-settings')}
-              testID="settings-nav-backup"
-            />
-            <RowDivider isDark={isDark} />
-            <SettingsNavRow
-              icon="database-outline"
-              title={t('settings.cacheAndDatabase', 'Cache & Storage')}
-              subtitle={formatFileSize(totalCacheSize)}
-              onPress={nav('/cache-settings')}
-              testID="settings-nav-cache"
-            />
-          </View>
+        <Text
+          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+          testID="settings-group-keeps"
+        >
+          {t('settings.groupKeeps', 'Library & backup').toUpperCase()}
+        </Text>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+          <SettingsNavRow
+            icon="map-marker-path"
+            title={t('settings.routesAndSections', 'Routes & Sections')}
+            subtitle={detectionSubtitle}
+            onPress={nav('/detection-settings')}
+            testID="settings-nav-detection"
+          />
+          <RowDivider isDark={isDark} />
+          <SettingsNavRow
+            icon="cloud-sync-outline"
+            title={t('backup.autoBackup')}
+            subtitle={lastBackupText}
+            onPress={nav('/backup-settings')}
+            testID="settings-nav-backup"
+          />
+          <RowDivider isDark={isDark} />
+          <SettingsNavRow
+            icon="database-outline"
+            title={t('settings.cacheAndDatabase', 'Cache & Storage')}
+            subtitle={formatFileSize(totalCacheSize)}
+            onPress={nav('/cache-settings')}
+            testID="settings-nav-cache"
+          />
+        </View>
 
-          {/* Background jobs is a status screen rather than a preference, and
+        {/* Background jobs is a status screen rather than a preference, and
               it is here because it is where the app reports on itself. */}
-          <Text
-            style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
-            testID="settings-group-tells"
-          >
-            {t('settings.groupTells', 'What it tells me').toUpperCase()}
-          </Text>
-          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-            <SettingsNavRow
-              icon="bell-outline"
-              title={t('notifications.settings.title')}
-              subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
-              onPress={nav('/notification-settings')}
-              testID="settings-nav-notifications"
-            />
-            <RowDivider isDark={isDark} />
-            <SettingsNavRow
-              icon="progress-clock"
-              title={t('backgroundJobs.title')}
-              subtitle={backgroundJobsSubtitle}
-              onPress={nav('/background-jobs')}
-              testID="settings-nav-background-jobs"
-            />
-          </View>
+        <Text
+          style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}
+          testID="settings-group-tells"
+        >
+          {t('settings.groupTells', 'Notifications').toUpperCase()}
+        </Text>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+          <SettingsNavRow
+            icon="bell-outline"
+            title={t('notifications.settings.title')}
+            subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
+            onPress={nav('/notification-settings')}
+            testID="settings-nav-notifications"
+          />
+        </View>
 
-          <RecordingPermissionSection />
+        <RecordingPermissionSection />
 
-          {/* Support inline */}
-          <SupportSection />
+        {/* Support inline */}
+        <SupportSection />
 
-          {/* Data sources */}
-          <View style={styles.footerArea}>
-            <SettingsNavRow
-              icon="link-variant"
-              title={t('settings.dataSources')}
-              onPress={nav('/data-sources-settings')}
-              testID="settings-nav-data-sources"
-            />
-          </View>
+        {/* Data sources */}
+        <View style={styles.footerArea}>
+          <SettingsNavRow
+            icon="link-variant"
+            title={t('settings.dataSources')}
+            onPress={nav('/data-sources-settings')}
+            testID="settings-nav-data-sources"
+          />
+        </View>
 
-          <FooterSection />
-        </ScrollView>
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+        <FooterSection />
+      </ScrollView>
+    </ScreenSafeAreaView>
   );
 }
 
@@ -396,9 +374,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
-  },
-  textLight: {
-    color: colors.textOnDark,
   },
   accountCard: {
     marginTop: spacing.md,
@@ -441,3 +416,5 @@ const styles = StyleSheet.create({
     marginHorizontal: layout.screenPadding,
   },
 });
+
+export default withScreenBoundary(SettingsScreenContent, 'Settings');

@@ -13,6 +13,8 @@ export interface WhatsNewSlideDefinition {
   showMeRoute?: string;
   /** Optional pre-navigation action tag. The modal handles execution. */
   showMeAction?: string;
+  /** Offer Show Me only once this holds. Omit to offer it always. */
+  showMeWhen?: 'cutoverChanged';
   /** i18n key for a tip shown on the TourReturnPill after navigating. */
   showMeTip?: string;
 }
@@ -98,10 +100,8 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       titleKey: 'whatsNew.v040.sectionsTitle',
       bodyKey: 'whatsNew.v040.sectionsBody',
       icon: 'history',
-      // The sections sub-tab, not the screen's default one: the ledger, the
-      // revert, the pin and the retired list this slide describes are all
-      // behind it, and the bare route drops the athlete on insights.
-      showMeRoute: '/insights?tab=sections',
+      // The detector configuration, where the rule behind the slide is set.
+      showMeRoute: '/detection-settings',
       get Component() {
         return require('./SectionChangeCardSlide').SectionChangeCardSlide;
       },

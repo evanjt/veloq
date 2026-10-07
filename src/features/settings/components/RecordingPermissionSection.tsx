@@ -6,9 +6,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
-import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
-import { GrantAccessButton } from '@/features/recording/components/GrantAccessButton';
+import {
+  useUploadPermissionStore,
+  usePermissionUpgrade,
+  GrantAccessButton,
+} from '@/features/recording';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 
@@ -22,9 +24,10 @@ export function RecordingPermissionSection() {
   const { t } = useTranslation();
   const authMethod = useAuthStore((s) => s.authMethod);
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
+  const isLoaded = useUploadPermissionStore((s) => s.isLoaded);
   const { upgradePermissions, isUpgrading, error } = usePermissionUpgrade();
 
-  if (authMethod !== 'oauth' || hasWritePermission === true) return null;
+  if (!isLoaded || authMethod !== 'oauth' || hasWritePermission === true) return null;
 
   return (
     <>
@@ -46,8 +49,8 @@ export function RecordingPermissionSection() {
             </Text>
             <Text style={[styles.description, isDark && settingsStyles.textMuted]}>
               {t(
-                'recording.writePermissionDescription',
-                'Recording requires write permission. Tap below to grant access.'
+                'recording.writePermissionLocalOnly',
+                'Recording works without it. The ride stays on this device until you grant upload access.'
               )}
             </Text>
           </View>
@@ -67,6 +70,8 @@ export function RecordingPermissionSection() {
     </>
   );
 }
+
+const PERMISSION_ICON_WIDTH = 22;
 
 const styles = StyleSheet.create({
   card: {
@@ -94,7 +99,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.errorDeep,
     marginTop: spacing.xs,
-    marginLeft: 22 + spacing.sm,
+    marginLeft: PERMISSION_ICON_WIDTH + spacing.sm,
   },
   errorTextDark: {
     color: darkColors.errorDeep,

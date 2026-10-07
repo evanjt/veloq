@@ -14,7 +14,7 @@ import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { DEMO_ATHLETE_ID, useAuthStore } from '@/shared/app/AuthStore';
 import { safeJsonParse } from '@/shared/validation/validation';
-import { rememberCachedAthleteId, readCachedAthleteIdMirror } from '@/shared/storage';
+import { rememberCachedAthleteId, readCachedAthleteIdMirror, wipeLibrary } from '@/shared/storage';
 
 export type AccountChangeKind = 'login' | 'demo';
 
@@ -27,24 +27,39 @@ export type AccountChangeKind = 'login' | 'demo';
  * of another account's data. The gate is readiness, not the handle: the
  * handle is a singleton that exists from the first require and is never null
  * once the native module loads, so branching on it reads those defaults as
- * facts. `clearAuthOnly` drops the profile blob but keeps the activities,
- * which leaves the same gap with the engine up; the `__athlete_id` setting
- * covers that one, and the AsyncStorage mirror outlives the engine being down
- * and covers both the cold start and an engine that is up but has not been
- * told who it holds yet.
+ * facts. A plain sign-out keeps the profile, which answers while the engine
+ * is up. The `__athlete_id` setting covers a library without a profile, and
+ * the AsyncStorage mirror covers a closed engine or one not yet told whose
+ * library it holds. Account deletion removes the profile and mirror.
  */
 export async function getCachedAthleteId(): Promise<string | null> {
   const engine = isEngineReady() ? getEngine() : null;
   if (engine) {
-    const json = engine.getAthleteProfile();
-    const parsed = json ? safeJsonParse<{ id?: number | string }>(json, {}) : null;
-    const id = parsed?.id ? String(parsed.id) : engine.getSetting('__athlete_id');
+    let id: string | undefined;
+    try {
+      const json = engine.getAthleteProfile();
+      const parsed = json ? safeJsonParse<{ id?: number | string }>(json, {}) : null;
+      id = parsed?.id ? String(parsed.id) : engine.getSetting('__athlete_id');
+    } catch {
+      // A failed read names no one, and the mirror below is the fallback for that.
+      id = undefined;
+    }
     if (id) {
       await rememberCachedAthleteId(id);
       return id;
     }
   }
   return readCachedAthleteIdMirror();
+}
+
+/**
+ * Ends the one-time adoption of an older build's ownerless data before a
+ * sign-in names an unnamed library for the incoming athlete. Imported late
+ * because the recording feature imports this one.
+ */
+export async function settleBeforeNamingLibrary(): Promise<void> {
+  const { settleOwnerlessAdoptions } = await import('@/features/recording');
+  await settleOwnerlessAdoptions();
 }
 
 /** What a sign-in or demo entry owes the data already on the device. */
@@ -101,16 +116,11 @@ export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<bo
     defaultValue: 'Different account detected',
   });
   const body =
-    cachedAthleteId === UNNAMED_LIBRARY
-      ? incomingKind === 'demo'
-        ? t('alerts.accountChangeUnknownDemoMessage', {
-            defaultValue:
-              'This device holds a library from another account. Continuing to demo mode will permanently delete it. To keep it, go back and sign in to that account first.',
-          })
-        : t('alerts.accountChangeUnknownMessage', {
-            defaultValue:
-              'This device holds a library from another account. Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.',
-          })
+    cachedAthleteId === UNNAMED_LIBRARY && incomingKind === 'demo'
+      ? t('alerts.accountChangeUnknownDemoMessage', {
+          defaultValue:
+            'This device holds a library from another account. Continuing to demo mode will permanently delete it. To keep it, go back and sign in to that account first.',
+        })
       : incomingKind === 'demo'
         ? t('alerts.accountChangeDemoMessage', {
             cachedAthleteId,
@@ -140,6 +150,8 @@ interface PromptAccountMismatchArgs {
   storedAthleteId: string;
   /** Who is signing in. */
   credentialsAthleteId: string;
+  /** How many activities the library holds, which a Clear & Sync deletes. */
+  activityCount: number;
 }
 
 /**
@@ -149,16 +161,19 @@ interface PromptAccountMismatchArgs {
  * intact. Resolves whether the library was cleared.
  */
 export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<boolean> {
-  const { storedAthleteId, credentialsAthleteId } = args;
+  const { storedAthleteId, credentialsAthleteId, activityCount } = args;
   const t = i18n.t.bind(i18n);
 
   return new Promise((resolve) => {
     Alert.alert(
-      t('backup.differentAccount', { defaultValue: 'Different Account' }),
+      t('backup.deviceLibraryDifferentAccount', {
+        defaultValue: 'Library on this device belongs to another account',
+      }),
       t('backup.differentAccountMessage', {
         cachedAthleteId: storedAthleteId,
+        count: activityCount,
         defaultValue:
-          'The restored data belongs to a different account. Clear data and sync fresh for this account?',
+          'This device holds {{count}} activities from another account ({{cachedAthleteId}}). Clearing and syncing permanently deletes them. To keep them, cancel and sign in to that account instead.',
       }),
       [
         {
@@ -174,11 +189,10 @@ export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<
           style: 'destructive',
           onPress: () => {
             void (async () => {
-              const engine = getEngine();
               // The wipe runs on a Rust thread and `clear` re-opens the handle
               // after it, so the stamp has to follow it rather than race it.
               try {
-                await engine?.clear();
+                await wipeLibrary();
               } catch (error) {
                 // Launch waits on this answer, so a failed wipe still has to
                 // give one. Signing out is Cancel's answer, and it leaves the
@@ -188,7 +202,7 @@ export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<
                 resolve(false);
                 return;
               }
-              engine?.setSetting('__athlete_id', credentialsAthleteId);
+              getEngine()?.setSetting('__athlete_id', credentialsAthleteId);
               await rememberCachedAthleteId(credentialsAthleteId);
               resolve(true);
             })();

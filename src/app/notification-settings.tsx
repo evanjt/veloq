@@ -1,24 +1,20 @@
 import React from 'react';
 import { StyleSheet, ScrollView } from 'react-native';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
 import { NotificationSection } from '@/features/settings/components';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function NotificationSettingsScreen() {
+function NotificationSettingsScreenContent() {
   const { isDark } = useTheme();
 
   return (
-    <ScreenErrorBoundary screenName="NotificationSettings">
-      <ScreenSafeAreaView
-        hasNativeHeader
-        style={[styles.container, isDark && styles.containerDark]}
-      >
-        <ScrollView contentContainerStyle={styles.content}>
-          <NotificationSection />
-        </ScrollView>
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+    <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <NotificationSection />
+      </ScrollView>
+    </ScreenSafeAreaView>
   );
 }
 
@@ -33,7 +29,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
-  textLight: {
-    color: colors.textOnDark,
-  },
 });
+
+export default withScreenBoundary(NotificationSettingsScreenContent, 'NotificationSettings');

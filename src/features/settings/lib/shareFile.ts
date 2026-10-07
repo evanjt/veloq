@@ -5,10 +5,10 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
+import { exportFileUri } from '@/shared/storage/cacheFiles';
 
-async function getSharing() {
-  const Sharing = await import('expo-sharing');
-  return Sharing;
+function getSharing(): typeof import('expo-sharing') {
+  return require('expo-sharing');
 }
 
 interface ShareFileParams {
@@ -18,7 +18,7 @@ interface ShareFileParams {
 }
 
 export async function shareFile({ content, filename, mimeType }: ShareFileParams): Promise<void> {
-  const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+  const fileUri = await exportFileUri(filename);
   await FileSystem.writeAsStringAsync(fileUri, content, {
     encoding: FileSystem.EncodingType.UTF8,
   });
@@ -37,6 +37,6 @@ export async function shareExistingFile(
   mimeType: string,
   uti: string = mimeType
 ): Promise<void> {
-  const Sharing = await getSharing();
+  const Sharing = getSharing();
   await Sharing.shareAsync(fileUri, { mimeType, UTI: uti });
 }

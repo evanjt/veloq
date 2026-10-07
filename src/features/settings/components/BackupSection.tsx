@@ -1,54 +1,112 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, Modal } from 'react-native';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, Switch, Alert, Platform } from 'react-native';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Button, Card, Row } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+import { SyncState, SyncStep } from 'veloqrs';
+import type { FfiUnplacedRecord } from 'veloqrs';
 import {
-  useExportDatabaseBackup,
+  useExportRecordBackup,
   useImportDatabaseBackup,
   useBulkExport,
 } from '@/features/settings/hooks/exportIndex';
 import { useTheme } from '@/shared/app';
 import { useActivityCount } from '@/shared/native/useActivityCount';
-import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { useEngineRead, useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import {
   isAutoBackupEnabled,
   setAutoBackupEnabled,
   getLastBackupTimestamp,
-  getLastBackupFailure,
+  getUnplacedBackupRecords,
+  getBackupFailures,
   failureMessageKey,
   performBackup,
-  getConfiguredBackend,
-  setBackendPreference,
-  getOfferableBackends,
+  localBackend,
+  webdavBackend,
+  folderBackend,
+  pickBackupFolder,
+  getBackupFolderName,
+  forgetBackupFolder,
   getWebdavConfig,
-  setWebdavConfig,
-  testWebdavConnection,
-  webdavUrlProblem,
+  type BackupFailure,
+  type BackupRunResult,
   type BackupBackend,
+  type BackupEntry,
 } from '@/features/settings/lib/autobackup';
-import {
-  brand,
-  colors,
-  colorWithOpacity,
-  darkColors,
-  spacing,
-  layout,
-  ink,
-  typography,
-} from '@/theme';
+import { discardRecordImport, resumeRecordImport } from '@/features/settings/lib/backup';
+import { restoreBackendEntry } from '@/features/settings/lib/restoreBackendEntry';
+import { confirmLegacyImport } from '@/features/settings/hooks/useBackup';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { settingsStyles } from './settingsStyles';
+import { InfoButton } from './InfoButton';
 import { BulkExportProgress } from './BulkExportProgress';
 import { ExportPrivacyRow } from './ExportPrivacyRow';
-import { NextcloudQrScanner } from './NextcloudQrScanner';
+import { WebdavConfigForm } from './WebdavConfigForm';
 import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
+import { getIntlLocale } from '@/shared/format/format';
 
-const BACKEND_LABELS = {
-  local: { labelKey: 'backup.backendLocal', icon: 'cellphone' },
-  webdav: { labelKey: 'backup.backendWebdav', icon: 'server-network' },
-  icloud: { labelKey: 'backup.backendIcloud', icon: 'apple-icloud' },
-} as const;
+/** The entries one carrier listed, restored through that carrier. */
+interface CarrierEntries {
+  backend: BackupBackend;
+  entries: BackupEntry[];
+}
 
-function backendLabel(id: string) {
-  return id in BACKEND_LABELS ? BACKEND_LABELS[id as keyof typeof BACKEND_LABELS] : undefined;
+function carrierName(t: TFunction, id: string): string {
+  switch (id) {
+    case 'webdav':
+      return t('backup.backendWebdav');
+    case 'folder':
+      return t('backup.carrierFolder');
+    case 'local':
+      return t('backup.carrierOlderOnDevice');
+    default:
+      return id;
+  }
+}
+
+function unplacedKindKey(kind: string) {
+  switch (kind) {
+    case 'section_pins':
+      return 'backup.unplacedPin';
+    case 'section_history':
+      return 'backup.unplacedHistory';
+    case 'section_intents':
+      return 'backup.unplacedSectionSetting';
+    case 'sections':
+      return 'backup.unplacedSection';
+    case 'legacy_section_name':
+      return 'backup.unplacedSectionName';
+    case 'settings':
+      return 'backup.unplacedSetting';
+    case 'route_names':
+      return 'backup.unplacedRouteName';
+    default:
+      return 'backup.unplacedRecord';
+  }
+}
+
+/** The failure a carrier's last run left, in words the athlete can act on. */
+function CarrierFailure({
+  failure,
+  testID,
+}: {
+  failure: BackupFailure | undefined;
+  testID: string;
+}) {
+  const { t } = useTranslation();
+  if (!failure) return null;
+  return (
+    <Text testID={testID} style={[styles.detail, styles.error]}>
+      {t('backup.lastAttemptFailed', {
+        date: new Date(failure.at).toLocaleDateString(getIntlLocale()),
+      })}
+      {'\n'}
+      {t(failureMessageKey(failure.kind))}
+    </Text>
+  );
 }
 
 export function BackupSection() {
@@ -60,19 +118,66 @@ export function BackupSection() {
   const [backingUp, setBackingUp] = useState(false);
   const [backupResult, setBackupResult] = useState<'success' | 'error' | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+  const [backendBackups, setBackendBackups] = useState<CarrierEntries[] | null>(null);
+  const [webdavSet, setWebdavSet] = useState(() => getWebdavConfig() !== null);
+  const [folderName, setFolderName] = useState(() => getBackupFolderName());
+  const [runResult, setRunResult] = useState<BackupRunResult | null>(null);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [restoringEntry, setRestoringEntry] = useState<string | null>(null);
+  const restoreRunning = useRef(false);
   // A backup on this screen is the only thing that moves either value, so the
   // flag it flips is the key both reads are taken on.
   const readBackupState = useEngineRead([], [backingUp]);
+  const unplacedGeneration = useEngineSubscription(['sections', 'detectionApplied']);
+  const [restoreGeneration, setRestoreGeneration] = useState(0);
+  const [unplacedRecords, setUnplacedRecords] = useState<FfiUnplacedRecord[]>([]);
+  const [unplacedReadError, setUnplacedReadError] = useState(false);
+  const [resumingImport, setResumingImport] = useState(false);
+  // The engine lists a paused import with the waiting records, and it is
+  // shown apart from them because Try again is its action, not theirs.
+  const importPaused = unplacedRecords.some((record) => record.reason === 'import_paused');
+  const waitingRecords = useMemo(
+    () =>
+      unplacedRecords.filter(
+        (record) => record.reason !== 'import_paused' && record.reason !== 'activity_pending'
+      ),
+    [unplacedRecords]
+  );
+  // Records waiting on an activity are one fetch, reported once through the
+  // shared sync status rather than as a line per record.
+  const fetchingActivities = unplacedRecords.some((record) => record.reason === 'activity_pending');
+  const syncStatus = useSyncStatus();
+  const fetchTotal =
+    syncStatus?.state === SyncState.Syncing && syncStatus.step === SyncStep.RecordActivities
+      ? syncStatus.stepItemsTotal
+      : 0;
+  const fetchDone = Math.min(syncStatus?.stepItemsDone ?? 0, fetchTotal);
   const lastBackupTs = useMemo(
     () => readBackupState(() => getLastBackupTimestamp()) ?? null,
     [readBackupState]
   );
   // A failure the user has to act on survives leaving the screen, so an
   // unattended backup that was rejected is not invisible.
-  const lastFailure = useMemo(
-    () => readBackupState(() => getLastBackupFailure()) ?? null,
+  const carrierFailures = useMemo<Record<string, BackupFailure>>(
+    () => readBackupState(() => getBackupFailures()) ?? {},
     [readBackupState]
   );
+  useEffect(() => {
+    let active = true;
+    getUnplacedBackupRecords()
+      .then((records) => {
+        if (active) {
+          setUnplacedRecords(records);
+          setUnplacedReadError(false);
+        }
+      })
+      .catch(() => {
+        if (active) setUnplacedReadError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [unplacedGeneration, restoreGeneration]);
 
   const describeBackupError = useCallback(
     (error: unknown): string => {
@@ -86,8 +191,11 @@ export function BackupSection() {
     setBackingUp(true);
     setBackupResult(null);
     setBackupError(null);
+    setRunResult(null);
     try {
-      const success = await performBackup(true);
+      const result = await performBackup(true);
+      const success = result.wroteZip;
+      setRunResult(result);
       setBackupResult(success ? 'success' : 'error');
       if (!success) setBackupError(t('backup.backupFailedMessage'));
     } catch (error) {
@@ -113,153 +221,145 @@ export function BackupSection() {
     await runBackup();
   }, [backingUp, runBackup]);
 
-  // Backend picker state
-  const [currentBackend, setCurrentBackend] = useState(() => getConfiguredBackend());
-  const [showBackendPicker, setShowBackendPicker] = useState(false);
-  const [offerableBackends, setOfferableBackends] = useState<BackupBackend[]>([]);
+  const handleListBackups = useCallback(async () => {
+    setLoadingBackups(true);
+    try {
+      const candidates: BackupBackend[] = [
+        ...(webdavSet ? [webdavBackend] : []),
+        ...(folderName ? [folderBackend] : []),
+        localBackend,
+      ];
+      const groups: CarrierEntries[] = [];
+      let firstError: unknown = null;
+      for (const backend of candidates) {
+        try {
+          if (!(await backend.isAvailable())) {
+            if (backend.id !== 'local') throw new Error(t('backup.destinationUnavailable'));
+            continue;
+          }
+          const entries = await backend.listBackups();
+          // Older backups on this device are listed only when there are any.
+          if (entries.length > 0 || backend.id !== 'local') groups.push({ backend, entries });
+        } catch (error) {
+          firstError ??= error;
+        }
+      }
+      setBackendBackups(groups);
+      if (firstError) Alert.alert(t('common.error'), describeBackupError(firstError));
+    } finally {
+      setLoadingBackups(false);
+    }
+  }, [webdavSet, folderName, describeBackupError, t]);
 
-  // WebDAV config state, read at first render so the fields paint filled in
-  // rather than empty and then replaced a frame later. `getWebdavConfig` is the
-  // in-memory cache `initWebdavConfig` filled at startup, so this is a property
-  // read and not a SecureStore round trip.
-  const [storedWebdav] = useState(getWebdavConfig);
-  const [webdavUrl, setWebdavUrl] = useState(storedWebdav?.url ?? '');
-  const [webdavUser, setWebdavUser] = useState(storedWebdav?.username ?? '');
-  const [webdavPass, setWebdavPass] = useState(storedWebdav?.password ?? '');
-  const [webdavPlainLan, setWebdavPlainLan] = useState(storedWebdav?.plainLan ?? false);
-  const [testingConnection, setTestingConnection] = useState(false);
-  const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [showQrScanner, setShowQrScanner] = useState(false);
-
-  useEffect(() => {
-    getOfferableBackends().then(setOfferableBackends);
-  }, []);
-
-  const handleSelectBackend = useCallback((backend: BackupBackend) => {
-    setBackendPreference(backend.id);
-    setCurrentBackend(backend);
-    setShowBackendPicker(false);
-  }, []);
-
-  // Basic credentials and the raw database cross on every backup, so an
-  // address that would carry them in the clear is refused before it is stored.
-  const urlProblemText = useCallback(
-    (url: string, plainLan: boolean): string | null => {
-      const problem = webdavUrlProblem(url, plainLan);
-      if (problem === 'not-https') {
-        return t(
-          'backup.webdavHttpsRequired',
-          'Use an https:// address. A plain http:// server would receive your password and your whole database unencrypted.'
+  const handleRestoreEntry = useCallback(
+    async (backend: BackupBackend, entry: BackupEntry) => {
+      if (restoreRunning.current) return;
+      restoreRunning.current = true;
+      const confirmed = await confirmLegacyImport({
+        title: t('backup.importBackup'),
+        message: t('backup.legacyImportMessage'),
+        cancel: t('common.cancel'),
+      });
+      if (!confirmed) {
+        restoreRunning.current = false;
+        return;
+      }
+      setRestoringEntry(entry.id);
+      try {
+        const messages = await restoreBackendEntry(backend, entry, t);
+        Alert.alert(t('backup.restoreComplete'), messages.join('\n'));
+        setBackendBackups(null);
+      } catch (error) {
+        Alert.alert(
+          t('common.error'),
+          error instanceof Error ? error.message : t('backup.importError')
         );
+      } finally {
+        restoreRunning.current = false;
+        setRestoringEntry(null);
+        // A restore that failed part way leaves its import paused, and the
+        // list is where that shows.
+        setRestoreGeneration((generation) => generation + 1);
       }
-      if (problem === 'invalid') {
-        return t('backup.webdavInvalidUrl', 'That is not a valid server address');
-      }
-      return null;
     },
     [t]
   );
 
-  const handleSaveWebdav = useCallback(async (): Promise<boolean> => {
-    if (!webdavUrl || !webdavUser || !webdavPass) return false;
-    const refused = urlProblemText(webdavUrl, webdavPlainLan);
-    if (refused) {
-      setConnectionResult('error');
-      setConnectionError(refused);
-      return false;
+  const handleResumeImport = useCallback(async () => {
+    if (restoreRunning.current) return;
+    restoreRunning.current = true;
+    setResumingImport(true);
+    try {
+      const result = await resumeRecordImport();
+      if (result) {
+        Alert.alert(t('backup.restoreComplete'), t('backup.recordRestored'));
+      }
+    } catch {
+      Alert.alert(t('common.error'), t('backup.importPausedError'));
+    } finally {
+      restoreRunning.current = false;
+      setResumingImport(false);
+      setRestoreGeneration((generation) => generation + 1);
     }
-    await setWebdavConfig(webdavUrl, webdavUser, webdavPass, webdavPlainLan);
-    // Refresh the offer list since WebDAV is now configured
-    getOfferableBackends().then(setOfferableBackends);
-    return true;
-  }, [webdavUrl, webdavUser, webdavPass, webdavPlainLan, urlProblemText]);
+  }, [t]);
 
-  const handleTogglePlainLan = useCallback((value: boolean) => {
-    setWebdavPlainLan(value);
-    setConnectionResult(null);
-    setConnectionError(null);
+  const handleDiscardImport = useCallback(() => {
+    Alert.alert(t('backup.discardImportTitle'), t('backup.discardImportMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('backup.discardImport'),
+        style: 'destructive',
+        onPress: async () => {
+          if (restoreRunning.current) return;
+          restoreRunning.current = true;
+          try {
+            await discardRecordImport();
+          } catch {
+            Alert.alert(t('common.error'), t('backup.discardImportError'));
+          } finally {
+            restoreRunning.current = false;
+            setRestoreGeneration((generation) => generation + 1);
+          }
+        },
+      },
+    ]);
+  }, [t]);
+
+  // Removing one carrier leaves the switch and the other carriers as they were.
+  const handleWebdavChanged = useCallback(() => {
+    setWebdavSet(getWebdavConfig() !== null);
+    setBackendBackups(null);
   }, []);
-  const plainHttp = /^\s*http:/i.test(webdavUrl);
 
-  const handleQrScanned = useCallback(
-    (data: string) => {
-      // Parse nc://login/user:USERNAME&password:PASSWORD&server:SERVER_URL
-      if (!data.startsWith('nc://login/')) {
-        setConnectionResult('error');
-        setConnectionError(t('backup.invalidQrCode', 'Not a valid Nextcloud QR code'));
-        setShowQrScanner(false);
-        return;
+  const handleChooseFolder = useCallback(async () => {
+    try {
+      const picked = await pickBackupFolder();
+      if (picked !== null) {
+        setFolderName(picked);
+        setBackendBackups(null);
       }
-      const params = data.slice('nc://login/'.length);
-      const parts: Record<string, string> = {};
-      for (const part of params.split('&')) {
-        const colonIdx = part.indexOf(':');
-        if (colonIdx > 0) {
-          parts[part.slice(0, colonIdx)] = part.slice(colonIdx + 1);
-        }
-      }
-      const user = parts.user;
-      const password = parts.password;
-      const server = parts.server;
-      if (!user || !password || !server) {
-        setConnectionResult('error');
-        setConnectionError(t('backup.invalidQrCode', 'Not a valid Nextcloud QR code'));
-        setShowQrScanner(false);
-        return;
-      }
-      // Construct WebDAV URL per Nextcloud docs
-      const baseUrl = server.endsWith('/') ? server.slice(0, -1) : server;
-      const webdavEndpoint = `${baseUrl}/remote.php/dav/files/${user}/`;
-      setWebdavUrl(webdavEndpoint);
-      setWebdavUser(user);
-      setWebdavPass(password);
-      setShowQrScanner(false);
-      const refused = urlProblemText(webdavEndpoint, webdavPlainLan);
-      if (refused) {
-        setConnectionResult('error');
-        setConnectionError(refused);
-        return;
-      }
-      setConnectionResult(null);
-      // Auto-save config
-      setWebdavConfig(webdavEndpoint, user, password, webdavPlainLan).then(() => {
-        getOfferableBackends().then(setOfferableBackends);
-      });
-    },
-    [t, urlProblemText, webdavPlainLan]
-  );
+    } catch (error) {
+      Alert.alert(t('common.error'), describeBackupError(error));
+    }
+  }, [describeBackupError, t]);
 
-  const handleTestConnection = useCallback(async () => {
-    if (!webdavUrl || !webdavUser || !webdavPass) {
-      setConnectionResult('error');
-      setConnectionError(t('backup.fillAllFields', 'Please fill in all fields'));
-      return;
-    }
-    setTestingConnection(true);
-    setConnectionResult(null);
-    setConnectionError(null);
-    if (!(await handleSaveWebdav())) {
-      setTestingConnection(false);
-      return;
-    }
-    const error = await testWebdavConnection();
-    setTestingConnection(false);
-    if (error) {
-      setConnectionResult('error');
-      setConnectionError(error);
-    } else {
-      setConnectionResult('success');
-    }
-  }, [handleSaveWebdav, webdavUrl, webdavUser, webdavPass, t]);
+  const handleRemoveFolder = useCallback(() => {
+    forgetBackupFolder();
+    setFolderName(null);
+    setBackendBackups(null);
+  }, []);
 
-  // Database backup
   const {
-    exportDatabaseBackup,
+    exportRecordBackup,
     exporting: dbExporting,
-    stillRunning: dbStillRunning,
-  } = useExportDatabaseBackup();
+    stillRunning: exportStillRunning,
+  } = useExportRecordBackup();
   const { importDatabaseBackup, importing: dbImporting } = useImportDatabaseBackup();
+  const handleImportBackup = useCallback(async () => {
+    await importDatabaseBackup();
+    // Read either way: an import that failed part way is paused, and shows here.
+    setRestoreGeneration((generation) => generation + 1);
+  }, [importDatabaseBackup]);
 
   // Bulk export
   const {
@@ -270,640 +370,443 @@ export function BackupSection() {
     format: bulkFormat,
     phase: bulkPhase,
     sizeBytes: bulkSizeBytes,
+    current: bulkCurrent,
+    total: bulkTotal,
   } = useBulkExport();
 
   const totalActivities = useActivityCount();
 
   const lastBackupText = lastBackupTs
-    ? t('backup.lastBackup', { date: new Date(lastBackupTs).toLocaleDateString() })
+    ? t('backup.lastBackup', { date: new Date(lastBackupTs).toLocaleDateString(getIntlLocale()) })
     : t('backup.lastBackupNever');
+
+  const iconColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const labelStyle = [settingsStyles.actionRowText, isDark && settingsStyles.textLight];
+  const detailStyle = [styles.detail, isDark && settingsStyles.textMuted];
+  const errorStyle = [styles.detail, styles.error, isDark && styles.errorDark];
+  const divider = (
+    <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+  );
+  const anyBusy = restoringEntry !== null;
+
+  const info = (...parts: string[]) => parts.join('\n\n');
 
   return (
     <>
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-        {t('backup.autoBackup').toUpperCase()}
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+        {t('backup.sectionBackup').toUpperCase()}
       </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
-        {/* Auto-backup toggle */}
-        <View style={styles.actionRow}>
-          <MaterialCommunityIcons
-            name="cloud-sync-outline"
-            size={22}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+      <Card variant="flat" padding="none">
+        <Row>
+          <MaterialCommunityIcons name="cloud-sync-outline" size={22} color={iconColor} />
+          <Text style={labelStyle}>{t('backup.autoBackup')}</Text>
+          <InfoButton
+            testID="backup-info-auto"
+            title={t('backup.autoBackup')}
+            message={info(t('backup.autoBackupDescription'), t('backup.recordContents'))}
           />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.actionText, isDark && styles.textLight]}>
-              {t('backup.autoBackup')}
-            </Text>
-            <Text style={[styles.subtitleText, isDark && styles.textMuted]}>
-              {t('backup.autoBackupDescription')}
-            </Text>
-          </View>
           <Switch
+            testID="backup-auto-switch"
             value={autoEnabled}
             onValueChange={handleToggleAutoBackup}
             trackColor={{ false: colors.border, true: colors.primary }}
           />
-        </View>
-
-        {/* Backend picker */}
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={() => setShowBackendPicker(true)}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons
-            name="folder-network-outline"
-            size={22}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {t('backup.selectBackend')}
-          </Text>
-          <Text style={[styles.backendValue, isDark && styles.textMuted]}>
-            {currentBackend.name}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-
-        {/* WebDAV config (shown when WebDAV is selected) */}
-        {currentBackend.id === 'webdav' && (
-          <View style={[styles.configBlock, isDark && styles.configBlockDark]}>
-            {/* Nextcloud QR code setup */}
-            <Text style={[styles.configLabel, isDark && styles.textMuted]}>
-              {t('backup.nextcloudSetup', 'If using Nextcloud WebDAV')}
-            </Text>
-            <TouchableOpacity
-              style={styles.qrSetupButton}
-              onPress={() => setShowQrScanner(true)}
-              activeOpacity={0.6}
-            >
-              <MaterialCommunityIcons name="qrcode-scan" size={18} color={colors.primary} />
-              <Text style={styles.qrSetupText}>
-                {t('backup.scanNextcloudQr', 'Scan Nextcloud App Password')}
-              </Text>
-            </TouchableOpacity>
-            <Text style={[styles.qrHint, isDark && styles.textMuted]}>
-              {t(
-                'backup.nextcloudQrHint',
-                'Nextcloud → Settings → Security → Create new app password → Scan QR code'
-              )}
-            </Text>
-
-            <Text
-              style={[styles.configLabel, { marginTop: spacing.sm }, isDark && styles.textMuted]}
-            >
-              {t('backup.manualSetup', 'Or enter manually')}
-            </Text>
-            <TextInput
-              style={[styles.input, isDark && styles.inputDark]}
-              placeholder={t('backup.serverUrl')}
-              placeholderTextColor={isDark ? darkColors.textMuted : colors.textSecondary}
-              value={webdavUrl}
-              onChangeText={setWebdavUrl}
-              onBlur={handleSaveWebdav}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-            {plainHttp && (
-              <View style={styles.plainLanRow}>
-                <Text style={[styles.qrHint, styles.plainLanText, isDark && styles.textMuted]}>
-                  {t('backup.webdavPlainLan', 'Allow an unencrypted server on my own network')}
-                </Text>
-                <Switch
-                  value={webdavPlainLan}
-                  onValueChange={handleTogglePlainLan}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  testID="backup-webdav-plain-lan"
-                />
-              </View>
-            )}
-            <TextInput
-              style={[styles.input, isDark && styles.inputDark]}
-              placeholder={t('backup.username')}
-              placeholderTextColor={isDark ? darkColors.textMuted : colors.textSecondary}
-              value={webdavUser}
-              onChangeText={setWebdavUser}
-              onBlur={handleSaveWebdav}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TextInput
-              style={[styles.input, isDark && styles.inputDark]}
-              placeholder={t('backup.password')}
-              placeholderTextColor={isDark ? darkColors.textMuted : colors.textSecondary}
-              value={webdavPass}
-              onChangeText={setWebdavPass}
-              onBlur={handleSaveWebdav}
-              autoCapitalize="none"
-              autoCorrect={false}
-              secureTextEntry
-            />
-            <View style={styles.testRow}>
-              <TouchableOpacity
-                style={[styles.testButton, testingConnection && { opacity: 0.5 }]}
-                onPress={handleTestConnection}
-                disabled={testingConnection}
-                activeOpacity={0.6}
-              >
-                <Text style={styles.testButtonText}>
-                  {testingConnection ? '...' : t('backup.testConnection')}
-                </Text>
-              </TouchableOpacity>
-              {connectionResult === 'success' && (
-                <Text
-                  style={[
-                    styles.connectionSuccess,
-                    { color: isDark ? darkColors.successDeep : colors.successDeep },
-                  ]}
-                >
-                  {t('backup.connectionSuccess')}
-                </Text>
-              )}
-              {connectionResult === 'error' && (
-                <Text style={[styles.connectionError, isDark && styles.connectionErrorDark]}>
-                  {connectionError || t('backup.connectionFailed')}
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {/* Backend picker modal */}
-        <Modal
-          visible={showBackendPicker}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowBackendPicker(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowBackendPicker(false)}
-          >
-            <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-              <Text style={[styles.modalTitle, isDark && styles.textLight]}>
-                {t('backup.selectBackend')}
-              </Text>
-              {offerableBackends.map((backend) => {
-                const label = backendLabel(backend.id);
-                if (!label) return null;
-                const selected = currentBackend.id === backend.id;
-                return (
-                  <TouchableOpacity
-                    key={backend.id}
-                    style={[styles.modalOption, selected && styles.modalOptionSelected]}
-                    onPress={() => handleSelectBackend(backend)}
-                    activeOpacity={0.6}
-                  >
-                    <MaterialCommunityIcons
-                      name={label.icon}
-                      size={20}
-                      color={
-                        selected
-                          ? colors.primary
-                          : isDark
-                            ? darkColors.textSecondary
-                            : colors.textSecondary
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.modalOptionText,
-                        isDark && styles.textLight,
-                        selected && { color: colors.primary },
-                      ]}
-                    >
-                      {t(label.labelKey)}
-                    </Text>
-                    {selected && (
-                      <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </TouchableOpacity>
-        </Modal>
-
-        {/* QR Scanner modal */}
-        <Modal
-          visible={showQrScanner}
-          animationType="slide"
-          onRequestClose={() => setShowQrScanner(false)}
-        >
-          <NextcloudQrScanner onScanned={handleQrScanned} onClose={() => setShowQrScanner(false)} />
-        </Modal>
-
-        {/* What an export leaves behind, beside the warning about what it is */}
-        <ExportPrivacyRow />
-
-        {/* Encryption warning */}
-        <View style={[styles.warningRow, isDark && styles.warningRowDark]}>
-          <MaterialCommunityIcons
-            name="shield-alert-outline"
-            size={16}
-            color={isDark ? darkColors.warningAmber : colors.warningAmber}
-          />
-          <Text style={[styles.warningText, isDark && styles.textMuted]}>
-            {t(
-              'backup.notEncryptedWarning',
-              'Backups are not encrypted. Do not store on untrusted services.'
-            )}
-          </Text>
-        </View>
-
-        {/* Last backup status */}
-        <View style={[styles.statusRow, isDark && styles.statusRowDark]}>
-          <View style={{ flex: 1 }}>
-            <Text
-              testID="backup-last-run-text"
-              style={[styles.statusText, isDark && styles.textMuted]}
-            >
+        </Row>
+        {divider}
+        <Row>
+          <MaterialCommunityIcons name="history" size={22} color={iconColor} />
+          <View style={styles.fill}>
+            <Text testID="backup-last-run-text" style={labelStyle}>
               {lastBackupText}
             </Text>
             {backupResult === 'success' && (
               <Text
                 testID="backup-success-message"
-                style={[
-                  styles.connectionSuccess,
-                  { color: isDark ? darkColors.successDeep : colors.successDeep },
-                ]}
+                style={[styles.detail, styles.success, isDark && styles.successDark]}
               >
-                {t('backup.backupSuccessMessage')}
+                {[
+                  t('backup.recordSavedLocal'),
+                  ...(runResult?.carriers.webdav?.status === 'written'
+                    ? [t('backup.recordSavedWebdav', { destination: getWebdavConfig()?.url ?? '' })]
+                    : []),
+                  ...(runResult?.carriers.folder?.status === 'written'
+                    ? [t('backup.recordSavedFolder', { destination: folderName ?? '' })]
+                    : []),
+                ].join('\n')}
               </Text>
             )}
+            {backupResult === 'success' &&
+              Object.entries(runResult?.carriers ?? {}).map(([id, outcome]) =>
+                outcome.status === 'failed' ? (
+                  <Text key={id} testID={`backup-carrier-failed-${id}`} style={errorStyle}>
+                    {t('backup.carrierNotWritten', { destination: carrierName(t, id) })}
+                    {'\n'}
+                    {t(failureMessageKey(outcome.kind === 'unknown' ? 'transport' : outcome.kind))}
+                  </Text>
+                ) : null
+              )}
             {backupResult === 'error' && (
-              <Text
-                testID="backup-error-message"
-                style={[styles.connectionError, isDark && styles.connectionErrorDark]}
-              >
+              <Text testID="backup-error-message" style={errorStyle}>
                 {backupError}
               </Text>
             )}
-            {backupResult === null && lastFailure && (
-              <Text testID="backup-failure-notice" style={styles.connectionError}>
-                {t('backup.lastAttemptFailed', {
-                  date: new Date(lastFailure.at).toLocaleDateString(),
-                })}
-                {'\n'}
-                {t(failureMessageKey(lastFailure.kind))}
-              </Text>
-            )}
           </View>
-          <TouchableOpacity
+          <Button
             testID="backup-now-button"
+            label={backingUp ? t('backup.backingUp') : t('backup.backupNow')}
+            variant="secondary"
+            size="sm"
             onPress={handleBackupNow}
             disabled={backingUp}
-            activeOpacity={0.2}
-          >
-            <Text style={[styles.linkText, backingUp && styles.linkTextDisabled]}>
-              {backingUp ? t('backup.backingUp') : t('backup.backupNow')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {/* Export backup */}
-        <TouchableOpacity
-          testID="backup-export-button"
-          style={styles.actionRow}
-          onPress={dbExporting ? undefined : exportDatabaseBackup}
-          disabled={dbExporting}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons name="database-export-outline" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
           />
-        </TouchableOpacity>
-        {dbStillRunning && (
-          <Text
-            testID="backup-export-still-running"
-            style={[styles.stillRunning, isDark && styles.textMuted]}
-          >
-            {t('settings.stillRunning')}
-          </Text>
-        )}
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
+        </Row>
+      </Card>
 
-        {/* Import backup (auto-detects .veloqdb and legacy .veloq) */}
-        <TouchableOpacity
-          testID="backup-import-button"
-          style={styles.actionRow}
-          onPress={dbImporting ? undefined : importDatabaseBackup}
-          disabled={dbImporting}
-          activeOpacity={0.2}
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+        {t('backup.sectionRestore').toUpperCase()}
+      </Text>
+      <Card variant="flat" padding="none">
+        <Row
+          testID="backup-list-button"
+          onPress={handleListBackups}
+          accessibilityLabel={t('backup.restoreFromDestination')}
+          disabled={loadingBackups || anyBusy}
         >
-          <MaterialCommunityIcons name="database-import-outline" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
+          <MaterialCommunityIcons name="cloud-download-outline" size={22} color={iconColor} />
+          <Text style={labelStyle}>{t('backup.restoreFromDestination')}</Text>
+          <InfoButton
+            testID="backup-info-restore"
+            title={t('backup.sectionRestore')}
+            message={info(t('backup.restoreInfo'), t('backup.manualRestorePath'))}
+          />
+        </Row>
+        {backendBackups?.every((group) => group.entries.length === 0) && (
+          <Row>
+            <Text testID="backup-none-found" style={detailStyle}>
+              {t('backup.noBackupsAtDestination')}
+            </Text>
+          </Row>
+        )}
+        {backendBackups?.map(({ backend, entries }) =>
+          entries.length === 0 ? null : (
+            <View key={backend.id} testID={`backup-group-${backend.id}`}>
+              {divider}
+              <View style={styles.groupLabel}>
+                <Text style={detailStyle}>{carrierName(t, backend.id)}</Text>
+              </View>
+              {entries.map((entry) => (
+                <Row
+                  key={entry.id}
+                  testID={`backup-entry-${backend.id}-${entry.id}`}
+                  onPress={() => handleRestoreEntry(backend, entry)}
+                  accessibilityLabel={t('backup.restoreDatedBackup', {
+                    date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
+                  })}
+                  disabled={anyBusy}
+                >
+                  <Text style={labelStyle}>
+                    {t('backup.restoreDatedBackup', {
+                      date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
+                    })}
+                  </Text>
+                </Row>
+              ))}
+            </View>
+          )
+        )}
+        {divider}
+        <Row
+          testID="backup-import-button"
+          onPress={handleImportBackup}
+          accessibilityLabel={dbImporting ? t('backup.importing') : t('backup.importBackup')}
+          disabled={dbImporting}
+        >
+          <MaterialCommunityIcons name="database-import-outline" size={22} color={iconColor} />
+          <Text style={labelStyle}>
             {dbImporting ? t('backup.importing') : t('backup.importBackup')}
           </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
+        </Row>
+        {importPaused && (
+          <>
+            {divider}
+            <Row>
+              <MaterialCommunityIcons name="pause-circle-outline" size={22} color={iconColor} />
+              <View style={styles.fill}>
+                <Text testID="backup-import-paused" style={labelStyle}>
+                  {t('backup.importPaused')}
+                </Text>
+                <View style={styles.actions}>
+                  <Button
+                    testID="backup-import-resume-button"
+                    label={t('errorState.tryAgain')}
+                    variant="secondary"
+                    size="sm"
+                    onPress={handleResumeImport}
+                    loading={resumingImport}
+                    disabled={anyBusy}
+                  />
+                  <Button
+                    testID="backup-import-discard-button"
+                    label={t('backup.discardImport')}
+                    variant="ghost"
+                    size="sm"
+                    onPress={handleDiscardImport}
+                    disabled={resumingImport || anyBusy}
+                  />
+                </View>
+              </View>
+            </Row>
+          </>
+        )}
+        {fetchingActivities && (
+          <>
+            {divider}
+            <Row testID="backup-restore-fetch">
+              <MaterialCommunityIcons name="download-outline" size={22} color={iconColor} />
+              <View style={styles.fill}>
+                <Text style={labelStyle}>{t('backup.unplacedActivityPending')}</Text>
+                {fetchTotal > 0 && (
+                  <>
+                    <View
+                      testID="backup-restore-fetch-progress"
+                      accessibilityRole="progressbar"
+                      accessibilityValue={{ min: 0, max: fetchTotal, now: fetchDone }}
+                      style={[styles.fetchTrack, isDark && styles.fetchTrackDark]}
+                    >
+                      <View
+                        style={[
+                          styles.fetchFill,
+                          { width: `${Math.round((fetchDone / fetchTotal) * 100)}%` },
+                        ]}
+                      />
+                    </View>
+                    <Text testID="backup-restore-fetch-counts" style={detailStyle}>
+                      {`${fetchDone}/${fetchTotal}`}
+                    </Text>
+                  </>
+                )}
+              </View>
+            </Row>
+          </>
+        )}
+        {waitingRecords.length > 0 && (
+          <>
+            {divider}
+            <Row testID="backup-unplaced-records">
+              <MaterialCommunityIcons name="timer-sand" size={22} color={iconColor} />
+              <View style={styles.fill}>
+                <Text style={labelStyle}>
+                  {t('backup.unplacedRecords', { count: waitingRecords.length })}
+                </Text>
+                {waitingRecords.map((record, index) => (
+                  <Text key={`${record.kind}-${record.name ?? ''}-${index}`} style={detailStyle}>
+                    {record.name ?? t(unplacedKindKey(record.kind))}:{' '}
+                    {record.reason === 'activity_unavailable'
+                      ? t('backup.unplacedActivityUnavailable')
+                      : t('backup.unplacedGroundNotDetected')}
+                  </Text>
+                ))}
+              </View>
+            </Row>
+          </>
+        )}
+        {unplacedReadError && (
+          <Row>
+            <Text testID="backup-unplaced-read-error" style={errorStyle}>
+              {t('backup.unplacedReadError')}
+            </Text>
+          </Row>
+        )}
+      </Card>
 
-        {/* Bulk activity export */}
-        <View style={styles.actionRow}>
-          <MaterialCommunityIcons name="map-marker-path" size={22} color={colors.primary} />
-          {bulkExporting ? (
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+        {t('backup.sectionDestinations').toUpperCase()}
+      </Text>
+      <Card variant="flat" padding="none">
+        <Row testID="backup-carrier-device">
+          <MaterialCommunityIcons name="cellphone" size={22} color={iconColor} />
+          <Text style={labelStyle}>
+            {t(Platform.OS === 'ios' ? 'backup.carrierDeviceIos' : 'backup.carrierDeviceAndroid')}
+          </Text>
+          <InfoButton
+            testID="backup-info-destinations"
+            title={t('backup.sectionDestinations')}
+            message={info(
+              t('backup.carrierDeviceDescription'),
+              t('backup.platformRestorePath'),
+              webdavSet ? t('backup.webdavRestorePath') : t('backup.localRestorePath')
+            )}
+          />
+        </Row>
+        {divider}
+        <View testID="backup-carrier-folder">
+          <Row>
+            <MaterialCommunityIcons name="folder-outline" size={22} color={iconColor} />
+            <View style={styles.fill}>
+              <Text style={labelStyle}>{t('backup.carrierFolder')}</Text>
+              <Text style={detailStyle}>{folderName ?? t('backup.carrierFolderNone')}</Text>
+            </View>
+            {folderName && (
+              <Button
+                testID="backup-folder-remove"
+                label={t('backup.carrierFolderRemove')}
+                variant="ghost"
+                size="sm"
+                onPress={handleRemoveFolder}
+              />
+            )}
+            <Button
+              testID="backup-folder-choose"
+              label={folderName ? t('backup.carrierFolderChange') : t('backup.carrierFolderChoose')}
+              variant="secondary"
+              size="sm"
+              onPress={handleChooseFolder}
+            />
+          </Row>
+          {carrierFailures.folder && (
+            <View style={styles.failure}>
+              <CarrierFailure
+                failure={carrierFailures.folder}
+                testID="backup-carrier-failure-folder"
+              />
+            </View>
+          )}
+        </View>
+        {divider}
+        <View testID="backup-carrier-webdav">
+          <Row>
+            <MaterialCommunityIcons name="server-network" size={22} color={iconColor} />
+            <Text style={labelStyle}>{t('backup.backendWebdav')}</Text>
+          </Row>
+          {carrierFailures.webdav && (
+            <View style={styles.failure}>
+              <CarrierFailure
+                failure={carrierFailures.webdav}
+                testID="backup-carrier-failure-webdav"
+              />
+            </View>
+          )}
+          <WebdavConfigForm onConfigChange={handleWebdavChanged} onRemoved={handleWebdavChanged} />
+        </View>
+      </Card>
+
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+        {t('backup.sectionExport').toUpperCase()}
+      </Text>
+      <Card variant="flat" padding="none">
+        <Row
+          testID="backup-export-button"
+          onPress={exportRecordBackup}
+          accessibilityLabel={dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
+          disabled={dbExporting}
+        >
+          <MaterialCommunityIcons name="database-export-outline" size={22} color={iconColor} />
+          <Text style={labelStyle}>
+            {dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
+          </Text>
+          <InfoButton
+            testID="backup-info-export"
+            title={t('backup.exportBackup')}
+            message={t('backup.notEncryptedWarning')}
+          />
+        </Row>
+        {exportStillRunning && (
+          <Row>
+            <Text testID="backup-export-still-running" style={detailStyle}>
+              {t('settings.stillRunning')}
+            </Text>
+          </Row>
+        )}
+        {divider}
+        <Row>
+          <MaterialCommunityIcons name="map-marker-path" size={22} color={iconColor} />
+          {bulkExporting || bulkStillRunning ? (
             <BulkExportProgress
               phase={bulkPhase}
               format={bulkFormat}
+              current={bulkCurrent}
+              total={bulkTotal}
               sizeBytes={bulkSizeBytes}
               isDark={isDark}
             />
           ) : (
             <>
-              <Text style={[styles.actionText, isDark && styles.textLight]}>
-                {t('export.bulkExport', { count: totalActivities })}
-              </Text>
-              <View style={styles.pillRow}>
-                <TouchableOpacity
-                  style={[styles.pill, isDark && styles.pillDark]}
-                  onPress={exportAll}
-                  activeOpacity={0.6}
-                >
-                  <Text style={styles.pillText}>GPX</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.pill, isDark && styles.pillDark]}
-                  onPress={exportAllGeoJson}
-                  activeOpacity={0.6}
-                >
-                  <Text style={styles.pillText}>GeoJSON</Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={labelStyle}>{t('export.bulkExport', { count: totalActivities })}</Text>
+              <Button
+                testID="backup-export-gpx"
+                label="GPX"
+                variant="secondary"
+                size="sm"
+                onPress={exportAll}
+              />
+              <Button
+                testID="backup-export-geojson"
+                label="GeoJSON"
+                variant="secondary"
+                size="sm"
+                onPress={exportAllGeoJson}
+              />
             </>
           )}
-        </View>
-        {bulkStillRunning && (
-          <Text
-            testID="bulk-export-still-running"
-            style={[styles.stillRunning, isDark && styles.textMuted]}
-          >
-            {t('settings.stillRunning')}
-          </Text>
+        </Row>
+        {/* A late share is the run ending, not one the athlete can leave. */}
+        {bulkStillRunning && bulkPhase !== 'sharing' && (
+          <Row>
+            <Text testID="bulk-export-still-running" style={detailStyle}>
+              {t('settings.stillRunning')}
+            </Text>
+          </Row>
         )}
-      </View>
+        {divider}
+        <ExportPrivacyRow />
+      </Card>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-    letterSpacing: 0.5,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    marginHorizontal: layout.screenPadding,
-    borderRadius: layout.borderRadiusMd,
-    overflow: 'hidden',
-  },
-  sectionDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  actionText: {
+  fill: {
     flex: 1,
-    fontSize: typography.body.fontSize,
-    color: colors.textPrimary,
   },
-  subtitleText: {
-    fontSize: typography.bodyCompact.fontSize,
+  detail: {
+    ...typography.caption,
     color: colors.textSecondary,
-    marginTop: spacing.xxs,
   },
-  stillRunning: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
+  groupLabel: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  failure: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
+  success: {
+    color: colors.successDeep,
   },
-  statusRowDark: {
-    backgroundColor: darkColors.background,
+  successDark: {
+    color: darkColors.successDeep,
   },
-  statusText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-  },
-  linkText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  linkTextDisabled: {
-    opacity: 0.5,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: spacing.md + 22 + spacing.sm,
-  },
-  dividerDark: {
-    backgroundColor: darkColors.border,
-  },
-  pillRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  pill: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    backgroundColor: colors.primary,
-  },
-  pillDark: {
-    backgroundColor: colors.primary,
-  },
-  pillText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.textOnPrimary,
-  },
-  backendValue: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginRight: spacing.xs,
-  },
-  configBlock: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: spacing.xs,
-  },
-  configBlockDark: {},
-  input: {
-    height: 40,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.sm,
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textPrimary,
-    backgroundColor: colors.background,
-  },
-  inputDark: {
-    borderColor: darkColors.border,
-    color: colors.textOnDark,
-    backgroundColor: darkColors.background,
-  },
-  testRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xxs,
-  },
-  testButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    backgroundColor: colors.primary,
-  },
-  qrSetupButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderStyle: 'dashed',
-  },
-  qrSetupText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
-    color: colors.primary,
-  },
-  plainLanRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  plainLanText: { flex: 1, marginBottom: 0 },
-  qrHint: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  configLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs,
-  },
-  testButtonText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.textOnPrimary,
-  },
-  connectionSuccess: {
-    fontSize: typography.bodyCompact.fontSize,
-    marginTop: spacing.xs,
-  },
-  connectionError: {
-    fontSize: typography.bodyCompact.fontSize,
+  error: {
     color: colors.errorDeep,
-    marginTop: spacing.xs,
   },
-  connectionErrorDark: {
+  errorDark: {
     color: darkColors.errorDeep,
   },
-  warningRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colorWithOpacity(colors.warning, 0.08),
+  fetchTrack: {
+    height: spacing.xs,
+    borderRadius: layout.borderRadiusXs,
+    overflow: 'hidden',
+    backgroundColor: colors.border,
   },
-  warningRowDark: {
-    backgroundColor: colorWithOpacity(colors.warning, 0.12),
+  fetchTrackDark: {
+    backgroundColor: darkColors.border,
   },
-  warningText: {
-    flex: 1,
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colorWithOpacity(ink.black, 0.4),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '80%',
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.lg,
-  },
-  modalContentDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  modalTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-  },
-  modalOptionSelected: {
-    backgroundColor: colorWithOpacity(brand.tealLight, 0.08),
-  },
-  modalOptionText: {
-    flex: 1,
-    fontSize: typography.body.fontSize,
-    color: colors.textPrimary,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
+  fetchFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
   },
 });

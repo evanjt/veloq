@@ -1,68 +1,114 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   restoreBackup,
-  exportDatabaseBackup,
-  resumePendingDatabaseExport,
+  RESTORE_REFUSAL_KEYS,
   restoreDatabaseBackup,
+  restoreRecordBackup,
+  exportRecordBackup,
+  hasPendingRecordExport,
+  importWaitsForSignIn,
+  pendingRecordExportSettled,
+  resumePendingRecordExport,
   type DatabaseRestoreResult,
+  type RecordExportOutcome,
 } from '@/features/settings/lib/backup';
+import { holdImportWhileSignedOut, isHeldWhileSignedOut } from '@/features/settings/lib/heldImport';
+import { isPickerCopy } from '@/shared/storage/cacheFiles';
 
-/**
- * Export full SQLite database snapshot via share sheet.
- *
- * The wait is capped at a minute. A copy still going past it is not a failure:
- * the row says so, and the file is offered when the screen next mounts, which
- * is what `resumePendingDatabaseExport` reads.
- */
-export function useExportDatabaseBackup() {
+/** Ask before a backup replaces stored preferences and names. */
+export function confirmLegacyImport(copy: {
+  title: string;
+  message: string;
+  cancel: string;
+}): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      copy.title,
+      copy.message,
+      [
+        { text: copy.cancel, style: 'cancel', onPress: () => resolve(false) },
+        { text: copy.title, style: 'destructive', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) }
+    );
+  });
+}
+
+export function useExportRecordBackup() {
   const [exporting, setExporting] = useState(false);
   const [stillRunning, setStillRunning] = useState(false);
+  const running = useRef(false);
+  const waiting = useRef(false);
+  const live = useRef(true);
   const { t } = useTranslation();
 
+  useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+    };
+  }, []);
+
+  const settle = useCallback(
+    async function take(outcome: RecordExportOutcome): Promise<void> {
+      if (outcome === 'still-running') {
+        if (!live.current) return;
+        setStillRunning(true);
+        // A screen that was left does not take the file: the one that comes
+        // back does, on mount.
+        if (!waiting.current) {
+          waiting.current = true;
+          void pendingRecordExportSettled().then(async () => {
+            waiting.current = false;
+            if (!live.current) return;
+            try {
+              await take(await resumePendingRecordExport());
+            } catch {
+              setStillRunning(false);
+              Alert.alert(t('common.error'), t('backup.exportError'));
+            }
+          });
+        }
+      } else if (live.current && outcome === 'complete') {
+        setStillRunning(false);
+      }
+    },
+    [t]
+  );
+
+  useEffect(() => {
+    if (!hasPendingRecordExport()) return;
+    resumePendingRecordExport().then(settle, () => {
+      setStillRunning(false);
+      Alert.alert(t('common.error'), t('backup.exportError'));
+    });
+  }, [settle, t]);
+
   const doExport = useCallback(async () => {
-    if (exporting) return;
+    if (running.current) return;
+    running.current = true;
     setExporting(true);
     try {
-      setStillRunning((await exportDatabaseBackup()) === 'still-running');
+      await settle(await exportRecordBackup());
     } catch {
       setStillRunning(false);
       Alert.alert(t('common.error'), t('backup.exportError'));
     } finally {
-      setExporting(false);
+      running.current = false;
+      if (live.current) setExporting(false);
     }
-  }, [exporting, t]);
+  }, [settle, t]);
 
-  useEffect(() => {
-    let live = true;
-    void (async () => {
-      try {
-        const outcome = await resumePendingDatabaseExport();
-        if (!live) return;
-        // Only the two outcomes about an owed file say anything.
-        // `nothing-pending` means the resume found nothing owed, not that
-        // nothing is running: reporting it as not running lands after an
-        // export started since this mount and clears the row it just set.
-        if (outcome === 'still-running') setStillRunning(true);
-        else if (outcome === 'shared') setStillRunning(false);
-      } catch {
-        if (live) setStillRunning(false);
-        Alert.alert(t('common.error'), t('backup.exportError'));
-      }
-    })();
-    return () => {
-      live = false;
-    };
-  }, [t]);
-
-  return { exportDatabaseBackup: doExport, exporting, stillRunning };
+  return { exportRecordBackup: doExport, exporting, stillRunning };
 }
 
 /**
  * Import a backup file via document picker.
- * Auto-detects format: .veloqdb (SQLite snapshot) or .veloq (legacy JSON).
+ * Auto-detects the record archive and supported legacy formats.
  */
 export function useImportDatabaseBackup() {
   const [importing, setImporting] = useState(false);
@@ -71,8 +117,9 @@ export function useImportDatabaseBackup() {
   const doImport = useCallback(async (): Promise<DatabaseRestoreResult | null> => {
     if (importing) return null;
     setImporting(true);
+    // The picker's copy of the chosen file, deleted once the import settles.
+    let pickedCopy: string | null = null;
     try {
-      const DocumentPicker = await import('expo-document-picker');
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/octet-stream', 'application/json', '*/*'],
         copyToCacheDirectory: true,
@@ -83,7 +130,27 @@ export function useImportDatabaseBackup() {
       }
 
       const fileUri = result.assets[0].uri;
+      if (isPickerCopy(fileUri)) pickedCopy = fileUri;
       const fileName = result.assets[0].name ?? '';
+
+      // An older backup picked signed out is held for sign-in below; anything else needs the engine now.
+      if (importWaitsForSignIn() && !isHeldWhileSignedOut(fileName)) {
+        Alert.alert(t('common.error'), t('backup.signInRequired'));
+        return { success: false, activityCount: 0, signInRequired: true };
+      }
+
+      const confirmed = await confirmLegacyImport({
+        title: t('backup.importBackup'),
+        message: t('backup.legacyImportMessage'),
+        cancel: t('common.cancel'),
+      });
+      if (!confirmed) return null;
+
+      // Signed out, an older backup waits for the sign-in that lets it land.
+      if (await holdImportWhileSignedOut(fileUri, fileName)) {
+        Alert.alert(t('backup.importBackup'), t('backup.heldUntilSignIn'));
+        return { success: false, activityCount: 0 };
+      }
 
       // Auto-detect legacy .veloq JSON files
       if (fileName.endsWith('.veloq')) {
@@ -92,25 +159,15 @@ export function useImportDatabaseBackup() {
         });
 
         const legacyResult = await restoreBackup(json);
+        if (legacyResult.failed) {
+          const message = legacyResult.signInRequired
+            ? t('backup.signInRequired')
+            : (legacyResult.error ?? t('backup.importError'));
+          Alert.alert(t('common.error'), message);
+          return { success: false, activityCount: 0, error: legacyResult.error ?? message };
+        }
 
-        const messages: string[] = [];
-        if (legacyResult.namesApplied > 0) {
-          messages.push(t('backup.namesRestored', { count: legacyResult.namesApplied }));
-        }
-        if (legacyResult.preferencesRestored > 0) {
-          messages.push(
-            t('backup.preferencesRestored', { count: legacyResult.preferencesRestored })
-          );
-        }
-        if (legacyResult.sectionsRestored > 0) {
-          messages.push(t('backup.sectionsRestored', { count: legacyResult.sectionsRestored }));
-        }
-        if (legacyResult.sectionsFailed.length > 0) {
-          messages.push(t('backup.sectionsSkipped', { count: legacyResult.sectionsFailed.length }));
-        }
-        messages.push('');
-        messages.push(t('backup.legacyImportNotice'));
-
+        const messages = [t('backup.recordRestored')];
         Alert.alert(t('backup.restoreComplete'), messages.join('\n'));
 
         return {
@@ -119,27 +176,39 @@ export function useImportDatabaseBackup() {
         };
       }
 
-      // Default: .veloqdb SQLite restore
+      if (fileName.endsWith('.zip')) {
+        await restoreRecordBackup(fileUri);
+        Alert.alert(t('backup.restoreComplete'), t('backup.recordRestored'));
+        return { success: true, activityCount: 0 };
+      }
+
       const restoreResult = await restoreDatabaseBackup(fileUri);
 
       if (restoreResult.success) {
-        const messages = [t('backup.databaseRestored', { count: restoreResult.activityCount })];
-        if (restoreResult.athleteIdMismatch) {
-          messages.push(
-            `\n${t('backup.differentAccount', { defaultValue: 'Warning: This backup belongs to a different account ({{id}}).' }).replace('{{id}}', restoreResult.backupAthleteId ?? '?')}`
-          );
-        }
-        Alert.alert(t('backup.restoreComplete'), messages.join(''));
+        Alert.alert(t('backup.restoreComplete'), t('backup.recordRestored'));
       } else {
-        Alert.alert(t('common.error'), restoreResult.error ?? t('backup.importError'));
+        Alert.alert(
+          t('common.error'),
+          restoreResult.signInRequired
+            ? t('backup.signInRequired')
+            : restoreResult.athleteIdMismatch
+              ? t('backup.backupDifferentAccount')
+              : restoreResult.reason
+                ? t(RESTORE_REFUSAL_KEYS[restoreResult.reason])
+                : (restoreResult.error ?? t('backup.importError'))
+        );
       }
 
       return restoreResult;
     } catch (error) {
       const msg = error instanceof Error ? error.message : t('backup.importError');
       Alert.alert(t('common.error'), msg);
+      // empty-on-error: the failure is the alert on the line above; null tells the caller the
+      // import did not complete.
       return null;
     } finally {
+      if (pickedCopy)
+        await FileSystem.deleteAsync(pickedCopy, { idempotent: true }).catch(() => {});
       setImporting(false);
     }
   }, [importing, t]);

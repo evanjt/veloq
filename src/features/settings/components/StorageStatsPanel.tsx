@@ -1,11 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { Pressable, View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatFullDate, formatFileSize } from '@/shared/format/format';
 import {
+  BYTES_PER_BUDGET_MB,
   TILE_CACHE_BUDGET_CHOICES_MB,
-  type TileCacheStats,
+  type BasemapTileSizes,
   useTileCacheSettings,
 } from '@/features/maps';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,20 +24,22 @@ import {
 
 import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
+import { pressable, pressRipple } from '@/shared/ui';
 
 function formatDateOrDash(dateStr: string | null): string {
   if (!dateStr) return '-';
   return formatFullDate(dateStr);
 }
 
-/** Every segment the bar can draw. A key, never a literal: the legend was the
- * one thing on this screen that stayed in English. */
+/** Every segment the bar can draw. A key, never a literal: the legend and
+ * the total line beside it were once English literals. */
 type SegmentKey =
   | 'settings.storageDatabase'
   | 'settings.storageHeatmap'
   | 'settings.storageVector'
   | 'settings.storageGround'
-  | 'settings.storagePreviews';
+  | 'settings.storagePreviews'
+  | 'settings.storageBackups';
 
 interface StorageBarSegment {
   labelKey: SegmentKey;
@@ -48,16 +51,18 @@ interface StorageBarSegment {
  * and its legend was the one thing on it that stayed in English. */
 function StorageBreakdownBar({
   routesSize,
-  tileCacheStats,
+  basemapTiles,
   terrainCacheSize,
   heatmapCacheSize,
+  athleteFilesSize,
   freeStorage,
   isDark,
 }: {
   routesSize: number;
-  tileCacheStats: TileCacheStats | null;
+  basemapTiles: BasemapTileSizes | null;
   terrainCacheSize: number;
   heatmapCacheSize: number;
+  athleteFilesSize: number;
   freeStorage: number | null;
   isDark: boolean;
 }) {
@@ -68,7 +73,7 @@ function StorageBreakdownBar({
       result.push({
         labelKey: 'settings.storageDatabase',
         bytes: routesSize,
-        color: colors.primary,
+        color: colors.linkTeal,
       });
     }
     if (heatmapCacheSize > 0) {
@@ -78,17 +83,19 @@ function StorageBreakdownBar({
         color: colors.markOrange,
       });
     }
-    if (tileCacheStats?.vector?.totalBytes) {
+    const vectorBytes = basemapTiles?.vectorBytes ?? 0;
+    const groundBytes = Math.max(0, (basemapTiles?.totalBytes ?? 0) - vectorBytes);
+    if (vectorBytes > 0) {
       result.push({
         labelKey: 'settings.storageVector',
-        bytes: tileCacheStats.vector.totalBytes,
+        bytes: vectorBytes,
         color: colors.markCyan,
       });
     }
-    if (tileCacheStats?.ground?.totalBytes) {
+    if (groundBytes > 0) {
       result.push({
         labelKey: 'settings.storageGround',
-        bytes: tileCacheStats.ground.totalBytes,
+        bytes: groundBytes,
         color: colors.markAmber,
       });
     }
@@ -99,8 +106,15 @@ function StorageBreakdownBar({
         color: colors.markYellow,
       });
     }
+    if (athleteFilesSize > 0) {
+      result.push({
+        labelKey: 'settings.storageBackups',
+        bytes: athleteFilesSize,
+        color: colors.markGreen,
+      });
+    }
     return result;
-  }, [routesSize, tileCacheStats, terrainCacheSize, heatmapCacheSize]);
+  }, [routesSize, basemapTiles, terrainCacheSize, heatmapCacheSize, athleteFilesSize]);
 
   // The bar segment and its legend dot read the one colour, so the mark tones
   // keep the two in step while making the segment visible on the light theme.
@@ -160,7 +174,10 @@ function StorageBreakdownBar({
               isDark && styles.textMuted,
             ]}
           >
-            {formatFileSize(totalCacheBytes)} of {formatFileSize(totalDevice)} used
+            {t('settings.storageUsedAndFree', {
+              used: formatFileSize(totalCacheBytes),
+              free: formatFileSize(freeStorage),
+            })}
           </Text>
         </>
       )}
@@ -177,13 +194,17 @@ export interface StorageStatsPanelProps {
   dateRangeText: string;
   lastSync: string | null;
   totalQueries: number;
-  databaseSize: number;
   onClearMapCache: () => void;
   routesSize: number;
-  tileCacheStats: TileCacheStats | null;
+  /** What the Rust tile store holds, or null until it has said. */
+  basemapTiles: BasemapTileSizes | null;
   terrainCacheSize: number;
   heatmapCacheSize: number;
+  /** Library copies, backups, recordings and share files. */
+  athleteFilesSize: number;
   freeStorage: number | null;
+  /** Called once the tile store has taken a new limit and evicted to it. */
+  onBudgetApplied?: () => void;
 }
 
 export function StorageStatsPanel({
@@ -195,19 +216,20 @@ export function StorageStatsPanel({
   dateRangeText,
   lastSync,
   totalQueries,
-  databaseSize,
   onClearMapCache,
   routesSize,
-  tileCacheStats,
+  basemapTiles,
   terrainCacheSize,
   heatmapCacheSize,
+  athleteFilesSize,
   freeStorage,
+  onBudgetApplied,
 }: StorageStatsPanelProps) {
   const { t } = useTranslation();
   const total = mapCacheTotal({
     terrainBytes: terrainCacheSize,
     heatmapBytes: heatmapCacheSize,
-    tileStats: tileCacheStats,
+    tiles: basemapTiles,
   });
   const budgetMb = useTileCacheSettings((state) => state.budgetMb);
   const setBudgetMb = useTileCacheSettings((state) => state.setBudgetMb);
@@ -218,17 +240,17 @@ export function StorageStatsPanel({
   const [pickingBudget, setPickingBudget] = useState(false);
   const chooseBudget = useCallback(
     (mb: number) => {
-      setBudgetMb(mb);
+      void Promise.resolve(setBudgetMb(mb)).then(() => onBudgetApplied?.());
       setPickingBudget(false);
     },
-    [setBudgetMb, setPickingBudget]
+    [setBudgetMb, setPickingBudget, onBudgetApplied]
   );
 
   // What the tiles hold against what they are allowed, which is the question
   // the control is answering. A store that has not reported is a floor, not a
   // zero, the same way the total above says so.
-  const budgetBytes = budgetMb * 1024 * 1024;
-  const usedBytes = tileCacheStats?.totalBytes ?? 0;
+  const budgetBytes = budgetMb * BYTES_PER_BUDGET_MB;
+  const usedBytes = basemapTiles?.totalBytes ?? 0;
   const usedShare = budgetBytes > 0 ? Math.min(1, usedBytes / budgetBytes) : 0;
 
   return (
@@ -241,7 +263,13 @@ export function StorageStatsPanel({
           activeOpacity={0.7}
         >
           <Text style={[styles.statValue, isDark && styles.textLight]}>{totalActivities}</Text>
-          <Text style={[styles.statLabel, styles.statLabelClickable]}>
+          <Text
+            style={[
+              styles.statLabel,
+              styles.statLabelClickable,
+              isDark && { color: darkColors.linkTeal },
+            ]}
+          >
             {t('settings.activities')} ›
           </Text>
         </TouchableOpacity>
@@ -258,7 +286,9 @@ export function StorageStatsPanel({
           <Text
             style={[
               styles.statLabel,
-              routeMatchingEnabled ? styles.statLabelClickable : isDark && styles.textMuted,
+              routeMatchingEnabled
+                ? [styles.statLabelClickable, isDark && { color: darkColors.linkTeal }]
+                : isDark && styles.textMuted,
             ]}
           >
             {t('settings.routesCount')} ›
@@ -277,7 +307,9 @@ export function StorageStatsPanel({
           <Text
             style={[
               styles.statLabel,
-              routeMatchingEnabled ? styles.statLabelClickable : isDark && styles.textMuted,
+              routeMatchingEnabled
+                ? [styles.statLabelClickable, isDark && { color: darkColors.linkTeal }]
+                : isDark && styles.textMuted,
             ]}
           >
             {t('settings.sectionsCount')} ›
@@ -311,7 +343,7 @@ export function StorageStatsPanel({
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
         <Text style={[styles.infoLabel, isDark && styles.textMuted]}>{t('settings.database')}</Text>
         <Text style={[styles.infoValue, isDark && styles.textLight]}>
-          {formatFileSize(databaseSize)}
+          {formatFileSize(routesSize)}
         </Text>
       </View>
 
@@ -339,9 +371,15 @@ export function StorageStatsPanel({
               : '-'}
           </Text>
           {total.bytes > 0 && (
-            <TouchableOpacity onPress={onClearMapCache} style={styles.clearInlineButton}>
-              <Text style={styles.clearInlineText}>{t('settings.clearCache')}</Text>
-            </TouchableOpacity>
+            <Pressable
+              onPress={onClearMapCache}
+              style={pressable(styles.clearInlineButton)}
+              android_ripple={pressRipple}
+            >
+              <Text style={[styles.clearInlineText, isDark && { color: darkColors.linkTeal }]}>
+                {t('settings.clearCache')}
+              </Text>
+            </Pressable>
           )}
         </View>
       </View>
@@ -353,16 +391,23 @@ export function StorageStatsPanel({
           <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
             {t('settings.tileCacheLimit')}
           </Text>
-          <TouchableOpacity
+          <Pressable
             testID="settings-tile-cache-limit"
             onPress={() => setPickingBudget(true)}
-            style={styles.infoValueRow}
+            style={pressable(styles.infoValueRow)}
             accessibilityRole="button"
+            android_ripple={pressRipple}
           >
-            <Text style={[styles.infoValue, styles.statLabelClickable]}>
+            <Text
+              style={[
+                styles.infoValue,
+                styles.statLabelClickable,
+                isDark && { color: darkColors.linkTeal },
+              ]}
+            >
               {formatFileSize(budgetBytes)} ›
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
         <Text
           testID="settings-tile-cache-subtitle"
@@ -376,7 +421,7 @@ export function StorageStatsPanel({
         </View>
         <View style={styles.budgetFooter}>
           <Text testID="settings-tile-cache-used" style={styles.budgetFooterText}>
-            {tileCacheStats
+            {basemapTiles
               ? t('settings.tileCacheUsedOfBudget', {
                   used: formatFileSize(usedBytes),
                   budget: formatFileSize(budgetBytes),
@@ -424,10 +469,10 @@ export function StorageStatsPanel({
                     style={[
                       styles.modalOptionText,
                       isDark && styles.textLight,
-                      selected && { color: colors.primary },
+                      selected && { color: isDark ? darkColors.linkTeal : colors.linkTeal },
                     ]}
                   >
-                    {formatFileSize(mb * 1024 * 1024)}
+                    {formatFileSize(mb * BYTES_PER_BUDGET_MB)}
                   </Text>
                   {selected && (
                     <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
@@ -442,9 +487,10 @@ export function StorageStatsPanel({
       {/* Storage breakdown bar */}
       <StorageBreakdownBar
         routesSize={routesSize}
-        tileCacheStats={tileCacheStats}
+        basemapTiles={basemapTiles}
         terrainCacheSize={terrainCacheSize}
         heatmapCacheSize={heatmapCacheSize}
+        athleteFilesSize={athleteFilesSize}
         freeStorage={freeStorage}
         isDark={isDark}
       />
@@ -478,7 +524,7 @@ const styles = StyleSheet.create({
   },
   statLabelClickable: {
     fontSize: typography.caption.fontSize,
-    color: colors.primary,
+    color: colors.linkTeal,
     marginTop: spacing.xxs,
   },
   infoRow: {
@@ -587,7 +633,7 @@ const styles = StyleSheet.create({
   },
   clearInlineText: {
     fontSize: typography.bodyCompact.fontSize,
-    color: colors.primary,
+    color: colors.linkTeal,
     fontWeight: '500',
   },
   textLight: {

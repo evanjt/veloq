@@ -1,65 +1,20 @@
 /**
- * The change card: what the new section detector delivers, one row per
- * claim, and a row only when this build can back it. Rows read the engine's
- * support flags, so a claim never appears ahead of its feature.
- *
- * Above the claims sits this user's own cutover. While the re-cut runs the
- * card names the phase, and once it settles it reports the stored diff, so
- * the numbers are the engine's rather than a promise. A failed run says so and
+ * The change card: this athlete's own cutover to the new section detector.
+ * While the re-cut runs it says so in one line. Once it settles it reports the stored diff, so the
+ * numbers are the engine's rather than a promise. A failed run says so and
  * withholds the diff, which still describes the run before it.
- *
- * The elevation line is the tour's only word on the one-time download that
- * precedes the re-cut, so it sits above the claims on every render.
  */
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
+import { useCutoverSummary } from '@/features/routes';
+import { CUTOVER_FAILURE_KEYS, CUTOVER_PHASE_KEYS } from '../../lib/cutoverPhaseKeys';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import type {
-  CutoverPhase,
-  CutoverSettings,
-  CutoverSettingsReset,
-  FfiChangeCardSupport as ChangeCardSupport,
-} from 'veloqrs';
-
-type Flag = keyof ChangeCardSupport & string;
-
-const ROWS: { flag: Flag; icon: string; key: string }[] = [
-  {
-    flag: 'deterministic',
-    icon: 'check-decagram-outline',
-    key: 'whatsNew.v040.rowDeterministic',
-  },
-  {
-    flag: 'sameResultDripOrBatch',
-    icon: 'sync',
-    key: 'whatsNew.v040.rowSameResult',
-  },
-  { flag: 'ledger', icon: 'history', key: 'whatsNew.v040.rowLedger' },
-  { flag: 'revert', icon: 'undo-variant', key: 'whatsNew.v040.rowRevert' },
-  { flag: 'retired', icon: 'archive-outline', key: 'whatsNew.v040.rowRetired' },
-  { flag: 'pinnedSurvive', icon: 'pin', key: 'whatsNew.v040.rowPinned' },
-  {
-    flag: 'sameOnEveryDevice',
-    icon: 'devices',
-    key: 'whatsNew.v040.rowEveryDevice',
-  },
-];
-
-/** Draining and archiving are bookkeeping, so they read as one line. */
-const PHASE_KEYS: Partial<Record<CutoverPhase, string>> = {
-  draining: 'whatsNew.v040.phasePreparing',
-  archiving: 'whatsNew.v040.phasePreparing',
-  detecting: 'whatsNew.v040.phaseDetecting',
-  diffing: 'whatsNew.v040.phaseDiffing',
-};
+import type { CutoverSettings, CutoverSettingsReset } from 'veloqrs';
 
 type Translate = (key: string, vars?: Record<string, unknown>) => string;
 
@@ -92,33 +47,17 @@ export function describeSettingsReset(reset: CutoverSettingsReset, t: Translate)
     .join(', ');
 }
 
-type EngineHandle = NonNullable<ReturnType<typeof getEngine>>;
-
-export function readChangeCardSupport(engine: EngineHandle): ChangeCardSupport | null {
-  try {
-    return engine.getChangeCardSupport() ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export function SectionChangeCardSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  // Keyed, not empty. The answer turns on the catalogue's detection method, so
-  // it changes at the cutover, and the slide can mount before the root layout
-  // has opened the engine at all. An empty deps list left `support` null for
-  // the life of the carousel and the slide drawing nothing.
-  const readSupport = useEngineRead(['sections']);
-  const support = useMemo(() => readSupport(readChangeCardSupport) ?? null, [readSupport]);
   const { phase, isRunning, counts, settingsReset } = useCutoverSummary();
-  const rows = support ? ROWS.filter((r) => support[r.flag]) : [];
-  if (rows.length === 0) return null;
-  const phaseKey = PHASE_KEYS[phase];
+  const phaseKey = CUTOVER_PHASE_KEYS[phase as keyof typeof CUTOVER_PHASE_KEYS];
   // A failed run leaves the stored diff as the previous run's, so reporting it
   // would dress a failure up as a settled result.
-  const failed = !isRunning && phase === 'failed';
-  const shown = failed ? null : counts;
+  const failure = isRunning
+    ? undefined
+    : CUTOVER_FAILURE_KEYS[phase as keyof typeof CUTOVER_FAILURE_KEYS];
+  const shown = failure ? null : counts;
   const untouched = shown !== null && shown.changed + shown.new + shown.gone === 0;
   const reset = shown !== null ? settingsReset : null;
   const changes = reset ? describeSettingsReset(reset, t as Translate) : '';
@@ -133,16 +72,14 @@ export function SectionChangeCardSlide() {
             : t('whatsNew.v040.recutRunning')}
         </Text>
       )}
-      {failed && (
+      {failure && (
         <View style={styles.row} testID="change-card-failed">
           <MaterialCommunityIcons
             name="alert-circle-outline"
             size={18}
             color={isDark ? darkColors.error : colors.error}
           />
-          <Text style={[styles.text, isDark && styles.textDark]}>
-            {t('whatsNew.v040.recutFailed')}
-          </Text>
+          <Text style={[styles.text, isDark && styles.textDark]}>{t(failure.card)}</Text>
         </View>
       )}
       {shown !== null && (
@@ -159,16 +96,6 @@ export function SectionChangeCardSlide() {
               })}`}
         </Text>
       )}
-      <View style={styles.row} testID="change-card-elevation">
-        <MaterialCommunityIcons
-          name="elevation-rise"
-          size={18}
-          color={isDark ? darkColors.primary : colors.primary}
-        />
-        <Text style={[styles.text, isDark && styles.textDark]}>
-          {t('whatsNew.v040.elevationLine')}
-        </Text>
-      </View>
       {changes !== '' && (
         <View style={styles.row} testID="change-card-settings-reset">
           <MaterialCommunityIcons
@@ -181,16 +108,6 @@ export function SectionChangeCardSlide() {
           </Text>
         </View>
       )}
-      {rows.map((r) => (
-        <View key={r.flag} style={styles.row} testID={`change-card-row-${r.flag}`}>
-          <MaterialCommunityIcons
-            name={r.icon as never}
-            size={18}
-            color={isDark ? darkColors.primary : colors.primary}
-          />
-          <Text style={[styles.text, isDark && styles.textDark]}>{t(r.key as never)}</Text>
-        </View>
-      ))}
     </View>
   );
 }

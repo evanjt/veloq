@@ -1,7 +1,7 @@
 /**
  * Storage backend interface for auto-backup.
  *
- * Backends handle uploading/downloading SQLite snapshots to/from
+ * Backends handle uploading/downloading record archives to/from
  * cloud or local storage. The orchestration layer (autoBackup.ts)
  * handles scheduling, throttling, and retention.
  */
@@ -15,26 +15,23 @@ export interface BackupEntry {
   sizeBytes: number;
   /** App version that created this backup */
   appVersion: string;
-  /** SQLite schema version */
-  schemaVersion: number;
-  /** Number of activities in the backup */
-  activityCount: number;
-  /** Athlete ID (for cross-account protection) */
-  athleteId: string | null;
+  /** Legacy database schema version */
+  schemaVersion?: number;
+  /** Number of activities in a legacy database backup */
+  activityCount?: number;
+  /** Athlete ID from a legacy database backup */
+  athleteId?: string | null;
 }
 
 export interface BackupBackend {
-  /** Unique backend identifier (e.g., 'local', 'icloud', 'webdav') */
+  /** Unique backend identifier (e.g., 'local', 'webdav') */
   id: string;
-  /** Display name for the UI (e.g., 'iCloud', 'Nextcloud') */
+  /** Display name for the UI. */
   name: string;
 
   /**
-   * Whether `upload` needs the network at the moment it is called. Local and
-   * iCloud both write to a directory on the device and are false: iCloud's
-   * write is to its container and the OS syncs it later, so it succeeds with
-   * the radio off. WebDAV is true, and a snapshot for it is not worth taking
-   * while the radio is down.
+   * Whether `upload` needs the network at the moment it is called. Local
+   * writes to a directory on the device. WebDAV needs a radio to transfer.
    */
   isRemote: boolean;
 
@@ -46,7 +43,7 @@ export interface BackupBackend {
 
   /**
    * Upload a backup file.
-   * @param localPath - Absolute filesystem path to the .veloqdb file
+   * @param localPath - Absolute filesystem path to the record archive
    * @param metadata - Backup metadata for the entry
    */
   upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void>;

@@ -1,39 +1,27 @@
-/**
- * Backup & restore.
- *
- * Two formats:
- * - .veloqdb: SQLite database snapshot (primary, complete backup)
- * - .veloq:   Legacy JSON backup (custom sections, names, preferences only)
- */
+/** Record ZIP backup and conversion of earlier backup formats. */
 
-import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
 import * as FileSystem from 'expo-file-system/legacy';
-import { clearDatabaseSidecars, copyDatabaseSet } from './databaseSidecars';
-import { getEngine, getRouteDbPath, getNativeModule } from '@/shared/native/engine';
-import { useAuthStore } from '@/shared/app/AuthStore';
+import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
-import { setSetting, rememberStoredActivityCount } from '@/shared/storage';
-import {
-  awaitDatabaseBackup,
-  startDatabaseBackup,
-  FOREGROUND_BACKUP_TIMEOUT_MS,
-  type PendingBackup,
-} from '@/features/settings/lib/runBackup';
+import { exportFileUri, restoreCopyUri } from '@/shared/storage/cacheFiles';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
-import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
-import { initializeDashboardPreferences } from '@/features/home/store';
-import { initializeInsightsStore } from '@/features/insights/store';
+import { inBackupSlot } from '@/features/settings/lib/backupSlot';
+import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
+import { sweepBackupFiles } from './backupCache';
+import { SHARE_COPY_PREFIX } from '@/features/settings/lib/autobackup/backends/localBackend';
+import { initializeSportPreference } from '@/features/fitness';
+import { initializeDashboardPreferences } from '@/features/home';
+import { initializeInsightsStore } from '@/features/insights';
 import {
   initializeHeatmapPreference,
-  migrateTileCacheSettings,
+  initializeTileCacheSettings,
   reloadCameraOverrides,
   reloadMapCameraState,
 } from '@/features/maps';
-import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { initializeKnownSensors } from '@/features/sensors/store';
-import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
-import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { initializeRecordingPreferences, initializeUploadPermission } from '@/features/recording';
+import { initializeKnownSensors } from '@/features/sensors';
+import { initializeRouteSettings } from '@/features/routes';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
@@ -42,33 +30,274 @@ import { initializeWhatsNewStore } from '@/features/settings/stores/WhatsNewStor
 import { initializeLanguage } from '@/shared/app/LanguageStore';
 import { initializeTheme } from '@/shared/app/ThemeProvider';
 import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
-import { queryClient } from '@/shared/query/QueryProvider';
-import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
-import { clearDatabaseStamps } from '@/shared/storage/databaseStamps';
-import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { z } from 'zod';
-import { decodeCoords } from 'veloqrs';
-import type { BackupValidation } from 'veloqrs';
 import { debug } from '@/shared/debug/debug';
-import { rememberCachedAthleteId } from '@/shared/storage/cachedAthleteId';
+import { readLibraryCount } from '@/shared/native/libraryCount';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const log = debug.create('Backup');
+
+/**
+ * What a caller staring at a disabled row waits for the record export.
+ *
+ * The write is over a second on a full library, so this is sixty times a
+ * healthy run. Past it the athlete is told the export is still running rather
+ * than told it failed.
+ */
+export const FOREGROUND_BACKUP_TIMEOUT_MS = 60_000;
+
+/** A record export whose wait lapsed, kept until its write ends and its file is offered. */
+interface PendingRecordExport {
+  readonly uri: string;
+  readonly work: Promise<void>;
+  settled(): boolean;
+  failure(): Error | null;
+}
+
+let pendingExport: PendingRecordExport | null = null;
+
+export type RecordExportOutcome = 'complete' | 'still-running' | 'nothing-pending';
+
+/** Write the record zip, once the slot is free, and return the file it wrote. */
+async function writeRecordArchive(
+  engine: NonNullable<ReturnType<typeof getEngine>>
+): Promise<string> {
+  await sweepBackupFiles();
+  const uri = await exportFileUri(`${SHARE_COPY_PREFIX}${formatLocalDate(new Date())}.zip`);
+  const path = uri.startsWith('file://') ? uri.slice(7) : uri;
+  await engine.runRecordBackup(path);
+  return uri;
+}
+
+/**
+ * Write the record zip and offer that same file to the share sheet.
+ *
+ * The wait, the queue behind another backup write included, has the
+ * foreground ceiling. Past it this answers `still-running` and the file is
+ * offered by `resumePendingRecordExport` once the write has ended.
+ */
+export async function exportRecordBackup(): Promise<RecordExportOutcome> {
+  if (pendingExport) return resumePendingRecordExport();
+  const engine = getEngine();
+  if (!engine) throw new Error('Engine not initialized');
+
+  let uri = '';
+  let lapsed = false;
+  let sharing = false;
+  let settled = false;
+  let failure: Error | null = null;
+  const work = inBackupSlot(async () => {
+    uri = await writeRecordArchive(engine);
+    // The slot is held through the share so a sweep cannot delete the file
+    // under the open sheet. A lapsed export is shared by its reader later.
+    if (lapsed) return;
+    sharing = true;
+    await shareExistingFile(uri, 'application/zip');
+  }).then(
+    () => {
+      settled = true;
+    },
+    (err: unknown) => {
+      settled = true;
+      failure = err instanceof Error ? err : new Error(String(err));
+      throw failure;
+    }
+  );
+  work.catch(() => {});
+
+  const outcome = await withAwakeDeadline(work, FOREGROUND_BACKUP_TIMEOUT_MS);
+  // A sheet left open past the ceiling is the athlete's own wait, not a write owed.
+  if (outcome.state === 'stillRunning' && !sharing) {
+    lapsed = true;
+    pendingExport = {
+      get uri() {
+        return uri;
+      },
+      work,
+      settled: () => settled,
+      failure: () => failure,
+    };
+    return 'still-running';
+  }
+  return 'complete';
+}
+
+/** Whether a lapsed export still owes its file. */
+export function hasPendingRecordExport(): boolean {
+  return pendingExport !== null;
+}
+
+/**
+ * Settles when the lapsed write ends, either way, or at once when none is
+ * owed. It never rejects and claims nothing: the reader that is still there
+ * afterwards takes the file with `resumePendingRecordExport`.
+ */
+export function pendingRecordExportSettled(): Promise<void> {
+  const owed = pendingExport;
+  if (!owed) return Promise.resolve();
+  return owed.work.then(
+    () => undefined,
+    () => undefined
+  );
+}
+
+/**
+ * Offer the file a lapsed export left behind, once its write has finished.
+ * A write still going stays owed. One that ended is taken before anything else,
+ * so only the first reader shares it or reports its failure.
+ */
+export async function resumePendingRecordExport(): Promise<RecordExportOutcome> {
+  const owed = pendingExport;
+  if (!owed) return 'nothing-pending';
+  if (!owed.settled()) return 'still-running';
+  pendingExport = null;
+  const failure = owed.failure();
+  if (failure) throw failure;
+  await shareExistingFile(owed.uri, 'application/zip');
+  return 'complete';
+}
+
+let restoreCopySequence = 0;
+
+interface RecordRestoreOutcome {
+  placed: number;
+  unplaced: number;
+  missingActivityIds: string[];
+}
+
+/**
+ * Hand the activities a restored record names to the sync.
+ *
+ * The engine keeps the ids it still owes and every sync fetches them as its
+ * own step, with progress in the sync status. So the import does not wait on
+ * the network, and an import made offline or killed part way resumes at the
+ * next sync. A sync already running reaches that step on its own.
+ */
+function requestRecordActivities(
+  engine: NonNullable<ReturnType<typeof getEngine>>,
+  restored: RecordRestoreOutcome
+): void {
+  if (restored.missingActivityIds.length === 0) return;
+  try {
+    engine.syncNow();
+  } catch (error) {
+    log.warn('Record source fetch left for the next sync:', error);
+  }
+}
+
+/** Keep the signed-out theme and language in step with the restored SQLite settings. */
+async function mirrorSignedOutPreferences(
+  engine: NonNullable<ReturnType<typeof getEngine>>
+): Promise<void> {
+  for (const key of ['veloq-theme-preference', 'veloq-language-preference']) {
+    const value = engine.getSetting(key);
+    if (value !== undefined && value !== null) {
+      try {
+        await AsyncStorage.setItem(key, value);
+      } catch (error) {
+        log.warn(`Could not mirror restored ${key}:`, error);
+      }
+    }
+  }
+}
+
+function signInRequiredMessage(): string {
+  return i18n.t('backup.signInRequired', { defaultValue: 'Sign in before importing a backup.' });
+}
+
+/** The engine is closed, so an import has nowhere to go until the athlete signs in. */
+export class SignInRequiredError extends Error {
+  constructor() {
+    super(signInRequiredMessage());
+    this.name = 'SignInRequiredError';
+  }
+}
+
+function openEngineForImport(): NonNullable<ReturnType<typeof getEngine>> {
+  const engine = getEngine();
+  if (!engine || !isEngineReady()) throw new SignInRequiredError();
+  return engine;
+}
+
+/**
+ * Run the checks `restoreRecordBackup` would run on a record zip, and restore
+ * nothing. Rejects with the restore's own refusal.
+ */
+export async function checkRecordBackup(fileUri: string): Promise<void> {
+  const engine = openEngineForImport();
+  await engine.checkRecordZip(fileUri.startsWith('file://') ? fileUri.slice(7) : fileUri);
+}
+
+/** Import a picked record zip through the engine's versioned restore path. */
+export async function restoreRecordBackup(fileUri: string): Promise<RecordRestoreOutcome> {
+  const engine = openEngineForImport();
+  const info = await FileSystem.getInfoAsync(fileUri);
+  if (!info.exists || info.size === 0) throw new Error('Backup file is empty or missing');
+
+  const copyUri = await restoreCopyUri(`restore-record-${Date.now()}-${++restoreCopySequence}.zip`);
+  try {
+    await FileSystem.copyAsync({ from: fileUri, to: copyUri });
+    const path = copyUri.startsWith('file://') ? copyUri.slice(7) : copyUri;
+    const result = await engine.restoreRecordZip(path);
+    requestRecordActivities(engine, result);
+    await mirrorSignedOutPreferences(engine);
+    await reinitializeAllStores();
+    return result;
+  } finally {
+    await FileSystem.deleteAsync(copyUri, { idempotent: true }).catch(() => {});
+  }
+}
+
+const EMPTY_RECORD: RecordPayload = { version: 1, athlete_id: null, entries: [] };
+
+/**
+ * Place the import a storage failure or a killed process paused, then reload
+ * the stores from the engine. Resolves null when the engine is closed or
+ * nothing is paused, and rejects when the import stays paused.
+ */
+export async function resumeRecordImport(): Promise<RecordRestoreOutcome | null> {
+  const engine = getEngine();
+  if (!engine || !isEngineReady()) return null;
+  const waiting = await engine.getUnplacedBackupRecords();
+  if (!waiting.some((record) => record.reason === 'import_paused')) return null;
+  // An import of no entries carries the paused one, under the same checks.
+  const restored = await engine.restoreRecordJson(JSON.stringify(EMPTY_RECORD));
+  requestRecordActivities(engine, restored);
+  await mirrorSignedOutPreferences(engine);
+  await reinitializeAllStores();
+  return restored;
+}
+
+/**
+ * Drop the paused import at the athlete's word. Nothing from it was applied,
+ * so there is nothing to reload. Rejects when the engine is closed, since a
+ * discard that did not happen must not read as done.
+ */
+export async function discardRecordImport(): Promise<void> {
+  const engine = getEngine();
+  if (!engine || !isEngineReady()) throw new Error('Engine not initialized');
+  await engine.discardRecordImport();
+}
 
 // ============================================================================
 // Shared helpers
 // ============================================================================
 
-const STORE_INITIALISERS: readonly (readonly [string, () => Promise<unknown>])[] = [
+/**
+ * Read when a reload runs, not when this module loads: the feature barrels this
+ * table names import the settings barrel back, so a table built at load reads
+ * their exports before they exist.
+ */
+const storeInitialisers = (): readonly (readonly [string, () => Promise<unknown>])[] => [
   ['initializeTheme', initializeTheme],
   ['initializeLanguage', initializeLanguage],
   ['initializeSportPreference', initializeSportPreference],
-  ['initializeHRZones', initializeHRZones],
   ['initializeUnitPreference', initializeUnitPreference],
   ['initializeRouteSettings', initializeRouteSettings],
   ['initializeHeatmapPreference', initializeHeatmapPreference],
   ['initializeDashboardPreferences', initializeDashboardPreferences],
   ['initializeDebugStore', initializeDebugStore],
-  ['migrateTileCacheSettings', migrateTileCacheSettings],
+  ['initializeTileCacheSettings', initializeTileCacheSettings],
   ['initializeWhatsNewStore', initializeWhatsNewStore],
   ['initializeInsightsStore', initializeInsightsStore],
   ['initializeRecordingPreferences', initializeRecordingPreferences],
@@ -88,438 +317,103 @@ const STORE_INITIALISERS: readonly (readonly [string, () => Promise<unknown>])[]
  * pre-restore state.
  */
 export async function reinitializeAllStores(): Promise<void> {
-  const results = await Promise.allSettled(STORE_INITIALISERS.map(([, init]) => init()));
+  const initialisers = storeInitialisers();
+  const results = await Promise.allSettled(initialisers.map(([, init]) => init()));
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
-      log.error(`${STORE_INITIALISERS[index][0]} failed`, result.reason);
+      log.error(`${initialisers[index][0]} failed`, result.reason);
     }
   });
-}
-
-/** What the native probe answers with, the record Rust returns. */
-type ValidateFn = (path: string) => BackupValidation;
-
-/**
- * The live database's schema version, for a binary too old to report its own.
- * Null when the file cannot be read, which is every fresh install.
- */
-function liveSchemaVersion(validateFn: ValidateFn, dbPath: string): number | null {
-  const livePlainPath = dbPath.startsWith('file://') ? dbPath.slice(7) : dbPath;
-  try {
-    return Number(validateFn(livePlainPath).schemaVersion);
-  } catch {
-    return null;
-  }
-}
-
-interface DatabaseReplacementArgs {
-  backupActivityCount: number | null;
-  backupNewestActivity: number | null;
-  liveActivityCount: number;
-  liveNewestActivity: number | null;
-}
-
-/** Epoch seconds as a local date, or a dash when the side has no date. */
-function describeDate(epochSeconds: number | null): string {
-  if (epochSeconds == null) return '\u2014';
-  return new Date(epochSeconds * 1000).toLocaleDateString();
-}
-
-/**
- * Ask before a picked file replaces a library that is still on the device.
- * Resolves whether the athlete accepted. The counts and dates are both sides
- * of the trade, because an older snapshot of the same account is the one
- * mis-pick nothing else here can catch.
- */
-function confirmDatabaseReplacement(args: DatabaseReplacementArgs): Promise<boolean> {
-  const t = i18n.t.bind(i18n);
-  const body = t('backup.replaceLiveMessage', {
-    backupCount: args.backupActivityCount ?? '?',
-    backupDate: describeDate(args.backupNewestActivity),
-    liveCount: args.liveActivityCount,
-    liveDate: describeDate(args.liveNewestActivity),
-    defaultValue:
-      'This will replace the library on this device ({{liveCount}} activities, newest {{liveDate}}) with the backup ({{backupCount}} activities, newest {{backupDate}}). Anything on the device that is not in the backup is deleted and cannot be recovered.',
-  });
-
-  return new Promise((resolve) => {
-    Alert.alert(
-      t('backup.replaceLiveTitle', { defaultValue: 'Replace this device\u2019s library?' }),
-      body,
-      [
-        { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
-        {
-          text: t('backup.replaceLiveConfirm', { defaultValue: 'Replace' }),
-          style: 'destructive',
-          onPress: () => resolve(true),
-        },
-      ]
-    );
-  });
-}
-
-/** Engine dates arrive as bigint over the FFI, and as null when there are none. */
-function toEpochSeconds(value: number | bigint | null | undefined): number | null {
-  return value == null ? null : Number(value);
-}
-
-/**
- * What an export asked for now answers with: shared, or still being copied.
- *
- * A copy that outlives the foreground budget is not a failure, so the athlete
- * is told it is still running and the file is offered when they come back.
- */
-export type DatabaseExportOutcome = 'shared' | 'still-running' | 'nothing-pending';
-
-/**
- * The file a lapsed export still owes the athlete.
- *
- * Module state rather than storage on purpose: the copy runs on a Rust thread
- * in this process, so a file owed cannot outlive the process that is making it.
- */
-let pendingExportPath: { plain: string; uri: string; copy: PendingBackup } | null = null;
-
-/** Export a full SQLite database snapshot via the OS share sheet. */
-export async function exportDatabaseBackup(
-  options: {
-    timeoutMs?: number;
-  } = {}
-): Promise<DatabaseExportOutcome> {
-  const engine = getEngine();
-  if (!engine) throw new Error('Engine not initialized');
-
-  const date = formatLocalDate(new Date());
-  const filename = `veloq-backup-${date}.veloqdb`;
-  const destPath = `${FileSystem.cacheDirectory}${filename}`;
-
-  // Strip file:// prefix for Rust (expects plain filesystem path)
-  const plainPath = destPath.startsWith('file://') ? destPath.slice(7) : destPath;
-  const copy = startDatabaseBackup(engine, plainPath);
-  const outcome = await awaitDatabaseBackup(copy, {
-    timeoutMs: options.timeoutMs ?? FOREGROUND_BACKUP_TIMEOUT_MS,
-    onLapse: 'report',
-  });
-
-  if (outcome === 'running') {
-    // The copy and its destination both have to survive the screen, or the
-    // share cannot be offered on return without starting a second copy of the
-    // same database.
-    pendingExportPath = { plain: plainPath, uri: destPath, copy };
-    return 'still-running';
-  }
-
-  pendingExportPath = null;
-  await shareExistingFile(destPath, 'application/octet-stream');
-  return 'shared';
-}
-
-/**
- * Offer the file a lapsed export left behind, if its copy has finished.
- *
- * Read when the backup screen mounts. A copy still going stays owed; one that
- * stopped without finishing is no longer owed and carries the engine's own
- * message, the same as a copy that failed while being waited on.
- */
-export async function resumePendingDatabaseExport(): Promise<DatabaseExportOutcome> {
-  const owed = pendingExportPath;
-  if (!owed) return 'nothing-pending';
-
-  if (!owed.copy.settled()) return 'still-running';
-
-  pendingExportPath = null;
-  const failure = owed.copy.failure();
-  if (failure) throw failure;
-
-  await shareExistingFile(owed.uri, 'application/octet-stream');
-  return 'shared';
 }
 
 export interface DatabaseRestoreResult {
   success: boolean;
   activityCount: number;
+  unplacedCount?: number;
   error?: string;
+  /** Why a refusal that has no engine message was made, for the caller to word in the athlete's locale. */
+  reason?: 'missing' | 'unavailable';
+  /** The engine is closed, so nothing was read or written. */
+  signInRequired?: boolean;
   /** Warning if the backup's athlete ID doesn't match the currently logged-in user. */
   athleteIdMismatch?: boolean;
   /** The athlete ID from the backup (if available). */
   backupAthleteId?: string | null;
 }
 
+/** The locale key that words each refusal a restore reports by reason. */
+export const RESTORE_REFUSAL_KEYS = {
+  missing: 'backup.backupMissing',
+  unavailable: 'backup.readerUnavailable',
+} as const;
+
+function restoredLibraryCount(): number {
+  const engine = getEngine();
+  return engine ? readLibraryCount(engine) : 0;
+}
+
 /**
- * Restore from a .veloqdb SQLite snapshot.
- * This replaces the entire database - all activities, sections, settings.
+ * Write the record zip an older SQLite file converts to at `recordUri`.
  *
- * Pre-validates the backup (not empty, schema not newer than this build,
- * athlete ID) BEFORE touching the live database, and snapshots the live DB to
- * a `.bak` so a failed restore rolls back instead of leaving the user with a
- * destroyed database. An absent native probe is the only reason validation is
- * skipped - a probe that rejects or throws refuses the restore.
+ * The converter migrates its input, so it reads a copy beside `recordUri`, a
+ * `.zip` name, and the picked file is left as it was. Rejects with the
+ * converter's refusal for a file it cannot read.
  */
-export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
-  const dbPath = getRouteDbPath();
-  if (!dbPath) {
-    return {
-      success: false,
-      activityCount: 0,
-      error: 'Cannot determine database path',
-    };
-  }
-
-  const fileInfo = await FileSystem.getInfoAsync(fileUri);
-  if (!fileInfo.exists || fileInfo.size === 0) {
-    return {
-      success: false,
-      activityCount: 0,
-      error: 'Backup file is empty or missing',
-    };
-  }
-
-  // Copy to a unique temp path so Rust can open it (fileUri may be a content://
-  // URI). Unique so a stale leftover or a concurrent attempt can't collide.
-  const tempPath = `${FileSystem.cacheDirectory}restore-validation-${Date.now()}.veloqdb`;
-  const cleanupTemp = () => FileSystem.deleteAsync(tempPath, { idempotent: true }).catch(() => {});
-
+export async function convertLegacyDatabaseFile(fileUri: string, recordUri: string): Promise<void> {
+  const nativeModule = getNativeModule();
+  if (!nativeModule) throw new Error('Backup reader is unavailable');
+  const copyUri = recordUri.replace(/\.zip$/, '.veloqdb');
   try {
-    await FileSystem.copyAsync({ from: fileUri, to: tempPath });
-    const plainTempPath = tempPath.startsWith('file://') ? tempPath.slice(7) : tempPath;
-
-    const currentAthleteId = useAuthStore.getState().athleteId;
-    let backupAthleteId: string | null = null;
-    let backupMeta: BackupValidation | null = null;
-
-    const nativeModule = getNativeModule();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const validateFn = (nativeModule as any)?.validateBackupDatabase as ValidateFn | undefined;
-
-    // Only skip validation when the native probe is entirely absent (older
-    // binary). If it exists and rejects or throws, refuse - never overwrite the
-    // live DB on a bad backup.
-    if (validateFn) {
-      try {
-        backupMeta = validateFn(plainTempPath);
-      } catch (e) {
-        await cleanupTemp();
-        log.warn('Backup validation failed - refusing to restore', e);
-        return {
-          success: false,
-          activityCount: 0,
-          error: 'Backup file is corrupt or unreadable',
-        };
-      }
-
-      backupAthleteId = backupMeta.athleteId ?? null;
-
-      // An empty/garbage SQLite file reports activityCount 0 - refuse so a bad
-      // file can't silently wipe the live database.
-      if (backupMeta.activityCount <= 0) {
-        await cleanupTemp();
-        log.warn('Backup contains no activities - refusing to restore');
-        return {
-          success: false,
-          activityCount: 0,
-          error: 'Backup file is empty or corrupt',
-        };
-      }
-
-      // Refuse a backup whose schema is newer than this build can open.
-      // Migrations only run upward, so such a file is missing every column the
-      // newer code added and fails at query time rather than at open. The
-      // comparison is against this build's own version, which a fresh install
-      // can answer and an unreadable live database cannot.
-      // The field rides the record, so a shipped build always carries it. A
-      // development bundle can still meet a stale `.so` that answers without
-      // one, and the live database is then the only comparison left.
-      const supported = Number.isFinite(backupMeta.supportedSchemaVersion)
-        ? backupMeta.supportedSchemaVersion
-        : liveSchemaVersion(validateFn, dbPath);
-      if (supported !== null && Number(backupMeta.schemaVersion) > supported) {
-        await cleanupTemp();
-        log.warn('Backup schema is newer than this app supports - refusing to restore');
-        return {
-          success: false,
-          activityCount: 0,
-          error: 'Backup is from a newer version of Veloq',
-        };
-      }
-
-      if (
-        currentAthleteId != null &&
-        backupAthleteId != null &&
-        currentAthleteId !== backupAthleteId
-      ) {
-        await cleanupTemp();
-        return {
-          success: false,
-          activityCount: 0,
-          athleteIdMismatch: true,
-          backupAthleteId,
-          error: 'Backup belongs to a different athlete',
-        };
-      }
-    }
-
-    const engine = getEngine();
-
-    // The live library is about to go, and the rollback copy is deleted on
-    // success, so this is the last point anything can be kept. A device with
-    // nothing on it has nothing to trade and is not asked.
-    if ((engine?.getActivityCount() ?? 0) > 0) {
-      const accepted = await confirmDatabaseReplacement({
-        backupActivityCount: backupMeta?.activityCount ?? null,
-        backupNewestActivity: toEpochSeconds(backupMeta?.newestActivity),
-        liveActivityCount: engine?.getActivityCount() ?? 0,
-        liveNewestActivity: toEpochSeconds(engine?.getStats()?.newestDate),
-      });
-      if (!accepted) {
-        await cleanupTemp();
-        return {
-          success: false,
-          activityCount: 0,
-          error: 'Restore cancelled',
-        };
-      }
-    }
-
-    const liveExists = (await FileSystem.getInfoAsync(`file://${dbPath}`)).exists;
-    const backupPath = `${dbPath}.bak`;
-    // Whether the rollback copy is a complete one. A snapshot that threw
-    // half-written must never be copied back over a live database that is
-    // still intact.
-    let snapshotTaken = false;
-
-    // The engine quarantines an unopenable database (renames it aside and
-    // starts fresh), so a corrupt restored file would otherwise read as a
-    // "successful" init with zero data, and the rollback snapshot would be
-    // deleted. Detect a quarantine event during THIS init and treat it as a
-    // failed restore instead.
-    const dbDir = dbPath.substring(0, dbPath.lastIndexOf('/'));
-    const dbBase = dbPath.substring(dbPath.lastIndexOf('/') + 1);
-    const listQuarantined = async (): Promise<string[]> => {
-      try {
-        const names = await FileSystem.readDirectoryAsync(`file://${dbDir}`);
-        return names.filter((n) => n.startsWith(`${dbBase}.corrupt-`));
-      } catch {
-        return [];
-      }
-    };
-    const quarantinedBefore = new Set(await listQuarantined());
-
-    try {
-      // Both the close and the snapshot sit inside the guard: a copy that
-      // throws here has to return a result and leave the engine open, not
-      // escape past the caller's own error handling.
-      if (engine) {
-        engine.destroyEngine();
-      }
-      if (liveExists) {
-        await copyDatabaseSet(dbPath, backupPath);
-        snapshotTaken = true;
-      }
-
-      // The imported file arrives on its own, so anything left beside the
-      // database it replaces belongs to the database that is going.
-      await clearDatabaseSidecars(dbPath);
-      await FileSystem.copyAsync({ from: tempPath, to: `file://${dbPath}` });
-
-      if (nativeModule) {
-        const ok = nativeModule.engine.initWithPath(dbPath);
-        const newlyQuarantined = (await listQuarantined()).some((n) => !quarantinedBefore.has(n));
-        if (!ok || newlyQuarantined) {
-          throw new Error('Restored database could not be opened');
-        }
-      }
-
-      await reinitializeAllStores();
-
-      const restoredEngine = getEngine();
-      const activityCount = restoredEngine?.getActivityCount() ?? 0;
-
-      // Whose library is now on the device. A restore from the login screen
-      // has no credentials to read it from, and without the stamp every
-      // identity check answers "nothing cached" for a full database.
-      if (backupAthleteId) {
-        restoredEngine?.setSetting('__athlete_id', backupAthleteId);
-        await rememberCachedAthleteId(backupAthleteId);
-      }
-
-      // Wake query-on-demand hooks so mounted screens re-query the restored data
-      // instead of showing the pre-restore engine state until the next sync.
-      restoredEngine?.notifyAll('activities', 'groups', 'sections', 'syncReset');
-      queryClient.invalidateQueries();
-
-      // The recording index came with the file, but the FIT files it points at
-      // did not: they are on the device that made the backup. A restored row is
-      // a library entry whose ride cannot be opened or uploaded, so the table
-      // goes the way the AsyncStorage index was left out of the JSON backup.
-      restoredEngine?.clearRecordings();
-
-      // The restored database is not the one the launch triggers ran against.
-      // Every stamp that described the replaced database goes first, and then
-      // both triggers run here rather than waiting for a cold start: the
-      // engine-init effect does not re-run on a restore.
-      await clearDatabaseStamps();
-      await startElevationBackfillAfterUpdate().catch(() => false);
-      await startDetectorCutoverAfterUpdate().catch(() => {});
-
-      // Restore succeeded - drop the rollback snapshot, all of it.
-      if (snapshotTaken) {
-        await FileSystem.deleteAsync(`file://${backupPath}`, {
-          idempotent: true,
-        });
-        await clearDatabaseSidecars(backupPath);
-      }
-
-      // The login screen cannot read this off a closed engine, and a restore
-      // taken from that screen is exactly where it has to be right. Best-effort:
-      // the database is already in place, so a mirror that will not write is a
-      // worse dialog later, never a failed restore now.
-      await rememberStoredActivityCount(activityCount).catch(() => {});
-
-      return {
-        success: true,
-        activityCount,
-        athleteIdMismatch: false,
-        backupAthleteId,
-      };
-    } catch (error) {
-      // Restore failed after the live DB was overwritten - roll back to the
-      // snapshot. Close the engine first: it may hold an open connection to
-      // the file being replaced (and initWithPath below would otherwise
-      // no-op on its already-initialized guard).
-      try {
-        getEngine()?.destroyEngine();
-      } catch {
-        // Best-effort. Proceed with the rollback copy regardless.
-      }
-      if (snapshotTaken) {
-        try {
-          // The half-restored database's own sidecars go first: rolling back
-          // under them would apply the wrong log to the file coming back.
-          await clearDatabaseSidecars(dbPath);
-          await copyDatabaseSet(backupPath, dbPath);
-          await FileSystem.deleteAsync(`file://${backupPath}`, {
-            idempotent: true,
-          });
-          await clearDatabaseSidecars(backupPath);
-        } catch {
-          // Rollback copy failed - leave the .bak in place for manual recovery.
-        }
-      }
-      try {
-        if (nativeModule) {
-          nativeModule.engine.initWithPath(dbPath);
-        }
-      } catch {
-        // Engine recovery failed - app may need restart
-      }
-
-      return {
-        success: false,
-        activityCount: 0,
-        error: error instanceof Error ? error.message : 'Restore failed',
-      };
-    }
+    await FileSystem.copyAsync({ from: fileUri, to: copyUri });
+    const sourcePath = copyUri.startsWith('file://') ? copyUri.slice(7) : copyUri;
+    const recordPath = recordUri.startsWith('file://') ? recordUri.slice(7) : recordUri;
+    await nativeModule.convertLegacyDatabaseToRecordBackup(sourcePath, recordPath);
   } finally {
-    await cleanupTemp();
+    await FileSystem.deleteAsync(copyUri, { idempotent: true }).catch(() => {});
+  }
+}
+
+/** Convert an older SQLite file to a record zip, then restore its decisions. */
+export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
+  if (!getEngine() || !isEngineReady()) {
+    return {
+      success: false,
+      activityCount: 0,
+      error: signInRequiredMessage(),
+      signInRequired: true,
+    };
+  }
+  const info = await FileSystem.getInfoAsync(fileUri);
+  if (!info.exists || info.size === 0) {
+    return { success: false, activityCount: 0, reason: 'missing' };
+  }
+  const nativeModule = getNativeModule();
+  if (!nativeModule) {
+    return { success: false, activityCount: 0, reason: 'unavailable' };
+  }
+
+  const recordUri = await restoreCopyUri(
+    `restore-legacy-${Date.now()}-${++restoreCopySequence}.zip`
+  );
+  try {
+    await convertLegacyDatabaseFile(fileUri, recordUri);
+    const restored = await restoreRecordBackup(recordUri);
+    return {
+      success: true,
+      activityCount: restoredLibraryCount(),
+      unplacedCount: restored.unplaced,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      activityCount: 0,
+      error: message,
+      signInRequired: error instanceof SignInRequiredError,
+      athleteIdMismatch: message.includes('another athlete'),
+    };
+  } finally {
+    await FileSystem.deleteAsync(recordUri, { idempotent: true }).catch(() => {});
   }
 }
 
@@ -535,17 +429,14 @@ const LEGACY_BACKUP_VERSION = 2;
  * Deliberately excluded (cache or device state, re-derivable, wrong to restore
  * onto another install): 'veloq-query-cache', 'veloq-pending-terrain-snapshots',
  * 'terrain-preview-cache-version', 'veloq-recording-library' (the pre-table
- * index, points at local FIT files that are not in the backup, and the
- * `recordings` table that replaced it is dropped on a `.veloqdb` restore for
- * the same reason), 'veloq-section-health-check-v1',
+ * index, points at local FIT files that are not in the backup),
+ * 'veloq-section-health-check-v1',
  * 'veloq-push-token-refreshed-at' (device-local refresh throttle; restoring a
- * stale timestamp could suppress a needed re-registration for a day),
- * 'veloq-elevation-backfill-version' (device-local completion marker; restoring
- * it onto another install would suppress that device's own backfill). A
- * `.veloqdb` restore clears those markers instead, because it replaces the very
- * database they described, and the list of them is `DATABASE_LOCAL_STAMPS`; the
- * legacy JSON path below does not touch the database, so it leaves them alone
- *.
+ * stale timestamp could suppress a needed re-registration for a day). A
+ * stale timestamp must not move to another install.
+ * Also excluded because nothing reads them any more: 'veloq-disabled-sections',
+ * 'veloq-superseded-sections', 'veloq-section-dismissals',
+ * 'veloq-geocoded-route-ids' and 'veloq-geocoded-section-ids'.
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',
@@ -554,12 +445,7 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-primary-sport',
   'veloq-map-preferences',
   'veloq-route-settings',
-  'veloq-hr-zones',
   'veloq-debug-mode',
-  'veloq-disabled-sections',
-  'veloq-section-dismissals',
-  'veloq-superseded-sections',
-  'dashboard_preferences',
   'dashboard_summary_card',
   '@terrain_camera_overrides',
   '@map_camera_state',
@@ -570,178 +456,132 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-notification-prompt-dismissed',
   'veloq-recording-preferences',
   'veloq-known-sensors',
-  'veloq-geocoded-route-ids',
-  'veloq-geocoded-section-ids',
   'veloq-notification-preferences',
   'veloq-upload-permission',
   'veloq-support-store',
 ] as const;
 
-interface BackupCustomSection {
-  name: string;
-  sportType: string;
-  sourceActivityId: string;
-  startIndex: number;
-  endIndex: number;
+interface RecordEntry {
+  table: string;
+  values: Record<string, unknown>;
+  ground: {
+    rep_activity_id: string | null;
+    rep_start_index: number | null;
+    rep_end_index: number | null;
+    point_count: number | null;
+    polyline_json: string | null;
+  } | null;
 }
 
-interface BackupData {
+interface RecordPayload {
   version: number;
-  exportedAt: string;
-  appVersion: string;
-  customSections: BackupCustomSection[];
-  sectionNames: Record<string, string>;
-  routeNames: Record<string, string>;
-  preferences: Record<string, unknown>;
+  athlete_id: string | null;
+  entries: RecordEntry[];
 }
 
-export interface RestoreResult {
-  sectionsRestored: number;
-  sectionsFailed: { name: string; reason: string }[];
-  namesApplied: number;
-  namesSkipped: number;
-  preferencesRestored: number;
-}
+const legacyCustomSectionSchema = z.object({
+  name: z.string(),
+  sportType: z.string(),
+  sourceActivityId: z.string().min(1),
+  startIndex: z.number().int().nonnegative(),
+  endIndex: z.number().int().positive(),
+});
 
-export async function restoreBackup(json: string): Promise<RestoreResult> {
+const legacyBackupSchema = z.object({
+  version: z.number().int().min(1),
+  customSections: z.array(legacyCustomSectionSchema).optional(),
+  sectionNames: z.record(z.string(), z.string()).optional(),
+  routeNames: z.record(z.string(), z.string()).optional(),
+  preferences: z.record(z.string(), z.unknown()).optional(),
+});
+
+/** Convert a readable `.veloq` file into the record restore's input. */
+export function convertLegacyBackupToRecord(json: string): RecordPayload {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
   } catch {
     throw new Error('Invalid backup file format');
   }
-
-  // The file is user-picked, so nothing about its shape is guaranteed. A bare
-  // `null` parses fine and then throws on any property access.
   const envelope = z.object({ version: z.number() }).safeParse(parsed);
-  if (!envelope.success) {
-    throw new Error('Corrupt backup: missing version field');
-  }
-
-  const backup = parsed as BackupData;
-
-  if (backup.version > LEGACY_BACKUP_VERSION) {
+  if (!envelope.success) throw new Error('Corrupt backup: missing version field');
+  if (envelope.data.version > LEGACY_BACKUP_VERSION) {
     throw new Error(
-      `Unsupported backup version: ${backup.version}. This app supports version ${LEGACY_BACKUP_VERSION}.`
+      `Unsupported backup version: ${envelope.data.version}. This app supports version ${LEGACY_BACKUP_VERSION}.`
     );
   }
+  const checked = legacyBackupSchema.safeParse(parsed);
+  if (!checked.success) throw new Error('Corrupt backup: invalid decisions');
 
-  const result: RestoreResult = {
-    sectionsRestored: 0,
-    sectionsFailed: [],
-    namesApplied: 0,
-    namesSkipped: 0,
-    preferencesRestored: 0,
-  };
+  const backup = checked.data;
+  const entries: RecordEntry[] = [];
+  for (const section of backup.customSections ?? []) {
+    if (section.startIndex >= section.endIndex) {
+      throw new Error('Corrupt backup: invalid section range');
+    }
+    entries.push({
+      table: 'sections',
+      values: {
+        name: section.name || null,
+        sport_type: section.sportType,
+        section_type: 'custom',
+        source_activity_id: section.sourceActivityId,
+        start_index: section.startIndex,
+        end_index: section.endIndex,
+      },
+      // The old writer exported the last point's index; the ground's end is half-open.
+      ground: {
+        rep_activity_id: section.sourceActivityId,
+        rep_start_index: section.startIndex,
+        rep_end_index: section.endIndex + 1,
+        point_count: null,
+        polyline_json: null,
+      },
+    });
+  }
+  for (const [id, name] of Object.entries(backup.sectionNames ?? {})) {
+    entries.push({ table: 'legacy_section_name', values: { section_id: id, name }, ground: null });
+  }
+  for (const [routeId, customName] of Object.entries(backup.routeNames ?? {})) {
+    entries.push({
+      table: 'route_names',
+      values: { route_id: routeId, custom_name: customName },
+      ground: null,
+    });
+  }
+  const allowed = new Set<string>(LEGACY_PREFERENCE_KEYS);
+  for (const [key, value] of Object.entries(backup.preferences ?? {})) {
+    if (!allowed.has(key)) continue;
+    entries.push({
+      table: 'settings',
+      values: { key, value: typeof value === 'string' ? value : JSON.stringify(value) },
+      ground: null,
+    });
+  }
+  return { version: 1, athlete_id: null, entries };
+}
 
+export interface RestoreResult {
+  unplacedCount?: number;
+  failed?: boolean;
+  signInRequired?: boolean;
+  error?: string;
+}
+
+/** Whether an import has to wait for a sign-in: a closed engine places no record. */
+export function importWaitsForSignIn(): boolean {
+  return !getEngine() || !isEngineReady();
+}
+
+export async function restoreBackup(json: string): Promise<RestoreResult> {
+  const record = convertLegacyBackupToRecord(json);
   const engine = getEngine();
-
-  // Restore custom sections
-  if (engine && Array.isArray(backup.customSections) && backup.customSections.length > 0) {
-    for (const cs of backup.customSections) {
-      try {
-        if (!cs.sourceActivityId) {
-          result.sectionsFailed.push({
-            name: cs.name || 'Unnamed',
-            reason: 'No source activity ID',
-          });
-          continue;
-        }
-
-        // Check if source activity exists
-        const track = decodeCoords(engine.getGpsTrack(cs.sourceActivityId));
-        if (track.length === 0) {
-          result.sectionsFailed.push({
-            name: cs.name || 'Unnamed',
-            reason: 'Source activity not synced',
-          });
-          continue;
-        }
-
-        // Validate startIndex < endIndex
-        if (cs.startIndex >= cs.endIndex) {
-          result.sectionsFailed.push({
-            name: cs.name || 'Unnamed',
-            reason: `Invalid index range: startIndex (${cs.startIndex}) must be less than endIndex (${cs.endIndex})`,
-          });
-          continue;
-        }
-
-        // Validate indices are within track bounds
-        if (cs.startIndex >= track.length || cs.endIndex >= track.length) {
-          result.sectionsFailed.push({
-            name: cs.name || 'Unnamed',
-            reason: `Indices out of range (${cs.startIndex}-${cs.endIndex} vs track length ${track.length})`,
-          });
-          continue;
-        }
-
-        const sectionId = engine.createSectionFromIndices(
-          cs.sourceActivityId,
-          cs.startIndex,
-          cs.endIndex,
-          cs.sportType,
-          cs.name || undefined
-        );
-        if (!sectionId) {
-          result.sectionsFailed.push({
-            name: cs.name || 'Unnamed',
-            reason: 'Engine returned empty section ID',
-          });
-          continue;
-        }
-        result.sectionsRestored++;
-      } catch {
-        result.sectionsFailed.push({
-          name: cs.name || 'Unnamed',
-          reason: 'Creation failed',
-        });
-      }
-    }
+  if (!engine || importWaitsForSignIn()) {
+    return { failed: true, signInRequired: true, error: signInRequiredMessage() };
   }
-
-  // Restore section names
-  if (engine && backup.sectionNames) {
-    for (const [id, name] of Object.entries(backup.sectionNames)) {
-      try {
-        engine.setSectionName(id, name);
-        result.namesApplied++;
-      } catch {
-        result.namesSkipped++;
-      }
-    }
-  }
-
-  // Restore route names
-  if (engine && backup.routeNames) {
-    for (const [id, name] of Object.entries(backup.routeNames)) {
-      try {
-        engine.setRouteName(id, name);
-        result.namesApplied++;
-      } catch {
-        result.namesSkipped++;
-      }
-    }
-  }
-
-  // Restore preferences
-  if (backup.preferences) {
-    // Only keys the export writes. Without this a hand-edited file can put any
-    // key into SQLite, and reinitializeAllStores then loads it into a store.
-    const restorable = new Set<string>(LEGACY_PREFERENCE_KEYS);
-    for (const [key, value] of Object.entries(backup.preferences)) {
-      if (!restorable.has(key)) continue;
-      try {
-        const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
-        await setSetting(key, stringValue);
-        result.preferencesRestored++;
-      } catch {
-        // Skip unwritable keys
-      }
-    }
-
-    await reinitializeAllStores();
-  }
-
-  return result;
+  const restored = await engine.restoreRecordJson(JSON.stringify(record));
+  requestRecordActivities(engine, restored);
+  await mirrorSignedOutPreferences(engine);
+  await reinitializeAllStores();
+  return { unplacedCount: restored.unplaced };
 }

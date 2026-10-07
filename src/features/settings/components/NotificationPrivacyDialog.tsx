@@ -14,12 +14,16 @@ import {
   colorWithOpacity,
 } from '@/theme';
 
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface Props {
   visible: boolean;
   onCancel: () => void;
   onAccept: () => void;
+  /** Notifications are already on: the body and the decline label say so. */
+  alreadyEnabled?: boolean;
+  /** Closing without choosing (the back gesture); defaults to `onCancel`. */
+  onDismiss?: () => void;
 }
 
 /**
@@ -27,7 +31,13 @@ interface Props {
  * names what is stored on the server and who routes the notification. Both the
  * settings toggle and the home card enable notifications, so both show this.
  */
-export function NotificationPrivacyDialog({ visible, onCancel, onAccept }: Props) {
+export function NotificationPrivacyDialog({
+  visible,
+  onCancel,
+  onAccept,
+  alreadyEnabled,
+  onDismiss,
+}: Props) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const bg = isDark ? darkColors.surface : colors.surface;
@@ -35,7 +45,12 @@ export function NotificationPrivacyDialog({ visible, onCancel, onAccept }: Props
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onDismiss ?? onCancel}
+    >
       <View style={styles.overlay}>
         <View style={[styles.dialog, { backgroundColor: bg }]}>
           <View style={styles.dialogHeader}>
@@ -45,15 +60,25 @@ export function NotificationPrivacyDialog({ visible, onCancel, onAccept }: Props
             </Text>
           </View>
           <Text style={[styles.dialogBody, { color: textSecondary }]}>
-            {t('notifications.privacy.brief')}
+            {t(
+              alreadyEnabled ? 'notifications.privacy.briefEnabled' : 'notifications.privacy.brief'
+            )}
           </Text>
           <View style={styles.dialogActions}>
-            <Pressable style={pressable(styles.cancelBtn)} onPress={onCancel}>
+            <Pressable
+              style={pressable(styles.cancelBtn)}
+              android_ripple={pressRipple}
+              onPress={onCancel}
+            >
               <Text style={[styles.cancelText, { color: textSecondary }]}>
-                {t('common.cancel')}
+                {alreadyEnabled ? t('notifications.privacy.turnOff') : t('common.cancel')}
               </Text>
             </Pressable>
-            <Pressable style={pressable(styles.acceptBtn)} onPress={onAccept}>
+            <Pressable
+              style={pressable(styles.acceptBtn)}
+              android_ripple={pressRipple}
+              onPress={onAccept}
+            >
               <Text style={styles.acceptText}>{t('notifications.privacy.accept')}</Text>
             </Pressable>
           </View>
@@ -110,10 +135,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: spacing.sm,
+    borderRadius: layout.borderRadiusSm,
   },
   acceptText: {
-    color: ink.white,
+    color: colors.textOnPrimary,
     fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
