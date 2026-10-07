@@ -18,6 +18,9 @@ import LoginScreen from '@/app/login';
 import { ApiKeyLoginForm } from '@/features/auth/components/ApiKeyLoginForm';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { rememberCachedAthleteId, forgetCachedAthleteId } from '@/shared/storage/cachedAthleteId';
+import { clearAccountData } from '@/shared/storage';
+import { demoEntryAction } from '@/features/auth/lib/storedActivityCount';
+import { confirmAccountChange } from '@/features/auth/lib/accountChange';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -45,6 +48,10 @@ jest.mock('react-i18next', () => {
 });
 
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
+jest.mock('@/shared/app/NetworkContext', () => ({
+  useNetwork: () => ({ isOnline: true }),
+  useIsOnline: () => true,
+}));
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),
@@ -61,24 +68,37 @@ jest.mock('@/features/settings/hooks/exportIndex', () => ({
   useImportDatabaseBackup: () => ({ importDatabaseBackup: jest.fn(), importing: false }),
 }));
 
-jest.mock('@/features/auth/hooks/useBackupRestore', () => ({
-  useBackupRestore: () => ({
-    detectedBackup: null,
-    restoringDetected: false,
-    dismissedRestore: false,
-    setDismissedRestore: jest.fn(),
-    handleRestoreDetected: jest.fn(),
-  }),
-}));
-
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => null,
   isEngineReady: () => false,
 }));
 
-jest.mock('@/features/auth/hooks/useApiKeyLogin', () => ({
-  useApiKeyLogin: () => ({ handleApiKeyLogin: jest.fn(), isApiKeyLoading: false }),
+jest.mock('@/shared/storage', () => ({
+  ...jest.requireActual('@/shared/storage'),
+  clearAccountData: jest.fn(async () => undefined),
 }));
+
+jest.mock('@/features/auth/lib/storedActivityCount', () => {
+  const actual = jest.requireActual('@/features/auth/lib/storedActivityCount');
+  return { ...actual, demoEntryAction: jest.fn(actual.demoEntryAction) };
+});
+
+jest.mock('@/features/auth/lib/accountChange', () => {
+  const actual = jest.requireActual('@/features/auth/lib/accountChange');
+  return { ...actual, confirmAccountChange: jest.fn(actual.confirmAccountChange) };
+});
+
+jest.mock('@/features/auth/hooks/useApiKeyLogin', () => ({
+  useApiKeyLogin: () => ({
+    handleApiKeyLogin: jest.fn(),
+    isApiKeyLoading: false,
+    queuedMessage: mockQueuedMessage,
+    discardQueuedKey: mockDiscardQueuedKey,
+  }),
+}));
+
+let mockQueuedMessage: string | null = null;
+const mockDiscardQueuedKey = jest.fn();
 
 const mockGetItemAsync = SecureStore.getItemAsync as jest.MockedFunction<
   typeof SecureStore.getItemAsync
@@ -93,9 +113,49 @@ function keychain(entries: Record<string, string | null>) {
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  mockQueuedMessage = null;
+  jest.mocked(clearAccountData).mockResolvedValue(undefined);
   keychain({});
   useAuthStore.setState({ sessionExpired: null });
   await forgetCachedAthleteId();
+});
+
+it('offers a control to discard the queued offline key', () => {
+  mockQueuedMessage = 'Waiting for connection';
+  render(<LoginScreen />);
+  fireEvent.press(screen.getByTestId('login-discard-queued-key'));
+  expect(mockDiscardQueuedKey).toHaveBeenCalledTimes(1);
+});
+
+it('drops the queued offline key when the athlete cancels Try Demo', async () => {
+  const enterDemoMode = jest.fn();
+  useAuthStore.setState({ enterDemoMode });
+  mockQueuedMessage = 'Waiting for connection';
+  jest.mocked(demoEntryAction).mockResolvedValueOnce('confirm-then-wipe');
+  jest.mocked(confirmAccountChange).mockResolvedValueOnce(false);
+  render(<LoginScreen />);
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('login-demo-button'));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  expect(enterDemoMode).not.toHaveBeenCalled();
+  expect(clearAccountData).not.toHaveBeenCalled();
+  expect(mockDiscardQueuedKey).toHaveBeenCalledTimes(1);
+});
+
+it('keeps demo mode closed and reports a failed account wipe', async () => {
+  const enterDemoMode = jest.fn();
+  useAuthStore.setState({ enterDemoMode });
+  jest.mocked(clearAccountData).mockRejectedValueOnce(new Error('wipe failed'));
+  render(<LoginScreen />);
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('login-demo-button'));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  expect(enterDemoMode).not.toHaveBeenCalled();
+  expect(screen.getByTestId('login-error-text')).toBeTruthy();
 });
 
 /** The screen reads the cached id and then the keychain, one microtask each. */
@@ -114,6 +174,14 @@ async function reEnter() {
 }
 
 describe('a re-entry after a rejected key', () => {
+  it('restores the notice and prefill after a relaunch', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    keychain({ intervals_api_key: STORED_KEY, intervals_api_key_athlete_id: ATHLETE });
+    await useAuthStore.getState().initialize();
+    render(<LoginScreen />);
+    await settle();
+    expect(screen.getByTestId('login-apikey-input').props.value).toBe(STORED_KEY);
+  });
   it('brings the key back into the field', async () => {
     await rememberCachedAthleteId(ATHLETE);
     keychain({ intervals_api_key: STORED_KEY, intervals_api_key_athlete_id: ATHLETE });

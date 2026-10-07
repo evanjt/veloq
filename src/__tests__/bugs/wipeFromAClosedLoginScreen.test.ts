@@ -45,7 +45,12 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
-const mockEngine = { clear: jest.fn(async () => {}) };
+const mockEngine = {
+  clear: jest.fn(async () => {}),
+  getSetting: jest.fn(() => null),
+  setSetting: jest.fn(),
+  deleteSetting: jest.fn(),
+};
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(() => mockEngine),

@@ -9,13 +9,23 @@
  * Expected behaviour: the app flushes the sidecars when it goes to the
  * background, and never throws doing it.
  */
-import { readFileSync } from 'fs';
 import { basemap } from '../__shared__/veloqrsStub';
 import { flushBasemapSidecars } from '@/features/maps/lib/basemapFlush';
+import { handleAppBackground } from '@/shared/app/appBackground';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+const mockBackup = jest.fn();
+jest.mock('@/features/settings/lib/autobackup', () => ({
+  onAppBackground: () => mockBackup(),
+}));
+const mockWidget = jest.fn();
+jest.mock('@/features/home/lib/widgetBridge', () => ({
+  updateWidgetSnapshot: () => mockWidget(),
+}));
 
 beforeEach(() => {
+  mockBackup.mockClear();
+  mockWidget.mockClear();
   basemap.flush.mockClear();
   basemap.flush.mockImplementation(() => undefined);
 });
@@ -50,11 +60,15 @@ describe('flushing the basemap sidecars', () => {
 
 describe('the app lifecycle', () => {
   it('flushes them when the app goes to the background', () => {
-    const source = readFileSync('src/app/_layout.tsx', 'utf8');
-    const background = source.slice(source.indexOf("if (state === 'background')"));
-    const mapsImport = source.slice(0, source.indexOf("} from '@/features/maps';"));
+    handleAppBackground();
 
-    expect(background).toContain('flushBasemapSidecars()');
-    expect(mapsImport).toContain('flushBasemapSidecars,');
+    expect(basemap.flush).toHaveBeenCalledTimes(1);
+  });
+
+  it('still backs up and refreshes the widget beside the flush', () => {
+    handleAppBackground();
+
+    expect(mockBackup).toHaveBeenCalledTimes(1);
+    expect(mockWidget).toHaveBeenCalledTimes(1);
   });
 });

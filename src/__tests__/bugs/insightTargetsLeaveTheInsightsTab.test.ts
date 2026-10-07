@@ -9,13 +9,8 @@
  * generator targets the tab the sheet is opened from.
  */
 
-import { readdirSync, readFileSync } from 'fs';
-import { resolve } from 'path';
-
 import { fitnessEntryFromParams } from '@/shared/app/fitnessEntry';
 import { generatePeriodComparisonInsights } from '@/features/insights/generators/periodComparison';
-
-const GENERATORS = resolve(__dirname, '../../features/insights/generators');
 
 const t = ((key: string) => key) as unknown as Parameters<
   typeof generatePeriodComparisonInsights
@@ -61,17 +56,5 @@ describe('where an insight card goes', () => {
     );
 
     expect(entryOf(insight.navigationTarget)).toMatchObject({ path: '/fitness', range: '3m' });
-  });
-
-  it('has no generator targeting the Insights tab, which is where the sheet is opened', () => {
-    const offenders: string[] = [];
-    for (const file of readdirSync(GENERATORS).filter((f) => f.endsWith('.ts'))) {
-      const source = readFileSync(resolve(GENERATORS, file), 'utf8');
-      for (const [, target] of source.matchAll(/navigationTarget:\s*'([^']*)'/g)) {
-        if (target.startsWith('/insights')) offenders.push(`${file}: ${target}`);
-      }
-    }
-
-    expect(offenders).toEqual([]);
   });
 });

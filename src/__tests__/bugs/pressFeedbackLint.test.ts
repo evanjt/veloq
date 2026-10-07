@@ -69,16 +69,47 @@ it('fails one with no style at all', () => {
   expect(runGuard(root).status).toBe(1);
 });
 
-it('accepts the shared helper, a written-out press style and a ripple', () => {
+it('accepts the shared helper and a ripple', () => {
   const root = fixture({
-    'src/features/x/Helper.tsx': '<Pressable style={pressable(styles.row)} onPress={go} />\n',
-    'src/features/x/Written.tsx':
-      '<Pressable style={({ pressed }) => [styles.row, pressed && dim]} onPress={go} />\n',
+    'src/features/x/Helper.tsx':
+      '<Pressable style={pressable(styles.row)} android_ripple={pressRipple} onPress={go} />\n',
     'src/features/x/Ripple.tsx':
       '<Pressable style={styles.row} android_ripple={{ borderless: false }} onPress={go} />\n',
   });
 
   expect(runGuard(root).status).toBe(0);
+});
+
+it('fails a hand-written pressed style, which gives its own look', () => {
+  const root = fixture({
+    'src/features/x/Written.tsx':
+      '<Pressable style={({ pressed }) => [styles.row, pressed && dim]} onPress={go} />\n',
+    'src/features/x/Called.tsx': '<Pressable style={rowStyle(theme)} onPress={go} />\n',
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain('src/features/x/Written.tsx:1');
+  expect(output).toContain('src/features/x/Called.tsx:1');
+});
+
+it('fails the helper with no ripple beside it, which shows nothing on Android', () => {
+  const root = fixture({
+    'src/features/x/Chip.tsx': [
+      'export const Chip = () => (',
+      '  <Pressable style={pressable(styles.chip)} onPress={go} />',
+      ');',
+    ].join('\n'),
+    'src/features/x/Wrapped.tsx':
+      '<Pressable style={(state) => [pressable()(state), styles.name]} onPress={go} />\n',
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain('src/features/x/Chip.tsx:2');
+  expect(output).toContain('src/features/x/Wrapped.tsx:1');
 });
 
 it('accepts a press that says why it is not a control', () => {
@@ -111,6 +142,31 @@ it('does not take that reason from further up the file', () => {
 it('ignores tests, which render a bare Pressable on purpose', () => {
   const root = fixture({
     'src/__tests__/row.test.tsx': '<Pressable onPress={go} />\n',
+  });
+
+  expect(runGuard(root).status).toBe(0);
+});
+
+it('refuses a TouchableOpacity without activeOpacity beside one that sets it', () => {
+  const root = fixture({
+    'src/features/x/Rows.tsx': [
+      '<TouchableOpacity activeOpacity={0.7} onPress={open} />',
+      '<TouchableOpacity onPress={close} />',
+    ].join('\n'),
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain('src/features/x/Rows.tsx:2');
+});
+
+it('accepts an explicit opacity or a props spread on each TouchableOpacity', () => {
+  const root = fixture({
+    'src/features/x/Rows.tsx': [
+      '<TouchableOpacity activeOpacity={0.7} onPress={open} />',
+      '<TouchableOpacity {...props} onPress={close} />',
+    ].join('\n'),
   });
 
   expect(runGuard(root).status).toBe(0);

@@ -125,3 +125,25 @@ describe('a test that shells out to git', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('the spawn check', () => {
+  it('reports a spawn handed an environment built above it from the inherited one', () => {
+    const source = [
+      'const clean = { ...process.env };',
+      'delete clean.VELOQ_MERGE_BASE;',
+      "execFileSync('bash', [GUARD, '--merge'], { cwd: root, env: { ...clean, ...env } });",
+    ].join('\n');
+
+    expect(unsafeChildSpawns(source)).toHaveLength(1);
+  });
+
+  it('passes a spawn whose environment gitFreeEnv builds at the call', () => {
+    const source = [
+      'const inherited = { ...process.env };',
+      'delete inherited.VELOQ_MERGE_BASE;',
+      "execFileSync('bash', [GUARD, '--merge'], { cwd: root, env: { ...gitFreeEnv(inherited) } });",
+    ].join('\n');
+
+    expect(unsafeChildSpawns(source)).toEqual([]);
+  });
+});

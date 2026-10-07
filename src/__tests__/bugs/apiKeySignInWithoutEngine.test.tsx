@@ -27,8 +27,12 @@ jest.mock('@/shared/storage', () => ({
 }));
 jest.mock('@/features/auth/lib/accountChange', () => ({
   accountChangeAction: jest.fn(() => 'keep'),
+  settleBeforeNamingLibrary: jest.fn(async () => undefined),
   confirmAccountChange: jest.fn(async () => true),
   getCachedAthleteId: jest.fn(async () => null),
+}));
+jest.mock('@/features/auth/lib/storedActivityCount', () => ({
+  resolveStoredActivityCount: jest.fn(async () => 0),
 }));
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
@@ -37,7 +41,10 @@ jest.mock('@tanstack/react-query', () => ({
 
 // The hook asks whether the radio is up before it asks the server, and this
 // case is about what happens when it is.
-jest.mock('@/shared/app/NetworkContext', () => ({ useNetwork: () => ({ isOnline: true }) }));
+jest.mock('@/shared/app/NetworkContext', () => ({
+  useNetwork: () => ({ isOnline: true }),
+  useIsOnline: () => true,
+}));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 // Declared after the mocks, not before: the factory is hoisted above every

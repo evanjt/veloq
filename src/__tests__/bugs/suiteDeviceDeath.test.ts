@@ -26,7 +26,8 @@ function junit(cases: Case[]): string {
         : `<testcase name="${c.name}" time="${c.time}"/>`
     )
     .join('\n');
-  return `<?xml version="1.0"?>\n<testsuite>\n${body}\n</testsuite>\n`;
+  const failures = cases.filter((c) => c.failure).length;
+  return `<?xml version="1.0"?>\n<testsuites>\n<testsuite name="Test Suite" tests="${cases.length}" failures="${failures}">\n${body}\n</testsuite>\n</testsuites>\n`;
 }
 
 /**
@@ -116,6 +117,7 @@ function run(
         encoding: 'utf8',
         env: {
           ...process.env,
+          CI: 'true',
           MAESTRO_BIN: bin,
           // A restart revives the device, which is what makes a second one useful.
           MAESTRO_RESTART_CMD: `echo restarted >> ${dir}/restarts.log; touch ${dir}/alive`,
@@ -134,8 +136,25 @@ function run(
   return {
     status,
     stdout,
+    report: read('out.xml'),
     calls: read('calls.log').trim().split('\n').filter(Boolean),
     restarts: read('restarts.log').trim().split('\n').filter(Boolean).length,
+  };
+}
+
+/** The `tests` and `failures` a report's suite declares, and each case's verdict. */
+function verdicts(report: string) {
+  const suite = report.match(/<testsuite\b[^>]*>/)?.[0] ?? '';
+  const cases = [...report.matchAll(/<testcase\b[^>]*?(?:\/>|>[\s\S]*?<\/testcase>)/g)].map(
+    ([element]) => ({
+      name: element.match(/\sname="([^"]*)"/)?.[1],
+      failed: element.includes('<failure'),
+    })
+  );
+  return {
+    tests: Number(suite.match(/\stests="(\d+)"/)?.[1]),
+    failures: Number(suite.match(/\sfailures="(\d+)"/)?.[1]),
+    cases,
   };
 }
 
@@ -309,6 +328,7 @@ describe('restarting a named device', () => {
         encoding: 'utf8',
         env: {
           ...process.env,
+          CI: 'true',
           PATH: `${dir}:${process.env.PATH}`,
           MAESTRO_BIN: bin,
           ...(device ? { MAESTRO_DEVICE: device } : {}),
@@ -335,5 +355,108 @@ describe('restarting a named device', () => {
     const calls = runWithFakeAdb();
 
     expect(calls.some((c) => c.includes('kill-server'))).toBe(true);
+  });
+});
+
+/**
+ * Scenario: a scheduled run in which the device server dies after seven flows.
+ * `run-suite.sh` restarts the device and every retried flow passes, so the job
+ * is green, and the summary and the junit check still read the first pass and
+ * report 78 failures.
+ *
+ * Expected behaviour: the named report ends up holding each retried flow's
+ * retry result in place of its first one, with the counts recomputed, so
+ * whatever reads it reads what the gate decided.
+ */
+describe('the report a recovered suite leaves', () => {
+  it('holds the retry results, not the first pass', () => {
+    const result = run([
+      { name: 'smoke', time: '61.0' },
+      { name: 'map-visual-validation', time: '43.2', failure: DIED },
+      { name: 'map-style-switching', time: '0.039', failure: 'Unknown error' },
+    ]);
+
+    expect(result.status).toBe(0);
+    const report = verdicts(result.report);
+    expect(report.tests).toBe(3);
+    expect(report.failures).toBe(0);
+    expect(report.cases).toEqual([
+      { name: 'smoke', failed: false },
+      { name: 'map-visual-validation', failed: false },
+      { name: 'map-style-switching', failed: false },
+    ]);
+  });
+
+  it('keeps a flow that failed its retry as failed, with the retry failure', () => {
+    const result = run(
+      [
+        { name: 'map-visual-validation', time: '43.2', failure: DIED },
+        { name: 'map-style-switching', time: '38.1', failure: 'Assertion is false: id: map-view' },
+      ],
+      { 'map-style-switching': 'Assertion is false: id: map-style-picker' }
+    );
+
+    expect(result.status).toBe(1);
+    const report = verdicts(result.report);
+    expect(report.tests).toBe(2);
+    expect(report.failures).toBe(1);
+    expect(result.report).toContain('map-style-picker');
+    expect(result.report).not.toContain('id: map-view');
+  });
+
+  it('leaves the first pass where no retry report was written', () => {
+    const result = run([{ name: 'no-such-flow', time: '12.0', failure: 'Assertion is false' }]);
+
+    expect(result.status).toBe(1);
+    const report = verdicts(result.report);
+    expect(report.failures).toBe(1);
+    expect(report.cases).toEqual([{ name: 'no-such-flow', failed: true }]);
+  });
+});
+
+/**
+ * Scenario: someone runs the suite by hand on a workstation while another
+ * session holds a handset's device lock.
+ *
+ * Expected behaviour: off CI the suite re-execs under the device lock and
+ * drives the serial the lock was taken on, and a lost device is never restarted
+ * with the server-wide `adb kill-server`. On CI, with its single emulator, it
+ * takes no lock.
+ */
+describe('the device lock', () => {
+  function runByHand(env: Record<string, string>) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-suite-lock-'));
+    const bin = path.join(dir, 'maestro');
+    fs.writeFileSync(
+      bin,
+      `#!/usr/bin/env bash\necho "held=\${VELOQ_DEVICE_LOCK_HELD:-} $*" >> "${dir}/calls.log"\nexit 0\n`,
+      { mode: 0o755 }
+    );
+    fs.symlinkSync(path.resolve(__dirname, '../../../.maestro'), path.join(dir, '.maestro'));
+    const base: NodeJS.ProcessEnv = { ...process.env, MAESTRO_BIN: bin, ...env };
+    delete base.VELOQ_DEVICE_LOCK_HELD;
+    if (!env.CI) delete base.CI;
+    execFileSync('bash', [SCRIPT, path.join(dir, 'out.xml'), path.join(dir, 'debug')], {
+      cwd: dir,
+      env: base,
+    });
+    return fs.readFileSync(path.join(dir, 'calls.log'), 'utf8').trim().split('\n');
+  }
+
+  it('runs under the lock and pins the locked serial off CI', () => {
+    const lockDir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-suite-lockfile-'));
+    const calls = runByHand({
+      ANDROID_SERIAL: 'emulator-5554',
+      VELOQ_DEVICE_LOCK: path.join(lockDir, 'device.lock'),
+    });
+
+    expect(calls[0]).toContain('held=1');
+    expect(calls[0]).toContain('--device emulator-5554');
+  });
+
+  it('takes no lock on CI', () => {
+    const calls = runByHand({ CI: 'true' });
+
+    expect(calls[0]).toContain('held= ');
   });
 });

@@ -31,7 +31,11 @@ jest.mock('@/shared/app/UnitPreferenceStore', () => {
 });
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  default: { removeItem: jest.fn(async () => undefined) },
+  __esModule: true,
+  default: {
+    removeItem: jest.fn(async () => undefined),
+    setItem: jest.fn(async () => undefined),
+  },
 }));
 
 const engine = {
@@ -106,5 +110,15 @@ describe('who the app draws while signed out', () => {
     await waitFor(() => expect(result.current.fetchStatus).toBe('idle'));
     expect(engine.getAthleteProfile).not.toHaveBeenCalled();
     expect(result.current.data).toBeUndefined();
+  });
+
+  it('leaves the engine alone when the ownerless adoptions could not be ended', async () => {
+    engine.clear.mockClear();
+    const AsyncStorage = jest.requireMock('@react-native-async-storage/async-storage').default;
+    AsyncStorage.setItem.mockRejectedValueOnce(new Error('disk full'));
+
+    await expect(clearAccountData(client)).rejects.toThrow('disk full');
+
+    expect(engine.clear).not.toHaveBeenCalled();
   });
 });

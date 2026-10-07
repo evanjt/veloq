@@ -21,6 +21,11 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 let mockSnapshotFailed: (() => void) | null = null;
+let mockSnapshotDone: ((uri: string) => void) | null = null;
+
+/** Cached renders by `activityId_style_is3D`, the triple the card asks with. */
+const mockCached = new Set<string>();
+const mockKey = (id: string, style: string, is3D: boolean) => `${id}_${style}_${is3D}`;
 
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
@@ -31,14 +36,16 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 }));
 
 jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
-  hasTerrainPreview: () => false,
+  hasTerrainPreview: (id: string, style: string, is3D: boolean) =>
+    mockCached.has(mockKey(id, style, is3D)),
   isTerrainPreviewDowngraded: () => false,
-  getTerrainPreviewUri: () => 'file:///nothing.jpg',
-  isPrioritySnapshot: () => false,
-  clearPrioritySnapshot: jest.fn(),
+  getTerrainPreviewUri: () => 'file:///cached.jpg',
   isTerrainCacheInitialized: () => true,
   onTerrainCacheReady: () => () => {},
   deleteSupersededTerrainPreviews: jest.fn(),
+  deleteTerrainPreview: jest.fn(async (id: string, style: string, is3D: boolean) => {
+    mockCached.delete(mockKey(id, style, is3D));
+  }),
 }));
 
 jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
@@ -46,7 +53,10 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
 }));
 
 jest.mock('@/features/maps/lib/terrainSnapshotEvents', () => ({
-  subscribeSnapshot: () => () => {},
+  subscribeSnapshot: (_id: string, cb: (uri: string) => void) => {
+    mockSnapshotDone = cb;
+    return () => {};
+  },
   subscribeSnapshotFailure: (_id: string, cb: () => void) => {
     mockSnapshotFailed = cb;
     return () => {};
@@ -70,7 +80,6 @@ jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
 const activity = {
   id: 'demo-1',
   type: 'Ride',
-  country: 'Switzerland',
   stream_types: ['latlng'],
 } as unknown as Activity;
 
@@ -85,6 +94,7 @@ function skiaNodeCount(tree: ReturnType<typeof render>): number {
 describe('a feed card with no preview draws no route line', () => {
   beforeEach(() => {
     mockSnapshotFailed = null;
+    mockCached.clear();
     jest.useFakeTimers();
   });
 
@@ -119,6 +129,71 @@ describe('a feed card with no preview draws no route line', () => {
 
     expect(tree.UNSAFE_queryAllByType(require('react-native').ActivityIndicator)).toHaveLength(0);
     expect(skiaNodeCount(tree)).toBe(0);
+    const icons = tree.UNSAFE_getAllByType(MaterialCommunityIcons);
+    expect(icons).toHaveLength(1);
+    expect(icons[0].props.name).toBe('map-marker-off');
+  });
+});
+
+describe('a cached preview that will not decode', () => {
+  const { ActivityIndicator, Image } = require('react-native');
+
+  beforeEach(() => {
+    mockSnapshotFailed = null;
+    mockSnapshotDone = null;
+    mockCached.clear();
+    mockCached.add(mockKey('demo-1', 'light', false));
+  });
+
+  function renderCachedCard() {
+    const requestSnapshot = jest.fn();
+    const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+    const tree = render(
+      <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
+    );
+    return { requestSnapshot, tree };
+  }
+
+  function failImage(tree: ReturnType<typeof render>) {
+    act(() => {
+      tree.UNSAFE_getByType(Image).props.onError({ nativeEvent: { error: 'decode failed' } });
+    });
+  }
+
+  it('drops the broken entry from the cache', () => {
+    const { tree } = renderCachedCard();
+
+    failImage(tree);
+
+    const { deleteTerrainPreview } = require('@/features/maps/lib/storage/terrainPreviewCache');
+    expect(deleteTerrainPreview).toHaveBeenCalledWith('demo-1', 'light', false);
+    expect(mockCached.has(mockKey('demo-1', 'light', false))).toBe(false);
+  });
+
+  it('asks the pool to draw it again, so the spinner has something to wait for', () => {
+    const { requestSnapshot, tree } = renderCachedCard();
+    expect(requestSnapshot).not.toHaveBeenCalled();
+
+    failImage(tree);
+
+    expect(requestSnapshot).toHaveBeenCalledTimes(1);
+    expect(requestSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ activityId: 'demo-1', mapStyle: 'light' })
+    );
+  });
+
+  it('takes the no-map mark when the redrawn image fails too, rather than asking forever', () => {
+    const { requestSnapshot, tree } = renderCachedCard();
+    failImage(tree);
+    act(() => {
+      mockCached.add(mockKey('demo-1', 'light', false));
+      mockSnapshotDone?.('file:///redrawn.jpg');
+    });
+
+    failImage(tree);
+
+    expect(requestSnapshot).toHaveBeenCalledTimes(1);
+    expect(tree.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
     const icons = tree.UNSAFE_getAllByType(MaterialCommunityIcons);
     expect(icons).toHaveLength(1);
     expect(icons[0].props.name).toBe('map-marker-off');

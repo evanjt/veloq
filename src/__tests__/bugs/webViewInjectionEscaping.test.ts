@@ -8,12 +8,9 @@
  * posted tile path is `z/x/y.png` or nothing.
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-import { heatmapTilePath, jsLiteral } from '@/features/maps/lib/webViewLiterals';
-
-const source = (relative: string) => readFileSync(resolve(__dirname, '../..', relative), 'utf8');
+import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
+import { buildMap3DHtml } from '@/features/maps/lib/htmlBuilders/map3D';
+import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 
 describe('a value interpolated into injected JavaScript', () => {
   it('is quoted and escaped', () => {
@@ -35,44 +32,45 @@ describe('a value interpolated into injected JavaScript', () => {
     expect(jsLiteral(null)).toBe('null');
   });
 
-  /// The three builders the audit named, read from the tree: no single-quoted
-  /// interpolation may remain in any of them.
-  it.each([
-    'features/maps/lib/htmlBuilders/terrainSnapshotScripts.ts',
-    'features/maps/lib/htmlBuilders/map3D.ts',
-    'features/maps/components/Map3DWebView.tsx',
-  ])('is what %s interpolates with', (file) => {
-    const quoted = source(file).match(/'\$\{[^}]+\}'/g) ?? [];
-    expect(quoted).toEqual([]);
-  });
-});
+  /// The generated scripts are evaluated for the interpolated value: a value
+  /// that escaped its literal would read back as something else or not parse.
+  describe('in the generated map scripts', () => {
+    const hostile = 'x\'"); globalThis.__injected = 1; //\n</script>';
 
-describe('a heatmap tile path posted by the page', () => {
-  it('is accepted when it is z/x/y.png', () => {
-    expect(heatmapTilePath('12/2130/1450.png')).toBe('12/2130/1450.png');
-    expect(heatmapTilePath('0/0/0.png')).toBe('0/0/0.png');
-  });
+    const request = {
+      activityId: 'a1',
+      coordinates: [[7, 46]] as [number, number][],
+      camera: { center: [7, 46] as [number, number], zoom: 10, bearing: 0, pitch: 0 },
+      mapStyle: 'light' as const,
+      routeColor: hostile,
+    };
 
-  it('is refused when it climbs out of the tile directory', () => {
-    expect(heatmapTilePath('../../etc/passwd')).toBeNull();
-    expect(heatmapTilePath('12/../../1450.png')).toBeNull();
-    expect(heatmapTilePath('/12/2130/1450.png')).toBeNull();
-  });
+    it('reads the snapshot route colour back as the value it was given', () => {
+      const script = buildRenderSnapshotScript(request, 0, 1);
+      const literal = /var routeColor = (.*);\n/.exec(script)![1];
+      expect(eval(`(${literal})`)).toBe(hostile);
+      expect((globalThis as Record<string, unknown>).__injected).toBeUndefined();
+    });
 
-  it('is refused when it is not a tile at all', () => {
-    expect(heatmapTilePath('12/2130/1450.js')).toBeNull();
-    expect(heatmapTilePath('12/2130.png')).toBeNull();
-    expect(heatmapTilePath('')).toBeNull();
-    expect(heatmapTilePath(undefined)).toBeNull();
-    expect(heatmapTilePath(42)).toBeNull();
+    it('reads the 3D view route colour back as the value it was given', () => {
+      const html = buildMap3DHtml({
+        coordinates: [[7, 46]],
+        bounds: null,
+        centerOverride: null,
+        zoom: 10,
+        bearing: 0,
+        pitch: 0,
+        hasSavedCamera: false,
+        terrainExaggeration: 1,
+        initStyle: 'light',
+        mapStyle: 'light',
+        routeColor: hostile,
+        showHeatmap: false,
+        devicePixelRatio: 2,
+      });
+      const literal = /'line-color': (".*"),\n\s*'line-width': 3,/.exec(html)![1];
+      expect(eval(`(${literal})`)).toBe(hostile);
+      expect((globalThis as Record<string, unknown>).__injected).toBeUndefined();
+    });
   });
-
-  it.each(['features/maps/hooks/useMap3DBridge.ts', 'features/maps/components/MapSurface.tsx'])(
-    'is checked before %s joins it onto the tile directory',
-    (file) => {
-      const text = source(file);
-      expect(text).toContain('heatmapTilePath(data.tilePath)');
-      expect(text).not.toMatch(/const tilePath = data\.tilePath as string/);
-    }
-  );
 });

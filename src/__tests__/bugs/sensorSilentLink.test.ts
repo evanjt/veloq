@@ -10,6 +10,7 @@
  */
 
 import { useSensorStore } from '@/features/sensors/store';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { SENSOR_NO_DATA_MS, sensorConnectionHealth } from '@/features/sensors/lib/connectionHealth';
 import { connectKnownSensors, disconnectAllSensors } from '@/features/sensors/lib/sensorManager';
 
@@ -111,7 +112,7 @@ describe('a sensor that connects and sends nothing', () => {
 
     deliver?.(null, HEART_RATE_72);
     expect(useSensorStore.getState().connections[SENSOR.id]?.status).toBe('connected');
-    expect(useSensorStore.getState().latest.heartRate?.value).toBe(72);
+    expect(useRecordingStore.getState().latestSensor.heartrate?.value).toBe(72);
   });
 
   it('reads no data and reconnects once the watchdog interval passes', async () => {

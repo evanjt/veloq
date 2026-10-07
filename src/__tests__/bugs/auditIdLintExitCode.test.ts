@@ -249,6 +249,8 @@ it('does not refuse its own file, which documents what it allows', () => {
 it.each([
   ['a single id', '// ...erased it (B406).'],
   ['a comma list', '// Every family carries a named pair (B927, B928).'],
+  ['an id followed by prose', '// The lock nests here (B1057, and B624 one level down).'],
+  ['an id followed by a space', '// The lock nests here (B1057 and another caller).'],
   ['a Rust comment', '/// The preview keeps its own bounds (B423).'],
   ['a block comment line', ' * Both taps land on the sheet (U44).'],
   ['a two-letter key', '// Stamped on every apply (SB12).'],
@@ -263,4 +265,62 @@ it.each([
   ['a word in brackets', '// The count (B for bytes) and the id (Bid).'],
 ])('leaves a parenthesis that is not an id alone: %s', (_what, line) => {
   expect(runGuard(fixture({ 'src/q.ts': `${line}\nexport const q = 1;\n` })).status).toBe(0);
+});
+
+/**
+ * Scenario: the guard read a list of trees, and an id sat in a Kotlin module,
+ * a TOML manifest, the nextest config and the root `.gitignore`, each a tree
+ * nobody had added to the list.
+ * Expected behaviour: every tracked file whose comments it can read in their
+ * own syntax is read, wherever it sits.
+ */
+it.each([
+  [
+    'a Kotlin module',
+    'modules/veloq-x/android/src/main/java/com/veloq/x/XModule.kt',
+    '/**\n * Which is what `B205` depends on.\n */\nclass XModule\n',
+    2,
+  ],
+  [
+    'a Swift extension',
+    'push/ios/Ext/Payload.swift',
+    '/// Read the same way (`I73`).\nstruct P {}\n',
+    1,
+  ],
+  ['a widget source', 'widget/android/java/Widget.kt', '// Split out for (B12).\nclass W\n', 1],
+  [
+    'a crate manifest',
+    'modules/veloqrs/rust/veloqrs/Cargo.toml',
+    '[deps]\n# Their own handshake (`I73`).\n',
+    2,
+  ],
+  [
+    'the nextest config',
+    'modules/veloqrs/rust/.config/nextest.toml',
+    '# Until the cap kills it (B344).\n',
+    1,
+  ],
+  ['a Maestro flow', '.maestro/a.yaml', '# Covers the expiry (B51).\nappId: x\n', 1],
+  ['the root gitignore', '.gitignore', '# Resident memory otherwise (B329).\n.jest-cache/\n', 1],
+  ['the proxy', 'oauth-proxy/src/index.ts', '// Refused since `B77`.\nexport {};\n', 1],
+  ['the Jest config', 'config/jest.setup.js', '// Faked for `B340`.\n', 1],
+  ['a Gradle build', 'android/app/build.gradle', '// Pinned for `B12`.\n', 1],
+  ['a Ruby build file', 'config/fastlane/Fastfile', '# Signed this way since `B9`.\n', 1],
+])('fails on %s naming an item', (_what, path, body, line) => {
+  const { status, output } = runGuard(fixture({ [path]: body }));
+
+  expect(status).toBe(1);
+  expect(output).toContain(`${path}:${line}`);
+});
+
+it('reads no comment in a file whose syntax it does not know', () => {
+  const { status } = runGuard(
+    fixture({
+      'src/a.ts': 'export const a = 1;\n',
+      'data/a.json': '{"note": "// Named for `B12`."}\n',
+      'docs/notes.txt': '# Named for `B12`.\n',
+    })
+  );
+
+  expect(status).toBe(0);
 });

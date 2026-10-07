@@ -1,20 +1,18 @@
 /**
- * Scenario: a pocket tap on a home-screen widget, an iOS Control or a launcher
- * shortcut deep-links to the recording screen, which started the ride on
- * mount. The athlete was left a recorded ride and a written FIT backup to stop
- * and discard.
+ * Scenario: the Start on the record entry screen answered with a countdown
+ * that covered the map before the ride began.
  *
- * Expected behaviour, Evan's decision of 2026-09-11: a one-tap entry arms a
- * three-second countdown and starts when it runs out, and cancelling inside
- * the window records nothing at all. The picker path is unchanged, because
- * arriving there is already the athlete's second tap.
+ * Expected behaviour: Start begins the recording at once and nothing runs a
+ * countdown. A one-tap system entry (widget, Control, launcher shortcut) still
+ * lands on the recording screen idle with its Start button, so a pocket tap
+ * records nothing, and the athlete begins with one more tap.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
 
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { ARM_COUNTDOWN_SECONDS } from '@/features/recording/lib/armCountdown';
+import { canStartAfterScopeWarning } from '@/features/recording/lib/armCountdown';
 
 const started = () => useRecordingStore.getState().startRecording as jest.Mock;
 
@@ -28,99 +26,69 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('a one-tap entry arms rather than starting', () => {
-  const armed = () =>
-    renderHook(() => useInitRecordingEffect('idle', 'Ride', 'gps', undefined, true, 'quickstart'));
-
-  it('records nothing on mount', () => {
-    const { result } = armed();
-    expect(started()).not.toHaveBeenCalled();
-    expect(result.current.countdown).toBe(ARM_COUNTDOWN_SECONDS);
-  });
-
-  it('counts down a second at a time', () => {
-    const { result } = armed();
-    act(() => {
-      jest.advanceTimersByTime(1000);
-    });
-    expect(result.current.countdown).toBe(2);
-    expect(started()).not.toHaveBeenCalled();
-  });
-
-  it('starts when the countdown runs out', () => {
-    armed();
-    act(() => {
-      jest.advanceTimersByTime(ARM_COUNTDOWN_SECONDS * 1000);
-    });
+describe('the entry screen Start', () => {
+  it('begins the recording on arrival, with no wait', () => {
+    renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, true, 'entry'));
+    expect(started()).toHaveBeenCalledTimes(1);
     expect(started()).toHaveBeenCalledWith('Ride', 'gps', undefined);
   });
 
-  it('records nothing when cancelled inside the window', () => {
-    const { result } = armed();
-    act(() => {
-      jest.advanceTimersByTime(1000);
-      result.current.cancelCountdown();
-    });
-    act(() => {
-      jest.advanceTimersByTime(10_000);
-    });
+  it('begins once after the athlete continues past the missing-scope warning', () => {
+    const { rerender } = renderHook(
+      ({ recordingWithoutScope }: { recordingWithoutScope: boolean }) =>
+        useInitRecordingEffect(
+          'idle',
+          'Ride',
+          undefined,
+          canStartAfterScopeWarning(false, 'no_permission', recordingWithoutScope),
+          'entry'
+        ),
+      { initialProps: { recordingWithoutScope: false } }
+    );
     expect(started()).not.toHaveBeenCalled();
-    expect(result.current.countdown).toBeNull();
-  });
 
-  it('starts once, not twice, when the window is cancelled after it fired', () => {
-    const { result } = armed();
-    act(() => {
-      jest.advanceTimersByTime(ARM_COUNTDOWN_SECONDS * 1000);
-      result.current.cancelCountdown();
-      jest.advanceTimersByTime(10_000);
-    });
+    rerender({ recordingWithoutScope: true });
+    expect(started()).toHaveBeenCalledTimes(1);
+
+    rerender({ recordingWithoutScope: true });
+    act(() => jest.advanceTimersByTime(10_000));
     expect(started()).toHaveBeenCalledTimes(1);
   });
-
-  it('records nothing when the screen unmounts inside the window', () => {
-    const { unmount } = armed();
-    act(() => {
-      jest.advanceTimersByTime(1000);
-    });
-    unmount();
-    act(() => {
-      jest.advanceTimersByTime(10_000);
-    });
-    expect(started()).not.toHaveBeenCalled();
-  });
 });
 
-describe('the picker path still starts on arrival', () => {
-  it('starts at once with no countdown', () => {
-    const { result } = renderHook(() =>
-      useInitRecordingEffect('idle', 'Ride', 'gps', undefined, true, undefined)
-    );
+describe('the picker path', () => {
+  it('begins on arrival', () => {
+    renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, true, undefined));
     expect(started()).toHaveBeenCalledWith('Ride', 'gps', undefined);
-    expect(result.current.countdown).toBeNull();
   });
 });
 
-describe('nothing is armed that is not allowed to start', () => {
-  it('arms no countdown for an athlete who cannot record', () => {
-    const { result } = renderHook(() =>
-      useInitRecordingEffect('idle', 'Ride', 'gps', undefined, false, 'quickstart')
-    );
-    act(() => {
-      jest.advanceTimersByTime(10_000);
-    });
+describe('a one-tap system entry', () => {
+  it('records nothing however long the screen stays open', () => {
+    renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, true, 'quickstart'));
+    act(() => jest.advanceTimersByTime(10_000));
     expect(started()).not.toHaveBeenCalled();
-    expect(result.current.countdown).toBeNull();
   });
 
-  it('arms no countdown when a recording is already under way', () => {
+  it('begins once, under the sport held now, when the athlete taps Start', () => {
     const { result } = renderHook(() =>
-      useInitRecordingEffect('recording', 'Ride', 'gps', undefined, true, 'quickstart')
+      useInitRecordingEffect('idle', 'Ride', undefined, true, 'quickstart')
     );
-    act(() => {
-      jest.advanceTimersByTime(10_000);
-    });
+    act(() => result.current.startNow());
+    act(() => result.current.startNow());
+    expect(started()).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('nothing begins that is not allowed to', () => {
+  it('does nothing for an athlete who cannot record', () => {
+    renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, false, 'entry'));
+    act(() => jest.advanceTimersByTime(10_000));
     expect(started()).not.toHaveBeenCalled();
-    expect(result.current.countdown).toBeNull();
+  });
+
+  it('does nothing when a recording is already under way', () => {
+    renderHook(() => useInitRecordingEffect('recording', 'Ride', undefined, true, 'entry'));
+    expect(started()).not.toHaveBeenCalled();
   });
 });

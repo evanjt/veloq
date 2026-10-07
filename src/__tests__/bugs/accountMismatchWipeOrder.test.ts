@@ -6,10 +6,13 @@
  * finished, not while it is running. `EngineClient.clear()` starts the wipe on
  * a Rust thread, then destroys and re-opens the handle, so a `setSetting` that
  * overlaps it is wiped twice over and the fresh library ends up named by
- * nobody.
+ * nobody. The wipe takes the files the library left as well as its tables:
+ * the decisions zip names athlete A and the device backup would carry it.
  */
 
 import { Alert } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as SecureStore from 'expo-secure-store';
 
 import { promptAccountMismatch } from '@/features/auth/lib/accountChange';
 import {
@@ -25,6 +28,7 @@ const mockEngine = {
   clear: jest.fn(),
   setSetting: jest.fn(),
   getSetting: jest.fn(),
+  deleteSetting: jest.fn(),
   getAthleteProfile: jest.fn().mockReturnValue(''),
 };
 
@@ -32,6 +36,7 @@ const mockClearCredentials = jest.fn();
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
+  getRouteDbPath: () => '/data/routes.db',
   isEngineReady: () => true,
 }));
 
@@ -41,6 +46,7 @@ jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
 jest.mock('@/shared/app/AuthStore', () => ({
   DEMO_ATHLETE_ID: 'demo',
   useAuthStore: { getState: () => ({ clearCredentials: mockClearCredentials }) },
+  releasePushRegistration: jest.fn(async () => undefined),
 }));
 
 /** Press the prompt's destructive or cancelling button. */
@@ -55,6 +61,7 @@ function press(label: 'cancel' | 'clear') {
 
 beforeEach(() => {
   trace = [];
+  jest.mocked(FileSystem.deleteAsync).mockClear();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   mockClearCredentials.mockReset();
   mockEngine.setSetting.mockReset().mockImplementation((key: string) => trace.push(`set ${key}`));
@@ -79,30 +86,80 @@ describe('Clear & Sync on the account mismatch prompt', () => {
     const resolved = promptAccountMismatch({
       storedAthleteId: 'athlete-a',
       credentialsAthleteId: 'athlete-b',
+      activityCount: 500,
     });
     // The wipe is in flight. Nothing may be written into a database being
     // emptied, and nothing may be written into the handle it is about to drop.
-    await Promise.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
     expect(trace).toEqual(['wipe started']);
 
     wipeSettles();
     await expect(resolved).resolves.toBe(true);
 
-    expect(trace).toEqual(['wipe started', 'wipe finished', 'set __athlete_id']);
+    // The wipe resets the notification consent once the handle is back.
+    expect(trace).toEqual([
+      'wipe started',
+      'wipe finished',
+      'set veloq-notification-preferences',
+      'set __athlete_id',
+    ]);
     expect(mockEngine.setSetting).toHaveBeenCalledWith('__athlete_id', 'athlete-b');
     await expect(readCachedAthleteIdMirror()).resolves.toBe('athlete-b');
+  });
+
+  it("deletes the previous athlete's decisions zip with the library", async () => {
+    press('clear');
+    mockEngine.clear.mockReset().mockResolvedValue(undefined);
+
+    await expect(
+      promptAccountMismatch({
+        storedAthleteId: 'athlete-a',
+        credentialsAthleteId: 'athlete-b',
+        activityCount: 500,
+      })
+    ).resolves.toBe(true);
+
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith('file:///docs/veloq-decisions.zip', {
+      idempotent: true,
+    });
+  });
+
+  it("forgets the previous athlete's backups and where they went", async () => {
+    press('clear');
+    mockEngine.clear.mockReset().mockResolvedValue(undefined);
+    mockEngine.deleteSetting.mockReset();
+
+    await expect(
+      promptAccountMismatch({
+        storedAthleteId: 'athlete-a',
+        credentialsAthleteId: 'athlete-b',
+        activityCount: 500,
+      })
+    ).resolves.toBe(true);
+
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith('file:///docs/backups/', {
+      idempotent: true,
+    });
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('veloq-webdav-password');
+    expect(mockEngine.deleteSetting).toHaveBeenCalledWith('__backup_backend');
+    expect(mockEngine.deleteSetting).toHaveBeenCalledWith('__auto_backup_enabled');
   });
 
   it('signs the athlete out and touches nothing when the prompt is cancelled', async () => {
     press('cancel');
 
     await expect(
-      promptAccountMismatch({ storedAthleteId: 'athlete-a', credentialsAthleteId: 'athlete-b' })
+      promptAccountMismatch({
+        storedAthleteId: 'athlete-a',
+        credentialsAthleteId: 'athlete-b',
+        activityCount: 500,
+      })
     ).resolves.toBe(false);
 
     expect(mockClearCredentials).toHaveBeenCalled();
     expect(mockEngine.clear).not.toHaveBeenCalled();
     expect(mockEngine.setSetting).not.toHaveBeenCalled();
+    expect(FileSystem.deleteAsync).not.toHaveBeenCalled();
   });
 
   it('signs the athlete out, says so, and settles false when the wipe fails', async () => {
@@ -111,7 +168,11 @@ describe('Clear & Sync on the account mismatch prompt', () => {
     await rememberCachedAthleteId('athlete-a');
 
     await expect(
-      promptAccountMismatch({ storedAthleteId: 'athlete-a', credentialsAthleteId: 'athlete-b' })
+      promptAccountMismatch({
+        storedAthleteId: 'athlete-a',
+        credentialsAthleteId: 'athlete-b',
+        activityCount: 500,
+      })
     ).resolves.toBe(false);
 
     expect(Alert.alert).toHaveBeenCalledWith('alerts.error', 'alerts.failedToClear');

@@ -19,9 +19,9 @@ import { join } from 'node:path';
 const SCRIPT = join(__dirname, '../../../scripts/lint-android-bundle.mjs');
 const BUNDLE = 'android/app/src/main/assets/index.android.bundle';
 
-function runGuard(root: string): { status: number; output: string } {
+function runGuard(root: string, extra: string[] = []): { status: number; output: string } {
   try {
-    const output = execFileSync('node', [SCRIPT, '--root', root], {
+    const output = execFileSync('node', [SCRIPT, '--root', root, ...extra], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -122,8 +122,8 @@ it('says nothing when there is no source tree to compare against', () => {
 });
 
 /**
- * A worktree shares the main checkout's `node_modules`, so metro reuses the
- * transform it cached for the main checkout's expo-router entry and the app
+ * A bundle built through another checkout's `node_modules` reuses the
+ * transform metro cached for that checkout's expo-router entry and the app
  * root resolves to nothing. The bundle is 2.5 MB rather than 12.8 MB, carries
  * no screen, and is newer than every source file, so staleness cannot see it.
  */
@@ -139,7 +139,7 @@ it('refuses a fresh bundle that carries none of the app', () => {
   );
 
   expect(status).toBe(1);
-  expect(output).toContain('--reset-cache');
+  expect(output).toContain('npm run bundle:android');
 });
 
 it('passes a fresh bundle that carries the app', () => {
@@ -159,4 +159,65 @@ it('says nothing when there is no locale file to probe with', () => {
   const { status } = runGuard(fixture({ bundleAgeSeconds: -60, bundleBody: 'var __BUNDLE__;' }));
 
   expect(status).toBe(0);
+});
+
+it('names which phrases the bundle is missing', () => {
+  const { output } = runGuard(
+    fixture({
+      bundleAgeSeconds: -60,
+      phrases: PHRASES,
+      bundleBody: `var x = ${JSON.stringify(PHRASES[0])};`,
+    })
+  );
+
+  expect(output).toContain(PHRASES[1]);
+  expect(output).toContain(PHRASES[2]);
+  expect(output).not.toContain(PHRASES[0]);
+  expect(output).toContain('2 of 3');
+});
+
+/**
+ * The APK is what gets installed, so its embedded bundle is the one that
+ * matters, whatever the working tree holds.
+ */
+describe('--apk', () => {
+  function apk(root: string, body: string | null): string {
+    const staging = join(root, 'staging');
+    mkdirSync(join(staging, 'assets'), { recursive: true });
+    writeFileSync(join(staging, 'assets/app.config'), '{}');
+    if (body !== null) writeFileSync(join(staging, 'assets/index.android.bundle'), body);
+    const path = join(root, 'app-debug.apk');
+    execFileSync('zip', ['-qr', path, 'assets'], { cwd: staging });
+    return path;
+  }
+
+  it('refuses an APK whose embedded bundle carries none of the app', () => {
+    const root = fixture({ phrases: PHRASES });
+    const { status, output } = runGuard(root, ['--apk', apk(root, 'var __BUNDLE_START_TIME__;')]);
+
+    expect(status).toBe(1);
+    expect(output).toContain('app-debug.apk');
+  });
+
+  it('passes an APK whose embedded bundle carries the app', () => {
+    const root = fixture({ phrases: PHRASES });
+    const body = `var x = ${JSON.stringify(PHRASES.join(' '))};`;
+
+    expect(runGuard(root, ['--apk', apk(root, body)]).status).toBe(0);
+  });
+
+  it('refuses an APK with no embedded bundle at all', () => {
+    const root = fixture({ phrases: PHRASES });
+    const { status, output } = runGuard(root, ['--apk', apk(root, null)]);
+
+    expect(status).toBe(1);
+    expect(output).toContain('index.android.bundle');
+  });
+
+  it('ignores a stale bundle in the working tree', () => {
+    const root = fixture({ bundleAgeSeconds: 86_400, phrases: PHRASES });
+    const body = `var x = ${JSON.stringify(PHRASES.join(' '))};`;
+
+    expect(runGuard(root, ['--apk', apk(root, body)]).status).toBe(0);
+  });
 });

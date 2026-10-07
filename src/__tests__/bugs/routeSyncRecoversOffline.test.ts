@@ -7,7 +7,37 @@
  * Expected behaviour: only the three network halves are gated on the network.
  * The local recovery runs either way.
  */
+import { act, renderHook } from '@testing-library/react-native';
+import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
+
 import { routeSyncPlan } from '@/features/routes/lib/routeSyncPlan';
+import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
+import { resetGlobalSyncState } from '@/features/routes/hooks/useRouteSyncContext';
+import { getNativeModule } from '@/shared/native/engine';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import type { Activity } from '@/types';
+
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('@/shared/native/engine', () => ({
+  getNativeModule: jest.fn(),
+  getEngine: jest.fn(() => undefined),
+}));
+let mockOnline = true;
+jest.mock('@/shared/app/NetworkContext', () => ({
+  useNetwork: () => ({ isOnline: mockOnline }),
+  useIsOnline: () => mockOnline,
+}));
+// One identity for every render: the hook's sync callback, and so its effect,
+// keys on the fetchers.
+const mockFetchApiGps = jest.fn(async () => undefined);
+const mockFetchDemoGps = jest.fn(async () => undefined);
+jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
+  useGpsDataFetcher: () => ({ fetchDemoGps: mockFetchDemoGps, fetchApiGps: mockFetchApiGps }),
+}));
+
+const mockGetNativeModule = getNativeModule as jest.MockedFunction<typeof getNativeModule>;
+const mockPollDetection = jest.fn(() => 'idle');
+const mockStrengthIds = jest.fn(() => []);
 
 describe('online, with work to fetch', () => {
   const plan = routeSyncPlan({ online: true, isDemo: false, newGpsCount: 12 });
@@ -73,13 +103,43 @@ describe('online with nothing new', () => {
   });
 });
 
-describe('the hook no longer returns above the local half', () => {
-  it('has no early return on the offline branch', () => {
-    const source = require('fs').readFileSync(
-      require('path').join(__dirname, '..', '..', 'features/routes/hooks/useRouteDataSync.ts'),
-      'utf8'
-    );
-    expect(source).toMatch(/routeSyncPlan\(/);
-    expect(source).not.toMatch(/log\.log\('\[RouteDataSync\] Blocked: offline'\)/);
+let idle: IdleScheduler;
+
+describe('the hook, offline with a new track', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetGlobalSyncState();
+    mockOnline = false;
+    // The run has to start inside the render that triggers it.
+    idle = stubIdleScheduler('immediate');
+    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+    mockGetNativeModule.mockReturnValue({
+      engine: {
+        getActivityIds: () => [],
+        getRefusedTrackIds: () => [],
+        getUnprocessedStrengthIds: mockStrengthIds,
+        batchFetchExerciseSets: () => 0,
+        pollSectionDetection: mockPollDetection,
+        getSectionDetectionProgress: () => null,
+        subscribe: () => () => {},
+      },
+    } as unknown as ReturnType<typeof getNativeModule>);
+  });
+
+  afterEach(() => {
+    idle.restore();
+    jest.restoreAllMocks();
+  });
+
+  it('runs the local recovery and fetches nothing', async () => {
+    // One array for every render: the hook syncs again on a new identity.
+    const activities = [{ id: 'a1', stream_types: ['latlng'] } as unknown as Activity];
+    renderHook(() => useRouteDataSync(activities, true));
+    await act(async () => {});
+
+    expect(mockPollDetection).toHaveBeenCalled();
+    expect(mockFetchApiGps).not.toHaveBeenCalled();
+    expect(mockFetchDemoGps).not.toHaveBeenCalled();
+    expect(mockStrengthIds).not.toHaveBeenCalled();
   });
 });

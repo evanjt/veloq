@@ -38,8 +38,6 @@ jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
   hasTerrainPreview: () => false,
   isTerrainPreviewDowngraded: () => false,
   getTerrainPreviewUri: () => 'file:///nothing.jpg',
-  isPrioritySnapshot: () => false,
-  clearPrioritySnapshot: jest.fn(),
   isTerrainCacheInitialized: () => true,
   onTerrainCacheReady: () => () => {},
   deleteSupersededTerrainPreviews: jest.fn(),
@@ -74,7 +72,6 @@ jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
 const activity = {
   id: 'demo-1',
   type: 'Ride',
-  country: 'Switzerland',
   stream_types: ['latlng'],
 } as unknown as Activity;
 

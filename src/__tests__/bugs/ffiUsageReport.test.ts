@@ -152,7 +152,7 @@ describe('the FFI usage report', () => {
 
     it('keys a method by the object that owns it', () => {
       expect(keyOf({ object: 'RouteManager', camelName: 'getAll' })).toBe('RouteManager.getAll');
-      expect(keyOf({ camelName: 'getDownloadProgress' })).toBe('getDownloadProgress');
+      expect(keyOf({ camelName: 'getFetchRunProgress' })).toBe('getFetchRunProgress');
     });
 
     it('gives every manifest entry its own row', () => {
@@ -166,8 +166,8 @@ describe('the FFI usage report', () => {
     });
 
     it('attributes an unshared name without needing the receiver', () => {
-      expect(resolveCall(call('anything', 'getDownloadProgress'), keys)).toEqual([
-        'getDownloadProgress',
+      expect(resolveCall(call('anything', 'getFetchRunProgress'), keys)).toEqual([
+        'getFetchRunProgress',
       ]);
     });
 
@@ -215,7 +215,7 @@ describe('the FFI usage report', () => {
     });
 
     it('needs no receiver for a standalone export, which has no object', () => {
-      expect(callIsAttributed(call('', 'getDownloadProgress'), keys)).toBe(true);
+      expect(callIsAttributed(call('', 'getFetchRunProgress'), keys)).toBe(true);
     });
   });
 

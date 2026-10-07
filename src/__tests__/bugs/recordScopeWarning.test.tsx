@@ -11,14 +11,17 @@
 
 import React from 'react';
 import { fireEvent, render, renderHook, act } from '@testing-library/react-native';
+import { UploadOutcome } from 'veloqrs';
 
 import { RecordingGate } from '@/features/recording/components/RecordingGate';
 import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary';
-import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
+import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import type { RecordingStreams } from '@/features/recording/types';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
@@ -37,15 +40,12 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
 jest.mock('@/features/recording/lib/storage/provisionalActivity', () => ({
   writeProvisionalActivity: jest.fn(async () => 'local-deadbeef'),
 }));
-jest.mock('@/features/recording/lib/upload/uploadRecording', () => ({
-  uploadRecording: jest.fn(),
-}));
 jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
   clearRecordingBackup: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/auth', () => ({ isOAuthConfigured: () => true }));
 jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
-  createManualActivity: jest.fn(),
+  uploadRecordingNow: jest.fn(),
 }));
 
 const STREAMS: RecordingStreams = {
@@ -75,11 +75,16 @@ function saveArgs() {
     pairedEventId: null,
     getTrimmedStreams: () => STREAMS,
     canTrim: false,
+    trimStartIndex: 0,
   };
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  useAuthStore.setState({ athleteId: 'athlete-a', isAuthenticated: true });
+  useRecordingStore.getState().reset();
+  useRecordingStore.getState().startRecording('Ride', 'gps');
+  useRecordingStore.getState().stopRecording();
   jest.spyOn(global, 'setTimeout').mockImplementation(((cb: () => void) => {
     cb();
     return 0 as never;
@@ -128,11 +133,11 @@ describe('a ride recorded past the warning', () => {
     expect(saveRecording).toHaveBeenCalledWith(
       expect.objectContaining({ uploadStatus: 'localOnly' })
     );
-    expect(uploadRecording).not.toHaveBeenCalled();
+    expect(uploadRecordingNow).not.toHaveBeenCalled();
   });
 
   it('is queued as usual once the scope is there again', async () => {
-    (uploadRecording as jest.Mock).mockResolvedValue({ outcome: 'uploaded' });
+    (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: UploadOutcome.Uploaded });
     useUploadPermissionStore.setState({ hasWritePermission: true, recordingWithoutScope: false });
 
     const { result } = renderHook(() => useReviewSave(saveArgs()));
@@ -141,7 +146,7 @@ describe('a ride recorded past the warning', () => {
     expect(saveRecording).toHaveBeenCalledWith(
       expect.objectContaining({ uploadStatus: 'pending' })
     );
-    expect(uploadRecording).toHaveBeenCalled();
+    expect(uploadRecordingNow).toHaveBeenCalledWith('rec-1');
   });
 
   it('does not carry the flag into the next ride', async () => {

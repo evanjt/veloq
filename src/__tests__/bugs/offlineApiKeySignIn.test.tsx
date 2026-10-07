@@ -11,7 +11,7 @@ import { renderHook, act } from '@testing-library/react-native';
 import { CallKind, validateCredentials } from 'veloqrs';
 
 import { useApiKeyLogin } from '@/features/auth/hooks/useApiKeyLogin';
-import { signInPlan } from '@/features/auth/lib/pendingSignIn';
+import { readPendingApiKey, signInPlan } from '@/features/auth/lib/pendingSignIn';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { replaceTo } from '@/shared/app/navigation';
 
@@ -27,8 +27,12 @@ jest.mock('@/shared/storage', () => ({
 }));
 jest.mock('@/features/auth/lib/accountChange', () => ({
   accountChangeAction: jest.fn(() => 'keep'),
+  settleBeforeNamingLibrary: jest.fn(async () => undefined),
   confirmAccountChange: jest.fn(async () => true),
   getCachedAthleteId: jest.fn(async () => null),
+}));
+jest.mock('@/features/auth/lib/storedActivityCount', () => ({
+  resolveStoredActivityCount: jest.fn(async () => 0),
 }));
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
@@ -39,6 +43,7 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 const mockIsOnline = jest.fn(() => true);
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: mockIsOnline() }),
+  useIsOnline: () => mockIsOnline(),
 }));
 
 const held: { key: string | null } = { key: null };
@@ -176,6 +181,81 @@ describe('signing in with no network', () => {
 
     expect(mockValidateCredentials).toHaveBeenCalledWith('api_key', 'a-valid-key');
     expect(replaceTo).toHaveBeenCalledWith('/');
+    expect(held.key).toBeNull();
+  });
+
+  it('validates a held key once on an online relaunch', async () => {
+    held.key = 'held-key';
+    login();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockValidateCredentials).toHaveBeenCalledTimes(1);
+    expect(mockValidateCredentials).toHaveBeenCalledWith('api_key', 'held-key');
+    expect(held.key).toBeNull();
+  });
+
+  it('shows a held key on an offline relaunch and lets the athlete discard it', async () => {
+    held.key = 'held-key';
+    mockIsOnline.mockReturnValue(false);
+    const { result } = login();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.queuedMessage).toBe('login.queuedOffline');
+    await act(async () => {
+      await result.current.discardQueuedKey();
+    });
+    expect(held.key).toBeNull();
+    expect(result.current.queuedMessage).toBeNull();
+  });
+
+  it('validates a held key when reconnection overlaps the first storage read', async () => {
+    held.key = 'held-key';
+    mockIsOnline.mockReturnValue(false);
+    let finishRead: (value: string | null) => void = () => {};
+    jest.mocked(readPendingApiKey).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+        })
+    );
+    const { rerender } = renderHookWithNetwork();
+    mockIsOnline.mockReturnValue(true);
+    await act(async () => {
+      rerender({});
+    });
+    await act(async () => {
+      finishRead('held-key');
+      await Promise.resolve();
+    });
+    expect(mockValidateCredentials).toHaveBeenCalledWith('api_key', 'held-key');
+    expect(held.key).toBeNull();
+  });
+
+  it('does not validate a queued key discarded during its storage read', async () => {
+    mockIsOnline.mockReturnValue(false);
+    const { result, rerender } = renderHookWithNetwork();
+    await act(async () => {
+      await result.current.handleApiKeyLogin('held-key');
+    });
+    let finishRead: (value: string | null) => void = () => {};
+    jest.mocked(readPendingApiKey).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+        })
+    );
+    mockIsOnline.mockReturnValue(true);
+    await act(async () => {
+      rerender({});
+    });
+    await act(async () => {
+      await result.current.discardQueuedKey();
+      finishRead('held-key');
+    });
+    expect(mockValidateCredentials).not.toHaveBeenCalled();
     expect(held.key).toBeNull();
   });
 

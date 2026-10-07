@@ -13,6 +13,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/home/store';
+import { formZoneTextColor } from '@/features/fitness/lib/fitness';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -74,7 +75,12 @@ beforeEach(() => {
 
 /** The metric row the card draws for `label`, as the athlete reads it. */
 function metric(
-  metrics: { label: string; value: number | string; trend?: string | undefined }[],
+  metrics: {
+    label: string;
+    value: number | string;
+    color?: string | undefined;
+    trend?: string | undefined;
+  }[],
   label: string
 ) {
   return metrics.find((m) => m.label === label);
@@ -128,7 +134,7 @@ it('keeps missing wellness distinct from measured zero after activities arrive',
 it('withholds the form zone until a form reading arrives', () => {
   const preferences = useDashboardPreferences.getState().summaryCard;
   useDashboardPreferences.setState({
-    summaryCard: { ...preferences, heroMetric: 'form', supportingMetrics: ['fitness', 'form'] },
+    summaryCard: { ...preferences, supportingMetrics: ['fitness', 'form'] },
   });
   try {
     const { result, rerender } = renderHook(
@@ -140,13 +146,14 @@ it('withholds the form zone until a form reading arrives', () => {
         },
       }
     );
-    expect(result.current.heroValue).toBe('-');
-    expect(result.current.heroZoneLabel).toBeUndefined();
+    const greyZone = formZoneTextColor('greyZone', false);
     expect(metric(result.current.supportingMetrics, 'metrics.form')).toMatchObject({ value: '-' });
+    expect(metric(result.current.supportingMetrics, 'metrics.form')?.color).not.toBe(greyZone);
     rerender({ wellness: { ...WELLNESS, fitness: 0, form: 0 } });
-    expect(result.current.heroValue).toBe(0);
-    expect(result.current.heroZoneLabel).toBe('formZones.greyZone');
-    expect(metric(result.current.supportingMetrics, 'metrics.form')).toMatchObject({ value: 0 });
+    expect(metric(result.current.supportingMetrics, 'metrics.form')).toMatchObject({
+      value: '0',
+      color: greyZone,
+    });
   } finally {
     useDashboardPreferences.setState({ summaryCard: preferences });
   }

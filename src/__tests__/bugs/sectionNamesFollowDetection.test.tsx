@@ -20,7 +20,6 @@ const listeners = new Map<string, Set<() => void>>();
 const engine = {
   getSectionSummaries: jest.fn(() => ({ summaries: [{ id: 's1', name: 'Old climb' }] })),
   getAllSectionNames: jest.fn(() => ({})),
-  getSectionLineages: jest.fn(() => []),
   subscribe: jest.fn((channel: string, listener: () => void) => {
     if (!listeners.has(channel)) listeners.set(channel, new Set());
     listeners.get(channel)!.add(listener);

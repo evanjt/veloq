@@ -23,7 +23,7 @@ const merge = () => read('.husky/pre-merge-commit') + battery();
 
 describe('a merge cannot carry a type error', () => {
   it('typechecks the whole tree', () => {
-    expect(merge()).toMatch(/tsc[^\n]*--noEmit/);
+    expect(merge()).toMatch(/tsc[^\n]*-b/);
   });
 
   it('typechecks before it runs the suites, so it fails on the cheap check', () => {

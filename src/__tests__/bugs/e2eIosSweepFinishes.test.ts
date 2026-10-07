@@ -1,5 +1,5 @@
 /**
- * Scenario: the weekly iOS sweep runs every flow tagged tier0 to tier3, 85 of
+ * Scenario: the scheduled iOS sweep runs every flow tagged tier0 to tier3, 85 of
  * them, inside a 120 minute job. Three scheduled runs were cancelled at the two
  * hour mark having reached 77, 60 and 59 flows, and the summary job reported
  * success anyway, so a run in which iOS never finished read as green.
@@ -45,7 +45,7 @@ function sweptFlowCount(): number {
     }).length;
 }
 
-describe('the weekly iOS sweep', () => {
+describe('the scheduled iOS sweep', () => {
   it('is given time for every flow it runs', () => {
     const flows = sweptFlowCount();
     expect(flows).toBeGreaterThan(50);

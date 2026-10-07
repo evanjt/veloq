@@ -23,7 +23,12 @@ jest.mock('expo-constants', () => ({
   expoConfig: { extra: { eas: { projectId: 'p' } } },
 }));
 jest.mock('@/shared/app/AuthStore', () => ({
-  getStoredCredentials: () => ({ authMethod: 'apiKey', apiKey: 'k', accessToken: null }),
+  getStoredCredentials: () => ({
+    authMethod: 'oauth',
+    apiKey: null,
+    accessToken: 'token',
+    athleteId: 'i350768',
+  }),
 }));
 
 const Notifications = require('expo-notifications');

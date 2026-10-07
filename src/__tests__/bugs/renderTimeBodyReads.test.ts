@@ -26,6 +26,7 @@ jest.mock('@/shared/native/engine', () => ({
 
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: true }),
+  useIsOnline: () => true,
 }));
 
 const engine = {

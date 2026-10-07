@@ -131,7 +131,7 @@ describe('the grade chip under a right-to-left layout', () => {
 describe('the TSB figure under a right-to-left layout', () => {
   it('keeps a negative balance signed', () => {
     withRtl(() => {
-      const tree = render(<TodayBanner todayPattern={null} />);
+      const tree = render(<TodayBanner form={{ ctl: 40, atl: 52 }} />);
       expect(tree.getByText(new RegExp(`${FSI}-12${PDI}`))).toBeTruthy();
     });
   });

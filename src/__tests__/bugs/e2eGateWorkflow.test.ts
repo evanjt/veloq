@@ -16,6 +16,11 @@ const GATE_PATH = path.join(REPO_ROOT, '.github/workflows/e2e-gate.yml');
 const IAP_FLOW_PATH = path.join(REPO_ROOT, '.maestro/settings-support-iap.yaml');
 
 const yaml = require('js-yaml') as { load: (source: string) => unknown };
+// The matcher dorny/paths-filter uses, with the option it passes.
+const picomatch = require('picomatch') as (
+  glob: string[],
+  options: { dot: boolean }
+) => (file: string) => boolean;
 
 type Step = {
   name?: string;
@@ -25,6 +30,7 @@ type Step = {
   with?: { script?: string; name?: string; 'retention-days'?: number };
 };
 type Job = { needs?: string | string[]; if?: string; steps?: Step[] };
+type FilterStep = Step & { id?: string; with?: { filters?: string } };
 
 const gateSource = fs.readFileSync(GATE_PATH, 'utf8');
 const gate = yaml.load(gateSource) as { jobs: Record<string, Job> };
@@ -163,4 +169,52 @@ describe('the gate emulators', () => {
       expect(ram).toBeGreaterThanOrEqual(4096);
     }
   );
+});
+
+/**
+ * Scenario: a push that edits only the map tab screen, or the tile store in
+ * the engine. The `maps` filter reads false, `map-gate` is skipped,
+ * `gate-required` passes, and none of the pack-map flows runs against the
+ * change.
+ *
+ * Expected behaviour: every file a pack-map flow exercises turns the filter
+ * on, from the screen down to the engine's tile store and the Android tile
+ * interceptor, and a file no map draws from leaves it off.
+ */
+describe('the map suite path filter', () => {
+  const filterStep = (gate.jobs.changes.steps ?? []).find(
+    (step) => (step as FilterStep).id === 'filter'
+  ) as FilterStep;
+  const filters = yaml.load(filterStep.with?.filters ?? '') as { maps: string[] };
+  const isMapChange = picomatch(filters.maps, { dot: true });
+
+  const MAP_SURFACES = [
+    'src/app/(tabs)/map.tsx',
+    'src/app/map-settings.tsx',
+    'src/features/maps/components/RegionalMapView.tsx',
+    'src/features/activity/components/ActivityMapPreview.tsx',
+    'src/features/settings/components/MapStylePreviewPicker.tsx',
+    'src/features/recording/components/RecordingMap.tsx',
+    'src/features/routes/components/RouteMapView.tsx',
+    'src/features/routes/lib/tilePass.ts',
+    'modules/veloqrs/rust/veloqrs/src/basemap/store.rs',
+    'modules/veloqrs/rust/veloqrs/src/objects/basemap.rs',
+    'modules/veloqrs/rust/veloqrs/src/objects/tiles.rs',
+    'modules/veloqrs/rust/veloqrs/src/tiles.rs',
+    'modules/veloqrs/rust/veloqrs/src/persistence/tiles.rs',
+    'modules/veloqrs/android/src/main/java/com/veloq/VeloqTileWebViewClient.java',
+    'modules/veloqrs/android/src/main/java/com/veloq/TileBridge.java',
+  ];
+
+  it.each(MAP_SURFACES)('runs the map suite for a change to %s', (file) => {
+    expect(fs.existsSync(path.join(REPO_ROOT, file))).toBe(true);
+    expect(isMapChange(file)).toBe(true);
+  });
+
+  it.each([
+    'src/features/settings/components/NotificationSection.tsx',
+    'modules/veloqrs/rust/veloqrs/src/persistence/screens.rs',
+  ])('leaves it off for a change to %s', (file) => {
+    expect(isMapChange(file)).toBe(false);
+  });
 });

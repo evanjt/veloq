@@ -1,11 +1,10 @@
 /**
- * Scenario: a one-tap entry arms a three-second countdown, and cancelling it
- * replaced the screen with the home tab. The athlete who cancelled on purpose,
- * to wake a strap or correct the sport, had to find the widget again.
+ * Scenario: a one-tap system entry lands on the recording screen idle, so the
+ * athlete can wake a strap or correct the sport before beginning.
  *
- * Expected behaviour, Evan's decision of 2026-09-14: the window is an abort
- * and a pause. A cancel keeps the sport and the screen, the bar offers
- * Start, and nothing on the screen reads as a recording in progress.
+ * Expected behaviour: the bar offers Start, nothing on the screen reads as a
+ * recording in progress, and the sport held when Start is pressed is the one
+ * recorded.
  */
 
 import React from 'react';
@@ -24,7 +23,6 @@ jest.mock('@/features/recording/components/GpsSignalIndicator', () => ({
 const started = () => useRecordingStore.getState().startRecording as jest.Mock;
 
 const headerProps = {
-  formattedElapsed: '00:00:00',
   currentActivityType: 'Ride' as never,
   statusPulse: new Animated.Value(1),
   mode: 'gps' as never,
@@ -44,9 +42,10 @@ const barProps = {
   onPause: jest.fn(),
   onResume: jest.fn(),
   onStop: jest.fn(),
+  onReview: jest.fn(),
 };
 
-describe('the bar a cancelled arm leaves behind', () => {
+describe('the bar of an idle recording screen', () => {
   it('offers Start while nothing is recording', () => {
     const onStart = jest.fn();
     const { getByTestId, queryByTestId } = render(
@@ -84,7 +83,7 @@ describe('the header of a screen that is not recording', () => {
   });
 });
 
-describe('starting after a cancel', () => {
+describe('starting from an idle screen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -97,34 +96,30 @@ describe('starting after a cancel', () => {
     jest.restoreAllMocks();
   });
 
-  const armed = () =>
-    renderHook(() => useInitRecordingEffect('idle', 'Ride', 'gps', undefined, true, 'quickstart'));
+  const idle = () =>
+    renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, true, 'quickstart'));
 
-  it('records the sport chosen after the cancel, not the one tapped', () => {
-    const { result } = armed();
-    act(() => {
-      result.current.cancelCountdown();
-      useRecordingStore.getState().changeActivityType('Run');
-    });
+  it('records the sport chosen on the screen, not the one tapped', () => {
+    const { result } = idle();
+    act(() => useRecordingStore.getState().changeActivityType('Run'));
 
     act(() => result.current.startNow());
 
     expect(started()).toHaveBeenCalledWith('Run', 'gps', undefined);
   });
 
-  it('starts nothing on its own after a cancel', () => {
-    const { result } = armed();
+  it('starts nothing on its own', () => {
+    const { result } = idle();
     act(() => {
-      result.current.cancelCountdown();
       jest.advanceTimersByTime(10_000);
     });
+    expect(result.current).toBeDefined();
 
     expect(started()).not.toHaveBeenCalled();
   });
 
   it('starts once when Start is pressed twice', () => {
-    const { result } = armed();
-    act(() => result.current.cancelCountdown());
+    const { result } = idle();
 
     act(() => result.current.startNow());
     act(() => result.current.startNow());

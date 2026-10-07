@@ -167,3 +167,66 @@ describe('a guard reading through it', () => {
     expect(out).toContain('zz/notes.txt');
   });
 });
+
+/**
+ * Scenario: an index names a blob its object store no longer holds, which a
+ * pruned mirror left behind in a worktree on 2026-09-30. `git cat-file --batch`
+ * answers that request with `:<path> missing` and exits 0, and the walk stepped
+ * over it the way it steps over a gitlink, so every guard reading through it
+ * judged the tree without the file and reported it clean.
+ *
+ * Expected behaviour: a path the listing named and git could not read fails the
+ * read and is named, and so does a path left unmerged, which has no blob at
+ * stage 0 to read. A guard over it exits non-zero rather than clean.
+ */
+describe('an index entry whose blob cannot be read', () => {
+  function dropBlob(root: string, rel: string) {
+    const sha = runGit(['rev-parse', `:${rel}`], root).trim();
+    rmSync(join(root, '.git', 'objects', sha.slice(0, 2), sha.slice(2)));
+  }
+
+  function readError(root: string): string {
+    try {
+      read(root);
+    } catch (error) {
+      const e = error as { stderr?: string };
+      return e.stderr ?? String(error);
+    }
+    throw new Error('the reader answered over a blob it could not read');
+  }
+
+  it('fails the read and names the path', () => {
+    const root = fixture({ 'a.txt': 'first\n', 'b.txt': 'gone\n', 'c.txt': 'last\n' });
+    dropBlob(root, 'b.txt');
+
+    expect(readError(root)).toContain('b.txt');
+  });
+
+  it('fails a guard reading through it rather than reporting the tree clean', () => {
+    const root = fixture({ 'a.txt': 'clean\n', 'notes.txt': `a violation ${EM_DASH} here\n` });
+    dropBlob(root, 'notes.txt');
+
+    const { code, out } = runGuard(root);
+
+    expect(code).not.toBe(0);
+    expect(out).toContain('notes.txt');
+  });
+
+  it('fails on a path left unmerged, which has no staged blob to read', () => {
+    const root = fixture({ 'f.txt': 'base\n' });
+    runGit(['commit', '-qm', 'base'], root);
+    runGit(['checkout', '-qb', 'other'], root);
+    writeFileSync(join(root, 'f.txt'), 'theirs\n');
+    runGit(['commit', '-qam', 'theirs'], root);
+    runGit(['checkout', '-q', '-'], root);
+    writeFileSync(join(root, 'f.txt'), 'ours\n');
+    runGit(['commit', '-qam', 'ours'], root);
+    try {
+      runGit(['merge', '-q', 'other'], root);
+    } catch {
+      // The conflict is the point: the index now holds f.txt at stages 1 to 3.
+    }
+
+    expect(readError(root)).toContain('f.txt');
+  });
+});

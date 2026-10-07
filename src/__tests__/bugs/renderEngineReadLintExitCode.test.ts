@@ -434,6 +434,99 @@ describe('render-time engine read lint', () => {
     expect(runLint(root).status).toBe(0);
   });
 
+  it.each([
+    ['imported from veloqrs', "import { engine } from 'veloqrs';\n", 'engine'],
+    [
+      'imported from veloqrs under another name',
+      "import { engine as client } from 'veloqrs';\n",
+      'client',
+    ],
+  ])('fails a read through the engine %s', (_form, imports, name) => {
+    const root = withModules({
+      'src/features/x/components/Stats.tsx': `${imports}export function Stats() {\n  const stats = ${name}.getStats();\n  return stats;\n}\n`,
+    });
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('Stats.tsx:3  Stats  engine.getStats');
+  });
+
+  it.each([
+    ['a namespace import', "import * as V from 'veloqrs';\n", 'V.engine.getStats()'],
+    ['a variable holding the require', "const v = require('veloqrs');\n", 'v.engine.getStats()'],
+    ['an inline require', '', "require('veloqrs').engine.getStats()"],
+    [
+      'a require destructure',
+      "const { engine: client } = require('veloqrs');\n",
+      'client.getStats()',
+    ],
+    [
+      'the EngineClient instance',
+      "import { EngineClient } from 'veloqrs';\n",
+      'EngineClient.getInstance().getStats()',
+    ],
+    [
+      'a handle bound from the EngineClient instance',
+      "import { EngineClient } from 'veloqrs';\nconst held = EngineClient.getInstance();\n",
+      'held.getStats()',
+    ],
+    [
+      'the shared module imported by a relative path',
+      "import { getEngine } from '../../../shared/native/engine';\n",
+      'getEngine()?.getStats()',
+    ],
+  ])('fails a render read through %s', (_form, imports, call) => {
+    const root = withModules({
+      'src/features/x/components/Stats.tsx': `${imports}export function Stats() {\n  const stats = ${call};\n  return stats;\n}\n`,
+    });
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('Stats.tsx');
+  });
+
+  it('passes the engine imported from veloqrs when it is read only inside an effect', () => {
+    const root = withModules({
+      'src/features/x/components/Stats.tsx':
+        "import { useEffect } from 'react';\nimport { engine } from 'veloqrs';\nexport function Stats() {\n  useEffect(() => {\n    engine.getStats();\n  }, []);\n  return null;\n}\n",
+    });
+    expect(runLint(root).status).toBe(0);
+  });
+
+  it.each([
+    ['a useMemo', 'const client = useMemo(() => getEngine(), []);'],
+    [
+      'a useMemo with a block body',
+      'const client = useMemo(() => {\n    return getEngine();\n  }, []);',
+    ],
+    ['a useRef', 'const client = useRef(getEngine()).current;'],
+    ['a useState initialiser', 'const [client] = useState(() => getEngine());'],
+  ])('fails a render read through a handle held in %s', (_form, binding) => {
+    const root = withHook(
+      `import { useRef } from 'react';\nexport function useThing() {\n  ${binding}\n  return client?.getStats();\n}\n`
+    );
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('useThing  engine.getStats');
+  });
+
+  it('fails a memo keyed on a handle held in a useMemo, which nothing re-runs after a sync', () => {
+    const root = withHook(
+      'export function useThing() {\n  const client = useMemo(() => getEngine(), []);\n  return useMemo(() => client?.sectionDetectionAwaiting() ?? null, [client]);\n}\n'
+    );
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('useMemo that nothing re-runs');
+    expect(output).toContain('engine.sectionDetectionAwaiting');
+  });
+
+  it('does not take a memo holding a read for a handle', () => {
+    const root = withHook(
+      'export function useThing(refreshKey: number) {\n  const stats = useMemo(() => getEngine()?.getStats(), [refreshKey]);\n  return stats?.summary.toString();\n}\n'
+    );
+    const { status, output } = runLint(root, '--verbose');
+    expect(status).toBe(0);
+    expect(output).not.toContain('engine.toString');
+  });
+
   it('fails on a stale allowlist entry so the list never outlives the debt', () => {
     // A file the real allowlist names, present but without the read it excuses.
     const root = withHook(

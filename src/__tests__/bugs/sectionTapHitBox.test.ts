@@ -43,10 +43,19 @@ function config(): MapSurfaceHtmlConfig {
   };
 }
 
+type Hit = { layer: { id: string }; properties: Record<string, unknown>; geometry: unknown };
+
+const SECTION_HIT: Hit = {
+  layer: { id: 'sections-line' },
+  properties: { id: 's1' },
+  geometry: null,
+};
+
 /** Runs the page and hands back the map, what it posted, and what it queried. */
-function runPage() {
+function runPage(hits: Hit[] = [SECTION_HIT], interactiveLayers: string[] = ['sections-line']) {
   const posted: Record<string, unknown>[] = [];
   const queried: Geometry[] = [];
+  const touch: Record<string, (event: unknown) => void> = {};
   let map: Fired | null = null;
 
   const makeMap = (): Fired => {
@@ -66,11 +75,18 @@ function runPage() {
       getLayer: jest.fn(() => ({})),
       queryRenderedFeatures: (geometry: Geometry) => {
         queried.push(geometry);
-        return [{ layer: { id: 'sections-line' }, properties: { id: 's1' }, geometry: null }];
+        return hits;
       },
       resize: jest.fn(),
       getCanvas: () => ({ style: {} }),
-      getCanvasContainer: () => ({ addEventListener: () => {}, style: {} }),
+      getCanvasContainer: () => ({
+        addEventListener: (name: string, fn: (event: unknown) => void) => {
+          touch[name] = fn;
+        },
+        getBoundingClientRect: () => ({ left: 0, top: 0 }),
+        style: {},
+      }),
+      unproject: () => ({ lng: 6.6, lat: 46.5 }),
       getCenter: () => ({ lng: 7.448, lat: 46.949 }),
       getZoom: () => 12,
       getBearing: () => 0,
@@ -139,8 +155,8 @@ function runPage() {
   // The page registers its map handlers once the style is up.
   (map as unknown as Fired).fire('load');
   const veloq = sandbox._veloq as { interactiveLayers?: string[] };
-  veloq.interactiveLayers = ['sections-line'];
-  return { posted, queried, map: map as unknown as Fired };
+  veloq.interactiveLayers = interactiveLayers;
+  return { posted, queried, touch, map: map as unknown as Fired };
 }
 
 describe('the page hit-tests a tap against a box', () => {
@@ -169,5 +185,77 @@ describe('the page hit-tests a tap against a box', () => {
 
     const press = posted.find((m) => m.type === 'mapClick');
     expect((press?.feature as { layerId?: string } | null)?.layerId).toBe('sections-line');
+  });
+});
+
+describe('the page reports every hit in the layer that won the tap', () => {
+  const point = (id: string, lng: number): Hit => ({
+    layer: { id: 'unclustered-point' },
+    properties: { id, color: '#3B82F6' },
+    geometry: { type: 'Point', coordinates: [lng, 46.5] },
+  });
+
+  it('hands back three stacked start points, not only the first', () => {
+    const { posted, map } = runPage(
+      [SECTION_HIT, point('a1', 6.6), point('a2', 6.6), point('a3', 6.6)],
+      ['unclustered-point', 'sections-line']
+    );
+
+    map.fire('click', { point: { x: 100, y: 200 }, lngLat: { lng: 6.6, lat: 46.5 } });
+
+    const press = posted.find((m) => m.type === 'mapClick') as {
+      feature: { layerId: string; properties: { id: string } };
+      features: { layerId: string; properties: { id: string } }[];
+    };
+    expect(press.feature.layerId).toBe('unclustered-point');
+    expect(press.features.map((f) => f.properties.id)).toEqual(['a1', 'a2', 'a3']);
+    expect(press.features.every((f) => f.layerId === 'unclustered-point')).toBe(true);
+  });
+
+  it('puts the winning feature first', () => {
+    const { posted, map } = runPage(
+      [point('a1', 6.6), SECTION_HIT],
+      ['sections-line', 'unclustered-point']
+    );
+
+    map.fire('click', { point: { x: 100, y: 200 }, lngLat: { lng: 6.6, lat: 46.5 } });
+
+    const press = posted.find((m) => m.type === 'mapClick') as {
+      feature: { layerId: string };
+      features: { layerId: string }[];
+    };
+    expect(press.feature.layerId).toBe('sections-line');
+    expect(press.features.map((f) => f.layerId)).toEqual(['sections-line']);
+  });
+
+  it('reports no features for a tap on empty ground', () => {
+    const { posted, map } = runPage([], ['unclustered-point']);
+
+    map.fire('click', { point: { x: 100, y: 200 }, lngLat: { lng: 6.6, lat: 46.5 } });
+
+    const press = posted.find((m) => m.type === 'mapClick') as {
+      feature: unknown;
+      features: unknown[];
+    };
+    expect(press.feature).toBeNull();
+    expect(press.features).toEqual([]);
+  });
+});
+
+describe('a long press still reports the one feature it landed on', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('names the winning layer, not a list', () => {
+    jest.useFakeTimers();
+    const { posted, touch } = runPage([SECTION_HIT], ['sections-line']);
+
+    touch.touchstart({ touches: [{ clientX: 100, clientY: 200 }] });
+    jest.advanceTimersByTime(config().longPressMs);
+
+    const press = posted.find((m) => m.type === 'mapLongPress') as {
+      feature: { layerId: string; properties: { id: string } } | null;
+    };
+    expect(press.feature?.layerId).toBe('sections-line');
+    expect(press.feature?.properties.id).toBe('s1');
   });
 });

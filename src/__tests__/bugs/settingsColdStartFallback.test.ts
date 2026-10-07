@@ -1,11 +1,12 @@
 /**
- * Scenario: the store initialisers run before `initWithPath`, so every
- * preference read and write at cold start happens with no engine at all.
+ * Scenario: a signed-out launch, a failed open or an unloaded native module
+ * leaves the engine unopened, so preference reads and writes have no SQLite.
+ * The handle may be null, or the singleton whose `getSetting` answers
+ * `undefined` and whose `setSettings` returns 0.
  *
  * Expected behaviour: AsyncStorage answers those reads and keeps those writes.
- * The header on `settingsStorage` called the fallback transitional, and acting
- * on that would empty every preference on every launch with nothing failing
- * loudly to say so, so this is what holds it in place.
+ * Treating the fallback as transitional would empty every preference on those
+ * launches with nothing failing loudly to say so.
  */
 
 const mockSetSettings = jest.fn();
@@ -77,5 +78,25 @@ describe('a preference write before the engine exists', () => {
     const storage = loadStorage();
     await storage.removeSetting('theme');
     expect(mockRemoveItem).toHaveBeenCalledWith('theme');
+  });
+});
+
+describe('an engine handle that has not opened', () => {
+  it('answers reads from AsyncStorage when getSetting is undefined', async () => {
+    mockEngine = { getSetting: () => undefined, setSettings: () => 0 };
+    mockGetItem.mockResolvedValueOnce('dark');
+    const storage = loadStorage();
+
+    await expect(storage.getSetting('theme')).resolves.toBe('dark');
+  });
+
+  it('keeps a write in AsyncStorage when setSettings returns 0', async () => {
+    mockEngine = { getSetting: () => undefined, setSettings: mockSetSettings.mockReturnValue(0) };
+    const storage = loadStorage();
+
+    await storage.setSetting('theme', 'dark');
+
+    expect(mockSetItem).toHaveBeenCalledWith('theme', 'dark');
+    expect(mockSetSettings).toHaveBeenCalledWith([{ key: 'theme', value: 'dark' }]);
   });
 });

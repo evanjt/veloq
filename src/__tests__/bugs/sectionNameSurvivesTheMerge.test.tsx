@@ -47,7 +47,7 @@ function sectionOf(id: string, name?: string): FrequentSection {
   return {
     id,
     sectionType: 'auto',
-    sportType: 'Ride',
+    sportTypes: ['Ride'],
     polyline: [],
     distanceMeters: 1200,
     activityIds: ['a1'],

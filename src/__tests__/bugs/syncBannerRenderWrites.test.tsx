@@ -9,7 +9,8 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { act, render } from '@testing-library/react-native';
 
 // Every `jest.mock` below is hoisted above this by babel, so the banner sees
 // the doubles even though it is imported here.
@@ -77,5 +78,33 @@ describe('the sync progress banner', () => {
     render(<SyncProgressBanner />);
 
     expect(mockWithTiming.mock.calls.length).toBeGreaterThan(0);
+  });
+});
+
+describe('the sync progress banner height', () => {
+  it('animates to the measured content height so the lines and the track are not clipped', () => {
+    const { getByTestId, getByTestId: byId } = render(<SyncProgressBanner />);
+    const content = byId('sync-progress-banner-content');
+
+    act(() => {
+      content.props.onLayout({ nativeEvent: { layout: { height: 75, width: 320, x: 0, y: 0 } } });
+    });
+
+    const style = StyleSheet.flatten(getByTestId('sync-progress-banner').props.style);
+    expect(style.height).toBe(75);
+  });
+
+  it('follows the content when it grows after the first measure', () => {
+    const { getByTestId } = render(<SyncProgressBanner />);
+    const content = getByTestId('sync-progress-banner-content');
+
+    act(() => {
+      content.props.onLayout({ nativeEvent: { layout: { height: 59, width: 320, x: 0, y: 0 } } });
+    });
+    act(() => {
+      content.props.onLayout({ nativeEvent: { layout: { height: 75, width: 320, x: 0, y: 0 } } });
+    });
+
+    expect(StyleSheet.flatten(getByTestId('sync-progress-banner').props.style).height).toBe(75);
   });
 });

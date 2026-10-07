@@ -118,3 +118,67 @@ it('loads both libraries once, however many times it runs', () => {
   expect(kotlin.match(/System\.loadLibrary\("veloqrs_jni"\)/g)).toHaveLength(1);
   expect(kotlin.match(/System\.loadLibrary\("veloqrs"\)/g)).toHaveLength(1);
 });
+
+const ERROR_CLASSES = `  class Busy_
+    extends UniffiError
+    implements Busy__interface
+  {
+    static instanceOf(obj: any): obj is Busy_ {
+      return obj.tag === 1;
+    }
+  }
+  class Plain_ extends Base implements Plain__interface {
+    static instanceOf(obj: any): obj is Plain_ {
+      return true;
+    }
+  }
+  class NotFound_ extends UniffiError implements NotFound__interface {
+    static instanceOf(obj: any): obj is NotFound_ {
+      return obj.tag === 2;
+    }
+    static hasInner(obj: any): obj is NotFound_ {
+      return false;
+    }
+  }
+`;
+
+function bindingsOf(root: string): string {
+  return readFileSync(join(root, 'src/generated/veloqrs.ts'), 'utf8');
+}
+
+describe('error classes in the generated bindings', () => {
+  function treeWithBindings(body: string): string {
+    const root = moduleTree(GENERATED);
+    mkdirSync(join(root, 'src/generated'), { recursive: true });
+    writeFileSync(join(root, 'src/generated/veloqrs.ts'), body);
+    return root;
+  }
+
+  it('marks the instanceOf override on UniffiError subclasses only', () => {
+    const root = treeWithBindings(ERROR_CLASSES);
+    run(root);
+    const fixed = bindingsOf(root);
+
+    expect(fixed).toContain('static override instanceOf(obj: any): obj is Busy_');
+    expect(fixed).toContain('static override instanceOf(obj: any): obj is NotFound_');
+    expect(fixed).toContain('  static instanceOf(obj: any): obj is Plain_');
+    expect(fixed).toContain('static hasInner(obj: any): obj is NotFound_');
+  });
+
+  it('changes nothing on a second run', () => {
+    const root = treeWithBindings(ERROR_CLASSES);
+    run(root);
+    const once = bindingsOf(root);
+    run(root);
+
+    expect(bindingsOf(root)).toBe(once);
+  });
+
+  it('leaves the committed bindings byte-identical, since they are already fixed', () => {
+    const committed = readFileSync(join(MODULE, 'src/generated/veloqrs.ts'), 'utf8');
+    const root = treeWithBindings(committed);
+    run(root);
+
+    expect(bindingsOf(root)).toBe(committed);
+  });
+});

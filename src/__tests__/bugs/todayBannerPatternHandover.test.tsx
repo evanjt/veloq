@@ -1,16 +1,14 @@
 /**
- * Scenario: the insights tab computed the activity patterns twice, once in
- * the bundle the hook already holds and once again for the banner, a second
- * k-means pass over the same metric rows on the same screen.
+ * Scenario: with nothing planned, the banner printed a sentence about the
+ * weekday the athlete usually trains, and the insights hook handed it down.
  *
- * Expected behaviour: the hook that already holds the bundle hands the
- * pattern down, and the banner makes no engine call at all. The engine below
- * answers every method, so a call of any name fails here.
+ * Expected behaviour: the banner draws no habit sentence, the hook returns
+ * no pattern, and the banner makes no engine call.
  */
 
 import React from 'react';
 import { render, renderHook, act } from '@testing-library/react-native';
-import { InteractionManager } from 'react-native';
+import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 
 import { TodayBanner } from '@/features/routes/components/TodayBanner';
 import { useInsights } from '@/features/insights/hooks/useInsights';
@@ -21,15 +19,21 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
+let mockLanguage = 'en-AU';
+
 // The banner's sentence is a key with three interpolations. Resolving it
 // against the real en-AU bundle keeps the assertion on what the athlete reads
-// rather than on the key name.
+// rather than on the key name. The language is the athlete's, which names the
+// day.
 jest.mock('react-i18next', () => {
-  const bundle = require('@/i18n/locales/en-AU.json');
+  const { resolvedLocale } = jest.requireActual(
+    '../i18n/resolvedLocale'
+  ) as typeof import('../i18n/resolvedLocale');
+  const bundle = resolvedLocale('en-AU');
   return {
     ...jest.requireActual('react-i18next'),
     useTranslation: () => ({
-      i18n: { language: 'en-AU' },
+      i18n: { language: mockLanguage },
       t: (key: string, values?: Record<string, string | number>) => {
         const text = key
           .split('.')
@@ -59,12 +63,11 @@ jest.mock('@/features/home/hooks/useWorkoutSections', () => ({
 
 jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: [{ id: '2026-09-01', ctl: 50, atl: 40 }] }),
-  useWellnessLatestDate: () => ({ data: '2026-09-01' }),
 }));
 
 jest.mock('@/features/insights/lib/computeInsightsData', () => ({
   fetchInsightsDataFromEngine: jest.fn(),
-  computeInsightsFromData: jest.fn(() => []),
+  computeInsightsFromData: jest.fn(() => ({ insights: [], failed: false })),
 }));
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
@@ -89,59 +92,50 @@ const engine = new Proxy({ subscribe: () => () => {} } as Record<string, unknown
     property in target ? target[property] : (...args: unknown[]) => engineCall(...args),
 });
 
-let pending: (() => void)[] = [];
+let idle: IdleScheduler;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  pending = [];
+  mockLanguage = 'en-AU';
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((task) => {
-    pending.push(task as () => void);
-    return {
-      then: () => Promise.resolve(),
-      done: () => {},
-      cancel: () => {},
-    } as unknown as ReturnType<typeof InteractionManager.runAfterInteractions>;
-  });
+  idle = stubIdleScheduler('queued');
 });
 
 afterEach(() => {
+  idle.restore();
   jest.restoreAllMocks();
 });
 
 describe('TodayBanner', () => {
-  it('renders the pattern it is handed without an engine call', () => {
-    const { getByText } = render(
-      <TodayBanner
-        todayPattern={PATTERN as unknown as Parameters<typeof TodayBanner>[0]['todayPattern']}
-      />
-    );
+  it('renders no habit sentence when nothing is planned', () => {
+    const { queryByText } = render(<TodayBanner form={{ ctl: 50, atl: 40 }} />);
 
+    expect(queryByText(/you usually/)).toBeNull();
     expect(engineCall).not.toHaveBeenCalled();
-    expect(getByText(/On Wednesday you usually run/)).toBeTruthy();
   });
 
-  it('makes no engine call when it is handed no pattern', () => {
-    render(<TodayBanner todayPattern={null} />);
+  it('draws no readiness row and no TSB when there is no form reading', () => {
+    const { queryByText } = render(<TodayBanner form={null} />);
 
-    expect(engineCall).not.toHaveBeenCalled();
+    expect(queryByText(/TSB/)).toBeNull();
+    expect(queryByText(/TODAY|routeIntelligence\.today/)).toBeNull();
   });
 });
 
 describe('useInsights', () => {
-  it('returns the pattern from the bundle it already fetched', () => {
+  it('returns no pattern from the insights bundle', () => {
     mockFetch.mockReturnValue({
-      insightsData: { todayPattern: PATTERN, allPatterns: [PATTERN] },
+      insightsData: { sportTypes: [] },
       summaryCardData: null,
     } as unknown as ReturnType<typeof fetchInsightsDataFromEngine>);
 
     const { result } = renderHook(() => useInsights());
 
     act(() => {
-      for (const task of pending) task();
+      idle.flush();
     });
 
-    expect(result.current.todayPattern).toEqual(PATTERN);
+    expect(result.current).not.toHaveProperty('todayPattern');
     expect(engineCall).not.toHaveBeenCalled();
   });
 });

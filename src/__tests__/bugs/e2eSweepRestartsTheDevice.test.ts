@@ -1,5 +1,5 @@
 /**
- * Scenario: the weekly Android sweep meets the dead-device shape the gate
+ * Scenario: the scheduled Android sweep meets the dead-device shape the gate
  * already survives. Every scheduled run since August died mid-suite and
  * reported the flows behind the death as failures.
  *
@@ -44,4 +44,20 @@ it('keeps the retry pass reports, which are what say a death was recovered', () 
     .join('\n');
 
   expect(uploads).toContain('retry-reports/');
+});
+
+/**
+ * Scenario: the sweep's emulator takes the 2 GB of the `pixel_6` profile while
+ * the gate's emulators run at 6 GB, so a device death in one cannot be compared
+ * with the other.
+ *
+ * Expected behaviour: the sweep's emulator asks for the same RAM floor.
+ */
+it('gives the sweep emulator more RAM than the device profile default', () => {
+  const step = (sweep.jobs[ANDROID_JOB].steps ?? []).find((s) =>
+    String((s as { uses?: string }).uses).startsWith('reactivecircus/android-emulator-runner')
+  );
+  const ram = Number((step?.with as { 'ram-size'?: string | number })?.['ram-size']);
+
+  expect(ram).toBeGreaterThanOrEqual(4096);
 });

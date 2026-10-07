@@ -10,9 +10,10 @@
  */
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips';
+import type { FeedGroup } from '@/features/activity/lib/feedActivityGroups';
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -20,7 +21,15 @@ jest.mock('react-i18next', () => ({
 }));
 
 function renderChips() {
-  return render(<FeedFilterChips selected={null} onSelect={jest.fn()} isDark={false} />);
+  return render(
+    <FeedFilterChips
+      selected={new Set()}
+      onSelect={jest.fn()}
+      selectedRange={null}
+      onSelectRange={jest.fn()}
+      isDark={false}
+    />
+  );
 }
 
 describe('feed filter chips', () => {
@@ -46,5 +55,23 @@ describe('feed filter chips', () => {
     const row = StyleSheet.flatten(scroller.props.contentContainerStyle);
     expect(row.flexDirection).toBe('row');
     expect(row.flexWrap).toBeUndefined();
+  });
+
+  it('lets two sport chips stay selected together', () => {
+    const selected = new Set<FeedGroup>(['Cycling', 'Other']);
+    const onSelect = jest.fn();
+    render(
+      <FeedFilterChips
+        selected={selected}
+        onSelect={onSelect}
+        selectedRange={null}
+        onSelectRange={jest.fn()}
+        isDark={false}
+      />
+    );
+    expect(screen.getByTestId('home-filter-cycling').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('home-filter-other').props.accessibilityState.selected).toBe(true);
+    fireEvent.press(screen.getByTestId('home-filter-running'));
+    expect(onSelect).toHaveBeenCalledWith('Running');
   });
 });

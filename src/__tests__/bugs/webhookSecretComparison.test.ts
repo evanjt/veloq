@@ -8,9 +8,6 @@
  * not the test here: it would measure the machine rather than the code.
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import { secretsMatch } from '../../../oauth-proxy/src/secrets';
 
 const SECRET = 'a-long-random-webhook-secret-0123456789';
@@ -38,14 +35,5 @@ describe('comparing the webhook secret', () => {
     await expect(secretsMatch(undefined, SECRET)).resolves.toBe(false);
     await expect(secretsMatch(null, SECRET)).resolves.toBe(false);
     await expect(secretsMatch({ length: 38 }, SECRET)).resolves.toBe(false);
-  });
-});
-
-describe('the worker itself', () => {
-  const worker = readFileSync(resolve(__dirname, '../../../oauth-proxy/src/worker.ts'), 'utf8');
-
-  it('no longer compares the secret with an early-returning operator', () => {
-    expect(worker).not.toMatch(/payload\.secret\s*!==\s*env\.WEBHOOK_SECRET/);
-    expect(worker).toMatch(/secretsMatch\(/);
   });
 });

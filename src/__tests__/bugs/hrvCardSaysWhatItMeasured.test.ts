@@ -11,10 +11,13 @@
  * and the override says two consecutive readings below the window mean.
  */
 
+import { resolvedLocale } from '../i18n/resolvedLocale';
 import type { HrvTrend } from 'veloqrs';
 
 import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend';
-import enAU from '@/i18n/locales/en-AU.json';
+import { datedSeries } from '../__shared__/datedSeries';
+
+const enAU = resolvedLocale('en-AU');
 
 const NOW = 1_700_000_000_000;
 
@@ -38,7 +41,7 @@ function hrv(overrides: Partial<HrvTrend> = {}): HrvTrend {
     avg: 50,
     latest: 49,
     dataPoints: 5,
-    sparkline: [50, 50, 50, 51, 49],
+    sparkline: datedSeries([50, 50, 50, 51, 49]),
     ...overrides,
   } as HrvTrend;
 }

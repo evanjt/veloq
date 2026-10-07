@@ -153,3 +153,56 @@ it('passes a file named without a line', () => {
 
   expect(runGuard(root).status).toBe(0);
 });
+
+/**
+ * Scenario: the guard read TypeScript, JavaScript and Rust under three trees,
+ * and a Maestro flow and the push extension each cited a line in a file the
+ * next edit moves.
+ * Expected behaviour: every tracked file whose comments it can read in their
+ * own syntax is read, hash comments included.
+ */
+it.each([
+  ['a Maestro flow', '.maestro/a.yaml', '# The banner (login.tsx:54-60).\nappId: x\n', 1],
+  [
+    'a Swift extension',
+    'push/ios/Ext/Payload.swift',
+    '/// Read there (`Records.swift:331`).\nstruct P {}\n',
+    1,
+  ],
+  ['a Kotlin module', 'modules/veloq-x/android/X.kt', '// Posted from Module.kt:41.\nclass X\n', 1],
+  ['a shell script', 'scripts/a.sh', '#!/bin/sh\n# Mirrors run-gates.sh:57.\necho a\n', 2],
+  ['a hook', '.husky/pre-commit', '#!/bin/sh\n# See lines 12-20 above.\n', 2],
+  ['a workflow', '.github/workflows/ci.yml', 'jobs:\n  # Set at test.yml:109.\n  a: {}\n', 2],
+  [
+    'a TOML manifest',
+    'modules/veloqrs/rust/veloqrs/Cargo.toml',
+    '# Read at lib.rs:40.\n[deps]\n',
+    1,
+  ],
+  [
+    'the binding module',
+    'modules/veloqrs/src/EngineClient.ts',
+    '// Installed at line 293.\nexport {};\n',
+    1,
+  ],
+])('fails on a citation in %s', (_what, path, body, line) => {
+  const { status, output } = runGuard(fixture({ [path]: body }));
+
+  expect(status).toBe(1);
+  expect(output).toContain(`${path}:${line}`);
+});
+
+it('passes a coverage figure, which is a percentage and not a line', () => {
+  const root = fixture({
+    'config/jest.config.js':
+      '// Measured: statements 72.43, branches 63.19, functions 70.22, lines 73.71.\nmodule.exports = {};\n',
+  });
+
+  expect(runGuard(root).status).toBe(0);
+});
+
+it('passes a citation outside a comment in a hash-commented file', () => {
+  const root = fixture({ '.maestro/b.yaml': 'appId: x\n---\n- assertVisible: "login.tsx:54"\n' });
+
+  expect(runGuard(root).status).toBe(0);
+});
