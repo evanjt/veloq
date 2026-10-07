@@ -13,12 +13,11 @@ import {
   typography,
   spacing,
   layout,
-  verdictColor,
   ink,
   colorWithOpacity,
 } from '@/theme';
 import type { StatDetail } from './types';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface StatDetailModalProps {
   stat: StatDetail | null;
@@ -31,7 +30,11 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
 
   return (
     <Modal visible={stat !== null} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={pressable(styles.modalOverlay)} onPress={onClose}>
+      <Pressable
+        style={pressable(styles.modalOverlay)}
+        android_ripple={pressRipple}
+        onPress={onClose}
+      >
         <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
           {stat && (
             <>
@@ -84,51 +87,6 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
                 </View>
               )}
 
-              {/* Comparison */}
-              {stat.comparison && (
-                <View style={styles.comparisonSection}>
-                  <Text style={styles.comparisonLabel}>{stat.comparison.label}</Text>
-                  <View
-                    style={[
-                      styles.comparisonLarge,
-                      stat.comparison.isGood === true && styles.comparisonGood,
-                      stat.comparison.isGood === false && styles.comparisonBad,
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name={
-                        stat.comparison.trend === 'up'
-                          ? 'trending-up'
-                          : stat.comparison.trend === 'down'
-                            ? 'trending-down'
-                            : 'minus'
-                      }
-                      size={18}
-                      color={
-                        stat.comparison.isGood === true
-                          ? verdictColor('positive', isDark)
-                          : stat.comparison.isGood === false
-                            ? verdictColor('negative', isDark)
-                            : verdictColor('neutral', isDark)
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.comparisonLargeText,
-                        stat.comparison.isGood === true && {
-                          color: verdictColor('positive', isDark),
-                        },
-                        stat.comparison.isGood === false && {
-                          color: verdictColor('negative', isDark),
-                        },
-                      ]}
-                    >
-                      {stat.comparison.value}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
               {/* Close hint */}
               <Text style={styles.closeHint}>{t('activity.tapToClose')}</Text>
             </>
@@ -165,7 +123,7 @@ const styles = StyleSheet.create({
   modalIconContainer: {
     width: 56,
     height: 56,
-    borderRadius: spacing.md,
+    borderRadius: layout.borderRadius,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
@@ -236,35 +194,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  comparisonSection: {
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-  },
-  comparisonLabel: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  comparisonLarge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: opacity.overlay.light,
-    paddingHorizontal: layout.borderRadius,
-    paddingVertical: spacing.xsPlus,
-    borderRadius: layout.borderRadius,
-  },
-  comparisonGood: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
-  },
-  comparisonBad: {
-    backgroundColor: 'rgba(244, 67, 54, 0.15)',
-  },
-  comparisonLargeText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
+
   closeHint: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,

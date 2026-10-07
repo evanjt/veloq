@@ -24,43 +24,62 @@ import { useTranslation } from 'react-i18next';
 import { hasStarted } from 'veloqrs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable } from '@/shared/ui';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
-import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
-import { useDetectionHold } from '@/features/routes';
-import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
-import { usePreviewCentres } from '@/features/routes/hooks/usePreviewCentres';
-import { usePreviewCurrentSections } from '@/features/routes/hooks/usePreviewCurrentSections';
 import {
+  EngineReadFailure,
+  ScreenSafeAreaView,
+  TAB_BAR_SAFE_PADDING,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
+import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import {
+  usePreviewDetect,
+  useCutoverHeld,
+  useDetectionHold,
+  rescanRefusalKey,
+  previewRefusalKey,
+  previewNewNumber,
+  isElevationHold,
+  useSectionRescan,
+  usePreviewCentres,
+  usePreviewCurrentSections,
   PreviewCentrePicker,
   PreviewDiffStrip,
   PreviewMapView,
   PreviewRunCost,
   PreviewParamPanel,
   PreviewSectionPopover,
-} from '@/features/routes/components';
+} from '@/features/routes';
 import { getEngine, UNIFIED_CONFIG } from '@/shared/native/engine';
-import type {
-  PreviewCentre,
-  PreviewParams,
-  PreviewSection,
-} from '../../modules/veloqrs/src/delegates/preview';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { attemptEngineRead } from '@/shared/native/engineError';
+import type { PreviewCentre, PreviewParams, PreviewSection } from 'veloqrs';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function DetectionPreviewScreen() {
+const PARAM_KEYS = [
+  'proximityThreshold',
+  'minSectionLength',
+  'maxSectionLength',
+  'minActivities',
+  'divergenceThreshold',
+] as const satisfies readonly (keyof PreviewParams)[];
+
+function DetectionPreviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
   const client = useMemo(() => getEngine(), []);
-  const { centres, labels } = usePreviewCentres(client);
-  const { status, progress, result, suspended, lapsed, start, cancel, reset } =
+  const { centres, labels, error: centresReadError } = usePreviewCentres(client);
+  const { status, progress, result, refusal, lapsed, start, cancel, reset } =
     usePreviewDetect(client);
   // The preview is a settings sandbox: it loads a subset, runs the detector to
   // show what different settings produce, and touches no catalogue until Keep.
   // So the cutover hold that refuses every real detect does not reach it, and
   // what the screen owes is a notice rather than a door.
-  const migrating = useDetectionHold() === 'cutover';
+  const migrating = useCutoverHeld();
   const { forceRescan } = useSectionRescan();
+  const refusalKey = previewRefusalKey(refusal, isElevationHold(useDetectionHold()));
 
   // A config change clears the processed set and the re-detect that follows is
   // asynchronous, so the sliders can show the new config while the live
@@ -69,8 +88,16 @@ export default function DetectionPreviewScreen() {
   // reads exactly like a detector regression. This is the count of activities
   // the live catalogue has never seen, which is that gap and also the milder
   // one of a few rides synced since the last detect. `null` is an engine that
-  // cannot answer, and it says nothing rather than inventing either state.
-  const awaitingDetection = useMemo(() => client?.sectionDetectionAwaiting() ?? null, [client]);
+  // is closed or whose count failed, and it says nothing rather than inventing
+  // either state. A sync grows the gap and a detect closes it, so either
+  // announcement re-reads.
+  const readDetection = useEngineRead(['activities', 'sections', 'detectionApplied']);
+  const awaitingDetection = useMemo(
+    () =>
+      attemptEngineRead(() => readDetection((engine) => engine.sectionDetectionAwaiting())).value ??
+      null,
+    [readDetection]
+  );
 
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const [params, setParams] = useState<PreviewParams>(() => {
@@ -85,6 +112,10 @@ export default function DetectionPreviewScreen() {
     };
   });
   const [selected, setSelected] = useState<PreviewSection | null>(null);
+  const newNumber = useMemo(
+    () => previewNewNumber(result?.sections ?? [], selected),
+    [result, selected]
+  );
   const [showCurrent, setShowCurrent] = useState(true);
   const [showProposed, setShowProposed] = useState(true);
   const [showRemoved, setShowRemoved] = useState(true);
@@ -101,6 +132,13 @@ export default function DetectionPreviewScreen() {
     selectedCentre
   );
   const running = status === 'running';
+  // Keep commits the config the athlete saw the diff for, so it is offered only
+  // while the sliders still read that config.
+  const previewedConfig = result?.config ?? null;
+  const slidersMatchResult =
+    previewedConfig !== null && PARAM_KEYS.every((k) => params[k] === previewedConfig[k]);
+  const keepEnabled = slidersMatchResult && !migrating;
+  const previewIsNext = !!selectedCentre && !slidersMatchResult;
   // The engine reports a percentage for a bounded job, so draw it. Clamped
   // because a phase that finishes ahead of its own estimate can overshoot.
   const runPercent = Math.min(100, Math.max(0, Math.round(progress?.percent ?? 0)));
@@ -132,8 +170,8 @@ export default function DetectionPreviewScreen() {
         text: t('common.confirm'),
         onPress: () => {
           const config = client?.getSectionConfig();
-          if (!client || !config) return;
-          client.setSectionConfig({ ...config, ...params });
+          if (!client || !config || migrating || !previewedConfig) return;
+          client.setSectionConfig({ ...config, ...previewedConfig });
           // Through the rescan hook, not the client: the re-cut is global and
           // the athlete has to be able to see it run, and the hook is what
           // starts the poll every progress indicator reads.
@@ -142,15 +180,21 @@ export default function DetectionPreviewScreen() {
           // backfill holds detection. The config above is already written and
           // the evidence cache already cleared, so closing here would report a
           // change that never ran. Stay, say why, and let Keep be pressed again.
-          if (!hasStarted(forceRescan())) {
-            Alert.alert(t('settings.previewKeepRefusedTitle'), t('settings.previewKeepRefused'));
+          const outcome = forceRescan();
+          if (!hasStarted(outcome)) {
+            const reasonKey = rescanRefusalKey(outcome);
+            const saved = t('settings.previewKeepRefused');
+            Alert.alert(
+              t('settings.previewKeepRefusedTitle'),
+              reasonKey ? `${saved} ${t(reasonKey)}` : saved
+            );
             return;
           }
           router.back();
         },
       },
     ]);
-  }, [t, client, params, forceRescan]);
+  }, [t, client, previewedConfig, forceRescan, migrating]);
 
   const handleDiscard = useCallback(() => {
     if (running) cancel();
@@ -190,7 +234,11 @@ export default function DetectionPreviewScreen() {
         />
         {selected && (
           <View style={styles.popover} pointerEvents="box-none">
-            <PreviewSectionPopover section={selected} onClose={() => setSelected(null)} />
+            <PreviewSectionPopover
+              section={selected}
+              newNumber={newNumber}
+              onClose={() => setSelected(null)}
+            />
           </View>
         )}
       </View>
@@ -199,6 +247,9 @@ export default function DetectionPreviewScreen() {
         style={[styles.panel, { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }]}
         testID="preview-control-panel"
       >
+        {centresReadError !== undefined ? (
+          <EngineReadFailure error={centresReadError} testID="preview-centres-failure" />
+        ) : null}
         <View style={styles.pickerWrap}>
           <PreviewCentrePicker
             centres={centres}
@@ -250,6 +301,7 @@ export default function DetectionPreviewScreen() {
                   styles.actionBtn,
                   { backgroundColor: surface, borderColor: border },
                 ])}
+                android_ripple={pressRipple}
                 onPress={handleDiscard}
                 testID="preview-discard-button"
               >
@@ -261,10 +313,11 @@ export default function DetectionPreviewScreen() {
             <Pressable
               style={pressable([
                 styles.actionBtn,
-                selectedCentre && !result
-                  ? { backgroundColor: brand.tealLight, borderColor: brand.tealLight }
+                previewIsNext
+                  ? { backgroundColor: colors.primary, borderColor: colors.primary }
                   : { backgroundColor: surface, borderColor: border },
               ])}
+              android_ripple={pressRipple}
               onPress={handlePreview}
               disabled={!selectedCentre}
               testID="preview-run-button"
@@ -272,12 +325,12 @@ export default function DetectionPreviewScreen() {
               <MaterialCommunityIcons
                 name="magnify-scan"
                 size={18}
-                color={selectedCentre && !result ? colors.textOnDark : textSecondary}
+                color={previewIsNext ? colors.textOnPrimary : textSecondary}
               />
               <Text
                 style={[
                   styles.runText,
-                  { color: selectedCentre && !result ? colors.textOnDark : textSecondary },
+                  { color: previewIsNext ? colors.textOnPrimary : textSecondary },
                 ]}
                 numberOfLines={1}
               >
@@ -287,7 +340,9 @@ export default function DetectionPreviewScreen() {
             {result && (
               <Pressable
                 style={pressable([styles.actionBtn, styles.keepBtn])}
+                android_ripple={pressRipple}
                 onPress={handleKeep}
+                disabled={!keepEnabled}
                 testID="preview-keep-button"
               >
                 <Text style={[styles.runText, styles.keepText]} numberOfLines={1}>
@@ -311,14 +366,22 @@ export default function DetectionPreviewScreen() {
             {t('settings.previewPoolUnusable')}
           </Text>
         )}
-        {suspended && (
-          <Text style={[styles.notice, { color: textSecondary }]}>
-            {t('settings.previewSuspended')}
+        {refusalKey && (
+          <Text style={[styles.notice, { color: textSecondary }]} testID="preview-refusal">
+            {t(refusalKey)}
           </Text>
         )}
         {migrating && (
           <Text style={[styles.notice, { color: textSecondary }]} testID="preview-migrating">
             {t('settings.previewMigrating')}
+          </Text>
+        )}
+        {migrating && result && (
+          <Text
+            style={[styles.notice, { color: textSecondary }]}
+            testID="preview-keep-after-upgrade"
+          >
+            {t('settings.previewKeepAfterUpgrade')}
           </Text>
         )}
         {awaitingDetection !== null && awaitingDetection > 0 && (
@@ -353,13 +416,13 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 3,
-    borderRadius: spacing.xxs,
+    borderRadius: layout.borderRadiusXs,
     marginTop: spacing.xs,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: spacing.xxs,
+    borderRadius: layout.borderRadiusXs,
   },
   runBtn: {
     flexDirection: 'row',
@@ -393,10 +456,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   keepBtn: {
-    backgroundColor: brand.tealLight,
-    borderColor: brand.tealLight,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   keepText: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
 });
+
+export default withScreenBoundary(DetectionPreviewScreenContent, 'DetectionPreview');

@@ -5,21 +5,22 @@
  * event cancelled on intervals.icu disappears here too.
  */
 import { getEngine } from '@/shared/native/engine';
+import { dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import type { CalendarEvent } from '@/types';
 
-/** Local midnight for a YYYY-MM-DD day, as the epoch seconds the engine keys on. */
-function dayStartTimestamp(day: string): number {
-  return Math.floor(new Date(`${day}T00:00:00`).getTime() / 1000);
-}
-
+/**
+ * The engine stamps each event's `start_date_local` as wall clock read as UTC,
+ * so the window is built the same way. Local midnight as a true instant slides
+ * it by the device offset.
+ */
 export function readCalendarEvents(oldest: string, newest: string): CalendarEvent[] {
   const engine = getEngine();
   if (!engine?.getCalendarEventBodies) return [];
 
   const out: CalendarEvent[] = [];
   for (const body of engine.getCalendarEventBodies(
-    dayStartTimestamp(oldest),
-    dayStartTimestamp(newest) + 86399
+    dayStartEpochSeconds(oldest),
+    dayEndEpochSeconds(newest)
   )) {
     try {
       out.push(JSON.parse(body) as CalendarEvent);

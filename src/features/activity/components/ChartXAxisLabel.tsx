@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography } from '@/theme';
+import { DenseText } from '@/shared/ui/DenseText';
 import { formatDuration } from '@/shared/format/format';
 
 interface ChartXAxisLabelProps {
@@ -22,15 +23,15 @@ export const ChartXAxisLabel = React.memo(function ChartXAxisLabel({
   const { t } = useTranslation();
   return (
     <View style={styles.xAxis} pointerEvents="none">
-      <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
+      <DenseText style={[styles.xLabel, isDark && styles.xLabelDark]}>
         {xAxisMode === 'time' ? '0:00' : '0'}
-      </Text>
-      <Text style={[styles.xAxisHint, isDark && styles.xAxisHintDark]}>
+      </DenseText>
+      <DenseText style={[styles.xAxisHint, isDark && styles.xAxisHintDark]}>
         {t('activity.chartHint', 'Hold to scrub • Hold chip for axis')}
-      </Text>
-      <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
+      </DenseText>
+      <DenseText style={[styles.xLabel, isDark && styles.xLabelDark]}>
         {xAxisMode === 'time' ? formatDuration(maxX) : maxX.toFixed(1)}
-      </Text>
+      </DenseText>
     </View>
   );
 });

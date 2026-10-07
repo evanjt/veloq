@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { View, Pressable, StyleSheet, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import {
   ActivityMapView,
   ATTRIBUTION_CLEARANCE,
   type CreationState,
   type MapStyleType,
+  useMapControlColumn,
   SectionCreationError,
   SectionCreationResult,
   type SectionOverlay,
   type TerrainCamera,
 } from '@/features/maps';
-import { ComponentErrorBoundary, DetailHero, pressable } from '@/shared/ui';
+import { ComponentErrorBoundary, DetailHero, pressable, pressRipple } from '@/shared/ui';
+import { heroTextStyles } from '@/shared/ui/DetailHero';
 import type { ActivityDetail, ActivityStreams } from '@/types';
 import {
   formatDistance,
@@ -21,12 +22,8 @@ import {
   formatDateTime,
 } from '@/shared/format/format';
 import { engine } from 'veloqrs';
-import { colors, colorWithOpacity, opacity, spacing, typography } from '@/theme';
-
-interface LatLng {
-  latitude: number;
-  longitude: number;
-}
+import type { LatLng } from '@/shared/geo/polyline';
+import { colors, colorWithOpacity, mapTextShadow, opacity, spacing, typography } from '@/theme';
 
 interface ActivityHeaderProps {
   activity: ActivityDetail;
@@ -36,7 +33,6 @@ interface ActivityHeaderProps {
   streams?: ActivityStreams | null;
   isMetric: boolean;
   debugEnabled: boolean;
-  insetTop: number;
   mapHeight: number;
   // Map props
   highlightIndex: number | null;
@@ -54,8 +50,9 @@ interface ActivityHeaderProps {
   activeTab: string;
   routeOverlayCoordinates: LatLng[] | null;
   sectionOverlays: SectionOverlay[] | null;
+  sectionRowLabels?: ReadonlyMap<string, string> | undefined;
   highlightedSectionId: string | null;
-  onSectionMarkerPress?: (sectionId: string) => void;
+  onSectionMarkerPress?: ((sectionId: string) => void) | undefined;
 }
 
 export const ActivityHeader = React.memo(function ActivityHeader({
@@ -65,7 +62,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   streams,
   isMetric,
   debugEnabled,
-  insetTop,
   mapHeight,
   highlightIndex,
   sectionCreationMode,
@@ -81,84 +77,89 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   activeTab,
   routeOverlayCoordinates,
   sectionOverlays,
+  sectionRowLabels,
   highlightedSectionId,
   onSectionMarkerPress,
 }: ActivityHeaderProps) {
   // The satellite credit wraps to two rows at phone width, so the reservation
   // comes from what the pill measured. The constant is only the first guess.
+  const controlColumn = useMapControlColumn(mapHeight);
   const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
+  const visibleSectionOverlays =
+    activeTab === 'sections' || activeTab === 'charts' ? sectionOverlays : null;
 
   return (
     <DetailHero
       height={mapHeight}
-      insetTop={insetTop}
-      onBack={() => router.back()}
-      backTestID="activity-detail-back"
       containerTestID="activity-detail-content"
       attributionClearance={attributionClearance}
+      overlayInsetEnd={controlColumn.footprint}
       overlay={
         <>
-          <Pressable
-            onLongPress={
-              debugEnabled
-                ? () => {
-                    const doClone = (n: number) => {
-                      const created = engine.debugCloneActivity(activityId, n);
-                      Alert.alert('Done', `Created ${created} clones`);
-                    };
-                    Alert.alert(
-                      'Clone for Testing',
-                      `Clone "${activity.name}" to stress test sections and routes.`,
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: '10 clones', onPress: () => doClone(10) },
-                        {
-                          text: 'More...',
-                          onPress: () => {
-                            Alert.alert('Clone Amount', 'Choose number of clones:', [
-                              { text: 'Cancel', style: 'cancel' },
-                              { text: '50 clones', onPress: () => doClone(50) },
-                              {
-                                text: '100 clones',
-                                onPress: () => doClone(100),
-                              },
-                            ]);
+          {debugEnabled ? (
+            <Pressable
+              testID="activity-detail-name"
+              onLongPress={() => {
+                const doClone = (n: number) => {
+                  const created = engine.debugCloneActivity(activityId, n);
+                  Alert.alert('Done', `Created ${created} clones`);
+                };
+                Alert.alert(
+                  'Clone for Testing',
+                  `Clone "${activity.name}" to stress test sections and routes.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: '10 clones', onPress: () => doClone(10) },
+                    {
+                      text: 'More...',
+                      onPress: () => {
+                        Alert.alert('Clone Amount', 'Choose number of clones:', [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: '50 clones', onPress: () => doClone(50) },
+                          {
+                            text: '100 clones',
+                            onPress: () => doClone(100),
                           },
-                        },
-                      ]
-                    );
-                  }
-                : undefined
-            }
-            style={pressable()}
-          >
-            <Text style={styles.activityName} numberOfLines={1}>
+                        ]);
+                      },
+                    },
+                  ]
+                );
+              }}
+              style={(state) => [pressable()(state), styles.namePressable]}
+              android_ripple={pressRipple}
+            >
+              <Text style={heroTextStyles.name} numberOfLines={1}>
+                {activity.name}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text
+              testID="activity-detail-name"
+              pointerEvents="none"
+              style={heroTextStyles.name}
+              numberOfLines={1}
+            >
               {activity.name}
             </Text>
-          </Pressable>
+          )}
 
-          <View style={styles.metaRow}>
+          <View style={styles.metaRow} pointerEvents="none">
             <Text style={styles.activityDate}>{formatDateTime(activity.start_date_local)}</Text>
             <View style={styles.inlineStats}>
-              <Text testID="activity-detail-distance" style={styles.inlineStat}>
+              <Text testID="activity-detail-distance" style={heroTextStyles.stat}>
                 {formatDistance(activity.distance, isMetric)}
               </Text>
-              <Text style={styles.inlineStatDivider}>·</Text>
-              <Text testID="activity-detail-duration" style={styles.inlineStat}>
+              <Text style={heroTextStyles.statDivider}>·</Text>
+              <Text testID="activity-detail-duration" style={heroTextStyles.stat}>
                 {formatDuration(activity.moving_time)}
               </Text>
-              <Text style={styles.inlineStatDivider}>·</Text>
-              <Text style={styles.inlineStat}>
+              <Text style={heroTextStyles.statDivider}>·</Text>
+              <Text style={heroTextStyles.stat}>
                 {formatElevation(activity.total_elevation_gain, isMetric)}
               </Text>
             </View>
           </View>
-
-          {(activity.locality || activity.country) && (
-            <Text style={styles.locationText}>
-              {[activity.locality, activity.country].filter(Boolean).join(', ')}
-            </Text>
-          )}
         </>
       }
     >
@@ -167,7 +168,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
           coordinates={coordinates}
           activityType={activity.type}
           activityId={activity.id}
-          country={activity.country}
           streams={streams}
           height={mapHeight}
           showStyleToggle={!sectionCreationMode}
@@ -186,13 +186,8 @@ export const ActivityHeader = React.memo(function ActivityHeader({
           onCreationCancelled={onCreationCancelled}
           onCreationErrorDismiss={onCreationErrorDismiss}
           routeOverlay={activeTab === 'routes' ? routeOverlayCoordinates : null}
-          sectionOverlays={
-            activeTab === 'sections'
-              ? sectionOverlays
-              : activeTab === 'charts'
-                ? (sectionOverlays?.filter((o) => o.isPR) ?? null)
-                : null
-          }
+          sectionOverlays={visibleSectionOverlays}
+          sectionRowLabels={sectionRowLabels}
           activeTab={activeTab}
           highlightedSectionId={activeTab === 'sections' ? highlightedSectionId : null}
           onSectionMarkerPress={onSectionMarkerPress}
@@ -203,13 +198,8 @@ export const ActivityHeader = React.memo(function ActivityHeader({
 });
 
 const styles = StyleSheet.create({
-  activityName: {
-    fontSize: typography.statsValue.fontSize,
-    fontWeight: '700',
-    color: colors.textOnDark,
-    textShadowColor: opacity.overlay.full,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+  namePressable: {
+    alignSelf: 'flex-start',
   },
   metaRow: {
     flexDirection: 'row',
@@ -218,32 +208,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   activityDate: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colorWithOpacity(colors.textOnDark, 0.85),
+    textShadowColor: opacity.overlay.full,
+    ...mapTextShadow,
   },
   inlineStats: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  inlineStat: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.textOnDark,
-    textShadowColor: opacity.overlay.heavy,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  inlineStatDivider: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colorWithOpacity(colors.textOnDark, 0.5),
-    marginHorizontal: spacing.xsPlus,
-  },
-  locationText: {
-    fontSize: typography.label.fontSize,
-    color: colorWithOpacity(colors.textOnDark, 0.7),
-    marginTop: spacing.xxs,
-    textShadowColor: opacity.overlay.heavy,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
 });

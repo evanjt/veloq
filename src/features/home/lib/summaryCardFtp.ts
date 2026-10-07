@@ -10,8 +10,6 @@
 
 export interface SummaryCardFtpInput {
   trend: { latestFtp?: number | null; previousFtp?: number | null };
-  /** The configured setting, kept only for surfaces where a setting is meant. */
-  configuredFtp?: number | null;
 }
 
 export interface SummaryCardFtp {

@@ -1,26 +1,45 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
-import { Canvas, Rect, Line as SkiaLine, Path, Skia, vec } from '@shopify/react-native-skia';
+import {
+  Canvas,
+  Circle,
+  Rect,
+  Line as SkiaLine,
+  Path,
+  Skia,
+  vec,
+} from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
-import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { formBarLayout } from '../lib/formBar';
+import { riseDayPoints } from '../lib/fitnessChange';
 import { scrubDateLabel } from '../lib/scrubDateLabel';
 import { buildMonotoneSvg, useChartGestures } from '@/shared/charts';
 
 const PLOT_TOP = 2;
 const PLOT_BOTTOM = 2;
 
+/**
+ * Fewest days either sparkline draws. One day is a single point with no line
+ * through it, and a full-width bar that scrubs to one value.
+ */
+export const SPARKLINE_MIN_DAYS = 2;
+
 const CHART_HEIGHT = 44;
 const FORM_BAR_HEIGHT = 4;
+const RISE_DOT_RADIUS = spacing.xxs;
 
 export interface ScrubValues {
   fitness: number;
   fatigue: number;
   form: number;
-  hrv?: number | undefined;
-  rhr?: number | undefined;
+  /** Null on a day with no reading of its own, which the line carries over. */
+  hrv?: number | null | undefined;
+  rhr?: number | null | undefined;
   dateLabel: string;
 }
 
@@ -28,6 +47,8 @@ interface SummaryCardSparklineProps {
   fitnessData: number[];
   fatigueData?: number[] | undefined;
   formData: number[];
+  /** Indices into `fitnessData` of the days fitness rose, marked with a dot. */
+  riseDays?: number[] | undefined;
   width: number;
   /** Show inline labels ("Fitness", "Form") - used in settings preview */
   showLabels?: boolean | undefined;
@@ -49,12 +70,14 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   fitnessData,
   fatigueData,
   formData,
+  riseDays,
   width,
   showLabels = false,
   onScrub,
   onTap,
 }: SummaryCardSparklineProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   // Refs for stable access inside gesture callbacks (avoids stale closures)
   const fitnessRef = useRef(fitnessData);
@@ -128,29 +151,13 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     syncBounds({ left: 0, right: chartWidth, top: 0, bottom: totalHeight });
   }, [syncBounds, chartWidth, totalHeight]);
 
-  const { formBarRects, transitions } = useMemo(() => {
-    const N = formData.length;
-    // Match CartesianChart's N-1 interval spacing: point i at i * step
-    const step = N > 1 ? chartWidth / (N - 1) : chartWidth;
-    const rects = formData.map((value, i) => {
-      const px = i * step;
-      const left = i === 0 ? 0 : (px + (i - 1) * step) / 2;
-      const right = i === N - 1 ? chartWidth : (px + (i + 1) * step) / 2;
-      return {
-        x: left,
-        width: right - left + 0.5,
-        color: FORM_ZONE_COLORS[getFormZone(value)],
-      };
-    });
-    // Zone transition dividers at midpoints between adjacent chart points
-    const trans: number[] = [];
-    for (let i = 0; i < N - 1; i++) {
-      if (getFormZone(formData[i]) !== getFormZone(formData[i + 1])) {
-        trans.push((i * step + (i + 1) * step) / 2);
-      }
-    }
-    return { formBarRects: rects, transitions: trans };
-  }, [formData, chartWidth]);
+  // Zoned like the hero above it: each day's form against that day's fitness,
+  // under the athlete's form-as-percent setting.
+  const asPercent = useFormPreference((state) => state.formAsPercent) === true;
+  const { rects: formBarRects, transitions } = useMemo(
+    () => formBarLayout(formData, fitnessData, asPercent, chartWidth),
+    [formData, fitnessData, asPercent, chartWidth]
+  );
 
   // Direct-Skia line paths (replaces Victory CartesianChart). monotoneX + the same
   // buffered domain as before → pixel-identical curves, but no chart-tree mount cost.
@@ -167,7 +174,23 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     };
   }, [fitnessData, fatigueSeries, domain, chartWidth]);
 
-  if (fitnessData.length === 0 || formData.length === 0 || width <= 0) {
+  const risePoints = useMemo(() => {
+    if (!riseDays || riseDays.length === 0) return [];
+    const [min, max] = domain.y;
+    return riseDayPoints(fitnessData, riseDays, {
+      width: chartWidth,
+      top: PLOT_TOP,
+      height: CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM,
+      min,
+      max,
+    });
+  }, [riseDays, fitnessData, domain, chartWidth]);
+
+  if (
+    fitnessData.length < SPARKLINE_MIN_DAYS ||
+    formData.length < SPARKLINE_MIN_DAYS ||
+    width <= 0
+  ) {
     return <View style={{ width, height: totalHeight }} />;
   }
 
@@ -191,10 +214,12 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   { color: isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText },
                 ]}
               >
-                Fitness
+                {t('metrics.fitness')}
               </RNText>
               <View style={{ flex: 1 }} />
-              <RNText style={[styles.inlineLabel, { color: labelColor }]}>Form</RNText>
+              <RNText style={[styles.inlineLabel, { color: labelColor }]}>
+                {t('metrics.form')}
+              </RNText>
             </View>
           )}
 
@@ -243,6 +268,15 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   strokeCap="round"
                 />
               )}
+              {risePoints.map((p, i) => (
+                <Circle
+                  key={`rise-${i}`}
+                  cx={p.x}
+                  cy={p.y}
+                  r={RISE_DOT_RADIUS}
+                  color={fitnessLineColor}
+                />
+              ))}
               {/* Form zone bar - directly below the chart (y = CHART_HEIGHT) */}
               {formBarRects.map((rect, i) => (
                 <Rect

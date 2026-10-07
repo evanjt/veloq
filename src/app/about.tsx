@@ -9,6 +9,8 @@ import { colors, darkColors, spacing, layout, typography, colorWithOpacity, bran
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/features/auth';
+import { DIVIDER_INSET } from '@/features/settings';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const VELOQ_URLS = {
   github: 'https://github.com/evanjt/veloq',
@@ -77,7 +79,7 @@ function NavRow({ icon, label, route, isDark, testID }: NavRowProps) {
   );
 }
 
-export default function AboutScreen() {
+function AboutScreenContent() {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -249,7 +251,7 @@ const getAppIconStyle = (isDark: boolean) => ({
 const getLinkDividerStyle = (isDark: boolean) => ({
   height: 1,
   backgroundColor: isDark ? darkColors.border : colors.border,
-  marginLeft: spacing.md + 22 + spacing.sm,
+  marginLeft: DIVIDER_INSET,
 });
 
 const styles = {
@@ -332,3 +334,5 @@ const styles = {
   appIcon: getAppIconStyle,
   linkDivider: getLinkDividerStyle,
 };
+
+export default withScreenBoundary(AboutScreenContent, 'About');

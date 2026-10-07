@@ -5,18 +5,10 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  opacity,
-  typography,
-  layout,
-  spacing,
-  verdictColor,
-} from '@/theme';
+import { colors, darkColors, typography, layout, spacing } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { DenseText } from '@/shared/ui/DenseText';
+import { pressable, pressRipple } from '@/shared/ui';
 
 import type { StatDetail } from './types';
 
@@ -32,11 +24,8 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
       onLongPress={() => onPress(stat)}
       onPress={() => onPress(stat)}
       delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
-      style={({ pressed }) => [
-        styles.statCard,
-        isDark && styles.statCardDark,
-        pressed && styles.statCardPressed,
-      ]}
+      style={pressable([styles.statCard, isDark && styles.statCardDark])}
+      android_ripple={pressRipple}
     >
       {/* Icon with colored background */}
       <View style={[styles.iconContainer, { backgroundColor: `${stat.color}20` }]}>
@@ -49,43 +38,8 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
         <DenseText style={styles.statTitle}>{stat.title}</DenseText>
       </View>
 
-      {/* Comparison badge or context */}
-      {stat.comparison ? (
-        <View
-          style={[
-            styles.comparisonBadge,
-            stat.comparison.isGood === true && styles.comparisonGood,
-            stat.comparison.isGood === false && styles.comparisonBad,
-          ]}
-        >
-          <MaterialCommunityIcons
-            name={
-              stat.comparison.trend === 'up'
-                ? 'arrow-up'
-                : stat.comparison.trend === 'down'
-                  ? 'arrow-down'
-                  : 'minus'
-            }
-            size={10}
-            color={
-              stat.comparison.isGood === true
-                ? colors.success
-                : stat.comparison.isGood === false
-                  ? colors.error
-                  : colors.textSecondary
-            }
-          />
-          <DenseText
-            style={[
-              styles.comparisonText,
-              stat.comparison.isGood === true && { color: verdictColor('positive', isDark) },
-              stat.comparison.isGood === false && { color: verdictColor('negative', isDark) },
-            ]}
-          >
-            {stat.comparison.value}
-          </DenseText>
-        </View>
-      ) : stat.context ? (
+      {/* Context line */}
+      {stat.context ? (
         <DenseText style={styles.contextText} numberOfLines={1}>
           {stat.context}
         </DenseText>
@@ -103,11 +57,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   statCardDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  statCardPressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.98 }],
+    backgroundColor: darkColors.surfaceElevated,
   },
   iconContainer: {
     width: 28,
@@ -130,27 +80,6 @@ const styles = StyleSheet.create({
   },
   statTitle: {
     fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-  },
-  comparisonBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxs,
-    backgroundColor: opacity.overlay.light,
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusSm,
-    alignSelf: 'flex-start',
-  },
-  comparisonGood: {
-    backgroundColor: colorWithOpacity(colors.success, 0.15),
-  },
-  comparisonBad: {
-    backgroundColor: colorWithOpacity(colors.error, 0.15),
-  },
-  comparisonText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '600',
     color: colors.textSecondary,
   },
   contextText: {

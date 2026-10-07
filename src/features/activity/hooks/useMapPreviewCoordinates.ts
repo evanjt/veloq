@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import {
@@ -15,7 +16,8 @@ import { decodeCoords } from 'veloqrs';
 import { convertLatLngTuples } from '@/shared/geo/polyline';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { ActivityStreams } from '@/types';
-import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
+import type { PreviewTrack } from '@/features/home';
+import { deleteTerrainPreviewsForActivity } from '@/features/maps';
 
 /**
  * Drop the preview line of every activity whose stored track was replaced.
@@ -34,6 +36,7 @@ export function useMutatedPreviewTracks(): void {
       if (!payload || !('activityIds' in payload)) return;
       for (const id of payload.activityIds) {
         queryClient.invalidateQueries({ queryKey: queryKeys.activities.previewTrack(id) });
+        void deleteTerrainPreviewsForActivity(id);
       }
     });
   }, [engine, queryClient]);
@@ -95,7 +98,9 @@ export function useMapPreviewCoordinates(
   // preview line does move for an activity that already has one, because a
   // re-ingest with different points recomputes the signature, so the engine
   // names those ids and `useMutatedPreviewTracks` drops exactly their keys.
-  const { data: previewPoints } = useQuery({
+  const previewEnabled = hasGpsData && !startupTrack && !!activityId;
+  const { data: previewPoints, status: previewStatus } = useQuery({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.previewTrack(activityId),
     queryFn: () => {
       const engine = getEngine();
@@ -104,14 +109,14 @@ export function useMapPreviewCoordinates(
       const points = decodeCoords(track.encodedCoords);
       return points.length > 0 ? points : null;
     },
-    enabled: hasGpsData && !startupTrack && !!activityId,
+    enabled: previewEnabled,
     staleTime: Infinity,
     gcTime: CACHE.HOUR,
   });
   const engineResult = previewPoints ?? null;
 
   // 3. Lightweight API fallback - only fires when neither startup nor engine has data
-  const needsFetch = hasGpsData && !startupTrack && !engineResult;
+  const needsFetch = hasGpsData && !startupTrack && previewStatus !== 'pending' && !engineResult;
 
   // The bulk GPS run fetches the same `latlng` and `altitude` off the same
   // endpoint for the ids it holds, so a card asking for its own while the run
@@ -121,6 +126,7 @@ export function useMapPreviewCoordinates(
   // no run is going, so this costs a card outside one nothing.
   const bulkRunHasIt = useSyncDateRange((s) => s.gpsSyncPendingIds.has(activityId));
   const { data: streams, isLoading: isFetching } = useQuery<ActivityStreams | null>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.mapPreview(activityId),
     queryFn: () => readStreams(activityId, PREVIEW_STREAM_TYPES),
     staleTime: Infinity,
@@ -170,6 +176,6 @@ export function useMapPreviewCoordinates(
   return {
     coordinates,
     altitude,
-    isLoading: needsFetch && isFetching,
+    isLoading: (previewEnabled && previewStatus === 'pending') || (needsFetch && isFetching),
   };
 }

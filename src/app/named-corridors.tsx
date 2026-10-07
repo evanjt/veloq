@@ -6,20 +6,24 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { Pressable, View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
-import { useNamedCorridors, type NamedCorridor } from '@/features/routes/hooks/useNamedCorridors';
-import { useSectionDisplayNames } from '@/features/routes/hooks/useSectionDisplayNames';
-import { ledgerDate } from '@/features/routes/lib/sectionLedger';
+import {
+  useNamedCorridors,
+  type NamedCorridor,
+  useSectionDisplayNames,
+  ledgerDate,
+} from '@/features/routes';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
 import { getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const PREVIEW_WIDTH = 64;
 const PREVIEW_HEIGHT = 44;
@@ -48,7 +52,7 @@ function FootprintPreview({
   );
 }
 
-export default function NamedCorridorsScreen() {
+function NamedCorridorsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const locale = getIntlLocale();
@@ -72,95 +76,86 @@ export default function NamedCorridorsScreen() {
   };
 
   return (
-    <ScreenErrorBoundary screenName="Named Corridors">
-      <ScreenSafeAreaView
-        hasNativeHeader
-        style={[styles.container, isDark && styles.containerDark]}
-      >
-        <ScrollView contentContainerStyle={styles.content} testID="named-corridors-list">
-          {corridors.length === 0 ? (
-            <Text
-              testID="named-corridors-empty"
-              style={[styles.empty, isDark && styles.textMutedDark]}
+    <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
+      <ScrollView contentContainerStyle={styles.content} testID="named-corridors-list">
+        {corridors.length === 0 ? (
+          <Text
+            testID="named-corridors-empty"
+            style={[styles.empty, isDark && styles.textMutedDark]}
+          >
+            {t('namedCorridors.empty')}
+          </Text>
+        ) : (
+          corridors.map((corridor) => (
+            <View
+              key={corridor.intentId}
+              style={[styles.card, isDark && styles.cardDark]}
+              testID={`named-corridor-${corridor.intentId}`}
             >
-              {t('namedCorridors.empty')}
-            </Text>
-          ) : (
-            corridors.map((corridor) => (
-              <View
-                key={corridor.intentId}
-                style={[styles.card, isDark && styles.cardDark]}
-                testID={`named-corridor-${corridor.intentId}`}
-              >
-                <View style={styles.row}>
-                  <FootprintPreview footprint={corridor.footprint} isDark={isDark} />
-                  <View style={styles.body}>
-                    <Text style={[styles.name, isDark && styles.textDark]}>{corridor.name}</Text>
-                    <Text style={[styles.meta, isDark && styles.textMutedDark]}>
-                      {t('namedCorridors.created', {
-                        date: ledgerDate(corridor.createdAt).toLocaleDateString(locale, {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        }),
-                      })}
+              <View style={styles.row}>
+                <FootprintPreview footprint={corridor.footprint} isDark={isDark} />
+                <View style={styles.body}>
+                  <Text style={[styles.name, isDark && styles.textDark]}>{corridor.name}</Text>
+                  <Text style={[styles.meta, isDark && styles.textMutedDark]}>
+                    {t('namedCorridors.created', {
+                      date: ledgerDate(corridor.createdAt).toLocaleDateString(locale, {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      }),
+                    })}
+                  </Text>
+                  {corridor.dormant ? (
+                    <Text
+                      testID={`named-corridor-${corridor.intentId}-dormant`}
+                      style={[styles.meta, isDark && styles.textMutedDark]}
+                    >
+                      {t('namedCorridors.dormant')}
                     </Text>
-                    {corridor.dormant ? (
-                      <Text
-                        testID={`named-corridor-${corridor.intentId}-dormant`}
-                        style={[styles.meta, isDark && styles.textMutedDark]}
-                      >
-                        {t('namedCorridors.dormant')}
+                  ) : (
+                    <TouchableOpacity
+                      testID={`named-corridor-${corridor.intentId}-open`}
+                      onPress={() => router.push(`/section/${corridor.sectionId}`)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.link, isDark && { color: darkColors.linkTeal }]}>
+                        {t('namedCorridors.onSection', {
+                          name: sectionNames[corridor.sectionId ?? ''] ?? corridor.sectionId,
+                          percent: Math.round(corridor.coverage * 100),
+                        })}
                       </Text>
-                    ) : (
-                      <TouchableOpacity
-                        testID={`named-corridor-${corridor.intentId}-open`}
-                        onPress={() => router.push(`/section/${corridor.sectionId}`)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.link}>
-                          {t('namedCorridors.onSection', {
-                            name: sectionNames[corridor.sectionId ?? ''] ?? corridor.sectionId,
-                            percent: Math.round(corridor.coverage * 100),
-                          })}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    {!corridor.dormant && !corridor.primary && (
-                      <Text
-                        testID={`named-corridor-${corridor.intentId}-secondary`}
-                        style={[styles.meta, isDark && styles.textMutedDark]}
-                      >
-                        {t('namedCorridors.secondary')}
-                      </Text>
-                    )}
-                  </View>
-                  <TouchableOpacity
-                    testID={`named-corridor-${corridor.intentId}-delete`}
-                    onPress={() => confirmRemove(corridor)}
-                    style={styles.deleteButton}
-                    accessibilityLabel={t('namedCorridors.delete')}
-                  >
-                    <MaterialCommunityIcons
-                      name="trash-can-outline"
-                      size={20}
-                      color={colors.error}
-                    />
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+                  )}
+                  {!corridor.dormant && !corridor.primary && (
+                    <Text
+                      testID={`named-corridor-${corridor.intentId}-secondary`}
+                      style={[styles.meta, isDark && styles.textMutedDark]}
+                    >
+                      {t('namedCorridors.secondary')}
+                    </Text>
+                  )}
                 </View>
+                <Pressable
+                  testID={`named-corridor-${corridor.intentId}-delete`}
+                  onPress={() => confirmRemove(corridor)}
+                  style={pressable(styles.deleteButton)}
+                  accessibilityLabel={t('namedCorridors.delete')}
+                  android_ripple={pressRipple}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error} />
+                </Pressable>
               </View>
-            ))
-          )}
-        </ScrollView>
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+            </View>
+          ))
+        )}
+      </ScrollView>
+    </ScreenSafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   containerDark: { backgroundColor: darkColors.background },
-  title: { ...typography.screenTitle, color: colors.textPrimary },
   content: { padding: layout.screenPadding, paddingBottom: TAB_BAR_SAFE_PADDING, gap: spacing.sm },
   card: {
     padding: layout.cardPadding,
@@ -178,7 +173,7 @@ const styles = StyleSheet.create({
   },
   name: { ...typography.body, color: colors.textPrimary },
   meta: { ...typography.caption, color: colors.textSecondary },
-  link: { ...typography.bodySmall, color: colors.primary },
+  link: { ...typography.bodySmall, color: colors.linkTeal },
   empty: {
     ...typography.body,
     color: colors.textSecondary,
@@ -188,3 +183,5 @@ const styles = StyleSheet.create({
   textDark: { color: darkColors.textPrimary },
   textMutedDark: { color: darkColors.textSecondary },
 });
+
+export default withScreenBoundary(NamedCorridorsScreenContent, 'Named Corridors');

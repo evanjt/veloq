@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { decodeSkylineBytes } from '@/features/activity/lib/skylineDecoder';
 import { skylineColours } from '@/features/activity/lib/skylineColours';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 
 interface SkylineBarProps {
   skylineBytes: string;
@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     marginHorizontal: spacing.smPlus,
-    borderRadius: spacing.xxs,
+    borderRadius: layout.borderRadiusXs,
     overflow: 'hidden',
   },
 });

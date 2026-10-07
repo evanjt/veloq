@@ -1,27 +1,23 @@
 import React from 'react';
 import { StyleSheet, ScrollView } from 'react-native';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing } from '@/theme';
 import { ProfileAccountSection } from '@/features/settings/components';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function AccountScreen() {
+function AccountScreenContent() {
   const { isDark } = useTheme();
   const { data: athleteRow } = useAthlete();
   const athlete = athleteRow ?? undefined;
 
   return (
-    <ScreenErrorBoundary screenName="Account">
-      <ScreenSafeAreaView
-        hasNativeHeader
-        style={[styles.container, isDark && styles.containerDark]}
-      >
-        <ScrollView contentContainerStyle={styles.content}>
-          <ProfileAccountSection athlete={athlete} />
-        </ScrollView>
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+    <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <ProfileAccountSection athlete={athlete} />
+      </ScrollView>
+    </ScreenSafeAreaView>
   );
 }
 
@@ -36,7 +32,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
-  textLight: {
-    color: colors.textOnDark,
-  },
 });
+
+export default withScreenBoundary(AccountScreenContent, 'Account');

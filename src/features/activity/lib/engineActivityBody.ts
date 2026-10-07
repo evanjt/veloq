@@ -20,7 +20,7 @@ export function readActivityBody(id: string): Activity | null {
   try {
     return JSON.parse(body) as Activity;
   } catch {
-    // A body we cannot parse is a corrupt row, not an activity with no data.
+    // empty-on-error: a stored body that does not parse is a corrupt row, and the caller refetches it; no engine read throws here.
     return null;
   }
 }

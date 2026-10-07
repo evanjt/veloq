@@ -9,8 +9,8 @@
  *
  * It stays its own read rather than joining the screen bundle. The track is
  * the largest thing an activity owns, this branch does not run at all when the
- * stream is to hand, and measured on the S22 everything the engine answers for
- * an activity open is 2 to 103 ms of a wait that runs to seconds. The engine's
+ * stream is to hand, and measured on the S22 in a debug Android build, everything the
+ * engine answers for an activity open is 2 to 103 ms of a wait that runs to seconds. The engine's
  * own doc comment on the screen read carries the reasoning.
  */
 import { useMemo } from 'react';
@@ -24,7 +24,8 @@ import { resolveDetailCoordinates } from '@/features/activity/lib/detailCoordina
 
 export function useDetailCoordinates(
   activityId: string,
-  streamLatLng: [number, number][] | undefined
+  streamLatLng: [number, number][] | undefined,
+  streamsPending = false
 ): LatLng[] {
   // The bulk ingest announces a stored track on `activities`, the same channel
   // the feed cards redraw on, so a track landing behind an open screen brings
@@ -32,11 +33,11 @@ export function useDetailCoordinates(
   const readTrack = useEngineRead(['activities']);
 
   const gpsTrack = useMemo(() => {
-    if (streamLatLng && streamLatLng.length > 0) return undefined;
+    if (streamsPending || (streamLatLng && streamLatLng.length > 0)) return undefined;
     if (!activityId) return undefined;
     const encoded = readTrack((engine) => engine.getGpsTrack(activityId));
     return encoded ? decodeCoords(encoded) : undefined;
-  }, [activityId, streamLatLng, readTrack]);
+  }, [activityId, streamLatLng, streamsPending, readTrack]);
 
   return useMemo(
     () => resolveDetailCoordinates({ streamLatLng, gpsTrack }),

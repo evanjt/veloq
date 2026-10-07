@@ -12,4 +12,6 @@ export { InsightfulStats } from './stats';
 export { ActivityHeader } from './ActivityHeader';
 export { ActivityChartsSection } from './ActivityChartsSection';
 export { ActivityRoutesSection } from './ActivityRoutesSection';
+export { ActivityDetailReadFailed } from './ActivityDetailReadFailed';
 export { ActivitySectionsSection } from './ActivitySectionsSection';
+export { ActivityDetailSkeleton } from './ActivityDetailSkeleton';

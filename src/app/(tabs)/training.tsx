@@ -1,3 +1,4 @@
+import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
@@ -12,17 +13,18 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   ScreenSafeAreaView,
-  ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
   pressable,
+  pressRipple,
+  Shimmer,
 } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/features/stats';
 import type { ActivityHeatmapHandle } from '@/features/stats';
 import { WellnessTrendsChart } from '@/features/wellness';
-import { useAthleteSummary } from '@/features/fitness/hooks';
+import { useAthleteSummary } from '@/features/fitness';
 import { useWellness, type TimeRange } from '@/features/wellness';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
@@ -30,6 +32,7 @@ import { createSharedStyles } from '@/styles';
 import {
   SMOOTHING_PRESETS,
   getSmoothingDescription,
+  getSmoothingPresetLabel,
   type SmoothingWindow,
 } from '@/shared/math/smoothing';
 import { logScreenRender } from '@/shared/debug/renderTimer';
@@ -38,8 +41,19 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { TIME_RANGES } from '@/shared/app/constants';
 import { DEFAULT_PERIOD } from '@/shared/app/period';
+import { useLocalSearchParams } from 'expo-router';
+import {
+  TRAINING_CHART_CARD,
+  trainingEntryFromParams,
+  type TrainingChart,
+} from '@/shared/app/trainingEntry';
+import { useRevealChart } from '@/shared/app/useRevealChart';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function HealthScreen() {
+const trainingChartCard = (chart: TrainingChart) => TRAINING_CHART_CARD[chart];
+
+function HealthScreenContent() {
+  useTabFirstFrame('/training');
   const perfEnd = logScreenRender('HealthScreen');
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -65,6 +79,14 @@ export default function HealthScreen() {
     });
     return () => cancelAnimationFrame(id);
   }, []);
+
+  // A metric linked here names its chart. The weekly card mounts a frame late,
+  // so the scroll waits for its layout rather than for this screen's.
+  const { chart: entryChart } = trainingEntryFromParams(useLocalSearchParams<{ chart?: string }>());
+  const { scrollRef, onAnchorLayout, onScrollBeginDrag } = useRevealChart(
+    entryChart,
+    trainingChartCard
+  );
 
   // Refresh state for pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -92,7 +114,11 @@ export default function HealthScreen() {
   } = useWellness(timeRange);
 
   // Fetch athlete summary for WeeklySummary (lifted from child component)
-  const { data: summaryData, isLoading: summaryLoading } = useAthleteSummary(4);
+  const {
+    data: summaryData,
+    isLoading: summaryLoading,
+    error: summaryError,
+  } = useAthleteSummary(4);
 
   // Combined loading states. Every card on this tab now reads its own engine
   // aggregate, so the tab's own fetching state is the wellness one.
@@ -110,8 +136,8 @@ export default function HealthScreen() {
     setIsRefreshing(false);
   }, [refetchWellness, queryClient]);
 
-  // Wellness is the one read on this tab that can fail as a fetch. The rest are
-  // engine aggregates, which read empty rather than erroring.
+  // Wellness is the one read that replaces the tab. The engine aggregates name
+  // their own failure inside the card that reads them.
   if (isWellnessError) {
     return (
       <ScreenSafeAreaView style={shared.container} testID="training-screen">
@@ -121,180 +147,184 @@ export default function HealthScreen() {
   }
 
   return (
-    <ScreenErrorBoundary screenName="Training">
-      <ScreenSafeAreaView style={shared.container} testID="training-screen">
-        <View style={styles.header}>
-          <View style={{ width: 48 }} />
-          <Text style={shared.screenTitle}>{t('healthScreen.title')}</Text>
-          {/* Subtle loading indicator in header when fetching in background */}
-          <View style={{ width: 48, alignItems: 'center' }}>
-            {isFetching && !isRefreshing && (
-              <ActivityIndicator size="small" color={colors.primary} />
-            )}
-          </View>
+    <ScreenSafeAreaView style={shared.container} testID="training-screen">
+      <View style={styles.header} testID="training-header">
+        <Text style={shared.screenTitle}>{t('healthScreen.title')}</Text>
+        {isFetching && !isRefreshing && (
+          <ActivityIndicator size="small" color={colors.primary} style={styles.headerSpinner} />
+        )}
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        onScrollBeginDrag={onScrollBeginDrag}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        {/* Activity Heatmap - promoted to top (Skia Picture, lightweight) */}
+        <View style={[styles.card, isDark && styles.cardDark]}>
+          <ActivityHeatmap ref={heatmap} />
         </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
-        >
-          {/* Activity Heatmap - promoted to top (Skia Picture, lightweight) */}
-          <View style={[styles.card, isDark && styles.cardDark]}>
-            <ActivityHeatmap ref={heatmap} />
-          </View>
-
-          {/* Time range selector with smoothing config */}
-          <View style={styles.timeRangeRow}>
-            <View style={styles.timeRangeContainer}>
-              {TIME_RANGES.map((range) => (
-                <TouchableOpacity
-                  key={range.id}
+        {/* Time range selector with smoothing config */}
+        <View style={styles.timeRangeRow}>
+          <View style={styles.timeRangeContainer}>
+            {TIME_RANGES.map((range) => (
+              <TouchableOpacity
+                key={range.id}
+                style={[
+                  styles.timeRangeButton,
+                  isDark && styles.timeRangeButtonDark,
+                  timeRange === range.id && styles.timeRangeButtonActive,
+                ]}
+                onPress={() => setTimeRange(range.id)}
+                activeOpacity={0.7}
+              >
+                <Text
                   style={[
-                    styles.timeRangeButton,
-                    isDark && styles.timeRangeButtonDark,
-                    timeRange === range.id && styles.timeRangeButtonActive,
+                    styles.timeRangeText,
+                    isDark && styles.timeRangeTextDark,
+                    timeRange === range.id && styles.timeRangeTextActive,
                   ]}
-                  onPress={() => setTimeRange(range.id)}
-                  activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      styles.timeRangeText,
-                      isDark && styles.timeRangeTextDark,
-                      timeRange === range.id && styles.timeRangeTextActive,
-                    ]}
-                  >
-                    {t(range.labelKey as never)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.smoothingButton,
-                isDark && styles.smoothingButtonDark,
-                smoothingWindow !== 'auto' && styles.smoothingButtonActive,
-              ]}
-              onPress={() => setShowSmoothingModal(true)}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="chart-bell-curve-cumulative"
-                size={18}
-                color={
-                  smoothingWindow !== 'auto' ? colors.textOnPrimary : themeColors.textSecondary
-                }
-              />
-            </TouchableOpacity>
+                  {t(range.labelKey as never)}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
+          <TouchableOpacity
+            style={[
+              styles.smoothingButton,
+              isDark && styles.smoothingButtonDark,
+              smoothingWindow !== 'auto' && styles.smoothingButtonActive,
+            ]}
+            onPress={() => setShowSmoothingModal(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="chart-bell-curve-cumulative"
+              size={18}
+              color={smoothingWindow !== 'auto' ? colors.textOnPrimary : themeColors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
 
-          {/* Wellness Trends Chart */}
-          <View testID="wellness-trends-chart" style={[styles.card, isDark && styles.cardDark]}>
-            <View style={styles.chartHeader}>
-              <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
-                {t('wellnessScreen.trends')}
-              </Text>
-              <Text style={[styles.smoothingLabel, isDark && styles.smoothingLabelDark]}>
-                {getSmoothingDescription(smoothingWindow, timeRange)}
-              </Text>
-            </View>
-            {wellnessLoading && !wellness ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : (
-              <WellnessTrendsChart
-                data={wellness}
-                height={200}
-                timeRange={timeRange}
-                smoothingWindow={smoothingWindow}
-                onDateSelect={handleDateSelect}
-              />
-            )}
+        {/* Wellness Trends Chart */}
+        <View
+          testID="wellness-trends-chart"
+          onLayout={(event) => onAnchorLayout('wellness', event)}
+          style={[styles.card, isDark && styles.cardDark]}
+        >
+          <View style={styles.chartHeader}>
+            <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
+              {t('wellnessScreen.trends')}
+            </Text>
+            <Text style={[styles.smoothingLabel, isDark && styles.smoothingLabelDark]}>
+              {getSmoothingDescription(smoothingWindow, timeRange, t as never)}
+            </Text>
           </View>
+          {wellnessLoading && !wellness ? (
+            <Shimmer width="100%" height={200} borderRadius={layout.borderRadius} />
+          ) : (
+            <WellnessTrendsChart
+              data={wellness}
+              height={200}
+              timeRange={timeRange}
+              smoothingWindow={smoothingWindow}
+              onDateSelect={handleDateSelect}
+            />
+          )}
+        </View>
 
-          {/* Below-fold cards - frame 1: WeeklySummary (pure RN).
+        {/* Below-fold cards - frame 1: WeeklySummary (pure RN).
               Always mount once belowFoldReady - the component renders its own
               empty/loading states and the testID must be present for automated
               tests to find the widget during data load. */}
-          {belowFoldReady && (
-            <View style={[styles.card, isDark && styles.cardDark]}>
-              <WeeklySummary summaryData={summaryData} summaryLoading={summaryLoading} />
-            </View>
-          )}
-
-          {/* Below-fold Skia card - frame 2: SeasonComparison */}
-          {chartsReady && (
-            <View style={[styles.card, isDark && styles.cardDark]}>
-              <SeasonComparison height={180} />
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Smoothing Config Modal - only mount children when visible */}
-        {showSmoothingModal && (
-          <Modal
-            visible
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowSmoothingModal(false)}
+        {belowFoldReady && (
+          <View
+            onLayout={(event) => onAnchorLayout('week', event)}
+            style={[styles.card, isDark && styles.cardDark]}
           >
-            <Pressable
-              style={pressable(styles.modalOverlay)}
-              onPress={() => setShowSmoothingModal(false)}
-            >
-              <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-                <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
-                  {t('wellness.smoothingTitle' as never)}
-                </Text>
-                <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
-                  {t('wellness.smoothingDescription' as never)}
-                </Text>
-                <View style={styles.smoothingOptions}>
-                  {SMOOTHING_PRESETS.map((preset) => (
-                    <TouchableOpacity
-                      key={String(preset.value)}
-                      style={[
-                        styles.smoothingOption,
-                        isDark && styles.smoothingOptionDark,
-                        smoothingWindow === preset.value && styles.smoothingOptionActive,
-                      ]}
-                      onPress={() => {
-                        setSmoothingWindow(preset.value);
-                        setShowSmoothingModal(false);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.smoothingOptionText,
-                          isDark && styles.smoothingOptionTextDark,
-                          smoothingWindow === preset.value && styles.smoothingOptionTextActive,
-                        ]}
-                      >
-                        {preset.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <Text style={[styles.modalHint, isDark && styles.modalHintDark]}>
-                  {t('wellness.smoothingHint' as never)}
-                </Text>
-              </View>
-            </Pressable>
-          </Modal>
+            <WeeklySummary
+              summaryData={summaryData}
+              summaryLoading={summaryLoading}
+              summaryError={summaryError}
+            />
+          </View>
         )}
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+
+        {/* Below-fold Skia card - frame 2: SeasonComparison */}
+        {chartsReady && (
+          <View style={[styles.card, isDark && styles.cardDark]}>
+            <SeasonComparison height={180} />
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Smoothing Config Modal - only mount children when visible */}
+      {showSmoothingModal && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowSmoothingModal(false)}
+        >
+          <Pressable
+            style={pressable(styles.modalOverlay)}
+            android_ripple={pressRipple}
+            onPress={() => setShowSmoothingModal(false)}
+          >
+            <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
+              <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
+                {t('wellness.smoothingTitle' as never)}
+              </Text>
+              <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
+                {t('wellness.smoothingDescription' as never)}
+              </Text>
+              <View style={styles.smoothingOptions}>
+                {SMOOTHING_PRESETS.map((preset) => (
+                  <TouchableOpacity
+                    key={String(preset.value)}
+                    style={[
+                      styles.smoothingOption,
+                      isDark && styles.smoothingOptionDark,
+                      smoothingWindow === preset.value && styles.smoothingOptionActive,
+                    ]}
+                    onPress={() => {
+                      setSmoothingWindow(preset.value);
+                      setShowSmoothingModal(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.smoothingOptionText,
+                        isDark && styles.smoothingOptionTextDark,
+                        smoothingWindow === preset.value && styles.smoothingOptionTextActive,
+                      ]}
+                    >
+                      {getSmoothingPresetLabel(preset.value, t as never)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={[styles.modalHint, isDark && styles.modalHintDark]}>
+                {t('wellness.smoothingHint' as never)}
+              </Text>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
+    </ScreenSafeAreaView>
   );
 }
 
@@ -302,7 +332,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: layout.screenPadding,
+    paddingVertical: spacing.sm,
+  },
+  headerSpinner: {
+    marginLeft: spacing.sm,
   },
   scrollView: {
     flex: 1,
@@ -320,11 +354,6 @@ const styles = StyleSheet.create({
   },
   cardDark: {
     backgroundColor: darkColors.surface,
-  },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   sectionTitle: {
     ...typography.body,
@@ -360,7 +389,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   timeRangeButton: {
-    paddingHorizontal: spacing.sm + 4,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
@@ -383,7 +412,7 @@ const styles = StyleSheet.create({
     color: colors.textOnPrimary,
   },
   smoothingButton: {
-    paddingHorizontal: spacing.sm + 4,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
@@ -439,8 +468,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   smoothingOption: {
-    paddingHorizontal: spacing.sm + 4,
-    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xsPlus,
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
@@ -471,3 +500,5 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
 });
+
+export default withScreenBoundary(HealthScreenContent, 'Training');

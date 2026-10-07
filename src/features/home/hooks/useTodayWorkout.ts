@@ -1,24 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineBody } from '@/shared/native/engineBodies';
+import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { CalendarEvent } from '@/types';
 
 /**
- * Fetch the planned workouts ahead from the intervals.icu calendar.
- * Uses CALENDAR:READ scope (already authorized).
- *
- * Calendar events are relatively static - 5min staleTime prevents over-fetching
- * while still reflecting changes if the user edits their plan on intervals.icu.
- *
- * The banner draws today and tomorrow, but the window fetched is a fortnight.
- * `replace_calendar_events` clears the window before it writes, so a day that
- * was never fetched while online is not backfilled by a later, wider request:
- * a two-day window emptied the banner on the second day offline.
+ * Read the planned workouts ahead from the engine's stored calendar window.
+ * The banner draws today and tomorrow from the forward fortnight the sync owns.
  */
 const WINDOW_DAYS = 14;
 
@@ -39,16 +31,10 @@ export function useTodayWorkout() {
 
   const queryKey = queryKeys.calendar.events(today);
 
-  // A planned workout can be added or cancelled upstream at any time, so the
-  // window is re-requested on every mount rather than only when empty.
-  useEngineBody(
-    false,
-    () => getEngine()?.syncCalendarEvents(today, horizon),
-    queryKey,
-    isAuthenticated
-  );
+  useEngineChannel('bodyStored', queryKey, 'calendar');
 
   const query = useQuery<CalendarEvent[]>({
+    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => readCalendarEvents(today, horizon).filter((e) => e.category === 'WORKOUT'),
     enabled: isAuthenticated,

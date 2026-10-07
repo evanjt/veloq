@@ -1,11 +1,10 @@
 /**
  * Widget bridge: the JS side that pushes a snapshot to the native widget process.
  *
- * The native module `VeloqWidget` (iOS App Group write + WidgetCenter reload, Android
- * file write + AppWidgetManager update) does not exist yet, so every entry point here
- * NO-OPS until it is installed. This lets the data pipeline (gather → write → reload)
- * be wired into the app's lifecycle hooks now and "just work" once the native target
- * lands. `requireOptionalNativeModule` returns null when the module is absent.
+ * The native module `VeloqWidget` is `modules/veloq-widget`: an App Group write and
+ * a WidgetCenter reload on iOS, a `filesDir` write and an AppWidgetManager update on
+ * Android. `requireOptionalNativeModule` returns null where it is absent, on web and
+ * in tests, and every entry point here then does nothing.
  */
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
@@ -17,13 +16,15 @@ import { debug } from '@/shared/debug/debug';
 import {
   gatherWidgetSnapshot,
   type WidgetRecordShortcut,
-  type WidgetSnapshot,
+  type WidgetSnapshotPayload,
 } from './widgetSnapshot';
 
 const log = debug.create('Widget');
 
 interface VeloqWidgetModule {
   writeSnapshot(json: string): void;
+  /** Delete the snapshot file, so the widgets draw their placeholder. */
+  clearSnapshot(): void;
   reloadWidgets(): void;
   /** Android only: the recent sports as launcher shortcuts. Absent on iOS. */
   publishRecordShortcuts?(shortcuts: WidgetRecordShortcut[]): void;
@@ -31,10 +32,10 @@ interface VeloqWidgetModule {
 
 const VeloqWidget = requireOptionalNativeModule<VeloqWidgetModule>('VeloqWidget');
 
-export function writeWidgetSnapshot(snapshot: WidgetSnapshot): void {
+export function writeWidgetSnapshot(snapshot: WidgetSnapshotPayload): void {
   if (!VeloqWidget) return;
   try {
-    VeloqWidget.writeSnapshot(JSON.stringify(snapshot));
+    VeloqWidget.writeSnapshot(snapshot.json);
     VeloqWidget.reloadWidgets();
     // The launcher holds its own copy of the shortcut list, so it is pushed
     // rather than read from the file the widgets poll.
@@ -65,5 +66,23 @@ export function updateWidgetSnapshot(now?: Date): void {
     if (snapshot) writeWidgetSnapshot(snapshot);
   } catch (e) {
     log.warn('updateWidgetSnapshot failed:', e);
+  }
+}
+
+/**
+ * Delete the snapshot and the launcher shortcuts, then redraw the widgets.
+ *
+ * The snapshot carries the latest ride with its route outline, form, HRV and
+ * resting heart rate, and a refresh that cannot read the engine leaves the last
+ * one standing, so the wipe deletes it rather than waiting for a refresh.
+ */
+export function clearWidgetSnapshot(): void {
+  if (!VeloqWidget) return;
+  try {
+    VeloqWidget.clearSnapshot();
+    VeloqWidget.publishRecordShortcuts?.([]);
+    VeloqWidget.reloadWidgets();
+  } catch (e) {
+    log.warn('clearWidgetSnapshot failed:', e);
   }
 }

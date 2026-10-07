@@ -25,7 +25,7 @@ export interface WorkoutSection {
 export function useWorkoutSections(sportType: string | undefined): {
   sections: WorkoutSection[];
 } {
-  const readSections = useEngineRead(['sections']);
+  const readSections = useEngineRead(['sections', 'detectionApplied']);
 
   const sections = useMemo<WorkoutSection[]>(() => {
     if (!sportType) return [];
