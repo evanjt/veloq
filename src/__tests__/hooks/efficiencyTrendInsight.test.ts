@@ -24,9 +24,10 @@ function trend(overrides: Partial<EfficiencyTrend> = {}): EfficiencyTrend {
   return {
     sectionId: 'sec-1',
     sectionName: 'Church Hill',
+    sportType: 'Ride',
     points: [point(0.64), point(0.62), point(0.59), point(0.58)],
     trendSlope: -0.0004,
-    isImproving: true,
+    direction: 0,
     hrChangeBpm: -6.2,
     effortCount: 4,
     ...overrides,
@@ -51,4 +52,25 @@ it('omits a one-point series, which plots nothing', () => {
   const [insight] = generateEfficiencyTrendInsights([trend({ points: [point(0.6)] })], NOW, t);
 
   expect(insight.supportingData?.sparklineData).toBeUndefined();
+});
+
+it('keeps one insight per sport on the same section, each naming its own sport', () => {
+  const insights = generateEfficiencyTrendInsights(
+    [trend({ sportType: 'Ride' }), trend({ sportType: 'Run' })],
+    NOW,
+    t
+  );
+
+  expect(insights.map((i) => i.id)).toEqual([
+    'efficiency_trend-sec-1-Ride',
+    'efficiency_trend-sec-1-Run',
+  ]);
+  expect(insights.map((i) => i.supportingData?.sections?.[0]?.sportType)).toEqual(['Ride', 'Run']);
+});
+
+it('draws the methodology formula through the translator', () => {
+  const translate = (key: string) => `<${key}>`;
+  const [insight] = generateEfficiencyTrendInsights([trend()], NOW, translate);
+
+  expect(insight.methodology?.formula).toBe('<insights.methodology.efficiencyFormula>');
 });

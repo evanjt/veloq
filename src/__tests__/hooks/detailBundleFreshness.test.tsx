@@ -36,7 +36,7 @@ function activityDetail(activityCount: number) {
 }
 
 function sectionDetail(activityCount: number) {
-  return { activityCount };
+  return { activityCount, section: { id: 's' } };
 }
 
 function collectCommits(useValue: (id: string) => number | undefined) {

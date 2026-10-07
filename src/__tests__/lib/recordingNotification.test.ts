@@ -62,15 +62,36 @@ describe('decimateTrace', () => {
   });
 
   it('caps a long trace and keeps its first and last point', () => {
-    const points: [number, number][] = Array.from({ length: 4000 }, (_, i) => [i, -i]);
+    const points: [number, number][] = Array.from({ length: 4000 }, (_, i) => [i + 1, -(i + 1)]);
     const flat = decimateTrace(points);
     expect(flat.length / 2).toBeLessThanOrEqual(TRACE_POINT_CAP);
-    expect(flat.slice(0, 2)).toEqual([0, -0]);
-    expect(flat.slice(-2)).toEqual([3999, -3999]);
+    expect(flat.slice(0, 2)).toEqual([1, -1]);
+    expect(flat.slice(-2)).toEqual([4000, -4000]);
   });
 
   it('gives an empty trace back unchanged', () => {
     expect(decimateTrace([])).toEqual([]);
+  });
+
+  it('leaves out the origin placeholders recorded for positionless samples', () => {
+    expect(
+      decimateTrace([
+        [0, 0],
+        [0, 0],
+        [46.5, 6.6],
+        [46.6, 6.7],
+        [0, 0],
+      ])
+    ).toEqual([46.5, 6.6, 46.6, 6.7]);
+  });
+
+  it('gives an empty trace for a ride with no position at all', () => {
+    expect(
+      decimateTrace([
+        [0, 0],
+        [0, 0],
+      ])
+    ).toEqual([]);
   });
 });
 
@@ -85,6 +106,16 @@ describe('buildRecordingNotificationPayload', () => {
     expect(payload!.status).toBe('recording');
     expect(payload!.body).toContain('4.0');
     expect(payload!.trace).toHaveLength(6);
+  });
+
+  it('draws the trace in a colour that differs from the card it is drawn on', () => {
+    const payload = buildRecordingNotificationPayload(stateWith(), {
+      translate,
+      isMetric: true,
+      now: NOW,
+    });
+    expect(payload!.accentColor).toBeDefined();
+    expect(payload!.traceColor.toLowerCase()).not.toBe(payload!.accentColor.toLowerCase());
   });
 
   it('offers pause, lap and stop while recording', () => {

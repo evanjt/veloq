@@ -60,19 +60,19 @@ describe('useActivityLabels', () => {
 
     const view = renderHook(() => useActivityLabels(['a1']), { wrapper });
 
-    await waitFor(() => expect(view.result.current.get('a1')?.name).toBe('Alpine loop'));
+    await waitFor(() => expect(view.result.current.labels.get('a1')?.name).toBe('Alpine loop'));
     expect(engine.getActivityBodies).not.toHaveBeenCalled();
   });
 
   it('fills a row in when its body lands while the screen is open', async () => {
     const view = renderHook(() => useActivityLabels(['a1']), { wrapper });
-    await waitFor(() => expect(view.result.current.size).toBe(0));
+    await waitFor(() => expect(view.result.current.labels.size).toBe(0));
 
     await act(async () => {
       land('a1', 'Alpine loop');
     });
 
-    await waitFor(() => expect(view.result.current.get('a1')?.name).toBe('Alpine loop'));
+    await waitFor(() => expect(view.result.current.labels.get('a1')?.name).toBe('Alpine loop'));
   });
 
   it('asks the engine nothing when there are no ids to name', async () => {

@@ -10,11 +10,13 @@
 import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
+import { DEFAULT_MAX_HR } from '@/features/activity/lib/hrZones';
 import {
   getFormZone,
   FORM_ZONE_TEXT_COLORS,
   FORM_ZONE_TEXT_COLORS_DARK,
   formZoneLabel,
+  type FormZone,
 } from '@/features/fitness/lib/fitness';
 import type { Activity, WellnessData } from '@/types';
 
@@ -27,14 +29,18 @@ const activity = {
   start_date_local: '2026-09-05T08:00:00',
 } as Activity;
 
+const settings = { isMetric: true, maxHR: DEFAULT_MAX_HR };
+
 function formStat(wellness?: WellnessData, isDark = false) {
-  const { result } = renderHook(() => useActivityStats({ activity, wellness, isDark }));
+  const { result } = renderHook(() =>
+    useActivityStats({ activity, wellness, isDark, ...settings })
+  );
   return result.current.stats.find((s) => s.title === 'activity.stats.yourForm');
 }
 
 function loadStat(intensity: number) {
   const withLoad = { ...activity, icu_training_load: 60, icu_intensity: intensity } as Activity;
-  const { result } = renderHook(() => useActivityStats({ activity: withLoad }));
+  const { result } = renderHook(() => useActivityStats({ activity: withLoad, ...settings }));
   return result.current.stats.find((s) => s.title === 'activity.stats.trainingLoad');
 }
 
@@ -44,10 +50,10 @@ describe('the activity card form band', () => {
     (tsb) => {
       const stat = formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
       expect(stat).toBeDefined();
-      expect(stat?.color).toBe(FORM_ZONE_TEXT_COLORS[getFormZone(tsb)]);
+      expect(stat?.color).toBe(FORM_ZONE_TEXT_COLORS[getFormZone(tsb) as FormZone]);
 
       const dark = formStat({ ctl: 50, atl: 50 - tsb } as WellnessData, true);
-      expect(dark?.color).toBe(FORM_ZONE_TEXT_COLORS_DARK[getFormZone(tsb)]);
+      expect(dark?.color).toBe(FORM_ZONE_TEXT_COLORS_DARK[getFormZone(tsb) as FormZone]);
     }
   );
 
@@ -77,6 +83,6 @@ describe('a card that colours by band also names it', () => {
 
   it.each([-35, -20, 0, 10, 30])('names the form zone at a TSB of %d', (tsb) => {
     const stat = formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
-    expect(stat?.context).toBe(formZoneLabel(getFormZone(tsb)));
+    expect(stat?.context).toBe(formZoneLabel(getFormZone(tsb) as FormZone));
   });
 });

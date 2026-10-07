@@ -6,9 +6,11 @@
  * is what the screen did with all of them before.
  */
 
+import { resolvedLocale } from '../i18n/resolvedLocale';
 import { StartOutcome } from 'veloqrs';
 import { rescanRefusalKey } from '@/features/routes/lib/rescanRefusal';
-import enAu from '@/i18n/locales/en-AU.json';
+
+const enAu = resolvedLocale('en-AU');
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 

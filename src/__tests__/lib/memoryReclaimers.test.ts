@@ -4,10 +4,8 @@
  */
 import { AppState } from 'react-native';
 
-import {
-  registerMapSurfaceReclaimer,
-  registerTileCacheReclaimer,
-} from '@/features/maps/lib/mapMemoryReclaimer';
+import * as mapMemoryReclaimer from '@/features/maps/lib/mapMemoryReclaimer';
+import { registerMapSurfaceReclaimer } from '@/features/maps/lib/mapMemoryReclaimer';
 import {
   dispatchMemoryPressure,
   TRIM_BACKGROUND,
@@ -21,10 +19,6 @@ import {
 } from '@/shared/app/memoryReclaimers';
 import { queryClient } from '@/shared/query/QueryProvider';
 
-jest.mock('@/features/maps/lib/terrainSnapshotEvents', () => ({
-  emitClearTileCache: jest.fn(),
-}));
-
 jest.mock('@/features/maps/lib/mapSurfaceRegistry', () => ({
   releaseMountedSurfaces: jest.fn(() => 0),
   rebuildReleasedSurfaces: jest.fn(() => 0),
@@ -35,7 +29,6 @@ jest.mock('@/shared/app/memoryPressure', () => ({
   clearNativeImageCache: jest.fn(),
 }));
 
-const { emitClearTileCache } = jest.requireMock('@/features/maps/lib/terrainSnapshotEvents');
 const { releaseMountedSurfaces, rebuildReleasedSurfaces } = jest.requireMock(
   '@/features/maps/lib/mapSurfaceRegistry'
 );
@@ -78,24 +71,9 @@ describe('query cache reclaimer', () => {
   });
 });
 
-describe('tile cache reclaimer', () => {
-  let off: () => void;
-
-  beforeEach(() => {
-    off = registerTileCacheReclaimer();
-    emitClearTileCache.mockClear();
-  });
-
-  afterEach(() => off());
-
-  it('keeps the tiles until the process is a kill candidate', () => {
-    dispatchMemoryPressure(TRIM_BACKGROUND);
-    expect(emitClearTileCache).not.toHaveBeenCalled();
-  });
-
-  it('clears them from TRIM_MEMORY_MODERATE', () => {
-    dispatchMemoryPressure(TRIM_MODERATE);
-    expect(emitClearTileCache).toHaveBeenCalledTimes(1);
+describe('map reclaimers', () => {
+  it('registers no tile cache reclaimer, since the pages hold no tile cache to release', () => {
+    expect(Object.keys(mapMemoryReclaimer)).toEqual(['registerMapSurfaceReclaimer']);
   });
 });
 

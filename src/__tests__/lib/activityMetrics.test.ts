@@ -23,7 +23,7 @@ function makeActivity(overrides: Partial<Activity> = {}): Activity {
     distance: 40000,
     total_elevation_gain: 500,
     average_heartrate: 145,
-    average_watts: 200,
+    icu_average_watts: 200,
     average_speed: 11.1,
     max_speed: 15.0,
     ...overrides,
@@ -31,6 +31,30 @@ function makeActivity(overrides: Partial<Activity> = {}): Activity {
 }
 
 describe('toActivityMetrics', () => {
+  it('rounds heart rate, power and FTP to whole numbers as the engine does', () => {
+    const metrics = toActivityMetrics(
+      makeActivity({ average_heartrate: 145.6, icu_average_watts: 187.6, icu_ftp: 250.5 })
+    );
+    expect(metrics.avgHr).toBe(146);
+    expect(metrics.avgPower).toBe(188);
+    expect(metrics.ftp).toBe(251);
+  });
+
+  it('never yields a negative heart rate, power or FTP', () => {
+    const metrics = toActivityMetrics(
+      makeActivity({ average_heartrate: -3.2, icu_average_watts: -1, icu_ftp: -0.4 })
+    );
+    expect(metrics.avgHr).toBe(0);
+    expect(metrics.avgPower).toBe(0);
+    expect(metrics.ftp).toBe(0);
+  });
+
+  it('stores the synced power field', () => {
+    const metrics = toActivityMetrics(makeActivity({ icu_average_watts: 205 }));
+
+    expect(metrics.avgPower).toBe(205);
+  });
+
   it('converts a full activity with all fields', () => {
     const activity = makeActivity({
       icu_training_load: 85,
@@ -67,7 +91,7 @@ describe('toActivityMetrics', () => {
   it('handles partial activity with missing optional fields', () => {
     const activity = makeActivity({
       average_heartrate: undefined,
-      average_watts: undefined,
+      icu_average_watts: undefined,
       icu_training_load: undefined,
       icu_ftp: undefined,
     });
@@ -76,6 +100,11 @@ describe('toActivityMetrics', () => {
     expect(metrics.avgPower).toBeUndefined();
     expect(metrics.trainingLoad).toBeUndefined();
     expect(metrics.ftp).toBeUndefined();
+  });
+
+  it('stores the API average power', () => {
+    const activity = makeActivity({ icu_average_watts: 210 });
+    expect(toActivityMetrics(activity).avgPower).toBe(210);
   });
 
   it('defaults to "Ride" when activity type is falsy', () => {
@@ -146,5 +175,24 @@ describe('date edge cases', () => {
     const emptyActivity = makeActivity({ start_date_local: '' });
     expect(() => toActivityMetrics(emptyActivity)).not.toThrow();
     expect(typeof toActivityMetrics(emptyActivity).date).toBe('number');
+  });
+});
+
+describe('power zone entries beside the zone ids', () => {
+  const rideWithSweetSpot = [
+    { id: 'Z1', secs: 188 },
+    { id: 'Z2', secs: 275 },
+    { id: 'Z3', secs: 124 },
+    { id: 'Z4', secs: 86 },
+    { id: 'Z5', secs: 59 },
+    { id: 'Z6', secs: 69 },
+    { id: 'Z7', secs: 97 },
+    { id: 'SS', secs: 80 },
+  ];
+
+  it('leaves the overlapping Sweet Spot entry out of the engine zone times', () => {
+    expect(
+      toActivityMetrics(makeActivity({ icu_zone_times: rideWithSweetSpot })).powerZoneTimes
+    ).toEqual([188, 275, 124, 86, 59, 69, 97]);
   });
 });

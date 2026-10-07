@@ -60,6 +60,18 @@ describe('pausedSecondsBetween', () => {
   });
 });
 
+describe('useActivitySummary trim start', () => {
+  it('names the store index the saved streams begin at', () => {
+    const trimmed = summaryFor({ trimStart: 2, trimEnd: 3 });
+    expect(trimmed.trimStartIndex).toBe(2);
+    expect(trimmed.getTrimmedStreams().time[0]).toBe(streamsWithPause().time[2]);
+  });
+
+  it('starts at the first sample when the recording cannot be trimmed', () => {
+    expect(summaryFor({ trimStart: 2, trimEnd: 3, canTrim: false }).trimStartIndex).toBe(0);
+  });
+});
+
 describe('useActivitySummary duration', () => {
   it('excludes paused time from the whole recording', () => {
     const { summary } = summaryFor();

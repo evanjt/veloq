@@ -1,5 +1,15 @@
-import { buildStrengthBalancePairs } from '@/features/strength/lib/analysis';
+import { resolvedLocale } from '../i18n/resolvedLocale';
+import { buildStrengthBalancePairs as build } from '@/features/strength/lib/analysis';
 import type { EngineBalancePair } from '@/features/strength/types';
+
+const en = resolvedLocale('en-AU');
+
+const names = en.strength as unknown as Record<string, Record<string, string>>;
+const t = (key: string) => {
+  const [, group, name] = key.match(/^strength\.(\w+)\.(\w+)$/) ?? [];
+  return names[group][name];
+};
+const buildStrengthBalancePairs = (pairs: EngineBalancePair[]) => build(pairs, t);
 
 function enginePair(
   id: string,

@@ -8,6 +8,7 @@ import type { Insight } from '@/types';
 import type { PeriodComparison, PeriodStats } from '@/features/insights/types';
 import { getEngine } from '@/shared/native/engine';
 import type { HrvTrend, StalePrOpportunity } from 'veloqrs';
+import { datedSeries } from '../__shared__/datedSeries';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(() => null),
@@ -74,11 +75,6 @@ const EMPTY_INPUT: InsightInputData = {
   paceTrend: null,
   recentPRs: [],
   sectionTrends: [],
-  formTsb: null,
-  formCtl: null,
-  formAtl: null,
-  peakCtl: null,
-  currentCtl: null,
 };
 
 describe('generateInsights', () => {
@@ -87,7 +83,7 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('edge cases', () => {
-    it('returns empty array for all-null input without formTsb', () => {
+    it('returns empty array for all-null input', () => {
       const result = generateInsights(EMPTY_INPUT, mockT);
       expect(result).toEqual([]);
     });
@@ -183,7 +179,7 @@ describe('generateInsights', () => {
       avg: sparkline.reduce((a, b) => a + b, 0) / sparkline.length,
       latest: sparkline[sparkline.length - 1],
       dataPoints: sparkline.length,
-      sparkline,
+      sparkline: datedSeries(sparkline),
     });
 
     afterEach(() => {
@@ -357,6 +353,37 @@ describe('generateInsights', () => {
       const vol = result.find((i) => i.id === 'period_comparison-volume');
       expect(vol!.title).toContain('percent: 60');
       expect(vol!.supportingData!.comparisonData!.change.value).toBe('+60%');
+    });
+
+    it('signs a week-on-week fall, so a 29% drop does not read as a rise', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 3, totalDuration: 5000, totalDistance: 60000, totalTss: 449 },
+          previousPeriod: { count: 5, totalDuration: 7200, totalDistance: 90000, totalTss: 632 },
+          weekOverWeek: { metric: 'tss', current: 449, previous: 632, ratio: -0.29 },
+          weekAgainstChronic: null,
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol!.supportingData!.comparisonData!.change.value).toBe('-29%');
+    });
+
+    it('signs a fall against the chronic average the same way', () => {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 144 },
+          chronicPeriod: { count: 3, totalDuration: 4000, totalDistance: 60000, totalTss: 200 },
+          weekOverWeek: null,
+          weekAgainstChronic: { metric: 'tss', current: 144, previous: 200, ratio: -0.28 },
+        },
+        mockT
+      );
+      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      expect(vol!.supportingData!.comparisonData!.change.value).toBe('-28%');
     });
 
     it('says nothing when the engine took no comparison', () => {
@@ -538,86 +565,6 @@ describe('generateInsights', () => {
   // REMOVED INSIGHTS - ensure they are gone
   // ============================================================
 
-  describe('removed insights', () => {
-    it.each([
-      {
-        name: 'ACWR',
-        input: {
-          currentPeriod: {
-            count: 5,
-            totalDuration: 7200,
-            totalDistance: 100000,
-            totalTss: 200,
-          },
-          chronicPeriod: {
-            count: 5,
-            totalDuration: 5000,
-            totalDistance: 80000,
-            totalTss: 200,
-          },
-        },
-        missingId: 'workload_risk-acwr',
-      },
-      {
-        name: 'recovery readiness',
-        input: {
-          formTsb: 10,
-          formCtl: 50,
-          formAtl: 40,
-        },
-        missingId: 'recovery_readiness',
-      },
-      {
-        name: 'training monotony',
-        input: {},
-        missingId: 'workload_risk-monotony',
-      },
-      {
-        name: 'form trajectory',
-        input: { formTsb: -5, formCtl: 50, formAtl: 55 },
-        missingId: 'form_trajectory',
-      },
-      {
-        name: 'ramp rate',
-        input: { formTsb: 0, formCtl: 50, formAtl: 50 },
-        missingId: 'form_trajectory-ramp',
-      },
-      {
-        name: 'peak CTL',
-        input: { currentCtl: 96, peakCtl: 100 },
-        missingId: 'fitness_milestone-peak-ctl',
-      },
-      {
-        name: 'section performance vs fitness',
-        input: {
-          formCtl: 50,
-          sectionTrends: [
-            {
-              sectionId: 's1',
-              sectionName: 'Hill',
-              trend: 1,
-              medianRecentSecs: 300,
-              bestTimeSecs: 270,
-              traversalCount: 10,
-            },
-          ],
-        },
-        missingIdPrefix: 'section_performance-fitness',
-      },
-      {
-        name: 'old form advice',
-        input: { formTsb: -5, formCtl: 50, formAtl: 55 },
-        missingId: 'training_consistency-form',
-      },
-    ])('does not generate $name insight', ({ input, missingId, missingIdPrefix }) => {
-      const result = generateInsights({ ...EMPTY_INPUT, ...input }, mockT);
-      const hit = missingIdPrefix
-        ? result.find((i) => i.id.startsWith(missingIdPrefix))
-        : result.find((i) => i.id === missingId);
-      expect(hit).toBeUndefined();
-    });
-  });
-
   describe('stale PR grouping', () => {
     it('formats grouped stale PR subtitles with sport-appropriate units', () => {
       const result = generateInsights(
@@ -655,8 +602,8 @@ describe('generateInsights', () => {
       );
 
       const stale = result.find((insight) => insight.id === 'stale_pr-group');
-      expect(stale!.subtitle).toContain('FTP: 250W → 270W');
-      expect(stale!.subtitle).toContain('Swim threshold: 1:40/100m → 1:31/100m');
+      expect(stale!.subtitle).toContain('insights.stalePr.metricCyclingEftp: 250W → 270W');
+      expect(stale!.subtitle).toContain('insights.stalePr.metricSwimCss: 1:40/100m → 1:31/100m');
     });
 
     /**
@@ -684,7 +631,7 @@ describe('generateInsights', () => {
         mockT
       );
 
-      expect(result.find((insight) => insight.id === 'stale_pr-ride-1')).toBeDefined();
+      expect(result.find((insight) => insight.id === 'stale_pr-ride-1:Ride')).toBeDefined();
     });
   });
 
@@ -719,9 +666,6 @@ describe('generateInsights', () => {
             totalDistance: 80000,
             totalTss: 150,
           },
-          formTsb: 0,
-          formCtl: 50,
-          formAtl: 50,
         }),
         mockT
       );
@@ -730,6 +674,52 @@ describe('generateInsights', () => {
       for (let i = 1; i < result.length; i++) {
         expect(result[i].priority).toBeGreaterThanOrEqual(result[i - 1].priority);
       }
+    });
+  });
+
+  describe('ranking join', () => {
+    const trendFor = (ranking: Record<string, unknown>) => ({
+      sectionId: 's1',
+      sectionName: 'Hill',
+      trend: 0,
+      medianRecentSecs: 320,
+      bestTimeSecs: 300,
+      traversalCount: 8,
+      sportType: 'Ride',
+      recentEfforts: [],
+      ranking: {
+        relevance: 0.5,
+        recency: 0.5,
+        improvement: 0,
+        anomaly: 0.1,
+        engagement: 0.5,
+        ...ranking,
+      },
+    });
+    const prInsightFor = (ranking: Record<string, unknown>) =>
+      generateInsights(
+        withComparisons({
+          ...EMPTY_INPUT,
+          recentPRs: [
+            { sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1, traversalCount: 12 },
+          ],
+          sectionTrends: [trendFor(ranking)],
+        } as InsightInputData),
+        mockT
+      ).find((i) => i.id.startsWith('section_pr'));
+
+    it('joins the signed change and its basis onto a section insight that is not a trend', () => {
+      const insight = prInsightFor({ improvementChange: -1.5, improvementBasis: 0 });
+      expect(insight?.meta?.ranking).toMatchObject({
+        improvementChange: -1.5,
+        improvementBasis: 0,
+      });
+    });
+
+    it('keeps an absent change absent rather than zero', () => {
+      const insight = prInsightFor({});
+      expect(insight?.meta?.ranking).toBeDefined();
+      expect(insight?.meta?.ranking).not.toHaveProperty('improvementChange');
     });
   });
 
@@ -781,38 +771,17 @@ describe('generateInsights', () => {
               recentEfforts: [],
             },
           ],
-          allSectionTrends: [
-            {
-              sectionId: 's1',
-              sectionName: 'Hill',
-              trend: 1,
-              medianRecentSecs: 320,
-              bestTimeSecs: 300,
-              traversalCount: 8,
-              sportType: 'Ride',
-              recentEfforts: [],
-            },
-            {
-              sectionId: 's2',
-              sectionName: 'Valley',
-              trend: 1,
-              medianRecentSecs: 420,
-              bestTimeSecs: 390,
-              traversalCount: 6,
-              sportType: 'Ride',
-              recentEfforts: [],
-            },
-          ],
-          formTsb: -5,
-          formCtl: 60,
-          formAtl: 65,
         }),
         mockT
       );
 
       expect(result.length).toBeGreaterThan(0);
       result.forEach((insight) => {
-        expect(insight.navigationTarget).toBeDefined();
+        if (insight.category === 'section_trend') {
+          expect(insight.supportingData?.sections?.length).toBeGreaterThan(0);
+        } else {
+          expect(insight.navigationTarget).toBeDefined();
+        }
       });
     });
   });
@@ -829,9 +798,6 @@ describe('generateInsights', () => {
           recentPRs: [
             { sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0, traversalCount: 12 },
           ],
-          formTsb: 0,
-          formCtl: 50,
-          formAtl: 50,
         },
         mockT
       );
@@ -849,9 +815,6 @@ describe('generateInsights', () => {
       const result = generateInsights(
         withComparisons({
           ...EMPTY_INPUT,
-          formTsb: -5,
-          formCtl: 50,
-          formAtl: 55,
           currentPeriod: {
             count: 5,
             totalDuration: 7200,
@@ -1122,7 +1085,7 @@ describe('generateInsights - boundary conditions', () => {
         avg: 51.6,
         latest: 60,
         dataPoints: 5,
-        sparkline: [45, 48, 50, 55, 60],
+        sparkline: datedSeries([45, 48, 50, 55, 60]),
       } as HrvTrend),
       mockT
     );
@@ -1140,7 +1103,7 @@ describe('generateInsights - boundary conditions', () => {
         avg: 49,
         latest: 51,
         dataPoints: 5,
-        sparkline: [45, 48, 52, 49, 51],
+        sparkline: datedSeries([45, 48, 52, 49, 51]),
       } as HrvTrend),
       mockT
     );

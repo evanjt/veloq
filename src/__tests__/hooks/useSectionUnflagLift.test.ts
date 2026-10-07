@@ -20,7 +20,7 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
 }));
 
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
@@ -53,7 +53,7 @@ function press(label: string) {
 const SECTION: FrequentSection = {
   id: 's1',
   sectionType: 'auto',
-  sportType: 'Ride',
+  sportTypes: ['Ride'],
   polyline: [],
   distanceMeters: 1200,
   activityIds: ['a1'],
@@ -152,5 +152,26 @@ describe('unflagging a section the detector called lift ground', () => {
 
     expect(setSectionIsLift).toHaveBeenCalledWith('s1', false);
     expect(onSectionRefresh).not.toHaveBeenCalled();
+  });
+
+  it('names the custom section selected for deletion', () => {
+    mockedGetEngine.mockReturnValue(null);
+    const section = { ...SECTION, sectionType: 'custom' as const, name: 'River climb' };
+    const hook = renderHook(() =>
+      useSectionActions({
+        id: section.id,
+        isCustomId: true,
+        section,
+        isSectionDisabled: false,
+        onSectionRefresh: jest.fn(),
+        sectionRefreshKey: 0,
+        preComputedExcludedActivityIds: NO_EXCLUSIONS,
+      })
+    );
+
+    act(() => hook.result.current.handleDeleteSection());
+
+    expect((Alert.alert as jest.Mock).mock.calls[0][1]).toContain('River climb');
+    expect(alertButtons().map((button) => button.style)).toContain('cancel');
   });
 });

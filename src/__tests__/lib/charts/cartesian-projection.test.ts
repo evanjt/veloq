@@ -3,7 +3,9 @@ import {
   dataExtent,
   domainContains,
   gridLineYs,
+  placeLabels,
   projectPoints,
+  projectRuns,
   scaleFor,
   xForValue,
   yForValue,
@@ -176,5 +178,82 @@ describe('gridLineYs', () => {
   it('handles the degenerate counts', () => {
     expect(gridLineYs(bounds, 0)).toEqual([]);
     expect(gridLineYs(bounds, 1)).toEqual([54]);
+  });
+});
+
+describe('placeLabels', () => {
+  const domain: [number, number] = [Math.log10(1), Math.log10(18000)];
+
+  it('puts each label at the pixel its value projects to', () => {
+    const labels = [
+      { label: '1m', value: Math.log10(60) },
+      { label: '1h', value: Math.log10(3600) },
+    ];
+    const placed = placeLabels(labels, domain, 400, 15);
+    for (const [i, p] of placed.entries()) {
+      const centre = xForValue(labels[i].value, domain, { ...bounds, left: 0, right: 400 });
+      expect(p.left + 15).toBeCloseTo(centre, 6);
+    }
+  });
+
+  it('does not draw a label outside the domain', () => {
+    const placed = placeLabels(
+      [
+        { label: '5s', value: Math.log10(5) },
+        { label: '1h', value: Math.log10(3600) },
+      ],
+      [Math.log10(60), Math.log10(600)],
+      400,
+      15
+    );
+    expect(placed).toEqual([]);
+  });
+
+  it('returns nothing before the width is known', () => {
+    expect(placeLabels([{ label: '1m', value: 1 }], [0, 2], 0, 15)).toEqual([]);
+  });
+});
+
+describe('projectRuns', () => {
+  const runsFor = (ys: (number | null | undefined)[]) =>
+    projectRuns(
+      ys.map((y, i) => ({ x: i, y })),
+      (d) => d.x,
+      (d) => d.y,
+      [0, 10],
+      [0, 10],
+      bounds
+    ).map((run) => run.map((p) => p.yValue));
+
+  it('splits at a missing sample so the line breaks there', () => {
+    expect(runsFor([1, NaN, 2, 3])).toEqual([[1], [2, 3]]);
+  });
+
+  it('keeps one run when every sample is present', () => {
+    expect(runsFor([1, 2, 3])).toEqual([[1, 2, 3]]);
+  });
+
+  it('gives no run when no sample is finite', () => {
+    expect(runsFor([NaN, NaN])).toEqual([]);
+    expect(runsFor([])).toEqual([]);
+  });
+
+  it('opens or closes no empty run at a missing first or last sample', () => {
+    expect(runsFor([NaN, 1, 2, null])).toEqual([[1, 2]]);
+  });
+
+  it('treats consecutive missing samples as one break', () => {
+    expect(runsFor([1, 2, undefined, NaN, null, 3, 4])).toEqual([
+      [1, 2],
+      [3, 4],
+    ]);
+  });
+
+  it('projects the same pixels as projectPoints', () => {
+    const data = [1, NaN, 5].map((y, i) => ({ x: i * 5, y }));
+    const x = (d: { x: number }) => d.x;
+    const y = (d: { y: number }) => d.y;
+    const flat = projectRuns(data, x, y, [0, 10], [0, 10], bounds).flat();
+    expect(flat).toEqual(projectPoints(data, x, y, [0, 10], [0, 10], bounds));
   });
 });

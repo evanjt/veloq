@@ -48,17 +48,17 @@ describe('formatDistance', () => {
 describe('formatPace', () => {
   it('converts m/s to min/km pace', () => {
     // 5 m/s = 200 seconds/km = 3:20/km
-    expect(formatPace(5)).toBe('3:20 /km');
+    expect(formatPace(5, true)).toBe('3:20 /km');
     // 4 m/s = 250 seconds/km = 4:10/km
-    expect(formatPace(4)).toBe('4:10 /km');
+    expect(formatPace(4, true)).toBe('4:10 /km');
   });
 
   it('handles rounding edge case where seconds would round to 60', () => {
     // When seconds are >= 59.5, they round to 60, which should roll over to next minute
     // Speed that gives exactly 5:59.5 /km: 1000 / (5*60 + 59.5) = 1000 / 359.5 = 2.78164116
-    expect(formatPace(2.78164116)).toBe('6:00 /km');
+    expect(formatPace(2.78164116, true)).toBe('6:00 /km');
     // Speed that gives exactly 5:59.6 /km: 1000 / (5*60 + 59.6) = 1000 / 359.6 = 2.78086420
-    expect(formatPace(2.7808642)).toBe('6:00 /km');
+    expect(formatPace(2.7808642, true)).toBe('6:00 /km');
   });
 });
 
@@ -133,7 +133,7 @@ describe('formatTimeDelta', () => {
 
 describe('formatPerformanceDelta', () => {
   it('returns null display for best performance', () => {
-    const result = formatPerformanceDelta({ isBest: true });
+    const result = formatPerformanceDelta({ isBest: true, isMetric: true });
     expect(result.deltaDisplay).toBeNull();
     expect(result.isFaster).toBe(false);
   });
@@ -142,6 +142,7 @@ describe('formatPerformanceDelta', () => {
     // Current 4 m/s = 250 s/km, Best 5 m/s = 200 s/km → delta +50s
     const result = formatPerformanceDelta({
       isBest: false,
+      isMetric: true,
       showPace: true,
       currentSpeed: 4,
       bestSpeed: 5,
@@ -153,6 +154,7 @@ describe('formatPerformanceDelta', () => {
   it('detects faster pace', () => {
     const result = formatPerformanceDelta({
       isBest: false,
+      isMetric: true,
       showPace: true,
       currentSpeed: 5,
       bestSpeed: 4,
@@ -163,14 +165,33 @@ describe('formatPerformanceDelta', () => {
   it('uses timeDelta when not showPace', () => {
     const result = formatPerformanceDelta({
       isBest: false,
+      isMetric: true,
       timeDelta: 30,
     });
     expect(result.deltaDisplay).toBe('+30s');
     expect(result.isFaster).toBe(false);
   });
 
+  it('expresses the pace delta per mile for imperial athletes', () => {
+    // 50 s/km slower is 50 / 0.621371 = 80.5 s/mi
+    const result = formatPerformanceDelta({
+      isBest: false,
+      isMetric: false,
+      showPace: true,
+      currentSpeed: 4,
+      bestSpeed: 5,
+    });
+    expect(result.deltaDisplay).toBe('+1:20');
+    expect(result.isFaster).toBe(false);
+  });
+
+  it('leaves a time delta unchanged under imperial units', () => {
+    const result = formatPerformanceDelta({ isBest: false, isMetric: false, timeDelta: 30 });
+    expect(result.deltaDisplay).toBe('+30s');
+  });
+
   it('returns null for missing data', () => {
-    const result = formatPerformanceDelta({ isBest: false });
+    const result = formatPerformanceDelta({ isBest: false, isMetric: true });
     expect(result.deltaDisplay).toBeNull();
   });
 });
@@ -215,8 +236,8 @@ describe('getMonday / getSunday', () => {
 describe.each([
   { name: 'formatDuration', fn: (v: unknown) => formatDuration(v as number), fallback: '0:00' },
   { name: 'formatDistance', fn: (v: unknown) => formatDistance(v as number), fallback: '0 m' },
-  { name: 'formatPace', fn: (v: unknown) => formatPace(v as number), fallback: '--:--' },
-  { name: 'formatSpeed', fn: (v: unknown) => formatSpeed(v as number), fallback: '0.0 km/h' },
+  { name: 'formatPace', fn: (v: unknown) => formatPace(v as number, true), fallback: '--:--' },
+  { name: 'formatSpeed', fn: (v: unknown) => formatSpeed(v as number, true), fallback: '0.0 km/h' },
   { name: 'formatPower', fn: (v: unknown) => formatPower(v as number), fallback: '0 W' },
   { name: 'formatHeartRate', fn: (v: unknown) => formatHeartRate(v as number), fallback: '0 bpm' },
   { name: 'formatCalories', fn: (v: unknown) => formatCalories(v as number), fallback: '0 cal' },
@@ -257,7 +278,7 @@ describe('zero-input handling', () => {
     ['formatPace', formatPace, 0, '--:--'],
     ['speedToSecsPerKm', (v: number) => String(speedToSecsPerKm(v)), 0, '0'],
   ] as const)('%s(0) returns %p', (_, fn, input, expected) => {
-    expect(fn(input as never)).toBe(expected);
+    expect(fn(input as never, true)).toBe(expected);
   });
 });
 
@@ -274,6 +295,18 @@ describe('imperial fallbacks', () => {
  * We keep behavioural checks (no banned output) separate from the matrix above
  * because formatFileSize produces unit-scaled output, not a fixed fallback.
  */
+describe('formatFileSize units', () => {
+  it.each([
+    [999, '999 B'],
+    [1_000, '1.0 KB'],
+    [1_500_000, '1.5 MB'],
+    [143_000_000, '143.0 MB'],
+    [2_300_000_000, '2.3 GB'],
+  ])('formats %p in decimal units as %p', (bytes, expected) => {
+    expect(formatFileSize(bytes)).toBe(expected);
+  });
+});
+
 describe('formatFileSize edge cases', () => {
   it.each([
     [NaN, /NaN/],
@@ -345,7 +378,7 @@ describe('formatDurationHuman boundary', () => {
  */
 describe('formatSpeed defensive input', () => {
   it('does not throw on undefined cast to number', () => {
-    expect(() => formatSpeed(undefined as unknown as number)).not.toThrow();
+    expect(() => formatSpeed(undefined as unknown as number, true)).not.toThrow();
   });
 });
 
@@ -372,13 +405,13 @@ describe('NaN/Infinity wall', () => {
     ['formatDuration', (v: number) => formatDuration(v)],
     ['formatDurationDelta', (v: number) => formatDurationDelta(v)],
     ['formatDurationHuman', (v: number) => formatDurationHuman(v)],
-    ['formatPace', (v: number) => formatPace(v)],
+    ['formatPace', (v: number) => formatPace(v, true)],
     ['formatPace (imperial)', (v: number) => formatPace(v, false)],
-    ['formatPaceCompact', (v: number) => formatPaceCompact(v)],
+    ['formatPaceCompact', (v: number) => formatPaceCompact(v, true)],
     ['formatPaceCompact (imperial)', (v: number) => formatPaceCompact(v, false)],
-    ['formatSwimPace', (v: number) => formatSwimPace(v)],
+    ['formatSwimPace', (v: number) => formatSwimPace(v, true)],
     ['formatSwimPace (imperial)', (v: number) => formatSwimPace(v, false)],
-    ['formatSpeed', (v: number) => formatSpeed(v)],
+    ['formatSpeed', (v: number) => formatSpeed(v, true)],
     ['formatSpeed (imperial)', (v: number) => formatSpeed(v, false)],
     ['formatElevation', (v: number) => formatElevation(v)],
     ['formatElevation (imperial)', (v: number) => formatElevation(v, false)],
@@ -419,17 +452,17 @@ describe('extreme finite magnitudes do not leak scientific-notation garbage', ()
   const HUGE = 1e308;
 
   it.each([
-    ['formatPace', (v: number) => formatPace(v)],
+    ['formatPace', (v: number) => formatPace(v, true)],
     ['formatPace (imperial)', (v: number) => formatPace(v, false)],
-    ['formatPaceCompact', (v: number) => formatPaceCompact(v)],
-    ['formatSwimPace', (v: number) => formatSwimPace(v)],
+    ['formatPaceCompact', (v: number) => formatPaceCompact(v, true)],
+    ['formatSwimPace', (v: number) => formatSwimPace(v, true)],
   ])('%s returns the sentinel for tiny positive speeds', (_n, fn) => {
     expect(fn(TINY)).toBe('--:--');
     expect(fn(SMALL)).toBe('--:--');
   });
 
   it('formatPaceFromSecsPerKm rejects an absurdly large seconds-per-km value', () => {
-    expect(formatPaceFromSecsPerKm(HUGE)).toBe('--:--');
+    expect(formatPaceFromSecsPerKm(HUGE, true)).toBe('--:--');
   });
 
   it('formatDuration / formatDurationHuman reject an absurdly large duration', () => {
@@ -439,10 +472,10 @@ describe('extreme finite magnitudes do not leak scientific-notation garbage', ()
 
   it('no formatter emits scientific notation for extreme finite inputs', () => {
     const fns = [
-      (v: number) => formatPace(v),
-      (v: number) => formatPaceCompact(v),
-      (v: number) => formatSwimPace(v),
-      (v: number) => formatPaceFromSecsPerKm(v),
+      (v: number) => formatPace(v, true),
+      (v: number) => formatPaceCompact(v, true),
+      (v: number) => formatSwimPace(v, true),
+      (v: number) => formatPaceFromSecsPerKm(v, true),
       (v: number) => formatDuration(v),
       (v: number) => formatDurationHuman(v),
     ];
@@ -492,24 +525,24 @@ describe('formatShortDateWithYear', () => {
   });
 
   it('carries the year across a boundary', () => {
-    expect(formatShortDateWithYear(new Date('2023-12-31T12:00:00Z'))).toContain("'23");
-    expect(formatShortDateWithYear(new Date('2024-01-01T12:00:00Z'))).toContain("'24");
+    expect(formatShortDateWithYear(new Date('2023-12-31T12:00:00'))).toContain("'23");
+    expect(formatShortDateWithYear(new Date('2024-01-01T12:00:00'))).toContain("'24");
   });
 });
 
 describe('formatAxisDate', () => {
   it('reads as month and year when the axis does not need the day', () => {
-    const label = formatAxisDate(new Date('2024-01-15T12:00:00Z'), false);
+    const label = formatAxisDate(new Date('2024-01-15T12:00:00'), false);
     expect(label).toMatch(/Jan '24/);
     expect(label).not.toMatch(/15/);
   });
 
   it('adds the day when the axis needs it', () => {
-    expect(formatAxisDate(new Date('2024-01-15T12:00:00Z'), true)).toMatch(/Jan 15 '24/);
+    expect(formatAxisDate(new Date('2024-01-15T12:00:00'), true)).toMatch(/Jan 15 '24/);
   });
 
   it('carries the year across a boundary', () => {
-    expect(formatAxisDate(new Date('2023-12-31T12:00:00Z'), false)).toContain("'23");
-    expect(formatAxisDate(new Date('2024-01-01T12:00:00Z'), false)).toContain("'24");
+    expect(formatAxisDate(new Date('2023-12-31T12:00:00'), false)).toContain("'23");
+    expect(formatAxisDate(new Date('2024-01-01T12:00:00'), false)).toContain("'24");
   });
 });

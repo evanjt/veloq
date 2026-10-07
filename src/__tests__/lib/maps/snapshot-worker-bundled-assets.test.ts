@@ -2,10 +2,10 @@
  * Scenario: the feed's terrain previews are rendered by the snapshot worker
  * WebView, and the sprite and Latin glyph ranges ship in the app.
  *
- * Expected behaviour: the worker takes them out of the bundle like the
- * interactive surfaces do, so a preview generated with no radio carries the same
- * place names the map does. It registers only the bundled protocol on top of
- * what it already had, so what a snapshot costs to render does not change.
+ * Expected behaviour: the worker's styles name them on the page origin and the
+ * interceptor answers, like the interactive surfaces, so a preview generated
+ * with no radio carries the same place names the map does and the page keeps
+ * no protocol of its own for them.
  */
 
 import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders/snapshotWorker';
@@ -26,46 +26,33 @@ function request(mapStyle: SnapshotRequest['mapStyle']): SnapshotRequest {
   } as SnapshotRequest;
 }
 
-describe('the snapshot worker serves bundled basemap assets', () => {
-  it('registers the bundled protocol', () => {
-    expect(HTML).toContain("addProtocol('bundled'");
-  });
-
-  it('names its worker in the request, so the host replies to the right page', () => {
-    const start = HTML.indexOf("type: 'bundledAssetRequest'");
-    expect(start).toBeGreaterThan(-1);
-    const message = HTML.slice(HTML.lastIndexOf('postMessage', start), HTML.indexOf('}', start));
-    expect(message).toContain('workerId');
+describe('the snapshot worker reads bundled basemap assets through the interceptor', () => {
+  it('registers no asset protocol and posts no asset request', () => {
+    expect(HTML).not.toContain("addProtocol('bundled'");
+    expect(HTML).not.toContain('bundledAssetRequest');
   });
 
   it('gives each worker in flight its own identity to reply to', () => {
     for (const id of [0, 1, 2]) {
       const html = buildSnapshotWorkerHtml(id);
       expect(html).toContain(`window._workerId = ${id};`);
-      expect(html).toContain('workerId: window._workerId');
     }
   });
 
-  it('leaves the imagery protocol it already had alone', () => {
-    expect(HTML.split("addProtocol('cached-satellite'")).toHaveLength(2);
-    // Not the vector one: no style this page is ever given names it, so it was
-    // a handler and a cache bucket nothing could reach. Nor the terrain one:
-    // the DEM comes through the intercept and the Rust store holds it.
-    expect(HTML).not.toContain("addProtocol('cached-vector'");
-    expect(HTML).not.toContain("addProtocol('cached-terrain'");
-    expect(HTML).not.toContain("addProtocol('heatmap-file'");
+  it('registers no protocol at all, the interceptor answers every request', () => {
+    expect(HTML).not.toContain('addProtocol(');
   });
 
-  it('points the dark and satellite styles at the bundle', () => {
-    for (const style of ['dark', 'satellite'] as const) {
+  it('points every style at the interceptor', () => {
+    for (const style of ['light', 'dark', 'satellite'] as const) {
       const script = buildRenderSnapshotScript(request(style), 2, 1);
-      expect(script).toContain('bundled://');
+      expect(script).toContain('veloq-asset/fonts/');
       expect(script).not.toContain('tiles.openfreemap.org/fonts/');
     }
   });
 
-  it('still fetches the light style by URL, which the bundle cannot help', () => {
+  it('fetches no light style by URL', () => {
     const script = buildRenderSnapshotScript(request('light'), 2, 1);
-    expect(script).toContain('tiles.openfreemap.org/styles/liberty');
+    expect(script).not.toContain('tiles.openfreemap.org/styles/liberty');
   });
 });

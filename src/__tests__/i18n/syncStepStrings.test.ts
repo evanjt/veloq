@@ -8,6 +8,7 @@
  * its placeholders. A missing one leaves an athlete reading a raw key.
  */
 
+import { resolvedLocale } from './resolvedLocale';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -25,6 +26,8 @@ const KEYS = [
   'curves',
   'intervalBodies',
   'remainingActivities',
+  'recordActivities',
+  'calendar',
 ] as const;
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];
@@ -35,13 +38,32 @@ const locales = fs
   .map((f) => f.replace('.json', ''));
 
 function settingsOf(locale: string): Record<string, unknown> {
-  const raw = fs.readFileSync(path.join(LOCALES_DIR, `${locale}.json`), 'utf-8');
-  return JSON.parse(raw).settings as Record<string, unknown>;
+  return resolvedLocale(locale).settings as Record<string, unknown>;
 }
 
 function stepsOf(locale: string): Record<string, string> {
   return settingsOf(locale).syncStep as Record<string, string>;
 }
+
+const STEP_WORD: Record<string, string> = {
+  da: 'trin',
+  'de-CH': 'Schritt',
+  'de-DE': 'Schritt',
+  'en-AU': 'step',
+  'en-GB': 'step',
+  'en-US': 'step',
+  'es-419': 'paso',
+  'es-ES': 'paso',
+  es: 'paso',
+  fr: 'étape',
+  it: 'passaggio',
+  ja: 'ステップ',
+  nl: 'stap',
+  pl: 'krok',
+  'pt-BR': 'etapa',
+  pt: 'passo',
+  'zh-Hans': '步骤',
+};
 
 describe('sync step strings', () => {
   it('has a key for every step the engine can report', () => {
@@ -53,7 +75,7 @@ describe('sync step strings', () => {
   it('counts steps without calling them activities', () => {
     const english = settingsOf('en-GB');
     expect(english.syncActivitiesProgress).toBeUndefined();
-    expect(english.syncStepProgress).toBe('{{label}} ({{completed}} of {{total}})');
+    expect(english.syncStepProgress).toBe('{{label}} (step {{completed}} of {{total}})');
   });
 
   /** Every English line says whose data the step is fetching, not just what. */
@@ -75,6 +97,24 @@ describe('sync step strings', () => {
       for (const placeholder of ['{{label}}', '{{completed}}', '{{total}}']) {
         expect(progress).toContain(placeholder);
       }
+    });
+
+    it('keeps the placeholders of the per-activity count', () => {
+      const itemsProgress = settingsOf(locale).syncStepItemsProgress as string;
+      for (const placeholder of [
+        '{{label}}',
+        '{{completed}}',
+        '{{total}}',
+        '{{itemsDone}}',
+        '{{itemsTotal}}',
+      ]) {
+        expect(itemsProgress).toContain(placeholder);
+      }
+    });
+
+    /** "(8 of 10)" beside a noun reads as a count of that noun; the step word stops it. */
+    it('says the counter is a step', () => {
+      expect(progress).toContain(STEP_WORD[locale]);
     });
 
     /**

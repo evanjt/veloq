@@ -62,4 +62,26 @@ describe('reading the heatmap cache size off the JS thread', () => {
 
     await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBe(0);
   });
+
+  it('does not count a suspension against the walk deadline', async () => {
+    jest.useFakeTimers();
+    try {
+      let polls = 0;
+      const engine: CacheSizeEngine = {
+        startHeatmapCacheSize: () => {},
+        pollHeatmapCacheSize: () => {
+          polls += 1;
+          if (polls === 2) jest.setSystemTime(Date.now() + 180_000);
+          return polls < 5 ? { state: 'running', bytes: 1 } : { state: 'complete', bytes: 99 };
+        },
+      };
+
+      const read = readHeatmapCacheSize(engine, BASE);
+      await jest.advanceTimersByTimeAsync(1000);
+
+      await expect(read).resolves.toBe(99);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

@@ -543,6 +543,111 @@ describe('NetworkContext', () => {
       expect(mockSetNetworkOnline).toHaveBeenCalledWith(true);
     });
 
+    /**
+     * Scenario: the app stays open in the foreground, offline, for longer
+     * than Rust believes a pushed state, with no network change and no trip
+     * through the background. Rust's copy expires at an hour and the engine
+     * starts asking a network the device still says is gone.
+     *
+     * Expected behaviour: while the app is active the provider re-states and
+     * re-reads the network well inside that hour, and a backgrounded app,
+     * which the window exists for, gets nothing.
+     */
+    describe('a long foreground session', () => {
+      const STALE_AFTER_MS = 60 * 60 * 1000;
+      const original = Object.getOwnPropertyDescriptor(AppState, 'currentState');
+
+      function setAppState(state: string) {
+        Object.defineProperty(AppState, 'currentState', { value: state, configurable: true });
+      }
+
+      afterEach(() => {
+        if (original) Object.defineProperty(AppState, 'currentState', original);
+      });
+
+      function holdOffline() {
+        renderHook(() => useNetwork(), { wrapper: wrapperFor });
+        act(() => {
+          getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+        });
+        mockSetNetworkOnline.mockClear();
+        getMock().getNetworkStateAsync.mockClear();
+      }
+
+      it('pushes the held state again before the engine stops believing it', () => {
+        setAppState('active');
+        holdOffline();
+
+        act(() => {
+          jest.advanceTimersByTime(STALE_AFTER_MS - 1);
+        });
+
+        expect(mockSetNetworkOnline).toHaveBeenCalledWith(false);
+        expect(mockSetNetworkOnline).not.toHaveBeenCalledWith(true);
+        expect(getMock().getNetworkStateAsync).toHaveBeenCalled();
+      });
+
+      it('sends what the re-read finds through the same path as every reading', async () => {
+        setAppState('active');
+        holdOffline();
+        getMock().getNetworkStateAsync.mockResolvedValue({
+          isConnected: true,
+          isInternetReachable: true,
+          type: 'WIFI',
+        });
+
+        await act(async () => {
+          jest.advanceTimersByTime(STALE_AFTER_MS - 1);
+          await Promise.resolve();
+        });
+
+        expect(mockSetNetworkOnline).toHaveBeenCalledWith(true);
+        expect(onlineManager.isOnline()).toBe(true);
+      });
+
+      it('asks nothing while the app sits in the background', () => {
+        setAppState('background');
+        holdOffline();
+
+        act(() => {
+          jest.advanceTimersByTime(STALE_AFTER_MS * 2);
+        });
+
+        expect(mockSetNetworkOnline).not.toHaveBeenCalled();
+        expect(getMock().getNetworkStateAsync).not.toHaveBeenCalled();
+      });
+
+      it('stops asking once the app leaves the foreground', () => {
+        setAppState('active');
+        holdOffline();
+
+        act(() => {
+          appStateListeners.forEach((l) => l('background'));
+        });
+        act(() => {
+          jest.advanceTimersByTime(STALE_AFTER_MS * 2);
+        });
+
+        expect(mockSetNetworkOnline).not.toHaveBeenCalled();
+        expect(getMock().getNetworkStateAsync).not.toHaveBeenCalled();
+      });
+
+      it('starts asking again when a backgrounded app comes back', () => {
+        setAppState('background');
+        holdOffline();
+
+        act(() => {
+          appStateListeners.forEach((l) => l('active'));
+        });
+        mockSetNetworkOnline.mockClear();
+        act(() => {
+          jest.advanceTimersByTime(STALE_AFTER_MS - 1);
+        });
+
+        expect(mockSetNetworkOnline).toHaveBeenCalledWith(false);
+      });
+    });
+
     it('releases the engine on unmount, so nothing is left refusing work', () => {
       const { unmount } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
       act(() => {

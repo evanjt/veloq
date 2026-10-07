@@ -38,11 +38,11 @@ jest.mock('@/features/insights/lib/awaitActivityBody', () => ({
 }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   presentActivityNotification: jest.fn(async () => undefined),
-  presentInsightNotification: jest.fn(async () => undefined),
 }));
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     engine: {
+      ...require('../__shared__/veloqrsStub').fetchCalls,
       hasActivity: mockHasActivity,
       getActivityIds: mockGetActivityIds,
       indexNewActivity: mockIndexNewActivity,
@@ -96,11 +96,30 @@ describe('the push task asking whether an activity is already held', () => {
     await AsyncStorage.setItem('veloq-notification-preferences', JSON.stringify({ enabled: true }));
   });
 
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   async function deliverPush() {
-    await runTask({
-      data: { data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234' } },
+    const run = runTask({
+      data: {
+        data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234', athlete_id: '12345' },
+      },
       error: null,
     });
+    let settled = false;
+    run.finally(() => {
+      settled = true;
+    });
+    // The task polls for its download result for up to 15 s, so move the clock until it ends.
+    for (let i = 0; i < 100 && !settled; i++) {
+      await jest.advanceTimersByTimeAsync(500);
+    }
+    await run;
   }
 
   it('asks once and takes a boolean', async () => {
@@ -130,5 +149,18 @@ describe('the push task asking whether an activity is already held', () => {
     await deliverPush();
 
     expect(mockIndexNewActivity).not.toHaveBeenCalled();
+  });
+
+  it('starts the download with a priority the engine can lift', async () => {
+    const { startFetchAndStore, DownloadPriority } = require('veloqrs');
+    startFetchAndStore.mockClear();
+    mockHasActivity.mockReturnValue(false);
+
+    await deliverPush();
+
+    expect(startFetchAndStore).toHaveBeenCalledTimes(1);
+    const args = startFetchAndStore.mock.calls[0];
+    expect(args).toHaveLength(3);
+    expect([DownloadPriority.Interactive, DownloadPriority.Bulk]).toContain(args[2]);
   });
 });

@@ -6,14 +6,13 @@
  * throttle.
  *
  * Expected behaviour: the second one joins the first rather than starting a
- * second snapshot. Rust refuses a concurrent `runBackup` outright, rejecting
+ * second archive. Rust refuses a concurrent `runRecordBackup` outright, rejecting
  * "A backup is already running", and all three triggers swallow their errors,
- * so without a guard the collision is a wasted database copy nobody sees.
+ * so without a guard the collision is a wasted archive write nobody sees.
  */
 
 import {
   performBackup,
-  registerBackend,
   onSyncComplete,
   onAppBackground,
   type BackupBackend,
@@ -22,14 +21,21 @@ import {
 const mockSettings = new Map<string, string>();
 const mockStartBackup = jest.fn();
 let mockSettled = false;
+const mockCarriers: BackupBackend[] = [];
+
+jest.mock('@/features/settings/lib/autobackup/backends/carriers', () => ({
+  get backupCarriers() {
+    return mockCarriers;
+  },
+}));
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
+    engineInstall: () => 1,
     setSetting: (key: string, value: string) => mockSettings.set(key, value),
-    // Rust holds one backup slot and refuses a second, the shape
-    // `objects/engine.rs` gives `run_backup`.
-    runBackup: (path: string) => {
+    // Rust holds one backup slot and refuses a second.
+    runRecordBackup: (path: string) => {
       mockStartBackup(path);
       if (mockStartBackup.mock.calls.length > 1 && !mockSettled) {
         return Promise.reject(new Error('A backup is already running'));
@@ -43,6 +49,7 @@ jest.mock('@/shared/native/engine', () => ({
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: 'file:///cache/',
+  documentDirectory: 'file:///docs/',
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 4096 }),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
@@ -70,9 +77,9 @@ const testBackend: BackupBackend = {
   delete: async () => {},
 };
 
-registerBackend(testBackend);
+mockCarriers.push(testBackend);
 
-/** The snapshot polls on a 50 ms timer, so "during the backup" is a wait. */
+/** The upload starts asynchronously, so "during the backup" is a wait. */
 async function untilUploading(nth = 1) {
   for (let i = 0; i < 300 && upload.mock.calls.length < nth; i += 1) {
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -82,7 +89,6 @@ async function untilUploading(nth = 1) {
 
 beforeEach(() => {
   mockSettings.clear();
-  mockSettings.set('__backup_backend', 'test-inflight');
   mockSettings.set('__auto_backup_enabled', '1');
   mockStartBackup.mockClear();
   upload.mockClear();
@@ -91,7 +97,7 @@ beforeEach(() => {
 });
 
 describe('the auto-backup in-flight guard', () => {
-  it('runs one snapshot when two triggers arrive during the same backup', async () => {
+  it('writes one archive when two triggers arrive during the same backup', async () => {
     const first = performBackup();
     await untilUploading();
     const second = performBackup();
@@ -101,8 +107,8 @@ describe('the auto-backup in-flight guard', () => {
 
     expect(mockStartBackup).toHaveBeenCalledTimes(1);
     expect(upload).toHaveBeenCalledTimes(1);
-    expect(a).toBe(true);
-    expect(b).toBe(true);
+    expect(a.wroteZip).toBe(true);
+    expect(b).toBe(a);
   });
 
   it("hands the second caller the first one's answer, not a refusal", async () => {
@@ -142,13 +148,15 @@ describe('the auto-backup in-flight guard', () => {
   });
 
   it('releases the guard when the backup throws, so the next one is not stuck', async () => {
-    upload.mockImplementationOnce(() => Promise.reject(new Error('upload refused')));
+    mockStartBackup.mockImplementationOnce(() => {
+      throw new Error('archive refused');
+    });
 
-    await expect(performBackup()).rejects.toThrow('upload refused');
+    await expect(performBackup()).rejects.toThrow('archive refused');
 
     mockSettled = true;
     const next = performBackup();
-    await untilUploading(2);
+    await untilUploading(1);
     releaseUpload?.();
     await next;
 

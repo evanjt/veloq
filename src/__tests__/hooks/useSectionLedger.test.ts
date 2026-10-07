@@ -12,9 +12,15 @@ function engineWith(pinned: number | null) {
         at: '2026-08-01 00:00:00',
         kind: 'formed',
         details: undefined,
-        geometryVersion: 1n,
+        geometryVersion: 1n as bigint | undefined,
       },
-      { id: 2n, at: '2026-08-20 00:00:00', kind: 'recut', details: '{}', geometryVersion: 2n },
+      {
+        id: 2n,
+        at: '2026-08-20 00:00:00',
+        kind: 'recut',
+        details: '{}',
+        geometryVersion: 2n as bigint | undefined,
+      },
     ]),
     getSectionGeometryVersions: jest.fn(() => [
       { version: 1n, createdAt: '2026-08-01', milestone: true, pinned: pinned === 1 },
@@ -22,7 +28,7 @@ function engineWith(pinned: number | null) {
     ]),
     getPinnedSectionVersion: jest.fn(() => pinned),
     getSectionGeometryVersionPolyline: jest.fn(() => [{ lat: 46, lng: 7 }]),
-    revertSectionToVersion: jest.fn(() => true),
+    revertSectionToVersion: jest.fn(() => [] as unknown[]),
     unpinSection: jest.fn(() => true),
   };
 }
@@ -58,7 +64,26 @@ describe('useSectionLedger', () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = renderHook(() => useSectionLedger('sec1'));
     expect(result.current.history).toEqual([]);
+    expect(result.current.failureKey).toBeNull();
     expect(result.current.revert(1)).toBe(false);
+  });
+
+  it('carries a failed read as a failure, apart from an empty ledger', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const engine = engineWith(null);
+    engine.getSectionHistory.mockImplementation(() => {
+      throw Object.assign(new Error('Database'), { tag: 'Database' });
+    });
+    engine.getSectionGeometryVersionPolyline.mockImplementation(() => {
+      throw Object.assign(new Error('Database'), { tag: 'Database' });
+    });
+    (getEngine as jest.Mock).mockReturnValue(engine);
+
+    const { result } = renderHook(() => useSectionLedger('sec1'));
+
+    expect(result.current.failureKey).toBe('engine.failure.database');
+    expect(result.current.history).toEqual([]);
+    expect(result.current.versionPolyline(1)).toEqual([]);
   });
 
   it('re-reads when refreshKey changes and holds still when it does not', () => {
@@ -104,5 +129,46 @@ describe('useSectionLedger', () => {
     expect(result.current.pinnedVersion).toBeNull();
     expect(result.current.versionPolyline(1)).toEqual([]);
     expect(result.current.unpin()).toBe(false);
+  });
+
+  it('carries resolved split links from the engine ledger into the panel', () => {
+    const engine = engineWith(null);
+    engine.getSectionHistory.mockReturnValue([
+      {
+        id: 3n,
+        at: '2026-08-21 00:00:00',
+        kind: 'formed',
+        details: JSON.stringify({
+          split_from: 'parent',
+          split_from_link: { id: 'parent', name: 'Col de la Croix', available: true },
+        }),
+        geometryVersion: 1n,
+      },
+      {
+        id: 4n,
+        at: '2026-08-22 00:00:00',
+        kind: 'split',
+        details: JSON.stringify({
+          siblings: ['child', 'missing'],
+          split_into_links: [
+            { id: 'child', name: 'Col de la Croix / 1 / 2', available: true },
+            { id: 'missing', name: null, available: false },
+          ],
+        }),
+        geometryVersion: undefined,
+      },
+    ]);
+    (getEngine as jest.Mock).mockReturnValue(engine);
+
+    const { result } = renderHook(() => useSectionLedger('child'));
+    expect(result.current.history[0].splitInto).toEqual([
+      { id: 'child', name: 'Col de la Croix / 1 / 2', available: true },
+      { id: 'missing', name: null, available: false },
+    ]);
+    expect(result.current.history[1].splitFrom).toEqual({
+      id: 'parent',
+      name: 'Col de la Croix',
+      available: true,
+    });
   });
 });

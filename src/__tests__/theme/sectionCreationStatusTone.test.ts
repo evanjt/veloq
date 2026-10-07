@@ -12,13 +12,16 @@
  */
 
 import { sectionSizeTone, STATUS_FILLS } from '@/features/maps/lib/sectionSizeTone';
-import { colors } from '@/theme';
+import { colors, darkColors } from '@/theme';
 
 /** WCAG 2.2 AA for body text. */
 const AA_TEXT = 4.5;
 
-/** The pill is `ink.white` at 95 per cent over the map, in both themes. */
+/** The light pill is `ink.white` at 95 per cent over the map. */
 const PILL = '#FFFFFF';
+
+/** The dark pill is `darkColors.surfaceOverlay`, over the dark surface. */
+const DARK_PILL = '#18181B';
 
 function channels(hex: string): [number, number, number] {
   const srgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -41,6 +44,20 @@ const COUNTS = [null, 0, 1_999, 2_000, 4_999, 5_000, 6_999, 7_000, 20_000];
 describe('the section-creation status tone', () => {
   it.each(COUNTS)('clears AA on the pill for %s points', (count) => {
     expect(contrastRatio(sectionSizeTone(count).text, PILL)).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it.each(COUNTS)('clears AA on the dark pill for %s points', (count) => {
+    expect(contrastRatio(sectionSizeTone(count, true).text, DARK_PILL)).toBeGreaterThanOrEqual(
+      AA_TEXT
+    );
+  });
+
+  it.each(COUNTS)('clears the 3:1 mark bar on the dark pill for %s points', (count) => {
+    expect(contrastRatio(sectionSizeTone(count, true).fill, DARK_PILL)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('draws the dark pill from the dark overlay surface', () => {
+    expect(darkColors.surfaceOverlay).toBe('rgba(24, 24, 27, 0.95)');
   });
 
   it('never hands a fill back as the text tone', () => {

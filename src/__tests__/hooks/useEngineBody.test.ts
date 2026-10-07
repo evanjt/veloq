@@ -19,9 +19,16 @@ import React from 'react';
 
 import { BODY_WAIT_MS, useEngineBody } from '@/shared/native/engineBodies';
 import { getEngine } from '@/shared/native/engine';
+import { StartOutcome } from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
+}));
+
+let mockIsOnline = true;
+jest.mock('@/shared/app/NetworkContext', () => ({
+  useNetwork: () => ({ isOnline: mockIsOnline }),
+  useIsOnline: () => mockIsOnline,
 }));
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
@@ -54,6 +61,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
+  mockIsOnline = true;
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   engine = fakeEngine();
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
@@ -362,5 +370,125 @@ describe('the deadline', () => {
         jest.advanceTimersByTime(BODY_WAIT_MS * 2);
       })
     ).not.toThrow();
+  });
+});
+
+/**
+ * Scenario: a body requested offline never arrives, the deadline passes and
+ * the card offers a Retry. The network comes back with the screen still open.
+ *
+ * Expected behaviour: the offline to online edge asks again, exactly once, as
+ * a retry would. A body already present, or a hook that is disabled, asks
+ * nothing on the edge.
+ */
+describe('the reconnect edge', () => {
+  function goOffline(rerender: (props: object) => void) {
+    mockIsOnline = false;
+    act(() => rerender({}));
+  }
+
+  function comeBack(rerender: (props: object) => void) {
+    mockIsOnline = true;
+    act(() => rerender({}));
+  }
+
+  it('asks once more for a body whose wait ran out offline, and waits again', () => {
+    const request = jest.fn();
+    const { result, rerender } = renderHook(() => useEngineBody(false, request, KEY), {
+      wrapper,
+    });
+    goOffline(rerender);
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+    expect(result.current.status).toBe('timedOut');
+    expect(request).toHaveBeenCalledTimes(1);
+
+    comeBack(rerender);
+
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(result.current.status).toBe('waiting');
+
+    act(() => rerender({}));
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks nothing on the edge when the body is present', () => {
+    const request = jest.fn();
+    const { rerender } = renderHook(() => useEngineBody(true, request, KEY), { wrapper });
+    goOffline(rerender);
+
+    comeBack(rerender);
+
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('asks nothing on the edge when disabled', () => {
+    const request = jest.fn();
+    const { result, rerender } = renderHook(() => useEngineBody(false, request, KEY, false), {
+      wrapper,
+    });
+    goOffline(rerender);
+
+    comeBack(rerender);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('idle');
+  });
+
+  it('asks nothing while the connection never drops', () => {
+    const request = jest.fn();
+    const { rerender } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+
+    act(() => rerender({}));
+    act(() => rerender({}));
+
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a request the engine answers with a verdict', () => {
+  it('ends the wait at once on a refusal asking again cannot change', () => {
+    const request = jest.fn(() => StartOutcome.NotConfigured);
+    const { result } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+
+    expect(result.current.status).toBe('refused');
+    act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+    expect(result.current.status).toBe('refused');
+  });
+
+  it.each([StartOutcome.Busy, StartOutcome.Held, StartOutcome.NotReady, StartOutcome.Offline])(
+    'keeps waiting to the deadline on %s',
+    (outcome) => {
+      const { result } = renderHook(() => useEngineBody(false, () => outcome, KEY), { wrapper });
+
+      expect(result.current.status).toBe('waiting');
+      act(() => {
+        jest.advanceTimersByTime(BODY_WAIT_MS);
+      });
+      expect(result.current.status).toBe('timedOut');
+    }
+  );
+
+  it('keeps waiting when there is no verdict to read', () => {
+    const { result } = renderHook(() => useEngineBody(false, () => undefined, KEY), { wrapper });
+    expect(result.current.status).toBe('waiting');
+  });
+
+  it('leaves the refusal when retry asks again and is accepted', () => {
+    const request = jest
+      .fn<StartOutcome, []>()
+      .mockReturnValueOnce(StartOutcome.NotConfigured)
+      .mockReturnValue(StartOutcome.Started);
+    const { result } = renderHook(() => useEngineBody(false, request, KEY), { wrapper });
+    expect(result.current.status).toBe('refused');
+
+    act(() => result.current.retry());
+    expect(result.current.status).toBe('waiting');
   });
 });

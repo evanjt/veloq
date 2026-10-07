@@ -16,8 +16,9 @@ import { useActivitySectionHighlights } from '@/features/activity/hooks/useActiv
 const mockListeners = new Set<() => void>();
 const bump = () => mockListeners.forEach((listener) => listener());
 
+let mockRouteMatchingOn = true;
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
-  isRouteMatchingEnabled: () => true,
+  isRouteMatchingEnabled: () => mockRouteMatchingOn,
 }));
 
 const mockBundle = jest.fn();
@@ -71,6 +72,7 @@ const IDS = ['a1', 'a2'];
 describe('highlight identity across an engine announcement', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouteMatchingOn = true;
     mockBundle.mockImplementation(() => bundle(120, 1));
   });
 
@@ -83,6 +85,16 @@ describe('highlight identity across an engine announcement', () => {
     expect(mockBundle).toHaveBeenCalledTimes(2);
     expect(result.current.sections.get('a1')).toBe(first.sections.get('a1'));
     expect(result.current.routes.get('a1')).toBe(first.routes.get('a1'));
+  });
+
+  it('reads nothing and holds no highlights with route matching off', () => {
+    mockRouteMatchingOn = false;
+
+    const { result } = renderHook(() => useActivitySectionHighlights(IDS));
+
+    expect(mockBundle).not.toHaveBeenCalled();
+    expect(result.current.sections.size).toBe(0);
+    expect(result.current.routes.size).toBe(0);
   });
 
   it('replaces only the entry whose content moved', () => {
@@ -125,5 +137,53 @@ describe('highlight identity across an engine announcement', () => {
 
     // Re-entering the batch rebuilds it rather than serving a stale object.
     expect(result.current.sections.get('a1')?.[0].lapTime).toBe(120);
+  });
+
+  it('keeps feed entries when a detail hook reads one activity', () => {
+    mockBundle.mockImplementation((ids: string[]) => ({
+      indicators: ids.map((id) => indicator(id, 120)),
+      routeHighlights: ids.map((id) => routeHighlight(id, 1)),
+    }));
+    const feed = renderHook(() => useActivitySectionHighlights(IDS));
+    const sections = feed.result.current.sections.get('a2');
+    const route = feed.result.current.routes.get('a2');
+
+    const detail = renderHook(() => useActivitySectionHighlights(['a1']));
+    act(() => bump());
+
+    expect(detail.result.current.sections.has('a2')).toBe(false);
+    expect(feed.result.current.sections.get('a2')).toBe(sections);
+    expect(feed.result.current.routes.get('a2')).toBe(route);
+  });
+
+  it("carries the engine's PR improvement and a null when it has none", () => {
+    mockBundle.mockImplementation(() => ({
+      indicators: [],
+      routeHighlights: [
+        { ...routeHighlight('a1', 1), isPr: true, prImprovementSeconds: 14 },
+        { ...routeHighlight('a2', 1), isPr: true, prImprovementSeconds: undefined },
+      ],
+    }));
+
+    const { result } = renderHook(() => useActivitySectionHighlights(IDS));
+
+    expect(result.current.routes.get('a1')?.prImprovementSeconds).toBe(14);
+    expect(result.current.routes.get('a2')?.prImprovementSeconds).toBeNull();
+  });
+
+  it('replaces the entry when only the improvement moved', () => {
+    const withImprovement = (seconds: number) => ({
+      indicators: [],
+      routeHighlights: [{ ...routeHighlight('a1', 1), isPr: true, prImprovementSeconds: seconds }],
+    });
+    mockBundle.mockImplementation(() => withImprovement(14));
+    const { result } = renderHook(() => useActivitySectionHighlights(['a1']));
+    const first = result.current.routes.get('a1');
+
+    mockBundle.mockImplementation(() => withImprovement(20));
+    act(() => bump());
+
+    expect(result.current.routes.get('a1')).not.toBe(first);
+    expect(result.current.routes.get('a1')?.prImprovementSeconds).toBe(20);
   });
 });

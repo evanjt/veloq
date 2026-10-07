@@ -10,22 +10,9 @@
  * test fails, the data-prep is dropping sections.
  */
 
-// useMapGeoJSON transitively imports ActivityTypeFilter which pulls in
-// react-native + @expo/vector-icons. Mock the small piece of that module
-// we actually use so the test doesn't have to bring in the whole RN stack.
 import { renderHook } from '@testing-library/react-native';
 import { useMapGeoJSON } from '@/features/maps/components/regional/useMapGeoJSON';
 import type { MapSection } from '@/features/routes/hooks';
-
-jest.mock('@/features/maps/components/ActivityTypeFilter', () => ({
-  getActivityTypeConfig: () => ({ color: '#3B82F6', icon: 'bike', label: 'Ride' }),
-}));
-
-// Minimal stub TFunction - useMapGeoJSON only calls it for fallback names.
-const t = ((key: string, opts?: { number?: string }) =>
-  opts?.number ? `${key}-${opts.number}` : key) as unknown as Parameters<
-  typeof useMapGeoJSON
->[0]['t'];
 
 /**
  * The overlay's own record: six fields and a line. It used to be built from the
@@ -35,7 +22,6 @@ function makeSection(overrides: Partial<MapSection> = {}): MapSection {
   return {
     id: 'sec-1',
     name: 'Test Loop',
-    sportType: 'Ride',
     polyline: [
       { lat: 46.5, lng: 6.6 },
       { lat: 46.51, lng: 6.61 },
@@ -50,15 +36,10 @@ function makeSection(overrides: Partial<MapSection> = {}): MapSection {
 function buildArgs(sections: MapSection[]): Parameters<typeof useMapGeoJSON>[0] {
   return {
     allActivities: [],
-    traceActivities: [],
     activityCenters: {},
-    routeSignatures: {},
     sections,
-    routeGroups: [],
-    showRoutes: false,
     userLocation: null,
     selected: null,
-    t,
   };
 }
 
@@ -118,5 +99,31 @@ describe('useMapGeoJSON.sectionsGeoJSON (Bug 4)', () => {
 
     expect(result.current.sectionsGeoJSON.features.length).toBe(1);
     expect(result.current.sectionsGeoJSON.features[0].properties?.id).toBe('good');
+  });
+});
+
+describe('useMapGeoJSON section colour', () => {
+  it('colours a section by its id, so the list order and the activity map agree', () => {
+    const { sectionPalette, sectionPaletteIndex } = require('@/theme/colors');
+    const ids = ['sec-a', 'sec-b', 'sec-c', 'sec-d', 'sec-e', 'sec-f', 'sec-g'];
+    const forward = renderHook(() => useMapGeoJSON(buildArgs(ids.map((id) => makeSection({ id })))))
+      .result.current.sectionsGeoJSON.features;
+    const reversed = renderHook(() =>
+      useMapGeoJSON(buildArgs([...ids].reverse().map((id) => makeSection({ id }))))
+    ).result.current.sectionsGeoJSON.features;
+
+    const colourOf = (fs: typeof forward, id: string) =>
+      fs.find((f) => f.properties?.id === id)?.properties?.color;
+    for (const id of ids) {
+      expect(colourOf(forward, id)).toBe(sectionPalette[sectionPaletteIndex(id)]);
+      expect(colourOf(reversed, id)).toBe(colourOf(forward, id));
+    }
+  });
+
+  it('carries no pattern index, since no layer reads one', () => {
+    const { result } = renderHook(() => useMapGeoJSON(buildArgs([makeSection()])));
+    expect(result.current.sectionsGeoJSON.features[0].properties).not.toHaveProperty(
+      'patternIndex'
+    );
   });
 });

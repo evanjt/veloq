@@ -43,7 +43,6 @@ describe('InsightsStore', () => {
     useInsightsStore.setState({
       lastSeenFingerprint: '',
       hasNewInsights: false,
-      changedInsightIds: new Set(),
       isLoaded: false,
     });
     await AsyncStorage.clear();
@@ -76,13 +75,12 @@ describe('InsightsStore', () => {
 
   describe('markSeen()', () => {
     it('stores fingerprint and clears hasNewInsights', () => {
-      useInsightsStore.setState({ hasNewInsights: true, changedInsightIds: new Set(['a']) });
+      useInsightsStore.setState({ hasNewInsights: true });
       const insights = [makeInsight('a', 'Title A'), makeInsight('b', 'Title B')];
       useInsightsStore.getState().markSeen(insights);
       const state = useInsightsStore.getState();
       expect(state.lastSeenFingerprint).toBe(computeInsightFingerprint(insights));
       expect(state.hasNewInsights).toBe(false);
-      expect(state.changedInsightIds.size).toBe(0);
     });
 
     it('persists fingerprint to AsyncStorage', async () => {
@@ -95,15 +93,14 @@ describe('InsightsStore', () => {
   });
 
   describe('setNewInsights()', () => {
-    it('sets hasNewInsights true when changed IDs present', () => {
-      useInsightsStore.getState().setNewInsights(new Set(['a']));
+    it('sets hasNewInsights true when told there are new insights', () => {
+      useInsightsStore.getState().setNewInsights(true);
       expect(useInsightsStore.getState().hasNewInsights).toBe(true);
-      expect(useInsightsStore.getState().changedInsightIds.size).toBe(1);
     });
 
-    it('sets hasNewInsights false when no changed IDs', () => {
+    it('sets hasNewInsights false when told there are none', () => {
       useInsightsStore.setState({ hasNewInsights: true });
-      useInsightsStore.getState().setNewInsights(new Set());
+      useInsightsStore.getState().setNewInsights(false);
       expect(useInsightsStore.getState().hasNewInsights).toBe(false);
     });
   });
@@ -113,7 +110,7 @@ describe('InsightsStore', () => {
       const fp = 'test-insight-id';
       await AsyncStorage.setItem(STORAGE_KEY, fp);
       await initializeInsightsStore();
-      useInsightsStore.getState().setNewInsights(new Set(['x']));
+      useInsightsStore.getState().setNewInsights(true);
       expect(useInsightsStore.getState().hasNewInsights).toBe(true);
       await initializeInsightsStore();
       expect(useInsightsStore.getState().isLoaded).toBe(true);
@@ -179,11 +176,8 @@ describe('diffInsights', () => {
     expect(changed.size).toBe(0);
   });
 
-  /** Scenario: a background run advances the fingerprint while the app is closed.
-   *  Expected behaviour: the next foreground `initialize()` picks that write up,
-   *  so already-notified insights are not re-flagged as new. */
-  describe('fingerprint shared with the background task', () => {
-    it('initialises from a fingerprint the background task wrote after a markSeen', async () => {
+  describe('seen fingerprint persistence', () => {
+    it('initialises from the last persisted seen fingerprint', async () => {
       useInsightsStore.getState().markSeen([makeInsight('a', 'A')]);
       await Promise.resolve();
 
@@ -204,7 +198,7 @@ describe('diffInsights', () => {
       expect(mockEngineSettings.get(STORAGE_KEY)).toBe('a|b');
     });
 
-    it('serves a foreground markSeen to the background reader', async () => {
+    it('serves a foreground markSeen to the next read', async () => {
       await AsyncStorage.setItem(STORAGE_KEY, 'section_pr-stale');
 
       useInsightsStore.getState().markSeen([makeInsight('a', 'A'), makeInsight('b', 'B')]);

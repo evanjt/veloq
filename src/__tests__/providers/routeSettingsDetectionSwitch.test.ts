@@ -10,12 +10,14 @@
 import {
   useRouteSettings,
   isRouteMatchingEnabled,
+  initializeRouteSettings,
 } from '@/features/routes/stores/RouteSettingsStore';
+
+import { getSetting } from '@/shared/storage';
 
 const mockEngine = {
   setSetting: jest.fn(),
-  getSetting: jest.fn(() => undefined),
-  runClearRoutesAndSections: jest.fn(() => Promise.resolve()),
+  getSetting: jest.fn<string | undefined, [string]>(() => undefined),
   triggerRefresh: jest.fn(),
 };
 
@@ -31,10 +33,11 @@ const DETECTION_KEY = '__detection_enabled';
 describe('the detection switch reaches the engine', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEngine.getSetting.mockReturnValue(undefined);
+    jest.mocked(getSetting).mockResolvedValue(null);
     useRouteSettings.setState({
       settings: {
         enabled: true,
-        autoCleanupEnabled: false,
       },
       isLoaded: true,
     });
@@ -52,18 +55,6 @@ describe('the detection switch reaches the engine', () => {
     expect(mockEngine.setSetting).toHaveBeenCalledWith(DETECTION_KEY, '1');
   });
 
-  it('still clears the catalogue when it is turned off', async () => {
-    await useRouteSettings.getState().setEnabled(false);
-
-    expect(mockEngine.runClearRoutesAndSections).toHaveBeenCalledTimes(1);
-  });
-
-  it('leaves the catalogue alone when it is turned on', async () => {
-    await useRouteSettings.getState().setEnabled(true);
-
-    expect(mockEngine.runClearRoutesAndSections).not.toHaveBeenCalled();
-  });
-
   it('tells the engine before it asks for a refresh, so no detect slips through', async () => {
     await useRouteSettings.getState().setEnabled(true);
 
@@ -78,5 +69,61 @@ describe('the detection switch reaches the engine', () => {
 
     await useRouteSettings.getState().setEnabled(true);
     expect(isRouteMatchingEnabled()).toBe(true);
+  });
+});
+
+describe('loading the saved detection switch', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEngine.getSetting.mockReturnValue(undefined);
+    useRouteSettings.setState({
+      settings: { enabled: true },
+      isLoaded: false,
+    });
+  });
+
+  it.each([
+    [false, undefined, '0'],
+    [false, '1', '0'],
+    [true, '0', '1'],
+  ])('reconciles enabled=%s with engine value %s', async (enabled, stored, expected) => {
+    jest.mocked(getSetting).mockResolvedValue(JSON.stringify({ enabled }));
+    mockEngine.getSetting.mockReturnValue(stored);
+
+    await initializeRouteSettings();
+
+    expect(mockEngine.setSetting).toHaveBeenCalledWith(DETECTION_KEY, expected);
+    expect(isRouteMatchingEnabled()).toBe(enabled);
+    expect(mockEngine.triggerRefresh).not.toHaveBeenCalled();
+  });
+
+  it('does not rewrite an engine value already in agreement on repeated loads', async () => {
+    jest.mocked(getSetting).mockResolvedValue(JSON.stringify({ enabled: false }));
+    mockEngine.getSetting.mockReturnValue('0');
+
+    await initializeRouteSettings();
+    await initializeRouteSettings();
+
+    expect(mockEngine.setSetting).not.toHaveBeenCalled();
+  });
+
+  it.each([null, '{}', 'invalid json'])('seeds the default for %s', async (stored) => {
+    jest.mocked(getSetting).mockResolvedValue(stored);
+
+    await initializeRouteSettings();
+
+    expect(mockEngine.setSetting).toHaveBeenCalledWith(DETECTION_KEY, '1');
+  });
+
+  it('still loads the preference when the engine write throws', async () => {
+    jest.mocked(getSetting).mockResolvedValue(JSON.stringify({ enabled: false }));
+    mockEngine.setSetting.mockImplementationOnce(() => {
+      throw new Error('unavailable');
+    });
+
+    await initializeRouteSettings();
+
+    expect(isRouteMatchingEnabled()).toBe(false);
+    expect(useRouteSettings.getState().isLoaded).toBe(true);
   });
 });

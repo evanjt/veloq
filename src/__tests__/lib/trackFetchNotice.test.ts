@@ -12,7 +12,6 @@ import {
   DISMISSED_KEY,
   loadTrackFetchNotice,
   reportTrackFetchRun,
-  tracksStillMissing,
   useTrackFetchNotice,
 } from '@/features/routes/lib/trackFetchNotice';
 
@@ -34,20 +33,6 @@ function fresh() {
     dismissedKey: null,
   });
 }
-
-describe('tracksStillMissing', () => {
-  it('counts what the retries could not land', () => {
-    expect(tracksStillMissing({ failedIds: ['a', 'b', 'c'] })).toBe(3);
-  });
-
-  it('says nothing about a run that landed everything', () => {
-    expect(tracksStillMissing({ failedIds: [] })).toBe(0);
-  });
-
-  it('says nothing about a run that produced no result', () => {
-    expect(tracksStillMissing(null)).toBe(0);
-  });
-});
 
 describe('the notice', () => {
   beforeEach(() => {
@@ -82,6 +67,31 @@ describe('the notice', () => {
     reportTrackFetchRun({ failedIds: ['a', 'b'] });
 
     expect(useTrackFetchNotice.getState()).toMatchObject({ failedCount: 2, dismissed: true });
+  });
+
+  it('stays closed through a clean run and the same failure again', () => {
+    reportTrackFetchRun({ failedIds: ['a'] });
+    useTrackFetchNotice.getState().dismiss();
+    reportTrackFetchRun({ failedIds: [] });
+    reportTrackFetchRun({ failedIds: ['a'] });
+
+    expect(useTrackFetchNotice.getState().dismissed).toBe(true);
+  });
+
+  it('stays closed when only some of the dismissed set still fails', () => {
+    reportTrackFetchRun({ failedIds: ['a', 'b'] });
+    useTrackFetchNotice.getState().dismiss();
+    reportTrackFetchRun({ failedIds: ['b'] });
+
+    expect(useTrackFetchNotice.getState().dismissed).toBe(true);
+  });
+
+  it('reopens when a new id joins the dismissed set', () => {
+    reportTrackFetchRun({ failedIds: ['a'] });
+    useTrackFetchNotice.getState().dismiss();
+    reportTrackFetchRun({ failedIds: ['a', 'b'] });
+
+    expect(useTrackFetchNotice.getState().dismissed).toBe(false);
   });
 
   it('remembers the dismissal across a relaunch', async () => {

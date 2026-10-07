@@ -27,7 +27,6 @@ const getRoutesStatusData = jest.fn(() => ({
   elevationRemaining: null,
   elevationPaused: false,
   cutover: { phase: 'detecting', running: true },
-  heatmapTiles: [0, 0],
 }));
 
 beforeEach(() => {

@@ -6,7 +6,11 @@
  * Monday resolves to the same number in every timezone.
  */
 
-import { mondayAnchors, weekAnchorSeconds } from '@/features/fitness/lib/weekWindow';
+import {
+  mondayAnchors,
+  trailingDaysWindow,
+  weekAnchorSeconds,
+} from '@/features/fitness/lib/weekWindow';
 import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
 
 /** A local `Date` for wall-clock fields, which is what the device clock gives. */
@@ -45,5 +49,23 @@ describe('the week window', () => {
     const monday = local(2026, 9, 7);
 
     expect(weekAnchorSeconds(monday)).toBe(Date.UTC(2026, 8, 7, 0, 0, 0) / 1000);
+  });
+});
+
+describe('the trailing days window', () => {
+  it('runs from the start of the day `days` ago to the end of today, in wall clock', () => {
+    const { startTs, endTs } = trailingDaysWindow(7, local(2026, 9, 21, 15, 40));
+
+    expect(startTs).toBe(startDateLocalToEpochSeconds('2026-09-14T00:00:00'));
+    expect(endTs).toBe(startDateLocalToEpochSeconds('2026-09-21T23:59:59'));
+  });
+
+  it('holds an activity from the first and from the last day, and drops the day before', () => {
+    const { startTs, endTs } = trailingDaysWindow(7, local(2026, 9, 21, 15, 40));
+    const stamp = (iso: string) => startDateLocalToEpochSeconds(iso);
+
+    expect(stamp('2026-09-14T00:30:00')).toBeGreaterThanOrEqual(startTs);
+    expect(stamp('2026-09-21T23:00:00')).toBeLessThanOrEqual(endTs);
+    expect(stamp('2026-09-13T23:30:00')).toBeLessThan(startTs);
   });
 });

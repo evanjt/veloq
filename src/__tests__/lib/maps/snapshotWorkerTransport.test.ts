@@ -23,7 +23,7 @@ jest.mock('veloqrs', () =>
   })
 );
 
-function onPlatform(os: 'android' | 'ios' | 'web') {
+function onPlatform(os: 'android' | 'ios') {
   Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
 }
 
@@ -47,13 +47,13 @@ afterEach(() => onPlatform('ios'));
 
 describe('the worker page', () => {
   /**
-   * The worker takes `TERRAIN_STYLE_OPTIONS`, which leaves the vector rewrite
-   * off, so no style it is ever given names `cached-vector://`. The handler and
+   * The vector rewrite points at the interceptor, so no style the worker is
+   * ever given names `cached-vector://`. The handler and
    * its `veloq-vector-v1` bucket were registered for a source that cannot reach
    * them.
    */
   it('registers no vector protocol, because no style it is given asks for one', () => {
-    const html = buildSnapshotWorkerHtml(0, 200);
+    const html = buildSnapshotWorkerHtml(0);
 
     expect(html).not.toContain("addProtocol('cached-vector'");
     // The bucket itself, not the shared budget table, which lists every cache
@@ -63,7 +63,7 @@ describe('the worker page', () => {
   });
 
   it('registers no terrain protocol, because its DEM comes through the intercept', () => {
-    expect(buildSnapshotWorkerHtml(0, 200)).not.toContain("addProtocol('cached-terrain'");
+    expect(buildSnapshotWorkerHtml(0)).not.toContain("addProtocol('cached-terrain'");
   });
 });
 
@@ -77,16 +77,5 @@ describe('a preview render on Android', () => {
       'satellite-swisstopo-1',
       expect.stringContaining('wmts.geo.admin.ch')
     );
-  });
-});
-
-describe('a preview render where nothing can intercept', () => {
-  beforeEach(() => onPlatform('web'));
-
-  it('keeps the page protocol, which is the only transport there', () => {
-    const script = buildRenderSnapshotScript(satelliteRequest, 0, 1);
-
-    expect(script).toContain('cached-satellite://');
-    expect(mockSetSourceTemplate).not.toHaveBeenCalled();
   });
 });

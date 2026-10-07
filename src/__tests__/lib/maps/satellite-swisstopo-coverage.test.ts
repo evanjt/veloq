@@ -71,6 +71,17 @@ const SWITZERLAND: Point[] = [
   { name: 'Basel', lat: 47.559, lng: 7.588 },
   { name: 'Kreuzlingen', lat: 47.65, lng: 9.175 },
   { name: 'Schaffhausen', lat: 47.697, lng: 8.635 },
+  { name: 'Orbe', lat: 46.725, lng: 6.532 },
+  { name: 'Sainte-Croix', lat: 46.822, lng: 6.502 },
+  { name: 'Fleurier', lat: 46.903, lng: 6.582 },
+  { name: 'Le Pont', lat: 46.666, lng: 6.331 },
+  { name: 'Champéry', lat: 46.177, lng: 6.87 },
+  { name: 'Morgins', lat: 46.237, lng: 6.858 },
+  { name: 'Orsières', lat: 46.029, lng: 7.146 },
+  { name: 'Verbier', lat: 46.096, lng: 7.228 },
+  { name: 'Bourg-St-Pierre', lat: 45.949, lng: 7.207 },
+  { name: 'Fionnay', lat: 46.032, lng: 7.309 },
+  { name: 'Arolla', lat: 45.996, lng: 7.48 },
 ];
 
 const NOT_SWITZERLAND: Point[] = [
@@ -98,6 +109,11 @@ describe('the swisstopo source is asked only for tiles over Switzerland', () => 
 
   it.each(SWITZERLAND)('still covers $name', (p) => {
     expect(covered(swisstopoBoxes(), p)).toBe(true);
+  });
+
+  it.each(SWITZERLAND)('leaves no white IGN tile over $name', (p) => {
+    const ign = SATELLITE_SOURCES.ign.boxes as Box[];
+    if (covered(ign, p)) expect(covered(swisstopoBoxes(), p)).toBe(true);
   });
 
   it('credits whoever draws Chamonix, which is IGN and not swisstopo', () => {

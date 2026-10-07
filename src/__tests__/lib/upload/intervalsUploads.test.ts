@@ -1,30 +1,38 @@
 /**
- * Scenario: a recording, or a manual entry, is handed to the write seam above
- * the engine.
+ * Scenario: the review save or Upload now hands a recording to the write seam
+ * above the engine, and an effort update goes the same way.
  *
- * Expected behaviour: the FIT goes up as a path rather than as bytes, the
- * optional title and calendar link travel with it, a refused write throws with
- * the outcome the queue branches on, and demo mode never reaches the network.
- * The multipart field names and the `Veloq` device tag are asserted in Rust,
- * where the body is actually built.
+ * Expected behaviour: the recording goes to the engine's one upload command by
+ * id, as the athlete's own request, and the screen gets the engine's answer
+ * back as it was given. Demo mode never reaches the engine: the ride is marked
+ * uploaded under a local id. The sequence itself, every transition and every
+ * request, is asserted in Rust, where it runs.
  */
 
-import { CallKind, engine } from 'veloqrs';
+import { CallKind, UploadOutcome, engine } from 'veloqrs';
 import {
-  uploadActivityFile,
-  createManualActivity,
+  uploadRecordingNow,
+  updateActivityRpe,
   UploadFailure,
 } from '@/features/recording/lib/upload/intervalsUploads';
-import type { ManualActivityData } from '@/types';
+import {
+  recordingInstall,
+  transitionRecording,
+} from '@/features/recording/lib/storage/recordingLibrary';
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
     engine: {
-      uploadActivityFile: jest.fn(),
-      createManualActivity: jest.fn(),
+      uploadRecording: jest.fn(),
+      updateActivityRpe: jest.fn(),
     },
   })
 );
+
+jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
+  recordingInstall: jest.fn(() => 4),
+  transitionRecording: jest.fn(),
+}));
 
 const mockAuthState = { isDemoMode: false, athleteId: 'i12345' };
 
@@ -33,135 +41,83 @@ jest.mock('@/shared/app/AuthStore', () => ({
   DEMO_ATHLETE_ID: 'demo',
 }));
 
-const mockUploadActivityFile = engine.uploadActivityFile as jest.Mock;
-const mockCreateManualActivity = engine.createManualActivity as jest.Mock;
-
-const OK = { kind: CallKind.Ok, id: 'i999', message: 'ok' };
+const mockUploadRecording = engine.uploadRecording as jest.Mock;
+const mockUpdateRpe = engine.updateActivityRpe as jest.Mock;
+const mockTransition = transitionRecording as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockAuthState.isDemoMode = false;
   mockAuthState.athleteId = 'i12345';
-  mockUploadActivityFile.mockResolvedValue(OK);
-  mockCreateManualActivity.mockResolvedValue(OK);
+  mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+  mockUpdateRpe.mockResolvedValue({ kind: CallKind.Ok, id: 'i999', message: 'ok' });
+  mockTransition.mockResolvedValue({ applied: true, retryCount: 0, install: 4 });
 });
 
-describe('uploadActivityFile', () => {
-  it('hands the engine the path on disk, not the bytes', async () => {
-    const id = await uploadActivityFile('file:///recordings/rec-1.fit', 'Morning Ride.fit');
+describe('uploadRecordingNow', () => {
+  it("hands the engine the ride's id as the athlete's own request", async () => {
+    await uploadRecordingNow('rec-1');
 
-    expect(mockUploadActivityFile).toHaveBeenCalledWith(
-      'file:///recordings/rec-1.fit',
-      'Morning Ride.fit',
-      undefined,
-      undefined
-    );
-    expect(id).toBe('i999');
+    expect(mockUploadRecording).toHaveBeenCalledWith('rec-1', true);
   });
 
-  it('forwards the activity name and the paired event when supplied', async () => {
-    await uploadActivityFile('file:///recordings/rec-1.fit', 'Morning Ride.fit', {
-      name: 'Bern loop',
-      pairedEventId: 4321,
+  it("answers the engine's outcome and detail as they were given", async () => {
+    mockUploadRecording.mockResolvedValue({
+      outcome: UploadOutcome.Rejected,
+      errorDetail: 'File type not supported',
     });
 
-    expect(mockUploadActivityFile).toHaveBeenCalledWith(
-      'file:///recordings/rec-1.fit',
-      'Morning Ride.fit',
-      'Bern loop',
-      4321
-    );
-  });
-
-  it('accepts a success the server did not put an id on', async () => {
-    // The activity is already upstream. Failing here would upload it twice.
-    mockUploadActivityFile.mockResolvedValue({ kind: CallKind.Ok, message: 'ok' });
-
-    await expect(
-      uploadActivityFile('file:///recordings/rec-1.fit', 'ride.fit')
-    ).resolves.toBeUndefined();
-  });
-
-  it('throws with the outcome attached when the write is refused', async () => {
-    mockUploadActivityFile.mockResolvedValue({
-      kind: CallKind.Http,
-      status: 403,
-      detail: 'No permission',
-      message: 'HTTP 403: No permission',
+    expect(await uploadRecordingNow('rec-1')).toEqual({
+      outcome: UploadOutcome.Rejected,
+      errorDetail: 'File type not supported',
     });
-
-    const thrown = await uploadActivityFile('file:///recordings/rec-1.fit', 'ride.fit').then(
-      () => null,
-      (e: unknown) => e as UploadFailure
-    );
-    expect(thrown).toBeInstanceOf(UploadFailure);
-    expect(thrown?.outcome.status).toBe(403);
-    expect(thrown?.message).toBe('HTTP 403: No permission');
   });
 
-  it('acknowledges the upload locally in demo mode without touching the engine', async () => {
+  it('marks the ride uploaded locally in demo mode without touching the engine', async () => {
     mockAuthState.isDemoMode = true;
-
-    const id = await uploadActivityFile('file:///recordings/rec-1.fit', 'ride.fit');
-
-    expect(id).toMatch(/^demo-\d+$/);
-    expect(mockUploadActivityFile).not.toHaveBeenCalled();
-  });
-});
-
-describe('createManualActivity', () => {
-  const ENTRY: ManualActivityData = {
-    type: 'WeightTraining',
-    name: 'Gym',
-    start_date_local: '2026-08-05T18:00:00',
-    elapsed_time: 3600,
-    average_heartrate: 112,
-  };
-
-  it('widens the screen shape to the record the engine takes', async () => {
-    await createManualActivity(ENTRY);
-
-    expect(mockCreateManualActivity).toHaveBeenCalledWith({
-      activityType: 'WeightTraining',
-      name: 'Gym',
-      startDateLocal: '2026-08-05T18:00:00',
-      elapsedTime: 3600,
-      movingTime: undefined,
-      distance: undefined,
-      totalElevationGain: undefined,
-      averageHeartrate: 112,
-      description: undefined,
-      trainer: undefined,
-      commute: undefined,
-    });
-  });
-
-  it('passes the flags through when the screen set them', async () => {
-    await createManualActivity({ ...ENTRY, trainer: true, commute: false, moving_time: 3000 });
-
-    const [sent] = mockCreateManualActivity.mock.calls[0];
-    expect(sent.trainer).toBe(true);
-    expect(sent.commute).toBe(false);
-    expect(sent.movingTime).toBe(3000);
-  });
-
-  it('throws with the outcome attached when the entry is refused', async () => {
-    mockCreateManualActivity.mockResolvedValue({
-      kind: CallKind.Http,
-      status: 400,
-      detail: 'Bad request',
-      message: 'HTTP 400: Bad request',
-    });
-
-    await expect(createManualActivity(ENTRY)).rejects.toBeInstanceOf(UploadFailure);
-  });
-
-  it('acknowledges the entry locally in demo mode', async () => {
     mockAuthState.athleteId = 'demo';
 
-    const id = await createManualActivity(ENTRY);
+    const result = await uploadRecordingNow('rec-1');
 
-    expect(id).toMatch(/^demo-\d+$/);
-    expect(mockCreateManualActivity).not.toHaveBeenCalled();
+    expect(result).toEqual({ outcome: UploadOutcome.Uploaded });
+    expect(mockUploadRecording).not.toHaveBeenCalled();
+    expect(mockTransition).toHaveBeenCalledWith('rec-1', {
+      kind: 'uploaded',
+      install: recordingInstall(),
+      intervalsActivityId: expect.stringMatching(/^demo-\d+$/),
+    });
+  });
+
+  it('answers that nothing started when demo mode finds the ride already settled', async () => {
+    mockAuthState.athleteId = 'demo';
+    mockTransition.mockResolvedValue({ applied: false, retryCount: 0, install: 4 });
+
+    expect(await uploadRecordingNow('rec-1')).toEqual({ outcome: UploadOutcome.NotStarted });
+  });
+});
+
+describe('updateActivityRpe', () => {
+  it('sets the effort on the activity by its intervals.icu id', async () => {
+    await updateActivityRpe('i999', 7);
+
+    expect(mockUpdateRpe).toHaveBeenCalledWith('i999', 7);
+  });
+
+  it('throws with the outcome attached when the server refuses it', async () => {
+    const refused = { kind: CallKind.Http, status: 400, detail: 'Bad', message: 'HTTP 400: Bad' };
+    mockUpdateRpe.mockResolvedValue(refused);
+
+    const thrown = await updateActivityRpe('i999', 7).catch((err: unknown) => err);
+
+    expect(thrown).toBeInstanceOf(UploadFailure);
+    expect((thrown as UploadFailure).outcome).toEqual(refused);
+  });
+
+  it('sends nothing in demo mode', async () => {
+    mockAuthState.isDemoMode = true;
+
+    await updateActivityRpe('i999', 7);
+
+    expect(mockUpdateRpe).not.toHaveBeenCalled();
   });
 });

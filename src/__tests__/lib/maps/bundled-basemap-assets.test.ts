@@ -1,86 +1,68 @@
 /**
  * Scenario: a map opens on a device with no radio and a cold WebView HTTP
  * cache, on a fresh install that has never had a map open.
- * Expected behaviour: the sprite and the Latin glyph ranges come out of the app
- * bundle, so the map draws its icons and place labels, and a range that is not
- * bundled still has a network path to fall back to.
+ * Expected behaviour: the style names the sprite and the glyphs on the page's own
+ * origin under `veloq-asset`, where the platform interceptor answers them out of
+ * the app bundle with no bridge round trip, and the app ships a file for every
+ * path the style can ask for.
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import {
-  bundledBasemapAsset,
   BUNDLED_GLYPH_RANGES,
   BUNDLED_GLYPH_STACKS,
+  BUNDLED_SPRITE_DIR,
   BUNDLED_SPRITE_FILES,
-} from '@/features/maps/lib/bundledBasemap';
-import {
-  resolveStyleForWebView,
-  TERRAIN_STYLE_OPTIONS,
-} from '@/features/maps/lib/htmlBuilders/styleResolution';
-import {
-  buildBundledAssetReplyScript,
-  buildMap3DHtml,
-  buildMapSurfaceHtml,
-} from '@/features/maps/lib/htmlBuilders';
+} from '@/features/maps/lib/bundledGlyphs';
+import { resolveStyleForWebView } from '@/features/maps/lib/htmlBuilders/styleResolution';
+import { buildMap3DHtml, buildMapSurfaceHtml } from '@/features/maps/lib/htmlBuilders';
+import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
-const bytesOf = (base64: string): Uint8Array => Uint8Array.from(Buffer.from(base64, 'base64'));
+const ASSET_ROOT = join(__dirname, '../../../../modules/veloqrs/assets/basemap');
 
-describe('bundledBasemapAsset', () => {
-  it('serves every glyph range the styles need at every weight', () => {
+describe('the bundled asset files', () => {
+  it('carries every glyph range the styles need at every weight', () => {
     for (const stack of BUNDLED_GLYPH_STACKS) {
       for (const range of BUNDLED_GLYPH_RANGES) {
-        const base64 = bundledBasemapAsset(`fonts/${stack}/${range}.pbf`);
-        expect(base64).not.toBeNull();
-        expect(bytesOf(base64 ?? '').length).toBeGreaterThan(1024);
+        const file = join(ASSET_ROOT, 'fonts', stack, `${range}.pbf`);
+        expect(existsSync(file)).toBe(true);
+        expect(readFileSync(file).length).toBeGreaterThan(1024);
       }
     }
   });
 
-  it('serves the sprite at both densities, JSON and image', () => {
+  it('carries the sprite at both densities, JSON and image', () => {
     for (const file of BUNDLED_SPRITE_FILES) {
-      const base64 = bundledBasemapAsset(`sprites/ofm_f384/${file}`);
-      expect(base64).not.toBeNull();
+      expect(existsSync(join(ASSET_ROOT, BUNDLED_SPRITE_DIR, file))).toBe(true);
     }
-    const png = bytesOf(bundledBasemapAsset('sprites/ofm_f384/ofm@2x.png') ?? '');
-    expect(Array.from(png.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
-    const json = JSON.parse(
-      Buffer.from(bundledBasemapAsset('sprites/ofm_f384/ofm.json') ?? '', 'base64').toString('utf8')
-    );
+    const png = readFileSync(join(ASSET_ROOT, BUNDLED_SPRITE_DIR, 'ofm@2x.png'));
+    expect(Array.from(png.subarray(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    const json = JSON.parse(readFileSync(join(ASSET_ROOT, BUNDLED_SPRITE_DIR, 'ofm.json'), 'utf8'));
     expect(Object.keys(json).length).toBeGreaterThan(0);
-  });
-
-  it('leaves a range it does not carry to the network', () => {
-    expect(bundledBasemapAsset('fonts/Noto Sans Regular/16384-16639.pbf')).toBeNull();
-    expect(bundledBasemapAsset('fonts/Noto Serif Regular/0-255.pbf')).toBeNull();
-  });
-
-  it('answers nothing outside the two directories it owns', () => {
-    expect(bundledBasemapAsset('../../secret.json')).toBeNull();
-    expect(bundledBasemapAsset('fonts/Noto Sans Regular/../../secret.pbf')).toBeNull();
-    expect(bundledBasemapAsset('planet/2/1/1.pbf')).toBeNull();
-    expect(bundledBasemapAsset('')).toBeNull();
   });
 });
 
 describe('style rewriting', () => {
   const remote = /tiles\.openfreemap\.org\/(fonts|sprites)/;
+  const assets = `${mapPageBaseUrl()}veloq-asset/`;
 
-  it('points the sprite and the glyphs at the bundle on every 2D style', () => {
+  it('points the sprite and the glyphs at the interceptor on every 2D style', () => {
     for (const style of ['light', 'dark', 'satellite'] as const) {
       const json = JSON.stringify(resolveStyleForWebView(style).inline);
       expect(json).not.toMatch(remote);
-      expect(json).toContain('bundled://fonts/{fontstack}/{range}.pbf');
+      expect(json).toContain(`${assets}fonts/{fontstack}/{range}.pbf`);
     }
     expect(JSON.stringify(resolveStyleForWebView('light').inline)).toContain(
-      'bundled://sprites/ofm_f384/ofm'
+      `${assets}sprites/ofm_f384/ofm`
     );
   });
 
-  it('leaves the snapshot surfaces on the network, they carry no protocol handler', () => {
-    const json = JSON.stringify(
-      resolveStyleForWebView('dark', { ...TERRAIN_STYLE_OPTIONS, bundledAssets: false }).inline
-    );
+  it('leaves assets on the network when asked for no bundled assets', () => {
+    const json = JSON.stringify(resolveStyleForWebView('dark', { bundledAssets: false }).inline);
     expect(json).toMatch(remote);
-    expect(json).not.toContain('bundled://');
+    expect(json).not.toContain('veloq-asset');
   });
 });
 
@@ -95,18 +77,11 @@ describe('the page', () => {
     buildMap3DHtml({ initialStyle: 'dark' } as never),
   ];
 
-  it('registers the protocol and keeps a network fallback', () => {
+  it('registers no asset protocol and asks the host for nothing', () => {
     for (const html of pages) {
-      expect(html).toContain("addProtocol('bundled'");
-      expect(html).toContain('bundledAssetRequest');
-      expect(html).toContain('https://tiles.openfreemap.org/');
+      expect(html).not.toContain("addProtocol('bundled'");
+      expect(html).not.toContain('bundledAssetRequest');
+      expect(html).not.toContain('_bundledRequests');
     }
-  });
-
-  it('resolves a pending request with bytes and rejects a missing one', () => {
-    const resolved = buildBundledAssetReplyScript('_ba_1', 'AAAA');
-    expect(resolved).toContain('_ba_1');
-    expect(resolved).toContain('AAAA');
-    expect(buildBundledAssetReplyScript('_ba_2', null)).toContain('fallback()');
   });
 });

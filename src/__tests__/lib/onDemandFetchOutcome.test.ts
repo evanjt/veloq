@@ -37,30 +37,41 @@ function host(ready: boolean, answer: unknown): DelegateHost {
 }
 
 test('a busy key is retryable and a missing credential is not', () => {
-  const busy = syncPowerCurve(host(true, StartOutcome.Busy), 'Ride', 90);
-  const unconfigured = syncPowerCurve(host(true, StartOutcome.NotConfigured), 'Ride', 90);
+  const busy = syncPowerCurve(host(true, { outcome: StartOutcome.Busy }), 'Ride', 90);
+  const unconfigured = syncPowerCurve(
+    host(true, { outcome: StartOutcome.NotConfigured }),
+    'Ride',
+    90
+  );
 
-  expect(busy).toBe(StartOutcome.Busy);
+  expect(busy).toEqual({ outcome: StartOutcome.Busy });
   expect(isRetryableStart(busy)).toBe(true);
-  expect(unconfigured).toBe(StartOutcome.NotConfigured);
+  expect(unconfigured).toEqual({ outcome: StartOutcome.NotConfigured });
   expect(isRetryableStart(unconfigured)).toBe(false);
+});
+
+test('a backed-off key carries its retry time through the delegate', () => {
+  const held = { outcome: StartOutcome.Held, retryAtMs: 1_500_000 };
+  expect(syncPowerCurve(host(true, held), 'Ride', 90)).toEqual(held);
 });
 
 test('an engine that is not open yet says so rather than refusing', () => {
   const outcome = syncActivityDetail(host(false, StartOutcome.Started), 'a1');
 
-  expect(outcome).toBe(StartOutcome.NotReady);
+  expect(outcome).toEqual({ outcome: StartOutcome.NotReady });
   expect(isRetryableStart(outcome)).toBe(true);
 });
 
 test('an empty list of time streams is no work, not a refusal to do it', () => {
-  const outcome = syncTimeStreams(host(true, StartOutcome.Started), []);
+  const outcome = syncTimeStreams(host(true, { outcome: StartOutcome.Started }), []);
 
-  expect(outcome).toBe(StartOutcome.NotOwed);
+  expect(outcome).toEqual({ outcome: StartOutcome.NotOwed });
   expect(isRetryableStart(outcome)).toBe(false);
   expect(hasStarted(outcome)).toBe(false);
 });
 
 test('a started fetch reads as started', () => {
-  expect(hasStarted(syncTimeStreams(host(true, StartOutcome.Started), ['a1']))).toBe(true);
+  expect(hasStarted(syncTimeStreams(host(true, { outcome: StartOutcome.Started }), ['a1']))).toBe(
+    true
+  );
 });

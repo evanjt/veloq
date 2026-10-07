@@ -9,11 +9,13 @@
 import { unifySections } from '@/features/routes/lib/unifySections';
 import type { FrequentSection, Section } from '@/features/routes/types';
 
+jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
+
 const engineRow = (over: Partial<FrequentSection> = {}): FrequentSection => ({
   id: 'custom_1',
   sectionType: 'custom',
   name: 'The climb',
-  sportType: 'Ride',
+  sportTypes: ['Ride'],
   polyline: [{ lat: 46.2, lng: 7.3 }],
   distanceMeters: 3000,
   activityIds: ['a1', 'a2'],
@@ -30,7 +32,7 @@ const storeRow = (over: Partial<Section> = {}): Section => ({
   id: 'custom_1',
   sectionType: 'custom',
   name: 'The climb',
-  sportType: 'Ride',
+  sportTypes: ['Ride'],
   polyline: [{ lat: 46.2, lng: 7.3 }],
   distanceMeters: 3000,
   activityIds: ['a1', 'a2'],
@@ -39,8 +41,8 @@ const storeRow = (over: Partial<Section> = {}): Section => ({
   ...over,
 });
 
-const unify = (engineSections: FrequentSection[], customSections: Section[] = []) =>
-  unifySections({ engineSections, customSections, includeCustom: true });
+const unify = (engineSections: FrequentSection[], _customStore: Section[] = []) =>
+  unifySections({ engineSections });
 
 describe('unifySections', () => {
   it('keeps the rank scores and elevation the engine row carries', () => {
@@ -56,28 +58,33 @@ describe('unifySections', () => {
     expect(unify([engineRow()], [storeRow()])).toHaveLength(1);
   });
 
-  it('puts a section the engine has not seen first, where it was just drawn', () => {
-    const fresh = storeRow({ id: 'custom_new', name: 'Just made' });
+  it('renders no custom section the engine page left out', () => {
+    const offPage = [
+      storeRow({ id: 'custom_2', name: 'Park loop' }),
+      storeRow({ id: 'custom_3', name: 'Harbour sprint' }),
+    ];
 
-    const ids = unify([engineRow()], [storeRow(), fresh]).map((s) => s.id);
+    const ids = unify([engineRow({ id: 'auto_41', sectionType: 'auto' })], offPage).map(
+      (s) => s.id
+    );
 
-    expect(ids).toEqual(['custom_new', 'custom_1']);
+    expect(ids).toEqual(['auto_41']);
   });
 
-  it('reads a prefixed id as custom even when the engine calls it auto', () => {
+  it('renders nothing for an empty engine page, whatever the custom store holds', () => {
+    expect(unify([], [storeRow()])).toEqual([]);
+  });
+
+  it('uses the engine type when a section id has a custom prefix', () => {
     const [section] = unify([engineRow({ sectionType: 'auto' })]);
 
-    expect(section.sectionType).toBe('custom');
+    expect(section.sectionType).toBe('auto');
   });
 
-  it('drops the custom store entirely when custom sections are excluded', () => {
-    const result = unifySections({
-      engineSections: [engineRow({ id: 'auto_1', sectionType: 'auto' })],
-      customSections: [storeRow()],
-      includeCustom: false,
-    });
+  it('keeps a custom section whose id has no custom prefix', () => {
+    const [section] = unify([engineRow({ id: 'foreign-id', sectionType: 'custom' })]);
 
-    expect(result.map((s) => s.id)).toEqual(['auto_1']);
+    expect(section.sectionType).toBe('custom');
   });
 
   it("regroups nothing, because the order it was given is the query's answer", () => {
@@ -105,5 +112,15 @@ describe('unifySections', () => {
     const [section] = unify([engineRow({ name: 'Renamed in the app' })], [storeRow()]);
 
     expect(section.name).toBe('Renamed in the app');
+  });
+});
+
+describe('a section the engine sends without a name', () => {
+  it('stays unnamed rather than being described from its terrain', () => {
+    const [section] = unify([
+      engineRow({ id: 'auto_1', sectionType: 'auto', name: undefined, klass: 'climb' }),
+    ]);
+
+    expect(section.name ?? '').toBe('');
   });
 });

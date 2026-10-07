@@ -6,21 +6,17 @@
  *
  * Expected behaviour: on Android the raster source asks the interceptor for an
  * ordinary URL, which Rust answers off disk, and on iOS it asks the scheme
- * handler on the page's custom-scheme origin. Where nothing can claim the URL
- * the source keeps the `heatmap-file` protocol.
+ * handler on the page's custom-scheme origin.
  */
 
 import { Platform } from 'react-native';
 
-import {
-  HEATMAP_TILE_PROTOCOL_URL,
-  heatmapTileTemplate,
-} from '@/features/maps/hooks/useHeatmapTiles';
+import { heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { nativeHeatmapTileUrl } from '@/features/maps/lib/tileTransport';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides({}));
 
-function onPlatform(os: 'android' | 'ios' | 'web') {
+function onPlatform(os: 'android' | 'ios') {
   Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
 }
 
@@ -39,13 +35,6 @@ describe('where the page asks for a heatmap tile', () => {
 
     expect(nativeHeatmapTileUrl()).toBe('veloq-tile://map/veloq-tile/heatmap/{z}/{x}/{y}.png');
     expect(heatmapTileTemplate()).toBe(nativeHeatmapTileUrl());
-  });
-
-  it('keeps the bridge protocol where nothing can intercept', () => {
-    onPlatform('web');
-
-    expect(nativeHeatmapTileUrl()).toBeNull();
-    expect(heatmapTileTemplate()).toBe(HEATMAP_TILE_PROTOCOL_URL);
   });
 
   it('hands Rust no template, because the heatmap is drawn rather than fetched', () => {

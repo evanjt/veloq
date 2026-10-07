@@ -16,7 +16,7 @@ const noWait = () => Promise.resolve();
 /** A stand-in for the engine's queue: several runs, each with its own counters. */
 function queue(runs: Record<string, { completed: number; total: number }[]>) {
   const left = { ...runs };
-  return (run: bigint) => {
+  return (run: number) => {
     const readings = left[run.toString()];
     const next = readings?.shift();
     return next ? { active: true, ...next } : { active: false, completed: 0, total: 0 };
@@ -31,12 +31,12 @@ describe('polling one download run', () => {
     });
 
     const outcome = await pollDownloadProgress({
-      read: runProgressReader(2n, read),
+      read: runProgressReader(2, read),
       wait: noWait,
     });
 
     expect(outcome).toBe('settled');
-    expect(read(1n).active).toBe(true);
+    expect(read(1).active).toBe(true);
   });
 
   it('reports the caller’s own counters, not the queue head’s', async () => {
@@ -49,7 +49,7 @@ describe('polling one download run', () => {
     });
 
     await pollDownloadProgress({
-      read: runProgressReader(2n, read),
+      read: runProgressReader(2, read),
       wait: noWait,
       onProgress: (p) => seen.push(p.completed),
     });

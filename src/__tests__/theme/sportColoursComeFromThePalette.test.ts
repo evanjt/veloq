@@ -19,12 +19,3 @@ it('reads each sport colour off the palette', () => {
 it('covers every sport the preference can hold', () => {
   expect(Object.keys(SPORT_COLORS).sort()).toEqual(['Cycling', 'Running', 'Swimming']);
 });
-
-it('carries no colour of its own', () => {
-  const source = require('node:fs').readFileSync(
-    require('node:path').join(__dirname, '../../features/fitness/stores/SportPreferenceStore.ts'),
-    'utf8'
-  );
-
-  expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
-});

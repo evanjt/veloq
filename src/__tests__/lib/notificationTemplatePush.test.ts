@@ -2,7 +2,7 @@
  * Scenario: a push arrives with the app killed. The native handler builds the
  * body in Rust, and the crate holds no locale bundles of its own.
  *
- * Expected behaviour: whatever locale the app was last running in, the fifteen
+ * Expected behaviour: whatever locale the app was last running in, the seventeen
  * resolved templates are already in the engine, and a bundle that has not
  * loaded yet is never the thing that gets stored.
  */
@@ -50,7 +50,9 @@ describe('pushNotificationTemplates', () => {
     const byKey = new Map<string, string>(
       templates.map((pair: { key: string; value: string }) => [pair.key, pair.value])
     );
-    expect(byKey.get('notifications.activityBody.onRoute')).toBe('On {{name}}');
+    expect(byKey.get('notifications.activityBody.fasterOnRoute')).toBe(
+      'Faster than usual on {{name}}'
+    );
     expect(byKey.get('notifications.activityBody.routePrDelta')).toBe(
       'Route PR on {{name}} ({{delta}} faster)'
     );
@@ -73,11 +75,11 @@ describe('pushNotificationTemplates', () => {
 
     const [locale, templates] = setNotificationTemplates.mock.calls[0];
     expect(locale).toBe('ja');
-    const onRoute = templates.find(
-      (pair: { key: string }) => pair.key === 'notifications.activityBody.onRoute'
+    const fasterOnRoute = templates.find(
+      (pair: { key: string }) => pair.key === 'notifications.activityBody.fasterOnRoute'
     );
-    expect(onRoute.value).not.toBe('On {{name}}');
-    expect(onRoute.value).not.toBe('notifications.activityBody.onRoute');
+    expect(fasterOnRoute.value).not.toBe('Faster than usual on {{name}}');
+    expect(fasterOnRoute.value).not.toBe('notifications.activityBody.fasterOnRoute');
   });
 
   it('writes nothing when there is no engine', () => {
@@ -97,28 +99,23 @@ describe('pushNotificationTemplates', () => {
   });
 });
 
-describe('the locale bundles', () => {
-  it('carry every template key', () => {
+// Every other locale is held to the reference one in translations.test.ts.
+describe('the reference locale', () => {
+  it('carries every template key', () => {
     const fs = require('fs');
     const path = require('path');
-    const dir = path.join(__dirname, '../../i18n/locales');
-    const files = fs.readdirSync(dir).filter((name: string) => name.endsWith('.json'));
-
-    expect(files.length).toBeGreaterThan(0);
-    for (const file of files) {
-      const bundle = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
-      for (const key of NOTIFICATION_TEMPLATE_KEYS) {
-        const value = key
-          .split('.')
-          .reduce<unknown>(
-            (node, part) =>
-              node && typeof node === 'object'
-                ? (node as Record<string, unknown>)[part]
-                : undefined,
-            bundle
-          );
-        expect(`${file}: ${key} is ${typeof value}`).toBe(`${file}: ${key} is string`);
-      }
+    const bundle = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '../../i18n/locales/en-GB.json'), 'utf8')
+    );
+    for (const key of NOTIFICATION_TEMPLATE_KEYS) {
+      const value = key
+        .split('.')
+        .reduce<unknown>(
+          (node, part) =>
+            node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined,
+          bundle
+        );
+      expect(`${key} is ${typeof value}`).toBe(`${key} is string`);
     }
   });
 });

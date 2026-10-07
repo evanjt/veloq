@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { render, renderHook, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useExerciseSets } from '@/features/strength/hooks/useExerciseSets';
@@ -21,6 +21,11 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+const mockRouterPush = jest.fn();
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useRouter: () => ({ push: mockRouterPush }),
+}));
 
 const engine = {
   getExerciseSets: jest.fn(),
@@ -43,18 +48,26 @@ const aSet = {
   setOrder: 0,
   exerciseCategory: 0,
   exerciseName: 1,
+  displayName: 'Engine Squat',
   setType: 0,
   repetitions: 10,
   weightKg: 60,
-  durationSecs: null,
-  startTime: null,
 };
+
+const sessionOf = (sets: unknown[]) => ({
+  sets,
+  groups: [],
+  activeSetCount: sets.length,
+  exerciseCount: 0,
+  totalVolumeKg: 0,
+  totalDurationSecs: 0,
+});
 
 beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.getExerciseSets.mockReturnValue([]);
+  engine.getExerciseSets.mockReturnValue(sessionOf([]));
   engine.isFitProcessed.mockReturnValue(false);
   engine.fetchAndParseExerciseSets.mockReturnValue(true);
 });
@@ -80,7 +93,7 @@ describe('the exercise sets hook', () => {
   });
 
   it('says loaded when there are sets, whatever the status row says', async () => {
-    engine.getExerciseSets.mockReturnValue([aSet]);
+    engine.getExerciseSets.mockReturnValue(sessionOf([aSet]));
 
     const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
 
@@ -125,5 +138,56 @@ describe('the exercise table with no sets', () => {
     );
 
     await waitFor(() => expect(tree.toJSON()).toBeNull());
+  });
+});
+
+describe('the exercise table with sets', () => {
+  /**
+   * Expected behaviour: the totals row and the exercise count show the
+   * engine's session figures, whatever the raw sets would sum to here.
+   */
+  it('shows the engine session totals and groups', async () => {
+    engine.getExerciseSets.mockReturnValue({
+      sets: [aSet],
+      groups: [
+        {
+          name: 'Engine Squat',
+          exerciseCategory: 0,
+          sets: [aSet],
+          restSeconds: [60],
+          bestSet: aSet,
+        },
+      ],
+      activeSetCount: 7,
+      exerciseCount: 1,
+      totalVolumeKg: 4321,
+      totalDurationSecs: 0,
+    });
+
+    render(
+      <ExerciseTable
+        activityId="act1"
+        activityType="WeightTraining"
+        isDark={false}
+        exerciseGroups={[
+          {
+            name: 'Engine Squat',
+            exerciseCategory: 0,
+            sets: [{ ...aSet, weightKg: 70 }],
+            bestSet: { ...aSet, weightKg: 70 },
+            restSeconds: [180],
+          },
+        ]}
+      />,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(screen.getByText('Engine Squat')).toBeTruthy());
+    expect(screen.getByText('9526.2 lbs')).toBeTruthy();
+    expect(screen.getByText(/strength.bestSet/)).toBeTruthy();
+    expect(screen.getByText(/strength.restBetweenSets: 1:00/)).toBeTruthy();
+    expect(screen.queryByText(/strength.restBetweenSets: 3:00/)).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'strength.history' }));
+    expect(mockRouterPush).toHaveBeenCalledWith('/exercise/0');
   });
 });

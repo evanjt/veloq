@@ -20,8 +20,7 @@ function track(count: number): RecordingGpsPoint[] {
 
 const base = {
   now: 1_700_000_600_000,
-  startTime: 1_700_000_000_000,
-  pausedDurationMs: 0,
+  movingMs: 600_000,
   distanceLabel: '12.4 km',
   speedLabel: '28.1 km/h',
   gps: track(20),
@@ -29,7 +28,7 @@ const base = {
 
 describe('buildContentState', () => {
   it('counts the timer from a start net of paused time', () => {
-    const state = buildContentState({ ...base, status: 'recording', pausedDurationMs: 90_000 });
+    const state = buildContentState({ ...base, status: 'recording', movingMs: 510_000 });
 
     expect(state.status).toBe('recording');
     expect(state.frozenElapsedS).toBeNull();
@@ -38,7 +37,7 @@ describe('buildContentState', () => {
   });
 
   it('freezes the elapsed seconds while paused, because a running timer would lie', () => {
-    const state = buildContentState({ ...base, status: 'paused', pausedDurationMs: 60_000 });
+    const state = buildContentState({ ...base, status: 'paused', movingMs: 540_000 });
 
     expect(state.status).toBe('paused');
     expect(state.frozenElapsedS).toBe(540);

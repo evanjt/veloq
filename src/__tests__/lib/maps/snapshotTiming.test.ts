@@ -22,7 +22,19 @@ import {
   snapshotPageMetric,
   snapshotRenderMetric,
 } from '@/features/maps/lib/snapshotTiming';
-import { getFFIMetricsSummary } from '@/shared/debug/renderTimer';
+import {
+  clearFFIMetrics,
+  getFFIMetrics,
+  getFFIMetricsSummary,
+  setAppMetricsEnabled,
+} from '@/shared/debug/renderTimer';
+
+beforeEach(() => {
+  clearFFIMetrics();
+  setAppMetricsEnabled(true);
+});
+
+afterAll(() => setAppMetricsEnabled(false));
 
 describe('the names a reader looks for in the table', () => {
   it('names the four stages', () => {
@@ -165,5 +177,23 @@ describe('source counts in the metrics ring', () => {
       avgMs: 8,
       maxMs: 13,
     });
+  });
+});
+
+describe('with Debug Mode off', () => {
+  it('leaves the ring empty from every preview recorder', () => {
+    setAppMetricsEnabled(false);
+    recordSnapshotTiming(SNAPSHOT_WAIT, 1000, 1500);
+    recordSnapshotPhases({ style: 10, encode: 20 });
+    recordSnapshotTiles({ terrain: { loaded: 3 } });
+    expect(getFFIMetrics()).toEqual([]);
+  });
+
+  it('records again once Debug Mode is switched on', () => {
+    setAppMetricsEnabled(false);
+    recordSnapshotTiming(SNAPSHOT_WAIT, 1000, 1500);
+    setAppMetricsEnabled(true);
+    recordSnapshotTiming(SNAPSHOT_WAIT, 1000, 1500);
+    expect(getFFIMetrics().map((m) => m.name)).toEqual([SNAPSHOT_WAIT]);
   });
 });

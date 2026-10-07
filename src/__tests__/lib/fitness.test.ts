@@ -1,52 +1,4 @@
-import { calculateTSB, getFormZone, type FormZone } from '@/features/fitness/lib/fitness';
-import type { WellnessData } from '@/types';
-
-describe('calculateTSB', () => {
-  it('calculates TSB as CTL minus ATL', () => {
-    const wellness: WellnessData[] = [
-      { id: '1', ctl: 50, atl: 40 } as WellnessData,
-      { id: '2', ctl: 60, atl: 80 } as WellnessData,
-      { id: '3', ctl: 45, atl: 45 } as WellnessData,
-    ];
-
-    const result = calculateTSB(wellness);
-
-    expect(result[0].tsb).toBe(10); // 50 - 40
-    expect(result[1].tsb).toBe(-20); // 60 - 80
-    expect(result[2].tsb).toBe(0); // 45 - 45
-  });
-
-  it('handles missing CTL/ATL values', () => {
-    const wellness: WellnessData[] = [{ id: '1' } as WellnessData];
-
-    const result = calculateTSB(wellness);
-
-    expect(result[0].tsb).toBe(0); // 0 - 0
-  });
-
-  // `ctlLoad` is the day's own load, measured over 1,900 API days as a
-  // different quantity from `ctl` rather than a second spelling of it, so a
-  // day that carries one and not the other has no form.
-  it('reads no form from a day that carries only its daily load', () => {
-    const wellness = [{ id: '1', ctlLoad: 50, atlLoad: 30 }] as unknown as WellnessData[];
-
-    const result = calculateTSB(wellness);
-
-    expect(result[0].tsb).toBe(0);
-  });
-
-  it('preserves original wellness data fields', () => {
-    const wellness: WellnessData[] = [{ id: '1', ctl: 50, atl: 40, weight: 70 } as WellnessData];
-
-    const result = calculateTSB(wellness);
-
-    expect(result[0].id).toBe('1');
-    expect(result[0].ctl).toBe(50);
-    expect(result[0].atl).toBe(40);
-    expect(result[0].weight).toBe(70);
-    expect(result[0].tsb).toBe(10);
-  });
-});
+import { getFormZone, formatForm, type FormZone } from '@/features/fitness/lib/fitness';
 
 describe('getFormZone', () => {
   const testCases: { tsb: number; expected: FormZone }[] = [
@@ -80,5 +32,33 @@ describe('getFormZone', () => {
     for (const { tsb, expected } of testCases) {
       expect(getFormZone(tsb)).toBe(expected);
     }
+  });
+});
+
+describe('formatForm', () => {
+  it('prints the percentage of fitness with a suffix, in the zone getFormZone names', () => {
+    expect(formatForm(-8, 40, true)).toBe('-20%');
+    expect(getFormZone(-8, 40, true)).toBe('optimal');
+    expect(formatForm(10, 40, true)).toBe('+25%');
+    expect(formatForm(0, 40, true)).toBe('0%');
+  });
+
+  it('prints the absolute TSB, signed, when the percentage setting is off', () => {
+    expect(formatForm(-8, 40, false)).toBe('-8');
+    expect(formatForm(5, 40, false)).toBe('+5');
+    expect(formatForm(0, 40)).toBe('0');
+  });
+
+  it('prints no number for a day with no fitness under the percentage setting', () => {
+    expect(formatForm(-8, 0, true)).toBeNull();
+    expect(formatForm(-8, null, true)).toBeNull();
+    expect(formatForm(-8, undefined, true)).toBeNull();
+    expect(formatForm(-8, 0, false)).toBe('-8');
+  });
+
+  it('rounds the percentage to an integer, and a rounding to zero carries no sign', () => {
+    expect(formatForm(-1, 300, true)).toBe('0%');
+    expect(formatForm(1, 300, true)).toBe('0%');
+    expect(formatForm(-7.2, 40, true)).toBe('-18%');
   });
 });

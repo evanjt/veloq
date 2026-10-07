@@ -10,7 +10,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 
 import { getEngine } from '@/shared/native/engine';
-import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { useSyncLastError, useSyncState, useSyncStatus } from '@/shared/native/useSyncStatus';
 import { SyncState, type SyncStatus } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -58,12 +58,12 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('reads once at mount and never on a timer', () => {
-  const engine = fakeEngine(status(SyncState.Syncing, 0));
+it('reads once at mount and never on a timer while idle', () => {
+  const engine = fakeEngine(status(SyncState.Idle, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
   const { result } = renderHook(() => useSyncStatus());
-  expect(result.current?.state).toBe(SyncState.Syncing);
+  expect(result.current?.state).toBe(SyncState.Idle);
   expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
 
   act(() => {
@@ -107,4 +107,46 @@ it('drops its subscriptions on unmount', () => {
 
   const live = [...engine.listeners.values()].reduce((n, set) => n + set.size, 0);
   expect(live).toBe(0);
+});
+
+it('does not re-render a state consumer for progress within the same state', () => {
+  const engine = fakeEngine(status(SyncState.Syncing, 0));
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+  let renders = 0;
+  const { result } = renderHook(() => {
+    renders += 1;
+    return useSyncState();
+  });
+  const first = renders;
+
+  engine.setSnapshot(status(SyncState.Syncing, 2));
+  act(() => engine.announce('syncProgress'));
+  expect(result.current).toBe(SyncState.Syncing);
+  expect(renders).toBe(first);
+
+  engine.setSnapshot(status(SyncState.Idle, 3));
+  act(() => engine.announce('syncSettled'));
+  expect(result.current).toBe(SyncState.Idle);
+  expect(renders).toBe(first + 1);
+});
+
+it('does not re-render a last-error consumer for progress while the error is unchanged', () => {
+  const engine = fakeEngine(status(SyncState.Syncing, 0));
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+  let renders = 0;
+  const { result } = renderHook(() => {
+    renders += 1;
+    return useSyncLastError();
+  });
+  const first = renders;
+
+  engine.setSnapshot(status(SyncState.Syncing, 2));
+  act(() => engine.announce('syncProgress'));
+  expect(renders).toBe(first);
+  expect(result.current).toBeUndefined();
+
+  engine.setSnapshot({ ...status(SyncState.Idle, 2), lastError: 'offline' } as SyncStatus);
+  act(() => engine.announce('syncSettled'));
+  expect(result.current).toBe('offline');
+  expect(renders).toBe(first + 1);
 });

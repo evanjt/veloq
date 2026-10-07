@@ -7,7 +7,7 @@
  * day table, and every picker in the app draws its options from it.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
@@ -71,17 +71,14 @@ describe('what a period is', () => {
     }
   });
 
-  it('labels every period in every locale, short and long', () => {
-    const files = readdirSync(LOCALES).filter((f) => f.endsWith('.json'));
-    expect(files.length).toBeGreaterThanOrEqual(17);
-    for (const file of files) {
-      const locale = JSON.parse(readFileSync(resolve(LOCALES, file), 'utf-8'));
-      for (const form of ['short', 'long'] as const) {
-        for (const key of Object.values(PERIOD_LABEL_KEYS[form])) {
-          const label = valueAt(locale, key);
-          expect(typeof label).toBe('string');
-          expect((label as string).length).toBeGreaterThan(0);
-        }
+  // Every other locale is held to the reference one in translations.test.ts.
+  it('labels every period in the reference locale, short and long', () => {
+    const locale = JSON.parse(readFileSync(resolve(LOCALES, 'en-GB.json'), 'utf-8'));
+    for (const form of ['short', 'long'] as const) {
+      for (const key of Object.values(PERIOD_LABEL_KEYS[form])) {
+        const label = valueAt(locale, key);
+        expect(typeof label).toBe('string');
+        expect((label as string).length).toBeGreaterThan(0);
       }
     }
   });
@@ -118,12 +115,10 @@ describe('what a period is', () => {
  * on the next.
  *
  * Expected behaviour: every picker opens on `DEFAULT_PERIOD`, the map opens on
- * All, and no screen names its opening window with a literal, which is how the
- * four drifted apart in the first place.
+ * All. That no screen names its opening window with a literal, which is how
+ * the four drifted apart in the first place, is `lint:picker-default-period`.
  */
 describe('what a picker opens on', () => {
-  const READ = (path: string) => readFileSync(resolve(__dirname, '../../..', path), 'utf8');
-
   it('is six months, and every picker that shares the default offers it', () => {
     expect(DEFAULT_PERIOD).toBe('6m');
     for (const options of [TIME_RANGES, SECTION_TIME_RANGES, STRENGTH_PERIODS]) {
@@ -134,27 +129,5 @@ describe('what a picker opens on', () => {
   it('is All on the map, which is the one exception', () => {
     expect(DEFAULT_MAP_PERIOD).toBe('all');
     expect(MAP_PERIODS.map((o) => o.id)).toContain(DEFAULT_MAP_PERIOD);
-  });
-
-  it.each([
-    ['src/app/(tabs)/fitness.tsx', 'DEFAULT_PERIOD'],
-    ['src/app/(tabs)/training.tsx', 'DEFAULT_PERIOD'],
-    ['src/features/routes/hooks/useSectionUIState.ts', 'DEFAULT_PERIOD'],
-    ['src/features/insights/components/StrengthTab.tsx', 'DEFAULT_PERIOD'],
-    ['src/app/(tabs)/map.tsx', 'DEFAULT_MAP_PERIOD'],
-  ])('%s opens on %s and not on a literal of its own', (path, constant) => {
-    const source = READ(path);
-    const initialiser = source.match(
-      /useState<(?:TimeRange|SectionTimeRange|StrengthPeriod|MapPeriod)>\(([^)]*)\)/
-    );
-    expect(initialiser).not.toBeNull();
-
-    // The window the screen falls back to is the shared constant. A screen may
-    // open on something a link handed it, `entryRange ?? DEFAULT_PERIOD` on the
-    // fitness tab, but the fallback is still the constant and never a period
-    // spelled out here, which is how the four drifted apart.
-    const expression = initialiser?.[1].trim() ?? '';
-    expect(expression.endsWith(constant)).toBe(true);
-    expect(expression).not.toMatch(/['"`]/);
   });
 });

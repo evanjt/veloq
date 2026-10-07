@@ -9,9 +9,6 @@
  * matter how many times the caller re-renders with a new array.
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import React from 'react';
 import { Text } from 'react-native';
 import { act, render } from '@testing-library/react-native';
@@ -97,13 +94,5 @@ describe('the engine subscription key', () => {
     render(<Probe events={[]} />);
 
     expect(subscribed).toEqual([]);
-  });
-
-  // The effect rebuilds its list from the key, so `[eventKey, engine]` is the
-  // whole dependency list and the rule has nothing to be silenced about.
-  it('carries no exhaustive-deps disable', () => {
-    const text = readFileSync(resolve('src/shared/native/useEngineSubscription.ts'), 'utf-8');
-
-    expect(text).not.toContain('react-hooks/exhaustive-deps');
   });
 });

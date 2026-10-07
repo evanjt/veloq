@@ -5,6 +5,7 @@
  * renders a raw `{{count}}` next to a Download button.
  */
 
+import { resolvedLocale } from './resolvedLocale';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -22,9 +23,32 @@ const locales = fs
   .map((f) => f.replace('.json', ''));
 
 function settingsOf(locale: string): Record<string, string> {
-  const raw = fs.readFileSync(path.join(LOCALES_DIR, `${locale}.json`), 'utf-8');
-  return JSON.parse(raw).settings as Record<string, string>;
+  return resolvedLocale(locale).settings as unknown as Record<string, string>;
 }
+
+function feedOf(locale: string): Record<string, string> {
+  return resolvedLocale(locale).feed as unknown as Record<string, string>;
+}
+
+describe('stream consent card strings', () => {
+  describe.each(locales)('%s', (locale) => {
+    const feed = feedOf(locale);
+
+    it('keeps the count and megabytes the engine reports', () => {
+      for (const form of [feed.streamConsentBody_one, feed.streamConsentBody_other]) {
+        expect(form).toContain('{{count}}');
+        expect(form).toContain('{{megabytes}}');
+      }
+    });
+
+    it.each(['streamConsentTitle', 'streamConsentDownload', 'streamConsentDecline'])(
+      'carries %s',
+      (key) => {
+        expect(feed[key]).toBeTruthy();
+      }
+    );
+  });
+});
 
 describe('stream backfill strings', () => {
   describe.each(locales)('%s', (locale) => {

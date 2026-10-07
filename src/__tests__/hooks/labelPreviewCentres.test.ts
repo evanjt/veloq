@@ -1,9 +1,8 @@
 /**
- * Scenario: the picker shows a name for each riding area. The name is joined
- * in the engine, so all that is left here is what happens when it has none.
- * Expected behaviour: an unnamed centre gets a letter in the order it is
- * shown. Letters rather than numbers, because the areas are arbitrary clusters
- * and a number reads as a rank the athlete can act on.
+ * Scenario: the picker labels each riding area.
+ * Expected behaviour: every area gets a letter in the order it is shown.
+ * Letters rather than numbers, because the areas are arbitrary clusters and a
+ * number reads as a rank the athlete can act on.
  */
 
 import { labelPreviewCentres } from '@/features/routes/lib/labelPreviewCentres';
@@ -17,38 +16,28 @@ function centre(over: Partial<PreviewCentre>): PreviewCentre {
     visitTotal: 5,
     sectionCount: 2,
     source: 'sections',
-    locality: null,
     ...over,
   };
 }
 
 describe('labelPreviewCentres', () => {
-  it('takes the name the engine joined for the area', () => {
-    const [label] = labelPreviewCentres([centre({ binKey: 'a', locality: 'Winterthur' })]);
-
-    expect(label.label).toBe('Winterthur');
-  });
-
-  it('leaves a centre the engine could not name without one', () => {
-    const [label] = labelPreviewCentres([centre({ binKey: 'a', locality: null })]);
-
-    expect(label.label).toBeNull();
-  });
-
-  it('letters the fallbacks in the order the picker shows them', () => {
+  it('letters every area A, B, C in the order given and carries no other label', () => {
     const labels = labelPreviewCentres([
-      centre({ binKey: '9:9', locality: null }),
-      centre({ binKey: '1:1', locality: 'Uster' }),
-      centre({ binKey: '5:5', locality: null }),
+      centre({ binKey: '9:9' }),
+      centre({ binKey: '1:1' }),
+      centre({ binKey: '5:5' }),
     ]);
 
-    expect(labels.map((l) => l.fallbackLetter)).toEqual(['A', 'B', 'C']);
-    expect(labels.map((l) => l.label)).toEqual([null, 'Uster', null]);
+    expect(labels).toEqual([
+      { binKey: '9:9', fallbackLetter: 'A' },
+      { binKey: '1:1', fallbackLetter: 'B' },
+      { binKey: '5:5', fallbackLetter: 'C' },
+    ]);
   });
 
   it('carries on past Z rather than running out of letters', () => {
     const labels = labelPreviewCentres(
-      Array.from({ length: 29 }, (_, i) => centre({ binKey: String(i), locality: null }))
+      Array.from({ length: 29 }, (_, i) => centre({ binKey: String(i) }))
     );
 
     expect(labels[25].fallbackLetter).toBe('Z');
@@ -57,7 +46,7 @@ describe('labelPreviewCentres', () => {
   });
 
   it('gives the only area a letter too, rather than leaving it bare', () => {
-    const [label] = labelPreviewCentres([centre({ binKey: 'a', locality: null })]);
+    const [label] = labelPreviewCentres([centre({ binKey: 'a' })]);
 
     expect(label.fallbackLetter).toBe('A');
   });

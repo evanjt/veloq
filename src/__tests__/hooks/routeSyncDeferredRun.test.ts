@@ -10,12 +10,13 @@
  * in that session.
  */
 import { act, renderHook } from '@testing-library/react-native';
-import { InteractionManager } from 'react-native';
+import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { resetGlobalSyncState } from '@/features/routes/hooks/useRouteSyncContext';
 import { getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import type { Activity } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -25,6 +26,7 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: true }),
+  useIsOnline: () => true,
 }));
 const mockFetchApiGps = jest.fn();
 jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
@@ -49,24 +51,20 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
   return { promise, resolve };
 }
 
+let idle: IdleScheduler;
+
 describe('a run refused while another is in flight', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetGlobalSyncState();
     // The run has to start inside the act() that triggers it. The queue the
     // real manager keeps is not what this test is about.
-    jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((task) => {
-      (task as () => void)();
-      return {
-        then: () => Promise.resolve(),
-        done: () => {},
-        cancel: () => {},
-      } as unknown as ReturnType<typeof InteractionManager.runAfterInteractions>;
-    });
+    idle = stubIdleScheduler('immediate');
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     mockGetNativeModule.mockReturnValue({
       engine: {
         getActivityIds: () => [],
+        getRefusedTrackIds: () => [],
         getUnprocessedStrengthIds: () => [],
         batchFetchExerciseSets: () => 0,
         pollSectionDetection: () => 'idle',
@@ -76,6 +74,7 @@ describe('a run refused while another is in flight', () => {
   });
 
   afterEach(() => {
+    idle.restore();
     jest.restoreAllMocks();
   });
 
@@ -144,5 +143,26 @@ describe('a run refused while another is in flight', () => {
     });
 
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a sync with no native module', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetGlobalSyncState();
+    useSyncDateRange.setState({ lastSyncTimestamp: null });
+    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+    mockGetNativeModule.mockReturnValue(null as unknown as ReturnType<typeof getNativeModule>);
+  });
+
+  it('ends in error and stamps no last sync', async () => {
+    const { result } = renderHook(() => useRouteDataSync([activity('a1')], true));
+    await act(async () => {
+      await result.current.syncActivities([activity('a1')]);
+    });
+
+    expect(useSyncDateRange.getState().gpsSyncProgress.status).toBe('error');
+    expect(useSyncDateRange.getState().lastSyncTimestamp).toBeNull();
+    expect(mockFetchApiGps).not.toHaveBeenCalled();
   });
 });

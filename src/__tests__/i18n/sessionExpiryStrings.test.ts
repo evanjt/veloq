@@ -9,6 +9,7 @@
  * says either would be claiming something the server never said.
  */
 
+import { resolvedLocale } from './resolvedLocale';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -20,8 +21,7 @@ const locales = fs
   .map((f) => f.replace('.json', ''));
 
 function loginOf(locale: string): Record<string, string> {
-  const raw = fs.readFileSync(path.join(LOCALES_DIR, `${locale}.json`), 'utf-8');
-  return JSON.parse(raw).login as Record<string, string>;
+  return resolvedLocale(locale).login as Record<string, string>;
 }
 
 describe('session expiry strings', () => {

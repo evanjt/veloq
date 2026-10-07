@@ -8,7 +8,7 @@
  * date will not parse travels as undefined rather than as a wrong number.
  */
 
-import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
+import { activityStartEpoch } from '@/shared/activity/streamWindow';
 
 describe('activityStartEpoch', () => {
   it('converts a local start date to epoch seconds', () => {

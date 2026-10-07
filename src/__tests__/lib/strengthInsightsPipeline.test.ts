@@ -5,12 +5,18 @@
  * `maxPerCategory` and counted against `maxTotal`, with no private
  * score-and-pick of their own.
  */
+import { resolvedLocale } from '../i18n/resolvedLocale';
 import { generateInsights } from '@/features/insights/lib/generateInsights';
 import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import type { StrengthProgressionRecord, StrengthSummary } from '@/features/strength/types';
 
+const en = resolvedLocale('en-AU');
+
+const english = en as unknown as { strength: Record<string, Record<string, string>> };
 const t = (key: string, params?: Record<string, string | number>) => {
+  const [, group, name] = key.match(/^strength\.(muscles|balancePairs)\.(\w+)$/) ?? [];
+  if (group) return english.strength[group][name];
   if (!params) return key;
   return `${key}:${JSON.stringify(params)}`;
 };
@@ -27,7 +33,7 @@ function makeSummary(
       secondarySets: 0,
       weightedSets: muscle.weightedSets,
       totalReps: 0,
-      totalWeightKg: 0,
+      volumeKg: 0,
       exerciseNames: [],
     })),
     activityCount,
@@ -60,6 +66,9 @@ function growingProgressions(): StrengthProgressionRecord[] {
     peakWeightedSets: 7,
     changePct: 160,
     trend: 'up' as const,
+    // The engine's reading of this series: a 4-set rise over weeks whose
+    // population deviation is sqrt(4.25).
+    signalDelta: 4 / Math.sqrt(4.25),
   }));
 }
 
@@ -71,11 +80,6 @@ function emptyInput() {
     paceTrend: null,
     recentPRs: [],
     sectionTrends: [],
-    formTsb: null,
-    formCtl: null,
-    formAtl: null,
-    peakCtl: null,
-    currentCtl: null,
   };
 }
 

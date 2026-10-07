@@ -31,10 +31,10 @@ jest.mock('@/features/settings/lib/shareFile', () => ({
   shareExistingFile: jest.fn().mockResolvedValue(undefined),
 }));
 
-const written = { exported: 402, skipped: 6, totalBytes: 8_400_000 };
+const written = { exported: 402, noTrack: 4, trimmed: 1, failed: 1, totalBytes: 8_400_000 };
 
 /** The counters climbing, the way the writing thread moves them. */
-const climbing = (exported: number) => ({ running: true, exported, total: 402 });
+const climbing = (visited: number) => ({ running: true, visited, total: 402 });
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -43,7 +43,7 @@ beforeEach(() => {
   mockBulkExportProgress
     .mockReturnValueOnce(climbing(0))
     .mockReturnValueOnce(climbing(200))
-    .mockReturnValue({ running: false, exported: 0, total: 0 });
+    .mockReturnValue({ running: false, visited: 0, total: 0 });
 });
 
 afterEach(() => {
@@ -60,7 +60,7 @@ function landsAfterTwoTicks() {
 describe.each([
   ['gpx', bulkExportActivities] as const,
   ['geojson', bulkExportActivitiesGeoJson] as const,
-])('%s bulk export', (_format, run) => {
+])('%s bulk export', (format, run) => {
   it('starts the export once and waits for it', async () => {
     landsAfterTwoTicks();
 
@@ -68,7 +68,14 @@ describe.each([
     await jest.advanceTimersByTimeAsync(1_000);
 
     expect(mockRunBulkExport).toHaveBeenCalledTimes(1);
-    await expect(exporting).resolves.toEqual({ state: 'complete', exported: 402, skipped: 6 });
+    await expect(exporting).resolves.toEqual({
+      state: 'complete',
+      exported: 402,
+      noTrack: 4,
+      trimmed: 1,
+      failed: 1,
+      kind: format,
+    });
   });
 
   it('reports the count as it climbs, then the bytes it shared', async () => {

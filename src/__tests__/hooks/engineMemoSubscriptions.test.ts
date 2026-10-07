@@ -11,19 +11,17 @@ import { renderHook, act } from '@testing-library/react-native';
 
 import { getEngine } from '@/shared/native/engine';
 import { useZoneDistribution } from '@/features/fitness/hooks/useZoneDistribution';
-import { useSectionDetail, useSectionPolyline } from '@/features/routes/hooks/useEngine';
+import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useActivityCount } from '@/shared/native/useActivityCount';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
-import { RangeCoverage } from 'veloqrs';
+import { MapDistanceBand, RangeCoverage, SyncState } from 'veloqrs';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useExcludedActivities } from '@/features/routes/hooks/useExcludedActivities';
-import { useSectionChartDataEnriched } from '@/features/routes/hooks/useSectionChartDataEnriched';
 import { useMuscleDetail } from '@/features/strength/hooks/useMuscleDetail';
 import { useDetailCoordinates } from '@/features/activity/hooks/useDetailCoordinates';
-import { useStoredPaceTrend } from '@/features/fitness/hooks/useStoredPaceTrend';
 import { useSectionDetailPerformance } from '@/features/routes/hooks/useSectionDetailData';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
 import { useLedgerActivityNames } from '@/features/routes/hooks/useLedgerActivityNames';
@@ -50,16 +48,21 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
     selector({ oldest: '2026-01-01', newest: '2026-01-10' }),
 }));
 
-jest.mock('@/features/routes/lib/sectionConversions', () => ({
-  convertNativeSectionToApp: (native: { id: string; name: string }) => ({ ...native }),
+jest.mock('@/shared/ffi/sectionConversions', () => ({
+  convertNativeSectionToApp: (native: { id: string; name: string }) => ({
+    ...native,
+  }),
 }));
 
 const listeners = new Map<string, Set<() => void>>();
 
-const getZoneDistribution = jest.fn(() => [600, 300, 100, 0, 0]);
+const getZoneDistribution = jest.fn(() => ({
+  seconds: [600, 300, 100, 0, 0],
+  names: [],
+}));
 const getSectionById = jest.fn((id: string) => ({ id, name: 'Church Hill' }));
-const getSectionPolyline = jest.fn(() => new Uint8Array([1, 2]).buffer);
-const getActivityCount = jest.fn(() => 12);
+const getActivityCount = jest.fn(() => 0);
+const getStats = jest.fn(() => ({ activityCount: 0, libraryCount: 12 }));
 const libraryCoverage = jest.fn(() => ({ upstream: 400, local: 120 }));
 const rangeCoverage = jest.fn(() => RangeCoverage.NotFetched);
 const getExcludedRouteActivityIds = jest.fn(() => ['act-1']);
@@ -76,28 +79,14 @@ const getExcludedRoutePerformances = jest.fn(() => ({
     },
   ],
 }));
-const getExcludedSectionPerformances = jest.fn(() => ({
-  records: [
-    {
-      activityId: 'act-1',
-      activityName: 'Morning ride',
-      activityDate: 1_700_000_000,
-      laps: [{ id: 'lap-1', pace: 4 }],
-    },
-  ],
-}));
 const getGpsTrack = jest.fn(() => new Uint8Array([7, 8]).buffer);
 const getSectionDetailPerformance = jest.fn(() => ({ records: [], chart: [] }));
-const getSummaryCardData = jest.fn(() => ({
-  runPaceTrend: { latestPace: 3.5 },
-  swimPaceTrend: { latestPace: 1.2 },
-}));
 const getMuscleDetail = jest.fn(() => ({
   slug: 'quads',
   exercises: [{ name: 'Squat', role: 'primary', sets: 3, reps: 8, volumeKg: 900 }],
   totalSets: 3,
   totalReps: 24,
-  totalVolumeKg: 900,
+  volumeKg: 900,
   primaryExercises: 1,
   secondaryExercises: 0,
 }));
@@ -110,6 +99,7 @@ const hasStrengthData = jest.fn(() => false);
 const getMapScreenData = jest.fn(() => ({
   activityCount: 1,
   availableSportTypes: ['Ride'],
+  categoryCounts: [{ category: 'Ride', count: 1 }],
   activities: [
     {
       activityId: 'act-1',
@@ -136,6 +126,7 @@ const getActivityDetailData = jest.fn(() => ({
   prSectionIds: [],
 }));
 const getUnprocessedStrengthIds = jest.fn(() => ['act-9']);
+const getSyncStatus = jest.fn(() => ({ state: SyncState.Idle }));
 
 const engine = {
   subscribe: (event: string, cb: () => void) => {
@@ -146,21 +137,20 @@ const engine = {
   },
   getZoneDistribution,
   getSectionById,
-  getSectionPolyline,
   getActivityCount,
+  getStats,
   libraryCoverage,
   rangeCoverage,
   getExcludedRouteActivityIds,
   getExcludedRoutePerformances,
-  getExcludedSectionPerformances,
   getMuscleDetail,
   getGpsTrack,
   getSectionDetailPerformance,
-  getSummaryCardData,
   getWorkoutSections,
   getActivityNames,
   hasStrengthData,
   getUnprocessedStrengthIds,
+  getSyncStatus,
   getMapScreenData,
   getActivityDetailData,
 };
@@ -179,7 +169,7 @@ beforeEach(() => {
 
 describe('useZoneDistribution', () => {
   it('re-reads the zone totals when activities change', () => {
-    renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling' }));
+    renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling', days: 7 }));
     const afterMount = getZoneDistribution.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
 
@@ -190,8 +180,24 @@ describe('useZoneDistribution', () => {
     expect(getZoneDistribution.mock.calls.length).toBe(afterMount + 2);
   });
 
+  it('reads the range it is asked for and reads again when the range changes', () => {
+    const { rerender } = renderHook(
+      ({ days }: { days: number }) =>
+        useZoneDistribution({ type: 'power', sport: 'Cycling', days }),
+      { initialProps: { days: 7 } }
+    );
+    const week = getZoneDistribution.mock.calls.at(-1) as unknown as number[];
+    expect(week[3] - week[2]).toBeGreaterThan(6 * 86_400);
+    expect(week[3] - week[2]).toBeLessThan(8 * 86_400);
+
+    rerender({ days: 365 });
+    const year = getZoneDistribution.mock.calls.at(-1) as unknown as number[];
+    expect(year[3] - year[2]).toBeGreaterThan(364 * 86_400);
+    expect(year[3]).toBe(week[3]);
+  });
+
   it('reads nothing without a sport, however many events fire', () => {
-    renderHook(() => useZoneDistribution({ type: 'hr' }));
+    renderHook(() => useZoneDistribution({ type: 'hr', days: 7 }));
 
     emit('activities');
     expect(getZoneDistribution).not.toHaveBeenCalled();
@@ -204,7 +210,10 @@ describe('useSectionDetail', () => {
     const afterMount = getSectionById.mock.calls.length;
     expect(result.current.section?.name).toBe('Church Hill');
 
-    getSectionById.mockImplementation((id: string) => ({ id, name: 'Church Hill Climb' }));
+    getSectionById.mockImplementation((id: string) => ({
+      id,
+      name: 'Church Hill Climb',
+    }));
     emit('sections');
 
     expect(getSectionById.mock.calls.length).toBe(afterMount + 1);
@@ -227,47 +236,21 @@ describe('useSectionDetail', () => {
   });
 });
 
-describe('useSectionPolyline', () => {
-  it('re-reads the polyline when sections change', () => {
-    const { result } = renderHook(() => useSectionPolyline('sec-1'));
-    const afterMount = getSectionPolyline.mock.calls.length;
-    expect(result.current.polyline).toEqual([{ lat: 1, lng: 2 }]);
-
-    getSectionPolyline.mockReturnValue(new Uint8Array([3, 4]).buffer);
-    emit('sections');
-
-    expect(getSectionPolyline.mock.calls.length).toBe(afterMount + 1);
-    expect(result.current.polyline).toEqual([{ lat: 3, lng: 4 }]);
-  });
-
-  it('survives a throwing engine and still re-reads on the next event', () => {
-    getSectionPolyline.mockImplementation(() => {
-      throw new Error('engine down');
-    });
-    const { result } = renderHook(() => useSectionPolyline('sec-1'));
-    expect(result.current.polyline).toEqual([]);
-
-    const afterMount = getSectionPolyline.mock.calls.length;
-    emit('sections');
-    expect(getSectionPolyline.mock.calls.length).toBe(afterMount + 1);
-  });
-});
-
 describe('useCacheDays', () => {
   it('re-reads the activity count when activities change', () => {
     renderHook(() => useCacheDays());
-    const afterMount = getActivityCount.mock.calls.length;
+    const afterMount = getStats.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
 
     emit('activities');
-    expect(getActivityCount.mock.calls.length).toBe(afterMount + 1);
+    expect(getStats.mock.calls.length).toBe(afterMount + 1);
   });
 
   it('asks the engine for nothing when the count is precomputed', () => {
     const { result } = renderHook(() => useCacheDays(7));
 
     emit('activities');
-    expect(getActivityCount).not.toHaveBeenCalled();
+    expect(getStats).not.toHaveBeenCalled();
     expect(result.current).toBe(10);
   });
 });
@@ -279,7 +262,7 @@ describe('useEngineSubscription', () => {
   });
 
   it('reads once at mount when the engine is available', () => {
-    renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling' }));
+    renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling', days: 7 }));
     expect(getZoneDistribution).toHaveBeenCalledTimes(1);
   });
 
@@ -301,7 +284,7 @@ describe('useEngineSubscription', () => {
   it('re-reads a memo whose engine arrived late', () => {
     (getEngine as jest.Mock).mockReturnValue(null);
 
-    renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling' }));
+    renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling', days: 7 }));
     expect(getZoneDistribution).not.toHaveBeenCalled();
 
     (getEngine as jest.Mock).mockReturnValue(engine);
@@ -339,13 +322,13 @@ describe('useEngineSubscription', () => {
 describe('useActivityCount', () => {
   it('re-reads the count when activities change', () => {
     const { result } = renderHook(() => useActivityCount());
-    const afterMount = getActivityCount.mock.calls.length;
+    const afterMount = getStats.mock.calls.length;
     expect(result.current).toBe(12);
 
-    getActivityCount.mockReturnValue(13);
+    getStats.mockReturnValue({ activityCount: 0, libraryCount: 13 });
     emit('activities');
 
-    expect(getActivityCount.mock.calls.length).toBe(afterMount + 1);
+    expect(getStats.mock.calls.length).toBe(afterMount + 1);
     expect(result.current).toBe(13);
   });
 
@@ -421,33 +404,6 @@ describe('useExcludedActivities', () => {
   });
 });
 
-describe('useSectionChartDataEnriched', () => {
-  const args = {
-    id: 'sec-1',
-    section: null,
-    chartData: [],
-    showExcluded: true,
-    excludedActivityIds: new Set(['act-1']),
-    preComputedCalendarSummary: null,
-  };
-
-  it('re-reads the excluded performances when sections change', () => {
-    renderHook(() => useSectionChartDataEnriched(args));
-    const afterMount = getExcludedSectionPerformances.mock.calls.length;
-    expect(afterMount).toBeGreaterThan(0);
-
-    emit('sections');
-    expect(getExcludedSectionPerformances.mock.calls.length).toBe(afterMount + 1);
-  });
-
-  it('reads nothing while the excluded rows are hidden', () => {
-    renderHook(() => useSectionChartDataEnriched({ ...args, showExcluded: false }));
-
-    emit('sections');
-    expect(getExcludedSectionPerformances).not.toHaveBeenCalled();
-  });
-});
-
 describe('useMuscleDetail', () => {
   it('re-reads the breakdown when activities change', () => {
     renderHook(() => useMuscleDetail('act-1', 'quads'));
@@ -491,61 +447,6 @@ describe('useDetailCoordinates', () => {
 
     emit('activities');
     expect(getGpsTrack).not.toHaveBeenCalled();
-  });
-});
-
-describe('useStoredPaceTrend', () => {
-  it('re-reads the stored pace when activities change', () => {
-    const { result } = renderHook(() => useStoredPaceTrend('Run'));
-    const afterMount = getSummaryCardData.mock.calls.length;
-    expect(result.current).toBe(3.5);
-
-    getSummaryCardData.mockReturnValue({
-      runPaceTrend: { latestPace: 3.8 },
-      swimPaceTrend: { latestPace: 1.2 },
-    });
-    emit('activities');
-
-    expect(getSummaryCardData.mock.calls.length).toBe(afterMount + 1);
-    expect(result.current).toBe(3.8);
-  });
-
-  it('reads null from a throwing engine and still re-reads on the next event', () => {
-    getSummaryCardData.mockImplementation(() => {
-      throw new Error('engine down');
-    });
-    const { result } = renderHook(() => useStoredPaceTrend('Swim'));
-    expect(result.current).toBeNull();
-
-    const afterMount = getSummaryCardData.mock.calls.length;
-    emit('activities');
-    expect(getSummaryCardData.mock.calls.length).toBe(afterMount + 1);
-  });
-
-  it('reads null when the engine is not open', () => {
-    (getEngine as jest.Mock).mockReturnValue(undefined);
-    const { result } = renderHook(() => useStoredPaceTrend('Run'));
-
-    expect(result.current).toBeNull();
-  });
-
-  /**
-   * The window and the day it is keyed on came from two separate clock reads,
-   * so a render that straddled midnight asked for one day's window under the
-   * other day's key.
-   */
-  it('asks for the week the day it is keyed on falls in', () => {
-    jest.useFakeTimers({ doNotFake: ['nextTick'] });
-    // A Wednesday, so the week runs Monday the 9th to Sunday the 15th.
-    jest.setSystemTime(new Date(2026, 8, 11, 13, 0, 0));
-
-    renderHook(() => useStoredPaceTrend('Run'));
-
-    const [weekStart, weekEnd, prevStart] = getSummaryCardData.mock.calls[0] as number[];
-    expect(new Date(weekStart * 1000).toISOString().slice(0, 10)).toBe('2026-09-07');
-    expect(new Date(weekEnd * 1000).toISOString().slice(0, 10)).toBe('2026-09-13');
-    expect(new Date(prevStart * 1000).toISOString().slice(0, 10)).toBe('2026-08-31');
-    jest.useRealTimers();
   });
 });
 
@@ -615,6 +516,18 @@ describe('useStrengthTabState', () => {
     expect(result.current).toBe('ready');
   });
 
+  it('is downloading while a sync runs, then awaiting once it settles', () => {
+    hasStrengthData.mockReturnValue(false);
+    getSyncStatus.mockReturnValue({ state: SyncState.Syncing });
+    const { result } = renderHook(() => useStrengthTabState());
+    expect(result.current).toBe('downloading');
+
+    getSyncStatus.mockReturnValue({ state: SyncState.Idle });
+    act(() => emit('syncSettled'));
+
+    expect(result.current).toBe('awaiting');
+  });
+
   it('re-reads on the activities channel as well', () => {
     renderHook(() => useStrengthTabState());
     const afterMount = hasStrengthData.mock.calls.length;
@@ -637,6 +550,8 @@ describe('useEngineMapActivities', () => {
     startDate: new Date('2026-01-01'),
     endDate: new Date('2026-01-31'),
     selectedTypes: new Set<string>(),
+    distanceBand: MapDistanceBand.All,
+    isMetric: true,
   };
 
   it('re-reads the map window when activities change', () => {
@@ -649,6 +564,40 @@ describe('useEngineMapActivities', () => {
     expect(getMapScreenData.mock.calls.length).toBe(afterMount + 1);
   });
 
+  it('keeps the library total when the mapped subset is empty and passes every filter to Rust', () => {
+    getMapScreenData.mockReturnValueOnce({
+      activityCount: 292,
+      availableSportTypes: ['Ride', 'Run'],
+      categoryCounts: [{ category: 'Ride', count: 0 }],
+      activities: [],
+    });
+    const selectedTypes = new Set(['Ride']);
+    const { result } = renderHook(() =>
+      useEngineMapActivities({
+        ...range,
+        selectedTypes,
+        distanceBand: MapDistanceBand.Short,
+        isMetric: false,
+        nameNeedle: 'ventoux',
+      })
+    );
+
+    expect(getMapScreenData).toHaveBeenCalledWith(
+      range.startDate,
+      range.endDate,
+      ['Ride'],
+      MapDistanceBand.Short,
+      false,
+      false,
+      true,
+      'ventoux'
+    );
+    expect(result.current.totalCount).toBe(292);
+    expect(result.current.activities).toEqual([]);
+    expect(result.current.categoryCounts).toEqual([{ category: 'Ride', count: 0 }]);
+    expect(result.current.availableTypes).toEqual(['Ride', 'Run']);
+  });
+
   it('reads nothing while it is disabled, however many events fire', () => {
     renderHook(() => useEngineMapActivities({ ...range, enabled: false }));
 
@@ -656,12 +605,88 @@ describe('useEngineMapActivities', () => {
     expect(getMapScreenData).not.toHaveBeenCalled();
   });
 
+  it('asks for the route lines only when the routes switch is on and returns the count and layer', () => {
+    const layer = { generation: 3, routes: [] };
+    const read = {
+      activityCount: 1,
+      availableSportTypes: ['Ride'],
+      categoryCounts: [],
+      activities: [],
+      routeCount: 5,
+      routeLines: layer,
+    } as never;
+    getMapScreenData.mockReturnValueOnce(read).mockReturnValueOnce(read);
+    const { result, rerender } = renderHook(
+      (props: { showRoutes: boolean }) => useEngineMapActivities({ ...range, ...props }),
+      { initialProps: { showRoutes: false } }
+    );
+    expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[5]).toBe(false);
+    expect(result.current.routeCount).toBe(5);
+
+    rerender({ showRoutes: true });
+    expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[5]).toBe(true);
+    expect(result.current.routeLines).toBe(layer);
+  });
+
+  it('reports no sections and asks Rust for no overlay while sections are switched off', () => {
+    getMapScreenData.mockReturnValue({
+      activityCount: 0,
+      availableSportTypes: [],
+      categoryCounts: [],
+      activities: [],
+      routeCount: 0,
+      routeLines: undefined,
+      sectionCount: 4,
+      sections: [
+        { id: 's1', name: 'Church Hill', visitCount: 2, distanceMeters: 100, encodedPolyline: '' },
+      ],
+    } as never);
+    const { result } = renderHook(() =>
+      useEngineMapActivities({ ...range, showSections: true, sectionsEnabled: false })
+    );
+    expect(result.current.sectionCount).toBe(0);
+    expect(result.current.sections).toEqual([]);
+    expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[6]).toBe(false);
+  });
+
+  it('re-reads the map when route groups change', () => {
+    renderHook(() => useEngineMapActivities(range));
+    const afterMount = getMapScreenData.mock.calls.length;
+    emit('groups');
+    expect(getMapScreenData.mock.calls.length).toBe(afterMount + 1);
+  });
+
+  it('reads the section count and gated overlay with the map screen data', () => {
+    getMapScreenData.mockReturnValue({
+      activityCount: 0,
+      availableSportTypes: [],
+      categoryCounts: [],
+      activities: [],
+      routeCount: 0,
+      routeLines: undefined,
+      sectionCount: 4,
+      sections: [],
+    } as never);
+    const { result, rerender } = renderHook(
+      (props: { showSections: boolean }) => useEngineMapActivities({ ...range, ...props }),
+      { initialProps: { showSections: false } }
+    );
+    expect(result.current.sectionCount).toBe(4);
+    expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[6]).toBe(false);
+
+    rerender({ showSections: true });
+    expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[6]).toBe(true);
+    const afterToggle = getMapScreenData.mock.calls.length;
+    emit('sections');
+    expect(getMapScreenData.mock.calls.length).toBe(afterToggle + 1);
+  });
+
   it('is empty when the engine is not open', () => {
     (getEngine as jest.Mock).mockReturnValue(undefined);
     const { result } = renderHook(() => useEngineMapActivities(range));
 
     expect(result.current.activities).toEqual([]);
-    expect(result.current.isReady).toBe(false);
+    expect(result.current.totalCount).toBe(0);
   });
 });
 
@@ -708,12 +733,14 @@ describe('useSectionDetailPerformance', () => {
     expect(getSectionDetailPerformance).not.toHaveBeenCalled();
   });
 
-  it('survives a throwing engine and still re-reads on the next event', () => {
+  it('hands a thrown read back as an error and still re-reads on the next event', () => {
+    const engineDown = new Error('engine down');
     getSectionDetailPerformance.mockImplementation(() => {
-      throw new Error('engine down');
+      throw engineDown;
     });
     const { result } = renderHook(() => useSectionDetailPerformance('sec-1', 90, undefined, true));
-    expect(result.current).toBeNull();
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toBe(engineDown);
 
     const afterMount = getSectionDetailPerformance.mock.calls.length;
     emit('sections');

@@ -42,7 +42,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 const nativeSection = {
   id: 'custom-1',
   sectionType: 'custom',
-  sportType: 'Ride',
+  sportTypes: ['Ride'],
   encodedPolyline: new ArrayBuffer(0),
   representativeActivityId: 'act-1',
   activityIds: ['act-1'],

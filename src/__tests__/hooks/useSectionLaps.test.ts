@@ -1,15 +1,16 @@
 import { renderHook, act } from '@testing-library/react-native';
-import {
-  useSectionLaps,
-  hasPartialExclusion,
-  lapKey,
-} from '@/features/routes/hooks/useSectionLaps';
+import { useSectionLaps, hasPartialExclusion } from '@/features/routes/hooks/useSectionLaps';
 import { getEngine } from '@/shared/native/engine';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
-function record(activityId: string, starts: number[]): SectionPerformanceRecord {
+/** Laps as the screen read returns them, the excluded ones flagged. */
+function record(
+  activityId: string,
+  starts: number[],
+  excluded: number[] = []
+): SectionPerformanceRecord {
   return {
     activityId,
     activityName: activityId,
@@ -23,6 +24,9 @@ function record(activityId: string, starts: number[]): SectionPerformanceRecord 
       direction: 'same' as const,
       startIndex: s,
       endIndex: s + 30,
+      avgHr: null,
+      avgPower: null,
+      excluded: excluded.includes(s),
     })),
     lapCount: starts.length,
     bestTime: 100,
@@ -34,64 +38,41 @@ function record(activityId: string, starts: number[]): SectionPerformanceRecord 
 }
 
 describe('useSectionLaps', () => {
-  it('reads the excluded laps by junction key and moves one both ways', () => {
-    const excluded = [{ activityId: 'a', startIndex: 40 }];
+  it('moves one lap both ways by its junction key', () => {
     const engine = {
-      getExcludedSectionLaps: jest.fn(() => excluded),
       excludeSectionLap: jest.fn(() => true),
       includeSectionLap: jest.fn(() => true),
     };
     (getEngine as jest.Mock).mockReturnValue(engine);
     const { result } = renderHook(() => useSectionLaps('sec1'));
-    expect(result.current.excludedLaps).toEqual(new Set([lapKey('a', 40)]));
 
-    excluded.push({ activityId: 'a', startIndex: 10 });
     act(() => result.current.excludeLap('a', 10));
     expect(engine.excludeSectionLap).toHaveBeenCalledWith('sec1', 'a', 10);
-    expect(result.current.excludedLaps.has(lapKey('a', 10))).toBe(true);
 
-    excluded.splice(0, 2);
     act(() => result.current.includeLap('a', 40));
     expect(engine.includeSectionLap).toHaveBeenCalledWith('sec1', 'a', 40);
-    expect(result.current.excludedLaps.size).toBe(0);
   });
 
-  it('is empty without an engine', () => {
+  it('does nothing without an engine', () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = renderHook(() => useSectionLaps('sec1'));
-    expect(result.current.excludedLaps.size).toBe(0);
-  });
-
-  it('re-reads when refreshKey changes and holds still when it does not', () => {
-    const excluded = [{ activityId: 'a', startIndex: 40 }];
-    const engine = { getExcludedSectionLaps: jest.fn(() => [...excluded]) };
-    (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result, rerender } = renderHook(
-      ({ key }: { key: number }) => useSectionLaps('sec1', key),
-      { initialProps: { key: 0 } }
-    );
-    expect(engine.getExcludedSectionLaps).toHaveBeenCalledTimes(1);
-
-    excluded.push({ activityId: 'b', startIndex: 5 });
-    rerender({ key: 0 });
-    expect(engine.getExcludedSectionLaps).toHaveBeenCalledTimes(1);
-    expect(result.current.excludedLaps.size).toBe(1);
-
-    rerender({ key: 1 });
-    expect(engine.getExcludedSectionLaps).toHaveBeenCalledTimes(2);
-    expect(result.current.excludedLaps.has(lapKey('b', 5))).toBe(true);
+    expect(() => result.current.excludeLap('a', 10)).not.toThrow();
   });
 });
 
 describe('hasPartialExclusion', () => {
-  const records = [record('a', [10, 40, 70]), record('b', [5])];
-
   it('is true only when some, not all, laps of a lapped activity are out', () => {
-    expect(hasPartialExclusion(records, new Set())).toBe(false);
-    expect(hasPartialExclusion(records, new Set([lapKey('a', 40)]))).toBe(true);
-    expect(
-      hasPartialExclusion(records, new Set([lapKey('a', 10), lapKey('a', 40), lapKey('a', 70)]))
-    ).toBe(false);
-    expect(hasPartialExclusion(records, new Set([lapKey('b', 5)]))).toBe(false);
+    expect(hasPartialExclusion([record('a', [10, 40, 70]), record('b', [5])])).toBe(false);
+    expect(hasPartialExclusion([record('a', [10, 40, 70], [40]), record('b', [5])])).toBe(true);
+    expect(hasPartialExclusion([record('a', [10, 40, 70], [10, 40, 70])])).toBe(false);
+    expect(hasPartialExclusion([record('b', [5], [5])])).toBe(false);
+  });
+
+  it('sees a two-lap activity with one lap out', () => {
+    expect(hasPartialExclusion([record('a', [10, 40], [40])])).toBe(true);
+  });
+
+  it('is false with no records', () => {
+    expect(hasPartialExclusion([])).toBe(false);
   });
 });

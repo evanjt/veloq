@@ -15,25 +15,37 @@ import { trayActionFor } from '@/features/insights/lib/traySweep';
 
 describe('what the task does with the tray', () => {
   it('posts the enriched entry when it has something to say', () => {
-    expect(trayActionFor('Route PR on Lake Loop', false, true)).toBe('post');
+    expect(trayActionFor('android', 'Route PR on Lake Loop', false, true)).toBe('post');
   });
 
   it('clears the old entries without posting when the app is already open', () => {
-    expect(trayActionFor('Route PR on Lake Loop', true, true)).toBe('dismiss-only');
+    expect(trayActionFor('android', 'Route PR on Lake Loop', true, true)).toBe('dismiss-only');
   });
 
   /// The generic entry already up is the best thing known, so it stays.
   it('leaves the tray alone when the ingest failed and it knows nothing', () => {
-    expect(trayActionFor('', false, false)).toBe('leave');
-    expect(trayActionFor('   ', false, false)).toBe('leave');
+    expect(trayActionFor('android', '', false, false)).toBe('leave');
+    expect(trayActionFor('android', '   ', false, false)).toBe('leave');
   });
 
   it('leaves the tray alone after a failed ingest even in the foreground', () => {
-    expect(trayActionFor('', true, false)).toBe('leave');
+    expect(trayActionFor('android', '', true, false)).toBe('leave');
   });
 
   it('takes the generic entry down when the ride was read and was unremarkable', () => {
-    expect(trayActionFor('', false, true)).toBe('dismiss-only');
-    expect(trayActionFor('   ', true, true)).toBe('dismiss-only');
+    expect(trayActionFor('android', '', false, true)).toBe('dismiss-only');
+    expect(trayActionFor('android', '   ', true, true)).toBe('dismiss-only');
+  });
+
+  /// The notification service extension is the only poster for an activity
+  /// push on iOS, so the task neither posts nor dismisses whatever it found.
+  it('never touches the tray on iOS, whatever the body, state or ingest', () => {
+    for (const body of ['Route PR on Lake Loop', '', '   ']) {
+      for (const foreground of [true, false]) {
+        for (const ingested of [true, false]) {
+          expect(trayActionFor('ios', body, foreground, ingested)).toBe('none');
+        }
+      }
+    }
   });
 });

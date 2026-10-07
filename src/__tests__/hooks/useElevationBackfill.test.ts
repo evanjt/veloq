@@ -41,7 +41,6 @@ function engineReporting(
         elevationRemaining: p.phase === 'fetching' ? null : remaining(),
         elevationPaused: false,
         cutover: { phase: 'idle', running: false },
-        heatmapTiles: [0, 0],
       };
     },
     subscribe: (event: string, callback: () => void) => {

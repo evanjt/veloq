@@ -1,6 +1,6 @@
 /**
  * The zone ramp has one definition. Power and heart rate read the same seven
- * intervals.icu steps, and heart rate stops at five, so an edit to one ramp
+ * intervals.icu steps, and heart rate takes all seven, so an edit to one ramp
  * cannot leave the other behind.
  */
 
@@ -20,9 +20,9 @@ describe('training zone ramp', () => {
     ]);
   });
 
-  it('gives heart rate the first five steps and no more', () => {
-    expect(HR_ZONE_COLORS).toEqual(POWER_ZONE_COLORS.slice(0, 5));
-    expect(HR_ZONE_COLORS).toHaveLength(5);
+  it('gives heart rate every step of the same ramp', () => {
+    expect(HR_ZONE_COLORS).toEqual(POWER_ZONE_COLORS);
+    expect(HR_ZONE_COLORS).toHaveLength(7);
   });
 
   it('carries no undefined step, which is what a renamed token would leave', () => {

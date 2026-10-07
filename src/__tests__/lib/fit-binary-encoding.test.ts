@@ -1,3 +1,4 @@
+import { rebaseLaps } from '@/features/recording/lib/savedLaps';
 import { generateFitFile } from '@/features/recording/lib/fitGenerator';
 import type { RecordingStreams, RecordingLap, ActivityType } from '@/types';
 
@@ -80,7 +81,10 @@ function decodeFit(buffer: ArrayBuffer): DecodedMessage[] {
   const dataEnd = 14 + view.getUint32(4, true);
   const definitions = new Map<
     number,
-    { globalMesgNum: number; fields: { num: number; size: number; baseType: number }[] }
+    {
+      globalMesgNum: number;
+      fields: { num: number; size: number; baseType: number }[];
+    }
   >();
   const messages: DecodedMessage[] = [];
 
@@ -464,6 +468,228 @@ describe('generateFitFile', () => {
     });
   });
 
+  it('closes the ride after the final press and uses moving time for speed', async () => {
+    const streams = makeStreams({
+      time: [0, 10, 20, 30],
+      distance: [0, 100, 150, 200],
+      heartrate: [120, 140, NaN, 160],
+    });
+    const buffer = await generateFitFile({
+      activityType: 'Ride',
+      startTime,
+      streams,
+      pausedTimeSeconds: 10,
+      laps: [
+        {
+          index: 0,
+          startTime: 0,
+          endTime: 10,
+          startIndex: 0,
+          endIndex: 1,
+          movingEndTime: 10,
+          distance: 100,
+          avgSpeed: 10,
+          avgHeartrate: 130,
+          avgPower: null,
+          avgCadence: null,
+        },
+      ],
+    });
+    const laps = messagesOfType(buffer, MESG_LAP);
+    expect(laps).toHaveLength(2);
+    expect(laps[1].fields.get(253)! - laps[0].fields.get(253)!).toBe(20);
+    expect(laps[1].fields.get(9)).toBe(10000);
+    expect(laps[1].fields.get(8)).toBe(10000);
+    expect(laps[1].fields.get(13)).toBe(10000);
+    expect(laps[1].fields.get(15)).toBe(160);
+    expect(onlyMessage(buffer, MESG_SESSION).fields.get(26)).toBe(2);
+    expect(onlyMessage(buffer, MESG_SESSION).fields.get(14)).toBe(10000);
+  });
+
+  it('writes one complete lap without presses', async () => {
+    const buffer = await generateFitFile({
+      activityType: 'Ride',
+      startTime,
+      laps: [],
+      streams: makeStreams({ time: [0, 10], distance: [0, 100] }),
+    });
+    expect(onlyMessage(buffer, MESG_LAP).fields.get(7)).toBe(10000);
+    expect(onlyMessage(buffer, MESG_SESSION).fields.get(26)).toBe(1);
+  });
+
+  it('keeps the first lap at its original timestamp after a 25-second first fix', async () => {
+    const streams = makeStreams({ time: [0, 575], distance: [0, 1000] });
+    const laps = rebaseLaps(
+      [
+        {
+          index: 0,
+          startTime: 0,
+          endTime: 600,
+          startIndex: 0,
+          endIndex: 1,
+          movingEndTime: 600,
+          distance: 1000,
+          avgSpeed: 1000 / 600,
+          avgHeartrate: null,
+          avgPower: null,
+          avgCadence: null,
+        },
+      ],
+      streams,
+      25,
+      0,
+      []
+    );
+    const buffer = await generateFitFile({
+      activityType: 'Ride',
+      startTime: new Date(startTime.getTime() + 25000),
+      streams,
+      laps,
+    });
+    const lap = onlyMessage(buffer, MESG_LAP);
+    expect(lap.fields.get(253)).toBe(messagesOfType(buffer, MESG_RECORD)[1].fields.get(253));
+    expect(lap.fields.get(7)).toBe(575000);
+    expect(lap.fields.get(8)).toBe(575000);
+    expect(lap.fields.get(15)).toBe(255);
+    expect(lap.fields.get(19)).toBe(65535);
+    expect(lap.fields.get(17)).toBe(255);
+  });
+
+  it.each([
+    {
+      base: 25,
+      from: 0,
+      to: 4,
+      expectedEnds: [35, 40],
+      expectedDistances: [150, 150],
+      expectedIndices: [
+        [0, 2],
+        [3, 3],
+      ],
+    },
+    {
+      base: 65,
+      from: 3,
+      to: 5,
+      expectedEnds: [25],
+      expectedDistances: [100],
+      expectedIndices: [[0, 1]],
+    },
+    {
+      base: 45,
+      from: 2,
+      to: 4,
+      expectedEnds: [15, 20],
+      expectedDistances: [0, 150],
+      expectedIndices: [
+        [0, 0],
+        [1, 1],
+      ],
+    },
+  ])(
+    'rebases and clips saved laps at $base seconds',
+    async ({ base, from, to, expectedEnds, expectedDistances, expectedIndices }) => {
+      const original = makeStreams({
+        time: [25, 35, 45, 65, 90],
+        distance: [0, 100, 150, 300, 400],
+        heartrate: [NaN, 140, 0, 160, Infinity],
+        power: [0, 200, NaN, 250, 0],
+        cadence: [NaN, 80, 0, 90, 0],
+      });
+      const streams = Object.fromEntries(
+        Object.entries(original).map(([key, values]) => [key, values.slice(from, to)])
+      ) as unknown as RecordingStreams;
+      streams.time = streams.time.map((t) => t - base);
+      streams.distance = streams.distance.map((d) => d - original.distance[from]);
+      const lap = (
+        index: number,
+        startTime: number,
+        endTime: number,
+        startIndex: number,
+        endIndex: number
+      ): RecordingLap => ({
+        index,
+        startTime,
+        endTime,
+        startIndex,
+        endIndex,
+        movingEndTime: endTime,
+        distance: 999,
+        avgSpeed: 999,
+        avgHeartrate: 999,
+        avgPower: 999,
+        avgCadence: 999,
+      });
+      const laps = rebaseLaps(
+        [lap(0, 0, 60, 0, 2), lap(1, 60, 100, 3, 4)],
+        streams,
+        base,
+        from,
+        []
+      );
+      expect(laps.map((l) => [l.startIndex, l.endIndex])).toEqual(expectedIndices);
+      const buffer = await generateFitFile({
+        activityType: 'Ride',
+        startTime: new Date(startTime.getTime() + base * 1000),
+        streams,
+        laps,
+      });
+      const decoded = messagesOfType(buffer, MESG_LAP);
+      const sessionStart = onlyMessage(buffer, MESG_SESSION).fields.get(2)!;
+      expect(decoded.map((l) => l.fields.get(253)! - sessionStart)).toEqual(expectedEnds);
+      expect(decoded.map((l) => l.fields.get(9)! / 100)).toEqual(expectedDistances);
+      expect(decoded.at(-1)!.fields.get(253)).toBe(
+        messagesOfType(buffer, MESG_RECORD).at(-1)!.fields.get(253)
+      );
+      expect(decoded.every((l) => l.fields.get(2)! >= sessionStart)).toBe(true);
+      expect(decoded.map((l) => l.fields.get(15))).toEqual(
+        base === 25 ? [140, 160] : base === 65 ? [160] : [255, 160]
+      );
+    }
+  );
+
+  it('clips pauses crossing the trim and lap boundaries', async () => {
+    const streams = makeStreams({
+      time: [0, 10, 20, 40],
+      distance: [0, 100, 200, 300],
+    });
+    const laps = rebaseLaps(
+      [
+        {
+          index: 0,
+          startTime: 0,
+          endTime: 40,
+          startIndex: 0,
+          endIndex: 2,
+          movingEndTime: 20,
+          distance: 200,
+          avgSpeed: 10,
+          avgHeartrate: null,
+          avgPower: null,
+          avgCadence: null,
+        },
+      ],
+      streams,
+      20,
+      0,
+      [
+        { start: 10, end: 25 },
+        { start: 35, end: 45 },
+      ]
+    );
+    const buffer = await generateFitFile({
+      activityType: 'Ride',
+      startTime,
+      streams,
+      laps,
+      pausedTimeSeconds: 15,
+    });
+    const decoded = messagesOfType(buffer, MESG_LAP);
+    expect(decoded.map((l) => l.fields.get(8))).toEqual([10000, 15000]);
+    expect(decoded.map((l) => l.fields.get(13))).toEqual([20000, 6667]);
+    expect(onlyMessage(buffer, MESG_SESSION).fields.get(14)).toBe(12000);
+  });
+
   describe('lap records', () => {
     it('writes one lap message per supplied lap', async () => {
       const streams = makeStreams({
@@ -525,7 +751,7 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      expect(messagesOfType(withoutLaps, MESG_LAP)).toHaveLength(0);
+      expect(messagesOfType(withoutLaps, MESG_LAP)).toHaveLength(1);
       const lapMessages = messagesOfType(withLaps, MESG_LAP);
       expect(lapMessages).toHaveLength(2);
       expect(lapMessages.map((l) => l.fields.get(LAP_AVG_HEART_RATE))).toEqual([135, 155]);
@@ -726,7 +952,11 @@ describe('generateFitFile', () => {
       const buffer = await generateFitFile({
         activityType: 'Ride',
         startTime,
-        streams: makeStreams({ ...base, altitude: [100, NaN, 200], heartrate: [130, 140, 150] }),
+        streams: makeStreams({
+          ...base,
+          altitude: [100, NaN, 200],
+          heartrate: [130, 140, 150],
+        }),
         laps: [],
       });
 
@@ -746,7 +976,11 @@ describe('generateFitFile', () => {
       const buffer = await generateFitFile({
         activityType: 'Ride',
         startTime,
-        streams: makeStreams({ ...base, altitude: [NaN, NaN, NaN], heartrate: [130, 140, 150] }),
+        streams: makeStreams({
+          ...base,
+          altitude: [NaN, NaN, NaN],
+          heartrate: [130, 140, 150],
+        }),
         laps: [],
       });
 

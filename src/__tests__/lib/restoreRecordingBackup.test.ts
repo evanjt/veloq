@@ -1,7 +1,17 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
+import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import {
+  holdRecordingOnSignOut,
+  resumeHeldRecordingForAthlete,
+} from '@/features/recording/lib/holdRecordingOnSignOut';
 import { installRecordingSession } from '@/features/recording/lib/recordingSession';
-import { restoreRecordingBackup } from '@/features/recording/lib/restoreRecordingBackup';
+import {
+  restoreRecordingBackup,
+  resumeRecordingBackup,
+} from '@/features/recording/lib/restoreRecordingBackup';
 import {
   loadRecordingBackup,
   saveRecordingBackup,
@@ -13,6 +23,12 @@ jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: '/mock/docs/',
   getInfoAsync: jest.fn(async (path: string) => ({ exists: mockFiles.has(path) })),
+  moveAsync: jest.fn(async ({ from, to }: { from: string; to: string }) => {
+    const content = mockFiles.get(from);
+    if (content === undefined) throw new Error('ENOENT');
+    mockFiles.set(to, content);
+    mockFiles.delete(from);
+  }),
   writeAsStringAsync: jest.fn(async (path: string, data: string) => {
     mockFiles.set(path, data);
   }),
@@ -80,7 +96,36 @@ describe('Resume crash backup', () => {
     jest.clearAllMocks();
     mockFiles.clear();
     useRecordingStore.getState().reset();
+    useAuthStore.setState({ athleteId: null, isAuthenticated: false });
     uninstall = installRecordingSession();
+  });
+
+  it('keeps streams and laps for the same athlete across sign-out and another sign-in', async () => {
+    useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true });
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    useRecordingStore.getState().addGpsPoint({
+      latitude: 47,
+      longitude: 8,
+      altitude: 400,
+      accuracy: 5,
+      speed: 1,
+      heading: 0,
+      timestamp: Date.now(),
+    });
+    useRecordingStore.getState().addLap();
+    const streams = useRecordingStore.getState().streams;
+    const laps = useRecordingStore.getState().laps;
+    await holdRecordingOnSignOut('i1');
+    expect(useRecordingStore.getState().status).toBe('idle');
+
+    useAuthStore.setState({ athleteId: 'i2', isAuthenticated: true });
+    expect(await resumeHeldRecordingForAthlete('i2')).toBeNull();
+    expect(useRecordingStore.getState().status).toBe('idle');
+    useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true });
+    expect(await resumeHeldRecordingForAthlete('i1')).toBe('/recording/review');
+    expect(useRecordingStore.getState().status).toBe('stopped');
+    expect(useRecordingStore.getState().streams).toEqual(streams);
+    expect(useRecordingStore.getState().laps).toEqual(laps);
   });
   afterEach(() => {
     uninstall();
@@ -130,5 +175,120 @@ describe('Resume crash backup', () => {
     expect(FileSystem.writeAsStringAsync).not.toHaveBeenCalled();
     expect((await loadRecordingBackup())?.startTime).toBe(original.startTime);
     expect(useRecordingStore.getState().totals.elevationGain).toBe(0);
+  });
+
+  it('resumes the backup into an idle store and names the screen', async () => {
+    await saveRecordingBackup(backup('stopped'));
+    expect(await resumeRecordingBackup()).toBe('/recording/review');
+    expect(useRecordingStore.getState().status).toBe('stopped');
+  });
+
+  describe('the pause reason on the prompt path', () => {
+    const SIGNED_IN = 'i1';
+    beforeEach(() => {
+      useRecordingLiveStore.getState().reset();
+      useRecordingPreferences.setState({
+        autoPauseEnabled: true,
+        autoPauseThresholds: { cycling: 3.6 },
+        autoPauseDurationMs: 5000,
+      });
+      useAuthStore.setState({ athleteId: SIGNED_IN, isAuthenticated: true });
+    });
+
+    async function resumeSaved(overrides: Partial<RecordingBackup>) {
+      await saveRecordingBackup({ ...backup('paused'), athleteId: SIGNED_IN, ...overrides });
+      await resumeRecordingBackup();
+      await settle();
+    }
+
+    // Three fixes a second apart, 10 m north each, well above the resume speed.
+    function rideOff() {
+      const base = Date.now();
+      for (let s = 0; s < 3; s++) {
+        useRecordingStore.getState().setRawLocationFix({
+          latitude: 47.5 + (s * 10) / 111_320,
+          longitude: 8.5,
+          altitude: 400,
+          accuracy: 5,
+          speed: null,
+          heading: null,
+          timestamp: base + s * 1000,
+        });
+      }
+    }
+
+    it('keeps a restored auto-pause auto-paused so the ride resumes when the rider sets off', async () => {
+      await resumeSaved({ autoPaused: true });
+      expect(useRecordingStore.getState().status).toBe('paused');
+      expect(useRecordingLiveStore.getState().autoPaused).toBe(true);
+
+      rideOff();
+
+      expect(useRecordingStore.getState().status).toBe('recording');
+      expect(useRecordingLiveStore.getState().autoPaused).toBe(false);
+    });
+
+    it('leaves a ride paused by hand paused when the rider sets off', async () => {
+      await resumeSaved({});
+      expect(useRecordingLiveStore.getState().autoPaused).toBe(false);
+
+      rideOff();
+
+      expect(useRecordingStore.getState().status).toBe('paused');
+    });
+
+    it('brings a ride saved as recording back paused by hand', async () => {
+      await resumeSaved({ status: 'recording', autoPaused: false });
+      expect(useRecordingLiveStore.getState().autoPaused).toBe(false);
+
+      rideOff();
+
+      expect(useRecordingStore.getState().status).toBe('paused');
+    });
+
+    it('never sets the reason on a stopped ride', async () => {
+      await resumeSaved({ ...backup('stopped'), autoPaused: true });
+      expect(useRecordingStore.getState().status).toBe('stopped');
+      expect(useRecordingLiveStore.getState().autoPaused).toBe(false);
+    });
+  });
+
+  it("does not restore one athlete's ride to another who signs in while it is read", async () => {
+    useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true });
+    await saveRecordingBackup({ ...backup('stopped'), athleteId: 'i1' });
+    const load = (FileSystem.readAsStringAsync as jest.Mock).getMockImplementation()!;
+    (FileSystem.readAsStringAsync as jest.Mock).mockImplementationOnce(async (path: string) => {
+      useAuthStore.setState({ athleteId: 'i2', isAuthenticated: true });
+      return load(path);
+    });
+
+    expect(await resumeRecordingBackup()).toBeNull();
+    expect(useRecordingStore.getState().status).toBe('idle');
+    expect(useRecordingStore.getState().athleteId).toBeNull();
+  });
+
+  it('leaves a session that started while the backup was loading alone', async () => {
+    await saveRecordingBackup(backup('stopped'));
+    const load = (FileSystem.readAsStringAsync as jest.Mock).getMockImplementation()!;
+    (FileSystem.readAsStringAsync as jest.Mock).mockImplementationOnce(async (path: string) => {
+      useRecordingStore.getState().startRecording('Run', 'gps');
+      return load(path);
+    });
+
+    expect(await resumeRecordingBackup()).toBeNull();
+    const state = useRecordingStore.getState();
+    expect(state.status).toBe('recording');
+    expect(state.activityType).toBe('Run');
+  });
+
+  it('leaves the athlete where they are on a live ride of their own and sends a stopped one to review', async () => {
+    useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true });
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    expect(await resumeHeldRecordingForAthlete('i1')).toBeNull();
+    useRecordingStore.getState().pauseRecording();
+    expect(await resumeHeldRecordingForAthlete('i1')).toBeNull();
+    useRecordingStore.getState().stopRecording();
+    expect(await resumeHeldRecordingForAthlete('i1')).toBe('/recording/review');
+    expect(useRecordingStore.getState().status).toBe('stopped');
   });
 });

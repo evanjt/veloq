@@ -7,6 +7,7 @@
  * engine's own English, which is the bug this replaced.
  */
 
+import { resolvedLocale } from './resolvedLocale';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -31,8 +32,7 @@ const locales = fs
   .map((f) => f.replace('.json', ''));
 
 function reasonsOf(locale: string): Record<string, string> {
-  const raw = fs.readFileSync(path.join(LOCALES_DIR, `${locale}.json`), 'utf-8');
-  return JSON.parse(raw).emptyState.syncError.reason as Record<string, string>;
+  return resolvedLocale(locale).emptyState.syncError.reason as Record<string, string>;
 }
 
 describe('sync error reason strings', () => {

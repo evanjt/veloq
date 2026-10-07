@@ -1,6 +1,6 @@
 import { IDLE_EXTENDED_FETCH, isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useSyncDateRange, GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
-import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
+import { formatGpsSyncProgress } from '@/features/maps/lib/syncProgressFormat';
 import type { TFunction } from 'i18next';
 
 const t = ((key: string) => key) as unknown as TFunction;

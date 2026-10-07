@@ -5,6 +5,7 @@
  * The same fixtures are asserted in `start_date_parity_tests` in objects/sync.rs.
  */
 import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
+import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
 const FIXTURES: [string, number][] = [
   ['2026-08-22T18:30:00', 1787423400],
@@ -20,14 +21,9 @@ describe('start_date_local to epoch seconds', () => {
   });
 
   it('does not shift with the device timezone', () => {
-    const original = process.env.TZ;
-    const readings = ['UTC', 'Europe/Zurich', 'Pacific/Auckland', 'America/Los_Angeles'].map(
-      (tz) => {
-        process.env.TZ = tz;
-        return startDateLocalToEpochSeconds('2026-08-22T18:30:00');
-      }
+    const readings = [0, 1, 12, -7].map((offset) =>
+      atUtcOffset(offset, () => startDateLocalToEpochSeconds('2026-08-22T18:30:00'))
     );
-    process.env.TZ = original;
     expect(new Set(readings).size).toBe(1);
   });
 

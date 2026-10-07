@@ -14,13 +14,15 @@ import {
   writeProvisionalActivity,
   recordProvisionalUpload,
   reconcileProvisionalUploads,
+  replayProvisionalWrites,
 } from '@/features/recording/lib/storage/provisionalActivity';
 import {
+  attachEngineActivity,
   listRecordings,
   markRecordingReconciled,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { engine } from 'veloqrs';
-import type { RecordingLibraryEntry, RecordingStreams } from '@/types';
+import type { RecordingLibraryEntry } from '@/types';
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
@@ -36,9 +38,15 @@ jest.mock('veloqrs', () =>
   })
 );
 
+let mockSignedIn: string | null = 'i296629';
+jest.mock('@/shared/app/AuthStore', () => ({
+  getStoredCredentials: () => ({ athleteId: mockSignedIn }),
+}));
+
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   listRecordings: jest.fn(async () => []),
   markRecordingReconciled: jest.fn(async () => null),
+  attachEngineActivity: jest.fn(async () => null),
 }));
 
 const mockList = listRecordings as jest.Mock;
@@ -72,20 +80,17 @@ const ENTRY: RecordingLibraryEntry = {
   retryCount: 0,
 };
 
-function streams(points: [number, number][]): RecordingStreams {
-  return {
-    time: points.map((_, i) => i),
-    latlng: points,
-    altitude: points.map(() => 100),
-    heartrate: points.map(() => 140),
-    power: [],
-    cadence: [],
-    speed: points.map(() => 7.9),
-    distance: points.map((_, i) => i * 8),
-  };
-}
+const MANUAL: RecordingLibraryEntry = {
+  ...ENTRY,
+  id: '1757150000000-man001',
+  kind: 'manual',
+  fitPath: '',
+  activityType: 'WeightTraining',
+  name: 'Gym',
+};
 
 beforeEach(() => {
+  mockSignedIn = 'i296629';
   jest.clearAllMocks();
   (engine as unknown as { ready: boolean }).ready = true;
   mint.mockReturnValue('local-deadbeef');
@@ -95,20 +100,14 @@ beforeEach(() => {
 });
 
 describe('writeProvisionalActivity', () => {
-  it('writes the track, the body and the metrics under a minted key', async () => {
-    const key = await writeProvisionalActivity(
-      ENTRY,
-      streams([
-        [-33.86, 151.2],
-        [-33.87, 151.21],
-      ])
-    );
+  it('writes the track from the FIT, the body and the metrics under a minted key', async () => {
+    const key = await writeProvisionalActivity(ENTRY);
 
     expect(key).toBe('local-deadbeef');
     expect(saveProvisional).toHaveBeenCalledTimes(1);
-    const [id, coords, row, metrics] = saveProvisional.mock.calls[0];
+    const [id, fitPath, row] = saveProvisional.mock.calls[0];
     expect(id).toBe('local-deadbeef');
-    expect(coords).toEqual([-33.86, 151.2, -33.87, 151.21]);
+    expect(fitPath).toBe(ENTRY.fitPath);
     expect(row.activityId).toBe('local-deadbeef');
     expect(addActivities).not.toHaveBeenCalled();
     expect(upsertBodies).not.toHaveBeenCalled();
@@ -123,26 +122,37 @@ describe('writeProvisionalActivity', () => {
     expect(body.total_elevation_gain).toBe(310);
     expect(body.average_heartrate).toBe(141);
 
-    expect(metrics.activityId).toBe('local-deadbeef');
-    expect(metrics.date).toBe(Date.UTC(2026, 2, 8, 18, 30, 0) / 1000);
+    expect(saveProvisional.mock.calls[0]).toHaveLength(3);
+    expect(row.date).toBe(Date.UTC(2026, 2, 8, 18, 30, 0) / 1000);
   });
 
-  it('writes a row for an indoor ride that has no track at all', async () => {
-    const key = await writeProvisionalActivity(
-      { ...ENTRY, activityType: 'VirtualRide' },
-      streams([])
-    );
+  it('writes a row with no file for a manual entry', async () => {
+    const key = await writeProvisionalActivity(MANUAL);
 
     expect(key).toBe('local-deadbeef');
     expect(addActivities).not.toHaveBeenCalled();
-    expect(saveProvisional.mock.calls[0][1]).toEqual([]);
+    expect(saveProvisional.mock.calls[0][1]).toBeUndefined();
     expect(saveProvisional).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries the review's notes and effort on the row the feed reads", async () => {
+    await writeProvisionalActivity({ ...ENTRY, notes: 'legs heavy', rpe: 8 });
+    const body = JSON.parse(saveProvisional.mock.calls[0][2].raw);
+    expect(body.description).toBe('legs heavy');
+    expect(body.icu_rpe).toBe(8);
+  });
+
+  it('carries no effort the athlete never set', async () => {
+    await writeProvisionalActivity(ENTRY);
+    const body = JSON.parse(saveProvisional.mock.calls[0][2].raw);
+    expect(body).not.toHaveProperty('icu_rpe');
+    expect(body).not.toHaveProperty('description');
   });
 
   it('writes nothing and answers null when the engine is not open', async () => {
     (engine as unknown as { ready: boolean }).ready = false;
 
-    expect(await writeProvisionalActivity(ENTRY, streams([[-33.86, 151.2]]))).toBeNull();
+    expect(await writeProvisionalActivity(ENTRY)).toBeNull();
     expect(addActivities).not.toHaveBeenCalled();
     expect(upsertBodies).not.toHaveBeenCalled();
     expect(setMetrics).not.toHaveBeenCalled();
@@ -153,13 +163,13 @@ describe('writeProvisionalActivity', () => {
       throw new Error('engine closed mid-write');
     });
 
-    expect(await writeProvisionalActivity(ENTRY, streams([[-33.86, 151.2]]))).toBeNull();
+    expect(await writeProvisionalActivity(ENTRY)).toBeNull();
   });
 
   it('answers null when no key can be minted', async () => {
     mint.mockReturnValue('');
 
-    expect(await writeProvisionalActivity(ENTRY, streams([[-33.86, 151.2]]))).toBeNull();
+    expect(await writeProvisionalActivity(ENTRY)).toBeNull();
     expect(addActivities).not.toHaveBeenCalled();
   });
 
@@ -170,7 +180,7 @@ describe('writeProvisionalActivity', () => {
         commit = resolve;
       })
     );
-    const saved = writeProvisionalActivity(ENTRY, null);
+    const saved = writeProvisionalActivity(ENTRY);
     let settled = false;
     void saved.then(() => {
       settled = true;
@@ -182,9 +192,9 @@ describe('writeProvisionalActivity', () => {
   });
 
   it('reuses the stored activity key on a retry', async () => {
-    expect(
-      await writeProvisionalActivity({ ...ENTRY, engineActivityId: 'local-existing' }, null)
-    ).toBe('local-existing');
+    expect(await writeProvisionalActivity({ ...ENTRY, engineActivityId: 'local-existing' })).toBe(
+      'local-existing'
+    );
     expect(mint).not.toHaveBeenCalled();
     expect(saveProvisional.mock.calls[0][0]).toBe('local-existing');
   });
@@ -193,18 +203,18 @@ describe('writeProvisionalActivity', () => {
     saveProvisional.mockImplementationOnce(() => {
       throw new Error('disk full');
     });
-    expect(await writeProvisionalActivity(ENTRY, null)).toBeNull();
-    expect(await writeProvisionalActivity(ENTRY, null)).toBe('local-deadbeef');
+    expect(await writeProvisionalActivity(ENTRY)).toBeNull();
+    expect(await writeProvisionalActivity(ENTRY)).toBe('local-deadbeef');
   });
 
   it('answers null when the engine closes before the atomic write', async () => {
     saveProvisional.mockReturnValueOnce(false);
-    expect(await writeProvisionalActivity(ENTRY, null)).toBeNull();
+    expect(await writeProvisionalActivity(ENTRY)).toBeNull();
   });
 
   it('uses the same key when the same recording is saved twice', async () => {
-    const first = await writeProvisionalActivity(ENTRY, streams([[-33.86, 151.2]]));
-    const second = await writeProvisionalActivity(ENTRY, streams([[-33.86, 151.2]]));
+    const first = await writeProvisionalActivity(ENTRY);
+    const second = await writeProvisionalActivity(ENTRY);
     expect([first, second]).toEqual(['local-deadbeef', 'local-deadbeef']);
     expect(mint).toHaveBeenNthCalledWith(1, ENTRY.id);
     expect(mint).toHaveBeenNthCalledWith(2, ENTRY.id);
@@ -358,5 +368,77 @@ describe('an unreconciled entry survives a closed engine', () => {
     recordUpload.mockReturnValueOnce(true);
     await expect(reconcileProvisionalUploads()).resolves.toBe(1);
     expect(mockMarkReconciled).toHaveBeenCalledWith(owed.id);
+  });
+});
+
+/**
+ * Scenario: the engine write at save failed, or the engine was closed, so the
+ * ride is in the library with no row in the engine. It misses the feed, the
+ * week and section detection until it uploads and syncs back.
+ *
+ * Expected behaviour: the next launch writes the row from the ride's own FIT,
+ * records the key on the entry, and writes an id the upload already has onto
+ * it, so the sync does not store the ride a second time.
+ */
+describe('replayProvisionalWrites', () => {
+  const mockAttach = attachEngineActivity as jest.Mock;
+
+  it('writes the row a failed save never wrote, from the FIT', async () => {
+    mockList.mockResolvedValue([ENTRY]);
+    mockAttach.mockResolvedValue({ ...ENTRY, engineActivityId: 'local-deadbeef' });
+
+    expect(await replayProvisionalWrites()).toBe(1);
+    expect(saveProvisional).toHaveBeenCalledWith(
+      'local-deadbeef',
+      ENTRY.fitPath,
+      expect.anything()
+    );
+    expect(mockAttach).toHaveBeenCalledWith(ENTRY.id, 'local-deadbeef');
+    expect(recordUpload).not.toHaveBeenCalled();
+  });
+
+  it('writes the id an upload already landed onto the replayed row', async () => {
+    const uploaded = { ...ENTRY, uploadStatus: 'uploaded' as const, intervalsActivityId: 'i123' };
+    mockList.mockResolvedValue([uploaded]);
+    mockAttach.mockResolvedValue({ ...uploaded, engineActivityId: 'local-deadbeef' });
+
+    await replayProvisionalWrites();
+    expect(recordUpload).toHaveBeenCalledWith('local-deadbeef', 'i123');
+  });
+
+  it('leaves an entry that already has its row alone', async () => {
+    mockList.mockResolvedValue([{ ...ENTRY, engineActivityId: 'local-existing' }]);
+    expect(await replayProvisionalWrites()).toBe(0);
+    expect(saveProvisional).not.toHaveBeenCalled();
+  });
+
+  it('leaves the entry for the next launch when the write fails again', async () => {
+    mockList.mockResolvedValue([ENTRY, MANUAL]);
+    saveProvisional.mockImplementationOnce(() => {
+      throw new Error('FIT unreadable');
+    });
+    mockAttach.mockResolvedValue(null);
+
+    expect(await replayProvisionalWrites()).toBe(1);
+    expect(mockAttach).toHaveBeenCalledTimes(1);
+    expect(mockAttach).toHaveBeenCalledWith(MANUAL.id, 'local-deadbeef');
+  });
+
+  it("leaves another athlete's held ride out of the signed-in athlete's library", async () => {
+    mockList.mockResolvedValue([
+      { ...ENTRY, athleteId: 'i100001', uploadStatus: 'localOnly' as const },
+    ]);
+    expect(await replayProvisionalWrites()).toBe(0);
+    expect(saveProvisional).not.toHaveBeenCalled();
+
+    mockSignedIn = 'i100001';
+    expect(await replayProvisionalWrites()).toBe(1);
+  });
+
+  it('does nothing while the engine is closed', async () => {
+    setReady(false);
+    mockList.mockResolvedValue([ENTRY]);
+    expect(await replayProvisionalWrites()).toBe(0);
+    expect(saveProvisional).not.toHaveBeenCalled();
   });
 });

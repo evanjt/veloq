@@ -18,7 +18,6 @@ const CENTRE: PreviewCentre = {
   visitTotal: 40,
   sectionCount: 3,
   source: 'sections',
-  locality: null,
 };
 
 const OTHER_CENTRE: PreviewCentre = {
@@ -28,7 +27,6 @@ const OTHER_CENTRE: PreviewCentre = {
   visitTotal: 12,
   sectionCount: 1,
   source: 'sections',
-  locality: null,
 };
 
 function section(id: string): PreviewSection {
@@ -37,7 +35,6 @@ function section(id: string): PreviewSection {
     liveId: id,
     status: 'unchanged',
     name: `Section ${id}`,
-    sport: 'Ride',
     polyline: new ArrayBuffer(0),
     visits: 7,
     distanceM: 4200,

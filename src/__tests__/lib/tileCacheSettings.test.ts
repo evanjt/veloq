@@ -1,16 +1,22 @@
 /**
- * The tile cache key is no longer a store, only a one-off migration that
- * flattens an older proactive cache mode to ambient. Startup awaits it, so it
- * must resolve on a corrupt value and on a storage that throws.
+ * Loading the tile cache key: the ceiling, and a one-off migration that
+ * flattens an older proactive cache mode to ambient. Startup and a restore
+ * both await it, so it must resolve on a corrupt value and on a storage that
+ * throws.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { migrateTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
+import {
+  getTileCacheBudgetMb,
+  initializeTileCacheSettings,
+} from '@/features/maps/lib/storage/tileCacheSettings';
+
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 const noop = () => {};
 jest.mock('@/shared/debug/debug', () => ({
-  debug: { create: () => noop },
+  debug: { create: () => ({ warn: noop, log: noop, error: noop }) },
 }));
 
 const TILE_CACHE_KEY = 'veloq-tile-cache';
@@ -20,9 +26,9 @@ beforeEach(async () => {
   jest.clearAllMocks();
 });
 
-describe('migrateTileCacheSettings', () => {
+describe('initializeTileCacheSettings', () => {
   it('writes nothing when no value is stored', async () => {
-    await migrateTileCacheSettings();
+    await initializeTileCacheSettings();
     expect(await AsyncStorage.getItem(TILE_CACHE_KEY)).toBeNull();
   });
 
@@ -31,7 +37,7 @@ describe('migrateTileCacheSettings', () => {
       TILE_CACHE_KEY,
       JSON.stringify({ cacheMode: 'proactive', maxSize: 500 })
     );
-    await migrateTileCacheSettings();
+    await initializeTileCacheSettings();
     const stored = JSON.parse((await AsyncStorage.getItem(TILE_CACHE_KEY))!);
     expect(stored.cacheMode).toBe('ambient');
     expect(stored.maxSize).toBeUndefined();
@@ -42,28 +48,35 @@ describe('migrateTileCacheSettings', () => {
       TILE_CACHE_KEY,
       JSON.stringify({ cacheMode: 'ambient', extra: 'field' })
     );
-    await migrateTileCacheSettings();
+    await initializeTileCacheSettings();
     const stored = JSON.parse((await AsyncStorage.getItem(TILE_CACHE_KEY))!);
     expect(stored.cacheMode).toBe('ambient');
     expect(stored.extra).toBe('field');
   });
 
-  it('leaves a corrupt value alone rather than throwing', async () => {
+  it('leaves a corrupt value alone rather than throwing, and takes the default', async () => {
     await AsyncStorage.setItem(TILE_CACHE_KEY, 'not valid json');
-    await expect(migrateTileCacheSettings()).resolves.toBeUndefined();
+    await expect(initializeTileCacheSettings()).resolves.toBeUndefined();
     expect(await AsyncStorage.getItem(TILE_CACHE_KEY)).toBe('not valid json');
+    expect(getTileCacheBudgetMb()).toBe(50);
   });
 
   it('resolves when the read throws', async () => {
     (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
-    await expect(migrateTileCacheSettings()).resolves.toBeUndefined();
+    await expect(initializeTileCacheSettings()).resolves.toBeUndefined();
   });
 
   it('is safe to run twice', async () => {
     await AsyncStorage.setItem(TILE_CACHE_KEY, JSON.stringify({ cacheMode: 'proactive' }));
-    await migrateTileCacheSettings();
-    await migrateTileCacheSettings();
+    await initializeTileCacheSettings();
+    await initializeTileCacheSettings();
     const stored = JSON.parse((await AsyncStorage.getItem(TILE_CACHE_KEY))!);
     expect(stored.cacheMode).toBe('ambient');
+  });
+
+  it('loads a stored ceiling, snapped onto the ladder', async () => {
+    await AsyncStorage.setItem(TILE_CACHE_KEY, JSON.stringify({ budgetMb: 250 }));
+    await initializeTileCacheSettings();
+    expect(getTileCacheBudgetMb()).toBe(200);
   });
 });

@@ -7,23 +7,30 @@
  *
  * Expected behaviour: the notice names only what was actually kept. A count of
  * zero is left out rather than printed, because "0 pins kept" reads as a loss
- * to an athlete who never had one, and a report with nothing in it produces no
- * notice at all.
+ * to an athlete who never had one. A report with nothing in it is still a
+ * quarantine, and answers an empty list rather than no notice, because the
+ * athlete who lost everything is the one who most needs telling.
  */
 
 import { quarantineNoticeParts } from '@/features/settings/lib/quarantineNotice';
 
-const none = { history: 0, geometry: 0, pins: 0, sections: 0, intents: 0 };
+const none = {
+  history: 0,
+  geometry: 0,
+  pins: 0,
+  sections: 0,
+  intents: 0,
+  recordings: 0,
+  routeNames: 0,
+};
 
 describe('quarantineNoticeParts', () => {
   it('is nothing when there was no quarantine', () => {
     expect(quarantineNoticeParts(null)).toBeNull();
   });
 
-  it('is nothing when the rebuild rescued nothing', () => {
-    // The log line already records it. A notice with no good news in it is a
-    // scare for a fault the app recovered from.
-    expect(quarantineNoticeParts(none)).toBeNull();
+  it('is an empty list, not nothing, when the rebuild rescued nothing', () => {
+    expect(quarantineNoticeParts(none)).toEqual([]);
   });
 
   it('names only the counts that are not zero', () => {
@@ -33,8 +40,16 @@ describe('quarantineNoticeParts', () => {
     ]);
   });
 
+  it('names salvaged pending recordings and route names even without section rows', () => {
+    const report = { ...none, recordings: 2, routeNames: 3 };
+    expect(quarantineNoticeParts(report)).toEqual([
+      { key: 'recordings', count: 2 },
+      { key: 'routeNames', count: 3 },
+    ]);
+  });
+
   it('keeps a fixed order, so the sentence does not reshuffle between athletes', () => {
-    const all = { history: 1, geometry: 2, pins: 3, sections: 4, intents: 5 };
+    const all = { ...none, history: 1, geometry: 2, pins: 3, sections: 4, intents: 5 };
     expect(quarantineNoticeParts(all)?.map((p) => p.key)).toEqual([
       'sections',
       'history',
@@ -52,7 +67,7 @@ describe('quarantineNoticeParts', () => {
   });
 
   it('treats a missing or negative count as nothing kept', () => {
-    expect(quarantineNoticeParts({ ...none, sections: -1 })).toBeNull();
-    expect(quarantineNoticeParts({ ...none, sections: Number.NaN })).toBeNull();
+    expect(quarantineNoticeParts({ ...none, sections: -1 })).toEqual([]);
+    expect(quarantineNoticeParts({ ...none, sections: Number.NaN })).toEqual([]);
   });
 });

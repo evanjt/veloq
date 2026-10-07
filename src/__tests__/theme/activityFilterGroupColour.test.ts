@@ -10,7 +10,11 @@
  * the label owes 4.5:1.
  */
 
-import { ACTIVITY_CATEGORIES } from '@/features/maps/components/ActivityTypeFilter';
+import {
+  ACTIVITY_CATEGORIES,
+  FILTER_CHIP,
+  categoryChipColours,
+} from '@/features/maps/lib/activityCategories';
 import { colors } from '@/theme';
 
 const BARS = { text: 4.5, mark: 3 } as const;
@@ -51,5 +55,40 @@ describe('the racket hue does both jobs the chip asks of it', () => {
 
   it('is its own entry rather than a fallback', () => {
     expect(racket).not.toBe(colors.success);
+  });
+});
+
+describe('every sport chip reads in both states', () => {
+  it.each(Object.entries(ACTIVITY_CATEGORIES))(
+    '%s: selected label and icon clear 4.5:1 on the selected fill',
+    (_name, config) => {
+      expect(contrastRatio(config.selectedInk, config.selectedFill)).toBeGreaterThanOrEqual(
+        BARS.text
+      );
+    }
+  );
+});
+
+describe('the map tab chips pick a readable fill and ink', () => {
+  it.each(Object.keys(ACTIVITY_CATEGORIES))('%s selected clears 4.5:1', (category) => {
+    const { fill, ink } = categoryChipColours(category, true);
+    expect(fill).not.toBeNull();
+    expect(contrastRatio(ink, fill ?? '#000000')).toBeGreaterThanOrEqual(BARS.text);
+  });
+
+  it('a selected sport chip fills from the category, not its icon hue', () => {
+    const run = ACTIVITY_CATEGORIES.Run;
+    expect(categoryChipColours('Run', true)).toEqual({
+      fill: run.selectedFill,
+      ink: run.selectedInk,
+    });
+  });
+
+  it('an unselected sport chip keeps the icon hue as its mark', () => {
+    expect(categoryChipColours('Run', false).ink).toBe(ACTIVITY_CATEGORIES.Run.color);
+  });
+
+  it('the selected period and distance chip clears 4.5:1', () => {
+    expect(contrastRatio(FILTER_CHIP.ink, FILTER_CHIP.fill)).toBeGreaterThanOrEqual(BARS.text);
   });
 });

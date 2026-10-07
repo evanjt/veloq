@@ -6,8 +6,8 @@
  * traces stood for is what the heatmap already draws from disk tiles.
  *
  * Expected behaviour: no traces layer, no `activity-traces` source, and nothing
- * uploaded for either. The start points and the selected route stay, because a
- * tap needs the first and the tap's answer is the second. Every source the
+ * uploaded for either. The clustered activity points and the selected route
+ * stay, because a tap needs the first and the tap's answer is the second. Every source the
  * builder declares still has a reader.
  */
 
@@ -16,7 +16,6 @@ import {
   buildRegionalSources,
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import { buildMapSurfaceHtml } from '@/features/maps/lib/htmlBuilders';
-import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 
 const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
@@ -26,6 +25,7 @@ function layers(overrides: Partial<Parameters<typeof buildRegionalLayers>[0]> = 
     mapStyle: 'light',
     showActivities: true,
     showSections: true,
+    showRoutes: false,
     showHeatmap: false,
     heatmapEnabled: false,
     hasSpider: false,
@@ -41,8 +41,8 @@ function layers(overrides: Partial<Parameters<typeof buildRegionalLayers>[0]> = 
 function sources() {
   return buildRegionalSources({
     markersGeoJSON: empty,
-    startPointsGeoJSON: empty,
     sectionsGeoJSON: empty,
+    routesGeoJSON: empty,
     userLocationGeoJSON: empty,
     routeGeoJSON: empty,
     spiderPointsGeoJSON: empty,
@@ -61,23 +61,16 @@ describe('the regional map draws no activity traces', () => {
     expect(layers().filter((l) => l.id.startsWith('activity-traces'))).toEqual([]);
   });
 
-  it('still marks where each activity began, which is what a tap needs', () => {
-    const start = layers().find((l) => l.id === 'start-point-outer');
+  it('still marks each activity from the one clustered source, which is what a tap needs', () => {
+    const point = layers().find((l) => l.id === 'unclustered-point');
 
-    expect(start?.source).toBe('activity-start-points');
-    expect(Object.keys(sources())).toContain('activity-start-points');
+    expect(point?.source).toBe('activity-clusters');
+    expect(Object.keys(sources())).not.toContain('activity-start-points');
   });
 
   it("still paints the selected route, which is the tap's answer", () => {
     expect(Object.keys(sources())).toContain('selected-route');
     expect(layers().some((l) => l.source === 'selected-route')).toBe(true);
-  });
-
-  it('brings the start points in at the zoom the traces used to appear at', () => {
-    const start = layers().find((l) => l.id === 'start-point-outer');
-    const radius = start?.paint?.['circle-radius'] as unknown[];
-
-    expect(radius).toContain(TRACE_ZOOM_THRESHOLD);
   });
 
   /**

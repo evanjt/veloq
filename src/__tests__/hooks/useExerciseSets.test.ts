@@ -60,12 +60,21 @@ const aSet = {
   startTime: null,
 };
 
+const sessionOf = (sets: unknown[]) => ({
+  sets,
+  groups: [],
+  activeSetCount: sets.length,
+  exerciseCount: 0,
+  totalVolumeKg: 0,
+  totalDurationSecs: 0,
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   listeners.clear();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.getExerciseSets.mockReturnValue([]);
+  engine.getExerciseSets.mockReturnValue(sessionOf([]));
   engine.isFitProcessed.mockReturnValue(false);
   engine.fetchAndParseExerciseSets.mockReturnValue(true);
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
@@ -76,7 +85,7 @@ afterEach(() => {
 });
 
 it('returns cached sets without asking Rust to download', async () => {
-  engine.getExerciseSets.mockReturnValue([aSet]);
+  engine.getExerciseSets.mockReturnValue(sessionOf([aSet]));
 
   const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
 
@@ -100,7 +109,7 @@ it('asks Rust for an unsettled activity and reads back what the parse announces'
   await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledWith('act1'));
   await waitFor(() => expect(result.current.data).toEqual([]));
 
-  engine.getExerciseSets.mockReturnValue([aSet]);
+  engine.getExerciseSets.mockReturnValue(sessionOf([aSet]));
   act(() => announce('act1'));
   await waitFor(() => expect(result.current.data).toHaveLength(1));
 });

@@ -20,8 +20,8 @@ const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 function clusterSource() {
   return buildRegionalSources({
     markersGeoJSON: empty,
-    startPointsGeoJSON: empty,
     sectionsGeoJSON: empty,
+    routesGeoJSON: empty,
     userLocationGeoJSON: empty,
     routeGeoJSON: empty,
     spiderPointsGeoJSON: empty,

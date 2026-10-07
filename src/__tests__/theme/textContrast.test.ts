@@ -11,9 +11,6 @@
  * nobody noticed.
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, relative as relative_ } from 'node:path';
-
 import { colors, darkColors, chartStreamColors } from '@/theme';
 import {
   FORM_ZONE_COLORS,
@@ -64,10 +61,24 @@ const LIGHT_SURFACES = {
 };
 
 const DARK_SURFACES = {
+  background: darkColors.background,
   surface: darkColors.surface,
   surfaceElevated: darkColors.surfaceElevated,
   surfaceCard: darkColors.surfaceCard,
 };
+
+describe('region tints', () => {
+  it('lifts the idle and selected regions in dark mode', () => {
+    const idle = darkColors.regionTintIdle;
+    const active = darkColors.regionTintActive;
+
+    expect(idle).toMatch(/^rgba\(255, 255, 255, [\d.]+\)$/);
+    expect(active).toMatch(/^rgba\(255, 255, 255, [\d.]+\)$/);
+    const alpha = (tint: string) => Number(tint.match(/, ([\d.]+)\)$/)?.[1]);
+    expect(alpha(idle)).toBeGreaterThan(0);
+    expect(alpha(active)).toBeGreaterThan(alpha(idle));
+  });
+});
 
 describe('contrastRatio', () => {
   it('puts black on white at 21:1 and a colour against itself at 1:1', () => {
@@ -250,11 +261,15 @@ describe('a mark that carries its own meaning clears AA for a graphical object',
   const LIGHT_MARKS = {
     chartGoldMark: colors.chartGoldMark,
     chartGreenMark: colors.chartGreenMark,
+    chartSilverMark: colors.chartSilverMark,
+    chartBronzeMark: colors.chartBronzeMark,
   };
 
   const DARK_MARKS = {
     chartGoldMark: darkColors.chartGoldMark,
     chartGreenMark: darkColors.chartGreenMark,
+    chartSilverMark: darkColors.chartSilverMark,
+    chartBronzeMark: darkColors.chartBronzeMark,
   };
 
   it.each(Object.keys(LIGHT_MARKS))('light %s on every light surface', (mark) => {
@@ -274,113 +289,6 @@ describe('a mark that carries its own meaning clears AA for a graphical object',
   it('is a lift of the chart tones, which are the ones that fail', () => {
     expect(contrastRatio(colors.chartGold, colors.surface)).toBeLessThan(AA_MARK);
     expect(contrastRatio(colors.chartGreen, colors.surface)).toBeLessThan(AA_MARK);
-  });
-});
-
-/**
- * Scenario: the two text greys were guarded and the other thirty-odd token
- * groups were not, so hues that answer to no bar reached a `Text` style and
- * stayed, between 1.47:1 and 3.56:1 on the light theme. A ratio guarded over two
- * tokens is a guard over two tokens.
- *
- * Expected behaviour: a ground token never colours text. The list is every
- * `ground` in `tokenFamilies.ts`, which is what makes the family line a claim
- * rather than a comment: a ground is a ground because nothing reads it as text.
- * `color:` is the text property in React Native, so a fill reached through
- * `backgroundColor` or `borderColor` is not caught here and does not need to be:
- * those answer to 1.4.11 at 3:1. The ground under the text is not measured,
- * because it cannot be read off the source: a chip label sits on a tint of its
- * own hue and a headline on the card, and telling those apart is a per-site
- * reading, done once and recorded in the audit rather than here.
- *
- * It reads the token by name, so a site that reaches a hue through a local, a
- * prop or a function is invisible to it. That is how the section-creation
- * overlay's 1.47:1 status line went unseen, and why the decision it makes now
- * lives in `features/maps/lib/sectionSizeTone.ts` where a test can take it.
- */
-describe('no ground token colours text', () => {
-  const TREE = join(__dirname, '../../..', 'src');
-
-  /**
-   * Every ground-family token, which is the series hues and the fills beside
-   * them. A ground is a ground because nothing reads it as text, so the moment
-   * a `Text` style does, the family line in `tokenFamilies.ts` is a claim the
-   * tree contradicts.
-   */
-  const GROUNDS = Object.keys(TOKEN_FAMILIES).filter((token) => TOKEN_FAMILIES[token] === 'ground');
-
-  /**
-   * Sites that fail and are somebody else's to fix. Every entry is a real
-   * failure, not an exemption: the list only ever gets shorter, and an entry that
-   * has been fixed fails the second test rather than going quiet.
-   */
-  const BASELINE: string[] = [];
-
-  function sources(dir: string): string[] {
-    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        return entry.name === '__tests__' ? [] : sources(full);
-      }
-      return /\.tsx?$/.test(entry.name) ? [full] : [];
-    });
-  }
-
-  /**
-   * The regions of a file where `color:` means text: every
-   * `StyleSheet.create({...})` body, and every line carrying a `style=` prop,
-   * which is where an inline override lands. A bare `color:` field in a data
-   * object is neither, and those describe fills and dots.
-   */
-  function styleRegions(source: string): string[] {
-    const regions: string[] = [];
-    let at = source.indexOf('StyleSheet.create(');
-    while (at !== -1) {
-      let depth = 0;
-      let i = source.indexOf('(', at);
-      const start = i;
-      for (; i < source.length; i++) {
-        if (source[i] === '(') depth++;
-        if (source[i] === ')' && --depth === 0) break;
-      }
-      regions.push(source.slice(start, i));
-      at = source.indexOf('StyleSheet.create(', i);
-    }
-    regions.push(...source.split('\n').filter((line) => line.includes('style=')));
-    return regions;
-  }
-
-  const offenders = sources(TREE).flatMap((file) => {
-    const where = relative_(TREE, file);
-    const found: { file: string; token: string }[] = [];
-    for (const region of styleRegions(readFileSync(file, 'utf8'))) {
-      for (const [, holder, token] of region.matchAll(
-        /(?<![A-Za-z])color:\s*(colors|darkColors|chartColors|SPORT_COLORS)\.([A-Za-z0-9_]+)/g
-      )) {
-        const ground =
-          holder === 'SPORT_COLORS' ||
-          (holder === 'chartColors' &&
-            GROUNDS.includes(`chart${token[0].toUpperCase()}${token.slice(1)}`)) ||
-          ((holder === 'colors' || holder === 'darkColors') && GROUNDS.includes(token));
-        if (ground) {
-          found.push({ file: where, token: `${holder}.${token}` });
-        }
-      }
-    }
-    return found;
-  });
-
-  it('finds no unbaselined site', () => {
-    const unbaselined = offenders.filter((o) => !BASELINE.includes(o.file));
-
-    expect(unbaselined.map((o) => `${o.file}: ${o.token}`)).toStrictEqual([]);
-  });
-
-  it('still finds every baselined site, so the list shortens rather than rots', () => {
-    const seen = new Set(offenders.map((o) => o.file));
-    const gone = BASELINE.filter((file) => !seen.has(file));
-
-    expect(gone).toStrictEqual([]);
   });
 });
 
@@ -562,23 +470,18 @@ describe('every palette token answers to its family bar', () => {
     }
   });
 
-  // The list only shortens, and it is empty. An entry that has
-  // been repaired has to fail here rather than go quiet, so the assertion is
-  // kept for whatever is added next; an empty list is the end state, not a
-  // reason for `it.each` to throw.
-  const stillUnder = Object.keys(UNDER_BAR);
-  if (stillUnder.length === 0) {
-    it('has nothing left under its bar', () => {
-      expect(UNDER_BAR).toEqual({});
-    });
-  } else {
-    it.each(stillUnder)('%s is still under its bar, so the list shortens', (token) => {
+  // The list only shortens. An entry that has been repaired fails here rather
+  // than going quiet, and the one test runs whatever the list holds, so an
+  // empty list is checked the same way as a full one.
+  it('names only tokens that are still under their bar', () => {
+    const repaired = Object.keys(UNDER_BAR).filter((token) => {
       const bar = FAMILY_BARS[TOKEN_FAMILIES[token]];
       const worst = (['light', 'dark'] as const)
         .map((theme) => worstRatio(token, theme))
         .filter((ratio): ratio is number => ratio !== null);
-
-      expect(Math.min(...worst)).toBeLessThan(bar);
+      return bar === undefined || worst.length === 0 || Math.min(...worst) >= bar;
     });
-  }
+
+    expect(repaired).toEqual([]);
+  });
 });

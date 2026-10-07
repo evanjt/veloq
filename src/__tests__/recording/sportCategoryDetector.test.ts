@@ -9,10 +9,7 @@
  */
 
 import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
-import {
-  getMaxPlausibleSpeed,
-  getSportCategory,
-} from '@/features/recording/lib/sportCategoryDetector';
+import { getMaxPlausibleSpeed, getSportCategory } from '@/shared/recording/sportCategoryDetector';
 import type { ActivityType } from '@/types';
 
 describe('the teleport guard sport category', () => {

@@ -14,7 +14,6 @@ import { Platform } from 'react-native';
 
 import {
   initializeNotifications,
-  presentInsightNotification,
   presentActivityNotification,
 } from '@/features/settings/lib/notificationService';
 
@@ -30,6 +29,7 @@ jest.mock('expo-notifications', () => ({
   addNotificationResponseReceivedListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
 }));
 
+jest.mock('@/features/insights', () => jest.requireActual('@/features/insights/lib/pushPayload'));
 jest.mock('@/theme', () => ({
   brand: { tealLight: '#0D9488' },
 }));
@@ -49,14 +49,8 @@ async function onPlatform(os: string, run: () => Promise<void>) {
   }
 }
 
-describe('the insight notifications name their own channel too', () => {
+describe('the activity notification names its own channel', () => {
   beforeEach(() => jest.clearAllMocks());
-
-  it('sends an insight on veloq-insights', async () => {
-    await onPlatform('android', () => presentInsightNotification('PR', 'A new best'));
-
-    expect(lastCall().trigger).toEqual({ channelId: 'veloq-insights' });
-  });
 
   it('sends an activity notification on veloq-insights', async () => {
     await onPlatform('android', () => presentActivityNotification('a1', 'Ride', 'Done'));
@@ -64,11 +58,8 @@ describe('the insight notifications name their own channel too', () => {
     expect(lastCall().trigger).toEqual({ channelId: 'veloq-insights' });
   });
 
-  it('leaves both triggers null on iOS', async () => {
-    await onPlatform('ios', async () => {
-      await presentInsightNotification('PR', 'A new best');
-      await presentActivityNotification('a1', 'Ride', 'Done');
-    });
+  it('leaves the trigger null on iOS', async () => {
+    await onPlatform('ios', () => presentActivityNotification('a1', 'Ride', 'Done'));
 
     const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls;
     for (const [request] of calls) expect(request.trigger).toBeNull();
@@ -106,15 +97,22 @@ describe('notification tap handler', () => {
   const {
     setupNotificationResponseHandler,
   } = require('@/features/settings/lib/notificationService');
+  const { useAuthStore } = require('@/shared/app/AuthStore');
   let addListenerMock: jest.Mock;
+
+  /** A tap routes once the credential is read, and only for the athlete it names. */
+  const settle = async () => {
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
     router = require('expo-router').router;
     addListenerMock = Notifications.addNotificationResponseReceivedListener as jest.Mock;
+    useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true, isLoading: false });
   });
 
-  it('navigates to activity on tap with activityId', () => {
+  it('navigates to activity on tap with activityId', async () => {
     setupNotificationResponseHandler();
 
     const callback = addListenerMock.mock.calls[0][0];
@@ -123,17 +121,18 @@ describe('notification tap handler', () => {
         request: {
           identifier: 'tap-test-activity',
           content: {
-            data: { activityId: 'act-123', route: '/routes' },
+            data: { activityId: 'act-123', route: '/routes', athleteId: 'i1' },
           },
         },
       },
     };
 
     callback(response);
-    expect(router.push).toHaveBeenCalledWith('/summary/act-123');
+    await settle();
+    expect(router.push).toHaveBeenCalledWith('/activity/act-123');
   });
 
-  it('navigates to section when sectionId provided without activityId', () => {
+  it('navigates to section when sectionId provided without activityId', async () => {
     setupNotificationResponseHandler();
 
     const callback = addListenerMock.mock.calls[0][0];
@@ -142,17 +141,18 @@ describe('notification tap handler', () => {
         request: {
           identifier: 'tap-test-section',
           content: {
-            data: { sectionId: 'sec-456', route: '/routes' },
+            data: { sectionId: 'sec-456', route: '/routes', athleteId: 'i1' },
           },
         },
       },
     };
 
     callback(response);
+    await settle();
     expect(router.push).toHaveBeenCalledWith('/section/sec-456');
   });
 
-  it('falls back to route when no activityId or sectionId', () => {
+  it('falls back to route when no activityId or sectionId', async () => {
     setupNotificationResponseHandler();
 
     const callback = addListenerMock.mock.calls[0][0];
@@ -161,17 +161,18 @@ describe('notification tap handler', () => {
         request: {
           identifier: 'tap-test-route',
           content: {
-            data: { route: '/fitness' },
+            data: { route: '/fitness', athleteId: 'i1' },
           },
         },
       },
     };
 
     callback(response);
+    await settle();
     expect(router.navigate).toHaveBeenCalledWith('/fitness');
   });
 
-  it('gracefully handles missing data in notification response', () => {
+  it('gracefully handles missing data in notification response', async () => {
     setupNotificationResponseHandler();
 
     const callback = addListenerMock.mock.calls[0][0];
@@ -188,6 +189,7 @@ describe('notification tap handler', () => {
 
     // Should not throw and should not navigate
     expect(() => callback(response)).not.toThrow();
+    await settle();
     expect(router.push).not.toHaveBeenCalled();
   });
 

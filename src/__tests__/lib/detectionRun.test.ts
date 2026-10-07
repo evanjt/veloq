@@ -15,6 +15,8 @@ function engineWith(overrides: Record<string, unknown> = {}) {
       return () => delete listeners[event];
     }),
     pollSectionDetection: jest.fn(() => 'running'),
+    pollSectionDetectionRun: jest.fn((_runId: string) => '1:running'),
+    lastSectionDetectionOutcome: jest.fn(() => 'idle'),
     getSectionDetectionProgress: jest.fn(() => ({
       phase: 'analyzing',
       completed: 3,
@@ -23,6 +25,9 @@ function engineWith(overrides: Record<string, unknown> = {}) {
     })),
     ...overrides,
   };
+  engine.pollSectionDetectionRun = jest.fn(
+    (runId: string) => `${runId || '1'}:${engine.pollSectionDetection()}`
+  );
   return { engine, announce: () => listeners.detectionApplied?.() };
 }
 
@@ -81,6 +86,62 @@ describe('following a detection run', () => {
     await expect(settled).resolves.toBe('error');
   });
 
+  it('uses the poll verdict without a second outcome read', async () => {
+    const { engine, announce } = engineWith({
+      lastSectionDetectionOutcome: jest.fn(() => 'error'),
+    });
+    const { settled } = followDetection(engine as never);
+
+    engine.pollSectionDetection.mockReturnValue('idle');
+    announce();
+
+    await expect(settled).resolves.toBe('idle');
+    expect(engine.lastSectionDetectionOutcome).not.toHaveBeenCalled();
+  });
+
+  it('keeps the failed verdict after the worker cleared its slot', async () => {
+    const { engine, announce } = engineWith();
+    const { settled } = followDetection(engine as never);
+
+    engine.pollSectionDetection.mockReturnValue('error');
+    announce();
+
+    await expect(settled).resolves.toBe('error');
+    expect(engine.lastSectionDetectionOutcome).not.toHaveBeenCalled();
+  });
+
+  it('reads a completed run after the worker cleared its slot', async () => {
+    const { engine, announce } = engineWith();
+    const { settled } = followDetection(engine as never);
+
+    engine.pollSectionDetection.mockReturnValue('complete');
+    announce();
+
+    await expect(settled).resolves.toBe('complete');
+    expect(engine.lastSectionDetectionOutcome).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['complete', 'error'],
+    ['error', 'complete'],
+  ] as const)(
+    'keeps a followed %s verdict when a successor is %s at the announcement',
+    async (followed, successor) => {
+      const { engine, announce } = engineWith();
+      engine.pollSectionDetection.mockReturnValueOnce('running').mockReturnValueOnce(successor);
+      engine.pollSectionDetectionRun.mockImplementation((runId: string) => {
+        if (!runId) return '7:running';
+        return runId === '7' ? `7:${followed}` : `8:${successor}`;
+      });
+      const { settled } = followDetection(engine as never);
+
+      announce();
+
+      await expect(settled).resolves.toBe(followed);
+      expect(engine.pollSectionDetectionRun.mock.calls.map(([id]) => id)).toEqual(['', '7']);
+    }
+  );
+
   it('gives up on its own budget rather than following for ever', async () => {
     const { engine } = engineWith();
     const { settled } = followDetection(engine as never, { timeoutMs: 1000 });
@@ -88,6 +149,27 @@ describe('following a detection run', () => {
     jest.advanceTimersByTime(1000);
 
     await expect(settled).resolves.toBe('timeout');
+  });
+
+  it('does not count a suspension against the ceiling or the lapse', async () => {
+    const { engine, announce } = engineWith();
+    const onLapse = jest.fn();
+    const { settled } = followDetection(engine as never, {
+      timeoutMs: 120000,
+      onLapse,
+      lapseAfterMs: 60000,
+    });
+    let outcome: string | null = null;
+    void settled.then((o) => (outcome = o));
+
+    jest.setSystemTime(Date.now() + 180000);
+    jest.advanceTimersByTime(500);
+    await Promise.resolve();
+
+    expect(outcome).toBeNull();
+    expect(onLapse).not.toHaveBeenCalled();
+
+    announce();
   });
 
   it('reports a lapsed budget once and keeps following', async () => {

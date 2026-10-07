@@ -93,3 +93,21 @@ describe('a refusal breaks nothing', () => {
     await waitFor(() => expect(marked()).toBe(true));
   });
 });
+
+describe('Android never shows the Always dialog', () => {
+  const { Platform } = jest.requireActual('react-native');
+  const original = Platform.OS;
+  beforeEach(() => {
+    Platform.OS = 'android';
+  });
+  afterEach(() => {
+    Platform.OS = original;
+  });
+
+  it('requests nothing for a quick-start ride, which runs in a foreground service', async () => {
+    render({ fromQuickStart: true, recording: true });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockRequestBackground).not.toHaveBeenCalled();
+    expect(marked()).toBe(false);
+  });
+});

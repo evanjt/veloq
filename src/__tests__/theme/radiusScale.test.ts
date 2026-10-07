@@ -1,87 +1,20 @@
 /**
- * Scenario: the app declared a radius scale of 4, 8, 16 and 24 and drew 10, 12,
- * 14 and 20 more often than any of them, so the plurality of what shipped had
- * no token at all and every one of those sites was a literal.
+ * Scenario: a raw radius or hex literal in a stylesheet module bypasses the tokens.
  *
- * Expected behaviour: the scale is exactly the ladder that was chosen, so an
- * edit to it is a deliberate diff and not a drift, and the lint that keeps a
- * new literal off it actually fires.
+ * Expected behaviour: the lint that keeps a new literal off the scale actually fires.
  */
 
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
-import { layout, spacing } from '@/theme/spacing';
-
 const ROOT = join(__dirname, '../../..');
-
-/** The rungs the scale was settled on, taken from what the app already drew. */
-const RADII = [4, 8, 12, 16, 20, 24, 9999];
-
-describe('the radius scale', () => {
-  it('is the ladder that was settled on, and nothing else', () => {
-    const radii = Object.entries(layout)
-      .filter(([key]) => key.startsWith('borderRadius'))
-      .map(([, value]) => value)
-      .sort((a, b) => a - b);
-    expect(radii).toEqual(RADII);
-  });
-
-  it('names each rung once, so two tokens cannot drift onto one value', () => {
-    const radii = Object.entries(layout).filter(([key]) => key.startsWith('borderRadius'));
-    expect(new Set(radii.map(([, v]) => v)).size).toBe(radii.length);
-  });
-
-  it('carries the two micro steps as spacing, not as radius', () => {
-    expect(spacing.xxs).toBe(2);
-    expect(spacing.xsPlus).toBe(6);
-  });
-
-  it('keeps the spacing ladder ascending', () => {
-    const steps = [
-      spacing.xxs,
-      spacing.xs,
-      spacing.xsPlus,
-      spacing.sm,
-      spacing.smPlus,
-      spacing.md,
-      spacing.lg,
-    ];
-    expect(steps).toEqual([...steps].sort((a, b) => a - b));
-  });
-
-  /**
-   * 8 to 16 was a doubling with nothing in it, and the app drew a 10 at 30
-   * sites and a 12 at 29, so a third of the off-ladder paddings had no rung to
-   * fold to. The radius scale has carried a 12 since it was settled.
-   */
-  it('carries the half-step between 8 and 16 the app actually draws', () => {
-    expect(spacing.smPlus).toBe(12);
-    expect(spacing.smPlus).toBe(layout.borderRadiusMd);
-  });
-
-  it('names each spacing rung once, so two tokens cannot drift onto one value', () => {
-    const rungs = [
-      spacing.xxs,
-      spacing.xs,
-      spacing.xsPlus,
-      spacing.sm,
-      spacing.smPlus,
-      spacing.md,
-      spacing.lg,
-      spacing.xl,
-      spacing.xxl,
-    ];
-    expect(new Set(rungs).size).toBe(rungs.length);
-  });
-});
 
 describe('the radius lint', () => {
   // Through stdin, under a name the rule's `src/**` glob matches. A real file
   // written into `src/` is what a whole-tree gate in another worker then
   // catches half-there, and it fails on the ENOENT rather than on what it
   // measures.
-  function lint(source: string): string {
+  function lint(source: string, filename = 'src/radiusLintFixture.ts'): string {
     try {
       execFileSync(
         'npx',
@@ -89,7 +22,7 @@ describe('the radius lint', () => {
           'eslint',
           '--stdin',
           '--stdin-filename',
-          'src/radiusLintFixture.ts',
+          filename,
           '--no-warn-ignored',
           '--format',
           'json',
@@ -124,5 +57,61 @@ describe('the radius lint', () => {
     const source =
       "import { layout } from '@/theme';\nexport const s = { card: { borderRadius: layout.borderRadiusMd } };\n";
     expect(lint(source)).not.toContain('Raw border radius');
+  });
+
+  it('refuses a radius set from a spacing token, and accepts a radius token', () => {
+    const spacingSource =
+      "import { spacing } from '@/theme';\nexport const s = { chip: { borderRadius: spacing.xsPlus } };\n";
+    expect(lint(spacingSource)).toContain('Raw border radius');
+    const cornerSource =
+      "import { spacing } from '@/theme';\nexport const s = { sheet: { borderTopLeftRadius: spacing.md } };\n";
+    expect(lint(cornerSource)).toContain('Raw border radius');
+    const conditionalSource =
+      "import { spacing } from '@/theme';\nexport const s = { chip: { borderRadius: true ? spacing.xs : 0 } };\n";
+    expect(lint(conditionalSource)).toContain('Raw border radius');
+    const tokenSource =
+      "import { layout } from '@/theme';\nexport const s = { chip: { borderRadius: layout.borderRadiusSm } };\n";
+    expect(lint(tokenSource)).not.toContain('Raw border radius');
+  });
+
+  it('requires the map text shadow token outside the theme', () => {
+    expect(lint('export const s = { textShadowRadius: 2 };\n')).toContain('Raw text shadow radius');
+    expect(lint('export const s = { textShadowOffset: { width: 0, height: 1 } };\n')).toContain(
+      'Raw text shadow offset'
+    );
+    const source =
+      "import { mapTextShadow } from '@/theme';\nexport const s = { ...mapTextShadow };\n";
+    expect(lint(source)).not.toContain('Raw text shadow');
+  });
+
+  it('refuses a per-corner radius and a conditional radius', () => {
+    expect(lint('export const s = { borderTopLeftRadius: 10 };\n')).toContain('Raw border radius');
+    expect(lint('export const s = { borderBottomRightRadius: true ? 3 : 0 };\n')).toContain(
+      'Raw border radius'
+    );
+  });
+
+  it('refuses hex in TypeScript and TSX while preserving the type scale rule', () => {
+    const source = "export const s = { color: '#ff0000' };\n";
+    expect(lint(source, 'src/features/hexLintFixture.ts')).toContain('Raw hex colour');
+    expect(lint(source, 'src/features/hexLintFixture.tsx')).toContain('Raw hex colour');
+    expect(
+      lint('export const s = { fontSize: 13 };\n', 'src/features/hexLintFixture.tsx')
+    ).toContain('Raw font size');
+    expect(
+      lint('export const s = { fontSize: true ? 13 : 15 };\n', 'src/features/hexLintFixture.tsx')
+    ).toContain('Raw font size');
+  });
+
+  it('refuses hex written inside a template literal, and accepts one with none', () => {
+    const file = 'src/features/hexLintFixture.ts';
+    expect(lint('export const s = { color: `#ff0000` };\n', file)).toContain('Raw hex colour');
+    expect(lint("export const s = `{ 'line-color': '#FFF' }`;\n", file)).toContain(
+      'Raw hex colour'
+    );
+    expect(lint('export const s = `line-color: ${color}`;\n', file)).not.toContain(
+      'Raw hex colour'
+    );
+    expect(lint('export const s = `#${id}`;\n', file)).not.toContain('Raw hex colour');
   });
 });

@@ -8,7 +8,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
-import { InteractionManager } from 'react-native';
+import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 
 import { useInsights } from '@/features/insights/hooks/useInsights';
 import { fetchInsightsDataFromEngine } from '@/features/insights/lib/computeInsightsData';
@@ -22,12 +22,11 @@ jest.mock('@/shared/native/engine', () => ({
 
 jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: [] }),
-  useWellnessLatestDate: () => ({ data: null }),
 }));
 
 jest.mock('@/features/insights/lib/computeInsightsData', () => ({
   fetchInsightsDataFromEngine: jest.fn(),
-  computeInsightsFromData: jest.fn(() => []),
+  computeInsightsFromData: jest.fn(() => ({ insights: [], failed: false })),
 }));
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
@@ -37,7 +36,7 @@ const mockFetch = fetchInsightsDataFromEngine as jest.MockedFunction<
 
 /** Engine announcements, held so the test can fire them like the engine does. */
 let announce: (() => void)[] = [];
-let pending: (() => void)[] = [];
+let idle: IdleScheduler;
 
 const engine = {
   subscribe: jest.fn((_event: string, cb: () => void) => {
@@ -47,9 +46,7 @@ const engine = {
 };
 
 function runInteractions() {
-  const tasks = pending;
-  pending = [];
-  for (const task of tasks) task();
+  idle.flush();
 }
 
 function announceOnce() {
@@ -64,23 +61,16 @@ describe('the insights read on a tab visit', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     announce = [];
-    pending = [];
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
     mockFetch.mockReturnValue({
-      insightsData: { todayPattern: null, allPatterns: [] },
+      insightsData: { sportTypes: [] },
       summaryCardData: null,
     } as unknown as ReturnType<typeof fetchInsightsDataFromEngine>);
-    jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((task) => {
-      pending.push(task as () => void);
-      return {
-        then: () => Promise.resolve(),
-        done: () => {},
-        cancel: () => {},
-      } as unknown as ReturnType<typeof InteractionManager.runAfterInteractions>;
-    });
+    idle = stubIdleScheduler('queued');
   });
 
   afterEach(() => {
+    idle.restore();
     jest.useRealTimers();
     jest.restoreAllMocks();
   });
@@ -123,5 +113,22 @@ describe('the insights read on a tab visit', () => {
     act(() => runInteractions());
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+  it('reports a thrown engine read as failed and recovers on retry', () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockFetch.mockImplementationOnce(() => {
+      throw new Error('database is locked');
+    });
+    const { result } = renderHook(() => useInsights());
+    act(() => runInteractions());
+
+    expect(result.current.failed).toBe(true);
+    expect(result.current.insights).toEqual([]);
+
+    act(() => result.current.retry());
+    act(() => runInteractions());
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(result.current.failed).toBe(false);
   });
 });

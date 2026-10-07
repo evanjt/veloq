@@ -2,7 +2,7 @@
  * Tests for scatter-chart data-prep helpers.
  */
 
-import { splitAndPositionChartData, buildTrendWithBand } from '@/features/routes/lib/scatterData';
+import { splitAndPositionChartData } from '@/features/routes/lib/scatterData';
 import type { PerformanceDataPoint } from '@/types';
 
 type InputPoint = PerformanceDataPoint & { x: number };
@@ -18,13 +18,35 @@ function point(overrides: Partial<InputPoint>): InputPoint {
 }
 
 describe('splitAndPositionChartData', () => {
+  it('scales each direction from its own speeds and times', () => {
+    const result = splitAndPositionChartData([
+      point({ date: new Date('2024-01-01'), speed: 4, sectionTime: 250 }),
+      point({ date: new Date('2024-02-01'), speed: 4.2, sectionTime: 240 }),
+      point({ date: new Date('2024-03-01'), speed: 12, sectionTime: 85, direction: 'reverse' }),
+      point({ date: new Date('2024-04-01'), speed: 13, sectionTime: 80, direction: 'reverse' }),
+    ]);
+
+    expect(result.domains.forward?.minSpeed).toBeCloseTo(3.97);
+    expect(result.domains.forward?.maxSpeed).toBeCloseTo(4.23);
+    expect(result.domains.forward?.minTime).toBeCloseTo(238.5);
+    expect(result.domains.forward?.maxTime).toBeCloseTo(251.5);
+    expect(result.domains.reverse?.minSpeed).toBeCloseTo(11.85);
+    expect(result.domains.reverse?.maxSpeed).toBeCloseTo(13.15);
+    expect(result.domains.reverse?.minTime).toBeCloseTo(79.25);
+    expect(result.domains.reverse?.maxTime).toBeCloseTo(85.75);
+  });
+
+  it('has no reverse domain when only forward attempts exist', () => {
+    const result = splitAndPositionChartData([point({ speed: 4, sectionTime: 250 })]);
+    expect(result.domains.forward).toBeTruthy();
+    expect(result.domains.reverse).toBeNull();
+  });
+
   it('returns EMPTY_SPLIT for empty input', () => {
     const result = splitAndPositionChartData([]);
     expect(result.allPoints).toEqual([]);
     expect(result.forwardPoints).toEqual([]);
     expect(result.reversePoints).toEqual([]);
-    expect(result.forwardBestIdx).toBe(-1);
-    expect(result.reverseBestIdx).toBe(-1);
   });
 
   it('returns EMPTY_SPLIT when no points have valid dates', () => {
@@ -40,7 +62,6 @@ describe('splitAndPositionChartData', () => {
     const result = splitAndPositionChartData([point({ speed: 3, sectionTime: 300 })]);
     expect(result.allPoints).toHaveLength(1);
     expect(result.forwardPoints).toHaveLength(1);
-    expect(result.forwardBestIdx).toBe(0);
     expect(result.allPoints[0].x).toBeCloseTo(0.02, 5);
   });
 
@@ -55,52 +76,62 @@ describe('splitAndPositionChartData', () => {
     expect(result.reversePoints).toHaveLength(1);
   });
 
-  it('identifies the shortest-time non-excluded point as best by default', () => {
+  it('carries the engine record flag through on the point it was set on', () => {
     const pts: InputPoint[] = [
-      point({ date: new Date('2024-01-01'), speed: 5, sectionTime: 600 }),
-      point({ date: new Date('2024-02-01'), speed: 7, sectionTime: 300 }),
-      point({ date: new Date('2024-03-01'), speed: 6, sectionTime: 450 }),
+      point({ activityId: 'fast', date: new Date('2024-01-01'), speed: 7, sectionTime: 300 }),
+      point({
+        activityId: 'record',
+        date: new Date('2024-02-01'),
+        speed: 6,
+        sectionTime: 290,
+        isBest: true,
+      }),
     ];
     const result = splitAndPositionChartData(pts);
-    expect(result.forwardBestIdx).toBe(1);
+    expect(result.allPoints.filter((p) => p.isBest).map((p) => p.activityId)).toEqual(['record']);
   });
 
-  it('identifies the fastest-speed point as best when bestBy is speed', () => {
-    const pts: InputPoint[] = [
-      point({ date: new Date('2024-01-01'), speed: 8, sectionTime: 600 }),
-      point({ date: new Date('2024-02-01'), speed: 5, sectionTime: 200 }),
-      point({ date: new Date('2024-03-01'), speed: 6, sectionTime: 450 }),
-    ];
-    const result = splitAndPositionChartData(pts, 'speed');
-    expect(result.forwardBestIdx).toBe(0);
-  });
+  /**
+   * Scenario: 20 forward attempts near 8 m/s and one GPS glitch at 20 m/s
+   * the athlete excluded, shown with the eye toggle so it can be reviewed.
+   *
+   * Expected behaviour: the glitch is drawn and tappable, but the direction's
+   * count is the one without it, so a visibility
+   * toggle never changes the chart's answer.
+   */
+  it('leaves an excluded attempt out of the points the count reads', () => {
+    const attempts = Array.from({ length: 20 }, (_, i) =>
+      point({
+        activityId: `a${i}`,
+        date: new Date(Date.UTC(2024, 0, 1 + i * 3)),
+        speed: 8 + (i % 3) * 0.1,
+        sectionTime: 100,
+      })
+    );
+    const glitch = point({
+      activityId: 'glitch',
+      date: new Date(Date.UTC(2024, 1, 15)),
+      speed: 20,
+      sectionTime: 40,
+      isExcluded: true,
+    });
+    const reverseGlitch = point({
+      activityId: 'reverse-glitch',
+      date: new Date(Date.UTC(2024, 1, 16)),
+      speed: 20,
+      direction: 'reverse',
+      isExcluded: true,
+    });
 
-  it('speed and time best can disagree when section distances vary', () => {
-    const pts: InputPoint[] = [
-      point({ date: new Date('2024-01-01'), speed: 10, sectionTime: 500 }),
-      point({ date: new Date('2024-02-01'), speed: 6, sectionTime: 200 }),
-    ];
-    const bySpeed = splitAndPositionChartData(pts, 'speed');
-    const byTime = splitAndPositionChartData(pts, 'time');
-    expect(bySpeed.forwardBestIdx).toBe(0);
-    expect(byTime.forwardBestIdx).toBe(1);
-  });
+    const without = splitAndPositionChartData(attempts);
+    const shown = splitAndPositionChartData([...attempts, glitch, reverseGlitch]);
 
-  it('excludes isExcluded points from best-index computation', () => {
-    const pts: InputPoint[] = [
-      point({ date: new Date('2024-01-01'), speed: 5, sectionTime: 600 }),
-      point({ date: new Date('2024-02-01'), speed: 9, sectionTime: 200, isExcluded: true }),
-      point({ date: new Date('2024-03-01'), speed: 6, sectionTime: 450 }),
-    ];
-    const result = splitAndPositionChartData(pts);
-    expect(result.forwardBestIdx).toBe(2);
-  });
-
-  it('returns reverseBestIdx = -1 when there are no reverse points', () => {
-    const pts: InputPoint[] = [point({ speed: 5 }), point({ speed: 6 })];
-    const result = splitAndPositionChartData(pts);
-    expect(result.reverseBestIdx).toBe(-1);
-    expect(result.reversePoints).toEqual([]);
+    expect(shown.allPoints).toHaveLength(22);
+    expect(shown.forwardPoints).toHaveLength(20);
+    expect(shown.reversePoints).toHaveLength(0);
+    expect(shown.forwardPoints.map((p) => p.activityId)).toEqual(
+      without.forwardPoints.map((p) => p.activityId)
+    );
   });
 
   it('normalizes x to the range [0.02, 0.98] across the date span', () => {
@@ -124,8 +155,8 @@ describe('splitAndPositionChartData', () => {
     ];
     const result = splitAndPositionChartData(pts);
     // Range is 10, 15% padding = 1.5
-    expect(result.maxSpeed).toBeCloseTo(21.5, 4);
-    expect(result.minSpeed).toBeCloseTo(8.5, 4);
+    expect(result.domains.forward?.maxSpeed).toBeCloseTo(21.5, 4);
+    expect(result.domains.forward?.minSpeed).toBeCloseTo(8.5, 4);
   });
 
   it('uses fallback padding of 0.5 when all speeds are identical', () => {
@@ -135,8 +166,8 @@ describe('splitAndPositionChartData', () => {
     ];
     const result = splitAndPositionChartData(pts);
     // max - min = 0, so padding = 0.5 (from `|| 0.5`)
-    expect(result.maxSpeed).toBeCloseTo(5.5, 4);
-    expect(result.minSpeed).toBeCloseTo(4.5, 4);
+    expect(result.domains.forward?.maxSpeed).toBeCloseTo(5.5, 4);
+    expect(result.domains.forward?.minSpeed).toBeCloseTo(4.5, 4);
   });
 
   it('floors minSpeed at 0 when padding would push it negative', () => {
@@ -146,7 +177,7 @@ describe('splitAndPositionChartData', () => {
       point({ date: new Date('2024-02-01'), speed: 0.1 }),
     ];
     const result = splitAndPositionChartData(pts);
-    expect(result.minSpeed).toBe(0);
+    expect(result.domains.forward?.minSpeed).toBe(0);
   });
 
   it('sorts points by date before assigning x coordinates', () => {
@@ -157,46 +188,5 @@ describe('splitAndPositionChartData', () => {
     ];
     const result = splitAndPositionChartData(pts);
     expect(result.allPoints.map((p) => p.activityId)).toEqual(['a', 'b', 'c']);
-  });
-});
-
-describe('buildTrendWithBand', () => {
-  it('returns null when given fewer than 2 points', () => {
-    expect(buildTrendWithBand([])).toBeNull();
-    expect(buildTrendWithBand([{ ...point({}), speed: 5 }])).toBeNull();
-  });
-
-  it('returns a smoothed trend with confidence band for ≥2 points', () => {
-    const pts: InputPoint[] = [
-      { ...point({}), x: 0.0, speed: 4 },
-      { ...point({}), x: 0.2, speed: 5 },
-      { ...point({}), x: 0.5, speed: 6 },
-      { ...point({}), x: 0.7, speed: 5 },
-      { ...point({}), x: 1.0, speed: 7 },
-    ];
-    const result = buildTrendWithBand(pts, 50);
-    expect(result).not.toBeNull();
-    expect(result!.length).toBeGreaterThan(0);
-    result!.forEach((p) => {
-      expect(p.upper).toBeGreaterThanOrEqual(p.y);
-      expect(p.lower).toBeLessThanOrEqual(p.y);
-    });
-  });
-
-  it('clamps trend/band to padded y-range', () => {
-    const pts: InputPoint[] = [
-      { ...point({}), x: 0.0, speed: 5 },
-      { ...point({}), x: 0.5, speed: 5 },
-      { ...point({}), x: 1.0, speed: 5 },
-    ];
-    const result = buildTrendWithBand(pts, 10);
-    expect(result).not.toBeNull();
-    // All speeds identical → padding = 0.5 fallback → range clamped to [4.5, 5.5]
-    result!.forEach((p) => {
-      expect(p.y).toBeLessThanOrEqual(5.5);
-      expect(p.y).toBeGreaterThanOrEqual(4.5);
-      expect(p.upper).toBeLessThanOrEqual(5.5);
-      expect(p.lower).toBeGreaterThanOrEqual(4.5);
-    });
   });
 });

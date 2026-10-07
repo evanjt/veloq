@@ -4,13 +4,13 @@
  * Rust can only fetch ground it has a template for.
  *
  * Expected behaviour: the two ground sources are handed over at launch, under
- * the keys the Rust pre-seed knows them by, and off a platform that can
- * intercept nothing is handed over at all.
+ * the keys the Rust pre-seed knows them by.
  */
 
 import { Platform } from 'react-native';
 
 import { handOverGroundTemplates } from '@/features/maps/lib/tileTransport';
+import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
 import { LIBERTY_SOURCES } from '@/features/maps/styles/liberty/sources';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides({}));
@@ -20,7 +20,7 @@ function setSourceTemplate(): jest.Mock {
   return basemapStore().setSourceTemplate as unknown as jest.Mock;
 }
 
-function onPlatform(os: 'android' | 'ios' | 'web') {
+function onPlatform(os: 'android' | 'ios') {
   Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
 }
 
@@ -50,20 +50,18 @@ describe('the ground templates a pre-seed needs', () => {
     );
   });
 
-  it('hands over nothing where no tile URL can be answered', () => {
-    onPlatform('web');
-
+  it('hands over the terrain template before a 3D page opens', () => {
     handOverGroundTemplates();
 
-    expect(setSourceTemplate()).not.toHaveBeenCalled();
+    expect(setSourceTemplate()).toHaveBeenCalledWith('terrain', TERRAIN_UPSTREAM_TEMPLATE);
   });
 
-  it('names the two sources the style itself draws its ground from', () => {
+  it('names the ground and terrain sources the styles draw from', () => {
     onPlatform('android');
 
     handOverGroundTemplates();
 
     const named = setSourceTemplate().mock.calls.map((call) => call[0]);
-    expect(named.sort()).toEqual(Object.keys(LIBERTY_SOURCES).sort());
+    expect(named.sort()).toEqual([...Object.keys(LIBERTY_SOURCES), 'terrain'].sort());
   });
 });

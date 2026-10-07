@@ -12,6 +12,7 @@
  * seed has already run: what separates the two designs is whether the first
  * read happens before the first write.
  */
+import { SyncState } from 'veloqrs';
 import { renderHook, act } from '@testing-library/react-native';
 
 import { useStrengthTabState } from '@/features/strength/hooks/useStrengthScreenData';
@@ -22,7 +23,10 @@ const mockEngine: Record<string, unknown> = {};
 let mockIsDemoMode = true;
 
 jest.mock('@/shared/native/useEngineReady', () => ({ useEngineReady: () => mockEngine }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
+  isEngineReady: () => true,
+}));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: { getState: () => ({ isDemoMode: mockIsDemoMode }) },
 }));
@@ -47,7 +51,7 @@ function engine(): void {
         if (channel === 'fitParsed') listener = null;
       };
     },
-    getExerciseSets: (id: string) => (seeded.has(id) ? [{}] : []),
+    getExerciseSets: (id: string) => ({ sets: seeded.has(id) ? [{}] : [] }),
     bulkInsertExerciseSets: (id: string) => {
       trace.push('write');
       seeded.add(id);
@@ -57,6 +61,7 @@ function engine(): void {
       return seeded.size > 0;
     },
     getUnprocessedStrengthIds: () => [],
+    getSyncStatus: () => ({ state: SyncState.Idle }),
   });
 }
 

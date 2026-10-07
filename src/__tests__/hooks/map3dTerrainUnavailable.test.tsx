@@ -18,13 +18,14 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 function bridgeFor(handlers: { onTerrainUnavailable?: (reason: string) => void }) {
   const { result } = renderHook(() =>
     useMap3DBridge({
-      webViewRef: { current: null },
       mapReadyRef: { current: false },
       savedCameraRef: { current: null },
       onMapClickRef: { current: undefined },
       onSectionClickRef: { current: undefined },
-      onActivityClickRef: { current: undefined },
       updateLayers: () => {},
+      syncRoute: () => {},
+      syncStyle: () => {},
+      onActivityClickRef: { current: undefined },
       ...handlers,
     })
   );
@@ -81,5 +82,18 @@ describe('the terrain notice', () => {
     expect(onDismiss).not.toHaveBeenCalled();
     jest.advanceTimersByTime(10_000);
     expect(onDismiss).toHaveBeenCalled();
+  });
+
+  it('keeps its six-second clock when the parent re-renders with a new callback', () => {
+    const onDismiss = jest.fn();
+    const { rerender } = render(<TerrainUnavailableNotice onDismiss={() => onDismiss()} />);
+
+    for (let i = 0; i < 2; i++) {
+      jest.advanceTimersByTime(2000);
+      rerender(<TerrainUnavailableNotice onDismiss={() => onDismiss()} />);
+    }
+    expect(onDismiss).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(2000);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });

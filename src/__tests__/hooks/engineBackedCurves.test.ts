@@ -1,6 +1,6 @@
 /**
- * Scenario: curves, activity intervals and calendar events are per-parameter
- * fetches the launch sync cannot prefetch. Each read returns what is stored
+ * Scenario: curves and activity intervals are per-parameter fetches the launch
+ * sync cannot prefetch. Each read returns what is stored
  * and asks Rust for anything absent.
  *
  * The bodies are parsed by the engine (`persistence/curves.rs`), which answers
@@ -137,6 +137,15 @@ describe('usePowerCurve', () => {
 });
 
 describe('usePaceCurve', () => {
+  it('leaves the 42-day snapshot with the Rust curve writer', async () => {
+    engine.getPaceCurve.mockReturnValue(paceCurve({ criticalSpeed: 3.4 }));
+
+    const { result } = renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), { wrapper });
+
+    await waitFor(() => expect(result.current.data?.criticalSpeed).toBe(3.4));
+    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
+  });
+
   it('keys the request on the gap flag', async () => {
     renderHook(() => usePaceCurve({ sport: 'Run', days: 42, gap: true }), { wrapper });
 
@@ -187,7 +196,7 @@ describe('usePaceCurve', () => {
       })
     );
 
-    renderHook(() => usePaceCurve({ sport: 'Run' }), { wrapper });
+    renderHook(() => usePaceCurve({ sport: 'Run', days: 365 }), { wrapper });
 
     await waitFor(() => expect(engine.savePaceSnapshot).toHaveBeenCalled());
     const stampedAt = engine.savePaceSnapshot.mock.calls[0][5];

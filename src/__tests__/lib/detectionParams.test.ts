@@ -9,6 +9,7 @@ import {
   DETECTION_PRESETS,
   DETECTION_PRESET_NAMES,
   isPastClamp,
+  isPastTestedRange,
   parseParamInput,
   presetOf,
   type DetectionParamKey,
@@ -145,5 +146,21 @@ describe('the presets', () => {
     expect(presetOf(DETECTION_PRESETS.strict)).toBe('strict');
     expect(presetOf(DETECTION_PRESETS.default)).toBe('default');
     expect(presetOf({ ...DETECTION_PRESETS.strict, minActivities: 9 })).toBeNull();
+  });
+});
+
+describe('a value past the tested range', () => {
+  it('is named where the detector has no clamp', () => {
+    expect(isPastTestedRange('minSectionLength', 25)).toBe(true);
+    expect(isPastTestedRange('minSectionLength', 100)).toBe(false);
+    expect(isPastTestedRange('minSectionLength', 50)).toBe(false);
+    expect(isPastTestedRange('maxSectionLength', 500000)).toBe(true);
+    expect(isPastTestedRange('minActivities', 15)).toBe(true);
+    expect(isPastTestedRange('minActivities', 10)).toBe(false);
+  });
+
+  it('is left to the clamp note where the detector has a clamp', () => {
+    expect(isPastTestedRange('proximityThreshold', 50)).toBe(false);
+    expect(isPastTestedRange('divergenceThreshold', 0.8)).toBe(false);
   });
 });

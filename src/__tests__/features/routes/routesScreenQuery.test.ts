@@ -11,10 +11,11 @@ import {
   groupSortFor,
   sectionSortFor,
   sectionFiltersFor,
+  sectionCountsOf,
   DEFAULT_SECTION_HIDE_FLAGS,
   type RoutesSortOption,
+  type SectionsSortOption,
 } from '@/features/routes/lib/routesScreenQuery';
-import type { SectionsSortOption } from '@/features/routes/lib/sectionRanking';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -63,6 +64,26 @@ describe('routesScreenQuery', () => {
       hideAuto: false,
       hideDisabled: true,
       hideUnaccepted: false,
+    });
+  });
+
+  describe('sectionCountsOf', () => {
+    it('reads every count from the engine page, so a sport filter narrows the header and the Custom chip', () => {
+      expect(
+        sectionCountsOf({ sectionCount: 40, filteredSectionCount: 12, customCount: 2 })
+      ).toEqual({ total: 40, shown: 12, custom: 2 });
+    });
+
+    it('shows the whole catalogue when the page has no filtered count', () => {
+      expect(sectionCountsOf({ sectionCount: 40, customCount: 5 })).toEqual({
+        total: 40,
+        shown: 40,
+        custom: 5,
+      });
+    });
+
+    it('is zero before the first page has been read', () => {
+      expect(sectionCountsOf(undefined)).toEqual({ total: 0, shown: 0, custom: 0 });
     });
   });
 });

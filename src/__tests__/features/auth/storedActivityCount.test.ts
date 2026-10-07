@@ -10,7 +10,10 @@
  * the mirror the restore leaves behind.
  */
 
-import { resolveStoredActivityCount } from '@/features/auth/lib/storedActivityCount';
+import {
+  resolveStoredActivityCount,
+  shouldOfferBackupRestore,
+} from '@/features/auth/lib/storedActivityCount';
 import {
   rememberStoredActivityCount,
   readStoredActivityCountMirror,
@@ -18,12 +21,18 @@ import {
 } from '@/shared/storage';
 import { accountChangeAction } from '@/features/auth/lib/accountChange';
 import { DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
+import { rememberCachedAthleteId } from '@/shared/storage/cachedAthleteId';
 
 const mockEngineState = { ready: false, count: 0 };
 
 jest.mock('@/shared/native/engine', () => ({
   isEngineReady: () => mockEngineState.ready,
-  getEngine: () => ({ getActivityCount: () => mockEngineState.count }),
+  getEngine: () => ({
+    // The GPS-backed set is smaller than the library whenever an activity has
+    // metrics and no track.
+    getActivityCount: () => 0,
+    getStats: () => ({ activityCount: 0, libraryCount: mockEngineState.count }),
+  }),
 }));
 
 const mockStore = new Map<string, string>();
@@ -81,5 +90,19 @@ describe('the count a destructive path reads', () => {
 
     const count = await resolveStoredActivityCount();
     expect(accountChangeAction(null, DEMO_ATHLETE_ID, count)).toBe('confirm-then-wipe');
+  });
+
+  it('hides the login restore offer when only the athlete mirror identifies a library', async () => {
+    await rememberCachedAthleteId('athlete-1');
+    expect(await shouldOfferBackupRestore()).toBe(false);
+  });
+
+  it('hides the login restore offer when only the activity mirror identifies a library', async () => {
+    await rememberStoredActivityCount(480);
+    expect(await shouldOfferBackupRestore()).toBe(false);
+  });
+
+  it('offers restore to an empty device', async () => {
+    expect(await shouldOfferBackupRestore()).toBe(true);
   });
 });

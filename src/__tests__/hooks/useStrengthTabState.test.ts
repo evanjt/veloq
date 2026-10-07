@@ -5,6 +5,7 @@
  * Expected behaviour: the engine's own unprocessed queue is enough to show the
  * tab, so there is a surface from which the fetch can be retried.
  */
+import { SyncState } from 'veloqrs';
 import { renderHook } from '@testing-library/react-native';
 import { useStrengthTabState } from '@/features/strength/hooks/useStrengthScreenData';
 
@@ -24,6 +25,7 @@ function engineWith(hasSets: boolean, unfetched: string[]) {
   for (const key of Object.keys(mockEngine)) delete mockEngine[key];
   Object.assign(mockEngine, {
     subscribe: () => () => {},
+    getSyncStatus: () => ({ state: SyncState.Idle }),
     hasStrengthData: () => hasSets,
     getUnprocessedStrengthIds: () => unfetched,
   });

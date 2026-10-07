@@ -23,9 +23,10 @@ function trend(points: ReturnType<typeof point>[]) {
   return {
     sectionId: 'sec-1',
     sectionName: 'Church Hill',
+    sportType: 'Ride',
     points,
     trendSlope: -0.0004,
-    isImproving: true,
+    direction: 0,
     hrChangeBpm: -6.2,
     effortCount: points.length,
   };
@@ -47,49 +48,81 @@ it('returns the engine trend for a section', () => {
   const engineTrend = trend([point(1, 0.62), point(2, 0.6), point(3, 0.58)]);
   getSectionEfficiencyTrend.mockReturnValue(engineTrend);
 
-  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1'));
+  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1', 'Ride'));
 
-  expect(getSectionEfficiencyTrend).toHaveBeenCalledWith('sec-1');
-  expect(result.current).toBe(engineTrend);
+  expect(getSectionEfficiencyTrend).toHaveBeenCalledWith('sec-1', 'Ride');
+  expect(result.current.trend).toBe(engineTrend);
 });
 
 it('asks the engine for nothing when there is no section', () => {
-  const { result } = renderHook(() => useSectionEfficiencyTrend(null));
+  const { result } = renderHook(() => useSectionEfficiencyTrend(null, 'Ride'));
 
   expect(getSectionEfficiencyTrend).not.toHaveBeenCalled();
-  expect(result.current).toBeNull();
+  expect(result.current.trend).toBeNull();
 });
 
 it('drops a trend with a single point, which cannot be plotted', () => {
   getSectionEfficiencyTrend.mockReturnValue(trend([point(1, 0.62)]));
 
-  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1'));
+  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1', 'Ride'));
 
-  expect(result.current).toBeNull();
+  expect(result.current.trend).toBeNull();
 });
 
 it('returns null when the engine has no efficiency data for the section', () => {
   getSectionEfficiencyTrend.mockReturnValue(null);
 
-  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1'));
+  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1', 'Ride'));
 
-  expect(result.current).toBeNull();
+  expect(result.current.trend).toBeNull();
 });
 
-it('returns null when the engine call throws', () => {
+it('hands back the error, with no trend, when the engine call throws', () => {
+  const lockFailed = { tag: 'Database', inner: { msg: 'poisoned' } };
   getSectionEfficiencyTrend.mockImplementation(() => {
-    throw new Error('engine down');
+    throw lockFailed;
   });
 
-  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1'));
+  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1', 'Ride'));
 
-  expect(result.current).toBeNull();
+  expect(result.current.trend).toBeNull();
+  expect(result.current.error).toBe(lockFailed);
+});
+
+it('carries no error when the engine has no efficiency data', () => {
+  getSectionEfficiencyTrend.mockReturnValue(null);
+
+  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1', 'Ride'));
+
+  expect(result.current.error).toBeUndefined();
 });
 
 it('returns null when there is no engine', () => {
   (getEngine as jest.Mock).mockReturnValue(null);
 
-  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1'));
+  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1', 'Ride'));
 
-  expect(result.current).toBeNull();
+  expect(result.current.trend).toBeNull();
+});
+
+it('reads the engine for the sport on screen when the bundled trend is another sport', () => {
+  const runTrend = { ...trend([point(1, 0.62), point(2, 0.6)]), sportType: 'Run' };
+  const rideTrend = { ...runTrend, sportType: 'Ride' };
+  getSectionEfficiencyTrend.mockReturnValue(rideTrend);
+
+  const { result } = renderHook(() =>
+    useSectionEfficiencyTrend('sec-1', 'Ride', runTrend as never)
+  );
+
+  expect(getSectionEfficiencyTrend).toHaveBeenCalledWith('sec-1', 'Ride');
+  expect(result.current.trend).toBe(rideTrend);
+});
+
+it('uses the bundled trend without a read when it is for the sport on screen', () => {
+  const bundled = { ...trend([point(1, 0.62), point(2, 0.6)]), sportType: 'Ride' };
+
+  const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1', 'Ride', bundled as never));
+
+  expect(getSectionEfficiencyTrend).not.toHaveBeenCalled();
+  expect(result.current.trend).toBe(bundled);
 });

@@ -9,12 +9,28 @@
  * - State consistency across operations
  */
 
+import { Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { waitFor } from '@testing-library/react-native';
 import { useAuthStore, getStoredCredentials, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
+import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
+import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import { unregisterPushToken } from '@/features/settings/lib/pushTokenRegistration';
+import { holdRecordingOnSignOut } from '@/features/recording/lib/holdRecordingOnSignOut';
+
+jest.mock('@/features/recording/lib/holdRecordingOnSignOut', () => ({
+  holdRecordingOnSignOut: jest.fn(async () => undefined),
+}));
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
+}));
+
+jest.mock('@/features/settings/lib/pushTokenRegistration', () => ({
+  registerPushToken: jest.fn(async () => true),
+  unregisterPushToken: jest.fn(async () => true),
 }));
 
 // Get mock functions with proper typing
@@ -53,9 +69,43 @@ describe('AuthStore', () => {
 
     // Clear all mocks
     jest.clearAllMocks();
+    useNotificationPreferences.setState({ enabled: false, privacyAccepted: false });
+  });
+
+  it('holds a ride before explicit sign-out clears its athlete', async () => {
+    useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true, authMethod: 'oauth' });
+    await useAuthStore.getState().clearCredentials();
+    expect(holdRecordingOnSignOut).toHaveBeenCalledWith('i1');
+  });
+
+  it('holds a ride before a rejected credential clears its athlete', async () => {
+    useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true, authMethod: 'oauth' });
+    await useAuthStore.getState().handleSessionExpired();
+    expect(holdRecordingOnSignOut).toHaveBeenCalledWith('i1');
   });
 
   describe('initialize()', () => {
+    it('restores the rejected-key notice after relaunch without signing in', async () => {
+      mockGetItemAsync.mockImplementation(async (key) => {
+        if (key === API_KEY_STORAGE_KEY) return 'rejected-key';
+        if (key === API_KEY_ATHLETE_STORAGE_KEY) return 'i12345';
+        return null;
+      });
+      await useAuthStore.getState().initialize();
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+      expect(useAuthStore.getState().sessionExpired).toBe('key_rejected');
+    });
+    it('does not call a key refused when the athlete id would not read', async () => {
+      mockGetItemAsync.mockImplementation(async (key) => {
+        if (key === API_KEY_STORAGE_KEY) return 'good-key';
+        if (key === API_KEY_ATHLETE_STORAGE_KEY) return 'i12345';
+        if (key === ATHLETE_ID_STORAGE_KEY) throw new Error('keychain locked');
+        return null;
+      });
+      await useAuthStore.getState().initialize();
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+      expect(useAuthStore.getState().sessionExpired).toBeNull();
+    });
     it('loads API key credentials from SecureStore', async () => {
       mockGetItemAsync.mockImplementation(async (key) => {
         if (key === API_KEY_STORAGE_KEY) return 'test-api-key';
@@ -195,6 +245,18 @@ describe('AuthStore', () => {
   });
 
   describe('setCredentials() - API Key Auth', () => {
+    it('turns off a carried-over push preference for an API-key athlete', async () => {
+      useNotificationPreferences.setState({ enabled: true, privacyAccepted: true });
+      await useAuthStore.getState().setCredentials('key', 'i12345');
+      expect(useNotificationPreferences.getState().enabled).toBe(false);
+    });
+    it('deletes a queued offline key after API-key sign-in', async () => {
+      await useAuthStore.getState().setCredentials('key', 'i12345');
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(
+        'intervals_pending_api_key',
+        expect.anything()
+      );
+    });
     it('setCredentials with whitespace-only apiKey does not set isAuthenticated', async () => {
       await useAuthStore.getState().setCredentials('   ', 'i12345');
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
@@ -210,6 +272,13 @@ describe('AuthStore', () => {
   });
 
   describe('setOAuthCredentials()', () => {
+    it('deletes a queued offline key after OAuth sign-in', async () => {
+      await useAuthStore.getState().setOAuthCredentials('token', 'i12345');
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(
+        'intervals_pending_api_key',
+        expect.anything()
+      );
+    });
     it('clears API key when setting OAuth credentials', async () => {
       useAuthStore.setState({
         apiKey: 'old-api-key',
@@ -244,6 +313,53 @@ describe('AuthStore', () => {
   });
 
   describe('clearCredentials()', () => {
+    it('clears the pending unregister when sign-out cannot send it', async () => {
+      jest.mocked(unregisterPushToken).mockResolvedValueOnce(false);
+      useNotificationPreferences.setState({ enabled: true, privacyAccepted: true });
+      useAuthStore.setState({ authMethod: 'oauth', athleteId: 'i12345', accessToken: 'token' });
+      await useAuthStore.getState().clearCredentials();
+      const prefs = useNotificationPreferences.getState();
+      expect(prefs.pendingUnregister).toBe(false);
+      expect(prefs.pendingUnregisterAthleteId).toBeNull();
+    });
+    it('waits for the OAuth unregister before deleting the credential', async () => {
+      let finish: (success: boolean) => void = () => {};
+      jest.mocked(unregisterPushToken).mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve) => {
+            finish = resolve;
+          })
+      );
+      useNotificationPreferences.setState({ enabled: true, privacyAccepted: true });
+      useAuthStore.setState({ authMethod: 'oauth', athleteId: 'i12345', accessToken: 'token' });
+      const clearing = useAuthStore.getState().clearCredentials();
+      await waitFor(() => expect(unregisterPushToken).toHaveBeenCalledWith('i12345'));
+      expect(mockDeleteItemAsync).not.toHaveBeenCalled();
+      finish(true);
+      await clearing;
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_STORAGE_KEY, expect.anything());
+    });
+    it('records no unregister for an API-key athlete, who has no token to prove it', async () => {
+      jest.mocked(unregisterPushToken).mockResolvedValue(false);
+      useNotificationPreferences.setState({
+        enabled: true,
+        privacyAccepted: true,
+        pendingUnregister: false,
+        pendingUnregisterAthleteId: null,
+      });
+      useAuthStore.setState({ authMethod: 'apiKey', athleteId: 'i12345', apiKey: 'key' });
+      await useAuthStore.getState().clearCredentials();
+      expect(useNotificationPreferences.getState().pendingUnregister).toBe(false);
+      expect(unregisterPushToken).not.toHaveBeenCalled();
+      jest.mocked(unregisterPushToken).mockResolvedValue(true);
+    });
+    it('deletes a queued offline key at sign-out', async () => {
+      await useAuthStore.getState().clearCredentials();
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(
+        'intervals_pending_api_key',
+        expect.anything()
+      );
+    });
     it('deletes all credentials from SecureStore', async () => {
       useAuthStore.setState({
         apiKey: 'some-key',
@@ -302,7 +418,7 @@ describe('AuthStore', () => {
       expect(useAuthStore.getState().athlete).toBeNull();
     });
 
-    it('exitDemoMode() resets to unauthenticated', () => {
+    it('exitDemoMode() resets to unauthenticated', async () => {
       useAuthStore.setState({
         isDemoMode: true,
         isAuthenticated: true,
@@ -311,7 +427,8 @@ describe('AuthStore', () => {
         hideDemoBanner: true,
       });
 
-      useAuthStore.getState().exitDemoMode();
+      await useAuthStore.getState().exitDemoMode();
+      expect(holdRecordingOnSignOut).toHaveBeenCalledWith(DEMO_ATHLETE_ID);
 
       const state = useAuthStore.getState();
       expect(state.isDemoMode).toBe(false);
@@ -323,6 +440,80 @@ describe('AuthStore', () => {
   });
 
   describe('handleSessionExpired()', () => {
+    describe('the push registration of a rejected session', () => {
+      let alertSpy: jest.SpyInstance;
+      beforeEach(() => {
+        alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+      });
+      afterEach(() => alertSpy.mockRestore());
+
+      it('sends no unregister with the credential the server just rejected', async () => {
+        useNotificationPreferences.setState({ enabled: true, privacyAccepted: true });
+        useAuthStore.setState({ accessToken: 'dead', athleteId: 'i12345', authMethod: 'oauth' });
+        await useAuthStore.getState().handleSessionExpired();
+        expect(unregisterPushToken).not.toHaveBeenCalled();
+      });
+      it('clears a pending unregister that nothing can retry', async () => {
+        useNotificationPreferences.setState({
+          enabled: false,
+          privacyAccepted: true,
+          pendingUnregister: true,
+          pendingUnregisterAthleteId: 'i12345',
+        });
+        useAuthStore.setState({ accessToken: 'dead', athleteId: 'i12345', authMethod: 'oauth' });
+        await useAuthStore.getState().handleSessionExpired();
+        const prefs = useNotificationPreferences.getState();
+        expect(prefs.pendingUnregister).toBe(false);
+        expect(prefs.pendingUnregisterAthleteId).toBeNull();
+      });
+      it('tells the athlete once that notifications may continue', async () => {
+        useNotificationPreferences.setState({ enabled: true, privacyAccepted: true });
+        useAuthStore.setState({ accessToken: 'dead', athleteId: 'i12345', authMethod: 'oauth' });
+        await useAuthStore.getState().handleSessionExpired();
+        expect(alertSpy).toHaveBeenCalledTimes(1);
+      });
+      it('says nothing when notifications were never on', async () => {
+        useAuthStore.setState({ accessToken: 'dead', athleteId: 'i12345', authMethod: 'oauth' });
+        await useAuthStore.getState().handleSessionExpired();
+        expect(alertSpy).not.toHaveBeenCalled();
+      });
+      it('says nothing for an API-key session, which never registered a token', async () => {
+        useNotificationPreferences.setState({ enabled: true, privacyAccepted: true });
+        useAuthStore.setState({ apiKey: 'dead', athleteId: 'i12345', authMethod: 'apiKey' });
+        await useAuthStore.getState().handleSessionExpired();
+        expect(alertSpy).not.toHaveBeenCalled();
+        expect(unregisterPushToken).not.toHaveBeenCalled();
+      });
+    });
+    it("resets the previous athlete's upload permission and dismissed banner", async () => {
+      useUploadPermissionStore.setState({
+        hasWritePermission: true,
+        isLoaded: true,
+        bannerDismissed: true,
+        recordingWithoutScope: true,
+      });
+      useAuthStore.setState({ accessToken: 'token', athleteId: 'i12345', authMethod: 'oauth' });
+      await useAuthStore.getState().handleSessionExpired();
+      const state = useUploadPermissionStore.getState();
+      expect(state.hasWritePermission).toBeNull();
+      expect(state.isLoaded).toBe(false);
+      expect(state.bannerDismissed).toBe(false);
+      expect(state.recordingWithoutScope).toBe(false);
+    });
+    it('leaves no upload permission for a relaunch to read back', async () => {
+      useUploadPermissionStore.getState().setFromOAuthScope('ACTIVITY:WRITE');
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem('veloq-upload-permission')).not.toBeNull()
+      );
+      useAuthStore.setState({ accessToken: 'token', athleteId: 'i12345', authMethod: 'oauth' });
+      await useAuthStore.getState().handleSessionExpired();
+      useUploadPermissionStore.setState({ hasWritePermission: null, isLoaded: false });
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem('veloq-upload-permission')).toBeNull()
+      );
+      await useUploadPermissionStore.getState().initialize();
+      expect(useUploadPermissionStore.getState().hasWritePermission).toBeNull();
+    });
     it('clears OAuth credentials and sets session expired', async () => {
       useAuthStore.setState({
         accessToken: 'expired-token',

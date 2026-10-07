@@ -54,7 +54,7 @@ it('does not offer it to a sport nothing traversed it in', () => {
 });
 
 describe('a group the engine gave no label', () => {
-  it('does not read as a ride, which is a sport nothing said', () => {
+  it('keeps a single sport in the membership set without giving the group a sport label', () => {
     (useGroupSummaries as jest.Mock).mockReturnValue({
       summaries: [{ ...mixedLoop, sportType: '', sportTypes: ['Run'] }],
       totalCount: 1,
@@ -63,7 +63,7 @@ describe('a group the engine gave no label', () => {
 
     const { result } = renderHook(() => useRouteGroups({}));
 
-    expect(result.current.groups[0].type).toBe('Run');
+    expect(result.current.groups[0].type).toBe('Other');
     expect(result.current.groups[0].sportTypes).toEqual(['Run']);
   });
 

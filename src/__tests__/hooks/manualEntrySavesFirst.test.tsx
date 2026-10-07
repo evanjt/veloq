@@ -9,13 +9,17 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
+import { UploadOutcome } from 'veloqrs';
 
 import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary';
 import { writeProvisionalActivity } from '@/features/recording/lib/storage/provisionalActivity';
-import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
+import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
+import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useAuthStore } from '@/shared/app/AuthStore';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@tanstack/react-query', () => ({
@@ -32,15 +36,12 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
 jest.mock('@/features/recording/lib/storage/provisionalActivity', () => ({
   writeProvisionalActivity: jest.fn(async () => 'local-manual'),
 }));
-jest.mock('@/features/recording/lib/upload/uploadRecording', () => ({
-  uploadRecording: jest.fn(async () => ({ outcome: 'uploaded' })),
-}));
 jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
   clearRecordingBackup: jest.fn(async () => undefined),
 }));
 jest.mock('@/features/auth', () => ({ isOAuthConfigured: () => true }));
 jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
-  createManualActivity: jest.fn(async () => 'i789'),
+  uploadRecordingNow: jest.fn(),
 }));
 
 function args() {
@@ -56,15 +57,20 @@ function args() {
     pairedEventId: null,
     getTrimmedStreams: () => undefined as never,
     canTrim: false,
+    trimStartIndex: 0,
   };
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true });
+  useRecordingStore.getState().reset();
+  useRecordingStore.getState().startRecording('VirtualRide', 'manual');
   jest.spyOn(global, 'setTimeout').mockImplementation(((cb: () => void) => {
     cb();
     return 0 as never;
   }) as never);
+  (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: UploadOutcome.Uploaded });
   useRecordingPreferences.setState({ autoUploadEnabled: true });
   useUploadPermissionStore.setState({ hasWritePermission: true, recordingWithoutScope: false });
 });
@@ -82,15 +88,16 @@ describe('saving a manual entry', () => {
       order.push('provisional');
       return 'local-manual';
     });
-    (uploadRecording as jest.Mock).mockImplementation(async () => {
+    (uploadRecordingNow as jest.Mock).mockImplementation(async () => {
       order.push('post');
-      return { outcome: 'uploaded' };
+      return { outcome: UploadOutcome.Uploaded };
     });
 
     const { result } = renderHook(() => useReviewSave(args()));
     await act(() => result.current.handleSave());
 
     expect(order).toEqual(['save', 'provisional', 'post']);
+    expect(uploadRecordingNow).toHaveBeenCalledWith('rec-man-1');
     expect(saveRecording).toHaveBeenCalledWith(
       expect.objectContaining({
         manualBody: expect.objectContaining({ name: 'Turbo session', elapsed_time: 2700 }),
@@ -99,9 +106,40 @@ describe('saving a manual entry', () => {
     );
   });
 
+  it('leaves a held ride backup untouched when a manual entry saves', async () => {
+    const { result } = renderHook(() => useReviewSave(args()));
+    await act(() => result.current.handleSave());
+    expect(clearRecordingBackup).not.toHaveBeenCalled();
+  });
+
+  it('does not finish an old athlete’s save over a new recording', async () => {
+    useAuthStore.setState({ athleteId: 'i1', isAuthenticated: true });
+    useRecordingStore.getState().startRecording('Yoga', 'manual');
+    let finishSave!: (entry: { id: string; kind: string }) => void;
+    (saveRecording as jest.Mock).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSave = resolve;
+        })
+    );
+    const { result } = renderHook(() => useReviewSave(args()));
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = result.current.handleSave();
+      useAuthStore.setState({ athleteId: 'i2', isAuthenticated: true });
+      useRecordingStore.getState().reset();
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+      finishSave({ id: 'old-manual', kind: 'manual' });
+      await pending;
+    });
+    expect(useRecordingStore.getState().activityType).toBe('Ride');
+    expect(writeProvisionalActivity).not.toHaveBeenCalled();
+    expect(uploadRecordingNow).not.toHaveBeenCalled();
+  });
+
   it('keeps the entry and offers a retry when the server refuses it', async () => {
-    (uploadRecording as jest.Mock).mockResolvedValue({
-      outcome: 'rejected',
+    (uploadRecordingNow as jest.Mock).mockResolvedValue({
+      outcome: UploadOutcome.Rejected,
       errorDetail: 'server said no',
     });
 
@@ -114,8 +152,8 @@ describe('saving a manual entry', () => {
   });
 
   it('leaves it to the queue when the post cannot reach the server', async () => {
-    (uploadRecording as jest.Mock).mockResolvedValue({
-      outcome: 'network',
+    (uploadRecordingNow as jest.Mock).mockResolvedValue({
+      outcome: UploadOutcome.Network,
       errorDetail: 'offline',
     });
 
@@ -138,6 +176,6 @@ describe('saving a manual entry', () => {
     expect(saveRecording).toHaveBeenCalledWith(
       expect.objectContaining({ uploadStatus: 'localOnly' })
     );
-    expect(uploadRecording).not.toHaveBeenCalled();
+    expect(uploadRecordingNow).not.toHaveBeenCalled();
   });
 });

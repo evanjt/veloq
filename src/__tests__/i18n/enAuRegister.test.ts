@@ -11,8 +11,10 @@
  * en-GB is British, so Australian and British orthography coincide across
  * these strings and the assertion here is plain equality.
  */
-import enAU from '@/i18n/locales/en-AU.json';
+import { resolvedLocale } from './resolvedLocale';
 import enGB from '@/i18n/locales/en-GB.json';
+
+const enAU = resolvedLocale('en-AU');
 
 /**
  * Confirmations and labels for an action that loses data. Listed rather than
@@ -31,9 +33,7 @@ const DESTRUCTIVE_KEYS = [
   'alerts.disconnectMessage',
   'alerts.disconnectTitle',
   'backup.clearAndSync',
-  'backup.replaceLiveConfirm',
-  'backup.replaceLiveMessage',
-  'backup.replaceLiveTitle',
+  'backup.deviceLibraryDifferentAccount',
   'common.delete',
   'common.remove',
   'common.reset',
@@ -66,8 +66,6 @@ const VOICE_IN_EMPTY_STATES = [
   'activity.noDataAvailable',
   'activityDetail.noMatchedSections',
   'activityDetail.noMatchedSectionsDescription',
-  'emptyState.offline.description',
-  'emptyState.offline.title',
   'feed.noActivities',
   'feed.noMatchingActivities',
   'fitness.noData',

@@ -2,7 +2,7 @@
  * Translation Completeness Test
  *
  * This test ensures:
- * 1. All translation files have the same keys as the reference locale (en-GB)
+ * 1. All resolved locales have the same keys as the reference locale (en-GB)
  * 2. All translation keys used in source code are defined in locale files
  *
  * It helps identify missing translations and track progress for new languages.
@@ -13,6 +13,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
+import acceptedIdenticalValues from './acceptedIdenticalValues.json';
+import { resolvedLocale } from './resolvedLocale';
 
 // Reference locale (the source of truth)
 const REFERENCE_LOCALE = 'en-GB';
@@ -59,15 +61,14 @@ function getValueAtPath(obj: Record<string, unknown>, path: string): unknown {
 }
 
 /**
- * Load a JSON locale file
+ * Load the strings visible after the locale's fallback chain.
  */
 function loadLocale(locale: string): Record<string, unknown> | null {
   const filePath = path.join(LOCALES_DIR, `${locale}.json`);
   if (!fs.existsSync(filePath)) {
     return null;
   }
-  const content = fs.readFileSync(filePath, 'utf-8');
-  return JSON.parse(content);
+  return resolvedLocale(locale);
 }
 
 /**
@@ -179,116 +180,6 @@ function referenceLocale(): Record<string, unknown> {
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];
 
-/**
- * Keys whose non-English value must differ from en-GB. Values a person has not
- * reviewed are left out: which identical values are legitimate loanwords is an
- * open question, so the list holds only keys already known to be translated
- * everywhere. Keys that carry a placeholder are left out where the value can be
- * little more than the placeholder.
- */
-const TRANSLATED_KEYS: Record<string, readonly string[]> = {
-  'notifications.activityRecorded': ['title'],
-  'notifications.activityPr': ['title'],
-  'notifications.activityFaster': ['title'],
-  maps: ['unavailableTitle', 'unavailableHint', 'threeDUnavailable'],
-  'whatsNew.v040': [
-    'elevationLine',
-    'recutRunning',
-    'recutRunningPhase',
-    'phasePreparing',
-    'phaseDetecting',
-    'phaseDiffing',
-    'diffTotals',
-    'diffBreakdown',
-    'diffUnchanged',
-    'recutFailed',
-    'settingsReset',
-    'settingsResetChange',
-    'settingsResetProximity',
-    'settingsResetMinLength',
-    'settingsResetMaxLength',
-    'settingsResetMinActivities',
-    'settingsResetDivergence',
-  ],
-  settings: [
-    'elevationBackfillRunning',
-    'elevationBackfillComplete',
-    'elevationBackfillPartial',
-    'elevationBackfillFailed',
-    'elevationBackfillExplainer',
-    'elevationBackfillWhy',
-    'elevationBackfillWhyTitle',
-    'elevationBackfillWhyBody',
-    'elevationBackfillPause',
-    'elevationBackfillPaused',
-    'previewSections',
-    'previewRun',
-    'previewFailed',
-    'previewSuspended',
-    'previewCurrentFailed',
-    'previewPoolScope',
-    'previewStatusUnchanged',
-    'previewStatusChanged',
-    'previewStatusNew',
-    'previewStatusGone',
-    'previewCurrentLayer',
-    'previewProposedLayer',
-    'previewKeep',
-    'previewDiscard',
-    'previewKeepTitle',
-    'previewKeepWarning',
-    'previewKeepRefusedTitle',
-    'previewKeepRefused',
-    'sectionParamPastClamp',
-    'sectionPresets',
-    'sectionPresetDefault',
-    'sectionPresetStrict',
-    'sectionPresetRelaxed',
-    'streamBackfill',
-    'streamBackfillDownload',
-    'streamBackfillStop',
-    'syncActivities',
-    'syncStop',
-    'syncStopping',
-  ],
-  'settings.syncStep': [
-    'athlete',
-    'sportSettings',
-    'wellness',
-    'census',
-    'activities',
-    'firstActivities',
-    'curves',
-    'intervalBodies',
-    'remainingActivities',
-  ],
-  sections: ['elevationGain', 'avgGrade'],
-  'engine.initReason': ['busy', 'forwardSchema', 'storageUnavailable', 'failed'],
-  routes: ['sortRelevance'],
-  login: [
-    'sessionSignedOut',
-    'sessionKeyRejected',
-    'sessionDataKept',
-    'sessionRestore',
-    'sessionRestoreAthlete',
-  ],
-  'emptyState.syncError.reason': [
-    'unauthorized',
-    'rateLimited',
-    'server',
-    'network',
-    'storage',
-    'notConfigured',
-    'internal',
-    'engineClosed',
-  ],
-  insights: ['aboutRanking'],
-};
-
-const TRANSLATED_PATHS = Object.entries(TRANSLATED_KEYS).flatMap(([block, keys]) =>
-  keys.map((key) => `${block}.${key}`)
-);
-
 test('reference locale exists', () => {
   expect(loadLocale(REFERENCE_LOCALE)).not.toBeNull();
 });
@@ -301,7 +192,7 @@ describe('Translation Completeness', () => {
     expect(referenceKeys.length).toBeGreaterThan(0);
   });
 
-  // Each non-reference locale must define every reference key.
+  // Each non-reference locale must resolve every reference key.
   test.each(availableLocales.filter((l) => l !== REFERENCE_LOCALE))(
     '%s exists and has every reference key',
     (locale) => {
@@ -324,25 +215,64 @@ describe('Translation Completeness', () => {
     expect(blank).toEqual([]);
   });
 
-  test('every key held to a translation is a reference string', () => {
-    const reference = referenceLocale();
-    const absent = TRANSLATED_PATHS.filter(
-      (key) => typeof getValueAtPath(reference, key) !== 'string'
-    );
-    expect(absent).toEqual([]);
+  // i18next falls back to the English bundle when the locale lacks the form a count selects.
+  test.each(availableLocales)('%s has every plural form its counts select', (locale) => {
+    const keys = getAllKeys(loadLocale(locale) as Record<string, unknown>);
+    const keySet = new Set(keys);
+    const categories = new Set<string>();
+    const rules = new Intl.PluralRules(locale);
+    for (let n = 0; n <= 10000; n++) categories.add(rules.select(n));
+    const missing: string[] = [];
+    for (const key of keys) {
+      if (!key.endsWith('_other')) continue;
+      const base = key.slice(0, -'_other'.length);
+      for (const category of categories) {
+        if (!keySet.has(`${base}_${category}`)) missing.push(`${base}_${category}`);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 
   test.each(availableLocales.filter((l) => !ENGLISH_LOCALES.includes(l)))(
-    '%s translates the held keys rather than copying en-GB',
+    '%s translates every leaf or records why its en-US value is accepted',
     (locale) => {
-      const reference = referenceLocale();
+      const reference = loadLocale('en-US') as Record<string, unknown>;
       const localeData = loadLocale(locale) as Record<string, unknown>;
-      const copied = TRANSLATED_PATHS.filter(
+      const copied = getAllKeys(localeData).filter(
         (key) => getValueAtPath(localeData, key) === getValueAtPath(reference, key)
       );
-      expect(copied).toEqual([]);
+      const accepted: Record<string, string> =
+        acceptedIdenticalValues[locale as keyof typeof acceptedIdenticalValues] ?? {};
+      expect(copied.filter((key) => !accepted[key]?.trim())).toEqual([]);
     }
   );
+});
+
+// Strings that stay singular-form because something other than i18next resolves them. Each needs its reason.
+const BARE_COUNT_ALLOWLIST: Record<string, string> = {
+  'notifications.activityBody.sectionPrCount':
+    'The engine reads the stored template and substitutes the count itself, with no plural lookup.',
+  'notifications.activityBody.sectionPrMany':
+    'The engine reads the stored template and substitutes the count itself, with no plural lookup.',
+};
+
+const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
+
+describe('Count strings carry plural forms', () => {
+  const availableLocales = getAvailableLocales();
+  test.each(availableLocales)('%s has no {{count}} string without a plural suffix', (locale) => {
+    const data = loadLocale(locale) as Record<string, unknown>;
+    const bare = getAllKeys(data).filter((key) => {
+      const value = getValueAtPath(data, key);
+      return (
+        typeof value === 'string' &&
+        value.includes('{{count}}') &&
+        !PLURAL_SUFFIX.test(key) &&
+        !BARE_COUNT_ALLOWLIST[key]
+      );
+    });
+    expect(bare).toEqual([]);
+  });
 });
 
 describe('Translation Key Usage', () => {

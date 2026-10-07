@@ -31,7 +31,7 @@ describe('useInitialRegionalCamera', () => {
 
     const { result } = renderHook(() => useInitialRegionalCamera(null));
 
-    expect(result.current).toEqual(BERN);
+    expect(result.current).toEqual({ camera: BERN, restored: true });
   });
 
   it('opens on the world view when nothing was stored', () => {
@@ -39,7 +39,7 @@ describe('useInitialRegionalCamera', () => {
 
     const { result } = renderHook(() => useInitialRegionalCamera(null));
 
-    expect(result.current).toEqual(WORLD_CAMERA);
+    expect(result.current).toEqual({ camera: WORLD_CAMERA, restored: false });
   });
 
   it('prefers where the tab was left over what a previous launch stored', () => {
@@ -47,7 +47,7 @@ describe('useInitialRegionalCamera', () => {
 
     const { result } = renderHook(() => useInitialRegionalCamera(ZURICH));
 
-    expect(result.current).toEqual(ZURICH);
+    expect(result.current).toEqual({ camera: ZURICH, restored: true });
   });
 
   it('reads storage once, however many times it re-renders', () => {
@@ -70,10 +70,10 @@ describe('useInitialRegionalCamera', () => {
       ({ blur }: { blur: RegionalCamera | null }) => useInitialRegionalCamera(blur),
       { initialProps: { blur: ZURICH as RegionalCamera | null } }
     );
-    expect(result.current).toEqual(ZURICH);
+    expect(result.current).toEqual({ camera: ZURICH, restored: true });
 
     rerender({ blur: null });
-    expect(result.current).toEqual(BERN);
+    expect(result.current).toEqual({ camera: BERN, restored: true });
   });
 });
 

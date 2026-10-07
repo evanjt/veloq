@@ -11,6 +11,7 @@ describe('extractPushPayload', () => {
     const result = extractPushPayload({ data: { dataString: JSON.stringify(WORKER_PAYLOAD) } });
     expect(result.eventType).toBe('ACTIVITY_UPLOADED');
     expect(result.activityId).toBe('a99');
+    expect(result.athleteId).toBe('i12345');
     expect(result.sourceShape).toBe('dataString');
   });
 
@@ -18,6 +19,7 @@ describe('extractPushPayload', () => {
     const result = extractPushPayload({ data: { body: JSON.stringify(WORKER_PAYLOAD) } });
     expect(result.eventType).toBe('ACTIVITY_UPLOADED');
     expect(result.activityId).toBe('a99');
+    expect(result.athleteId).toBe('i12345');
     expect(result.sourceShape).toBe('body');
   });
 
@@ -25,12 +27,14 @@ describe('extractPushPayload', () => {
     const result = extractPushPayload({ data: WORKER_PAYLOAD });
     expect(result.eventType).toBe('ACTIVITY_UPLOADED');
     expect(result.activityId).toBe('a99');
+    expect(result.athleteId).toBe('i12345');
     expect(result.sourceShape).toBe('flat');
   });
 
   it('reads a nested data.data object', () => {
     const result = extractPushPayload({ data: { data: WORKER_PAYLOAD } });
     expect(result.eventType).toBe('ACTIVITY_UPLOADED');
+    expect(result.athleteId).toBe('i12345');
     expect(result.sourceShape).toBe('nested');
   });
 
