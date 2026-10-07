@@ -27,6 +27,8 @@ const STEP_KEY = {
   [SyncStep.Curves]: 'settings.syncStep.curves',
   [SyncStep.IntervalBodies]: 'settings.syncStep.intervalBodies',
   [SyncStep.RemainingActivities]: 'settings.syncStep.remainingActivities',
+  [SyncStep.RecordActivities]: 'settings.syncStep.recordActivities',
+  [SyncStep.Calendar]: 'settings.syncStep.calendar',
 } as const satisfies Record<SyncStep, string>;
 
 export function formatSyncProgress(status: SyncStatus | null, t: TFunction): string {
@@ -41,9 +43,46 @@ export function formatSyncProgress(status: SyncStatus | null, t: TFunction): str
   // A window sync declares one step, and "1 of 1" is noise rather than progress.
   if (total <= 1) return label;
 
+  // A step that walks the library for minutes says how far along it is.
+  const itemsTotal = status?.stepItemsTotal ?? 0;
+  if (itemsTotal > 0) {
+    return t('settings.syncStepItemsProgress', {
+      label,
+      completed: status?.completed ?? 0,
+      total,
+      itemsDone: status?.stepItemsDone ?? 0,
+      itemsTotal,
+    }) as string;
+  }
+
   return t('settings.syncStepProgress', {
     label,
     completed: status?.completed ?? 0,
     total,
   }) as string;
+}
+
+/**
+ * The same line split for a row too narrow to hold it whole: the label may
+ * shrink with an ellipsis while the counts, which are digits and a slash in
+ * every locale, keep their width beside it.
+ */
+export function formatSyncProgressParts(
+  status: SyncStatus | null,
+  t: TFunction
+): { label: string; counts: string | null } {
+  const step = status?.step;
+  const key = step === undefined ? undefined : STEP_KEY[step];
+  if (!key) return { label: t('settings.syncActivities') as string, counts: null };
+
+  const label = t(key) as string;
+  const total = status?.total ?? 0;
+  if (total <= 1) return { label, counts: null };
+
+  const steps = `${status?.completed ?? 0}/${total}`;
+  const itemsTotal = status?.stepItemsTotal ?? 0;
+  if (itemsTotal > 0) {
+    return { label, counts: `${steps} · ${status?.stepItemsDone ?? 0}/${itemsTotal}` };
+  }
+  return { label, counts: steps };
 }

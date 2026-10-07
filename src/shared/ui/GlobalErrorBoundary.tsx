@@ -1,8 +1,9 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { i18n } from '@/i18n';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { errorScreen, layout, typography, spacing } from '@/theme';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from './pressFeedback';
 
 interface Props {
   children: ReactNode;
@@ -15,8 +16,7 @@ interface State {
 
 /**
  * Top-level error boundary that wraps the entire app.
- * Uses only raw react-native primitives - no providers, no theme, no translations.
- * This must never crash itself.
+ * Needs no providers. Reads translations defensively with an English fallback.
  */
 export class GlobalErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -46,14 +46,19 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 function GlobalErrorFallback({ error }: { error: Error | null }) {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Something went wrong</Text>
-      <Text style={styles.body}>Close and reopen the app to continue.</Text>
+      <Text style={styles.title}>
+        {fallbackText('emptyState.error.title', 'Something went wrong')}
+      </Text>
+      <Text style={styles.body}>
+        {fallbackText('errorState.closeAndReopen', 'Close and reopen the app to continue.')}
+      </Text>
       {__DEV__ && error?.message && <Text style={styles.devError}>{error.message}</Text>}
       {__DEV__ && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Reload"
           style={pressable(styles.reloadButton)}
+          android_ripple={pressRipple}
           onPress={() => {
             // DevSettings is only available in dev builds
             const DevSettings = require('react-native').DevSettings;
@@ -67,6 +72,22 @@ function GlobalErrorFallback({ error }: { error: Error | null }) {
   );
 }
 
+function fallbackText(
+  key: 'emptyState.error.title' | 'errorState.closeAndReopen',
+  english: string
+): string {
+  try {
+    if (!i18n.isInitialized) return english;
+    const translated = i18n.t(key);
+    return typeof translated === 'string' && translated !== key ? translated : english;
+  } catch {
+    return english;
+  }
+}
+
+const IOS_TOP_INSET = spacing.xxl + spacing.smPlus;
+const ANDROID_TOP_INSET = spacing.xl + spacing.sm;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -74,7 +95,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? IOS_TOP_INSET : ANDROID_TOP_INSET,
     paddingBottom: spacing.xxl,
   },
   title: {

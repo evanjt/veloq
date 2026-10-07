@@ -8,11 +8,17 @@
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
-import { useNetwork } from './NetworkContext';
+import { useIsOnline } from './NetworkContext';
 
-/** Run `onReconnect` on the offline to online edge, once per edge. */
+/**
+ * Run `onReconnect` on the offline to online edge, once per edge.
+ *
+ * With no provider above it the network reads as online and never changes, so
+ * a surface drawn outside the app shell, a map preview in a snapshot, sees no
+ * edge rather than failing to render.
+ */
 export function useReconnect(onReconnect: () => void): void {
-  const { isOnline } = useNetwork();
+  const isOnline = useIsOnline();
   const wasOnlineRef = useRef(isOnline);
   const callbackRef = useRef(onReconnect);
   useEffect(() => {

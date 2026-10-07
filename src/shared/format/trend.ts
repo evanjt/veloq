@@ -95,9 +95,19 @@ export function trendGlyph(metric: TrendMetric, direction: TrendDirection): Tren
 
 /** The same choice as `trendGlyph`, in the icon vocabulary the insight cards use. */
 export function trendIcon(metric: TrendMetric, direction: TrendDirection): TrendIcon {
-  const glyph = trendGlyph(metric, direction);
-  if (glyph === '↑') return 'trending-up';
-  if (glyph === '↓') return 'trending-down';
+  return verdictIcon(trendVerdict(metric, direction), direction);
+}
+
+/**
+ * The icon for a move already judged, for a surface that carries the verdict
+ * rather than the metric: up for an improvement even when the number fell,
+ * the bare direction for a move with no judgement.
+ */
+export function verdictIcon(verdict: TrendVerdict, direction: TrendDirection): TrendIcon {
+  if (verdict === 'improved') return 'trending-up';
+  if (verdict === 'declined') return 'trending-down';
+  if (direction === 'up') return 'trending-up';
+  if (direction === 'down') return 'trending-down';
   return 'minus';
 }
 

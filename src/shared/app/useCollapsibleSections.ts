@@ -6,6 +6,7 @@ export interface UseCollapsibleSections<K extends SectionKey> {
   expanded: (key: K) => boolean;
   toggle: (key: K) => void;
   setExpanded: (key: K, value: boolean) => void;
+  onToggle: (key: K) => (expanded: boolean) => void;
 }
 
 /**
@@ -34,5 +35,14 @@ export function useCollapsibleSections<K extends SectionKey>(
     setState((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  return { expanded, toggle, setExpanded };
+  const [onToggle] = useState(() => {
+    const entries = (Object.keys(initial) as K[]).map((key): [K, (value: boolean) => void] => [
+      key,
+      (value) => setState((prev) => ({ ...prev, [key]: value })),
+    ]);
+    const handlers = Object.fromEntries(entries) as Record<K, (value: boolean) => void>;
+    return (key: K) => handlers[key];
+  });
+
+  return { expanded, toggle, setExpanded, onToggle };
 }

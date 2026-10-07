@@ -8,7 +8,8 @@
  * down, so the destructive paths can still tell whose data is on disk.
  *
  * Written whenever the engine writes `__athlete_id`, removed by
- * `clearAccountData`, which is the only thing that wipes the engine.
+ * `wipeLibrary`, which every path that hands the device to another athlete
+ * takes.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';

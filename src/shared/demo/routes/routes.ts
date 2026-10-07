@@ -126,19 +126,3 @@ export function getRouteBounds(coords: [number, number][]): [[number, number], [
     [maxLat, maxLng],
   ];
 }
-
-export function getRouteLocation(routeId: string): {
-  locality: string | null;
-  country: string | null;
-} {
-  const route = demoRoutes.find((r) => r.id === routeId);
-  if (!route?.region) {
-    return { locality: null, country: null };
-  }
-
-  const parts = route.region.split(',').map((p) => p.trim());
-  return {
-    locality: parts[0] || null,
-    country: parts[1] || null,
-  };
-}

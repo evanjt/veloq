@@ -6,6 +6,7 @@
  * `wind_speed`) survive even though no Rust type models them.
  */
 import { useQuery } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { useEffect } from 'react';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -40,6 +41,7 @@ export function useAthlete() {
   useEngineChannel('activities', queryKeys.profile.athlete);
 
   const query = useQuery({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.profile.athlete,
     queryFn: readAthlete,
     enabled: isAuthenticated,

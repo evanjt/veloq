@@ -1,8 +1,9 @@
 import React, { Component, ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { Button } from './Button';
 import { useTranslation } from 'react-i18next';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 
@@ -83,7 +84,13 @@ function ErrorFallback({ componentName, minHeight, showRetry, onRetry }: Fallbac
   const { t } = useTranslation();
 
   return (
-    <View style={[styles.container, minHeight ? { minHeight } : undefined]}>
+    <View
+      style={[
+        styles.container,
+        isDark && styles.containerDark,
+        minHeight ? { minHeight } : undefined,
+      ]}
+    >
       <Text style={[styles.errorText, isDark && styles.errorTextDark]}>
         {componentName
           ? t('errorState.unableToLoad', { componentName })
@@ -94,14 +101,12 @@ function ErrorFallback({ componentName, minHeight, showRetry, onRetry }: Fallbac
       </Text>
       {showRetry && (
         <Button
-          mode="outlined"
+          label={t('common.retry')}
+          variant="secondary"
+          size="sm"
           onPress={onRetry}
           style={styles.retryButton}
-          labelStyle={styles.retryLabel}
-          compact
-        >
-          {t('common.retry')}
-        </Button>
+        />
       )}
     </View>
   );
@@ -117,6 +122,10 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: colors.divider,
+  },
+  containerDark: {
+    backgroundColor: darkColors.background,
+    borderColor: darkColors.divider,
   },
   errorText: {
     ...typography.body,
@@ -138,9 +147,6 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: spacing.sm,
-  },
-  retryLabel: {
-    ...typography.label,
   },
 });
 

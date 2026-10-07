@@ -4,6 +4,7 @@
  * preserved exactly.
  */
 import { useQuery } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -27,6 +28,7 @@ export function useSportSettings() {
   useEngineChannel('activities', queryKeys.profile.sportSettings);
 
   return useQuery<SportSettings[]>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.profile.sportSettings,
     queryFn: readSportSettings,
     // SQLite is the source, so a sync decides freshness, not a clock.
@@ -58,8 +60,8 @@ export const POWER_ZONE_COLORS: string[] = [
   zoneColors.zone7,
 ];
 
-/** Heart rate has five zones, so it takes the ramp's first five steps. */
-export const HR_ZONE_COLORS: string[] = POWER_ZONE_COLORS.slice(0, 5);
+/** Heart rate has seven zones, so it takes the whole ramp. */
+export const HR_ZONE_COLORS: string[] = POWER_ZONE_COLORS;
 
 // Default zone names if not provided
 export const DEFAULT_POWER_ZONES: Zone[] = [
@@ -74,14 +76,10 @@ export const DEFAULT_POWER_ZONES: Zone[] = [
 
 export const DEFAULT_HR_ZONES: Zone[] = [
   { id: 1, name: 'Recovery', color: HR_ZONE_COLORS[0] },
-  { id: 2, name: 'Endurance', color: HR_ZONE_COLORS[1] },
+  { id: 2, name: 'Aerobic', color: HR_ZONE_COLORS[1] },
   { id: 3, name: 'Tempo', color: HR_ZONE_COLORS[2] },
-  { id: 4, name: 'Threshold', color: HR_ZONE_COLORS[3] },
-  { id: 5, name: 'Max', color: HR_ZONE_COLORS[4] },
+  { id: 4, name: 'SubThreshold', color: HR_ZONE_COLORS[3] },
+  { id: 5, name: 'SuperThreshold', color: HR_ZONE_COLORS[4] },
+  { id: 6, name: 'Aerobic Capacity', color: HR_ZONE_COLORS[5] },
+  { id: 7, name: 'Anaerobic', color: HR_ZONE_COLORS[6] },
 ];
-
-// Get zone color by index
-export function getZoneColor(index: number, type: 'power' | 'hr' = 'power'): string {
-  const colors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
-  return colors[Math.min(index, colors.length - 1)];
-}

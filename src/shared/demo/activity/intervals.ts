@@ -46,15 +46,15 @@ export function getActivityIntervals(id: string): IntervalsDTO {
           )
         : undefined,
       average_watts:
-        isRide && activity.average_watts
+        isRide && activity.icu_average_watts
           ? Math.round(
-              activity.average_watts * (isWork ? 1.1 + random() * 0.1 : 0.7 + random() * 0.1)
+              activity.icu_average_watts * (isWork ? 1.1 + random() * 0.1 : 0.7 + random() * 0.1)
             )
           : undefined,
       weighted_average_watts:
-        isRide && activity.weighted_average_watts
+        isRide && activity.icu_weighted_avg_watts
           ? Math.round(
-              activity.weighted_average_watts *
+              activity.icu_weighted_avg_watts *
                 (isWork ? 1.08 + random() * 0.08 : 0.72 + random() * 0.08)
             )
           : undefined,
@@ -65,8 +65,8 @@ export function getActivityIntervals(id: string): IntervalsDTO {
         ? Math.round(activity.average_heartrate * (isWork ? 1.15 : 1.0))
         : undefined,
       max_watts:
-        isRide && activity.average_watts
-          ? Math.round(activity.average_watts * (isWork ? 1.4 : 1.0))
+        isRide && activity.icu_average_watts
+          ? Math.round(activity.icu_average_watts * (isWork ? 1.4 : 1.0))
           : undefined,
       total_elevation_gain: Math.round(
         (activity.total_elevation_gain / numSplits) * (0.8 + random() * 0.4)

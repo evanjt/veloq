@@ -6,7 +6,8 @@
  * How much each metric has to move before it reads as a move at all.
  *
  * The units are the metric's own: points of CTL, hours, whole activities,
- * watts, minutes per kilometre, beats, kilograms.
+ * watts, minutes of pace (per kilometre, or per 100 m for CSS), beats,
+ * kilograms. Pace is pace, not the critical speed it comes from.
  */
 export const TREND_DEADBAND = {
   /** CTL and ATL are integers, so under a point is not a move. */
@@ -20,7 +21,10 @@ export const TREND_DEADBAND = {
   weekDistance: 1,
   /** Load is fatigue's number, so it moves with no judgement, as fatigue does. */
   weekTss: 5,
+  /** change of its two-week averages, and read only the polarity from here. */
+  weekSets: 1,
   ftp: 2,
+  /** Three seconds a kilometre, and three seconds a hundred metres for CSS. */
   thresholdPace: 0.05,
   css: 0.05,
   hrv: 2,
@@ -33,8 +37,8 @@ export type TrendMetric = keyof typeof TREND_DEADBAND;
 
 /**
  * Which way is better, one entry per metric with a deadband, so a surface
- * never judges a number locally. A pace is minutes per kilometre, so it falls
- * to improve. `none` is a metric with a direction and no judgement: weight,
+ * never judges a number locally. A pace is minutes per unit distance, so it
+ * falls to improve. `none` is a metric with a direction and no judgement: weight,
  * fatigue and form are drawn the way intervals.icu draws them, as a bare arrow
  * on the neutral rung, and form's colour is its zone rather than its move.
  */
@@ -46,6 +50,7 @@ export const TREND_POLARITY: Record<TrendMetric, 'higher' | 'lower' | 'none'> = 
   weekCount: 'higher',
   weekDistance: 'higher',
   weekTss: 'none',
+  weekSets: 'none',
   ftp: 'higher',
   thresholdPace: 'lower',
   css: 'lower',

@@ -1,4 +1,3 @@
-import { getRouteLocation } from '@/shared/demo/routes/routes';
 import {
   getDemoReferenceDate,
   formatDateId,
@@ -400,10 +399,6 @@ function generateActivities(): ApiActivity[] {
     const hrFitnessDrift = 1 - (fitnessRatio - 1) * 0.5;
     const avgHr = Math.round(baseHr * hrFitnessDrift * ctx.formFactor * (0.96 + rng() * 0.08));
 
-    const location = template.route
-      ? getRouteLocation(template.route)
-      : { locality: null, country: null };
-
     const zoneDist = ZONE_DISTRIBUTIONS[session] || ZONE_DISTRIBUTIONS.endurance;
     const zoneTimes = template.watts
       ? zoneDist.map((pct, i) => ({ id: `Z${i + 1}`, secs: Math.round(movingTime * pct) }))
@@ -439,8 +434,8 @@ function generateActivities(): ApiActivity[] {
       device_name: 'Demo Device',
       trainer: template.type === 'VirtualRide',
       commute: false,
-      average_watts: avgWatts,
-      weighted_average_watts: avgWatts ? Math.round(avgWatts * (1.03 + rng() * 0.06)) : null,
+      icu_average_watts: avgWatts,
+      icu_weighted_avg_watts: avgWatts ? Math.round(avgWatts * (1.03 + rng() * 0.06)) : null,
       icu_training_load: tss,
       icu_intensity: avgWatts ? Math.round((avgWatts / ctx.ftpWatts) * 100) : null,
       icu_ftp: ctx.ftpWatts,
@@ -460,8 +455,6 @@ function generateActivities(): ApiActivity[] {
           : [125, 170, 210, 250, 290, 350],
       icu_zone_times: zoneTimes,
       stream_types: getStreamTypes(template.type, template.route),
-      locality: location.locality,
-      country: location.country,
       _routeId: template.route,
     };
     a.skyline_chart_bytes = generateSkylineBytes(
@@ -565,9 +558,6 @@ function generateActivities(): ApiActivity[] {
   // === STRESS TEST: 20 runs on the same route with fitness-driven times ===
   // Pre-compute all times, then ensure demo-stress-0 (newest) is the fastest
   const stressTemplate = templates[5]; // route-rio-run-1
-  const stressLocation = stressTemplate.route
-    ? getRouteLocation(stressTemplate.route)
-    : { locality: null, country: null };
   const stressTimes: number[] = [];
   const stressDaysAgo: number[] = [];
   for (let i = 0; i < 20; i++) {
@@ -613,8 +603,8 @@ function generateActivities(): ApiActivity[] {
       device_name: 'Demo Device',
       trainer: false,
       commute: true,
-      average_watts: null,
-      weighted_average_watts: null,
+      icu_average_watts: null,
+      icu_weighted_avg_watts: null,
       icu_training_load: stressTemplate.tss,
       icu_intensity: null,
       icu_ftp: ctx.ftpWatts,
@@ -632,8 +622,6 @@ function generateActivities(): ApiActivity[] {
         'velocity_smooth',
         'grade_smooth',
       ],
-      locality: stressLocation.locality,
-      country: stressLocation.country,
       _routeId: stressTemplate.route,
     } as ApiActivity & { _routeId: string | null });
   }

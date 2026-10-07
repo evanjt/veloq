@@ -1,20 +1,5 @@
-import type { WellnessData } from '@/types';
 import type { ApiWellness } from '@/shared/demo/activity/types';
 import { fixtures } from '@/shared/demo/activity/activities';
-
-export const demoWellness: WellnessData[] = fixtures.wellness.map((w) => ({
-  id: w.id,
-  ctl: w.ctl,
-  atl: w.atl,
-  rampRate: w.rampRate,
-  hrv: w.hrv,
-  hrvSDNN: w.hrvSDNN,
-  restingHR: w.restingHR,
-  sleepSecs: w.sleepSecs,
-  sleepScore: w.sleepScore,
-  weight: w.weight,
-  updated: new Date(w.id + 'T00:00:00').toISOString(),
-})) as WellnessData[];
 
 export function getWellness(params?: { oldest?: string; newest?: string }): ApiWellness[] {
   const { oldest, newest } = params ?? {};

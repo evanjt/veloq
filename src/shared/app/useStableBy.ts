@@ -23,6 +23,6 @@ import { useMemo } from 'react';
 export function useStableBy<T>(value: T, key: string): T {
   // The key is the dependency by design: `value` is a fresh object on every
   // refetch and listing it would defeat the whole thing.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- A fresh value must not replace the memo while its key is unchanged.
   return useMemo(() => value, [key]);
 }

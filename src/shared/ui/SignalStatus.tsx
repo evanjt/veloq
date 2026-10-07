@@ -10,19 +10,54 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { colors, colorWithOpacity, layout, spacing, typography } from '@/theme';
+import { useTheme } from '@/shared/app';
+import { colors, colorWithOpacity, darkColors, layout, spacing, typography } from '@/theme';
 
 export type SignalLevel = 'idle' | 'ok' | 'warn' | 'bad';
 
-const LEVEL_COLORS: Record<SignalLevel, string> = {
-  idle: colors.iconNeutral,
-  ok: colors.success,
-  warn: colors.warning,
-  bad: colors.error,
+// The level is drawn as a mark and as text, so each tone is the deep one in the
+// light theme and the light one in the dark theme, never the fill palette.
+const LEVEL_COLORS: Record<'light' | 'dark', Record<SignalLevel, string>> = {
+  light: {
+    idle: colors.iconNeutral,
+    ok: colors.successDeep,
+    warn: colors.warningAmber,
+    bad: colors.errorDeep,
+  },
+  dark: {
+    idle: darkColors.iconNeutral,
+    ok: darkColors.successDeep,
+    warn: darkColors.warningAmber,
+    bad: darkColors.errorDeep,
+  },
 };
 
-export function signalColor(level: SignalLevel): string {
-  return LEVEL_COLORS[level];
+export function signalColor(level: SignalLevel, isDark: boolean): string {
+  return LEVEL_COLORS[isDark ? 'dark' : 'light'][level];
+}
+
+// The ground behind a level is the fill hue, which is a ground and not a mark.
+// The deep green is 4.76:1 on the screen background before any tint, so the
+// tint stays at 6% to keep the label above the 4.5:1 text bar.
+export const SIGNAL_TINT_ALPHA = 0.06;
+
+const LEVEL_TINTS: Record<'light' | 'dark', Record<SignalLevel, string>> = {
+  light: {
+    idle: colors.iconNeutral,
+    ok: colors.success,
+    warn: colors.warning,
+    bad: colors.error,
+  },
+  dark: {
+    idle: darkColors.iconNeutral,
+    ok: darkColors.success,
+    warn: darkColors.warning,
+    bad: darkColors.error,
+  },
+};
+
+export function signalTint(level: SignalLevel, isDark: boolean): string {
+  return LEVEL_TINTS[isDark ? 'dark' : 'light'][level];
 }
 
 interface SignalStatusProps {
@@ -48,7 +83,9 @@ export function SignalStatus({
   children,
   testID,
 }: SignalStatusProps) {
-  const color = LEVEL_COLORS[level];
+  const { isDark } = useTheme();
+  const color = signalColor(level, isDark);
+  const tint = signalTint(level, isDark);
   const iconSize = variant === 'line' ? 18 : variant === 'chip' ? 13 : 14;
 
   const content = (
@@ -68,9 +105,9 @@ export function SignalStatus({
 
   const variantStyle =
     variant === 'line'
-      ? [styles.line, { backgroundColor: colorWithOpacity(color, 0.1) }]
+      ? [styles.line, { backgroundColor: colorWithOpacity(tint, SIGNAL_TINT_ALPHA) }]
       : variant === 'chip'
-        ? [styles.chip, { backgroundColor: colorWithOpacity(color, 0.12) }]
+        ? [styles.chip, { backgroundColor: colorWithOpacity(tint, SIGNAL_TINT_ALPHA) }]
         : styles.micro;
 
   if (onPress) {
@@ -100,7 +137,7 @@ const styles = StyleSheet.create({
   micro: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs / 2,
+    gap: spacing.xxs,
   },
   chip: {
     flexDirection: 'row',
@@ -115,7 +152,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderRadius: layout.borderRadiusSm,
   },
   label: {

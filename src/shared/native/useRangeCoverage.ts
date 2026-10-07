@@ -22,22 +22,30 @@ import { useEngineRead } from './useEngineSubscription';
  * sync landing is exactly what turns `NotFetched` into one of the other two.
  */
 export function useRangeCoverage(days: number, enabled = true): RangeCoverage {
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(start.getDate() - days);
+  return useWindowCoverage(formatLocalDate(start), formatLocalDate(today), enabled);
+}
+
+/**
+ * The same census answer for an explicit window of local days, inclusive at
+ * both ends, as `YYYY-MM-DD`. A card whose range is a calendar period rather
+ * than a trailing count of days asks with its own first and last day, so the
+ * answer is about exactly the dates it draws.
+ */
+export function useWindowCoverage(oldest: string, newest: string, enabled = true): RangeCoverage {
   const readEngine = useEngineRead(['activities']);
 
   return useMemo(() => {
     if (!enabled) return RangeCoverage.NotFetched;
-    const today = new Date();
-    const start = new Date(today);
-    start.setDate(start.getDate() - days);
     try {
       return (
-        readEngine((engine) =>
-          engine.rangeCoverage(formatLocalDate(start), formatLocalDate(today))
-        ) ?? RangeCoverage.NotFetched
+        readEngine((engine) => engine.rangeCoverage(oldest, newest)) ?? RangeCoverage.NotFetched
       );
     } catch {
       // A throw is the engine refusing the read, which is ignorance too.
       return RangeCoverage.NotFetched;
     }
-  }, [days, enabled, readEngine]);
+  }, [oldest, newest, enabled, readEngine]);
 }

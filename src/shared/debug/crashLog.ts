@@ -5,6 +5,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CRASH_LOG_KEY = 'veloq-crash-log';
 const MAX_ENTRIES = 20;
+// Rust panics arrive in bulk from a file, so they hold a bounded share of the
+// log; JavaScript crashes keep the rest and are never displaced by them.
+const MAX_RUST_ENTRIES = 10;
 
 export type CrashSource = 'js-global' | 'react-boundary' | 'rust-panic';
 
@@ -24,22 +27,51 @@ export function setCrashScreen(screen: string) {
   if (screen) currentScreen = screen;
 }
 
+/** Reads and writes run one at a time, so appends never replace one another. */
+let queue: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(task: () => Promise<T>): Promise<T> {
+  const run = queue.then(task);
+  queue = run.catch(() => {});
+  return run;
+}
+
+/** Rejects when storage cannot be read, and caches nothing then, so a failed read is never written over. */
 async function load(): Promise<CrashEntry[]> {
   if (cache) return cache;
-  try {
-    const raw = await AsyncStorage.getItem(CRASH_LOG_KEY);
-    cache = raw ? (JSON.parse(raw) as CrashEntry[]) : [];
-  } catch {
-    cache = [];
+  const raw = await AsyncStorage.getItem(CRASH_LOG_KEY);
+  let parsed: CrashEntry[] = [];
+  if (raw) {
+    try {
+      const value: unknown = JSON.parse(raw);
+      if (Array.isArray(value)) parsed = value as CrashEntry[];
+    } catch {
+      // A corrupt stored log is replaced by the next write.
+    }
   }
+  cache = parsed;
   return cache;
 }
 
-// Fire-and-forget. A crash handler must never throw.
-export function recordCrash(
-  entry: Omit<CrashEntry, 'ts' | 'screen'> & { screen?: string | undefined }
-) {
-  const full: CrashEntry = {
+function removeOldest(entries: CrashEntry[], match: (e: CrashEntry) => boolean) {
+  const at = entries.findIndex(match);
+  entries.splice(at < 0 ? 0 : at, 1);
+}
+
+/**
+ * Rust panics are capped at their share, so an entry over the total cap is
+ * always a JavaScript crash, and the oldest of those goes.
+ */
+function trimToRetention(entries: CrashEntry[]) {
+  const isRust = (e: CrashEntry) => e.source === 'rust-panic';
+  while (entries.filter(isRust).length > MAX_RUST_ENTRIES) removeOldest(entries, isRust);
+  while (entries.length > MAX_ENTRIES) removeOldest(entries, (e) => !isRust(e));
+}
+
+type NewCrash = Omit<CrashEntry, 'ts' | 'screen'> & { screen?: string | undefined };
+
+function stamp(entry: NewCrash): CrashEntry {
+  return {
     ts: Date.now(),
     screen: entry.screen ?? currentScreen,
     source: entry.source,
@@ -47,19 +79,49 @@ export function recordCrash(
     stack: entry.stack,
     fatal: entry.fatal,
   };
-  load()
-    .then((entries) => {
-      entries.push(full);
-      while (entries.length > MAX_ENTRIES) entries.shift();
-      cache = entries;
-      AsyncStorage.setItem(CRASH_LOG_KEY, JSON.stringify(entries)).catch(() => {});
-    })
-    .catch(() => {});
+}
+
+/** The cache moves only once the write has succeeded, so a failed batch can be retried whole. */
+function appendEntries(added: CrashEntry[]): Promise<void> {
+  return enqueue(async () => {
+    const entries = [...(await load()), ...added];
+    trimToRetention(entries);
+    await AsyncStorage.setItem(CRASH_LOG_KEY, JSON.stringify(entries));
+    cache = entries;
+  });
+}
+
+/**
+ * Append a batch and resolve once it is stored. Rejects when it could not be
+ * read or written, so a caller holding the only other copy can keep it.
+ */
+export function recordCrashes(entries: NewCrash[]): Promise<void> {
+  return appendEntries(entries.map(stamp));
+}
+
+// Fire-and-forget. A crash handler must never throw.
+export function recordCrash(entry: NewCrash) {
+  try {
+    appendEntries([stamp(entry)]).catch(() => {});
+  } catch {
+    // Recording the crash must never mask the crash itself.
+  }
 }
 
 export async function getCrashLog(): Promise<CrashEntry[]> {
-  const entries = await load();
+  const entries = await enqueue(load).catch(() => [] as CrashEntry[]);
   return [...entries].reverse();
+}
+
+/**
+ * Empty the log, in memory and stored. A message or a stack can carry a ride's
+ * name or an activity id, so the wipe takes it with the library.
+ */
+export async function clearCrashLog(): Promise<void> {
+  await enqueue(async () => {
+    cache = [];
+    await AsyncStorage.removeItem(CRASH_LOG_KEY).catch(() => {});
+  });
 }
 
 export function formatCrashLog(entries: CrashEntry[]): string {

@@ -50,7 +50,11 @@ function stop() {
 }
 
 function start() {
-  if (timer || listeners.size === 0 || eventsAreLive()) return;
+  if (timer || listeners.size === 0) return;
+  // A closed engine has no observer yet, and before sign-in it stays closed.
+  // The caller that opens it reconsiders, so ticking now only wakes the thread.
+  if (getEngine()?.ready === false) return;
+  if (eventsAreLive()) return;
   timer = setInterval(() => {
     // The observer is registered once per engine, so this can only turn true
     // by the engine being replaced. Reading it per tick is what lets the timer

@@ -35,13 +35,13 @@ import { cancelSyncRefresh } from './syncRefresh';
 
 import { getEngine } from './engine';
 import { subscribeToFallbackTick } from './eventFallback';
-import { useSyncStatus } from './useSyncStatus';
+import { useSyncLastError, useSyncState } from './useSyncStatus';
 
 export function useEngineSync(): void {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const status = useSyncStatus();
-  const state = status?.state;
+  const state = useSyncState();
+  const lastError = useSyncLastError();
   const engineReadyNonce = useEngineStatus((s) => s.readyNonce);
   const startedRef = useRef(false);
   const wasSyncingRef = useRef(false);
@@ -121,7 +121,7 @@ export function useEngineSync(): void {
     const startWasRefused = !startedRef.current;
     // An expired credential is not a network problem, so it stays latched and
     // waits for the re-auth rather than hammering a 401 on every foreground.
-    if (state === SyncState.Idle && status?.lastError) startedRef.current = false;
+    if (state === SyncState.Idle && lastError) startedRef.current = false;
     // Everything the sync writes hangs off this channel, so one refresh wakes
     // the profile, sport-settings and wellness readers together.
     getEngine()?.triggerRefresh('activities');
@@ -137,8 +137,12 @@ export function useEngineSync(): void {
     // numbers. A sync that failed part-way still wrote what it did fetch, so the
     // error path refreshes too.
     updateWidgetSnapshot();
-  }, [state, status?.lastError]);
+  }, [state, lastError]);
 
   useReconnect(retry);
-  useForeground(retry);
+  useForeground(() => {
+    if (state === SyncState.AuthExpired) return;
+    startedRef.current = false;
+    retry();
+  });
 }

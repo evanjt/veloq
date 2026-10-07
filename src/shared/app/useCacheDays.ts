@@ -5,7 +5,9 @@
  */
 import { useMemo } from 'react';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { readLibraryCount } from '@/shared/native/libraryCount';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 
 /**
  * Returns the number of days of cached activity data.
@@ -14,7 +16,7 @@ import { useEngineRead } from '@/shared/native/useEngineSubscription';
  * `preComputedActivityCount` lets a caller that already read the count as part
  * of a screen bundle skip this hook's own FFI call.
  *
- * @returns Number of days, or 90 as default when no data
+ * @returns Number of days, or the default activity window when no data
  */
 export function useCacheDays(preComputedActivityCount?: number): number {
   const oldest = useSyncDateRange((s) => s.oldest);
@@ -24,10 +26,10 @@ export function useCacheDays(preComputedActivityCount?: number): number {
   return useMemo(() => {
     // Check if we have any activities in the engine
     const activityCount =
-      preComputedActivityCount ?? readActivities((engine) => engine.getActivityCount()) ?? 0;
+      preComputedActivityCount ?? readActivities((engine) => readLibraryCount(engine)) ?? 0;
 
     if (activityCount === 0 || !oldest || !newest) {
-      return 90; // Default when no data
+      return DEFAULT_ACTIVITY_DAYS;
     }
 
     // Parse ISO date strings

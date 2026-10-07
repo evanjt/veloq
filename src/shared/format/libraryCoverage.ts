@@ -7,7 +7,7 @@ import type { LibraryCoverage } from 'veloqrs';
  *
  * Every progress figure beside this one is the running pass's own queue, so a
  * library of 1,598 rides with 400 tracks stored read "12/12" and then nothing:
- * the rides no pass had queued were invisible. These lines are the account.
+ * the rides no pass had queued were invisible. These lines are the window the athlete asked for.
  *
  * Two pairs, not one fraction. The activity pages arrive with the window syncs
  * and the tracks with the GPS pass, so one can be current while the other is

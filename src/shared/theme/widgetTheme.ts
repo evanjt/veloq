@@ -9,7 +9,7 @@
  * Derived only from `@/theme/colors` + `@/theme/spacing` (both pure, no react-native
  * import) so the codegen can run outside the RN runtime.
  */
-import { activityTypeColors, brand, colors, darkColors } from '@/theme/colors';
+import { activityTypeColors, brand, colors, darkColors, verdictColor } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
 
 /** Flat, resolved colour set the native widget renders from. */
@@ -46,11 +46,11 @@ export interface WidgetPalette {
   formGreyZoneText: string;
   formFreshText: string;
   formTransitionText: string;
-  /** Trend up (green). */
+  /** An improving trend (green). */
   trendUp: string;
-  /** Trend down (neutral grey; down is not "bad"). */
+  /** A declining trend (the negative rung). */
   trendDown: string;
-  /** Trend flat (faint grey). */
+  /** A flat trend, or one with no judgement (faint grey). */
   trendFlat: string;
   border: string;
 }
@@ -79,8 +79,8 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     formGreyZoneText: colors.formGreyZoneText,
     formFreshText: colors.formFreshText,
     formTransitionText: colors.formTransitionText,
-    trendUp: colors.success,
-    trendDown: colors.textSecondary,
+    trendUp: verdictColor('positive', false),
+    trendDown: verdictColor('negative', false),
     trendFlat: colors.textDisabled,
     border: colors.border,
   },
@@ -107,8 +107,8 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     formGreyZoneText: darkColors.formGreyZoneText,
     formFreshText: darkColors.formFreshText,
     formTransitionText: darkColors.formTransitionText,
-    trendUp: darkColors.success,
-    trendDown: darkColors.textSecondary,
+    trendUp: verdictColor('positive', true),
+    trendDown: verdictColor('negative', true),
     trendFlat: darkColors.textDisabled,
     border: darkColors.border,
   },

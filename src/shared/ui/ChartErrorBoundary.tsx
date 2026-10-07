@@ -1,10 +1,11 @@
 import React, { Component, ReactNode } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface Props {
   children: ReactNode;
@@ -67,13 +68,21 @@ function ChartErrorFallback({ height, label, onRetry }: FallbackProps) {
   const { t } = useTranslation();
 
   return (
-    <View style={[styles.container, { height }]}>
+    <View style={[styles.container, isDark && styles.containerDark, { height }]}>
       <Text style={[styles.errorText, isDark && styles.errorTextDark]}>
         {label ? t('errorState.unableToDisplay', { label }) : t('errorState.unableToDisplayChart')}
       </Text>
-      <Text style={[styles.retryText, isDark && styles.retryTextDark]} onPress={onRetry}>
-        {t('errorState.tapToRetry')}
-      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('errorState.tapToRetry')}
+        onPress={onRetry}
+        style={pressable(styles.retryButton)}
+        android_ripple={pressRipple}
+      >
+        <Text style={[styles.retryText, isDark && styles.retryTextDark]}>
+          {t('errorState.tapToRetry')}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -87,6 +96,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
   },
+  containerDark: {
+    backgroundColor: darkColors.background,
+    borderColor: darkColors.divider,
+  },
   errorText: {
     ...typography.bodySmall,
     color: colors.textSecondary,
@@ -94,6 +107,10 @@ const styles = StyleSheet.create({
   },
   errorTextDark: {
     color: darkColors.textSecondary,
+  },
+  retryButton: {
+    minHeight: layout.minTapTarget,
+    justifyContent: 'center',
   },
   retryText: {
     ...typography.label,

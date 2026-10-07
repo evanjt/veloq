@@ -8,11 +8,17 @@
 import { I18nManager } from 'react-native';
 
 import { i18n, getCurrentLanguage } from '@/i18n';
+import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
+import type { ActivityType } from '@/types';
 
 // Unit conversion constants
-const KM_TO_MI = 0.621371;
-const M_TO_FT = 3.28084;
-const MPS_TO_MPH = 2.23694;
+export const KM_TO_MI = 0.621371;
+export const M_TO_FT = 3.28084;
+export const MPS_TO_KPH = 3.6;
+const MPS_TO_MPH = MPS_TO_KPH * KM_TO_MI;
+
+/** 100 yards in metres, the imperial swim pace distance. */
+export const YARDS_100_IN_METRES = 91.44;
 
 // Sanity ceilings. A tiny-but-finite speed makes pace/duration overflow to a
 // finite-but-absurd magnitude that slips past the Infinity guard and renders in
@@ -190,13 +196,34 @@ export function formatMinSec(totalSeconds: number): string {
 }
 
 /**
+ * The route PR+ badge: how far behind the record an attempt finished, as
+ * whole seconds under a minute and `M:SS` from a minute up.
+ */
+export function formatPrDelta(seconds: number): string {
+  const whole = Math.round(seconds);
+  return whole >= 60 ? `PR+${formatMinSec(whole)}` : `PR+${whole}s`;
+}
+
+/**
+ * How much a route PR beat the previous best by, signed: `-14s` under a
+ * minute and `-M:SS` from a minute up. Null when there is no improvement to
+ * show (a first attempt, or under half a second).
+ */
+export function formatPrImprovement(seconds: number | null | undefined): string | null {
+  if (seconds == null) return null;
+  const whole = Math.round(seconds);
+  if (whole <= 0) return null;
+  return whole >= 60 ? `-${formatMinSec(whole)}` : `-${whole}s`;
+}
+
+/**
  * Format pace as minutes per kilometer (metric) or per mile (imperial).
  *
  * Shows running/cycling pace in MM:SS /km or /mi format.
  * Returns "--:--" for invalid or non-positive values.
  *
  * @param metersPerSecond - Speed in meters per second
- * @param isMetric - Whether to use metric units (default: true)
+ * @param isMetric - Whether to use metric units
  * @returns Formatted pace string (e.g., "5:30 /km", "8:51 /mi", "--:--")
  *
  * @example
@@ -206,7 +233,7 @@ export function formatMinSec(totalSeconds: number): string {
  * formatPace(0);            // "--:--"
  * ```
  */
-export function formatPace(metersPerSecond: number, isMetric = true): string {
+export function formatPace(metersPerSecond: number, isMetric: boolean): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
 
   // Seconds per km
@@ -222,19 +249,57 @@ export function formatPace(metersPerSecond: number, isMetric = true): string {
 }
 
 /**
- * Format a pace value already expressed in seconds per km as M:SS (no unit).
+ * Format a pace value already expressed in seconds per km as M:SS (no unit),
+ * read per mile when imperial.
  *
  * Single source for pace formatting from a seconds-per-km scalar, so callers
  * that already hold pace in that unit don't re-roll the min/sec math.
  *
  * @param secondsPerKm - Pace in seconds per kilometer
+ * @param isMetric - Whether to use metric units
  * @returns Formatted pace string (e.g., "5:30", "--:--")
  */
-export function formatPaceFromSecsPerKm(secondsPerKm: number): string {
-  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0 || secondsPerKm > MAX_PACE_SECONDS)
-    return '--:--';
+export function formatPaceFromSecsPerKm(secondsPerKm: number, isMetric: boolean): string {
+  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0) return '--:--';
 
-  return formatMinSec(secondsPerKm);
+  const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
+  if (totalSeconds > MAX_PACE_SECONDS) return '--:--';
+
+  return formatMinSec(totalSeconds);
+}
+
+/** A distance in metres as the long-distance unit the athlete reads: kilometres, or miles when imperial. */
+export function metersToLongDistance(meters: number, isMetric: boolean): number {
+  const km = meters / 1000;
+  return isMetric ? km : km * KM_TO_MI;
+}
+
+/** The label of `metersToLongDistance`. */
+export function longDistanceUnitLabel(isMetric: boolean): string {
+  return isMetric ? 'km' : 'mi';
+}
+
+/** The suffix of a running or cycling pace: `/km`, or `/mi` when imperial. */
+export function paceUnitLabel(isMetric: boolean): string {
+  return isMetric ? '/km' : '/mi';
+}
+
+/** The suffix of a swim pace: `/100m`, or `/100yd` when imperial. */
+export function swimPaceUnitLabel(isMetric: boolean): string {
+  return isMetric ? '/100m' : '/100yd';
+}
+
+/**
+ * A pace or a change in pace held in seconds per kilometre (run) or per 100 m
+ * (swim), restated in the unit the athlete reads pace in.
+ */
+export function paceSecondsForUnit(
+  metricSeconds: number,
+  sport: 'run' | 'swim',
+  isMetric: boolean
+): number {
+  if (isMetric) return metricSeconds;
+  return sport === 'run' ? metricSeconds / KM_TO_MI : metricSeconds * (YARDS_100_IN_METRES / 100);
 }
 
 /**
@@ -243,10 +308,10 @@ export function formatPaceFromSecsPerKm(secondsPerKm: number): string {
  * Same as formatPace but without the "/km" or "/mi" suffix for compact display.
  *
  * @param metersPerSecond - Speed in meters per second
- * @param isMetric - Whether to use metric units (default: true)
+ * @param isMetric - Whether to use metric units
  * @returns Formatted pace string (e.g., "5:30", "--:--")
  */
-export function formatPaceCompact(metersPerSecond: number, isMetric = true): string {
+export function formatPaceCompact(metersPerSecond: number, isMetric: boolean): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
 
   const secondsPerKm = 1000 / metersPerSecond;
@@ -262,18 +327,35 @@ export function formatPaceCompact(metersPerSecond: number, isMetric = true): str
  * Swimming uses per-100m or per-100yd pace instead of per-km.
  *
  * @param metersPerSecond - Speed in meters per second
- * @param isMetric - Whether to use metric units (default: true)
+ * @param isMetric - Whether to use metric units
  * @returns Formatted swim pace string (e.g., "2:30", "--:--")
  */
-export function formatSwimPace(metersPerSecond: number, isMetric = true): string {
+export function formatSwimPace(metersPerSecond: number, isMetric: boolean): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
 
-  // 100 yards = 91.44 meters
-  const distance = isMetric ? 100 : 91.44;
+  const distance = isMetric ? 100 : YARDS_100_IN_METRES;
   const totalSeconds = Math.round(distance / metersPerSecond);
   if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
 
   return formatMinSec(totalSeconds);
+}
+
+/**
+ * Format a speed the way its sport reads it: swim pace per 100 m or 100 yd,
+ * pace per km or mile for a pace sport, and speed otherwise. Each carries its
+ * unit, except the absent mark.
+ */
+export function formatSportSpeed(
+  metersPerSecond: number,
+  sportType: ActivityType,
+  isMetric: boolean
+): string {
+  if (isSwimmingActivity(sportType)) {
+    const pace = formatSwimPace(metersPerSecond, isMetric);
+    return pace === '--:--' ? pace : `${pace} ${isMetric ? '/100m' : '/100yd'}`;
+  }
+  if (isPaceSport(sportType)) return formatPace(metersPerSecond, isMetric);
+  return formatSpeed(metersPerSecond, isMetric);
 }
 
 /**
@@ -282,7 +364,7 @@ export function formatSwimPace(metersPerSecond: number, isMetric = true): string
  * Converts meters per second to km/h or mph with 1 decimal precision.
  *
  * @param metersPerSecond - Speed in meters per second
- * @param isMetric - Whether to use metric units (default: true)
+ * @param isMetric - Whether to use metric units
  * @returns Formatted speed string (e.g., "25.5 km/h", "15.8 mph")
  *
  * @example
@@ -292,12 +374,12 @@ export function formatSwimPace(metersPerSecond: number, isMetric = true): string
  * formatSpeed(-1);          // "0.0 km/h"
  * ```
  */
-export function formatSpeed(metersPerSecond: number, isMetric = true): string {
+export function formatSpeed(metersPerSecond: number, isMetric: boolean): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond < 0) {
     return isMetric ? '0.0 km/h' : '0.0 mph';
   }
 
-  const value = isMetric ? metersPerSecond * 3.6 : metersPerSecond * MPS_TO_MPH;
+  const value = isMetric ? metersPerSecond * MPS_TO_KPH : metersPerSecond * MPS_TO_MPH;
   // An extreme finite speed can overflow the conversion to Infinity.
   if (!Number.isFinite(value)) return isMetric ? '0.0 km/h' : '0.0 mph';
   return `${value.toFixed(1)} ${isMetric ? 'km/h' : 'mph'}`;
@@ -320,6 +402,10 @@ export function formatElevation(meters: number | undefined | null, isMetric = tr
   return Number.isFinite(feet) ? `${feet} ft` : '0 ft';
 }
 
+export function celsiusToFahrenheit(celsius: number): number {
+  return celsius * 1.8 + 32;
+}
+
 /**
  * Format temperature in Celsius (metric) or Fahrenheit (imperial).
  *
@@ -333,7 +419,7 @@ export function formatTemperature(celsius: number | undefined | null, isMetric =
   if (isMetric) {
     return `${Math.round(celsius)}°C`;
   }
-  const fahrenheit = Math.round(celsius * 1.8 + 32);
+  const fahrenheit = Math.round(celsiusToFahrenheit(celsius));
   return Number.isFinite(fahrenheit) ? `${fahrenheit}°F` : '--°F';
 }
 
@@ -374,7 +460,7 @@ export function formatPower(watts: number): string {
  * ```
  */
 export function formatRelativeDate(dateString: string): string {
-  const date = new Date(dateString);
+  const date = asDay(dateString);
   const now = new Date();
 
   // Compare calendar days, not elapsed time
@@ -420,6 +506,19 @@ export function formatDateTime(dateString: string): string {
 }
 
 /**
+ * The moment something happened, as today's clock time or, on another day, the
+ * date.
+ */
+export function formatClockOrDate(epochMs: number, now: Date = new Date()): string {
+  const date = new Date(epochMs);
+  const locale = getIntlLocale();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+  }
+  return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+}
+
+/**
  * A `YYYY-MM-DD` day as local midnight, anything else as `Date` reads it.
  *
  * `new Date('2026-03-14')` is UTC midnight by the specification, so west of
@@ -459,6 +558,14 @@ export function formatEpochDayUtc(seconds: number): string {
     day: 'numeric',
     timeZone: 'UTC',
   });
+}
+
+/**
+ * The `YYYY-MM-DD` key of a wall-clock stamp stored as epoch seconds, read
+ * with UTC components so the athlete's own day survives in every time zone.
+ */
+export function epochDayKeyUtc(seconds: number): string {
+  return new Date(seconds * 1000).toISOString().slice(0, 10);
 }
 
 /**
@@ -509,6 +616,13 @@ export function formatMonth(date: Date | string): string {
   const d = asDay(date);
   const locale = getIntlLocale();
   return d.toLocaleDateString(locale, { month: 'short' });
+}
+
+/**
+ * Format month and year (e.g., "Jun 2026")
+ */
+export function formatMonthYear(date: Date | string): string {
+  return asDay(date).toLocaleDateString(getIntlLocale(), { month: 'short', year: 'numeric' });
 }
 
 export function formatFullDate(date: Date | string): string {
@@ -612,9 +726,10 @@ export function formatTimeDelta(deltaSeconds: number): string | null {
 /**
  * Compute the performance delta for a section/route traversal.
  *
- * For running activities (showPace=true): compares pace (seconds/km).
+ * For running activities (showPace=true): compares pace (seconds/km, or seconds/mi when imperial).
  * For other activities: compares elapsed time.
  *
+ * @param options.isMetric - Whether the pace delta is per kilometre (true) or per mile
  * @param options.isBest - Whether this is the best performance (skip delta)
  * @param options.showPace - Whether to use pace comparison (running)
  * @param options.currentSpeed - Current speed in m/s
@@ -623,18 +738,20 @@ export function formatTimeDelta(deltaSeconds: number): string | null {
  */
 export function formatPerformanceDelta(options: {
   isBest: boolean;
+  isMetric: boolean;
   showPace?: boolean | undefined;
   currentSpeed?: number | undefined;
   bestSpeed?: number | undefined;
   timeDelta?: number | undefined;
 }): PerformanceDelta {
-  const { isBest, showPace, currentSpeed, bestSpeed, timeDelta } = options;
+  const { isBest, isMetric, showPace, currentSpeed, bestSpeed, timeDelta } = options;
 
   if (isBest) return { deltaDisplay: null, isFaster: false };
 
   // Pace comparison for running activities
   if (showPace && currentSpeed && currentSpeed > 0 && bestSpeed && bestSpeed > 0) {
-    const paceDelta = 1000 / currentSpeed - 1000 / bestSpeed; // positive = slower
+    const perKm = 1000 / currentSpeed - 1000 / bestSpeed; // positive = slower
+    const paceDelta = isMetric ? perKm : perKm / KM_TO_MI;
     return {
       deltaDisplay: formatTimeDelta(paceDelta),
       isFaster: paceDelta <= 0,
@@ -675,14 +792,15 @@ export function getSunday(date: Date): Date {
 }
 
 /**
- * Format byte count as human-readable file size (e.g., "1.5 MB", "2.3 GB").
+ * Format byte count as human-readable file size (e.g., "1.5 MB", "2.3 GB"), in
+ * decimal units, the base both platforms' own storage screens use.
  */
 export function formatFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (bytes < 1000) return `${bytes} B`;
+  if (bytes < 1000 ** 2) return `${(bytes / 1000).toFixed(1)} KB`;
+  if (bytes < 1000 ** 3) return `${(bytes / 1000 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1000 ** 3).toFixed(1)} GB`;
 }
 
 /**

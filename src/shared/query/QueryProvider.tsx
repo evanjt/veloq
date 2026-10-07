@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,6 +31,15 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Options for a query whose `queryFn` reads only the engine's SQLite. Such a read
+ * is not gated on TanStack's view of connectivity: under the default
+ * `offlineFirst` a retry after one thrown read pauses while the manager says
+ * offline, though nothing the read needs is on the network. A query that can
+ * reach the network keeps the default.
+ */
+export const LOCAL_READ_QUERY = { networkMode: 'always' } as const;
+
 // Export for manual cache management (e.g., clearing on navigation)
 export { queryClient };
 
@@ -47,12 +56,17 @@ export async function clearLegacyQueryCache(): Promise<void> {
     // A blob nobody reads is not worth an error path.
   }
 }
-void clearLegacyQueryCache();
+let legacyCleanupStarted = false;
 
 interface QueryProviderProps {
   children: React.ReactNode;
 }
 
 export function QueryProvider({ children }: QueryProviderProps) {
+  useEffect(() => {
+    if (legacyCleanupStarted) return;
+    legacyCleanupStarted = true;
+    void clearLegacyQueryCache();
+  }, []);
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

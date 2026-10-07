@@ -1,12 +1,15 @@
 import React from 'react';
-import { Alert, View, StyleSheet, Pressable, InteractionManager } from 'react-native';
+import { Alert, View, StyleSheet, Pressable } from 'react-native';
 import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
+import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useBannerPadsStatusBar } from '@/shared/app/TopSafeAreaContext';
+import { pressable, pressRipple } from '@/shared/ui';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useTheme } from '@/shared/app';
 import { colors, brand, ink, typography, spacing, colorWithOpacity } from '@/theme';
@@ -17,6 +20,7 @@ export function DemoBanner() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const padsStatusBar = useBannerPadsStatusBar('demo');
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const hideDemoBanner = useAuthStore((state) => state.hideDemoBanner);
   const exitDemoMode = useAuthStore((state) => state.exitDemoMode);
@@ -26,10 +30,8 @@ export function DemoBanner() {
   // Don't render if not in demo mode or if banner is hidden
   if (!isDemoMode || hideDemoBanner) return null;
 
-  const handlePress = () => {
-    // Flip isAuthenticated → false synchronously. AuthGate handles the redirect
-    // to /login after a 100ms defer (lets Android finish the current render pass).
-    exitDemoMode();
+  const handlePress = async () => {
+    await exitDemoMode();
     resetSyncDateRange();
     // Defer data clearing until the navigation interaction completes. Calling
     // queryClient.clear() while tab screens are still mounted triggers a mass
@@ -38,7 +40,7 @@ export function DemoBanner() {
     //
     // The banner is gone by the time this runs, so a wipe that fails has to
     // say so here or the fixtures stay on disk with nothing on screen.
-    InteractionManager.runAfterInteractions(async () => {
+    runWhenIdle(async () => {
       try {
         await clearDemoData(queryClient);
       } catch (error) {
@@ -52,12 +54,12 @@ export function DemoBanner() {
       <Pressable
         testID="demo-mode-banner"
         onPress={handlePress}
-        style={({ pressed }) => [
+        style={pressable([
           styles.container,
           isDark && styles.containerDark,
-          pressed && styles.pressed,
-          { paddingTop: insets.top > 0 ? insets.top : 8 },
-        ]}
+          { paddingTop: !padsStatusBar ? 0 : insets.top > 0 ? insets.top : spacing.sm },
+        ])}
+        android_ripple={pressRipple}
       >
         <View style={styles.content}>
           <MaterialCommunityIcons
@@ -92,9 +94,6 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: brand.blueDark, // Darker blue for dark mode
-  },
-  pressed: {
-    opacity: 0.8,
   },
   content: {
     flexDirection: 'row',

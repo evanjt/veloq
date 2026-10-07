@@ -18,6 +18,12 @@ const ACCESS_TOKEN_STORAGE_KEY = 'intervals_access_token';
 // re-entry can offer it back, and this says who it may be offered to.
 const API_KEY_ATHLETE_STORAGE_KEY = 'intervals_api_key_athlete_id';
 
+async function holdOutgoingRecording(athleteId: string | null): Promise<void> {
+  const { holdRecordingOnSignOut } =
+    require('@/features/recording') as typeof import('@/features/recording');
+  await holdRecordingOnSignOut(athleteId);
+}
+
 /**
  * Validates that a credential is non-null and non-empty after trimming.
  * Empty strings and whitespace-only strings are invalid.
@@ -56,6 +62,64 @@ export function pushCredentialsToEngine(): void {
     return;
   }
   engine.clearSyncCredentials();
+}
+
+/**
+ * Unregister this device's push token for the signed-in athlete, whether
+ * notifications are on or an earlier unregister is still pending.
+ *
+ * Runs while the credential can still prove the athlete, and the request reads
+ * it before its first await. Only an OAuth token can prove the athlete, so an
+ * API-key session has nothing to release. When the request does not land
+ * (offline, a timeout, a refusal) nothing could retry it once the credential
+ * is deleted, so a sign-out (`credentialEnds`) clears the pending request rather
+ * than recording it and tells the athlete once that this device may keep
+ * receiving notifications until the server's token expires. A wipe that leaves
+ * the credential in place records the request for the launch retry. A wipe
+ * turns notifications off, so it releases the token first. A rejected
+ * credential (`credentialRejected`) skips the request the server would refuse
+ * and takes the same outcome as a sign-out that could not send it.
+ */
+export async function releasePushRegistration(
+  options: { credentialEnds?: boolean; credentialRejected?: boolean } = {}
+): Promise<void> {
+  try {
+    const { athleteId, authMethod } = useAuthStore.getState();
+    if (!athleteId || authMethod !== 'oauth') return;
+    const {
+      getNotificationPreferences,
+      resolvePendingUnregisterAthleteId,
+      useNotificationPreferences,
+    } = require('@/features/settings/stores/NotificationPreferencesStore');
+    const pendingFor: string | null = resolvePendingUnregisterAthleteId();
+    if (!getNotificationPreferences().enabled && !pendingFor) return;
+    if (!options.credentialRejected) {
+      const { unregisterPushToken } = require('@/features/settings/lib/pushTokenRegistration');
+      const unregistered = await unregisterPushToken(pendingFor ?? athleteId).catch(() => false);
+      if (unregistered) {
+        useNotificationPreferences.getState().clearPendingUnregister();
+        return;
+      }
+    }
+    if (!options.credentialEnds && !options.credentialRejected) {
+      useNotificationPreferences.getState().markPendingUnregister(athleteId);
+      return;
+    }
+    useNotificationPreferences.getState().clearPendingUnregister();
+    const { Alert } = require('react-native');
+    const { i18n } = require('@/i18n');
+    Alert.alert(
+      i18n.t('notifications.stillRegisteredTitle', {
+        defaultValue: 'Notifications may continue',
+      }),
+      i18n.t('notifications.stillRegisteredMessage', {
+        defaultValue:
+          'Veloq could not reach the notification server while signing out. This device may still receive notifications for your activities for up to 30 days.',
+      })
+    );
+  } catch {
+    // Push token cleanup is best-effort
+  }
 }
 
 /**
@@ -114,7 +178,7 @@ interface AuthState {
   clearCredentials: () => Promise<void>;
   setAthlete: (athlete: Athlete) => void;
   enterDemoMode: () => void;
-  exitDemoMode: () => void;
+  exitDemoMode: () => Promise<void>;
   setHideDemoBanner: (hide: boolean) => void;
   /** Called when a 401 ends the session - clears the rejected credential */
   handleSessionExpired: () => Promise<void>;
@@ -140,9 +204,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // the other two, and it is worth one more try before it is taken as one.
       const { values, failedKeys, migratedKeys } = await readCredentialsWithMigration(
         secureStoreIo,
-        [API_KEY_STORAGE_KEY, ATHLETE_ID_STORAGE_KEY, ACCESS_TOKEN_STORAGE_KEY]
+        [
+          API_KEY_STORAGE_KEY,
+          ATHLETE_ID_STORAGE_KEY,
+          ACCESS_TOKEN_STORAGE_KEY,
+          API_KEY_ATHLETE_STORAGE_KEY,
+        ]
       );
-      const [apiKey, athleteId, accessToken] = values;
+      const [apiKey, athleteId, accessToken, apiKeyAthleteId] = values;
       if (failedKeys.length > 0 && __DEV__) {
         console.warn(`[AuthStore] Keychain would not read: ${failedKeys.join(', ')}`);
       }
@@ -170,6 +239,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         isDemoMode: false,
         authMethod,
+        // Only `handleSessionExpired` leaves a key and its owner with no
+        // athlete id. A read of that id that failed leaves the same shape, and
+        // says nothing about the key.
+        sessionExpired:
+          !isAuthenticated &&
+          isValidCredential(apiKey) &&
+          isValidCredential(apiKeyAthleteId) &&
+          !failedKeys.includes(ATHLETE_ID_STORAGE_KEY)
+            ? 'key_rejected'
+            : null,
       });
       pushCredentialsToEngine();
     } catch {
@@ -208,6 +287,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
     ]);
 
+    const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
+    await clearPendingApiKey();
+
     set({
       apiKey: trimmedApiKey,
       accessToken: null,
@@ -216,6 +298,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       authMethod: 'apiKey',
     });
+    const {
+      useNotificationPreferences,
+    } = require('@/features/settings/stores/NotificationPreferencesStore');
+    useNotificationPreferences.getState().disableForApiKey();
     pushCredentialsToEngine();
   },
 
@@ -242,6 +328,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       deleteCredential(secureStoreIo, API_KEY_STORAGE_KEY),
       deleteCredential(secureStoreIo, API_KEY_ATHLETE_STORAGE_KEY),
     ]);
+
+    const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
+    await clearPendingApiKey();
 
     set({
       accessToken: trimmedAccessToken,
@@ -274,22 +363,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clearCredentials: async () => {
-    // Unregister push token before clearing credentials (fire-and-forget)
-    try {
-      const currentAthleteId = get().athleteId;
-      if (currentAthleteId) {
-        const {
-          getNotificationPreferences,
-        } = require('@/features/settings/stores/NotificationPreferencesStore');
-        const prefs = getNotificationPreferences();
-        if (prefs.enabled) {
-          const { unregisterPushToken } = require('@/features/settings/lib/pushTokenRegistration');
-          unregisterPushToken(currentAthleteId);
-        }
-      }
-    } catch {
-      // Push token cleanup is best-effort
-    }
+    await holdOutgoingRecording(get().athleteId);
+    await releasePushRegistration({ credentialEnds: true });
 
     await Promise.all([
       deleteCredential(secureStoreIo, API_KEY_STORAGE_KEY),
@@ -297,6 +372,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       deleteCredential(secureStoreIo, ATHLETE_ID_STORAGE_KEY),
       deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
     ]);
+
+    const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
+    await clearPendingApiKey();
 
     set({
       apiKey: null,
@@ -329,7 +407,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     seedDemoEngine();
   },
 
-  exitDemoMode: () => {
+  exitDemoMode: async () => {
+    await holdOutgoingRecording(get().athleteId);
     set({
       athleteId: null,
       isAuthenticated: false,
@@ -350,25 +429,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (authMethod !== 'oauth' && authMethod !== 'apiKey') {
       return;
     }
+    await holdOutgoingRecording(currentAthleteId);
     const reason: SessionExpiredReason = authMethod === 'apiKey' ? 'key_rejected' : 'signed_out';
 
-    // Unregister push token before clearing credentials (fire-and-forget).
-    // Without this the worker would keep trying to deliver pushes to a
-    // device whose session the server no longer accepts.
-    try {
-      if (currentAthleteId) {
-        const {
-          getNotificationPreferences,
-        } = require('@/features/settings/stores/NotificationPreferencesStore');
-        const prefs = getNotificationPreferences();
-        if (prefs.enabled) {
-          const { unregisterPushToken } = require('@/features/settings/lib/pushTokenRegistration');
-          unregisterPushToken(currentAthleteId);
-        }
-      }
-    } catch {
-      // Push token cleanup is best-effort
-    }
+    await releasePushRegistration({ credentialRejected: true });
 
     // The stored API key survives, because the login form has one field and
     // the re-entry prefills it from here. The athlete id goes with the token, or
@@ -378,6 +442,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
       deleteCredential(secureStoreIo, ATHLETE_ID_STORAGE_KEY),
     ]);
+
+    const { useUploadPermissionStore } =
+      require('@/features/recording') as typeof import('@/features/recording');
+    useUploadPermissionStore.getState().reset();
 
     set({
       apiKey: null,

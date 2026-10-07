@@ -4,20 +4,12 @@
  * `isOnline` only says the radio is up. A captive portal, a DNS black hole or a
  * sustained 5xx all leave the device connected while every sync fails, and the
  * engine's `lastError` had no renderer, so the app looked empty rather than
- * broken. The success time is kept in engine settings because the relaunch is
- * exactly the case where the error alone says nothing: a fresh process has no
- * error yet and no memory of the last time data arrived.
+ * broken. The success time is the engine's own, stamped when a sync settles
+ * clean and persisted, so a fresh process after a relaunch still has it.
  */
-import { useEffect, useRef, useState } from 'react';
-import { SyncState, type SyncErrorReason } from 'veloqrs';
+import type { SyncErrorReason } from 'veloqrs';
 
-import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-
-import { getEngine } from './engine';
 import { useSyncStatus } from './useSyncStatus';
-
-/** Engine settings key holding the ISO time of the last sync that landed. */
-export const LAST_SUCCESS_KEY = 'sync.last_success_at';
 
 export interface SyncHealth {
   /** The error the last sync settled with, or null while it is healthy. */
@@ -34,34 +26,9 @@ export interface SyncHealth {
 
 export function useSyncHealth(): SyncHealth {
   const status = useSyncStatus();
-  const state = status?.state;
-  const lastError = status?.lastError ?? null;
-  const lastErrorReason = status?.lastErrorReason ?? null;
-  const engineReadyNonce = useEngineStatus((s) => s.readyNonce);
-  const [lastSuccessAt, setLastSuccessAt] = useState<string | null>(null);
-  const wasSyncingRef = useRef(false);
-
-  // This hook mounts before the root layout opens the engine, so the first read
-  // reaches a null handle. The ready nonce brings it back with a real one.
-  useEffect(() => {
-    const stored = getEngine()?.getSetting(LAST_SUCCESS_KEY);
-    if (stored) setLastSuccessAt(stored);
-  }, [engineReadyNonce]);
-
-  useEffect(() => {
-    if (state === SyncState.Syncing) {
-      wasSyncingRef.current = true;
-      return;
-    }
-    if (!wasSyncingRef.current) return;
-    wasSyncingRef.current = false;
-    // `authExpired` and `paused` are not arrivals, and neither is an idle run
-    // that carried an error, so none of them may move the success time.
-    if (state !== SyncState.Idle || lastError) return;
-    const at = new Date().toISOString();
-    getEngine()?.setSetting(LAST_SUCCESS_KEY, at);
-    setLastSuccessAt(at);
-  }, [state, lastError]);
-
-  return { lastError, lastErrorReason, lastSuccessAt };
+  return {
+    lastError: status?.lastError ?? null,
+    lastErrorReason: status?.lastErrorReason ?? null,
+    lastSuccessAt: status?.lastSuccessAt ?? null,
+  };
 }

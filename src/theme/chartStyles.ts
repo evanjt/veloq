@@ -15,8 +15,8 @@ export const chartStyles = StyleSheet.create({
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    paddingHorizontal: 2,
-    borderRadius: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
+    borderRadius: layout.borderRadiusXs,
     overflow: 'hidden' as const,
   },
   axisLabelDark: {
@@ -37,30 +37,5 @@ export const chartStyles = StyleSheet.create({
   /** Dark mode text override */
   textDark: {
     color: darkColors.textSecondary,
-  },
-
-  /** Tooltip overlay bar */
-  tooltip: {
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: layout.borderRadiusXs,
-    zIndex: 10,
-    alignItems: 'center' as const,
-  },
-  tooltipDark: {
-    backgroundColor: darkColors.surfaceOverlay,
-  },
-  tooltipText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600' as const,
-    color: colors.textPrimary,
-  },
-  tooltipTextDark: {
-    color: colors.textOnDark,
   },
 });

@@ -78,7 +78,7 @@ let ffiMetricsIndex = 0;
 let ffiMetricsCount = 0;
 
 /**
- * Record an FFI call timing. Called by EngineClient.timed() in dev mode.
+ * Record an FFI call timing. Called by EngineClient.timed() while debug is on.
  * Stores in a ring buffer (last 500 entries, zero allocation after warmup).
  */
 export function recordFFIMetric(name: string, durationMs: number): void {
@@ -90,6 +90,22 @@ export function recordFFIMetric(name: string, durationMs: number): void {
   }
   ffiMetricsIndex = (ffiMetricsIndex + 1) % FFI_RING_BUFFER_SIZE;
   ffiMetricsCount++;
+}
+
+let appMetricsEnabled = false;
+
+/** Follows the Debug Mode switch; set by the debug store. */
+export function setAppMetricsEnabled(enabled: boolean): void {
+  appMetricsEnabled = enabled;
+}
+
+/**
+ * Record a timing taken in app code. A no-op while Debug Mode is off, so the
+ * ring holds the same window for app rows and engine rows.
+ */
+export function recordAppMetric(name: string, durationMs: number): void {
+  if (!appMetricsEnabled) return;
+  recordFFIMetric(name, durationMs);
 }
 
 /**

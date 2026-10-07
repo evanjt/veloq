@@ -18,10 +18,10 @@ import { useEffect, useRef } from 'react';
 import { SyncState } from 'veloqrs';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
-import { useSyncStatus } from './useSyncStatus';
+import { useSyncState } from './useSyncStatus';
 
 export function useSyncAuthExpiry(): void {
-  const state = useSyncStatus()?.state;
+  const state = useSyncState();
   // One logout per expiry. The state stays authExpired until the next sync
   // begins, so without the latch every status poll would re-enter teardown.
   const handledRef = useRef(false);

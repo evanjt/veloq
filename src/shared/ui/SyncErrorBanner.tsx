@@ -26,6 +26,7 @@ import { SyncErrorReason } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
+import { useBannerPadsStatusBar } from '@/shared/app/TopSafeAreaContext';
 import { useTheme } from '@/shared/app/useTheme';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { formatDateTime } from '@/shared/format';
@@ -48,22 +49,28 @@ export function SyncErrorBanner() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const { isOnline } = useNetwork();
+  const { offlineBannerShown } = useNetwork();
   const { isDark } = useTheme();
+  const padsStatusBar = useBannerPadsStatusBar('syncError');
   const { lastError, lastErrorReason, lastSuccessAt } = useSyncHealth();
 
   // The offline banner already owns the no-connection case, and both live in the
-  // same top slot. A logged-out user has no sync to report on, and the engine
-  // keeps the error from the session that just ended. Demo data needs no account sync.
+  // same top slot, so this one gives way when that one shows and not before: an
+  // offline reading still inside the offline banner's hold leaves it up. A
+  // logged-out user has no sync to report on, and the engine keeps the error
+  // from the session that just ended. Demo data needs no account sync.
   const reasonKey = lastErrorReason === null ? undefined : REASON_KEY[lastErrorReason];
 
-  if (!isAuthenticated || isDemoMode || !isOnline || (!lastError && !reasonKey)) {
+  if (!isAuthenticated || isDemoMode || offlineBannerShown || (!lastError && !reasonKey)) {
     return null;
   }
 
   const palette = isDark ? amberBanner.dark : amberBanner.light;
-  const topPadding =
-    Platform.OS === 'android' ? Math.max(insets.top, 24) : Math.max(insets.top, 20);
+  const topPadding = !padsStatusBar
+    ? 0
+    : Platform.OS === 'android'
+      ? Math.max(insets.top, 24)
+      : Math.max(insets.top, 20);
 
   return (
     <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>

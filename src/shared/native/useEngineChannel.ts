@@ -28,6 +28,6 @@ export function useEngineChannel(event: string, queryKey: QueryKey, kind?: strin
       queryClient.invalidateQueries({ queryKey });
     });
     // The key is a literal tuple from queryKeys, stable across renders by value.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The serialised key tracks a stable query tuple by value.
   }, [event, kind, queryClient, JSON.stringify(queryKey)]);
 }

@@ -2,19 +2,19 @@
  * Unified settings read/write that prefers SQLite (via Rust FFI), with
  * AsyncStorage behind it. Writes go to both.
  *
- * **The AsyncStorage half is load-bearing, not transitional.** The store
- * initialisers run before `initWithPath`, so every read and write at cold
- * start happens with no engine: `getSetting` falls through to AsyncStorage and
- * `commitPending` drops the SQLite half at its `if (!engine) return`. Removing
- * the fallback empties every preference on every launch, online or off, with
- * nothing failing loudly to say so. `settingsColdStartFallback.test.ts` is
- * what holds it in place.
+ * **The AsyncStorage half is load-bearing, not transitional.** An
+ * authenticated launch opens the engine before the store initialisers run
+ * (`initializeApp` in `launch.ts`), so SQLite answers there. The fallback
+ * serves a signed-out launch, a failed open, and a native module that did not
+ * load. An unopened handle is not null: `getEngine` returns the singleton
+ * early, its `getSetting` answers `undefined` and its `setSettings` drops the
+ * batch at the ready check, not at `commitPending`. Removing the fallback
+ * empties those launches' preferences with nothing failing loudly to say so.
+ * `settingsColdStartFallback.test.ts` is what holds it in place.
  *
- * **It is not an ordering that could be changed.** `_layout` opens the engine
- * inside an effect gated on `isAuthenticated`, so a signed-out launch has no
- * engine at all and the sign-in screen's language and theme can only come from
- * AsyncStorage however the initialisers are ordered. SQLite answers once the
- * engine is open, and is where a preference written inside the app lands.
+ * **A signed-out launch has no engine at all**, so the sign-in screen's
+ * language and theme can only come from AsyncStorage however the initialisers
+ * are ordered. SQLite is where a preference written once the engine is open lands.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -58,9 +58,13 @@ export async function getSetting(key: string): Promise<string | null> {
   if (queued !== undefined) return queued;
   const engine = getEngine();
   if (engine) {
-    const value = engine.getSetting(key);
-    if (value !== undefined) return value;
-    if (sqliteHoldsEverything(engine)) return null;
+    try {
+      const value = engine.getSetting(key);
+      if (value !== undefined) return value;
+      if (sqliteHoldsEverything(engine)) return null;
+    } catch {
+      // A failed engine read falls through to the mirror, as an unready engine does
+    }
   }
   // Fallback to AsyncStorage (pre-migration or engine not ready)
   return AsyncStorage.getItem(key);

@@ -19,9 +19,19 @@ import { useEngineReady } from './useEngineReady';
  * `detectionApplied` is on it because a detection run renames, splits and
  * retires sections, and nothing else announces that it finished, and
  * `fitParsed` because a FIT landing is what turns an awaiting strength tab
- * into a ready one.
+ * into a ready one. `gpsTrackStored` is on it because a bulk download stores
+ * tracks one at a time and announces nothing on `activities` until it ends.
  */
-export type EngineEvent = 'activities' | 'groups' | 'sections' | 'detectionApplied' | 'fitParsed';
+export type EngineEvent =
+  | 'activities'
+  | 'groups'
+  | 'sections'
+  | 'detectionApplied'
+  | 'backfillPhase'
+  | 'streamBackfillPhase'
+  | 'fitParsed'
+  | 'gpsTrackStored'
+  | 'cutoverSettled';
 
 /**
  * Returns a trigger value that changes when any subscribed event fires.
@@ -53,7 +63,6 @@ export function useEngineSubscription(events: EngineEvent[]): number {
       missedRef.current = true;
       return undefined;
     }
-    let cancelled = false;
 
     // Rebuilt from the key rather than read from `events`, so the key is the
     // whole dependency and a changed list cannot hide behind an unchanged one.
@@ -61,13 +70,12 @@ export function useEngineSubscription(events: EngineEvent[]): number {
     const list = eventKey === '' ? [] : (eventKey.split(',') as EngineEvent[]);
     const cb = () => refreshRef.current();
     const unsubscribes = list.map((event) => engine.subscribe(event, cb));
-    if (missedRef.current && !cancelled) {
+    if (missedRef.current) {
       refreshRef.current();
     }
     missedRef.current = false;
 
     return () => {
-      cancelled = true;
       unsubscribes.forEach((u) => u());
     };
   }, [eventKey, engine]);

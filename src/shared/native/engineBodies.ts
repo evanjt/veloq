@@ -1,8 +1,8 @@
 /**
  * Read a body the Rust sync stores on demand, asking for it when it is absent.
  *
- * Curves, activity intervals and calendar events are per-parameter fetches, so
- * the launch sync cannot prefetch them. The read returns what is stored;
+ * Curves and activity intervals are per-parameter fetches, so the launch sync
+ * cannot prefetch them. The read returns what is stored;
  * `null` means "never fetched", which is the cue to request it. Rust folds
  * duplicate requests together, and announces the landing on `bodyStored`,
  * which wakes the query that asked. Nothing is read on a timer: between the
@@ -14,17 +14,19 @@
  * happened. Rust keeps a count of stored bodies for exactly this, and the two
  * reads below, one either side of the request, are what close it.
  *
- * The other is a request Rust refused outright, which it does by returning a
- * bare `false` that means both "no credentials" and "folded into an identical
- * request already in flight". Opposite answers, same value, and the value is
- * erased at this boundary anyway. A refusal is announced by nothing, so a wait
- * on the announcement alone never ends and the screen spins until it is
- * closed. The deadline is what stops that. It does not make the refusal
- * legible, which is its own item; it makes the wait terminate regardless of
- * why the body never came.
+ * The other is a request Rust refused outright. `request` hands back the
+ * engine's start verdict. One that asking again cannot change, such as no
+ * credentials, ends the wait at once as `refused`. One that can change, a
+ * request folded into one in flight or no network yet, keeps waiting, and so
+ * does no verdict at all (demo mode, no engine). A refusal is announced by
+ * nothing, so the deadline still ends a wait the verdict could not classify.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
+
+import { useReconnect } from '@/shared/app/useRetryTriggers';
+
+import { hasStarted, isRetryableStart, type StartOutcome, type StartResult } from 'veloqrs';
 
 import { getEngine } from './engine';
 
@@ -42,7 +44,9 @@ const CHANNELS = ['bodyStored', 'activities'] as const;
 export const BODY_WAIT_MS = 15_000;
 
 /**
- * Whether a body is still being waited on. `timedOut` is not an error: the
+ * Whether a body is still being waited on. `refused` means the engine will
+ * not fetch it and asking again cannot change that, so the screen can say so
+ * at once. `timedOut` is not an error: the
  * body may still land and announce itself later, and the caller is free to
  * keep whatever it is showing. It means only that waiting is no longer a
  * reason to show a spinner.
@@ -53,16 +57,17 @@ export const BODY_WAIT_MS = 15_000;
  * that is announced but does not actually store this body still reaches the
  * deadline.
  */
-export type EngineBodyStatus = 'idle' | 'waiting' | 'timedOut';
+export type EngineBodyStatus = 'idle' | 'waiting' | 'timedOut' | 'refused';
 
 /**
  * The wait, and the way to start it over.
  *
  * `retry` asks again from the beginning: the request goes out a second time
  * and the deadline restarts. It is for a caller showing the athlete that the
- * fetch did not arrive, since nothing else re-asks. A `retry` while the wait
- * is still running is a fresh request, which Rust folds into the one in
- * flight.
+ * fetch did not arrive. The hook calls it itself on the offline to online
+ * edge, since a body asked for offline is not re-asked by anything else. A
+ * `retry` while the wait is still running is a fresh request, which Rust folds
+ * into the one in flight.
  */
 export interface EngineBodyWait {
   status: EngineBodyStatus;
@@ -88,7 +93,7 @@ function bodiesStored(): number | null {
  */
 export function useEngineBody(
   present: boolean,
-  request: () => void,
+  request: () => StartOutcome | StartResult | undefined,
   queryKey: QueryKey,
   enabled = true
 ): EngineBodyWait {
@@ -104,6 +109,7 @@ export function useEngineBody(
   // having to clear the old one.
   const waitId = `${keyId}#${attempt}`;
   const [expiredWait, setExpiredWait] = useState<string | null>(null);
+  const [refusedWait, setRefusedWait] = useState<string | null>(null);
 
   // The count as the request went out, or null when this mount asked for
   // nothing and so has no window to reconcile.
@@ -112,7 +118,13 @@ export function useEngineBody(
   useEffect(() => {
     if (!enabled || present) return undefined;
     countAtRequest.current = bodiesStored();
-    request();
+    const outcome = request();
+    if (outcome !== undefined && !hasStarted(outcome) && !isRetryableStart(outcome)) {
+      // The verdict only exists once the request has gone out, so it is read here.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRefusedWait(waitId);
+      return undefined;
+    }
 
     // Nothing announces a refusal, so the wait ends on a clock or not at all.
     // The clock only ends the wait: it reads nothing and asks for nothing, so
@@ -121,7 +133,7 @@ export function useEngineBody(
     const timer = setTimeout(() => setExpiredWait(waitId), BODY_WAIT_MS);
     return () => clearTimeout(timer);
     // `request` closes over the parameters already encoded in the key.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The request parameters are encoded in waitId.
   }, [enabled, present, waitId]);
 
   useEffect(() => {
@@ -142,11 +154,18 @@ export function useEngineBody(
     }
 
     return () => unsubscribes.forEach((off) => off());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyId identifies the subscription's query key.
   }, [enabled, queryClient, keyId]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
+  // A body missing on the edge was most likely asked for into a dead network,
+  // and nothing in Rust re-asks an on-demand fetch.
+  useReconnect(() => {
+    if (enabled && !present) retry();
+  });
+
   if (!enabled || present) return { status: 'idle', retry };
+  if (refusedWait === waitId) return { status: 'refused', retry };
   return { status: expiredWait === waitId ? 'timedOut' : 'waiting', retry };
 }

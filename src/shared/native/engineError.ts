@@ -3,7 +3,7 @@
  *
  * `VeloqError` is a typed enum in Rust and the bindings carry the tag across,
  * but every caller was catching it as an untyped throw and rendering one
- * message. So "the engine is not open", "another thread holds the lock" and
+ * message. So "the engine is not open", "the engine is mid-job" and
  * "the database failed" were one `catch` with one outcome, and the athlete was
  * told the same thing whichever it was.
  *
@@ -17,12 +17,13 @@
 /** Every variant `VeloqError` can cross as. */
 export const ENGINE_ERROR_TAGS = [
   'NotInitialized',
-  'LockFailed',
   'Database',
   'NotFound',
   'ParseError',
   'ReferenceActivity',
   'TileStore',
+  'Busy',
+  'NameTaken',
 ] as const;
 
 export type EngineErrorTag = (typeof ENGINE_ERROR_TAGS)[number];
@@ -41,13 +42,6 @@ export function engineErrorTag(error: unknown): EngineErrorTag | undefined {
   return ENGINE_ERROR_TAGS.find((known) => known === tag);
 }
 
-/** What the engine said, when it said anything, for a log or a report. */
-export function engineErrorDetail(error: unknown): string | undefined {
-  if (typeof error !== 'object' || error === null) return undefined;
-  const inner = (error as { inner?: { msg?: unknown } }).inner;
-  return typeof inner?.msg === 'string' ? inner.msg : undefined;
-}
-
 /** The lines an engine failure can show. */
 export type EngineFailureKey =
   | 'engine.failure.notOpen'
@@ -57,7 +51,6 @@ export type EngineFailureKey =
 /** The i18n key naming a failure, for the surfaces that show one. */
 const KEYS: Record<EngineErrorTag, EngineFailureKey> = {
   NotInitialized: 'engine.failure.notOpen',
-  LockFailed: 'engine.failure.busy',
   // The five that carry a message are all the database or a row in it failing,
   // and none of them is anything the athlete can act on differently.
   Database: 'engine.failure.database',
@@ -65,6 +58,12 @@ const KEYS: Record<EngineErrorTag, EngineFailureKey> = {
   ParseError: 'engine.failure.database',
   ReferenceActivity: 'engine.failure.database',
   TileStore: 'engine.failure.database',
+  // A job of that kind is already running. A caller that can say so shows it
+  // as still running, and this line is for the ones that cannot.
+  Busy: 'engine.failure.busy',
+  // A refusal, not a failure. A caller that can say the name is taken reads the tag, and
+  // this line is for the ones that cannot.
+  NameTaken: 'engine.failure.database',
 };
 
 /**
@@ -78,4 +77,23 @@ export function engineErrorKey<Fallback extends string>(
 ): EngineFailureKey | Fallback {
   const tag = engineErrorTag(error);
   return tag ? KEYS[tag] : fallback;
+}
+
+/**
+ * A read's answer, or why there is none.
+ *
+ * The client hands a failed read back as a throw, so a surface that shows either
+ * the value or the failure takes both from one place rather than reading the
+ * throw as nothing there.
+ */
+export type EngineReadResult<T> =
+  | { ok: true; value: T; error?: undefined }
+  | { ok: false; value?: undefined; error: unknown };
+
+export function attemptEngineRead<T>(read: () => T): EngineReadResult<T> {
+  try {
+    return { ok: true, value: read() };
+  } catch (error) {
+    return { ok: false, error };
+  }
 }

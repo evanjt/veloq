@@ -39,19 +39,11 @@ export function resolveLanguageToLocale(language: LanguageChoice | null): Suppor
     return language as SupportedLocale;
   }
 
-  // Language-only values - resolve to default variant
-  // These match the defaultVariant in getAvailableLanguages()
+  // Language-only values that are not themselves supported locales: only
+  // en, de and zh reach here, and resolve to their default variant
   if (language === 'en') return 'en-GB';
   if (language === 'de') return 'de-DE';
-  if (language === 'es') return 'es-419'; // LATAM
-  if (language === 'pt') return 'pt-BR';
-  if (language === 'fr') return 'fr';
-  if (language === 'nl') return 'nl';
-  if (language === 'it') return 'it';
-  if (language === 'ja') return 'ja';
   if (language === 'zh') return 'zh-Hans';
-  if (language === 'pl') return 'pl';
-  if (language === 'da') return 'da';
 
   // Unknown language, default to British English
   return 'en-GB';
@@ -99,9 +91,11 @@ export async function initializeLanguage(): Promise<SupportedLocale> {
     const saved = await getSetting(STORAGE_KEY);
 
     if (saved) {
-      // Handle both old full locale values and new simplified values
-      useLanguageStore.setState({ language: saved, isInitialized: true });
-      return resolveLanguageToLocale(saved);
+      // Neutral 'es' has no picker entry, so installs that saved it move to the default variant
+      const language = saved === 'es' ? 'es-419' : saved;
+      if (language !== saved) await setSetting(STORAGE_KEY, language);
+      useLanguageStore.setState({ language, isInitialized: true });
+      return resolveLanguageToLocale(language);
     }
 
     // No saved preference - detect device locale and save it as explicit choice
@@ -115,14 +109,6 @@ export async function initializeLanguage(): Promise<SupportedLocale> {
     useLanguageStore.setState({ language: deviceLocale, isInitialized: true });
     return deviceLocale;
   }
-}
-
-/**
- * Get the current effective language (saved or system)
- */
-export function getEffectiveLanguage(): SupportedLocale {
-  const { language } = useLanguageStore.getState();
-  return resolveLanguageToLocale(language);
 }
 
 /**
@@ -247,10 +233,19 @@ export function isLanguageVariant(language: string | null, baseLanguage: string)
 }
 
 /**
- * Get the base language code from a locale (e.g., 'de-CH' -> 'de')
+ * Display label for a stored language code, with whether it is a dialect choice.
+ * A variant reads "English (AU)"; a code matching only by prefix reads as its base language.
  */
-export function getBaseLanguage(language: string | null): string | null {
-  if (language === null) return null;
-  const parts = language.split('-');
-  return parts[0];
+export function languageLabel(language: string | null): { label: string; isDialect: boolean } {
+  for (const group of getAvailableLanguages()) {
+    for (const lang of group.languages) {
+      if (language === lang.value) return { label: lang.label, isDialect: false };
+      const variant = lang.variants?.find((v) => v.value === language);
+      if (variant) {
+        return { label: `${lang.label} (${variant.label})`, isDialect: variant.isDialect ?? false };
+      }
+      if (isLanguageVariant(language, lang.value)) return { label: lang.label, isDialect: false };
+    }
+  }
+  return { label: 'English', isDialect: false };
 }

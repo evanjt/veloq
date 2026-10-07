@@ -14,14 +14,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { TERRAIN_PREVIEW_VERSION_KEY } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { SECTION_HEALTH_CHECK_KEY } from '@/features/routes/hooks/useSectionHealthCheck';
-import { ELEVATION_BACKFILL_STAMP_KEY } from '@/features/routes/lib/elevationBackfillTrigger';
 
-export const DATABASE_LOCAL_STAMPS = [
-  ELEVATION_BACKFILL_STAMP_KEY,
-  SECTION_HEALTH_CHECK_KEY,
-  TERRAIN_PREVIEW_VERSION_KEY,
-] as const;
+export const DATABASE_LOCAL_STAMPS = [TERRAIN_PREVIEW_VERSION_KEY] as const;
 
 /**
  * Forget every stamp that described the replaced database.

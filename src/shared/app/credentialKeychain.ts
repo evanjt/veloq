@@ -5,9 +5,10 @@ import { readCredentialKeys } from './credentialRead';
 /**
  * The keychain access group the app and its extensions share.
  *
- * It is the App Group id, which `src/plugins/with-keychain-access-group.js`
- * writes into the entitlement: an App Group identifier is accepted as an
- * access group without the team prefix, so no team id is pinned here.
+ * It is the App Group id. iOS lists an app's App Groups among its keychain
+ * access groups, so declaring the group in `with-app-groups.js` and in each
+ * extension's entitlements is enough. A `keychain-access-groups` entry has to
+ * carry the team prefix to fit a provisioning profile, so none is declared.
  */
 export const KEYCHAIN_ACCESS_GROUP = 'group.com.veloq.app';
 
@@ -49,13 +50,20 @@ export interface MigratingCredentialRead {
 
 /**
  * Read under the new attributes, and for anything not there yet, read under
- * the old ones and write it across.
+ * the old ones and write it across. The old copy is left in place.
  *
  * The upgrade path is the whole point: an install signed in before the access
  * group existed holds its items in the app's own group, and reading only the
  * shared group would sign every one of those athletes out. A key that throws
  * is not an absent key, so nothing is deleted on that path and the caller is
  * told which ones the keychain would not answer for.
+ *
+ * Removing the old copy here would be wrong twice over. A delete with no
+ * access group matches every group the app holds, so it would also delete the
+ * copy just written and sign the athlete out on the next launch. And deleting
+ * before the write would lose the only copy if the write failed. Every later
+ * launch finds the shared copy first and never consults the old one, and
+ * `deleteCredential` clears both at sign-out.
  */
 export async function readCredentialsWithMigration(
   io: CredentialKeychainIo,
@@ -88,13 +96,6 @@ export async function readCredentialsWithMigration(
     }
     values[i] = legacy;
     migratedKeys.push(key);
-
-    try {
-      await io.remove(key, LEGACY_CREDENTIAL_KEYCHAIN_OPTIONS);
-    } catch {
-      // A copy left under the old attributes is read first next launch and
-      // moved again. Reporting the credential is what matters here.
-    }
   }
 
   return { values, failedKeys, migratedKeys };
