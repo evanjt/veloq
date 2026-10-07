@@ -8,7 +8,7 @@
  * events cost nothing.
  */
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 import { useRef } from 'react';
 
 import { useRegionalMapCamera } from '@/features/maps/components/regional/useRegionalMapCamera';
@@ -34,26 +34,36 @@ function activity(id: string, lat: number, lng: number): ActivityBoundsItem {
     date: '2026-01-15T10:00:00Z',
     distance: 42_000,
     duration: 5400,
-    latlngs: [
-      [lat, lng],
-      [lat + 0.01, lng + 0.01],
-    ],
+    startPoint: [lat, lng],
   };
 }
 
 const BERN = [activity('a1', 46.94, 7.44), activity('a2', 46.95, 7.45)];
 const PLUS_ONE = [...BERN, activity('a3', 46.96, 7.46)];
 
-function render(initial: ActivityBoundsItem[]) {
+const surface = { fitBounds: jest.fn(), setCamera: jest.fn() };
+const commands = () => surface.fitBounds.mock.calls.length + surface.setCamera.mock.calls.length;
+
+function render(initial: ActivityBoundsItem[], cameraRestored = false) {
   return renderHook(
     ({ activities }: { activities: ActivityBoundsItem[] }) => {
-      const surfaceRef = useRef(null);
+      const surfaceRef = useRef(surface);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return useRegionalMapCamera({ activities, surfaceRef } as any);
+      return useRegionalMapCamera({ activities, surfaceRef, cameraRestored } as any);
     },
     { initialProps: { activities: initial } }
   );
 }
+
+const WORLD = [
+  {
+    ...activity('w1', 0, 0),
+    bounds: [
+      [-40, -120],
+      [60, 120],
+    ] as ActivityBoundsItem['bounds'],
+  },
+];
 
 describe('the regional map opening camera', () => {
   beforeEach(() => clusterSearch.mockClear());
@@ -82,5 +92,80 @@ describe('the regional map opening camera', () => {
 
     rerender({ activities: BERN });
     expect(result.current.mapCenter).not.toBeNull();
+  });
+
+  describe('the opening fit', () => {
+    beforeEach(() => {
+      surface.fitBounds.mockClear();
+      surface.setCamera.mockClear();
+      jest.useFakeTimers();
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it('fits once and leaves the camera alone for later syncs', () => {
+      const { result, rerender } = render(BERN);
+      act(() => result.current.markUserInteracted());
+      expect(commands()).toBe(1);
+
+      rerender({ activities: PLUS_ONE });
+      rerender({ activities: [...PLUS_ONE] });
+      expect(commands()).toBe(1);
+    });
+
+    it('fits once when activities arrive after the first settle, then stays put', () => {
+      const { result, rerender } = render([]);
+      act(() => result.current.markUserInteracted());
+      expect(commands()).toBe(0);
+
+      rerender({ activities: BERN });
+      expect(commands()).toBe(1);
+
+      rerender({ activities: PLUS_ONE });
+      expect(commands()).toBe(1);
+    });
+
+    it('ignores a user pan once the programmatic window has passed', () => {
+      const { result } = render(BERN);
+      act(() => result.current.markUserInteracted());
+      act(() => {
+        jest.advanceTimersByTime(700);
+      });
+      act(() => result.current.markUserInteracted());
+      expect(commands()).toBe(1);
+    });
+
+    it('jumps with one setCamera and no fit for world-spanning data', () => {
+      const { result } = render(WORLD);
+      act(() => result.current.markUserInteracted());
+      expect(surface.setCamera).toHaveBeenCalledTimes(1);
+      expect(surface.fitBounds).not.toHaveBeenCalled();
+    });
+
+    it('issues no camera command over a restored camera', () => {
+      const { result, rerender } = render([], true);
+      act(() => result.current.markUserInteracted());
+      rerender({ activities: BERN });
+      rerender({ activities: PLUS_ONE });
+      expect(commands()).toBe(0);
+    });
+
+    it('issues no camera command when a restored camera settles with activities loaded', () => {
+      const { result } = render(BERN, true);
+      act(() => result.current.markUserInteracted());
+      expect(commands()).toBe(0);
+    });
+  });
+});
+
+describe('the regional map opening camera walk', () => {
+  it('reads each activity bounds twice at most: once to find centres, once to bound the cluster', () => {
+    const polyline = require('@/shared/geo/polyline');
+    const spy = jest.spyOn(polyline, 'normalizeBounds');
+    try {
+      render(PLUS_ONE);
+      expect(spy.mock.calls.length).toBeLessThanOrEqual(PLUS_ONE.length * 2);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

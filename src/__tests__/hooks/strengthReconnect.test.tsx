@@ -19,6 +19,7 @@ import { getEngine } from '@/shared/native/engine';
 let mockIsOnline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: mockIsOnline }),
+  useIsOnline: () => mockIsOnline,
 }));
 
 jest.mock('@/shared/native/engine', () => ({
@@ -47,12 +48,21 @@ function useCardWithRetry(activityId: string) {
   return useExerciseSets(activityId, 'WeightTraining');
 }
 
+const sessionOf = (sets: unknown[]) => ({
+  sets,
+  groups: [],
+  activeSetCount: sets.length,
+  exerciseCount: 0,
+  totalVolumeKg: 0,
+  totalDurationSecs: 0,
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockIsOnline = true;
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.getExerciseSets.mockReturnValue([]);
+  engine.getExerciseSets.mockReturnValue(sessionOf([]));
   engine.isFitProcessed.mockReturnValue(false);
   engine.fetchAndParseExerciseSets.mockReturnValue(true);
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });

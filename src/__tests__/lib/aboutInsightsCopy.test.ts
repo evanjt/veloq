@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { aboutInsightsBody } from '@/features/insights/lib/aboutCopy';
+import { resolvedLocale } from '../i18n/resolvedLocale';
 
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
@@ -39,8 +40,7 @@ describe('the About Insights body', () => {
 
 describe('the ranking copy', () => {
   function ranking(locale: string): string {
-    const raw = fs.readFileSync(path.join(LOCALES_DIR, `${locale}.json`), 'utf-8');
-    return JSON.parse(raw).insights.aboutRanking as string;
+    return resolvedLocale(locale).insights.aboutRanking;
   }
 
   it('names no weight, so tuning the ranker cannot make it a lie', () => {

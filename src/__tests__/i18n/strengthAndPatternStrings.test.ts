@@ -1,6 +1,8 @@
-import en from '@/i18n/locales/en-AU.json';
+import { resolvedLocale } from './resolvedLocale';
 import fs from 'fs';
 import path from 'path';
+
+const en = resolvedLocale('en-AU');
 
 /**
  * Scenario: the strength panels and the pattern card were written in English
@@ -8,8 +10,8 @@ import path from 'path';
  * and nowhere else. The body-type note also said the diagram was chosen "at
  * random" when the code always falls back to male.
  * Expected behaviour: every string these three components draw comes from a
- * key, every locale carries it, and the fallback note says default rather than
- * random.
+ * key, the reference locale carries it (and so every locale, through
+ * translations.test.ts), and the fallback note says default rather than random.
  */
 
 const LOCALES = path.join(__dirname, '../../i18n/locales');
@@ -26,11 +28,9 @@ const KEYS = [
   'strength.bodyTypeDefault',
   'strength.male',
   'strength.female',
-  'routes.patternSentence',
   'routes.targetPower',
   'routes.targetHr',
   'routes.targetPace',
-  'routes.sectionDefaultName',
 ];
 
 function lookup(bundle: Record<string, unknown>, key: string): unknown {
@@ -45,18 +45,11 @@ describe('the strength and pattern strings', () => {
     expect(typeof lookup(en as Record<string, unknown>, key)).toBe('string');
   });
 
-  it('exists in every locale', () => {
-    const files = fs.readdirSync(LOCALES).filter((f) => f.endsWith('.json'));
-    expect(files.length).toBeGreaterThan(10);
-
-    const missing: string[] = [];
-    for (const file of files) {
-      const bundle = JSON.parse(fs.readFileSync(path.join(LOCALES, file), 'utf8'));
-      for (const key of KEYS) {
-        if (typeof lookup(bundle, key) !== 'string') missing.push(`${file}:${key}`);
-      }
-    }
-    expect(missing).toEqual([]);
+  // Every other locale is held to the reference one in translations.test.ts,
+  // so no one reads English here alone.
+  it('exists in the reference locale', () => {
+    const bundle = JSON.parse(fs.readFileSync(path.join(LOCALES, 'en-GB.json'), 'utf8'));
+    expect(KEYS.filter((key) => typeof lookup(bundle, key) !== 'string')).toEqual([]);
   });
 
   it('calls the fallback body type a default, not a random choice', () => {
@@ -65,21 +58,12 @@ describe('the strength and pattern strings', () => {
     expect(note.toLowerCase()).not.toContain('random');
   });
 
-  it('takes the day name from the pattern sentence, not a hardcoded list', () => {
+  it('draws the exercise table totals label from a key', () => {
     const source = fs.readFileSync(
-      path.join(__dirname, '../../features/routes/components/TodayBanner.tsx'),
+      path.join(__dirname, '../../features/strength/components/ExerciseTable.tsx'),
       'utf8'
     );
-
-    expect(source).not.toContain("'Mondays'");
-  });
-
-  it('draws no hardcoded body gender on the strength activity card', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, '../../features/strength/components/StrengthActivityCard.tsx'),
-      'utf8'
-    );
-
-    expect(source).not.toContain('gender="male"');
+    expect(source).not.toMatch(/>\s*Total\s*</);
+    expect(source).toContain("t('strength.totalLabel')");
   });
 });

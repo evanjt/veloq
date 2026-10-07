@@ -20,8 +20,6 @@ jest.mock('@/features/wellness', () => ({
 }));
 jest.mock('@/features/activity/hooks', () => ({
   useActivities: () => ({ data: undefined, isLoading: false, isFetching: false }),
-  useActivityStreams: () => ({ data: undefined, isLoading: false }),
-  useEFTPHistory: () => [],
   getLatestFTP: () => undefined,
 }));
 jest.mock('@/shared/app/useSportSettings', () => ({

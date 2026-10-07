@@ -12,6 +12,13 @@ import { localesToLoad, loadLocale, loadableLocales, ROOT_LOCALE } from '@/i18n/
 import { initializeI18n, changeLanguage, i18n } from '@/i18n';
 
 describe('which locales a launch has to load', () => {
+  it('inherits an unchanged regional string from the base bundle', () => {
+    const base = loadLocale('en-GB') as { time: { current: string } };
+    const variant = loadLocale('en-US') as { time?: { current?: string } };
+    expect(variant.time?.current).toBeUndefined();
+    expect(base.time.current).toBeTruthy();
+    expect(localesToLoad('en-US')).toEqual(['en-US', 'en-GB']);
+  });
   it('is the locale, its chain and the root, in consultation order', () => {
     expect(localesToLoad('es-ES')).toEqual(['es-ES', 'es', 'en-GB']);
   });

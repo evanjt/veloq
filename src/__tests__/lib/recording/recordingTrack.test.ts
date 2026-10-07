@@ -1,14 +1,15 @@
 /**
- * Scenario: an uploaded recording's streams sidecar has been discarded,
- * because the engine holds the ride's track from the moment it was saved.
+ * Scenario: a recording's detail view draws its track. The engine holds the
+ * track from the save, or from the launch that replayed a save whose engine
+ * write failed, and no streams copy of it is kept on disk.
  *
- * Expected behaviour: the detail view still draws the track, read from the
- * engine, and a recording whose engine write never landed still draws from
- * the sidecar it kept.
+ * Expected behaviour: the track is read from the engine only. A sidecar an
+ * earlier build left beside the FIT is not read.
  */
 
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { readRecordingTrack } from '@/features/recording/lib/storage/recordingTrack';
-import { readRecordingStreams } from '@/features/recording/lib/storage/recordingLibrary';
 import { engine } from 'veloqrs';
 import type { RecordingLibraryEntry } from '@/types';
 
@@ -22,12 +23,13 @@ jest.mock('veloqrs', () =>
   })
 );
 
-jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
-  readRecordingStreams: jest.fn(async () => null),
+jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
+  getInfoAsync: jest.fn(async () => ({ exists: true })),
+  readAsStringAsync: jest.fn(async () => JSON.stringify({ latlng: [[-33.86, 151.2]] })),
 }));
 
 const mockGetTrack = engine.getGpsTrack as unknown as jest.Mock;
-const mockReadStreams = readRecordingStreams as jest.Mock;
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',
@@ -49,7 +51,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   (engine as unknown as { ready: boolean }).ready = true;
   mockGetTrack.mockReturnValue({ points: [] });
-  mockReadStreams.mockResolvedValue(null);
 });
 
 describe('readRecordingTrack', () => {
@@ -66,34 +67,26 @@ describe('readRecordingTrack', () => {
       [-33.87, 151.21],
     ]);
     expect(mockGetTrack).toHaveBeenCalledWith('local-deadbeef');
-    expect(mockReadStreams).not.toHaveBeenCalled();
   });
 
-  it('falls back to the sidecar when the engine holds no row', async () => {
-    mockReadStreams.mockResolvedValue({ latlng: [[-33.86, 151.2]] });
-
-    await expect(readRecordingTrack(ENTRY)).resolves.toEqual([[-33.86, 151.2]]);
+  it('does not read a sidecar an earlier build left, when the engine holds no track', async () => {
+    await expect(readRecordingTrack(ENTRY)).resolves.toEqual([]);
+    expect(FileSystem.readAsStringAsync).not.toHaveBeenCalled();
   });
 
-  it('reads the sidecar for a recording that never got an engine key', async () => {
-    mockReadStreams.mockResolvedValue({ latlng: [[-33.86, 151.2]] });
-
+  it('answers empty for a recording that has no engine row yet', async () => {
     const unkeyed = { ...ENTRY };
     delete unkeyed.engineActivityId;
-    await expect(readRecordingTrack(unkeyed)).resolves.toEqual([[-33.86, 151.2]]);
+    await expect(readRecordingTrack(unkeyed)).resolves.toEqual([]);
     expect(mockGetTrack).not.toHaveBeenCalled();
+    expect(FileSystem.readAsStringAsync).not.toHaveBeenCalled();
   });
 
   it('does not ask a closed engine', async () => {
     (engine as unknown as { ready: boolean }).ready = false;
-    mockReadStreams.mockResolvedValue({ latlng: [[-33.86, 151.2]] });
 
-    await expect(readRecordingTrack(ENTRY)).resolves.toEqual([[-33.86, 151.2]]);
-    expect(mockGetTrack).not.toHaveBeenCalled();
-  });
-
-  it('answers empty for an indoor ride that has neither', async () => {
     await expect(readRecordingTrack(ENTRY)).resolves.toEqual([]);
+    expect(mockGetTrack).not.toHaveBeenCalled();
   });
 
   it('answers empty rather than throwing when the engine read fails', async () => {

@@ -2,8 +2,8 @@
  * Scenario: the preview picker reads its ranked riding areas from the engine,
  * which ranks and names them in one call.
  * Expected behaviour: the centres are read once per mount, their names come
- * straight through, and an engine that throws leaves the screen empty rather
- * than crashing it.
+ * straight through, and an engine that throws hands the error back so the
+ * picker can say the read failed.
  */
 
 import { renderHook } from '@testing-library/react-native';
@@ -19,7 +19,6 @@ function centre(over: Partial<PreviewCentre>): PreviewCentre {
     visitTotal: 40,
     sectionCount: 3,
     source: 'sections',
-    locality: null,
     ...over,
   };
 }
@@ -29,20 +28,11 @@ function client(centres: PreviewCentre[], getPreviewCentres = jest.fn(() => cent
 }
 
 describe('usePreviewCentres', () => {
-  it('labels each area with the name the engine joined for it', () => {
-    const { client: c } = client([centre({ locality: 'Winterthur' })]);
+  it('letters each area', () => {
+    const { client: c } = client([centre({})]);
 
     const { result } = renderHook(() => usePreviewCentres(c));
 
-    expect(result.current.labels[0].label).toBe('Winterthur');
-  });
-
-  it('letters an area the engine could not name', () => {
-    const { client: c } = client([centre({ locality: null })]);
-
-    const { result } = renderHook(() => usePreviewCentres(c));
-
-    expect(result.current.labels[0].label).toBeNull();
     expect(result.current.labels[0].fallbackLetter).toBe('A');
   });
 
@@ -63,17 +53,27 @@ describe('usePreviewCentres', () => {
     expect(getPreviewCentres).toHaveBeenCalledWith(3);
   });
 
-  it('leaves the screen empty when the engine throws', () => {
+  it('hands the thrown error back beside empty centres', () => {
+    const lockFailed = { tag: 'Database', inner: { msg: 'poisoned' } };
     const throwing = {
       getPreviewCentres: jest.fn(() => {
-        throw new Error('engine down');
+        throw lockFailed;
       }),
     } as never;
 
     const { result } = renderHook(() => usePreviewCentres(throwing));
 
+    expect(result.current.error).toBe(lockFailed);
     expect(result.current.centres).toEqual([]);
     expect(result.current.labels).toEqual([]);
+  });
+
+  it('carries no error when the read succeeds', () => {
+    const { client: c } = client([centre({})]);
+
+    const { result } = renderHook(() => usePreviewCentres(c));
+
+    expect(result.current.error).toBeUndefined();
   });
 
   it('leaves the screen empty when there is no client yet', () => {

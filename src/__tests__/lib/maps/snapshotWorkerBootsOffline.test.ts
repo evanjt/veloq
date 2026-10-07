@@ -28,11 +28,9 @@ describe('the snapshot worker page at boot', () => {
     // The style document is what pulls the TileJSON, the sprite, the glyphs
     // and a screen of tiles behind it, so naming it at boot is the whole cost.
     expect(html).not.toContain('styles/liberty');
-    // The one remaining mention of the host is `bundledAssetsScript`'s
-    // fallback origin for a `bundled://` URL, which is reached only when a
-    // style asks for an asset the app does not ship. Nothing fetches it at
-    // boot, and a boot with no sources asks for no asset at all.
-    expect(html.match(/tiles\.openfreemap\.org/g) ?? []).toHaveLength(1);
+    // A boot with no sources asks for no asset either, and the page carries
+    // no fallback origin of its own.
+    expect(html).not.toContain('tiles.openfreemap.org');
   });
 
   it('hands the empty style to the map rather than a URL', () => {

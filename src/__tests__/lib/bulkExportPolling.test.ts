@@ -4,7 +4,7 @@
  * got through.
  *
  * Expected behaviour: the JS thread never waits on the write, the progress read
- * reports what has been exported so far, the share only happens once the write
+ * reports how far the write has got, the share only happens once the write
  * has finished, and a write that outlives the foreground budget is reported as
  * still going rather than failed.
  */
@@ -19,7 +19,7 @@ import { BulkExportFormat } from '../__shared__/veloqrsStub';
 const mockRunBulkExport = jest.fn();
 const mockShareAsync = jest.fn();
 const mockDeleteAsync = jest.fn();
-let mockProgress = { running: false, exported: 0, total: 0 };
+let mockProgress = { running: false, visited: 0, total: 0 };
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
@@ -53,7 +53,7 @@ const neverFinishes = () => new Promise(() => {});
 beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
-  mockProgress = { running: false, exported: 0, total: 0 };
+  mockProgress = { running: false, visited: 0, total: 0 };
 });
 
 afterEach(() => {
@@ -61,11 +61,14 @@ afterEach(() => {
 });
 
 test('the export is awaited and reports progress as it goes', async () => {
-  mockProgress = { running: true, exported: 2, total: 3 };
+  mockProgress = { running: true, visited: 2, total: 3 };
   mockRunBulkExport.mockImplementation(
     () =>
       new Promise((resolve) =>
-        setTimeout(() => resolve({ exported: 3, skipped: 1, totalBytes: 4096 }), 600)
+        setTimeout(
+          () => resolve({ exported: 3, noTrack: 1, trimmed: 0, failed: 0, totalBytes: 4096 }),
+          600
+        )
       )
   );
   const progress: { current: number; total: number }[] = [];
@@ -78,7 +81,9 @@ test('the export is awaited and reports progress as it goes', async () => {
   await expect(exporting).resolves.toEqual({
     state: 'complete',
     exported: 3,
-    skipped: 1,
+    noTrack: 1,
+    trimmed: 0,
+    failed: 0,
     totalBytes: 4096,
   });
   expect(mockRunBulkExport).toHaveBeenCalledWith(BulkExportFormat.Gpx, '/cache/all.zip');
@@ -140,12 +145,14 @@ describe('an export the app was suspended during', () => {
       at += 500;
       await Promise.resolve();
     }
-    settle({ exported: 3, skipped: 0, totalBytes: 512 });
+    settle({ exported: 3, noTrack: 0, trimmed: 0, failed: 0, totalBytes: 512 });
 
     await expect(exporting).resolves.toEqual({
       state: 'complete',
       exported: 3,
-      skipped: 0,
+      noTrack: 0,
+      trimmed: 0,
+      failed: 0,
       totalBytes: 512,
     });
     Date.now = realNow;
@@ -175,14 +182,17 @@ describe('an export that outlives the foreground budget', () => {
     await expect(exporting).resolves.toEqual({ state: 'still-running' });
     expect(mockShareAsync).not.toHaveBeenCalled();
 
-    settle({ exported: 3, skipped: 0, totalBytes: 2048 });
+    settle({ exported: 3, noTrack: 0, trimmed: 0, failed: 0, totalBytes: 2048 });
     await Promise.resolve();
     await Promise.resolve();
 
     await expect(resumePendingBulkExport()).resolves.toEqual({
       state: 'complete',
       exported: 3,
-      skipped: 0,
+      noTrack: 0,
+      trimmed: 0,
+      failed: 0,
+      kind: 'gpx',
     });
     expect(mockShareAsync).toHaveBeenCalledTimes(1);
     // The same file the lapsed run was writing, not a second export.
@@ -190,7 +200,13 @@ describe('an export that outlives the foreground budget', () => {
   });
 
   it('keeps the file owed while the write is still going', async () => {
-    mockRunBulkExport.mockImplementation(neverFinishes);
+    let settle: (written: unknown) => void = () => {};
+    mockRunBulkExport.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          settle = resolve;
+        })
+    );
 
     const exporting = bulkExportActivities(undefined, 1_000);
     await jest.advanceTimersByTimeAsync(2_000);
@@ -198,17 +214,103 @@ describe('an export that outlives the foreground budget', () => {
 
     await expect(resumePendingBulkExport()).resolves.toEqual({ state: 'still-running' });
     expect(mockShareAsync).not.toHaveBeenCalled();
+
+    // The slot is module state, so the run is let finish rather than leak.
+    settle({ exported: 1, noTrack: 0, trimmed: 0, failed: 0, totalBytes: 32 });
+    await Promise.resolve();
+    await Promise.resolve();
+    await resumePendingBulkExport();
   });
 
   it('owes nothing after an export the screen waited out', async () => {
-    mockRunBulkExport.mockResolvedValue({ exported: 1, skipped: 0, totalBytes: 32 });
+    mockRunBulkExport.mockResolvedValue({
+      exported: 1,
+      noTrack: 0,
+      trimmed: 0,
+      failed: 0,
+      totalBytes: 32,
+    });
 
     await expect(bulkExportActivities()).resolves.toEqual({
       state: 'complete',
       exported: 1,
-      skipped: 0,
+      noTrack: 0,
+      trimmed: 0,
+      failed: 0,
+      kind: 'gpx',
     });
 
     await expect(resumePendingBulkExport()).resolves.toEqual({ state: 'nothing-pending' });
+  });
+});
+
+/**
+ * Scenario: an export lapses at the cap and Rust then fails, a full disk say,
+ * after nobody is waiting on it.
+ *
+ * Expected behaviour: the failure is kept with the run and the resume throws
+ * it, so the screen that comes back can say so rather than dropping it.
+ */
+describe('a lapsed export that then fails', () => {
+  it('throws what Rust said when the screen comes back, once', async () => {
+    let fail: (err: unknown) => void = () => {};
+    mockRunBulkExport.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = reject;
+        })
+    );
+    const diskFull = { tag: 'Database', inner: { msg: 'disk full' } };
+
+    const exporting = bulkExportActivities(undefined, 1_000);
+    await jest.advanceTimersByTimeAsync(2_000);
+    await expect(exporting).resolves.toEqual({ state: 'still-running' });
+
+    fail(diskFull);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await expect(resumePendingBulkExport()).rejects.toBe(diskFull);
+    await expect(resumePendingBulkExport()).resolves.toEqual({ state: 'nothing-pending' });
+    expect(mockShareAsync).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Scenario: a pill is tapped again while a lapsed export still holds Rust's
+ * export slot.
+ *
+ * Expected behaviour: no second run is started, which Rust would only refuse,
+ * and the tap is answered with the run already owed.
+ */
+describe('an export asked for while a lapsed one is owed', () => {
+  it('starts nothing and answers with the owed run', async () => {
+    let settle: (written: unknown) => void = () => {};
+    mockRunBulkExport.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          settle = resolve;
+        })
+    );
+
+    const exporting = bulkExportActivities(undefined, 1_000);
+    await jest.advanceTimersByTimeAsync(2_000);
+    await exporting;
+
+    await expect(bulkExportActivities(undefined, 1_000)).resolves.toEqual({
+      state: 'still-running',
+    });
+    expect(mockRunBulkExport).toHaveBeenCalledTimes(1);
+
+    settle({ exported: 3, noTrack: 0, trimmed: 0, failed: 0, totalBytes: 2048 });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await expect(bulkExportActivities(undefined, 1_000)).resolves.toMatchObject({
+      state: 'complete',
+      exported: 3,
+    });
+    expect(mockRunBulkExport).toHaveBeenCalledTimes(1);
+    expect(mockShareAsync).toHaveBeenCalledTimes(1);
   });
 });

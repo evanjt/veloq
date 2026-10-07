@@ -66,4 +66,19 @@ describe('buildGradientLineStops', () => {
     expect(buildGradientLineStops(undefined, undefined)).toBeNull();
     expect(buildGradientLineStops([3], [0])).toBeNull();
   });
+
+  it('rebases fractions to the samples that have a position', () => {
+    const grade = [5, 5, 1, 2, 3, 4, 9];
+    const distance = [0, 100, 200, 300, 400, 500, 600];
+    const hasPosition = [false, false, true, true, true, true, false];
+    const progress = progressOf(buildGradientLineStops(grade, distance, 100, hasPosition)!);
+    expect(progress[0]).toBe(0);
+    expect(progress[1]).toBeCloseTo(1 / 3);
+    expect(progress[progress.length - 1]).toBe(1);
+  });
+
+  it('ignores a mask whose length does not match the streams', () => {
+    const withMask = buildGradientLineStops([1, 2, 3], [0, 50, 100], 100, [true]);
+    expect(withMask).toEqual(buildGradientLineStops([1, 2, 3], [0, 50, 100]));
+  });
 });

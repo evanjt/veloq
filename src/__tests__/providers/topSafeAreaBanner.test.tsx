@@ -5,9 +5,11 @@
  */
 
 import React from 'react';
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
+import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { TopSafeAreaProvider, useTopSafeArea } from '@/shared/app/TopSafeAreaContext';
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -17,7 +19,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 let mockIsOnline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: mockIsOnline }),
+  useNetwork: () => ({ isOnline: mockIsOnline, offlineBannerShown: !mockIsOnline }),
 }));
 
 let mockHealth: { lastError: string | null; lastSuccessAt: string | null } = {
@@ -85,5 +87,40 @@ describe('TopSafeAreaProvider with a failing sync', () => {
     const { result } = renderHook(() => useTopSafeArea(), { wrapper });
 
     expect(result.current.activeBanner).toBeNull();
+  });
+});
+
+describe('TopSafeAreaProvider with the notices outside the sync', () => {
+  beforeEach(() => {
+    mockIsOnline = true;
+    mockHealth = { lastError: null, lastSuccessAt: null };
+    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, hideDemoBanner: false });
+    act(() => {
+      useEngineStatus.setState({ initFailed: false });
+      useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
+    });
+  });
+
+  it('reserves the top edge for the track notice alone', () => {
+    useTrackFetchNotice.setState({ failedIds: ['a', 'b', 'c'], failedCount: 3, dismissed: false });
+    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+
+    expect(result.current.activeBanner).toBe('trackFetch');
+    expect(result.current.screenEdges).not.toContain('top');
+  });
+
+  it('gives the edge back once the track notice is dismissed', () => {
+    useTrackFetchNotice.setState({ failedIds: ['a'], failedCount: 1, dismissed: true });
+    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+
+    expect(result.current.screenEdges).toContain('top');
+  });
+
+  it('reserves the top edge for a failed engine open', () => {
+    useEngineStatus.setState({ initFailed: true });
+    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+
+    expect(result.current.activeBanner).toBe('engineInit');
+    expect(result.current.screenEdges).not.toContain('top');
   });
 });

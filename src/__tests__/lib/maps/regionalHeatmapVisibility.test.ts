@@ -24,6 +24,7 @@ function heatmapLayer(overrides: Partial<Parameters<typeof buildRegionalLayers>[
     mapStyle: 'light',
     showActivities: true,
     showSections: true,
+    showRoutes: false,
     showHeatmap: false,
     heatmapEnabled: true,
     hasSpider: false,
@@ -48,7 +49,8 @@ describe('the regional map heatmap layer', () => {
     const layer = heatmapLayer({ showHeatmap: true, mapStyle: 'light' });
 
     expect(layer?.visible).toBe(true);
-    expect(layer?.paint?.['raster-opacity']).toBe(0.92);
+    expect(layer?.paint?.['raster-opacity']).toBe(1);
+    expect(layer?.paint?.['raster-brightness-max']).toBe(0.45);
   });
 
   it('carries the dark tuning under a dark style', () => {
@@ -64,6 +66,7 @@ describe('the regional map heatmap layer', () => {
       mapStyle: 'light',
       showActivities: false,
       showSections: true,
+      showRoutes: false,
       showHeatmap: false,
       heatmapEnabled: true,
       hasSpider: false,
@@ -91,8 +94,8 @@ describe('the regional map heatmap layer', () => {
   it('leaves the source declared, so the layer has something to read', () => {
     const sources = buildRegionalSources({
       markersGeoJSON: empty,
-      startPointsGeoJSON: empty,
       sectionsGeoJSON: empty,
+      routesGeoJSON: empty,
       userLocationGeoJSON: empty,
       routeGeoJSON: empty,
       spiderPointsGeoJSON: empty,

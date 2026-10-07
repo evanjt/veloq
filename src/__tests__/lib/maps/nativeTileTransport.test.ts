@@ -1,15 +1,13 @@
 /**
  * Scenario: the WebView request interceptor ships on Android, so a map page can
  * ask for an ordinary URL on its own origin and have Rust answer it from the
- * tile store. Until this, only the satellite rasters were pointed at it and the
- * flag that does the pointing was off, so every basemap still went through the
- * page's own `cached-*` protocols into Cache API buckets Rust cannot see.
+ * tile store.
  *
  * Expected behaviour: on Android the satellite, ground and vector sources all
  * ask the intercept and hand Rust their upstream template. On iOS they ask the
  * scheme handler the same way, on the custom-scheme origin the page loads on,
- * since `WKURLSchemeHandler` will not claim https. Where neither exists, every
- * one of them keeps the protocol it had.
+ * since `WKURLSchemeHandler` will not claim https. Where Rust cannot be reached,
+ * every one of them keeps its upstream URL.
  */
 
 import { Platform } from 'react-native';
@@ -38,7 +36,7 @@ interface Style {
 
 const lightStyle = (): Style => ({ sources: JSON.parse(JSON.stringify(LIBERTY_SOURCES)) });
 
-function onPlatform(os: 'android' | 'ios' | 'web') {
+function onPlatform(os: 'android' | 'ios') {
   Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
 }
 
@@ -185,37 +183,33 @@ describe('on Android, the page keeps the https origin the interceptor already cl
   });
 });
 
-describe('where nothing can intercept, which is the web', () => {
-  beforeEach(() => onPlatform('web'));
+describe('where the store cannot be reached, which is the test bench', () => {
+  beforeEach(() => {
+    mockSetSourceTemplate.mockImplementation(() => {
+      throw new Error('no store');
+    });
+  });
+  afterEach(() => mockSetSourceTemplate.mockReset());
 
-  it('keeps the ground on its own protocol', () => {
+  it('keeps the ground on its upstream URL', () => {
     const out = rewriteGroundRasterUrls(lightStyle());
 
-    expect(out.sources.ne2_shaded.tiles).toEqual([
-      `${NATURAL_EARTH_ORIGIN.replace(/^https:\/\//, 'cached-ground://')}/ne2sr/{z}/{x}/{y}.png`,
-    ]);
-    expect(mockSetSourceTemplate).not.toHaveBeenCalled();
+    expect(out.sources.ne2_shaded.tiles).toEqual([`${NATURAL_EARTH_ORIGIN}/ne2sr/{z}/{x}/{y}.png`]);
   });
 
-  it('keeps the vector source on its own protocol, TileJSON and all', () => {
+  it('keeps the vector source on its TileJSON URL', () => {
     const out = rewriteVectorUrls(lightStyle()) as Style;
 
-    expect(out.sources.openmaptiles.url).toBe('cached-vector://tiles.openfreemap.org/planet');
-    expect(out.sources.openmaptiles.tiles).toBeUndefined();
-    expect(mockSetSourceTemplate).not.toHaveBeenCalled();
+    expect(out.sources.openmaptiles.url).toBe('https://tiles.openfreemap.org/planet');
   });
 
-  it('leaves the terrain DEM on its upstream host, since the page keeps no DEM cache', () => {
-    const source = terrain3DSource();
-
-    expect(source.tiles).toEqual([TERRAIN_UPSTREAM_TEMPLATE]);
-    expect(mockSetSourceTemplate).not.toHaveBeenCalled();
+  it('keeps the terrain DEM on its upstream host', () => {
+    expect(terrain3DSource().tiles).toEqual([TERRAIN_UPSTREAM_TEMPLATE]);
   });
 
   it('keeps the satellite rasters on theirs', () => {
     const out = rewriteSatelliteUrls(getCombinedSatelliteStyle());
 
-    expect(out.sources['satellite-swisstopo-1'].tiles?.[0]).toMatch(/^cached-satellite:\/\//);
-    expect(mockSetSourceTemplate).not.toHaveBeenCalled();
+    expect(out.sources['satellite-swisstopo-1'].tiles?.[0]).toMatch(/^https:\/\//);
   });
 });

@@ -38,7 +38,6 @@ const mockDecodeCoords = decodeCoords as jest.MockedFunction<typeof decodeCoords
 function nativeSection(id: string): SectionWithPolyline {
   return {
     id,
-    sportType: 'Ride',
     sportTypes: ['Ride'],
     encodedPolyline: new ArrayBuffer(0),
     activityCount: 1,
@@ -106,7 +105,6 @@ describe('useSectionMatches over a rebuilt bundle wrapper', () => {
     const first = result.current.sections;
     expect(first).toEqual([]);
     expect(result.current.count).toBe(0);
-    expect(result.current.isReady).toBe(true);
 
     rerender(undefined);
 
@@ -141,7 +139,7 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
 
   it('returns the same overlays across re-renders that rebuild the wrapper', () => {
     const { result, rerender } = renderHook(() =>
-      useSectionOverlays('sections', 'act-1', matches, noCustom, coordinates, {
+      useSectionOverlays('act-1', matches, noCustom, coordinates, {
         sectionTraces,
         prSectionIds,
       })
@@ -157,10 +155,54 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
     expect(result.current.sectionOverlays).toBe(first);
   });
 
+  it('orders overlays by the engine encounter order, not by where their polylines sit on the track', () => {
+    const sectionAt = (id: string, point: { latitude: number; longitude: number }) => ({
+      section: {
+        id,
+        visitCount: 1,
+        activityIds: ['act-1'],
+        distanceMeters: 500,
+        polyline: [{ lat: point.latitude, lng: point.longitude }],
+      } as unknown as FrequentSection,
+      direction: 'same' as const,
+      distance: 500,
+    });
+    // `late` starts nearest the first track point, yet the engine met it second.
+    const twoMatches = [sectionAt('late', coordinates[0]), sectionAt('early', coordinates[1])];
+    const encounterFor = (sectionId: string, startIndex: number): SectionEncounter => ({
+      sectionId,
+      sectionType: 'auto',
+      sectionName: sectionId,
+      direction: 'same',
+      distanceMeters: 500,
+      startIndex,
+      lapTime: 100,
+      lapPace: 5,
+      isPr: false,
+      isComplete: true,
+      visitCount: 1,
+      historyTimes: [],
+      historyActivityIds: [],
+    });
+
+    const { result } = renderHook(() =>
+      useSectionOverlays(
+        'act-1',
+        twoMatches,
+        noCustom,
+        coordinates,
+        { sectionTraces: {}, prSectionIds: new Set<string>() },
+        [encounterFor('early', 0), encounterFor('late', 1)]
+      )
+    );
+
+    expect(result.current.sectionOverlays?.map((o) => o.id)).toEqual(['early', 'late']);
+  });
+
   it('recomputes when the record holders change', () => {
     const { result, rerender } = renderHook(
       ({ prs }: { prs: Set<string> }) =>
-        useSectionOverlays('sections', 'act-1', matches, noCustom, coordinates, {
+        useSectionOverlays('act-1', matches, noCustom, coordinates, {
           sectionTraces,
           prSectionIds: prs,
         }),
@@ -178,24 +220,30 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
     const directionalEncounters: SectionEncounter[] = [
       {
         sectionId: 's1',
+        sectionType: 'auto',
         sectionName: 'Section 1',
         direction: 'same',
         distanceMeters: 1200,
+        startIndex: 0,
         lapTime: 600,
         lapPace: 3.5,
-        isPr: false,
+        isPr: true,
+        isComplete: true,
         visitCount: 10,
         historyTimes: [],
         historyActivityIds: [],
       },
       {
         sectionId: 's1',
+        sectionType: 'auto',
         sectionName: 'Section 1',
         direction: 'reverse',
         distanceMeters: 900,
+        startIndex: 0,
         lapTime: 700,
         lapPace: 3.8,
         isPr: false,
+        isComplete: true,
         visitCount: 2,
         historyTimes: [],
         historyActivityIds: [],
@@ -204,7 +252,6 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
 
     const { result } = renderHook(() =>
       useSectionOverlays(
-        'sections',
         'act-1',
         matches,
         noCustom,
@@ -224,13 +271,14 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
     ]);
     expect(result.current.sectionOverlays?.[0].sortOrder).toBe(0);
     expect(result.current.sectionOverlays?.[1].sortOrder).toBe(1);
+    expect(result.current.sectionOverlays?.map((overlay) => overlay.isPR)).toEqual([true, false]);
   });
 });
 
 describe('useSectionActivityData over a rebuilt bundle wrapper', () => {
   const section = {
     id: 's1',
-    sportType: 'Ride',
+    sportTypes: ['Ride'],
     activityIds: ['act-1'],
     visitCount: 3,
     distanceMeters: 1200,

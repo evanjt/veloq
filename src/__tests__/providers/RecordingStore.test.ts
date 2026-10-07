@@ -524,6 +524,57 @@ describe('RecordingStore', () => {
   });
 
   describe('addLap()', () => {
+    describe.each([
+      ['heartrate', 'avgHeartrate', 150],
+      ['power', 'avgPower', 200],
+      ['cadence', 'avgCadence', 90],
+    ] as const)('%s averages', (sensor, average, value) => {
+      const recordSamples = (samples: number[]) => {
+        const dateNowSpy = jest.spyOn(Date, 'now');
+        dateNowSpy.mockReturnValue(1000);
+        useRecordingStore.getState().startRecording('Ride', 'indoor');
+        samples.forEach((sample, index) => {
+          dateNowSpy.mockReturnValue(2000 + index * 1000);
+          useRecordingStore.getState().setSensorSample(sensor, sample);
+          useRecordingStore.getState().addIndoorSample();
+        });
+      };
+
+      it('excludes no-data zeros from a half-valid lap', () => {
+        recordSamples([value, value, 0, 0]);
+        useRecordingStore.getState().addLap();
+
+        expect(useRecordingStore.getState().laps[0][average]).toBe(value);
+      });
+
+      it.each([{ samples: [] }, { samples: [0, 0] }])(
+        'returns null without valid samples: $samples',
+        ({ samples }) => {
+          recordSamples(samples);
+          useRecordingStore.getState().addLap();
+
+          expect(useRecordingStore.getState().laps[0][average]).toBeNull();
+        }
+      );
+
+      it('keeps an empty and a subsequent lap separate from previous samples', () => {
+        recordSamples([value]);
+        useRecordingStore.getState().addLap();
+        useRecordingStore.getState().addLap();
+        expect(useRecordingStore.getState().laps[1][average]).toBeNull();
+
+        jest.spyOn(Date, 'now').mockReturnValue(3000);
+        useRecordingStore.getState().setSensorSample(sensor, 0);
+        useRecordingStore.getState().addIndoorSample();
+        jest.spyOn(Date, 'now').mockReturnValue(4000);
+        useRecordingStore.getState().setSensorSample(sensor, value + 10);
+        useRecordingStore.getState().addIndoorSample();
+        useRecordingStore.getState().addLap();
+
+        expect(useRecordingStore.getState().laps[2][average]).toBe(value + 10);
+      });
+    });
+
     it('records lap with correct start/end times', () => {
       const dateNowSpy = jest.spyOn(Date, 'now');
       dateNowSpy.mockReturnValue(1000);

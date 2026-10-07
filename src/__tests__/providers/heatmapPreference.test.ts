@@ -23,7 +23,7 @@ const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
-  useHeatmapPreference.setState({ enabled: true, isLoaded: false });
+  useHeatmapPreference.setState({ enabled: true, routesVisible: false, isLoaded: false });
 });
 
 describe('the heatmap preference', () => {
@@ -84,5 +84,19 @@ describe('the heatmap preference', () => {
     await initializeHeatmapPreference();
 
     expect(isHeatmapEnabled()).toBe(true);
+  });
+});
+
+describe('the routes visibility', () => {
+  it('is off by default and survives a relaunch once turned on', async () => {
+    await initializeHeatmapPreference();
+    expect(useHeatmapPreference.getState().routesVisible).toBe(false);
+
+    useHeatmapPreference.getState().setRoutesVisible(true);
+    await Promise.resolve();
+    useHeatmapPreference.setState({ routesVisible: false, isLoaded: false });
+
+    await initializeHeatmapPreference();
+    expect(useHeatmapPreference.getState().routesVisible).toBe(true);
   });
 });

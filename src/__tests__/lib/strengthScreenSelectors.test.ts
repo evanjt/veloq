@@ -36,6 +36,7 @@ function screenData(): StrengthScreenData {
         peakWeightedSets: 7,
         changePct: 160,
         trend: 'up',
+        signalDelta: null,
       },
     ],
     exercises: [
@@ -45,16 +46,16 @@ function screenData(): StrengthScreenData {
           {
             exerciseName: 'Curl',
             exerciseCategory: 7,
-            frequencyDays: 15,
             totalSets: 6,
-            totalWeightKg: 1920,
+            totalReps: 48,
+            volumeKg: 1920,
             activityCount: 2,
             isPrimary: true,
           },
         ],
       },
     ],
-    periodDays: 30,
+    owedCount: 0,
   };
 }
 
@@ -94,7 +95,6 @@ describe('selectExercises', () => {
   it('takes the muscle exercises and the period they are measured over', () => {
     const summary = selectExercises(screenData(), 'biceps');
 
-    expect(summary.periodDays).toBe(30);
     expect(summary.exercises.map((exercise) => exercise.exerciseCategory)).toEqual([7]);
   });
 

@@ -2,6 +2,7 @@ import {
   calculateTerrainCamera,
   calculateFlatCamera,
   isLikelyInterestingTerrain,
+  resolveTerrain3D,
 } from '@/features/maps/lib/cameraAngle';
 
 describe('calculateTerrainCamera', () => {
@@ -285,5 +286,94 @@ describe('calculateFlatCamera', () => {
     ]);
     expect(camera.zoom).toBe(14);
     expect(camera.pitch).toBe(0);
+  });
+});
+
+describe('resolveTerrain3D', () => {
+  const coords: [number, number][] = Array.from({ length: 20 }, (_, i) => [8.5 + i * 0.002, 47.4]);
+  const ramp = (range: number) => coords.map((_, i) => (i / (coords.length - 1)) * range);
+  const override = { center: [1, 2] as [number, number], zoom: 12, bearing: 10, pitch: 40 };
+
+  it('shows 3D from the altitude range when the gain prefilter would veto it', () => {
+    // 100 m gain over 40 km is 2.5 m/km, under the prefilter, with a 60 m range
+    const gain = 100;
+    const distance = 40000;
+    expect(isLikelyInterestingTerrain(gain, distance)).toBe(false);
+    const v = resolveTerrain3D({
+      mode: 'smart',
+      coordinates: coords,
+      altitude: ramp(60),
+      gain,
+      distance,
+      override: null,
+    });
+    expect(v.show3D).toBe(true);
+    expect(v.camera).not.toBeNull();
+  });
+
+  it('stays flat when the prefilter passes but the altitude range is under the floor', () => {
+    const gain = 80;
+    const distance = 20000;
+    expect(isLikelyInterestingTerrain(gain, distance)).toBe(true);
+    const v = resolveTerrain3D({
+      mode: 'smart',
+      coordinates: coords,
+      altitude: ramp(25),
+      gain,
+      distance,
+      override: null,
+    });
+    expect(v.show3D).toBe(false);
+  });
+
+  it('a saved camera override gives 3D even when the prefilter fails', () => {
+    const v = resolveTerrain3D({
+      mode: 'smart',
+      coordinates: coords,
+      altitude: ramp(5),
+      gain: 2,
+      distance: 40000,
+      override,
+    });
+    expect(v.show3D).toBe(true);
+    expect(v.camera).toEqual(override);
+  });
+
+  it('with no altitude the prefilter decides', () => {
+    const base = {
+      mode: 'smart' as const,
+      coordinates: coords,
+      altitude: undefined,
+      override: null,
+    };
+    expect(resolveTerrain3D({ ...base, gain: 200, distance: 20000 }).show3D).toBe(true);
+    expect(resolveTerrain3D({ ...base, gain: 10, distance: 20000 }).show3D).toBe(false);
+    expect(resolveTerrain3D({ ...base, gain: 200, distance: 20000, altitude: [] }).show3D).toBe(
+      true
+    );
+  });
+
+  it('off is flat and always is 3D, whatever the data says', () => {
+    const base = {
+      coordinates: coords,
+      altitude: ramp(1),
+      gain: 0,
+      distance: 1000,
+      override: null,
+    };
+    expect(resolveTerrain3D({ ...base, mode: 'off' }).show3D).toBe(false);
+    expect(resolveTerrain3D({ ...base, mode: 'always' }).show3D).toBe(true);
+  });
+
+  it('has no camera before the track is loaded', () => {
+    const v = resolveTerrain3D({
+      mode: 'always',
+      coordinates: [],
+      altitude: undefined,
+      gain: 100,
+      distance: 10000,
+      override: null,
+    });
+    expect(v.camera).toBeNull();
   });
 });

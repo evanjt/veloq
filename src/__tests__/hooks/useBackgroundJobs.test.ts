@@ -38,6 +38,9 @@ interface EngineState {
   cutover: { phase: string; running: boolean } | null;
   cutoverPending: boolean;
   detectionAwaiting: number | null;
+  stream: { phase: string; completed: number; total: number } | null;
+  streamRemaining: number | null;
+  dataThrows: string | null;
 }
 
 function defaultState(): EngineState {
@@ -51,6 +54,9 @@ function defaultState(): EngineState {
     cutover: { phase: 'idle', running: false },
     cutoverPending: false,
     detectionAwaiting: 0,
+    stream: null,
+    streamRemaining: null,
+    dataThrows: null,
   };
 }
 
@@ -78,9 +84,17 @@ function engine() {
         elevation: state.backfill,
         elevationRemaining: state.remaining,
         cutover: state.cutover,
+        stream: state.stream,
+        streamRemaining: state.streamRemaining,
       }),
-    isCutoverPending: () => state.cutoverPending,
-    sectionDetectionAwaiting: () => state.detectionAwaiting,
+    getBackgroundJobsData: () => {
+      if (state.dataThrows) throw new Error(state.dataThrows);
+      return {
+        runs: [],
+        detectionAwaiting: state.detectionAwaiting ?? undefined,
+        cutoverOwed: state.cutoverPending,
+      };
+    },
     getCutoverDiff: () => null,
     subscribe: (event: string, callback: () => void) => {
       const forEvent = listeners.get(event) ?? new Set<() => void>();
@@ -125,16 +139,38 @@ describe('useBackgroundJobs', () => {
       'detection',
       'elevationBackfill',
       'cutover',
+      'streamBackfill',
     ]);
     expect(result.current.every((job) => job.state === 'idle')).toBe(true);
   });
 
-  it('keeps all three rows when there is no engine at all', () => {
+  it('reads one routes snapshot for all jobs when the bar mounts', () => {
+    let reads = 0;
+    mockGetEngine.mockImplementation(() => {
+      const base = engine() as unknown as Record<string, unknown>;
+      const read = base.getRoutesStatusData as () => unknown;
+      return {
+        ...base,
+        getRoutesStatusData: () => {
+          reads += 1;
+          return read();
+        },
+      } as unknown as ReturnType<typeof getEngine>;
+    });
+
+    const { result } = jobs();
+    expect(result.current).toHaveLength(4);
+    expect(reads).toBe(1);
+    advance(1500);
+    expect(reads).toBe(4);
+  });
+
+  it('keeps every row when there is no engine at all', () => {
     mockGetEngine.mockReturnValue(null);
 
     const { result } = jobs();
 
-    expect(result.current).toHaveLength(3);
+    expect(result.current).toHaveLength(4);
     expect(result.current.every((job) => job.state === 'idle')).toBe(true);
     expect(result.current.every((job) => job.remaining === null)).toBe(true);
   });
@@ -159,13 +195,13 @@ describe('useBackgroundJobs', () => {
 
   it('picks up a detection run that started before the screen opened', () => {
     state.detection = 'running';
-    state.detectionProgress = { phase: 'clustering', completed: 3, total: 9, percent: 40 };
+    state.detectionProgress = { phase: 'analyzing', completed: 3, total: 9, percent: 40 };
 
     const { result } = jobs();
 
     const detection = result.current.find((job) => job.id === 'detection');
     expect(detection?.state).toBe('running');
-    expect(detection?.phase).toBe('clustering');
+    expect(detection?.phase).toBe('analyzing');
     expect(detection?.percent).toBe(40);
   });
 
@@ -225,6 +261,8 @@ describe('useBackgroundJobs', () => {
             elevation: state.backfill,
             elevationRemaining: state.remaining,
             cutover: state.cutover,
+            stream: state.stream,
+            streamRemaining: state.streamRemaining,
           });
         },
       } as unknown as ReturnType<typeof getEngine>;
@@ -285,6 +323,14 @@ describe('useBackgroundJobs', () => {
     expect(result.current.find((job) => job.id === 'cutover')?.state).toBe('failed');
   });
 
+  it('reads a cutover that failed after its apply as failed', () => {
+    state.cutover = { phase: 'failed_after_apply', running: false };
+
+    const { result } = jobs();
+
+    expect(result.current.find((job) => job.id === 'cutover')?.state).toBe('failed');
+  });
+
   it('reads idle from a detection poll that throws rather than losing the screen', () => {
     mockGetEngine.mockImplementation(
       () =>
@@ -298,7 +344,7 @@ describe('useBackgroundJobs', () => {
 
     const { result } = jobs();
 
-    expect(result.current).toHaveLength(3);
+    expect(result.current).toHaveLength(4);
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('idle');
   });
 
@@ -345,21 +391,14 @@ describe('useBackgroundJobs', () => {
     expect(cutover?.remaining).toBeNull();
   });
 
-  it('survives a throwing pending read rather than losing the row', () => {
-    mockGetEngine.mockImplementation(
-      () =>
-        ({
-          ...engine(),
-          isCutoverPending: () => {
-            throw new Error('engine gone');
-          },
-        }) as unknown as ReturnType<typeof getEngine>
-    );
+  it('survives a throwing screen read rather than losing the rows', () => {
+    state.dataThrows = 'engine gone';
 
     const { result } = jobs();
 
-    expect(result.current).toHaveLength(3);
+    expect(result.current).toHaveLength(4);
     expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBeNull();
+    expect(result.current.find((job) => job.id === 'detection')?.remaining).toBeNull();
   });
 
   /**
@@ -394,19 +433,45 @@ describe('useBackgroundJobs', () => {
     expect(detection?.remaining).toBeNull();
   });
 
-  it('reports no detection count rather than zero when the read throws', () => {
-    mockGetEngine.mockImplementation(
-      () =>
-        ({
-          ...engine(),
-          sectionDetectionAwaiting: () => {
-            throw new Error('engine gone');
-          },
-        }) as unknown as ReturnType<typeof getEngine>
-    );
+  it('rests with the activities still owed a stream, on a launch where nothing has run', () => {
+    state.streamRemaining = 300;
+
+    const { result } = jobs();
+    const stream = result.current.find((job) => job.id === 'streamBackfill');
+
+    expect(stream?.state).toBe('idle');
+    expect(stream?.remaining).toBe(300);
+  });
+
+  it('reads a running stream pass with its progress and no resting count', () => {
+    state.stream = { phase: 'fetching', completed: 4, total: 20 };
+    state.streamRemaining = null;
+
+    const { result } = jobs();
+    const stream = result.current.find((job) => job.id === 'streamBackfill');
+
+    expect(stream?.state).toBe('running');
+    expect(stream?.completed).toBe(4);
+    expect(stream?.total).toBe(20);
+    expect(stream?.remaining).toBeNull();
+  });
+
+  it('reads a stream pass that failed as failed', () => {
+    state.stream = { phase: 'failed', completed: 1, total: 20 };
 
     const { result } = jobs();
 
-    expect(result.current.find((job) => job.id === 'detection')?.remaining).toBeNull();
+    expect(result.current.find((job) => job.id === 'streamBackfill')?.state).toBe('failed');
+  });
+
+  it('reads a stream pass held for consent as idle with its count', () => {
+    state.stream = { phase: 'awaiting_consent', completed: 0, total: 0 };
+    state.streamRemaining = 300;
+
+    const { result } = jobs();
+    const stream = result.current.find((job) => job.id === 'streamBackfill');
+
+    expect(stream?.state).toBe('idle');
+    expect(stream?.remaining).toBe(300);
   });
 });

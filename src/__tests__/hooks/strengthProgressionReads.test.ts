@@ -8,7 +8,7 @@
  * draws depends on which muscle is selected, so a read keyed on the muscle paid
  * a range pass a frame for numbers already in hand.
  */
-import { renderHook } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -39,7 +39,7 @@ function summaryForRange(weightedSets: number) {
       secondarySets: 0,
       weightedSets: weightedSets + index,
       totalReps: 10,
-      totalWeightKg: 100,
+      volumeKg: 100,
       exerciseNames: [slug],
     })),
     activityCount: 3,
@@ -91,15 +91,13 @@ function engineWithScreenRead() {
             {
               exerciseName: slug,
               exerciseCategory: 7,
-              frequencyDays: 15,
               totalSets: 6,
-              totalWeightKg: 120,
+              volumeKg: 120,
               activityCount: 2,
               isPrimary: true,
             },
           ],
         })),
-        periodDays: 30,
       };
     },
   });
@@ -156,16 +154,35 @@ describe('useStrengthScreenData', () => {
     await waitForData(() => result.current.data);
 
     expect(result.current.data?.summary.muscleVolumes.map((v) => v.slug)).toEqual(MUSCLES);
-    expect(result.current.data?.periodDays).toBe(30);
   });
 
   it('reads nothing at all from an engine that has no such call', async () => {
     for (const key of Object.keys(mockEngine)) delete mockEngine[key];
+    mockEngine.subscribe = () => () => {};
     const wrapper = wrapperWith(client);
     const { result } = renderHook(() => useStrengthScreenData('1m'), { wrapper });
     await flush();
 
     expect(result.current.data ?? null).toBeNull();
+  });
+});
+
+describe('useStrengthScreenData failure', () => {
+  it('hands a thrown screen read back as an error, not as no data', async () => {
+    const lockFailed = { tag: 'Database', inner: { msg: 'poisoned' } };
+    mockEngine.getStrengthScreenData = jest.fn(() => {
+      throw lockFailed;
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useStrengthScreenData('1m'), {
+      wrapper: wrapperWith(client),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error).toBe(lockFailed);
+    expect(result.current.data).toBeUndefined();
   });
 });
 

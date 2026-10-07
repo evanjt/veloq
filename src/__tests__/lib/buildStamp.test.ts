@@ -4,9 +4,9 @@
  * installed to test absent, and nothing in the file or on the phone said which
  * commit it was.
  *
- * Expected behaviour: the build stamp names the commit and whether the tree
- * was dirty, and one module computes it for the config, the footer and the
- * install script alike.
+ * Expected behaviour: the build stamp names the commit and, for a dirty tree,
+ * the start of the hash of its inputs, and one module computes it for the
+ * config and the footer alike.
  */
 
 import { formatVersionLine } from '@/shared/format/buildStamp';
@@ -19,7 +19,7 @@ describe('formatVersionLine', () => {
   });
 
   it('carries the dirty mark through', () => {
-    expect(formatVersionLine('0.4.0', 'a8f276dff+')).toBe('0.4.0 (a8f276dff+)');
+    expect(formatVersionLine('0.4.0', 'a8f276dff+3c9e04b1')).toBe('0.4.0 (a8f276dff+3c9e04b1)');
   });
 
   it('is the version alone when no stamp was recorded', () => {
@@ -30,7 +30,7 @@ describe('formatVersionLine', () => {
 
 describe('buildStamp', () => {
   it('reads a short sha out of the checkout it runs in', () => {
-    expect(buildStamp()).toMatch(/^[0-9a-f]{7,}\+?$/);
+    expect(buildStamp()).toMatch(/^[0-9a-f]{7,}(\+[0-9a-f]{8})?$/);
   });
 
   it('answers empty outside a checkout rather than throwing', () => {

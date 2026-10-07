@@ -7,6 +7,7 @@
 import { renderHook, act } from '@testing-library/react-native';
 import { useNamedCorridors } from '@/features/routes/hooks/useNamedCorridors';
 import { getEngine } from '@/shared/native/engine';
+import { encodeTrack } from '../__shared__/trackBytes';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
@@ -17,32 +18,7 @@ jest.mock('veloqrs', () =>
   })
 );
 
-function encodeCoords(points: { latitude: number; longitude: number }[]): ArrayBuffer {
-  const bytes: number[] = [];
-  const varint = (value: number) => {
-    let v = value;
-    while (v > 0x7f) {
-      bytes.push((v & 0x7f) | 0x80);
-      v >>>= 7;
-    }
-    bytes.push(v);
-  };
-  const zigzag = (v: number) => varint(((v << 1) ^ (v >> 31)) >>> 0);
-  varint(points.length);
-  let lat = 0;
-  let lng = 0;
-  for (const p of points) {
-    const la = Math.round(p.latitude * 1e7);
-    const ln = Math.round(p.longitude * 1e7);
-    zigzag(la - lat);
-    zigzag(ln - lng);
-    lat = la;
-    lng = ln;
-  }
-  return new Uint8Array(bytes).buffer;
-}
-
-const FOOTPRINT = encodeCoords([
+const FOOTPRINT = encodeTrack([
   { latitude: 46.5, longitude: 7.1 },
   { latitude: 46.6, longitude: 7.2 },
 ]);

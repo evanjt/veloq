@@ -9,43 +9,52 @@ import {
   getTimestampRange,
   getTrailingWeekRanges,
 } from '@/features/strength/hooks/useStrengthScreenData';
+import { buildInsightsParams } from '@/features/insights/lib/insightsParams';
+import { trailingWeekRanges } from '@/shared/time/trailingWeeks';
+import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
-const withTz = <T>(tz: string, run: () => T): T => {
-  const original = process.env.TZ;
-  process.env.TZ = tz;
-  try {
-    return run();
-  } finally {
-    process.env.TZ = original;
-  }
-};
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
+const withTz = <T>(offset: number, run: () => T): T => atUtcOffset(offset, run);
 
 const iso = (ts: number) => new Date(ts * 1000).toISOString();
 
 describe('strength window timebase', () => {
-  it.each(['Australia/Sydney', 'America/Los_Angeles', 'UTC'])(
-    'ends the period at local end-of-day in %s',
-    (tz) => {
-      const { endTs } = withTz(tz, () => getTimestampRange('7d'));
-      expect(iso(endTs)).toMatch(/T23:59:59\.000Z$/);
-    }
-  );
-
-  it.each(['Australia/Sydney', 'America/Los_Angeles', 'UTC'])(
-    'starts the period at local midnight in %s',
-    (tz) => {
-      const { startTs } = withTz(tz, () => getTimestampRange('7d'));
-      expect(iso(startTs)).toMatch(/T00:00:00\.000Z$/);
-    }
-  );
-
-  it('spans exactly the requested days', () => {
-    const { startTs, endTs } = withTz('Australia/Sydney', () => getTimestampRange('7d'));
-    expect(endTs - startTs).toBe(7 * 86400 + 86399);
+  it.each([10, -7, 0])('ends the period at local end-of-day at UTC offset %d', (tz) => {
+    const { endTs } = withTz(tz, () => getTimestampRange('7d'));
+    expect(iso(endTs)).toMatch(/T23:59:59\.000Z$/);
   });
 
-  it.each(['Australia/Sydney', 'America/Los_Angeles'])(
-    'gives each trailing week a whole local day at both ends in %s',
+  it.each([10, -7, 0])('starts the period at local midnight at UTC offset %d', (tz) => {
+    const { startTs } = withTz(tz, () => getTimestampRange('7d'));
+    expect(iso(startTs)).toMatch(/T00:00:00\.000Z$/);
+  });
+
+  it('spans exactly the requested days, today among them', () => {
+    const { startTs, endTs } = withTz(10, () => getTimestampRange('7d'));
+    expect(endTs - startTs).toBe(6 * 86400 + 86399);
+  });
+
+  it.each([10, -7])(
+    'makes the 7d period the same days as the This wk bar at UTC offset %d',
+    (tz) => {
+      const [period, weeks] = withTz(tz, () => [getTimestampRange('7d'), getTrailingWeekRanges(4)]);
+      const thisWeek = weeks[weeks.length - 1];
+      expect({ startTs: period.startTs, endTs: period.endTs }).toEqual({
+        startTs: thisWeek.startTs,
+        endTs: thisWeek.endTs,
+      });
+    }
+  );
+
+  it('asks the insights for the same four weeks the tab draws', () => {
+    const [params, weeks] = withTz(10, () => [buildInsightsParams(), getTrailingWeekRanges(4)]);
+    expect(params.strengthWeeks).toEqual(trailingWeekRanges(4));
+    expect(weeks.map(({ startTs, endTs }) => ({ startTs, endTs }))).toEqual(trailingWeekRanges(4));
+  });
+
+  it.each([10, -7])(
+    'gives each trailing week a whole local day at both ends at UTC offset %d',
     (tz) => {
       const ranges = withTz(tz, () => getTrailingWeekRanges(4));
       expect(ranges).toHaveLength(4);
@@ -58,7 +67,7 @@ describe('strength window timebase', () => {
   );
 
   it('leaves no gap and no overlap between consecutive weeks', () => {
-    const ranges = withTz('Australia/Sydney', () => getTrailingWeekRanges(4));
+    const ranges = withTz(10, () => getTrailingWeekRanges(4));
     for (let i = 1; i < ranges.length; i += 1) {
       expect(ranges[i].startTs - ranges[i - 1].endTs).toBe(1);
     }

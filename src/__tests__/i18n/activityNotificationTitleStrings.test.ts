@@ -5,6 +5,7 @@
  * English on the very line that carries the finding.
  */
 
+import { resolvedLocale } from './resolvedLocale';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -18,8 +19,7 @@ const locales = fs
   .map((f) => f.replace('.json', ''));
 
 function titlesOf(locale: string): Record<string, { title: string }> {
-  const raw = fs.readFileSync(path.join(LOCALES_DIR, `${locale}.json`), 'utf-8');
-  return JSON.parse(raw).notifications as Record<string, { title: string }>;
+  return resolvedLocale(locale).notifications as unknown as Record<string, { title: string }>;
 }
 
 describe('activity notification titles', () => {

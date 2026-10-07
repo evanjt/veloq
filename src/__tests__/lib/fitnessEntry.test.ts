@@ -10,17 +10,19 @@
 import { fitnessEntryFromParams, fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
 import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
+import { datedSeries } from '../__shared__/datedSeries';
 
 describe('fitnessEntryFromParams', () => {
   it('takes a range and a day from the params', () => {
     expect(fitnessEntryFromParams({ range: '1m', date: '2026-09-14' })).toEqual({
       range: '1m',
       date: '2026-09-14',
+      chart: null,
     });
   });
 
   it('keeps the screen defaults when nothing is asked for', () => {
-    expect(fitnessEntryFromParams({})).toEqual({ range: null, date: null });
+    expect(fitnessEntryFromParams({})).toEqual({ range: null, date: null, chart: null });
   });
 
   it('drops a range that is not one of the periods', () => {
@@ -58,7 +60,19 @@ describe('fitnessTarget', () => {
 
     expect(target).toBe('/fitness?range=1m&date=2026-09-14');
     const query = Object.fromEntries(new URLSearchParams(target.split('?')[1]));
-    expect(fitnessEntryFromParams(query)).toEqual({ range: '1m', date: '2026-09-14' });
+    expect(fitnessEntryFromParams(query)).toEqual({
+      range: '1m',
+      date: '2026-09-14',
+      chart: null,
+    });
+  });
+
+  it('carries a chart beside the range and the day', () => {
+    const target = fitnessTarget({ range: '3m', chart: 'ftp' });
+
+    expect(target).toBe('/fitness?range=3m&chart=ftp');
+    const query = Object.fromEntries(new URLSearchParams(target.split('?')[1]));
+    expect(fitnessEntryFromParams(query)).toEqual({ range: '3m', date: null, chart: 'ftp' });
   });
 
   it('is the bare tab when there is nothing to carry', () => {
@@ -77,12 +91,18 @@ describe('the cards that link to the fitness tab', () => {
 
   it('sends an HRV verdict to the range its window fits in', () => {
     const [insight] = generateHrvTrendInsight(
-      { label: 'trendingDown', avg: 52, latest: 44, dataPoints: 14, sparkline: [52, 44] },
+      {
+        label: 'trendingDown',
+        avg: 52,
+        latest: 44,
+        dataPoints: 14,
+        sparkline: datedSeries([52, 44]),
+      },
       now,
       t
     );
 
-    expect(entryOf(insight.navigationTarget)).toEqual({ range: '1m', date: null });
+    expect(entryOf(insight.navigationTarget)).toEqual({ range: '1m', date: null, chart: null });
   });
 
   it('sends an FTP step to the day it was dated', () => {
@@ -101,6 +121,25 @@ describe('the cards that link to the fitness tab', () => {
     );
 
     expect(insights.length).toBeGreaterThan(0);
-    expect(entryOf(insights[0].navigationTarget)).toEqual({ range: null, date: '2026-09-14' });
+    expect(entryOf(insights[0].navigationTarget)).toEqual({
+      range: null,
+      date: '2026-09-14',
+      chart: null,
+    });
+  });
+});
+
+describe('rangeCovering against the period table', () => {
+  it('reads its spans from the one period table, so a changed span moves it', () => {
+    jest.isolateModules(() => {
+      jest.doMock('@/shared/app/period', () => {
+        const actual = jest.requireActual('@/shared/app/period');
+        return { ...actual, PERIOD_DAYS: { ...actual.PERIOD_DAYS, '1m': 28 } };
+      });
+      const { rangeCovering: covering } = require('@/shared/app/fitnessEntry');
+
+      expect(covering(28)).toBe('1m');
+      expect(covering(30)).toBe('3m');
+    });
   });
 });

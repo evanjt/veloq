@@ -117,6 +117,40 @@ describe('createSurfacePatcher', () => {
     expect(serialised).toBe(1);
   });
 
+  it('serialises nothing for a fresh wrapper around the same data', () => {
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    const data = (collection(3) as { data: unknown }).data;
+    const wrap = (extra: object = {}) =>
+      ({ kind: 'geojson', data, ...extra }) as unknown as MapSourceSpec;
+    p.next({ sources: { traces: wrap() }, layers });
+
+    const same = p.next({ sources: { traces: wrap() }, layers });
+
+    expect(same.serialised).toBe(0);
+    expect(same.patch).toBeNull();
+  });
+
+  it('still serialises a wrapper whose field or data changed', () => {
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    const data = (collection(3) as { data: unknown }).data;
+    const wrap = (d: unknown, extra: object = {}) =>
+      ({ kind: 'geojson', data: d, ...extra }) as unknown as MapSourceSpec;
+    p.next({ sources: { traces: wrap(data) }, layers });
+
+    const metrics = p.next({ sources: { traces: wrap(data, { lineMetrics: true }) }, layers });
+    expect(metrics.serialised).toBe(1);
+    expect(metrics.patch?.sources).toBeDefined();
+
+    const fresh = p.next({
+      sources: { traces: wrap((collection(4) as { data: unknown }).data, { lineMetrics: true }) },
+      layers,
+    });
+    expect(fresh.serialised).toBe(1);
+    expect(fresh.patch?.sources).toBeDefined();
+  });
+
   it('sends nothing at all when nothing moved', () => {
     const p = createSurfacePatcher();
     const layers = layer('#fff');
@@ -204,6 +238,25 @@ describe('createSurfacePatcher', () => {
     const { patch } = p.next({ sources: { route: line(points(50)) }, layers });
 
     expect(patch).toBeNull();
+  });
+
+  it('ships only the new points of a line that grows in place', () => {
+    // The live map keeps one flipped array and appends to it, so the line it
+    // hands over on the next fix is the same array, longer.
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    const track = points(50);
+    p.next({ sources: { route: line(track) }, layers });
+
+    track.push(...points(2, 50));
+    const { patch } = p.next({ sources: { route: line(track) }, layers });
+
+    expect(patch?.appends).toEqual({ route: points(2, 50) });
+    expect(patch?.sources).toBeUndefined();
+
+    track.push(...points(1, 52));
+    const next = p.next({ sources: { route: line(track) }, layers });
+    expect(next.patch?.appends).toEqual({ route: points(1, 52) });
   });
 
   it('sends a growing line whole again after the page forgets', () => {

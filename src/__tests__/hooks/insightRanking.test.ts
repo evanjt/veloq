@@ -1,5 +1,5 @@
 /**
- * Scenario: the engine computes four ML scores per section and blends them into
+ * Scenario: the engine computes four section scores per section and blends them into
  * a relevance composite. They reach TypeScript, the sections tab ranks on them,
  * and the insights tab shows them as data points while no ranking term reads
  * one.
@@ -10,7 +10,7 @@
  */
 
 import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
-import { mlScore, scoreInsight } from '@/features/insights/lib/rules';
+import { rankingScore, scoreInsight } from '@/features/insights/lib/rules';
 import type { Insight, SectionRankingScores } from '@/features/insights/types';
 
 const { rankingWeight } = INSIGHTS_CONFIG.scoring;
@@ -39,27 +39,31 @@ const flat = (v: number): SectionRankingScores => ({
 });
 
 it('scores a section the engine rates highly above one it rates poorly', () => {
-  expect(mlScore(ranked(flat(0.9)))).toBeGreaterThan(mlScore(ranked(flat(0.2))));
+  expect(rankingScore(ranked(flat(0.9)))).toBeGreaterThan(rankingScore(ranked(flat(0.2))));
 });
 
 it('gives a section the engine rates at its ceiling the whole term', () => {
-  expect(mlScore(ranked(flat(1)))).toBeCloseTo(rankingWeight);
-  expect(mlScore(ranked(flat(0)))).toBe(0);
+  expect(rankingScore(ranked(flat(1)))).toBeCloseTo(rankingWeight);
+  expect(rankingScore(ranked(flat(0)))).toBe(0);
 });
 
 it('scores an insight with no section at zero, not at a middle', () => {
-  expect(mlScore(ranked(undefined))).toBe(0);
+  expect(rankingScore(ranked(undefined))).toBe(0);
 });
 
-it('never counts a component twice through the relevance composite', () => {
-  // `relevance` is exactly 0.35*recency + 0.30*improvement + 0.20*anomaly +
-  // 0.15*engagement (`persistence/sections/ranking.rs`). A term that read it
-  // beside its own components would weigh every component twice.
-  const components = { recency: 1, improvement: 1, anomaly: 1, engagement: 1 };
-  const honest = { ...components, relevance: 1 } as SectionRankingScores;
-  const lying = { ...components, relevance: 0 } as SectionRankingScores;
+it('follows the engine relevance and ignores a component changed on its own', () => {
+  const base = { relevance: 0.5, recency: 0.5, improvement: 0.5, anomaly: 0.5, engagement: 0.5 };
+  const reference = rankingScore(ranked(base));
 
-  expect(mlScore(ranked(honest))).toBe(mlScore(ranked(lying)));
+  expect(reference).toBeCloseTo(rankingWeight * 0.5);
+  expect(rankingScore(ranked({ ...base, improvement: 1, recency: 0 }))).toBe(reference);
+  expect(rankingScore(ranked({ ...base, relevance: 0.8 }))).toBeCloseTo(rankingWeight * 0.8);
+});
+
+it('clamps a relevance outside the unit range and ignores a non-finite one', () => {
+  expect(rankingScore(ranked({ ...flat(0), relevance: 2 }))).toBeCloseTo(rankingWeight);
+  expect(rankingScore(ranked({ ...flat(0), relevance: -1 }))).toBe(0);
+  expect(rankingScore(ranked({ ...flat(0), relevance: Number.NaN }))).toBe(0);
 });
 
 it('lets the engine score separate two insights the other terms tie', () => {

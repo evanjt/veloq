@@ -20,7 +20,7 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
-    decodeCoords: () => [],
+    decodeCoords: (encoded: string) => mockEncodedCoords.get(encoded) ?? [],
   })
 );
 
@@ -33,13 +33,15 @@ const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const listeners = new Map<string, Set<() => void>>();
 let syncState: SyncState = SyncState.Syncing;
 let reads = 0;
+const mockEncodedCoords = new Map<string, { latitude: number; longitude: number }[]>();
+let mockPreviewRecords: { activityId: string; encodedCoords: string }[] = [];
 
 function engine() {
   return {
     getSyncStatus: () => ({ state: syncState }),
     getStartupData: () => {
       reads += 1;
-      return { summaryCard: {}, previewTracks: [] };
+      return { summaryCard: {}, previewTracks: mockPreviewRecords };
     },
     subscribe: (event: string, cb: () => void) => {
       const forEvent = listeners.get(event) ?? new Set<() => void>();
@@ -72,6 +74,8 @@ describe('useStartupData read count', () => {
     jest.useFakeTimers();
     listeners.clear();
     reads = 0;
+    mockEncodedCoords.clear();
+    mockPreviewRecords = [];
     syncState = SyncState.Syncing;
     mockGetEngine.mockReturnValue(engine());
   });
@@ -142,5 +146,28 @@ describe('useStartupData read count', () => {
     announce('syncSettled');
 
     expect(reads).toBe(after);
+  });
+
+  it('retains an unchanged startup track while replacing its changed neighbour', () => {
+    syncState = SyncState.Idle;
+    mockEncodedCoords.set('old', [{ latitude: 46.2, longitude: 7.3 }]);
+    mockEncodedCoords.set('new', [{ latitude: 47.1, longitude: 7.3 }]);
+    mockEncodedCoords.set('same', [{ latitude: 46.5, longitude: 7.3 }]);
+    mockPreviewRecords = [
+      { activityId: 'a1', encodedCoords: 'old' },
+      { activityId: 'a2', encodedCoords: 'same' },
+    ];
+    const { result } = mount();
+    const firstA1 = result.current.data?.previewTracks.get('a1');
+    const firstA2 = result.current.data?.previewTracks.get('a2');
+
+    mockPreviewRecords = [
+      { activityId: 'a1', encodedCoords: 'new' },
+      { activityId: 'a2', encodedCoords: 'same' },
+    ];
+    announce('sections');
+
+    expect(result.current.data?.previewTracks.get('a1')).not.toBe(firstA1);
+    expect(result.current.data?.previewTracks.get('a2')).toBe(firstA2);
   });
 });

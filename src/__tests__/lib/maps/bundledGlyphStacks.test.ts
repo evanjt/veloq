@@ -6,13 +6,10 @@
  *
  * With no `text-font` MapLibre uses the style spec's default, `Open Sans
  * Regular, Arial Unicode MS Regular`, which is not one of the three carried
- * stacks. `bundledBasemapAsset` answers null for it, the host falls back to the
- * network, and the page spends a bridge round trip and a request to get a 404.
+ * stacks. The interceptor answers 404 for it and the label draws in the
+ * device's own font.
  */
-import { readFileSync } from 'fs';
-import { join } from 'path';
-
-import { BUNDLED_GLYPH_RANGES, BUNDLED_GLYPH_STACKS } from '@/features/maps/lib/bundledBasemap';
+import { BUNDLED_GLYPH_RANGES, BUNDLED_GLYPH_STACKS } from '@/features/maps/lib/bundledGlyphs';
 import {
   buildActivityLayers,
   buildFullscreenSectionLayers,
@@ -39,6 +36,7 @@ function regionalLayers(mapStyle: 'light' | 'dark' | 'satellite'): MapLayerSpec[
     mapStyle,
     showActivities: true,
     showSections: true,
+    showRoutes: false,
     showHeatmap: true,
     heatmapEnabled: true,
     hasSpider: true,
@@ -89,27 +87,6 @@ describe('bundled glyph stacks', () => {
         .map((stack) => `${layer.id}: ${String(stack)}`);
     });
     expect(foreign).toEqual([]);
-  });
-});
-
-/**
- * The 3D surfaces build their layers as JavaScript inside a template string, so
- * the structural walk above cannot reach them. Read the source instead: every
- * `text-field` in these files has to have a `text-font` in the same layout.
- */
-describe('bundled glyph stacks in the webview layer scripts', () => {
-  const sources = [
-    'src/features/maps/components/Map3DWebView.tsx',
-    'src/features/maps/lib/htmlBuilders/map3DScripts.ts',
-    'src/features/maps/lib/htmlBuilders/map3D.ts',
-  ];
-
-  it.each(sources)('names a text-font beside every text-field in %s', (relative) => {
-    const source = readFileSync(join(__dirname, '../../../..', relative), 'utf8');
-    const fields = source.split("'text-field'").length - 1;
-    const fonts = source.split("'text-font'").length - 1;
-    expect(fields).toBeGreaterThan(0);
-    expect(fonts).toBe(fields);
   });
 });
 

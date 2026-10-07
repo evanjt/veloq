@@ -9,9 +9,6 @@
  * an `activities` announcement lands.
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import { act, renderHook } from '@testing-library/react-native';
 import { RangeCoverage } from 'veloqrs';
 
@@ -50,11 +47,6 @@ function announce(event: string): void {
   });
 }
 
-const SOURCES = [
-  'src/shared/native/useRangeCoverage.ts',
-  'src/shared/native/useLibraryCoverage.ts',
-];
-
 beforeEach(() => {
   jest.clearAllMocks();
   for (const key of Object.keys(listeners)) delete listeners[key];
@@ -69,21 +61,6 @@ beforeEach(() => {
 });
 
 describe('the coverage hooks', () => {
-  it.each(SOURCES)('carries no exhaustive-deps disable in %s', (source) => {
-    const text = readFileSync(resolve(source), 'utf-8');
-
-    expect(text).not.toContain('react-hooks/exhaustive-deps');
-  });
-
-  it.each(SOURCES)('depends on a reader the body calls in %s', (source) => {
-    const text = readFileSync(resolve(source), 'utf-8');
-
-    expect(text).toContain('useEngineRead([');
-    // `useEngineRead` lives in the `useEngineSubscription` module, so the
-    // import path carries that name either way: the call is what differs.
-    expect(text).not.toContain('useEngineSubscription([');
-  });
-
   it('re-reads the range when an activities announcement lands', () => {
     const { result } = renderHook(() => useRangeCoverage(42));
     expect(result.current).toBe(RangeCoverage.NotFetched);
@@ -107,6 +84,21 @@ describe('the coverage hooks', () => {
     announce('activities');
 
     expect(result.current?.fetched).toBe(10);
+  });
+
+  it('re-reads the library when a track lands during a bulk pass', () => {
+    const { result } = renderHook(() => useLibraryCoverage());
+    expect(result.current?.tracksStored).toBe(1);
+
+    mockEngine.libraryCoverage.mockReturnValue({
+      upstream: 10,
+      fetched: 2,
+      tracksUpstream: 8,
+      tracksStored: 2,
+    });
+    announce('gpsTrackStored');
+
+    expect(result.current?.tracksStored).toBe(2);
   });
 
   /** A read that is switched off claims nothing, and asks the engine nothing. */

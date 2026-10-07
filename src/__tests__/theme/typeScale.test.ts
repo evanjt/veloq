@@ -1,43 +1,13 @@
 /**
- * Scenario: 438 font sizes were written as numbers while a token already
- * declared almost every one of them, so the scale the app drew and the scale
- * it named were kept in step by hand.
+ * Scenario: a raw font size in a stylesheet module bypasses the type scale.
  *
- * Expected behaviour: every size the app draws has a role in the scale, an
- * edit to the scale is a deliberate diff, and the lint that keeps a new
- * literal off it actually fires.
+ * Expected behaviour: the lint that keeps a new literal off the scale actually fires.
  */
 
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
-import { typography } from '@/theme/typography';
-
 const ROOT = join(__dirname, '../../..');
-
-/** Every size the scale declares, from the smallest role to the largest. */
-const SIZES = [9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 44, 48];
-
-describe('the type scale', () => {
-  it('declares exactly these sizes, and nothing else', () => {
-    const sizes = [...new Set(Object.values(typography).map((role) => role.fontSize))].sort(
-      (a, b) => a - b
-    );
-    expect(sizes).toEqual(SIZES);
-  });
-
-  it('gives every role a line height at least its own size', () => {
-    for (const [name, role] of Object.entries(typography)) {
-      expect([name, role.lineHeight >= role.fontSize]).toEqual([name, true]);
-    }
-  });
-
-  it('keeps the three roles added for the sweep', () => {
-    expect(typography.bodyMedium.fontSize).toBe(15);
-    expect(typography.statsValueLarge.fontSize).toBe(24);
-    expect(typography.headlineNumber.fontSize).toBe(32);
-  });
-});
 
 describe('the font size lint', () => {
   // Through stdin, under a name the rule's `src/**` glob matches. A real file

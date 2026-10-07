@@ -13,6 +13,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 import { useGpsDataFetcher } from '@/features/routes/hooks/useGpsDataFetcher';
+import { takeFetchAndStoreResult } from 'veloqrs';
 
 // The banner is asserted by the key it renders: which string the sync ends on
 // is the behaviour, and the translations are covered by the i18n suite.
@@ -23,10 +24,16 @@ jest.mock('@/i18n', () => ({
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     engine: {
+      ...require('../__shared__/veloqrsStub').fetchCalls,
       ready: true,
       pollSectionDetection: () => 'running',
       triggerRefresh: jest.fn(),
-      getSectionDetectionProgress: () => null,
+      getSectionDetectionProgress: () => ({
+        phase: 'analysing',
+        completed: 1,
+        total: 2,
+        percent: 50,
+      }),
       setActivityMetrics: jest.fn(),
       setTimeStreams: jest.fn(),
       addActivities: jest.fn(),
@@ -48,17 +55,6 @@ jest.mock('@/features/routes/lib/detectionRun', () => ({
   followDetection: jest.fn(() => ({
     settled: Promise.resolve(mockOutcome.value),
     cancel: jest.fn(),
-  })),
-}));
-
-jest.mock('@/features/routes/lib/gpsFetchRetry', () => ({
-  fetchWithRetry: jest.fn(async () => ({
-    syncedIds: ['a1', 'a2'],
-    failedIds: [],
-    recoveredIds: [],
-    successCount: 2,
-    total: 2,
-    attempts: 1,
   })),
 }));
 
@@ -91,7 +87,16 @@ async function sync() {
   return { written, answer, last: written[written.length - 1] };
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  (takeFetchAndStoreResult as jest.Mock).mockReturnValue({
+    syncedIds: ['a1', 'a2'],
+    failedIds: [],
+    successCount: 2,
+    total: 2,
+    totalPoints: 0,
+  });
+});
 
 describe('a detection the follow gave up on', () => {
   beforeEach(() => {
@@ -109,6 +114,7 @@ describe('a detection the follow gave up on', () => {
     const { last, answer } = await sync();
 
     expect(last.status).toBe('complete');
+    expect(last.analysingInBackground).toBe(true);
     expect(answer.syncedIds).toEqual(['a1', 'a2']);
   });
 });
@@ -122,5 +128,6 @@ describe('a detection that finished inside the budget', () => {
     const { last } = await sync();
 
     expect(last.message).toBe('cache.syncedActivities:2');
+    expect(last.analysingInBackground).toBeFalsy();
   });
 });

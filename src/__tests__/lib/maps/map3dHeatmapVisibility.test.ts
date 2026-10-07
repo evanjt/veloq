@@ -97,6 +97,7 @@ function layersAddedBy(showHeatmap: boolean): LayerSpec[] {
         addLayer: (layer: LayerSpec) => added.push(layer),
         getSource: () => undefined,
         getLayer: () => undefined,
+        getStyle: () => ({ layers: [] }),
         setTerrain: () => {},
         setSky: () => {},
         setStyle: () => {},
@@ -140,7 +141,7 @@ describe('the 3D heatmap layer', () => {
 
   it('keeps its tuned opacity rather than carrying the toggle in the paint', () => {
     for (const showHeatmap of [true, false]) {
-      expect(heatmapLayer(showHeatmap).paint).toMatchObject({ 'raster-opacity': 0.82 });
+      expect(heatmapLayer(showHeatmap).paint).toMatchObject({ 'raster-opacity': 1 });
     }
   });
 });

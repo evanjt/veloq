@@ -6,7 +6,8 @@
  * re-reading the gap, and the wait ends when the caller goes away.
  */
 
-import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
+import type { TFunction } from 'i18next';
+import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
 import { engine } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
@@ -46,6 +47,16 @@ describe('backfillTimeStreams', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('rejects with the engine failure rather than reporting nothing to fetch', async () => {
+    const failure = Object.assign(new Error('Database'), { tag: 'Database' });
+    needing.mockImplementation(() => {
+      throw failure;
+    });
+
+    await expect(backfillTimeStreams(jest.fn())).rejects.toBe(failure);
+    expect(syncTimeStreams).not.toHaveBeenCalled();
   });
 
   it('asks for nothing when every activity has its stream', async () => {
@@ -106,5 +117,19 @@ describe('backfillTimeStreams', () => {
 
     await expect(backfill).resolves.toEqual({ total: 1, remaining: 1 });
     expect(mockListeners.get('timeStreamsStored')?.size ?? 0).toBe(0);
+  });
+});
+
+describe('timeStreamsProgress', () => {
+  it('names the time-stream stage with the counts', () => {
+    const t = jest.fn((key: string) => key) as unknown as TFunction;
+    const row = timeStreamsProgress(3, 7, t);
+    expect(row).toMatchObject({ status: 'fetching', completed: 3, total: 7, percent: 50 });
+    expect(row.message).toBe('cache.fetchingTimeStreams');
+    expect(t).toHaveBeenCalledWith('cache.fetchingTimeStreams', {
+      percent: 50,
+      completed: 3,
+      total: 7,
+    });
   });
 });

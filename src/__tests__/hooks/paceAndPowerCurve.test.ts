@@ -3,57 +3,11 @@
  * These are non-hook exports that can be tested without React.
  */
 
-import {
-  getPaceAtDistance,
-  getIndexAtDistance,
-  getTimeAtDistance,
-  PACE_CURVE_DISTANCES,
-  SWIM_PACE_CURVE_DISTANCES,
-} from '@/features/stats/hooks/usePaceCurve';
+import { getIndexAtDistance, getTimeAtDistance } from '@/features/stats/hooks/usePaceCurve';
 
-import {
-  getPowerAtDuration,
-  getIndexAtDuration,
-  formatPowerCurveForChart,
-  POWER_CURVE_DURATIONS,
-} from '@/features/stats/hooks/usePowerCurve';
+import { getIndexAtDuration } from '@/features/stats/hooks/usePowerCurve';
 
 import type { PaceCurve, PowerCurve } from '@/types';
-
-// ---------------------------------------------------------------------------
-// getPaceAtDistance
-// ---------------------------------------------------------------------------
-
-describe('getPaceAtDistance', () => {
-  const mockCurve: PaceCurve = {
-    type: 'pace',
-    sport: 'Run',
-    distances: [400, 800, 1000, 5000, 10000],
-    times: [65, 140, 180, 1050, 2200],
-    pace: [6.15, 5.71, 5.56, 4.76, 4.55],
-  };
-
-  it('returns null for undefined curve or curve missing the pace array', () => {
-    const noPace = { type: 'pace', sport: 'Run', distances: [100], times: [20] } as PaceCurve;
-    expect(getPaceAtDistance(undefined, 1000)).toBeNull();
-    expect(getPaceAtDistance(noPace, 100)).toBeNull();
-  });
-
-  it('returns the pace at the closest distance', () => {
-    // Exact, within-1m tolerance, nearest entry, and beyond-range all snap to the
-    // closest distance's pace value.
-    const cases: { distance: number; expected: number }[] = [
-      { distance: 1000, expected: 5.56 }, // exact
-      { distance: 1000.5, expected: 5.56 }, // within 1m tolerance
-      { distance: 900, expected: 5.71 }, // nearest is 800m
-      { distance: 50000, expected: 4.55 }, // beyond range -> nearest 10000m
-    ];
-
-    for (const { distance, expected } of cases) {
-      expect(getPaceAtDistance(mockCurve, distance)).toBe(expected);
-    }
-  });
-});
 
 // ---------------------------------------------------------------------------
 // getIndexAtDistance
@@ -112,38 +66,6 @@ describe('getTimeAtDistance', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getPowerAtDuration
-// ---------------------------------------------------------------------------
-
-describe('getPowerAtDuration', () => {
-  const mockCurve: PowerCurve = {
-    type: 'power',
-    sport: 'Ride',
-    secs: [5, 60, 300, 1200, 3600],
-    watts: [1200, 450, 320, 280, 250],
-  };
-
-  it('returns null for undefined curve or curve with no secs', () => {
-    const noSecs = { type: 'power', sport: 'Ride' } as PowerCurve;
-    expect(getPowerAtDuration(undefined, 60)).toBeNull();
-    expect(getPowerAtDuration(noSecs, 60)).toBeNull();
-  });
-
-  it('returns the power at the closest duration', () => {
-    const cases: { duration: number; expected: number }[] = [
-      { duration: 300, expected: 320 }, // exact
-      { duration: 250, expected: 320 }, // nearest 300 (diff 50 < 190)
-      { duration: 1, expected: 1200 }, // very short -> first
-      { duration: 99999, expected: 250 }, // very long -> last
-    ];
-
-    for (const { duration, expected } of cases) {
-      expect(getPowerAtDuration(mockCurve, duration)).toBe(expected);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
 // getIndexAtDuration
 // ---------------------------------------------------------------------------
 
@@ -162,89 +84,5 @@ describe('getIndexAtDuration', () => {
   it('returns the index of the closest duration', () => {
     expect(getIndexAtDuration(mockCurve, 1200)).toBe(3); // exact
     expect(getIndexAtDuration(mockCurve, 100)).toBe(1); // nearest 60 (diff 40 < 200)
-  });
-});
-
-// ---------------------------------------------------------------------------
-// formatPowerCurveForChart
-// ---------------------------------------------------------------------------
-
-describe('formatPowerCurveForChart', () => {
-  it('returns empty array for undefined curve', () => {
-    expect(formatPowerCurveForChart(undefined)).toEqual([]);
-  });
-
-  it('has nothing to plot for a curve with empty arrays', () => {
-    // This asserted eleven entries carrying `power: undefined`, on the grounds
-    // that it was the actual behaviour: the hand-rolled closest-match walk fell
-    // through to `watts[0]` on an empty `secs` and returned undefined, which
-    // `filter(d !== null)` then kept. A curve with no samples has no points.
-    const emptyCurve: PowerCurve = { type: 'power', sport: 'Ride', secs: [], watts: [] };
-
-    expect(formatPowerCurveForChart(emptyCurve)).toEqual([]);
-  });
-
-  it('maps POWER_CURVE_DURATIONS to chart data', () => {
-    // Create a curve with data at standard durations
-    const curve: PowerCurve = {
-      type: 'power',
-      sport: 'Ride',
-      secs: [5, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200],
-      watts: [1200, 1000, 800, 500, 400, 350, 320, 290, 270, 250, 230],
-    };
-    const result = formatPowerCurveForChart(curve);
-    expect(result).toHaveLength(POWER_CURVE_DURATIONS.length);
-    expect(result[0]).toEqual({ secs: 5, label: '5s', power: 1200 });
-    expect(result[result.length - 1]).toEqual({ secs: 7200, label: '2h', power: 230 });
-  });
-
-  it('each entry has secs, label, and power fields', () => {
-    const curve: PowerCurve = {
-      type: 'power',
-      sport: 'Ride',
-      secs: [5, 60, 300],
-      watts: [1000, 400, 300],
-    };
-    const result = formatPowerCurveForChart(curve);
-    result.forEach((entry) => {
-      expect(entry).toHaveProperty('secs');
-      expect(entry).toHaveProperty('label');
-      expect(entry).toHaveProperty('power');
-      expect(typeof entry.secs).toBe('number');
-      expect(typeof entry.label).toBe('string');
-      expect(typeof entry.power).toBe('number');
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Constant arrays
-// ---------------------------------------------------------------------------
-
-// Charts plot these in array order, so a duplicate or out-of-order entry folds the curve back.
-
-describe('PACE_CURVE_DISTANCES', () => {
-  it('distances are in ascending order', () => {
-    for (let i = 1; i < PACE_CURVE_DISTANCES.length; i++) {
-      expect(PACE_CURVE_DISTANCES[i].meters).toBeGreaterThan(PACE_CURVE_DISTANCES[i - 1].meters);
-    }
-  });
-});
-
-describe('SWIM_PACE_CURVE_DISTANCES', () => {
-  it('distances are in ascending order', () => {
-    for (let i = 1; i < SWIM_PACE_CURVE_DISTANCES.length; i++) {
-      expect(SWIM_PACE_CURVE_DISTANCES[i].meters).toBeGreaterThan(
-        SWIM_PACE_CURVE_DISTANCES[i - 1].meters
-      );
-    }
-  });
-});
-
-describe('POWER_CURVE_DURATIONS', () => {
-  it('durations are in ascending order', () => {
-    for (let i = 1; i < POWER_CURVE_DURATIONS.length; i++) {
-      expect(POWER_CURVE_DURATIONS[i].secs).toBeGreaterThan(POWER_CURVE_DURATIONS[i - 1].secs);
-    }
   });
 });

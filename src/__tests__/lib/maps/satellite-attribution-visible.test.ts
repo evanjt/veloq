@@ -12,6 +12,8 @@ import {
   getCombinedSatelliteAttribution,
   getCombinedSatelliteStyle,
 } from '@/features/maps/components/mapStyles';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 
 describe('satellite attribution names only what is drawn', () => {
   it('credits swisstopo alone over Valais, not IGN France underneath it', () => {
@@ -46,8 +48,55 @@ describe('satellite attribution names only what is drawn', () => {
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 8)).toContain('swisstopo');
   });
 
-  it('credits one source per point, never a list', () => {
+  it('credits one source for a point with no viewport extent', () => {
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 14)).not.toContain('|');
     expect(getCombinedSatelliteAttribution(48.8566, 2.3522, 14)).not.toContain('|');
+  });
+});
+
+describe('satellite attribution over a viewport', () => {
+  // Switzerland meets France at Geneva: the west edge draws IGN France and the
+  // east edge draws swisstopo, with the centre inside swisstopo.
+  const straddling: LngLatBounds = { sw: [5.7, 46.1], ne: [6.5, 46.3] };
+
+  it('credits every source drawn across a region border', () => {
+    const attribution = getCombinedSatelliteAttribution(46.2, 6.3, 12, straddling);
+
+    expect(attribution).toContain('swisstopo');
+    expect(attribution).toContain('IGN');
+  });
+
+  it('credits the global base where a corner of the viewport is over uncovered ground', () => {
+    const coast: LngLatBounds = { sw: [-8, 40], ne: [10, 52] };
+
+    expect(getCombinedSatelliteAttribution(46, 1, 8, coast)).toMatch(/EOX|Sentinel/i);
+  });
+
+  it('credits swisstopo alone for a viewport wholly inside Valais', () => {
+    const valais: LngLatBounds = { sw: [7.3, 46.2], ne: [7.4, 46.26] };
+    const attribution = getCombinedSatelliteAttribution(46.23, 7.36, 14, valais);
+
+    expect(attribution).toContain('swisstopo');
+    expect(attribution).not.toContain('IGN');
+    expect(attribution).not.toMatch(/EOX|Sentinel/i);
+  });
+
+  it('lists each source once, in stack order', () => {
+    const parts = getCombinedSatelliteAttribution(46.2, 6.3, 12, straddling).split(' | ');
+
+    expect(new Set(parts).size).toBe(parts.length);
+  });
+
+  it('is passed through computeAttribution as the viewport bounds', () => {
+    const text = computeAttribution({
+      style: 'satellite',
+      is3D: false,
+      center: [6.3, 46.2],
+      zoom: 12,
+      bounds: straddling,
+    });
+
+    expect(text).toContain('swisstopo');
+    expect(text).toContain('IGN');
   });
 });

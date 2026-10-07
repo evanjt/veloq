@@ -12,6 +12,7 @@
 import {
   GROUPING_DEFAULTS,
   GROUPING_PARAM_RANGES,
+  isPastGroupingRange,
   paintPreview,
   parseGroupingInput,
 } from '@/features/routes/lib/groupingParams';
@@ -110,5 +111,15 @@ describe('the ranges the sliders cover', () => {
       expect(GROUPING_DEFAULTS[key]).toBeGreaterThanOrEqual(range.min);
       expect(GROUPING_DEFAULTS[key]).toBeLessThanOrEqual(range.max);
     }
+  });
+});
+
+describe('isPastGroupingRange', () => {
+  it('is true only outside the slider bounds', () => {
+    expect(isPastGroupingRange('minMatchPercentage', 80)).toBe(true);
+    expect(isPastGroupingRange('minMatchPercentage', 40)).toBe(true);
+    expect(isPastGroupingRange('minMatchPercentage', 65)).toBe(false);
+    expect(isPastGroupingRange('endpointThreshold', 500)).toBe(true);
+    expect(isPastGroupingRange('endpointThreshold', 180)).toBe(false);
   });
 });

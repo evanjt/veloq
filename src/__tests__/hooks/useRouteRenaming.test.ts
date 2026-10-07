@@ -58,10 +58,22 @@ it('rejects a name another route already holds', () => {
   expect(Alert.alert).toHaveBeenCalled();
 });
 
-it('accepts the route keeping its own name', () => {
-  getAllRouteNames.mockReturnValue({ 'route-1': 'River Loop' });
+it('writes nothing when the field is saved unchanged', () => {
+  getAllRouteNames.mockReturnValue({ 'route-1': 'Route 3' });
 
-  const hook = renderHook(() => useRouteRenaming('route-1', 'River Loop', t));
+  const hook = renderHook(() => useRouteRenaming('route-1', 'Route 3', t));
+  act(() => (hook.result.current as ReturnType<typeof useRouteRenaming>).handleStartEditing());
+  act(() => (hook.result.current as ReturnType<typeof useRouteRenaming>).handleSaveName());
+
+  expect(setRouteName).not.toHaveBeenCalled();
+  expect(Alert.alert).not.toHaveBeenCalled();
+});
+
+it('writes when the field is edited away from the name it opened with', () => {
+  getAllRouteNames.mockReturnValue({ 'route-1': 'Route 3' });
+
+  const hook = renderHook(() => useRouteRenaming('route-1', 'Route 3', t));
+  act(() => (hook.result.current as ReturnType<typeof useRouteRenaming>).handleStartEditing());
   rename(hook, 'River Loop');
 
   expect(setRouteName).toHaveBeenCalledWith('route-1', 'River Loop');

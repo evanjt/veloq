@@ -6,7 +6,7 @@
  */
 
 import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
-import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
+import { formatGpsSyncProgress } from '@/features/maps/lib/syncProgressFormat';
 
 import type { TFunction } from 'i18next';
 const t = ((key: string, opts?: Record<string, unknown>) =>

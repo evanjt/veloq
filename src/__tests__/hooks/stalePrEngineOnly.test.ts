@@ -39,7 +39,42 @@ describe('generateStalePRInsights', () => {
     const insights = generateStalePRInsights([ROW], t, NOW);
 
     expect(insights).toHaveLength(1);
-    expect(insights[0].id).toBe('stale_pr-s1');
+    expect(insights[0].id).toBe('stale_pr-s1:Ride');
+  });
+
+  /**
+   * The engine fills each row's recent efforts so the card has a line to draw
+   * at list render, and the generator copies the row before building the card.
+   */
+  it('draws the single card from the efforts the row carries', () => {
+    const row: StalePrOpportunity = {
+      ...ROW,
+      recentEfforts: [
+        { value: 281, date: 1_700_000_000 },
+        { value: 274, date: 1_700_600_000 },
+        { value: 263, date: 1_701_200_000 },
+      ],
+    };
+
+    const [card] = generateStalePRInsights([row], t, NOW);
+
+    expect(card.supportingData?.sparklineData).toEqual([281, 274, 263]);
+    expect(card.supportingData?.sparklineLabel).toBe('insights.data.recentEfforts');
+  });
+
+  it('carries no line when the row has too few efforts to draw one', () => {
+    const row: StalePrOpportunity = {
+      ...ROW,
+      recentEfforts: [
+        { value: 281, date: 1_700_000_000 },
+        { value: 263, date: 1_701_200_000 },
+      ],
+    };
+
+    const [card] = generateStalePRInsights([row], t, NOW);
+
+    expect(card.supportingData?.sparklineData).toBeUndefined();
+    expect(card.supportingData?.sparklineLabel).toBeUndefined();
   });
 
   it('renders nothing when the bundle carries none, rather than deciding for itself', () => {

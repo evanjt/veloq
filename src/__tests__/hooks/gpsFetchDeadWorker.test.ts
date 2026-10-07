@@ -19,12 +19,6 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => null,
 }));
 
-// The run never reaches a pass: the retry wrapper answers null, which is what
-// a dead store thread leaves behind.
-jest.mock('@/features/routes/lib/gpsFetchRetry', () => ({
-  fetchWithRetry: jest.fn(async () => null),
-}));
-
 jest.mock('@/features/routes/lib/gpsDownloadPoll', () => ({
   abandonDownload: jest.fn(),
   pollDownloadProgress: jest.fn(async () => 'settled'),

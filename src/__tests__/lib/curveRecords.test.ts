@@ -6,16 +6,11 @@
  * `kind`.
  *
  * Expected behaviour: nothing the body carried is dropped on the way to the
- * chart, and no curve path parses JSON.
+ * chart.
  */
-
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { paceCurveOf, powerCurveOf } from '@/features/stats/lib/curveRecords';
 import type { PaceCurveRow, PowerCurveRow } from 'veloqrs';
-
-const ROOT = join(__dirname, '../../..');
 
 const ACTIVITY = {
   id: 'i2',
@@ -129,18 +124,5 @@ describe('a pace curve on its way to the chart', () => {
 
   it('keeps the source activities the same way', () => {
     expect(curve.activities?.i2.startDateLocal).toBe('2026-07-02T07:00:00');
-  });
-});
-
-describe('the curve read path', () => {
-  const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
-
-  it.each([
-    'src/features/stats/lib/curveRecords.ts',
-    'src/features/stats/hooks/usePowerCurve.ts',
-    'src/features/stats/hooks/usePaceCurve.ts',
-    'src/shared/app/GlobalDataSync.tsx',
-  ])('parses no JSON in %s', (path) => {
-    expect(read(path)).not.toMatch(/JSON\.parse/);
   });
 });

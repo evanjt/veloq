@@ -1,11 +1,3 @@
-/**
- * Scenario: the recording library detail screen decides which buttons to draw.
- *
- * Expected behaviour: an uploaded recording no longer offers to share its FIT.
- * The upload discards the file, so the button would hand a dead path to the
- * share sheet and fail into an empty catch.
- */
-
 import { recordingActions } from '@/features/recording/lib/recordingActions';
 import type { RecordingLibraryEntry, RecordingUploadStatus } from '@/types';
 
@@ -34,14 +26,12 @@ const ALL_STATUSES: Record<RecordingUploadStatus, true> = {
   permissionBlocked: true,
 };
 
-const KEEPS_ITS_FIT = (Object.keys(ALL_STATUSES) as RecordingUploadStatus[]).filter(
-  (s) => s !== 'uploaded'
-);
+const KEEPS_ITS_FIT = Object.keys(ALL_STATUSES) as RecordingUploadStatus[];
 
 describe('recordingActions', () => {
-  it('drops the share action once the recording has uploaded', () => {
+  it('shares the retained FIT while an uploaded recording awaits confirmation', () => {
     const actions = recordingActions({ ...ENTRY, uploadStatus: 'uploaded' }, null);
-    expect(actions.canShare).toBe(false);
+    expect(actions.canShare).toBe(true);
     expect(actions.canUpload).toBe(false);
   });
 
@@ -49,6 +39,11 @@ describe('recordingActions', () => {
     for (const uploadStatus of KEEPS_ITS_FIT) {
       expect(recordingActions({ ...ENTRY, uploadStatus }, null).canShare).toBe(true);
     }
+  });
+
+  it('does not share a manual recording or a FIT without a path', () => {
+    expect(recordingActions({ ...ENTRY, kind: 'manual', fitPath: '' }, null).canShare).toBe(false);
+    expect(recordingActions({ ...ENTRY, fitPath: '' }, null).canShare).toBe(false);
   });
 
   it('treats an in-flight upload as uploading from either source', () => {

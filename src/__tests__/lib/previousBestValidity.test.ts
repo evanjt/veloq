@@ -20,6 +20,9 @@ function record(activityId: string, bestTime: number): SectionPerformanceRecord 
     lapCount: 1,
     bestTime,
     bestPace: bestTime > 0 ? 1000 / bestTime : 0,
+    bestForwardTime: bestTime,
+    bestReverseTime: null,
+    direction: 'same',
   } as unknown as SectionPerformanceRecord;
 }
 

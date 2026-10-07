@@ -1,5 +1,12 @@
 import { createAutoPauseDetector, type AutoPauseConfig } from '@/features/recording/lib/autoPause';
 
+// A detector that has already seen the ride move, so a stop is a pause candidate.
+function moved(config: AutoPauseConfig) {
+  const detector = createAutoPauseDetector(config);
+  detector.update(config.speedThreshold + 1, 0);
+  return detector;
+}
+
 describe('createAutoPauseDetector', () => {
   const defaultConfig: AutoPauseConfig = {
     enabled: true,
@@ -9,7 +16,7 @@ describe('createAutoPauseDetector', () => {
 
   describe('pause signal', () => {
     it('returns pause when speed below threshold for full duration', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       // Below threshold but not long enough yet
       expect(detector.update(0.5, 0)).toBeNull();
@@ -21,16 +28,91 @@ describe('createAutoPauseDetector', () => {
     });
 
     it('returns pause exactly at the duration threshold', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       detector.update(0.5, 1000); // belowThresholdSince = 1000
       expect(detector.update(0.5, 6000)).toBe('pause'); // 6000 - 1000 = 5000
     });
   });
 
+  describe('before the first movement', () => {
+    it('never pauses a ride that has not moved yet', () => {
+      const detector = createAutoPauseDetector(defaultConfig);
+
+      expect(detector.update(0, 0)).toBeNull();
+      expect(detector.update(0, 5000)).toBeNull();
+      expect(detector.update(0.2, 60000)).toBeNull();
+      expect(detector.stoppedSince()).toBeNull();
+    });
+
+    it('pauses after the threshold once the ride has moved and then stopped', () => {
+      const detector = createAutoPauseDetector(defaultConfig);
+
+      detector.update(0, 0);
+      detector.update(2.0, 10000);
+      expect(detector.update(0.5, 11000)).toBeNull();
+      expect(detector.update(0.5, 16000)).toBe('pause');
+    });
+
+    it('counts a speed equal to the threshold as movement', () => {
+      const detector = createAutoPauseDetector(defaultConfig);
+
+      detector.update(1.0, 0);
+      detector.update(0.5, 1000);
+      expect(detector.update(0.5, 6000)).toBe('pause');
+    });
+
+    it('requires movement again after a reset', () => {
+      const detector = createAutoPauseDetector(defaultConfig);
+
+      detector.update(2.0, 0);
+      detector.reset();
+      expect(detector.update(0.5, 1000)).toBeNull();
+      expect(detector.update(0.5, 20000)).toBeNull();
+      detector.update(2.0, 21000);
+      detector.update(0.5, 22000);
+      expect(detector.update(0.5, 27000)).toBe('pause');
+    });
+
+    it('resumes a restored paused ride on movement', () => {
+      const detector = createAutoPauseDetector(defaultConfig, { paused: true });
+
+      expect(detector.update(0.5, 0)).toBeNull();
+      expect(detector.update(2.0, 1000)).toBe('resume');
+      detector.update(0.5, 2000);
+      expect(detector.update(0.5, 7000)).toBe('pause');
+    });
+  });
+
+  describe('stoppedSince', () => {
+    it('names the fix the stop began at, not the one that latched the pause', () => {
+      const detector = moved(defaultConfig);
+
+      expect(detector.update(3.0, 0)).toBeNull();
+      expect(detector.stoppedSince()).toBeNull();
+      detector.update(0.5, 1000);
+      detector.update(0.5, 3000);
+      expect(detector.update(0.5, 6000)).toBe('pause');
+      expect(detector.stoppedSince()).toBe(1000);
+    });
+
+    it('clears on a resume and on a reset', () => {
+      const detector = moved(defaultConfig);
+
+      detector.update(0.5, 0);
+      detector.update(0.5, 5000);
+      detector.update(2.0, 6000);
+      expect(detector.stoppedSince()).toBeNull();
+
+      detector.update(0.5, 7000);
+      detector.reset();
+      expect(detector.stoppedSince()).toBeNull();
+    });
+  });
+
   describe('resume signal', () => {
     it('returns resume when speed exceeds threshold after pause', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       // Trigger pause
       detector.update(0.5, 0);
@@ -41,7 +123,7 @@ describe('createAutoPauseDetector', () => {
     });
 
     it('returns null after resume when speed stays above threshold', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       // Trigger pause, then resume
       detector.update(0.5, 0);
@@ -56,7 +138,7 @@ describe('createAutoPauseDetector', () => {
 
   describe('resume hysteresis', () => {
     it('does not resume on speeds between the pause and resume thresholds', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
       const baseTime = 1000;
       detector.update(0.5, baseTime);
       expect(detector.update(0.5, baseTime + 5000)).toBe('pause');
@@ -72,7 +154,7 @@ describe('createAutoPauseDetector', () => {
 
   describe('debounce behavior', () => {
     it('does not pause if speed drops briefly then recovers', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       // Speed drops below threshold
       expect(detector.update(0.5, 0)).toBeNull();
@@ -90,7 +172,7 @@ describe('createAutoPauseDetector', () => {
     });
 
     it('resets timer on every above-threshold sample', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       // Alternating below/above keeps resetting the timer
       detector.update(0.5, 0);
@@ -115,7 +197,7 @@ describe('createAutoPauseDetector', () => {
         speedThreshold: 2.0,
         durationThreshold: 3000,
       };
-      const detector = createAutoPauseDetector(config);
+      const detector = moved(config);
 
       // 1.5 m/s is below 2.0 threshold
       expect(detector.update(1.5, 0)).toBeNull();
@@ -128,7 +210,7 @@ describe('createAutoPauseDetector', () => {
         speedThreshold: 1.0,
         durationThreshold: 10000,
       };
-      const detector = createAutoPauseDetector(config);
+      const detector = moved(config);
 
       detector.update(0.5, 0);
       expect(detector.update(0.5, 5000)).toBeNull(); // Not enough time
@@ -144,7 +226,7 @@ describe('createAutoPauseDetector', () => {
         speedThreshold: 1.0,
         durationThreshold: 5000,
       };
-      const detector = createAutoPauseDetector(config);
+      const detector = moved(config);
 
       expect(detector.update(0, 0)).toBeNull();
       expect(detector.update(0, 10000)).toBeNull();
@@ -157,7 +239,7 @@ describe('createAutoPauseDetector', () => {
         speedThreshold: 1.0,
         durationThreshold: 5000,
       };
-      const detector = createAutoPauseDetector(config);
+      const detector = moved(config);
 
       detector.update(0, 0);
       detector.update(0, 10000);
@@ -167,7 +249,7 @@ describe('createAutoPauseDetector', () => {
 
   describe('zero speed', () => {
     it('treats zero as below threshold and triggers pause', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       expect(detector.update(0, 0)).toBeNull();
       expect(detector.update(0, 5000)).toBe('pause');
@@ -176,7 +258,7 @@ describe('createAutoPauseDetector', () => {
 
   describe('negative speed', () => {
     it('treats negative speed as below threshold', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       expect(detector.update(-1, 0)).toBeNull();
       expect(detector.update(-5, 5000)).toBe('pause');
@@ -185,7 +267,7 @@ describe('createAutoPauseDetector', () => {
 
   describe('reset()', () => {
     it('clears internal state allowing pause to trigger again', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       // Trigger pause
       detector.update(0.5, 0);
@@ -197,13 +279,14 @@ describe('createAutoPauseDetector', () => {
       // Reset
       detector.reset();
 
-      // Can trigger pause again
+      // Can trigger pause again once the ride has moved
+      detector.update(2.0, 6500);
       detector.update(0.5, 7000);
       expect(detector.update(0.5, 12000)).toBe('pause');
     });
 
     it('clears belowThresholdSince timer', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       // Start accumulating below-threshold time
       detector.update(0.5, 0);
@@ -213,6 +296,7 @@ describe('createAutoPauseDetector', () => {
       detector.reset();
 
       // Timer should restart from scratch
+      detector.update(2.0, 3500);
       detector.update(0.5, 4000);
       expect(detector.update(0.5, 8000)).toBeNull(); // Only 4s since reset
       expect(detector.update(0.5, 9000)).toBe('pause'); // 5s since reset
@@ -221,7 +305,7 @@ describe('createAutoPauseDetector', () => {
 
   describe('only pauses once until resumed', () => {
     it('does not return pause repeatedly while speed stays low', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       detector.update(0.5, 0);
       expect(detector.update(0.5, 5000)).toBe('pause');
@@ -233,7 +317,7 @@ describe('createAutoPauseDetector', () => {
     });
 
     it('can pause again after resume', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       // First cycle: pause → resume
       detector.update(0.5, 0);
@@ -248,7 +332,7 @@ describe('createAutoPauseDetector', () => {
 
   describe('speed exactly at threshold', () => {
     it('does not pause when speed equals threshold', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       // speed === threshold (1.0) is NOT below threshold
       expect(detector.update(1.0, 0)).toBeNull();
@@ -259,7 +343,7 @@ describe('createAutoPauseDetector', () => {
 
   describe('stress edge cases', () => {
     it('rapid oscillation does not produce false pause signal', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
       let result = null;
 
       for (let i = 0; i < 40; i++) {
@@ -274,7 +358,7 @@ describe('createAutoPauseDetector', () => {
     });
 
     it('emits only one pause signal for extended stop', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
 
       const signals: string[] = [];
       // Simulate 1 hour at 0 speed, sampling every second
@@ -288,7 +372,7 @@ describe('createAutoPauseDetector', () => {
     });
 
     it('oscillation with period longer than threshold triggers pause', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
       const signals: string[] = [];
 
       // Below threshold for 6000ms (exceeds 5000ms threshold), then above
@@ -304,7 +388,7 @@ describe('createAutoPauseDetector', () => {
     });
 
     it('many pause/resume cycles maintain correct state', () => {
-      const detector = createAutoPauseDetector(defaultConfig);
+      const detector = moved(defaultConfig);
       const signals: string[] = [];
 
       // Run 10 complete pause/resume cycles

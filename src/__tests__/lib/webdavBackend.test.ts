@@ -89,7 +89,15 @@ afterEach(async () => {
 });
 
 describe('webdavBackend.upload', () => {
-  it('writes the database and its sidecar when the server accepts both', async () => {
+  it('names a record upload as a zip archive', async () => {
+    uploadAsync.mockResolvedValue({ status: 201 });
+    routeFetch({ MKCOL: () => response(405), PUT: () => response(201) });
+
+    await webdavBackend.upload('/docs/veloq-decisions.zip', METADATA);
+
+    expect(uploadAsync.mock.calls[0][0]).toMatch(/\.zip$/);
+  });
+  it('writes the record archive and its sidecar when the server accepts both', async () => {
     uploadAsync.mockResolvedValue({ status: 201 });
     const fetchMock = routeFetch({
       MKCOL: () => response(405),
@@ -97,20 +105,18 @@ describe('webdavBackend.upload', () => {
     });
 
     await expect(
-      webdavBackend.upload('/cache/snapshot.veloqdb', METADATA)
+      webdavBackend.upload('/docs/veloq-decisions.zip', METADATA)
     ).resolves.toBeUndefined();
 
     const [fileUrl, localPath, options] = uploadAsync.mock.calls[0];
-    expect(fileUrl).toBe(`${SERVER}Veloq/veloq-2026-08-05T10-00-00-000Z.veloqdb`);
-    expect(localPath).toBe('/cache/snapshot.veloqdb');
+    expect(fileUrl).toBe(`${SERVER}Veloq/veloq-2026-08-05T10-00-00-000Z.zip`);
+    expect(localPath).toBe('/docs/veloq-decisions.zip');
     expect(options.httpMethod).toBe('PUT');
     expect(options.headers.Authorization).toMatch(/^Basic /);
 
     const sidecar = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT');
-    expect(sidecar?.[0]).toMatch(/\.veloqdb\.meta\.json$/);
-    expect(JSON.parse(String(sidecar?.[1]?.body)).id).toBe(
-      'veloq-2026-08-05T10-00-00-000Z.veloqdb'
-    );
+    expect(sidecar?.[0]).toMatch(/\.zip\.meta\.json$/);
+    expect(JSON.parse(String(sidecar?.[1]?.body)).id).toBe('veloq-2026-08-05T10-00-00-000Z.zip');
   });
 
   it('fails when the database PUT is rejected with 401', async () => {
@@ -195,6 +201,24 @@ describe('webdavBackend.listBackups', () => {
     );
   });
 
+  it('sends no credential to an absolute href on another scheme or host', async () => {
+    const xml = propfind([
+      SERVER.replace('https:', 'http:') + 'Veloq/veloq-plain.veloqdb.meta.json',
+      'https://other.example.org/dav/Veloq/veloq-foreign.veloqdb.meta.json',
+      new URL(SERVER).pathname + 'Veloq/veloq-ok.veloqdb.meta.json',
+    ]);
+    const fetchMock = routeFetch({
+      PROPFIND: () => response(207, xml),
+      GET: () => response(200, entryJson('veloq-ok.veloqdb', '2026-08-05T10:00:00.000Z')),
+    });
+
+    const entries = await webdavBackend.listBackups();
+
+    const gets = fetchMock.mock.calls.filter(([, init]) => !init?.method).map(([url]) => url);
+    expect(gets).toEqual([`${SERVER}Veloq/veloq-ok.veloqdb.meta.json`]);
+    expect(entries.map((e) => e.id)).toEqual(['veloq-ok.veloqdb']);
+  });
+
   it('reports a rejected PROPFIND instead of returning an empty list', async () => {
     routeFetch({ PROPFIND: () => response(401) });
 
@@ -266,5 +290,21 @@ describe('webdavBackend.delete', () => {
     await webdavBackend.delete('veloq-old.veloqdb');
 
     expect(mockWarn).not.toHaveBeenCalled();
+  });
+});
+
+describe('webdavBackend credentials', () => {
+  it('lists with a UTF-8 Basic header for a password outside Latin-1', async () => {
+    await setWebdavConfig(SERVER, 'anna', 'pałac');
+    const fetchMock = routeFetch({
+      PROPFIND: () => response(207, propfind([])),
+    });
+
+    await webdavBackend.listBackups();
+
+    const headers = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe(
+      `Basic ${Buffer.from('anna:pałac', 'utf8').toString('base64')}`
+    );
   });
 });

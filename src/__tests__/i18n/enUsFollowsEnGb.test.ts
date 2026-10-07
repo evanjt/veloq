@@ -11,8 +11,10 @@
  * A divergence is legitimate and is recorded below. Adding a key to that list
  * is the deliberate act the guard exists to force.
  */
+import { resolvedLocale } from './resolvedLocale';
 import enGB from '@/i18n/locales/en-GB.json';
-import enUS from '@/i18n/locales/en-US.json';
+
+const enUS = resolvedLocale('en-US');
 
 /** Spelling that simply differs between the orthographies. */
 const SPELLING = [
@@ -20,26 +22,40 @@ const SPELLING = [
   'about.thirdPartyLicenses',
   'cache.analyzingRoutes',
   'cache.finalizingHeatmap',
-  'cache.syncedStillAnalysing',
+  'cache.syncedStillAnalysing_one',
+  'cache.syncedStillAnalysing_other',
+  'engine.initFailed',
+  'fitness.stripGloss',
+  'formZones.greyZone',
   'insights.noInsightsHint',
+  'insights.efficiencyTrend.changeBody',
+  'insights.efficiencyTrend.changeSubtitle',
   'insights.strengthSnapshot.methodologyDescription',
   'licenses.footer',
   'licenses.intro',
   'licenses.sectionSpecialLicenses',
   'licenses.title',
   'maps.colorByGradient',
-  'routes.analysingRoutes',
+  'recording.batteryOptNudge',
   'routes.routesWillAppear',
+  'sectionHistory.kind_algorithm_changed',
   'settings.customiseByActivity',
+  'settings.exportPrivacyRadius',
   'settings.previewKeepWarning',
-  'settings.previewPoolCost',
-  'settings.previewRunning',
-  'settings.previewStaleCatalogue',
+  'settings.previewPoolCost_one',
+  'settings.previewPoolCost_other',
+  'settings.previewRunning_one',
+  'settings.previewRunning_other',
+  'settings.previewStaleCatalogue_one',
+  'settings.previewStaleCatalogue_other',
   'settings.reanalyzeSections',
   'settings.unitsMetricHint',
   'whatsNew.v022.fitnessBody',
+  'whatsNew.v030.insightsBody',
+  'whatsNew.v030.strengthBody',
   'whatsNew.v040.phaseDiffing',
   'whatsNew.v040.phasePreparing',
+  'whatsNew.v040.recutFailedAfterApply',
   'whatsNew.v040.recutRunning',
   'whatsNew.v040.recutRunningPhase',
 ];

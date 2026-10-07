@@ -60,6 +60,13 @@ const FRANCE: Point[] = [
   { name: 'Ax-les-Thermes', lat: 42.72, lng: 1.838 },
   { name: 'Luchon', lat: 42.79, lng: 0.594 },
   { name: 'Cauterets', lat: 42.89, lng: -0.114 },
+  { name: 'Gavarnie', lat: 42.733, lng: -0.011 },
+  { name: 'Gèdre', lat: 42.787, lng: 0.02 },
+  { name: 'Piau-Engaly', lat: 42.785, lng: 0.157 },
+  { name: 'Aragnouet', lat: 42.79, lng: 0.23 },
+  { name: 'Sainte-Engrâce', lat: 43.0, lng: -0.811 },
+  { name: 'Larrau', lat: 43.018, lng: -0.955 },
+  { name: 'Iraty chalets', lat: 43.03, lng: -1.07 },
   { name: 'Pau', lat: 43.296, lng: -0.37 },
   { name: 'Hendaye', lat: 43.365, lng: -1.775 },
   { name: 'Marseille', lat: 43.296, lng: 5.37 },
@@ -83,6 +90,14 @@ const NOT_FRANCE: Point[] = [
   { name: 'Pamplona', lat: 42.813, lng: -1.646 },
   { name: 'San Sebastián', lat: 43.321, lng: -1.984 },
   { name: 'Huesca', lat: 42.14, lng: -0.409 },
+  { name: 'Torla', lat: 42.637, lng: -0.105 },
+  { name: 'Bielsa', lat: 42.63, lng: 0.21 },
+  { name: 'Isaba', lat: 42.857, lng: -0.87 },
+  // Spanish ground inside the extents of the French-valley boxes, where IGN
+  // answers 200 with an all-white tile that would paint over PNOA.
+  { name: 'Bujaruelo valley', lat: 42.69, lng: -0.1 },
+  { name: 'Pineta cirque', lat: 42.685, lng: 0.09 },
+  { name: 'Orbaizeta', lat: 42.975, lng: -1.225 },
   { name: 'Salamanca', lat: 40.966, lng: -5.664 },
 ];
 

@@ -14,8 +14,9 @@ import {
   formatPaceFromSecsPerKm,
   formatSwimPace,
 } from '@/shared/format/format';
-import { getIndexAtDuration, getPowerAtDuration } from '@/features/stats/hooks/usePowerCurve';
+import { getIndexAtDuration } from '@/features/stats/hooks/usePowerCurve';
 import type { PowerCurve } from '@/types';
+import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 
 describe('formatMinSec', () => {
   it('carries a rounded 60 up to the next minute', () => {
@@ -46,39 +47,36 @@ describe('formatMinSec', () => {
 
 describe('every pace formatter shares that split', () => {
   it('agrees with formatMinSec on the seconds-per-km scalar', () => {
-    expect(formatPaceFromSecsPerKm(119.7)).toBe(formatMinSec(119.7));
-    expect(formatPaceFromSecsPerKm(330)).toBe(formatMinSec(330));
+    expect(formatPaceFromSecsPerKm(119.7, true)).toBe(formatMinSec(119.7));
+    expect(formatPaceFromSecsPerKm(330, true)).toBe(formatMinSec(330));
   });
 
   it('agrees with formatMinSec on a speed, compact and with a unit', () => {
     const metresPerSecond = 1000 / 330;
-    expect(formatPaceCompact(metresPerSecond)).toBe(formatMinSec(330));
-    expect(formatPace(metresPerSecond)).toBe(`${formatMinSec(330)} /km`);
+    expect(formatPaceCompact(metresPerSecond, true)).toBe(formatMinSec(330));
+    expect(formatPace(metresPerSecond, true)).toBe(`${formatMinSec(330)} /km`);
   });
 
   it('agrees with formatMinSec on swim pace per 100 m', () => {
     const metresPerSecond = 100 / 95;
-    expect(formatSwimPace(metresPerSecond)).toBe(formatMinSec(95));
+    expect(formatSwimPace(metresPerSecond, true)).toBe(formatMinSec(95));
   });
 
   it('carries the swim-pace rounding the same way, at 119.5 s per 100 m', () => {
     // Was `paceToMinPer100m`'s own case before that formatter was collapsed
     // into `formatSwimPace`: the remainder rounds to 60 and must carry.
-    expect(formatSwimPace(100 / 119.5)).toBe('2:00');
+    expect(formatSwimPace(100 / 119.5, true)).toBe('2:00');
   });
 
   it('keeps rejecting a non-physical or absent pace', () => {
-    expect(formatSwimPace(0)).toBe('--:--');
-    expect(formatPaceFromSecsPerKm(-1)).toBe('--:--');
-    expect(formatPaceCompact(Number.NaN)).toBe('--:--');
+    expect(formatSwimPace(0, true)).toBe('--:--');
+    expect(formatPaceFromSecsPerKm(-1, true)).toBe('--:--');
+    expect(formatPaceCompact(Number.NaN, true)).toBe('--:--');
   });
 });
 
-describe('one duration search behind the power curve readers', () => {
+describe('duration search behind the power curve readers', () => {
   it('answers null for an empty curve rather than undefined', () => {
-    // `number | null` is the declared return, and the hand-rolled closest-match
-    // walk fell through to `watts[0]` on an empty `secs`, which is undefined.
-    expect(getPowerAtDuration({ secs: [], watts: [] } as unknown as PowerCurve, 60)).toBeNull();
     expect(getIndexAtDuration({ secs: [], watts: [] } as unknown as PowerCurve, 60)).toBeNull();
   });
 
@@ -86,21 +84,42 @@ describe('one duration search behind the power curve readers', () => {
     const curve = { secs: [5, 60, 300], watts: [900, 400, 300] } as unknown as PowerCurve;
 
     expect(getIndexAtDuration(curve, 60)).toBe(1);
-    expect(getPowerAtDuration(curve, 60)).toBe(400);
   });
 
-  it('takes the closest duration when it does not, and both agree which', () => {
+  it('takes the closest duration when it does not', () => {
     const curve = { secs: [5, 60, 300], watts: [900, 400, 300] } as unknown as PowerCurve;
 
-    for (const wanted of [1, 40, 100, 280, 9000]) {
-      const index = getIndexAtDuration(curve, wanted);
-      expect(index).not.toBeNull();
-      expect(getPowerAtDuration(curve, wanted)).toBe(curve.watts[index as number]);
-    }
+    expect(getIndexAtDuration(curve, 1)).toBe(0);
+    expect(getIndexAtDuration(curve, 100)).toBe(1);
+    expect(getIndexAtDuration(curve, 9000)).toBe(2);
   });
 
   it('answers null when the curve is absent', () => {
-    expect(getPowerAtDuration(undefined, 60)).toBeNull();
     expect(getIndexAtDuration(undefined, 60)).toBeNull();
+  });
+});
+
+describe('the activity chart pace formatters share that split', () => {
+  // Minutes per km, as the pace and GAP streams carry them. 4.995 is 4 min
+  // 59.7 s, which the hand-rolled split printed as "4:60".
+  it.each([
+    [4.995, '5:00'],
+    [1.995, '2:00'],
+    [2.9917, '3:00'],
+    [5.5, '5:30'],
+    [0, '0:00'],
+  ])('formats %d min as %s on the pace and GAP charts', (minutes, expected) => {
+    expect(CHART_CONFIGS.pace.formatValue?.(minutes, true)).toBe(expected);
+    expect(CHART_CONFIGS.gap.formatValue?.(minutes, true)).toBe(expected);
+  });
+
+  it('never emits a seconds field of 60 on either chart', () => {
+    for (let tenths = 0; tenths <= 6000; tenths++) {
+      const minutes = tenths / 600;
+      for (const config of [CHART_CONFIGS.pace, CHART_CONFIGS.gap]) {
+        const formatted = config.formatValue?.(minutes, true) ?? '';
+        expect(formatted).toBe(formatMinSec(minutes * 60));
+      }
+    }
   });
 });

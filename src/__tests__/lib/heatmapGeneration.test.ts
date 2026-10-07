@@ -9,14 +9,16 @@
  */
 
 import {
+  clearHeatmapView,
   heatmapGeneration,
   subscribeHeatmapGeneration,
 } from '@/features/maps/lib/heatmapGeneration';
-import { heatmapTileTemplate } from '@/features/maps/hooks/useHeatmapTiles';
+import { heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { buildRegionalSources } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 
 type MockListener = (payload?: unknown) => void;
 const mockListeners = new Map<string, Set<MockListener>>();
+const mockClearPriorityView = jest.fn();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
@@ -27,6 +29,7 @@ jest.mock('veloqrs', () =>
         mockListeners.set(event, forEvent);
         return () => forEvent.delete(callback);
       }),
+      clearHeatmapPriorityView: () => mockClearPriorityView(),
     },
   })
 );
@@ -40,8 +43,8 @@ const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 const sources = (generation: number) =>
   buildRegionalSources({
     markersGeoJSON: empty,
-    startPointsGeoJSON: empty,
     sectionsGeoJSON: empty,
+    routesGeoJSON: empty,
     userLocationGeoJSON: empty,
     routeGeoJSON: empty,
     spiderPointsGeoJSON: empty,
@@ -86,4 +89,10 @@ it('puts the generation in the raster source the map declares', () => {
   const raster = sources(4)['heatmap-tiles'] as { tiles: string[] };
 
   expect(raster.tiles[0]).toContain('?v=4');
+});
+
+it('clears the engine priority view when the map leaves', () => {
+  clearHeatmapView();
+
+  expect(mockClearPriorityView).toHaveBeenCalledTimes(1);
 });

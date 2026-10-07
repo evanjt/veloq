@@ -1,4 +1,4 @@
-import { haversineDistance, simplifyPolyline } from '@/shared/math/geometry';
+import { haversineDistance } from '@/shared/math/geometry';
 
 describe('haversineDistance', () => {
   it('returns 0 for the same point', () => {
@@ -32,55 +32,5 @@ describe('haversineDistance', () => {
     const a = { lat: 40.7128, lng: -74.006 };
     const b = { lat: 51.5074, lng: -0.1278 };
     expect(haversineDistance(a, b)).toBeCloseTo(haversineDistance(b, a), 6);
-  });
-});
-
-describe('simplifyPolyline', () => {
-  it('returns input unchanged for <= 2 points', () => {
-    const single = [{ lat: 0, lng: 0 }];
-    expect(simplifyPolyline(single)).toBe(single);
-
-    const pair = [
-      { lat: 0, lng: 0 },
-      { lat: 1, lng: 1 },
-    ];
-    expect(simplifyPolyline(pair)).toBe(pair);
-  });
-
-  it('keeps only endpoints for a straight line', () => {
-    const straight = [
-      { lat: 0, lng: 0 },
-      { lat: 0.5, lng: 0.5 },
-      { lat: 1, lng: 1 },
-    ];
-    const result = simplifyPolyline(straight, 10);
-    expect(result.length).toBe(2);
-    expect(result[0]).toBe(straight[0]);
-    expect(result[1]).toBe(straight[2]);
-  });
-
-  it('preserves endpoints', () => {
-    const points = [
-      { lat: 0, lng: 0 },
-      { lat: 0.5, lng: 0.5 },
-      { lat: 1, lng: 1 },
-      { lat: 1.5, lng: 1 },
-      { lat: 2, lng: 0 },
-    ];
-    const result = simplifyPolyline(points, 5);
-    expect(result[0]).toBe(points[0]);
-    expect(result[result.length - 1]).toBe(points[points.length - 1]);
-  });
-
-  it('tolerance=0 keeps all points that deviate from line', () => {
-    // With tolerance=0, any point not exactly on the line is kept
-    const points = [
-      { lat: 0, lng: 0 },
-      { lat: 0.5, lng: 0.001 }, // tiny deviation
-      { lat: 1, lng: 0 },
-    ];
-    const result = simplifyPolyline(points, 0);
-    // The middle point deviates from the endpoint-to-endpoint line, so it's kept
-    expect(result.length).toBe(3);
   });
 });

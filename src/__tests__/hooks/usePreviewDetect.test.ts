@@ -7,11 +7,10 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
-import { isRetryableStart, StartOutcome } from 'veloqrs';
+import { isRetryableStart, StartOutcome, type StartVerdict } from 'veloqrs';
 import {
   PREVIEW_LAPSE_AFTER_MS,
   PREVIEW_POLL_INTERVAL_MS,
-  PREVIEW_TIMEOUT_MS,
   usePreviewDetect,
 } from '@/features/routes/hooks/usePreviewDetect';
 import type {
@@ -98,6 +97,8 @@ function makeClient(over: Partial<PreviewClient> = {}) {
   };
 }
 
+const LONG_RUN_MS = 10 * 60_000;
+
 describe('usePreviewDetect', () => {
   beforeEach(() => {
     finishListeners = new Set();
@@ -175,7 +176,8 @@ describe('usePreviewDetect', () => {
     });
 
     expect(client.getPreviewProgress).not.toHaveBeenCalled();
-    expect(jest.getTimerCount()).toBe(0);
+    // Only the fallback status poll is left, and it carries no progress read.
+    expect(jest.getTimerCount()).toBe(1);
   });
 
   it('stops reading phases once the run settles', () => {
@@ -301,13 +303,28 @@ describe('usePreviewDetect', () => {
     const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.Held) });
     const { result } = renderHook(() => usePreviewDetect(client));
 
-    let outcome = StartOutcome.Started;
+    let outcome: StartVerdict = StartOutcome.Started;
     act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
     expect(outcome).toBe(StartOutcome.Held);
-    expect(result.current.suspended).toBe(true);
+    expect(result.current.refusal).toBe(StartOutcome.Held);
+    expect(result.current.status).toBe('idle');
+  });
+
+  it('keeps the retry time of a refused preview start', () => {
+    const held = { outcome: StartOutcome.Held, retryAtMs: 1_500_000 };
+    const client = makeClient({ startPreviewDetect: jest.fn(() => held) });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    let outcome: StartVerdict = StartOutcome.Started;
+    act(() => {
+      outcome = result.current.start(10, 20, PARAMS);
+    });
+
+    expect(outcome).toEqual(held);
+    expect(result.current.refusal).toEqual(held);
     expect(result.current.status).toBe('idle');
   });
 
@@ -315,27 +332,56 @@ describe('usePreviewDetect', () => {
     const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.Busy) });
     const { result } = renderHook(() => usePreviewDetect(client));
 
-    let outcome = StartOutcome.Started;
+    let outcome: StartVerdict = StartOutcome.Started;
     act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
     expect(outcome).toBe(StartOutcome.Busy);
-    expect(result.current.suspended).toBe(true);
+    expect(result.current.refusal).toBe(StartOutcome.Busy);
   });
 
   it('does not read a point nothing covers as something that will lift', () => {
     const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.NotOwed) });
     const { result } = renderHook(() => usePreviewDetect(client));
 
-    let outcome = StartOutcome.Started;
+    let outcome: StartVerdict = StartOutcome.Started;
     act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
     expect(outcome).toBe(StartOutcome.NotOwed);
-    expect(result.current.suspended).toBe(false);
+    expect(result.current.refusal).toBe(StartOutcome.NotOwed);
     expect(result.current.status).toBe('idle');
+  });
+
+  it('keeps a not-ready refusal as its own outcome', () => {
+    const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.NotReady) });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+
+    expect(result.current.refusal).toBe(StartOutcome.NotReady);
+  });
+
+  it('clears a refusal when the next start is accepted', () => {
+    const startPreviewDetect = jest
+      .fn()
+      .mockReturnValueOnce(StartOutcome.Held)
+      .mockReturnValueOnce(StartOutcome.Started);
+    const client = makeClient({ startPreviewDetect });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    expect(result.current.refusal).toBe(StartOutcome.Held);
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    expect(result.current.refusal).toBeNull();
   });
 
   it('surfaces an engine error and stops', () => {
@@ -414,7 +460,7 @@ describe('usePreviewDetect', () => {
     const client = makeClient({ getSectionConfig: jest.fn(() => null) });
     const { result } = renderHook(() => usePreviewDetect(client));
 
-    let outcome = StartOutcome.Started;
+    let outcome: StartVerdict = StartOutcome.Started;
     act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
@@ -583,6 +629,22 @@ describe('usePreviewDetect', () => {
       expect(result.current.result).toEqual(RESULT);
     });
 
+    it('does not lapse on a suspension shorter than its budget in awake time', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        jest.setSystemTime(Date.now() + PREVIEW_LAPSE_AFTER_MS * 4);
+        jest.advanceTimersByTime(PREVIEW_POLL_INTERVAL_MS);
+      });
+
+      expect(result.current.lapsed).toBe(false);
+      expect(client.pollPreviewDetect).not.toHaveBeenCalled();
+    });
+
     it('leaves the run live while the poll still reads running', () => {
       const client = makeClient();
       const { result } = renderHook(() => usePreviewDetect(client));
@@ -630,7 +692,7 @@ describe('usePreviewDetect', () => {
       expect(result.current.status).toBe('running');
     });
 
-    it('gives up at the timeout, and cancels the run it stopped following', () => {
+    it('never cancels a run that is still running, however long it takes', () => {
       const client = makeClient();
       const { result } = renderHook(() => usePreviewDetect(client));
 
@@ -638,15 +700,15 @@ describe('usePreviewDetect', () => {
         result.current.start(10, 20, PARAMS);
       });
       act(() => {
-        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS);
+        jest.advanceTimersByTime(LONG_RUN_MS);
       });
 
-      expect(result.current.status).toBe('error');
-      expect(result.current.progress).toBeNull();
-      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(result.current.status).toBe('running');
+      expect(result.current.lapsed).toBe(true);
+      expect(client.cancelPreviewDetect).not.toHaveBeenCalled();
     });
 
-    it('takes the poll answer at the timeout when the run had in fact ended', () => {
+    it('takes the result when a lapsed run finishes without its event', () => {
       const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'running');
       const client = makeClient({
         pollPreviewDetect,
@@ -657,9 +719,12 @@ describe('usePreviewDetect', () => {
       act(() => {
         result.current.start(10, 20, PARAMS);
       });
+      act(() => {
+        jest.advanceTimersByTime(LONG_RUN_MS);
+      });
       pollPreviewDetect.mockReturnValue('complete');
       act(() => {
-        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS);
+        jest.advanceTimersByTime(PREVIEW_POLL_INTERVAL_MS);
       });
 
       expect(result.current.status).toBe('complete');
@@ -685,7 +750,7 @@ describe('usePreviewDetect', () => {
       expect(result.current.status).toBe('complete');
 
       act(() => {
-        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS * 2);
+        jest.advanceTimersByTime(LONG_RUN_MS * 2);
       });
 
       expect(result.current.status).toBe('complete');
@@ -705,7 +770,7 @@ describe('usePreviewDetect', () => {
         result.current.cancel();
       });
       act(() => {
-        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS * 2);
+        jest.advanceTimersByTime(LONG_RUN_MS * 2);
       });
 
       expect(result.current.status).toBe('cancelled');
@@ -721,7 +786,7 @@ describe('usePreviewDetect', () => {
       });
       unmount();
       act(() => {
-        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS * 2);
+        jest.advanceTimersByTime(LONG_RUN_MS * 2);
       });
 
       expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);

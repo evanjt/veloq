@@ -232,3 +232,48 @@ describe('RecordingPreferencesStore', () => {
     });
   });
 });
+
+describe('RecordingPreferencesStore recorded sports', () => {
+  beforeEach(async () => {
+    useRecordingPreferences.setState({ recentActivityTypes: [], isLoaded: false });
+    await AsyncStorage.clear();
+  });
+
+  it('keeps every distinct sport recorded while the recents hold four', () => {
+    const { addRecentType } = useRecordingPreferences.getState();
+    for (const type of ['Ride', 'Run', 'Walk', 'Hike', 'Swim', 'Run']) {
+      addRecentType(type as never);
+    }
+    const state = useRecordingPreferences.getState();
+    expect(state.recentActivityTypes).toEqual(['Run', 'Swim', 'Hike', 'Walk']);
+    expect(state.recordedActivityTypes).toEqual(['Run', 'Swim', 'Hike', 'Walk', 'Ride']);
+  });
+
+  it('seeds the recorded list from the recents when an install has none', async () => {
+    await AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ recentActivityTypes: ['Run', 'Ride'] })
+    );
+    await initializeRecordingPreferences();
+    const state = useRecordingPreferences.getState();
+    expect(state.recordedActivityTypes).toEqual(['Run', 'Ride']);
+  });
+
+  it('restores every recorded sport after a reload, including after an unrelated change', async () => {
+    const { addRecentType, setAutoPause } = useRecordingPreferences.getState();
+    for (const type of ['Ride', 'Run', 'Walk', 'Hike', 'Swim']) {
+      addRecentType(type as never);
+    }
+    setAutoPause(false);
+    await new Promise((resolve) => setImmediate(resolve));
+    useRecordingPreferences.setState({
+      recentActivityTypes: [],
+      recordedActivityTypes: [],
+      isLoaded: false,
+    });
+    await initializeRecordingPreferences();
+    const state = useRecordingPreferences.getState();
+    expect(state.recentActivityTypes).toEqual(['Swim', 'Hike', 'Walk', 'Run']);
+    expect(state.recordedActivityTypes).toEqual(['Swim', 'Hike', 'Walk', 'Run', 'Ride']);
+  });
+});

@@ -22,18 +22,15 @@ jest.mock('veloqrs', () =>
 const section = {
   id: 's1',
   name: 'Church Hill',
-  sportType: 'Ride',
+  sportTypes: ['Ride'],
   polyline: [],
   distanceMeters: 1200,
   visitCount: 4,
 } as unknown as FrequentSection;
 
 it('hands the shared empty collection to every idle section source', () => {
-  const { result } = renderHook(() =>
-    useSectionMapLayers({ section, displayPoints: [], nearbyPolylines: [] })
-  );
+  const { result } = renderHook(() => useSectionMapLayers({ section, displayPoints: [] }));
 
-  expect(result.current.nearbyGeoJSON).toBe(EMPTY_FEATURE_COLLECTION);
   expect(result.current.allTracesFeatureCollection).toBe(EMPTY_FEATURE_COLLECTION);
   expect(result.current.hasAllTraces).toBe(false);
 });

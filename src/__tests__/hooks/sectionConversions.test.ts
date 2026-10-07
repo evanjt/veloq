@@ -2,113 +2,18 @@
  * Tests for convertNativeSectionToApp from sectionConversions.ts.
  */
 
-/**
- * Encode coordinates in the same delta+zigzag-varint format as the Rust side,
- * so mock FFI data matches the real ArrayBuffer shape.
- */
 import {
   convertNativeSectionToApp,
   convertSectionWithPolylineToApp,
-} from '@/features/routes/lib/sectionConversions';
+} from '@/shared/ffi/sectionConversions';
 import type { Section as NativeSection } from 'veloqrs';
 
-function encodeCoords(points: { latitude: number; longitude: number }[]): ArrayBuffer {
-  const SCALE = 1e7;
-  const bytes: number[] = [];
+import { encodeTrack } from '../__shared__/trackBytes';
 
-  function writeVarint(v: number) {
-    v = v >>> 0;
-    while (v > 0x7f) {
-      bytes.push((v & 0x7f) | 0x80);
-      v >>>= 7;
-    }
-    bytes.push(v & 0x7f);
-  }
-
-  function writeZigzag(v: number) {
-    writeVarint((v << 1) ^ (v >> 31));
-  }
-
-  writeVarint(points.length);
-  let prevLat = 0;
-  let prevLng = 0;
-  for (const p of points) {
-    const lat = Math.round(p.latitude * SCALE);
-    const lng = Math.round(p.longitude * SCALE);
-    writeZigzag(lat - prevLat);
-    writeZigzag(lng - prevLng);
-    prevLat = lat;
-    prevLng = lng;
-  }
-
-  return new Uint8Array(bytes).buffer;
-}
-
+// Real decoder, native binding stubbed out: the encoded bytes are the point.
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
-    decodeCoords: (buf: ArrayBuffer) => {
-      const SCALE = 1e7;
-      const bytes = new Uint8Array(buf);
-      let pos = 0;
-
-      function readVarint(): number {
-        let result = 0;
-        let shift = 0;
-        while (pos < bytes.length) {
-          const byte = bytes[pos++];
-          result |= (byte & 0x7f) << shift;
-          if ((byte & 0x80) === 0) break;
-          shift += 7;
-        }
-        return result >>> 0;
-      }
-
-      function readZigzag(): number {
-        const v = readVarint();
-        return (v >>> 1) ^ -(v & 1);
-      }
-
-      const count = readVarint();
-      const points: { latitude: number; longitude: number; elevation?: number }[] = [];
-      let lat = 0;
-      let lng = 0;
-      for (let i = 0; i < count; i++) {
-        if (pos >= bytes.length) break;
-        lat += readZigzag();
-        lng += readZigzag();
-        points.push({ latitude: lat / SCALE, longitude: lng / SCALE });
-      }
-
-      // Optional trailing elevation section: 0xE1 tag, mode byte (bit 0 =
-      // presence bitmap, bit 1 = exact f64 LE), then per-point payloads.
-      if (pos >= bytes.length || bytes[pos] !== 0xe1) return points;
-      pos++;
-      if (pos >= bytes.length) return points;
-      const mode = bytes[pos++];
-      const exact = (mode & 0b10) !== 0;
-      let bitmap: Uint8Array | null = null;
-      if ((mode & 0b01) !== 0) {
-        const len = Math.ceil(points.length / 8);
-        if (bytes.length < pos + len) return points;
-        bitmap = bytes.subarray(pos, pos + len);
-        pos += len;
-      }
-      const view = new DataView(buf);
-      let prev = 0;
-      for (let i = 0; i < points.length; i++) {
-        if (bitmap !== null && (bitmap[i >> 3] & (1 << (i % 8))) === 0) continue;
-        if (exact) {
-          if (bytes.length < pos + 8) return points;
-          points[i].elevation = view.getFloat64(pos, true);
-          pos += 8;
-        } else {
-          if (pos >= bytes.length) return points;
-          prev += readZigzag();
-          points[i].elevation = prev / 10;
-        }
-      }
-      return points;
-    },
+    decodeCoords: jest.requireActual('../../../modules/veloqrs/src/coords').decodeCoords,
   })
 );
 
@@ -129,8 +34,8 @@ function makeCatalogueSection(overrides: Record<string, unknown> = {}): NativeSe
   return {
     id: 'section-1',
     sectionType: 'auto',
-    sportType: 'Ride',
-    encodedPolyline: encodeCoords([
+    sportTypes: ['Ride'],
+    encodedPolyline: encodeTrack([
       { latitude: 48.0, longitude: 11.0 },
       { latitude: 48.1, longitude: 11.1 },
     ]),
@@ -160,8 +65,8 @@ function makeDatabaseSection(overrides: Record<string, unknown> = {}): NativeSec
   return {
     id: 'section-2',
     sectionType: 'custom',
-    sportType: 'Run',
-    encodedPolyline: encodeCoords([{ latitude: 47.0, longitude: 10.0 }]),
+    sportTypes: ['Run'],
+    encodedPolyline: encodeTrack([{ latitude: 47.0, longitude: 10.0 }]),
     representativeActivityId: null,
     activityIds: ['act-3'],
     activityPortions: [],
@@ -192,7 +97,7 @@ describe('convertNativeSectionToApp', () => {
 
     expect(result.id).toBe('section-1');
     expect(result.sectionType).toBe('auto');
-    expect(result.sportType).toBe('Ride');
+    expect(result.sportTypes).toEqual(['Ride']);
     expect(result.polyline).toHaveLength(2);
     expect(result.representativeActivityId).toBe('act-1');
     expect(result.activityIds).toEqual(['act-1', 'act-2']);
@@ -301,7 +206,7 @@ describe('convertNativeSectionToApp', () => {
 
   it('decodes encodedPolyline to RoutePoint array', () => {
     const native = makeCatalogueSection({
-      encodedPolyline: encodeCoords([
+      encodedPolyline: encodeTrack([
         { latitude: 1.0, longitude: 2.0 },
         { latitude: 3.0, longitude: 4.0 },
         { latitude: 5.0, longitude: 6.0 },
@@ -315,19 +220,13 @@ describe('convertNativeSectionToApp', () => {
     expect(result.polyline[2]).toEqual({ lat: 5.0, lng: 6.0 });
   });
 
-  it('decodes a polyline carrying the trailing elevation section unchanged', () => {
-    const base = new Uint8Array(
-      encodeCoords([
-        { latitude: 1.0, longitude: 2.0 },
+  it('decodes a polyline carrying elevations to the same coordinates', () => {
+    const native = makeCatalogueSection({
+      encodedPolyline: encodeTrack([
+        { latitude: 1.0, longitude: 2.0, elevation: 100.0 },
         { latitude: 3.0, longitude: 4.0 },
-      ])
-    );
-    const suffix = [0xe1, 0x00, 0xd0, 0x0f, 0x0a];
-    const withElevation = new Uint8Array(base.length + suffix.length);
-    withElevation.set(base);
-    withElevation.set(suffix, base.length);
-
-    const native = makeCatalogueSection({ encodedPolyline: withElevation.buffer });
+      ]),
+    });
     const result = convertNativeSectionToApp(native);
 
     expect(result.polyline).toHaveLength(2);
@@ -364,12 +263,11 @@ describe('every builder carries the enrichment columns', () => {
   it('off the list record, which had been dropping half of them', () => {
     const section = convertSectionWithPolylineToApp({
       id: 'section-3',
-      sportType: 'Ride',
       visitCount: 3,
       activityCount: 3,
       distanceMeters: 900,
       confidence: 0.7,
-      encodedPolyline: encodeCoords([{ latitude: 46.0, longitude: 7.0 }]),
+      encodedPolyline: encodeTrack([{ latitude: 46.0, longitude: 7.0 }]),
       sportTypes: ['Ride'],
       isUserDefined: false,
       disabled: false,
@@ -383,12 +281,11 @@ describe('every builder carries the enrichment columns', () => {
 describe('the list builder', () => {
   const LIST_RECORD = {
     id: 'section-5',
-    sportType: 'Ride',
     visitCount: 4,
     activityCount: 4,
     distanceMeters: 1500,
     confidence: 0.6,
-    encodedPolyline: encodeCoords([{ latitude: 46.0, longitude: 7.0 }]),
+    encodedPolyline: encodeTrack([{ latitude: 46.0, longitude: 7.0 }]),
     sportTypes: ['Ride'],
     isUserDefined: true,
     disabled: true,
@@ -408,6 +305,14 @@ describe('the list builder', () => {
       disabled: true,
       supersededBy: 'custom_9',
     });
+  });
+
+  it('takes custom type from the engine even when the id has no custom prefix', () => {
+    expect(build({ id: 'foreign-id', sectionType: 'custom' }).sectionType).toBe('custom');
+  });
+
+  it('takes auto type from the engine even when the id has a custom prefix', () => {
+    expect(build({ id: 'custom_legacy', sectionType: 'auto' }).sectionType).toBe('auto');
   });
 
   it('reports no superseding section as null, not as absent', () => {

@@ -22,7 +22,7 @@ const mockEngine = {
     Promise.resolve({ sectionsRemoved: 0, activitiesRemoved: 0, activitiesKept: 0 })
   ),
   forceRedetectSections: jest.fn(() => true),
-  runBackup: jest.fn(() => Promise.resolve()),
+  writeClearSnapshot: jest.fn(() => Promise.resolve()),
 };
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -66,7 +66,7 @@ describe('the cache panel count after a clear', () => {
     jest.clearAllMocks();
     mockEngine.subscribe.mockReturnValue(() => {});
     mockEngine.initWithPath.mockReturnValue(true);
-    mockEngine.runBackup.mockResolvedValue(undefined);
+    mockEngine.writeClearSnapshot.mockResolvedValue(undefined);
   });
 
   it('reports what the engine says once the clear has emptied it', async () => {

@@ -5,6 +5,9 @@
  */
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { buildRecordingNotificationPayload } from '@/features/recording/lib/recordingNotification';
+import { i18n } from '@/i18n';
+import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import {
   beginLiveActivity,
   finishLiveActivity,
@@ -41,6 +44,10 @@ jest.mock('expo-modules-core', () => ({
   requireOptionalNativeModule: jest.fn(() => mockNative),
 }));
 
+jest.mock('@/features/recording/lib/endRecordingSession', () => ({
+  endRecordingSession: jest.fn(),
+}));
+
 function startRide(): void {
   useRecordingStore.getState().startRecording('Ride', 'gps');
   useRecordingStore.setState({ startTime: Date.now() - 300_000 });
@@ -56,6 +63,9 @@ describe('live activity controller', () => {
   });
 
   it('starts one card for the session and ignores a second begin', () => {
+    jest
+      .spyOn(i18n, 't')
+      .mockImplementation(((key: string) => `translated:${key}`) as unknown as typeof i18n.t);
     startRide();
     beginLiveActivity();
     beginLiveActivity();
@@ -63,8 +73,37 @@ describe('live activity controller', () => {
     expect(mockNative.start).toHaveBeenCalledTimes(1);
     const [attributes, state] = mockNative.start.mock.calls[0] as unknown as [string, string];
     expect(JSON.parse(attributes).activityType).toBe('Ride');
+    expect(JSON.parse(attributes).activityLabel).toBe('translated:activityTypes.Ride');
     expect(JSON.parse(state).status).toBe('recording');
   });
+
+  it.each(['Run', 'Ride'] as const)(
+    'shows the same distance and pace or speed for a %s',
+    (sport) => {
+      useRecordingStore.getState().startRecording(sport, 'gps');
+      useRecordingStore.setState({
+        startTime: Date.now() - 300_000,
+        streams: {
+          ...useRecordingStore.getState().streams,
+          time: [0, 300],
+          distance: [0, 1500],
+        },
+      });
+
+      beginLiveActivity();
+      const [, content] = mockNative.start.mock.calls[0] as unknown as [string, string];
+      const card = JSON.parse(content);
+      const notification = buildRecordingNotificationPayload(useRecordingStore.getState(), {
+        translate: (_key, fallback) => fallback,
+        isMetric: getIsMetric(),
+        now: Date.now(),
+      });
+
+      expect(notification?.body).toBe(`${card.distanceLabel} · ${card.speedLabel}`);
+      if (sport === 'Run') expect(card.speedLabel).toMatch(/\/(km|mi)$/);
+      else expect(card.speedLabel).toMatch(/(km\/h|mph)$/);
+    }
+  );
 
   it('does nothing at all when the platform has no Live Activities', () => {
     mockNative.isSupported.mockReturnValue(false);

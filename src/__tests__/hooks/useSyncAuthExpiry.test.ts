@@ -8,20 +8,16 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
-import { useSyncStatus } from '@/shared/native/useSyncStatus';
-import { SyncState, type SyncStatus } from 'veloqrs';
+import { useSyncState } from '@/shared/native/useSyncStatus';
+import { SyncState } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/useSyncStatus', () => ({
-  useSyncStatus: jest.fn(),
+  useSyncState: jest.fn(),
 }));
 
-const mockUseSyncStatus = useSyncStatus as jest.MockedFunction<typeof useSyncStatus>;
-
-function status(state: SyncStatus['state']): SyncStatus {
-  return { state, inFlight: 0, completed: 0, total: 0 };
-}
+const mockUseSyncState = useSyncState as jest.MockedFunction<typeof useSyncState>;
 
 describe('useSyncAuthExpiry', () => {
   let handleSessionExpired: jest.Mock;
@@ -33,7 +29,7 @@ describe('useSyncAuthExpiry', () => {
   });
 
   it('leaves a healthy session alone', () => {
-    mockUseSyncStatus.mockReturnValue(status(SyncState.Idle));
+    mockUseSyncState.mockReturnValue(SyncState.Idle);
 
     renderHook(() => useSyncAuthExpiry());
 
@@ -41,7 +37,7 @@ describe('useSyncAuthExpiry', () => {
   });
 
   it('tears down the session when the service reports authExpired', () => {
-    mockUseSyncStatus.mockReturnValue(status(SyncState.AuthExpired));
+    mockUseSyncState.mockReturnValue(SyncState.AuthExpired);
 
     renderHook(() => useSyncAuthExpiry());
 
@@ -49,7 +45,7 @@ describe('useSyncAuthExpiry', () => {
   });
 
   it('tears down once while the state stays authExpired', () => {
-    mockUseSyncStatus.mockReturnValue(status(SyncState.AuthExpired));
+    mockUseSyncState.mockReturnValue(SyncState.AuthExpired);
 
     const { rerender } = renderHook(() => useSyncAuthExpiry());
     rerender({});
@@ -59,12 +55,12 @@ describe('useSyncAuthExpiry', () => {
   });
 
   it('arms again after the service recovers', () => {
-    mockUseSyncStatus.mockReturnValue(status(SyncState.AuthExpired));
+    mockUseSyncState.mockReturnValue(SyncState.AuthExpired);
     const { rerender } = renderHook(() => useSyncAuthExpiry());
 
-    mockUseSyncStatus.mockReturnValue(status(SyncState.Syncing));
+    mockUseSyncState.mockReturnValue(SyncState.Syncing);
     rerender({});
-    mockUseSyncStatus.mockReturnValue(status(SyncState.AuthExpired));
+    mockUseSyncState.mockReturnValue(SyncState.AuthExpired);
     rerender({});
 
     expect(handleSessionExpired).toHaveBeenCalledTimes(2);

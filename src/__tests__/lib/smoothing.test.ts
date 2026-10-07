@@ -2,7 +2,7 @@ import {
   getEffectiveWindow,
   smoothDataPoints,
   getSmoothingDescription,
-  gaussianSmooth,
+  getSmoothingPresetLabel,
 } from '@/shared/math/smoothing';
 
 describe('getEffectiveWindow', () => {
@@ -108,57 +108,33 @@ describe('smoothDataPoints window span', () => {
 });
 
 describe('getSmoothingDescription', () => {
-  it('"none" returns "Raw data"', () => {
-    expect(getSmoothingDescription('none', '3m')).toBe('Raw data');
+  const t = (key: string, opts?: Record<string, unknown>) =>
+    `${key}${opts ? JSON.stringify(opts) : ''}`;
+
+  it('"none" names the raw-data key', () => {
+    expect(getSmoothingDescription('none', '3m', t)).toBe('wellness.smoothingRaw');
   });
 
-  it('"auto" + "7d" returns "Raw data" (window=0)', () => {
-    expect(getSmoothingDescription('auto', '7d')).toBe('Raw data');
+  it('"auto" + "7d" names the raw-data key (window=0)', () => {
+    expect(getSmoothingDescription('auto', '7d', t)).toBe('wellness.smoothingRaw');
   });
 
-  it('"auto" + "3m" returns "7-day average"', () => {
-    expect(getSmoothingDescription('auto', '3m')).toBe('7-day average');
+  it('"auto" + "3m" counts a 7-day average', () => {
+    expect(getSmoothingDescription('auto', '3m', t)).toBe('wellness.smoothingAverage{"count":7}');
   });
 
-  it('numeric 14 returns "14-day average"', () => {
-    expect(getSmoothingDescription(14, '7d')).toBe('14-day average');
+  it('numeric 14 counts a 14-day average', () => {
+    expect(getSmoothingDescription(14, '7d', t)).toBe('wellness.smoothingAverage{"count":14}');
   });
 });
 
-describe('gaussianSmooth edge cases', () => {
-  it('handles outputCount of 1 without division by zero', () => {
-    const result = gaussianSmooth([1, 2, 3], [10, 20, 30], 1);
-    // outputCount=1 is clamped to 2
-    expect(result.length).toBe(2);
-    expect(Number.isFinite(result[0].x)).toBe(true);
-    expect(Number.isFinite(result[0].y)).toBe(true);
-  });
+describe('getSmoothingPresetLabel', () => {
+  const t = (key: string, opts?: Record<string, unknown>) =>
+    `${key}${opts ? JSON.stringify(opts) : ''}`;
 
-  it('handles minimum valid input (2 points)', () => {
-    const result = gaussianSmooth([1, 2], [10, 20], 10);
-    // n === 2 triggers early return with exactly 2 points, ignoring outputCount
-    expect(result.length).toBe(2);
-    result.forEach((pt) => {
-      expect(Number.isFinite(pt.x)).toBe(true);
-      expect(Number.isFinite(pt.y)).toBe(true);
-    });
-  });
-
-  it('returns empty array when xs and ys have different lengths', () => {
-    const result = gaussianSmooth([1, 2, 3], [10, 20]);
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty array for fewer than 2 points', () => {
-    expect(gaussianSmooth([1], [10])).toEqual([]);
-    expect(gaussianSmooth([], [])).toEqual([]);
-  });
-
-  it('handles all-identical x values (span === 0)', () => {
-    const result = gaussianSmooth([5, 5, 5], [10, 20, 30]);
-    // span === 0 triggers single-point mean return
-    expect(result.length).toBe(1);
-    expect(result[0].x).toBe(5);
-    expect(result[0].y).toBe(20); // mean of 10, 20, 30
+  it('names a key for the word presets and passes the day count for the rest', () => {
+    expect(getSmoothingPresetLabel('auto', t)).toBe('wellness.smoothingAuto');
+    expect(getSmoothingPresetLabel('none', t)).toBe('wellness.smoothingNone');
+    expect(getSmoothingPresetLabel(21, t)).toBe('wellness.smoothingDaysShort{"days":21}');
   });
 });

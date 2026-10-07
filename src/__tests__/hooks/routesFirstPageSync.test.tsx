@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { render, renderHook } from '@testing-library/react-native';
+import { act, render, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData';
 import { SectionRow } from '@/features/routes/components/SectionRow';
@@ -47,7 +47,6 @@ const PAGE = {
 function engine(overrides: Record<string, unknown> = {}) {
   return {
     getRoutesScreenData: jest.fn(() => PAGE),
-    getSectionPolyline: jest.fn(() => ''),
     ...overrides,
   } as never;
 }
@@ -63,6 +62,7 @@ function section(overrides: Partial<Section> = {}): Section {
       { lat: 45.01, lng: 10.01 },
     ],
     visitCount: 4,
+    sportTypes: ['Ride'],
     ...overrides,
   } as Section;
 }
@@ -90,9 +90,7 @@ describe('a section row', () => {
 
     render(<SectionRow section={section()} />);
 
-    expect(
-      (stub as unknown as { getSectionPolyline: jest.Mock }).getSectionPolyline
-    ).not.toHaveBeenCalled();
+    expect(mockedGetEngine).not.toHaveBeenCalled();
   });
 
   it('reads nothing for a row whose page carried no polyline either', () => {
@@ -101,9 +99,7 @@ describe('a section row', () => {
 
     render(<SectionRow section={section({ polyline: [] })} />);
 
-    expect(
-      (stub as unknown as { getSectionPolyline: jest.Mock }).getSectionPolyline
-    ).not.toHaveBeenCalled();
+    expect(mockedGetEngine).not.toHaveBeenCalled();
   });
 });
 
@@ -119,11 +115,78 @@ describe('the sections hook', () => {
 
   it('takes the engine rows from the page and reads nothing of its own', () => {
     mockedGetEngine.mockReturnValue(engine());
-    const row = { id: 'sec-7', name: 'Col de la Page', sportType: 'Ride' } as FrequentSection;
+    const row = { id: 'sec-7', name: 'Col de la Page', sportTypes: ['Ride'] } as FrequentSection;
 
     const { result } = renderHook(() => useSections({ preloadedEngineSections: [row] }));
 
     expect(mockedGetEngine).not.toHaveBeenCalled();
     expect(result.current.sections.map((s) => s.id)).toEqual(['sec-7']);
+  });
+});
+
+describe('a failed routes page read', () => {
+  const failing = () =>
+    jest.fn(() => {
+      throw new Error('database is locked');
+    });
+
+  it('is an error state with no data, not an empty page', () => {
+    mockedGetEngine.mockReturnValue(engine({ getRoutesScreenData: failing() }));
+
+    const { result } = renderHook(() => useRoutesScreenData());
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.error?.message).toBe('database is locked');
+    expect(result.current.status).toBe('error');
+  });
+
+  it('is loaded with no error when the read succeeds', () => {
+    mockedGetEngine.mockReturnValue(engine());
+
+    const { result } = renderHook(() => useRoutesScreenData());
+
+    expect(result.current.status).toBe('loaded');
+    expect(result.current.error).toBeNull();
+  });
+
+  it('recovers when retry reads the page', async () => {
+    const read = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('database is locked');
+      })
+      .mockImplementation(() => PAGE);
+    mockedGetEngine.mockReturnValue(engine({ getRoutesScreenData: read }));
+
+    const { result } = renderHook(() => useRoutesScreenData());
+    expect(result.current.status).toBe('error');
+
+    await act(async () => {
+      result.current.retry();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
+    expect(result.current.error).toBeNull();
+    expect(result.current.data).not.toBeNull();
+  });
+
+  it('keeps the last page and reports the error when a later read fails', async () => {
+    const read = jest
+      .fn()
+      .mockImplementationOnce(() => PAGE)
+      .mockImplementation(() => {
+        throw new Error('database is locked');
+      });
+    mockedGetEngine.mockReturnValue(engine({ getRoutesScreenData: read }));
+
+    const { result } = renderHook(() => useRoutesScreenData());
+    expect(result.current.status).toBe('loaded');
+
+    await act(async () => {
+      result.current.retry();
+    });
+
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(result.current.data).not.toBeNull();
   });
 });

@@ -16,13 +16,11 @@ import * as Localization from 'expo-localization';
 import {
   useLanguageStore,
   initializeLanguage,
-  getEffectiveLanguage,
   resolveLanguageToLocale,
   getAvailableLanguages,
   getEnglishVariantValue,
   isEnglishVariant,
   isLanguageVariant,
-  getBaseLanguage,
 } from '@/shared/app/LanguageStore';
 
 const STORAGE_KEY = 'veloq-language-preference';
@@ -107,28 +105,6 @@ describe('LanguageStore', () => {
   });
 
   // ============================================================
-  // EFFECTIVE LANGUAGE
-  // ============================================================
-
-  describe('getEffectiveLanguage()', () => {
-    it('returns resolved locale from current state', () => {
-      useLanguageStore.setState({ language: 'de', isInitialized: true });
-
-      // 'de' is not a full locale - resolves to 'de-DE' via fallback
-      expect(getEffectiveLanguage()).toBe('de-DE');
-    });
-
-    it('returns device locale when language is null', () => {
-      mockGetLocales.mockReturnValue([
-        { languageTag: 'fr-FR', languageCode: 'fr', regionCode: 'FR' },
-      ]);
-      useLanguageStore.setState({ language: null, isInitialized: false });
-
-      expect(getEffectiveLanguage()).toBe('fr');
-    });
-  });
-
-  // ============================================================
   // ENGLISH VARIANT HANDLING
   // ============================================================
 
@@ -193,18 +169,6 @@ describe('LanguageStore', () => {
     });
   });
 
-  describe('getBaseLanguage()', () => {
-    it('extracts base language from locale', () => {
-      expect(getBaseLanguage('de-CH')).toBe('de');
-      expect(getBaseLanguage('en-AU')).toBe('en');
-      expect(getBaseLanguage('pt-BR')).toBe('pt');
-    });
-
-    it('returns null for null input', () => {
-      expect(getBaseLanguage(null)).toBe(null);
-    });
-  });
-
   // ============================================================
   // AVAILABLE LANGUAGES
   // ============================================================
@@ -234,5 +198,63 @@ describe('LanguageStore', () => {
       const result = resolveLanguageToLocale(null);
       expect(result).toBeDefined();
     });
+  });
+});
+
+describe('device locales reach a selectable picker entry', () => {
+  const selectedEntries = (language: string): number => {
+    const rows = getAvailableLanguages().flatMap((group) => group.languages);
+    let selected = 0;
+    for (const row of rows) {
+      if (row.variants) {
+        selected += row.variants.filter((variant) => variant.value === language).length;
+      } else if (row.value === language) {
+        selected += 1;
+      }
+    }
+    return selected;
+  };
+
+  const deviceTags: [string, string][] = [
+    ['es-US', 'es'],
+    ['es-UY', 'es'],
+    ['es-EC', 'es'],
+    ['es-CR', 'es'],
+    ['es-BO', 'es'],
+    ['es', 'es'],
+    ['es-MX', 'es'],
+    ['es-ES', 'es'],
+    ['en-NZ', 'en'],
+    ['pt-PT', 'pt'],
+    ['pt-BR', 'pt'],
+    ['de-AT', 'de'],
+    ['de-CH', 'de'],
+    ['fr-CA', 'fr'],
+    ['zh-Hans-CN', 'zh'],
+  ];
+
+  it.each(deviceTags)(
+    '%s saves a value the picker can select',
+    async (languageTag, languageCode) => {
+      (Localization.getLocales as jest.Mock).mockReturnValue([{ languageTag, languageCode }]);
+      useLanguageStore.setState({ language: null, isInitialized: false });
+      await AsyncStorage.clear();
+
+      await initializeLanguage();
+
+      expect(selectedEntries(useLanguageStore.getState().language as string)).toBe(1);
+    }
+  );
+
+  it('migrates a saved neutral es to the Español default variant', async () => {
+    await AsyncStorage.clear();
+    await AsyncStorage.setItem(STORAGE_KEY, 'es');
+    useLanguageStore.setState({ language: null, isInitialized: false });
+
+    const locale = await initializeLanguage();
+
+    expect(locale).toBe('es-419');
+    expect(useLanguageStore.getState().language).toBe('es-419');
+    expect(await AsyncStorage.getItem(STORAGE_KEY)).toBe('es-419');
   });
 });

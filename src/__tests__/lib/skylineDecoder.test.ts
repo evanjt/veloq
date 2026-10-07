@@ -167,6 +167,8 @@ describe('skyline zone colours', () => {
       POWER_ZONE_COLORS[6],
       POWER_ZONE_COLORS[0],
     ]);
-    expect(resolveColours(makeColorPayload([300], [7], 2), false)).toEqual([HR_ZONE_COLORS[4]]);
+    expect(resolveColours(makeColorPayload([300], [7], 2), false)).toEqual([
+      HR_ZONE_COLORS[HR_ZONE_COLORS.length - 1],
+    ]);
   });
 });

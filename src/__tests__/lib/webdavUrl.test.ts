@@ -78,11 +78,25 @@ describe('webdavUrlProblem', () => {
       'http://localhost:8080/dav',
       'http://nas.local/dav',
       'http://nas.lan/dav',
+      'http://nextcloud.home.arpa/dav',
+      'http://nas.home.lan/dav',
+      'http://files.attic.local:8080/dav',
+      'http://box.rack.internal/dav',
+      'http://[::1]/dav',
+      'http://[fe80::1]/dav',
+      'http://[febf::1]:8080/dav',
+      'http://[fd12::5]/dav',
+      'http://[fc00::5]/dav',
     ]) {
       expect(webdavUrlProblem(url, true)).toBeNull();
     }
     expect(webdavUrlProblem('http://172.32.0.1/dav', true)).toBe('not-https');
     expect(webdavUrlProblem('http://11.0.0.1/dav', true)).toBe('not-https');
+    expect(webdavUrlProblem('http://cloud.example.com.lan.evil.com/dav', true)).toBe('not-https');
+    expect(webdavUrlProblem('http://home.arpa.example.com/dav', true)).toBe('not-https');
+    expect(webdavUrlProblem('http://[2001:4860:4860::8888]/dav', true)).toBe('not-https');
+    expect(webdavUrlProblem('http://[fec0::1]/dav', true)).toBe('not-https');
+    expect(webdavUrlProblem('http://[fb00::1]/dav', true)).toBe('not-https');
   });
 
   it('names a blank or unparseable address', () => {
@@ -142,8 +156,53 @@ describe('webdavBackend with a stored http address', () => {
     await expect(webdavBackend.listBackups()).rejects.toThrow(/https/);
     await expect(webdavBackend.download('x.veloqdb', '/tmp/x')).rejects.toThrow(/https/);
     await webdavBackend.delete('x.veloqdb');
-    expect(await testWebdavConnection()).toMatch(/https/);
+    expect(await testWebdavConnection()).toEqual({ kind: 'urlProblem', problem: 'not-https' });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(uploadAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('testWebdavConnection outcomes', () => {
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  async function outcomeFor(status: number) {
+    await setWebdavConfig('https://nas.example/dav', 'u', 'p');
+    global.fetch = jest.fn(async () => ({ status, ok: status < 300 })) as unknown as typeof fetch;
+    return testWebdavConnection();
+  }
+
+  it('names each server answer as a kind, never prose', async () => {
+    expect(await outcomeFor(207)).toEqual({ kind: 'ok' });
+    expect(await outcomeFor(401)).toEqual({ kind: 'unauthorised' });
+    expect(await outcomeFor(405)).toEqual({ kind: 'methodNotAllowed' });
+    expect(await outcomeFor(503)).toEqual({ kind: 'status', code: 503 });
+  });
+
+  it('reports a transport failure without carrying its English message', async () => {
+    await setWebdavConfig('https://nas.example/dav', 'u', 'p');
+    global.fetch = jest.fn(async () => {
+      throw new Error('Network request failed');
+    }) as unknown as typeof fetch;
+    expect(await testWebdavConnection()).toEqual({ kind: 'transport' });
+  });
+});
+
+describe('webdavTestMessage', () => {
+  const t = (_k: string, fb: string | { defaultValue: string; code?: number }) =>
+    typeof fb === 'string' ? fb : fb.defaultValue.replace('{{code}}', String(fb.code));
+  const { webdavTestMessage } = jest.requireActual(
+    '@/features/settings/lib/autobackup/webdavTestMessage'
+  );
+
+  it('words every failure from its kind and keeps the status code', () => {
+    expect(webdavTestMessage({ kind: 'status', code: 503 }, t, null)).toBe('Server returned 503');
+    expect(webdavTestMessage({ kind: 'transport' }, t, null)).toBe('Connection failed');
+    expect(webdavTestMessage({ kind: 'urlProblem', problem: 'invalid' }, t, 'bad address')).toBe(
+      'bad address'
+    );
+    expect(webdavTestMessage({ kind: 'unauthorised' }, t, null)).toBe('Authentication failed');
   });
 });

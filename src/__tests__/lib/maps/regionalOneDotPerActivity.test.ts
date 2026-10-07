@@ -1,53 +1,70 @@
 /**
- * Scenario: zoom the global map past the cluster handover. Two layers draw one
- * circle per activity from two sources: `unclustered-point` at the bounds
- * centre, `start-point-outer` at the first GPS coordinate. A ride whose centre
- * sits a few hundred metres from where it started drew both, at full opacity.
+ * Scenario: the global map used to draw one circle per activity from two
+ * sources: `unclustered-point` at the bounds centre and a second layer at the
+ * first GPS coordinate, ramped to nothing on either side of the handover.
+ * Zeroing a circle's radius left its stroke, which MapLibre paints as a filled
+ * disc of the stroke width, so the hidden dot still drew as a speck.
  *
- * Expected behaviour: one dot per activity at every zoom. The centre dot ramps
- * to nothing where the start point takes over, which is the dot a tap needs.
+ * Expected behaviour: one source and one layer draw the dot, at every zoom
+ * and never none. The cluster source's points sit at the activity's start, so
+ * the dot is the one a tap needs.
  */
 
 import {
   buildRegionalLayers,
+  REGIONAL_INTERACTIVE_LAYERS,
   UNCLUSTERED_POINT_LAYER_ID,
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 
-function layers() {
+function layers(selectedActivityId: string | null = null) {
   return buildRegionalLayers({
     isDark: false,
     mapStyle: 'light',
     showActivities: true,
     showSections: false,
+    showRoutes: false,
     showHeatmap: false,
     heatmapEnabled: false,
     hasSpider: false,
     hasUserLocation: false,
     hasRouteData: false,
-    selectedActivityId: null,
+    selectedActivityId,
     selectedSectionId: null,
     routeColor: '#000000',
   });
 }
 
-function paintOf(id: string): Record<string, unknown> {
-  const layer = layers().find((l) => l.id === id);
+/** Which feature a paint value is read for: the selected activity or any other. */
+interface Reading {
+  selectedActivityId: string | null;
+  isSelected: boolean;
+}
+
+const READINGS: Reading[] = [
+  { selectedActivityId: null, isSelected: false },
+  { selectedActivityId: 'a1', isSelected: true },
+  { selectedActivityId: 'a1', isSelected: false },
+];
+
+function paintOf(id: string, selectedActivityId: string | null = null): Record<string, unknown> {
+  const layer = layers(selectedActivityId).find((l) => l.id === id);
   if (!layer) throw new Error(`no layer ${id}`);
   return (layer as { paint: Record<string, unknown> }).paint;
 }
 
 /**
- * A MapLibre `interpolate` on zoom, read at one zoom. Stops are pairs after
- * the first three elements, and the ramps here are linear between two of them.
+ * A paint value read at one zoom for one feature: a number, a selection
+ * `case`, or a linear `interpolate` on zoom whose stops may be either.
  */
-function radiusAt(expr: unknown, zoom: number): number {
+function valueAt(expr: unknown, zoom: number, isSelected = false): number {
   if (typeof expr === 'number') return expr;
   const parts = expr as unknown[];
+  if (parts[0] === 'case') return valueAt(isSelected ? parts[2] : parts[3], zoom, isSelected);
+  if (parts[0] !== 'interpolate') throw new Error(`cannot read ${JSON.stringify(expr)}`);
   const stops: [number, number][] = [];
   for (let i = 3; i < parts.length; i += 2) {
-    const value = parts[i + 1];
-    stops.push([parts[i] as number, typeof value === 'number' ? value : 8]);
+    stops.push([parts[i] as number, valueAt(parts[i + 1], zoom, isSelected)]);
   }
   if (zoom <= stops[0][0]) return stops[0][1];
   const last = stops[stops.length - 1];
@@ -60,29 +77,48 @@ function radiusAt(expr: unknown, zoom: number): number {
   return last[1];
 }
 
+function radiusAt(id: string, zoom: number, reading: Reading = READINGS[0]): number {
+  const paint = paintOf(id, reading.selectedActivityId);
+  return valueAt(paint['circle-radius'], zoom, reading.isSelected);
+}
+
+/** What the renderer paints: the circle and its stroke, zero only when both are. */
+function drawnSizeAt(id: string, zoom: number, reading: Reading): number {
+  const paint = paintOf(id, reading.selectedActivityId);
+  return (
+    valueAt(paint['circle-radius'], zoom, reading.isSelected) +
+    valueAt(paint['circle-stroke-width'] ?? 0, zoom, reading.isSelected)
+  );
+}
+
 describe('the global map draws one dot per activity', () => {
   const zooms = Array.from({ length: 45 }, (_, i) => i * 0.5);
+  const cases = zooms.flatMap((zoom) => READINGS.map((reading) => [zoom, reading] as const));
 
-  it.each(zooms)('draws only one of the two dots at zoom %s', (zoom) => {
-    const centre = radiusAt(paintOf(UNCLUSTERED_POINT_LAYER_ID)['circle-radius'], zoom);
-    const start = radiusAt(paintOf('start-point-outer')['circle-radius'], zoom);
+  it('has no second layer for the activity dot', () => {
+    const ids = layers().map((l) => l.id);
 
-    expect(Math.min(centre, start)).toBe(0);
+    expect(ids).not.toContain('start-point-outer');
+    expect(layers().filter((l) => l.source === 'activity-start-points')).toEqual([]);
   });
 
-  it('leaves a dot at every zoom from where the clusters break up', () => {
-    for (const zoom of zooms.filter((z) => z >= TRACE_ZOOM_THRESHOLD)) {
-      const centre = radiusAt(paintOf(UNCLUSTERED_POINT_LAYER_ID)['circle-radius'], zoom);
-      const start = radiusAt(paintOf('start-point-outer')['circle-radius'], zoom);
-
-      expect(Math.max(centre, start)).toBeGreaterThan(0);
+  it.each(cases)(
+    'draws a filled dot at zoom %s, a lone unclustered ride included (%o)',
+    (zoom, reading) => {
+      expect(radiusAt(UNCLUSTERED_POINT_LAYER_ID, zoom, reading)).toBeGreaterThan(0);
+      expect(drawnSizeAt(UNCLUSTERED_POINT_LAYER_ID, zoom, reading)).toBeGreaterThan(0);
     }
+  );
+
+  it('keeps the dot at and above the old handover zoom', () => {
+    expect(radiusAt(UNCLUSTERED_POINT_LAYER_ID, TRACE_ZOOM_THRESHOLD)).toBeGreaterThan(0);
+    expect(radiusAt(UNCLUSTERED_POINT_LAYER_ID, TRACE_ZOOM_THRESHOLD + 4)).toBeGreaterThan(0);
   });
+});
 
-  it('hands the dot to the start point, which is what a tap needs', () => {
-    const centre = paintOf(UNCLUSTERED_POINT_LAYER_ID)['circle-radius'];
-
-    expect(radiusAt(centre, TRACE_ZOOM_THRESHOLD)).toBe(0);
-    expect(radiusAt(centre, TRACE_ZOOM_THRESHOLD - 0.5)).toBeGreaterThan(0);
+describe('the dot the athlete sees is the dot a tap hits', () => {
+  it('answers a tap from the unclustered layer, the only activity dot', () => {
+    expect(REGIONAL_INTERACTIVE_LAYERS).toContain(UNCLUSTERED_POINT_LAYER_ID);
+    expect(REGIONAL_INTERACTIVE_LAYERS).not.toContain('start-point-outer');
   });
 });

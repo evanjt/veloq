@@ -11,19 +11,11 @@ import { join } from 'node:path';
 
 const ROOT = join(__dirname, '../../..');
 
-function lint(source: string): string {
+function lint(source: string, filename = 'src/spacingLintFixture.ts'): string {
   try {
     execFileSync(
       'npx',
-      [
-        'eslint',
-        '--stdin',
-        '--stdin-filename',
-        'src/spacingLintFixture.ts',
-        '--no-warn-ignored',
-        '--format',
-        'json',
-      ],
+      ['eslint', '--stdin', '--stdin-filename', filename, '--no-warn-ignored', '--format', 'json'],
       { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], cwd: ROOT }
     );
     return '';
@@ -60,5 +52,47 @@ describe('the spacing lint', () => {
 
   it('says nothing about a property that merely starts with padding', () => {
     expect(lint('export const region = { paddingKm: 25 };\n')).not.toContain('Raw');
+  });
+
+  it('refuses arithmetic between a spacing token and a number or another token', () => {
+    const prefix = "import { spacing } from '@/theme';\n";
+    expect(lint(`${prefix}export const s = { padding: spacing.sm + 2 };\n`)).toContain(
+      'Spacing arithmetic'
+    );
+    expect(lint(`${prefix}export const s = { marginLeft: 18 + spacing.sm };\n`)).toContain(
+      'Spacing arithmetic'
+    );
+    expect(lint(`${prefix}export const s = { gap: spacing.sm + spacing.xs };\n`)).toContain(
+      'Spacing arithmetic'
+    );
+    expect(lint(`${prefix}export const s = { padding: spacing.xs / 2 };\n`)).toContain(
+      'Spacing arithmetic'
+    );
+  });
+
+  it('refuses conditional raw spacing in a component and a theme style module', () => {
+    const source = 'export const s = { padding: true ? 10 : 14 };\n';
+    expect(lint(source, 'src/features/spacingLintFixture.tsx')).toContain('Raw spacing');
+    expect(lint(source, 'src/theme/spacingLintFixture.ts')).toContain('Raw spacing');
+  });
+
+  it('refuses spacing arithmetic nested inside a larger expression or a conditional', () => {
+    const prefix = "import { spacing } from '@/theme';\nconst W = 20;\n";
+    for (const value of [
+      'W + spacing.sm * 2',
+      'spacing.sm + 2 + 0',
+      '0 + spacing.sm + 2',
+      'true ? spacing.sm + 2 : 0',
+    ]) {
+      expect(lint(`${prefix}export const s = { paddingLeft: ${value} };\n`)).toContain(
+        'Spacing arithmetic'
+      );
+    }
+  });
+
+  it('lets a token plus a named constant through', () => {
+    const source =
+      "import { spacing } from '@/theme';\nconst W = 20;\nexport const s = { paddingLeft: W + spacing.md };\n";
+    expect(lint(source)).not.toContain('Spacing arithmetic');
   });
 });

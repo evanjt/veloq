@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { awaitActivityBody } from '@/features/insights/lib/awaitActivityBody';
+import { presentActivityNotification } from '@/features/settings/lib/notificationService';
 
 jest.mock('@/features/insights/lib/taskRunLog', () => ({
   appendTaskRun: jest.fn(async () => undefined),
@@ -33,7 +34,6 @@ jest.mock('@/features/insights/lib/awaitActivityBody', () => ({
 }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   presentActivityNotification: jest.fn(async () => undefined),
-  presentInsightNotification: jest.fn(async () => undefined),
 }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -81,7 +81,9 @@ describe('background insight task, cold start', () => {
 
   it('fetches the activity instead of bailing on an unhydrated credential', async () => {
     await runTask({
-      data: { data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234' } },
+      data: {
+        data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234', athlete_id: '12345' },
+      },
       error: null,
     });
 
@@ -89,11 +91,117 @@ describe('background insight task, cold start', () => {
     expect(mockAwaitActivityBody).toHaveBeenCalled();
   });
 
+  it('does not fetch an activity addressed to a different athlete', async () => {
+    await runTask({
+      data: {
+        data: {
+          event_type: 'ACTIVITY_UPLOADED',
+          activity_id: 'i1234',
+          athlete_id: 'another-athlete',
+        },
+      },
+      error: null,
+    });
+
+    expect(useAuthStore.getState().athleteId).toBe('12345');
+    expect(mockAwaitActivityBody).not.toHaveBeenCalled();
+    expect(presentActivityNotification).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch after the signed-in athlete changes during the push task', async () => {
+    const auth = require('@/shared/app/AuthStore') as typeof import('@/shared/app/AuthStore');
+    const credentials = jest.spyOn(auth, 'getStoredCredentials');
+    credentials
+      .mockReturnValueOnce({
+        athleteId: '12345',
+        accessToken: 'token-abc',
+        apiKey: null,
+        authMethod: 'oauth',
+      })
+      .mockReturnValue({
+        athleteId: '67890',
+        accessToken: 'token-def',
+        apiKey: null,
+        authMethod: 'oauth',
+      });
+
+    try {
+      await runTask({
+        data: {
+          data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234', athlete_id: '12345' },
+        },
+        error: null,
+      });
+
+      expect(mockAwaitActivityBody).not.toHaveBeenCalled();
+      expect(presentActivityNotification).not.toHaveBeenCalled();
+    } finally {
+      credentials.mockRestore();
+    }
+  });
+
+  it('does not start a track download after the signed-in athlete changes', async () => {
+    const auth = require('@/shared/app/AuthStore') as typeof import('@/shared/app/AuthStore');
+    const credentials = jest.spyOn(auth, 'getStoredCredentials');
+    credentials
+      .mockReturnValueOnce({
+        athleteId: '12345',
+        accessToken: 'token-abc',
+        apiKey: null,
+        authMethod: 'oauth',
+      })
+      .mockReturnValueOnce({
+        athleteId: '12345',
+        accessToken: 'token-abc',
+        apiKey: null,
+        authMethod: 'oauth',
+      })
+      .mockReturnValue({
+        athleteId: '67890',
+        accessToken: 'token-def',
+        apiKey: null,
+        authMethod: 'oauth',
+      });
+    mockAwaitActivityBody.mockResolvedValue({
+      id: 'i1234',
+      name: 'Morning Ride',
+      type: 'Ride',
+    } as never);
+    const { startFetchAndStore } = require('veloqrs') as typeof import('veloqrs');
+
+    try {
+      await runTask({
+        data: {
+          data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234', athlete_id: '12345' },
+        },
+        error: null,
+      });
+
+      expect(mockAwaitActivityBody).toHaveBeenCalled();
+      expect(startFetchAndStore).not.toHaveBeenCalled();
+      expect(presentActivityNotification).not.toHaveBeenCalled();
+    } finally {
+      credentials.mockRestore();
+    }
+  });
+
+  it('does not fetch an activity with no athlete identity', async () => {
+    await runTask({
+      data: { data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234' } },
+      error: null,
+    });
+
+    expect(mockAwaitActivityBody).not.toHaveBeenCalled();
+    expect(presentActivityNotification).not.toHaveBeenCalled();
+  });
+
   it('still bails when SecureStore holds no credential', async () => {
     mockGetItemAsync.mockResolvedValue(null);
 
     await runTask({
-      data: { data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234' } },
+      data: {
+        data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234', athlete_id: '12345' },
+      },
       error: null,
     });
 

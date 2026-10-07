@@ -84,6 +84,22 @@ it('takes the fastest attempt from the engine, not from the metrics it holds', (
   expect(result.current.best?.activityId).toBe('a2');
 });
 
+it('carries the engine verdict on whether each direction best is a record', () => {
+  getRoutePerformances.mockReturnValue({
+    performances: [performance('a1', 3600), performance('a2', 3300)],
+    activityMetrics: [metrics('a1', 3600), metrics('a2', 3300)],
+    best: performance('a2', 3300),
+    bestForward: { ...performance('a2', 3300), isRecord: true },
+    bestReverse: { ...performance('a1', 3600), isRecord: false },
+    currentRank: 1,
+  });
+
+  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+
+  expect(result.current.bestForwardIsRecord).toBe(true);
+  expect(result.current.bestReverseIsRecord).toBe(false);
+});
+
 it('has no best when the engine names none', () => {
   getRoutePerformances.mockReturnValue({
     performances: [performance('a1', 3600)],
@@ -103,9 +119,9 @@ it('has no best when the engine names none', () => {
 });
 
 it('has no best when the engine names an attempt the chart dropped', () => {
-  // A zero moving time cannot be plotted, so the point never enters the chart.
+  // A zero speed cannot be plotted, so the point never enters the chart.
   getRoutePerformances.mockReturnValue({
-    performances: [performance('a1', 3600), performance('a2', 3300)],
+    performances: [{ ...performance('a1', 3600), speed: 0 }, performance('a2', 3300)],
     activityMetrics: [metrics('a1', 0), metrics('a2', 3300)],
     best: performance('a1', 3600),
     bestForward: performance('a1', 3600),
@@ -132,9 +148,27 @@ it('has no best when the engine throws', () => {
   expect(result.current.best).toBeNull();
 });
 
+it('leaves a route the engine has not named with an empty name, never its group id', () => {
+  getRoutePerformances.mockReturnValue({
+    performances: [performance('a1', 3600)],
+    activityMetrics: [metrics('a1', 3600)],
+    best: undefined,
+    bestForward: undefined,
+    bestReverse: undefined,
+    forwardStats: undefined,
+    reverseStats: undefined,
+    currentRank: undefined,
+  });
+
+  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+
+  expect(result.current.routeGroup?.id).toBe('g1');
+  expect(result.current.routeGroup?.name).toBe('');
+});
+
 describe('a sport filter over a screen bundle', () => {
   const groups: FfiRouteGroup[] = [
-    { groupId: 'g1', representativeId: 'a1', activityIds: ['a1', 'a2'], sportType: 'Ride' },
+    { groupId: 'g1', representativeId: 'a1', activityIds: ['a1', 'a2'] },
   ];
   const bundledMetrics = (activityId: string, movingTime: number): FfiActivityMetrics => ({
     ...metrics(activityId, movingTime),
@@ -146,6 +180,8 @@ describe('a sport filter over a screen bundle', () => {
     date: 1_700_000_000,
     duration: movingTime,
     isCurrent: activityId === 'a1',
+    outsideDistanceBand: false,
+    isRecord: false,
   });
   const filtered: FfiRoutePerformanceResult = {
     performances: [bundledPerformance('a1', 3600)],
@@ -153,6 +189,8 @@ describe('a sport filter over a screen bundle', () => {
     best: bundledPerformance('a1', 3600),
     currentRank: 1,
     attemptCount: 1,
+    trendCurves: {},
+    histograms: {},
   };
   const unfiltered: FfiRoutePerformanceResult = {
     ...filtered,
@@ -199,5 +237,85 @@ describe('a sport filter over a screen bundle', () => {
     rerender({ sport: undefined });
     expect(result.current.performances).toHaveLength(2);
     expect(getRoutePerformances).toHaveBeenCalledTimes(2);
+  });
+});
+
+it('marks an attempt the engine flagged outside the distance band', () => {
+  getRoutePerformances.mockReturnValue({
+    performances: [
+      performance('a1', 3600),
+      { ...performance('a2', 3000), outsideDistanceBand: true },
+    ],
+    activityMetrics: [metrics('a1', 3600), metrics('a2', 3000)],
+    best: performance('a1', 3600),
+    bestForward: performance('a1', 3600),
+    forwardStats: undefined,
+    reverseStats: undefined,
+    currentRank: 1,
+  });
+
+  const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+
+  const flagged = Object.fromEntries(
+    result.current.performances.map((p) => [p.activityId, p.outsideDistanceBand])
+  );
+  expect(flagged).toEqual({ a1: false, a2: true });
+});
+
+describe('the trend curves the engine fitted', () => {
+  const curve = [
+    { time: 1_700_000_000, value: 6, upper: 6.5, lower: 5.5 },
+    { time: 1_700_086_400, value: 6.4, upper: 6.9, lower: 5.9 },
+  ];
+
+  it('hands the engine result its curves unchanged', () => {
+    const trendCurves = { forwardSpeed: curve, forwardTime: curve };
+    getRoutePerformances.mockReturnValue({
+      performances: [performance('a1', 3600)],
+      activityMetrics: [metrics('a1', 3600)],
+      trendCurves,
+    });
+    const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+    expect(result.current.trendCurves).toBe(trendCurves);
+  });
+
+  it('has no curves when the engine has no route to read', () => {
+    getRoutePerformances.mockReturnValue(undefined);
+    const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+    expect(result.current.trendCurves).toEqual({});
+  });
+});
+
+describe('chart points come from the engine performances', () => {
+  it('plots the engine speed and current flag with no metrics bundled', () => {
+    getRoutePerformances.mockReturnValue({
+      performances: [
+        { ...performance('a1', 3600), speed: 7.5, isCurrent: true },
+        { ...performance('a2', 3300), speed: 8.25, isCurrent: false },
+      ],
+      activityMetrics: [],
+      best: performance('a2', 3300),
+      currentRank: 1,
+    });
+
+    const { result } = renderHook(() => useRoutePerformances('a2', 'g1'));
+
+    expect(result.current.performances.map((p) => [p.activityId, p.speed, p.isCurrent])).toEqual([
+      ['a1', 7.5, false],
+      ['a2', 8.25, true],
+    ]);
+    expect(result.current.best?.activityId).toBe('a2');
+  });
+
+  it('drops an attempt the engine gave no speed', () => {
+    getRoutePerformances.mockReturnValue({
+      performances: [{ ...performance('a1', 0), speed: 0 }, performance('a2', 3300)],
+      activityMetrics: [],
+      currentRank: 1,
+    });
+
+    const { result } = renderHook(() => useRoutePerformances('a1', 'g1'));
+
+    expect(result.current.performances.map((p) => p.activityId)).toEqual(['a2']);
   });
 });

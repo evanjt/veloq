@@ -1,3 +1,4 @@
+import { runInNewContext } from 'node:vm';
 /**
  * Contract tests for the snapshot render script generator.
  *
@@ -15,6 +16,7 @@ import {
 import { SNAPSHOT_PHASES } from '@/features/maps/lib/snapshotTiming';
 import { TERRAIN_CACHE_VERSION } from '@/features/maps/lib/storage/terrainPreviewCache';
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
+import { mapLayerColors } from '@/theme/colors';
 
 function makeRequest(overrides: Partial<SnapshotRequest> = {}): SnapshotRequest {
   return {
@@ -31,6 +33,18 @@ function makeRequest(overrides: Partial<SnapshotRequest> = {}): SnapshotRequest 
 }
 
 describe('buildRenderSnapshotScript', () => {
+  it('reads route casing from the shared map palette', () => {
+    const layers = mapLayerColors as { casing: string };
+    const casing = layers.casing;
+
+    try {
+      layers.casing = '#123456';
+      expect(buildRenderSnapshotScript(makeRequest(), 0, 1)).toContain('\'line-color\': "#123456"');
+    } finally {
+      layers.casing = casing;
+    }
+  });
+
   it('injects terrain, sky, and hillshade for 3D requests', () => {
     const script = buildRenderSnapshotScript(makeRequest(), 0, 1);
     expect(script).toContain("styleObj.sources['terrain'] = terrainSource");
@@ -178,6 +192,11 @@ describe('tile counts belong to one render', () => {
             page._tileStats.camera = { loaded: 1, total: 1 };
           }),
           on: jest.fn(),
+          getSource: () => undefined,
+          addSource: jest.fn(),
+          addLayer: jest.fn(),
+          removeSource: jest.fn(),
+          removeLayer: jest.fn(),
         },
       };
       for (const generation of [1, 2]) {
@@ -255,3 +274,93 @@ it.each([false, true])(
     }
   }
 );
+
+describe.each([true, false])('fast snapshot settle (flat=%s)', (flat) => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  function render() {
+    const idle: (() => void)[] = [];
+    const layers: string[] = [];
+    const layersAtIdle: string[][] = [];
+    const postMessage = jest.fn();
+    const map = {
+      jumpTo: jest.fn(),
+      getSource: () => ({}),
+      removeSource: jest.fn(),
+      removeLayer: jest.fn(),
+      addSource: jest.fn(),
+      addLayer: (layer: { id: string }) => layers.push(layer.id),
+      on: jest.fn(),
+      off: jest.fn(),
+      once: (_event: string, callback: () => void) => {
+        layersAtIdle.push([...layers]);
+        idle.push(callback);
+      },
+      isStyleLoaded: jest.fn(() => true),
+      getCanvas: () => ({
+        width: 1080,
+        height: 720,
+        getContext: () => null,
+        toDataURL: () => 'data:image/jpeg;base64,cGljdHVyZQ==',
+      }),
+    };
+    const page = {
+      map,
+      _currentBaseStyle: 'light',
+      _currentBaseMode: flat ? 'flat' : '3d',
+      _snapshotGen: 1,
+      _heartbeat: { start: jest.fn() },
+      _rn_log: jest.fn(),
+      ReactNativeWebView: { postMessage },
+    };
+    runInNewContext(buildRenderSnapshotScript(makeRequest({ flat }), 0, 1), {
+      window: page,
+      Date,
+      setTimeout,
+      setInterval,
+      clearInterval,
+      requestAnimationFrame: (callback: () => void) => setTimeout(callback, 16),
+    });
+    return { idle, layersAtIdle, postMessage, map, page };
+  }
+
+  it('includes the route in the first idle cycle and captures once', () => {
+    const result = render();
+    jest.advanceTimersByTime(16);
+    expect(result.layersAtIdle).toEqual([
+      ['route-outline', 'route-line', 'start-end-border', 'start-end-fill'],
+    ]);
+    result.idle.shift()!();
+    jest.advanceTimersByTime(6000);
+    expect(result.postMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(result.postMessage.mock.calls[0][0])).toMatchObject({
+      type: 'snapshot',
+      fastPath: true,
+      base64: 'cGljdHVyZQ==',
+    });
+  });
+
+  it('captures a loaded style on the first 200ms poll without a data event', () => {
+    const result = render();
+    jest.advanceTimersByTime(266);
+    expect(result.postMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(result.postMessage.mock.calls[0][0]).type).toBe('snapshot');
+  });
+
+  it('does not capture an unloaded style before the maximum wait', () => {
+    const result = render();
+    result.map.isStyleLoaded.mockReturnValue(false);
+    jest.advanceTimersByTime(5000);
+    expect(result.postMessage).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(300);
+    expect(JSON.parse(result.postMessage.mock.calls[0][0]).type).toBe('snapshot');
+  });
+
+  it('does not capture a superseded request', () => {
+    const result = render();
+    result.page._snapshotGen++;
+    jest.advanceTimersByTime(6000);
+    expect(result.postMessage).not.toHaveBeenCalled();
+  });
+});

@@ -52,6 +52,8 @@ describe('the sync progress line', () => {
       'settings.syncStepProgress:{"label":"settings.syncStep.intervalBodies","completed":0,"total":9}',
       'settings.syncStepProgress:{"label":"settings.syncStep.remainingActivities","completed":0,"total":9}',
       'settings.syncStepProgress:{"label":"settings.syncStep.firstActivities","completed":0,"total":9}',
+      'settings.syncStepProgress:{"label":"settings.syncStep.recordActivities","completed":0,"total":9}',
+      'settings.syncStepProgress:{"label":"settings.syncStep.calendar","completed":0,"total":9}',
     ]);
   });
 
@@ -59,6 +61,39 @@ describe('the sync progress line', () => {
   it('drops the fraction from a single-step run', () => {
     expect(formatSyncProgress(status({ step: SyncStep.Activities, total: 1 }), t)).toBe(
       'settings.syncStep.activities'
+    );
+  });
+
+  /** The first sync after an upgrade sits on one step for minutes. */
+  it('shows activities done of owed while a per-activity step runs', () => {
+    expect(
+      formatSyncProgress(
+        status({
+          step: SyncStep.IntervalBodies,
+          completed: 6,
+          stepItemsDone: 40,
+          stepItemsTotal: 250,
+        }),
+        t
+      )
+    ).toBe(
+      'settings.syncStepItemsProgress:{"label":"settings.syncStep.intervalBodies","completed":6,"total":9,"itemsDone":40,"itemsTotal":250}'
+    );
+  });
+
+  it('keeps the step line when the step owes no activities', () => {
+    expect(
+      formatSyncProgress(
+        status({
+          step: SyncStep.IntervalBodies,
+          completed: 6,
+          stepItemsDone: 0,
+          stepItemsTotal: 0,
+        }),
+        t
+      )
+    ).toBe(
+      'settings.syncStepProgress:{"label":"settings.syncStep.intervalBodies","completed":6,"total":9}'
     );
   });
 

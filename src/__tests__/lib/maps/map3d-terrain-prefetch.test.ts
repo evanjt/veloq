@@ -180,6 +180,7 @@ function runPage(
         addLayer: jest.fn(),
         getSource: jest.fn(() => undefined),
         getLayer: jest.fn(() => undefined),
+        getStyle: () => ({ layers: [] }),
         setTerrain: jest.fn(),
         setSky: jest.fn(),
         setStyle: jest.fn(),

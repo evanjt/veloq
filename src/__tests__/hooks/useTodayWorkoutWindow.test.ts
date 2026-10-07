@@ -4,12 +4,7 @@ import { getEngine } from '@/shared/native/engine';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
 /**
- * Scenario: the planned-workout banner asked the calendar for today and
- * tomorrow. The window rewrite is destructive, so a day that was never fetched
- * while online is not backfilled later.
- * Expected behaviour: one online mount stocks a forward fortnight, so a second
- * day offline still has a plan to show, and the banner still reads today and
- * tomorrow out of it.
+ * The engine stocks a forward fortnight, and the banner reads the same window.
  */
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -23,9 +18,7 @@ jest.mock('@/shared/app/AuthStore', () => ({
     selector({ isAuthenticated: true }),
 }));
 
-jest.mock('@/shared/native/engineBodies', () => ({
-  useEngineBody: (_wanted: boolean, run: () => void) => run(),
-}));
+jest.mock('@/shared/native/useEngineChannel', () => ({ useEngineChannel: () => undefined }));
 
 const readWindows: [number, number][] = [];
 
@@ -36,8 +29,6 @@ jest.mock('@tanstack/react-query', () => ({
     isLoading: false,
   }),
 }));
-
-const syncCalendarEvents = jest.fn();
 
 const mockedGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
@@ -60,7 +51,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   readWindows.length = 0;
   mockedGetEngine.mockReturnValue({
-    syncCalendarEvents,
     getCalendarEventBodies: (oldest: number, newest: number) => {
       readWindows.push([oldest, newest]);
       return [workout(day(0), 'today'), workout(day(1), 'tomorrow'), workout(day(9), 'later')];
@@ -69,13 +59,7 @@ beforeEach(() => {
 });
 
 describe('the planned-workout window', () => {
-  it('asks the calendar for a forward fortnight, not two days', () => {
-    renderHook(() => useTodayWorkout());
-
-    expect(syncCalendarEvents).toHaveBeenCalledWith(day(0), day(14));
-  });
-
-  it('reads back the same window it asked for', () => {
+  it('reads a forward fortnight', () => {
     renderHook(() => useTodayWorkout());
 
     const [oldest, newest] = readWindows[0];
@@ -94,10 +78,11 @@ describe('the planned-workout window', () => {
 describe.each(CLOCK_EDGES)('the planned-workout window on %s', (_name, at) => {
   beforeEach(() => jest.setSystemTime(at));
 
-  it('asks for today through fourteen days on, by the local calendar', () => {
+  it('reads today through fourteen days on, by the local calendar', () => {
     renderHook(() => useTodayWorkout());
-
-    expect(syncCalendarEvents).toHaveBeenCalledWith(localDay(at), localDay(at, 14));
+    const [oldest, newest] = readWindows[0];
+    expect(oldest).toBe(Date.parse(`${localDay(at)}T00:00:00Z`) / 1000);
+    expect(newest).toBe(Date.parse(`${localDay(at, 14)}T23:59:59Z`) / 1000);
   });
 
   it('still picks today and tomorrow out of the window', () => {

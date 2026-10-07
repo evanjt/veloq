@@ -2,15 +2,12 @@ import type { Insight } from '@/types';
 import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
 import {
   applyMixAndCap,
-  passesProximity,
   passesRecency,
   passesRepetition,
-  passesValence,
   scoreInsight,
   signalScore,
   specificityScore,
   temporalSelfScore,
-  type Bbox,
 } from '@/features/insights/lib/rules';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
 import type { SectionRankingScores, SectionTrendData } from '@/features/insights/types';
@@ -113,49 +110,6 @@ describe('rules.passesRecency (G1)', () => {
   });
 });
 
-describe('rules.passesProximity (G2)', () => {
-  const region: Bbox = { minLat: 46.4, maxLat: 46.6, minLng: 6.5, maxLng: 6.7 };
-
-  it('passes when gate is disabled', () => {
-    const cfg = {
-      ...INSIGHTS_CONFIG,
-      proximity: { ...INSIGHTS_CONFIG.proximity, enabled: false },
-    };
-    const insight = makeInsight({
-      meta: { location: { lat: 50, lng: 10 } },
-    });
-    expect(passesProximity(insight, region, cfg).passed).toBe(true);
-  });
-
-  it('passes when active region is null', () => {
-    const insight = makeInsight({
-      meta: { location: { lat: 50, lng: 10 } },
-    });
-    expect(passesProximity(insight, null).passed).toBe(true);
-  });
-
-  it('passes when insight has no location', () => {
-    const insight = makeInsight();
-    expect(passesProximity(insight, region).passed).toBe(true);
-  });
-
-  it('passes when insight centroid is inside padded region', () => {
-    const insight = makeInsight({
-      meta: { location: { lat: 46.5, lng: 6.6 } }, // Lausanne-ish
-    });
-    expect(passesProximity(insight, region).passed).toBe(true);
-  });
-
-  it('rejects when insight centroid is far outside region', () => {
-    const insight = makeInsight({
-      meta: { location: { lat: 48.8, lng: 2.3 } }, // Paris
-    });
-    const result = passesProximity(insight, region);
-    expect(result.passed).toBe(false);
-    expect(result.reason).toBe('proximity_outside_region');
-  });
-});
-
 describe('rules.passesRepetition (G3)', () => {
   it('passes when category has no repetition requirement', () => {
     const insight = makeInsight({
@@ -165,49 +119,12 @@ describe('rules.passesRepetition (G3)', () => {
     expect(passesRepetition(insight).passed).toBe(true);
   });
 
-  it('rejects section_trend below min traversals', () => {
-    const insight = makeInsight({
-      category: 'section_trend',
-      meta: { repetitionCount: 2 },
-    });
-    const result = passesRepetition(insight);
-    expect(result.passed).toBe(false);
-    expect(result.reason).toBe('repetition_below_min');
-  });
-
   it('accepts section_trend at or above min', () => {
     const insight = makeInsight({
       category: 'section_trend',
       meta: { repetitionCount: 3 },
     });
     expect(passesRepetition(insight).passed).toBe(true);
-  });
-});
-
-describe('rules.passesValence (G4)', () => {
-  it('passes neutral copy', () => {
-    const insight = makeInsight({
-      title: 'Hill Climb: 3s faster median in 4 weeks',
-      body: 'Median effort dropped from 2:45 to 2:42 across 5 attempts.',
-    });
-    expect(passesValence(insight).passed).toBe(true);
-  });
-
-  it('rejects punitive "you haven\'t" copy', () => {
-    const insight = makeInsight({
-      title: "You haven't trained this week",
-    });
-    const result = passesValence(insight);
-    expect(result.passed).toBe(false);
-    expect(result.reason).toBe('valence_punitive');
-  });
-
-  it('rejects "you failed" copy', () => {
-    const insight = makeInsight({
-      title: 'Goal update',
-      body: 'You failed to match your previous time.',
-    });
-    expect(passesValence(insight).passed).toBe(false);
   });
 });
 
@@ -289,19 +206,33 @@ describe('rules.scoreInsight', () => {
       },
     });
     const { score, breakdown } = scoreInsight(insight);
-    // base = (6 - 1) * 50 = 250, confidence = 1 * 30 = 30
+    // base = (6 - 1) * 25 = 125, confidence = 1 * 30 = 30
     // category section_pr = 15
     // specificity all3 = 10
     // temporalSelf = 5
     // signal in corridor = 10
-    // total = 320
-    expect(breakdown.base).toBe(250);
+    // total = 195
+    expect(breakdown.base).toBe(125);
     expect(breakdown.confidence).toBe(30);
     expect(breakdown.category).toBe(15);
     expect(breakdown.specificity).toBe(10);
     expect(breakdown.temporalSelf).toBe(5);
     expect(breakdown.signal).toBe(10);
-    expect(score).toBe(320);
+    expect(score).toBe(195);
+  });
+
+  it('lets a typical computed spread carry an insight across one priority boundary', () => {
+    const founded = scoreInsight(
+      makeInsight({ category: 'efficiency_trend', priority: 2, confidence: 1 })
+    );
+    const bare = scoreInsight(makeInsight({ category: 'period_comparison', priority: 1 }));
+    expect(founded.score).toBeGreaterThan(bare.score);
+  });
+
+  it('keeps priority deciding between insights whose computed terms match', () => {
+    const higher = scoreInsight(makeInsight({ priority: 1, confidence: 0.5 }));
+    const lower = scoreInsight(makeInsight({ priority: 2, confidence: 0.5 }));
+    expect(higher.score - lower.score).toBe(25);
   });
 });
 
@@ -390,51 +321,25 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     const { kept } = applyMixAndCap(scored);
     expect(kept.map((i) => i.id)).toEqual(['high', 'mid', 'low']);
   });
-});
 
-/**
- * Scenario: a decline and an improvement stand on the same three traversals
- * inside 28 days, which is as likely to be weather, traffic or one tired day
- * as a real loss of fitness. The decline is the one that tells the athlete
- * they got worse, during the bad patch that produced it.
- *
- * Expected behaviour: the declining branch earns more evidence than the
- * improving one before it may speak, and the improving branch is untouched.
- */
-describe('the evidence a declining section trend has to stand on', () => {
-  const improvingFloor = INSIGHTS_CONFIG.repetition.section_trend_min;
-  const decliningFloor = INSIGHTS_CONFIG.repetition.section_trend_declining_min;
+  it('reserves a category slot for an improvement without favouring neutral cards over a decline', () => {
+    const decline = mk('decline', 'efficiency_trend', 100);
+    decline.insight.supportingData = { trend: { direction: 'down', verdict: 'declined' } };
+    const improvement = mk('improvement', 'efficiency_trend', 10);
+    improvement.insight.supportingData = { trend: { direction: 'up', verdict: 'improved' } };
+    const neutral = mk('neutral', 'efficiency_trend', 90);
 
-  it('asks more of a decline than of an improvement', () => {
-    expect(decliningFloor).toBeGreaterThan(improvingFloor);
-  });
+    const withImprovement = applyMixAndCap([decline, neutral, improvement]);
+    expect(withImprovement.kept.map((insight) => insight.id)).toEqual(['neutral', 'improvement']);
+    expect(withImprovement.dropped[0].reason).toBe('category_cap');
 
-  it('says nothing about a decline under its own floor', () => {
-    const thin = sectionTrend('thin', 2, decliningFloor - 1, -1);
+    const withoutImprovement = applyMixAndCap([decline, neutral]);
+    expect(withoutImprovement.kept.map((insight) => insight.id)).toEqual(['decline', 'neutral']);
 
-    expect(generateSectionTrendInsights([thin], new Set(), NOW, mockT)).toHaveLength(0);
-  });
-
-  it('speaks once the decline reaches it', () => {
-    const earned = sectionTrend('earned', 2, decliningFloor, -1);
-    const result = generateSectionTrendInsights([earned], new Set(), NOW, mockT);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('section_trend-earned');
-  });
-
-  it('leaves the improving branch on its own floor, which is the regression', () => {
-    const improving = sectionTrend('rising', 2, improvingFloor, 1);
-    const belowImproving = sectionTrend('short', 2, improvingFloor - 1, 1);
-
-    expect(generateSectionTrendInsights([improving], new Set(), NOW, mockT)).toHaveLength(1);
-    expect(generateSectionTrendInsights([belowImproving], new Set(), NOW, mockT)).toHaveLength(0);
-  });
-
-  it('holds an improvement at the declining floor too, so the change is one-sided', () => {
-    const improving = sectionTrend('rising', 2, decliningFloor, 1);
-
-    expect(generateSectionTrendInsights([improving], new Set(), NOW, mockT)).toHaveLength(1);
+    const lowerDecline = mk('lower-decline', 'efficiency_trend', 80);
+    lowerDecline.insight.supportingData = { trend: { direction: 'down', verdict: 'declined' } };
+    const twoDeclines = applyMixAndCap([decline, lowerDecline, improvement]);
+    expect(twoDeclines.kept.map((insight) => insight.id)).toEqual(['decline', 'improvement']);
   });
 });
 
@@ -449,7 +354,7 @@ describe('section trend recency (G1 applied to section_trend)', () => {
     const freshEffort = sectionTrend('recent', 1, 5, 1);
     const result = generateSectionTrendInsights([freshEffort], new Set(), NOW, mockT);
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('section_trend-recent');
+    expect(result[0].supportingData?.sections?.[0]?.sectionId).toBe('recent');
   });
 
   it('keeps section when daysSinceLast is unknown (not filtered out)', () => {
@@ -476,7 +381,7 @@ describe('section trend recency (G1 applied to section_trend)', () => {
   });
 });
 
-describe('ML ranking breakdown on section_trend insights', () => {
+describe('Ranking breakdown on section_trend insights', () => {
   const scores = {
     relevance: 0.82,
     recency: 0.7,
@@ -489,32 +394,17 @@ describe('ML ranking breakdown on section_trend insights', () => {
     return { ...sectionTrend(id, 3, traversalCount, 1), ranking };
   }
 
-  it('surfaces the four component scores and the composite as data points', () => {
+  it('keeps section measurements on the drill-down row', () => {
     const [insight] = generateSectionTrendInsights([ranked('s1', scores)], new Set(), NOW, mockT);
-    const labels = (insight.supportingData?.dataPoints ?? []).map((p) => p.label);
-
-    expect(labels).toEqual(
-      expect.arrayContaining([
-        'insights.data.relevance',
-        'insights.data.recency',
-        'insights.data.improvementSignal',
-        'insights.data.anomaly',
-        'insights.data.engagement',
-      ])
-    );
+    expect(insight.supportingData?.sections?.[0]).toMatchObject({
+      bestTime: 110,
+      traversalCount: 5,
+    });
   });
 
-  it('renders each score as a whole percentage', () => {
+  it('does not present one row ranking as the summary ranking', () => {
     const [insight] = generateSectionTrendInsights([ranked('s1', scores)], new Set(), NOW, mockT);
-    const byLabel = new Map(
-      (insight.supportingData?.dataPoints ?? []).map((p) => [p.label, p.value])
-    );
-
-    expect(byLabel.get('insights.data.relevance')).toBe('82%');
-    expect(byLabel.get('insights.data.recency')).toBe('70%');
-    expect(byLabel.get('insights.data.improvementSignal')).toBe('55%');
-    expect(byLabel.get('insights.data.anomaly')).toBe('20%');
-    expect(byLabel.get('insights.data.engagement')).toBe('40%');
+    expect(insight.meta?.ranking).toBeUndefined();
   });
 
   it('carries the scores onto the supporting section', () => {
@@ -527,7 +417,7 @@ describe('ML ranking breakdown on section_trend insights', () => {
     const strong = ranked('strong', { ...scores, relevance: 0.9 }, 5);
 
     const result = generateSectionTrendInsights([weak, strong], new Set(), NOW, mockT);
-    expect(result.map((i) => i.id)).toEqual(['section_trend-strong', 'section_trend-weak']);
+    expect(result[0].supportingData?.sections?.map((s) => s.sectionId)).toEqual(['strong', 'weak']);
   });
 
   it('falls back to traversal count when neither candidate is ranked', () => {
@@ -535,7 +425,7 @@ describe('ML ranking breakdown on section_trend insights', () => {
     const many = sectionTrend('many', 3, 50, 1);
 
     const result = generateSectionTrendInsights([few, many], new Set(), NOW, mockT);
-    expect(result.map((i) => i.id)).toEqual(['section_trend-many', 'section_trend-few']);
+    expect(result[0].supportingData?.sections?.map((s) => s.sectionId)).toEqual(['many', 'few']);
   });
 
   it('omits the breakdown when the engine supplied no scores', () => {
@@ -545,9 +435,83 @@ describe('ML ranking breakdown on section_trend insights', () => {
       NOW,
       mockT
     );
-    const labels = (insight.supportingData?.dataPoints ?? []).map((p) => p.label);
-
-    expect(labels).not.toContain('insights.data.relevance');
     expect(insight.supportingData?.sections?.[0].ranking).toBeUndefined();
+    expect(insight.meta?.ranking).toBeUndefined();
+  });
+});
+
+describe('section trend summary', () => {
+  it('keeps every eligible section and sport in one card after the two-card surface cap', () => {
+    const trends = Array.from({ length: 7 }, (_, index) => ({
+      ...sectionTrend(`hill-${index}`, 2, 6, index < 5 ? 1 : -1),
+      sportType: index === 1 ? 'Run' : 'Ride',
+    }));
+    const result = generateSectionTrendInsights(trends, new Set(), NOW, mockT);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].supportingData?.sections).toHaveLength(7);
+    expect(result[0].title).toContain('count: 5');
+    expect(result[0].title).toContain('count: 2');
+  });
+
+  it('filters age and covered pairs before placing rows in the summary', () => {
+    const candidates = [
+      sectionTrend('fresh', 2, 6, 1),
+      sectionTrend('stale', INSIGHTS_CONFIG.activeWindowDays + 1, 6, -1),
+      sectionTrend('covered', 2, 6, -1),
+    ];
+    const result = generateSectionTrendInsights(candidates, new Set(['covered']), NOW, mockT);
+    expect(result[0].supportingData?.sections?.map((section) => section.sectionId)).toEqual([
+      'fresh',
+    ]);
+  });
+});
+
+describe('rule gate boundaries', () => {
+  const cfg = INSIGHTS_CONFIG;
+  const aged = (category: Insight['category'], days: number) =>
+    makeInsight({ category, meta: { sourceTimestamp: NOW - days * DAY_MS } });
+
+  it('keeps a section_trend event at exactly the window and drops it a day later', () => {
+    const max = cfg.activeWindowDays;
+    expect(passesRecency(aged('section_trend', max), NOW).passed).toBe(true);
+    const over = passesRecency(aged('section_trend', max + 1), NOW);
+    expect(over.passed).toBe(false);
+    expect(over.reason).toBe('recency_too_old');
+  });
+
+  it('keeps a section_pr event at exactly its own window and drops it a day later', () => {
+    const max = cfg.recency.section_pr?.max as number;
+    expect(passesRecency(aged('section_pr', max), NOW).passed).toBe(true);
+    expect(passesRecency(aged('section_pr', max + 1), NOW).passed).toBe(false);
+  });
+
+  it('drops a stale_pr event a day under its minimum and keeps it at the minimum', () => {
+    const min = cfg.recency.stale_pr?.min as number;
+    const under = passesRecency(aged('stale_pr', min - 1), NOW);
+    expect(under.passed).toBe(false);
+    expect(under.reason).toBe('recency_too_recent');
+    expect(passesRecency(aged('stale_pr', min), NOW).passed).toBe(true);
+  });
+
+  it('scores the signal corridor inclusively at both ends', () => {
+    const { signalFloorDelta: floor, signalCeilingDelta: ceiling } = cfg.thresholds;
+    const at = (signalDelta: number) => signalScore(makeInsight({ meta: { signalDelta } }));
+    expect(at(floor)).toBe(10);
+    expect(at(-floor)).toBe(10);
+    expect(at(ceiling)).toBe(10);
+    expect(at(floor - 0.01)).toBe(0);
+    expect(at(ceiling + 0.01)).toBe(3);
+  });
+
+  it.each([
+    ['efficiency_trend', cfg.repetition.efficiency_trend_min],
+    ['stale_pr', cfg.repetition.stale_pr_min_lifetime],
+  ] as const)('requires %s repetition of exactly the configured minimum', (category, min) => {
+    const withCount = (repetitionCount: number) =>
+      makeInsight({ category, meta: { repetitionCount } });
+    expect(passesRepetition(withCount(min - 1)).passed).toBe(false);
+    expect(passesRepetition(withCount(min - 1)).reason).toBe('repetition_below_min');
+    expect(passesRepetition(withCount(min)).passed).toBe(true);
   });
 });

@@ -24,7 +24,7 @@ const mockEngine = {
     Promise.resolve({ sectionsRemoved: 12, activitiesRemoved: 300, activitiesKept: 4 })
   ),
   forceRedetectSections: jest.fn(() => true),
-  runBackup: jest.fn(() => Promise.resolve()),
+  writeClearSnapshot: jest.fn(() => Promise.resolve()),
 };
 
 jest.mock('@/shared/native/engine', () => ({
@@ -75,7 +75,7 @@ describe('clearing the cache', () => {
     jest.clearAllMocks();
     mockEngine.subscribe.mockReturnValue(() => {});
     mockEngine.initWithPath.mockReturnValue(true);
-    mockEngine.runBackup.mockResolvedValue(undefined);
+    mockEngine.writeClearSnapshot.mockResolvedValue(undefined);
     mockEngine.runClearDerived.mockResolvedValue({
       sectionsRemoved: 12,
       activitiesRemoved: 300,
@@ -93,8 +93,8 @@ describe('clearing the cache', () => {
   it('takes a rollback copy before the clear and drops it once it succeeds', async () => {
     await clear();
 
-    expect(mockEngine.runBackup).toHaveBeenCalledWith('/data/routes.db.clear-bak');
-    const backupOrder = mockEngine.runBackup.mock.invocationCallOrder[0];
+    expect(mockEngine.writeClearSnapshot).toHaveBeenCalledWith('/data/routes.db.clear-bak');
+    const backupOrder = mockEngine.writeClearSnapshot.mock.invocationCallOrder[0];
     const clearOrder = mockEngine.runClearDerived.mock.invocationCallOrder[0];
     expect(backupOrder).toBeLessThan(clearOrder);
     expect(mockDeleteAsync).toHaveBeenCalledWith('file:///data/routes.db.clear-bak', {
@@ -190,7 +190,7 @@ describe('clearing the cache', () => {
   });
 
   it('clears nothing when the rollback copy cannot be taken', async () => {
-    mockEngine.runBackup.mockRejectedValue(new Error('Backup failed: disk full'));
+    mockEngine.writeClearSnapshot.mockRejectedValue(new Error('Backup failed: disk full'));
 
     await expect(clear()).rejects.toThrow();
 

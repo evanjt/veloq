@@ -65,4 +65,33 @@ describe('maestro deep links', () => {
     );
     expect(resolved.length).toBeGreaterThan(0);
   });
+
+  /**
+   * Scenario: a renamed screen keeps its old path as a redirect for one
+   * release, and a flow written against the old path keeps opening it. When the
+   * redirect is deleted on schedule, that flow opens a route that matches
+   * nothing and fails at the next assertion, which reads as a regression in
+   * whatever the flow was checking.
+   *
+   * Expected behaviour: only the flow whose job is the redirect opens one.
+   */
+  it('opens a redirect only from the flow that checks redirects', () => {
+    const redirects = (routePath: string) =>
+      candidates(routePath)
+        .map((candidate) => path.join(APP_DIR, candidate))
+        .filter((file) => fs.existsSync(file))
+        .some((file) => {
+          const source = fs.readFileSync(file, 'utf-8');
+          return /\breplaceTo\(|<Redirect\b/.test(source) && /return null;/.test(source);
+        });
+
+    const viaRedirect = links
+      .filter(({ link }) =>
+        redirects(link.replace('veloq://', '').replace(/\?.*$/, '').replace(/\/$/, ''))
+      )
+      .map(({ flow }) => flow);
+
+    expect(viaRedirect.length).toBeGreaterThan(0);
+    expect([...new Set(viaRedirect)]).toEqual(['.maestro/navigation-deep-links.yaml']);
+  });
 });

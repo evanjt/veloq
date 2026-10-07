@@ -63,4 +63,15 @@ describe('the previous best takes the direction', () => {
     const others = records.filter((r) => r.activityId !== 'pr' && r.direction === pr.direction);
     expect(previous?.bestTime).toBe(Math.min(...others.map((r) => r.bestTime)));
   });
+
+  it('uses the forward lap of an out-and-back as the forward rival', () => {
+    const outAndBack = {
+      ...record('older', 150),
+      bestForwardTime: 200,
+      bestReverseTime: 150,
+    };
+    const previous = findPreviousBest([record('pr', 190), outAndBack], record('pr', 190));
+    expect(previous?.activityId).toBe('older');
+    expect(previous?.bestTime).toBe(200);
+  });
 });

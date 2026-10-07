@@ -19,6 +19,8 @@ import {
 } from '@/features/activity/hooks/useMapPreviewCoordinates';
 import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
+import { queryKeys } from '@/shared/query/queryKeys';
+import type { LatLng } from '@/shared/geo/polyline';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -31,6 +33,8 @@ const listeners = new Map<string, Set<(payload?: Payload) => void>>();
 
 const engine = {
   getPreviewTrack: jest.fn(() => ({ encodedCoords: 'xx' })),
+  getStreamBody: jest.fn(() => null),
+  syncActivityStreams: jest.fn(),
   subscribe: jest.fn((event: string, cb: (payload?: Payload) => void) => {
     const set = listeners.get(event) ?? new Set<typeof cb>();
     listeners.set(event, set);
@@ -120,4 +124,42 @@ it('costs nothing when the announcement names no activity', async () => {
   });
 
   expect(engine.getPreviewTrack).toHaveBeenCalledTimes(1);
+});
+
+it('waits for a preview line before considering the stream body', async () => {
+  // The preview read is synchronous, so a pending one is an in-flight fetch of
+  // the same key that the hook joins and the test settles.
+  let settlePreview: (value: LatLng[] | null) => void = () => {};
+  void client.fetchQuery({
+    queryKey: queryKeys.activities.previewTrack('a1'),
+    queryFn: () =>
+      new Promise<LatLng[] | null>((resolve) => {
+        settlePreview = resolve;
+      }),
+  });
+  const { result } = renderHook(() => useCard('a1'), { wrapper });
+
+  expect(result.current.isLoading).toBe(true);
+  expect(result.current.coordinates).toHaveLength(0);
+  expect(engine.getStreamBody).not.toHaveBeenCalled();
+  await act(async () => settlePreview([{ latitude: 46.2, longitude: 7.3 }]));
+  await waitFor(() => expect(result.current.coordinates).toHaveLength(1));
+  expect(result.current.isLoading).toBe(false);
+  expect(engine.getStreamBody).not.toHaveBeenCalled();
+});
+
+it('reads the stream body once after the preview query settles empty', async () => {
+  engine.getPreviewTrack.mockReturnValueOnce(null as never);
+  renderHook(() => useCard('a1'), { wrapper });
+
+  await waitFor(() => expect(engine.getStreamBody).toHaveBeenCalledTimes(1));
+});
+
+it('reads the stream body once when the preview read throws', async () => {
+  engine.getPreviewTrack.mockImplementationOnce(() => {
+    throw new Error('preview row unreadable');
+  });
+  renderHook(() => useCard('a1'), { wrapper });
+
+  await waitFor(() => expect(engine.getStreamBody).toHaveBeenCalledTimes(1));
 });

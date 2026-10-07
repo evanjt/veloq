@@ -14,6 +14,7 @@ import { generateEfficiencyTrendInsights } from '@/features/insights/generators/
 import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend';
 import { generatePeriodComparisonInsights } from '@/features/insights/generators/periodComparison';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
+import { datedSeries } from '../__shared__/datedSeries';
 
 const NOW = 1_700_000_000_000;
 const t = (key: string) => key;
@@ -25,7 +26,7 @@ function hrv(overrides: Partial<HrvTrend> = {}): HrvTrend {
     avg: 60,
     latest: 70,
     dataPoints: 7,
-    sparkline: [54, 56, 58, 60, 62, 64, 66],
+    sparkline: datedSeries([54, 56, 58, 60, 62, 64, 66]),
     ...overrides,
   } as HrvTrend;
 }
@@ -40,7 +41,7 @@ function efficiency(overrides: Partial<EfficiencyTrend> = {}): EfficiencyTrend {
     sectionName: 'Church Hill',
     points: [point(0.64), point(0.62), point(0.59), point(0.5)],
     trendSlope: -0.0004,
-    isImproving: true,
+    direction: 0,
     hrChangeBpm: -6.2,
     effortCount: 4,
     signalDelta: 1.4,
@@ -64,7 +65,7 @@ describe('the HRV trend insight', () => {
         avg: 60,
         latest: 70,
         dataPoints: 7,
-        sparkline: [54, 56, 58, 60, 62, 64, 66],
+        sparkline: datedSeries([54, 56, 58, 60, 62, 64, 66]),
         signalDelta: 2.6,
       }),
       NOW,
@@ -81,7 +82,7 @@ describe('the HRV trend insight', () => {
         avg: 60,
         latest: 60,
         dataPoints: 7,
-        sparkline: [60, 60, 60, 60, 60, 60, 60],
+        sparkline: datedSeries([60, 60, 60, 60, 60, 60, 60]),
       }),
       NOW,
       t
@@ -97,7 +98,7 @@ describe('the HRV trend insight', () => {
         avg: 60,
         latest: 70,
         dataPoints: 2,
-        sparkline: [],
+        sparkline: datedSeries([]),
       }),
       NOW,
       t
@@ -115,7 +116,7 @@ describe("the reading is the engine's", () => {
         avg: 60,
         latest: 70,
         dataPoints: 7,
-        sparkline: [54, 56, 58, 60, 62, 64, 66],
+        sparkline: datedSeries([54, 56, 58, 60, 62, 64, 66]),
         signalDelta: 0.25,
       }),
       NOW,

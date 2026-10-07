@@ -21,6 +21,7 @@ import { generateSectionTrendInsights } from '@/features/insights/generators/sec
 import type { HrvTrend } from 'veloqrs';
 
 import type { Insight } from '@/features/insights/types';
+import { datedSeries } from '../__shared__/datedSeries';
 
 const NOW = 1_700_000_000_000;
 const t = (key: string) => key;
@@ -31,7 +32,7 @@ const THIN_HRV = {
   avg: 62,
   latest: 62,
   dataPoints: 2,
-  sparkline: [60, 62],
+  sparkline: datedSeries([60, 62]),
 } as HrvTrend;
 
 /** Every insight this suite reaches, from the generators that take fixtures. */
@@ -42,7 +43,7 @@ function everyInsight(): Insight[] {
         {
           sectionId: 's1',
           sectionName: 'Climb',
-          isImproving: true,
+          direction: 0,
           effortCount: 4,
           hrChangeBpm: -6,
           trendSlope: -0.0123,
@@ -165,7 +166,7 @@ it('reports confidence as its own term, not folded into the priority base', () =
   const scored = scoreInsight({ priority: 2, category: 'hrv_trend', confidence: 1 } as Insight);
 
   expect(scored.breakdown.confidence).toBe(INSIGHTS_CONFIG.scoring.confidenceWeight);
-  expect(scored.breakdown.base).toBe((6 - 2) * 50);
+  expect(scored.breakdown.base).toBe((6 - 2) * 25);
 });
 
 /** One PR, set over `traversalCount` outings. */

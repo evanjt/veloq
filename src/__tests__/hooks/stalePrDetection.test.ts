@@ -35,7 +35,7 @@ describe('stalePROpportunityToInsight', () => {
     expect(insight.icon).toBe('lightning-bolt');
     expect(insight.iconTone).toBe('opportunity');
     expect(insight.navigationTarget).toBe('/section/s1');
-    expect(insight.isNew).toBe(true);
+    expect(insight.isNew).toBe(false);
     expect(insight.timestamp).toBe(1700000000000);
   });
 
@@ -61,7 +61,7 @@ describe('stalePROpportunityToInsight', () => {
   it('includes methodology', () => {
     const insight = stalePROpportunityToInsight(opportunity, mockT);
     expect(insight.methodology!.name).toBe(
-      'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricCyclingFtp}'
+      'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricCyclingEftp}'
     );
   });
 
@@ -106,9 +106,9 @@ describe('stalePROpportunityToInsight', () => {
     };
     const insight = stalePROpportunityToInsight(paceOpportunity, mockT);
     expect(insight.methodology!.name).toBe(
-      'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricRunningThreshold}'
+      'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricRunningCriticalSpeed}'
     );
-    expect(insight.body).toContain('insights.stalePr.metricRunningThreshold');
-    expect(insight.body).not.toContain('metricCyclingFtp');
+    expect(insight.body).toContain('insights.stalePr.metricRunningCriticalSpeed');
+    expect(insight.body).not.toContain('metricCyclingEftp');
   });
 });

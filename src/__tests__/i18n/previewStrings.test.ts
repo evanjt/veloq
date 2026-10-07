@@ -5,6 +5,7 @@
  * `{{count}}`.
  */
 
+import { resolvedLocale } from './resolvedLocale';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -12,17 +13,26 @@ const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
 const PLACEHOLDERS: Record<string, string[]> = {
   previewAreaFallback: ['{{letter}}'],
-  previewAreaVisits: ['{{count}}'],
-  previewAreaSections: ['{{count}}'],
+  previewAreaVisits_one: ['{{count}}'],
+  previewAreaVisits_other: ['{{count}}'],
+  previewAreaSections_one: ['{{count}}'],
+  previewAreaSections_other: ['{{count}}'],
   sectionMaxLength: ['{{distance}}'],
   sectionSameTraffic: ['{{value}}'],
-  previewRunning: ['{{count}}'],
-  previewUnchanged: ['{{count}}'],
-  previewChanged: ['{{count}}'],
-  previewNew: ['{{count}}'],
-  previewGone: ['{{count}}'],
-  previewPoolCost: ['{{count}}', '{{duration}}'],
-  previewPoolUnreadable: ['{{count}}'],
+  previewRunning_one: ['{{count}}'],
+  previewRunning_other: ['{{count}}'],
+  previewUnchanged_one: ['{{count}}'],
+  previewUnchanged_other: ['{{count}}'],
+  previewChanged_one: ['{{count}}'],
+  previewChanged_other: ['{{count}}'],
+  previewNew_one: ['{{count}}'],
+  previewNew_other: ['{{count}}'],
+  previewGone_one: ['{{count}}'],
+  previewGone_other: ['{{count}}'],
+  previewPoolCost_one: ['{{count}}', '{{duration}}'],
+  previewPoolCost_other: ['{{count}}', '{{duration}}'],
+  previewPoolUnreadable_one: ['{{count}}'],
+  previewPoolUnreadable_other: ['{{count}}'],
   sectionParamRange: ['{{min}}', '{{max}}'],
 };
 
@@ -32,8 +42,7 @@ const locales = fs
   .map((f) => f.replace('.json', ''));
 
 function blockOf(locale: string, block: 'settings' | 'sections'): Record<string, string> {
-  const raw = fs.readFileSync(path.join(LOCALES_DIR, `${locale}.json`), 'utf-8');
-  return JSON.parse(raw)[block] as Record<string, string>;
+  return resolvedLocale(locale)[block] as Record<string, string>;
 }
 
 describe('detection preview strings', () => {

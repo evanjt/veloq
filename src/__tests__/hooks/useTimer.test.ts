@@ -60,10 +60,14 @@ describe('useTimer', () => {
 
       expect(result.current.elapsedTime).toBe(0);
       expect(result.current.movingTime).toBe(0);
-      expect(result.current.lapTime).toBe(0);
       expect(result.current.formattedElapsed).toBe('00:00');
       expect(result.current.formattedMoving).toBe('00:00');
-      expect(result.current.formattedLap).toBe('00:00');
+      expect(Object.keys(result.current).sort()).toEqual([
+        'elapsedTime',
+        'formattedElapsed',
+        'formattedMoving',
+        'movingTime',
+      ]);
     }
   });
 
@@ -162,67 +166,6 @@ describe('useTimer', () => {
   // -------------------------------------------------------------------------
   // Lap time
   // -------------------------------------------------------------------------
-
-  it('returns full moving time as lap time when no laps exist', () => {
-    const now = Date.now();
-    setStoreState({
-      status: 'recording',
-      startTime: now - 60000, // 60 seconds ago
-      pausedDuration: 0,
-      laps: [],
-    });
-
-    const { result } = renderHook(() => useTimer());
-
-    expect(result.current.lapTime).toBe(result.current.movingTime);
-  });
-
-  it('computes lap time as moving time minus last lap movingEndTime across lap setups', () => {
-    // lapTime ≈ (elapsed - paused) - lastLap.movingEndTime. Covers a single lap, a
-    // paused recording, and multiple laps (last lap wins).
-    const laps = (...ends: number[]) =>
-      ends.map((endTime, index) => ({
-        index,
-        startTime: index === 0 ? 0 : ends[index - 1],
-        endTime,
-        startIndex: index,
-        endIndex: index,
-        movingEndTime: endTime,
-        distance: 500,
-        avgSpeed: 10,
-        avgHeartrate: null,
-        avgPower: null,
-        avgCadence: null,
-      }));
-    const cases: {
-      elapsedMs: number;
-      pausedMs: number;
-      ends: number[];
-      lapRange: [number, number];
-      minMoving?: number;
-    }[] = [
-      { elapsedMs: 120000, pausedMs: 0, ends: [60], lapRange: [58, 62] },
-      { elapsedMs: 120000, pausedMs: 20000, ends: [50], lapRange: [48, 52], minMoving: 98 },
-      { elapsedMs: 300000, pausedMs: 0, ends: [100, 200], lapRange: [98, 102] },
-    ];
-
-    for (const { elapsedMs, pausedMs, ends, lapRange, minMoving } of cases) {
-      setStoreState({
-        status: 'recording',
-        startTime: Date.now() - elapsedMs,
-        pausedDuration: pausedMs,
-        laps: laps(...ends),
-      });
-
-      const { result } = renderHook(() => useTimer());
-
-      if (minMoving !== undefined) {
-        expect(result.current.movingTime).toBeGreaterThanOrEqual(minMoving);
-      }
-      expect(result.current.lapTime).toBeGreaterThanOrEqual(lapRange[0]);
-      expect(result.current.lapTime).toBeLessThanOrEqual(lapRange[1]);
-    }
-  });
 
   // -------------------------------------------------------------------------
   // Time formatting
@@ -410,6 +353,5 @@ describe('useTimer', () => {
 
     expect(result.current.elapsedTime).toBe(0);
     expect(result.current.movingTime).toBe(0);
-    expect(result.current.lapTime).toBe(0);
   });
 });

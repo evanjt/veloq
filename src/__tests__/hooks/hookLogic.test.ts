@@ -1,15 +1,10 @@
 // engine pulls in react-native through its import chain, so the mock must be
 // declared before any import that triggers it.
-import {
-  getSettingsForSport,
-  getZoneColor,
-  POWER_ZONE_COLORS,
-  HR_ZONE_COLORS,
-} from '@/shared/app/useSportSettings';
+import { getSettingsForSport } from '@/shared/app/useSportSettings';
 import { SPORT_COLORS } from '@/features/fitness/stores/SportPreferenceStore';
 import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
 import { getFormZone, FORM_ZONE_BOUNDARIES, type FormZone } from '@/features/fitness/lib/fitness';
-import { getLatestFTP, getLatestEFTP } from '@/features/activity/hooks/useEFTPHistory';
+import { getLatestFTP } from '@/features/activity/hooks/useEFTPHistory';
 import type { SportSettings, Activity } from '@/types';
 
 jest.mock('@/shared/native/engine', () => ({
@@ -46,31 +41,6 @@ describe('getSettingsForSport', () => {
     ];
     const result = getSettingsForSport(dupeSettings, 'Ride');
     expect(result?.ftp).toBe(200);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getZoneColor
-// ---------------------------------------------------------------------------
-
-describe('getZoneColor', () => {
-  it('clamps an index past the end of the palette to the last color', () => {
-    const lastPower = POWER_ZONE_COLORS[POWER_ZONE_COLORS.length - 1];
-    const lastHR = HR_ZONE_COLORS[HR_ZONE_COLORS.length - 1];
-    // 5 and 6 are valid power indices but past the end of the shorter HR palette.
-    for (const idx of [5, 6, 10, 100]) {
-      expect(getZoneColor(idx, 'hr')).toBe(lastHR);
-    }
-    for (const idx of [7, 10, 100]) {
-      expect(getZoneColor(idx, 'power')).toBe(lastPower);
-    }
-    expect(getZoneColor(6, 'power')).not.toBe(lastHR);
-  });
-
-  it('defaults to the power palette when type is omitted', () => {
-    // Index 6 exists only in the power palette, so it separates the two defaults.
-    expect(getZoneColor(6)).toBe(POWER_ZONE_COLORS[6]);
-    expect(getZoneColor(6)).not.toBe(getZoneColor(6, 'hr'));
   });
 });
 
@@ -168,7 +138,7 @@ describe('FORM_ZONE_BOUNDARIES', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getLatestFTP and getLatestEFTP
+// getLatestFTP
 // ---------------------------------------------------------------------------
 
 describe('getLatestFTP', () => {
@@ -218,32 +188,6 @@ describe('getLatestFTP', () => {
 
     for (const { activities, expected } of cases) {
       expect(getLatestFTP(activities)).toBe(expected);
-    }
-  });
-});
-
-describe('getLatestEFTP', () => {
-  it('returns the eFTP from the most recent activity, skipping zero values', () => {
-    const cases: { activities: Activity[]; expected: number }[] = [
-      {
-        activities: [
-          { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_pm_ftp_watts: 240 } as Activity,
-          { id: 'a2', start_date_local: '2025-01-15T10:00:00', icu_pm_ftp_watts: 260 } as Activity,
-          { id: 'a3', start_date_local: '2025-01-12T10:00:00', icu_pm_ftp_watts: 250 } as Activity,
-        ],
-        expected: 260,
-      },
-      {
-        activities: [
-          { id: 'a1', start_date_local: '2025-01-20T10:00:00', icu_pm_ftp_watts: 0 } as Activity,
-          { id: 'a2', start_date_local: '2025-01-10T10:00:00', icu_pm_ftp_watts: 245 } as Activity,
-        ],
-        expected: 245,
-      },
-    ];
-
-    for (const { activities, expected } of cases) {
-      expect(getLatestEFTP(activities)).toBe(expected);
     }
   });
 });

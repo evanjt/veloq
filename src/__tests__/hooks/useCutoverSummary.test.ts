@@ -100,7 +100,6 @@ function engine(progress: () => Progress | null, diff: () => Diff | null) {
             elevationRemaining: 0,
             elevationPaused: false,
             cutover,
-            heatmapTiles: [0, 0],
           }
         : null;
     }),

@@ -106,13 +106,56 @@ describe('buildSpiderGeoJSON', () => {
     expect(distOf(large)).toBeGreaterThan(distOf(medium));
   });
 
-  it('first point is placed at the top (angle = -π/2)', () => {
-    // With angle start at -π/2 + 2π*0/n = -π/2: cos = 0, sin = -1 → point is above center
+  it('places the first point at the top, north of the centre', () => {
     const leaves = [leaf('a')];
     const center: [number, number] = [0, 0];
     const result = buildSpiderGeoJSON({ center, leaves }, 14);
     const [lng, lat] = (result.points.features[0].geometry as GeoJSON.Point).coordinates;
     expect(lng).toBeCloseTo(0, 6);
-    expect(lat).toBeLessThan(0); // sin(-π/2) = -1 → lat offset is negative
+    expect(lat).toBeGreaterThan(0);
+  });
+
+  describe('on screen at 46.5 degrees north', () => {
+    // Web Mercator at the GL JS convention: the world is 512 * 2^zoom px wide.
+    const project = ([lng, lat]: number[], zoom: number): [number, number] => {
+      const world = 512 * Math.pow(2, zoom);
+      const phi = (lat * Math.PI) / 180;
+      return [
+        ((lng + 180) / 360) * world,
+        (1 - Math.log(Math.tan(Math.PI / 4 + phi / 2)) / Math.PI) * 0.5 * world,
+      ];
+    };
+
+    it.each([
+      [4, 40],
+      [10, 55],
+      [13, 70],
+    ])('draws %i leaves %i px from the centre at every angle', (count, radiusPx) => {
+      const zoom = 15;
+      const center: [number, number] = [6.6, 46.5];
+      const leaves = Array.from({ length: count }, (_, i) => leaf(String(i)));
+      const result = buildSpiderGeoJSON({ center, leaves }, zoom);
+      const [cx, cy] = project(center, zoom);
+
+      for (const feature of result.points.features) {
+        const [x, y] = project((feature.geometry as GeoJSON.Point).coordinates, zoom);
+        expect(Math.hypot(x - cx, y - cy)).toBeGreaterThanOrEqual(radiusPx - 1);
+        expect(Math.hypot(x - cx, y - cy)).toBeLessThanOrEqual(radiusPx + 1);
+      }
+    });
+
+    it('puts the first leaf straight above the centre on screen', () => {
+      const zoom = 15;
+      const center: [number, number] = [6.6, 46.5];
+      const result = buildSpiderGeoJSON({ center, leaves: [leaf('a'), leaf('b')] }, zoom);
+      const [cx, cy] = project(center, zoom);
+      const [x, y] = project(
+        (result.points.features[0].geometry as GeoJSON.Point).coordinates,
+        zoom
+      );
+
+      expect(x).toBeCloseTo(cx, 3);
+      expect(y).toBeLessThan(cy);
+    });
   });
 });

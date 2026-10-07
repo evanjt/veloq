@@ -61,6 +61,37 @@ describe('QueryProvider', () => {
     });
   });
 
+  describe('legacy cache cleanup', () => {
+    it('removes the veloq-query-cache blob on the first mount', () => {
+      expect(removalsAtImport).toEqual([]);
+      render(
+        <QueryProvider>
+          <></>
+        </QueryProvider>
+      );
+      expect(removeItemSpy).toHaveBeenCalledWith('veloq-query-cache');
+    });
+
+    it('does not remove it again on mount, or on a second mount', () => {
+      render(
+        <QueryProvider>
+          <></>
+        </QueryProvider>
+      );
+      render(
+        <QueryProvider>
+          <></>
+        </QueryProvider>
+      );
+      expect(removeItemSpy).not.toHaveBeenCalled();
+    });
+
+    it('swallows a failed removal', async () => {
+      removeItemSpy.mockRejectedValueOnce(new Error('disk full'));
+      await expect(QueryProviderModule.clearLegacyQueryCache()).resolves.toBeUndefined();
+    });
+  });
+
   describe('no persister', () => {
     it('never reads the cache blob back, at import or on mount', () => {
       render(
@@ -92,31 +123,6 @@ describe('QueryProvider', () => {
       );
       expect(getByText('from cache')).toBeTruthy();
       expect(queryFn).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('legacy cache cleanup', () => {
-    it('removes the veloq-query-cache blob once, at import', () => {
-      expect(removalsAtImport).toEqual(['veloq-query-cache']);
-    });
-
-    it('does not remove it again on mount, or on a second mount', () => {
-      render(
-        <QueryProvider>
-          <></>
-        </QueryProvider>
-      );
-      render(
-        <QueryProvider>
-          <></>
-        </QueryProvider>
-      );
-      expect(removeItemSpy).not.toHaveBeenCalled();
-    });
-
-    it('swallows a failed removal', async () => {
-      removeItemSpy.mockRejectedValueOnce(new Error('disk full'));
-      await expect(QueryProviderModule.clearLegacyQueryCache()).resolves.toBeUndefined();
     });
   });
 

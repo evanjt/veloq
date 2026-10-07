@@ -10,18 +10,12 @@ import {
   dayStartEpochSeconds,
   startDateLocalToEpochSeconds,
 } from '@/shared/time/startDate';
+import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
-const ZONES = ['UTC', 'Australia/Sydney', 'America/Los_Angeles'];
+/** UTC, Sydney and Los Angeles as fixed offsets in hours, so no daylight saving applies. */
+const ZONES = [0, 10, -7];
 
-function inZone<T>(tz: string, fn: () => T): T {
-  const original = process.env.TZ;
-  process.env.TZ = tz;
-  try {
-    return fn();
-  } finally {
-    process.env.TZ = original;
-  }
-}
+const inZone = <T>(offset: number, fn: () => T): T => atUtcOffset(offset, fn);
 
 describe('calendar day windows', () => {
   it('bounds a day the same way in every timezone', () => {

@@ -21,16 +21,11 @@ jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: jest.fn(async () => ({ exists: true })),
 }));
 
-jest.mock('@/features/settings/lib/runBackup', () => ({
-  runDatabaseBackup: jest.fn(async () => {}),
-}));
-
 const DB = '/data/routes.db';
 
 function engine() {
   return {
-    startBackup: jest.fn(),
-    getBackupProgress: jest.fn(),
+    writeClearSnapshot: jest.fn(async () => {}),
     destroyEngine: jest.fn(),
     initWithPath: jest.fn(() => true),
   } as unknown as Parameters<typeof withDatabaseSnapshot>[0];

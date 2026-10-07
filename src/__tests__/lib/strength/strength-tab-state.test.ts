@@ -11,18 +11,32 @@ import { strengthTabState } from '@/features/strength/lib/strengthTabState';
 
 describe('strengthTabState', () => {
   it('is ready when sets are cached', () => {
-    expect(strengthTabState({ hasSets: true, unfetchedCount: 0 })).toBe('ready');
+    expect(strengthTabState({ hasSets: true, unfetchedCount: 0, isSyncing: false })).toBe('ready');
   });
 
   it('stays ready when sets are cached and more are still coming', () => {
-    expect(strengthTabState({ hasSets: true, unfetchedCount: 4 })).toBe('ready');
+    expect(strengthTabState({ hasSets: true, unfetchedCount: 4, isSyncing: true })).toBe('ready');
   });
 
   it('waits when nothing is cached but the engine knows of strength activities', () => {
-    expect(strengthTabState({ hasSets: false, unfetchedCount: 1 })).toBe('awaiting');
+    expect(strengthTabState({ hasSets: false, unfetchedCount: 1, isSyncing: false })).toBe(
+      'awaiting'
+    );
   });
 
   it('is hidden when the athlete has no strength activities at all', () => {
-    expect(strengthTabState({ hasSets: false, unfetchedCount: 0 })).toBe('hidden');
+    expect(strengthTabState({ hasSets: false, unfetchedCount: 0, isSyncing: false })).toBe(
+      'hidden'
+    );
+  });
+
+  it('is downloading while a sync runs and the files are still owed', () => {
+    expect(strengthTabState({ hasSets: false, unfetchedCount: 3, isSyncing: true })).toBe(
+      'downloading'
+    );
+  });
+
+  it('is hidden during a sync when no strength activity is known', () => {
+    expect(strengthTabState({ hasSets: false, unfetchedCount: 0, isSyncing: true })).toBe('hidden');
   });
 });

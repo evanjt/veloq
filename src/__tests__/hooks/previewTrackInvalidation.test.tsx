@@ -17,11 +17,15 @@ import {
 } from '@/features/activity/hooks/useMapPreviewCoordinates';
 import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
+import { deleteTerrainPreviewsForActivity } from '@/features/maps';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/native/useEngineReady', () => ({
   useEngineReady: () => require('@/shared/native/engine').getEngine(),
+}));
+jest.mock('@/features/maps', () => ({
+  deleteTerrainPreviewsForActivity: jest.fn().mockResolvedValue(undefined),
 }));
 
 const listeners = new Map<string, Set<(payload?: { activityIds: string[] }) => void>>();
@@ -103,6 +107,7 @@ it('re-reads the activity whose track was replaced', async () => {
 
   await waitFor(() => expect(result.current.coordinates).toHaveLength(3));
   expect(engine.getPreviewTrack).toHaveBeenCalledTimes(2);
+  expect(deleteTerrainPreviewsForActivity).toHaveBeenCalledWith('a1');
 });
 
 it('leaves every other card alone', async () => {
@@ -121,4 +126,6 @@ it('leaves every other card alone', async () => {
 
   expect(engine.getPreviewTrack).toHaveBeenCalledTimes(1);
   expect(result.current.coordinates).toBe(held);
+  expect(deleteTerrainPreviewsForActivity).toHaveBeenCalledWith('a2');
+  expect(deleteTerrainPreviewsForActivity).toHaveBeenCalledWith('a3');
 });

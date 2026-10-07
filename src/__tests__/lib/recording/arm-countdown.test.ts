@@ -5,16 +5,37 @@
  * ride, wrote its FIT backup and left the athlete something to stop and
  * discard.
  *
- * Expected behaviour, Evan's decision of 2026-09-11: "Tap arms the recording
- * screen with the sport chosen and a 3 s countdown that auto-starts unless
- * cancelled: one tap in practice, accident-proof." The picker path, where the
- * athlete has already tapped twice, keeps starting on arrival.
+ * Expected behaviour: those arrivals leave the screen idle with its Start
+ * button. The entry screen's Start and the picker begin on arrival.
  */
-import { ARM_COUNTDOWN_SECONDS, planRecordingStart } from '@/features/recording/lib/armCountdown';
+import {
+  canStartAfterScopeWarning,
+  planRecordingStart,
+} from '@/features/recording/lib/armCountdown';
+
+describe('recording after a scope warning', () => {
+  it('allows the chosen local ride but not an unknown or missing account', () => {
+    expect(canStartAfterScopeWarning(false, 'no_permission', true)).toBe(true);
+    expect(canStartAfterScopeWarning(false, 'no_permission', false)).toBe(false);
+    expect(canStartAfterScopeWarning(false, 'checking', true)).toBe(false);
+    expect(canStartAfterScopeWarning(false, 'not_signed_in', true)).toBe(false);
+    expect(canStartAfterScopeWarning(true, 'ok', false)).toBe(true);
+  });
+});
 
 describe('planRecordingStart', () => {
-  it('arms a countdown for a one-tap entry', () => {
-    expect(planRecordingStart({ canRecord: true, status: 'idle', from: 'quickstart' })).toBe('arm');
+  it('leaves a one-tap entry idle', () => {
+    expect(planRecordingStart({ canRecord: true, status: 'idle', from: 'quickstart' })).toBe(
+      'nothing'
+    );
+  });
+
+  it('starts at once for the Start on the entry screen', () => {
+    expect(planRecordingStart({ canRecord: true, status: 'idle', from: 'entry' })).toBe('start');
+    expect(
+      planRecordingStart({ canRecord: true, status: 'idle', from: 'entry', mode: 'manual' })
+    ).toBe('nothing');
+    expect(planRecordingStart({ canRecord: false, status: 'idle', from: 'entry' })).toBe('nothing');
   });
 
   it('starts at once when the athlete came through the picker', () => {
@@ -38,7 +59,12 @@ describe('planRecordingStart', () => {
     }
   });
 
-  it('counts down for three seconds, which is what the decision names', () => {
-    expect(ARM_COUNTDOWN_SECONDS).toBe(3);
+  it('leaves manual entry to its form on either arrival path', () => {
+    expect(
+      planRecordingStart({ canRecord: true, status: 'idle', from: 'quickstart', mode: 'manual' })
+    ).toBe('nothing');
+    expect(
+      planRecordingStart({ canRecord: true, status: 'idle', from: undefined, mode: 'manual' })
+    ).toBe('nothing');
   });
 });

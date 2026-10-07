@@ -15,7 +15,6 @@ describe('the summary card FTP', () => {
   it('reports the trend it also compares, not the setting', () => {
     const ftp = summaryCardFtp({
       trend: { latestFtp: 141, previousFtp: 148 },
-      configuredFtp: 155,
     });
 
     expect(ftp.value).toBe(141);
@@ -25,7 +24,6 @@ describe('the summary card FTP', () => {
   it('shows nothing rather than a setting the arrow cannot describe', () => {
     const ftp = summaryCardFtp({
       trend: { latestFtp: null, previousFtp: null },
-      configuredFtp: 155,
     });
 
     expect(ftp.value).toBeNull();
@@ -35,21 +33,9 @@ describe('the summary card FTP', () => {
   it('shows the value with no arrow when the history is shorter than the window', () => {
     const ftp = summaryCardFtp({
       trend: { latestFtp: 141, previousFtp: null },
-      configuredFtp: 155,
     });
 
     expect(ftp.value).toBe(141);
     expect(ftp.previous).toBeNull();
-  });
-
-  it('never mixes the two, whatever the setting says', () => {
-    for (const configured of [null, 0, 155, 400]) {
-      const ftp = summaryCardFtp({
-        trend: { latestFtp: 141, previousFtp: 148 },
-        configuredFtp: configured,
-      });
-      expect(ftp.value).toBe(141);
-      expect(ftp.previous).toBe(148);
-    }
   });
 });

@@ -48,14 +48,19 @@ describe('a section PR card', () => {
 
 describe('the sport a card labels itself with', () => {
   it("is the record's, where there is one", () => {
-    expect(cardSportType('Run', 'Ride')).toBe('Run');
+    expect(cardSportType('Run', ['Ride'])).toBe('Run');
   });
 
-  it("falls back to the section's own", () => {
-    expect(cardSportType(undefined, 'Ride')).toBe('Ride');
+  it("falls back to the section's only sport", () => {
+    expect(cardSportType(undefined, ['Ride'])).toBe('Ride');
+  });
+
+  it('is nothing for ground several sports have taken, whichever is busier', () => {
+    expect(cardSportType(undefined, ['Ride', 'Run'])).toBeUndefined();
   });
 
   it('is nothing when neither says', () => {
     expect(cardSportType(undefined, undefined)).toBeUndefined();
+    expect(cardSportType(undefined, [])).toBeUndefined();
   });
 });

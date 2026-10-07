@@ -96,6 +96,13 @@ describe('recordingSession', () => {
     expect(watchRemove).toHaveBeenCalledTimes(1);
   });
 
+  it('does not start a live session for a manual entry', async () => {
+    useRecordingStore.getState().startRecording('Yoga', 'manual');
+    await settle();
+    expect(saveRecordingBackup).not.toHaveBeenCalled();
+    expect(Location.watchPositionAsync).not.toHaveBeenCalled();
+  });
+
   it('stops the watch on reset', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await settle();
@@ -127,6 +134,23 @@ describe('recordingSession', () => {
     expect(useRecordingLiveStore.getState().lastFixAt).not.toBeNull();
   });
 
+  it('records a fix whose altitude iOS marked invalid as missing', async () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    await settle();
+
+    // Core Location reports an invalid altitude as a number with a negative
+    // vertical accuracy, not as null.
+    const first = fixAt(0, 0);
+    Object.assign(first.coords, { altitude: 0, altitudeAccuracy: -1 });
+    onFix?.(first);
+    onFix?.({ ...fixAt(1, 10), coords: { ...fixAt(1, 10).coords, altitude: 450 } });
+    onFix?.({ ...fixAt(2, 20), coords: { ...fixAt(2, 20).coords, altitude: 452 } });
+
+    const { streams, totals } = useRecordingStore.getState();
+    expect(streams.altitude).toEqual([NaN, 450, 452]);
+    expect(totals.elevationGain).toBe(2);
+  });
+
   it('drops fixes worse than the accuracy threshold but still shows them', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await settle();
@@ -151,6 +175,59 @@ describe('recordingSession', () => {
     const settled = useRecordingStore.getState().streams.time.length;
     jest.advanceTimersByTime(3000);
     expect(useRecordingStore.getState().streams.time).toHaveLength(settled);
+  });
+
+  it('switches from the indoor sampler to the location watch when the sport becomes outdoor', async () => {
+    useRecordingStore.getState().startRecording('VirtualRide', 'indoor');
+    await settle();
+    jest.advanceTimersByTime(2000);
+    const indoorSamples = useRecordingStore.getState().streams.time.length;
+    expect(indoorSamples).toBeGreaterThanOrEqual(1);
+    expect(Location.watchPositionAsync).not.toHaveBeenCalled();
+
+    useRecordingStore.getState().changeActivityType('Ride');
+    await settle();
+
+    expect(useRecordingStore.getState().mode).toBe('gps');
+    expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1);
+
+    const timeBefore = useRecordingStore.getState().streams.time.length;
+    jest.advanceTimersByTime(3000);
+    expect(useRecordingStore.getState().streams.time).toHaveLength(timeBefore);
+
+    const first = fixAt(0, 0);
+    onFix?.({ ...first, timestamp: Date.now() + 1000 });
+    const { streams } = useRecordingStore.getState();
+    expect(streams.time).toHaveLength(timeBefore + 1);
+    expect(streams.latlng).toHaveLength(streams.time.length);
+    expect(streams.latlng[0]).toEqual([0, 0]);
+    expect(streams.latlng[streams.latlng.length - 1][0]).toBeCloseTo(47.5, 3);
+  });
+
+  it('switches from the location watch to the indoor sampler and keeps the track so far', async () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    await settle();
+    const now = Date.now();
+    onFix?.({ ...fixAt(0, 0), timestamp: now + 1000 });
+    onFix?.({ ...fixAt(0, 5), timestamp: now + 2000 });
+    expect(useRecordingStore.getState().streams.latlng).toHaveLength(2);
+
+    useRecordingStore.getState().changeActivityType('VirtualRide');
+    await settle();
+
+    expect(useRecordingStore.getState().mode).toBe('indoor');
+    expect(watchRemove).toHaveBeenCalledTimes(1);
+    expect(useRecordingStore.getState().streams.latlng).toHaveLength(2);
+
+    jest.advanceTimersByTime(3000);
+    const { streams } = useRecordingStore.getState();
+    expect(streams.time.length).toBeGreaterThan(2);
+    expect(streams.latlng).toHaveLength(2);
+  });
+
+  it('does not set a mode on a sport change before the ride has started', () => {
+    useRecordingStore.getState().changeActivityType('Run');
+    expect(useRecordingStore.getState().mode).toBeNull();
   });
 
   it('writes a crash backup on start and on the interval, and stops on reset', async () => {
@@ -179,7 +256,6 @@ describe('recordingSession', () => {
         hasPermission: true,
         requestPermission: async () => true,
         setGpsWarning: () => {},
-        onDiscard: () => {},
       })
     );
     await settle();

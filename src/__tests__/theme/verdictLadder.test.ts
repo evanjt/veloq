@@ -217,17 +217,16 @@ describe('the surfaces that used to answer from their own palette', () => {
     traversalCount: 20,
   });
 
-  it('draws a declining section trend as the negative rung, never as a caution', () => {
-    const tones = generateSectionTrendInsights(
+  it('keeps both trend directions on the summary rows', () => {
+    const insights = generateSectionTrendInsights(
       [sectionTrend(1), sectionTrend(-1)],
       new Set(),
-      Date.now(),
+      1_700_000_000_000,
       ((key: string) => key) as never
-    ).map((i) => i.iconTone);
+    );
 
-    expect(tones).toContain('positive');
-    expect(tones).toContain('negative');
-    expect(tones).not.toContain('caution');
+    expect(insights).toHaveLength(1);
+    expect(insights[0].supportingData?.sections?.map((section) => section.trend)).toEqual([1, -1]);
   });
 
   it('gives a chip fill the same hue as its text, at a readable weight', () => {
@@ -269,6 +268,12 @@ describe('the surfaces that used to answer from their own palette', () => {
   // ladder's tones are sized for, so it takes the darker tone in both themes.
   it('carries white text on the declining pill at AA', () => {
     expect(contrastRatio(verdict.negative.light, '#FFFFFF')).toBeGreaterThanOrEqual(
+      MIN_SURFACE_CONTRAST
+    );
+  });
+
+  it('carries white text on the improving pill at AA', () => {
+    expect(contrastRatio(verdict.positive.light, '#FFFFFF')).toBeGreaterThanOrEqual(
       MIN_SURFACE_CONTRAST
     );
   });

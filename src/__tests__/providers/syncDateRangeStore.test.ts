@@ -9,6 +9,7 @@ import { IDLE_EXTENDED_FETCH, isExtendedFetchRunning } from '@/shared/app/extend
  * - Delayed unlock behavior
  */
 
+import { formatLocalDate } from '@/shared/format/format';
 import {
   useSyncDateRange,
   getSyncGeneration,
@@ -19,7 +20,7 @@ import {
 function daysFromToday(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toISOString().split('T')[0];
+  return formatLocalDate(date);
 }
 
 describe('SyncDateRangeStore', () => {
@@ -185,14 +186,6 @@ describe('SyncDateRangeStore', () => {
   });
 
   describe('Expansion Locking', () => {
-    it('unlockExpansion() sets isExpansionLocked to false', () => {
-      useSyncDateRange.setState({ isExpansionLocked: true });
-
-      useSyncDateRange.getState().unlockExpansion();
-
-      expect(useSyncDateRange.getState().isExpansionLocked).toBe(false);
-    });
-
     it('delayedUnlockExpansion() unlocks after 500ms', () => {
       useSyncDateRange.setState({ isExpansionLocked: true });
 

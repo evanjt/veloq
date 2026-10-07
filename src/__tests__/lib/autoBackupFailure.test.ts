@@ -7,7 +7,6 @@
 
 import {
   performBackup,
-  registerBackend,
   getLastBackupTimestamp,
   getLastBackupFailure,
   type BackupBackend,
@@ -22,8 +21,9 @@ const mockSettings = new Map<string, string>();
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
+    engineInstall: () => 1,
     setSetting: (key: string, value: string) => mockSettings.set(key, value),
-    runBackup: jest.fn(() => Promise.resolve()),
+    runRecordBackup: jest.fn(() => Promise.resolve()),
     getBackupMetadata: () => ({
       schema_version: '14',
       activity_count: '312',
@@ -35,6 +35,7 @@ jest.mock('@/shared/native/engine', () => ({
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: 'file:///cache/',
+  documentDirectory: 'file:///docs/',
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 4096 }),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
@@ -52,11 +53,15 @@ const testBackend: BackupBackend = {
   delete: async () => {},
 };
 
-registerBackend(testBackend);
+const mockCarriers: BackupBackend[] = [testBackend];
+jest.mock('@/features/settings/lib/autobackup/backends/carriers', () => ({
+  get backupCarriers() {
+    return mockCarriers;
+  },
+}));
 
 beforeEach(() => {
   mockSettings.clear();
-  mockSettings.set('__backup_backend', 'test-remote');
   upload.mockReset();
 });
 
@@ -64,7 +69,7 @@ describe('performBackup', () => {
   it('leaves the last-backup timestamp alone when the upload is rejected', async () => {
     upload.mockRejectedValue(transferFailure('Upload backup', 401));
 
-    await expect(performBackup(true)).rejects.toThrow();
+    await expect(performBackup(true)).resolves.toMatchObject({ wroteZip: true });
 
     expect(getLastBackupTimestamp()).toBeNull();
     expect(getLastBackupFailure()).toMatchObject({ kind: 'auth', status: 401 });
@@ -74,7 +79,7 @@ describe('performBackup', () => {
     mockSettings.set('__last_auto_backup', '1000');
     upload.mockRejectedValue(transferFailure('Upload backup', 507));
 
-    await expect(performBackup(true)).rejects.toThrow();
+    await expect(performBackup(true)).resolves.toMatchObject({ wroteZip: true });
 
     expect(getLastBackupTimestamp()).toBe(1000);
     expect(getLastBackupFailure()?.kind).toBe('quota');
@@ -83,7 +88,7 @@ describe('performBackup', () => {
   it('keeps quiet about a transient failure', async () => {
     upload.mockRejectedValue(transportFailure('Upload backup', new Error('socket hang up')));
 
-    await expect(performBackup(true)).rejects.toThrow();
+    await expect(performBackup(true)).resolves.toMatchObject({ wroteZip: true });
 
     expect(getLastBackupFailure()).toBeNull();
   });
@@ -92,7 +97,7 @@ describe('performBackup', () => {
     mockSettings.set('__last_backup_failure', JSON.stringify({ kind: 'auth', status: 401, at: 5 }));
     upload.mockResolvedValue(undefined);
 
-    await expect(performBackup(true)).resolves.toBe(true);
+    await expect(performBackup(true)).resolves.toMatchObject({ wroteZip: true });
 
     expect(getLastBackupTimestamp()).toBeGreaterThan(0);
     expect(getLastBackupFailure()).toBeNull();

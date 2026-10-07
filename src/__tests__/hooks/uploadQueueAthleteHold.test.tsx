@@ -3,23 +3,25 @@
  * rather than demoted, and someone else signs in on the same phone.
  *
  * Expected behaviour: the queue holds every ride that athlete did not record
- * before it drains anything, and a drain that meets a refused credential stops
- * instead of walking the rest of the queue into the same 401.
+ * as soon as they are signed in, and holds nothing while nobody is.
  */
 
 import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import {
-  nextPendingUpload,
   holdRecordingsOfOtherAthletes,
+  wakeUploadSchedule,
 } from '@/features/recording/lib/storage/recordingLibrary';
-import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
 
 let mockAthleteId: string | null = 'i296629';
 
-jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: true }),
+jest.mock('@/shared/native/useEngineReady', () => ({
+  useEngineReady: () => ({ ready: true }),
+}));
+jest.mock('@/features/routes', () => ({
+  useEngineStatus: (selector: (s: { readyNonce: number }) => unknown) =>
+    selector({ readyNonce: 1 }),
 }));
 
 jest.mock('@/shared/app/AuthStore', () => ({
@@ -32,14 +34,15 @@ jest.mock('@/features/recording/lib/storage/provisionalActivity', () => ({
 }));
 
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
-  nextPendingUpload: jest.fn(async () => null),
   migrateLegacyUploadQueue: jest.fn(async () => {}),
   adoptAsyncStorageIndex: jest.fn(async () => 0),
   holdRecordingsOfOtherAthletes: jest.fn(async () => 0),
+  wakeUploadSchedule: jest.fn(),
+  onUploadPermissionRefused: jest.fn(() => () => {}),
 }));
 
-jest.mock('@/features/recording/lib/upload/uploadRecording', () => ({
-  uploadRecording: jest.fn(),
+jest.mock('@/features/recording/lib/upload/owedRpe', () => ({
+  sendOwedRpe: jest.fn(async () => 0),
 }));
 
 jest.mock('@/features/recording/lib/upload/confirmUploads', () => ({
@@ -50,16 +53,11 @@ jest.mock('@/shared/debug/debug', () => ({
   debug: { create: () => ({ log: () => {}, warn: () => {}, error: () => {} }) },
 }));
 
-const mockNextPending = nextPendingUpload as jest.Mock;
 const mockHold = holdRecordingsOfOtherAthletes as jest.Mock;
-const mockUpload = uploadRecording as jest.Mock;
-
-const ENTRY = { id: 'rec-1', name: 'Morning Ride' };
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockAthleteId = 'i296629';
-  mockNextPending.mockResolvedValue(null);
   mockHold.mockResolvedValue(0);
 });
 
@@ -70,21 +68,22 @@ describe('the queue and the athlete signed in', () => {
     await waitFor(() => expect(mockHold).toHaveBeenCalledWith('i296629'));
   });
 
+  it('holds again for whoever signs in next', async () => {
+    const { rerender } = renderHook(() => useUploadQueueProcessor());
+    await waitFor(() => expect(mockHold).toHaveBeenCalledWith('i296629'));
+
+    mockAthleteId = 'i400';
+    rerender({});
+
+    await waitFor(() => expect(mockHold).toHaveBeenLastCalledWith('i400'));
+    expect(mockHold).toHaveBeenCalledTimes(2);
+  });
+
   it('holds nothing when nobody is signed in, which is not a decision it can take', async () => {
     mockAthleteId = null;
     renderHook(() => useUploadQueueProcessor());
 
-    await waitFor(() => expect(mockNextPending).toHaveBeenCalled());
+    await waitFor(() => expect(wakeUploadSchedule).toHaveBeenCalled());
     expect(mockHold).not.toHaveBeenCalled();
-  });
-
-  it('stops the drain on a refused credential rather than spending the queue on it', async () => {
-    mockNextPending.mockResolvedValue(ENTRY);
-    mockUpload.mockResolvedValue({ outcome: 'authExpired' });
-
-    renderHook(() => useUploadQueueProcessor());
-
-    await waitFor(() => expect(mockUpload).toHaveBeenCalledTimes(1));
-    expect(mockUpload).toHaveBeenCalledTimes(1);
   });
 });
