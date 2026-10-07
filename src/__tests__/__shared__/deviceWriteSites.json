@@ -19,7 +19,7 @@
   "modules/veloqrs/rust/veloqrs/src/persistence/record_backup.rs": 7,
   "modules/veloqrs/rust/veloqrs/src/persistence/sections/detection.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/sections/history.rs": 1,
-  "modules/veloqrs/rust/veloqrs/src/persistence/tiles.rs": 8,
+  "modules/veloqrs/rust/veloqrs/src/persistence/tiles.rs": 9,
   "modules/veloqrs/rust/veloqrs/src/tiles.rs": 1,
   "modules/veloqrs/src/delegates/heatmap.ts": 1,
   "modules/veloqrs/src/delegates/settings.ts": 2,
