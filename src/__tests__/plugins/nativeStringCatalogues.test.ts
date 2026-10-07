@@ -116,15 +116,50 @@ describe('the iOS string catalogue', () => {
   });
 });
 
-describe('the App Shortcuts catalogue', () => {
-  const catalogue: Catalogue = strings.appShortcutsCatalogue(strings.loadLocaleBundles());
+/**
+ * A `.strings` table read back the way Foundation reads it: every line that is
+ * not the header comment is one quoted pair, or the table is malformed.
+ */
+function stringsEntries(text: string): Record<string, string> {
+  const literal = '"((?:[^"\\\\]|\\\\.)*)"';
+  const pair = new RegExp(`^${literal} = ${literal};$`);
+  const unescape = (value: string) => value.replace(/\\(.)/g, (_, c) => (c === 'n' ? '\n' : c));
+  const entries: Record<string, string> = {};
+  for (const line of text.split('\n')) {
+    if (line === '' || /^\/\*.*\*\/$/.test(line)) continue;
+    const match = pair.exec(line);
+    if (!match) throw new Error(`malformed .strings line: ${line}`);
+    entries[unescape(match[1])] = unescape(match[2]);
+  }
+  return entries;
+}
+
+describe('the App Shortcuts strings tables', () => {
+  const files: Record<string, string> = strings.appShortcutsStringFiles(
+    strings.loadLocaleBundles()
+  );
+  const table = (language: string) =>
+    stringsEntries(files[path.join(`${language}.lproj`, 'AppShortcuts.strings')] ?? '');
+
+  it('writes one table per Apple language and nothing else', () => {
+    expect(Object.keys(files).sort()).toEqual(
+      strings
+        .appleLanguages()
+        .map((language: string) => path.join(`${language}.lproj`, 'AppShortcuts.strings'))
+        .sort()
+    );
+  });
 
   it.each([...SUPPORTED_LOCALES])('%s gives every phrase a translation Siri accepts', (locale) => {
     const { apple } = strings.PLATFORM_LOCALES[locale];
     const problems: string[] = [];
-    for (const { key } of strings.APP_SHORTCUT_PHRASES) {
-      for (const language of apple) {
-        const value = catalogue.strings[key]?.localizations[language]?.stringUnit.value ?? '';
+    for (const language of apple) {
+      const phrases = table(language);
+      expect(Object.keys(phrases).sort()).toEqual(
+        strings.APP_SHORTCUT_PHRASES.map(({ key }: { key: string }) => key).sort()
+      );
+      for (const { key } of strings.APP_SHORTCUT_PHRASES) {
+        const value = phrases[key] ?? '';
         // Siri refuses a phrase that does not name the app exactly once.
         if (value.split('${applicationName}').length !== 2) problems.push(`${language}: ${key}`);
         if (key.includes('${sport}') !== value.includes('${sport}')) {
@@ -138,10 +173,27 @@ describe('the App Shortcuts catalogue', () => {
 
   it.each([...SUPPORTED_LOCALES])('%s gives each phrase different words', (locale) => {
     const [language] = strings.PLATFORM_LOCALES[locale].apple;
-    const values = strings.APP_SHORTCUT_PHRASES.map(
-      ({ key }: { key: string }) => catalogue.strings[key].localizations[language].stringUnit.value
-    );
+    const phrases = table(language);
+    const values = strings.APP_SHORTCUT_PHRASES.map(({ key }: { key: string }) => phrases[key]);
     expect(new Set(values).size).toBe(values.length);
+  });
+
+  it('reads back a phrase carrying a quote, a backslash and a newline unchanged', () => {
+    const bundles = strings.loadLocaleBundles();
+    const tricky = `Lancer "l'enregistrement" \\ {{app}}\nmaintenant`;
+    bundles.fr = {
+      ...bundles.fr,
+      systemSurfaces: {
+        ...bundles.fr.systemSurfaces,
+        phrases: { ...bundles.fr.systemSurfaces.phrases, startRecording: tricky },
+      },
+    };
+    const fr = stringsEntries(
+      strings.appShortcutsStringFiles(bundles)[path.join('fr.lproj', 'AppShortcuts.strings')]
+    );
+    expect(fr['Start recording on ${applicationName}']).toBe(
+      tricky.replace('{{app}}', '${applicationName}')
+    );
   });
 });
 
@@ -188,7 +240,22 @@ describe('prebuild writes the catalogues where the targets read them', () => {
     iosPlugin.writeWidgetFiles(projectRoot, iosRoot, 'ExampleApp');
     expect(fs.existsSync(path.join(iosRoot, 'VeloqWidget', 'Localizable.xcstrings'))).toBe(true);
     expect(fs.existsSync(path.join(iosRoot, 'ExampleApp', 'Localizable.xcstrings'))).toBe(true);
-    expect(fs.existsSync(path.join(iosRoot, 'ExampleApp', 'AppShortcuts.xcstrings'))).toBe(true);
+    for (const language of strings.appleLanguages()) {
+      const table = path.join(iosRoot, 'ExampleApp', `${language}.lproj`, 'AppShortcuts.strings');
+      expect(fs.existsSync(table)).toBe(true);
+    }
+    expect(fs.existsSync(path.join(iosRoot, 'VeloqWidget', 'en.lproj'))).toBe(false);
+  });
+
+  // Xcode refuses an AppShortcuts catalogue below iOS 17, and the app deploys to 16.4.
+  it('leaves no AppShortcuts catalogue behind, including one an earlier prebuild wrote', () => {
+    const iosRoot = tmp();
+    fs.mkdirSync(path.join(iosRoot, 'ExampleApp'), { recursive: true });
+    fs.writeFileSync(path.join(iosRoot, 'ExampleApp', 'AppShortcuts.xcstrings'), '{}');
+
+    iosPlugin.writeWidgetFiles(projectRoot, iosRoot, 'ExampleApp');
+
+    expect(fs.existsSync(path.join(iosRoot, 'ExampleApp', 'AppShortcuts.xcstrings'))).toBe(false);
     expect(fs.existsSync(path.join(iosRoot, 'VeloqWidget', 'AppShortcuts.xcstrings'))).toBe(false);
   });
 });
@@ -213,16 +280,43 @@ describe('the Xcode project compiles the catalogues', () => {
       buildNumber: '1',
     });
 
-  /** Resource names a target copies, and the file type each reference carries. */
+  const unquoted = (value: unknown) => String(value).replace(/"/g, '');
+
+  /**
+   * Resource names a target copies, and the file type each reference carries.
+   * A localised table is a variant group, listed with its language files.
+   */
   function resources(proj: ReturnType<typeof openFixture>, target: string) {
     const uuid = iosPlugin.targetUuidByName(proj, target);
     const refs = proj.pbxFileReferenceSection();
     const builds = proj.pbxBuildFileSection();
+    const variants = proj.hash.project.objects.PBXVariantGroup ?? {};
     return (proj.pbxResourcesBuildPhaseObj(uuid)?.files ?? []).map((entry: { value: string }) => {
-      const ref = refs[(builds[entry.value] as { fileRef: string }).fileRef];
-      return `${path.basename(String(ref.path).replace(/"/g, ''))} ${ref.lastKnownFileType}`;
+      const fileRef = (builds[entry.value] as { fileRef: string }).fileRef;
+      const variant = variants[fileRef];
+      if (variant) {
+        const languages = (variant.children ?? []).map((c: { value: string }) => {
+          const ref = refs[c.value];
+          return `${unquoted(ref.name)}:${unquoted(ref.path)}:${ref.lastKnownFileType}`;
+        });
+        return `${unquoted(variant.name)} variant [${languages.join(' ')}]`;
+      }
+      const ref = refs[fileRef];
+      return `${path.basename(unquoted(ref.path))} ${ref.lastKnownFileType}`;
     });
   }
+
+  const appShortcuts = (proj: ReturnType<typeof openFixture>, target: string) =>
+    resources(proj, target).filter((r: string) => r.startsWith('AppShortcuts'));
+
+  const expectedAppShortcuts = () =>
+    `AppShortcuts.strings variant [${strings
+      .appleLanguages()
+      .map(
+        (language: string) =>
+          `${language}:${APP}/${language}.lproj/AppShortcuts.strings:text.plist.strings`
+      )
+      .join(' ')}]`;
 
   it('adds the string catalogue to both targets and the phrases to the app', () => {
     const proj = openFixture();
@@ -230,8 +324,45 @@ describe('the Xcode project compiles the catalogues', () => {
 
     expect(resources(proj, WIDGET)).toContain('Localizable.xcstrings text.json.xcstrings');
     expect(resources(proj, APP)).toContain('Localizable.xcstrings text.json.xcstrings');
-    expect(resources(proj, APP)).toContain('AppShortcuts.xcstrings text.json.xcstrings');
-    expect(resources(proj, WIDGET)).not.toContain('AppShortcuts.xcstrings text.json.xcstrings');
+    expect(appShortcuts(proj, APP)).toEqual([expectedAppShortcuts()]);
+    expect(appShortcuts(proj, WIDGET)).toEqual([]);
+  });
+
+  it('replaces an AppShortcuts catalogue an earlier prebuild added with the strings tables', () => {
+    const proj = openFixture();
+    iosPlugin.addMissingStringCatalogues(
+      proj,
+      iosPlugin.targetUuidByName(proj, APP),
+      ['AppShortcuts.xcstrings'],
+      APP
+    );
+    expect(appShortcuts(proj, APP)).toEqual(['AppShortcuts.xcstrings text.json.xcstrings']);
+
+    configure(proj);
+
+    expect(appShortcuts(proj, APP)).toEqual([expectedAppShortcuts()]);
+    const refs = proj.pbxFileReferenceSection();
+    const stale = Object.keys(refs).filter(
+      (key) => !key.endsWith('_comment') && unquoted(refs[key].path).endsWith('.xcstrings')
+    );
+    expect(stale.map((key) => path.basename(unquoted(refs[key].path)))).not.toContain(
+      'AppShortcuts.xcstrings'
+    );
+  });
+
+  it('adds a language the bundles gained since the last prebuild to the existing table', () => {
+    const proj = openFixture();
+    configure(proj);
+    const variants = proj.hash.project.objects.PBXVariantGroup ?? {};
+    const key = Object.keys(variants).find((k) => !k.endsWith('_comment'))!;
+    const dropped = variants[key].children?.pop();
+    expect(dropped).toBeDefined();
+    expect(appShortcuts(proj, APP)).not.toEqual([expectedAppShortcuts()]);
+
+    configure(proj);
+
+    expect(appShortcuts(proj, APP).join()).toContain(`${unquoted(dropped?.comment)}:`);
+    expect(Object.keys(variants).filter((k) => !k.endsWith('_comment'))).toHaveLength(1);
   });
 
   it('adds nothing on a second prebuild over the same project', () => {
