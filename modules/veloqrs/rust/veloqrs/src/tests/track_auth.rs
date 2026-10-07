@@ -89,10 +89,14 @@ fn profile_answers(server: &MockServer, status: u16) {
 fn a_track_run_parks_on_a_401_only_when_the_profile_confirms_it() {
     let _serial = crate::test_globals::serial_global_state();
     for (status, expected) in [(401, SyncState::AuthExpired), (200, SyncState::Idle)] {
+        // A bulk run claims each track in the engine's attempt store, so with
+        // no engine it fetches nothing. A fresh one per case, or the first
+        // case's refusal backs the track off and the second asks for nothing.
+        let _engine = crate::test_globals::init_global_engine("track-401.db");
         let server = MockServer::start();
         let _base = crate::objects::sync::test_base_url(server.base_url());
         crate::objects::set_credentials_from_native("api_key", "key", "1").expect("credential");
-        server.mock(|when, then| {
+        let track = server.mock(|when, then| {
             when.method(GET).path("/activity/a1/streams.json");
             then.status(401);
         });
@@ -105,6 +109,10 @@ fn a_track_run_parks_on_a_401_only_when_the_profile_confirms_it() {
         );
         run_result(run);
 
+        assert!(
+            track.hits() > 0,
+            "the run never asked for the track (profile {status})"
+        );
         assert_eq!(SYNC_SERVICE.snapshot().state, expected, "profile {status}");
         crate::objects::sync::clear_test_credentials();
     }
