@@ -3,6 +3,10 @@ name: Jest Coverage
 # Weekly, not per push: instrumenting every file cost the per-push Jest run
 # 46%, and the thresholds in config/jest.config.js move slowly enough that a
 # week is soon enough to hear one has slipped. A dispatch runs it by hand.
+# A sha already measured is not measured again: the run reports the outcome it
+# was measured at, so a week with no push to main is not re-measured and a sha
+# measured red stays red. The record is the run history, since a cache entry
+# does not outlast a week reliably.
 on:
   schedule:
     - cron: "0 4 * * 1"
@@ -13,6 +17,7 @@ env:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   coverage:
@@ -20,21 +25,53 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # A dispatch measures regardless, which is how to re-run a sha by hand.
+      # The scripts come from a checkout that reads no submodule, which the
+      # measurement below checks out again in full.
+      - name: Checkout the lookup script
+        if: github.event_name == 'schedule'
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Look for a run on this sha
+        id: earlier
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          outcome=$(node scripts/earlier-outcome.mjs "$GITHUB_REPOSITORY" jest-coverage.yml "$GITHUB_SHA" "$GITHUB_RUN_ID")
+          echo "outcome=$outcome" >> "$GITHUB_OUTPUT"
+
+      # A skipped job concludes success, so the skip fails on its own when the
+      # sha was measured red.
+      - name: Report the earlier result
+        if: steps.earlier.outputs.outcome != ''
+        env:
+          OUTCOME: ${{ steps.earlier.outputs.outcome }}
+        run: |
+          if [ "$OUTCOME" != success ]; then
+            echo "::error::sha already measured red in an earlier run ($OUTCOME)"
+            exit 1
+          fi
+          echo "sha already measured green in an earlier run"
+
       - name: Checkout repository
+        if: steps.earlier.outputs.outcome == ''
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Install dependencies
+        if: steps.earlier.outputs.outcome == ''
+        uses: ./.github/actions/npm-ci
         with:
           node-version: "${{ env.NODE_VERSION }}"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Run tests with coverage
+        id: measure
+        if: steps.earlier.outputs.outcome == ''
         run: npm run test:coverage
         env:
           JEST_WORKERS: 2

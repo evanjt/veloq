@@ -18,7 +18,7 @@ export function rateKey(ip: string): string {
   return `rate:${ip}`;
 }
 
-/** The PKCE exchange code a callback parks the token under. */
+/** The PKCE exchange code a callback parks intervals.icu's code under. */
 export function exchangeKey(code: string): string {
   return `exchange:${code}`;
 }

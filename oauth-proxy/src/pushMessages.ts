@@ -23,6 +23,25 @@
  * entire platform path unreachable with nothing to say why.
  */
 
+export interface PushEvent {
+  type: string;
+  athlete_id: string;
+  activity?: { id?: string } | null;
+}
+
+/**
+ * The data object every device receives, through Expo and on iOS Apple too.
+ * The privacy page lists its fields: the event type, the activity id and the
+ * athlete id the device checks against the signed-in athlete before it acts.
+ */
+export function pushDataFor(event: PushEvent) {
+  return {
+    event_type: event.type,
+    athlete_id: event.athlete_id,
+    activity_id: event.activity?.id ?? null,
+  };
+}
+
 export interface VisibleContent {
   title: string;
   body: string;
@@ -38,7 +57,7 @@ export function buildPushMessages(
   const activityId = typeof data.activity_id === "string" ? data.activity_id : null;
   const messages: Record<string, unknown>[] = [];
 
-  if (visible && platform !== "android") {
+  if (visible && platform === "ios") {
     // The deep-link data rides on the visible push too. Expo forwards it as FCM
     // notification extras, which the device reads out of
     // `response.notification.request.content.data` on a tap. Without it a tap

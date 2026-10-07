@@ -1,0 +1,42 @@
+name: Install npm dependencies
+description: Set up Node.js and run npm ci, reading main's npm cache and writing it from main only
+
+# setup-node's own `cache: npm` saves in its post step on whatever ref ran it,
+# so every pull request that moved the lockfile wrote a cache main cannot read
+# and pushed main's towards eviction. Here the save is a step of its own,
+# gated on main. `package-manager-cache` is off for the same reason: setup-node
+# turns it on by itself once package.json names npm as its package manager.
+
+inputs:
+  node-version:
+    description: 'Node.js version'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: ${{ inputs.node-version }}
+        package-manager-cache: false
+
+    # Exact key only, as setup-node keys it: a prefix restore would carry every
+    # retired tarball forward into the next save.
+    - name: Restore npm cache
+      id: npm-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.npm
+        key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Save npm cache
+      if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.npm
+        key: ${{ steps.npm-cache.outputs.cache-primary-key }}

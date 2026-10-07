@@ -8,7 +8,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Only branch and PR re-runs auto-cancel. A push to main runs to the end, or
+  # CI Required reads its cancelled jobs as red on a sha that is not broken.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   NODE_VERSION: "22"
@@ -18,23 +20,26 @@ permissions:
 
 jobs:
   jest:
-    name: Jest
+    name: Jest (${{ matrix.tz }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The app project runs under the zones furthest east and west of UTC, so a
+    # formatter that mixes UTC and local fields fails here and not only for
+    # athletes at those offsets.
+    strategy:
+      fail-fast: false
+      matrix:
+        tz: [Pacific/Kiritimati, America/Los_Angeles]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Install dependencies
+        uses: ./.github/actions/npm-ci
         with:
           node-version: "${{ env.NODE_VERSION }}"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
 
       # The transform cache and haste map, which a cold run rebuilds for every
       # file. The lockfile is in the key because a dependency change
@@ -53,9 +58,10 @@ jobs:
         run: npm test
         env:
           JEST_WORKERS: 2
+          TZ: ${{ matrix.tz }}
 
       - name: Save Jest cache
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.tz == 'Pacific/Kiritimati' }}
         uses: actions/cache/save@v4
         with:
           path: .jest-cache
@@ -64,9 +70,12 @@ jobs:
   rust:
     name: Rust Tests
     runs-on: ubuntu-latest
-    # The synthetic suite is 20 CPU-minutes with the dependencies optimised
-    # (workspace Cargo.toml, `profile.dev.package`), about six on four cores,
-    # plus the compile. A run past twenty minutes is a hang, not a slow suite.
+    # Whole job: compile, bench check, nextest and doctests. Measured on
+    # GitHub runners in late September 2026: 14m19s on a cold cache, 1m38s of
+    # it the bench check, and 7m26s on a warm cache with a 14s bench check.
+    # The cap leaves under six minutes over the cold figure. Those runs
+    # predate later suite changes, so remeasure when the workload grows; a run
+    # past the cap needs its logs read to tell a slow job from a stuck one.
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -181,19 +190,15 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "${{ env.NODE_VERSION }}"
-          cache: "npm"
-
       - name: Install dependencies
         id: install
-        run: npm ci
+        uses: ./.github/actions/npm-ci
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
 
       - name: Type check
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: npx tsc --noEmit
+        run: npx tsc -b
 
       - name: Lint
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
@@ -202,12 +207,6 @@ jobs:
       - name: Check formatting
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run format:check
-
-      # The same guards the pre-commit hook runs, so a PR can't merge past them
-      # with --no-verify. See the `audit` script in package.json for the list.
-      - name: Run guard scripts
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: npm run audit
 
       # The Jest suites over the scripts, hooks, workflows and the test tree,
       # which `npm test` in the Jest job leaves out. config/jest.tooling.js
@@ -245,11 +244,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Install dependencies
+        uses: ./.github/actions/npm-ci
         with:
           node-version: "${{ env.NODE_VERSION }}"
-          cache: "npm"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.95.0
@@ -266,25 +264,8 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y clang-format
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Regenerate bindings
-        run: ./scripts/generate-bindings.sh
-
-      - name: Check bindings match
-        run: |
-          if ! git diff --quiet modules/veloqrs/src/generated modules/veloqrs/cpp/generated; then
-            echo "::error::Bindings out of sync with Rust source. Run ./scripts/generate-bindings.sh and commit."
-            echo ""
-            echo "=== Changed files ==="
-            git diff --stat modules/veloqrs/src/generated modules/veloqrs/cpp/generated
-            echo ""
-            echo "=== Detailed diff (first 100 lines) ==="
-            git diff modules/veloqrs/src/generated modules/veloqrs/cpp/generated | head -100
-            exit 1
-          fi
-          echo "Bindings are in sync with Rust source"
+      - name: Run guard scripts and verify bindings
+        run: npm run audit
 
   # The one job branch protection requires from this workflow. A job skipped or
   # cancelled upstream reports neutral, which GitHub renders as passing, so the

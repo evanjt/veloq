@@ -2,8 +2,9 @@ name: Rust Coverage
 
 # Nightly, not per push: the instrumented run over all 138 test targets takes
 # about an hour. The floors it holds are in scripts/rust-coverage-baseline.json.
-# A sha already measured is skipped, so an unchanged main is not re-measured,
-# and re-reported, every night.
+# A sha already measured is not measured again: the run reports the outcome it
+# was measured at, so an unchanged main is not re-measured every night and a
+# sha measured red stays red.
 on:
   schedule:
     - cron: "0 3 * * *"
@@ -19,17 +20,30 @@ jobs:
     timeout-minutes: 180
     steps:
       # A dispatch measures regardless, which is how to re-run a sha by hand.
+      # Restored rather than looked up, since the record carries the outcome.
       - name: Look for a run on this sha
         id: measured
         if: github.event_name == 'schedule'
         uses: actions/cache/restore@v4
         with:
           path: .coverage-measured
-          key: rust-coverage-measured-${{ github.sha }}
-          lookup-only: true
+          key: rust-coverage-outcome-${{ github.sha }}-${{ github.run_id }}
+          restore-keys: rust-coverage-outcome-${{ github.sha }}-
+
+      # A skipped job concludes success, so the skip fails on its own when the
+      # sha was measured red.
+      - name: Report the earlier result
+        if: steps.measured.outputs.cache-matched-key != ''
+        run: |
+          outcome=$(cat .coverage-measured/outcome 2>/dev/null || true)
+          if [ "$outcome" != success ]; then
+            echo "::error::sha already measured red in an earlier run (${outcome:-no outcome recorded})"
+            exit 1
+          fi
+          echo "sha already measured green in an earlier run"
 
       - name: Checkout repository
-        if: steps.measured.outputs.cache-hit != 'true'
+        if: steps.measured.outputs.cache-matched-key == ''
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -37,21 +51,21 @@ jobs:
       # The toolchain the other Rust jobs use, so a floor moves with the code
       # and not with a stable release.
       - name: Setup Rust
-        if: steps.measured.outputs.cache-hit != 'true'
+        if: steps.measured.outputs.cache-matched-key == ''
         uses: dtolnay/rust-toolchain@1.95.0
         with:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        if: steps.measured.outputs.cache-hit != 'true'
+        if: steps.measured.outputs.cache-matched-key == ''
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Install nextest
-        if: steps.measured.outputs.cache-hit != 'true'
+        if: steps.measured.outputs.cache-matched-key == ''
         uses: taiki-e/install-action@nextest
 
       - name: Cache Rust
-        if: steps.measured.outputs.cache-hit != 'true'
+        if: steps.measured.outputs.cache-matched-key == ''
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: modules/veloqrs/rust
@@ -60,10 +74,11 @@ jobs:
           cache-on-failure: true
 
       - name: Setup Node.js
-        if: steps.measured.outputs.cache-hit != 'true'
+        if: steps.measured.outputs.cache-matched-key == ''
         uses: actions/setup-node@v6
         with:
           node-version: "22"
+          package-manager-cache: false
 
       # Through nextest, one process per test, as Rust Tests runs them: under
       # plain `cargo test` the tests on process-global state share a process
@@ -74,7 +89,7 @@ jobs:
       # does return, so the skip buys the hour, not a hang.
       - name: Measure
         id: measure
-        if: steps.measured.outputs.cache-hit != 'true'
+        if: steps.measured.outputs.cache-matched-key == ''
         working-directory: modules/veloqrs/rust
         run: >
           cargo llvm-cov nextest -p veloqrs --features synthetic
@@ -82,11 +97,12 @@ jobs:
           -E 'not test(name_follows_ground_through_recut)'
 
       - name: Hold the floors
-        if: steps.measured.outputs.cache-hit != 'true'
+        id: floors
+        if: steps.measured.outputs.cache-matched-key == ''
         run: node scripts/check-rust-coverage.mjs --report modules/veloqrs/rust/coverage.json
 
       - name: Upload report
-        if: ${{ !cancelled() && steps.measured.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.measured.outputs.cache-matched-key == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: rust-coverage
@@ -94,16 +110,18 @@ jobs:
           retention-days: 90
 
       # Once the measurement has run, pass or fail, the sha has its result and
-      # the next night leaves it be. A setup failure is retried.
-      - name: Record this sha as measured
-        if: ${{ !cancelled() && (steps.measure.outcome == 'success' || steps.measure.outcome == 'failure') }}
+      # the next night reports it without measuring. A setup failure is
+      # retried. The outcome is green only when both the tests and the floors
+      # passed. The record is written from main only, like every other cache.
+      - name: Record the outcome
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (steps.measure.outcome == 'success' || steps.measure.outcome == 'failure') }}
         run: |
           mkdir -p .coverage-measured
-          echo "${{ github.sha }}" > .coverage-measured/sha
+          echo "${{ (steps.measure.outcome == 'success' && steps.floors.outcome == 'success') && 'success' || 'failure' }}" > .coverage-measured/outcome
 
       - name: Save the record
-        if: ${{ !cancelled() && (steps.measure.outcome == 'success' || steps.measure.outcome == 'failure') }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (steps.measure.outcome == 'success' || steps.measure.outcome == 'failure') }}
         uses: actions/cache/save@v4
         with:
           path: .coverage-measured
-          key: rust-coverage-measured-${{ github.sha }}
+          key: rust-coverage-outcome-${{ github.sha }}-${{ github.run_id }}

@@ -8,10 +8,8 @@
  * already holds is what settles it: intervals.icu resolves the credential to
  * its athlete and the two have to agree.
  *
- * Both of the app's credentials are accepted, because both are sign-ins here:
- * `Bearer <access token>` for OAuth and `Basic <base64 of API_KEY:key>` for a
- * personal API key. The worker forwards the header rather than reading it, so
- * intervals.icu stays the only thing that understands either scheme.
+ * Device registration accepts an OAuth bearer credential. The worker forwards
+ * it rather than reading it, so intervals.icu settles the athlete identity.
  */
 
 /** What a request proved, or why it proved nothing. */
@@ -26,13 +24,13 @@ export type AthleteResolver = (authorizationHeader: string) => Promise<string | 
  * An `Authorization` header worth forwarding, normalised of surrounding space.
  *
  * The scheme is matched without case, which is what RFC 7235 requires of it,
- * and anything outside the two the app sends is refused here rather than spent
+ * and anything outside the scheme the app sends is refused here rather than spent
  * on a round trip.
  */
 export function credentialHeader(header: string | null): string | null {
   if (!header) return null;
   const trimmed = header.trim();
-  return /^(Bearer|Basic)\s+\S+$/i.test(trimmed) ? trimmed : null;
+  return /^Bearer\s+\S+$/i.test(trimmed) ? trimmed : null;
 }
 
 /**

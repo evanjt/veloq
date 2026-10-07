@@ -1,0 +1,46 @@
+name: Setup fastlane
+description: Set up Ruby and install the fastlane bundle, reading main's gem cache and writing it from main only
+
+# setup-ruby's `bundler-cache` saves in its post step on whatever ref ran it, a
+# pull request or a release tag included. Here the save is a step of its own,
+# gated on main.
+
+runs:
+  using: composite
+  steps:
+    # The working directory holds the Gemfile.lock, so the bundler it names is
+    # the one installed.
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        # excon 1.7.1 in the fastlane lockfile needs Ruby 3.3 or later
+        ruby-version: "3.4"
+        working-directory: config/fastlane
+
+    # Native gems are built against the exact Ruby, so it is in the key.
+    - name: Read Ruby version
+      id: ruby
+      shell: bash
+      run: echo "version=$(ruby -e 'print RUBY_VERSION')" >> "$GITHUB_OUTPUT"
+
+    - name: Restore gems
+      id: gems-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: config/fastlane/vendor/bundle
+        key: gems-${{ runner.os }}-${{ runner.arch }}-ruby${{ steps.ruby.outputs.version }}-${{ hashFiles('config/fastlane/Gemfile.lock') }}
+
+    - name: Install gems
+      shell: bash
+      working-directory: config/fastlane
+      run: |
+        bundle config set --local path vendor/bundle
+        bundle config set --local deployment true
+        bundle install --jobs 4
+
+    - name: Save gems
+      if: github.ref == 'refs/heads/main' && steps.gems-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: config/fastlane/vendor/bundle
+        key: ${{ steps.gems-cache.outputs.cache-primary-key }}

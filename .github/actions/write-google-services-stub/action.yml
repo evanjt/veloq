@@ -1,5 +1,5 @@
 name: Write google-services.json
-description: Write google-services.json from a base64 secret, falling back to a valid placeholder stub so Gradle can complete
+description: Write google-services.json from a base64 secret, with an optional placeholder for test builds
 
 inputs:
   secret-contents:
@@ -10,6 +10,10 @@ inputs:
     description: 'Android package name used in the placeholder stub (ignored when a real secret is provided)'
     required: false
     default: 'com.veloq.app'
+  allow-stub:
+    description: 'Allow a placeholder when the secret is unavailable'
+    required: false
+    default: 'true'
 
 runs:
   using: composite
@@ -19,11 +23,12 @@ runs:
       env:
         GOOGLE_SERVICES_JSON: ${{ inputs.secret-contents }}
         PACKAGE_NAME: ${{ inputs.package-name }}
+        ALLOW_STUB: ${{ inputs.allow-stub }}
       run: |
         if [ -n "$GOOGLE_SERVICES_JSON" ]; then
           echo "$GOOGLE_SERVICES_JSON" | base64 -d > google-services.json
           echo "Wrote google-services.json from secret ($(stat -c%s google-services.json) bytes)"
-        else
+        elif [ "$ALLOW_STUB" = "true" ]; then
           echo "::notice::GOOGLE_SERVICES_JSON not available, writing stub for CI build"
           cat > google-services.json << STUBEOF
         {
@@ -48,4 +53,7 @@ runs:
         }
         STUBEOF
           echo "Wrote google-services.json stub ($(stat -c%s google-services.json) bytes)"
+        else
+          echo "::error::GOOGLE_SERVICES_JSON is required for this build" >&2
+          exit 1
         fi

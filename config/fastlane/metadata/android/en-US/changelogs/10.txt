@@ -1,6 +1,6 @@
 What's new in 0.1.0:
 
-- Reorganised fitness tab with power/pace curves and training zones
+- Reorganized fitness tab with power/pace curves and training zones
 - Routes and sections now sorted by pace for running activities
 - Weekly stats now use calendar weeks (Mon-Sun) matching intervals.icu
 - Year comparisons use calendar years instead of rolling periods
