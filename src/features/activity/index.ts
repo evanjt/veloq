@@ -25,6 +25,8 @@ export {
   ActivityChartsSection,
   ActivityHeader,
   ActivityRoutesSection,
+  ActivityDetailReadFailed,
+  ActivityDetailSkeleton,
   ActivitySectionsSection,
   SkylineBar,
 } from './components';
@@ -40,8 +42,9 @@ export {
   useActivityIntervals,
   useActivitySectionHighlights,
   useActivityStreams,
+  useActivityDetailStreams,
   useDetailCoordinates,
-  useEFTPHistory,
+  useFeedSearch,
   useInfiniteActivities,
   useSectionOverlays,
 } from './hooks';
@@ -49,13 +52,19 @@ export { useActivityDetailData } from './hooks/useActivityDetailData';
 export { useActivityLabels } from './hooks/useActivityLabels';
 
 export type { ChartConfig, ChartTypeId } from './lib/chartConfig';
-export { FEED_GROUPS, matchesFeedGroup } from './lib/feedActivityGroups';
+export { FEED_GROUPS } from './lib/feedActivityGroups';
+export { feedRangeForPreset, sameFeedRange } from './lib/feedRange';
+export type { FeedRange, FeedRangePreset } from './lib/feedRange';
+export { useRangeActivities } from './hooks/useActivities';
 export { FeedFilterChips } from './components/FeedFilterChips';
 export { storableTimeStreams } from '@/shared/demo/activity/streams';
 export { ESTIMATED_SEARCH_SECTION_HEIGHT, searchOffsetCorrection } from './lib/feedSearchOffset';
 export type { FeedGroup } from './lib/feedActivityGroups';
-export { groupSectionEncounters } from './lib/groupSectionEncounters';
+export { groupSectionEncounters, sectionRowLabels } from './lib/groupSectionEncounters';
+export { decouplingSource, storedDecoupling } from './lib/decoupling';
+export type { DecouplingSource } from './lib/decoupling';
 export type { SectionEncounterGroup } from './lib/groupSectionEncounters';
 export { setVisibleRange } from './lib/previewRange';
+export { ringsLeavingView } from './lib/ringsLeavingView';
 
 export type { ActivityType } from './types';

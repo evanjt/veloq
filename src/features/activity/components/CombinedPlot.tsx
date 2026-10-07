@@ -28,6 +28,8 @@ import {
   buildChartData,
   computeAllAverages,
   computeIntervalBands,
+  formatScrubValue,
+  seriesAverage,
   resolveBandColour,
   type ChartMetricValue,
 } from '@/features/stats';
@@ -192,30 +194,13 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
       // Build metric values with actual data (not normalized)
       const originalIdx = indexMap[idx];
-      const values = seriesInfo.map((s) => {
-        let rawVal = s.rawData[originalIdx] ?? 0;
-
-        // Apply imperial conversion if needed
-        if (!isMetric && s.config.convertToImperial) {
-          rawVal = s.config.convertToImperial(rawVal);
-        }
-
-        // Format the value
-        let formatted: string;
-        if (s.config.formatValue) {
-          formatted = s.config.formatValue(rawVal, isMetric);
-        } else {
-          formatted = Math.round(rawVal).toString();
-        }
-
-        return {
-          id: s.id,
-          label: s.config.label,
-          value: formatted,
-          unit: isMetric ? s.config.unit || '' : s.config.unitImperial || s.config.unit || '',
-          color: s.config.color,
-        };
-      });
+      const values = seriesInfo.map((s) => ({
+        id: s.id,
+        label: s.config.label,
+        value: formatScrubValue(s.config, s.rawData[originalIdx], isMetric),
+        unit: isMetric ? s.config.unit || '' : s.config.unitImperial || s.config.unit || '',
+        color: s.config.color,
+      }));
 
       indicator.current?.setScrub(chartData[idx]?.x ?? 0);
 
@@ -296,20 +281,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Format Y-axis values for single metric display
   const formatYAxisValue = useCallback(
     (value: number, series: (typeof seriesInfo)[0]) => {
-      // Guard against invalid values or missing config
-      if (!Number.isFinite(value) || !series?.config) {
-        return '-';
-      }
-      let displayValue = value;
-      if (!isMetric && series.config.convertToImperial) {
-        displayValue = series.config.convertToImperial(value);
-      }
-      if (series.config.formatValue) {
-        const formatted = series.config.formatValue(displayValue, isMetric);
-        // Guard against formatValue returning empty/invalid string
-        return formatted || '-';
-      }
-      return Math.round(displayValue).toString();
+      if (!series?.config) return '-';
+      return formatScrubValue(series.config, value, isMetric);
     },
     [isMetric]
   );
@@ -325,9 +298,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Calculate normalized average position and raw value for the Y-axis series (for average line + label)
   const yAxisAvgInfo = useMemo(() => {
     if (!yAxisSeries) return null;
-    const validValues = yAxisSeries.rawData.filter((v) => !isNaN(v) && isFinite(v));
-    if (validValues.length === 0) return null;
-    const rawAvg = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
+    const rawAvg = seriesAverage(yAxisSeries.config, yAxisSeries.rawData);
+    if (rawAvg == null) return null;
     const { min, range } = yAxisSeries.range;
     return { normalized: (rawAvg - min) / range, raw: rawAvg };
   }, [yAxisSeries]);
@@ -371,7 +343,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
               padding={CHART_PADDING}
               grid={5}
             >
-              {({ points, bounds, xFor, yFor }) => {
+              {({ runs, bounds, xFor, yFor }) => {
                 // Sync chartBounds and point coordinates for UI thread crosshair
                 if (
                   bounds.left !== chartBoundsShared.value.left ||
@@ -427,12 +399,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                       const isMulti = seriesInfo.length > 1;
                       const topAlpha = series.isPreview ? '30' : isMulti ? '70' : '90';
                       const bottomAlpha = series.isPreview ? '08' : isMulti ? '10' : '15';
-                      return (
-                        <CurveArea
-                          key={`area-${series.id}`}
-                          points={points[series.id] ?? []}
-                          y0={bounds.bottom}
-                        >
+                      return (runs[series.id] ?? []).map((run, i) => (
+                        <CurveArea key={`area-${series.id}-${i}`} points={run} y0={bounds.bottom}>
                           <LinearGradient
                             start={vec(0, bounds.top)}
                             end={vec(0, bounds.bottom)}
@@ -442,16 +410,16 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                             ]}
                           />
                         </CurveArea>
-                      );
+                      ));
                     })}
 
                     {/* Stream line strokes - hairline casing for clarity */}
                     {seriesInfo.map((series) => {
                       const width = series.isPreview ? 0.75 : 1;
-                      return (
-                        <React.Fragment key={`line-${series.id}`}>
+                      return (runs[series.id] ?? []).map((run, i) => (
+                        <React.Fragment key={`line-${series.id}-${i}`}>
                           <CurveLine
-                            points={points[series.id] ?? []}
+                            points={run}
                             color={
                               isDark
                                 ? colorWithOpacity(ink.black, 0.5)
@@ -459,13 +427,9 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                             }
                             strokeWidth={width + 0.75}
                           />
-                          <CurveLine
-                            points={points[series.id] ?? []}
-                            color={series.config.color}
-                            strokeWidth={width}
-                          />
+                          <CurveLine points={run} color={series.config.color} strokeWidth={width} />
                         </React.Fragment>
-                      );
+                      ));
                     })}
 
                     {/* Dashed average lines per WORK interval */}

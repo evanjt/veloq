@@ -14,9 +14,9 @@
  * SectionStatsCards, not a count mismatch in this hook.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { ActivityHighlightsBundle } from 'veloqrs';
-import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { isRouteMatchingEnabled } from '@/features/routes';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { debug } from '@/shared/debug/debug';
 
@@ -40,6 +40,8 @@ export interface ActivityRouteHighlight {
   trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
   /** Seconds vs route PR moving time. Negative = ahead, positive = behind, 0 = same. Null when no comparison. */
   timeDeltaSeconds: number | null;
+  /** Seconds a PR beat the previous route best by. Null when not a PR or no earlier attempt. */
+  prImprovementSeconds: number | null;
 }
 
 /**
@@ -50,11 +52,9 @@ export interface ActivityRouteHighlight {
  * during launch alone. Each announcement rebuilds this hook's result, so
  * without this every highlighted card re-renders with nothing new to draw.
  * Keying on the rendered fields means equal content is literally the same
- * object, with no render-phase state to keep in step.
+ * object. Each mounted hook keeps its own cache so a detail read cannot prune
+ * the feed's entries.
  */
-const sectionIdentity = new Map<string, { key: string; value: ActivitySectionHighlight[] }>();
-const routeIdentity = new Map<string, { key: string; value: ActivityRouteHighlight }>();
-
 function sectionsKey(highlights: ActivitySectionHighlight[]): string {
   return highlights
     .map((h) => `${h.sectionId}|${h.direction}|${h.sectionName}|${h.lapTime}|${h.isPr}|${h.trend}`)
@@ -62,8 +62,8 @@ function sectionsKey(highlights: ActivitySectionHighlight[]): string {
 }
 
 function routeKey(highlight: ActivityRouteHighlight): string {
-  const { routeId, routeName, isPr, trend, timeDeltaSeconds } = highlight;
-  return `${routeId}|${routeName}|${isPr}|${trend}|${timeDeltaSeconds}`;
+  const { routeId, routeName, isPr, trend, timeDeltaSeconds, prImprovementSeconds } = highlight;
+  return `${routeId}|${routeName}|${isPr}|${trend}|${timeDeltaSeconds}|${prImprovementSeconds}`;
 }
 
 /** The stored object when the content matches, otherwise `value`, now stored. */
@@ -80,9 +80,9 @@ function carry<T>(
 }
 
 /** The cache follows the batch, so a feed that scrolls does not grow it. */
-function prune(ids: string[]): void {
+function prune(ids: string[], caches: Map<string, unknown>[]): void {
   const live = new Set(ids);
-  for (const cache of [sectionIdentity, routeIdentity]) {
+  for (const cache of caches) {
     for (const id of cache.keys()) {
       if (!live.has(id)) cache.delete(id);
     }
@@ -101,6 +101,10 @@ export function useActivitySectionHighlights(
   routes: Map<string, ActivityRouteHighlight>;
 } {
   const readHighlights = useEngineRead(['sections', 'groups', 'activities']);
+  const sectionIdentity = useRef(
+    new Map<string, { key: string; value: ActivitySectionHighlight[] }>()
+  );
+  const routeIdentity = useRef(new Map<string, { key: string; value: ActivityRouteHighlight }>());
   // The list arrives as a fresh array every render, so the joined ids are what
   // the memo is keyed on, and the memo splits them back rather than closing
   // over the array its key stands in for.
@@ -173,6 +177,7 @@ export function useActivitySectionHighlights(
           isPr: r.isPr,
           trend: r.trend,
           timeDeltaSeconds: r.timeDeltaSeconds ?? null,
+          prImprovementSeconds: r.prImprovementSeconds ?? null,
         });
       }
 
@@ -190,12 +195,16 @@ export function useActivitySectionHighlights(
         }
       }
 
-      prune(ids);
+      // These refs cache object identity for this hook's batch only.
+      // eslint-disable-next-line react-hooks/refs
+      prune(ids, [sectionIdentity.current, routeIdentity.current]);
       for (const [id, highlights] of sectionMap) {
-        sectionMap.set(id, carry(sectionIdentity, id, highlights, sectionsKey(highlights)));
+        // eslint-disable-next-line react-hooks/refs
+        sectionMap.set(id, carry(sectionIdentity.current, id, highlights, sectionsKey(highlights)));
       }
       for (const [id, highlight] of routeMap) {
-        routeMap.set(id, carry(routeIdentity, id, highlight, routeKey(highlight)));
+        // eslint-disable-next-line react-hooks/refs
+        routeMap.set(id, carry(routeIdentity.current, id, highlight, routeKey(highlight)));
       }
       return { sections: sectionMap, routes: routeMap };
     } catch (e) {

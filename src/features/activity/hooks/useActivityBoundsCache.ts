@@ -6,14 +6,13 @@
  * engine's own date range, and the cache controls.
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import type { ExpandRangeResult } from '@/shared/app/SyncDateRangeStore';
 import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
-import { queryKeys } from '@/shared/query/queryKeys';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
+import { engineErrorTag } from '@/shared/native/engineError';
 import { useEngineReady } from '@/shared/native/useEngineReady';
-import { withDatabaseSnapshot } from '@/features/settings/lib/clearSnapshot';
+import { withDatabaseSnapshot } from '@/features/settings';
 import { formatLocalDate } from '@/shared/format/format';
 import { runDerivedClear } from '@/shared/native/engineClears';
 
@@ -40,8 +39,6 @@ interface UseActivityBoundsCacheReturn {
   clearCache: () => Promise<boolean>;
   /** Cache statistics */
   cacheStats: CacheStats;
-  /** Trigger sync for specified number of days or all history */
-  sync: (days?: number | 'all') => Promise<void>;
 }
 
 /**
@@ -50,10 +47,14 @@ interface UseActivityBoundsCacheReturn {
  */
 export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   // One stats read covers both the count and the persisted date range.
+  // A failed read opens on nothing and the effect below reads again.
   const initialStats = useMemo(() => {
     try {
       return getEngine()?.getStats() ?? null;
-    } catch {
+    } catch (error) {
+      // empty-on-error: this is only the first paint's seed; the effect below reads the stats
+      // again and the count it draws is overwritten by that read.
+      console.warn('[ActivityBoundsCache] Could not read stats:', engineErrorTag(error) ?? error);
       return null;
     }
   }, []);
@@ -74,7 +75,6 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     return { oldest: null, newest: null };
   });
 
-  const queryClient = useQueryClient();
   const lastSyncTimestamp = useSyncDateRange((s) => s.lastSyncTimestamp);
 
   // Counter to force engine re-subscription after clear+reinit
@@ -116,8 +116,15 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       }
       // One read, not two. `getStats` already carries the activity count
       // beside the date range, and both waits are on the engine's write lock,
-      // which a sync write holds when the event that woke this fires.
-      const stats = eng.getStats();
+      // which a sync write holds when the event that woke this fires. A failed
+      // read keeps the figures already shown rather than zeroing them.
+      let stats;
+      try {
+        stats = eng.getStats();
+      } catch (error) {
+        console.warn('[ActivityBoundsCache] Could not read stats:', engineErrorTag(error) ?? error);
+        return;
+      }
       setActivityCount(stats?.activityCount ?? 0);
       if (stats?.oldestDate && stats?.newestDate) {
         setEngineDateRange({
@@ -205,22 +212,10 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     return cleared;
   }, []);
 
-  const sync = useCallback(
-    async (_days: number | 'all' = 90) => {
-      // Refetch activities (triggers GlobalDataSync to download GPS data)
-      await queryClient.refetchQueries({
-        queryKey: queryKeys.activities.all,
-        type: 'all',
-      });
-    },
-    [queryClient]
-  );
-
   return {
     isReady: isSubscribed,
     syncDateRange,
     clearCache,
     cacheStats,
-    sync,
   };
 }

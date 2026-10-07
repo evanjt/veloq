@@ -9,36 +9,49 @@
 
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
-import { useTheme } from '@/shared/app';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
-import { colors, darkColors, typography, spacing, shadows } from '@/theme';
+import { colors, darkColors, typography, spacing } from '@/theme';
 import type { Activity, WellnessData } from '@/types';
+import type { ActivityFitnessImpact } from 'veloqrs';
+import { DEFAULT_MAX_HR } from '../../lib/hrZones';
 import { useActivityStats } from './useActivityStats';
 import { StatCard } from './StatCard';
 import { StatDetailModal } from './StatDetailModal';
+import { Card } from '@/shared/ui/Card';
 import type { StatDetail } from './types';
 
 interface InsightfulStatsProps {
   activity: Activity;
   /** Wellness data for the activity date (for context) */
   wellness?: WellnessData | null | undefined;
-  /** Recent activities for comparison */
-  recentActivities?: Activity[] | undefined;
+  /** The max HR from the detail screen read, the one the zones chart divides by. Without one, the default. */
+  maxHR?: number | undefined;
+  fitnessImpact?: ActivityFitnessImpact | null | undefined;
 }
 
 export function InsightfulStats({
   activity,
   wellness,
-  recentActivities = [],
+  maxHR,
+  fitnessImpact,
 }: InsightfulStatsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [selectedStat, setSelectedStat] = useState<StatDetail | null>(null);
 
   // Use extracted hook for stats computation
-  const { stats } = useActivityStats({ activity, wellness, recentActivities, isDark });
+  const isMetric = useMetricSystem();
+  const { stats } = useActivityStats({
+    activity,
+    wellness,
+    isDark,
+    isMetric,
+    maxHR: maxHR ?? DEFAULT_MAX_HR,
+    fitnessImpact,
+  });
 
   const handleStatPress = useCallback((stat: StatDetail) => {
     setSelectedStat(stat);
@@ -62,43 +75,40 @@ export function InsightfulStats({
   if (stats.length === 0) return null;
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
-      <View style={styles.headerRow}>
-        <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-          {t('activity.activityStats')}
-        </Text>
-        <TouchableOpacity
-          style={styles.intervalsLink}
-          onPress={openInIntervalsICU}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.intervalsLinkText}>{t('activity.viewInIntervalsICU')}</Text>
-          <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.frame}>
+      <Card variant="raised">
+        <View style={styles.headerRow}>
+          <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+            {t('activity.activityStats')}
+          </Text>
+          <TouchableOpacity
+            style={styles.intervalsLink}
+            onPress={openInIntervalsICU}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.intervalsLinkText, isDark && { color: darkColors.linkTeal }]}>
+              {t('activity.viewInIntervalsICU')}
+            </Text>
+            <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.statsGrid}>
-        {stats.map((stat, index) => (
-          <StatCard key={index} stat={stat} isDark={isDark} onPress={handleStatPress} />
-        ))}
-      </View>
+        <View style={styles.statsGrid}>
+          {stats.map((stat, index) => (
+            <StatCard key={index} stat={stat} isDark={isDark} onPress={handleStatPress} />
+          ))}
+        </View>
 
-      <StatDetailModal stat={selectedStat} isDark={isDark} onClose={closeModal} />
+        <StatDetailModal stat={selectedStat} isDark={isDark} onClose={closeModal} />
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.surface,
+  frame: {
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    borderRadius: spacing.md,
-    padding: spacing.md,
-    ...shadows.card,
-  },
-  containerDark: {
-    backgroundColor: darkColors.surface,
   },
   headerRow: {
     flexDirection: 'row',
@@ -123,7 +133,7 @@ const styles = StyleSheet.create({
   },
   intervalsLinkText: {
     fontSize: typography.caption.fontSize,
-    color: colors.primary,
+    color: colors.linkTeal,
     fontWeight: '500',
   },
   statsGrid: {

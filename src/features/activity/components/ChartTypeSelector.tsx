@@ -1,6 +1,8 @@
 import React, { useRef, useCallback } from 'react';
-import { View, StyleSheet, Pressable, Text } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { DenseText } from '@/shared/ui/DenseText';
 import { useTheme } from '@/shared/app';
+import { pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, layout, typography, spacing, colorWithOpacity } from '@/theme';
@@ -116,7 +118,7 @@ export function ChartTypeSelector({
         // its own 15% tint. The chip keeps the hue as its ground and its dot, and
         // the label says which stream it is.
         const textColor = isSelected
-          ? colors.textOnDark
+          ? config.ink
           : isDark
             ? darkColors.textPrimary
             : colors.textPrimary;
@@ -130,11 +132,15 @@ export function ChartTypeSelector({
           <Pressable
             key={config.id}
             testID={`chart-type-${config.id}`}
-            style={({ pressed }) => [
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ selected: isSelected }}
+            style={pressable([
               styles.chip,
               metric && styles.chipWithValue,
-              { backgroundColor: bgColor, opacity: pressed ? 0.7 : 1 },
-            ]}
+              { backgroundColor: bgColor },
+            ])}
+            android_ripple={pressRipple}
             onPressIn={handlePressIn}
             onPress={() => handlePress(config.id)}
             onLongPress={() => handleLongPress(config.id)}
@@ -143,23 +149,23 @@ export function ChartTypeSelector({
           >
             <View style={styles.chipLabelRow}>
               <MaterialCommunityIcons name={config.icon} size={11} color={textColor} />
-              <Text style={[styles.chipLabel, { color: textColor }]}>{label}</Text>
+              <DenseText style={[styles.chipLabel, { color: textColor }]}>{label}</DenseText>
             </View>
             {metric && (
               <View style={styles.chipValueContainer}>
                 {/* Hidden max-width text to reserve stable chip width */}
-                <Text style={[styles.chipValue, styles.chipValueHidden]} numberOfLines={1}>
+                <DenseText style={[styles.chipValue, styles.chipValueHidden]} numberOfLines={1}>
                   {isolateNumeric(metric.maxValueWidth || metric.value)}
                   {metric.unit ? ` ${metric.unit}` : ''}
-                </Text>
+                </DenseText>
                 {/* Visible value centered on top */}
-                <Text
+                <DenseText
                   style={[styles.chipValue, styles.chipValueVisible, { color: textColor }]}
                   numberOfLines={1}
                 >
                   {isolateNumeric(metric.value)}
                   {metric.unit ? ` ${metric.unit}` : ''}
-                </Text>
+                </DenseText>
               </View>
             )}
           </Pressable>

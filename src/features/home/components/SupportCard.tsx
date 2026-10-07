@@ -14,9 +14,10 @@ import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/shared/app';
 import { useSupportStore } from '@/shared/app/SupportStore';
 import { useDonation } from '@/shared/app/useDonation';
-import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
-import { pressable } from '@/shared/ui';
+import { Card } from '@/shared/ui/Card';
+import { pressable, pressRipple } from '@/shared/ui';
 
 const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
@@ -114,15 +115,13 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
 
   if (purchaseSuccess) {
     return (
-      <Animated.View
-        entering={FadeIn.duration(300)}
-        exiting={FadeOut.duration(200)}
-        style={[styles.card, isDark && styles.cardDark]}
-      >
-        <View style={styles.header}>
-          <MaterialCommunityIcons name="heart" size={22} color={colors.primary} />
-          <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.thankYou')}</Text>
-        </View>
+      <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)}>
+        <Card variant="raised" style={{ gap: spacing.sm }}>
+          <View style={styles.header}>
+            <MaterialCommunityIcons name="heart" size={22} color={colors.primary} />
+            <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.thankYou')}</Text>
+          </View>
+        </Card>
       </Animated.View>
     );
   }
@@ -135,91 +134,106 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
       testID="support-card"
       entering={FadeIn.duration(300)}
       exiting={FadeOut.duration(200)}
-      style={[styles.card, isDark && styles.cardDark]}
     >
-      <View style={styles.header}>
-        <MaterialCommunityIcons name="star-outline" size={22} color={textColor} />
-        <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.enjoyingTitle')}</Text>
-      </View>
-      <Text style={[styles.description, isDark && styles.descriptionDark]}>
-        {t('support.feedbackDescription')}
-      </Text>
-
-      <View style={styles.actionRow}>
-        <ActionButton
-          icon="star"
-          label={t('support.review')}
-          onPress={handleReview}
-          isDark={isDark}
-        />
-        <ActionButton
-          icon="lightbulb-outline"
-          label={t('support.idea')}
-          onPress={handleIdea}
-          isDark={isDark}
-        />
-        <ActionButton
-          icon="forum-outline"
-          label={t('support.forum')}
-          onPress={handleForum}
-          isDark={isDark}
-        />
-      </View>
-
-      <Pressable
-        testID="support-card-tip-toggle"
-        onPress={toggleTips}
-        style={pressable(styles.tipToggle)}
-        hitSlop={4}
-      >
-        <MaterialCommunityIcons name="wrench-outline" size={18} color={mutedColor} />
-        <Text style={[styles.tipToggleText, { color: mutedColor }]}>
-          {t('support.supportDevelopment')}
+      <Card variant="raised" style={{ gap: spacing.sm }}>
+        <View style={styles.header}>
+          <MaterialCommunityIcons name="star-outline" size={22} color={textColor} />
+          <Text style={[styles.title, isDark && styles.titleDark]}>
+            {t('support.enjoyingTitle')}
+          </Text>
+        </View>
+        <Text style={[styles.description, isDark && styles.descriptionDark]}>
+          {t('support.feedbackDescription')}
         </Text>
-        <MaterialCommunityIcons
-          name={tipsExpanded ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={mutedColor}
-        />
-      </Pressable>
 
-      <Animated.View style={tipAnimStyle}>
-        {isAvailable ? (
-          <View testID="support-card-tip-buttons">
-            <TipButtons
-              products={products}
-              isPurchasing={isPurchasing}
-              onTip={handleTip}
-              isDark={isDark}
-            />
-          </View>
-        ) : (
+        <View style={styles.actionRow}>
+          <ActionButton
+            icon="star"
+            label={t('support.review')}
+            onPress={handleReview}
+            isDark={isDark}
+          />
+          <ActionButton
+            icon="lightbulb-outline"
+            label={t('support.idea')}
+            onPress={handleIdea}
+            isDark={isDark}
+          />
+          <ActionButton
+            icon="forum-outline"
+            label={t('support.forum')}
+            onPress={handleForum}
+            isDark={isDark}
+          />
+        </View>
+
+        <Pressable
+          testID="support-card-tip-toggle"
+          onPress={toggleTips}
+          style={pressable(styles.tipToggle)}
+          android_ripple={pressRipple}
+          hitSlop={4}
+        >
+          <MaterialCommunityIcons name="wrench-outline" size={18} color={mutedColor} />
+          <Text style={[styles.tipToggleText, { color: mutedColor }]}>
+            {t('support.supportDevelopment')}
+          </Text>
+          <MaterialCommunityIcons
+            name={tipsExpanded ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={mutedColor}
+          />
+        </Pressable>
+
+        <Animated.View style={tipAnimStyle}>
+          {isAvailable ? (
+            <View testID="support-card-tip-buttons">
+              <TipButtons
+                products={products}
+                isPurchasing={isPurchasing}
+                onTip={handleTip}
+                isDark={isDark}
+              />
+            </View>
+          ) : (
+            <Pressable
+              testID="support-card-sponsor-button"
+              onPress={handleSponsor}
+              style={pressable([styles.sponsorButton, isDark && styles.sponsorButtonDark])}
+              android_ripple={pressRipple}
+            >
+              <MaterialCommunityIcons name="github" size={18} color={textColor} />
+              <Text style={[styles.sponsorText, isDark && styles.sponsorTextDark]}>
+                {t('support.sponsorGitHub')}
+              </Text>
+            </Pressable>
+          )}
+        </Animated.View>
+
+        <View style={styles.dismissRow}>
           <Pressable
-            testID="support-card-sponsor-button"
-            onPress={handleSponsor}
-            style={pressable([styles.sponsorButton, isDark && styles.sponsorButtonDark])}
+            onPress={handleRemindLater}
+            hitSlop={8}
+            style={pressable()}
+            android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="github" size={18} color={textColor} />
-            <Text style={[styles.sponsorText, isDark && styles.sponsorTextDark]}>
-              {t('support.sponsorGitHub')}
+            <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
+              {t('support.remindLater')}
             </Text>
           </Pressable>
-        )}
-      </Animated.View>
-
-      <View style={styles.dismissRow}>
-        <Pressable onPress={handleRemindLater} hitSlop={8} style={pressable()}>
-          <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
-            {t('support.remindLater')}
-          </Text>
-        </Pressable>
-        <Text style={[styles.dismissSeparator, isDark && styles.dismissTextDark]}>·</Text>
-        <Pressable onPress={handleNeverShow} hitSlop={8} style={pressable()}>
-          <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
-            {t('support.neverShow')}
-          </Text>
-        </Pressable>
-      </View>
+          <Text style={[styles.dismissSeparator, isDark && styles.dismissTextDark]}>·</Text>
+          <Pressable
+            onPress={handleNeverShow}
+            hitSlop={8}
+            style={pressable()}
+            android_ripple={pressRipple}
+          >
+            <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
+              {t('support.neverShow')}
+            </Text>
+          </Pressable>
+        </View>
+      </Card>
     </Animated.View>
   );
 }
@@ -239,6 +253,7 @@ function ActionButton({
     <Pressable
       onPress={onPress}
       style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
+      android_ripple={pressRipple}
     >
       <MaterialCommunityIcons
         name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
@@ -251,19 +266,6 @@ function ActionButton({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginHorizontal: layout.screenPadding,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    gap: spacing.sm,
-    ...shadows.card,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surfaceCard,
-    ...shadows.none,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

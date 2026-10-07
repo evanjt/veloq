@@ -1,27 +1,27 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  InteractionManager,
-  useWindowDimensions,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { canDrawProfilePhoto } from '@/shared/ui';
+import { canDrawProfilePhoto, Shimmer } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
-import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
+import { SummaryCardSparkline, SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
+import { Card } from '@/shared/ui/Card';
 import { useTranslation } from 'react-i18next';
-import { getFormZone, formZoneTextColor } from '@/features/fitness/lib/fitness';
+import { getFormZone, formatForm, formZoneTextColor } from '@/features/fitness';
 import { debug } from '@/shared/debug/debug';
 import type { TrendGlyph } from '@/shared/format/trend';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { formatSignedChange } from '../lib/fitnessChange';
 
 const log = debug.create('SummaryCard');
+
+const SHIMMER_HERO_WIDTH = 38;
+const SHIMMER_LABEL_WIDTH = 56;
+const SHIMMER_METRIC_WIDTH = 28;
 
 /**
  * Supporting metric displayed in the bottom row of SummaryCard
@@ -31,7 +31,8 @@ interface SupportingMetric {
   value: string | number;
   color?: string | undefined;
   trend?: TrendGlyph | undefined;
-  navigationTarget?: '/fitness' | '/training' | undefined;
+  /** The route and chart a tap opens. */
+  navigationTarget: string;
 }
 
 /**
@@ -45,26 +46,34 @@ export interface SummaryCardProps {
   // Hero metric data
   heroMetric?: string | undefined;
   heroValue: number | string;
-  heroLabel: string; // "Form", "Fitness", etc.
+  heroLabel: string; // "Fitness" or "HRV"
   heroColor: string;
-  heroZoneLabel?: string | undefined; // "Fresh", "Tired", etc.
-  heroZoneColor?: string | undefined;
   heroTrend?: TrendGlyph | undefined;
   onHeroPress?: (() => void) | undefined;
 
   // Sparkline data (30 days) - fitness line + fatigue line + form zone bar
   fitnessData?: number[] | undefined;
+  /** Last plotted fitness minus the first, from the engine. */
+  fitnessDelta?: number | null | undefined;
+  /** Indices into `fitnessData` of the days fitness rose, from the engine. */
+  fitnessRiseDays?: number[] | undefined;
   fatigueData?: number[] | undefined;
   formData?: number[] | undefined;
   // HRV sparkline data - HRV line + RHR line
   hrvData?: number[] | undefined;
   rhrData?: number[] | undefined;
+  /** Whether each HRV and RHR day had a reading of its own, beside the series. */
+  hrvRead?: boolean[] | undefined;
+  rhrRead?: boolean[] | undefined;
   showSparkline: boolean;
   /** Show inline labels on sparkline (settings preview) */
   showSparklineLabels?: boolean | undefined;
 
   // Supporting metrics (max 4)
   supportingMetrics: SupportingMetric[];
+
+  /** The values are still outstanding: placeholders stand in for them, never a dash. */
+  isLoading?: boolean | undefined;
 }
 
 /**
@@ -87,18 +96,21 @@ export const SummaryCard = React.memo(function SummaryCard({
   heroValue,
   heroLabel,
   heroColor,
-  heroZoneLabel,
-  heroZoneColor,
   heroTrend,
   onHeroPress,
   fitnessData,
+  fitnessDelta,
+  fitnessRiseDays,
   fatigueData,
   formData,
   hrvData,
   rhrData,
+  hrvRead,
+  rhrRead,
   showSparkline,
   showSparklineLabels = false,
   supportingMetrics,
+  isLoading = false,
 }: SummaryCardProps) {
   const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
@@ -115,8 +127,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   const [scrubValues, setScrubValues] = useState<ScrubValues | null>(null);
   const [sparklinesReady, setSparklinesReady] = useState(false);
   useEffect(() => {
-    const handle = InteractionManager.runAfterInteractions(() => setSparklinesReady(true));
-    return () => handle.cancel();
+    return runWhenIdle(() => setSparklinesReady(true));
   }, []);
 
   const handleScrub = useCallback((values: ScrubValues | null) => {
@@ -131,10 +142,18 @@ export const SummaryCard = React.memo(function SummaryCard({
   // again at the call site, so the plot cannot be reached without them.
   const showAny = sparklinesReady && showSparkline;
   const fitnessSparkline =
-    showAny && !isHrvMode && fitnessData?.length && formData?.length
+    showAny &&
+    !isHrvMode &&
+    fitnessData &&
+    formData &&
+    fitnessData.length >= SPARKLINE_MIN_DAYS &&
+    formData.length >= SPARKLINE_MIN_DAYS
       ? { fitness: fitnessData, form: formData }
       : null;
-  const hrvSparkline = showAny && isHrvMode && hrvData && hrvData.length >= 2 ? hrvData : null;
+  const hrvSparkline =
+    showAny && isHrvMode && hrvData && hrvData.length >= SPARKLINE_MIN_DAYS ? hrvData : null;
+
+  const fitnessChange = formatSignedChange(fitnessDelta);
 
   // During scrub, override the hero display
   // Headline numbers, so they are text and hold 4.5:1. The series fills they
@@ -161,220 +180,254 @@ export const SummaryCard = React.memo(function SummaryCard({
   const currentForm = scrubValues ? scrubValues.form : (formData?.[lastIdx] ?? 0);
   const asPercent = useFormPreference((s) => s.formAsPercent) === true;
   const currentFormZone = getFormZone(currentForm, currentFitness, asPercent);
-  const currentFormColor = formZoneTextColor(currentFormZone, isDark);
+  const currentFormColor = currentFormZone
+    ? formZoneTextColor(currentFormZone, isDark)
+    : isDark
+      ? darkColors.textPrimary
+      : colors.textPrimary;
   // RHR borrows the high-risk red, and it is a value and a label, so it takes
   // the text variant of that token like every other word drawn in one.
   const rhrColor = formZoneTextColor('highRisk', isDark);
 
   // Current HRV sparkline values (latest or scrubbed)
   const hrvLastIdx = hrvData ? hrvData.length - 1 : 0;
-  const currentHrv = scrubValues?.hrv ?? hrvData?.[hrvLastIdx] ?? 0;
-  const currentRhr = scrubValues?.rhr ?? rhrData?.[hrvLastIdx] ?? null;
+  // A scrubbed day with no reading of its own reads '-', not the value the
+  // line carries over it from an earlier day.
+  const currentHrv = scrubValues
+    ? scrubValues.hrv === null
+      ? '-'
+      : (scrubValues.hrv ?? hrvData?.[hrvLastIdx] ?? 0)
+    : (hrvData?.[hrvLastIdx] ?? 0);
+  const currentRhr = scrubValues
+    ? scrubValues.rhr === null
+      ? '-'
+      : (scrubValues.rhr ?? null)
+    : (rhrData?.[hrvLastIdx] ?? null);
 
   // Compute explicit sparkline width (screen minus card margins and padding)
   const sparklineWidth = windowWidth - layout.screenPadding * 2 - spacing.md * 2;
 
   return (
-    <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-      {/* Scrub date label - top right of card */}
-      {scrubValues && (
-        <Text
-          style={[styles.scrubDate, { color: isDark ? darkColors.textMuted : colors.textMuted }]}
-        >
-          {scrubValues.dateLabel}
-        </Text>
-      )}
+    <View>
+      <Card variant="raised" padding="none">
+        <View style={styles.cardContent}>
+          {/* Scrub date label - top right of card */}
+          {scrubValues && (
+            <Text
+              style={[
+                styles.scrubDate,
+                { color: isDark ? darkColors.textMuted : colors.textMuted },
+              ]}
+            >
+              {scrubValues.dateLabel}
+            </Text>
+          )}
 
-      {/* Top row: Profile + Hero value + zone */}
-      <View style={styles.topRow}>
-        {/* Profile photo with gear badge */}
-        <TouchableOpacity
-          onPress={onProfilePress}
-          activeOpacity={0.7}
-          style={styles.profileTouchArea}
-          accessibilityLabel="Open settings"
-          accessibilityRole="button"
-        >
-          <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
-            {canDrawPhoto ? (
-              <Image
-                source={{ uri: profileUrl }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-                onError={() => setProfileImageError(true)}
-              />
-            ) : (
-              <MaterialCommunityIcons name="account" size={22} color={themeColors.textSecondary} />
-            )}
-          </View>
-          {/* Gear badge */}
-          <View style={[styles.gearBadge, isDark && styles.gearBadgeDark]}>
-            <MaterialCommunityIcons
-              name="cog"
-              size={10}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          </View>
-        </TouchableOpacity>
-
-        {/* Hero metric - tappable */}
-        <TouchableOpacity
-          style={styles.heroSection}
-          onPress={onHeroPress}
-          disabled={!onHeroPress}
-          activeOpacity={onHeroPress ? 0.7 : 1}
-        >
-          {fitnessSparkline ? (
-            <View>
-              <View style={styles.heroValueRow}>
-                <Text style={[styles.heroValueFixed, { color: fitnessTextColor }]}>
-                  {currentFitness}
-                </Text>
-                <Text style={[styles.heroLabel, { color: fitnessTextColor }]}>Fitness</Text>
-              </View>
-              <View style={styles.heroSubLine}>
-                {currentFatigue !== null && (
-                  <Text style={[styles.heroSubText, { color: fatigueTextColor }]}>
-                    {currentFatigue} Fatigue
-                  </Text>
+          {/* Top row: Profile + Hero value + zone */}
+          <View style={styles.topRow}>
+            {/* Profile photo with gear badge */}
+            <TouchableOpacity
+              onPress={onProfilePress}
+              activeOpacity={0.7}
+              style={styles.profileTouchArea}
+              accessibilityLabel={t('common.openSettings')}
+              accessibilityRole="button"
+            >
+              <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
+                {canDrawPhoto ? (
+                  <Image
+                    source={{ uri: profileUrl }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                    onError={() => setProfileImageError(true)}
+                  />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="account"
+                    size={22}
+                    color={themeColors.textSecondary}
+                  />
                 )}
-                <Text style={[styles.heroSubText, { color: currentFormColor }]}>
-                  {currentForm > 0 ? `+${currentForm}` : currentForm}{' '}
-                  {t(`formZones.${currentFormZone}`)}
-                </Text>
               </View>
-            </View>
-          ) : hrvSparkline ? (
-            <View style={styles.heroValueRow}>
-              <Text style={[styles.heroValueFixed, { color: fatigueTextColor }]}>{currentHrv}</Text>
-              <Text style={[styles.heroLabel, { color: fatigueTextColor }]}>HRV</Text>
-              {currentRhr !== null && (
-                <>
-                  <Text style={[styles.secondaryValueFixed, { color: rhrColor }]}>
-                    {currentRhr}
+              {/* Gear badge */}
+              <View style={[styles.gearBadge, isDark && styles.gearBadgeDark]}>
+                <MaterialCommunityIcons
+                  name="cog"
+                  size={10}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
+
+            {/* Hero metric - tappable */}
+            <TouchableOpacity
+              style={styles.heroSection}
+              onPress={onHeroPress}
+              disabled={!onHeroPress}
+              activeOpacity={onHeroPress ? 0.7 : 1}
+            >
+              {isLoading ? (
+                <View style={styles.heroValueRow}>
+                  <View testID="summary-card-hero-shimmer">
+                    <Shimmer width={SHIMMER_HERO_WIDTH} height={28} />
+                  </View>
+                  <View testID="summary-card-hero-label-shimmer">
+                    <Shimmer width={SHIMMER_LABEL_WIDTH} height={16} />
+                  </View>
+                </View>
+              ) : fitnessSparkline ? (
+                <View>
+                  <View style={styles.heroValueRow}>
+                    <Text style={[styles.heroValueFixed, { color: fitnessTextColor }]}>
+                      {currentFitness}
+                    </Text>
+                    <Text style={[styles.heroLabel, { color: fitnessTextColor }]}>
+                      {t('metrics.fitness')}
+                    </Text>
+                    {!scrubValues && fitnessChange !== null && (
+                      <Text
+                        testID="summary-card-fitness-change"
+                        accessibilityHint={t('summaryCardChange.rule')}
+                        style={[styles.heroSubText, { color: fitnessTextColor }]}
+                      >
+                        {t('summaryCardChange.window', {
+                          change: fitnessChange,
+                          count: fitnessSparkline.fitness.length,
+                        })}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.heroSubLine}>
+                    {currentFatigue !== null && (
+                      <Text style={[styles.heroSubText, { color: fatigueTextColor }]}>
+                        {currentFatigue} {t('metrics.fatigue')}
+                      </Text>
+                    )}
+                    <Text style={[styles.heroSubText, { color: currentFormColor }]}>
+                      {formatForm(currentForm, currentFitness, asPercent) ?? ''}{' '}
+                      {currentFormZone ? t(`formZones.${currentFormZone}`) : ''}
+                    </Text>
+                  </View>
+                </View>
+              ) : hrvSparkline ? (
+                <View style={styles.heroValueRow}>
+                  <Text
+                    testID="summary-card-hrv-value"
+                    style={[styles.heroValueFixed, { color: fatigueTextColor }]}
+                  >
+                    {currentHrv}
                   </Text>
-                  <Text style={[styles.secondaryLabel, { color: rhrColor }]}>RHR</Text>
-                </>
-              )}
-            </View>
-          ) : (
-            <View style={styles.heroValueRow}>
-              <Text style={[styles.heroValue, { color: displayColor }]}>
-                {formattedHeroValue}
-                {!scrubValues && heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
-              </Text>
-              <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>{heroLabel}</Text>
-              {heroZoneLabel && (
-                <View
-                  testID="summary-card-form-zone"
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
-                >
-                  <View style={[styles.zoneDot, { backgroundColor: heroZoneColor || heroColor }]} />
-                  <Text style={[styles.zoneLabel, { color: heroZoneColor || heroColor }]}>
-                    {heroZoneLabel}
+                  <Text style={[styles.heroLabel, { color: fatigueTextColor }]}>
+                    {t('metrics.hrv')}
+                  </Text>
+                  {currentRhr !== null && (
+                    <>
+                      <Text
+                        testID="summary-card-rhr-value"
+                        style={[styles.secondaryValueFixed, { color: rhrColor }]}
+                      >
+                        {currentRhr}
+                      </Text>
+                      <Text style={[styles.secondaryLabel, { color: rhrColor }]}>
+                        {t('metrics.rhr')}
+                      </Text>
+                    </>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.heroValueRow}>
+                  <Text style={[styles.heroValue, { color: displayColor }]}>
+                    {formattedHeroValue}
+                    {!scrubValues && heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
+                  </Text>
+                  <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
+                    {heroLabel}
                   </Text>
                 </View>
               )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Sparkline row - fitness or HRV depending on hero metric */}
+          {fitnessSparkline && (
+            <View testID="summary-card-sparkline" style={styles.sparklineRow}>
+              <SummaryCardSparkline
+                fitnessData={fitnessSparkline.fitness}
+                fatigueData={fatigueData}
+                riseDays={fitnessRiseDays}
+                formData={fitnessSparkline.form}
+                width={sparklineWidth}
+                showLabels={showSparklineLabels}
+                onScrub={showSparklineLabels ? undefined : handleScrub}
+                onTap={showSparklineLabels ? undefined : onHeroPress}
+              />
             </View>
           )}
-        </TouchableOpacity>
-      </View>
+          {hrvSparkline && (
+            <View testID="summary-card-hrv-sparkline" style={styles.sparklineRow}>
+              <SummaryCardHRVSparkline
+                hrvData={hrvSparkline}
+                rhrData={rhrData}
+                hrvRead={hrvRead}
+                rhrRead={rhrRead}
+                width={sparklineWidth}
+                showLabels={showSparklineLabels}
+                onScrub={showSparklineLabels ? undefined : handleScrub}
+                onTap={showSparklineLabels ? undefined : onHeroPress}
+              />
+            </View>
+          )}
 
-      {/* Sparkline row - fitness or HRV depending on hero metric */}
-      {fitnessSparkline && (
-        <View testID="summary-card-sparkline" style={styles.sparklineRow}>
-          <SummaryCardSparkline
-            fitnessData={fitnessSparkline.fitness}
-            fatigueData={fatigueData}
-            formData={fitnessSparkline.form}
-            width={sparklineWidth}
-            showLabels={showSparklineLabels}
-            onScrub={showSparklineLabels ? undefined : handleScrub}
-            onTap={showSparklineLabels ? undefined : onHeroPress}
-          />
-        </View>
-      )}
-      {hrvSparkline && (
-        <View style={styles.sparklineRow}>
-          <SummaryCardHRVSparkline
-            hrvData={hrvSparkline}
-            rhrData={rhrData}
-            width={sparklineWidth}
-            showLabels={showSparklineLabels}
-            onScrub={showSparklineLabels ? undefined : handleScrub}
-            onTap={showSparklineLabels ? undefined : onHeroPress}
-          />
-        </View>
-      )}
-
-      {/* Supporting metrics row - each metric tappable */}
-      <View style={styles.supportingRow}>
-        {supportingMetrics.slice(0, 4).map((metric, index) => (
-          <React.Fragment key={metric.label}>
-            {index > 0 && (
-              <Text style={[styles.metricDivider, isDark && styles.metricDividerDark]}>
-                {'\u00B7'}
-              </Text>
-            )}
-            {metric.navigationTarget ? (
-              <TouchableOpacity
-                style={styles.supportingMetric}
-                onPress={() => navigateTo(metric.navigationTarget as string)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.metricLabel, isDark && styles.textMuted]}>{metric.label}</Text>
-                <Text
-                  style={[
-                    styles.metricValue,
-                    {
-                      color: metric.color || (isDark ? darkColors.textPrimary : colors.textPrimary),
-                    },
-                  ]}
+          {/* Supporting metrics row - each metric tappable */}
+          <View style={styles.supportingRow}>
+            {supportingMetrics.slice(0, 4).map((metric, index) => (
+              <React.Fragment key={metric.label}>
+                {index > 0 && (
+                  <Text style={[styles.metricDivider, isDark && styles.metricDividerDark]}>
+                    {'\u00B7'}
+                  </Text>
+                )}
+                <TouchableOpacity
+                  testID={`summary-card-metric-${index}`}
+                  style={styles.supportingMetric}
+                  onPress={() => navigateTo(metric.navigationTarget)}
+                  activeOpacity={0.7}
                 >
-                  {metric.value}
-                  {metric.trend && <Text style={styles.metricTrend}>{metric.trend}</Text>}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.supportingMetric}>
-                <Text style={[styles.metricLabel, isDark && styles.textMuted]}>{metric.label}</Text>
-                <Text
-                  style={[
-                    styles.metricValue,
-                    {
-                      color: metric.color || (isDark ? darkColors.textPrimary : colors.textPrimary),
-                    },
-                  ]}
-                >
-                  {metric.value}
-                  {metric.trend && <Text style={styles.metricTrend}>{metric.trend}</Text>}
-                </Text>
-              </View>
-            )}
-          </React.Fragment>
-        ))}
-      </View>
+                  <Text style={[styles.metricLabel, isDark && styles.textMuted]}>
+                    {metric.label}
+                  </Text>
+                  {isLoading ? (
+                    <View testID={`summary-card-metric-${index}-shimmer`}>
+                      <Shimmer width={SHIMMER_METRIC_WIDTH} height={14} />
+                    </View>
+                  ) : (
+                    <Text
+                      style={[
+                        styles.metricValue,
+                        {
+                          color:
+                            metric.color || (isDark ? darkColors.textPrimary : colors.textPrimary),
+                        },
+                      ]}
+                    >
+                      {metric.value}
+                      {metric.trend && <Text style={styles.metricTrend}>{metric.trend}</Text>}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </React.Fragment>
+            ))}
+          </View>
+        </View>
+      </Card>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: layout.borderRadius,
+  cardContent: {
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginHorizontal: layout.screenPadding,
-    marginBottom: spacing.sm,
-    ...shadows.card,
-  },
-  cardLight: {
-    backgroundColor: colors.surface,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
-    ...shadows.none,
-    borderWidth: 1,
-    borderColor: darkColors.border,
   },
 
   // Scrub date - top right corner
@@ -396,8 +449,8 @@ const styles = StyleSheet.create({
 
   // Profile photo with gear badge
   profileTouchArea: {
-    width: 44,
-    height: 44,
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
     position: 'relative',
   },
   profilePhoto: {
@@ -492,16 +545,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textSecondary,
   },
-  zoneLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-  },
-  zoneDot: {
-    width: 6,
-    height: 6,
-    borderRadius: layout.borderRadiusFull,
-  },
-
   // Sparkline - own row, full width
   sparklineRow: {
     marginTop: spacing.xs,

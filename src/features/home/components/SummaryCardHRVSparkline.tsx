@@ -3,6 +3,7 @@ import { View, StyleSheet, Text as RNText } from 'react-native';
 import { Canvas, Path, Skia, vec, LinearGradient } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
 import { formZoneTextColor } from '@/features/fitness';
@@ -12,7 +13,7 @@ import {
   useChartColors,
   useChartGestures,
 } from '@/shared/charts';
-import type { ScrubValues } from './SummaryCardSparkline';
+import { SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { scrubDateLabel } from '../lib/scrubDateLabel';
 
 /** Match total height of fitness sparkline (44 chart + 4 form bar) */
@@ -25,6 +26,9 @@ const HRV_DOMAIN_MAX = 106;
 interface SummaryCardHRVSparklineProps {
   hrvData: number[];
   rhrData?: number[] | undefined;
+  /** Beside each series: whether that day had a reading of its own. */
+  hrvRead?: boolean[] | undefined;
+  rhrRead?: boolean[] | undefined;
   width: number;
   showLabels?: boolean | undefined;
   onScrub?: ((values: ScrubValues | null) => void) | undefined;
@@ -41,18 +45,23 @@ interface SummaryCardHRVSparklineProps {
 export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   hrvData,
   rhrData,
+  hrvRead,
+  rhrRead,
   width,
   showLabels = false,
   onScrub,
   onTap,
 }: SummaryCardHRVSparklineProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const chartColors = useChartColors();
 
   const hrvRef = useRef(hrvData);
   hrvRef.current = hrvData;
   const rhrRef = useRef(rhrData);
   rhrRef.current = rhrData;
+  const readRef = useRef({ hrv: hrvRead, rhr: rhrRead });
+  readRef.current = { hrv: hrvRead, rhr: rhrRead };
   const onScrubRef = useRef(onScrub);
   onScrubRef.current = onScrub;
   const onTapRef = useRef(onTap);
@@ -90,12 +99,13 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     const cb = onScrubRef.current;
     if (!cb || index < 0 || index >= hrv.length) return;
     const dateLabel = scrubDateLabel(hrv.length - 1 - index);
+    const read = readRef.current;
     cb({
       fitness: 0,
       fatigue: 0,
       form: 0,
-      hrv: hrv[index],
-      rhr: rhr ? rhr[index] : undefined,
+      hrv: read.hrv?.[index] === false ? null : hrv[index],
+      rhr: rhr ? (read.rhr?.[index] === false ? null : rhr[index]) : undefined,
       dateLabel,
     });
   }, []);
@@ -161,7 +171,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     };
   }, [normalized, chartWidth]);
 
-  if (hrvData.length < 2 || width <= 0) {
+  if (hrvData.length < SPARKLINE_MIN_DAYS || width <= 0) {
     return <View style={{ width, height: CHART_HEIGHT }} />;
   }
 
@@ -180,14 +190,14 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                   { color: isDark ? darkColors.chartPinkText : colors.chartPinkText },
                 ]}
               >
-                HRV
+                {t('metrics.hrv')}
               </RNText>
               <View style={{ flex: 1 }} />
               {hasRhr && (
                 <RNText
                   style={[styles.inlineLabel, { color: formZoneTextColor('highRisk', isDark) }]}
                 >
-                  RHR
+                  {t('metrics.rhr')}
                 </RNText>
               )}
             </View>

@@ -4,25 +4,30 @@ import {
   FlatList,
   TouchableOpacity,
   Animated,
-  Platform,
+  Alert,
   StyleSheet,
   type LayoutChangeEvent,
 } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import type { SectionMatch as FfiSectionMatch, SectionEncounter } from 'veloqrs';
+import type {
+  ActivityLedgerChange,
+  SectionMatch as FfiSectionMatch,
+  SectionEncounter,
+} from 'veloqrs';
+import type { LatLng } from '@/shared/geo/polyline';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Gesture, GestureDetector, RectButton } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from './SectionInlinePlot';
+import { ActivityLedgerChanges } from './ActivityLedgerChanges';
 import { findRowIndexAtPageY } from './scrubHitTest';
 import { DataRangeFooter } from '@/features/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
 import { getEngine } from '@/shared/native/engine';
-import { useSectionDisplayNames } from '@/features/routes/hooks/useSectionDisplayNames';
 import {
   groupSectionEncounters,
   type SectionEncounterGroup,
@@ -39,7 +44,9 @@ interface ActivitySectionsSectionProps {
   /** The activity's sport. Lap units follow it, not the section's label. */
   sportType?: string;
   encounters: SectionEncounter[];
-  coordinates: { latitude: number; longitude: number }[];
+  /** Section changes whose ledger rows name this activity */
+  ledgerChanges?: readonly ActivityLedgerChange[] | undefined;
+  coordinates: LatLng[];
   isDark: boolean;
   isMetric: boolean;
   sectionCreationMode: boolean;
@@ -50,20 +57,21 @@ interface ActivitySectionsSectionProps {
   removeSection: (sectionId: string) => Promise<void>;
   /** Scan results from useActivityRematch */
   scanMatches: FfiSectionMatch[];
-  /** Whether a scan is in progress */
-  isScanning: boolean;
-  /** Whether section data is still loading from the engine */
-  isSectionsLoading?: boolean;
+  /** Whether a scan has returned, including one that found nothing */
+  hasScanned: boolean;
   /** Trigger a scan for this activity */
   onScan: () => void;
   /** Force-match to a specific section */
   onRematch: (sectionId: string) => boolean;
 }
 
+const NO_LEDGER_CHANGES: readonly ActivityLedgerChange[] = [];
+
 export const ActivitySectionsSection = React.memo(function ActivitySectionsSection({
   activityId,
   sportType,
   encounters,
+  ledgerChanges = NO_LEDGER_CHANGES,
   coordinates,
   isDark,
   isMetric,
@@ -72,12 +80,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   highlightedSectionId,
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
-  // Swipe-to-delete is styled (deleteSwipeAction) but not yet rendered.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   removeSection,
   scanMatches,
-  isScanning,
-  isSectionsLoading,
+  hasScanned: scanReturned,
   onScan,
   onRematch,
 }: ActivitySectionsSectionProps) {
@@ -90,8 +95,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Track which scan matches have been successfully added
   const [addedSectionIds, setAddedSectionIds] = useState(new Set<string>());
 
-  // Whether a scan has been performed
-  const hasScanned = scanMatches.length > 0 || addedSectionIds.size > 0;
+  const hasScanned = scanReturned || addedSectionIds.size > 0;
 
   // Filter scan results: exclude sections already in the encounter list and already added
   const existingSectionIds = useMemo(
@@ -129,19 +133,34 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     openSwipeableRef.current = sectionId;
   }, []);
 
-  // Handle disable/enable action for auto-detected sections
-  const handleToggleDisable = useCallback(
-    async (sectionId: string, isCurrentlyDisabled: boolean) => {
-      const swipeable = swipeableRefs.current.get(sectionId);
-      swipeable?.close();
+  const handleDisable = useCallback((sectionId: string) => {
+    swipeableRefs.current.get(sectionId)?.close();
+    getEngine()?.disableSection(sectionId);
+  }, []);
 
-      if (isCurrentlyDisabled) {
-        getEngine()?.enableSection(sectionId);
-      } else {
-        getEngine()?.disableSection(sectionId);
-      }
+  const handleDelete = useCallback(
+    (group: SectionEncounterGroup) => {
+      Alert.alert(
+        t('sections.deleteSection'),
+        t('sections.deleteSectionConfirm', { name: group.sectionName }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.delete'),
+            style: 'destructive',
+            onPress: async () => {
+              swipeableRefs.current.get(group.sectionId)?.close();
+              try {
+                await removeSection(group.sectionId);
+              } catch (error) {
+                Alert.alert(t('common.error'), String(error));
+              }
+            },
+          },
+        ]
+      );
     },
-    []
+    [removeSection, t]
   );
 
   // ----- Drag-to-scrub state -----
@@ -400,19 +419,32 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         extrapolate: 'clamp',
       });
 
+      const custom = group.sectionType === 'custom';
       return (
-        <Animated.View style={[styles.swipeAction, styles.disableSwipeAction, { opacity }]}>
+        <Animated.View
+          style={[
+            styles.swipeAction,
+            custom ? styles.deleteSwipeAction : styles.disableSwipeAction,
+            { opacity },
+          ]}
+        >
           <RectButton
             style={styles.swipeActionButton}
-            onPress={() => handleToggleDisable(group.sectionId, false)}
+            onPress={() => (custom ? handleDelete(group) : handleDisable(group.sectionId))}
           >
-            <MaterialCommunityIcons name="eye-off" size={24} color={colors.textOnDark} />
-            <Text style={styles.swipeActionText}>{t('common.hide')}</Text>
+            <MaterialCommunityIcons
+              name={custom ? 'delete' : 'eye-off'}
+              size={24}
+              color={colors.textOnDark}
+            />
+            <Text style={styles.swipeActionText}>
+              {t(custom ? 'common.delete' : 'common.hide')}
+            </Text>
           </RectButton>
         </Animated.View>
       );
     },
-    [handleToggleDisable, t]
+    [handleDelete, handleDisable, t]
   );
 
   // FlatList key extractor
@@ -456,15 +488,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   // Render empty state for section list
   const renderSectionsListEmpty = useCallback(() => {
-    // Show loading spinner while engine subscription is being established
-    if (isSectionsLoading) {
-      return (
-        <View style={styles.emptyStateContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      );
-    }
-
     return (
       <View style={styles.emptyStateContainer}>
         <MaterialCommunityIcons
@@ -483,13 +506,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
             style={[styles.scanButton, isDark && styles.scanButtonDark]}
             onPress={onScan}
             activeOpacity={0.7}
-            disabled={isScanning}
           >
-            {isScanning ? (
-              <ActivityIndicator size={18} color={colors.primary} />
-            ) : (
-              <MaterialCommunityIcons name="magnify" size={18} color={colors.primary} />
-            )}
+            <MaterialCommunityIcons name="magnify" size={18} color={colors.primary} />
             <Text style={[styles.scanButtonText, isDark && styles.scanButtonTextDark]}>
               {t('sections.scanForMatches')}
             </Text>
@@ -497,17 +515,14 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         )}
       </View>
     );
-  }, [isDark, t, hasScanned, isScanning, isSectionsLoading, onScan]);
+  }, [isDark, t, hasScanned, onScan]);
 
-  // Render a single scan match result row
-  // Look up proper display names for scan results (same names shown in the app)
-  const sectionDisplayNames = useSectionDisplayNames();
-
+  // Render a single scan match result row. The engine sends the name it
+  // resolves for the section, the one every other screen shows.
   const renderScanMatch = useCallback(
     (match: FfiSectionMatch) => {
       const quality = Math.round(match.matchQuality * 100);
-      const baseName =
-        sectionDisplayNames[match.sectionId] || match.sectionName || match.sectionId.slice(0, 8);
+      const baseName = match.sectionName || match.sectionId.slice(0, 8);
       const displayName = !match.sameDirection ? `${baseName} \u21A9` : baseName;
       const totalPoints = coordinates?.length ?? 0;
       const startPct = totalPoints > 0 ? Math.round((match.startIndex / totalPoints) * 100) : 0;
@@ -537,49 +552,33 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
             style={styles.addMatchButton}
             onPress={() => handleRematch(match.sectionId)}
             activeOpacity={0.7}
-            disabled={isScanning}
           >
             <Text style={styles.addMatchButtonText}>{t('sections.addToSection')}</Text>
           </TouchableOpacity>
         </View>
       );
     },
-    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames, coordinates, activityId, t]
+    [isDark, isMetric, handleRematch, coordinates, activityId, t]
   );
 
   // Render footer for section list
   const renderSectionsListFooter = useCallback(() => {
     return (
       <>
+        <ActivityLedgerChanges changes={ledgerChanges} isDark={isDark} />
+
         {/* Scan trigger: show "Scan for more sections" link when sections exist */}
         {encounters.length > 0 && !hasScanned && (
-          <TouchableOpacity
-            style={styles.scanLink}
-            onPress={onScan}
-            activeOpacity={0.7}
-            disabled={isScanning}
-          >
-            {isScanning ? (
-              <ActivityIndicator size={14} color={colors.primary} />
-            ) : (
-              <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
-            )}
-            <Text style={styles.scanLinkText}>{t('sections.scanForMore')}</Text>
+          <TouchableOpacity style={styles.scanLink} onPress={onScan} activeOpacity={0.7}>
+            <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
+            <Text style={[styles.scanLinkText, isDark && { color: darkColors.linkTeal }]}>
+              {t('sections.scanForMore')}
+            </Text>
           </TouchableOpacity>
         )}
 
-        {/* Scanning indicator */}
-        {isScanning && hasScanned && (
-          <View style={styles.scanningContainer}>
-            <ActivityIndicator size={20} color={colors.primary} />
-            <Text style={[styles.scanningText, isDark && { color: darkColors.textSecondary }]}>
-              {t('sections.scanning')}
-            </Text>
-          </View>
-        )}
-
         {/* Scan results */}
-        {hasScanned && !isScanning && filteredScanMatches.length > 0 && (
+        {hasScanned && filteredScanMatches.length > 0 && (
           <View style={styles.scanResultsContainer}>
             <Text style={[styles.scanResultsTitle, isDark && { color: darkColors.textPrimary }]}>
               {t('sections.nearbySectionsCount', { count: filteredScanMatches.length })}
@@ -589,7 +588,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         )}
 
         {/* Scan performed but no new results */}
-        {hasScanned && !isScanning && filteredScanMatches.length === 0 && (
+        {hasScanned && filteredScanMatches.length === 0 && (
           <View style={styles.scanNoResults}>
             <Text style={[styles.scanNoResultsText, isDark && { color: darkColors.textSecondary }]}>
               {t('sections.noMatchesFound')}
@@ -619,8 +618,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     t,
     onSectionCreationModeChange,
     encounters.length,
+    ledgerChanges,
     hasScanned,
-    isScanning,
     filteredScanMatches,
     onScan,
     renderScanMatch,
@@ -649,7 +648,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           initialNumToRender={4}
           maxToRenderPerBatch={4}
           windowSize={3}
-          removeClippedSubviews={Platform.OS === 'ios'}
+          removeClippedSubviews
           onLayout={handleListLayout}
           onScroll={(e) => {
             scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
@@ -661,6 +660,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     </GestureDetector>
   );
 });
+
+const EMPTY_STATE_VERTICAL_PADDING = spacing.xl * 2;
 
 const styles = StyleSheet.create({
   tabScrollView: {
@@ -678,7 +679,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.xl * 2,
+    paddingVertical: EMPTY_STATE_VERTICAL_PADDING,
     paddingHorizontal: spacing.lg,
   },
   emptyStateTitle: {
@@ -746,9 +747,6 @@ const styles = StyleSheet.create({
   disableSwipeAction: {
     backgroundColor: colors.warning,
   },
-  enableSwipeAction: {
-    backgroundColor: colors.success,
-  },
   // Scan button (empty state)
   scanButton: {
     flexDirection: 'row',
@@ -767,10 +765,10 @@ const styles = StyleSheet.create({
   scanButtonText: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.linkTeal,
   },
   scanButtonTextDark: {
-    color: colors.primary,
+    color: darkColors.linkTeal,
   },
   // Scan link (footer, when sections exist)
   scanLink: {
@@ -783,20 +781,8 @@ const styles = StyleSheet.create({
   },
   scanLinkText: {
     fontSize: typography.bodySmall.fontSize,
-    color: colors.primary,
+    color: colors.linkTeal,
     fontWeight: '500',
-  },
-  // Scanning indicator
-  scanningContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  scanningText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
   },
   // Scan results
   scanResultsContainer: {

@@ -1,34 +1,26 @@
 /**
  * The feed's sport chips.
  *
- * Three buckets name the types they claim and Other is everything else, rather
- * than a fourth list. A list leaves any type nobody wrote down unreachable by
- * every chip, which on a real ten-year library was 66 activities of 1,590,
- * open-water swims the largest group of them under a Swimming chip that listed
- * pool swims alone.
+ * Which chip an activity answers to is the engine's rule, applied where the
+ * search runs over the whole library: cycling, running and swimming name their
+ * families and Other takes everything else, so no sport is left under no chip.
  */
 
-import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
+import { FeedSportGroup } from 'veloqrs';
 
-export const FEED_GROUPS = ['Cycling', 'Running', 'Swimming', 'Other'] as const;
+import { FEED_GROUPS, type FeedGroup } from '@/shared/activity/sportCategories';
 
-export type FeedGroup = (typeof FEED_GROUPS)[number];
+export { FEED_GROUPS };
+export type { FeedGroup };
 
-/** The engine's families. A walk is Other here: the chip is for runs. */
-const CLAIMED: Record<Exclude<FeedGroup, 'Other'>, readonly string[]> = {
-  Cycling: SPORT_FAMILIES.cycling,
-  Running: SPORT_FAMILIES.running,
-  Swimming: SPORT_FAMILIES.swimming,
+const SPORT_GROUP: Record<FeedGroup, FeedSportGroup> = {
+  Cycling: FeedSportGroup.Cycling,
+  Running: FeedSportGroup.Running,
+  Swimming: FeedSportGroup.Swimming,
+  Other: FeedSportGroup.Other,
 };
 
-/** The one chip an activity answers to. Never null: Other takes the rest. */
-export function feedGroupFor(activityType: string): FeedGroup {
-  for (const group of ['Cycling', 'Running', 'Swimming'] as const) {
-    if (CLAIMED[group].includes(activityType)) return group;
-  }
-  return 'Other';
-}
-
-export function matchesFeedGroup(group: FeedGroup, activityType: string): boolean {
-  return feedGroupFor(activityType) === group;
+/** The engine's name for a chip. */
+export function feedSportGroup(group: FeedGroup): FeedSportGroup {
+  return SPORT_GROUP[group];
 }

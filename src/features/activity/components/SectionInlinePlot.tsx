@@ -1,12 +1,5 @@
 import React, { memo, useCallback, useMemo, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  Pressable,
-  Platform,
-  Text as RNText,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { View, StyleSheet, Pressable, Text as RNText, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,9 +17,10 @@ import {
   layout,
 } from '@/theme';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
-import { formatDistance, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
+import { formatDistance, formatDuration, formatSportSpeed } from '@/shared/format/format';
+import { pressable, pressRipple } from '@/shared/ui';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
-import { SectionSparkline } from '@/features/routes/components/section/SectionSparkline';
+import { SectionSparkline } from '@/features/routes';
 import type { SectionEncounter } from 'veloqrs';
 import type { SectionEncounterGroup } from '@/features/activity/lib/groupSectionEncounters';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
@@ -62,14 +56,15 @@ interface SectionInlinePlotProps {
 
 /** Pace for foot and water sports, elapsed time otherwise, as SectionInfoCard. */
 function formatLap(
-  distanceMeters: number,
+  lapPace: number,
   lapTime: number,
   sportType: string | undefined,
   isMetric: boolean
 ): string {
   const type = sportType as ActivityType;
-  if (isSwimmingActivity(type)) return formatSwimPace(distanceMeters / lapTime, isMetric);
-  if (isPaceSport(type)) return formatPace(distanceMeters / lapTime, isMetric);
+  if (isSwimmingActivity(type) || isPaceSport(type)) {
+    return formatSportSpeed(lapPace, type, isMetric);
+  }
   return formatDuration(lapTime);
 }
 
@@ -203,12 +198,12 @@ export const SectionInlinePlot = memo(
         >
           <Pressable
             onPress={handlePress}
-            style={({ pressed }) => [
+            style={pressable([
               styles.card,
               isDark && styles.cardDark,
               isHighlighted && styles.cardHighlighted,
-              pressed && Platform.OS === 'ios' && { opacity: 0.7 },
-            ]}
+            ])}
+            android_ripple={pressRipple}
           >
             <View style={styles.header}>
               <Text style={[styles.numberLabel, { color: numberColor }]}>{index + 1}</Text>
@@ -223,9 +218,10 @@ export const SectionInlinePlot = memo(
             </View>
             {group.encounters.map((encounter, dirIndex) => {
               const isReverse = encounter.direction === 'reverse';
+              const isPartialDirection = encounter.direction === 'partial';
               // A card crossed once forward is the common case and needs no
               // marker. Anything else is labelled so the row says which way.
-              const showDirection = group.hasBothDirections || isReverse;
+              const showDirection = !isPartialDirection && (group.hasBothDirections || isReverse);
               // The Maestro flows key on the card, so the first row keeps the
               // bare testID and only the extra directions carry a suffix.
               const suffix = dirIndex === 0 ? `${index}` : `${index}-${dirIndex}`;
@@ -239,34 +235,49 @@ export const SectionInlinePlot = memo(
                     dirIndex > 0 && isDark && styles.directionRowDividedDark,
                   ]}
                 >
-                  {showDirection && (
+                  {isPartialDirection ? (
                     <Text
-                      accessibilityLabel={t(isReverse ? 'sections.reverse' : 'sections.forward')}
-                      style={[styles.directionBadge, isDark && styles.textMuted]}
+                      testID={`section-inline-partial-${suffix}`}
+                      accessibilityLabel={t('sections.partial')}
+                      style={[styles.partialBadge, isDark && styles.textMuted]}
                     >
-                      {isReverse ? '↩' : '→'}
+                      {t('sections.partial')}
                     </Text>
+                  ) : (
+                    showDirection && (
+                      <Text
+                        accessibilityLabel={t(isReverse ? 'sections.reverse' : 'sections.forward')}
+                        style={[styles.directionBadge, isDark && styles.textMuted]}
+                      >
+                        {isReverse ? '↩' : '→'}
+                      </Text>
+                    )
                   )}
                   <View style={styles.directionInfo}>
                     <View style={styles.metaRow}>
                       <RNText style={[styles.meta, isDark && styles.textMuted]}>
-                        {formatDistance(encounter.distanceMeters, isMetric)} ·{' '}
-                        {encounter.visitCount} {t('routes.visits')}
+                        {formatDistance(encounter.distanceMeters, isMetric)}
+                        {encounter.historyTimes.length > 0 &&
+                          ` · ${encounter.visitCount} ${t('routes.visits')}`}
                         {encounter.lapTime > 0 && (
                           <>
                             <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>
                             <RNText style={[styles.timeValue, isDark && styles.textLight]}>
-                              {formatLap(
-                                encounter.distanceMeters,
-                                encounter.lapTime,
-                                sportType,
-                                isMetric
-                              )}
+                              {formatLap(encounter.lapPace, encounter.lapTime, sportType, isMetric)}
                             </RNText>
                           </>
                         )}
                       </RNText>
-                      {encounter.isPr && (
+                      {!encounter.isComplete && !isPartialDirection && (
+                        <Text
+                          testID={`section-inline-partial-${suffix}`}
+                          accessibilityLabel={t('sections.partial')}
+                          style={[styles.partialMeta, isDark && styles.textMuted]}
+                        >
+                          {t('sections.partial')}
+                        </Text>
+                      )}
+                      {encounter.isComplete && encounter.isPr && (
                         <MaterialCommunityIcons
                           testID={`section-inline-trophy-${suffix}`}
                           name="trophy"
@@ -275,9 +286,33 @@ export const SectionInlinePlot = memo(
                           style={{ marginLeft: spacing.xxs }}
                         />
                       )}
+                      {encounter.isComplete && (encounter.rank === 2 || encounter.rank === 3) && (
+                        <View
+                          testID={`section-inline-place-${suffix}`}
+                          accessible
+                          accessibilityLabel={t(
+                            encounter.rank === 2 ? 'sections.placeSecond' : 'sections.placeThird'
+                          )}
+                          style={{ marginLeft: spacing.xxs }}
+                        >
+                          <MaterialCommunityIcons
+                            name="medal"
+                            size={11}
+                            color={
+                              encounter.rank === 2
+                                ? isDark
+                                  ? darkColors.chartSilverMark
+                                  : colors.chartSilverMark
+                                : isDark
+                                  ? darkColors.chartBronzeMark
+                                  : colors.chartBronzeMark
+                            }
+                          />
+                        </View>
+                      )}
                     </View>
                   </View>
-                  {sparklineData && (
+                  {encounter.historyTimes.length > 0 && sparklineData && (
                     <View testID={`section-inline-sparkline-${suffix}`}>
                       <SectionSparkline
                         data={sparklineData}
@@ -325,6 +360,8 @@ export const SectionInlinePlot = memo(
     )
 );
 
+const DIRECTION_LABEL_WIDTH = 26;
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
@@ -369,7 +406,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.sm,
-    paddingLeft: 26 + spacing.sm * 2,
+    paddingLeft: DIRECTION_LABEL_WIDTH + spacing.md,
   },
   directionRowDivided: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -384,6 +421,16 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     marginRight: spacing.xs,
+  },
+  partialBadge: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+    marginRight: spacing.xs,
+  },
+  partialMeta: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+    marginLeft: spacing.xxs,
   },
   directionInfo: {
     flex: 1,

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Pressable,
   View,
   Text,
   StyleSheet,
@@ -8,13 +9,14 @@ import {
   Linking,
   LayoutAnimation,
 } from 'react-native';
-import { ScreenSafeAreaView } from '@/shared/ui';
+import { ScreenSafeAreaView, pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 interface LicenseEntry {
   name: string;
@@ -44,6 +46,37 @@ const LICENSE_DATA: LicenseSection[] = [
         repository: 'https://github.com/facebook/react-native',
       },
       { name: 'Expo', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      {
+        name: '@expo/vector-icons',
+        license: 'MIT',
+        repository: 'https://github.com/expo/vector-icons',
+      },
+      { name: 'expo-build-properties', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-camera', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-constants', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-crypto', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-document-picker', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-file-system', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-haptics', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-keep-awake', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-linear-gradient', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-linking', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-localization', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-location', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-network', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-notifications', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-router', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      {
+        name: 'expo-screen-orientation',
+        license: 'MIT',
+        repository: 'https://github.com/expo/expo',
+      },
+      { name: 'expo-secure-store', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-sharing', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-splash-screen', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-status-bar', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-task-manager', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-web-browser', license: 'MIT', repository: 'https://github.com/expo/expo' },
     ],
   },
   {
@@ -128,7 +161,27 @@ const LICENSE_DATA: LicenseSection[] = [
       {
         name: 'React Native Worklets',
         license: 'MIT',
-        repository: 'https://github.com/margelo/react-native-worklets-core',
+        repository: 'https://github.com/software-mansion/react-native-reanimated',
+      },
+      {
+        name: '@react-native-community/slider',
+        license: 'MIT',
+        repository: 'https://github.com/callstack/react-native-slider',
+      },
+      {
+        name: 'react-native-ble-plx',
+        license: 'Apache-2.0',
+        repository: 'https://github.com/dotintent/react-native-ble-plx',
+      },
+      {
+        name: 'react-native-iap',
+        license: 'MIT',
+        repository: 'https://github.com/hyodotdev/openiap',
+      },
+      {
+        name: 'react-native-nitro-modules',
+        license: 'MIT',
+        repository: 'https://github.com/mrousavy/nitro',
       },
     ],
   },
@@ -137,6 +190,22 @@ const LICENSE_DATA: LicenseSection[] = [
     titleKey: 'licenses.sectionNetworkingUtilities',
     entries: [
       { name: 'i18next', license: 'MIT', repository: 'https://github.com/i18next/i18next' },
+      {
+        name: 'react-i18next',
+        license: 'MIT',
+        repository: 'https://github.com/i18next/react-i18next',
+      },
+      {
+        name: 'intl-pluralrules',
+        license: 'ISC',
+        repository: 'https://github.com/eemeli/intl-pluralrules',
+      },
+      { name: 'd3-shape', license: 'ISC', repository: 'https://github.com/d3/d3-shape' },
+      {
+        name: '@ubjs/core',
+        license: 'MPL-2.0',
+        repository: 'https://github.com/jhugman/uniffi-bindgen-react-native',
+      },
     ],
   },
   {
@@ -204,6 +273,53 @@ const LICENSE_DATA: LicenseSection[] = [
         repository: 'https://github.com/chronotope/chrono',
       },
       { name: 'image', license: 'MIT', repository: 'https://github.com/image-rs/image' },
+      {
+        name: 'tempfile',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/Stebalien/tempfile',
+      },
+      { name: 'rmp-serde', license: 'MIT', repository: 'https://github.com/3Hren/msgpack-rust' },
+      {
+        name: 'postcard',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/jamesmunns/postcard',
+      },
+      { name: 'tokio-util', license: 'MIT', repository: 'https://github.com/tokio-rs/tokio' },
+      {
+        name: 'futures',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/rust-lang/futures-rs',
+      },
+      {
+        name: 'base64',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/marshallpierce/rust-base64',
+      },
+      {
+        name: 'thiserror',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/dtolnay/thiserror',
+      },
+      {
+        name: 'serde_json',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/serde-rs/json',
+      },
+      { name: 'lru', license: 'MIT', repository: 'https://github.com/jeromefroe/lru-rs' },
+      { name: 'zip', license: 'MIT', repository: 'https://github.com/zip-rs/zip2' },
+      { name: 'log', license: 'MIT OR Apache-2.0', repository: 'https://github.com/rust-lang/log' },
+      {
+        name: 'libc',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/rust-lang/libc',
+      },
+      {
+        name: 'android_logger',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/rust-mobile/android_logger-rs',
+      },
+      { name: 'jni', license: 'MIT OR Apache-2.0', repository: 'https://github.com/jni-rs/jni-rs' },
+      { name: 'oslog', license: 'MIT', repository: 'https://github.com/steven-joruk/oslog' },
       {
         name: 'polyline',
         license: 'MIT',
@@ -410,21 +526,30 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
       <View style={styles.entryRow}>
         <View style={styles.entryInfo}>
           <Text style={[styles.entryName, { color: themeColors.textPrimary }]}>{entry.name}</Text>
-          <TouchableOpacity onPress={toggleLicense}>
-            <Text style={[styles.entryLicense, { color: colors.primary }]}>{entry.license}</Text>
-          </TouchableOpacity>
+          <Pressable onPress={toggleLicense} style={pressable()} android_ripple={pressRipple}>
+            <Text
+              style={[
+                styles.entryLicense,
+                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+              ]}
+            >
+              {entry.license}
+            </Text>
+          </Pressable>
         </View>
         {entry.repository && (
-          <TouchableOpacity
+          <Pressable
             onPress={handlePress}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={pressable()}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons
               name="open-in-new"
               size={18}
               color={themeColors.textSecondary}
             />
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
       {entry.description && (
@@ -443,7 +568,7 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
   );
 }
 
-export default function LicensesScreen() {
+function LicensesScreenContent() {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
@@ -578,3 +703,5 @@ const styles = {
     lineHeight: 18,
   },
 };
+
+export default withScreenBoundary(LicensesScreenContent, 'Licenses');

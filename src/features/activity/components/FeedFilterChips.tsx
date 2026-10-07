@@ -1,101 +1,62 @@
-/**
- * The feed's sport chips.
- *
- * The row never wraps. It is a horizontal scroller, so a fourth chip, a longer
- * translation or a larger font scale pushes the row sideways rather than onto a
- * second line. The feed opens scrolled past a fixed search-section height, and a
- * second chip line puts the first one above that offset, out of view.
- */
-
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
-
+import { spacing, typography } from '@/theme';
+import { SportChipRow } from '@/shared/ui/SportChipRow';
+import { ToggleButton } from '@/shared/ui';
 import { FEED_GROUPS, type FeedGroup } from '../lib/feedActivityGroups';
-import { pressable } from '@/shared/ui';
+import { FEED_RANGE_PRESETS, type FeedRangePreset } from '../lib/feedRange';
+
+const RANGE_LABELS = {
+  last90Days: 'feed.range.last90Days',
+  thisYear: 'feed.range.thisYear',
+  lastYear: 'feed.range.lastYear',
+} as const satisfies Record<FeedRangePreset, string>;
+
+export const FEED_CHIP_HEIGHT = typography.bodySmall.lineHeight + spacing.xs * 2;
+
+const FEED_TEST_IDS: Record<FeedGroup, { testID: string }> = {
+  Cycling: { testID: 'home-filter-cycling' },
+  Running: { testID: 'home-filter-running' },
+  Swimming: { testID: 'home-filter-swimming' },
+  Other: { testID: 'home-filter-other' },
+};
 
 interface FeedFilterChipsProps {
-  selected: FeedGroup | null;
+  selected: ReadonlySet<FeedGroup>;
   onSelect: (group: FeedGroup) => void;
+  selectedRange: FeedRangePreset | null;
+  onSelectRange: (preset: FeedRangePreset) => void;
   isDark: boolean;
 }
 
-export function FeedFilterChips({ selected, onSelect, isDark }: FeedFilterChipsProps) {
+export function FeedFilterChips({
+  selected,
+  onSelect,
+  selectedRange,
+  onSelectRange,
+  isDark,
+}: FeedFilterChipsProps) {
   const { t } = useTranslation();
-
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      style={styles.chipScroller}
-      contentContainerStyle={styles.chips}
+    <SportChipRow
+      chips={FEED_GROUPS.map((group) => ({
+        key: group,
+        label: `feed.groups.${group.toLowerCase()}`,
+        testID: FEED_TEST_IDS[group].testID,
+      }))}
+      selected={selected}
+      onToggle={(key) => onSelect(key as FeedGroup)}
+      isDark={isDark}
     >
-      {FEED_GROUPS.map((group) => (
-        <Pressable
-          key={group}
-          testID={`home-filter-${group.toLowerCase()}`}
-          accessibilityRole="button"
-          accessibilityState={{ selected: selected === group }}
-          style={pressable([
-            styles.chip,
-            isDark && styles.chipDark,
-            selected === group && styles.chipActive,
-          ])}
-          onPress={() => onSelect(group)}
-        >
-          <Text
-            style={[
-              styles.chipText,
-              isDark && styles.chipTextDark,
-              selected === group && styles.chipTextActive,
-            ]}
-          >
-            {t(`feed.groups.${group.toLowerCase()}`, group)}
-          </Text>
-        </Pressable>
+      {FEED_RANGE_PRESETS.map((preset) => (
+        <ToggleButton
+          key={preset}
+          testID={`home-range-${preset}`}
+          label={t(RANGE_LABELS[preset])}
+          selected={selectedRange === preset}
+          onPress={() => onSelectRange(preset)}
+        />
       ))}
-    </ScrollView>
+    </SportChipRow>
   );
 }
-
-const styles = StyleSheet.create({
-  chipScroller: {
-    flexGrow: 0,
-  },
-  chips: {
-    flexDirection: 'row',
-    paddingHorizontal: layout.screenPadding,
-    paddingBottom: spacing.xs,
-    gap: spacing.sm,
-  },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xsPlus,
-    borderRadius: spacing.md,
-    backgroundColor: opacity.overlay.light,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  chipDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  chipTextDark: {
-    color: darkColors.textSecondary,
-  },
-  chipTextActive: {
-    color: colors.textOnPrimary,
-  },
-});

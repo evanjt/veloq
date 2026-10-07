@@ -81,16 +81,12 @@ export interface Activity {
   elapsed_time: number;
   distance: number;
   total_elevation_gain: number;
-  // Heart rate - API returns both formats depending on endpoint
-  icu_average_hr?: number | undefined;
-  icu_max_hr?: number | undefined;
+  // Heart rate
   average_heartrate?: number | undefined;
   max_heartrate?: number | undefined;
   // Power
-  average_watts?: number | undefined;
-  max_watts?: number | undefined;
   icu_average_watts?: number | undefined;
-  weighted_average_watts?: number | undefined; // Normalized power (NP)
+  icu_pm_p_max?: number | undefined;
   average_speed: number;
   max_speed: number;
   average_cadence?: number | undefined;
@@ -99,8 +95,6 @@ export interface Activity {
   start_latlng?: [number, number] | undefined;
   end_latlng?: [number, number] | undefined;
   // Location info
-  locality?: string | undefined; // City/town name from intervals.icu
-  country?: string | undefined; // Country name
   icu_athlete_id?: string | undefined;
   // Stream types available for this activity
   stream_types?: string[] | undefined;
@@ -121,7 +115,12 @@ export interface Activity {
   icu_intensity?: number | undefined; // Intensity Factor as percentage (e.g., 92.26 = 92%)
   icu_efficiency_factor?: number | undefined; // Power:HR efficiency
   trimp?: number | undefined; // Training impulse (HR-based load)
-  decoupling?: number | undefined; // Aerobic decoupling/drift percentage
+  /**
+   * Aerobic decoupling percentage as intervals.icu stored it. The interval field
+   * of the same name arrives as the string `-Infinity`, so read it through
+   * `storedDecoupling` rather than as a number.
+   */
+  decoupling?: number | string | null | undefined;
   strain_score?: number | undefined; // Strain score
   icu_hrr?: {
     // Heart rate recovery
@@ -619,15 +618,7 @@ export interface ZoneDistribution {
   color: string;
 }
 
-// eFTP history point
-export interface eFTPPoint {
-  date: string;
-  eftp: number;
-  activity_id?: string;
-  activity_name?: string;
-}
-
-// Activity bounds for regional map (includes GPS for route matching)
+// Activity bounds for regional map
 export interface ActivityBoundsItem {
   id: string;
   bounds: [[number, number], [number, number]]; // [[minLat, minLng], [maxLat, maxLng]]
@@ -636,16 +627,16 @@ export interface ActivityBoundsItem {
   date: string; // ISO date
   distance: number; // meters
   duration: number; // seconds
-  /** Full GPS track - stored during sync for instant route matching */
-  latlngs?: [number, number][] | undefined;
   /**
-   * Where the ride began, from the engine's own signature record. The map
-   * marker belongs here rather than at the centre of the bounding box, and
-   * having it on the first read is what stops every marker being uploaded once
-   * on its bounds centre and again once the signatures finish loading.
+   * Where the ride began, `[lat, lng]`, from the engine's own signature record.
+   * The map marker belongs here rather than at the centre of the bounding box,
+   * and having it on the first read is what stops every marker being uploaded
+   * once on its bounds centre and again once the signatures finish loading.
    * Absent for an activity the engine holds no signature for.
    */
   startPoint?: [number, number] | undefined;
+  /** Recorded in a simulated world, so its track is not where the athlete rides. */
+  isVirtual?: boolean;
 }
 
 export interface ActivityMapData {

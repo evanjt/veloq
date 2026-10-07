@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, Share, Platform } from 'react-native';
 import { Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -6,7 +6,13 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useTheme } from '@/shared/app';
-import { isLikelyInterestingTerrain, type MapStyleType, useMapPreferences } from '@/features/maps';
+import {
+  getCameraOverride,
+  type MapStyleType,
+  resolveTerrain3D,
+  useMapPreferences,
+} from '@/features/maps';
+import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import {
   colors,
@@ -22,7 +28,7 @@ import {
   colorWithOpacity,
 } from '@/theme';
 import type { Activity } from '@/types';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface ActivityCardContextMenuProps {
   visible: boolean;
@@ -51,6 +57,41 @@ const MAP_STYLES: {
   },
 ];
 
+// Mounted only while the menu is open, so a closed card reads no track. It
+// shows the verdict the card's preview renders, from the query that preview
+// shares.
+function Terrain3DSwitch({
+  activity,
+  mode,
+  onValueChange,
+}: {
+  activity: Activity;
+  mode: ReturnType<ReturnType<typeof useMapPreferences>['getTerrain3DMode']>;
+  onValueChange: (value: boolean) => void;
+}) {
+  const { coordinates, altitude } = useMapPreviewCoordinates(
+    activity.id,
+    !!activity.stream_types?.includes('latlng')
+  );
+  const lngLatCoords = useMemo(
+    () => coordinates.map((c) => [c.longitude, c.latitude] as [number, number]),
+    [coordinates]
+  );
+  const is3DOn = useMemo(
+    () =>
+      resolveTerrain3D({
+        mode,
+        coordinates: lngLatCoords,
+        altitude,
+        gain: activity.total_elevation_gain,
+        distance: activity.distance,
+        override: getCameraOverride(activity.id) ?? null,
+      }).show3D,
+    [mode, lngLatCoords, altitude, activity.total_elevation_gain, activity.distance, activity.id]
+  );
+  return <Switch value={is3DOn} onValueChange={onValueChange} color={brand.teal} />;
+}
+
 export function ActivityCardContextMenu({
   visible,
   onDismiss,
@@ -66,12 +107,8 @@ export function ActivityCardContextMenu({
     hasActivityOverride,
   } = useMapPreferences();
 
-  const currentStyle = getStyleForActivity(activity.type, activity.id, activity.country);
+  const currentStyle = getStyleForActivity(activity.type, activity.id);
   const currentTerrain = getTerrain3DMode(activity.type, activity.id);
-  const is3DOn =
-    currentTerrain === 'always' ||
-    (currentTerrain === 'smart' &&
-      isLikelyInterestingTerrain(activity.total_elevation_gain, activity.distance));
   const hasOverride = hasActivityOverride(activity.id);
 
   const handleStyleSelect = useCallback(
@@ -138,6 +175,7 @@ export function ActivityCardContextMenu({
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}
               style={pressable()}
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons name="close" size={20} color={mutedColor} />
             </Pressable>
@@ -156,6 +194,7 @@ export function ActivityCardContextMenu({
                     key={key}
                     onPress={() => handleStyleSelect(key)}
                     style={pressable(styles.styleOption)}
+                    android_ripple={pressRipple}
                   >
                     <View
                       style={[
@@ -188,7 +227,11 @@ export function ActivityCardContextMenu({
           {/* 3D Toggle */}
           <View style={[styles.toggleRow, { borderColor: dividerColor }]}>
             <Text style={[styles.toggleLabel, { color: textColor }]}>3D</Text>
-            <Switch value={is3DOn} onValueChange={handleToggle3D} color={brand.teal} />
+            <Terrain3DSwitch
+              activity={activity}
+              mode={currentTerrain}
+              onValueChange={handleToggle3D}
+            />
           </View>
 
           {/* Divider */}
@@ -196,7 +239,8 @@ export function ActivityCardContextMenu({
 
           {/* Actions */}
           <Pressable
-            style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
+            style={pressable(styles.actionRow)}
+            android_ripple={pressRipple}
             onPress={handleShare}
           >
             <MaterialCommunityIcons name="share-variant" size={20} color={mutedColor} />
@@ -204,7 +248,8 @@ export function ActivityCardContextMenu({
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
+            style={pressable(styles.actionRow)}
+            android_ripple={pressRipple}
             onPress={handleViewDetails}
           >
             <MaterialCommunityIcons name="information-outline" size={20} color={mutedColor} />
@@ -218,7 +263,8 @@ export function ActivityCardContextMenu({
             <>
               <View style={[styles.divider, { backgroundColor: dividerColor }]} />
               <Pressable
-                style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
+                style={pressable(styles.actionRow)}
+                android_ripple={pressRipple}
                 onPress={handleReset}
               >
                 <MaterialCommunityIcons name="undo" size={20} color={mutedColor} />
@@ -321,9 +367,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.smPlus,
     gap: spacing.smPlus,
-  },
-  actionRowPressed: {
-    opacity: 0.6,
   },
   actionText: {
     fontSize: typography.bodyMedium.fontSize,

@@ -1,4 +1,5 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { useCallback, useEffect, useMemo } from 'react';
 import { hasDetailBody, readActivityBody } from '@/features/activity/lib/engineActivityBody';
 import {
@@ -18,6 +19,10 @@ import type { Activity, ActivityDetail, ActivityStreams, IntervalsDTO } from '@/
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
+import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
+import { useDetailCoordinates } from './useDetailCoordinates';
+import { feedSportGroup, type FeedGroup } from '../lib/feedActivityGroups';
+import { firstRangePage, olderRangePage, type FeedRange } from '../lib/feedRange';
 
 /**
  * Read stored activities over a date window, newest first. A body that will
@@ -26,12 +31,14 @@ import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
 function readActivities(oldest: string, newest: string): Activity[] {
   const engine = getEngine();
   if (!engine?.getActivityBodies) return [];
+  return parseBodies(
+    engine.getActivityBodies(dayStartEpochSeconds(oldest), dayEndEpochSeconds(newest))
+  );
+}
 
+function parseBodies(bodies: readonly string[]): Activity[] {
   const out: Activity[] = [];
-  for (const body of engine.getActivityBodies(
-    dayStartEpochSeconds(oldest),
-    dayEndEpochSeconds(newest)
-  )) {
+  for (const body of bodies) {
     try {
       out.push(JSON.parse(body) as Activity);
     } catch {
@@ -118,6 +125,7 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   useSyncSettled(askForWindow);
 
   return useQuery<Activity[]>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.list(athleteId ?? 'anon', queryOldest, queryNewest),
     queryFn: () => readActivities(queryOldest, queryNewest),
     // SQLite is the source, so a sync decides freshness, not a clock.
@@ -143,10 +151,13 @@ const PAGE_SIZE_DAYS = 30;
 export function useInfiniteActivities() {
   const athleteId = useAuthStore((s) => s.athleteId);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { data: oldestActivityDate } = useOldestActivityDate();
+  const oldestDay = oldestActivityDate ? formatLocalDate(oldestActivityDate) : null;
 
   useEngineChannel('activities', queryKeys.activities.infinite.all);
 
   const query = useInfiniteQuery<Activity[], Error>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.infinite.byAthlete(athleteId ?? 'anon'),
     queryFn: ({ pageParam }) => {
       const { oldest, newest } = pageParam as {
@@ -168,20 +179,28 @@ export function useInfiniteActivities() {
       };
     })(),
     getNextPageParam: (_lastPage, _allPages, lastPageParam) => {
-      // An empty page no longer means "end of history": the window may simply
-      // not be fetched yet. Paging stops on the page cap instead.
+      // An empty page may still be a window the engine has not fetched.
       const pageParam = lastPageParam as { oldest: string };
       const nextEnd = addDaysToDay(pageParam.oldest, -1);
+      if (oldestDay && nextEnd < oldestDay) return undefined;
 
       return {
         oldest: addDaysToDay(nextEnd, -PAGE_SIZE_DAYS),
         newest: nextEnd,
       };
     },
+    getPreviousPageParam: (_firstPage, _allPages, firstPageParam) => {
+      const first = firstPageParam as { newest: string };
+      const today = formatLocalDate(new Date());
+      if (first.newest >= today) return undefined;
+      const oldest = addDaysToDay(first.newest, 1);
+      const newest = addDaysToDay(oldest, PAGE_SIZE_DAYS);
+      return { oldest, newest: newest > today ? today : newest };
+    },
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
     gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
-    maxPages: 10, // Evict old pages to prevent memory growth
+    maxPages: 10,
     enabled: isAuthenticated && !!athleteId,
   });
 
@@ -211,10 +230,111 @@ export function useInfiniteActivities() {
   };
 }
 
+/** Activities per page of a feed search. */
+const SEARCH_PAGE_SIZE = 30;
+
+interface FeedSearchPage {
+  activities: Activity[];
+  matchedCount: number;
+  hasMore: boolean;
+}
+
+function readSearchPage(
+  needle: string,
+  groups: ReadonlySet<FeedGroup>,
+  range: FeedRange | null,
+  offset: number
+): FeedSearchPage | undefined {
+  const page = getEngine()?.searchActivityBodies({
+    needle,
+    sportGroups: [...groups].map(feedSportGroup),
+    ...(range && {
+      oldestTs: dayStartEpochSeconds(range.oldest),
+      newestTs: dayEndEpochSeconds(range.newest),
+    }),
+    offset,
+    limit: SEARCH_PAGE_SIZE,
+  });
+  return (
+    page && {
+      activities: parseBodies(page.bodies),
+      matchedCount: page.matchedCount,
+      hasMore: page.hasMore,
+    }
+  );
+}
+
+/**
+ * The feed while a search or a sport chip is on, read over every stored
+ * activity rather than the windows the unfiltered feed has paged in. Those
+ * hold a few months at most, so filtering them answered "no match" for any
+ * activity older than what happened to be loaded.
+ *
+ * A date range narrows the read to its inclusive days; none reads the whole
+ * library.
+ *
+ * Disabled with no filter, when the windowed feed is the read.
+ */
+export function useFeedSearch(
+  searchText: string,
+  groups: ReadonlySet<FeedGroup>,
+  range: FeedRange | null = null
+) {
+  const athleteId = useAuthStore((s) => s.athleteId);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const needle = searchText.trim();
+  const enabled = isAuthenticated && !!athleteId && (needle.length > 0 || groups.size > 0);
+
+  useEngineChannel('activities', queryKeys.activities.search.all);
+
+  const query = useInfiniteQuery<FeedSearchPage, Error>({
+    ...LOCAL_READ_QUERY,
+    queryKey: queryKeys.activities.search.byFilter(
+      athleteId ?? 'anon',
+      needle,
+      [...groups].sort(),
+      range
+    ),
+    queryFn: ({ pageParam }) => {
+      const page = readSearchPage(needle, groups, range, pageParam as number);
+      if (!page) throw new Error('The activity library is not open');
+      return page;
+    },
+    // The engine answers synchronously, so the first page is read with the
+    // render that asked for it. Waiting a tick left the list empty for a frame
+    // on every keystroke, which remounted the header the search box sits in
+    // and took its focus.
+    initialData: () => {
+      if (!enabled) return undefined;
+      const first = readSearchPage(needle, groups, range, 0);
+      return first && { pages: [first], pageParams: [0] };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+      lastPage.hasMore ? (lastPageParam as number) + SEARCH_PAGE_SIZE : undefined,
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
+    gcTime: CACHE.SHORT,
+    enabled,
+  });
+
+  const activities = useMemo(
+    () => query.data?.pages.flatMap((page) => page.activities) ?? [],
+    [query.data]
+  );
+
+  return {
+    ...query,
+    activities,
+    matchedCount: query.data?.pages[0]?.matchedCount ?? 0,
+  };
+}
+
 export function useActivity(id: string) {
   const queryKey = queryKeys.activities.detail(id);
 
   const query = useQuery<ActivityDetail | null>({
+    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => {
       const stored = readActivityBody(id);
@@ -261,6 +381,7 @@ export function useActivityStreams(id: string) {
   // `JSON.parse` of 100-500 KB and a SQLite write per frame, for a boolean
   // the query's own result already carries.
   const query = useQuery<ActivityStreams | null>({
+    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => readStreams(id, DETAIL_STREAM_TYPES),
     // Streams NEVER change - infinite staleTime prevents refetching
@@ -289,6 +410,12 @@ export function useActivityStreams(id: string) {
   };
 }
 
+export function useActivityDetailStreams(id: string) {
+  const streams = useActivityStreams(id);
+  const coordinates = useDetailCoordinates(id, streams.data?.latlng, streams.isLoading);
+  return { ...streams, coordinates };
+}
+
 /** Stable series value while the separately reported download is pending. */
 const EMPTY_STREAMS = {} as ActivityStreams;
 
@@ -305,6 +432,7 @@ export function useActivityIntervals(id: string) {
   // The query is the only reader of the stored body. `null` is "never
   // fetched", which is the cue to ask Rust for it.
   const query = useQuery<IntervalsDTO | null>({
+    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => {
       const stored = getEngine()?.getIntervalBody(id);
@@ -312,8 +440,8 @@ export function useActivityIntervals(id: string) {
       try {
         return JSON.parse(stored) as IntervalsDTO;
       } catch {
-        // A row that will not parse is corrupt, not a ride with no laps, and
-        // `null` is what asks Rust for it again.
+        // empty-on-error: a JSON.parse of a stored body, not an engine read. A row that will
+        // not parse is corrupt, not a ride with no laps, and `null` is what asks Rust for it again.
         return null;
       }
     },
@@ -347,3 +475,47 @@ function outcomeOf(stored: IntervalsDTO | null | undefined): IntervalsOutcome {
 
 /** Rendered as "no intervals" rather than an error while the fetch is in flight. */
 const EMPTY_INTERVALS = { icu_intervals: [], icu_groups: [] } as unknown as IntervalsDTO;
+
+/**
+ * The feed over one date range, newest first in pages that stay inside it.
+ *
+ * Nothing is read while `range` is null. The range is the whole question, so
+ * the pages are keyed by it and a new range starts from its newest day.
+ */
+export function useRangeActivities(range: FeedRange | null) {
+  const athleteId = useAuthStore((s) => s.athleteId);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  useEngineChannel('activities', queryKeys.activities.range.all);
+
+  const query = useInfiniteQuery<Activity[], Error>({
+    ...LOCAL_READ_QUERY,
+    queryKey: queryKeys.activities.range.byRange(
+      athleteId ?? 'anon',
+      range?.oldest ?? '',
+      range?.newest ?? ''
+    ),
+    queryFn: ({ pageParam }) => {
+      const { oldest, newest } = pageParam as FeedRange;
+      requestActivityWindow(oldest, newest);
+      return readActivities(oldest, newest);
+    },
+    initialPageParam: range ? firstRangePage(range) : { oldest: '', newest: '' },
+    getNextPageParam: (_lastPage, _allPages, lastPageParam) =>
+      range ? olderRangePage(range, lastPageParam as FeedRange) : undefined,
+    staleTime: Infinity,
+    gcTime: CACHE.HOUR,
+    enabled: isAuthenticated && !!athleteId && range !== null,
+  });
+
+  useReconnect(() => {
+    if (range) void query.refetch();
+  });
+  useSyncSettled(() => {
+    if (range) void query.refetch();
+  });
+
+  const allActivities = useMemo(() => query.data?.pages.flat() ?? [], [query.data]);
+
+  return { ...query, allActivities };
+}

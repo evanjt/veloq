@@ -1,148 +1,24 @@
 /**
- * Widget snapshot: the small, pre-computed, pre-formatted JSON the app writes to
- * shared storage for the home-screen widget to render. Widgets run in a separate
- * process and cannot call the Rust FFI, so everything they show is baked here.
+ * Widget snapshot: the small, pre-formatted JSON the home-screen widgets render.
+ * Widgets run in a separate process and cannot call the engine, so everything they
+ * show is baked into that file.
  *
- * `composeSnapshot` is pure (fully unit-tested). `gatherWidgetSnapshot` reads the
- * engine singleton through one `getWidgetSnapshot()` call and is the entry point
- * the write hooks call.
- *
- * Sparkline arrays from `getWellnessSparklines` are ordered OLDEST-FIRST, which
- * is also the order the native charts draw. Rust selects `ORDER BY date DESC`
- * then reverses (`persistence/wellness.rs`), so the LAST element is today and
- * the second-to-last is yesterday.
+ * The engine composes it, here and in the Android push worker, which writes it with
+ * no JavaScript running. What only the app knows, the translated words, the date
+ * names, the palette, the summary card settings and the recent sports, it hands
+ * over as a context. The engine stores that context so the worker composes in the
+ * same words. `composeWidgetContext` is pure; `gatherWidgetSnapshot` is the entry
+ * point the write hooks call.
  */
-import {
-  composeRouteOutline,
-  ROUTE_OUTLINE_MAX_POINTS,
-  type RouteOutline,
-} from '@/shared/geo/routePreview';
-import { getFormZone, type FormZone } from '@/features/fitness/lib/fitness';
-import {
-  formatDistance,
-  formatDuration,
-  formatPaceCompact,
-  formatRelativeDate,
-  formatSwimPace,
-} from '@/shared/format';
+import { getIntlLocale } from '@/shared/format';
 import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { getRecentRecordingTypes } from '@/shared/recording';
-import type { WidgetSnapshotData } from 'veloqrs';
-import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
+import { getRecentRecordingTypes, getRecordedRecordingTypes } from '@/shared/recording';
+import { activityTypeColors } from '@/theme/colors';
+import { widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
-import { TREND_DEADBAND, trendDirection } from '@/shared/format/trend';
-
-export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 6;
-
-/** Trailing wellness window the widget sparklines cover. */
-const SPARKLINE_DAYS = 30;
-
-export type TrendDir = 'up' | 'down' | 'flat';
-
-export interface MetricValue {
-  value: number;
-  trendDir: TrendDir;
-  /** today minus yesterday (omitted when only one data point exists). */
-  deltaVsYesterday?: number;
-}
-
-/**
- * The form metric also carries its TSB zone so natives colour by enum lookup and
- * never re-derive the zone boundaries.
- */
-export interface FormMetricValue extends MetricValue {
-  zone: FormZone;
-}
-
-/**
- * The route outline lives in shared geo: the Live Activity payload draws the same
- * shape under the same byte budget, and a widget-named export in a feature is not
- * somewhere the recording session can import from.
- */
-export type WidgetRoutePreview = RouteOutline;
-export const composeRoutePreview = composeRouteOutline;
-
-export interface WidgetLatest {
-  activityId: string;
-  name: string;
-  sportType: string;
-  distanceM: number;
-  movingTimeS: number;
-  /** Unix seconds. */
-  date: number;
-  trainingLoad: number | null;
-  distanceLabel: string;
-  durationLabel: string;
-  dateLabel: string;
-  /** Resolved sport tint hex, so the widget needs no sport-to-colour map. */
-  tintHex: string;
-  /** True when this activity set a route or section PR (gold moments only). */
-  isPr: boolean;
-  /** Null for indoor/no-GPS activities; the widget falls back to text-only. */
-  routePreview: WidgetRoutePreview | null;
-}
-
-export interface WidgetImpact {
-  formBefore: number;
-  formAfter: number;
-  /** Zones for before/after so natives tint each value without TSB maths. */
-  formBeforeZone: FormZone;
-  formAfterZone: FormZone;
-  ctlDelta: number;
-  atlDelta: number;
-  tssAdded: number | null;
-  dateLabel: string;
-}
-
-/** Palette role the natives resolve when tinting a summary entry value. */
-export type SummaryColorKey = 'blue' | 'fatigue' | 'formZone' | 'default';
-
-export interface WidgetSummaryEntry {
-  /** MetricId from the dashboard preferences store. */
-  id: string;
-  /** Pre-localized label. */
-  label: string;
-  /** Pre-formatted value string ("-" when no data). */
-  value: string;
-  trendDir: TrendDir;
-  colorKey: SummaryColorKey;
-}
-
-/**
- * Ready-to-render mirror of the in-app summary card, following the settings the
- * user configured in the app. Natives only draw it; the metric selection always
- * tracks the app without any widget-side configuration.
- */
-export interface WidgetSummaryCard {
-  hero: WidgetSummaryEntry;
-  /** Up to 4 supporting entries, in the user's configured order. */
-  entries: WidgetSummaryEntry[];
-  /** Which snapshot sparkline to draw: 'fitnessForm' | 'hrv' | 'none'. */
-  sparkline: string;
-}
-
-/**
- * Pre-localized strings the widget renders verbatim, so native code holds no i18n
- * logic. Sourced from existing translation keys (no new locale keys to maintain).
- */
-export interface WidgetDisplay {
-  metricLabels: {
-    form: string;
-    fitness: string;
-    fatigue: string;
-    hrv: string;
-    rhr: string;
-    ramp: string;
-  };
-  weekLabel: string;
-  /** Localised label for the current form zone (e.g. "Optimal"). */
-  formZone: string;
-  /** "Form -5 to -8, +62 TSS" style line, or null when there is no recent impact. */
-  impactLine: string | null;
-}
 
 /**
  * One recent sport: the id, the name a surface shows, and the deep link that
@@ -169,46 +45,64 @@ export const QUICK_START_MARK = 'from=quickstart';
 /** What a launcher will show on a long press, and what that list is capped at. */
 export const RECORD_SHORTCUT_LIMIT = 3;
 
-export interface WidgetSnapshot {
-  schemaVersion: number;
-  /** Unix seconds. */
-  generatedAt: number;
+/**
+ * Every key the engine's composer translates. A key left out prints as itself on
+ * the widget, so the list is pinned against the composer by a contract test.
+ */
+export const WIDGET_STRING_KEYS = [
+  'metrics.form',
+  'metrics.fitness',
+  'metrics.fatigue',
+  'metrics.hrv',
+  'metrics.rhr',
+  'metrics.week',
+  'recording.startActivity',
+  'metrics.ftp',
+  'metrics.pace',
+  'metrics.css',
+  'fitnessScreen.rampRate',
+  'fitnessScreen.perWeek',
+  'formZones.highRisk',
+  'formZones.optimal',
+  'formZones.greyZone',
+  'formZones.fresh',
+  'formZones.transition',
+  'time.today',
+  'time.yesterday',
+] as const;
+
+/** One piece of a date format, as `Intl.DateTimeFormat.formatToParts` names it. */
+export interface WidgetDatePart {
+  type: 'month' | 'day' | 'year' | 'literal';
+  value: string;
+}
+
+/** A date format: its parts in order, and the month names it writes, January first. */
+export interface WidgetDatePattern {
+  parts: WidgetDatePart[];
+  months: string[];
+}
+
+/** The locale's day and month names, so the engine writes a relative date with no locale data. */
+export interface WidgetDateWords {
+  /** Long weekday names, Sunday first. */
+  weekdays: string[];
+  monthDay: WidgetDatePattern;
+  monthDayYear: WidgetDatePattern;
+}
+
+/** What the engine composes the snapshot with beside its own rows. */
+export interface WidgetContext {
   locale: string;
-  metrics: {
-    form: FormMetricValue;
-    fitness: MetricValue;
-    fatigue: MetricValue;
-    rampRate: { value: number };
-    hrv: MetricValue;
-    rhr: MetricValue;
-  };
-  sparklines: {
-    form: number[];
-    fitness: number[];
-    fatigue: number[];
-    hrv: number[];
-    /**
-     * TSB zone enum per form point (oldest-first, same length as `form`), so
-     * natives colour the chart's form bar without re-deriving zone boundaries.
-     */
-    formZones: FormZone[];
-  };
-  weekly: {
-    tss: number;
-    distanceM: number;
-    durationS: number;
-    count: number;
-    /** Percent change vs previous week, or null when last week had no load. */
-    deltaPct: number | null;
-    distanceLabel: string;
-    durationLabel: string;
-  };
-  latest: WidgetLatest | null;
-  impact: WidgetImpact | null;
-  /** Null when the summary card is disabled in settings or prefs are unavailable. */
-  summaryCard: WidgetSummaryCard | null;
-  display: WidgetDisplay;
+  isMetric: boolean;
+  formAsPercent: boolean;
+  strings: Record<string, string>;
+  dates: WidgetDateWords;
+  /** Null hides the widget summary block. */
+  summaryCard: SummaryCardPreferences | null;
   theme: { light: WidgetPalette; dark: WidgetPalette };
+  /** Sport tint by sport type, `Other` the fallback, so the widget needs no sport-to-colour map. */
+  activityTints: Record<string, string>;
   /**
    * The recent sports, most recent first, pre-localised. One source for every
    * record surface: the widgets and the iOS control take the head, the Android
@@ -225,200 +119,49 @@ export interface WidgetSnapshot {
   launcherShortcuts: WidgetRecordShortcut[];
 }
 
-// Minimal structural shapes of the engine returns we consume, kept local so this
-// module doesn't couple to FFI type paths and stays trivially testable.
-export interface RawSparklines {
-  fitness: number[];
-  fatigue: number[];
-  form: number[];
-  hrv: number[];
-  rhr: number[];
-}
-interface RawPeriodStats {
-  count: number;
-  totalDuration: number | bigint;
-  totalDistance: number;
-  totalTss: number;
-}
-export interface RawSummary {
-  currentWeek: RawPeriodStats;
-  prevWeek: RawPeriodStats;
-  ftpTrend?: { latestFtp?: number; previousFtp?: number };
-  runPaceTrend?: { latestPace?: number; previousPace?: number };
-  swimPaceTrend?: { latestPace?: number; previousPace?: number };
-}
-export interface RawLatestActivity {
-  activityId: string;
-  name: string;
-  date: number | bigint;
-  distance: number;
-  movingTime: number;
-  trainingLoad?: number | null;
-  sportType: string;
-  /** From the highlights bundle (route/section PR indicators); defaults false. */
-  isPr?: boolean;
-}
-export interface RawGpsPoint {
-  latitude: number;
-  longitude: number;
-}
-
-export interface RawWidgetData {
-  sparklines: RawSparklines | null;
-  summary: RawSummary | null;
-  latest: RawLatestActivity | null;
-  /** GPS track of the latest activity (null for indoor / unavailable). */
-  latestGps?: RawGpsPoint[] | null | undefined;
-  /**
-   * The ramp rate intervals.icu computed, off the newest wellness day that
-   * carries one. Null before wellness has synced.
-   *
-   * Read rather than derived. The widget used to take the change in the fitness
-   * sparkline across its trailing seven entries, which is a different number
-   * from the same data, so the widget and the fitness tab disagreed.
-   */
-  rampRate?: number | null | undefined;
-  /** In-app summary card settings; null hides the widget summary block. */
-  summaryPrefs?: SummaryCardPreferences | null | undefined;
+export interface WidgetContextInput {
   locale: string;
   isMetric: boolean;
-  /** Unix seconds, injected for deterministic tests. */
-  nowSeconds: number;
-  /**
-   * Now as the same zoneless wall clock an activity's date is recorded in.
-   *
-   * An activity's `date` comes from `start_date_local` through
-   * `localWallClockToEpochSeconds`, so it carries local components encoded as
-   * if they were UTC. Ageing it against a true instant is out by the device's
-   * offset: east of Greenwich a ride an hour ago reads as being in the future
-   * and the impact block vanishes, west of it the label reads "Yesterday" for
-   * a ride taken today.
-   */
-  nowWallSeconds: number;
-  /**
-   * Whether the athlete reads form as a share of fitness (`icu_form_as_percent`).
-   * Injected rather than read, because this transform is pure and because the
-   * native widget colours from the zones stored here and never bands anything
-   * itself. Absent reads as absolute.
-   */
+  /** Whether the athlete reads form as a share of fitness (`icu_form_as_percent`). */
   formAsPercent?: boolean | undefined;
-  /** i18n lookup; falls back to the raw key when absent (pure-test safe). */
+  /** i18n lookup; falls back to the raw key when absent. */
   translate?: ((key: string) => string) | undefined;
+  /** In-app summary card settings; null hides the widget summary block. */
+  summaryPrefs?: SummaryCardPreferences | null | undefined;
   /** Recent sports, most recent first. Blanks and repeats are dropped here. */
   recentRecordingTypes?: string[] | null | undefined;
+  /** Every distinct sport recorded, most recent first. Offered by the pickers only. */
+  recordedRecordingTypes?: string[] | null | undefined;
+  /** The locale's date words; read from `Intl` when absent. */
+  dates?: WidgetDateWords | undefined;
 }
 
-// The default for the integer point metrics: fitness, fatigue and resting HR.
-const POINT_DEADBAND = TREND_DEADBAND.fitness;
-const IMPACT_MAX_AGE_DAYS = 2; // only attribute impact to a genuinely recent activity
-export const ROUTE_PREVIEW_MAX_POINTS = ROUTE_OUTLINE_MAX_POINTS;
-
-function num(v: number | bigint | null | undefined): number {
-  if (v == null) return 0;
-  const n = typeof v === 'bigint' ? Number(v) : v;
-  return Number.isFinite(n) ? n : 0;
+/** What the bridge writes: the snapshot file, and the launcher's own copy of the shortcuts. */
+export interface WidgetSnapshotPayload {
+  json: string;
+  launcherShortcuts: WidgetRecordShortcut[];
 }
 
-/** One decimal, which is what the ramp rate has always been shown to. */
-function round1(v: number): number {
-  return Math.round(v * 10) / 10;
-}
-
-function trendOf(today: number, yesterday: number, deadband: number = POINT_DEADBAND): TrendDir {
-  return trendDirection(today, yesterday, deadband);
-}
-
-/** Trend between two possibly-missing values; missing data reads as flat. */
-function trendOfNullable(
-  current: number | null | undefined,
-  prev: number | null | undefined,
-  deadband: number
-): TrendDir {
-  return trendDirection(current, prev, deadband);
-}
-
-/** Build a MetricValue from an oldest-first series. Safe on empty/short arrays. */
-function metricFrom(series: number[], deadband: number = POINT_DEADBAND): MetricValue {
-  if (!series || series.length === 0) return { value: 0, trendDir: 'flat' };
-  const today = num(series[series.length - 1]);
-  if (series.length === 1) return { value: today, trendDir: 'flat' };
-  const yesterday = num(series[series.length - 2]);
+/** The context for the engine's composer. Pure, so every choice in it is testable. */
+export function composeWidgetContext(input: WidgetContextInput): WidgetContext {
+  const t = input.translate ?? ((k: string) => k);
+  const strings: Record<string, string> = {};
+  for (const key of WIDGET_STRING_KEYS) strings[key] = t(key);
+  const launcher = composeRecordShortcuts(input.recentRecordingTypes, t);
   return {
-    value: today,
-    trendDir: trendOf(today, yesterday, deadband),
-    deltaVsYesterday: today - yesterday,
-  };
-}
-
-/**
- * Pure transform: raw engine data to the widget snapshot. No I/O, no engine, no
- * clock. Everything (including `nowSeconds`) is injected, so this is fully
- * deterministic.
- */
-export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
-  const sp = raw.sparklines;
-  const fitness = sp?.fitness ?? [];
-  const fatigue = sp?.fatigue ?? [];
-  const form = sp?.form ?? [];
-  const hrv = sp?.hrv ?? [];
-  const rhr = sp?.rhr ?? [];
-
-  const asPercent = raw.formAsPercent === true;
-
-  const curTss = num(raw.summary?.currentWeek.totalTss);
-  const prevTss = num(raw.summary?.prevWeek.totalTss);
-  const weeklyDistanceM = num(raw.summary?.currentWeek.totalDistance);
-  const weeklyDurationS = num(raw.summary?.currentWeek.totalDuration);
-  const deltaPct = prevTss > 0 ? Math.round(((curTss - prevTss) / prevTss) * 100) : null;
-
-  const latest = composeLatest(raw);
-  const impact = composeImpact(raw, fitness, fatigue, form, latest, asPercent);
-  const t = raw.translate ?? ((k: string) => k);
-  const shortcuts = composeRecordShortcuts(raw.recentRecordingTypes, t);
-
-  return {
-    schemaVersion: WIDGET_SNAPSHOT_SCHEMA_VERSION,
-    generatedAt: raw.nowSeconds,
-    locale: raw.locale,
-    metrics: {
-      form: formMetricFrom(form, fitness, asPercent),
-      fitness: metricFrom(fitness),
-      fatigue: metricFrom(fatigue),
-      rampRate: { value: round1(num(raw.rampRate)) },
-      hrv: metricFrom(hrv),
-      rhr: metricFrom(rhr),
-    },
-    sparklines: {
-      // Already oldest-first from Rust, which is how the native chart draws.
-      form: [...form],
-      fitness: [...fitness],
-      fatigue: [...fatigue],
-      hrv: [...hrv],
-      // Positional: `fitness[i]` is the same day as `form[i]`, both oldest
-      // first from Rust. An index out by one colours the sparkline a day
-      // wrong and nothing on screen would say so.
-      formZones: form.map((v, i) => getFormZone(num(v), num(fitness[i]), asPercent)),
-    },
-    weekly: {
-      tss: Math.round(curTss),
-      distanceM: weeklyDistanceM,
-      durationS: weeklyDurationS,
-      count: num(raw.summary?.currentWeek.count),
-      deltaPct,
-      distanceLabel: formatDistance(weeklyDistanceM, raw.isMetric),
-      durationLabel: formatDuration(weeklyDurationS),
-    },
-    latest,
-    impact,
-    summaryCard: composeSummaryCard(raw, t),
-    display: buildDisplay(
-      t,
-      impact,
-      getFormZone(num(form[form.length - 1]), num(fitness[fitness.length - 1]), asPercent)
-    ),
+    locale: input.locale,
+    isMetric: input.isMetric,
+    formAsPercent: input.formAsPercent === true,
+    strings,
+    dates: input.dates ?? widgetDateWords(),
+    summaryCard: input.summaryPrefs ?? null,
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
-    recordShortcuts: shortcuts,
-    launcherShortcuts: shortcuts.slice(0, RECORD_SHORTCUT_LIMIT),
+    activityTints: { ...activityTypeColors },
+    recordShortcuts: composeRecordShortcuts(
+      [...(input.recentRecordingTypes ?? []), ...(input.recordedRecordingTypes ?? [])],
+      t
+    ),
+    launcherShortcuts: launcher.slice(0, RECORD_SHORTCUT_LIMIT),
   };
 }
 
@@ -427,8 +170,9 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
  * empty path or the same sport twice. Labels come from the translations the app
  * already carries, which is why no native holds a sport-to-name map.
  *
- * Uncapped on purpose: a Siri phrase offers every sport the athlete records, and
- * `launcherShortcuts` is where the launcher's three come from.
+ * Uncapped on purpose: the widget pickers and a Siri phrase offer every sport the
+ * athlete has recorded, and `launcherShortcuts` is where the launcher's three come
+ * from, built from the recents alone.
  */
 function composeRecordShortcuts(
   types: string[] | null | undefined,
@@ -450,257 +194,72 @@ function composeRecordShortcuts(
   return out;
 }
 
-/** Form metric with its zone, so natives colour by enum and never do TSB maths. */
-function formMetricFrom(series: number[], fitness: number[], asPercent: boolean): FormMetricValue {
-  const base = metricFrom(series);
-  return {
-    ...base,
-    zone: getFormZone(base.value, num(fitness[series.length - 1]), asPercent),
-  };
-}
+/** 2023-01-01 was a Sunday, so the seven days from it are the week Sunday first. */
+const FIRST_SUNDAY = { year: 2023, month: 0, day: 1 };
+
+/** A day and a year that cannot be mistaken for each other or for a month. */
+const SAMPLE_DAY = 22;
+const SAMPLE_YEAR = 2001;
 
 /**
- * The widget mirror of the in-app summary card. Built from the same preferences
- * store the settings screen writes, so the widget always tracks the app config.
- * Weight is omitted: its source (wellness weight) isn't part of the gather path.
+ * The app locale's weekday and month names and its short date order, read from
+ * `Intl`, so the engine writes "Friday" or "5 janv." as the app would.
  */
-function composeSummaryCard(
-  raw: RawWidgetData,
-  t: (key: string) => string
-): WidgetSummaryCard | null {
-  const prefs = raw.summaryPrefs;
-  if (!prefs || !prefs.enabled) return null;
+export function widgetDateWords(locale: string = getIntlLocale()): WidgetDateWords {
+  const weekdays = Array.from({ length: 7 }, (_, i) =>
+    new Date(FIRST_SUNDAY.year, FIRST_SUNDAY.month, FIRST_SUNDAY.day + i).toLocaleDateString(
+      locale,
+      { weekday: 'long' }
+    )
+  );
+  return {
+    weekdays,
+    monthDay: datePattern(locale, { month: 'short', day: 'numeric' }),
+    monthDayYear: datePattern(locale, { month: 'short', day: 'numeric', year: 'numeric' }),
+  };
+}
 
-  const entryFor = (id: string): WidgetSummaryEntry | null => {
-    const sp = raw.sparklines;
-    const summary = raw.summary;
-    switch (id) {
-      case 'fitness': {
-        const m = metricFrom(sp?.fitness ?? []);
-        return {
-          id,
-          label: t('metrics.fitness'),
-          value: fmtInt(m),
-          trendDir: m.trendDir,
-          colorKey: 'blue',
-        };
+function datePattern(locale: string, options: Intl.DateTimeFormatOptions): WidgetDatePattern {
+  try {
+    const format = new Intl.DateTimeFormat(locale, options);
+    if (typeof format.formatToParts !== 'function') return { parts: [], months: [] };
+    const sample = (month: number) =>
+      format.formatToParts(new Date(SAMPLE_YEAR, month, SAMPLE_DAY));
+    const parts: WidgetDatePart[] = [];
+    for (const part of sample(0)) {
+      if (part.type === 'month' || part.type === 'day' || part.type === 'year') {
+        parts.push({ type: part.type, value: '' });
+      } else if (part.type === 'literal') {
+        parts.push({ type: 'literal', value: part.value });
+      } else {
+        // A part the engine cannot write, such as an era: no pattern, and the
+        // engine falls back to an unambiguous date.
+        return { parts: [], months: [] };
       }
-      case 'form': {
-        const m = metricFrom(sp?.form ?? [], TREND_DEADBAND.form);
-        const v = Math.round(m.value);
-        return {
-          id,
-          label: t('metrics.form'),
-          value: sp ? (v > 0 ? `+${v}` : String(v)) : '-',
-          trendDir: m.trendDir,
-          colorKey: 'formZone',
-        };
-      }
-      case 'hrv': {
-        const m = metricFrom(sp?.hrv ?? [], TREND_DEADBAND.hrv);
-        return {
-          id,
-          label: t('metrics.hrv'),
-          value: fmtSeries(sp?.hrv, m),
-          trendDir: m.trendDir,
-          colorKey: 'default',
-        };
-      }
-      case 'rhr': {
-        const m = metricFrom(sp?.rhr ?? []);
-        return {
-          id,
-          label: t('metrics.rhr'),
-          value: fmtSeries(sp?.rhr, m),
-          trendDir: m.trendDir,
-          colorKey: 'default',
-        };
-      }
-      case 'weekHours': {
-        const hours = Math.round((num(summary?.currentWeek.totalDuration) / 3600) * 10) / 10;
-        const prevHours = Math.round((num(summary?.prevWeek.totalDuration) / 3600) * 10) / 10;
-        return {
-          id,
-          label: t('metrics.week'),
-          value: `${hours}h`,
-          trendDir: trendOf(hours, prevHours, TREND_DEADBAND.weekHours),
-          colorKey: 'default',
-        };
-      }
-      case 'weekCount': {
-        const count = num(summary?.currentWeek.count);
-        return {
-          id,
-          label: '#',
-          value: String(count),
-          trendDir: trendOf(count, num(summary?.prevWeek.count), TREND_DEADBAND.weekCount),
-          colorKey: 'default',
-        };
-      }
-      case 'ftp': {
-        const latestFtp = summary?.ftpTrend?.latestFtp ?? null;
-        return {
-          id,
-          label: t('metrics.ftp'),
-          value: latestFtp == null ? '-' : String(Math.round(latestFtp)),
-          trendDir: trendOfNullable(latestFtp, summary?.ftpTrend?.previousFtp, TREND_DEADBAND.ftp),
-          colorKey: 'default',
-        };
-      }
-      case 'thresholdPace': {
-        const pace = summary?.runPaceTrend?.latestPace ?? null;
-        return {
-          id,
-          label: t('metrics.pace'),
-          value: pace == null || pace <= 0 ? '-' : formatPaceCompact(pace, raw.isMetric),
-          trendDir: trendOfNullable(
-            pace,
-            summary?.runPaceTrend?.previousPace,
-            TREND_DEADBAND.thresholdPace
-          ),
-          colorKey: 'default',
-        };
-      }
-      case 'css': {
-        const pace = summary?.swimPaceTrend?.latestPace ?? null;
-        return {
-          id,
-          label: t('metrics.css'),
-          value: pace == null || pace <= 0 ? '-' : formatSwimPace(pace, raw.isMetric),
-          trendDir: trendOfNullable(pace, summary?.swimPaceTrend?.previousPace, TREND_DEADBAND.css),
-          colorKey: 'default',
-        };
-      }
-      default:
-        return null;
     }
-  };
-
-  const hero = entryFor(prefs.heroMetric) ?? entryFor('fitness');
-  if (!hero) return null;
-
-  const entries = prefs.supportingMetrics
-    .map((id) => entryFor(id))
-    .filter((e): e is WidgetSummaryEntry => e != null)
-    .slice(0, 4);
-
-  const sparkline = !prefs.showSparkline
-    ? 'none'
-    : prefs.heroMetric === 'hrv'
-      ? 'hrv'
-      : 'fitnessForm';
-  return { hero, entries, sparkline };
-}
-
-function fmtInt(m: MetricValue): string {
-  return String(Math.round(m.value));
-}
-
-/** "-" when the series has no data at all (metricFrom's 0 would be misleading). */
-function fmtSeries(series: number[] | undefined, m: MetricValue): string {
-  if (!series || series.length === 0) return '-';
-  return String(Math.round(m.value));
-}
-
-/** Pre-localized label strings + the impact sentence, from existing i18n keys. */
-function buildDisplay(
-  t: (key: string) => string,
-  impact: WidgetImpact | null,
-  formZone: FormZone
-): WidgetDisplay {
-  const formLabel = t('metrics.form');
-  return {
-    metricLabels: {
-      form: formLabel,
-      fitness: t('metrics.fitness'),
-      fatigue: t('metrics.fatigue'),
-      hrv: t('metrics.hrv'),
-      rhr: t('metrics.rhr'),
-      ramp: t('fitnessScreen.rampRate'),
-    },
-    weekLabel: t('metrics.week'),
-    formZone: t(`formZones.${formZone}`),
-    impactLine: impact ? formatImpactLine(formLabel, impact) : null,
-  };
-}
-
-function formatImpactLine(formLabel: string, impact: WidgetImpact): string {
-  const before = Math.round(impact.formBefore);
-  const after = Math.round(impact.formAfter);
-  let line = `${formLabel} ${before} → ${after}`;
-  if (impact.tssAdded != null) {
-    const tss = Math.round(impact.tssAdded);
-    line += ` · ${tss >= 0 ? '+' : ''}${tss} TSS`;
+    const months = Array.from(
+      { length: 12 },
+      (_, m) => sample(m).find((p) => p.type === 'month')?.value ?? ''
+    );
+    return { parts, months };
+  } catch {
+    return { parts: [], months: [] };
   }
-  return line;
 }
 
-function composeLatest(raw: RawWidgetData): WidgetLatest | null {
-  const a = raw.latest;
-  if (!a) return null;
-  const date = num(a.date);
-  const distanceM = num(a.distance);
-  const movingTimeS = num(a.movingTime);
+/** Seconds since the epoch the snapshot is stamped with, and the same moment on the wall clock. */
+function clock(now: Date): { nowSeconds: number; nowWallSeconds: number } {
   return {
-    activityId: a.activityId,
-    name: a.name,
-    sportType: a.sportType,
-    distanceM,
-    movingTimeS,
-    date,
-    trainingLoad: a.trainingLoad == null ? null : num(a.trainingLoad),
-    distanceLabel: formatDistance(distanceM, raw.isMetric),
-    durationLabel: formatDuration(movingTimeS),
-    dateLabel: relativeDateLabel(date),
-    tintHex: widgetActivityTint(a.sportType),
-    isPr: a.isPr === true,
-    routePreview: composeRoutePreview(raw.latestGps),
+    nowSeconds: Math.floor(now.getTime() / 1000),
+    // An activity's date comes from `start_date_local` as zoneless wall-clock
+    // seconds, so its age and its week are judged on the same clock.
+    nowWallSeconds: localWallClockToEpochSeconds(now),
   };
-}
-
-function composeImpact(
-  raw: RawWidgetData,
-  fitness: number[],
-  fatigue: number[],
-  form: number[],
-  latest: WidgetLatest | null,
-  asPercent: boolean
-): WidgetImpact | null {
-  if (!latest) return null;
-  if (form.length < 2 || fitness.length < 2 || fatigue.length < 2) return null;
-  const ageDays = (raw.nowWallSeconds - latest.date) / 86400;
-  if (ageDays < 0 || ageDays > IMPACT_MAX_AGE_DAYS) return null;
-  // Oldest-first: today is the last element, yesterday the one before it.
-  const today = form.length - 1;
-  const formAfter = num(form[today]);
-  const formBefore = num(form[today - 1]);
-  return {
-    formBefore,
-    formAfter,
-    formBeforeZone: getFormZone(formBefore, num(fitness[today - 1]), asPercent),
-    formAfterZone: getFormZone(formAfter, num(fitness[today]), asPercent),
-    ctlDelta: num(fitness[fitness.length - 1]) - num(fitness[fitness.length - 2]),
-    atlDelta: num(fatigue[fatigue.length - 1]) - num(fatigue[fatigue.length - 2]),
-    tssAdded: latest.trainingLoad,
-    dateLabel: latest.dateLabel,
-  };
-}
-
-/** Relative date label from a unix-seconds timestamp, guarded against bad input. */
-function relativeDateLabel(unixSeconds: number): string {
-  if (!Number.isFinite(unixSeconds) || unixSeconds <= 0) return '';
-  // The seconds are a zoneless wall clock, so the components come back off the
-  // UTC reading. Sliced to `YYYY-MM-DD` they were then parsed as UTC midnight
-  // and compared against a local calendar day, which is a day out for half the
-  // world. Keeping the time and dropping the `Z` makes it a local parse, which
-  // is the clock the components were written in.
-  const iso = new Date(unixSeconds * 1000).toISOString().slice(0, 19);
-  return formatRelativeDate(iso);
 }
 
 /**
- * Read the engine and build the snapshot. Returns null when the engine isn't ready
- * (e.g. very early startup) so callers can no-op.
+ * Read the engine and compose the snapshot. Returns null when the engine isn't
+ * ready (e.g. very early startup) so callers can no-op.
  *
  * The handle exists from the first require and readiness is a separate flag, so
  * a null check on the handle answers "did the native module load" and never
@@ -713,32 +272,9 @@ export function gatherWidgetSnapshot(opts: {
   formAsPercent?: boolean | undefined;
   now?: Date | undefined;
   translate?: ((key: string) => string) | undefined;
-}): WidgetSnapshot | null {
+}): WidgetSnapshotPayload | null {
   const engine = getEngine();
   if (!engine || !isEngineReady()) return null;
-
-  const now = opts.now ?? new Date();
-  const nowSeconds = Math.floor(now.getTime() / 1000);
-  const nowWallSeconds = localWallClockToEpochSeconds(now);
-
-  let data: WidgetSnapshotData | undefined;
-  try {
-    const b = weekBounds(now);
-    data = engine.getWidgetSnapshot(
-      b.currentStart,
-      b.currentEnd,
-      b.prevStart,
-      b.prevEnd,
-      SPARKLINE_DAYS,
-      ROUTE_PREVIEW_MAX_POINTS
-    );
-  } catch {
-    // `with_engine` answers NotInitialized when the database is not open, and
-    // that is "unknown", not "the athlete has no data". Anything else that
-    // throws is unknown too.
-    return null;
-  }
-  if (!data) return null;
 
   let summaryPrefs: SummaryCardPreferences | null = null;
   try {
@@ -747,28 +283,36 @@ export function gatherWidgetSnapshot(opts: {
     summaryPrefs = null;
   }
 
-  const latest = data.latest
-    ? ({ ...data.latest, isPr: data.latestIsPr } as RawLatestActivity)
-    : null;
-
-  return composeSnapshot({
-    sparklines: (data.sparklines as RawSparklines | undefined) ?? null,
-    summary: (data.summary as RawSummary | undefined) ?? null,
-    latest,
-    latestGps: latest ? ((data.latestGps as RawGpsPoint[]) ?? null) : null,
-    rampRate: data.rampRate ?? null,
-    summaryPrefs,
+  const context = composeWidgetContext({
     locale: opts.locale,
     isMetric: opts.isMetric,
     formAsPercent: opts.formAsPercent,
-    nowSeconds,
-    nowWallSeconds,
     translate: opts.translate,
+    summaryPrefs,
     // No account, no shortcuts. Every one-tap surface starts a ride directly, so
     // leaving a stale one on a launcher would walk straight past the sign-in
     // gate, and clearing them is also what takes them off the icon on sign-out.
     recentRecordingTypes: signedIn() ? getRecentRecordingTypes() : [],
+    recordedRecordingTypes: signedIn() ? getRecordedRecordingTypes() : [],
   });
+  const contextJson = JSON.stringify(context);
+  const { nowSeconds, nowWallSeconds } = clock(opts.now ?? new Date());
+
+  let json: string | undefined;
+  try {
+    json = engine.composeWidgetSnapshot(contextJson, nowSeconds, nowWallSeconds);
+  } catch {
+    // empty-on-error: the widget keeps its last snapshot when this one is unknown.
+    // The read answers NotInitialized when the database is not open, and that is
+    // "unknown", not "the athlete has no data". Anything else that throws is
+    // unknown too.
+    return null;
+  }
+  if (!json) return null;
+  // Stored after a composition that worked, so the push worker composes in the
+  // same words and the same settings as the file the app just wrote.
+  engine.setWidgetContext(contextJson);
+  return { json, launcherShortcuts: context.launcherShortcuts };
 }
 
 /** Whether anyone is signed in; a failed read counts as nobody. */
@@ -778,28 +322,4 @@ function signedIn(): boolean {
   } catch {
     return false;
   }
-}
-
-/** Current and previous ISO-week (Monday to today) bounds, mirroring useStartupData. */
-function weekBounds(now: Date): {
-  currentStart: number;
-  currentEnd: number;
-  prevStart: number;
-  prevEnd: number;
-} {
-  const startOfWeek = new Date(now);
-  const day = startOfWeek.getDay();
-  startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  const startOfLastWeek = new Date(startOfWeek);
-  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
-  const toTs = localWallClockToEpochSeconds;
-  return {
-    currentStart: toTs(startOfWeek),
-    currentEnd: toTs(now),
-    prevStart: toTs(startOfLastWeek),
-    prevEnd: toTs(startOfWeek) - 1,
-  };
 }

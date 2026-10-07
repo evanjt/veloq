@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 /**
  * Absorber for the OAuth redirect deep link. The token in the callback URL is
@@ -9,7 +10,7 @@ import { router } from 'expo-router';
  * a deep link, which expo-router would otherwise render as Unmatched Route.
  * This screen renders nothing and immediately dismisses itself.
  */
-export default function OAuthCallbackScreen() {
+function OAuthCallbackScreenContent() {
   useEffect(() => {
     if (router.canGoBack()) {
       router.back();
@@ -20,3 +21,5 @@ export default function OAuthCallbackScreen() {
 
   return <View />;
 }
+
+export default withScreenBoundary(OAuthCallbackScreenContent, 'OAuthCallback');

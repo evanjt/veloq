@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { InteractionManager } from 'react-native';
+import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { decodeCoords, SyncState } from 'veloqrs';
 import type {
   PreviewTrack as PreviewTrackRecord,
   SummaryCardData,
   WellnessSparklines,
 } from 'veloqrs';
-import { buildInsightsParams } from '@/features/insights/lib/insightsParams';
+import { buildInsightsParams } from '@/features/insights';
 import type { LatLng } from '@/shared/geo/polyline';
 
 /**
@@ -30,6 +30,8 @@ export interface StartupResult {
   previewTracks: Map<string, PreviewTrack>;
   /** The card's sparklines, or null when the athlete has no wellness */
   sparklines: WellnessSparklines | null;
+  /** Activities that arrived since the athlete last looked: the feed rings them */
+  newActivityIds: ReadonlySet<string>;
 }
 
 function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<string, PreviewTrack> {
@@ -46,6 +48,30 @@ function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<strin
     }
   }
   return tracks;
+}
+
+function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const id of a) if (!b.has(id)) return false;
+  return true;
+}
+
+function retainUnchangedPreviewTracks(
+  previous: Map<string, PreviewTrack> | undefined,
+  next: Map<string, PreviewTrack>
+): Map<string, PreviewTrack> {
+  if (!previous) return next;
+  for (const [id, track] of next) {
+    const prior = previous.get(id);
+    if (!prior || prior.coordinates.length !== track.coordinates.length) continue;
+    const unchanged = track.coordinates.every(
+      (point, index) =>
+        point.latitude === prior.coordinates[index]?.latitude &&
+        point.longitude === prior.coordinates[index]?.longitude
+    );
+    if (unchanged) next.set(id, prior);
+  }
+  return next;
 }
 
 /**
@@ -68,8 +94,11 @@ function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
       // card reads the difference as "the bundle answered" against "there is
       // no bundle, read it yourself".
       sparklines: result.sparklines ?? null,
+      newActivityIds: new Set(result.newActivityIds ?? []),
     };
   } catch {
+    // empty-on-error: null is "keep what is already on screen", so a failed refresh leaves
+    // the last bundle drawn rather than replacing it with an empty one.
     return null;
   }
 }
@@ -83,20 +112,15 @@ function syncInFlight(): boolean {
   }
 }
 
-/** How often the absent engine is asked for, and for how long. */
-const ENGINE_WAIT_INTERVAL_MS = 200;
-
-/** Ten seconds. An engine that is not open by then failed to open. */
-const ENGINE_WAIT_TICKS = 50;
-
 /**
  * Counters that advance when the engine says a sync reached a terminal state,
  * and when it says it stored wellness. Neither channel's value means anything,
  * only that it moved.
  *
- * Both live behind one wait. The engine can arrive after this screen mounts,
- * and a launch sync settles once, so missing it would leave the feed on its
- * first read. Two waits would ask twice as often for the same handle.
+ * The engine handle is fixed at first load, and subscribing does not need an
+ * open database: the subscription is a listener map, so it hears a launch sync
+ * that settles after this screen mounts. A missing handle stays missing, so
+ * there is nothing to wait for.
  */
 function useEngineSignals(): { settled: number; wellnessStored: number } {
   const [settled, setSettled] = useState(0);
@@ -116,28 +140,7 @@ function useEngineSignals(): { settled: number; wellnessStored: number } {
     };
 
     const engine = getEngine();
-    if (engine) return subscribeAll(engine);
-
-    // The wait is capped because an engine that failed to open never arrives,
-    // and the uncapped version asked five times a second for as long as the
-    // feed was open. Giving up leaves the feed on its first read, which is
-    // where it was going to be either way.
-    let unsubscribe: (() => void) | undefined;
-    let attempts = 0;
-    const interval = setInterval(() => {
-      const arrived = getEngine();
-      if (!arrived) {
-        attempts += 1;
-        if (attempts >= ENGINE_WAIT_TICKS) clearInterval(interval);
-        return;
-      }
-      unsubscribe = subscribeAll(arrived);
-      clearInterval(interval);
-    }, ENGINE_WAIT_INTERVAL_MS);
-    return () => {
-      clearInterval(interval);
-      unsubscribe?.();
-    };
+    return engine ? subscribeAll(engine) : undefined;
   }, []);
 
   return { settled, wellnessStored };
@@ -183,21 +186,25 @@ export function useStartupData(previewActivityIds: string[]): {
   const settleSeen = useRef(false);
 
   const [data, setData] = useState<StartupResult | null>(null);
+  const publish = useCallback((next: StartupResult) => {
+    setData((previous) => ({
+      ...next,
+      previewTracks: retainUnchangedPreviewTracks(previous?.previewTracks, next.previewTracks),
+      newActivityIds:
+        previous && sameIds(previous.newActivityIds, next.newActivityIds)
+          ? previous.newActivityIds
+          : next.newActivityIds,
+    }));
+  }, []);
 
   // One deferred read, cancelled by whoever scheduled it. The effects below own
   // their own copy because each cancels on its own dependency change.
   const readSoon = useCallback(() => {
-    let cancelled = false;
-    const handle = InteractionManager.runAfterInteractions(() => {
-      if (cancelled) return;
+    return runWhenIdle(() => {
       const next = fetchStartupData(idsRef.current);
-      if (!cancelled && next) setData(next);
+      if (next) publish(next);
     });
-    return () => {
-      cancelled = true;
-      handle.cancel();
-    };
-  }, []);
+  }, [publish]);
 
   useEffect(() => {
     if (syncInFlight()) {
@@ -210,17 +217,11 @@ export function useStartupData(previewActivityIds: string[]): {
       readThisSync.current = false;
     }
 
-    let cancelled = false;
-    const handle = InteractionManager.runAfterInteractions(() => {
-      if (cancelled) return;
+    return runWhenIdle(() => {
       const next = fetchStartupData(idsRef.current);
-      if (!cancelled && next) setData(next);
+      if (next) publish(next);
     });
-    return () => {
-      cancelled = true;
-      handle.cancel();
-    };
-  }, [trigger, idsKey]);
+  }, [trigger, idsKey, publish]);
 
   useEffect(() => {
     if (!settleSeen.current) {
@@ -233,17 +234,11 @@ export function useStartupData(previewActivityIds: string[]): {
     if (!held.current) return undefined;
     held.current = false;
 
-    let cancelled = false;
-    const handle = InteractionManager.runAfterInteractions(() => {
-      if (cancelled) return;
+    return runWhenIdle(() => {
       const next = fetchStartupData(idsRef.current);
-      if (!cancelled && next) setData(next);
+      if (next) publish(next);
     });
-    return () => {
-      cancelled = true;
-      handle.cancel();
-    };
-  }, [settled]);
+  }, [settled, publish]);
 
   // The first run is the mount, where the read above has already been scheduled.
   const wellnessSeen = useRef(false);

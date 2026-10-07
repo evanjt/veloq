@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
@@ -8,12 +9,10 @@ import {
   ChartSkeleton,
   StatsPillSkeleton,
   ErrorStatePreset,
-  ScreenErrorBoundary,
 } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import {
   FitnessChartCard,
@@ -22,26 +21,38 @@ import {
   TimeRangeSelector,
   SportToggleSelector,
   FitnessHeaderStats,
+  BestEffortsHeaderButton,
   resolveThresholdPace,
-} from '@/features/fitness';
-import {
   useFitnessRefresh,
   useFitnessComputations,
   useFitnessScreenData,
-  useStoredPaceTrend,
-} from '@/features/fitness/hooks';
-import { FORM_ZONE_COLORS, formZoneTextColor } from '@/features/fitness/lib/fitness';
-import { timeRangeToDays, type TimeRange } from '@/features/wellness';
+  useFitnessWindow,
+  FORM_ZONE_COLORS,
+  useSportPreference,
+  type PrimarySport,
+} from '@/features/fitness';
+import { timeRangeToDays } from '@/features/wellness';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
-import { useChartInteraction } from '@/shared/charts/useChartInteraction';
-import { useSportPreference, type PrimarySport } from '@/features/fitness/stores';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
-import { DEFAULT_PERIOD } from '@/shared/app/period';
-import { fitnessEntryFromParams } from '@/shared/app/fitnessEntry';
+import {
+  FITNESS_CHART_PLACEMENT,
+  fitnessEntryFromParams,
+  type FitnessChart,
+} from '@/shared/app/fitnessEntry';
+import { useRevealChart } from '@/shared/app/useRevealChart';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function FitnessScreen() {
+const NO_ACTIVITIES: NonNullable<ReturnType<typeof useFitnessScreenData>['activities']> = [];
+
+/** The fitness and form charts sit in the card at the top; the rest in their section. */
+function fitnessChartAnchor(chart: FitnessChart): 'chart' | 'performance' | 'trends' {
+  return FITNESS_CHART_PLACEMENT[chart].section ?? 'chart';
+}
+
+function FitnessScreenContent() {
+  useTabFirstFrame('/fitness');
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
   // Deliberately during render: the timer has to start where the render does,
@@ -56,10 +67,22 @@ export default function FitnessScreen() {
   const { isDark } = useTheme();
   const shared = createSharedStyles(isDark);
   // A card that summarised a window links here with it, so the screen opens on
-  // that window rather than on its own default.
-  const params = useLocalSearchParams<{ range?: string; date?: string }>();
-  const { range: entryRange, date: entryDate } = fitnessEntryFromParams(params);
-  const [timeRange, setTimeRange] = useState<TimeRange>(entryRange ?? DEFAULT_PERIOD);
+  // that window rather than on its own default, mounted or not. A metric
+  // names a chart as well, which `useRevealChart` takes and clears below.
+  const params = useLocalSearchParams<{ range?: string; date?: string; chart?: string }>();
+  const entry = fitnessEntryFromParams(params);
+  const entryChart = entry.chart ?? null;
+  const clearEntry = useCallback(() => router.setParams({ range: undefined, date: undefined }), []);
+  const {
+    timeRange,
+    changeTimeRange,
+    sharedSelectedIdx,
+    chartInteracting,
+    selectedDate,
+    selectedValues,
+    handleInteractionChange,
+    handleDateSelect,
+  } = useFitnessWindow(entry, clearEntry);
 
   useEffect(() => {
     logMemory('FitnessScreen:mount');
@@ -73,40 +96,6 @@ export default function FitnessScreen() {
     trends: false,
     efficiency: false,
   });
-  const {
-    chartInteracting,
-    selectedDate,
-    selectedValues,
-    setSelectedDate,
-    setSelectedValues,
-    handleInteractionChange,
-    handleDateSelect,
-  } = useChartInteraction(entryDate);
-
-  // Shared value for instant crosshair sync between charts
-  const sharedSelectedIdx = useSharedValue(-1);
-
-  // The entry params are consumed once and cleared, the way the insights tab
-  // clears `insightId`, so going back does not re-apply them.
-  useEffect(() => {
-    if (!entryRange && !entryDate) return;
-    router.setParams({ range: undefined, date: undefined });
-  }, [entryRange, entryDate]);
-
-  // Reset selection when time range changes, but not on the first run when the
-  // entry params pinned a day: that selection is the day the card was about.
-  const entryApplied = useRef(false);
-  React.useEffect(() => {
-    if (entryDate && !entryApplied.current) {
-      entryApplied.current = true;
-      return;
-    }
-    sharedSelectedIdx.value = -1;
-    setSelectedDate(null);
-    setSelectedValues(null);
-    // sharedSelectedIdx is a Reanimated SharedValue, whose identity never
-    // changes, so listing it re-runs nothing that was not re-running already.
-  }, [timeRange, entryDate, setSelectedDate, setSelectedValues, sharedSelectedIdx]);
 
   const { primarySport } = useSportPreference();
 
@@ -121,23 +110,46 @@ export default function FitnessScreen() {
     setSportMode(primarySport);
   }
 
+  // A metric linked here names its chart: open the section that holds it, on
+  // the sport that draws it, and scroll to it.
+  const { setExpanded } = sections;
+  const prepareChart = useCallback(
+    (chart: FitnessChart) => {
+      const { section, sport } = FITNESS_CHART_PLACEMENT[chart];
+      if (sport) setSportMode(sport);
+      if (section) setExpanded(section, true);
+    },
+    [setExpanded]
+  );
+  const { scrollRef, onAnchorLayout, onScrollBeginDrag } = useRevealChart(
+    entryChart,
+    fitnessChartAnchor,
+    prepareChart
+  );
+
   // Gather all screen data via consolidated hook (wellness, activities, zones, curves, bests)
   const {
     wellness,
     activities,
+    dailyLoads,
     powerZones,
     hrZones,
-    eftpHistory,
+    zoneCoverage,
+    eftpTrend,
+    eftpChanges,
+    storedRunPace,
+    storedSwimPace,
     currentFTP,
     runSettings,
     runPaceCurve,
     swimPaceCurve,
     bestsEfforts,
+    bestsClimbing,
+    bestsClimbingStatus,
     loadingActivities,
     loadingBests,
     bestsHeader,
-    decouplingStreams,
-    loadingStreams,
+    decouplingSource,
     isLoading,
     isFetching,
     isError,
@@ -147,8 +159,6 @@ export default function FitnessScreen() {
   const runLthr = runSettings?.lthr;
   // The curve is a download, so offline it is absent and the stored critical
   // speed behind it is the only reading the screen has.
-  const storedRunPace = useStoredPaceTrend('Run');
-  const storedSwimPace = useStoredPaceTrend('Swim');
   const thresholdPace =
     resolveThresholdPace(runPaceCurve?.criticalSpeed, storedRunPace) ?? undefined;
   const swimThresholdPace =
@@ -161,25 +171,17 @@ export default function FitnessScreen() {
   // Handle pull-to-refresh - invalidate all fitness-related queries
   const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
 
-  // Memoized derivations (FTP trend, dominant zone, decoupling, form zone, display values)
-  const {
-    ftpTrend,
-    dominantZone,
-    decouplingValue,
-    displayValues,
-    displayDate,
-    formZone,
-    rampRate,
-  } = useFitnessComputations({
-    wellness,
-    sportMode,
-    powerZones,
-    hrZones,
-    eftpHistory,
-    decouplingStreams,
-    selectedDate,
-    selectedValues,
-  });
+  // Memoized derivations (FTP trend, dominant zone, form zone, display values)
+  const { ftpTrend, dominantZone, displayValues, displayDate, formZone, rampRate } =
+    useFitnessComputations({
+      wellness,
+      sportMode,
+      powerZones,
+      hrZones,
+      eftpTrend,
+      selectedDate,
+      selectedValues,
+    });
 
   const days = timeRangeToDays(timeRange);
 
@@ -189,6 +191,7 @@ export default function FitnessScreen() {
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
           <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
+          <BestEffortsHeaderButton />
         </View>
         <View style={styles.skeletonContainer}>
           <StatsPillSkeleton />
@@ -204,6 +207,7 @@ export default function FitnessScreen() {
       <ScreenSafeAreaView style={shared.container}>
         <View style={styles.header}>
           <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
+          <BestEffortsHeaderButton />
         </View>
         <View style={shared.loadingContainer}>
           <ErrorStatePreset message={t('fitnessScreen.failedToLoad')} onRetry={() => refetch()} />
@@ -213,65 +217,72 @@ export default function FitnessScreen() {
   }
 
   return (
-    <ScreenErrorBoundary screenName="Fitness">
-      <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
-          {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
-          {isFetching && !isRefreshing && (
-            <ActivityIndicator size="small" color={colors.primary} style={styles.headerSpinner} />
-          )}
-        </View>
+    <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>
+        {/* Subtle loading indicator in header when fetching in background (not during pull-to-refresh) */}
+        {isFetching && !isRefreshing && (
+          <ActivityIndicator size="small" color={colors.primary} style={styles.headerSpinner} />
+        )}
+        <BestEffortsHeaderButton />
+      </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={!chartInteracting}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
-        >
-          {/* Current stats card */}
-          <FitnessHeaderStats
-            displayDate={displayDate}
-            displayValues={displayValues}
-            formZone={formZone}
-            isDark={isDark}
-            rampRate={rampRate}
+      <ScrollView
+        ref={scrollRef}
+        onScrollBeginDrag={onScrollBeginDrag}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!chartInteracting}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
+        }
+      >
+        {/* Current stats card */}
+        <FitnessHeaderStats
+          displayDate={displayDate}
+          displayValues={displayValues}
+          formZone={formZone}
+          isDark={isDark}
+          rampRate={rampRate}
+        />
 
-          {/* Time range selector */}
-          <TimeRangeSelector
-            timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
-            isDark={isDark}
-          />
+        {/* Time range selector */}
+        <TimeRangeSelector
+          timeRange={timeRange}
+          onTimeRangeChange={changeTimeRange}
+          isDark={isDark}
+        />
 
-          {/* Combined fitness charts card */}
+        {/* Combined fitness charts card */}
+        <View onLayout={(event) => onAnchorLayout('chart', event)}>
           <FitnessChartCard
             wellness={wellness}
-            activities={activities || []}
+            activities={activities ?? NO_ACTIVITIES}
+            dailyLoads={dailyLoads}
+            eftpChanges={eftpChanges}
             selectedDate={selectedDate}
             sharedSelectedIdx={sharedSelectedIdx}
             onDateSelect={handleDateSelect}
             onInteractionChange={handleInteractionChange}
           />
+        </View>
 
-          {/* Sport Toggle - compact pill selector */}
-          <SportToggleSelector
-            sportMode={sportMode}
-            onSportModeChange={setSportMode}
-            isDark={isDark}
-          />
+        {/* Sport Toggle - compact pill selector */}
+        <SportToggleSelector
+          sportMode={sportMode}
+          onSportModeChange={setSportMode}
+          isDark={isDark}
+        />
 
-          {/* Performance curves + season bests */}
+        {/* Performance curves + season bests */}
+        <View onLayout={(event) => onAnchorLayout('performance', event)}>
           <PerformanceCurveSection
             sportMode={sportMode}
             days={days}
@@ -279,122 +290,118 @@ export default function FitnessScreen() {
             thresholdPace={thresholdPace}
             swimThresholdPace={swimThresholdPace}
             performanceExpanded={sections.expanded('performance')}
-            onPerformanceToggle={(v) => sections.setExpanded('performance', v)}
+            onPerformanceToggle={sections.onToggle('performance')}
             bestsExpanded={sections.expanded('bests')}
-            onBestsToggle={(v) => sections.setExpanded('bests', v)}
+            onBestsToggle={sections.onToggle('bests')}
             bestsEfforts={bestsEfforts}
+            bestsClimbing={bestsClimbing}
+            bestsClimbingStatus={bestsClimbingStatus}
             loadingBests={loadingBests}
             bestsHeader={bestsHeader}
           />
+        </View>
 
-          {/* Zones, trends, thresholds, decoupling */}
+        {/* Zones, trends, thresholds, decoupling */}
+        <View onLayout={(event) => onAnchorLayout('trends', event)}>
           <FitnessTrendSections
             sportMode={sportMode}
             timeRange={timeRange}
             powerZones={powerZones}
             hrZones={hrZones}
+            zoneCoverage={zoneCoverage}
             loadingActivities={loadingActivities}
             hasActivities={!!activities}
             dominantZone={dominantZone}
             zonesExpanded={sections.expanded('zones')}
-            onZonesToggle={(v) => sections.setExpanded('zones', v)}
-            eftpHistory={eftpHistory}
-            currentFTP={currentFTP}
+            onZonesToggle={sections.onToggle('zones')}
+            eftpTrend={eftpTrend}
             ftpTrend={ftpTrend}
             trendsExpanded={sections.expanded('trends')}
-            onTrendsToggle={(v) => sections.setExpanded('trends', v)}
+            onTrendsToggle={sections.onToggle('trends')}
             thresholdPace={thresholdPace}
             runLthr={runLthr}
-            decouplingStreams={decouplingStreams}
-            decouplingValue={decouplingValue}
-            loadingStreams={loadingStreams}
+            decouplingSource={decouplingSource}
             efficiencyExpanded={sections.expanded('efficiency')}
-            onEfficiencyToggle={(v) => sections.setExpanded('efficiency', v)}
+            onEfficiencyToggle={sections.onToggle('efficiency')}
           />
+        </View>
 
-          {/* Info section */}
-          <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
-            <Text style={[styles.infoTitle, isDark && styles.infoTitleDark]}>
-              {t('fitnessScreen.understandingMetrics')}
+        {/* Info section */}
+        <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
+          <Text style={[styles.infoTitle, isDark && styles.infoTitleDark]}>
+            {t('fitnessScreen.understandingMetrics')}
+          </Text>
+
+          <View style={styles.infoRow}>
+            <View style={[styles.infoDot, { backgroundColor: colors.fitnessBlue }]} />
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                {t('metrics.fitness')}
+              </Text>{' '}
+              {t('fitnessScreen.fitnessDescription')}
             </Text>
-
-            <View style={styles.infoRow}>
-              <View style={[styles.infoDot, { backgroundColor: colors.fitnessBlue }]} />
-              <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                  {t('metrics.fitness')}
-                </Text>{' '}
-                {t('fitnessScreen.fitnessDescription')}
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={[styles.infoDot, { backgroundColor: colors.fatiguePurple }]} />
-              <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                  {t('metrics.fatigue')}
-                </Text>{' '}
-                {t('fitnessScreen.fatigueDescription')}
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
-              <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-                <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                  {t('metrics.form')}
-                </Text>{' '}
-                {t('fitnessScreen.formDescription')}{' '}
-                <Text style={{ color: formZoneTextColor('optimal', isDark) }}>
-                  {t('fitnessScreen.optimalZone')}
-                </Text>{' '}
-                {t('fitnessScreen.toBuildFitness')}{' '}
-                <Text style={{ color: formZoneTextColor('fresh', isDark) }}>
-                  {t('fitnessScreen.fresh')}
-                </Text>{' '}
-                {t('fitnessScreen.forRaces')}{' '}
-                <Text style={{ color: formZoneTextColor('highRisk', isDark) }}>
-                  {t('fitnessScreen.highRiskZone')}
-                </Text>{' '}
-                {t('fitnessScreen.toPreventOvertraining')}
-              </Text>
-            </View>
-
-            <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
-              <Text style={[styles.referencesLabel, isDark && styles.referencesLabelDark]}>
-                {t('fitnessScreen.learnMore')}
-              </Text>
-              <TouchableOpacity
-                onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.infoLink}>{t('fitnessScreen.linkFitnessPage')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() =>
-                  WebBrowser.openBrowserAsync(
-                    'https://www.sciencetosport.com/monitoring-training-load/'
-                  )
-                }
-                activeOpacity={0.7}
-              >
-                <Text style={styles.infoLink}>{t('fitnessScreen.linkTrainingLoad')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() =>
-                  WebBrowser.openBrowserAsync(
-                    'https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html'
-                  )
-                }
-                activeOpacity={0.7}
-              >
-                <Text style={styles.infoLink}>{t('fitnessScreen.linkTSBManagement')}</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-        </ScrollView>
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+
+          <View style={styles.infoRow}>
+            <View style={[styles.infoDot, { backgroundColor: colors.fatiguePurple }]} />
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                {t('metrics.fatigue')}
+              </Text>{' '}
+              {t('fitnessScreen.fatigueDescription')}
+            </Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={[styles.infoDot, { backgroundColor: FORM_ZONE_COLORS.optimal }]} />
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+              <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                {t('metrics.form')}
+              </Text>{' '}
+              {t('fitnessScreen.formDescription')}
+            </Text>
+          </View>
+
+          <View style={[styles.referencesSection, isDark && styles.referencesSectionDark]}>
+            <Text style={[styles.referencesLabel, isDark && styles.referencesLabelDark]}>
+              {t('fitnessScreen.learnMore')}
+            </Text>
+            <TouchableOpacity
+              onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}>
+                {t('fitnessScreen.linkFitnessPage')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() =>
+                WebBrowser.openBrowserAsync(
+                  'https://www.sciencetosport.com/monitoring-training-load/'
+                )
+              }
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}>
+                {t('fitnessScreen.linkTrainingLoad')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() =>
+                WebBrowser.openBrowserAsync(
+                  'https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html'
+                )
+              }
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}>
+                {t('fitnessScreen.linkTSBManagement')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </ScreenSafeAreaView>
   );
 }
 
@@ -442,7 +449,7 @@ const styles = StyleSheet.create({
   infoDot: {
     width: spacing.sm,
     height: spacing.sm,
-    borderRadius: spacing.xs,
+    borderRadius: layout.borderRadiusXs,
     marginTop: spacing.xs,
     marginRight: spacing.xs,
   },
@@ -483,7 +490,7 @@ const styles = StyleSheet.create({
   },
   infoLink: {
     ...typography.caption,
-    color: colors.primary,
+    color: colors.linkTeal,
     paddingVertical: spacing.xs,
   },
   skeletonContainer: {
@@ -492,12 +499,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     gap: spacing.md,
   },
-  loadingText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
-  loadingTextDark: {
-    color: darkColors.textSecondary,
-  },
 });
+
+export default withScreenBoundary(FitnessScreenContent, 'Fitness');

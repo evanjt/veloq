@@ -18,6 +18,7 @@ import { parseStreams } from '@/features/activity/lib/streams';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
 import type { ActivityStreams, RawStreamItem } from '@/types';
+import type { StartOutcome, StartResult } from 'veloqrs';
 
 /** The full series set the detail charts render. */
 export const DETAIL_STREAM_TYPES = [
@@ -64,7 +65,7 @@ export function readStreams(activityId: string, types: readonly string[]): Activ
       ? parseStreams(parsed as RawStreamItem[])
       : (parsed as ActivityStreams);
   } catch {
-    // A body we cannot parse is a corrupt row, not an activity with no streams.
+    // empty-on-error: a stored stream body that does not parse is a corrupt row, and the caller refetches it; no engine read throws here.
     return null;
   }
 }
@@ -85,9 +86,12 @@ function demoStreams(activityId: string): ActivityStreams | null {
 }
 
 /** Ask Rust to fetch and store a series selection for an activity. */
-export function requestStreams(activityId: string, types: readonly string[]): void {
-  if (!activityId) return;
+export function requestStreams(
+  activityId: string,
+  types: readonly string[]
+): StartOutcome | StartResult | undefined {
+  if (!activityId) return undefined;
   // Demo mode has no account to fetch against, the generator answers instead.
-  if (useAuthStore.getState().isDemoMode) return;
-  getEngine()?.syncActivityStreams(activityId, streamTypesKey(types));
+  if (useAuthStore.getState().isDemoMode) return undefined;
+  return getEngine()?.syncActivityStreams(activityId, streamTypesKey(types));
 }

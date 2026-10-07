@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
-import { isPaceSport, measuresPower } from '@/shared/activity/activityUtils';
+import { measuresPower } from '@/shared/activity/activityUtils';
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import {
   formatDistance,
   formatDuration,
-  formatPace,
-  formatSpeed,
+  formatSportSpeed,
   formatHeartRate,
   formatPower,
 } from '@/shared/format/format';
@@ -22,8 +21,6 @@ interface IntervalsTableProps {
 }
 
 export function IntervalsTable({ intervals, activityType, isMetric, isDark }: IntervalsTableProps) {
-  const showPace = isPaceSport(activityType);
-
   const hasPowerZones = measuresPower(activityType);
   const hasHR = useMemo(() => intervals.some((i) => i.average_heartrate != null), [intervals]);
   const hasPower = useMemo(() => intervals.some((i) => i.average_watts != null), [intervals]);
@@ -79,9 +76,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
           <Text style={[styles.colStat, isDark && styles.textLight]}>
             {item.average_speed == null || item.average_speed <= 0
               ? '--'
-              : showPace
-                ? formatPace(item.average_speed, isMetric)
-                : formatSpeed(item.average_speed, isMetric)}
+              : formatSportSpeed(item.average_speed, activityType, isMetric)}
           </Text>
           {hasHR && (
             <Text

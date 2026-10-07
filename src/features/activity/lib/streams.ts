@@ -1,5 +1,5 @@
 import type { RawStreamItem, ActivityStreams } from '@/types';
-import { paceMinutesFromSpeed } from '@/shared/math/kinematics';
+import { paceMinutesFromSample } from '@/shared/math/kinematics';
 
 /**
  * A coordinate the engine will store. Mirrors `is_storable` in
@@ -115,7 +115,7 @@ export function parseStreams(rawStreams: RawStreamItem[]): ActivityStreams {
         streams.wbal = select(mask, stream.data);
         break;
       case 'ga_velocity':
-        streams.gap = select(mask, stream.data).map((v) => paceMinutesFromSpeed(v));
+        streams.gap = select(mask, stream.data).map((v) => paceMinutesFromSample(v));
         break;
     }
   }

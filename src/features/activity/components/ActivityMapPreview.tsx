@@ -6,12 +6,12 @@ import { getActivityColor } from '@/shared/activity/activityUtils';
 import { getMapLibreBounds } from '@/shared/geo/polyline';
 import {
   calculateFlatCamera,
-  calculateTerrainCamera,
   deleteSupersededTerrainPreviews,
+  deleteTerrainPreview,
   getCameraOverride,
   getTerrainPreviewUri,
   hasTerrainPreview,
-  isLikelyInterestingTerrain,
+  resolveTerrain3D,
   isTerrainCacheInitialized,
   isTerrainPreviewDowngraded,
   onTerrainCacheReady,
@@ -22,15 +22,16 @@ import {
 } from '@/features/maps';
 import { StaticCompassArrow } from '@/shared/ui';
 import { useIsOnline } from '@/shared/app/NetworkContext';
-import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { useSyncState } from '@/shared/native/useSyncStatus';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { isWithinPreviewRange, onPreviewRangeChange } from '../lib/previewRange';
 import { mapPreviewState } from '../lib/mapPreviewState';
 import { layout, ink, colorWithOpacity } from '@/theme';
 import { SyncState } from 'veloqrs';
 import type { Activity } from '@/types';
-import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
+import type { PreviewTrack } from '@/features/home';
 import { debug } from '@/shared/debug/debug';
+import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
 const log = debug.create('ActivityMapPreview');
 
@@ -59,15 +60,9 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // whole ActivityCard. The snapshot effect below defers requests when unfocused.
   const screenFocused = useIsFocused();
   const { getStyleForActivity, getTerrain3DMode, hasActivityOverride } = useMapPreferences();
-  const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
+  const mapStyle = getStyleForActivity(activity.type, activity.id);
   const activityColor = getActivityColor(activity.type);
   const terrain3DMode = getTerrain3DMode(activity.type, activity.id);
-
-  // Fast pre-filter: skip 3D entirely for obviously flat activities
-  const maybeShow3D =
-    terrain3DMode === 'always' ||
-    (terrain3DMode === 'smart' &&
-      isLikelyInterestingTerrain(activity.total_elevation_gain, activity.distance));
 
   const [cacheReady, setCacheReady] = useState(() => isTerrainCacheInitialized());
   useEffect(() => {
@@ -89,46 +84,48 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   // A running sync can still deliver a track this card does not hold yet, so
   // the state is the pair and not the absence alone.
-  const syncStatus = useSyncStatus();
+  const syncState = useSyncState();
   const previewState = mapPreviewState({
     hasGpsData: !!hasGpsData,
     isLoading,
     hasTrack: !!bounds && validCoordinates.length > 0,
-    isSyncing: syncStatus?.state === SyncState.Syncing,
+    isSyncing: syncState === SyncState.Syncing,
   });
-
-  // Memoize terrain camera: use user override if saved, else auto-calculate
-  const terrainCameraResult = useMemo(() => {
-    if (!maybeShow3D || validCoordinates.length < 2) return null;
-    const override = getCameraOverride(activity.id);
-    if (override) return { camera: override, hasInterestingTerrain: true } as const;
-    const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
-    return calculateTerrainCamera(lngLatCoords, altitude);
-  }, [maybeShow3D, validCoordinates, altitude, activity.id]);
-
-  // Final decision: should we render 3D?
-  // When altitude data is available, trust the camera analysis. When unavailable
-  // (e.g. preview tracks from route signatures lose elevation during DP simplification),
-  // fall back to the activity-metadata pre-filter which uses total_elevation_gain.
-  const cameraConfirmed = terrainCameraResult?.hasInterestingTerrain === true;
-  const noAltitudeData = !altitude || altitude.length === 0;
-  const show3D =
-    terrain3DMode === 'always' ||
-    (terrain3DMode === 'smart' && (cameraConfirmed || (noAltitudeData && maybeShow3D)));
 
   const lngLatCoords = useMemo(
     () => validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]),
     [validCoordinates]
   );
 
-  const flat = !show3D || !terrainCameraResult;
+  // The same verdict the context menu and the detail view show.
+  const { show3D, camera: terrainCamera } = useMemo(
+    () =>
+      resolveTerrain3D({
+        mode: terrain3DMode,
+        coordinates: lngLatCoords,
+        altitude,
+        gain: activity.total_elevation_gain,
+        distance: activity.distance,
+        override: getCameraOverride(activity.id) ?? null,
+      }),
+    [
+      terrain3DMode,
+      lngLatCoords,
+      altitude,
+      activity.total_elevation_gain,
+      activity.distance,
+      activity.id,
+    ]
+  );
+
+  const flat = !show3D || !terrainCamera;
 
   // The camera the snapshot is taken with, and the one the credit line is
   // derived from: satellite sources are regional, so the text has to name the
   // imagery actually baked into the image.
   const snapshotCamera = useMemo(
-    () => (flat ? calculateFlatCamera(lngLatCoords) : terrainCameraResult.camera),
-    [flat, lngLatCoords, terrainCameraResult]
+    () => (!flat && terrainCamera ? terrainCamera : calculateFlatCamera(lngLatCoords)),
+    [flat, lngLatCoords, terrainCamera]
   );
 
   // Cached basemap snapshot for this activity, style and render. The drape and
@@ -146,6 +143,11 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // that will never resolve is dishonest.
   const [snapshotFailed, setSnapshotFailed] = useState(false);
 
+  // Cached images this card could not decode, for the render it is on. The
+  // first is dropped and drawn again; a second means the redraw is broken too,
+  // and asking again would loop, so the card settles on the failed mark.
+  const [brokenImages, setBrokenImages] = useState(0);
+
   // Every rung of the ladder needs the network, so offline there is nothing to
   // wait for. Without this the card spins until a terminal failure arrives,
   // which is the 15 s watchdog when idle and the 45 s per-card timer while the
@@ -155,6 +157,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   // Reset image when map style or 3D preference changes
   useEffect(() => {
+    setBrokenImages(0);
     if (hasTerrainPreview(activity.id, mapStyle, !flat)) {
       setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle, !flat));
     } else {
@@ -203,6 +206,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     if (!screenFocused) return;
     if (!inRange) return;
     if (validCoordinates.length < 2) return;
+    if (brokenImages > 1) return;
     // What is on screen and what to ask for are two decisions. A flat stand-in
     // is served either way, because a card is never blanked to redraw it, but
     // it is not the render that was asked for, so the card asks again. The pool
@@ -222,6 +226,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       activityId: activity.id,
       coordinates: lngLatCoords,
       camera: snapshotCamera,
+      cameraPinned: getCameraOverride(activity.id) !== undefined,
       mapStyle,
       routeColor: activityColor,
       flat: flat || !downgraded,
@@ -245,6 +250,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     snapshotReady,
     hasActivityOverride,
     inRange,
+    brokenImages,
   ]);
 
   if (__DEV__ && mapPreviewStart && index < 3) {
@@ -296,7 +302,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   // Show the cached basemap snapshot (3D drape or flat) when available
   if (terrainImageUri) {
-    const bearing = terrainCameraResult?.camera.bearing ?? 0;
+    const bearing = terrainCamera?.bearing ?? 0;
     return (
       <View
         style={[styles.container, { height }]}
@@ -306,13 +312,18 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           source={{ uri: terrainImageUri }}
           style={styles.terrainImage}
           resizeMode="cover"
+          onLoad={() => freshLoginTimeline.mark('firstMap')}
           onError={({ nativeEvent }) => {
-            // A missing/undecodable cached snapshot must not leave a blank card -
-            // drop back to the 2D route line so the track always renders.
+            // Left indexed, the broken file is served again on every mount and
+            // the request effect never asks for a new one, so the card spins
+            // forever.
             log.log(
-              `terrain image failed (${terrainImageUri}): ${nativeEvent?.error ?? 'unknown'} - falling back to line`
+              `terrain image failed (${terrainImageUri}): ${nativeEvent?.error ?? 'unknown'} - dropping it`
             );
+            void deleteTerrainPreview(activity.id, mapStyle, !flat);
             setTerrainImageUri(null);
+            if (brokenImages > 0) setSnapshotFailed(true);
+            setBrokenImages((n) => n + 1);
           }}
         />
         {Math.abs(bearing) > 5 && (

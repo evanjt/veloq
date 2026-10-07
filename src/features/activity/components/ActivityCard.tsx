@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -18,23 +18,25 @@ import {
   formatTemperature,
   formatTSS,
   formatCalories,
+  formatPrDelta,
+  formatPrImprovement,
 } from '@/shared/format/format';
 import {
   colors,
   darkColors,
   typography,
   spacing,
-  shadows,
   layout,
   brand,
   ink,
   verdict,
   colorWithOpacity,
+  mapTextShadow,
 } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { type TerrainSnapshotWebViewRef, useMapPreferences } from '@/features/maps';
 import { ActivityMapPreview } from './ActivityMapPreview';
-import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
+import type { PreviewTrack } from '@/features/home';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
 import { StrengthActivityCard, type StrengthCardData } from '@/features/strength';
@@ -42,18 +44,15 @@ import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useExerciseSets, useMuscleGroups } from '@/features/strength';
 import { debug } from '@/shared/debug/debug';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
+import { reportFeedDismissed } from '@/shared/native/feedSeen';
 import { prefetchActivityDetailData } from '../hooks/useActivityDetailData';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
+import { Card } from '@/shared/ui/Card';
+import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
+
+import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
 
 const log = debug.create('ActivityCard');
-
-function formatLocation(activity: Activity): string | null {
-  if (!activity.locality) return null;
-  if (activity.country) {
-    return `${activity.locality}, ${activity.country}`;
-  }
-  return activity.locality;
-}
 
 interface ActivityCardProps {
   activity: Activity;
@@ -64,6 +63,10 @@ interface ActivityCardProps {
   startupTrack?: PreviewTrack | undefined;
   /** Whether snapshot WebView workers are ready */
   snapshotReady?: boolean | undefined;
+  /** The activity arrived since the athlete last looked: draws the gold ring */
+  isNew?: boolean | undefined;
+  /** Called after a tap has told the engine to drop this card's ring */
+  onNewDismissed?: (() => void) | undefined;
   /** Forces re-render when theme changes (enableFreeze suppresses useColorScheme updates) */
   colorScheme?: boolean | undefined;
   /** Section highlights for this activity (PRs, trends) from batch FFI query */
@@ -83,6 +86,7 @@ interface ActivityCardProps {
         isPr: boolean;
         trend: number; // -1=slower, 0=neutral, 1=faster
         timeDeltaSeconds?: number | null | undefined;
+        prImprovementSeconds?: number | null | undefined;
       }
     | undefined;
 }
@@ -104,7 +108,7 @@ const DARK_TEXT = {
   dot: colorWithOpacity(ink.black, 0.25),
   divider: colorWithOpacity(ink.black, 0.1),
   secondaryText: colors.textSecondary,
-  shadow: 'transparent',
+  shadow: colorWithOpacity(ink.white, 0.8),
 };
 
 // Gradient + text combos driven by app theme x map style
@@ -182,6 +186,8 @@ export const ActivityCard = React.memo(
     snapshotReady,
     sectionHighlights,
     routeHighlight,
+    isNew,
+    onNewDismissed,
   }: ActivityCardProps) {
     // Log actual function body execution (not useEffect which is deferred)
     if (__DEV__ && (index ?? 0) < 3) {
@@ -192,8 +198,23 @@ export const ActivityCard = React.memo(
     const isMetric = useMetricSystem();
     const [menuVisible, setMenuVisible] = useState(false);
     const [isPressed, setIsPressed] = useState(false);
-    const averageHeartRate = activity.average_heartrate || activity.icu_average_hr;
-    const averagePower = activity.average_watts || activity.icu_average_watts;
+    const averageHeartRate = activity.average_heartrate;
+    const averagePower = activity.icu_average_watts;
+    useEffect(() => {
+      freshLoginTimeline.mark('firstCard');
+    }, []);
+    // The ring is the only visual carrier of new, so the label says it too.
+    const newLabel = isNew ? `${t('activity.newActivity')}, ` : '';
+    const newRing = isNew ? (
+      <View
+        testID={`activity-card-${activity.id}-new-ring`}
+        pointerEvents="none"
+        style={[
+          styles.newRing,
+          { borderColor: isDark ? darkColors.chartGoldMark : colors.chartGoldMark },
+        ]}
+      />
+    ) : null;
     const handlePressIn = useCallback(() => setIsPressed(true), []);
     const handlePressOut = useCallback(() => setIsPressed(false), []);
 
@@ -207,7 +228,14 @@ export const ActivityCard = React.memo(
       [activity.id]
     );
 
-    const handlePress = useCallback(() => openActivity(), [openActivity]);
+    const activityId = activity.id;
+    const handlePress = useCallback(() => {
+      if (isNew) {
+        reportFeedDismissed([activityId]);
+        onNewDismissed?.();
+      }
+      openActivity();
+    }, [isNew, activityId, onNewDismissed, openActivity]);
 
     const handleLongPress = useCallback(() => {
       if (Platform.OS === 'ios') {
@@ -229,8 +257,7 @@ export const ActivityCard = React.memo(
     const { getStyleForActivity } = useMapPreferences();
     const activityColor = getActivityColor(activity.type);
     const iconName = getActivityIcon(activity.type);
-    const location = formatLocation(activity);
-    const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
+    const mapStyle = getStyleForActivity(activity.type, activity.id);
     const theme = getGradientTheme(isDark, mapStyle);
     const hasGpsData = activity.stream_types?.includes('latlng');
 
@@ -248,9 +275,14 @@ export const ActivityCard = React.memo(
         horizontal
         showsHorizontalScrollIndicator={false}
         onContentSizeChange={handleContentSizeChange}
+        testID={`activity-card-${activity.id}-secondary-stats`}
         style={styles.secondaryScroll}
       >
-        <Pressable onPress={handlePress} style={pressable(styles.secondaryStats)}>
+        <Pressable
+          onPress={handlePress}
+          style={pressable(styles.secondaryStats)}
+          android_ripple={pressRipple}
+        >
           {!!activity.icu_training_load && (
             <View
               style={styles.secondaryStat}
@@ -329,19 +361,13 @@ export const ActivityCard = React.memo(
 
     // Strength card: auto-fetch exercise data (like map previews for GPS activities)
     const isStrength = activity.type === 'WeightTraining';
-    const { data: exerciseSets } = useExerciseSets(activity.id, activity.type);
+    const { data: exerciseSets, session } = useExerciseSets(activity.id, activity.type);
     const hasExercises = (exerciseSets?.length ?? 0) > 0;
-    const { data: muscleGroups } = useMuscleGroups(activity.id, hasExercises);
+    const { data: muscleGroups, error: musclesError } = useMuscleGroups(activity.id, hasExercises);
 
     const strengthData = React.useMemo<StrengthCardData | null>(() => {
       if (!isStrength || !exerciseSets || exerciseSets.length === 0) return null;
-      const activeSets = exerciseSets.filter((s) => s.setType === 0);
-      if (activeSets.length === 0) return null;
-      const totalWeight = activeSets.reduce(
-        (sum, s) => sum + (s.weightKg ?? 0) * (s.repetitions ?? 1),
-        0
-      );
-      const exerciseNames = new Set(activeSets.map((s) => s.displayName));
+      if (session.activeSetCount === 0) return null;
       return {
         muscles: (muscleGroups ?? []).map(
           (g): ExtendedBodyPart => ({
@@ -349,11 +375,12 @@ export const ActivityCard = React.memo(
             intensity: g.intensity,
           })
         ),
-        exerciseCount: exerciseNames.size,
-        setCount: activeSets.length,
-        totalWeight,
+        ...(musclesError ? { musclesError } : {}),
+        exerciseCount: session.exerciseCount,
+        setCount: session.activeSetCount,
+        totalWeight: session.totalVolumeKg,
       };
-    }, [isStrength, exerciseSets, muscleGroups]);
+    }, [isStrength, exerciseSets, session, muscleGroups, musclesError]);
 
     if (isStrength && strengthData) {
       return <StrengthActivityCard activity={activity} strengthData={strengthData} />;
@@ -371,10 +398,11 @@ export const ActivityCard = React.memo(
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             accessibilityRole="button"
-            accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
-            style={pressable()}
+            accessibilityLabel={`${newLabel}${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+            style={pressable(isPressed && styles.cardPressed)}
+            android_ripple={pressRipple}
           >
-            <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
+            <Card variant="raised" padding="none" testID={`activity-card-${activity.id}-container`}>
               <View style={styles.compactContent}>
                 {/* Header: icon + name/date stacked + no-map indicator */}
                 <View style={styles.compactHeader}>
@@ -405,7 +433,7 @@ export const ActivityCard = React.memo(
                   </View>
                 </View>
 
-                {/* Primary stats + location */}
+                {/* Primary stats */}
                 <View style={styles.compactPrimaryRow}>
                   <View style={styles.primaryStats}>
                     {activity.distance > 0 && (
@@ -437,11 +465,6 @@ export const ActivityCard = React.memo(
                       </>
                     )}
                   </View>
-                  {location && (
-                    <RNText style={[styles.compactLocation, { color: compactMutedColor }]}>
-                      {location}
-                    </RNText>
-                  )}
                 </View>
 
                 {/* Skyline bar or divider */}
@@ -454,7 +477,8 @@ export const ActivityCard = React.memo(
                 {/* Secondary stats */}
                 {secondaryStatsRow(compactMutedColor)}
               </View>
-            </View>
+              {newRing}
+            </Card>
           </Pressable>
           {contextMenu}
         </View>
@@ -463,239 +487,245 @@ export const ActivityCard = React.memo(
 
     return (
       <View style={styles.cardWrapper}>
-        <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
-          <View style={styles.mapContainer}>
-            <ActivityMapPreview
-              activity={activity}
-              height={240}
-              index={index}
-              snapshotRef={snapshotRef}
-              snapshotReady={snapshotReady}
-              startupTrack={startupTrack}
-            />
-
-            {/* Pressable overlay for tap/long-press */}
-            <Pressable
-              testID={`activity-card-${activity.id}`}
-              onPress={handlePress}
-              onLongPress={handleLongPress}
-              delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              style={pressable(styles.pressableOverlay)}
-              accessibilityRole="button"
-              accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
-            />
-
-            {/* Top gradient: sport icon + name/date stacked + route trend */}
-            <LinearGradient
-              colors={theme.top as [string, string, string]}
-              style={styles.topOverlay}
-              pointerEvents="box-none"
-            >
-              <View style={styles.overlayHeader} pointerEvents="box-none">
-                <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                  <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
-                </View>
-                <View style={styles.overlayTitleColumn}>
-                  <RNText
-                    style={[
-                      styles.overlayName,
-                      { color: theme.text, textShadowColor: theme.shadow },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {activity.name}
-                  </RNText>
-                  <RNText
-                    style={[
-                      styles.overlayDateSubtitle,
-                      { color: theme.textMuted, textShadowColor: theme.shadow },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {formatRelativeDate(activity.start_date_local)}
-                  </RNText>
-                </View>
-                {routeHighlight &&
-                  (routeHighlight.isPr ||
-                    (routeHighlight.timeDeltaSeconds != null &&
-                      routeHighlight.timeDeltaSeconds > 0)) && (
-                    <Pressable
-                      testID={`activity-card-${activity.id}-route-chip`}
-                      onPress={() => openActivity('routes')}
-                      hitSlop={8}
-                      style={pressable([
-                        styles.routeTrendBadge,
-                        routeHighlight.isPr
-                          ? styles.routeTrendBadgePr
-                          : styles.routeTrendBadgeDelta,
-                      ])}
-                    >
-                      {routeHighlight.isPr ? (
-                        <MaterialCommunityIcons
-                          name="trophy"
-                          size={14}
-                          color={colors.textOnPrimary}
-                        />
-                      ) : routeHighlight.timeDeltaSeconds != null ? (
-                        <RNText style={styles.routeTrendBadgeText}>
-                          PR+
-                          {routeHighlight.timeDeltaSeconds >= 60
-                            ? `${Math.floor(routeHighlight.timeDeltaSeconds / 60)}:${String(routeHighlight.timeDeltaSeconds % 60).padStart(2, '0')}`
-                            : `${routeHighlight.timeDeltaSeconds}s`}
-                        </RNText>
-                      ) : null}
-                    </Pressable>
-                  )}
-              </View>
-            </LinearGradient>
-
-            {/* Bottom: all stats unified */}
-            <View testID="activity-card-bottom" style={styles.bottomSection}>
-              <LinearGradient
-                colors={theme.bottom as [string, string, string]}
-                style={StyleSheet.absoluteFill}
-                pointerEvents="none"
+        <View style={isPressed && styles.cardPressed}>
+          <Card variant="raised" padding="none" testID={`activity-card-${activity.id}-container`}>
+            <View style={styles.mapContainer}>
+              <ActivityMapPreview
+                activity={activity}
+                height={240}
+                index={index}
+                snapshotRef={snapshotRef}
+                snapshotReady={snapshotReady}
+                startupTrack={startupTrack}
               />
-              {/* Primary stats + location */}
-              <Pressable onPress={handlePress} style={pressable(styles.primaryRow)}>
-                <View style={styles.primaryStats}>
-                  <RNText
-                    testID={`activity-card-${activity.id}-distance`}
-                    style={[
-                      styles.primaryStatValue,
-                      { color: theme.text, textShadowColor: theme.shadow },
-                    ]}
-                  >
-                    {formatDistance(activity.distance, isMetric)}
-                  </RNText>
-                  <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
-                  <RNText
-                    testID={`activity-card-${activity.id}-duration`}
-                    style={[
-                      styles.primaryStatValue,
-                      { color: theme.text, textShadowColor: theme.shadow },
-                    ]}
-                  >
-                    {formatDuration(activity.moving_time)}
-                  </RNText>
-                  <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
-                  <RNText
-                    testID={`activity-card-${activity.id}-elevation`}
-                    style={[
-                      styles.primaryStatValue,
-                      { color: theme.text, textShadowColor: theme.shadow },
-                    ]}
-                  >
-                    {formatElevation(activity.total_elevation_gain, isMetric)}
-                  </RNText>
-                </View>
-                {/* Right column: section trend indicators + PR counts, then location.
-                    Stack vertically so badges and location can coexist. */}
-                {(sectionHighlights && sectionHighlights.length > 0) || location ? (
-                  <View style={styles.rightColumn}>
-                    {sectionHighlights && sectionHighlights.length > 0 && (
+
+              {/* Pressable overlay for tap/long-press */}
+              <Pressable
+                testID={`activity-card-${activity.id}`}
+                onPress={handlePress}
+                onLongPress={handleLongPress}
+                delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                style={pressable(styles.pressableOverlay)}
+                android_ripple={pressRipple}
+                accessibilityRole="button"
+                accessibilityLabel={`${newLabel}${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+              />
+
+              {/* Top gradient: sport icon + name/date stacked + route trend */}
+              <LinearGradient
+                colors={theme.top as [string, string, string]}
+                style={styles.topOverlay}
+                pointerEvents="box-none"
+              >
+                <View style={styles.overlayHeader} pointerEvents="box-none">
+                  <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+                    <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                  </View>
+                  <View style={styles.overlayTitleColumn}>
+                    <RNText
+                      style={[
+                        styles.overlayName,
+                        { color: theme.text, textShadowColor: theme.shadow },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {activity.name}
+                    </RNText>
+                    <RNText
+                      style={[
+                        styles.overlayDateSubtitle,
+                        { color: theme.textMuted, textShadowColor: theme.shadow },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formatRelativeDate(activity.start_date_local)}
+                    </RNText>
+                  </View>
+                  {routeHighlight &&
+                    (routeHighlight.isPr ||
+                      (routeHighlight.timeDeltaSeconds != null &&
+                        routeHighlight.timeDeltaSeconds > 0)) && (
                       <Pressable
-                        testID={`activity-card-${activity.id}-section-chip`}
-                        onPress={() => openActivity('sections')}
+                        testID={`activity-card-${activity.id}-route-chip`}
+                        onPress={() => openActivity('routes')}
                         hitSlop={8}
-                        style={pressable(styles.trendBadge)}
+                        style={pressable([
+                          styles.routeTrendBadge,
+                          routeHighlight.isPr
+                            ? isDark
+                              ? styles.routeTrendBadgePrDark
+                              : styles.routeTrendBadgePrLight
+                            : styles.routeTrendBadgeDelta,
+                        ])}
+                        android_ripple={pressRipple}
                       >
-                        {(() => {
-                          const improving = sectionHighlights.filter(
-                            (h) => h.trend === 1 && !h.isPr
-                          ).length;
-                          const declining = sectionHighlights.filter(
-                            (h) => h.trend === -1 && !h.isPr
-                          ).length;
-                          const prCount = sectionHighlights.filter((h) => h.isPr).length;
-                          return (
-                            <>
-                              {prCount > 0 && (
-                                <View
-                                  testID={`activity-card-${activity.id}-pr-pill`}
-                                  style={[
-                                    styles.trendPill,
-                                    isDark ? styles.prPillDark : styles.prPillLight,
-                                  ]}
-                                >
-                                  <MaterialCommunityIcons
-                                    name="trophy"
-                                    size={12}
-                                    color={colors.textOnPrimary}
-                                  />
-                                  <RNText
-                                    style={[styles.trendCount, { color: colors.textOnPrimary }]}
-                                  >
-                                    {prCount}
-                                  </RNText>
-                                </View>
-                              )}
-                              {improving > 0 && (
-                                <View
-                                  testID={`activity-card-${activity.id}-improving-pill`}
-                                  style={[
-                                    styles.trendPill,
-                                    isDark ? styles.improvingPillDark : styles.improvingPillLight,
-                                  ]}
-                                >
-                                  <MaterialCommunityIcons
-                                    name="trending-up"
-                                    size={13}
-                                    color={ink.white}
-                                  />
-                                  <RNText style={[styles.trendCount, { color: ink.white }]}>
-                                    {improving}
-                                  </RNText>
-                                </View>
-                              )}
-                              {declining > 0 && (
-                                <View
-                                  testID={`activity-card-${activity.id}-declining-pill`}
-                                  style={[
-                                    styles.trendPill,
-                                    isDark ? styles.decliningPillDark : styles.decliningPillLight,
-                                  ]}
-                                >
-                                  <MaterialCommunityIcons
-                                    name="trending-down"
-                                    size={13}
-                                    color={ink.white}
-                                  />
-                                  <RNText style={[styles.trendCount, { color: ink.white }]}>
-                                    {declining}
-                                  </RNText>
-                                </View>
-                              )}
-                            </>
-                          );
-                        })()}
+                        {routeHighlight.isPr ? (
+                          <>
+                            <MaterialCommunityIcons
+                              name="trophy"
+                              size={PILL_ICON_SIZE}
+                              color={colors.textOnPrimary}
+                            />
+                            {formatPrImprovement(routeHighlight.prImprovementSeconds) != null && (
+                              <RNText
+                                testID={`activity-card-${activity.id}-route-improvement`}
+                                style={styles.routeTrendBadgeText}
+                              >
+                                {formatPrImprovement(routeHighlight.prImprovementSeconds)}
+                              </RNText>
+                            )}
+                          </>
+                        ) : routeHighlight.timeDeltaSeconds != null ? (
+                          <RNText style={styles.routeTrendBadgeText}>
+                            {formatPrDelta(routeHighlight.timeDeltaSeconds)}
+                          </RNText>
+                        ) : null}
                       </Pressable>
                     )}
-                    {location && (
-                      <RNText
-                        style={[
-                          styles.overlayLocation,
-                          { color: theme.textMuted, textShadowColor: theme.shadow },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {location}
-                      </RNText>
-                    )}
+                </View>
+              </LinearGradient>
+
+              {/* Bottom: all stats unified */}
+              <View testID="activity-card-bottom" style={styles.bottomSection}>
+                <LinearGradient
+                  colors={theme.bottom as [string, string, string]}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                />
+                {/* Primary stats */}
+                <Pressable
+                  onPress={handlePress}
+                  style={pressable(styles.primaryRow)}
+                  android_ripple={pressRipple}
+                >
+                  <View style={styles.primaryStats}>
+                    <RNText
+                      testID={`activity-card-${activity.id}-distance`}
+                      style={[
+                        styles.primaryStatValue,
+                        { color: theme.text, textShadowColor: theme.shadow },
+                      ]}
+                    >
+                      {formatDistance(activity.distance, isMetric)}
+                    </RNText>
+                    <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
+                    <RNText
+                      testID={`activity-card-${activity.id}-duration`}
+                      style={[
+                        styles.primaryStatValue,
+                        { color: theme.text, textShadowColor: theme.shadow },
+                      ]}
+                    >
+                      {formatDuration(activity.moving_time)}
+                    </RNText>
+                    <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
+                    <RNText
+                      testID={`activity-card-${activity.id}-elevation`}
+                      style={[
+                        styles.primaryStatValue,
+                        { color: theme.text, textShadowColor: theme.shadow },
+                      ]}
+                    >
+                      {formatElevation(activity.total_elevation_gain, isMetric)}
+                    </RNText>
                   </View>
-                ) : null}
-              </Pressable>
-              {activity.skyline_chart_bytes ? (
-                <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
-              ) : (
-                <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
-              )}
-              {/* Secondary stats */}
-              {secondaryStatsRow(theme.secondaryText)}
+                  {/* Right column: section trend indicators + PR counts. */}
+                  {sectionHighlights && sectionHighlights.length > 0 ? (
+                    <View style={styles.rightColumn}>
+                      {sectionHighlights && sectionHighlights.length > 0 && (
+                        <Pressable
+                          testID={`activity-card-${activity.id}-section-chip`}
+                          onPress={() => openActivity('sections')}
+                          hitSlop={8}
+                          style={pressable(styles.trendBadge)}
+                          android_ripple={pressRipple}
+                        >
+                          {(() => {
+                            const improving = sectionHighlights.filter(
+                              (h) => h.trend === 1 && !h.isPr
+                            ).length;
+                            const declining = sectionHighlights.filter(
+                              (h) => h.trend === -1 && !h.isPr
+                            ).length;
+                            const prCount = sectionHighlights.filter((h) => h.isPr).length;
+                            return (
+                              <>
+                                {prCount > 0 && (
+                                  <View
+                                    testID={`activity-card-${activity.id}-pr-pill`}
+                                    style={[
+                                      styles.trendPill,
+                                      isDark ? styles.prPillDark : styles.prPillLight,
+                                    ]}
+                                  >
+                                    <MaterialCommunityIcons
+                                      name="trophy"
+                                      size={PILL_ICON_SIZE}
+                                      color={colors.textOnPrimary}
+                                    />
+                                    <RNText
+                                      style={[styles.trendCount, { color: colors.textOnPrimary }]}
+                                    >
+                                      {prCount}
+                                    </RNText>
+                                  </View>
+                                )}
+                                {improving > 0 && (
+                                  <View
+                                    testID={`activity-card-${activity.id}-improving-pill`}
+                                    style={[
+                                      styles.trendPill,
+                                      isDark ? styles.improvingPillDark : styles.improvingPillLight,
+                                    ]}
+                                  >
+                                    <MaterialCommunityIcons
+                                      name="trending-up"
+                                      size={PILL_ICON_SIZE}
+                                      color={ink.white}
+                                    />
+                                    <RNText style={[styles.trendCount, { color: ink.white }]}>
+                                      {improving}
+                                    </RNText>
+                                  </View>
+                                )}
+                                {declining > 0 && (
+                                  <View
+                                    testID={`activity-card-${activity.id}-declining-pill`}
+                                    style={[
+                                      styles.trendPill,
+                                      isDark ? styles.decliningPillDark : styles.decliningPillLight,
+                                    ]}
+                                  >
+                                    <MaterialCommunityIcons
+                                      name="trending-down"
+                                      size={PILL_ICON_SIZE}
+                                      color={ink.white}
+                                    />
+                                    <RNText style={[styles.trendCount, { color: ink.white }]}>
+                                      {declining}
+                                    </RNText>
+                                  </View>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </Pressable>
+                      )}
+                    </View>
+                  ) : null}
+                </Pressable>
+                {activity.skyline_chart_bytes ? (
+                  <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+                ) : (
+                  <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
+                )}
+                {secondaryStatsRow(theme.secondaryText)}
+              </View>
             </View>
-          </View>
+            {newRing}
+          </Card>
         </View>
 
         {/* Context menu for long press */}
@@ -714,6 +744,7 @@ export const ActivityCard = React.memo(
           prev.snapshotReady,
           prev.sectionHighlights,
           prev.routeHighlight,
+          prev.isNew,
         ],
       },
       {
@@ -725,35 +756,41 @@ export const ActivityCard = React.memo(
           next.snapshotReady,
           next.sectionHighlights,
           next.routeHighlight,
+          next.isNew,
         ],
       }
     )
 );
 
+/** Icon size shared by the route chip and the section pills. */
+const PILL_ICON_SIZE = 13;
+
+/** Shape shared by the route chip and the section pills. */
+const pillShape = {
+  borderRadius: layout.borderRadiusSm,
+  paddingHorizontal: spacing.xsPlus,
+  paddingVertical: spacing.xxs,
+  borderWidth: 1,
+} as const;
+
 const styles = StyleSheet.create({
   cardWrapper: {
-    marginHorizontal: spacing.smPlus,
-    marginBottom: spacing.smPlus,
+    marginHorizontal: CARD_MARGIN,
+    marginBottom: CARD_MARGIN,
   },
   cardPressed: {
     transform: [{ scale: 0.98 }],
     opacity: 0.9,
   },
-  card: {
+  newRing: {
+    ...StyleSheet.absoluteFill,
+    borderWidth: 2,
     borderRadius: layout.borderRadius,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-    ...shadows.elevated,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-    ...shadows.modal,
+    zIndex: 3,
   },
   mapContainer: {
     position: 'relative',
-    height: 240,
+    height: CARD_HEIGHT,
   },
   pressableOverlay: {
     ...StyleSheet.absoluteFill,
@@ -789,40 +826,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xxs,
     marginLeft: spacing.sm,
-    borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xs,
-    shadowColor: colors.shadowBlack,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-    elevation: 2,
+    ...pillShape,
   },
-  routeTrendBadgePr: {
+  routeTrendBadgePrLight: {
     backgroundColor: brand.gold,
+    borderColor: brand.goldDark,
+  },
+  routeTrendBadgePrDark: {
+    backgroundColor: brand.gold,
+    borderColor: brand.goldLight,
   },
   routeTrendBadgeDelta: {
     backgroundColor: colorWithOpacity(ink.black, 0.55),
-    borderWidth: 1,
     borderColor: colorWithOpacity(ink.white, 0.2),
   },
   routeTrendBadgeText: {
+    ...typography.pillValue,
     color: ink.white,
-    fontSize: typography.label.fontSize,
-    fontWeight: '700',
   },
   overlayName: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...typography.cardTitle,
+    ...mapTextShadow,
   },
   overlayDateSubtitle: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     fontWeight: '500',
     marginTop: spacing.xxs,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...mapTextShadow,
   },
   bottomSection: {
     position: 'absolute',
@@ -855,10 +885,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xxs,
-    borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xxs,
-    borderWidth: 1,
+    ...pillShape,
   },
   // PR pill - solid gold, high contrast
   prPillLight: {
@@ -871,17 +898,17 @@ const styles = StyleSheet.create({
   },
   // Improving pill - solid green
   improvingPillLight: {
-    backgroundColor: colors.success,
-    borderColor: colors.successDark,
+    backgroundColor: verdict.positive.light,
+    borderColor: verdict.positive.dark,
   },
   improvingPillDark: {
-    backgroundColor: colors.success,
-    borderColor: colors.successLight,
+    backgroundColor: verdict.positive.light,
+    borderColor: verdict.positive.dark,
   },
   // Declining pill - the negative rung, the same verdict the section trend and
   // the insight card draw. It was disabled-grey, so the same decline read as
   // "off" here and as a judgement one card away. The light tone carries the
-  // pill in both themes, the way the improving pill carries one green in both:
+  // pill in both themes, the way the improving pill does:
   // the ladder's dark rungs are sized for text on a surface, not for white
   // text on a solid.
   decliningPillLight: {
@@ -893,38 +920,29 @@ const styles = StyleSheet.create({
     borderColor: verdict.negative.dark,
   },
   trendCount: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    ...typography.pillValue,
   },
   primaryStats: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   primaryStatValue: {
-    fontSize: typography.body.fontSize,
+    ...typography.body,
     fontWeight: '700',
-    letterSpacing: -0.3,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...mapTextShadow,
   },
   statDot: {
     fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     marginHorizontal: spacing.xsPlus,
   },
-  overlayLocation: {
-    fontSize: typography.caption.fontSize,
-    marginLeft: spacing.sm,
-    flexShrink: 1,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
   dividerLine: {
     height: 1,
     marginHorizontal: spacing.smPlus,
   },
   secondaryScroll: {
+    // The record button floats over the feed's bottom right; the row ends short of it.
+    marginRight: layout.recordFabSize + spacing.xl,
     paddingTop: spacing.xxs,
     paddingBottom: spacing.sm,
   },
@@ -984,10 +1002,5 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     fontWeight: '700',
     letterSpacing: -0.3,
-  },
-  compactLocation: {
-    fontSize: typography.caption.fontSize,
-    marginLeft: spacing.sm,
-    flexShrink: 1,
   },
 });

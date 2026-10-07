@@ -7,6 +7,7 @@ import { ZoneHistogram, type ZoneBand } from '@/shared/charts';
 import { POWER_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import type { ActivityDetail } from '@/types';
 import { ChartErrorBoundary } from '@/shared/ui';
+import { powerZoneEntries } from '@/shared/activity/activityMetrics';
 import { formatDurationHuman } from '@/shared/format/format';
 
 interface PowerZonesChartProps {
@@ -18,7 +19,7 @@ export function PowerZonesChart({ activity }: PowerZonesChartProps) {
   const { isDark } = useTheme();
 
   const zoneData = useMemo(() => {
-    const zoneTimes = activity.icu_zone_times;
+    const zoneTimes = activity.icu_zone_times && powerZoneEntries(activity.icu_zone_times);
     if (!zoneTimes || zoneTimes.length === 0) return null;
 
     const powerZones = activity.icu_power_zones;

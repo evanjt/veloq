@@ -1,3 +1,4 @@
+import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useIsFocused } from 'expo-router';
 import {
@@ -5,54 +6,57 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  Keyboard,
   Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
-  TextInput,
   type LayoutChangeEvent,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   ScreenSafeAreaView,
   ErrorStatePreset,
-  ScreenErrorBoundary,
   ComponentErrorBoundary,
   ActivityCardSkeleton,
   TAB_BAR_SAFE_PADDING,
   canDrawProfilePhoto,
   pressable,
+  pressRipple,
+  SearchBar,
 } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
+import { StreamConsentCard } from '@/features/settings';
 import { navigateTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { feedEmptyState } from '@/features/home';
-import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { useSyncState } from '@/shared/native/useSyncStatus';
 import {
   useInfiniteActivities,
+  useFeedSearch,
   useActivitySectionHighlights,
   ActivityCard,
+  ringsLeavingView,
   setVisibleRange,
 } from '@/features/activity';
+import { reportFeedDismissed } from '@/shared/native/feedSeen';
 import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
-import { useSummaryCardData } from '@/features/home/hooks';
 import { useTheme, useStableBy } from '@/shared/app';
 import type { Activity } from '@/types';
-import { useDashboardPreferences } from '@/features/home/store';
 import {
   SummaryCard,
   NotificationOptInCard,
   SupportCard,
   FeedFirstSyncStandby,
-  FeedSyncLine,
-} from '@/features/home/components';
+  useSummaryCardData,
+  useDashboardPreferences,
+  useStartupData,
+  feedEmptyState,
+  summaryCardTarget,
+} from '@/features/home';
 import { RecordFAB, PendingUploadsCard } from '@/features/recording';
-import { useStartupData } from '@/features/home/hooks/useStartupData';
 import {
   consumePendingSnapshots,
   initCameraOverrides,
@@ -65,22 +69,45 @@ import { createSharedStyles } from '@/styles';
 import {
   ESTIMATED_SEARCH_SECTION_HEIGHT,
   FeedFilterChips,
-  matchesFeedGroup,
+  feedRangeForPreset,
   searchOffsetCorrection,
+  useRangeActivities,
   type FeedGroup,
+  type FeedRange,
+  type FeedRangePreset,
 } from '@/features/activity';
-import { setFeedHeadIds } from '@/shared/activity/feedHead';
+import { headPreviewIds, setFeedHeadIds } from '@/shared/activity/feedHead';
+import { formatLocalDate } from '@/shared/format/format';
 import { debug } from '@/shared/debug/debug';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const log = debug.create('Feed');
 
-// The first frame has nothing measured, so the list opens at the estimate and
-// the header's own onLayout corrects it.
+// iOS applies the estimate before layout; the header's onLayout sets the measured offset.
 const INITIAL_CONTENT_OFFSET = { x: 0, y: ESTIMATED_SEARCH_SECTION_HEIGHT } as const;
 /** A card counts as on screen once a tenth of it is. */
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
 
-export default function FeedScreen() {
+/**
+ * The windowed feed: from today while no range is set, otherwise the chosen
+ * range read from its newest day. Both hooks stay mounted so a range toggled
+ * off returns to the pages already loaded.
+ */
+function useFeedRange(preset: FeedRangePreset | null): FeedRange | null {
+  return useMemo(
+    () => (preset ? feedRangeForPreset(preset, formatLocalDate(new Date())) : null),
+    [preset]
+  );
+}
+
+function useWindowedFeed(range: FeedRange | null) {
+  const infinite = useInfiniteActivities();
+  const ranged = useRangeActivities(range);
+  return range ? ranged : infinite;
+}
+
+function FeedScreenContent() {
+  useTabFirstFrame('/');
   // Performance timing - tracks total render time and sub-component costs
   const renderStart = PERF_DEBUG ? performance.now() : 0;
   const perfEndRef = useRef<(() => void) | null>(null);
@@ -95,10 +122,13 @@ export default function FeedScreen() {
 
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark } = useTheme();
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTypeGroup, setSelectedTypeGroup] = useState<FeedGroup | null>(null);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const [selectedTypeGroups, setSelectedTypeGroups] = useState<Set<FeedGroup>>(new Set());
+  const [rangePreset, setRangePreset] = useState<FeedRangePreset | null>(null);
+  const feedRange = useFeedRange(rangePreset);
   // A stored URL stays truthy after the image fails, so presence is not enough.
   const [profileImageFailed, setProfileImageFailed] = useState(false);
 
@@ -119,6 +149,7 @@ export default function FeedScreen() {
   const listRef = useRef<FlatList>(null);
   const searchSectionHeight = useRef(ESTIMATED_SEARCH_SECTION_HEIGHT);
   const searchOffsetCorrected = useRef(false);
+  const wasFeedFocused = useRef(isFeedFocused);
 
   // Initialize terrain preview cache and camera overrides on mount
   useEffect(() => {
@@ -139,13 +170,15 @@ export default function FeedScreen() {
     data,
     isLoading,
     isError,
-    error,
     isRefetching,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    fetchPreviousPage,
+    hasPreviousPage,
+    isFetchingPreviousPage,
     refetch,
-  } = useInfiniteActivities();
+  } = useWindowedFeed(feedRange);
   if (PERF_DEBUG && performance.now() - t1 > 5)
     log.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
 
@@ -155,18 +188,18 @@ export default function FeedScreen() {
     if (!data?.pages) return [];
     return data.pages.flat();
   }, [data]);
-  const allActivities = useStableBy(allActivitiesRaw, allActivitiesRaw.map((a) => a.id).join(','));
+  const allActivities = allActivitiesRaw;
 
   // One deferred FFI call for what the feed paints: summary card and GPS tracks
   const t2 = PERF_DEBUG ? performance.now() : 0;
-  const previewIds = useMemo(
-    () =>
-      allActivities
-        .filter((a) => a.stream_types?.includes('latlng'))
-        .slice(0, 5)
-        .map((a) => a.id),
-    [allActivities]
-  );
+  const [previewIds, setPreviewIds] = useState<string[]>([]);
+  const nextPreviewIds = headPreviewIds(allActivities, hasPreviousPage, previewIds);
+  if (
+    nextPreviewIds.length !== previewIds.length ||
+    nextPreviewIds.some((id, i) => id !== previewIds[i])
+  ) {
+    setPreviewIds(nextPreviewIds);
+  }
   const { data: startupData, refresh: refreshStartupData } = useStartupData(previewIds);
   // The same ids the GPS download puts at the front of its first pass, so the
   // previews on screen paint before the ones hundreds of cards down.
@@ -184,16 +217,19 @@ export default function FeedScreen() {
     heroValue,
     heroLabel,
     heroColor,
-    heroZoneLabel,
-    heroZoneColor,
     heroTrend,
     fitnessData,
+    fitnessDelta,
+    fitnessRiseDays,
     fatigueData,
     formData,
     hrvData,
     rhrData,
+    hrvRead,
+    rhrRead,
     showSparkline,
     supportingMetrics,
+    isLoading: summaryLoading,
     refetch: refetchSummary,
   } = useSummaryCardData(startupData?.summaryCardData, {
     awaitPrecomputed: true,
@@ -207,98 +243,127 @@ export default function FeedScreen() {
     if (hookTime > 50) log.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
   }
 
-  // Filter activities by search query and type
-  const filteredActivities = useMemo(() => {
-    let filtered = allActivities;
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (activity: Activity) =>
-          activity.name?.toLowerCase().includes(query) ||
-          activity.type?.toLowerCase().includes(query) ||
-          activity.locality?.toLowerCase().includes(query) ||
-          activity.country?.toLowerCase().includes(query)
-      );
+  // A search or a sport chip reads the engine over the whole library. The
+  // windowed pages hold a few months at most, so filtering them answered "no
+  // match" for any older activity.
+  const filtering = Boolean(searchQuery.trim() || selectedTypeGroups.size > 0);
+  useEffect(() => {
+    const returned = isFeedFocused && !wasFeedFocused.current;
+    wasFeedFocused.current = isFeedFocused;
+    if (returned && !filtering) {
+      listRef.current?.scrollToOffset({ offset: searchSectionHeight.current, animated: false });
     }
-
-    // Filter by activity type group
-    if (selectedTypeGroup) {
-      filtered = filtered.filter((activity: Activity) =>
-        matchesFeedGroup(selectedTypeGroup, activity.type)
-      );
-    }
-
-    return filtered;
-  }, [allActivities, searchQuery, selectedTypeGroup]);
+  }, [isFeedFocused, filtering]);
+  const search = useFeedSearch(searchQuery, selectedTypeGroups, feedRange);
+  const filteredActivities = filtering ? search.activities : allActivities;
 
   // What the feed draws when it has no cards. A first launch is its own case:
   // the query resolves empty long before the first sync has stored anything,
   // so every other loading state is already false by then.
-  const syncStatus = useSyncStatus();
+  const syncState = useSyncState();
   const emptyState = feedEmptyState({
     storedCount: filteredActivities.length,
-    syncState: syncStatus?.state,
-    isError,
-    isLoading,
-    hasFilter: Boolean(searchQuery.trim() || selectedTypeGroup),
+    syncState: syncState ?? undefined,
+    isError: filtering ? search.isError : isError,
+    isLoading: filtering ? search.isLoading : isLoading,
+    hasFilter: filtering,
   });
   const standingBy = emptyState === 'standby';
 
   // Batch-fetch section highlights (PRs) for the whole loaded feed. Keying this
   // on the filtered list would re-read the bundle on every search keystroke,
-  // and each card looks its own id up in the returned map anyway.
-  const highlightIds = useMemo(() => allActivities.map((a: Activity) => a.id), [allActivities]);
+  // and each card looks its own id up in the returned map anyway. A search
+  // reaches activities no loaded page holds, so only those are added to it.
+  const searchActivities = search.activities;
+  const highlightIds = useMemo(() => {
+    const loaded = allActivities.map((a: Activity) => a.id);
+    if (!filtering) return loaded;
+    const held = new Set(loaded);
+    const reached = searchActivities.filter((a) => !held.has(a.id)).map((a) => a.id);
+    return reached.length === 0 ? loaded : [...loaded, ...reached];
+  }, [allActivities, filtering, searchActivities]);
   const { sections: sectionHighlightsMap, routes: routeHighlightsMap } =
     useActivitySectionHighlights(highlightIds);
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
-    requestSyncRefresh();
-    // Reset the infinite query if page params are stale (don't cover today),
-    // otherwise invalidate for smooth stale-while-revalidate.
-    const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
-      ? queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all })
-      : queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+    setPullRefreshing(true);
+    try {
+      requestSyncRefresh();
+      // Reset the infinite query if page params are stale (don't cover today),
+      // otherwise invalidate for smooth stale-while-revalidate.
+      const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
+        ? queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all })
+        : queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
 
-    await Promise.all([
-      infiniteRefresh,
-      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
-      refetchSummary(),
-    ]);
-    // The card is painted from the startup bundle, which no query invalidation
-    // reaches, so without this a refresh leaves it on whatever the last engine
-    // announcement gave it while the Fitness screen shows the current number.
-    refreshStartupData();
-    // Retry any failed 3D terrain snapshots
-    snapshotRef.current?.retryFailed();
-    // Re-hide search section after refresh (if no active filter)
-    if (!searchQuery && !selectedTypeGroup) {
-      setTimeout(() => {
-        listRef.current?.scrollToOffset({
-          offset: searchSectionHeight.current,
-          animated: true,
-        });
-      }, 100);
+      await Promise.all([
+        infiniteRefresh,
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.range.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.search.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charts.bestEfforts.all }),
+        refetchSummary(),
+      ]);
+      // The card is painted from the startup bundle, which no query invalidation
+      // reaches, so without this a refresh leaves it on whatever the last engine
+      // announcement gave it while the Fitness screen shows the current number.
+      refreshStartupData();
+      // Retry any failed 3D terrain snapshots
+      snapshotRef.current?.retryFailed();
+      // Re-hide search section after refresh (if no active filter)
+      if (!searchQuery && selectedTypeGroups.size === 0) {
+        setTimeout(() => {
+          listRef.current?.scrollToOffset({
+            offset: searchSectionHeight.current,
+            animated: true,
+          });
+        }, 100);
+      }
+    } finally {
+      setPullRefreshing(false);
     }
-  }, [queryClient, refetchSummary, refreshStartupData, searchQuery, selectedTypeGroup]);
+  }, [queryClient, refetchSummary, refreshStartupData, searchQuery, selectedTypeGroups]);
 
-  // Load more when scrolling to the end
+  // Load more when scrolling to the end, from whichever read the list holds
+  const {
+    hasNextPage: searchHasNextPage,
+    isFetchingNextPage: searchFetchingNextPage,
+    fetchNextPage: fetchNextSearchPage,
+  } = search;
   const handleEndReached = useCallback(() => {
+    if (filtering) {
+      if (searchHasNextPage && !searchFetchingNextPage) fetchNextSearchPage();
+      return;
+    }
     if (hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [
+    filtering,
+    searchHasNextPage,
+    searchFetchingNextPage,
+    fetchNextSearchPage,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  ]);
+
+  // A search answers newest first from the whole library, so only the
+  // windowed feed has newer pages to reach for.
+  const handleStartReached = useCallback(() => {
+    if (!filtering && hasPreviousPage && !isFetchingPreviousPage) {
+      fetchPreviousPage();
+    }
+  }, [filtering, hasPreviousPage, isFetchingPreviousPage, fetchPreviousPage]);
 
   const refreshControl = useMemo(
     () => (
       <RefreshControl
-        refreshing={isRefetching}
+        refreshing={pullRefreshing}
         onRefresh={handleRefresh}
         colors={[colors.primary]}
         tintColor={colors.primary}
@@ -313,17 +378,28 @@ export default function FeedScreen() {
         }
       />
     ),
-    [isRefetching, handleRefresh, isDark, t]
+    [pullRefreshing, handleRefresh, isDark, t]
   );
 
-  // One reference per set of previewed activities, so a startup read that comes
-  // back with the same tracks does not re-key the rows. This held the map in a
-  // ref and wrote it during render, which hands back the object from a render
-  // React threw away.
-  const previewTracks = useStableBy(
-    startupData?.previewTracks,
-    startupData?.previewTracks ? [...startupData.previewTracks.keys()].join(',') : 'none'
+  // The line itself is part of the key: a re-ingest can replace a track while
+  // keeping the same activity ids in the head of the feed.
+  const rawPreviewTracks = startupData?.previewTracks;
+  const previewTracksKey = useMemo(
+    () =>
+      rawPreviewTracks
+        ? JSON.stringify([...rawPreviewTracks].map(([id, track]) => [id, track.coordinates]))
+        : 'none',
+    [rawPreviewTracks]
   );
+  const previewTracks = useStableBy(rawPreviewTracks, previewTracksKey);
+  const newActivityIds = startupData?.newActivityIds;
+  const currentNewActivityIds = useRef(newActivityIds);
+  // eslint-disable-next-line react-hooks/refs
+  currentNewActivityIds.current = newActivityIds;
+  const currentRefreshStartupData = useRef(refreshStartupData);
+  // eslint-disable-next-line react-hooks/refs
+  currentRefreshStartupData.current = refreshStartupData;
+  const seenNewActivityIds = useRef(new Set<string>());
   const renderActivity = useCallback(
     ({ item, index }: { item: Activity; index: number }) => (
       <ActivityCard
@@ -335,9 +411,19 @@ export default function FeedScreen() {
         colorScheme={isDark}
         sectionHighlights={sectionHighlightsMap.get(item.id)}
         routeHighlight={routeHighlightsMap.get(item.id)}
+        isNew={newActivityIds?.has(item.id) ?? false}
+        onNewDismissed={refreshStartupData}
       />
     ),
-    [snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap, previewTracks]
+    [
+      snapshotWebViewReady,
+      isDark,
+      sectionHighlightsMap,
+      routeHighlightsMap,
+      previewTracks,
+      newActivityIds,
+      refreshStartupData,
+    ]
   );
 
   // The list mounts two to three screens either side of the viewport so
@@ -346,13 +432,28 @@ export default function FeedScreen() {
   // is one of them. The identity has to stay put or the list rejects it, which
   // is what the empty dependency list is for.
   const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
+    ({
+      viewableItems,
+      changed,
+    }: {
+      viewableItems: { index: number | null }[];
+      changed: { key: string; isViewable: boolean }[];
+    }) => {
       const indices = viewableItems
         .map((item) => item.index)
         .filter((index): index is number => index !== null);
       setVisibleRange(
         indices.length > 0 ? { first: Math.min(...indices), last: Math.max(...indices) } : null
       );
+      const leaving = ringsLeavingView(
+        changed,
+        seenNewActivityIds.current,
+        currentNewActivityIds.current ?? new Set<string>()
+      );
+      if (leaving.length > 0) {
+        reportFeedDismissed(leaving);
+        currentRefreshStartupData.current();
+      }
     },
     []
   );
@@ -362,33 +463,29 @@ export default function FeedScreen() {
   }, []);
 
   const navigateToHeroMetric = useCallback(() => {
-    switch (summaryCard.heroMetric) {
-      case 'fitness':
-        navigateTo('/fitness');
-        break;
-      case 'hrv':
-      case 'rhr':
-        navigateTo('/training');
-        break;
-      default:
-        navigateTo('/fitness');
-    }
+    navigateTo(summaryCardTarget(summaryCard.heroMetric));
   }, [summaryCard.heroMetric]);
 
-  const selectTypeGroup = useCallback((group: FeedGroup | null) => {
-    setSelectedTypeGroup((prev) => (prev === group ? null : group));
+  const selectRange = useCallback((preset: FeedRangePreset) => {
+    setRangePreset((prev) => (prev === preset ? null : preset));
   }, []);
 
-  // Initial content offset to hide search section (iOS-style hidden search)
-  const initialContentOffset = INITIAL_CONTENT_OFFSET;
+  const selectTypeGroup = useCallback((group: FeedGroup) => {
+    setSelectedTypeGroups((previous) => {
+      const next = new Set(previous);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  }, []);
 
   const handleSearchSectionLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const measured = event.nativeEvent.layout.height;
       const offset = searchOffsetCorrection({
         measured,
-        applied: ESTIMATED_SEARCH_SECTION_HEIGHT,
-        filtering: Boolean(searchQuery || selectedTypeGroup),
+        applied: Platform.OS === 'ios' ? ESTIMATED_SEARCH_SECTION_HEIGHT : 0,
+        filtering: Boolean(searchQuery || selectedTypeGroups.size > 0),
         corrected: searchOffsetCorrected.current,
       });
       if (measured > 0) searchSectionHeight.current = Math.round(measured);
@@ -396,7 +493,7 @@ export default function FeedScreen() {
       searchOffsetCorrected.current = true;
       listRef.current?.scrollToOffset({ offset, animated: false });
     },
-    [searchQuery, selectedTypeGroup]
+    [searchQuery, selectedTypeGroups]
   );
 
   // List header: search bar + filter chips + section title
@@ -406,37 +503,13 @@ export default function FeedScreen() {
         {/* Search bar + filter chips - initially hidden by scrollToOffset */}
         <View style={styles.searchSection} onLayout={handleSearchSectionLayout}>
           <View style={styles.searchContainer}>
-            <View style={[styles.searchBar, isDark && styles.searchBarDark]}>
-              <MaterialCommunityIcons name="magnify" size={20} color={themeColors.textSecondary} />
-              <TextInput
-                testID="home-search-input"
-                style={[styles.searchInput, isDark && styles.searchInputDark]}
-                placeholder={t('feed.searchPlaceholder')}
-                placeholderTextColor={themeColors.textMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={Keyboard.dismiss}
-                returnKeyType="search"
-                autoCorrect={false}
-                autoCapitalize="none"
-                keyboardAppearance={isDark ? 'dark' : 'light'}
-                enablesReturnKeyAutomatically={Platform.OS === 'ios'}
-              />
-              {searchQuery.length > 0 && (
-                <Pressable
-                  onPress={() => setSearchQuery('')}
-                  accessibilityLabel={t('common.clearSearch')}
-                  accessibilityRole="button"
-                  style={pressable()}
-                >
-                  <MaterialCommunityIcons
-                    name="close-circle"
-                    size={18}
-                    color={themeColors.textMuted}
-                  />
-                </Pressable>
-              )}
-            </View>
+            <SearchBar
+              testID="home-search-input"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('feed.searchPlaceholder')}
+              style={styles.searchBar}
+            />
             {!summaryCard.enabled && (
               <Pressable
                 testID="home-profile-button"
@@ -444,6 +517,7 @@ export default function FeedScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('navigation.settings')}
                 style={pressable([styles.headerProfile, isDark && styles.headerProfileDark])}
+                android_ripple={pressRipple}
               >
                 {canDrawProfilePhoto(profileUrl, profileImageFailed) ? (
                   <Image
@@ -465,17 +539,19 @@ export default function FeedScreen() {
 
           {/* Filter chips - always visible below search */}
           <FeedFilterChips
-            selected={selectedTypeGroup}
+            selected={selectedTypeGroups}
             onSelect={selectTypeGroup}
+            selectedRange={rangePreset}
+            onSelectRange={selectRange}
             isDark={isDark}
           />
         </View>
 
         {/* Show count only when filtering */}
-        {(searchQuery || selectedTypeGroup) && (
+        {filtering && (
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-              {t('feed.activitiesCount', { count: filteredActivities.length })}
+              {t('feed.activitiesCount', { count: search.matchedCount })}
             </Text>
           </View>
         )}
@@ -484,12 +560,13 @@ export default function FeedScreen() {
     [
       isDark,
       searchQuery,
-      selectedTypeGroup,
-      filteredActivities.length,
+      selectedTypeGroups,
+      filtering,
+      search.matchedCount,
       t,
-      themeColors.textSecondary,
-      themeColors.textMuted,
       selectTypeGroup,
+      rangePreset,
+      selectRange,
       handleSearchSectionLayout,
       summaryCard.enabled,
       navigateToSettings,
@@ -502,13 +579,11 @@ export default function FeedScreen() {
     () => (
       <View testID="home-empty-state" style={styles.emptyContainer}>
         <Text style={[styles.emptyText, isDark && styles.textLight]}>
-          {searchQuery || selectedTypeGroup
-            ? t('feed.noMatchingActivities')
-            : t('feed.noActivities')}
+          {filtering ? t('feed.noMatchingActivities') : t('feed.noActivities')}
         </Text>
       </View>
     ),
-    [isDark, searchQuery, selectedTypeGroup, t]
+    [isDark, filtering, t]
   );
 
   const renderSkeletons = useCallback(
@@ -524,14 +599,15 @@ export default function FeedScreen() {
 
   const renderStandby = useCallback(() => <FeedFirstSyncStandby />, []);
 
+  const { refetch: refetchSearch } = search;
   const renderError = useCallback(() => {
     return (
       <ErrorStatePreset
-        message={error instanceof Error ? error.message : t('feed.failedToLoad')}
-        onRetry={() => refetch()}
+        message={t('feed.failedToLoad')}
+        onRetry={() => (filtering ? refetchSearch() : refetch())}
       />
     );
-  }, [error, refetch, t]);
+  }, [filtering, refetchSearch, refetch, t]);
 
   const renderListEmpty = useCallback(() => {
     switch (emptyState) {
@@ -546,8 +622,9 @@ export default function FeedScreen() {
     }
   }, [emptyState, renderError, renderStandby, renderSkeletons, renderEmpty]);
 
+  const loadingMore = filtering ? search.isFetchingNextPage : isFetchingNextPage;
   const renderFooter = useCallback(() => {
-    if (!isFetchingNextPage) return null;
+    if (!loadingMore) return null;
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color={colors.primary} />
@@ -556,7 +633,7 @@ export default function FeedScreen() {
         </Text>
       </View>
     );
-  }, [isFetchingNextPage, isDark, t]);
+  }, [loadingMore, isDark, t]);
 
   // Track what changes between renders to identify unnecessary re-renders
   const prevRenderState = useRef({
@@ -597,17 +674,12 @@ export default function FeedScreen() {
 
   // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
   return (
-    <ScreenErrorBoundary screenName="Feed">
-      <ScreenSafeAreaView style={shared.container} testID="home-screen">
-        {/* A first launch fills in silence otherwise, which reads as a crash.
-            While standing by, the standby carries its own indicator and counts. */}
-        {!standingBy && <FeedSyncLine />}
-        {/* Notification opt-in card (OAuth users who haven't enabled yet) */}
+    <ScreenSafeAreaView style={shared.container} testID="home-screen">
+      <StreamConsentCard />
+      <View style={styles.homeCards}>
         <NotificationOptInCard />
         <SupportCard />
         <PendingUploadsCard />
-
-        {/* Summary card with hero metric and supporting stats */}
         {summaryCard.enabled && !standingBy && (
           <SummaryCard
             profileUrl={profileUrl}
@@ -616,64 +688,76 @@ export default function FeedScreen() {
             heroValue={heroValue}
             heroLabel={heroLabel}
             heroColor={heroColor}
-            heroZoneLabel={heroZoneLabel}
-            heroZoneColor={heroZoneColor}
             heroTrend={heroTrend}
             onHeroPress={navigateToHeroMetric}
             fitnessData={fitnessData}
+            fitnessDelta={fitnessDelta}
+            fitnessRiseDays={fitnessRiseDays}
             fatigueData={fatigueData}
             formData={formData}
             hrvData={hrvData}
             rhrData={rhrData}
+            hrvRead={hrvRead}
+            rhrRead={rhrRead}
             showSparkline={showSparkline}
             supportingMetrics={supportingMetrics}
+            isLoading={summaryLoading}
           />
         )}
+      </View>
 
-        <FlatList
-          ref={listRef}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={VIEWABILITY_CONFIG}
-          testID="home-activity-list"
-          data={filteredActivities}
-          renderItem={renderActivity}
-          keyExtractor={(item) => item.id}
-          extraData={isDark}
-          ListHeaderComponent={renderListHeader}
-          ListEmptyComponent={renderListEmpty}
-          ListFooterComponent={renderFooter}
-          contentContainerStyle={styles.listContent}
-          contentOffset={initialContentOffset}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          refreshControl={refreshControl}
-          onEndReached={handleEndReached}
-          onEndReachedThreshold={0.5}
-          showsVerticalScrollIndicator={false}
-          removeClippedSubviews
-          maxToRenderPerBatch={Platform.OS === 'ios' ? 4 : 3}
-          windowSize={Platform.OS === 'ios' ? 7 : 5}
-          initialNumToRender={2}
-        />
+      <FlatList
+        ref={listRef}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={VIEWABILITY_CONFIG}
+        testID="home-activity-list"
+        data={filteredActivities}
+        renderItem={renderActivity}
+        keyExtractor={(item) => item.id}
+        extraData={isDark}
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={renderListEmpty}
+        ListFooterComponent={renderFooter}
+        contentContainerStyle={styles.listContent}
+        contentOffset={INITIAL_CONTENT_OFFSET}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        refreshControl={refreshControl}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
+        onStartReached={handleStartReached}
+        onStartReachedThreshold={0.5}
+        maintainVisibleContentPosition={
+          !filtering && hasPreviousPage ? { minIndexForVisible: 0 } : undefined
+        }
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        maxToRenderPerBatch={Platform.OS === 'ios' ? 4 : 3}
+        windowSize={Platform.OS === 'ios' ? 7 : 5}
+        initialNumToRender={2}
+      />
 
-        <RecordFAB />
+      <RecordFAB />
 
-        {/* Hidden WebView for generating 3D terrain snapshots - deferred to avoid startup cost */}
-        {snapshotWebViewReady && (
-          <ComponentErrorBoundary
-            componentName="3D Terrain Snapshots"
-            showRetry={false}
-            onError={() => setSnapshotWebViewReady(false)}
-          >
-            <TerrainSnapshotWebView ref={snapshotRef} suspended={!isFeedFocused} />
-          </ComponentErrorBoundary>
-        )}
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+      {/* Hidden WebView for generating 3D terrain snapshots - deferred to avoid startup cost */}
+      {snapshotWebViewReady && (
+        <ComponentErrorBoundary
+          componentName="3D Terrain Snapshots"
+          showRetry={false}
+          onError={() => setSnapshotWebViewReady(false)}
+        >
+          <TerrainSnapshotWebView ref={snapshotRef} suspended={!isFeedFocused} />
+        </ComponentErrorBoundary>
+      )}
+    </ScreenSafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  homeCards: {
+    paddingHorizontal: layout.screenPadding,
+    gap: spacing.sm,
+  },
   textLight: {
     color: colors.textOnDark,
   },
@@ -683,6 +767,7 @@ const styles = StyleSheet.create({
 
   // Search section (inside ListHeaderComponent, initially scrolled past)
   searchSection: {
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
   },
   searchContainer: {
@@ -693,25 +778,6 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: opacity.overlay.light,
-    borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: layout.cardMargin,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  searchBarDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: typography.bodyMedium.fontSize,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-  },
-  searchInputDark: {
-    color: colors.textOnDark,
   },
   headerProfile: {
     width: 36,
@@ -740,11 +806,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
-  loadingText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -754,10 +815,6 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.body,
     color: colors.textSecondary,
-  },
-  errorText: {
-    ...typography.body,
-    color: colors.errorDeep,
   },
   footerLoader: {
     flexDirection: 'row',
@@ -771,3 +828,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
+
+export default withScreenBoundary(FeedScreenContent, 'Feed');

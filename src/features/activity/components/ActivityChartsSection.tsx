@@ -3,12 +3,13 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
   Modal,
   StatusBar,
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,15 +21,20 @@ import { HRZonesChart } from './HRZonesChart';
 import { PowerZonesChart } from './PowerZonesChart';
 import { IntervalsTable } from './IntervalsTable';
 import { InsightfulStats } from './stats';
-import { ComponentErrorBoundary, DeviceAttribution } from '@/shared/ui';
-import { paceMinutesFromSpeed } from '@/shared/math/kinematics';
+import { Button, ComponentErrorBoundary, DeviceAttribution } from '@/shared/ui';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { measuresPower, isSwimmingActivity } from '@/shared/activity/activityUtils';
+import type { HrZoneBand, ActivityFitnessImpact } from 'veloqrs';
+import type { LatLng } from '@/shared/geo/polyline';
 import type { EngineBodyStatus } from '@/shared/native/engineBodies';
 import type { IntervalsOutcome } from '../hooks/useActivities';
-import { getAvailableCharts, CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
+import {
+  getAvailableCharts,
+  chartConfigsFor,
+  CHART_CONFIGS,
+} from '@/features/activity/lib/chartConfig';
 import { formatDurationHuman } from '@/shared/format/format';
 import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type {
@@ -39,11 +45,6 @@ import type {
   WellnessData,
 } from '@/types';
 import { colors, darkColors, spacing, layout, opacity, shadows, typography } from '@/theme';
-
-interface LatLng {
-  latitude: number;
-  longitude: number;
-}
 
 /** The chart an activity opens on: power where the sport measures it, pace for a swim. */
 function defaultChartFor(type: ActivityType): ChartTypeId {
@@ -75,6 +76,11 @@ interface ActivityChartsSectionProps {
   chartInteracting: boolean;
   engineSectionCount: number;
   customSectionCount: number;
+  /** The max HR from the detail screen read, for the zones chart and the stat card */
+  maxHR?: number | undefined;
+  fitnessImpact?: ActivityFitnessImpact | null | undefined;
+  /** The engine-resolved zone bands and time in each, from the detail screen read */
+  hrZones?: HrZoneBand[] | undefined;
   onPointSelect: (index: number | null) => void;
   onInteractionChange: (isInteracting: boolean) => void;
   onExportGpx: () => void;
@@ -98,6 +104,9 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   chartInteracting,
   engineSectionCount,
   customSectionCount,
+  maxHR,
+  fitnessImpact,
+  hrZones,
   onPointSelect,
   onInteractionChange,
   onExportGpx,
@@ -121,23 +130,10 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
     return getAvailableCharts(streams || {});
   }, [streams]);
 
-  // Override pace chart config for swimming (min/100m instead of min/km)
-  const effectiveChartConfigs = useMemo(() => {
-    if (!activity || !isSwimmingActivity(activity.type)) return CHART_CONFIGS;
-    return {
-      ...CHART_CONFIGS,
-      pace: {
-        ...CHART_CONFIGS.pace,
-        unit: '/100m',
-        unitImperial: '/100yd',
-        getStream: (s: typeof streams) => {
-          if (!s?.velocity_smooth) return undefined;
-          return s.velocity_smooth.map((v: number) => paceMinutesFromSpeed(v, 100));
-        },
-        convertToImperial: (v: number) => v * 1.09361,
-      },
-    };
-  }, [activity]);
+  const effectiveChartConfigs = useMemo(
+    () => (activity ? chartConfigsFor(activity.type) : CHART_CONFIGS),
+    [activity]
+  );
 
   // Determine effective x-axis mode and whether toggle is available
   const hasDistance = (streams?.distance?.length ?? 0) > 0;
@@ -282,10 +278,12 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 style={[styles.chartCard, isDark && styles.cardDark]}
               >
                 <Text>{t('statsScreen.curveNotDownloaded')}</Text>
-                {streamsStatus === 'timedOut' && (
-                  <Button {...(onRetryStreams && { onPress: onRetryStreams })}>
-                    {t('common.retry')}
-                  </Button>
+                {(streamsStatus === 'timedOut' || streamsStatus === 'refused') && (
+                  <Button
+                    label={t('common.retry')}
+                    variant="ghost"
+                    onPress={() => onRetryStreams?.()}
+                  />
                 )}
               </View>
             )}
@@ -305,7 +303,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   style={[styles.fullscreenButton, isDark && styles.expandButtonDark]}
                   onPress={openChartFullscreen}
                   activeOpacity={0.7}
-                  accessibilityLabel="Fullscreen chart"
+                  accessibilityLabel={t('maps.openFullscreen')}
                   accessibilityRole="button"
                 >
                   <MaterialCommunityIcons
@@ -398,11 +396,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 style={[styles.chartCard, isDark && styles.cardDark]}
               >
                 <ComponentErrorBoundary componentName="HR Zones Chart">
-                  <HRZonesChart
-                    streams={streams}
-                    activityType={activity.type}
-                    activity={activity}
-                  />
+                  <HRZonesChart hrZones={hrZones} maxHR={maxHR} />
                 </ComponentErrorBoundary>
               </View>
             )}
@@ -420,7 +414,12 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 
         {/* Insightful Stats */}
         <ComponentErrorBoundary componentName="Activity Stats">
-          <InsightfulStats activity={activity} wellness={activityWellness} />
+          <InsightfulStats
+            activity={activity}
+            wellness={activityWellness}
+            maxHR={maxHR}
+            fitnessImpact={fitnessImpact}
+          />
         </ComponentErrorBoundary>
 
         {/* Export GPX button */}
@@ -432,11 +431,11 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             disabled={gpxExporting}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons
-              name={gpxExporting ? 'progress-download' : 'download'}
-              size={20}
-              color={colors.textOnPrimary}
-            />
+            {gpxExporting ? (
+              <ActivityIndicator size="small" color={colors.textOnPrimary} />
+            ) : (
+              <MaterialCommunityIcons name="download" size={20} color={colors.textOnPrimary} />
+            )}
             <Text style={styles.exportGpxButtonText}>
               {gpxExporting ? t('export.exporting') : t('export.gpx')}
             </Text>
@@ -601,12 +600,14 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   );
 });
 
+const BOTTOM_BAR_HEIGHT = 80;
+
 const styles = StyleSheet.create({
   tabScrollView: {
     flex: 1,
   },
   tabScrollContent: {
-    paddingBottom: spacing.xl + 80,
+    paddingBottom: spacing.xl + BOTTOM_BAR_HEIGHT,
   },
   chartSection: {
     paddingHorizontal: spacing.md,
@@ -722,8 +723,8 @@ const styles = StyleSheet.create({
   fullscreenCloseButton: {
     position: 'absolute',
     left: spacing.md,
-    width: 44,
-    height: 44,
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: opacity.overlay.medium,
     justifyContent: 'center',

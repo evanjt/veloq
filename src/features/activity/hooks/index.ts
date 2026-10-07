@@ -1,12 +1,14 @@
 export {
   useActivities,
   useInfiniteActivities,
+  useFeedSearch,
   useActivity,
   useActivityStreams,
+  useActivityDetailStreams,
   useActivityIntervals,
 } from './useActivities';
 export { useActivityBoundsCache } from './useActivityBoundsCache';
-export { useEFTPHistory, getLatestFTP, getLatestEFTP } from './useEFTPHistory';
+export { getLatestFTP } from './useEFTPHistory';
 export { useDetailCoordinates } from './useDetailCoordinates';
 export { useMapPreviewCoordinates } from './useMapPreviewCoordinates';
 export { useSectionOverlays } from './useSectionOverlays';

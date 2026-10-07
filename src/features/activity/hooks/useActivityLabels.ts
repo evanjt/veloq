@@ -8,6 +8,7 @@
  * download to name at most fourteen rows.
  */
 import { useQuery } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 
 import { activityLabels, type ActivityLabel } from '@/features/activity/lib/activityLabels';
 import { CACHE } from '@/shared/app/constants';
@@ -16,10 +17,15 @@ import { queryKeys } from '@/shared/query/queryKeys';
 
 const EMPTY: Map<string, ActivityLabel> = new Map();
 
-export function useActivityLabels(ids: readonly string[]): Map<string, ActivityLabel> {
+/** `error` is what the read threw, so a failed read is not a set of unnamed rows. */
+export function useActivityLabels(ids: readonly string[]): {
+  labels: Map<string, ActivityLabel>;
+  error: unknown;
+} {
   useEngineChannel('activities', queryKeys.activities.labels);
 
-  const { data } = useQuery({
+  const { data, error } = useQuery({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.labelsFor(ids),
     queryFn: () => activityLabels(ids),
     // SQLite is the source, so a sync decides freshness, not a clock.
@@ -28,5 +34,5 @@ export function useActivityLabels(ids: readonly string[]): Map<string, ActivityL
     enabled: ids.length > 0,
   });
 
-  return data ?? EMPTY;
+  return { labels: data ?? EMPTY, error };
 }

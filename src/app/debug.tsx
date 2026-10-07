@@ -14,13 +14,20 @@ import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
+import {
+  readBasemapTileCounts,
+  readSnapshotQueueReport,
+  resetBasemapTileCounts,
+} from '@/features/maps';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
+import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 import { hermesStats } from '@/shared/debug/hermesStats';
 import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
-import { readTaskRuns, clearTaskRuns } from '@/features/insights/lib/taskRunLog';
-import type { TaskRunEntry } from '@/features/insights/lib/taskRunLog';
+import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
 import type { FfiPushRun, PersistentEngineStats } from 'veloqrs';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { attemptEngineRead, engineErrorTag } from '@/shared/native/engineError';
 
 function getEngine() {
   try {
@@ -175,7 +182,14 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
             style={[styles.actionButton, { paddingHorizontal: spacing.sm }]}
             activeOpacity={0.7}
           >
-            <Text style={[styles.actionButtonText, { color: colors.primary }]}>{p.label}</Text>
+            <Text
+              style={[
+                styles.actionButtonText,
+                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+              ]}
+            >
+              {p.label}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -191,7 +205,14 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
           style={styles.actionButton}
           activeOpacity={0.7}
         >
-          <Text style={[styles.actionButtonText, { color: colors.primary }]}>Clear dismissed</Text>
+          <Text
+            style={[
+              styles.actionButtonText,
+              { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+            ]}
+          >
+            Clear dismissed
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           testID="debug-support-legacy-toggle"
@@ -221,11 +242,12 @@ function BackgroundNotificationsDebug({
 
   // The native worker's own runs. It has no JavaScript in its process, so it
   // writes them to the engine and nothing of it reaches the ring above.
-  const pushRuns: FfiPushRun[] = useMemo(
-    () => getEngine()?.pushRuns() ?? [],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pushRunsRead = useMemo(
+    () => attemptEngineRead((): FfiPushRun[] => getEngine()?.pushRuns() ?? []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Refresh reads the worker runs on demand.
     [refreshKey]
   );
+  const pushRuns = pushRunsRead.value ?? [];
 
   useEffect(() => {
     let cancelled = false;
@@ -252,7 +274,11 @@ function BackgroundNotificationsDebug({
       <View style={styles.tableHeader}>
         <Text style={[styles.tableHeaderText, { color: mutedColor }]}>Native push worker</Text>
       </View>
-      {pushRuns.length > 0 ? (
+      {!pushRunsRead.ok ? (
+        <Text style={[styles.emptyText, { color: mutedColor }]}>
+          {`Could not read native push runs: ${engineErrorTag(pushRunsRead.error) ?? String(pushRunsRead.error)}`}
+        </Text>
+      ) : pushRuns.length > 0 ? (
         pushRuns.map((run) => (
           <View key={`${run.ts}-${run.activityId}-${run.outcome}`} style={styles.taskRunRow}>
             <View style={styles.taskRunHeader}>
@@ -294,7 +320,14 @@ function BackgroundNotificationsDebug({
           ))}
           <TouchableOpacity style={styles.actionButton} onPress={handleClear} activeOpacity={0.7}>
             <MaterialCommunityIcons name="delete-outline" size={16} color={colors.primary} />
-            <Text style={[styles.actionButtonText, { color: colors.primary }]}>Clear Log</Text>
+            <Text
+              style={[
+                styles.actionButtonText,
+                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+              ]}
+            >
+              Clear Log
+            </Text>
           </TouchableOpacity>
         </>
       ) : (
@@ -306,7 +339,7 @@ function BackgroundNotificationsDebug({
   );
 }
 
-export default function DebugScreen() {
+function DebugScreenContent() {
   const { isDark } = useTheme();
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -318,16 +351,17 @@ export default function DebugScreen() {
   }, []);
 
   // Engine stats, re-read on pull to refresh and on nothing else.
-  const stats: PersistentEngineStats | undefined = useMemo(
-    () => getEngine()?.getStats(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const statsRead = useMemo(
+    () => attemptEngineRead((): PersistentEngineStats | undefined => getEngine()?.getStats()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Refresh reads engine stats on demand.
     [refreshKey]
   );
+  const stats = statsRead.value;
 
   // The Rust to JavaScript event seam, re-read with the engine stats.
   const events = useMemo(
     () => getEngine()?.engineEventDiagnostics() ?? null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Refresh reads event diagnostics on demand.
     [refreshKey]
   );
   const eventChannels = events
@@ -342,7 +376,13 @@ export default function DebugScreen() {
 
   // FFI metrics
   const ffiSummary = getFFIMetricsSummary();
+  const queueReport = readSnapshotQueueReport();
   const ffiMethods = Object.entries(ffiSummary).sort(([, a], [, b]) => b.totalMs - a.totalMs);
+
+  const timelineRuns = freshLoginTimeline.runs();
+
+  // Tile store counters
+  const tileCounts = readBasemapTileCounts();
 
   // Memory
   const mem = getMemoryStats();
@@ -352,6 +392,8 @@ export default function DebugScreen() {
 
   const handleClearMetrics = useCallback(() => {
     clearFFIMetrics();
+    freshLoginTimeline.clear();
+    resetBasemapTileCounts();
     setRefreshKey((k) => k + 1);
   }, []);
 
@@ -368,6 +410,8 @@ export default function DebugScreen() {
       engineStats: stats ?? null,
       engineEvents: events,
       ffiMetrics: ffiSummary,
+      syncTimeline: timelineRuns,
+      tileCounts,
       memory: mem,
     };
     await Share.share({ message: JSON.stringify(snapshot, null, 2) });
@@ -397,11 +441,6 @@ export default function DebugScreen() {
                 isDark={isDark}
               />
               <StatRow
-                label="Consensus Cache"
-                value={`${stats.consensusCacheSize}/50`}
-                isDark={isDark}
-              />
-              <StatRow
                 label="Groups Dirty"
                 value={stats.groupsDirty ? 'Yes' : 'No'}
                 isDark={isDark}
@@ -417,6 +456,10 @@ export default function DebugScreen() {
                 isDark={isDark}
               />
             </>
+          ) : !statsRead.ok ? (
+            <Text style={[styles.emptyText, { color: mutedColor }]}>
+              {`Could not read engine stats: ${engineErrorTag(statsRead.error) ?? String(statsRead.error)}`}
+            </Text>
           ) : (
             <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialized</Text>
           )}
@@ -511,7 +554,12 @@ export default function DebugScreen() {
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons name="delete-outline" size={16} color={colors.primary} />
-                <Text style={[styles.actionButtonText, { color: colors.primary }]}>
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+                  ]}
+                >
                   Clear Metrics
                 </Text>
               </TouchableOpacity>
@@ -519,6 +567,101 @@ export default function DebugScreen() {
           ) : (
             <Text style={[styles.emptyText, { color: mutedColor }]}>
               No FFI metrics recorded yet. Use the app with debug mode enabled.
+            </Text>
+          )}
+        </CollapsibleSection>
+
+        {/* Preview queue trace: the last events the render pool recorded */}
+        <CollapsibleSection
+          title="Preview queue"
+          icon="map-clock-outline"
+          isDark={isDark}
+          testID="debug-section-preview-queue"
+        >
+          {queueReport ? (
+            <Text
+              selectable
+              style={[styles.tableCell, { color: textColor }]}
+              testID="debug-preview-queue-report"
+            >
+              {queueReport}
+            </Text>
+          ) : (
+            <Text style={[styles.emptyText, { color: mutedColor }]}>
+              No preview pool has run this process.
+            </Text>
+          )}
+        </CollapsibleSection>
+
+        {/* Sync timeline */}
+        <CollapsibleSection title="Sync timeline" icon="timeline-clock-outline" isDark={isDark}>
+          {timelineRuns.length > 0 ? (
+            timelineRuns.map((run, i) => (
+              <View key={`${run.startedAtMs}-${i}`} testID={`sync-timeline-run-${i}`}>
+                <Text style={[styles.tableCell, { color: textColor }]}>
+                  {`${run.outcome} ${run.totalMs ?? '-'} ms, build ${run.build ?? 'unstamped'}, ${run.clock} time`}
+                </Text>
+                <Text style={[styles.tableCell, { color: mutedColor }]}>
+                  {Object.entries(run.milestones)
+                    .map(([name, ms]) => `${name} ${ms === null ? 'unobserved' : `${ms} ms`}`)
+                    .join(', ')}
+                </Text>
+                {run.steps.map((s) => (
+                  <Text
+                    key={`${s.step}-${s.startMs}`}
+                    style={[styles.tableCell, { color: mutedColor }]}
+                  >
+                    {`${s.step} +${s.startMs} ms, ${s.durationMs === null ? 'open' : `${s.durationMs} ms`}`}
+                  </Text>
+                ))}
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: mutedColor }]}>No sync observed yet.</Text>
+          )}
+        </CollapsibleSection>
+
+        {/* Tile store */}
+        <CollapsibleSection title="Map tiles" icon="map-outline" isDark={isDark}>
+          {tileCounts.length > 0 ? (
+            <>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderText, styles.methodCol, { color: mutedColor }]}>
+                  Source
+                </Text>
+                <Text style={[styles.tableHeaderText, styles.numCol, { color: mutedColor }]}>
+                  Hits
+                </Text>
+                <Text style={[styles.tableHeaderText, styles.numCol, { color: mutedColor }]}>
+                  Misses
+                </Text>
+                <Text style={[styles.tableHeaderText, styles.numCol, { color: mutedColor }]}>
+                  Fetches
+                </Text>
+              </View>
+              {tileCounts.map((row) => (
+                <View key={row.source} style={styles.tableRow}>
+                  <Text
+                    style={[styles.tableCell, styles.methodCol, { color: textColor }]}
+                    numberOfLines={1}
+                  >
+                    {row.source}
+                  </Text>
+                  <Text style={[styles.tableCell, styles.numCol, { color: textColor }]}>
+                    {row.hits}
+                  </Text>
+                  <Text style={[styles.tableCell, styles.numCol, { color: textColor }]}>
+                    {row.misses}
+                  </Text>
+                  <Text style={[styles.tableCell, styles.numCol, { color: textColor }]}>
+                    {row.fetches}
+                  </Text>
+                </View>
+              ))}
+            </>
+          ) : (
+            <Text style={[styles.emptyText, { color: mutedColor }]}>
+              No tiles requested since start or the last reset.
             </Text>
           )}
         </CollapsibleSection>
@@ -551,7 +694,12 @@ export default function DebugScreen() {
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="share-variant" size={18} color={colors.primary} />
-          <Text style={[styles.shareButtonText, { color: colors.primary }]}>
+          <Text
+            style={[
+              styles.shareButtonText,
+              { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+            ]}
+          >
             Share Debug Snapshot
           </Text>
         </TouchableOpacity>
@@ -706,3 +854,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+export default withScreenBoundary(DebugScreenContent, 'Debug');

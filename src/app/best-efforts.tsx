@@ -4,29 +4,44 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import {
+  EngineReadFailure,
+  ScreenSafeAreaView,
+  TAB_BAR_SAFE_PADDING,
+  ToggleButtonRow,
+} from '@/shared/ui';
+import type { Period } from '@/shared/app/period';
 import { useActivityLabels } from '@/features/activity';
-import { useSeasonBests } from '@/features/stats';
+import {
+  BEST_EFFORTS_DEFAULT_PERIOD,
+  BEST_EFFORTS_PERIODS,
+  bestEffortsDays,
+  bestEffortsOf,
+  climbBestsOf,
+  climbStatusOf,
+  useBestEfforts,
+  type BestEffort,
+  type ClimbBest,
+  type ClimbStatus,
+} from '@/features/stats';
 import { useTheme } from '@/shared/app';
 import { formatDurationOrNull } from '@/shared/format/format';
-import { formatEffortValue } from '@/features/fitness/lib';
-import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import {
-  colors,
-  darkColors,
-  layout,
-  spacing,
-  typography,
-  opacity,
-  colorWithOpacity,
-  ink,
-} from '@/theme';
-
-type TimeRangeKey = 'season' | 'allTime';
+  ClimbingBestRows,
+  ClimbingStatusNote,
+  formatEffortValue,
+  SPORT_COLORS,
+  SPORT_TEXT_COLORS,
+  SPORT_TEXT_COLORS_DARK,
+  type PrimarySport,
+} from '@/features/fitness';
+import { colors, darkColors, layout, spacing, typography, colorWithOpacity, ink } from '@/theme';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const SPORTS: PrimarySport[] = ['Cycling', 'Running', 'Swimming'];
-const SEASON_DAYS = 90;
-const ALL_TIME_DAYS = 3650; // 10 years - matches SYNC.MAX_HISTORY_YEARS
+const CLIMBING_SPORTS: PrimarySport[] = ['Cycling', 'Running'];
+const SHOWN = ['Ride', 'Run', 'Swim'] as const;
 
 function sportIcon(sport: PrimarySport): keyof typeof MaterialCommunityIcons.glyphMap {
   if (sport === 'Cycling') return 'bike';
@@ -36,21 +51,23 @@ function sportIcon(sport: PrimarySport): keyof typeof MaterialCommunityIcons.gly
 
 interface SportSectionProps {
   sport: PrimarySport;
-  days: number;
+  efforts: BestEffort[];
+  isLoading: boolean;
   isDark: boolean;
 }
 
-function SportSection({ sport, days, isDark }: SportSectionProps) {
+function SportSection({ sport, efforts, isLoading, isDark }: SportSectionProps) {
   const { t } = useTranslation();
-  const { efforts, isLoading } = useSeasonBests({ sport, days });
+  const isMetric = useMetricSystem();
   // The rows name at most fourteen activities, so they are read by id. The
   // curves are what decide which, and they are only known here.
   const effortIds = useMemo(
     () => efforts.map((e) => e.activityId).filter((id): id is string => !!id),
     [efforts]
   );
-  const activityMap = useActivityLabels(effortIds);
+  const { labels: activityMap, error: labelsError } = useActivityLabels(effortIds);
   const sportColor = SPORT_COLORS[sport];
+  const sportText = isDark ? SPORT_TEXT_COLORS_DARK[sport] : SPORT_TEXT_COLORS[sport];
   const hasAnyValue = efforts.some((e) => e.value !== null);
 
   const sectionTitle =
@@ -72,6 +89,10 @@ function SportSection({ sport, days, isDark }: SportSectionProps) {
         <Text style={[styles.cardTitle, isDark && styles.cardTitleDark]}>{sectionTitle}</Text>
       </View>
 
+      {labelsError != null && (
+        <EngineReadFailure error={labelsError} testID={`best-efforts-labels-failed-${sport}`} />
+      )}
+
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={colors.primary} />
@@ -92,8 +113,8 @@ function SportSection({ sport, days, isDark }: SportSectionProps) {
             <>
               <Text style={[styles.label, isDark && styles.labelDark]}>{effort.label}</Text>
               <View style={styles.valueColumn}>
-                <Text style={[styles.value, { color: sportColor }]}>
-                  {formatEffortValue(effort.value, sport)}
+                <Text style={[styles.value, { color: sportText }]}>
+                  {formatEffortValue(effort.value, sport, t('units.watts'), isMetric)}
                 </Text>
                 {timeStr && sport !== 'Cycling' ? (
                   <Text style={[styles.timeText, isDark && styles.timeTextDark]}>{timeStr}</Text>
@@ -164,70 +185,131 @@ function SportSection({ sport, days, isDark }: SportSectionProps) {
   );
 }
 
-export default function BestEffortsScreen() {
-  const { t } = useTranslation();
-  const { isDark } = useTheme();
-  const [range, setRange] = useState<TimeRangeKey>('season');
+interface ClimbingSectionProps {
+  sport: PrimarySport;
+  bests: ClimbBest[];
+  status: ClimbStatus;
+  isLoading: boolean;
+  isDark: boolean;
+}
 
-  const days = range === 'season' ? SEASON_DAYS : ALL_TIME_DAYS;
+function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSectionProps) {
+  const { t } = useTranslation();
+  const hasAnyValue = bests.some((b) => b.vam !== null || b.wattsPerKg !== null);
+  const hasNote = status.owed > 0 || status.sourceExcluded > 0;
 
   return (
-    <ScreenErrorBoundary screenName="BestEfforts">
-      <ScreenSafeAreaView
-        hasNativeHeader
-        style={[styles.container, isDark && styles.containerDark]}
-        testID="best-efforts-screen"
-      >
-        <View
-          style={[styles.rangeToggleContainer, isDark && styles.rangeToggleContainerDark]}
-          testID="best-efforts-range-toggle"
-        >
-          {(['season', 'allTime'] as TimeRangeKey[]).map((key) => {
-            const active = range === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                testID={`best-efforts-range-${key}`}
-                style={[styles.rangeButton, active && styles.rangeButtonActive]}
-                onPress={() => setRange(key)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.rangeButtonText,
-                    isDark && styles.rangeButtonTextDark,
-                    active && styles.rangeButtonTextActive,
-                  ]}
-                >
-                  {key === 'season'
-                    ? t('bestEffortsScreen.thisSeason')
-                    : t('bestEffortsScreen.allTime')}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+    <View
+      style={[styles.card, isDark && styles.cardDark]}
+      testID={`best-efforts-climbing-${sport}`}
+    >
+      <View style={styles.cardHeader}>
+        <MaterialCommunityIcons
+          name={sportIcon(sport)}
+          size={18}
+          color={SPORT_COLORS[sport]}
+          style={styles.cardHeaderIcon}
+        />
+        <Text style={[styles.cardTitle, isDark && styles.cardTitleDark]}>
+          {t('bestEffortsScreen.climbingBests')}
+        </Text>
+      </View>
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
-
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
-            {range === 'season'
-              ? t('bestEffortsScreen.seasonSubtitle', { days: SEASON_DAYS })
-              : t('bestEffortsScreen.allTimeSubtitle')}
+      ) : !hasAnyValue && !hasNote ? (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
+            {t('statsScreen.noEffortData')}
           </Text>
+        </View>
+      ) : (
+        <>
+          {hasAnyValue ? <ClimbingBestRows bests={bests} sport={sport} /> : null}
+          <ClimbingStatusNote status={status} />
+        </>
+      )}
+    </View>
+  );
+}
 
-          {SPORTS.map((sport) => (
-            <SportSection key={sport} sport={sport} days={days} isDark={isDark} />
-          ))}
+function BestEffortsScreenContent() {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const [period, setPeriod] = useState<Period>(BEST_EFFORTS_DEFAULT_PERIOD);
 
-          <Text style={[styles.footerNote, isDark && styles.footerNoteDark]}>
-            {t('bestEffortsScreen.sourceNote')}
-          </Text>
-        </ScrollView>
-      </ScreenSafeAreaView>
-    </ScreenErrorBoundary>
+  const days = bestEffortsDays(period);
+  const { data, isLoading, error } = useBestEfforts(days, SHOWN);
+  const effortsBySport = useMemo(
+    () => new Map(SPORTS.map((sport) => [sport, bestEffortsOf(data, sport)])),
+    [data]
+  );
+
+  const climbingBySport = useMemo(
+    () => new Map(CLIMBING_SPORTS.map((sport) => [sport, climbBestsOf(data, sport)])),
+    [data]
+  );
+
+  const climbStatusBySport = useMemo(
+    () => new Map(CLIMBING_SPORTS.map((sport) => [sport, climbStatusOf(data, sport)])),
+    [data]
+  );
+
+  return (
+    <ScreenSafeAreaView
+      hasNativeHeader
+      style={[styles.container, isDark && styles.containerDark]}
+      testID="best-efforts-screen"
+    >
+      <View style={styles.rangeToggleContainer} testID="best-efforts-range-toggle">
+        <ToggleButtonRow
+          options={BEST_EFFORTS_PERIODS.map((option) => ({
+            value: option.id,
+            label: t(option.labelKey as never),
+            testID: `best-efforts-range-${option.id}`,
+          }))}
+          value={period}
+          onValueChange={setPeriod}
+        />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
+          {period === 'all'
+            ? t('bestEffortsScreen.allTimeSubtitle')
+            : t('bestEffortsScreen.seasonSubtitle', { days })}
+        </Text>
+
+        {error != null && <EngineReadFailure error={error} testID="best-efforts-read-failed" />}
+
+        {SPORTS.map((sport) => (
+          <SportSection
+            key={sport}
+            sport={sport}
+            efforts={effortsBySport.get(sport) ?? []}
+            isLoading={isLoading}
+            isDark={isDark}
+          />
+        ))}
+
+        {CLIMBING_SPORTS.map((sport) => (
+          <ClimbingSection
+            key={sport}
+            sport={sport}
+            bests={climbingBySport.get(sport) ?? []}
+            status={climbStatusBySport.get(sport) ?? { owed: 0, sourceExcluded: 0 }}
+            isLoading={isLoading}
+            isDark={isDark}
+          />
+        ))}
+
+        <Text style={[styles.footerNote, isDark && styles.footerNoteDark]}>
+          {t('bestEffortsScreen.sourceNote')}
+        </Text>
+      </ScrollView>
+    </ScreenSafeAreaView>
   );
 }
 
@@ -240,35 +322,8 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   rangeToggleContainer: {
-    flexDirection: 'row',
     marginHorizontal: layout.screenPadding,
     marginBottom: spacing.md,
-    backgroundColor: opacity.overlay.light,
-    borderRadius: layout.borderRadiusSm,
-    padding: spacing.xs,
-  },
-  rangeToggleContainerDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  rangeButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    borderRadius: layout.borderRadiusSm - 2,
-  },
-  rangeButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  rangeButtonText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  rangeButtonTextDark: {
-    color: darkColors.textSecondary,
-  },
-  rangeButtonTextActive: {
-    color: colors.textOnPrimary,
   },
   scrollContent: {
     paddingHorizontal: layout.screenPadding,
@@ -324,7 +379,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
   },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -396,3 +451,5 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
 });
+
+export default withScreenBoundary(BestEffortsScreenContent, 'BestEfforts');

@@ -1,65 +1,73 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
-import { Text, IconButton, Snackbar } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ScreenSafeAreaView,
-  ChartSkeleton,
   ComponentErrorBoundary,
   ErrorStatePreset,
   useHeroMapHeight,
+  HERO_HEADER_HEIGHT,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   useActivity,
   useActivityStreams,
   useActivityIntervals,
-  useDetailCoordinates,
+  useActivityDetailStreams,
   groupSectionEncounters,
+  sectionRowLabels,
   useSectionOverlays,
   useActivityDetailData,
   useActivitySectionHighlights,
   ActivityChartsSection,
   ActivityHeader,
+  ActivityDetailSkeleton,
+  ActivityDetailReadFailed,
   ActivityRoutesSection,
   ActivitySectionsSection,
 } from '@/features/activity';
-import { useActivityRematch } from '@/features/routes/hooks/useActivityRematch';
+import {
+  useActivityRematch,
+  useCustomSections,
+  useRouteMatch,
+  useSectionMatches,
+  useRouteSettings,
+} from '@/features/routes';
 import { useWellnessForDate } from '@/features/wellness';
-import { useGpxExport } from '@/features/settings/hooks/exportIndex';
+import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
-import { useRouteMatch } from '@/features/routes/hooks/useRouteMatch';
-import { useSectionMatches } from '@/features/routes/hooks/useSectionMatches';
-import { useSectionEncounters } from '@/features/routes/hooks/useSectionEncounters';
-import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import {
-  calculateTerrainCamera,
+  resolveTerrain3D,
   type CreationState,
   deleteCameraOverride,
   getCameraOverride,
   type MapStyleType,
   type SectionCreationError,
   type SectionCreationResult,
+  sectionCreationMessageKey,
   setCameraOverride,
   type TerrainCamera,
   useMapPreferences,
 } from '@/features/maps';
 import { convertLatLngTuples } from '@/shared/geo/polyline';
-import type { Section as NativeSection } from 'veloqrs';
+import { formatPrDelta, formatPrImprovement } from '@/shared/format/format';
+import type { RouteGroup as NativeRouteGroup, Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { overMapHeaderTint } from '@/shared/app/screenHeaders';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 /** Stable empty list so the custom-sections hook keeps skipping its own read. */
 const NO_CUSTOM_SECTIONS: NativeSection[] = [];
+const NO_ROUTE_GROUPS: NativeRouteGroup[] = [];
 
-export default function ActivityDetailScreen() {
+function ActivityDetailScreenContent() {
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('ActivityDetailScreen');
@@ -75,24 +83,48 @@ export default function ActivityDetailScreen() {
   const insets = useSafeAreaInsets();
   const mapHeight = useHeroMapHeight();
 
-  const { data: activity, isLoading, error, refetch } = useActivity(id || '');
+  // The first commit answers the tap with the skeleton, which needs none of the
+  // reads below. They start once it has committed, so their render work and
+  // their synchronous engine reads are not ahead of the first frame.
+  const [afterFirstCommit, setAfterFirstCommit] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAfterFirstCommit(true);
+  }, []);
+
+  const {
+    data: activity,
+    isLoading,
+    error,
+    refetch,
+    bodyStatus,
+    retryBody,
+  } = useActivity(id || '');
   const {
     data: streams,
     isLoading: streamsLoading,
     isDownloaded: streamsDownloaded,
     bodyStatus: streamsStatus,
     retryBody: retryStreams,
-  } = useActivityStreams(id || '');
+    coordinates,
+  } = useActivityDetailStreams(id || '');
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
   // One engine call covering route match, section matches, encounters,
   // highlights, overlays and engine counts. The card reads it at press time,
   // so this takes what is already there and only reads when it is not.
-  const { data: detail } = useActivityDetailData(id);
+  const {
+    data: detail,
+    error: detailError,
+    refresh: refreshDetail,
+  } = useActivityDetailData(id, afterFirstCommit);
+  const detailReadFailed = !detail && detailError !== undefined;
 
   // Get the activity date for wellness lookup
   const activityDate = activity?.start_date_local?.split('T')[0];
-  const { data: activityWellness } = useWellnessForDate(activityDate);
+  const { data: activityWellness } = useWellnessForDate(
+    afterFirstCommit ? activityDate : undefined
+  );
 
   // Tab state for swipeable tabs
   type TabType = 'charts' | 'exercises' | 'routes' | 'sections';
@@ -101,7 +133,9 @@ export default function ActivityDetailScreen() {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   // Fetch intervals data
-  const { data: intervalsData, outcome: intervalsOutcome } = useActivityIntervals(id || '');
+  const { data: intervalsData, outcome: intervalsOutcome } = useActivityIntervals(
+    afterFirstCommit ? id || '' : ''
+  );
 
   // Track the selected point index from charts for map highlight
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
@@ -133,8 +167,7 @@ export default function ActivityDetailScreen() {
   // Get matched route for this activity
   const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(
     id,
-    true,
-    detail?.routeGroups
+    detail?.routeGroups ?? NO_ROUTE_GROUPS
   );
 
   // Route PR delta for the Routes tab badge (negative = ahead of PR)
@@ -155,11 +188,6 @@ export default function ActivityDetailScreen() {
     if (activeTab !== 'routes' || !representativeStreams?.latlng) return null;
     return convertLatLngTuples(representativeStreams.latlng);
   }, [activeTab, representativeStreams]);
-
-  // Stream, then the stored track. The track is what makes
-  // an offline ride draw: it is written for every ingested activity and this
-  // screen was the one surface not reading it.
-  const coordinates = useDetailCoordinates(id || '', streams?.latlng);
 
   const hasGpsData = coordinates.length > 0;
   const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);
@@ -194,9 +222,9 @@ export default function ActivityDetailScreen() {
   // Scan for additional section matches
   const {
     matches: scanMatches,
+    hasScanned,
     scan: scanForSections,
     rematch: rematchSection,
-    isRematching,
   } = useActivityRematch();
 
   // Stable, so the sections tab's memo holds. As inline literals they were a
@@ -208,9 +236,7 @@ export default function ActivityDetailScreen() {
   );
 
   // Section encounters for the sections tab (one entry per section+direction)
-  const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(
-    detail?.encounters ?? []
-  );
+  const encountersRaw = detail?.encounters ?? [];
 
   // The bundle already carries exactly these: the custom sections naming this
   // activity that the engine's matches do not, filtered where the catalogue
@@ -219,7 +245,6 @@ export default function ActivityDetailScreen() {
 
   // Section overlay computation (traces + map overlays)
   const { sectionOverlays } = useSectionOverlays(
-    activeTab,
     id,
     engineSectionMatches,
     customMatchedSections,
@@ -228,70 +253,14 @@ export default function ActivityDetailScreen() {
     encountersRaw
   );
 
-  // Sort encounters by where each section starts within this activity so the
-  // numbered rows follow the trace from start to finish (1 → N). Uses
-  // sectionOverlays.activityPortion (the GPS slice for this activity) and
-  // finds its first coord's nearest index in the activity's full track.
-  const encounters = useMemo(() => {
-    if (!id || encountersRaw.length === 0) return encountersRaw;
-    if (!sectionOverlays || sectionOverlays.length === 0) return encountersRaw;
-    if (coordinates.length === 0) return encountersRaw;
-
-    const makeEncounterKey = (encounter: { sectionId: string; direction: string }) =>
-      `${encounter.sectionId}|${encounter.direction}`;
-    const makeOverlayKey = (overlay: {
-      id: string;
-      overlayKey?: string | undefined;
-      sortOrder?: number | undefined;
-    }) => overlay.overlayKey ?? `${overlay.id}|`;
-
-    const findNearestIndex = (targetLat: number, targetLng: number): number => {
-      let best = 0;
-      let bestDist = Number.POSITIVE_INFINITY;
-      for (let i = 0; i < coordinates.length; i++) {
-        const c = coordinates[i];
-        const dLat = c.latitude - targetLat;
-        const dLng = c.longitude - targetLng;
-        const d = dLat * dLat + dLng * dLng;
-        if (d < bestDist) {
-          bestDist = d;
-          best = i;
-        }
-      }
-      return best;
-    };
-
-    const startIndexByKey = new Map<string, number>();
-    const sortOrderByKey = new Map<string, number>();
-    for (const overlay of sectionOverlays) {
-      // Prefer the activity's own portion when extractSectionTrace has run; fall
-      // back to the section's consensus polyline first coord otherwise so the
-      // sort still works on first render.
-      const first = overlay.activityPortion?.[0] ?? overlay.sectionPolyline?.[0];
-      if (!first) continue;
-      const key = makeOverlayKey(overlay);
-      startIndexByKey.set(key, findNearestIndex(first.latitude, first.longitude));
-      if (overlay.sortOrder != null) {
-        sortOrderByKey.set(key, overlay.sortOrder);
-      }
-    }
-
-    const INF = Number.MAX_SAFE_INTEGER;
-    return [...encountersRaw].sort((a, b) => {
-      const aKey = makeEncounterKey(a);
-      const bKey = makeEncounterKey(b);
-      const ai = startIndexByKey.get(aKey) ?? INF;
-      const bi = startIndexByKey.get(bKey) ?? INF;
-      if (ai !== bi) return ai - bi;
-      const aSort = sortOrderByKey.get(aKey) ?? INF;
-      const bSort = sortOrderByKey.get(bKey) ?? INF;
-      if (aSort !== bSort) return aSort - bSort;
-      return 0;
-    });
-  }, [encountersRaw, sectionOverlays, coordinates, id]);
+  // The engine returns encounters ordered by where each starts along this
+  // activity's track, so the numbered rows follow it from start to finish.
+  const encounters = encountersRaw;
 
   // The Sections tab counts cards, and a section crossed both ways is one card.
-  const sectionCardCount = useMemo(() => groupSectionEncounters(encounters).length, [encounters]);
+  const sectionGroups = useMemo(() => groupSectionEncounters(encounters), [encounters]);
+  const sectionCardCount = sectionGroups.length;
+  const sectionRowLabelMap = useMemo(() => sectionRowLabels(sectionGroups), [sectionGroups]);
 
   // Tabs configuration
   const tabs = useMemo<SwipeableTab[]>(() => {
@@ -316,12 +285,11 @@ export default function ActivityDetailScreen() {
       } = {};
       if (routeHighlight) {
         if (routeHighlight.isPr) {
-          routeBadge.badgeText = 'PR';
+          const improvement = formatPrImprovement(routeHighlight.prImprovementSeconds);
+          routeBadge.badgeText = improvement ? `PR ${improvement}` : 'PR';
           routeBadge.badgeTone = 'pr';
         } else if (routeHighlight.timeDeltaSeconds != null && routeHighlight.timeDeltaSeconds > 0) {
-          const d = routeHighlight.timeDeltaSeconds;
-          routeBadge.badgeText =
-            d >= 60 ? `PR+${Math.floor(d / 60)}:${String(d % 60).padStart(2, '0')}` : `PR+${d}s`;
+          routeBadge.badgeText = formatPrDelta(routeHighlight.timeDeltaSeconds);
           routeBadge.badgeTone = 'negative';
         }
       }
@@ -400,15 +368,16 @@ export default function ActivityDetailScreen() {
 
   const saved3DCamera = useMemo(() => {
     if (!activity?.id || terrain3DMode === 'off') return null;
-    const override = getCameraOverride(activity.id);
-    if (override) return override;
-    if (coordinates.length >= 2) {
-      const lngLatCoords: [number, number][] = coordinates.map((c) => [c.longitude, c.latitude]);
-      const result = calculateTerrainCamera(lngLatCoords, streams?.altitude);
-      if (terrain3DMode === 'smart' && !result.hasInterestingTerrain) return null;
-      return result.camera;
-    }
-    return null;
+    const lngLatCoords: [number, number][] = coordinates.map((c) => [c.longitude, c.latitude]);
+    const verdict = resolveTerrain3D({
+      mode: terrain3DMode,
+      coordinates: lngLatCoords,
+      altitude: streams?.altitude,
+      gain: activity.total_elevation_gain,
+      distance: activity.distance,
+      override: getCameraOverride(activity.id) ?? null,
+    });
+    return verdict.show3D ? verdict.camera : null;
   }, [activity, terrain3DMode, coordinates, streams]);
 
   // Handle section creation completion
@@ -430,37 +399,10 @@ export default function ActivityDetailScreen() {
         setSectionCreationMode(false);
         setSectionCreationState(undefined);
       } catch (error) {
-        let message = t('routes.sectionCreationFailed');
-        let technicalDetails: string | undefined;
-
-        if (error instanceof Error) {
-          technicalDetails = error.message;
-
-          if (error.message.includes('GPS track not found')) {
-            message = t('routes.gpsTrackNotSynced');
-          } else if (error.message.includes('Invalid indices')) {
-            message = t('routes.invalidSectionRange');
-          } else if (error.message.startsWith('Payload size exceeded')) {
-            const parts = error.message.split('|');
-            const reductionMeters = parseInt(parts[3], 10);
-
-            if (reductionMeters > 0) {
-              const reductionKm = Math.ceil(reductionMeters / 1000);
-              const reductionDisplay =
-                reductionKm > 1 ? `${reductionKm} km` : `${reductionMeters} m`;
-              message = t('routes.sectionTooLargeWithHint', {
-                reduction: reductionDisplay,
-              });
-            } else {
-              message = t('routes.sectionTooLarge');
-            }
-          }
-        }
-
         setSectionCreationState('error');
         setSectionCreationError({
-          message,
-          technicalDetails,
+          message: t(sectionCreationMessageKey(error)),
+          technicalDetails: error instanceof Error ? error.message : undefined,
           activityId: activity.id,
           indices: { start: result.startIndex, end: result.endIndex },
         });
@@ -505,9 +447,40 @@ export default function ActivityDetailScreen() {
         testID="activity-detail-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
-        <View style={styles.skeletonLoading}>
-          <ChartSkeleton height={220} />
-          <ChartSkeleton height={160} />
+        <ActivityDetailSkeleton activityId={id || ''} />
+      </ScreenSafeAreaView>
+    );
+  }
+
+  // A deep link or push can name an activity the library has never held. The
+  // engine is downloading it, so the screen waits until the hook's deadline and
+  // then retries the download. Only a failed read of the stored row is a load
+  // failure, and its retry re-reads that row.
+  if (!error && !activity) {
+    const timedOut = bodyStatus === 'timedOut' || bodyStatus === 'refused';
+    return (
+      <ScreenSafeAreaView
+        testID="activity-detail-screen"
+        style={[styles.container, isDark && styles.containerDark]}
+      >
+        <Stack.Screen
+          options={{ headerTintColor: overMapHeaderTint({ overHero: false, isDark }) }}
+        />
+        <View style={{ height: insets.top + HERO_HEADER_HEIGHT }} />
+        <View style={styles.loadingContainer}>
+          {timedOut ? (
+            <ErrorStatePreset message={t('activitySummary.unavailable')} onRetry={retryBody} />
+          ) : (
+            <View testID="activity-detail-waiting" style={styles.waiting}>
+              <ActivityIndicator
+                size="large"
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+              <Text style={{ color: isDark ? darkColors.textSecondary : colors.textSecondary }}>
+                {t('activitySummary.downloading')}
+              </Text>
+            </View>
+          )}
         </View>
       </ScreenSafeAreaView>
     );
@@ -519,14 +492,10 @@ export default function ActivityDetailScreen() {
         testID="activity-detail-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
-        <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
-          <IconButton
-            icon="arrow-left"
-            iconColor={colors.textOnDark}
-            onPress={() => router.back()}
-            accessibilityLabel={t('common.back')}
-          />
-        </View>
+        <Stack.Screen
+          options={{ headerTintColor: overMapHeaderTint({ overHero: false, isDark }) }}
+        />
+        <View style={{ height: insets.top + HERO_HEADER_HEIGHT }} />
         <View style={styles.loadingContainer}>
           <ErrorStatePreset message={t('activityDetail.failedToLoad')} onRetry={() => refetch()} />
         </View>
@@ -541,25 +510,27 @@ export default function ActivityDetailScreen() {
     >
       {/* Simple header for non-GPS, non-strength activities */}
       {!hasGpsData && !isStrength && (
-        <View
-          style={[styles.noMapHeader, { paddingTop: insets.top }, isDark && styles.noMapHeaderDark]}
-        >
-          <IconButton
-            icon="arrow-left"
-            iconColor={isDark ? darkColors.textPrimary : colors.textPrimary}
-            onPress={() => router.back()}
-            accessibilityLabel={t('common.back')}
+        <>
+          <Stack.Screen
+            options={{ headerTintColor: overMapHeaderTint({ overHero: false, isDark }) }}
           />
-          <View style={styles.noMapHeaderText}>
-            <Text
-              numberOfLines={1}
-              style={[styles.noMapTitle, isDark && { color: darkColors.textPrimary }]}
-            >
-              {activity.name}
-            </Text>
+          <View
+            style={[
+              styles.noMapHeader,
+              { paddingTop: insets.top + HERO_HEADER_HEIGHT },
+              isDark && styles.noMapHeaderDark,
+            ]}
+          >
+            <View style={styles.noMapHeaderText}>
+              <Text
+                numberOfLines={1}
+                style={[styles.noMapTitle, isDark && { color: darkColors.textPrimary }]}
+              >
+                {activity.name}
+              </Text>
+            </View>
           </View>
-          <View style={{ width: 48 }} />
-        </View>
+        </>
       )}
 
       {/* Strength Training hero - body diagrams with overlay (back button, name, date, duration) */}
@@ -585,7 +556,6 @@ export default function ActivityDetailScreen() {
           streams={streams}
           isMetric={isMetric}
           debugEnabled={debugEnabled}
-          insetTop={insets.top}
           mapHeight={mapHeight}
           highlightIndex={highlightIndex}
           sectionCreationMode={sectionCreationMode}
@@ -600,9 +570,10 @@ export default function ActivityDetailScreen() {
           initial3DCamera={saved3DCamera}
           activeTab={activeTab}
           routeOverlayCoordinates={routeOverlayCoordinates}
-          sectionOverlays={sectionOverlays}
+          sectionOverlays={isRouteMatchingOn ? sectionOverlays : null}
+          sectionRowLabels={sectionRowLabelMap}
           highlightedSectionId={highlightedSectionId}
-          onSectionMarkerPress={handleSectionMarkerPress}
+          onSectionMarkerPress={isRouteMatchingOn ? handleSectionMarkerPress : undefined}
         />
       )}
 
@@ -645,6 +616,9 @@ export default function ActivityDetailScreen() {
           chartInteracting={chartInteracting}
           engineSectionCount={engineSectionCount}
           customSectionCount={customMatchedSections.length}
+          maxHR={detail?.maxHR}
+          fitnessImpact={detail?.fitnessImpact}
+          hrZones={detail?.hrZones}
           onPointSelect={handlePointSelect}
           onInteractionChange={handleInteractionChange}
           onExportGpx={handleExportGpx}
@@ -661,12 +635,19 @@ export default function ActivityDetailScreen() {
               activityType={activity.type}
               isDark={isDark}
               athleteSex={athlete?.sex}
+              exerciseGroups={detail?.exerciseGroups}
             />
           </ScrollView>
         )}
 
         {/* Tab 3: Routes (only for GPS activities) */}
-        {hasGpsData && (
+        {hasGpsData && detailReadFailed && (
+          <ActivityDetailReadFailed error={detailError} onRetry={refreshDetail} />
+        )}
+        {hasGpsData && detailReadFailed && (
+          <ActivityDetailReadFailed error={detailError} onRetry={refreshDetail} />
+        )}
+        {hasGpsData && !detailReadFailed && (
           <ActivityRoutesSection
             activityId={activity.id}
             activityType={activity.type}
@@ -677,11 +658,12 @@ export default function ActivityDetailScreen() {
         )}
 
         {/* Tab 3: Sections (only for GPS activities) */}
-        {hasGpsData && (
+        {hasGpsData && !detailReadFailed && (
           <ActivitySectionsSection
             activityId={id}
             sportType={activity.type}
             encounters={encounters}
+            ledgerChanges={detail?.ledgerChanges}
             coordinates={coordinates}
             isDark={isDark}
             isMetric={isMetric}
@@ -692,8 +674,7 @@ export default function ActivityDetailScreen() {
             onSectionCreationModeChange={setSectionCreationMode}
             removeSection={removeSection}
             scanMatches={scanMatches}
-            isScanning={isRematching}
-            isSectionsLoading={encountersLoading}
+            hasScanned={hasScanned}
             onScan={handleScan}
             onRematch={handleRematch}
           />
@@ -713,6 +694,8 @@ export default function ActivityDetailScreen() {
   );
 }
 
+const BOTTOM_BAR_HEIGHT = 80;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -726,20 +709,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  skeletonLoading: {
-    flex: 1,
-    padding: spacing.md,
-    gap: spacing.lg,
-  },
-  floatingHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
+  waiting: {
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    zIndex: 10,
+    gap: spacing.md,
   },
   exercisesTab: {
     flex: 1,
@@ -747,7 +719,7 @@ const styles = StyleSheet.create({
   },
   exercisesTabContent: {
     paddingTop: spacing.sm,
-    paddingBottom: spacing.xl + 80,
+    paddingBottom: spacing.xl + BOTTOM_BAR_HEIGHT,
   },
   noMapHeader: {
     flexDirection: 'row',
@@ -787,3 +759,5 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
 });
+
+export default withScreenBoundary(ActivityDetailScreenContent, 'ActivityDetail');

@@ -5,6 +5,7 @@ export {
   SummaryCardHRVSparkline,
   NotificationOptInCard,
   SupportCard,
+  FeedFirstSyncStandby,
 } from './components';
 
 export {
@@ -22,18 +23,21 @@ export {
   useDashboardPreferences,
   initializeDashboardPreferences,
   getMetricDefinition,
-  getMetricsForSport,
   AVAILABLE_METRICS,
+  HERO_METRICS,
+  isHeroMetricId,
+  type HeroMetricId,
   type MetricId,
   type MetricDefinition,
-  type MetricPreference,
 } from './store';
 
 export { feedEmptyState, type FeedEmptyState } from './lib/feedEmptyState';
-export { updateWidgetSnapshot, writeWidgetSnapshot } from './lib/widgetBridge';
+export { summaryCardTarget } from './lib/summaryCardTargets';
+export { clearWidgetSnapshot, updateWidgetSnapshot, writeWidgetSnapshot } from './lib/widgetBridge';
 export {
-  composeSnapshot,
+  composeWidgetContext,
   gatherWidgetSnapshot,
-  WIDGET_SNAPSHOT_SCHEMA_VERSION,
-  type WidgetSnapshot,
+  type WidgetContext,
+  type WidgetSnapshotPayload,
 } from './lib/widgetSnapshot';
+export { readCalendarEvents } from './lib/calendarEvents';
