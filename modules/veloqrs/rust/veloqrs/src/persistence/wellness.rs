@@ -163,35 +163,7 @@ impl PersistentEngine {
         oldest: &str,
         newest: &str,
     ) -> SqlResult<Vec<crate::FfiWellnessDay>> {
-        let mut stmt = self.db.prepare(
-            "SELECT date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
-                    sleep_secs, sleep_score, soreness, fatigue, stress,
-                    mood, motivation, raw
-             FROM wellness
-             WHERE date >= ? AND date <= ?
-             ORDER BY date ASC",
-        )?;
-        let rows = stmt.query_map(params![oldest, newest], |r| {
-            let raw: Option<String> = r.get(14)?;
-            Ok(crate::FfiWellnessDay {
-                date: r.get(0)?,
-                ctl: finite(r.get(1)?),
-                atl: finite(r.get(2)?),
-                ramp_rate: finite(r.get(3)?),
-                hrv: finite(r.get(4)?),
-                resting_hr: finite(r.get(5)?),
-                weight: finite(r.get(6)?),
-                sleep_secs: r.get(7)?,
-                sleep_score: finite(r.get(8)?),
-                soreness: r.get(9)?,
-                fatigue: r.get(10)?,
-                stress: r.get(11)?,
-                mood: r.get(12)?,
-                motivation: r.get(13)?,
-                sport_load: raw.as_deref().map(sport_load).unwrap_or_default(),
-            })
-        })?;
-        rows.collect::<SqlResult<Vec<_>>>()
+        pooled::wellness_days(&self.db, oldest, newest)
     }
 
     /// The newest stored wellness date, or `None` when nothing has synced.
@@ -267,12 +239,37 @@ impl PersistentEngine {
     ) -> SqlResult<Option<crate::FfiHrvTrend>> {
         pooled::hrv_trend_to(&self.db, days, today)
     }
+
+    /// See [`pooled::hrv_withheld_since_to`].
+    pub fn hrv_withheld_since_to(&self, days: u32, today: &str) -> SqlResult<Option<String>> {
+        pooled::hrv_withheld_since_to(&self.db, days, today)
+    }
 }
 
-/// Forward-fill an iterator of optional floats into rounded i32s. Returns
-/// an empty Vec when every value is None/zero (TS behaviour).
 /// Each value, with a missing one holding the last real value before it.
 /// Empty when nothing in the series is real.
+/// A day is marked when fitness rose on the day before by more than this many
+/// CTL points. The figure is the summary card plan's.
+const RISE_DAY_THRESHOLD: f64 = 1.0;
+
+/// Last plotted value minus the first, `None` below two values.
+fn series_delta(series: &[i32]) -> Option<i32> {
+    match (series.first(), series.last()) {
+        (Some(first), Some(last)) if series.len() >= 2 => Some(last - first),
+        _ => None,
+    }
+}
+
+/// Indices of the days whose load rose over the day before by more than
+/// `RISE_DAY_THRESHOLD`.
+fn rise_days(load: &[f64]) -> Vec<u32> {
+    load.windows(2)
+        .enumerate()
+        .filter(|(_, w)| w[1] - w[0] > RISE_DAY_THRESHOLD)
+        .map(|(i, _)| (i + 1) as u32)
+        .collect()
+}
+
 fn forward_fill<I>(iter: I) -> Vec<f64>
 where
     I: Iterator<Item = Option<f64>>,
@@ -289,6 +286,18 @@ where
         out.push(last);
     }
     out
+}
+
+/// Which days of a filled series had a reading of their own, empty when the
+/// series is.
+fn read_days<I>(filled: &[i32], iter: I) -> Vec<bool>
+where
+    I: Iterator<Item = Option<f64>>,
+{
+    if filled.is_empty() {
+        return Vec::new();
+    }
+    iter.map(|v| v.is_some()).collect()
 }
 
 fn forward_fill_round<I>(iter: I) -> Vec<i32>
@@ -311,10 +320,24 @@ where
     out
 }
 
-/// The label and window average behind [`PersistentEngine::compute_hrv_trend`],
-/// split out from the read so the rule itself can be tested without a database.
-/// `None` when the window is too short to say anything.
-/// The window's verdict, its mean, and which rule produced the verdict.
+/// The index where the later half of `len` readings starts.
+fn halves_split(len: usize) -> usize {
+    len / 2
+}
+
+/// A stored `YYYY-MM-DD` day as epoch seconds at its UTC midnight, the form
+/// every dated series leaves the engine in. `0.0` for a day that cannot be read.
+fn date_epoch(date: &str) -> f64 {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .ok()
+        .and_then(|d| d.and_hms_opt(0, 0, 0))
+        .map_or(0.0, |t| t.and_utc().timestamp() as f64)
+}
+
+/// The window's verdict, its mean, and which rule produced the verdict, split
+/// out from [`PersistentEngine::compute_hrv_trend`] so the rule itself can be
+/// tested without a database. `None` when the window is too short to say
+/// anything.
 ///
 /// The reason is not decoration: `trendingDown` has two causes and they are
 /// different claims. `halves` is the newer half of the window sitting below
@@ -333,7 +356,7 @@ fn hrv_verdict(
         return None;
     }
 
-    let mid = values.len() / 2;
+    let mid = halves_split(values.len());
     let mean = |xs: &[f64]| {
         if xs.is_empty() {
             0.0
@@ -374,7 +397,48 @@ fn hrv_verdict(
 pub(crate) mod pooled {
     use rusqlite::{Connection, Result as SqlResult, params};
 
-    use super::{WellnessRow, forward_fill, forward_fill_round, iso_days_after, iso_days_before};
+    use super::{
+        WellnessRow, finite, forward_fill, forward_fill_round, iso_days_after, iso_days_before,
+        read_days, rise_days, series_delta, sport_load,
+    };
+
+    /// Stored wellness days over an inclusive date window, oldest first, with
+    /// the per-sport loads lifted out of each stored body.
+    pub(crate) fn wellness_days(
+        conn: &Connection,
+        oldest: &str,
+        newest: &str,
+    ) -> SqlResult<Vec<crate::FfiWellnessDay>> {
+        let mut stmt = conn.prepare(
+            "SELECT date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
+                    sleep_secs, sleep_score, soreness, fatigue, stress,
+                    mood, motivation, raw
+             FROM wellness
+             WHERE date >= ? AND date <= ?
+             ORDER BY date ASC",
+        )?;
+        let rows = stmt.query_map(params![oldest, newest], |r| {
+            let raw: Option<String> = r.get(14)?;
+            Ok(crate::FfiWellnessDay {
+                date: r.get(0)?,
+                ctl: finite(r.get(1)?),
+                atl: finite(r.get(2)?),
+                ramp_rate: finite(r.get(3)?),
+                hrv: finite(r.get(4)?),
+                resting_hr: finite(r.get(5)?),
+                weight: finite(r.get(6)?),
+                sleep_secs: r.get(7)?,
+                sleep_score: finite(r.get(8)?),
+                soreness: r.get(9)?,
+                fatigue: r.get(10)?,
+                stress: r.get(11)?,
+                mood: r.get(12)?,
+                motivation: r.get(13)?,
+                sport_load: raw.as_deref().map(sport_load).unwrap_or_default(),
+            })
+        })?;
+        rows.collect::<SqlResult<Vec<_>>>()
+    }
 
     /// HRV trend over the trailing window ending on `today`. Splits the window
     /// in half and compares averages; flags consecutive-day decline (Kiviniemi
@@ -402,11 +466,12 @@ pub(crate) mod pooled {
             [newer, older] => iso_days_before(newer, 1) == *older,
             _ => false,
         };
-        let values: Vec<f64> = window
+        let readings: Vec<(&str, f64)> = window
             .iter()
-            .filter_map(|w| w.hrv)
-            .filter(|v| *v > 0.0)
+            .filter_map(|w| Some((w.date.as_str(), w.hrv?)))
+            .filter(|(_, v)| *v > 0.0)
             .collect();
+        let values: Vec<f64> = readings.iter().map(|(_, v)| *v).collect();
         let Some((label, avg, reason)) = super::hrv_verdict(&values, consecutive) else {
             return Ok(None);
         };
@@ -419,7 +484,21 @@ pub(crate) mod pooled {
             latest,
             data_points: values.len() as u32,
             signal_delta: crate::signal::signal_delta(latest, avg, &values),
-            sparkline: values,
+            window_split: (reason == "halves")
+                .then(|| {
+                    readings
+                        .get(super::halves_split(values.len()))
+                        .map(|(d, _)| super::date_epoch(d))
+                })
+                .flatten(),
+            sparkline: readings
+                .iter()
+                .map(|(date, value)| crate::FfiSeriesPoint {
+                    value: *value,
+                    date: super::date_epoch(date),
+                    activity_id: None,
+                })
+                .collect(),
         }))
     }
 
@@ -429,22 +508,18 @@ pub(crate) mod pooled {
     /// window of one lookback either side of the day it stands for: weight
     /// moves too little day to day to read, so it looks back a week, and the
     /// rest look back a day. A metric with no row in its window gets no arrow,
-    /// which is not the same as a flat move.
+    /// which is not the same as a flat move, and neither does one with fewer
+    /// than [`crate::claim::MIN_PRIOR_READINGS`] earlier readings in its
+    /// evidence window: a week before the day, a fortnight for weight.
     pub(crate) fn summary(conn: &Connection) -> crate::FfiWellnessSummary {
+        widget_summary(conn).into()
+    }
+
+    /// Wellness values with the baselines used by native widget composition.
+    pub(crate) fn widget_summary(conn: &Connection) -> crate::WidgetWellnessSummary {
         let rows = newest_first(conn);
         let Some(latest) = rows.first() else {
-            return crate::FfiWellnessSummary {
-                fitness: None,
-                fitness_trend: None,
-                form: None,
-                form_trend: None,
-                hrv: None,
-                hrv_trend: None,
-                rhr: None,
-                rhr_trend: None,
-                weight: None,
-                weight_trend: None,
-            };
+            return crate::WidgetWellnessSummary::default();
         };
 
         let fitness = latest.ctl.map(f64::round);
@@ -455,42 +530,109 @@ pub(crate) mod pooled {
         // One row answers for both loads, the way the card's own baseline does:
         // form is a difference, so mixing two days into it would compare a
         // number against one that never existed.
-        let load_baseline = baseline_on_or_before(&rows, &latest.date, 1, |r| r.ctl);
+        let load_baseline = baseline_on_or_before(&rows, &latest.date, DAY, |r| r.ctl);
         let prev_fitness = load_baseline.and_then(|r| r.ctl).map(f64::round);
         let prev_fatigue = load_baseline.and_then(|r| r.atl).map(f64::round);
+        let prev_form = prev_fitness.zip(prev_fatigue).map(|(c, a)| c - a);
 
-        crate::FfiWellnessSummary {
+        let prev_hrv =
+            baseline_on_or_before(&rows, &latest.date, DAY, |r| r.hrv).and_then(|r| r.hrv);
+        let prev_rhr = baseline_on_or_before(&rows, &latest.date, DAY, |r| r.resting_hr)
+            .and_then(|r| r.resting_hr);
+        let prev_weight =
+            baseline_on_or_before(&rows, &latest.date, WEEK, |r| r.weight).and_then(|r| r.weight);
+
+        let both_loads = |r: &WellnessRow| r.ctl.zip(r.atl).map(|(c, _)| c);
+        let fitness_basis = fitness.and(basis(&rows, &latest.date, DAY, |r| r.ctl));
+        let fatigue_basis = fatigue.and(basis(&rows, &latest.date, DAY, |r| r.atl));
+        let form_basis = form.and(basis(&rows, &latest.date, DAY, both_loads));
+        let hrv_basis = latest.hrv.and(basis(&rows, &latest.date, DAY, |r| r.hrv));
+        let rhr_basis = latest
+            .resting_hr
+            .and(basis(&rows, &latest.date, DAY, |r| r.resting_hr));
+        let weight_basis = latest
+            .weight
+            .and(basis(&rows, &latest.date, WEEK, |r| r.weight));
+
+        crate::WidgetWellnessSummary {
             fitness,
-            fitness_trend: crate::trend_table::glyph("fitness", fitness, prev_fitness),
+            fitness_trend: judged("fitness", fitness, prev_fitness, fitness_basis.as_ref()),
             form,
-            form_trend: crate::trend_table::glyph(
-                "form",
-                form,
-                prev_fitness.zip(prev_fatigue).map(|(c, a)| c - a),
-            ),
+            form_trend: judged("form", form, prev_form, form_basis.as_ref()),
             hrv: latest.hrv,
-            hrv_trend: crate::trend_table::glyph(
-                "hrv",
-                latest.hrv,
-                baseline_on_or_before(&rows, &latest.date, 1, |r| r.hrv).and_then(|r| r.hrv),
-            ),
+            hrv_trend: judged("hrv", latest.hrv, prev_hrv, hrv_basis.as_ref()),
             rhr: latest.resting_hr,
-            rhr_trend: crate::trend_table::glyph(
-                "rhr",
-                latest.resting_hr,
-                baseline_on_or_before(&rows, &latest.date, 1, |r| r.resting_hr)
-                    .and_then(|r| r.resting_hr),
-            ),
+            rhr_trend: judged("rhr", latest.resting_hr, prev_rhr, rhr_basis.as_ref()),
             weight: latest.weight,
-            weight_trend: crate::trend_table::glyph(
-                "weight",
-                latest.weight,
-                baseline_on_or_before(&rows, &latest.date, 7, |r| r.weight).and_then(|r| r.weight),
-            ),
+            weight_trend: judged("weight", latest.weight, prev_weight, weight_basis.as_ref()),
+            fatigue,
+            fitness_previous: prev_fitness,
+            fatigue_previous: prev_fatigue,
+            form_previous: prev_form,
+            hrv_previous: prev_hrv,
+            rhr_previous: prev_rhr,
+            fitness_basis,
+            fatigue_basis,
+            form_basis,
+            hrv_basis,
+            rhr_basis,
+            weight_basis,
         }
     }
 
-    /// Fitness, fatigue and the difference, as the newest day in the window
+    /// How far back a summary arrow looks for its baseline, and how many days
+    /// before the reading its earlier readings are counted over.
+    #[derive(Clone, Copy)]
+    struct Reach {
+        lookback_days: i64,
+        window_days: i64,
+    }
+
+    /// A metric read every day: the day before, out of the week before.
+    const DAY: Reach = Reach {
+        lookback_days: 1,
+        window_days: 7,
+    };
+
+    /// Weight: a week before, out of the fortnight before.
+    const WEEK: Reach = Reach {
+        lookback_days: 7,
+        window_days: 14,
+    };
+
+    /// The earlier readings of `field` inside the window before `latest`.
+    fn basis(
+        rows: &[WellnessRow],
+        latest: &str,
+        reach: Reach,
+        field: impl Fn(&WellnessRow) -> Option<f64>,
+    ) -> Option<crate::FfiClaimBasis> {
+        let oldest = shift_days(latest, reach.window_days)?;
+        let population = rows
+            .iter()
+            .filter(|r| r.date.as_str() < latest && r.date >= oldest && field(r).is_some())
+            .count();
+        Some(crate::FfiClaimBasis {
+            baseline: crate::claim::EARLIER_READING.to_string(),
+            population: population as u32,
+        })
+    }
+
+    /// The glyph for a move of `current` against `baseline`, or none when the
+    /// basis does not carry a claim.
+    fn judged(
+        name: &str,
+        current: Option<f64>,
+        baseline: Option<f64>,
+        basis: Option<&crate::FfiClaimBasis>,
+    ) -> Option<String> {
+        if !crate::claim::holds(basis) {
+            return None;
+        }
+        crate::trend_table::glyph(name, current, baseline)
+    }
+
+    /// Fitness and fatigue, as the newest day in the window
     /// has them, or `None` when the window holds no day at all.
     ///
     /// The newest day is the reading whether or not it carries figures: a day
@@ -525,7 +667,6 @@ pub(crate) mod pooled {
             date: row.0,
             ctl,
             atl,
-            tsb: ctl - atl,
         })
     }
 
@@ -566,11 +707,11 @@ pub(crate) mod pooled {
     fn baseline_on_or_before<'a>(
         rows: &'a [WellnessRow],
         latest: &str,
-        lookback_days: i64,
+        reach: Reach,
         field: impl Fn(&WellnessRow) -> Option<f64>,
     ) -> Option<&'a WellnessRow> {
-        let newest = shift_days(latest, lookback_days)?;
-        let oldest = shift_days(latest, lookback_days * 2)?;
+        let newest = shift_days(latest, reach.lookback_days)?;
+        let oldest = shift_days(latest, reach.lookback_days * 2)?;
         rows.iter()
             .find(|r| r.date <= newest && r.date >= oldest && field(r).is_some())
     }
@@ -589,6 +730,19 @@ pub(crate) mod pooled {
     /// The newest stored wellness date, or `None` on an empty table.
     pub(crate) fn latest_date(conn: &Connection) -> SqlResult<Option<String>> {
         conn.query_row("SELECT MAX(date) FROM wellness", [], |r| r.get(0))
+    }
+
+    /// The newest stored wellness date when the `days`-long window ending on
+    /// `today` holds no row at all, which is the window going stale rather
+    /// than the athlete not recording. `None` when the window has a row, and
+    /// when no wellness was ever synced, so neither is dated as a gap.
+    pub(crate) fn hrv_withheld_since_to(
+        conn: &Connection,
+        days: u32,
+        today: &str,
+    ) -> SqlResult<Option<String>> {
+        let oldest = iso_days_before(today, days.saturating_sub(1));
+        Ok(latest_date(conn)?.filter(|newest| *newest < oldest))
     }
 
     /// The rows inside a `days`-long window ending on `today`.
@@ -699,13 +853,20 @@ pub(crate) mod pooled {
 
         let hrv = forward_fill_round(window.iter().map(|w| w.hrv));
         let rhr = forward_fill_round(window.iter().map(|w| w.resting_hr));
+        let hrv_read = read_days(&hrv, window.iter().map(|w| w.hrv));
+        let rhr_read = read_days(&rhr, window.iter().map(|w| w.resting_hr));
 
+        let fitness_rise_days = rise_days(&ctl);
         Ok(Some(crate::FfiWellnessSparklines {
+            fitness_delta: series_delta(&fitness),
+            fitness_rise_days,
             fitness,
             fatigue,
             form,
             hrv,
             rhr,
+            hrv_read,
+            rhr_read,
         }))
     }
 
@@ -722,6 +883,41 @@ pub(crate) mod pooled {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_series_delta_is_last_minus_first() {
+        assert_eq!(series_delta(&[52, 55, 61]), Some(9));
+        assert_eq!(series_delta(&[61, 50]), Some(-11));
+        assert_eq!(series_delta(&[40, 40, 40]), Some(0));
+    }
+
+    #[test]
+    fn a_series_under_two_values_has_no_delta() {
+        assert_eq!(series_delta(&[52]), None);
+        assert_eq!(series_delta(&[]), None);
+    }
+
+    #[test]
+    fn a_flat_load_series_marks_no_rise_days() {
+        assert!(rise_days(&[50.0, 50.0, 50.0, 50.0]).is_empty());
+    }
+
+    #[test]
+    fn one_jump_over_the_threshold_marks_exactly_that_day() {
+        assert_eq!(rise_days(&[50.0, 50.4, 51.9, 51.9, 51.0]), vec![2]);
+    }
+
+    #[test]
+    fn a_rise_of_exactly_the_threshold_is_not_marked() {
+        assert!(rise_days(&[50.0, 51.0]).is_empty());
+    }
+
+    #[test]
+    fn sparklines_carry_the_delta_and_rise_days() {
+        let sp = crate::FfiWellnessSparklines::default();
+        assert_eq!(sp.fitness_delta, None);
+        assert!(sp.fitness_rise_days.is_empty());
+    }
 
     #[test]
     fn a_window_under_five_days_has_no_hrv_verdict() {

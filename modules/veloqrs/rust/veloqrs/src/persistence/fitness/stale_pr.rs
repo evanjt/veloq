@@ -89,7 +89,15 @@ pub(crate) struct StalePrRequest<'a> {
     pub(crate) stale_threshold_days: u32,
     pub(crate) min_gain_percent: f64,
     pub(crate) max_opportunities: u32,
-    pub(crate) exclude_section_ids: &'a HashSet<String>,
+    /// Fewest traversals a section needs to be offered, so a card never
+    /// rests on a section the repetition gate would reject by itself.
+    pub(crate) min_traversals: u32,
+    /// Sections already carrying a recent record, as (section, exact sport
+    /// type). A record in one sport says nothing about the same ground in
+    /// another, so only the sport that set it is excluded.
+    pub(crate) exclude_section_sports: &'a HashSet<(String, String)>,
+    /// Sections excluded in every sport, for a caller that names no sport.
+    pub(crate) exclude_sections: &'a HashSet<String>,
 }
 
 /// The trends the gains are read off, whichever path read them.
@@ -108,7 +116,7 @@ pub(crate) fn opportunities(
     trends: &StalePrTrends<'_>,
     sport_types: &[String],
     request: &StalePrRequest<'_>,
-    mut stale_sections: impl FnMut(&str) -> Vec<crate::FfiRankedSection>,
+    mut stale_sections: impl FnMut(&str) -> Vec<(crate::FfiRankedSection, Option<f64>)>,
     mut fitness_at: impl FnMut(&str, f64) -> Option<f64>,
 ) -> Vec<crate::FfiStalePrOpportunity> {
     let cycling = cycling_now(trends.ftp);
@@ -132,11 +140,18 @@ pub(crate) fn opportunities(
         // opposite of what staleness selects for. The staleness itself is
         // the cut, and it belongs in the query rather than in this loop,
         // which used to walk every section of every sport to keep a few.
-        for section in stale_sections(sport) {
-            if request.exclude_section_ids.contains(&section.section_id) {
+        for (section, best_date) in stale_sections(sport) {
+            if request.exclude_sections.contains(&section.section_id)
+                || request
+                    .exclude_section_sports
+                    .contains(&(section.section_id.clone(), sport.clone()))
+            {
                 continue;
             }
-            if section.traversal_count == 0 || !section.best_time_secs.is_finite() {
+            if section.traversal_count == 0
+                || section.traversal_count < request.min_traversals
+                || !section.best_time_secs.is_finite()
+            {
                 continue;
             }
             // The query bounds the latest traversal by a whole number of days
@@ -149,7 +164,7 @@ pub(crate) fn opportunities(
             // No date, or no fitness recorded by then, and the card has nothing
             // to compare: it said "PR set at 250W" about a day the athlete may
             // never have ridden the section.
-            let Some(then) = section.best_date.and_then(|date| fitness_at(sport, date)) else {
+            let Some(then) = best_date.and_then(|date| fitness_at(sport, date)) else {
                 continue;
             };
             let Some(gain) = gain_since(now, then, request.min_gain_percent) else {
@@ -171,6 +186,7 @@ pub(crate) fn opportunities(
                 // Straight across from the ranked section this was built from,
                 // which already carries them.
                 recent_efforts: section.recent_efforts,
+                best_activity_id: section.best_activity_id,
             });
         }
     }
@@ -178,6 +194,38 @@ pub(crate) fn opportunities(
     out.sort_by_key(|b| std::cmp::Reverse(b.traversal_count));
     out.truncate(request.max_opportunities as usize);
     out
+}
+
+/// The whole stale-PR read over one connection: today's trends, every stored
+/// sport and each sport's stale sections under their display names.
+pub(crate) fn opportunities_from(
+    conn: &rusqlite::Connection,
+    request: &StalePrRequest<'_>,
+) -> Vec<crate::FfiStalePrOpportunity> {
+    use super::derivations::pooled as derivations;
+    let ftp = derivations::ftp_trend_to(conn, &crate::persistence::wellness::today_iso());
+    let run_pace = derivations::pace_trend(conn, "Run");
+    let swim_pace = derivations::pace_trend(conn, "Swim");
+    let sport_types = derivations::try_available_sport_types(conn).unwrap_or_default();
+    let names = crate::persistence::sections::named::pooled::overlay_names(conn);
+    opportunities(
+        &StalePrTrends {
+            ftp: &ftp,
+            run_pace: &run_pace,
+            swim_pace: &swim_pace,
+        },
+        &sport_types,
+        request,
+        |sport| {
+            crate::persistence::sections::ranking::pooled::stale_ranked_sections(
+                conn,
+                sport,
+                request.stale_threshold_days,
+                &names,
+            )
+        },
+        |sport, at| derivations::fitness_on(conn, sport, at),
+    )
 }
 
 #[cfg(test)]
@@ -194,28 +242,38 @@ mod tests {
             .timestamp() as f64
     }
 
-    fn ranked(id: &str, days_since_last: u32, traversals: u32) -> crate::FfiRankedSection {
-        crate::FfiRankedSection {
-            recent_efforts: Vec::new(),
-            section_id: id.to_string(),
-            section_name: id.to_string(),
-            relevance_score: 0.0,
-            recency_score: 0.0,
-            improvement_score: 0.0,
-            anomaly_score: 0.0,
-            engagement_score: 0.0,
-            traversal_count: traversals,
-            best_time_secs: 300.0,
-            best_date: Some(day("2026-03-01")),
-            median_recent_secs: 320.0,
-            days_since_last,
-            trend: 0,
-            latest_is_pr: false,
-        }
+    fn ranked(
+        id: &str,
+        days_since_last: u32,
+        traversals: u32,
+    ) -> (crate::FfiRankedSection, Option<f64>) {
+        (
+            crate::FfiRankedSection {
+                recent_efforts: Vec::new(),
+                best_activity_id: None,
+                section_id: id.to_string(),
+                section_name: id.to_string(),
+                relevance_score: 0.0,
+                recency_score: 0.0,
+                improvement_score: 0.0,
+                improvement_change: None,
+                improvement_basis: None,
+                anomaly_score: 0.0,
+                engagement_score: 0.0,
+                traversal_count: traversals,
+                best_time_secs: 300.0,
+                median_recent_secs: 320.0,
+                days_since_last,
+                trend: 0,
+                latest_is_pr: false,
+            },
+            Some(day("2026-03-01")),
+        )
     }
 
     fn ftp(latest: Option<u16>, previous: Option<u16>) -> crate::FfiFtpTrend {
         crate::FfiFtpTrend {
+            changes: Vec::new(),
             history: Vec::new(),
             latest_ftp: latest,
             latest_date: None,
@@ -235,17 +293,26 @@ mod tests {
             previous_date: None,
             gain_percent: None,
             delta_seconds: None,
+            glyph: None,
             sample_count: 0,
         }
     }
 
-    fn request<'a>(exclude: &'a std::collections::HashSet<String>) -> StalePrRequest<'a> {
+    fn request<'a>(exclude: &'a std::collections::HashSet<(String, String)>) -> StalePrRequest<'a> {
+        static NO_SECTIONS: std::sync::LazyLock<std::collections::HashSet<String>> =
+            std::sync::LazyLock::new(std::collections::HashSet::new);
         StalePrRequest {
             stale_threshold_days: 30,
             min_gain_percent: 3.0,
             max_opportunities: 10,
-            exclude_section_ids: exclude,
+            min_traversals: 2,
+            exclude_section_sports: exclude,
+            exclude_sections: &NO_SECTIONS,
         }
+    }
+
+    fn pair(section: &str, sport: &str) -> (String, String) {
+        (section.to_string(), sport.to_string())
     }
 
     /// Scenario: the screen used to pass the sections already carrying a PR
@@ -266,8 +333,8 @@ mod tests {
         let sports = vec!["Ride".to_string()];
         let sections = vec![ranked("kept", 90, 6), ranked("carded", 120, 9)];
 
-        let exclude: std::collections::HashSet<String> =
-            ["carded".to_string()].into_iter().collect();
+        let exclude: std::collections::HashSet<(String, String)> =
+            [pair("carded", "Ride")].into_iter().collect();
         let out = opportunities(
             &trends,
             &sports,
@@ -299,7 +366,7 @@ mod tests {
         };
         let sports = vec!["Ride".to_string()];
         let sections = vec![ranked("fresh", 29, 6), ranked("stale", 30, 6)];
-        let exclude = std::collections::HashSet::new();
+        let exclude = std::collections::HashSet::<(String, String)>::new();
 
         let out = opportunities(
             &trends,
@@ -317,6 +384,40 @@ mod tests {
         );
     }
 
+    /// Scenario: a section ridden once beside one ridden eight times. The
+    /// thin one would fail the repetition floor as a card of its own and,
+    /// grouped, would take the other down with it.
+    ///
+    /// Expected behaviour: only the section at or above the floor is offered.
+    #[test]
+    fn a_section_under_the_traversal_floor_is_not_offered() {
+        let ftp = ftp(Some(285), Some(250));
+        let pace = flat_pace();
+        let trends = StalePrTrends {
+            ftp: &ftp,
+            run_pace: &pace,
+            swim_pace: &pace,
+        };
+        let sports = vec!["Ride".to_string()];
+        let sections = vec![ranked("thin", 90, 1), ranked("busy", 90, 8)];
+        let exclude = std::collections::HashSet::<(String, String)>::new();
+
+        let out = opportunities(
+            &trends,
+            &sports,
+            &request(&exclude),
+            |_| sections.clone(),
+            |_, _| Some(250.0),
+        );
+
+        assert_eq!(
+            out.iter()
+                .map(|o| o.section_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["busy"],
+        );
+    }
+
     /// No gain in any sport is no reads at all: the per-sport query is the
     /// expensive half and there is nothing for it to qualify.
     #[test]
@@ -329,7 +430,7 @@ mod tests {
             swim_pace: &pace,
         };
         let sports = vec!["Ride".to_string()];
-        let exclude = std::collections::HashSet::new();
+        let exclude = std::collections::HashSet::<(String, String)>::new();
         let mut reads = 0;
 
         let out = opportunities(
@@ -345,6 +446,72 @@ mod tests {
 
         assert!(out.is_empty());
         assert_eq!(reads, 0, "nothing qualifies, so nothing is read");
+    }
+
+    fn run_and_ride_trends() -> (crate::FfiFtpTrend, crate::FfiPaceTrend) {
+        let mut run = flat_pace();
+        run.latest_pace = Some(300.0);
+        (ftp(Some(285), Some(250)), run)
+    }
+
+    fn offered(
+        exclude: &std::collections::HashSet<(String, String)>,
+        whole: &std::collections::HashSet<String>,
+    ) -> Vec<(String, String)> {
+        let (ftp, run) = run_and_ride_trends();
+        let swim = flat_pace();
+        let trends = StalePrTrends {
+            ftp: &ftp,
+            run_pace: &run,
+            swim_pace: &swim,
+        };
+        let sports = vec!["Ride".to_string(), "Run".to_string()];
+        let mut req = request(exclude);
+        req.exclude_sections = whole;
+        opportunities(
+            &trends,
+            &sports,
+            &req,
+            |_| vec![ranked("cedar_hill", 90, 6)],
+            |_, _| Some(250.0),
+        )
+        .into_iter()
+        .map(|o| (o.section_id, o.sport_type))
+        .collect()
+    }
+
+    /// Scenario: a recent Ride record on Cedar Hill, and an old Run record on
+    /// the same ground whose fitness has since improved.
+    ///
+    /// Expected behaviour: only the Ride is suppressed; the Run is still offered.
+    #[test]
+    fn a_record_in_one_sport_does_not_exclude_the_same_section_in_another() {
+        let none = std::collections::HashSet::new();
+        let exclude: std::collections::HashSet<(String, String)> =
+            [pair("cedar_hill", "Ride")].into_iter().collect();
+        assert_eq!(offered(&exclude, &none), vec![pair("cedar_hill", "Run")]);
+    }
+
+    #[test]
+    fn an_exclusion_for_another_section_suppresses_neither_sport() {
+        let none = std::collections::HashSet::new();
+        let exclude: std::collections::HashSet<(String, String)> =
+            [pair("elm_row", "Ride")].into_iter().collect();
+        assert_eq!(
+            offered(&exclude, &none),
+            vec![pair("cedar_hill", "Ride"), pair("cedar_hill", "Run")]
+        );
+        assert_eq!(
+            offered(&Default::default(), &none),
+            vec![pair("cedar_hill", "Ride"), pair("cedar_hill", "Run")]
+        );
+    }
+
+    #[test]
+    fn a_section_wide_exclusion_suppresses_every_sport() {
+        let whole: std::collections::HashSet<String> =
+            ["cedar_hill".to_string()].into_iter().collect();
+        assert!(offered(&Default::default(), &whole).is_empty());
     }
 
     fn gain(unit: &'static str) -> CurrentFitness {
@@ -372,8 +539,8 @@ mod tests {
         };
         let sports = vec!["Ride".to_string()];
         let mut section = ranked("col", 90, 6);
-        section.best_date = Some(day("2026-03-01"));
-        let exclude = std::collections::HashSet::new();
+        section.1 = Some(day("2026-03-01"));
+        let exclude = std::collections::HashSet::<(String, String)>::new();
 
         let out = opportunities(
             &trends,
@@ -406,7 +573,7 @@ mod tests {
             swim_pace: &pace,
         };
         let sports = vec!["Ride".to_string()];
-        let exclude = std::collections::HashSet::new();
+        let exclude = std::collections::HashSet::<(String, String)>::new();
 
         let out = opportunities(
             &trends,
@@ -431,9 +598,9 @@ mod tests {
             swim_pace: &pace,
         };
         let sports = vec!["Ride".to_string()];
-        let exclude = std::collections::HashSet::new();
+        let exclude = std::collections::HashSet::<(String, String)>::new();
         let mut dateless = ranked("dateless", 90, 6);
-        dateless.best_date = None;
+        dateless.1 = None;
 
         let unread = opportunities(
             &trends,

@@ -44,7 +44,7 @@ impl PersistentEngine {
         // screen read out thirty times.
         self.db.execute_batch("BEGIN IMMEDIATE")?;
         match self.write_exercise_sets(activity_id, sets) {
-            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Ok(()) => super::commit_write_txn(&self.db)?,
             Err(e) => {
                 let _ = self.db.execute_batch("ROLLBACK");
                 return Err(e);
@@ -80,30 +80,7 @@ impl PersistentEngine {
 
     /// Get cached exercise sets for an activity.
     pub fn get_exercise_sets(&self, activity_id: &str) -> SqlResult<Vec<FitExerciseSet>> {
-        let mut stmt = self.db.prepare(
-            "SELECT set_order, exercise_category, exercise_name,
-                    set_type, repetitions, weight_kg, duration_secs, start_time
-             FROM exercise_sets
-             WHERE activity_id = ?
-             ORDER BY set_order",
-        )?;
-
-        let sets = stmt
-            .query_map(params![activity_id], |row| {
-                Ok(FitExerciseSet {
-                    set_order: row.get::<_, i32>(0)? as u32,
-                    exercise_category: row.get::<_, i32>(1)? as u16,
-                    exercise_name: row.get::<_, Option<i32>>(2)?.map(|v| v as u16),
-                    set_type: row.get::<_, i32>(3)? as u8,
-                    repetitions: row.get::<_, Option<i32>>(4)?.map(|v| v as u16),
-                    weight_kg: row.get(5)?,
-                    duration_secs: row.get(6)?,
-                    start_time: row.get(7)?,
-                })
-            })?
-            .collect::<SqlResult<Vec<_>>>()?;
-
-        Ok(sets)
+        pooled::exercise_sets(&self.db, activity_id)
     }
 
     /// Record a SETTLED verdict for an activity's FIT file. A row here excludes
@@ -126,62 +103,13 @@ impl PersistentEngine {
 
     /// Check if a FIT file has been processed for an activity.
     pub fn is_fit_processed(&self, activity_id: &str) -> SqlResult<bool> {
-        let count: i32 = self.db.query_row(
-            "SELECT COUNT(*) FROM fit_file_status WHERE activity_id = ?",
-            params![activity_id],
-            |row| row.get(0),
-        )?;
-        Ok(count > 0)
+        pooled::is_fit_processed(&self.db, activity_id)
     }
 
     /// Activity ids owed a FIT download: strength activities with no recorded
-    /// outcome yet.
-    ///
-    /// An empty list means the whole library. The caller used to build the list
-    /// by filtering a whole-library parsed array in JavaScript for
-    /// `type === 'WeightTraining'` and ship every id back over the FFI to be
-    /// filtered again, and that filter was one of the three uses keeping the
-    /// parsed array alive. The sport is a column here, so both filters belong
-    /// in the one statement.
-    pub fn get_unprocessed_strength_ids(&self, activity_ids: &[String]) -> SqlResult<Vec<String>> {
-        if activity_ids.is_empty() {
-            return self.unprocessed_strength_queue();
-        }
-
-        let processed: std::collections::HashSet<String> = {
-            let placeholders = activity_ids
-                .iter()
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
-            let sql = format!(
-                "SELECT activity_id FROM fit_file_status WHERE activity_id IN ({})",
-                placeholders
-            );
-            let mut stmt = self.db.prepare(&sql)?;
-            let rows = stmt.query_map(rusqlite::params_from_iter(activity_ids.iter()), |row| {
-                row.get::<_, String>(0)
-            })?;
-            rows.filter_map(|r| r.ok()).collect()
-        };
-
-        Ok(activity_ids
-            .iter()
-            .filter(|id| !processed.contains(id.as_str()))
-            .cloned()
-            .collect())
-    }
-
-    /// Every strength activity with no recorded FIT outcome, oldest first.
-    fn unprocessed_strength_queue(&self) -> SqlResult<Vec<String>> {
-        let mut stmt = self.db.prepare(
-            "SELECT m.activity_id FROM activity_metrics m
-             LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
-             WHERE m.sport_type = 'WeightTraining' AND f.activity_id IS NULL
-             ORDER BY m.date",
-        )?;
-        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
-        Ok(rows.filter_map(|r| r.ok()).collect())
+    /// outcome yet, newest first.
+    pub fn get_unprocessed_strength_ids(&self) -> SqlResult<Vec<String>> {
+        pooled::unprocessed_strength_queue(&self.db)
     }
 
     /// Get all exercise sets for WeightTraining activities within a date range.
@@ -206,34 +134,7 @@ impl PersistentEngine {
         &self,
         activity_ids: &[String],
     ) -> SqlResult<std::collections::HashMap<String, (String, i64)>> {
-        if activity_ids.is_empty() {
-            return Ok(std::collections::HashMap::new());
-        }
-
-        let placeholders = activity_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
-        let sql = format!(
-            "SELECT activity_id, name, date FROM activity_metrics WHERE activity_id IN ({})",
-            placeholders
-        );
-        let mut stmt = self.db.prepare(&sql)?;
-        let rows = stmt.query_map(rusqlite::params_from_iter(activity_ids.iter()), |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
-            ))
-        })?;
-
-        let mut result = std::collections::HashMap::new();
-        for row in rows {
-            let (id, name, date) = row?;
-            result.insert(id, (name, date));
-        }
-        Ok(result)
+        pooled::activity_names(&self.db, activity_ids)
     }
 }
 
@@ -381,6 +282,40 @@ pub(crate) mod pooled {
 
     use crate::fit::FitExerciseSet;
 
+    pub(crate) fn exercise_history(
+        conn: &Connection,
+        exercise_category: u16,
+    ) -> SqlResult<Vec<(String, String, i64, FitExerciseSet)>> {
+        let mut stmt = conn.prepare(
+            "SELECT es.activity_id, am.name, am.date, es.set_order, es.exercise_category,
+                    es.exercise_name, es.set_type, es.repetitions, es.weight_kg,
+                    es.duration_secs, es.start_time
+             FROM exercise_sets es
+             INNER JOIN activity_metrics am ON am.activity_id = es.activity_id
+             WHERE am.sport_type = 'WeightTraining' AND es.exercise_category = ?
+               AND es.set_type = 0
+             ORDER BY am.date, es.activity_id, es.set_order",
+        )?;
+        stmt.query_map([exercise_category], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                FitExerciseSet {
+                    set_order: row.get::<_, i32>(3)? as u32,
+                    exercise_category: row.get::<_, i32>(4)? as u16,
+                    exercise_name: row.get::<_, Option<i32>>(5)?.map(|v| v as u16),
+                    set_type: row.get::<_, i32>(6)? as u8,
+                    repetitions: row.get::<_, Option<i32>>(7)?.map(|v| v as u16),
+                    weight_kg: row.get(8)?,
+                    duration_secs: row.get(9)?,
+                    start_time: row.get(10)?,
+                },
+            ))
+        })?
+        .collect()
+    }
+
     pub(crate) fn exercise_sets_in_range(
         conn: &Connection,
         start_ts: i64,
@@ -431,5 +366,117 @@ pub(crate) mod pooled {
             |row| row.get(0),
         )?;
         Ok(count as u32)
+    }
+
+    /// One activity's cached sets, in the order they were recorded.
+    pub(crate) fn exercise_sets(
+        conn: &Connection,
+        activity_id: &str,
+    ) -> SqlResult<Vec<FitExerciseSet>> {
+        let mut stmt = conn.prepare(
+            "SELECT set_order, exercise_category, exercise_name,
+                    set_type, repetitions, weight_kg, duration_secs, start_time
+             FROM exercise_sets
+             WHERE activity_id = ?
+             ORDER BY set_order",
+        )?;
+
+        let sets = stmt
+            .query_map(params![activity_id], |row| {
+                Ok(FitExerciseSet {
+                    set_order: row.get::<_, i32>(0)? as u32,
+                    exercise_category: row.get::<_, i32>(1)? as u16,
+                    exercise_name: row.get::<_, Option<i32>>(2)?.map(|v| v as u16),
+                    set_type: row.get::<_, i32>(3)? as u8,
+                    repetitions: row.get::<_, Option<i32>>(4)?.map(|v| v as u16),
+                    weight_kg: row.get(5)?,
+                    duration_secs: row.get(6)?,
+                    start_time: row.get(7)?,
+                })
+            })?
+            .collect::<SqlResult<Vec<_>>>()?;
+
+        Ok(sets)
+    }
+
+    /// Whether the activity's FIT file has a settled verdict.
+    pub(crate) fn is_fit_processed(conn: &Connection, activity_id: &str) -> SqlResult<bool> {
+        let count: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM fit_file_status WHERE activity_id = ?",
+            params![activity_id],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
+    /// Every strength activity with no recorded FIT outcome, newest first, so the periods that end today fill first.
+    ///
+    /// The caller used to build a candidate list by filtering a whole-library
+    /// parsed array in JavaScript for `type === 'WeightTraining'` and ship every
+    /// id back over the FFI to be filtered again. The sport is a column here, so
+    /// both filters live in the one statement.
+    pub(crate) fn unprocessed_strength_queue(conn: &Connection) -> SqlResult<Vec<String>> {
+        let mut stmt = conn.prepare(
+            "SELECT m.activity_id FROM activity_metrics m
+             LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
+             WHERE m.sport_type = 'WeightTraining' AND f.activity_id IS NULL
+             ORDER BY m.date DESC",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// How many strength activities dated inside `[start_ts, end_ts]` have no
+    /// recorded FIT outcome. The same rows as the queue above, over the window
+    /// the period's sets are read from.
+    pub(crate) fn unprocessed_strength_count_in_range(
+        conn: &Connection,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> SqlResult<u32> {
+        conn.query_row(
+            "SELECT COUNT(*) FROM activity_metrics m
+             LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
+             WHERE m.sport_type = 'WeightTraining' AND f.activity_id IS NULL
+               AND m.date >= ? AND m.date <= ?",
+            params![start_ts, end_ts],
+            |row| row.get(0),
+        )
+    }
+
+    /// Name and date for each id the library knows, keyed by id. An id it does
+    /// not know is simply absent.
+    pub(crate) fn activity_names(
+        conn: &Connection,
+        activity_ids: &[String],
+    ) -> SqlResult<std::collections::HashMap<String, (String, i64)>> {
+        if activity_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let placeholders = activity_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT activity_id, name, date FROM activity_metrics WHERE activity_id IN ({})",
+            placeholders
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(activity_ids.iter()), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })?;
+
+        let mut result = std::collections::HashMap::new();
+        for row in rows {
+            let (id, name, date) = row?;
+            result.insert(id, (name, date));
+        }
+        Ok(result)
     }
 }
