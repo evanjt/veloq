@@ -5,14 +5,14 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import type { PreviewSection, PreviewSectionStatus } from 'veloqrs';
-import { pressable, pressRipple } from '@/shared/ui';
+import { IconButton } from '@/shared/ui';
 
 const STATUS_KEYS: Record<PreviewSectionStatus, string> = {
   unchanged: 'settings.previewStatusUnchanged',
@@ -54,17 +54,13 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
         <Text style={[styles.name, { color: textPrimary }]} numberOfLines={1}>
           {section.name ?? t('settings.previewNewSectionName', { number: newNumber ?? 1 })}
         </Text>
-        <Pressable
+        <IconButton
           onPress={onClose}
-          hitSlop={12}
-          accessibilityRole="button"
           accessibilityLabel={t('common.close')}
           testID="preview-popover-close"
-          style={pressable()}
-          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons name="close" size={20} color={textSecondary} />
-        </Pressable>
+        </IconButton>
       </View>
 
       <View style={styles.badgeRow}>

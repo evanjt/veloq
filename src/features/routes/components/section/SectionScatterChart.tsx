@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     top: CHART_PADDING.top,
     bottom: CHART_PADDING.bottom,
     width: 1,
-    backgroundColor: colors.textMuted,
+    backgroundColor: colors.textSecondary,
   },
   yAxisOverlay: {
     position: 'absolute',
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   },
   timeAxisLabel: {
     fontSize: typography.pillLabel.fontSize,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   timeAxisLabelFirst: {
     textAlign: 'left',
@@ -666,9 +666,9 @@ const styles = StyleSheet.create({
   },
   axisLabel: {
     fontSize: typography.pillLabel.fontSize,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   axisLabelDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
   },
 });

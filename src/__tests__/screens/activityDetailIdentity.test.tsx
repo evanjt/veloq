@@ -110,7 +110,7 @@ jest.mock('@/features/activity/hooks', () => ({
   useDetailCoordinates: () => {
     throw new Error('Detail coordinates must follow the composed stream read');
   },
-  useActivitySectionHighlights: () => ({ routes: new Map() }),
+  useActivitySectionHighlights: () => ({ routes: new Map(), newGround: new Map() }),
   // The screen takes this through the feature barrel, which re-exports it from
   // this index, so the index has to hand back the same stub the module mock
   // below installs rather than one of its own.
@@ -196,7 +196,7 @@ jest.mock('@/features/routes/hooks/useRouteMatch', () => ({
   useRouteMatch: () => ({ routeGroup: null, representativeActivityId: null }),
 }));
 jest.mock('@/features/activity/hooks/useActivitySectionHighlights', () => ({
-  useActivitySectionHighlights: () => ({ routes: new Map() }),
+  useActivitySectionHighlights: () => ({ routes: new Map(), newGround: new Map() }),
 }));
 let mockRouteMatchingOn = true;
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({

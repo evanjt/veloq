@@ -33,7 +33,7 @@ const RIGHT_COLOR = colors.markCyan;
 export function StrengthSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const trackColor = isDark ? colorWithOpacity(ink.white, 0.08) : colorWithOpacity(ink.black, 0.06);
 
   return (

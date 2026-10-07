@@ -10,6 +10,7 @@ import { I18nManager } from 'react-native';
 import { i18n, getCurrentLanguage } from '@/i18n';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
+import { TIME } from '@/shared/app/time';
 
 // Unit conversion constants
 export const KM_TO_MI = 0.621371;
@@ -396,6 +397,17 @@ export function formatPower(watts: number): string {
 }
 
 /**
+ * Whole calendar days from `from` to `to`, ignoring the time of day: zero on the
+ * same day, one across a midnight, negative when `to` is earlier. The rounding
+ * absorbs the 23 or 25 hour day of a clock change.
+ */
+export function calendarDaysBetween(from: Date, to: Date): number {
+  const fromDay = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const toDay = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((toDay.getTime() - fromDay.getTime()) / TIME.DAY);
+}
+
+/**
  * Format date as relative time or localized date.
  *
  * Returns human-readable relative dates:
@@ -419,9 +431,7 @@ export function formatRelativeDate(dateString: string): string {
 
   // Compare calendar days, not elapsed time
   // This ensures "yesterday at 4pm" shows as "Yesterday" even if checked at 8am today
-  const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffDays = Math.round((nowDay.getTime() - dateDay.getTime()) / (1000 * 60 * 60 * 24));
+  const diffDays = calendarDaysBetween(date, now);
 
   const isCurrentYear = date.getFullYear() === now.getFullYear();
   const locale = getIntlLocale();

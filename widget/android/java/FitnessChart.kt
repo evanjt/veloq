@@ -71,7 +71,7 @@ object FitnessChart {
     if (values.size < 2) return bmp
     val canvas = Canvas(bmp)
 
-    val plot = layoutPlot(canvas, w, h, density, colors, values.min(), values.max(), false)
+    val plot = layoutPlot(canvas, w, h, density, colors, values.min(), values.max())
     drawFill(canvas, plot, values, lineColor, fillAlpha)
     drawLine(canvas, plot, values, colors.casing, 2f * density)
     drawLine(canvas, plot, values, lineColor, 1.5f * density)

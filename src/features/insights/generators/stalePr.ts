@@ -11,6 +11,7 @@ import { confidenceFrom } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
 import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
+import { TIME } from '@/shared/app/time';
 
 /**
  * Stale PR / Opportunity Detection
@@ -177,7 +178,7 @@ export function stalePROpportunityToInsight(
       repetitionCount: opportunity.traversalCount,
       // The age of the last traversal, not of the card. The recency gate reads
       // this, and stamping it with `now` would age every card at zero days.
-      sourceTimestamp: timestamp - opportunity.daysSinceLast * 86_400_000,
+      sourceTimestamp: timestamp - opportunity.daysSinceLast * TIME.DAY,
       placeName: opportunity.sectionName,
       sectionId: opportunity.sectionId,
     },
@@ -302,7 +303,7 @@ export function generateStalePRInsights(
         // The freshest member, so the group is only as stale as its least stale
         // section. The same for repetitions: one thin member should not let a
         // group through a gate that member would fail alone.
-        sourceTimestamp: now - Math.min(...filtered.map((o) => o.daysSinceLast)) * 86_400_000,
+        sourceTimestamp: now - Math.min(...filtered.map((o) => o.daysSinceLast)) * TIME.DAY,
         repetitionCount: Math.min(...filtered.map((o) => o.traversalCount)),
       },
       supportingData: {

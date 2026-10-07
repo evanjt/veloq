@@ -27,6 +27,7 @@ function state(over: Partial<StreamBackfillState> & { refusal?: StartOutcome | n
     total: 0,
     stored: 0,
     remaining: null,
+    remainingBytes: null,
     isRunning: false,
     refusal: null,
     ...over,
@@ -107,6 +108,52 @@ describe('StreamBackfillRow', () => {
       })
     );
     expect(row().getByTestId('settings-stream-backfill-action')).toBeTruthy();
+  });
+
+  /**
+   * Scenario: the athlete stopped the pass and opens Settings later.
+   * Expected behaviour: the row says how much the owed queue downloads, from
+   * the engine's byte figure, and a queue under a megabyte is not "0 MB".
+   */
+  it('states the size of what is owed after a stop', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({ remaining: 412, remainingBytes: 8_650_000, phase: 'stopped' })
+    );
+    expect(row().getByTestId('settings-stream-backfill-count').props.children).toBe(
+      '412 activities, 8.7 MB'
+    );
+  });
+
+  it('states a queue under a megabyte in kilobytes', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({ remaining: 3, remainingBytes: 400_000, phase: 'stopped' })
+    );
+    expect(row().getByTestId('settings-stream-backfill-count').props.children).toBe(
+      '3 activities, 400.0 KB'
+    );
+  });
+
+  it('states the size beside the count while the engine waits for consent', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({
+        remaining: 900,
+        remainingBytes: 90_000_000,
+        phase: 'awaiting_consent',
+        awaitingConsent: true,
+      })
+    );
+    expect(row().getByTestId('settings-stream-backfill-count').props.children).toBe(
+      '900 activities, 90.0 MB'
+    );
+  });
+
+  it('shows the count alone when the engine cannot price the queue', () => {
+    mockUseStreamBackfill.mockReturnValue(
+      state({ remaining: 412, remainingBytes: null, phase: 'stopped' })
+    );
+    expect(row().getByTestId('settings-stream-backfill-count').props.children).toBe(
+      '412 activities'
+    );
   });
 
   it('reads as a singular when one activity is owed', () => {

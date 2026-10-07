@@ -206,14 +206,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: CHART_PADDING.left + 2,
     fontSize: typography.pillLabel.fontSize,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   edgeLabel: {
     fontSize: typography.pillLabel.fontSize,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   axisLabelDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
   },
   edgeAxis: {
     flexDirection: 'row',
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   caption: {
     textAlign: 'center',
     fontSize: typography.pillLabel.fontSize,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
 });

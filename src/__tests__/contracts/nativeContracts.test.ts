@@ -14,6 +14,7 @@ import path from 'path';
 import { VELOQ_TILE_SCHEME } from '@/features/maps/lib/tileTransport';
 import { VELOQ_WEBVIEW_COMPONENT_NAME } from '@/features/maps/lib/veloqWebView';
 import { SATELLITE_SOURCES } from '@/features/maps/components/mapStyles';
+import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import { LIBERTY_SOURCES } from '@/features/maps/styles/liberty/sources';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
 import { RECORD_PICKER_URL, WIDGET_STRING_KEYS } from '@/features/home/lib/widgetSnapshot';
@@ -1212,6 +1213,36 @@ describe('name lists written on two sides agree', () => {
     expect(b.length).toBeGreaterThan(0);
     if (s.mode === 'equal') expect(a).toEqual(b);
     else expect(a.filter((name) => !b.includes(name))).toEqual([]);
+  });
+});
+
+describe('the light heatmap paint agrees with the contrast test that gates it', () => {
+  const tiles = read(`${RUST}/tiles.rs`);
+  const constant = (name: string) => {
+    const match = tiles.match(new RegExp(`const ${name}: f32 = (-?[0-9.]+);`));
+    expect(match).not.toBeNull();
+    return Number(match?.[1]);
+  };
+
+  it.each([
+    ['LIGHT_RASTER_OPACITY', 'raster-opacity'],
+    ['LIGHT_BRIGHTNESS_MIN', 'raster-brightness-min'],
+    ['LIGHT_BRIGHTNESS_MAX', 'raster-brightness-max'],
+    ['LIGHT_HUE_ROTATE_DEGREES', 'raster-hue-rotate'],
+  ])('%s is the %s of the regional heatmap layer', (name, property) => {
+    const layer = buildRegionalLayers({
+      mapStyle: 'light',
+      heatmapEnabled: true,
+      showHeatmap: true,
+      hasSpider: false,
+      showActivities: true,
+      selectedActivityId: null,
+      selectedSectionId: null,
+      routeColor: '#FF6B35',
+    } as unknown as Parameters<typeof buildRegionalLayers>[0]).find(
+      (l) => l.id === 'heatmap-layer'
+    );
+    expect(layer?.paint?.[property]).toBe(constant(name));
   });
 });
 

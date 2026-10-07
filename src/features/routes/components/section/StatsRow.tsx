@@ -78,7 +78,7 @@ export function StatsRow({
       </View>
       <View style={styles.statsMiddle}>
         {stats?.avgTime != null && (
-          <Text style={[styles.statsValue, isDark && styles.textMuted]}>
+          <Text style={[styles.statsValue, isDark && styles.textSecondary]}>
             {showPace && stats.avgSpeed != null && stats.avgSpeed > 0
               ? `${isSwimming ? formatSwimPace(stats.avgSpeed, isMetric) : formatPace(stats.avgSpeed, isMetric)} ${t('sections.avg')}`
               : `${formatDuration(stats.avgTime)} ${t('sections.avg')}`}
@@ -101,7 +101,7 @@ export function StatsRow({
             style={
               bestIsRecord
                 ? [styles.prTime, isDark && styles.prTimeDark]
-                : [styles.statsValue, isDark && styles.textMuted]
+                : [styles.statsValue, isDark && styles.textSecondary]
             }
           >
             {bestIsRecord ? bestValue : `${bestValue} ${t('sections.best')}`}
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   statsValue: {
     fontSize: typography.label.fontSize,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   prBadge: {
     flexDirection: 'row',
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: darkColors.textPrimary,
   },
-  textMuted: {
-    color: darkColors.textMuted,
+  textSecondary: {
+    color: darkColors.textSecondary,
   },
 });

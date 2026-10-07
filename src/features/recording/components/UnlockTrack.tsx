@@ -8,7 +8,7 @@ import React, { useRef, useCallback } from 'react';
 import { View, StyleSheet, Animated, PanResponder } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 
 import { useTheme } from '@/shared/app';
 import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
@@ -26,7 +26,7 @@ export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
   const handleUnlock = useCallback(() => {
     if (hasTriggeredRef.current) return;
     hasTriggeredRef.current = true;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    haptics.success();
     onUnlock();
     setTimeout(() => {
       translateX.setValue(0);
@@ -39,7 +39,7 @@ export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        haptics.light();
       },
       onPanResponderMove: (_, gesture) => {
         const threshold = trackWidthRef.current - HANDLE_SIZE - spacing.xs * 2;

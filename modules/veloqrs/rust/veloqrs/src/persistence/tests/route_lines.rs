@@ -232,6 +232,7 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  INSERT INTO route_numbers (route_id, number) VALUES ('r_1', 1), ('r_2', 2);
                  DROP TABLE route_line_layer;
                  DROP TABLE activity_climb_bests;
+                 DROP TABLE activity_new_ground;
                  ALTER TABLE sections DROP COLUMN original_polyline_blob;
                  ALTER TABLE gps_tracks DROP COLUMN elevation_source;",
             )

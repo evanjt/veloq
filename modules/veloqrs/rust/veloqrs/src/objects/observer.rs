@@ -390,7 +390,15 @@ pub(crate) mod recorder {
             })
         }
 
+        /// What it has heard once every announcement queued so far has been
+        /// delivered.
+        ///
+        /// An emit returns before the announce thread delivers it, so a read
+        /// that did not drain first would race that thread: under a loaded
+        /// run it sees nothing, and a read that expects nothing passes whether
+        /// or not something was announced.
         pub(crate) fn events(&self) -> Vec<String> {
+            super::flush();
             self.events
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())

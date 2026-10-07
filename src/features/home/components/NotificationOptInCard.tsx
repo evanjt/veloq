@@ -10,8 +10,8 @@ import {
   useNotificationPreferences,
   isPrivacyNoticeOwed,
   useNotificationPrompt,
+  requestNotificationPermission,
 } from '@/features/settings';
-import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { Button } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';

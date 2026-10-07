@@ -240,7 +240,7 @@ function DataFieldGridInner({
             emptyKind={emptyKind}
             isDark={isDark}
             textColor={themeColors.text}
-            mutedColor={themeColors.textMuted}
+            mutedColor={themeColors.textSecondary}
             onLongPressField={onLongPressField}
             onEmptySensorTap={onEmptySensorTap}
           />

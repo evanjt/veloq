@@ -152,11 +152,12 @@ export function ActivityDetailScreenContent() {
 
   // Route PR delta for the Routes tab badge (negative = ahead of PR)
   const activityIdsForHighlights = useMemo(() => (id ? [id] : []), [id]);
-  const { routes: routeHighlightsMap } = useActivitySectionHighlights(
+  const { routes: routeHighlightsMap, newGround: newGroundMap } = useActivitySectionHighlights(
     activityIdsForHighlights,
     detail?.highlights
   );
   const routeHighlight = id ? routeHighlightsMap.get(id) : undefined;
+  const newGround = id ? newGroundMap.get(id) : undefined;
 
   // Fetch representative activity streams for route overlay (only when on Routes tab)
   const { data: representativeStreams } = useActivityStreams(
@@ -598,6 +599,7 @@ export function ActivityDetailScreenContent() {
           customSectionCount={customMatchedSections.length}
           maxHR={detail?.maxHR}
           fitnessImpact={detail?.fitnessImpact}
+          newGround={newGround}
           hrZones={detail?.hrZones}
           onPointSelect={handlePointSelect}
           onInteractionChange={handleInteractionChange}

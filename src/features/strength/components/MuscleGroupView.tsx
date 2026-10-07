@@ -155,7 +155,7 @@ export function MuscleGroupView({
                       <MaterialCommunityIcons
                         name="close"
                         size={12}
-                        color={isDark ? darkColors.textMuted : colors.textDisabled}
+                        color={isDark ? darkColors.textSecondary : colors.textDisabled}
                       />
                     </IconButton>
                   </View>

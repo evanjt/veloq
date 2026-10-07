@@ -138,7 +138,9 @@ describe('FFI Binding Validation', () => {
       // `consent_stream_backfill` is standalone beside `start_stream_backfill`:
       // the pass is a process slot, and the answer is recorded as a setting
       // row before it starts.
-      expect(STANDALONE_EXPORTS.length).toBe(30);
+      // `set_interacting` is standalone beside `set_network_online`: a process-wide
+      // advisory value that has to land before the engine opens.
+      expect(STANDALONE_EXPORTS.length).toBe(31);
     });
 
     it('should include the known standalone FFI functions', () => {

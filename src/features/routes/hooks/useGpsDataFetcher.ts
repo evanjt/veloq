@@ -16,7 +16,6 @@ import { engine, DownloadPriority, type ActivitySportMapping } from 'veloqrs';
 import { present } from 'veloqrs/src/delegates/optional';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { toActivityMetrics } from '@/shared/activity/activityMetrics';
 import { activityStartEpoch } from '@/shared/activity/streamWindow';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -238,10 +237,6 @@ export function useGpsDataFetcher() {
         // Add to engine
         await nativeModule.engine.addActivities(ids, allCoords, offsets, sportTypes);
 
-        // Sync activity metrics for performance calculations
-        const syncedActivities = activities.filter((a) => ids.includes(a.id));
-        const metrics = syncedActivities.map(toActivityMetrics);
-        engine.setActivityMetrics(metrics);
         engine.triggerRefresh('activities');
 
         // Persist synthetic time streams so save_sections() can compute lap_time/lap_pace
@@ -538,23 +533,14 @@ export function useGpsDataFetcher() {
         return ending('superseded');
       }
 
-      // Activities already stored in Rust engine by startFetchAndStore
-      // Just need to sync metrics and start section detection
+      // Activities already stored in Rust engine by startFetchAndStore, with
+      // their metrics rows. Just need to refresh and start section detection
 
       const gapStart = Date.now();
 
       if (result.syncedIds.length > 0 && isMountedRef.current) {
-        const syncedActivities = activities.filter((a) => result.syncedIds.includes(a.id));
-        const metrics = syncedActivities.map(toActivityMetrics);
-
-        const t0 = Date.now();
-        engine.setActivityMetrics(metrics);
-        if (__DEV__) {
-          log.log(`[fetchApiGps] ⏱ setActivityMetrics: ${Date.now() - t0}ms`);
-        }
-
-        // Yield so the sync banner can paint between the metrics write and the
-        // refresh notifications, which synchronously re-render every subscriber.
+        // Yield so the sync banner can paint before the refresh notifications,
+        // which synchronously re-render every subscriber.
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         const t1 = Date.now();

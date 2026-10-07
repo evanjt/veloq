@@ -60,9 +60,8 @@ describe('a refused section rename', () => {
       mockRenameSection.mockRejectedValueOnce(new Error('Section name rejected'));
       const hook = mount();
 
-      act(() => hook.result.current.setEditName(name));
       await act(async () => {
-        hook.result.current.handleSaveName();
+        hook.result.current.handleSaveName(name);
       });
 
       expect(mockRenameSection).toHaveBeenCalledWith('s1', name);
@@ -75,9 +74,8 @@ describe('a refused section rename', () => {
     mockRenameSection.mockRejectedValueOnce(new SectionRenameError('taken', 'nameTaken'));
     const hook = mount();
 
-    act(() => hook.result.current.setEditName('Taken'));
     await act(async () => {
-      hook.result.current.handleSaveName();
+      hook.result.current.handleSaveName('Taken');
     });
 
     expect(Alert.alert).toHaveBeenCalledWith('sections.renameFailedTitle', 'sections.nameTaken');

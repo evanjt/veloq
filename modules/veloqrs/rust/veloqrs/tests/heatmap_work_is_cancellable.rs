@@ -180,6 +180,49 @@ fn an_uncancelled_pass_reports_a_clean_finish() {
     );
 }
 
+/// An athlete touching the screen gets the cores back: every tile waits the
+/// gap, and the workers share the waiting, so the pass takes at least the
+/// whole gap budget divided by the pool. The pass still draws every tile.
+#[test]
+fn an_interacting_athlete_slows_the_pass_without_shrinking_it() {
+    use veloqrs::net::pacing;
+
+    let _serial_state = super::serial_state();
+    let _serial = serial();
+
+    let (idle, _idle_tmp) = seed_engine();
+    idle.mark_heatmap_dirty();
+    let full = idle
+        .generate_tiles_background()
+        .expect("the pass starts")
+        .recv_blocking()
+        .expect("the pass completes");
+    assert!(
+        full > 0,
+        "the corpus draws no tiles, so this proves nothing"
+    );
+
+    let (busy, _busy_tmp) = seed_engine();
+    busy.mark_heatmap_dirty();
+    pacing::set_interacting(true);
+    let started = std::time::Instant::now();
+    let drawn = busy
+        .generate_tiles_background()
+        .expect("the pass starts")
+        .recv_blocking()
+        .expect("the pass completes");
+    let elapsed = started.elapsed();
+    pacing::set_interacting(false);
+
+    assert_eq!(drawn, full, "pacing delays tiles, it never drops them");
+    let workers = rayon::current_num_threads() as u32;
+    let floor = pacing::GAP * (full / workers);
+    assert!(
+        elapsed >= floor,
+        "{full} tiles on {workers} workers took {elapsed:?}, under the {floor:?} the gaps alone cost"
+    );
+}
+
 /// Every tile file under `tiles`, the no-coverage markers included.
 fn tiles_on_disk(tiles: &std::path::Path) -> Vec<std::path::PathBuf> {
     let mut found = Vec::new();

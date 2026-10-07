@@ -27,6 +27,10 @@ pub(crate) mod record_dependency_fetch;
 /// that knows whether there is a network at all.
 pub mod connectivity;
 
+/// Whether the athlete is touching the screen, and the gap a background pass
+/// leaves at its boundaries while they are.
+pub mod pacing;
+
 /// When the recording upload queue is due, and the drain that follows.
 pub mod upload_schedule;
 

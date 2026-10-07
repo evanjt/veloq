@@ -101,6 +101,11 @@ export enum MapDistanceBand {
   Long,
 }
 
+export enum FfiNewGroundBadge {
+  EntirelyNew,
+  MostlyNew,
+}
+
 export enum EfficiencyDirection {
   Improving,
   Flat,
@@ -295,6 +300,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     FeedSportGroup,
     FfiFeedSeen,
     MapDistanceBand,
+    FfiNewGroundBadge,
     EfficiencyDirection,
     SectionSort,
     LoadMetric,

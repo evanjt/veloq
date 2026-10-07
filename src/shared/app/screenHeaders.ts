@@ -24,6 +24,13 @@ export interface ScreenHeader {
   dynamic?: boolean;
   /** Transparent header with no title, laid over a full-bleed map hero. */
   overMap?: boolean;
+  /**
+   * Collapsing large title on iOS. Only a screen whose first child is its scroll view can take
+   * one, so an entry sets it when its screen is ready. The rest stay small: a screen with a row
+   * above its scroll view, one with no scroll view, and the three `overMap` entries, which are
+   * transparent.
+   */
+  largeTitle?: boolean;
 }
 
 export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
@@ -38,6 +45,10 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'sheets/param-editor': null,
   'sheets/day-activities': null,
   'sheets/smoothing': null,
+  'sheets/field-picker': null,
+  'sheets/route-overlay': null,
+  'sheets/merge-candidates': null,
+  'sheets/merge-confirm': null,
 
   'activity/[id]': { overMap: true },
   'exercise/[category]': { titleKey: 'strength.history' },
@@ -94,6 +105,10 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/param-editor': [0.6, 1],
   'sheets/day-activities': 'fitToContents',
   'sheets/smoothing': 'fitToContents',
+  'sheets/field-picker': [0.6, 1],
+  'sheets/route-overlay': [0.6, 1],
+  'sheets/merge-candidates': [0.6, 1],
+  'sheets/merge-confirm': [0.6, 1],
 };
 
 /** The stack options that make a listed route a sheet, or undefined for any other route. */
@@ -106,6 +121,20 @@ export function sheetScreenOptions(name: string) {
     sheetAllowedDetents: detents,
     headerShown: false,
   };
+}
+
+/**
+ * Whether a route's header is a large title. Only iOS has one, only an entry that sets
+ * `largeTitle` takes it, and a transparent `overMap` header or a `dynamic` custom title never does.
+ */
+export function headerLargeTitle(
+  name: string,
+  os: string,
+  headers: Record<string, ScreenHeader | null> = SCREEN_HEADERS
+): boolean {
+  const header = headers[name];
+  if (os !== 'ios' || !header?.largeTitle) return false;
+  return !header.overMap && !header.dynamic;
 }
 
 /**

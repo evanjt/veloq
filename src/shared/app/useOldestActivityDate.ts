@@ -13,6 +13,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { TIME } from '@/shared/app/time';
 
 /** Settings key written by the Rust sync (`OLDEST_ACTIVITY_DATE_KEY`). */
 const OLDEST_ACTIVITY_DATE_KEY = 'oldest_activity_date';
@@ -36,6 +37,6 @@ export function useOldestActivityDate() {
     enabled: isAuthenticated,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
-    gcTime: 7 * 24 * 60 * 60 * 1000,
+    gcTime: 7 * TIME.DAY,
   });
 }

@@ -9,7 +9,7 @@ const ICON_SIZE = 36;
 export function BackupSlide() {
   const { isDark } = useTheme();
   const primaryColor = isDark ? darkColors.primary : colors.primary;
-  const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bgColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.04);
 
   return (

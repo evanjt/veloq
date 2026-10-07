@@ -1,16 +1,10 @@
 import { useState } from 'react';
-import type { MergeCandidate } from 'veloqrs';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import { DEFAULT_PERIOD } from '@/shared/app/period';
 
 export function useSectionUIState() {
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
-  // Merge dialog state
-  const [mergeTarget, setMergeTarget] = useState<MergeCandidate | null>(null);
-  // Shown when 2+ candidates - lets user pick which to merge.
-  const [showMergePicker, setShowMergePicker] = useState(false);
-
   // Time range for chart data (passed to useSectionChartData)
   const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>(DEFAULT_PERIOD);
 
@@ -20,10 +14,6 @@ export function useSectionUIState() {
   return {
     mapReady,
     setMapReady,
-    mergeTarget,
-    setMergeTarget,
-    showMergePicker,
-    setShowMergePicker,
     sectionTimeRange,
     setSectionTimeRange,
     selectedSportType,

@@ -272,7 +272,7 @@ export const SectionRow = memo(function SectionRow({
               <MaterialCommunityIcons
                 name="pin"
                 size={12}
-                color={isDark ? darkColors.textMuted : colors.textDisabled}
+                color={isDark ? darkColors.textSecondary : colors.textDisabled}
                 style={{ marginLeft: spacing.xs }}
               />
             )}
@@ -322,7 +322,7 @@ export const SectionRow = memo(function SectionRow({
             </View>
           </View>
           <View style={styles.metaRow}>
-            <Text style={[styles.metaText, isDark && styles.textMuted]}>
+            <Text style={[styles.metaText, isDark && styles.textSecondary]}>
               {formatDistance(section.distanceMeters, isMetric)}
             </Text>
             {elevation && (
@@ -332,7 +332,7 @@ export const SectionRow = memo(function SectionRow({
                   size={10}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
-                <Text style={[styles.metaText, isDark && styles.textMuted]}>
+                <Text style={[styles.metaText, isDark && styles.textSecondary]}>
                   {formatElevation(elevation.metres, isMetric)}
                 </Text>
               </View>
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   gainChip: {

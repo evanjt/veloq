@@ -17,6 +17,7 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 import type { Athlete } from '@/types';
+import { TIME } from '@/shared/app/time';
 
 function readAthlete(): Athlete | null {
   const engine = getEngine();
@@ -47,7 +48,7 @@ export function useAthlete() {
     enabled: isAuthenticated,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 24,
+    gcTime: TIME.DAY,
   });
 
   useEffect(() => {

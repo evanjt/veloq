@@ -100,7 +100,7 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
 
         <View style={styles.localModeNote}>
           <MaterialCommunityIcons name="shield-check" size={14} color={themeColors.textSecondary} />
-          <Text style={[styles.localModeText, isDark && styles.textMuted]}>
+          <Text style={[styles.localModeText, isDark && styles.textSecondary]}>
             {t('login.localModeNote')}
           </Text>
         </View>
@@ -110,7 +110,7 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
             size={14}
             color={themeColors.textSecondary}
           />
-          <Text style={[styles.localModeText, isDark && styles.textMuted]}>
+          <Text style={[styles.localModeText, isDark && styles.textSecondary]}>
             {t('login.apiKeyNoNotifications')}
           </Text>
         </View>
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   textDark: {
     color: darkColors.textSecondary,
   },
-  textMuted: {
-    color: darkColors.textMuted,
+  textSecondary: {
+    color: darkColors.textSecondary,
   },
 });

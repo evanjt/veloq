@@ -483,15 +483,6 @@ impl SectionManager {
     ) -> Result<Vec<crate::FfiSectionHistoryEvent>, VeloqError> {
         with_reader(|conn| {
             history::linked_section_history(conn, &section_id, &named::pooled::overlay_names(conn))
-                .into_iter()
-                .map(|h| crate::FfiSectionHistoryEvent {
-                    id: h.id as f64,
-                    at: h.at,
-                    kind: h.kind,
-                    details: h.details,
-                    geometry_version: h.geometry_version.map(|v| v as f64),
-                })
-                .collect()
         })
     }
 

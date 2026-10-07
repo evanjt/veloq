@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
 import { formatLocalDate } from '@/shared/format/format';
+import { TIME } from './time';
 
 const STORAGE_KEY = 'veloq-support-store';
 
@@ -22,7 +23,7 @@ interface SupportState {
 export function daysSince(isoDate: string): number {
   const then = new Date(isoDate).getTime();
   const now = Date.now();
-  return (now - then) / (1000 * 60 * 60 * 24);
+  return (now - then) / TIME.DAY;
 }
 
 function intervalForCount(count: number): number {

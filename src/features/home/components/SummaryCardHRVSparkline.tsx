@@ -270,7 +270,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
             <RNText
               style={[
                 styles.rangeLabel,
-                { color: isDark ? darkColors.textMuted : colors.textMuted },
+                { color: isDark ? darkColors.textSecondary : colors.textSecondary },
               ]}
             >
               {hrvData.length}d

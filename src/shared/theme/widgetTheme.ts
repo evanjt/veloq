@@ -32,8 +32,6 @@ export interface WidgetPalette {
   chartFatigue: string;
   /** Under-stroke behind chart lines for edge contrast (RRGGBBAA). */
   chartCasing: string;
-  /** Axis value labels on the trend chart. */
-  textMuted: string;
   /** Form zone fills keyed by the snapshot's `metrics.form.zone` enum. */
   formHighRisk: string;
   formOptimal: string;
@@ -68,7 +66,6 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     chartFitness: colors.fitnessBlue,
     chartFatigue: colors.chartPink,
     chartCasing: colors.chartCasing,
-    textMuted: colors.textMuted,
     formHighRisk: colors.formHighRisk,
     formOptimal: colors.formOptimal,
     formGreyZone: colors.formGreyZone,
@@ -96,7 +93,6 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     chartFitness: colors.fitnessBlue,
     chartFatigue: colors.chartPink,
     chartCasing: darkColors.chartCasing,
-    textMuted: darkColors.textMuted,
     formHighRisk: colors.formHighRisk,
     formOptimal: colors.formOptimal,
     formGreyZone: colors.formGreyZone,

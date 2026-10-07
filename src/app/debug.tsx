@@ -109,7 +109,7 @@ interface StatRowProps {
 function StatRow({ label, value, isDark }: StatRowProps) {
   return (
     <View style={styles.statRow}>
-      <Text style={[styles.statLabel, isDark && styles.textMuted]}>{label}</Text>
+      <Text style={[styles.statLabel, isDark && styles.textSecondary]}>{label}</Text>
       <Text style={[styles.statValue, isDark && styles.textLight]}>{value}</Text>
     </View>
   );
@@ -732,7 +732,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '500',
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   textLight: {

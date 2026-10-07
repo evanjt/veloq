@@ -23,6 +23,10 @@ import {
 } from '@/features/maps/lib/sectionCreationPaint';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
+import {
+  USER_LOCATION_SOURCE_ID,
+  buildUserLocationLayers,
+} from '@/features/maps/lib/userLocationLayer';
 
 export const SECTION_MARKER_LAYER_IDS = ['section-marker-pr-icon', 'section-marker-circle'];
 
@@ -42,6 +46,7 @@ interface ActivitySourceInput {
   endpointsGeoJSON: GeoJSON.FeatureCollection;
   sectionCreationLine: GeoJSON.FeatureCollection | GeoJSON.Feature;
   sectionCreationMarkers: GeoJSON.FeatureCollection;
+  userLocationGeoJSON: GeoJSON.FeatureCollection;
 }
 
 interface ActivityLayerInput {
@@ -54,6 +59,7 @@ interface ActivityLayerInput {
   highlightedSectionId?: string | null | undefined;
   hasHighlightPoint: boolean;
   creationMode: boolean;
+  hasUserLocation: boolean;
 }
 
 type GeoJSONData = GeoJSON.FeatureCollection | GeoJSON.Feature;
@@ -88,6 +94,7 @@ export function buildActivitySources(input: ActivitySourceInput): Record<string,
     'section-creation-markers': geojsonSource(input.sectionCreationMarkers),
     endpoints: geojsonSource(input.endpointsGeoJSON),
     highlight: geojsonSource(input.highlightGeoJSON),
+    [USER_LOCATION_SOURCE_ID]: geojsonSource(input.userLocationGeoJSON),
   };
 }
 
@@ -107,6 +114,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
     hasHighlightPoint,
     overlayHasData,
     creationMode,
+    hasUserLocation,
   } = input;
 
   const highlighted = !!highlightedSectionId;
@@ -338,6 +346,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'circle-opacity': hasHighlightPoint ? 1 : 0,
       },
     },
+    ...buildUserLocationLayers(hasUserLocation),
   ];
 }
 
@@ -371,9 +380,10 @@ function overlayLayers(prefix: string, overlayHasData: boolean): MapLayerSpec[] 
 }
 
 /**
- * Fullscreen draws the matched route and the section portions over
- * BaseMapView's own route line and marks the PR sections, without the numbered
- * badges or the creation overlays.
+ * Fullscreen draws the section portions over BaseMapView's own route line and
+ * marks the PR sections, without the numbered badges or the creation overlays.
+ * The matched route goes beneath that line, through BaseMapView's under-route
+ * layers.
  */
 export function buildFullscreenSectionSources(
   portions: GeoJSON.FeatureCollection,
@@ -387,12 +397,13 @@ export function buildFullscreenSectionSources(
   };
 }
 
-export function buildFullscreenSectionLayers(
-  hasSectionOverlays: boolean,
-  overlayHasData = false
-): MapLayerSpec[] {
+/** The matched route for BaseMapView's under-route layers. */
+export function buildFullscreenMatchedRouteLayers(overlayHasData: boolean): MapLayerSpec[] {
+  return overlayLayers('fullscreen-', overlayHasData);
+}
+
+export function buildFullscreenSectionLayers(hasSectionOverlays: boolean): MapLayerSpec[] {
   return [
-    ...overlayLayers('fullscreen-', overlayHasData),
     {
       id: 'fullscreen-portion-casing',
       type: 'line',

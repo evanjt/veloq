@@ -47,6 +47,7 @@ export {
 } from './lib/heatmapTiles';
 export { useDrawnMapStyle } from './hooks/useDrawnMapStyle';
 export { useMapFullscreen } from './hooks/useMapFullscreen';
+export { useLocateUser } from './hooks/useLocateUser';
 export { useThrottledValue } from './hooks/useThrottledValue';
 export {
   calculateFlatCamera,
@@ -56,6 +57,11 @@ export {
 } from './lib/cameraAngle';
 export { cameraAfter3D, type Camera3DState } from './lib/cameraAfter3D';
 export { computeAttribution } from './lib/computeAttribution';
+export {
+  USER_LOCATION_SOURCE_ID,
+  buildUserLocationCollection,
+  buildUserLocationLayers,
+} from './lib/userLocationLayer';
 export {
   boundsOfLngLat,
   EMPTY_FEATURE_COLLECTION,

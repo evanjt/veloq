@@ -10,7 +10,7 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 import { colors, darkColors, typography, spacing, layout, smallElementShadow } from '@/theme';
 import { createTimelineLayout, addCalendarMonths } from '@/features/maps/lib/timelineLayout';
 import { formatMonth, getIntlLocale } from '@/shared/format/format';
@@ -98,7 +98,7 @@ export function TimelineSlider({
   );
 
   const triggerHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptics.light();
   }, []);
 
   const updateDatesFromPositions = useCallback(
@@ -537,10 +537,10 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
   },
   tickMarkDark: {
-    backgroundColor: darkColors.textMuted,
+    backgroundColor: darkColors.textSecondary,
   },
   tickLabelDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
   },
   countLabelDark: {
     color: colors.textOnDark,

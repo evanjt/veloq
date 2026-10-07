@@ -205,12 +205,12 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
           <Text style={[styles.profileName, isDark && settingsStyles.textLight]}>
             {athlete?.name || t('settings.athleteFallback', 'Athlete')}
           </Text>
-          <Text style={[styles.profileEmail, isDark && settingsStyles.textMuted]}>
+          <Text style={[styles.profileEmail, isDark && settingsStyles.textSecondary]}>
             {authMethod === 'demo' ? getAuthBadge() : `intervals.icu · ${getAuthBadge()}`}
           </Text>
           {isOAuth && parsedScopes.length > 0 && (
             <View style={styles.scopeContainer}>
-              <Text style={[styles.scopeTitle, isDark && settingsStyles.textMuted]}>
+              <Text style={[styles.scopeTitle, isDark && settingsStyles.textSecondary]}>
                 {t('settings.permissions', 'Permissions')}
               </Text>
               <View style={styles.scopeRow}>
@@ -220,7 +220,10 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
                     style={[settingsStyles.scopeBadge, isDark && settingsStyles.scopeBadgeDark]}
                   >
                     <Text
-                      style={[settingsStyles.scopeBadgeText, isDark && settingsStyles.textMuted]}
+                      style={[
+                        settingsStyles.scopeBadgeText,
+                        isDark && settingsStyles.textSecondary,
+                      ]}
                     >
                       {s.label}: {s.level}
                     </Text>
@@ -234,7 +237,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
           <MaterialCommunityIcons
             name="chevron-right"
             size={24}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         )}
       </Pressable>

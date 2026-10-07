@@ -14,7 +14,6 @@ import { FLOW_SECTION_OPEN, completeFlowAfterFrame } from '@/shared/debug/flowTi
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
-  useMergeSections,
   useSectionActions,
   useRouteSettings,
   useSectionChartData,
@@ -27,6 +26,7 @@ import {
   useSectionDetailPerformance,
   useSectionDataRefresh,
   useSectionUIState,
+  useSectionMergeFlow,
   useSectionChartDataEnriched,
   useSectionMapData,
   useSectionTrim,
@@ -49,8 +49,6 @@ import {
   type SectionDeltaLine,
   SectionDebugPanel,
   SectionDetailLinks,
-  MergeConfirmDialog,
-  MergeCandidatesModal,
   sectionDetailStyles as styles,
 } from '@/features/routes';
 import { useGpxExport, useDebugStore } from '@/features/settings';
@@ -135,15 +133,10 @@ function SectionDetailScreenContent() {
 
   // Nearby sections and merge candidates
   const mergeCandidates = detail?.mergeCandidates ?? [];
-  const { merge: mergeSections, previewDropped } = useMergeSections();
 
   const {
     mapReady,
     setMapReady,
-    mergeTarget,
-    setMergeTarget,
-    showMergePicker,
-    setShowMergePicker,
     sectionTimeRange,
     setSectionTimeRange,
     selectedSportType,
@@ -154,6 +147,7 @@ function SectionDetailScreenContent() {
 
   const { section, sectionRefreshKey, handleTrimRefresh } = useSectionDataRefresh(detail?.section);
   const isCustomSection = section?.sectionType === 'custom';
+  const startMerge = useSectionMergeFlow({ section, candidates: mergeCandidates });
 
   // Trims, renames and exclusions invalidate the bundle as well as the hook's
   // own key, so both move together.
@@ -178,7 +172,7 @@ function SectionDetailScreenContent() {
         : undefined,
     [detail]
   );
-  const ledger = useSectionLedger(id, sectionRefreshKey, bundledLedger);
+  const ledger = useSectionLedger(id, bundledLedger);
   const previewNumber = Number(previewVersion);
   const shownVersion = previewVersion && Number.isInteger(previewNumber) ? previewNumber : null;
   const shadowTrack = useMemo<[number, number][] | undefined>(() => {
@@ -210,19 +204,13 @@ function SectionDetailScreenContent() {
   // Section CRUD actions (rename, delete, toggle disable, exclude/include,
   // reference activity, rematch) - extracted into a hook for clarity.
   const {
-    isEditing,
-    editName,
     customName,
-    nameInputRef,
-    setEditName,
     effectiveReferenceId,
     showExcluded,
     isRematching,
     isRematchHeld,
     rescanRefusal,
-    handleStartEditing,
     handleSaveName,
-    handleCancelEdit,
     handleDeleteSection,
     handleSetAsReference,
     handleToggleDisable,
@@ -387,19 +375,13 @@ function SectionDetailScreenContent() {
             trimStart={trimStart}
             trimEnd={trimEnd}
             expandContextPoints={expandContextPoints}
-            isEditing={isEditing}
-            editName={editName}
             customName={customName}
-            nameInputRef={nameInputRef}
             shadowTrack={shadowTrack}
             highlight={highlight}
             deltaLine={deltaLine}
             allActivityTraces={allActivityTraces}
             onUnflagLift={isTrimming ? undefined : handleUnflagLift}
-            onStartEditing={handleStartEditing}
             onSaveName={handleSaveName}
-            onCancelEdit={handleCancelEdit}
-            onEditNameChange={setEditName}
           />
 
           {/* Action row - always visible below map, hidden during trim */}
@@ -506,13 +488,7 @@ function SectionDetailScreenContent() {
               onTimeRangeChange={setSectionTimeRange}
               streams={streams}
               onToggleDisable={handleToggleDisable}
-              onMergePress={() => {
-                if (mergeCandidates.length === 1) {
-                  setMergeTarget(mergeCandidates[0]);
-                } else {
-                  setShowMergePicker(true);
-                }
-              }}
+              onMergePress={startMerge}
             >
               <SectionDetailLinks
                 hasLaps={lapRecords.some((record) => record.laps.length > 1)}
@@ -568,43 +544,6 @@ function SectionDetailScreenContent() {
           )}
         </ScrollView>
       </View>
-      <MergeCandidatesModal
-        visible={showMergePicker}
-        candidates={mergeCandidates}
-        onSelect={(candidate) => {
-          setShowMergePicker(false);
-          setMergeTarget(candidate);
-        }}
-        onCancel={() => setShowMergePicker(false)}
-      />
-      {mergeTarget && section && (
-        <MergeConfirmDialog
-          visible={!!mergeTarget}
-          previewDropped={previewDropped}
-          primary={{
-            id: section.id,
-            name: section.name ?? section.id,
-            sportTypes: section.sportTypes,
-            visitCount: section.visitCount,
-            distanceMeters: section.distanceMeters,
-          }}
-          secondary={{
-            id: mergeTarget.sectionId,
-            name: mergeTarget.name ?? mergeTarget.sectionId,
-            sportTypes: mergeTarget.sportTypes,
-            visitCount: mergeTarget.visitCount,
-            distanceMeters: mergeTarget.distanceMeters,
-          }}
-          onConfirm={(primaryId, secondaryId) => {
-            const result = mergeSections(primaryId, secondaryId);
-            setMergeTarget(null);
-            if (result && result !== id) {
-              router.replace(`/section/${result}`);
-            }
-          }}
-          onCancel={() => setMergeTarget(null)}
-        />
-      )}
     </>
   );
 }

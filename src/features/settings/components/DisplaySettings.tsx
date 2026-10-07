@@ -62,7 +62,7 @@ function DisplaySettingsComponent({
           size={18}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
-        <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
+        <Text style={[styles.subsectionLabel, isDark && settingsStyles.textSecondary]}>
           {t('settings.appearance')}
         </Text>
       </View>
@@ -99,7 +99,7 @@ function DisplaySettingsComponent({
           size={18}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
-        <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
+        <Text style={[styles.subsectionLabel, isDark && settingsStyles.textSecondary]}>
           {t('settings.units')}
         </Text>
       </View>
@@ -114,7 +114,7 @@ function DisplaySettingsComponent({
           ]}
         />
       </View>
-      <Text style={[styles.subsectionHint, isDark && settingsStyles.textMuted]}>
+      <Text style={[styles.subsectionHint, isDark && settingsStyles.textSecondary]}>
         {unitPreference === 'auto'
           ? intervalsUnitPreference
             ? t('settings.unitsAutoHintWithIntervals', {
@@ -144,7 +144,7 @@ function DisplaySettingsComponent({
         <Text
           style={[
             styles.subsectionHint,
-            isDark && settingsStyles.textMuted,
+            isDark && settingsStyles.textSecondary,
             { flex: 0, marginTop: 0, marginBottom: 0 },
           ]}
         >
@@ -152,7 +152,7 @@ function DisplaySettingsComponent({
         </Text>
         {(language === 'en-AU' || language === 'de-CH') && (
           <View style={[styles.dialectLegendChip, isDark && styles.dialectLegendChipDark]}>
-            <Text style={[styles.dialectLegendText, isDark && settingsStyles.textMuted]}>
+            <Text style={[styles.dialectLegendText, isDark && settingsStyles.textSecondary]}>
               {t('settings.dialect')}
             </Text>
           </View>
@@ -238,7 +238,7 @@ function DisplaySettingsComponent({
                             style={[
                               styles.variantChipText,
                               isVariantSelected && styles.variantChipTextSelected,
-                              isDark && !isVariantSelected && settingsStyles.textMuted,
+                              isDark && !isVariantSelected && settingsStyles.textSecondary,
                             ]}
                           >
                             {variant.label}
@@ -261,7 +261,7 @@ function DisplaySettingsComponent({
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('settings.display').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
@@ -274,7 +274,7 @@ function DisplaySettingsComponent({
             size={18}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-          <Text style={[styles.subsectionLabel, isDark && settingsStyles.textMuted]}>
+          <Text style={[styles.subsectionLabel, isDark && settingsStyles.textSecondary]}>
             {t('settings.primarySport')}
           </Text>
         </View>
@@ -289,7 +289,7 @@ function DisplaySettingsComponent({
             ]}
           />
         </View>
-        <Text style={[styles.embeddedHint, isDark && settingsStyles.textMuted]}>
+        <Text style={[styles.embeddedHint, isDark && settingsStyles.textSecondary]}>
           {primarySport === 'Cycling'
             ? t('settings.primarySportHintCycling')
             : primarySport === 'Running'

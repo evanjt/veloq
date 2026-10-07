@@ -16,7 +16,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,23 +24,8 @@ import { useTranslation } from 'react-i18next';
 import { hasStarted } from 'veloqrs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import {
-  EngineReadFailure,
-  ScreenSafeAreaView,
-  TAB_BAR_SAFE_PADDING,
-  pressable,
-  pressRipple,
-} from '@/shared/ui';
-import {
-  colors,
-  controlHeight,
-  darkColors,
-  brand,
-  spacing,
-  layout,
-  slopToMinTapTarget,
-  typography,
-} from '@/theme';
+import { Button, EngineReadFailure, ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import {
   usePreviewDetect,
   useCutoverHeld,
@@ -130,6 +115,7 @@ function DetectionPreviewScreenContent() {
   const [showRemoved, setShowRemoved] = useState(true);
 
   const bg = isDark ? darkColors.background : colors.background;
+  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
@@ -305,70 +291,37 @@ function DetectionPreviewScreenContent() {
           // secondary rather than competing with it.
           <View style={styles.actionRow}>
             {result && (
-              <Pressable
-                style={pressable([
-                  styles.actionBtn,
-                  { backgroundColor: surface, borderColor: border },
-                ])}
-                android_ripple={pressRipple}
-                hitSlop={ACTION_SLOP}
+              <Button
+                variant="secondary"
+                style={styles.actionBtn}
                 onPress={handleDiscard}
-                accessibilityRole="button"
-                accessibilityLabel={t('settings.previewDiscard')}
+                label={t('settings.previewDiscard')}
                 testID="preview-discard-button"
-              >
-                <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
-                  {t('settings.previewDiscard')}
-                </Text>
-              </Pressable>
-            )}
-            <Pressable
-              style={pressable([
-                styles.actionBtn,
-                previewIsNext
-                  ? { backgroundColor: colors.primary, borderColor: colors.primary }
-                  : { backgroundColor: surface, borderColor: border },
-              ])}
-              android_ripple={pressRipple}
-              hitSlop={ACTION_SLOP}
-              onPress={handlePreview}
-              accessibilityRole="button"
-              accessibilityLabel={t('settings.previewRun')}
-              accessibilityState={{ disabled: !selectedCentre }}
-              disabled={!selectedCentre}
-              testID="preview-run-button"
-            >
-              <MaterialCommunityIcons
-                name="magnify-scan"
-                size={18}
-                color={previewIsNext ? colors.textOnPrimary : textSecondary}
               />
-              <Text
-                style={[
-                  styles.runText,
-                  { color: previewIsNext ? colors.textOnPrimary : textSecondary },
-                ]}
-                numberOfLines={1}
-              >
-                {t('settings.previewRun')}
-              </Text>
-            </Pressable>
+            )}
+            <Button
+              variant={previewIsNext ? 'primary' : 'secondary'}
+              style={styles.actionBtn}
+              onPress={handlePreview}
+              disabled={!selectedCentre}
+              icon={
+                <MaterialCommunityIcons
+                  name="magnify-scan"
+                  size={18}
+                  color={previewIsNext ? colors.textOnPrimary : textPrimary}
+                />
+              }
+              label={t('settings.previewRun')}
+              testID="preview-run-button"
+            />
             {result && (
-              <Pressable
-                style={pressable([styles.actionBtn, styles.keepBtn])}
-                android_ripple={pressRipple}
-                hitSlop={ACTION_SLOP}
+              <Button
+                style={styles.actionBtn}
                 onPress={handleKeep}
-                accessibilityRole="button"
-                accessibilityLabel={t('settings.previewKeep')}
-                accessibilityState={{ disabled: !keepEnabled }}
                 disabled={!keepEnabled}
+                label={t('settings.previewKeep')}
                 testID="preview-keep-button"
-              >
-                <Text style={[styles.runText, styles.keepText]} numberOfLines={1}>
-                  {t('settings.previewKeep')}
-                </Text>
-              </Pressable>
+              />
             )}
           </View>
         )}
@@ -414,8 +367,6 @@ function DetectionPreviewScreenContent() {
   );
 }
 
-const ACTION_SLOP = slopToMinTapTarget(controlHeight.button);
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: {
@@ -460,14 +411,6 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    minHeight: controlHeight.button,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   runText: {
     ...typography.body,
@@ -476,13 +419,6 @@ const styles = StyleSheet.create({
   notice: {
     ...typography.bodySmall,
     textAlign: 'center',
-  },
-  keepBtn: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  keepText: {
-    color: colors.textOnPrimary,
   },
 });
 

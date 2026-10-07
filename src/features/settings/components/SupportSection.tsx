@@ -52,7 +52,7 @@ export function SupportSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('settings.support').toUpperCase()}
       </Text>
 

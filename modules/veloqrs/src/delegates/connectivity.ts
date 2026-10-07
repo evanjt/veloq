@@ -13,6 +13,7 @@
 
 import {
   setNetworkOnline as ffiSetNetworkOnline,
+  setInteracting as ffiSetInteracting,
   getNetworkPush as ffiGetNetworkPush,
   type NetworkPush,
 } from '../generated/veloqrs';
@@ -36,4 +37,18 @@ export function setNetworkOnline(host: DelegateHost, online: boolean): void {
 /** What was last pushed and how old it is. Null when nothing has been. */
 export function getNetworkPush(host: DelegateHost): NetworkPush | null {
   return host.timed('getNetworkPush', () => ffiGetNetworkPush() ?? null);
+}
+
+/**
+ * Tell Rust whether the athlete is touching the screen. While it holds, a
+ * background pass leaves a gap at each boundary between units of work. The
+ * value is advisory and expires in Rust, so a dropped "idle" costs a few
+ * seconds of slower background work, never a stalled pass.
+ */
+export function setInteracting(host: DelegateHost, interacting: boolean): void {
+  try {
+    host.timed('setInteracting', () => ffiSetInteracting(interacting));
+  } catch (e) {
+    console.error('[Engine] setInteracting threw:', e);
+  }
 }

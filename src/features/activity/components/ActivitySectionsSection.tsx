@@ -19,7 +19,7 @@ import type { LatLng } from '@/shared/geo/polyline';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Gesture, GestureDetector, RectButton } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from './SectionInlinePlot';
 import { ActivityLedgerChanges } from './ActivityLedgerChanges';
@@ -369,7 +369,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           row
         );
         if (!row) return;
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        haptics.medium();
         applyRow(row);
         setIsScrubbing(true);
         isScrubbingSV.value = true;
@@ -512,7 +512,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
           {t('activityDetail.noMatchedSections')}
         </Text>
-        <Text style={[styles.emptyStateDescription, isDark && styles.textMuted]}>
+        <Text style={[styles.emptyStateDescription, isDark && styles.textSecondary]}>
           {t('activityDetail.noMatchedSectionsDescription')}
         </Text>
         {!hasScanned && (
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
   createSectionButton: {

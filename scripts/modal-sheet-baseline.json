@@ -5,13 +5,9 @@
   "src/features/insights/components/InsightDebugPanel.tsx": "developer panel, opened only under __DEV__",
   "src/features/maps/components/ActivityMapView.tsx": "full-screen takeover: the map fills the screen",
   "src/features/maps/components/regional/SectionChooser.tsx": "converting",
-  "src/features/recording/components/FieldPickerModal.tsx": "converting",
-  "src/features/recording/components/RouteOverlayPicker.tsx": "converting",
   "src/features/routes/components/RouteMapView.tsx": "full-screen takeover: the map fills the screen",
   "src/features/routes/components/SectionMapView.tsx": "full-screen takeover: the map fills the screen",
   "src/features/routes/components/SportFilterMenu.tsx": "converting",
-  "src/features/routes/components/section/MergeCandidatesModal.tsx": "converting",
-  "src/features/routes/components/section/MergeConfirmDialog.tsx": "converting",
   "src/features/settings/components/RestorePromptSheet.tsx": "converting",
   "src/features/settings/components/WebdavConfigForm.tsx": "full-screen takeover: the QR camera",
   "src/features/strength/components/StrengthBalanceView.tsx": "converting"

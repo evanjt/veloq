@@ -7,12 +7,18 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
 import { useRouteSettings, useSectionRescan, rescanRefusalKey } from '@/features/routes';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
+import {
+  Button,
+  ScreenSafeAreaView,
+  TAB_BAR_SAFE_PADDING,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import {
   BackgroundJobsActivityBar,
   CutoverStatus,
   ElevationBackfillStatus,
-} from '@/features/settings/components';
+} from '@/features/settings';
 import { colors, darkColors, spacing, layout, typography, slopToMinTapTarget } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
@@ -130,39 +136,20 @@ function DetectionSettingsScreenContent() {
             <MaterialCommunityIcons name="chevron-right" size={22} color={textSecondary} />
           </Pressable>
 
-          <Pressable
-            style={pressable([
-              styles.rescanBtn,
-              isScanning
-                ? {
-                    backgroundColor: surface,
-                    borderColor: border,
-                    borderWidth: StyleSheet.hairlineWidth,
-                  }
-                : { backgroundColor: colors.primary },
-            ])}
-            android_ripple={pressRipple}
+          <Button
+            variant={isScanning ? 'secondary' : 'primary'}
+            style={styles.rescanBtn}
             onPress={isScanning ? cancelScan : handleRescan}
-            accessibilityRole="button"
-            accessibilityLabel={isScanning ? t('common.cancel') : t('settings.reanalyzeSections')}
-            testID="detection-rescan-button"
-          >
-            {isScanning ? (
-              <>
+            icon={
+              isScanning ? (
                 <ActivityIndicator size="small" color={textSecondary} />
-                <Text style={[styles.rescanText, { color: textSecondary }]}>
-                  {t('common.cancel')}
-                </Text>
-              </>
-            ) : (
-              <>
+              ) : (
                 <MaterialCommunityIcons name="refresh" size={18} color={colors.textOnPrimary} />
-                <Text style={[styles.rescanText, { color: colors.textOnPrimary }]}>
-                  {t('settings.reanalyzeSections')}
-                </Text>
-              </>
-            )}
-          </Pressable>
+              )
+            }
+            label={isScanning ? t('common.cancel') : t('settings.reanalyzeSections')}
+            testID="detection-rescan-button"
+          />
 
           {rescanResult && (
             <Text style={[styles.rescanResult, { color: textSecondary }]}>
@@ -228,17 +215,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   rescanBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    borderRadius: layout.borderRadius,
     marginTop: spacing.lg,
-  },
-  rescanText: {
-    ...typography.body,
-    fontWeight: '600',
   },
   rescanResult: {
     ...typography.bodySmall,

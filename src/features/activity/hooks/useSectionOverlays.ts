@@ -35,7 +35,7 @@ function makeDirectionKey(encounter: { sectionId: string; direction: string }): 
 /**
  * Computes section trace overlays for an activity.
  *
- * Combines trace computation (via Rust engine's extractSectionTrace)
+ * Combines the activity's section traces from the detail bundle (`sectionTraces`)
  * with overlay building for map display. Overlays are computed on every tab.
  */
 export function useSectionOverlays(
@@ -141,7 +141,7 @@ export function useSectionOverlays(
         longitude: p.lng,
       }));
 
-      // Try computed traces first (from extractSectionTrace)
+      // Try the bundle's section traces first
       let activityPortion;
       const computedTrace = activityTraces[section.id];
       if (computedTrace && computedTrace.length > 0) {

@@ -83,15 +83,9 @@ function renderHeader(insetTop: number) {
         isExpandMode={false}
         trimStart={0}
         trimEnd={1}
-        isEditing={false}
-        editName=""
         customName={null}
-        nameInputRef={React.createRef()}
         highlight={highlight}
-        onStartEditing={jest.fn()}
         onSaveName={jest.fn()}
-        onCancelEdit={jest.fn()}
-        onEditNameChange={jest.fn()}
       />
     </SafeAreaProvider>
   );

@@ -36,15 +36,22 @@ export function snapshotRenderMetric(shape: {
 }
 
 /**
- * The page's own elapsed, by the path it took.
+ * The page's own elapsed, by the path it took and the shape it rendered.
  *
  * The fast path is a camera jump over a style already mounted; `setStyle` is
  * the whole style, its sources and its tiles. Their durations overlap and the
  * host cannot tell them apart from the outside, so the page says which it took
- * on the message that carries the image.
+ * on the message that carries the image. The shape comes from the request, as
+ * it does for the render metric: a feed at the default 3D mode renders a flat
+ * stand-in before every drape, and one name for both reads as neither.
  */
-export function snapshotPageMetric(fastPath: boolean): string {
-  return fastPath ? 'snapshot.page.fast' : 'snapshot.page.setStyle';
+export function snapshotPageMetric(
+  fastPath: boolean,
+  shape: { flat: boolean; standIn: boolean; firstPaint?: boolean | undefined }
+): string {
+  const path = fastPath ? 'fast' : 'setStyle';
+  if (shape.standIn) return `snapshot.page.${path}.standIn`;
+  return `snapshot.page.${path}.${shape.flat ? 'flat' : 'drape'}`;
 }
 
 /**
@@ -63,11 +70,12 @@ export function recordSnapshotTiming(name: string, startedAt: number | null, now
 /**
  * The four stages inside one page render, in the order they happen.
  *
- * The whole of a render measures inside the page, and the fast path is not
- * reliably cheaper than a full `setStyle`, so the style is not what the
- * seconds are. These split what is left: the style
- * document and the call that mounts it, the tile and terrain wait, the
- * fourteen `readPixels` probes, and the JPEG encode.
+ * The whole of a render measures inside the page, and the settle stage is
+ * most of either path. Measured on a handset, the fast path costs about half
+ * a full `setStyle` on drapes and the two are level on flats, so the style is
+ * not what the seconds are. These split what is left: the style document and
+ * the call that mounts it, the tile and terrain wait, the fourteen
+ * `readPixels` probes, and the JPEG encode.
  *
  * They partition the elapsed posted beside them, so the four summing to less
  * than it is a path that posted without stamping rather than time nobody

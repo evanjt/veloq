@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useRouteGroups, useSectionSummaries, useRouteSettings } from '@/features/routes';
 import { useTheme } from '@/shared/app';
-import { formatDateOrDash } from '@/shared/format/format';
+import { calendarDaysBetween, formatDateOrDash } from '@/shared/format/format';
 import { formatDaySpan, type SpanTranslator } from '@/shared/format/daySpan';
 import { estimateRoutesDatabaseSize, getAthleteFilesSize } from '@/shared/storage/gpsStorage';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -122,13 +122,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     if (!cacheStats.oldestDate || !cacheStats.newestDate) {
       return t('settings.noData');
     }
-    const oldest = new Date(cacheStats.oldestDate);
-    const newest = new Date(cacheStats.newestDate);
-    // Use calendar days for accurate day counting
-    const oldestDay = new Date(oldest.getFullYear(), oldest.getMonth(), oldest.getDate());
-    const newestDay = new Date(newest.getFullYear(), newest.getMonth(), newest.getDate());
     const days =
-      Math.round((newestDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      calendarDaysBetween(new Date(cacheStats.oldestDate), new Date(cacheStats.newestDate)) + 1;
     return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${formatDaySpan(days, t as SpanTranslator)})`;
   }, [cacheStats.oldestDate, cacheStats.newestDate, t]);
 
@@ -206,7 +201,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     <>
       {/* Data Cache Section - Consolidated */}
       <View onLayout={onLayout}>
-        <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
+        <Text style={[styles.sectionLabel, isDark && styles.textSecondary]}>
           {t('settings.dataCache').toUpperCase()}
         </Text>
       </View>
@@ -266,7 +261,7 @@ const styles = StyleSheet.create({
   sectionDark: {
     backgroundColor: darkColors.surfaceCard,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
 });

@@ -25,6 +25,7 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { streamBackfillRefusalKey } from '../lib/streamBackfillRefusal';
 import { useStreamBackfill } from '../hooks/useStreamBackfill';
 import { Button, Row } from '@/shared/ui';
+import { formatFileSize } from '@/shared/format/format';
 
 interface StreamBackfillRowProps {
   isDark: boolean;
@@ -41,7 +42,7 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
     start,
     stop,
     awaitingConsent,
-    estimateMegabytes,
+    remainingBytes,
     refusal,
   } = useStreamBackfill();
 
@@ -49,13 +50,19 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
   // the row stays away rather than claiming the work is done.
   if (!isRunning && (remaining === null || remaining === 0)) return null;
 
+  // A null size is an engine that could not price the queue, so the count
+  // stands alone rather than claiming a download of nothing.
   const value = isRunning
     ? t('settings.streamBackfillProgress', { completed, total })
-    : t('settings.streamBackfillOwed', { count: remaining ?? 0 });
+    : remainingBytes === null
+      ? t('settings.streamBackfillOwed', { count: remaining ?? 0 })
+      : t('settings.streamBackfillOwedSized', {
+          count: remaining ?? 0,
+          size: formatFileSize(remainingBytes),
+        });
   // Download starts a pass by hand, which only an athlete's stop or the
   // engine's wait for consent leaves undone; otherwise the engine starts it.
   const offersDownload = phase === 'stopped' || awaitingConsent;
-  const detail = awaitingConsent ? `${value}, ${estimateMegabytes} MB` : value;
 
   const refusalKey = streamBackfillRefusalKey(refusal);
 
@@ -63,7 +70,7 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
     <Row testID="settings-stream-backfill">
       <View style={styles.block}>
         <View style={styles.infoRow}>
-          <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+          <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
             {t('settings.streamBackfill')}
           </Text>
           <View style={styles.infoValueRow}>
@@ -71,7 +78,7 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
               testID="settings-stream-backfill-count"
               style={[styles.infoValue, isDark && styles.textLight]}
             >
-              {detail}
+              {value}
             </Text>
             {(isRunning || offersDownload) && (
               <Button
@@ -91,7 +98,7 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
         {refusalKey !== null && (
           <Text
             testID="settings-stream-backfill-refusal"
-            style={[styles.refusal, isDark && styles.textMuted]}
+            style={[styles.refusal, isDark && styles.textSecondary]}
           >
             {t(refusalKey)}
           </Text>
@@ -132,7 +139,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
 });

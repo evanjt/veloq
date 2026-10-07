@@ -3,7 +3,7 @@ import { StyleSheet, ScrollView } from 'react-native';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
-import { DataSourcesSection } from '@/features/settings/components';
+import { DataSourcesSection } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function DataSourcesSettingsScreenContent() {

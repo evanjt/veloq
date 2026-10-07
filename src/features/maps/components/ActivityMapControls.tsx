@@ -21,6 +21,8 @@ interface ActivityMapControlsProps {
   bearingAnim: Animated.Value;
   onResetOrientation: () => void;
   locationLoading: boolean;
+  /** Whether a location dot is drawn, so the button shows its active style. */
+  userLocationActive: boolean;
   onGetLocation: () => void;
   enableFullscreen: boolean;
   onOpenFullscreen: () => void;
@@ -41,6 +43,7 @@ export function ActivityMapControls({
   bearingAnim,
   onResetOrientation,
   locationLoading,
+  userLocationActive,
   onGetLocation,
   enableFullscreen,
   onOpenFullscreen,
@@ -126,10 +129,15 @@ export function ActivityMapControls({
 
       {/* GPS location */}
       <IconButton
+        testID="activity-map-location"
         accessibilityLabel={t('maps.goToLocation')}
-        accessibilityState={{ disabled: locationLoading, busy: locationLoading }}
-        style={[styles.controlButton, isDark && styles.controlButtonDark]}
-        variant="secondary"
+        accessibilityState={{
+          disabled: locationLoading,
+          busy: locationLoading,
+          selected: userLocationActive,
+        }}
+        style={[styles.controlButton, isDark && !userLocationActive && styles.controlButtonDark]}
+        variant={userLocationActive ? 'primary' : 'secondary'}
         onPress={onGetLocation}
         disabled={locationLoading}
       >
@@ -142,7 +150,13 @@ export function ActivityMapControls({
           <MaterialCommunityIcons
             name="crosshairs-gps"
             size={22}
-            color={isDark ? colors.textOnDark : colors.textSecondary}
+            color={
+              userLocationActive
+                ? colors.textOnPrimary
+                : isDark
+                  ? colors.textOnDark
+                  : colors.textSecondary
+            }
           />
         )}
       </IconButton>

@@ -650,6 +650,9 @@ class EngineClient implements DelegateHost {
   setNetworkOnline = (online: boolean): void =>
     connectivityDelegates.setNetworkOnline(this, online);
 
+  setInteracting = (interacting: boolean): void =>
+    connectivityDelegates.setInteracting(this, interacting);
+
   getNetworkPush = (): NetworkPush | null => connectivityDelegates.getNetworkPush(this);
 
   /**

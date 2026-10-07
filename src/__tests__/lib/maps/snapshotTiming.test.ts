@@ -63,9 +63,25 @@ describe('the names a reader looks for in the table', () => {
     );
   });
 
-  it('tells the two page paths apart', () => {
-    expect(snapshotPageMetric(true)).toBe('snapshot.page.fast');
-    expect(snapshotPageMetric(false)).toBe('snapshot.page.setStyle');
+  it('tells the two page paths apart, by the shape that took them', () => {
+    expect(snapshotPageMetric(true, { flat: false, standIn: false })).toBe(
+      'snapshot.page.fast.drape'
+    );
+    expect(snapshotPageMetric(true, { flat: true, standIn: false })).toBe(
+      'snapshot.page.fast.flat'
+    );
+    expect(snapshotPageMetric(false, { flat: false, standIn: false })).toBe(
+      'snapshot.page.setStyle.drape'
+    );
+  });
+
+  it('files a stand-in, first paint or not, under standIn on either path', () => {
+    expect(snapshotPageMetric(false, { flat: true, standIn: true, firstPaint: true })).toBe(
+      'snapshot.page.setStyle.standIn'
+    );
+    expect(snapshotPageMetric(true, { flat: true, standIn: true })).toBe(
+      'snapshot.page.fast.standIn'
+    );
   });
 });
 

@@ -1381,7 +1381,7 @@ impl PersistentEngine {
     }
 
     /// Ledger rows with display names and availability for split links.
-    pub fn linked_section_history(&self, section_id: &str) -> Vec<SectionHistoryEvent> {
+    pub fn linked_section_history(&self, section_id: &str) -> Vec<crate::FfiSectionHistoryEvent> {
         self.ensure_named_overlay();
         pooled::linked_section_history(&self.db, section_id, &self.named_overlay_cached_names())
     }
@@ -1959,20 +1959,18 @@ pub(crate) mod pooled {
         conn: &Connection,
         section_id: &str,
         names: &std::collections::BTreeMap<String, String>,
-    ) -> Vec<SectionHistoryEvent> {
+    ) -> Vec<crate::FfiSectionHistoryEvent> {
         let mut history = section_history(conn, section_id);
         // The cutover's snapshot row is bookkeeping for the diff and the
         // backup. The shape it keeps is in the version list, and the
         // `algorithm_changed` row is what tells the change.
         history.retain(|event| event.kind != super::KIND_ARCHIVED);
-        let Ok(mut target) = conn.prepare(
+        let mut target = conn.prepare(
             "SELECT section_type, name, disabled, superseded_by FROM sections WHERE id = ?",
-        ) else {
-            return history;
-        };
+        );
         let mut link = |id: &str| {
-            let row = target
-                .query_row(params![id], |row| {
+            let row = target.as_mut().ok().and_then(|stmt| {
+                stmt.query_row(params![id], |row| {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, Option<String>>(1)?,
@@ -1982,48 +1980,39 @@ pub(crate) mod pooled {
                 })
                 .optional()
                 .ok()
-                .flatten();
+                .flatten()
+            });
             match row {
-                Some((section_type, name, disabled, superseded_by)) => serde_json::json!({
-                    "id": id,
-                    "name": if section_type == "auto" {
+                Some((section_type, name, disabled, superseded_by)) => crate::FfiSectionLink {
+                    id: id.to_string(),
+                    name: if section_type == "auto" {
                         names.get(id).cloned().or(name)
                     } else {
                         name.or_else(|| names.get(id).cloned())
                     },
-                    "available": !disabled && superseded_by.is_none(),
-                }),
-                None => serde_json::json!({"id": id, "name": null, "available": false}),
+                    available: !disabled && superseded_by.is_none(),
+                },
+                None => crate::FfiSectionLink {
+                    id: id.to_string(),
+                    name: None,
+                    available: false,
+                },
             }
         };
-        for event in &mut history {
-            let Some(details) = event.details.as_deref() else {
-                continue;
-            };
-            let Ok(mut value) = serde_json::from_str::<serde_json::Value>(details) else {
-                continue;
-            };
-            let Some(object) = value.as_object_mut() else {
-                continue;
-            };
-            if event.kind == "formed" {
-                if let Some(id) = object.get("split_from").and_then(|v| v.as_str()) {
-                    let linked = link(id);
-                    object.insert("split_from_link".into(), linked);
-                }
-            } else if event.kind == "split"
-                && let Some(ids) = object.get("siblings").and_then(|v| v.as_array())
-            {
-                let linked: Vec<_> = ids
-                    .iter()
-                    .filter_map(|v| v.as_str())
-                    .map(&mut link)
-                    .collect();
-                object.insert("split_into_links".into(), serde_json::json!(linked));
-            }
-            event.details = Some(value.to_string());
-        }
         history
+            .into_iter()
+            .map(|event| crate::FfiSectionHistoryEvent {
+                id: event.id as f64,
+                at: event.at,
+                details: crate::persistence::sections::ledger_details::event_details(
+                    event.details.as_deref(),
+                    &event.kind,
+                    &mut link,
+                ),
+                kind: event.kind,
+                geometry_version: event.geometry_version.map(|v| v as f64),
+            })
+            .collect()
     }
 
     /// Every ledger row on a section that names `activity_id`, newest first.

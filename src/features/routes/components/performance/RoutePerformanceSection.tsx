@@ -120,12 +120,12 @@ export function RoutePerformanceSection({
             {routeGroup.name}
           </Text>
           <View style={styles.metaRow}>
-            <Text style={[styles.meta, isDark && styles.textMuted]}>
+            <Text style={[styles.meta, isDark && styles.textSecondary]}>
               {t('maps.activitiesCount', { count: routeGroup.activityCount })}
             </Text>
             {bestTimeDisplay && (
               <>
-                <Text style={[styles.meta, isDark && styles.textMuted]}> · </Text>
+                <Text style={[styles.meta, isDark && styles.textSecondary]}> · </Text>
                 <Text style={[styles.timeValue, isDark && styles.textLight]}>
                   {bestTimeDisplay}
                 </Text>
@@ -154,7 +154,7 @@ export function RoutePerformanceSection({
             testID="route-key-activity"
             style={[styles.swatch, { backgroundColor: activityColor }]}
           />
-          <Text style={[styles.meta, isDark && styles.textMuted]}>
+          <Text style={[styles.meta, isDark && styles.textSecondary]}>
             {t('activityDetail.lineKeyActivity')}
           </Text>
         </View>
@@ -163,14 +163,14 @@ export function RoutePerformanceSection({
             testID="route-key-route"
             style={[styles.swatch, { backgroundColor: mapLayerColors.routeOverlay }]}
           />
-          <Text style={[styles.meta, isDark && styles.textMuted]}>
+          <Text style={[styles.meta, isDark && styles.textSecondary]}>
             {t('activityDetail.lineKeyRoute')}
           </Text>
         </View>
       </View>
 
       {standingText && (
-        <Text testID="route-standing" style={[styles.standing, isDark && styles.textMuted]}>
+        <Text testID="route-standing" style={[styles.standing, isDark && styles.textSecondary]}>
           {standingText}
         </Text>
       )}
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: darkColors.textPrimary,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
 });

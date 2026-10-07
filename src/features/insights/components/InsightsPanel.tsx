@@ -106,7 +106,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
             <MaterialCommunityIcons
               name="lightbulb-outline"
               size={32}
-              color={isDark ? darkColors.textMuted : colors.textDisabled}
+              color={isDark ? darkColors.textSecondary : colors.textDisabled}
             />
             <Text style={[styles.empty, isDark && styles.emptyDark]}>
               {t('insights.noInsights', 'No insights yet')}

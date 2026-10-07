@@ -240,7 +240,7 @@ function LoginScreenContent() {
 
         {/* Disclaimer Footer */}
         <View style={styles.disclaimerContainer}>
-          <Text style={[styles.disclaimerText, isDark && styles.textMuted]}>
+          <Text style={[styles.disclaimerText, isDark && styles.textSecondary]}>
             {t('login.disclaimer')}
           </Text>
 
@@ -257,7 +257,9 @@ function LoginScreenContent() {
             </Text>
           </Pressable>
 
-          <Text style={[styles.intervalsLabel, isDark && styles.textMuted]}>intervals.icu:</Text>
+          <Text style={[styles.intervalsLabel, isDark && styles.textSecondary]}>
+            intervals.icu:
+          </Text>
           <View style={styles.linksRow}>
             <Pressable
               onPress={handleOpenIntervalsPrivacy}
@@ -270,7 +272,7 @@ function LoginScreenContent() {
                 {t('login.privacyPolicy')}
               </Text>
             </Pressable>
-            <Text style={[styles.linkSeparator, isDark && styles.textMuted]}>|</Text>
+            <Text style={[styles.linkSeparator, isDark && styles.textSecondary]}>|</Text>
             <Pressable
               onPress={handleOpenIntervalsTerms}
               accessibilityRole="link"
@@ -319,8 +321,8 @@ const styles = StyleSheet.create({
   textDark: {
     color: darkColors.textSecondary,
   },
-  textMuted: {
-    color: darkColors.textMuted,
+  textSecondary: {
+    color: darkColors.textSecondary,
   },
   subtitle: {
     fontSize: typography.body.fontSize,

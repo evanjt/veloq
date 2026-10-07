@@ -160,13 +160,22 @@ function includedFiles(source: string, file: string): string[] {
   });
 }
 
-function suiteDependencies(): Map<string, Set<string>> {
+interface SuiteDependencies {
+  /** Each file a suite compiles or reads, to the suites that do. */
+  includedBy: Map<string, Set<string>>;
+  /** Each suite, to the files it compiles or reads. */
+  files: Map<string, Set<string>>;
+}
+
+function suiteDependencies(): SuiteDependencies {
   const fs = require('node:fs');
   const path = require('node:path');
   const includedBy = new Map<string, Set<string>>();
+  const files = new Map<string, Set<string>>();
   for (const target of testRoots()) {
     const pending = [target.path];
     const seen = new Set<string>();
+    files.set(target.name, seen);
     while (pending.length > 0) {
       const file = pending.pop();
       if (!file) continue;
@@ -184,7 +193,179 @@ function suiteDependencies(): Map<string, Set<string>> {
       }
     }
   }
-  return includedBy;
+  return { includedBy, files };
+}
+
+/** The pseudo-module for items defined in `lib.rs` itself. */
+const CRATE_ROOT = '';
+
+function readRepoFile(file: string): string {
+  return require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '../..', file),
+    'utf8'
+  ) as string;
+}
+
+/** Every `.rs` file under a directory, as repository paths. */
+function rustFilesUnder(dir: string): string[] {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const found: string[] = [];
+  for (const entry of fs.readdirSync(path.join(__dirname, '../..', dir), {
+    withFileTypes: true,
+  }) as { name: string; isDirectory(): boolean }[]) {
+    const child = path.posix.join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...rustFilesUnder(child));
+    else if (entry.name.endsWith('.rs')) found.push(child);
+  }
+  return found;
+}
+
+/** The first path segment after `src/`, which names the top-level module a source file belongs to. */
+function topModuleOf(file: string): string {
+  return file.slice(`${CRATE}src/`.length).replace(/\.rs$/, '').split('/')[0] ?? '';
+}
+
+/**
+ * What `<prefix>::` leads to in a source: the identifier right after it, and,
+ * for a `{ ... }` group, the leading identifier of each item at the group's
+ * own depth. `self` and the empty case are reported as the prefix itself.
+ */
+function namesAfter(source: string, prefix: string): string[] {
+  const names: string[] = [];
+  for (const match of source.matchAll(new RegExp(`\\b${prefix}::`, 'g'))) {
+    let at = match.index + match[0].length;
+    if (source[at] !== '{') {
+      const name = source.slice(at).match(/^[a-zA-Z_]\w*/)?.[0];
+      if (name) names.push(name);
+      continue;
+    }
+    let depth = 0;
+    let atItemStart = false;
+    for (; at < source.length; at += 1) {
+      const char = source[at] as string;
+      if (char === '{') {
+        depth += 1;
+        atItemStart = depth === 1;
+      } else if (char === '}') {
+        depth -= 1;
+        if (depth === 0) break;
+      } else if (char === ',') {
+        atItemStart = depth === 1;
+      } else if (atItemStart && /\S/.test(char)) {
+        const name = source.slice(at).match(/^[a-zA-Z_]\w*/)?.[0];
+        if (name) names.push(name);
+        atItemStart = false;
+      }
+    }
+  }
+  return names;
+}
+
+interface ModuleGraph {
+  modules: Set<string>;
+  /** A module, to the modules its files name through `crate::`. */
+  edges: Map<string, Set<string>>;
+  /** What an item imported straight from the crate root can come from. */
+  rootModules: Set<string>;
+}
+
+/**
+ * The crate's top-level modules as `lib.rs` declares them, and for each the
+ * modules its files name through `crate::`. Nested files belong to the module
+ * they sit under.
+ */
+function moduleGraph(): ModuleGraph {
+  const lib = readRepoFile(`${CRATE}src/lib.rs`);
+  const modules = new Set(
+    [...lib.matchAll(/^[ \t]*(?:pub(?:\([a-z]+\))?[ \t]+)?mod[ \t]+([a-zA-Z_]\w*)[ \t]*;/gm)].map(
+      ([, name]) => name as string
+    )
+  );
+  const edges = new Map<string, Set<string>>();
+  for (const file of rustFilesUnder(`${CRATE}src`)) {
+    const owner = file === `${CRATE}src/lib.rs` ? CRATE_ROOT : topModuleOf(file);
+    const into = edges.get(owner) ?? new Set<string>();
+    for (const name of namesAfter(readRepoFile(file), 'crate')) {
+      if (modules.has(name) && name !== owner) into.add(name);
+    }
+    edges.set(owner, into);
+  }
+  // An item a suite imports from the crate root is defined in `lib.rs` or
+  // re-exported from a module that `pub use` names.
+  const rootModules = new Set<string>([CRATE_ROOT]);
+  for (const [, name] of lib.matchAll(/^pub use ([a-zA-Z_]\w*)::/gm)) {
+    if (modules.has(name as string)) rootModules.add(name as string);
+  }
+  return { modules, edges, rootModules };
+}
+
+function closure(start: Iterable<string>, edges: Map<string, Set<string>>): Set<string> {
+  const reached = new Set<string>();
+  const pending = [...start];
+  while (pending.length > 0) {
+    const module = pending.pop() as string;
+    if (reached.has(module)) continue;
+    reached.add(module);
+    pending.push(...(edges.get(module) ?? []));
+  }
+  return reached;
+}
+
+/**
+ * The crate modules each integration suite reaches: those it names as
+ * `veloqrs::<module>`, the modules the crate root re-exports for anything it
+ * imports from the root, and everything those files use in turn. A glob or
+ * `extern crate` import cannot be narrowed, so it reaches every module.
+ */
+function modulesReachedBySuite(
+  files: Map<string, Set<string>>,
+  graph: ModuleGraph
+): Map<string, Set<string>> {
+  const reached = new Map<string, Set<string>>();
+  for (const [suite, suiteFiles] of files) {
+    const direct = new Set<string>();
+    for (const file of suiteFiles) {
+      if (!file.endsWith('.rs')) continue;
+      const source = readRepoFile(file);
+      if (/\bextern crate veloqrs\b|\bveloqrs::\*|\bveloqrs::\{[^}]*\*/.test(source)) {
+        for (const module of [...graph.modules, CRATE_ROOT]) direct.add(module);
+      }
+      for (const name of namesAfter(source, 'veloqrs')) {
+        if (graph.modules.has(name)) direct.add(name);
+        else for (const root of graph.rootModules) direct.add(root);
+      }
+    }
+    reached.set(suite, closure(direct, graph.edges));
+  }
+  return reached;
+}
+
+/**
+ * The integration suites a production source file can break, by the module it
+ * belongs to. A source file that belongs to no declared module cannot be
+ * placed, so it plans every suite rather than none.
+ */
+function suitesReaching(changed: string[], files: Map<string, Set<string>>): string[] {
+  const sources = changed.filter((path) => path.startsWith(`${CRATE}src/`));
+  if (sources.length === 0) return [];
+  const graph = moduleGraph();
+  const reached = modulesReachedBySuite(files, graph);
+  const suites = new Set<string>();
+  for (const source of sources) {
+    // The migration scripts are embedded by the persistence module.
+    const module =
+      source === `${CRATE}src/lib.rs`
+        ? CRATE_ROOT
+        : source.startsWith(`${CRATE}src/migrations/`)
+          ? 'persistence'
+          : topModuleOf(source);
+    if (module !== CRATE_ROOT && !graph.modules.has(module)) {
+      return [...files.keys()];
+    }
+    for (const [suite, modules] of reached) if (modules.has(module)) suites.add(suite);
+  }
+  return [...suites];
 }
 
 /**
@@ -279,8 +460,11 @@ function definesEngineEntryPoint(path: string): boolean {
 /** The suites to run for a set of changed paths. */
 export function mergeTestTargets(changed: string[]): MergeTargets {
   const unrunnable = unrunnableSuites();
-  const dependencies = suiteDependencies();
-  const named = changed.flatMap((path) => [...(dependencies.get(path) ?? [])]);
+  const { includedBy, files } = suiteDependencies();
+  const named = [
+    ...changed.flatMap((path) => [...(includedBy.get(path) ?? [])]),
+    ...suitesReaching(changed, files),
+  ];
   const schema = changed.some(touchesSchema) ? SCHEMA_SUITES : [];
   const manifest = changed.includes(`${CRATE}Cargo.toml`) ? ['app'] : [];
   const layout = changed.some(touchesTestLayout) ? [LAYOUT_SUITE] : [];

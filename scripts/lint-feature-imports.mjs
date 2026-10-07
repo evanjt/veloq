@@ -1,14 +1,8 @@
 #!/usr/bin/env node
 // `src/features/CLAUDE.md` states one layering rule: a cross-feature import goes
 // through the barrel, `@/features/maps`, never a deep path into another
-// feature. Nothing enforced it, and 91 per cent of the tree's cross-feature
-// imports are deep paths, so demanding zero would fail every commit.
-//
-// This is a ratchet instead. `scripts/feature-import-baseline.json` holds the
-// deep count for each owner -> target edge as it stands. An edge above its
-// baseline fails, an edge the baseline never listed fails, and an edge the tree
-// has already beaten fails with the number to paste back, so the ground a sweep
-// takes cannot be given away again.
+// feature. This is the ban. Any deep cross-feature import fails, with no
+// baseline to lend it ground.
 //
 // Counted: every specifier in `src/features/**` and `src/app/**` that resolves
 // under another feature, whether it is written `@/features/x/...` or as a
@@ -50,18 +44,20 @@ const flagValue = (name, fallback) => {
   return i === -1 ? fallback : resolve(process.argv[i + 1]);
 };
 
-// `--root` points the lint at another tree and `--baseline` at another file, so
-// the rule itself can be tested.
+// `--root` points the lint at another tree and `--lazy` at another permitted list,
+// so the rule itself can be tested.
 const ROOT = flagValue('--root', join(HERE, '..'));
-const BASELINE_FILE = flagValue('--baseline', join(HERE, 'feature-import-baseline.json'));
 const LAZY_FILE = flagValue('--lazy', join(HERE, 'feature-lazy-requires.json'));
 const SRC = join(ROOT, 'src');
 const FEATURES = join(SRC, 'features');
 const APP = join(SRC, 'app');
 const JSON_OUT = process.argv.includes('--json');
-const VERBOSE = process.argv.includes('--verbose');
 
 const APP_OWNER = '~app';
+
+const FORBIDDEN_EDGES = new Map([
+  ['maps -> routes', 'maps is a rendering layer: the caller passes route data in'],
+]);
 
 // The names a feature root answers to as a barrel import.
 const ENTRIES = new Set(['index', 'light']);
@@ -69,11 +65,6 @@ const ENTRIES = new Set(['index', 'light']);
 // The tree this commit or merge records, not the disk another session is editing.
 const TREE = treeSources(ROOT, [relative(ROOT, FEATURES), relative(ROOT, APP)]);
 const relOf = (file) => relative(ROOT, file).split(sep).join('/');
-const hasTracked = (dir) => {
-  const prefix = `${relOf(dir)}/`;
-  for (const rel of TREE.keys()) if (rel.startsWith(prefix)) return true;
-  return false;
-};
 
 function walk(dir) {
   const prefix = `${relOf(dir)}/`;
@@ -216,6 +207,7 @@ function lightViolations() {
 
 function scan(permitted) {
   const deep = [];
+  const forbidden = [];
   const lazyHits = [];
   const moduleScope = new Map();
   let barrel = 0;
@@ -227,6 +219,11 @@ function scan(permitted) {
     for (const { spec, line, lazy } of specifiersIn(file)) {
       const hit = targetOf(file, spec);
       if (hit === null || hit.target === owner) continue;
+      const edge = `${owner} -> ${hit.target}`;
+      if (FORBIDDEN_EDGES.has(edge)) {
+        forbidden.push({ file: rel, line, edge, spec });
+        continue;
+      }
       if (!lazy) {
         if (!moduleScope.has(rel)) moduleScope.set(rel, new Set());
         moduleScope.get(rel).add(hit.target);
@@ -240,10 +237,10 @@ function scan(permitted) {
         lazyCount += 1;
         continue;
       }
-      deep.push({ file: relative(ROOT, file), line, edge: `${owner} -> ${hit.target}`, spec });
+      deep.push({ file: relative(ROOT, file), line, edge, spec });
     }
   }
-  return { deep, barrel, lazyCount, lazyHits, moduleScope };
+  return { deep, forbidden, barrel, lazyCount, lazyHits, moduleScope };
 }
 
 // Problems with the permitted list itself, so an entry cannot outlive the
@@ -275,14 +272,6 @@ function lazyProblems(entries, lazyHits, moduleScope) {
   return problems;
 }
 
-// A baseline edge naming a feature this tree does not have says nothing about
-// it. That is what lets a fixture root run against the real baseline.
-function edgePresent(edge) {
-  const [owner, target] = edge.split(' -> ');
-  const ownerDir = owner === APP_OWNER ? APP : join(FEATURES, owner);
-  return hasTracked(ownerDir) && hasTracked(join(FEATURES, target));
-}
-
 const hasBarrel = (feature) =>
   TREE.has(relOf(join(FEATURES, feature, 'index.ts'))) ||
   TREE.has(relOf(join(FEATURES, feature, 'index.tsx')));
@@ -304,7 +293,18 @@ function main() {
       .filter((e) => typeof e?.reason === 'string' && e.reason.trim() !== '')
       .map((e) => `${e.file}\0${e.spec}`)
   );
-  const { deep, barrel, lazyCount, lazyHits, moduleScope } = scan(permitted);
+  const { deep, forbidden, barrel, lazyCount, lazyHits, moduleScope } = scan(permitted);
+  if (forbidden.length > 0) {
+    console.error('Imports across a direction that is forbidden:');
+    for (const v of forbidden)
+      console.error(`  ${v.file}:${v.line}  ${v.edge}  ${v.spec}  ${FORBIDDEN_EDGES.get(v.edge)}`);
+    console.error('');
+    console.error('Fix: pass the data or the callback in from the importing side, or move the');
+    console.error('     helper to `src/shared`. A barrel import, a deep path and a permitted lazy');
+    console.error('     require are all refused, and the baseline does not cover this edge.');
+    process.exit(1);
+  }
+
   const counts = new Map();
   for (const d of deep) counts.set(d.edge, (counts.get(d.edge) ?? 0) + 1);
   const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -313,9 +313,6 @@ function main() {
     console.log(JSON.stringify(Object.fromEntries(sorted), null, 2));
     return;
   }
-
-  const baseline = existsSync(BASELINE_FILE) ? JSON.parse(readFileSync(BASELINE_FILE, 'utf8')) : {};
-  const allowed = (edge) => baseline[edge] ?? 0;
 
   const problems = [...listProblems, ...lazyProblems(entries, lazyHits, moduleScope)];
   if (problems.length > 0) {
@@ -330,34 +327,23 @@ function main() {
     process.exit(1);
   }
 
-  const over = sorted.filter(([edge, n]) => n > allowed(edge));
-  const beaten = Object.keys(baseline)
-    .filter((edge) => edgePresent(edge) && (counts.get(edge) ?? 0) < baseline[edge])
-    .sort();
-
-  if (VERBOSE) {
-    for (const [edge, n] of sorted) console.log(`  ${edge}  ${n}, baseline ${allowed(edge)}`);
-    console.log('');
-  }
-
-  if (over.length > 0) {
-    console.error('Deep imports into another feature, above what the baseline allows:');
-    for (const [edge, n] of over) {
-      console.error(`  ${edge}  ${n}, baseline ${allowed(edge)}`);
+  if (deep.length > 0) {
+    console.error('Deep imports into another feature:');
+    for (const [edge, n] of sorted) {
+      console.error(`  ${edge}  ${n}`);
       for (const d of deep.filter((x) => x.edge === edge))
         console.error(`    ${d.file}:${d.line}  ${d.edge}  ${d.spec}`);
     }
     console.error('');
     console.error("Fix: import the target feature's barrel, `@/features/<name>`, and export what");
-    console.error('     you need from it. The barrel is the rule in src/features/CLAUDE.md, and');
-    console.error('     the baseline in scripts/feature-import-baseline.json only moves down. A');
+    console.error('     you need from it. The barrel is the rule in src/features/CLAUDE.md. A');
     console.error('     module that must not load the barrel imports `@/features/<name>/light`.');
     console.error(
       '     A require() inside a function that defers the module on purpose stays deep'
     );
     console.error('     when scripts/feature-lazy-requires.json lists its file and specifier with');
     console.error('     the reason.');
-    const missing = [...new Set(over.map(([edge]) => edge.split(' -> ')[1]))]
+    const missing = [...new Set(sorted.map(([edge]) => edge.split(' -> ')[1]))]
       .filter((t) => !hasBarrel(t))
       .sort();
     if (missing.length > 0) {
@@ -370,21 +356,10 @@ function main() {
     process.exit(1);
   }
 
-  if (beaten.length > 0) {
-    console.error('Baseline entries the tree is already under (lower them, or the ground is lent');
-    console.error('back to the next deep import):');
-    for (const edge of beaten)
-      console.error(`  ${edge}  ${counts.get(edge) ?? 0}, baseline ${baseline[edge]}`);
-    console.error('');
-    console.error('Fix: paste those numbers into scripts/feature-import-baseline.json, or drop');
-    console.error('     the entry when the count is 0.');
-    process.exit(1);
-  }
-
   const total = deep.length + barrel;
   console.log('lint-feature-imports: OK');
   console.log(
-    `  cross-feature imports: ${total}, ${barrel} barrel, ${deep.length} deep over ${counts.size} edge(s), baseline ${Object.values(baseline).reduce((a, b) => a + b, 0)}, ${lazyCount} lazy require(s) permitted`
+    `  cross-feature imports: ${total}, ${barrel} barrel, ${deep.length} deep, ${lazyCount} lazy require(s) permitted`
   );
 }
 

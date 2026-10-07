@@ -103,7 +103,7 @@ export function RestorePromptSheet({ visible, onClose }: RestorePromptSheetProps
             <Text style={[styles.title, isDark && styles.textLight]}>
               {t('backup.restorePromptTitle')}
             </Text>
-            <Text style={[styles.body, isDark && styles.textMuted]}>
+            <Text style={[styles.body, isDark && styles.textSecondary]}>
               {t('backup.restorePromptMessage')}
             </Text>
             <Button
@@ -135,7 +135,7 @@ export function RestorePromptSheet({ visible, onClose }: RestorePromptSheetProps
                   disabled={busy}
                 />
                 {entries?.length === 0 && (
-                  <Text style={[styles.body, isDark && styles.textMuted]}>
+                  <Text style={[styles.body, isDark && styles.textSecondary]}>
                     {t('backup.noBackupsAtDestination')}
                   </Text>
                 )}
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   textLight: {
     color: darkColors.textPrimary,
   },
-  textMuted: {
+  textSecondary: {
     color: darkColors.textSecondary,
   },
 });

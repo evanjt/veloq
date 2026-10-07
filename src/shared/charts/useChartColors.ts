@@ -108,7 +108,7 @@ export function useChartColors(): ChartColorScheme {
       // Chart UI elements
       grid: isDark ? colorWithOpacity(ink.white, 0.08) : colorWithOpacity(ink.black, 0.08),
       gridFaint: isDark ? darkColors.chartGridFaint : colors.chartGridFaint,
-      axis: isDark ? darkColors.textMuted : colors.textSecondary,
+      axis: isDark ? darkColors.textSecondary : colors.textSecondary,
       label: isDark ? darkColors.textSecondary : colors.textSecondary,
       tooltip: isDark ? darkColors.surfaceElevated : colors.surface,
       tooltipText: isDark ? darkColors.textPrimary : colors.textPrimary,

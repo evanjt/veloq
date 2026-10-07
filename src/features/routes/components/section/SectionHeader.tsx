@@ -4,12 +4,13 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useMetricSystem } from '@/shared/app';
-import { DetailHero, HeroNameRow, HeroStatsRow, useHeroMapHeight } from '@/shared/ui';
+import { DetailHero, HeroStatsRow, useHeroMapHeight } from '@/shared/ui';
+import { SectionNameEditor } from './SectionNameEditor';
 import { HighlightedSectionMap } from './HighlightedSectionMap';
 import type { MapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
@@ -40,10 +41,8 @@ export interface SectionHeaderProps {
   trimStart: number;
   trimEnd: number;
   expandContextPoints?: RoutePoint[] | null | undefined;
-  isEditing: boolean;
-  editName: string;
+  /** The committed name override, which takes precedence over `section.name`. */
   customName: string | null;
-  nameInputRef: React.RefObject<TextInput | null>;
   shadowTrack?: [number, number][] | undefined;
   /** The chart's scrubbed attempt. Only the map reads it, so a scrub never renders the header. */
   highlight: MapHighlightStore;
@@ -52,10 +51,8 @@ export interface SectionHeaderProps {
   allActivityTraces?: Record<string, RoutePoint[]> | undefined;
   /** Take the detector's lift flag off. Absent leaves the badge inert. */
   onUnflagLift?: (() => void) | undefined;
-  onStartEditing: () => void;
-  onSaveName: () => void;
-  onCancelEdit: () => void;
-  onEditNameChange: (text: string) => void;
+  /** Called with the typed name, untrimmed, when the rename is saved. */
+  onSaveName: (name: string) => void;
 }
 
 export function SectionHeader({
@@ -74,19 +71,13 @@ export function SectionHeader({
   trimStart,
   trimEnd,
   expandContextPoints,
-  isEditing,
-  editName,
   customName,
-  nameInputRef,
   shadowTrack,
   highlight,
   deltaLine,
   allActivityTraces,
   onUnflagLift,
-  onStartEditing,
   onSaveName,
-  onCancelEdit,
-  onEditNameChange,
 }: SectionHeaderProps) {
   const heroHeight = useHeroMapHeight();
   const mapHeight = mapHeightProp ?? heroHeight;
@@ -104,20 +95,12 @@ export function SectionHeader({
       height={mapHeight}
       overlay={
         <>
-          <HeroNameRow
+          <SectionNameEditor
             name={customName ?? section.name ?? section.id}
-            icon={{ name: iconName, color: activityColor }}
-            editable={{
-              isEditing,
-              editName,
-              inputRef: nameInputRef,
-              placeholder: t('sections.sectionNamePlaceholder'),
-              testIDPrefix: 'section',
-              onStartEdit: onStartEditing,
-              onSave: onSaveName,
-              onCancel: onCancelEdit,
-              onChange: onEditNameChange,
-            }}
+            startText={customName || section.name || ''}
+            iconName={iconName}
+            activityColor={activityColor}
+            onSaveName={onSaveName}
           />
           {section.isLift && (
             <TouchableOpacity

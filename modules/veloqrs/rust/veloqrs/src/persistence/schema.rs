@@ -11,7 +11,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 63;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 64;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -155,6 +155,7 @@ impl PersistentEngine {
     /// M62: each background job's last run, one row per job.
     /// M63: the place name the geocoder answered for each cell, kept so no
     /// place is asked twice.
+    /// M64: each activity's z17 tiles and how many no earlier activity touched.
     /// M54: the cutover archive tables dropped, their rows carried into the
     /// section ledger first by [`Self::init_schema`].
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
@@ -233,6 +234,7 @@ impl PersistentEngine {
             include_str!("../migrations/061_gps_track_elevation_source.sql"),
             include_str!("../migrations/062_job_runs.sql"),
             include_str!("../migrations/063_geocoded_places.sql"),
+            include_str!("../migrations/064_activity_new_ground.sql"),
         ]
     }
 

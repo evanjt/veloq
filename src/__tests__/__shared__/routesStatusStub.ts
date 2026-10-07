@@ -26,6 +26,7 @@ export interface StubbedStatusParts {
     percent?: number;
   } | null;
   streamRemaining?: number | null;
+  streamRemainingBytes?: number | null;
   elevation?: {
     phase: string;
     completed?: number;
@@ -66,6 +67,7 @@ export function routesStatus(parts: StubbedStatusParts = {}) {
     detectionOutcome: parts.detectionOutcome ?? 'idle',
     stream,
     streamRemaining: stream.phase === 'fetching' ? null : (parts.streamRemaining ?? null),
+    streamRemainingBytes: stream.phase === 'fetching' ? null : (parts.streamRemainingBytes ?? null),
     elevation,
     // Rust withholds the count while a pass reports its own figures.
     elevationRemaining: elevation.phase === 'fetching' ? null : (parts.elevationRemaining ?? null),

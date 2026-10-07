@@ -61,8 +61,6 @@ fn metrics(activity_id: &str, distance: f64) -> FfiActivityMetrics {
         sport_type: "Ride".to_string(),
         training_load: None,
         ftp: None,
-        power_zone_times: None,
-        hr_zone_times: None,
     }
 }
 

@@ -255,7 +255,7 @@ fn spawn_resume_ladder(
     climb: impl FnOnce() + Send + 'static,
 ) -> Option<std::thread::JoinHandle<()>> {
     let slot = ResumeGuard::claim()?;
-    Some(crate::threads::spawn_named("veloq-elev", move || {
+    Some(crate::threads::spawn_background("veloq-elev", move || {
         let _slot = slot;
         climb();
     }))
@@ -1233,6 +1233,12 @@ fn drain_queue_with_auth(
     let mut consecutive_failures = 0usize;
 
     for (chunk, batch) in queue.chunks(BATCH).enumerate() {
+        // Before the checks below, so a pass that waited behind the athlete
+        // re-reads every reason to stop once it wakes. The first batch has
+        // nothing before it to wait behind.
+        if chunk > 0 {
+            crate::net::pacing::pause();
+        }
         if engine_install() != install {
             return Walk {
                 outcome,
@@ -1742,7 +1748,7 @@ fn start_source_pass() {
         return;
     };
     let install = engine_install();
-    crate::threads::spawn_named("veloq-elev", move || {
+    crate::threads::spawn_background("veloq-elev", move || {
         let _slot = slot;
         resolve_sources(install, &transport, &athlete_id);
     });
@@ -1890,6 +1896,7 @@ pub fn start_owed_work() -> FfiStartOutcome {
     // The climb rows read only what is stored, so they are owed whatever the
     // credential and Route Matching say.
     crate::persistence::climb_bests::start_backfill();
+    crate::persistence::new_ground::start_pass();
     let outcome = match with_persistent_engine(|engine| engine.detection_enabled()) {
         None => return FfiStartOutcome::NotReady,
         Some(false) => FfiStartOutcome::NotConfigured,
@@ -1960,7 +1967,7 @@ fn start_pass() -> FfiStartOutcome {
     // worker: a restore installing another database mid-splice would otherwise
     // take elevation computed from the old library's tracks.
     let install = engine_install();
-    crate::threads::spawn_named("veloq-elev", move || {
+    crate::threads::spawn_background("veloq-elev", move || {
         run_in_slot(slot, install, &transport, &athlete_id);
     });
     FfiStartOutcome::Started
@@ -2882,6 +2889,34 @@ mod tests {
             assert_eq!(asked, 3 * BATCH, "an unset state must not refuse work");
             assert!(walk.stopped.is_none());
             assert!(walk.unasked.is_empty());
+        }
+
+        /// Three batches have two boundaries between them, and an athlete who
+        /// is touching the screen gets the gap at each. The first batch has
+        /// nothing before it to wait behind.
+        #[test]
+        fn an_interacting_athlete_widens_the_gap_between_batches() {
+            use crate::net::pacing;
+            let _serial = serial_global_state();
+            connectivity::reset();
+            pacing::reset();
+            pacing::set_interacting(true);
+
+            let started = std::time::Instant::now();
+            let mut asked = 0usize;
+            let walk = drain_queue_with(engine_install(), &queue(3 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+            let elapsed = started.elapsed();
+            pacing::reset();
+
+            assert_eq!(asked, 3 * BATCH, "pacing delays work, it never drops it");
+            assert!(walk.unasked.is_empty());
+            assert!(
+                elapsed >= 2 * pacing::GAP,
+                "two boundaries, each held for the gap, took only {elapsed:?}"
+            );
         }
 
         #[test]

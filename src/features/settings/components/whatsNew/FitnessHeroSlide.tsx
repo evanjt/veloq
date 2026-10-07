@@ -56,12 +56,18 @@ export function FitnessHeroSlide() {
         </View>
         <View style={styles.zoneLabels}>
           <Text
-            style={[styles.zoneLabel, { color: isDark ? darkColors.textMuted : colors.textMuted }]}
+            style={[
+              styles.zoneLabel,
+              { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+            ]}
           >
             {t('formZones.highRisk')}
           </Text>
           <Text
-            style={[styles.zoneLabel, { color: isDark ? darkColors.textMuted : colors.textMuted }]}
+            style={[
+              styles.zoneLabel,
+              { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+            ]}
           >
             {t('formZones.fresh')}
           </Text>

@@ -1055,6 +1055,7 @@ fn start_fetch_and_store_run(
                 );
                 engine.start_tile_pass();
             });
+            crate::persistence::new_ground::start_pass();
         }
         // After the start and outside the lock: a pass held back during the
         // run is asked for now, and the pass just started refuses it.
@@ -1209,6 +1210,24 @@ pub fn get_network_push() -> Option<NetworkPush> {
         online,
         age_seconds: age.as_secs().try_into().unwrap_or(u32::MAX),
     })
+}
+
+/// Tell the engine whether the athlete is touching the screen.
+///
+/// Call it with `true` on the first touch and again every couple of seconds
+/// of a continuous gesture, and with `false` once a second has passed without
+/// one. While it holds, a background pass leaves a gap at each boundary
+/// between units of work, so the cores are free for the thread drawing the
+/// screen. A free function over a process-wide value, like
+/// [`set_network_online`], so a push before the engine opens still lands.
+///
+/// The value is advisory and only ever a reason to wait longer: one nobody has
+/// refreshed for five seconds expires back to idle, and an install that never
+/// calls this behaves exactly as it did before.
+#[uniffi::export]
+pub fn set_interacting(interacting: bool) {
+    init_logging();
+    crate::net::pacing::set_interacting(interacting);
 }
 
 /// The last connectivity state TypeScript pushed, with its age.
@@ -1430,6 +1449,10 @@ pub struct FfiRoutesStatusData {
     /// Activities with no stored series, on the same terms as the elevation
     /// count: withheld while a pass runs, null when it cannot be answered.
     pub stream_remaining: Option<u32>,
+    /// What downloading those activities' series would use, in bytes, priced
+    /// from the same rows as `stream_remaining`. Withheld and null on the same
+    /// terms, so a null is "cannot answer" and never a free download.
+    pub stream_remaining_bytes: Option<f64>,
     pub elevation: ElevationBackfillProgress,
     /// How many stored tracks the elevation backfill has still to ask about.
     ///
@@ -1463,11 +1486,18 @@ pub fn get_routes_status_data() -> FfiRoutesStatusData {
     let detection_outcome = crate::objects::DetectionManager::new().last_outcome();
 
     let stream = get_stream_backfill_progress();
-    let stream_remaining = if stream.phase == crate::net::stream_backfill::STREAM_PHASE_FETCHING {
-        None
-    } else {
-        get_stream_backfill_remaining().ok()
-    };
+    let (stream_remaining, stream_remaining_bytes) =
+        if stream.phase == crate::net::stream_backfill::STREAM_PHASE_FETCHING {
+            (None, None)
+        } else {
+            match crate::objects::error::with_reader(crate::net::stream_backfill::queue_estimate) {
+                Ok(Ok((owed, bytes))) => (
+                    Some(owed.try_into().unwrap_or(u32::MAX)),
+                    Some(bytes as f64),
+                ),
+                _ => (None, None),
+            }
+        };
 
     let elevation = get_elevation_backfill_progress();
     // The count is a `COUNT(*)` over the stored tracks, so it is skipped while
@@ -1485,6 +1515,7 @@ pub fn get_routes_status_data() -> FfiRoutesStatusData {
         detection_outcome,
         stream,
         stream_remaining,
+        stream_remaining_bytes,
         elevation,
         elevation_remaining,
         elevation_paused: is_elevation_backfill_paused(),

@@ -11,12 +11,13 @@ import { getActivityColor } from '@/shared/activity/activityUtils';
 import { LatLng } from '@/shared/geo/polyline';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import { buildUserLocationCollection } from '@/features/maps/lib/userLocationLayer';
 import {
   getTerrainPreviewUri,
   hasTerrainPreview,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { colors } from '@/theme';
-import { useMapPreferences } from '@/features/settings/stores/MapPreferencesContext';
+import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 import { useMapLayers } from '@/features/maps/hooks/useMapLayers';
@@ -49,6 +50,7 @@ import { ActivityMapControls } from './ActivityMapControls';
 import {
   buildActivityLayers,
   buildActivitySources,
+  buildFullscreenMatchedRouteLayers,
   buildFullscreenSectionLayers,
   buildFullscreenSectionSources,
   FULLSCREEN_SECTION_MARKER_LAYER_IDS,
@@ -250,6 +252,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     currentZoomRef,
     bearingAnim,
     locationLoading,
+    userLocation,
     handleMapReady,
     handleMapFailed,
     resetSurface,
@@ -613,6 +616,11 @@ export const ActivityMapView = memo(function ActivityMapView({
   // before it reaches the surface.
   const throttledHighlight = useThrottledValue(highlightGeoJSON, HIGHLIGHT_THROTTLE_MS);
 
+  const userLocationGeoJSON = useMemo(
+    () => buildUserLocationCollection(userLocation),
+    [userLocation]
+  );
+
   const sources = useMemo(
     () =>
       buildActivitySources({
@@ -625,6 +633,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         endpointsGeoJSON,
         sectionCreationLine: sectionGeoJSON,
         sectionCreationMarkers,
+        userLocationGeoJSON,
       }),
     [
       routeGeoJSON,
@@ -636,6 +645,7 @@ export const ActivityMapView = memo(function ActivityMapView({
       endpointsGeoJSON,
       sectionGeoJSON,
       sectionCreationMarkers,
+      userLocationGeoJSON,
     ]
   );
 
@@ -661,6 +671,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         highlightedSectionId,
         hasHighlightPoint,
         creationMode,
+        hasUserLocation: userLocation !== null,
       }),
     [
       overlayHasData,
@@ -671,6 +682,7 @@ export const ActivityMapView = memo(function ActivityMapView({
       highlightedSectionId,
       hasHighlightPoint,
       creationMode,
+      userLocation,
     ]
   );
 
@@ -684,8 +696,12 @@ export const ActivityMapView = memo(function ActivityMapView({
     [consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON, overlayGeoJSON]
   );
   const fullscreenLayers = useMemo(
-    () => buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON, overlayHasData),
-    [sectionOverlaysGeoJSON, overlayHasData]
+    () => buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON),
+    [sectionOverlaysGeoJSON]
+  );
+  const fullscreenMatchedRouteLayers = useMemo(
+    () => buildFullscreenMatchedRouteLayers(overlayHasData),
+    [overlayHasData]
   );
 
   const handleFullscreenPress = useCallback(
@@ -897,6 +913,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           bearingAnim={bearingAnim}
           onResetOrientation={resetOrientation}
           locationLoading={locationLoading}
+          userLocationActive={userLocation !== null}
           onGetLocation={handleGetLocation}
           enableFullscreen={enableFullscreen}
           onOpenFullscreen={openFullscreen}
@@ -920,6 +937,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           onClose={closeFullscreen}
           overlaySources={fullscreenSources}
           overlayLayers={fullscreenLayers}
+          underRouteLayers={fullscreenMatchedRouteLayers}
           overlayImages={OVERLAY_IMAGES}
           interactiveLayers={FULLSCREEN_SECTION_MARKER_LAYER_IDS}
           onPress={handleFullscreenPress}

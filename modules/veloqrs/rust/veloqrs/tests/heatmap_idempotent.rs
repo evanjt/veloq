@@ -88,3 +88,77 @@ fn second_pass_generates_nothing_new() {
         cold_elapsed.as_millis()
     );
 }
+
+/// Scenario: a clean cache written by the release before the palette change
+/// (version "7", no dirty marker) is opened by the current renderer.
+///
+/// Expected behaviour: the open schedules a pass, the tile drawn with the old
+/// palette is replaced, the new version is recorded, and the next unchanged
+/// open schedules nothing.
+#[test]
+fn cache_from_the_previous_palette_is_regenerated_on_open() {
+    let _serial_state = super::serial_state();
+    let (mut engine, tmp) = seed_engine();
+    let tiles_dir = tmp.path().join("tiles");
+    std::fs::create_dir_all(&tiles_dir).expect("create tiles dir");
+    let path = tiles_dir.to_str().unwrap().to_string();
+
+    engine.set_heatmap_tiles_path(path.clone());
+    drain_parked_pass("first open spawns a pass");
+    let current_version =
+        std::fs::read_to_string(tiles_dir.join("version.txt")).expect("version recorded");
+
+    let tile = first_png(&tiles_dir).expect("a tile was rendered");
+    let previous_palette = b"tile drawn with the previous palette".to_vec();
+    std::fs::write(&tile, &previous_palette).expect("overwrite tile");
+    std::fs::write(tiles_dir.join("version.txt"), "7").expect("write old version");
+    let _ = std::fs::remove_file(tiles_dir.join(".dirty"));
+
+    engine.set_heatmap_tiles_path(path.clone());
+    drain_parked_pass("an old-format cache starts a pass");
+
+    assert_ne!(
+        std::fs::read(&tile).ok(),
+        Some(previous_palette),
+        "a tile drawn with the previous palette survived the upgrade"
+    );
+    assert_eq!(
+        std::fs::read_to_string(tiles_dir.join("version.txt")).expect("version recorded"),
+        current_version,
+        "the upgrade did not record the current format version"
+    );
+
+    engine.set_heatmap_tiles_path(path);
+    assert!(
+        veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+            .lock()
+            .unwrap()
+            .take()
+            .is_none(),
+        "an unchanged cache scheduled a pass on the next open"
+    );
+}
+
+fn drain_parked_pass(expect: &str) {
+    veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+        .lock()
+        .unwrap()
+        .take()
+        .expect(expect)
+        .recv_blocking()
+        .expect("pass completes");
+}
+
+fn first_png(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let p = entry.path();
+        if p.is_dir() {
+            if let Some(f) = first_png(&p) {
+                return Some(f);
+            }
+        } else if p.extension().is_some_and(|e| e == "png") {
+            return Some(p);
+        }
+    }
+    None
+}

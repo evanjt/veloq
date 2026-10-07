@@ -1,14 +1,14 @@
 /**
  * Scenario: the section detail screen hands its hooks values it builds from the
  * engine's bundle. Built inline, a fresh object per render defeated their
- * memoisation on every rename keystroke, because each keystroke re-renders the
- * screen root.
+ * memoisation on every root render, and a rename save renders the root through
+ * the optimistic name the actions hook holds.
  *
  * Expected behaviour: a re-render with the same bundle passes the same section,
  * refresh callback and excluded-id list to `useSectionActions` and
  * `useSectionTrim`, the same ledger to `useSectionLedger` and the same id lists
  * to `useSectionTimeStreamSync`, so those hooks' memoisation holds across a
- * keystroke.
+ * rename.
  */
 
 import React from 'react';
@@ -92,7 +92,7 @@ const mockUseSectionTimeStreamSync = jest.fn((..._args: unknown[]) => ({
 const mockUseSectionActions = jest.fn((_options: Record<string, unknown>) => ({}));
 const mockUseSectionTrim = jest.fn((..._args: unknown[]) => ({}));
 
-let capturedEditNameChange: ((name: string) => void) | undefined;
+let capturedSaveName: ((name: string) => void) | undefined;
 
 jest.mock('@/features/routes', () => {
   const React = require('react');
@@ -143,22 +143,18 @@ jest.mock('@/features/routes', () => {
         setHighlightedActivityPoints: noop,
         mapReady,
         setMapReady,
-        mergeTarget: null,
-        setMergeTarget: noop,
-        showMergePicker: false,
-        setShowMergePicker: noop,
         sectionTimeRange: '3m',
         setSectionTimeRange: noop,
         selectedSportType: undefined,
         setSelectedSportType: noop,
       };
     },
-    // The rename draft lives inside this hook, as in the real one, so typing
-    // re-renders the screen root through it.
+    // The optimistic name lives inside this hook, as in the real one, so a
+    // save re-renders the screen root through it.
     useSectionActions: (options: Record<string, unknown>) => {
       mockUseSectionActions(options);
-      const [editName, setEditName] = React.useState('');
-      return { editName, setEditName };
+      const [customName, setCustomName] = React.useState(null as string | null);
+      return { customName, handleSaveName: setCustomName };
     },
     useSectionTrim: (...args: unknown[]) => {
       mockUseSectionTrim(...args);
@@ -172,10 +168,9 @@ jest.mock('@/features/routes', () => {
     SectionContentArea: component,
     SectionDebugPanel: component,
     SectionDetailLinks: component,
-    MergeConfirmDialog: component,
-    MergeCandidatesModal: component,
-    SectionHeader: (props: { onEditNameChange: (name: string) => void }) => {
-      capturedEditNameChange = props.onEditNameChange;
+    useSectionMergeFlow: () => noop,
+    SectionHeader: (props: { onSaveName: (name: string) => void }) => {
+      capturedSaveName = props.onSaveName;
       return null;
     },
   };
@@ -184,10 +179,10 @@ jest.mock('@/features/routes', () => {
 describe('section detail screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    capturedEditNameChange = undefined;
+    capturedSaveName = undefined;
   });
 
-  it('keeps what it hands its hooks stable across a rename keystroke', async () => {
+  it('keeps what it hands its hooks stable across a rename', async () => {
     render(<SectionDetailScreen />);
     await act(async () => {});
 
@@ -196,12 +191,12 @@ describe('section detail screen', () => {
     const ledgerBefore = mockUseSectionLedger.mock.calls.at(-1);
     const streamsBefore = mockUseSectionTimeStreamSync.mock.calls.at(-1);
     expect(actionsBefore?.preComputedExcludedActivityIds).toEqual(['a2']);
-    expect(ledgerBefore?.[2]).toEqual({ history: [], geometryVersions: [], pinnedVersion: null });
+    expect(ledgerBefore?.[1]).toEqual({ history: [], geometryVersions: [], pinnedVersion: null });
     expect(streamsBefore?.[0]).toEqual(['a1']);
     const renders = mockUseSectionActions.mock.calls.length;
 
     await act(async () => {
-      capturedEditNameChange?.('Hill');
+      capturedSaveName?.('Hill');
     });
 
     expect(mockUseSectionActions.mock.calls.length).toBeGreaterThan(renders);
@@ -214,7 +209,7 @@ describe('section detail screen', () => {
     const trimAfter = mockUseSectionTrim.mock.calls.at(-1);
     expect(trimAfter?.[0]).toBe(trimBefore?.[0]);
     expect(trimAfter?.[1]).toBe(trimBefore?.[1]);
-    expect(mockUseSectionLedger.mock.calls.at(-1)?.[2]).toBe(ledgerBefore?.[2]);
+    expect(mockUseSectionLedger.mock.calls.at(-1)?.[1]).toBe(ledgerBefore?.[1]);
     expect(mockUseSectionTimeStreamSync.mock.calls.at(-1)?.[0]).toBe(streamsBefore?.[0]);
     expect(mockUseSectionTimeStreamSync.mock.calls.at(-1)?.[1]).toBe(streamsBefore?.[1]);
   });

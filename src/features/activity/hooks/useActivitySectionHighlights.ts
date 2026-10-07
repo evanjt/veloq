@@ -1,9 +1,11 @@
 /**
- * Batch-fetches section indicators (from materialized table) and route highlights
- * (computed inline) for a list of activity IDs.
+ * Batch-fetches section indicators (from materialized table), route highlights
+ * (computed inline) and new-ground coverage (from its materialized table) for a
+ * list of activity IDs.
  *
  * The same read carries the strength cards of the feed, which draw whether or not route
- * matching is on; the switch only withholds the section and route highlights.
+ * matching is on; the switch withholds the section and route highlights and the
+ * new-ground coverage.
  *
  * Section indicators: read from the `activity_indicators` table through
  * `getActivityHighlightsBundle`.
@@ -18,7 +20,7 @@
  */
 
 import { useMemo, useRef } from 'react';
-import type { ActivityHighlightsBundle } from 'veloqrs';
+import { FfiNewGroundBadge, type ActivityHighlightsBundle } from 'veloqrs';
 import { isRouteMatchingEnabled } from '@/features/routes';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { debug } from '@/shared/debug/debug';
@@ -47,6 +49,20 @@ export interface ActivityRouteHighlight {
   timeDeltaSeconds: number | null;
   /** Seconds a PR beat the previous route best by. Null when not a PR or no earlier attempt. */
   prImprovementSeconds: number | null;
+}
+
+/** How much of an activity's ground no earlier activity had covered. */
+export interface ActivityNewGround {
+  /** New tiles over tiles touched, from 0 to 1. */
+  fraction: number;
+  tiles: number;
+  newTiles: number;
+  /** The badge the engine decided the card earns; null below half. */
+  badge: 'entirelyNew' | 'mostlyNew' | null;
+}
+
+function newGroundKey(ground: ActivityNewGround): string {
+  return `${ground.tiles}|${ground.newTiles}|${ground.badge}`;
 }
 
 /**
@@ -104,6 +120,7 @@ export function useActivitySectionHighlights(
 ): {
   sections: Map<string, ActivitySectionHighlight[]>;
   routes: Map<string, ActivityRouteHighlight>;
+  newGround: Map<string, ActivityNewGround>;
   strengthCards: ActivityHighlightsBundle['strengthCards'];
 } {
   // `fitParsed` because a FIT landing turns an owed strength card into a drawn one.
@@ -112,6 +129,7 @@ export function useActivitySectionHighlights(
     new Map<string, { key: string; value: ActivitySectionHighlight[] }>()
   );
   const routeIdentity = useRef(new Map<string, { key: string; value: ActivityRouteHighlight }>());
+  const newGroundIdentity = useRef(new Map<string, { key: string; value: ActivityNewGround }>());
   // The list arrives as a fresh array every render, so the joined ids are what
   // the memo is keyed on, and the memo splits them back rather than closing
   // over the array its key stands in for.
@@ -122,6 +140,7 @@ export function useActivitySectionHighlights(
     const empty = {
       sections: new Map<string, ActivitySectionHighlight[]>(),
       routes: new Map<string, ActivityRouteHighlight>(),
+      newGround: new Map<string, ActivityNewGround>(),
       strengthCards: NO_STRENGTH_CARDS,
     };
 
@@ -190,6 +209,21 @@ export function useActivitySectionHighlights(
         });
       }
 
+      const newGroundMap = new Map<string, ActivityNewGround>();
+      for (const g of matching ? bundle.newGround : []) {
+        newGroundMap.set(g.activityId, {
+          fraction: g.fraction,
+          tiles: g.tiles,
+          newTiles: g.newTiles,
+          badge:
+            g.badge === FfiNewGroundBadge.EntirelyNew
+              ? 'entirelyNew'
+              : g.badge === FfiNewGroundBadge.MostlyNew
+                ? 'mostlyNew'
+                : null,
+        });
+      }
+
       if (__DEV__) {
         const prRoutes = rawRoutes.filter((r) => r.isPr);
         const trendRoutes = rawRoutes.filter((r) => r.trend !== 0 && !r.isPr);
@@ -206,7 +240,7 @@ export function useActivitySectionHighlights(
 
       // These refs cache object identity for this hook's batch only.
       // eslint-disable-next-line react-hooks/refs
-      prune(ids, [sectionIdentity.current, routeIdentity.current]);
+      prune(ids, [sectionIdentity.current, routeIdentity.current, newGroundIdentity.current]);
       for (const [id, highlights] of sectionMap) {
         // eslint-disable-next-line react-hooks/refs
         sectionMap.set(id, carry(sectionIdentity.current, id, highlights, sectionsKey(highlights)));
@@ -215,7 +249,19 @@ export function useActivitySectionHighlights(
         // eslint-disable-next-line react-hooks/refs
         routeMap.set(id, carry(routeIdentity.current, id, highlight, routeKey(highlight)));
       }
-      return { sections: sectionMap, routes: routeMap, strengthCards: bundle.strengthCards };
+      for (const [id, ground] of newGroundMap) {
+        newGroundMap.set(
+          id,
+          // eslint-disable-next-line react-hooks/refs
+          carry(newGroundIdentity.current, id, ground, newGroundKey(ground))
+        );
+      }
+      return {
+        sections: sectionMap,
+        routes: routeMap,
+        newGround: newGroundMap,
+        strengthCards: bundle.strengthCards,
+      };
     } catch (e) {
       if (__DEV__) {
         console.warn('[Indicators] Failed:', e);

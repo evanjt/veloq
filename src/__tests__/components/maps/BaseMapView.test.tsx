@@ -8,7 +8,9 @@
  */
 
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, act, waitFor } from '@testing-library/react-native';
+import * as Location from 'expo-location';
+import { ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BaseMapView, type BaseMapViewProps } from '@/features/maps/components/BaseMapView';
 
@@ -29,6 +31,52 @@ jest.mock('expo-location', () => ({
     .mockResolvedValue({ coords: { latitude: 46.948, longitude: 7.447 } }),
   Accuracy: { Balanced: 3 },
 }));
+
+// The real surface is rendered, wrapped so the test can read the sources it was
+// handed and the camera moves sent through its ref.
+const mockSurfaceProbe: {
+  sources: Record<string, { data?: GeoJSON.FeatureCollection }>;
+  setCamera: jest.Mock;
+} = { sources: {}, setCamera: jest.fn() };
+
+jest.mock('@/features/maps/components/MapSurface', () => {
+  const ReactLocal = require('react');
+  const actual = jest.requireActual('@/features/maps/components/MapSurface');
+  return {
+    ...actual,
+    MapSurface: ReactLocal.forwardRef(
+      (props: { sources: (typeof mockSurfaceProbe)['sources'] }, ref: React.Ref<unknown>) => {
+        mockSurfaceProbe.sources = props.sources;
+        return ReactLocal.createElement(actual.MapSurface, {
+          ...props,
+          ref: (instance: { setCamera: (...args: unknown[]) => void } | null) => {
+            const wrapped = instance && {
+              ...instance,
+              setCamera: (...args: unknown[]) => {
+                mockSurfaceProbe.setCamera(...args);
+                instance.setCamera(...args);
+              },
+            };
+            if (typeof ref === 'function') ref(wrapped);
+            else if (ref) (ref as React.MutableRefObject<unknown>).current = wrapped;
+          },
+        });
+      }
+    ),
+  };
+});
+
+const mockSetCamera = jest.fn();
+jest.mock('@/features/maps/lib/htmlBuilders/mapSurface', () => {
+  const actual = jest.requireActual('@/features/maps/lib/htmlBuilders/mapSurface');
+  return {
+    ...actual,
+    buildSetCameraScript: (...args: unknown[]) => {
+      mockSetCamera(...args);
+      return actual.buildSetCameraScript(...args);
+    },
+  };
+});
 
 const METRICS = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -148,6 +196,88 @@ describe('BaseMapView', () => {
     ).not.toThrow();
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+  });
+
+  describe('the locate button', () => {
+    const getPosition = Location.getCurrentPositionAsync as jest.Mock;
+
+    beforeEach(() => {
+      getPosition.mockClear();
+      mockSurfaceProbe.setCamera.mockClear();
+      mockSetCamera.mockClear();
+    });
+
+    async function pressLocate() {
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: 'maps.goToLocation' }));
+      });
+    }
+
+    it('keeps the location source mounted and empty before any fix', () => {
+      renderMap({ routeCoordinates: ROUTE });
+
+      expect(mockSurfaceProbe.sources['user-location']?.data?.features).toEqual([]);
+    });
+
+    it('draws the dot at the fix and eases the camera to zoom 13', async () => {
+      renderMap({ routeCoordinates: ROUTE });
+
+      await pressLocate();
+
+      expect(mockSurfaceProbe.setCamera).toHaveBeenCalledWith(
+        { center: [7.447, 46.948], zoom: 13 },
+        500
+      );
+      const [dot] = mockSurfaceProbe.sources['user-location'].data!.features;
+      expect(dot.geometry).toEqual({ type: 'Point', coordinates: [7.447, 46.948] });
+    });
+
+    it('reuses a fix under thirty seconds old instead of asking the GPS again', async () => {
+      renderMap({ routeCoordinates: ROUTE });
+
+      await pressLocate();
+      await pressLocate();
+
+      expect(getPosition).toHaveBeenCalledTimes(1);
+      expect(mockSurfaceProbe.setCamera).toHaveBeenCalledTimes(2);
+    });
+
+    it('shows a spinner and refuses presses while the fix is pending', async () => {
+      let resolveFix: (fix: unknown) => void = () => {};
+      getPosition.mockImplementationOnce(() => new Promise((resolve) => (resolveFix = resolve)));
+      renderMap({ routeCoordinates: ROUTE });
+
+      await pressLocate();
+
+      const button = screen.getByRole('button', { name: 'maps.goToLocation' });
+      expect(button.props.accessibilityState.disabled).toBe(true);
+      expect(screen.UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+
+      await act(async () => {
+        resolveFix({ coords: { latitude: 46.948, longitude: 7.447 } });
+      });
+
+      await waitFor(() => expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull());
+      expect(
+        screen.getByRole('button', { name: 'maps.goToLocation' }).props.accessibilityState.disabled
+      ).toBe(false);
+    });
+
+    it('eases onto the fix at the shared locate zoom and reuses a fresh fix', async () => {
+      renderMap({ routeCoordinates: ROUTE });
+      const locate = screen.getByRole('button', { name: 'maps.goToLocation' });
+
+      await act(async () => {
+        fireEvent.press(locate);
+      });
+      await act(async () => {
+        fireEvent.press(locate);
+      });
+
+      expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
+      expect(mockSetCamera).toHaveBeenCalledTimes(2);
+      expect(mockSetCamera).toHaveBeenLastCalledWith({ center: [7.447, 46.948], zoom: 13 }, 500);
+    });
   });
 
   describe('degenerate input', () => {

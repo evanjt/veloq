@@ -21,6 +21,7 @@ pub(crate) mod history;
 mod identity;
 mod interest;
 pub(crate) mod lap_curves;
+pub(crate) mod ledger_details;
 pub(crate) mod merging;
 mod mutations;
 pub(crate) mod named;

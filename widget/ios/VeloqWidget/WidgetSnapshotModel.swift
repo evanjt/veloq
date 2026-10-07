@@ -131,7 +131,6 @@ struct WidgetPaletteData: Codable {
   let chartFitness: String?
   let chartFatigue: String?
   let chartCasing: String?
-  let textMuted: String?
   let formHighRisk: String?
   let formOptimal: String?
   let formGreyZone: String?

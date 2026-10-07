@@ -456,6 +456,48 @@ fn a_redraw_request_for_a_stale_install_or_clean_set_starts_nothing() {
     turn_the_heatmap_off();
 }
 
+/// Scenario: a pass is requested by a sweep on another thread and its handle
+/// is taken long after the worker has finished.
+///
+/// Expected behaviour: the duration the handle reports is the worker's own,
+/// from the request to the last tile, so it is the same whenever the handle is
+/// taken.
+#[test]
+fn a_pass_reports_its_own_duration_however_late_its_handle_is_taken() {
+    let _serial = serial_global_state();
+    settle();
+    let (_tmp, tiles) = engine_with_two_rides("pass-duration.db");
+    crate::tiles::clear_all_tiles(&tiles).expect("tiles cleared");
+    with_persistent_engine(|e| e.mark_heatmap_dirty());
+
+    let requested = Instant::now();
+    assert!(with_persistent_engine(|e| e.start_tile_pass()).expect("engine"));
+    let deadline = requested + Duration::from_secs(60);
+    while tile_pass_slot().is_some() {
+        assert!(Instant::now() < deadline, "the pass never ended");
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    let ended = requested.elapsed();
+    std::thread::sleep(Duration::from_millis(300));
+    let handle = TILE_GENERATION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .take()
+        .expect("the pass parked its handle");
+    assert!(handle.recv_blocking().expect("the pass reported") > 0);
+    let reported = handle.generation_elapsed();
+    turn_the_heatmap_off();
+
+    assert!(
+        reported >= Duration::from_millis(1),
+        "the reported duration {reported:?} leaves out the generation"
+    );
+    assert!(
+        reported <= ended + Duration::from_millis(5),
+        "the reported duration {reported:?} runs past the pass ending at {ended:?}"
+    );
+}
+
 fn read_set(base: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
     fn walk(dir: &Path, root: &Path, out: &mut std::collections::BTreeMap<String, Vec<u8>>) {
         for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {

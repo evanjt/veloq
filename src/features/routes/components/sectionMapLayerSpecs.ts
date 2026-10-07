@@ -6,7 +6,12 @@
  * empty, which keeps a toggle to a data swap rather than a layer rebuild.
  */
 import { colors, mapLayerColors, mapPreviewColors } from '@/theme';
-import { type MapLayerSpec, type MapSourceSpec } from '@/features/maps';
+import {
+  type MapLayerSpec,
+  type MapSourceSpec,
+  USER_LOCATION_SOURCE_ID,
+  buildUserLocationLayers,
+} from '@/features/maps';
 import type { SectionMapLayers } from './useSectionMapLayers';
 
 interface SectionLayerInput extends SectionMapLayers {
@@ -26,6 +31,12 @@ interface SectionLayerInput extends SectionMapLayers {
    * the chart shows the delta plot. Without them the line keeps `activityColor`.
    */
   deltaLineStops?: (string | number)[] | null;
+  /**
+   * The athlete's position, drawn as a dot above the section. Left out where a
+   * shell draws its own dot, so the same source id is never declared twice.
+   */
+  userLocationGeoJSON?: GeoJSON.FeatureCollection;
+  hasUserLocation?: boolean;
 }
 
 export function buildSectionSources(input: SectionLayerInput): Record<string, MapSourceSpec> {
@@ -40,6 +51,9 @@ export function buildSectionSources(input: SectionLayerInput): Record<string, Ma
     'highlighted-lap': { kind: 'geojson', data: input.highlightedLapGeoJSON },
     'highlighted-trace': { kind: 'geojson', data: input.highlightedTraceGeoJSON },
     endpoints: { kind: 'geojson', data: input.endpoints },
+    ...(input.userLocationGeoJSON
+      ? { [USER_LOCATION_SOURCE_ID]: { kind: 'geojson' as const, data: input.userLocationGeoJSON } }
+      : {}),
   };
 }
 
@@ -219,6 +233,8 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
       },
     }
   );
+
+  if (input.userLocationGeoJSON) layers.push(...buildUserLocationLayers(!!input.hasUserLocation));
 
   return layers;
 }

@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { initializeI18n } from '@/i18n';
@@ -108,7 +108,7 @@ describe('tap-target floor', () => {
   });
 
   it('holds each sections filter chip to the minimum height', () => {
-    const { UNSAFE_getAllByType } = render(
+    const { getAllByRole } = render(
       <SectionsListFiltersBar
         regularSectionsCount={2}
         sortOption="name"
@@ -123,7 +123,7 @@ describe('tap-target floor', () => {
       />
     );
 
-    const chips = UNSAFE_getAllByType(TouchableOpacity);
+    const chips = getAllByRole('button');
     expect(chips).toHaveLength(4);
     for (const chip of chips) {
       const style = StyleSheet.flatten(chip.props.style) as {

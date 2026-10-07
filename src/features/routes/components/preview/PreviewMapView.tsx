@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
@@ -334,16 +334,19 @@ export function PreviewMapView({
         isDark={isDarkStyle(mapStyle)}
       />
       {/* Opposite corner to the legend, which owns the right-hand side. */}
-      <TouchableOpacity
-        style={[styles.styleButton, { backgroundColor: chipBg, borderColor: chipBorder }]}
+      <Pressable
+        style={pressable([
+          styles.styleButton,
+          { backgroundColor: chipBg, borderColor: chipBorder },
+        ])}
+        android_ripple={pressRipple}
         onPress={cycleStyle}
-        activeOpacity={0.8}
         testID="preview-map-style"
         accessibilityRole="button"
         accessibilityLabel={t('maps.toggleStyle')}
       >
         <MaterialCommunityIcons name={getStyleIcon(mapStyle)} size={20} color={textPrimary} />
-      </TouchableOpacity>
+      </Pressable>
       <View style={styles.legend} pointerEvents="box-none">
         <LegendChip
           testID="preview-layer-current"

@@ -14,6 +14,8 @@ const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 const PLACEHOLDERS: Record<string, string[]> = {
   streamBackfillOwed_one: ['{{count}}'],
   streamBackfillOwed_other: ['{{count}}'],
+  streamBackfillOwedSized_one: ['{{count}}', '{{size}}'],
+  streamBackfillOwedSized_other: ['{{count}}', '{{size}}'],
   streamBackfillProgress: ['{{completed}}', '{{total}}'],
 };
 

@@ -91,8 +91,6 @@ fn metrics(id: &str, date: i64) -> veloqrs::FfiActivityMetrics {
         sport_type: "Ride".to_string(),
         training_load: None,
         ftp: None,
-        power_zone_times: None,
-        hr_zone_times: None,
     }
 }
 
@@ -2131,31 +2129,31 @@ fn section_detail_links_split_events_to_available_sections() {
         .expect("split history");
 
     let child = s.engine.section_detail_data("child1");
-    let child_details: serde_json::Value = serde_json::from_str(
-        child
-            .history
-            .first()
-            .and_then(|e| e.details.as_deref())
-            .expect("child event"),
-    )
-    .expect("child details");
-    assert_eq!(child_details["split_from_link"]["id"], "auto1");
-    assert_eq!(child_details["split_from_link"]["name"], "Auto Climb");
-    assert_eq!(child_details["split_from_link"]["available"], true);
+    let parent_link = child
+        .history
+        .first()
+        .and_then(|e| e.details.as_ref())
+        .and_then(|d| d.split_from.as_ref())
+        .expect("child's parent link");
+    assert_eq!(parent_link.id, "auto1");
+    assert_eq!(parent_link.name.as_deref(), Some("Auto Climb"));
+    assert!(parent_link.available);
 
     let parent = s.engine.section_detail_data("auto1");
-    let parent_details: serde_json::Value = serde_json::from_str(
-        parent
-            .history
-            .first()
-            .and_then(|e| e.details.as_deref())
-            .expect("parent event"),
-    )
-    .expect("parent details");
-    assert_eq!(parent_details["split_into_links"][0]["id"], "child1");
-    assert_eq!(parent_details["split_into_links"][1]["id"], "child2");
-    assert_eq!(parent_details["split_into_links"][0]["name"], "Child 1");
-    assert_eq!(parent_details["split_into_links"][1]["name"], "Child 2");
+    let pieces = parent
+        .history
+        .first()
+        .and_then(|e| e.details.as_ref())
+        .map(|d| d.split_into.as_slice())
+        .expect("parent's pieces");
+    let named: Vec<(&str, Option<&str>)> = pieces
+        .iter()
+        .map(|link| (link.id.as_str(), link.name.as_deref()))
+        .collect();
+    assert_eq!(
+        named,
+        vec![("child1", Some("Child 1")), ("child2", Some("Child 2"))]
+    );
 }
 
 #[test]
@@ -2174,19 +2172,19 @@ fn section_detail_marks_retired_or_missing_split_targets_unavailable() {
         .expect("split history");
 
     let detail = s.engine.section_detail_data("cust1");
-    let formed: serde_json::Value = serde_json::from_str(
-        detail.history[0]
-            .details
-            .as_deref()
-            .expect("formed details"),
-    )
-    .expect("formed JSON");
-    let split: serde_json::Value =
-        serde_json::from_str(detail.history[1].details.as_deref().expect("split details"))
-            .expect("split JSON");
-    assert_eq!(formed["split_from_link"]["available"], false);
-    assert_eq!(split["split_into_links"][0]["id"], "missing");
-    assert_eq!(split["split_into_links"][0]["available"], false);
+    let parent = detail.history[0]
+        .details
+        .as_ref()
+        .and_then(|d| d.split_from.as_ref())
+        .expect("formed parent link");
+    assert!(!parent.available);
+    let pieces = &detail.history[1]
+        .details
+        .as_ref()
+        .expect("split details")
+        .split_into;
+    assert_eq!(pieces[0].id, "missing");
+    assert!(!pieces[0].available);
 }
 
 /// A pinned version has to read as pinned in the bundle, which is the one

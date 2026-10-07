@@ -4,10 +4,10 @@
  * Covers: toActivityMetrics
  * Bug fixes validated:
  * - an invalid start_date_local falls back to zero rather than NaN
- * - Documents inconsistent zone time serialization (powerZoneTimes vs hrZoneTimes)
+ * - the record carries no zone seconds: the engine reads them from the activity body
  */
 
-import { toActivityMetrics } from '@/shared/activity/activityMetrics';
+import { powerZoneEntries, toActivityMetrics } from '@/shared/activity/activityMetrics';
 import type { Activity } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -79,6 +79,8 @@ describe('toActivityMetrics', () => {
     expect(metrics.avgPower).toBe(200);
     expect(metrics.trainingLoad).toBe(85);
     expect(metrics.ftp).toBe(260);
+    expect(metrics).not.toHaveProperty('powerZoneTimes');
+    expect(metrics).not.toHaveProperty('hrZoneTimes');
   });
 
   it('converts date to a unix timestamp in seconds', () => {
@@ -127,41 +129,6 @@ describe('toActivityMetrics', () => {
     const metrics = toActivityMetrics(activity);
     expect(metrics.date).toBe(0);
   });
-
-  it('handles zone times being undefined', () => {
-    const activity = makeActivity({
-      icu_zone_times: undefined,
-      icu_hr_zone_times: undefined,
-    });
-    const metrics = toActivityMetrics(activity);
-    expect(metrics.powerZoneTimes).toBeUndefined();
-    expect(metrics.hrZoneTimes).toBeUndefined();
-  });
-});
-
-describe('zone time arrays', () => {
-  it('maps power zone .secs while passing hr zones through as raw numbers', () => {
-    // icu_zone_times is Array<{id, secs}> → powerZoneTimes = map(z => z.secs)
-    // icu_hr_zone_times is number[] → hrZoneTimes = array (passed through)
-    expect(
-      toActivityMetrics(
-        makeActivity({
-          icu_zone_times: [
-            { id: 'Z1', secs: 600 },
-            { id: 'Z2', secs: 1200 },
-          ],
-        })
-      ).powerZoneTimes
-    ).toEqual([600, 1200]);
-    expect(
-      toActivityMetrics(makeActivity({ icu_hr_zone_times: [300, 600, 1200] })).hrZoneTimes
-    ).toEqual([300, 600, 1200]);
-    const both = toActivityMetrics(
-      makeActivity({ icu_zone_times: [{ id: 'Z1', secs: 100 }], icu_hr_zone_times: [200] })
-    );
-    expect(both.powerZoneTimes).toEqual([100]);
-    expect(both.hrZoneTimes).toEqual([200]);
-  });
 });
 
 describe('date edge cases', () => {
@@ -190,9 +157,9 @@ describe('power zone entries beside the zone ids', () => {
     { id: 'SS', secs: 80 },
   ];
 
-  it('leaves the overlapping Sweet Spot entry out of the engine zone times', () => {
-    expect(
-      toActivityMetrics(makeActivity({ icu_zone_times: rideWithSweetSpot })).powerZoneTimes
-    ).toEqual([188, 275, 124, 86, 59, 69, 97]);
+  it('leaves the overlapping Sweet Spot entry out', () => {
+    expect(powerZoneEntries(rideWithSweetSpot).map((z) => z.secs)).toEqual([
+      188, 275, 124, 86, 59, 69, 97,
+    ]);
   });
 });

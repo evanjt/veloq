@@ -399,7 +399,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-workflows.mjs'),
     catches:
-      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, or a cache key hashing what the build wrote',
+      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, or a tag release that skips a store deploy and ends green with nothing uploaded',
   },
   {
     name: 'lint:counted-translation',
@@ -641,6 +641,12 @@ const GUARDS = [
     catches: 'a pressable with no pressed state',
   },
   {
+    name: 'lint:haptics-owner',
+    kind: 'style',
+    cmd: node('lint-haptics-owner.mjs'),
+    catches: 'a haptic fired outside the one helper, with its own platform gate or no catch',
+  },
+  {
     name: 'lint:hold-durations',
     kind: 'style',
     cmd: node('lint-hold-durations.mjs'),
@@ -723,6 +729,13 @@ const GUARDS = [
     cmd: node('lint-widget-layouts.mjs'),
     catches:
       'a widget layout where a match_parent child beside weighted columns squeezes them to 0 wide, leaving a card with one line',
+  },
+  {
+    name: 'lint:widget-kotlin-arity',
+    kind: 'correctness',
+    cmd: node('lint-widget-kotlin-arity.mjs'),
+    catches:
+      'a widget Kotlin call passing more arguments than its helper declares, which leaves the tracked source uncompilable in a fresh Android project',
   },
   {
     name: 'lint:module-link',

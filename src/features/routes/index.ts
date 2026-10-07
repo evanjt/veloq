@@ -34,8 +34,6 @@ export {
 } from './components';
 export { type RoutesSortOption } from './components/RoutesList';
 export {
-  MergeCandidatesModal,
-  MergeConfirmDialog,
   SectionActionRow,
   SectionContentArea,
   SectionDebugPanel,
@@ -74,6 +72,7 @@ export {
   useSectionDataRefresh,
   useSectionMapData,
   useSectionMatches,
+  useSectionMergeFlow,
   useSectionPerformances,
   useSectionRescan,
   useSectionUIState,
@@ -117,6 +116,12 @@ export {
 } from './lib/groupingParams';
 export { fromEditorValue, toEditorText } from './lib/paramUnits';
 export type { ParamEditorSheetInput } from './lib/paramEditorSheet';
+export type {
+  MergeCandidatesSheetInput,
+  MergeConfirmSheetInput,
+  MergeConfirmSheetResult,
+  MergeSectionInfo,
+} from './lib/mergeSheets';
 export { type GroupingParams, groupingParamsOf, paintPreview } from './lib/groupingParams';
 export { previewNewNumber } from './lib/previewNewNumber';
 export { previewRefusalKey } from './lib/previewRefusal';

@@ -17,7 +17,6 @@ struct WidgetPalette {
   var chartFitness: Color
   var chartFatigue: Color
   var chartCasing: Color
-  var textMuted: Color
   var formHighRisk: Color
   var formOptimal: Color
   var formGreyZone: Color
@@ -46,7 +45,6 @@ struct WidgetPalette {
       chartFitness: d.chartFitness.map { Color(hex: $0) } ?? f.chartFitness,
       chartFatigue: d.chartFatigue.map { Color(hex: $0) } ?? f.chartFatigue,
       chartCasing: d.chartCasing.map { Color(hex: $0) } ?? f.chartCasing,
-      textMuted: d.textMuted.map { Color(hex: $0) } ?? f.textMuted,
       formHighRisk: d.formHighRisk.map { Color(hex: $0) } ?? f.formHighRisk,
       formOptimal: d.formOptimal.map { Color(hex: $0) } ?? f.formOptimal,
       formGreyZone: d.formGreyZone.map { Color(hex: $0) } ?? f.formGreyZone,
@@ -101,7 +99,7 @@ struct WidgetPalette {
     primary: WidgetTheme.Light.primary, gold: WidgetTheme.Light.gold, blue: WidgetTheme.Light.blue,
     fatigue: WidgetTheme.Light.fatigue,
     chartFitness: WidgetTheme.Light.chartFitness, chartFatigue: WidgetTheme.Light.chartFatigue,
-    chartCasing: WidgetTheme.Light.chartCasing, textMuted: WidgetTheme.Light.textMuted,
+    chartCasing: WidgetTheme.Light.chartCasing,
     formHighRisk: WidgetTheme.Light.formHighRisk, formOptimal: WidgetTheme.Light.formOptimal,
     formGreyZone: WidgetTheme.Light.formGreyZone, formFresh: WidgetTheme.Light.formFresh,
     formTransition: WidgetTheme.Light.formTransition,
@@ -119,7 +117,7 @@ struct WidgetPalette {
     primary: WidgetTheme.Dark.primary, gold: WidgetTheme.Dark.gold, blue: WidgetTheme.Dark.blue,
     fatigue: WidgetTheme.Dark.fatigue,
     chartFitness: WidgetTheme.Dark.chartFitness, chartFatigue: WidgetTheme.Dark.chartFatigue,
-    chartCasing: WidgetTheme.Dark.chartCasing, textMuted: WidgetTheme.Dark.textMuted,
+    chartCasing: WidgetTheme.Dark.chartCasing,
     formHighRisk: WidgetTheme.Dark.formHighRisk, formOptimal: WidgetTheme.Dark.formOptimal,
     formGreyZone: WidgetTheme.Dark.formGreyZone, formFresh: WidgetTheme.Dark.formFresh,
     formTransition: WidgetTheme.Dark.formTransition,
@@ -350,7 +348,7 @@ private struct ChartAxis: View {
       .stroke(palette.border, lineWidth: 0.5)
       Text(String(Int(value.rounded())))
         .font(.system(size: ChartPlot.axisFontSize))
-        .foregroundColor(palette.textMuted)
+        .foregroundColor(palette.textSecondary)
         .position(x: (plot.left - 4) / 2, y: min(max(y, 5), plot.bottom))
     }
   }

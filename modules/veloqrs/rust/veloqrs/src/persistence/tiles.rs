@@ -17,12 +17,12 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock, TryLockError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracematch::{Bounds, GpsPoint};
 
 /// Tile format version - increment when tile size, zoom range, or rendering changes.
 /// Triggers automatic cache clear + regeneration on app upgrade.
-pub(crate) const TILE_FORMAT_VERSION: &str = "7";
+pub(crate) const TILE_FORMAT_VERSION: &str = "8";
 
 /// Marker file written to the tiles directory when new data arrives.
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
@@ -163,7 +163,7 @@ fn schedule_tile_pass_retry(engine: &PersistentEngine) {
     });
     drop(pending);
     if spawn {
-        crate::threads::spawn_named("veloq-tileretry", run_tile_pass_retry);
+        crate::threads::spawn_background("veloq-tileretry", run_tile_pass_retry);
     }
 }
 
@@ -623,6 +623,7 @@ impl PersistentEngine {
     /// Callers go through [`Self::start_tile_pass`] or [`request_tile_pass`],
     /// which park the handle.
     pub fn generate_tiles_background(&self) -> Option<TileGenerationHandle> {
+        let requested = Instant::now();
         let tiles_path = self.heatmap_tiles_path.clone()?;
         let db_path = self.db_path.clone();
 
@@ -651,6 +652,8 @@ impl PersistentEngine {
         let gen_clone = generated_counter.clone();
         let total_clone = total_counter.clone();
         let worker_cancel = cancel.clone();
+        let elapsed_nanos = Arc::new(AtomicU64::new(0));
+        let worker_elapsed = elapsed_nanos.clone();
 
         // Captured before the pass so a sweep that marks the set dirty while
         // it runs is not cleared by it.
@@ -659,7 +662,7 @@ impl PersistentEngine {
         // of the same one and not of a library signed in since.
         let install = super::engine_install();
 
-        crate::threads::spawn_named("veloq-tiles", move || {
+        crate::threads::spawn_background("veloq-tiles", move || {
             let mut remarked = false;
             let generated = {
                 // The slot is held for the generation itself, and released
@@ -699,6 +702,12 @@ impl PersistentEngine {
                 }
                 run.generated
             };
+            // Stored before the follow-up request and the count, so whoever
+            // reads the count finds it, and before any wait on the receiver.
+            worker_elapsed.store(
+                u64::try_from(requested.elapsed().as_nanos()).unwrap_or(u64::MAX),
+                Ordering::SeqCst,
+            );
             // Something was stored, swept or removed while this pass worked,
             // and it planned from the library before that. The pass asked for
             // then was refused, so this is the one that asks again, from the
@@ -723,6 +732,7 @@ impl PersistentEngine {
             receiver: rx,
             generated: generated_counter,
             total: total_counter,
+            elapsed_nanos,
             cancel,
         })
     }
@@ -1405,6 +1415,12 @@ fn background_generate_tiles(
             // pass is minutes, so this is where a cancel actually lands. A tile
             // already written stays written, which is correct: the marker below
             // is what tells the next pass the rest is still owed.
+            if cancel.is_cancelled() {
+                return;
+            }
+            // Each rayon worker leaves the gap while the athlete is touching
+            // the screen, which gives the cores back to the thread drawing it.
+            crate::net::pacing::pause();
             if cancel.is_cancelled() {
                 return;
             }

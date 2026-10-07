@@ -30,7 +30,7 @@ const bundle = {
   matchedSections: [],
   customSections: [],
   encounters: [],
-  highlights: { indicators: [], routeHighlights: [], strengthCards: [] },
+  highlights: { indicators: [], routeHighlights: [], newGround: [], strengthCards: [] },
   sectionTraces: [],
   prSectionIds: [],
   maxHr: 180,

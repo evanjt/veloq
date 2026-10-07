@@ -11,6 +11,8 @@
  * comparison of one calendar unit against the last, and stay where they are.
  */
 
+import { TIME } from './time';
+
 export type Period = '7d' | '1m' | '3m' | '6m' | '1y' | 'all';
 
 /** The periods that are a span of days. */
@@ -71,7 +73,6 @@ export function periodRangeDays(period: Period): number {
   return period === 'all' ? 0 : PERIOD_DAYS[period];
 }
 
-const DAY_MS = 86_400_000;
 const ALL_TIME_START = new Date('2000-01-01');
 
 /**
@@ -80,5 +81,5 @@ const ALL_TIME_START = new Date('2000-01-01');
  */
 export function periodStart(period: Period, now: Date = new Date()): Date {
   if (period === 'all') return ALL_TIME_START;
-  return new Date(now.getTime() - PERIOD_DAYS[period] * DAY_MS);
+  return new Date(now.getTime() - PERIOD_DAYS[period] * TIME.DAY);
 }

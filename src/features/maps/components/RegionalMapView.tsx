@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { useMapPreferences } from '@/features/settings/stores/MapPreferencesContext';
+import { useMapPreferences } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';

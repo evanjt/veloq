@@ -151,7 +151,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
 
   if (sorted.length < 2) return null;
 
-  const textMuted = isDark ? darkColors.textMuted : colors.textMuted;
+  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const gridColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.06);
   const dotColor = isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.2);
   // The 5 px dot among the faint ones is the only thing that says best record,
@@ -247,7 +247,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
                     top: y - 6,
                     width: CHART_PADDING.left - 4,
                     textAlign: 'right',
-                    color: textMuted,
+                    color: textSecondary,
                   },
                 ]}
               >
@@ -262,7 +262,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
               <Text
                 maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 key={`x-${i}`}
-                style={[styles.axisLabel, { color: textMuted }]}
+                style={[styles.axisLabel, { color: textSecondary }]}
               >
                 {label.label}
               </Text>

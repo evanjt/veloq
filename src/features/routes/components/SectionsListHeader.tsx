@@ -1,9 +1,9 @@
 import { listCountLabel } from '@/features/routes/lib/listCountLabel';
 import React from 'react';
-import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SearchBar } from '@/shared/ui';
+import { Button, IconButton, SearchBar } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -86,7 +86,10 @@ export function SectionsListHeader({
         style={styles.searchBar}
       />
       <View style={styles.countRow}>
-        <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
+        <Text
+          testID="sections-count"
+          style={[styles.summaryText, isDark && styles.summaryTextDark]}
+        >
           {listCountLabel(
             t,
             t('trainingScreen.sections'),
@@ -96,24 +99,13 @@ export function SectionsListHeader({
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           {unacceptedAutoCount > 0 && (
-            <TouchableOpacity
+            <Button
+              variant="ghost"
+              size="sm"
               onPress={onAcceptAll}
-              accessibilityRole="button"
-              accessibilityLabel={t('sections.acceptAllSections')}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
-            >
-              <MaterialCommunityIcons name="pin-outline" size={13} color={colors.primary} />
-              <Text
-                style={{
-                  fontSize: typography.caption.fontSize,
-                  color: isDark ? darkColors.linkTeal : colors.linkTeal,
-                }}
-              >
-                {t('sections.acceptAllSections')}
-              </Text>
-            </TouchableOpacity>
+              icon={<MaterialCommunityIcons name="pin-outline" size={13} color={colors.primary} />}
+              label={t('sections.acceptAllSections')}
+            />
           )}
           {acceptAllResult !== null && (
             <Text
@@ -125,14 +117,10 @@ export function SectionsListHeader({
               {t('sections.acceptedCount', { count: acceptAllResult })}
             </Text>
           )}
-          <TouchableOpacity
+          <IconButton
             onPress={onRescan}
-            accessibilityRole="button"
             accessibilityLabel={t('settings.reanalyzeSections')}
-            accessibilityState={{ disabled: isScanning || detectionHold !== null }}
             disabled={isScanning || detectionHold !== null}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {isScanning ? (
               <ActivityIndicator
@@ -146,7 +134,7 @@ export function SectionsListHeader({
                 color={isDark ? darkColors.textDisabled : colors.textDisabled}
               />
             )}
-          </TouchableOpacity>
+          </IconButton>
         </View>
       </View>
       {elevationLine !== null && (

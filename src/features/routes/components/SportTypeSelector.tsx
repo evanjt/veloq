@@ -3,7 +3,7 @@
  * labels, optional per-sport counts, sport-tinted selected state.
  */
 
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { getActivityColor, getActivityIcon } from '@/shared/activity/activityUtils';
 import { colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
 import { toActivityType } from '../types';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export interface SportTypeOption {
   type: string;
@@ -39,21 +40,21 @@ export function SportTypeSelector({
         const sportColor = getActivityColor(toActivityType(type));
         const idleColor = isDark ? darkColors.textSecondary : colors.textSecondary;
         return (
-          <TouchableOpacity
+          <Pressable
             key={type}
-            style={[
+            style={pressable([
               styles.pill,
               isDark && styles.pillDark,
               isSelected && {
                 backgroundColor: colorWithOpacity(sportColor, 0.13),
                 borderColor: sportColor,
               },
-            ]}
+            ])}
+            android_ripple={pressRipple}
             onPress={() => onSelect(type)}
             accessibilityRole="button"
             accessibilityLabel={t(`activityTypes.${type}`, type)}
             accessibilityState={{ selected: isSelected }}
-            activeOpacity={0.7}
           >
             <MaterialCommunityIcons
               name={getActivityIcon(toActivityType(type))}
@@ -64,7 +65,7 @@ export function SportTypeSelector({
               {t(`activityTypes.${type}`, type)}
               {count != null ? ` ${count}` : ''}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>

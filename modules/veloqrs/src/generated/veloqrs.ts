@@ -510,6 +510,32 @@ export function resumeElevationBackfill(): boolean {
 }
 
 /**
+ * Tell the engine whether the athlete is touching the screen.
+ *
+ * Call it with `true` on the first touch and again every couple of seconds
+ * of a continuous gesture, and with `false` once a second has passed without
+ * one. While it holds, a background pass leaves a gap at each boundary
+ * between units of work, so the cores are free for the thread drawing the
+ * screen. A free function over a process-wide value, like
+ * [`set_network_online`], so a push before the engine opens still lands.
+ *
+ * The value is advisory and only ever a reason to wait longer: one nobody has
+ * refreshed for five seconds expires back to idle, and an install that never
+ * calls this behaves exactly as it did before.
+ */
+export function setInteracting(interacting: boolean): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_set_interacting(
+        FfiConverterBool.lower(interacting, nativeModule().rustbuffer_alloc),
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+  );
+}
+
+/**
  * Tell the engine what TypeScript sees on the network.
  *
  * The network lifecycle is Rust's, and nothing in the crate can see the
@@ -2769,6 +2795,122 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
 })();
 
 /**
+ * What an activity's card says about its ground, decided once in the engine.
+ */
+export enum FfiNewGroundBadge {
+  /**
+   * Every z17 tile the activity touched was untouched by earlier ones.
+   */
+  EntirelyNew,
+  /**
+   * At least half of them were.
+   */
+  MostlyNew,
+}
+
+const FfiConverterTypeFfiNewGroundBadge = (() => {
+  type TypeName = FfiNewGroundBadge;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiNewGroundBadge.EntirelyNew;
+        case 2:
+          return FfiNewGroundBadge.MostlyNew;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiNewGroundBadge.EntirelyNew:
+          return c.writeI32(1);
+        case FfiNewGroundBadge.MostlyNew:
+          return c.writeI32(2);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * How much of an activity's ground no earlier activity had covered, counted
+ * in z17 tiles. It is coverage of a fixed grid, not metres of new road.
+ */
+export type FfiActivityNewGround = {
+  activityId: string;
+  /**
+   * `new_tiles` over `tiles`, from 0 to 1.
+   */
+  fraction: number;
+  /**
+   * Tiles the activity touches.
+   */
+  tiles: number;
+  /**
+   * Tiles no earlier activity touched.
+   */
+  newTiles: number;
+  /**
+   * The badge the card shows, absent below half.
+   */
+  badge?: FfiNewGroundBadge;
+};
+
+/**
+ * Generated factory for {@link FfiActivityNewGround} record objects.
+ */
+export const FfiActivityNewGround = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiActivityNewGround,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityNewGround>,
+  });
+})();
+
+const FfiConverterTypeFfiActivityNewGround = (() => {
+  type TypeName = FfiActivityNewGround;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        fraction: FfiConverterFloat64.readFromCursor(c),
+        tiles: FfiConverterUInt32.readFromCursor(c),
+        newTiles: FfiConverterUInt32.readFromCursor(c),
+        badge: FfiConverterOptionalTypeFfiNewGroundBadge.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterFloat64.writeIntoCursor(value.fraction, c);
+      FfiConverterUInt32.writeIntoCursor(value.tiles, c);
+      FfiConverterUInt32.writeIntoCursor(value.newTiles, c);
+      FfiConverterOptionalTypeFfiNewGroundBadge.writeIntoCursor(value.badge, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterFloat64.allocationSize(value.fraction) +
+        FfiConverterUInt32.allocationSize(value.tiles) +
+        FfiConverterUInt32.allocationSize(value.newTiles) +
+        FfiConverterOptionalTypeFfiNewGroundBadge.allocationSize(value.badge)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A muscle group activation, matching react-native-body-highlighter slug format.
  */
 export type FfiMuscleGroup = {
@@ -2914,6 +3056,10 @@ export type FfiActivityHighlightsBundle = {
   indicators: Array<FfiActivityIndicator>;
   routeHighlights: Array<FfiActivityRouteHighlight>;
   /**
+   * Tile coverage against earlier activities, for the activities with any.
+   */
+  newGround: Array<FfiActivityNewGround>;
+  /**
    * One row per strength activity among the ids, with what its card paints.
    */
   strengthCards: Array<FfiStrengthCardSummary>;
@@ -2947,6 +3093,8 @@ const FfiConverterTypeFfiActivityHighlightsBundle = (() => {
           FfiConverterSequenceTypeFfiActivityIndicator.readFromCursor(c),
         routeHighlights:
           FfiConverterSequenceTypeFfiActivityRouteHighlight.readFromCursor(c),
+        newGround:
+          FfiConverterSequenceTypeFfiActivityNewGround.readFromCursor(c),
         strengthCards:
           FfiConverterSequenceTypeFfiStrengthCardSummary.readFromCursor(c),
       };
@@ -2958,6 +3106,10 @@ const FfiConverterTypeFfiActivityHighlightsBundle = (() => {
       );
       FfiConverterSequenceTypeFfiActivityRouteHighlight.writeIntoCursor(
         value.routeHighlights,
+        c,
+      );
+      FfiConverterSequenceTypeFfiActivityNewGround.writeIntoCursor(
+        value.newGround,
         c,
       );
       FfiConverterSequenceTypeFfiStrengthCardSummary.writeIntoCursor(
@@ -2972,6 +3124,9 @@ const FfiConverterTypeFfiActivityHighlightsBundle = (() => {
         ) +
         FfiConverterSequenceTypeFfiActivityRouteHighlight.allocationSize(
           value.routeHighlights,
+        ) +
+        FfiConverterSequenceTypeFfiActivityNewGround.allocationSize(
+          value.newGround,
         ) +
         FfiConverterSequenceTypeFfiStrengthCardSummary.allocationSize(
           value.strengthCards,
@@ -3445,14 +3600,6 @@ export type FfiActivityMetrics = {
    * FTP used for this activity (optional)
    */
   ftp?: number;
-  /**
-   * Power zone times in seconds per zone (optional)
-   */
-  powerZoneTimes?: Array<number>;
-  /**
-   * HR zone times in seconds per zone (optional)
-   */
-  hrZoneTimes?: Array<number>;
 };
 
 /**
@@ -3489,8 +3636,6 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
         sportType: FfiConverterString.readFromCursor(c),
         trainingLoad: FfiConverterOptionalFloat64.readFromCursor(c),
         ftp: FfiConverterOptionalUInt16.readFromCursor(c),
-        powerZoneTimes: FfiConverterOptionalSequenceUInt32.readFromCursor(c),
-        hrZoneTimes: FfiConverterOptionalSequenceUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -3506,11 +3651,6 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
       FfiConverterString.writeIntoCursor(value.sportType, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.trainingLoad, c);
       FfiConverterOptionalUInt16.writeIntoCursor(value.ftp, c);
-      FfiConverterOptionalSequenceUInt32.writeIntoCursor(
-        value.powerZoneTimes,
-        c,
-      );
-      FfiConverterOptionalSequenceUInt32.writeIntoCursor(value.hrZoneTimes, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3525,11 +3665,7 @@ const FfiConverterTypeFfiActivityMetrics = (() => {
         FfiConverterOptionalUInt16.allocationSize(value.avgPower) +
         FfiConverterString.allocationSize(value.sportType) +
         FfiConverterOptionalFloat64.allocationSize(value.trainingLoad) +
-        FfiConverterOptionalUInt16.allocationSize(value.ftp) +
-        FfiConverterOptionalSequenceUInt32.allocationSize(
-          value.powerZoneTimes,
-        ) +
-        FfiConverterOptionalSequenceUInt32.allocationSize(value.hrZoneTimes)
+        FfiConverterOptionalUInt16.allocationSize(value.ftp)
       );
     }
   }
@@ -9243,6 +9379,12 @@ const FfiConverterTypeFfiPeriodComparison = (() => {
  */
 export type FfiSectionChange = {
   sectionId: string;
+  /**
+   * The name the athlete is shown for the section: their own, else its
+   * number, else the composition from its split parent. The id when the
+   * section has none.
+   */
+  sectionName: string;
   kind: string;
   at: string;
   /**
@@ -9275,6 +9417,7 @@ const FfiConverterTypeFfiSectionChange = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         sectionId: FfiConverterString.readFromCursor(c),
+        sectionName: FfiConverterString.readFromCursor(c),
         kind: FfiConverterString.readFromCursor(c),
         at: FfiConverterString.readFromCursor(c),
         encodedPolyline: FfiConverterArrayBuffer.readFromCursor(c),
@@ -9282,6 +9425,7 @@ const FfiConverterTypeFfiSectionChange = (() => {
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterString.writeIntoCursor(value.sectionId, c);
+      FfiConverterString.writeIntoCursor(value.sectionName, c);
       FfiConverterString.writeIntoCursor(value.kind, c);
       FfiConverterString.writeIntoCursor(value.at, c);
       FfiConverterArrayBuffer.writeIntoCursor(value.encodedPolyline, c);
@@ -9289,6 +9433,7 @@ const FfiConverterTypeFfiSectionChange = (() => {
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.sectionName) +
         FfiConverterString.allocationSize(value.kind) +
         FfiConverterString.allocationSize(value.at) +
         FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
@@ -13537,6 +13682,12 @@ export type FfiRoutesStatusData = {
    * count: withheld while a pass runs, null when it cannot be answered.
    */
   streamRemaining?: number;
+  /**
+   * What downloading those activities' series would use, in bytes, priced
+   * from the same rows as `stream_remaining`. Withheld and null on the same
+   * terms, so a null is "cannot answer" and never a free download.
+   */
+  streamRemainingBytes?: number;
   elevation: ElevationBackfillProgress;
   /**
    * How many stored tracks the elevation backfill has still to ask about.
@@ -13578,6 +13729,7 @@ const FfiConverterTypeFfiRoutesStatusData = (() => {
         detectionOutcome: FfiConverterString.readFromCursor(c),
         stream: FfiConverterTypeStreamBackfillProgress.readFromCursor(c),
         streamRemaining: FfiConverterOptionalUInt32.readFromCursor(c),
+        streamRemainingBytes: FfiConverterOptionalFloat64.readFromCursor(c),
         elevation: FfiConverterTypeElevationBackfillProgress.readFromCursor(c),
         elevationRemaining: FfiConverterOptionalUInt32.readFromCursor(c),
         elevationPaused: FfiConverterBool.readFromCursor(c),
@@ -13592,6 +13744,10 @@ const FfiConverterTypeFfiRoutesStatusData = (() => {
       FfiConverterString.writeIntoCursor(value.detectionOutcome, c);
       FfiConverterTypeStreamBackfillProgress.writeIntoCursor(value.stream, c);
       FfiConverterOptionalUInt32.writeIntoCursor(value.streamRemaining, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(
+        value.streamRemainingBytes,
+        c,
+      );
       FfiConverterTypeElevationBackfillProgress.writeIntoCursor(
         value.elevation,
         c,
@@ -13608,6 +13764,7 @@ const FfiConverterTypeFfiRoutesStatusData = (() => {
         FfiConverterString.allocationSize(value.detectionOutcome) +
         FfiConverterTypeStreamBackfillProgress.allocationSize(value.stream) +
         FfiConverterOptionalUInt32.allocationSize(value.streamRemaining) +
+        FfiConverterOptionalFloat64.allocationSize(value.streamRemainingBytes) +
         FfiConverterTypeElevationBackfillProgress.allocationSize(
           value.elevation,
         ) +
@@ -14280,6 +14437,246 @@ const FfiConverterTypeFfiSectionRetirement = (() => {
 })();
 
 /**
+ * One sport's record on a section when an era ended.
+ */
+export type FfiSectionEraRecord = {
+  sport?: string;
+  /**
+   * Seconds.
+   */
+  time: number;
+};
+
+/**
+ * Generated factory for {@link FfiSectionEraRecord} record objects.
+ */
+export const FfiSectionEraRecord = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionEraRecord, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionEraRecord>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionEraRecord = (() => {
+  type TypeName = FfiSectionEraRecord;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        sport: FfiConverterOptionalString.readFromCursor(c),
+        time: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalString.writeIntoCursor(value.sport, c);
+      FfiConverterFloat64.writeIntoCursor(value.time, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalString.allocationSize(value.sport) +
+        FfiConverterFloat64.allocationSize(value.time)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A section the ledger names, with whether the catalogue still shows it.
+ */
+export type FfiSectionLink = {
+  id: string;
+  name?: string;
+  available: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiSectionLink} record objects.
+ */
+export const FfiSectionLink = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionLink, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionLink>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionLink = (() => {
+  type TypeName = FfiSectionLink;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterOptionalString.readFromCursor(c),
+        available: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterOptionalString.writeIntoCursor(value.name, c);
+      FfiConverterBool.writeIntoCursor(value.available, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterBool.allocationSize(value.available)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The fixed fields of a ledger row's stored payload. Keys a row does not
+ * carry read as empty lists and absent options, and keys this record does
+ * not name are ignored, so a row written by an older or newer build reads.
+ */
+export type FfiSectionEventDetails = {
+  /**
+   * Activities that arrived while the change was pending.
+   */
+  around: Array<string>;
+  /**
+   * Activities a fork at the line's end collected.
+   */
+  forkAround: Array<string>;
+  /**
+   * The era's records, one per sport; a row written before records were
+   * held per sport carries one record and no sport.
+   */
+  prs: Array<FfiSectionEraRecord>;
+  /**
+   * A re-based record's time before and after, within `pr_sport`.
+   */
+  prFrom?: number;
+  prTo?: number;
+  prSport?: string;
+  /**
+   * The sections a split left behind, in line order.
+   */
+  siblings: Array<string>;
+  version?: number;
+  /**
+   * The activity a re-anchor moved the line off, and the one it moved to.
+   */
+  reanchoredFrom?: string;
+  reanchoredTo?: string;
+  /**
+   * Whether an anchoring moved the line; absent on a row that does not say.
+   */
+  moved?: boolean;
+  /**
+   * The section a split piece was carved from, with its standing now.
+   */
+  splitFrom?: FfiSectionLink;
+  /**
+   * The pieces a split left, with their standing now.
+   */
+  splitInto: Array<FfiSectionLink>;
+  /**
+   * The serde tag of each boundary reason the detector gave the change.
+   */
+  reasons: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiSectionEventDetails} record objects.
+ */
+export const FfiSectionEventDetails = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionEventDetails,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiSectionEventDetails>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionEventDetails = (() => {
+  type TypeName = FfiSectionEventDetails;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        around: FfiConverterSequenceString.readFromCursor(c),
+        forkAround: FfiConverterSequenceString.readFromCursor(c),
+        prs: FfiConverterSequenceTypeFfiSectionEraRecord.readFromCursor(c),
+        prFrom: FfiConverterOptionalFloat64.readFromCursor(c),
+        prTo: FfiConverterOptionalFloat64.readFromCursor(c),
+        prSport: FfiConverterOptionalString.readFromCursor(c),
+        siblings: FfiConverterSequenceString.readFromCursor(c),
+        version: FfiConverterOptionalFloat64.readFromCursor(c),
+        reanchoredFrom: FfiConverterOptionalString.readFromCursor(c),
+        reanchoredTo: FfiConverterOptionalString.readFromCursor(c),
+        moved: FfiConverterOptionalBoolean.readFromCursor(c),
+        splitFrom: FfiConverterOptionalTypeFfiSectionLink.readFromCursor(c),
+        splitInto: FfiConverterSequenceTypeFfiSectionLink.readFromCursor(c),
+        reasons: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceString.writeIntoCursor(value.around, c);
+      FfiConverterSequenceString.writeIntoCursor(value.forkAround, c);
+      FfiConverterSequenceTypeFfiSectionEraRecord.writeIntoCursor(value.prs, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.prFrom, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.prTo, c);
+      FfiConverterOptionalString.writeIntoCursor(value.prSport, c);
+      FfiConverterSequenceString.writeIntoCursor(value.siblings, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.version, c);
+      FfiConverterOptionalString.writeIntoCursor(value.reanchoredFrom, c);
+      FfiConverterOptionalString.writeIntoCursor(value.reanchoredTo, c);
+      FfiConverterOptionalBoolean.writeIntoCursor(value.moved, c);
+      FfiConverterOptionalTypeFfiSectionLink.writeIntoCursor(
+        value.splitFrom,
+        c,
+      );
+      FfiConverterSequenceTypeFfiSectionLink.writeIntoCursor(
+        value.splitInto,
+        c,
+      );
+      FfiConverterSequenceString.writeIntoCursor(value.reasons, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceString.allocationSize(value.around) +
+        FfiConverterSequenceString.allocationSize(value.forkAround) +
+        FfiConverterSequenceTypeFfiSectionEraRecord.allocationSize(value.prs) +
+        FfiConverterOptionalFloat64.allocationSize(value.prFrom) +
+        FfiConverterOptionalFloat64.allocationSize(value.prTo) +
+        FfiConverterOptionalString.allocationSize(value.prSport) +
+        FfiConverterSequenceString.allocationSize(value.siblings) +
+        FfiConverterOptionalFloat64.allocationSize(value.version) +
+        FfiConverterOptionalString.allocationSize(value.reanchoredFrom) +
+        FfiConverterOptionalString.allocationSize(value.reanchoredTo) +
+        FfiConverterOptionalBoolean.allocationSize(value.moved) +
+        FfiConverterOptionalTypeFfiSectionLink.allocationSize(value.splitFrom) +
+        FfiConverterSequenceTypeFfiSectionLink.allocationSize(value.splitInto) +
+        FfiConverterSequenceString.allocationSize(value.reasons)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One ledger row of a section.
  */
 export type FfiSectionHistoryEvent = {
@@ -14292,9 +14689,10 @@ export type FfiSectionHistoryEvent = {
    */
   kind: string;
   /**
-   * JSON: the era snapshot, lineage links and what was around the change.
+   * What the row recorded, read from the stored payload. Absent when the
+   * row stored none or stored something unreadable.
    */
-  details?: string;
+  details?: FfiSectionEventDetails;
   geometryVersion?: number;
 };
 
@@ -14325,7 +14723,8 @@ const FfiConverterTypeFfiSectionHistoryEvent = (() => {
         id: FfiConverterFloat64.readFromCursor(c),
         at: FfiConverterString.readFromCursor(c),
         kind: FfiConverterString.readFromCursor(c),
-        details: FfiConverterOptionalString.readFromCursor(c),
+        details:
+          FfiConverterOptionalTypeFfiSectionEventDetails.readFromCursor(c),
         geometryVersion: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
@@ -14333,7 +14732,10 @@ const FfiConverterTypeFfiSectionHistoryEvent = (() => {
       FfiConverterFloat64.writeIntoCursor(value.id, c);
       FfiConverterString.writeIntoCursor(value.at, c);
       FfiConverterString.writeIntoCursor(value.kind, c);
-      FfiConverterOptionalString.writeIntoCursor(value.details, c);
+      FfiConverterOptionalTypeFfiSectionEventDetails.writeIntoCursor(
+        value.details,
+        c,
+      );
       FfiConverterOptionalFloat64.writeIntoCursor(value.geometryVersion, c);
     }
     allocationSize(value: TypeName): number {
@@ -14341,7 +14743,9 @@ const FfiConverterTypeFfiSectionHistoryEvent = (() => {
         FfiConverterFloat64.allocationSize(value.id) +
         FfiConverterString.allocationSize(value.at) +
         FfiConverterString.allocationSize(value.kind) +
-        FfiConverterOptionalString.allocationSize(value.details) +
+        FfiConverterOptionalTypeFfiSectionEventDetails.allocationSize(
+          value.details,
+        ) +
         FfiConverterOptionalFloat64.allocationSize(value.geometryVersion)
       );
     }
@@ -31243,6 +31647,16 @@ const FfiConverterSequenceTypeFfiActivityRouteHighlight = new FfiConverterArray(
   FfiConverterTypeFfiActivityRouteHighlight,
 );
 
+// FfiConverter for FfiNewGroundBadge | undefined
+const FfiConverterOptionalTypeFfiNewGroundBadge = new FfiConverterOptional(
+  FfiConverterTypeFfiNewGroundBadge,
+);
+
+// FfiConverter for Array<FfiActivityNewGround>
+const FfiConverterSequenceTypeFfiActivityNewGround = new FfiConverterArray(
+  FfiConverterTypeFfiActivityNewGround,
+);
+
 // FfiConverter for Array<FfiMuscleGroup>
 const FfiConverterSequenceTypeFfiMuscleGroup = new FfiConverterArray(
   FfiConverterTypeFfiMuscleGroup,
@@ -31612,6 +32026,29 @@ const FfiConverterSequenceTypeFfiMergeCandidate = new FfiConverterArray(
 // FfiConverter for Array<FfiSectionActivityRow>
 const FfiConverterSequenceTypeFfiSectionActivityRow = new FfiConverterArray(
   FfiConverterTypeFfiSectionActivityRow,
+);
+
+// FfiConverter for Array<FfiSectionEraRecord>
+const FfiConverterSequenceTypeFfiSectionEraRecord = new FfiConverterArray(
+  FfiConverterTypeFfiSectionEraRecord,
+);
+
+// FfiConverter for boolean | undefined
+const FfiConverterOptionalBoolean = new FfiConverterOptional(FfiConverterBool);
+
+// FfiConverter for FfiSectionLink | undefined
+const FfiConverterOptionalTypeFfiSectionLink = new FfiConverterOptional(
+  FfiConverterTypeFfiSectionLink,
+);
+
+// FfiConverter for Array<FfiSectionLink>
+const FfiConverterSequenceTypeFfiSectionLink = new FfiConverterArray(
+  FfiConverterTypeFfiSectionLink,
+);
+
+// FfiConverter for FfiSectionEventDetails | undefined
+const FfiConverterOptionalTypeFfiSectionEventDetails = new FfiConverterOptional(
+  FfiConverterTypeFfiSectionEventDetails,
 );
 
 // FfiConverter for Array<FfiSectionHistoryEvent>
@@ -32079,6 +32516,13 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_resume_elevation_backfill",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_interacting() !== 54233
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_set_interacting",
     );
   }
   if (
@@ -34547,6 +34991,7 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityLedgerChange,
     FfiConverterTypeFfiActivityMetrics,
     FfiConverterTypeFfiActivityName,
+    FfiConverterTypeFfiActivityNewGround,
     FfiConverterTypeFfiActivityNotification,
     FfiConverterTypeFfiActivityPattern,
     FfiConverterTypeFfiActivityRouteHighlight,
@@ -34633,6 +35078,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMuscleGroupDetail,
     FfiConverterTypeFfiMuscleVolume,
     FfiConverterTypeFfiNamedCorridor,
+    FfiConverterTypeFfiNewGroundBadge,
     FfiConverterTypeFfiNotificationTemplates,
     FfiConverterTypeFfiOfflineEstimate,
     FfiConverterTypeFfiPaceCurve,
@@ -34675,6 +35121,8 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionCorrelation,
     FfiConverterTypeFfiSectionDetailData,
     FfiConverterTypeFfiSectionEncounter,
+    FfiConverterTypeFfiSectionEraRecord,
+    FfiConverterTypeFfiSectionEventDetails,
     FfiConverterTypeFfiSectionExtensionTrack,
     FfiConverterTypeFfiSectionFilter,
     FfiConverterTypeFfiSectionFilters,
@@ -34682,6 +35130,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionHistoryEvent,
     FfiConverterTypeFfiSectionLap,
     FfiConverterTypeFfiSectionLapCurves,
+    FfiConverterTypeFfiSectionLink,
     FfiConverterTypeFfiSectionMatch,
     FfiConverterTypeFfiSectionPerformanceBatchEntry,
     FfiConverterTypeFfiSectionPerformanceData,

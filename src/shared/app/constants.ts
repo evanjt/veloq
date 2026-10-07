@@ -1,22 +1,11 @@
 import type { TimeRange } from './timeRange';
 import { periodOptions } from './period';
+import { TIME } from './time';
+
+export { TIME };
 
 /** The fitness and training pickers' options, from the one period vocabulary. */
 export const TIME_RANGES = periodOptions<TimeRange>(['7d', '1m', '3m', '6m', '1y']);
-
-/**
- * Time constants in milliseconds for cache and query configuration
- */
-export const TIME = {
-  /** One second in ms */
-  SECOND: 1000,
-  /** One minute in ms */
-  MINUTE: 1000 * 60,
-  /** One hour in ms */
-  HOUR: 1000 * 60 * 60,
-  /** One day in ms */
-  DAY: 1000 * 60 * 60 * 24,
-} as const;
 
 /**
  * Cache duration presets for TanStack Query

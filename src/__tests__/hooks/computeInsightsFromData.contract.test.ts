@@ -360,38 +360,42 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
     expect(insights).toEqual([]);
   });
 
-  it('does not read section names when the ledger has no recent changes', () => {
-    const getNames = jest
-      .spyOn(sectionDisplayNames, 'getAllSectionDisplayNames')
-      .mockReturnValue({});
-    const ffiData = { ...buildFfiData(), recentSectionChanges: [] } as InsightsData;
-
-    computeInsightsFromData(ffiData, t, buildSummaryCardData());
-
-    expect(getNames).not.toHaveBeenCalled();
-    getNames.mockRestore();
-  });
-
-  it('still lists a recorded section change when the name lookup throws', () => {
+  it('names a recorded section change from the bundle without reading the catalogue', () => {
     const getNames = jest
       .spyOn(sectionDisplayNames, 'getAllSectionDisplayNames')
       .mockImplementation(() => {
         throw { tag: 'Database', inner: { msg: 'poisoned' } };
       });
+    const getSummaries = jest.fn(() => {
+      throw new Error('section summaries must not be read');
+    });
+    const getSectionNames = jest.fn(() => {
+      throw new Error('section names must not be read');
+    });
+    (getEngine as jest.Mock).mockReturnValue({
+      getSectionSummaries: getSummaries,
+      getAllSectionNames: getSectionNames,
+    });
     const ffiData = {
       ...buildFfiData(),
       recentSectionChanges: [
         {
           sectionId: 'sec-moved',
+          sectionName: 'Harbour Climb',
           kind: 'recut',
           at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          encodedPolyline: new Uint8Array(),
         },
       ],
     } as unknown as InsightsData;
 
     const { insights } = computeInsightsFromData(ffiData, t, buildSummaryCardData());
 
-    expect(insights.some((i) => i.id.startsWith('section_changed-sec-moved'))).toBe(true);
+    const changed = insights.find((i) => i.id.startsWith('section_changed-sec-moved'));
+    expect(JSON.stringify(changed)).toContain('Harbour Climb');
+    expect(getNames).not.toHaveBeenCalled();
+    expect(getSummaries).not.toHaveBeenCalled();
+    expect(getSectionNames).not.toHaveBeenCalled();
     getNames.mockRestore();
   });
 

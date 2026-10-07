@@ -12,6 +12,7 @@
 import { BUNDLED_GLYPH_RANGES, BUNDLED_GLYPH_STACKS } from '@/features/maps/lib/bundledGlyphs';
 import {
   buildActivityLayers,
+  buildFullscreenMatchedRouteLayers,
   buildFullscreenSectionLayers,
 } from '@/features/maps/components/activityMapLayerSpecs';
 import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
@@ -27,6 +28,7 @@ function activityLayers(creationMode: boolean): MapLayerSpec[] {
     highlightedSectionId: 'section-1',
     hasHighlightPoint: true,
     creationMode,
+    hasUserLocation: true,
   });
 }
 
@@ -56,7 +58,8 @@ function everyBuiltLayer(): MapLayerSpec[] {
     ...regionalLayers('light'),
     ...regionalLayers('dark'),
     ...regionalLayers('satellite'),
-    ...buildFullscreenSectionLayers(true, true),
+    ...buildFullscreenMatchedRouteLayers(true),
+    ...buildFullscreenSectionLayers(true),
   ];
 }
 

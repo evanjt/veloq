@@ -54,7 +54,7 @@ export function FooterSection() {
             <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
               {t('settings.appTour')}
             </Text>
-            <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
+            <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
               {t('settings.appTourDescription')}
             </Text>
           </View>
@@ -86,7 +86,7 @@ export function FooterSection() {
       >
         <Text
           testID="settings-version-text"
-          style={[styles.versionText, isDark && settingsStyles.textMuted]}
+          style={[styles.versionText, isDark && settingsStyles.textSecondary]}
         >
           {t('settings.version')}{' '}
           {formatVersionLine(Constants.expoConfig?.version ?? '0.0.1', buildCommit())}
@@ -97,7 +97,7 @@ export function FooterSection() {
         <View style={styles.toggleRow}>
           <View style={styles.toggleInfo}>
             <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>Debug Mode</Text>
-            <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
+            <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
               Show internal diagnostics in detail pages
             </Text>
           </View>
@@ -122,7 +122,7 @@ export function FooterSection() {
             <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
               Developer Dashboard
             </Text>
-            <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
+            <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
               Engine stats, FFI performance, memory
             </Text>
           </View>

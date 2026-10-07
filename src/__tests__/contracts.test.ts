@@ -214,16 +214,15 @@ describe('Data Pipeline', () => {
     ]);
   });
 
-  // Test 10: toActivityMetrics date and zone fields
-  it('toActivityMetrics → date is a correct unix second, zone times are JSON strings', () => {
+  // Test 10: toActivityMetrics date
+  it('toActivityMetrics → date is a correct unix second, and no zone seconds are carried', () => {
     const metrics = toActivityMetrics(RIDE);
 
     // The zoneless wall clock is stamped as UTC, so this holds in any device zone.
     expect(metrics.date).toBe(Date.UTC(2026, 0, 15, 8, 30, 0) / 1000);
 
-    // Zone times should be number arrays
-    expect(metrics.powerZoneTimes).toEqual([600, 1800, 1500, 900, 600]);
-    expect(metrics.hrZoneTimes).toEqual([300, 1200, 1800, 1500, 600]);
+    expect(metrics).not.toHaveProperty('powerZoneTimes');
+    expect(metrics).not.toHaveProperty('hrZoneTimes');
 
     // Core fields
     expect(metrics.activityId).toBe('contract-ride');
@@ -298,8 +297,6 @@ describe('Resilience', () => {
     expect(metrics.movingTime).toBe(0);
     expect(metrics.elevationGain).toBe(0);
     expect(metrics.sportType).toBe('Ride'); // default when type is undefined
-    expect(metrics.powerZoneTimes).toBeUndefined();
-    expect(metrics.hrZoneTimes).toBeUndefined();
   });
 });
 
@@ -353,8 +350,6 @@ describe('All-null activity fields', () => {
     expect(metrics.avgPower).toBeNull();
     expect(metrics.trainingLoad).toBeNull();
     expect(metrics.ftp).toBeNull();
-    expect(metrics.powerZoneTimes).toBeUndefined();
-    expect(metrics.hrZoneTimes).toBeUndefined();
   });
 
   it('format functions handle null/undefined without NaN', () => {

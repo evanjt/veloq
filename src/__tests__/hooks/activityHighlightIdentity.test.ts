@@ -9,6 +9,7 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import { FfiNewGroundBadge } from 'veloqrs';
 import { useActivitySectionHighlights } from '@/features/activity/hooks/useActivitySectionHighlights';
 
 // The real reader runs over this engine, so an announcement reaches the hook
@@ -67,6 +68,7 @@ function bundle(lapTime: number, trend: number) {
   return {
     indicators: [indicator('a1', lapTime), indicator('a2', lapTime)],
     routeHighlights: [routeHighlight('a1', trend), routeHighlight('a2', trend)],
+    newGround: [],
     strengthCards: [],
   };
 }
@@ -117,6 +119,7 @@ describe('highlight identity across an engine announcement', () => {
     mockBundle.mockImplementation(() => ({
       indicators: [indicator('a1', 999), indicator('a2', 120)],
       routeHighlights: [routeHighlight('a1', 1), routeHighlight('a2', 1)],
+      newGround: [],
     }));
     act(() => bump());
 
@@ -131,6 +134,7 @@ describe('highlight identity across an engine announcement', () => {
     mockBundle.mockImplementation(() => ({
       indicators: [indicator('a1', 120)],
       routeHighlights: [routeHighlight('a1', 1)],
+      newGround: [],
     }));
     act(() => bump());
 
@@ -156,6 +160,7 @@ describe('highlight identity across an engine announcement', () => {
     mockBundle.mockImplementation((ids: string[]) => ({
       indicators: ids.map((id) => indicator(id, 120)),
       routeHighlights: ids.map((id) => routeHighlight(id, 1)),
+      newGround: [],
     }));
     const feed = renderHook(() => useActivitySectionHighlights(IDS));
     const sections = feed.result.current.sections.get('a2');
@@ -176,6 +181,7 @@ describe('highlight identity across an engine announcement', () => {
         { ...routeHighlight('a1', 1), isPr: true, prImprovementSeconds: 14 },
         { ...routeHighlight('a2', 1), isPr: true, prImprovementSeconds: undefined },
       ],
+      newGround: [],
     }));
 
     const { result } = renderHook(() => useActivitySectionHighlights(IDS));
@@ -188,6 +194,7 @@ describe('highlight identity across an engine announcement', () => {
     const withImprovement = (seconds: number) => ({
       indicators: [],
       routeHighlights: [{ ...routeHighlight('a1', 1), isPr: true, prImprovementSeconds: seconds }],
+      newGround: [],
     });
     mockBundle.mockImplementation(() => withImprovement(14));
     const { result } = renderHook(() => useActivitySectionHighlights(['a1']));
@@ -198,5 +205,28 @@ describe('highlight identity across an engine announcement', () => {
 
     expect(result.current.routes.get('a1')).not.toBe(first);
     expect(result.current.routes.get('a1')?.prImprovementSeconds).toBe(20);
+  });
+
+  it('maps the engine badge and keeps the entry while its tiles hold', () => {
+    const ground = (newTiles: number, badge: FfiNewGroundBadge | undefined) => ({
+      indicators: [],
+      routeHighlights: [],
+      newGround: [{ activityId: 'a1', fraction: newTiles / 10, tiles: 10, newTiles, badge }],
+    });
+    mockBundle.mockImplementation(() => ground(10, FfiNewGroundBadge.EntirelyNew));
+    const { result } = renderHook(() => useActivitySectionHighlights(['a1']));
+    const first = result.current.newGround.get('a1');
+    expect(first).toEqual({ fraction: 1, tiles: 10, newTiles: 10, badge: 'entirelyNew' });
+
+    act(() => bump());
+    expect(result.current.newGround.get('a1')).toBe(first);
+
+    mockBundle.mockImplementation(() => ground(6, FfiNewGroundBadge.MostlyNew));
+    act(() => bump());
+    expect(result.current.newGround.get('a1')?.badge).toBe('mostlyNew');
+
+    mockBundle.mockImplementation(() => ground(4, undefined));
+    act(() => bump());
+    expect(result.current.newGround.get('a1')?.badge).toBeNull();
   });
 });

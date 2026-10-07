@@ -110,6 +110,8 @@ function fixture(): Fixture {
   // The planner reads which suites cargo will accept from the real manifest.
   copy(root, `${CRATE}/Cargo.toml`);
   cpSync(join(REPO, CRATE, 'tests'), join(root, CRATE, 'tests'), { recursive: true });
+  // It also reads the crate's module declarations to find the suites a source file reaches.
+  cpSync(join(REPO, CRATE, 'src'), join(root, CRATE, 'src'), { recursive: true });
   write(root, {
     'scripts/merge-gates.sh': SCOPED_GATES,
     'src/base.ts': 'export const base = 1;\n',

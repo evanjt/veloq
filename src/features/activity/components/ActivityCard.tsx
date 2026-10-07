@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Text as RNText } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
@@ -44,6 +44,7 @@ import { debug } from '@/shared/debug/debug';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 import { reportFeedDismissed } from '@/shared/native/feedSeen';
 import { prefetchActivityDetailData } from '../hooks/useActivityDetailData';
+import type { ActivityNewGround } from '../hooks/useActivitySectionHighlights';
 import { pressable, pressRipple } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
@@ -80,6 +81,8 @@ interface ActivityCardProps {
         endIndex: number;
       }[]
     | undefined;
+  /** Tile coverage against earlier activities; the badge is decided in the engine */
+  newGround?: ActivityNewGround | undefined;
   /** Route highlight for this activity (trend, PR) */
   routeHighlight?:
     | {
@@ -95,7 +98,7 @@ interface ActivityCardProps {
 // White text theme (used on any dark/satellite map, or dark theme + light map)
 const WHITE_TEXT = {
   text: ink.white,
-  textMuted: colorWithOpacity(ink.white, 0.85),
+  textSecondary: colorWithOpacity(ink.white, 0.85),
   dot: colorWithOpacity(ink.white, 0.5),
   divider: colorWithOpacity(ink.white, 0.15),
   secondaryText: colorWithOpacity(ink.white, 0.9),
@@ -105,7 +108,7 @@ const WHITE_TEXT = {
 // Dark text theme (only for light theme + light map)
 const DARK_TEXT = {
   text: colors.textPrimary,
-  textMuted: colors.textSecondary,
+  textSecondary: colors.textSecondary,
   dot: colorWithOpacity(ink.black, 0.25),
   divider: colorWithOpacity(ink.black, 0.1),
   secondaryText: colors.textSecondary,
@@ -187,6 +190,7 @@ export const ActivityCard = React.memo(
     snapshotReady,
     sectionHighlights,
     routeHighlight,
+    newGround,
     strengthData,
     isNew,
     onNewDismissed,
@@ -240,9 +244,7 @@ export const ActivityCard = React.memo(
     }, [isNew, activityId, onNewDismissed, openActivity]);
 
     const handleLongPress = useCallback(() => {
-      if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
+      haptics.medium();
       setMenuVisible(true);
     }, []);
 
@@ -521,7 +523,7 @@ export const ActivityCard = React.memo(
                     <RNText
                       style={[
                         styles.overlayDateSubtitle,
-                        { color: theme.textMuted, textShadowColor: theme.shadow },
+                        { color: theme.textSecondary, textShadowColor: theme.shadow },
                       ]}
                       numberOfLines={1}
                     >
@@ -620,9 +622,26 @@ export const ActivityCard = React.memo(
                       {formatElevation(activity.total_elevation_gain, isMetric)}
                     </RNText>
                   </View>
-                  {/* Right column: section trend indicators + PR counts. */}
-                  {sectionHighlights && sectionHighlights.length > 0 ? (
+                  {/* Right column: ground coverage, section trend indicators + PR counts. */}
+                  {newGround?.badge || (sectionHighlights && sectionHighlights.length > 0) ? (
                     <View style={styles.rightColumn}>
+                      {newGround?.badge && (
+                        <View
+                          testID={`activity-card-${activity.id}-new-ground-pill`}
+                          style={[styles.trendPill, styles.newGroundPill]}
+                        >
+                          <MaterialCommunityIcons
+                            name="compass-outline"
+                            size={PILL_ICON_SIZE}
+                            color={ink.white}
+                          />
+                          <RNText style={[styles.trendCount, { color: ink.white }]}>
+                            {newGround.badge === 'entirelyNew'
+                              ? t('activity.newGround')
+                              : t('activity.mostlyNewGround')}
+                          </RNText>
+                        </View>
+                      )}
                       {sectionHighlights && sectionHighlights.length > 0 && (
                         <Pressable
                           accessibilityRole="button"
@@ -735,6 +754,7 @@ export const ActivityCard = React.memo(
           prev.snapshotReady,
           prev.sectionHighlights,
           prev.routeHighlight,
+          prev.newGround,
           prev.strengthData,
           prev.isNew,
         ],
@@ -748,6 +768,7 @@ export const ActivityCard = React.memo(
           next.snapshotReady,
           next.sectionHighlights,
           next.routeHighlight,
+          next.newGround,
           next.strengthData,
           next.isNew,
         ],
@@ -888,6 +909,11 @@ const styles = StyleSheet.create({
   prPillDark: {
     backgroundColor: brand.gold,
     borderColor: brand.goldLight,
+  },
+  // Ground pill - the teal ladder's dark rung, white text on a solid
+  newGroundPill: {
+    backgroundColor: brand.tealHover,
+    borderColor: brand.tealLight,
   },
   // Improving pill - solid green
   improvingPillLight: {

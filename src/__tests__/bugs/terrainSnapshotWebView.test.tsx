@@ -1750,11 +1750,12 @@ describe('where a preview spends its seconds', () => {
   });
 
   it('records the page elapsed under the path it took', () => {
-    const before = calls('snapshot.page.fast');
+    const before = calls('snapshot.page.fast.drape');
+    const beforeStandIn = calls('snapshot.page.fast.standIn');
     render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
 
-    pool().requestSnapshot(request('a0'));
+    pool().requestSnapshot(request('a0', false));
     post({
       type: 'snapshot',
       workerId: 0,
@@ -1765,7 +1766,29 @@ describe('where a preview spends its seconds', () => {
       elapsed: 120,
     });
 
-    expect(calls('snapshot.page.fast')).toBe(before + 1);
+    expect(calls('snapshot.page.fast.drape')).toBe(before + 1);
+    expect(calls('snapshot.page.fast.standIn')).toBe(beforeStandIn);
+  });
+
+  it('files a first-paint stand-in apart from the drape it precedes', () => {
+    const before = calls('snapshot.page.setStyle.standIn');
+    const beforeDrape = calls('snapshot.page.setStyle.drape');
+    render(<TerrainSnapshotWebView ref={ref} />);
+    post({ type: 'mapReady', workerId: 0 });
+
+    pool().requestSnapshot({ ...request('a0', true), standIn: true, firstPaint: true });
+    post({
+      type: 'snapshot',
+      workerId: 0,
+      activityId: 'a0',
+      base64: 'AAAA',
+      gen: 1,
+      fastPath: false,
+      elapsed: 900,
+    });
+
+    expect(calls('snapshot.page.setStyle.standIn')).toBe(before + 1);
+    expect(calls('snapshot.page.setStyle.drape')).toBe(beforeDrape);
   });
 
   it('records the stages the page stamped inside that elapsed', () => {

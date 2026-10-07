@@ -32,7 +32,6 @@ export function ElevationBackfillStatus() {
   const routeMatchingEnabled = useRouteSettings((state) => state.settings.enabled);
 
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const textMuted = isDark ? darkColors.textMuted : colors.textMuted;
   const danger = isDark ? darkColors.error : colors.error;
 
   // The phase is a process-global that starts at `idle`, so at rest it says
@@ -135,7 +134,7 @@ export function ElevationBackfillStatus() {
 
       {routeMatchingEnabled && phase !== 'complete' && phase !== 'paused' && (
         <Text
-          style={[styles.line, styles.centred, { color: textMuted }]}
+          style={[styles.line, styles.centred, { color: textSecondary }]}
           testID="elevation-backfill-explainer"
         >
           {t('settings.elevationBackfillExplainer')}
@@ -154,7 +153,7 @@ export function ElevationBackfillStatus() {
         variant="ghost"
         size="sm"
         style={styles.action}
-        icon={<MaterialCommunityIcons name="information-outline" size={14} color={textMuted} />}
+        icon={<MaterialCommunityIcons name="information-outline" size={14} color={textSecondary} />}
       />
     </View>
   );

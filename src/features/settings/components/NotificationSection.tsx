@@ -95,7 +95,7 @@ export function NotificationSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('notifications.settings.title').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
@@ -137,7 +137,7 @@ export function NotificationSection() {
         {!canEnable ? (
           <Text
             testID="settings-notifications-oauth-hint"
-            style={[settingsStyles.hintText, isDark && settingsStyles.textMuted]}
+            style={[settingsStyles.hintText, isDark && settingsStyles.textSecondary]}
           >
             {t('notifications.settings.requiresOAuth')}
           </Text>
@@ -152,9 +152,9 @@ export function NotificationSection() {
             <MaterialCommunityIcons
               name="information-outline"
               size={14}
-              color={isDark ? darkColors.textMuted : colors.textMuted}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
-            <Text style={[styles.privacyText, isDark && settingsStyles.textMuted]}>
+            <Text style={[styles.privacyText, isDark && settingsStyles.textSecondary]}>
               {t('notifications.settings.privacyHint')}
             </Text>
           </Pressable>
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   },
   privacyText: {
     ...typography.label,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     textTransform: 'none',
   },
 });

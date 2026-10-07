@@ -80,6 +80,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   attributionTextDark: {
-    color: darkColors.textMuted,
+    color: darkColors.textSecondary,
   },
 });

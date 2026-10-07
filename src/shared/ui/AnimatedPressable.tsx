@@ -13,7 +13,7 @@ import Animated, {
   withSpring,
   WithSpringConfig,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import * as haptics from './haptics';
 
 const AnimatedPressableComponent = Animated.createAnimatedComponent(Pressable);
 
@@ -23,7 +23,7 @@ interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
   /** Whether to trigger haptic feedback on press (default: true) */
   hapticFeedback?: boolean;
   /** The type of haptic feedback (default: 'light') */
-  hapticType?: 'light' | 'medium' | 'heavy' | 'selection';
+  hapticType?: 'light' | 'medium' | 'selection';
   /** Style for the pressable */
   style?: StyleProp<ViewStyle>;
   /** Children */
@@ -68,17 +68,9 @@ export function AnimatedPressable({
       scale.value = withSpring(pressScale, springConfig);
 
       if (hapticFeedback && !disabled) {
-        const impact =
-          hapticType === 'selection'
-            ? Haptics.selectionAsync()
-            : Haptics.impactAsync(
-                hapticType === 'heavy'
-                  ? Haptics.ImpactFeedbackStyle.Heavy
-                  : hapticType === 'medium'
-                    ? Haptics.ImpactFeedbackStyle.Medium
-                    : Haptics.ImpactFeedbackStyle.Light
-              );
-        impact.catch(() => {}); // Ignore errors on devices without haptic support
+        if (hapticType === 'selection') haptics.selection();
+        else if (hapticType === 'medium') haptics.medium();
+        else haptics.light();
       }
 
       onPressIn?.(e);

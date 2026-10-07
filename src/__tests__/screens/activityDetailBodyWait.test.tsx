@@ -64,7 +64,7 @@ jest.mock('@/features/activity/hooks', () => ({
   useActivityDetailStreams: () => ({ data: undefined, isLoading: false, coordinates: [] }),
   useActivityStreams: () => ({ data: undefined, isLoading: false }),
   useActivityIntervals: () => ({ data: undefined }),
-  useActivitySectionHighlights: () => ({ routes: new Map() }),
+  useActivitySectionHighlights: () => ({ routes: new Map(), newGround: new Map() }),
   useSectionOverlays: () => ({ sectionOverlays: [] }),
 }));
 jest.mock('@/features/activity/hooks/useActivityDetailData', () => ({

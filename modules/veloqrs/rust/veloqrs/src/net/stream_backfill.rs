@@ -111,6 +111,15 @@ pub fn estimate_bytes(moving_seconds: u64) -> u64 {
     moving_seconds.saturating_mul(WIRE_BYTES_PER_MOVING_SECOND)
 }
 
+/// The owed queue's length and what downloading it would cost, from the one
+/// read of its rows. The ask before a large download and the status read at
+/// rest both price the queue here, so the card and the row cannot disagree.
+pub(crate) fn queue_estimate(conn: &rusqlite::Connection) -> rusqlite::Result<(u64, u64)> {
+    let (owed, moving_seconds) =
+        crate::persistence::streams::pooled::backfill_estimate(conn, STREAM_ATTEMPT_LIMIT)?;
+    Ok((owed as u64, estimate_bytes(moving_seconds)))
+}
+
 struct BackfillState {
     running: AtomicBool,
     cancelled: AtomicBool,
@@ -264,13 +273,12 @@ fn autostart_verdict(i: AutostartInputs) -> AutostartVerdict {
 /// that cares can read it; the others ignore it.
 pub fn autostart_stream_backfill() -> Option<FfiStartOutcome> {
     let inputs = crate::objects::error::with_reader(|conn| {
-        let (owed, moving_seconds) =
-            crate::persistence::streams::pooled::backfill_estimate(conn, STREAM_ATTEMPT_LIMIT)?;
+        let (owed, bytes) = queue_estimate(conn)?;
         let elevation_owed =
             crate::net::elevation_backfill::pooled_elevation_backfill_remaining(conn)?;
         let consented = crate::persistence::settings::setting_from(conn, STREAM_CONSENT_KEY)?
             .is_some_and(|v| v == "yes");
-        Ok::<_, rusqlite::Error>((owed as u64, moving_seconds, elevation_owed, consented))
+        Ok::<_, rusqlite::Error>((owed, bytes, elevation_owed, consented))
     })
     .ok()?
     .ok()?;
@@ -287,9 +295,7 @@ pub fn autostart_stream_backfill() -> Option<FfiStartOutcome> {
             BACKFILL
                 .estimate_requests
                 .store(inputs.0.try_into().unwrap_or(u32::MAX), Ordering::Relaxed);
-            BACKFILL
-                .estimate_bytes
-                .store(estimate_bytes(inputs.1), Ordering::Relaxed);
+            BACKFILL.estimate_bytes.store(inputs.1, Ordering::Relaxed);
             set_phase(STREAM_PHASE_AWAITING_CONSENT);
         } else if stream_backfill_progress().phase == STREAM_PHASE_AWAITING_CONSENT
             && verdict != AutostartVerdict::Held

@@ -7,9 +7,9 @@
  * no engine call of its own, and falls back to its own read when it has none.
  */
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 import { useSectionLaps } from '@/features/routes/hooks/useSectionLaps';
-import { useSectionLedger } from '@/features/routes/hooks/useSectionLedger';
+import { useSectionLedger, type BundledLedger } from '@/features/routes/hooks/useSectionLedger';
 import { useSectionEfficiencyTrend } from '@/features/routes/hooks/useSectionEfficiencyTrend';
 import * as visibility from '../../../modules/veloqrs/src/delegates/sections/visibility';
 import { getEngine } from '@/shared/native/engine';
@@ -26,6 +26,8 @@ const engine = {
   getSectionHistory: jest.fn(() => []),
   getSectionGeometryVersions: jest.fn(() => []),
   getPinnedSectionVersion: jest.fn(() => null),
+  revertSectionToVersion: jest.fn(() => [] as unknown[]),
+  unpinSection: jest.fn(() => true),
   getSectionEfficiencyTrend: jest.fn(() => null),
   // The real `useEngineRead` subscribes, so the stub answers that too.
   subscribe: () => () => {},
@@ -60,7 +62,7 @@ describe('the excluded laps come from the screen read', () => {
 });
 
 describe('the ledger comes from the bundle', () => {
-  const bundled = {
+  const bundled: BundledLedger = {
     history: [{ id: 1, at: '2026-01-01', kind: 'trim', details: null, geometryVersion: 2 }],
     geometryVersions: [
       { version: 1, createdAt: '2026-01-01', milestone: false, pinned: false },
@@ -70,7 +72,7 @@ describe('the ledger comes from the bundle', () => {
   };
 
   it('uses the bundled ledger and reads nothing', () => {
-    const { result } = renderHook(() => useSectionLedger('sec1', 0, bundled));
+    const { result } = renderHook(() => useSectionLedger('sec1', bundled));
 
     expect(result.current.pinnedVersion).toBe(2);
     expect(result.current.versions.map((v) => v.version)).toEqual([2, 1]);
@@ -79,12 +81,52 @@ describe('the ledger comes from the bundle', () => {
     expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
   });
 
-  it('reads for itself when the bundle carried none', () => {
-    renderHook(() => useSectionLedger('sec1'));
+  it('reads nothing and is empty when the bundle carried none', () => {
+    const { result } = renderHook(() => useSectionLedger('sec1'));
 
-    expect(engine.getSectionHistory).toHaveBeenCalledWith('sec1');
-    expect(engine.getSectionGeometryVersions).toHaveBeenCalledWith('sec1');
-    expect(engine.getPinnedSectionVersion).toHaveBeenCalledWith('sec1');
+    expect(result.current.history).toEqual([]);
+    expect(engine.getSectionHistory).not.toHaveBeenCalled();
+    expect(engine.getSectionGeometryVersions).not.toHaveBeenCalled();
+    expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
+  });
+
+  it('leaves the ledger to the re-read bundle after a revert or an unpin', () => {
+    const { result, rerender } = renderHook(
+      ({ ledger }: { ledger: typeof bundled }) => useSectionLedger('sec1', ledger),
+      { initialProps: { ledger: bundled } }
+    );
+
+    act(() => {
+      expect(result.current.revert(1)).toBe(true);
+    });
+    expect(engine.revertSectionToVersion).toHaveBeenCalledWith('sec1', 1);
+    act(() => {
+      expect(result.current.unpin()).toBe(true);
+    });
+    expect(engine.unpinSection).toHaveBeenCalledWith('sec1');
+    expect(engine.getSectionHistory).not.toHaveBeenCalled();
+    expect(engine.getSectionGeometryVersions).not.toHaveBeenCalled();
+    expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
+
+    rerender({
+      ledger: {
+        ...bundled,
+        pinnedVersion: null,
+        geometryVersions: bundled.geometryVersions.map((v) => ({ ...v, pinned: false })),
+      },
+    });
+    expect(result.current.pinnedVersion).toBeNull();
+    expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
+  });
+
+  it('does not touch the engine for a revert it was not asked to make', () => {
+    engine.revertSectionToVersion.mockReturnValueOnce(null as never);
+    const { result } = renderHook(() => useSectionLedger('sec1', bundled));
+
+    act(() => {
+      expect(result.current.revert(1)).toBe(false);
+    });
+    expect(result.current.pinnedVersion).toBe(2);
   });
 });
 

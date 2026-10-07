@@ -52,7 +52,7 @@ function walk(dir) {
  * one read with no theme branch is the same defect in the other direction: the
  * energy card drew `darkColors.amberIcon` (#FBBF24, 2.15:1 on white) in both
  * themes. Only the status tones, not the text ones: a `textLight` or
- * `textMutedDark` style is dark-only by convention and applied conditionally,
+ * `textSecondaryDark` style is dark-only by convention and applied conditionally,
  * which is correct and is most of what a wider rule would flag.
  */
 const DARK_TONE =

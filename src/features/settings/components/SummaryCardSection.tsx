@@ -30,7 +30,7 @@ export function SummaryCardSection() {
 
   return (
     <>
-      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
+      <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textSecondary]}>
         {t('settings.summaryCard').toUpperCase()}
       </Text>
       <View
@@ -83,7 +83,7 @@ export function SummaryCardSection() {
               {t('settings.heroMetric')}
             </Text>
             <View style={styles.sparklineToggleInline}>
-              <Text style={[styles.sparklineToggleLabel, isDark && settingsStyles.textMuted]}>
+              <Text style={[styles.sparklineToggleLabel, isDark && settingsStyles.textSecondary]}>
                 {t('settings.showSparkline')}
               </Text>
               <Switch
@@ -113,7 +113,7 @@ export function SummaryCardSection() {
         </Row>
 
         <View style={styles.summaryCardContainer}>
-          <Text style={[styles.summaryCardHint, isDark && settingsStyles.textMuted]}>
+          <Text style={[styles.summaryCardHint, isDark && settingsStyles.textSecondary]}>
             {t('settings.maxMetricsHint')}
           </Text>
 

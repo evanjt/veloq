@@ -5,8 +5,7 @@ import { confidenceFrom, maxPerCategoryFor } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
 import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
-
-const DAY_MS = 86_400_000;
+import { TIME } from '@/shared/app/time';
 
 export function generateSectionPRInsights(
   recentPRs: SectionPR[],
@@ -76,7 +75,7 @@ export function generateSectionPRInsights(
           description: t('insights.methodology.prDetection'),
         },
         meta: {
-          sourceTimestamp: now - pr.daysAgo * DAY_MS,
+          sourceTimestamp: now - pr.daysAgo * TIME.DAY,
           comparisonKind: 'self',
           placeName: pr.sectionName,
           sectionId: pr.sectionId,

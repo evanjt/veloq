@@ -51,9 +51,13 @@ jest.mock('@/features/settings', () => ({
   ).useNotificationPreferences,
   useLastBackupTimestamp: () => null,
   useAutoBackupEnabled: () => true,
-}));
-
-jest.mock('@/features/settings/components', () => ({
+  SettingsNavRow: jest.requireActual('@/features/settings/components/SettingsNavRow')
+    .SettingsNavRow,
+  RecordingPermissionSection: jest.requireActual(
+    '@/features/settings/components/RecordingPermissionSection'
+  ).RecordingPermissionSection,
+  settingsStyles: jest.requireActual('@/features/settings/components/settingsStyles')
+    .settingsStyles,
   SupportSection: () => null,
   FooterSection: () => null,
 }));

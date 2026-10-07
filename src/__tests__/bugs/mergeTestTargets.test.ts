@@ -48,11 +48,9 @@ describe('which suites a merge runs', () => {
   it('plans the test layout guards for a source file that defines an engine entry point', () => {
     const lifecycle = mergeTestTargets([`${CRATE}/src/persistence/mod.rs`]);
     const guardedReader = mergeTestTargets([`${CRATE}/src/objects/error.rs`]);
-    const unrelated = mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]);
 
     expect(lifecycle.rustTests).toContain('feature_gates');
     expect(guardedReader.rustTests).toContain('feature_gates');
-    expect(unrelated.rustTests).not.toContain('feature_gates');
   });
 
   it('plans the test layout guards for any changed test source, and only for those', () => {
@@ -60,20 +58,50 @@ describe('which suites a merge runs', () => {
     const newUnownedTest = mergeTestTargets([`${CRATE}/tests/a_file_no_target_owns.rs`]);
     const helper = mergeTestTargets([`${CRATE}/tests/lifecycle_support/mod.rs`]);
     const fixture = mergeTestTargets([`${CRATE}/tests/fixtures/heatmap_parity_v1.txt`]);
-    const source = mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]);
 
     expect(changedTest.rustTests).toEqual(['feature_gates', 'preview']);
     expect(newUnownedTest.rustTests).toEqual(['feature_gates']);
     expect(helper.rustTests).toContain('feature_gates');
     expect(fixture.rustTests).not.toContain('feature_gates');
-    expect(source.rustTests).not.toContain('feature_gates');
+  });
+
+  // A source edit can break an integration suite that never names the file:
+  // the suite reaches it through the engine, and a passing `--lib` run says
+  // nothing about the pixel digest a heatmap suite pins.
+  it('plans the integration suite that reaches a changed production module', () => {
+    const targets = mergeTestTargets([`${CRATE}/src/tiles.rs`]);
+
+    expect(targets.rustTests).toContain('heatmap_synthetic');
+    expect(targets.rustLib).toBe(true);
+  });
+
+  it('plans the suites that reach a nested production module, and not unrelated ones', () => {
+    const targets = mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]);
+
+    expect(targets.rustTests).toEqual(expect.arrayContaining(['wellness', 'persistence']));
+    expect(targets.rustTests).not.toContain('corpus');
+  });
+
+  it('follows a module through the modules that use it', () => {
+    const direct = mergeTestTargets([`${CRATE}/src/fit/mod.rs`]).rustTests;
+    const viaUser = mergeTestTargets([`${CRATE}/src/persistence/mod.rs`]).rustTests;
+
+    for (const suite of direct) expect(viaUser).toContain(suite);
+  });
+
+  it('plans every runnable suite for a source file it cannot place in the crate', () => {
+    const everything = mergeTestTargets([`${CRATE}/src/lib.rs`]).rustTests;
+    const unplaced = mergeTestTargets([`${CRATE}/src/undeclared_module/mod.rs`]).rustTests;
+
+    expect(unplaced.length).toBeGreaterThan(15);
+    expect(unplaced).toEqual(expect.arrayContaining(everything));
+    expect(unplaced).not.toContain('corpus');
   });
 
   it('runs the crate unit tests when a source file moved', () => {
     const targets = mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]);
 
     expect(targets.rustLib).toBe(true);
-    expect(targets.rustTests).toEqual([]);
   });
 
   it('runs manifest readers and unit tests when the crate manifest changes', () => {
@@ -238,8 +266,10 @@ describe('the commands a merge runs', () => {
     expect(commands).toContain(
       'cargo clippy --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --all-targets --all-features -- -D warnings'
     );
-    expect(commands).toContain(
-      'cargo nextest run --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --features synthetic --lib --profile ci'
+    expect(commands).toContainEqual(
+      expect.stringMatching(
+        /^cargo nextest run --manifest-path modules\/veloqrs\/rust\/Cargo.toml -p veloqrs --features synthetic --lib --test .*--test heatmap_synthetic .*--profile ci$/
+      )
     );
   });
 
@@ -363,7 +393,9 @@ describe('the commands a merge runs', () => {
     expect(commands).toEqual([
       RUST_LINT,
       DETECTOR_LINT,
-      'cargo nextest run --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --features synthetic --lib --profile ci',
+      expect.stringMatching(
+        /^cargo nextest run --manifest-path modules\/veloqrs\/rust\/Cargo.toml -p veloqrs --features synthetic --lib --test .* --profile ci$/
+      ),
       'cargo nextest run --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch --features synthetic --profile ci',
       expect.stringMatching(/^echo .*LAB_GEOLIFE_DIR/),
       expect.stringMatching(/^echo .*TRACEMATCH_CORPUS/),
@@ -597,7 +629,7 @@ describe('the schema gates', () => {
   it('runs on a new migration', () => {
     const targets = mergeTestTargets([`${CRATE}/src/migrations/029_stream_backfill.sql`]);
 
-    expect(targets.rustTests).toEqual(SCHEMA_SUITES);
+    expect(targets.rustTests).toEqual(expect.arrayContaining(SCHEMA_SUITES));
   });
 
   it('runs on an edit to an already-applied migration, which splits the installed base', () => {
@@ -609,7 +641,7 @@ describe('the schema gates', () => {
   it('runs when the schema itself moves', () => {
     const targets = mergeTestTargets([`${CRATE}/src/persistence/schema.rs`]);
 
-    expect(targets.rustTests).toEqual(SCHEMA_SUITES);
+    expect(targets.rustTests).toEqual(expect.arrayContaining(SCHEMA_SUITES));
     expect(targets.rustLib).toBe(true);
   });
 
@@ -626,13 +658,8 @@ describe('the schema gates', () => {
       `${CRATE}/tests/schema_golden.rs`,
     ]);
 
-    expect(targets.rustTests).toEqual(['feature_gates', ...SCHEMA_SUITES]);
-  });
-
-  it('leaves an ordinary source change alone', () => {
-    const targets = mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]);
-
-    expect(targets.rustTests).toEqual([]);
+    expect(targets.rustTests).toEqual(expect.arrayContaining(['feature_gates', ...SCHEMA_SUITES]));
+    expect(new Set(targets.rustTests).size).toBe(targets.rustTests.length);
   });
 
   it('plans the grouped suite from every schema test source', () => {

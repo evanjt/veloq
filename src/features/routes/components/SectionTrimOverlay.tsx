@@ -14,7 +14,7 @@ import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-nativ
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator } from 'react-native-paper';
-import * as Haptics from 'expo-haptics';
+import * as haptics from '@/shared/ui/haptics';
 import { colors, darkColors, typography, spacing, layout, ink, slopToMinTapTarget } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
@@ -113,9 +113,9 @@ export function SectionTrimOverlay({
 
   const fireHaptic = useCallback((level: PrecisionLevel) => {
     if (level === 'precision') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      haptics.light();
     } else if (level === 'fine') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      haptics.medium();
     }
   }, []);
 
@@ -131,7 +131,7 @@ export function SectionTrimOverlay({
         Math.min(startIndex + delta, endIndex - Math.ceil(maxIndex * MIN_HANDLE_GAP))
       );
       onStartChange(newIndex);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      haptics.light();
     },
     [startIndex, endIndex, maxIndex, onStartChange]
   );
@@ -143,7 +143,7 @@ export function SectionTrimOverlay({
         Math.min(endIndex + delta, maxIndex)
       );
       onEndChange(newIndex);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      haptics.light();
     },
     [startIndex, endIndex, maxIndex, onEndChange]
   );

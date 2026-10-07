@@ -50,7 +50,9 @@ describe('the regional map heatmap layer', () => {
 
     expect(layer?.visible).toBe(true);
     expect(layer?.paint?.['raster-opacity']).toBe(1);
-    expect(layer?.paint?.['raster-brightness-max']).toBe(0.45);
+    expect(layer?.paint?.['raster-brightness-min']).toBe(0.3);
+    expect(layer?.paint?.['raster-brightness-max']).toBe(0);
+    expect(layer?.paint?.['raster-hue-rotate']).toBe(180);
   });
 
   it('carries the dark tuning under a dark style', () => {
@@ -58,6 +60,8 @@ describe('the regional map heatmap layer', () => {
 
     expect(layer?.visible).toBe(true);
     expect(layer?.paint?.['raster-opacity']).toBe(0.72);
+    expect(layer?.paint?.['raster-hue-rotate']).toBeUndefined();
+    expect(layer?.paint?.['raster-brightness-min']).toBeUndefined();
   });
 
   it('is hidden the way every other layer in this builder is', () => {

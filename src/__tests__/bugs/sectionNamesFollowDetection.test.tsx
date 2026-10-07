@@ -19,7 +19,6 @@ const listeners = new Map<string, Set<() => void>>();
 
 const engine = {
   getSectionSummaries: jest.fn(() => ({ summaries: [{ id: 's1', name: 'Old climb' }] })),
-  getAllSectionNames: jest.fn(() => ({})),
   subscribe: jest.fn((channel: string, listener: () => void) => {
     if (!listeners.has(channel)) listeners.set(channel, new Set());
     listeners.get(channel)!.add(listener);
@@ -59,7 +58,7 @@ describe('section display names follow the engine', () => {
   it('re-reads when a rename announces on the sections channel', () => {
     const { result } = renderHook(() => useSectionDisplayNames());
 
-    engine.getAllSectionNames.mockReturnValue({ s1: 'My climb' });
+    engine.getSectionSummaries.mockReturnValue({ summaries: [{ id: 's1', name: 'My climb' }] });
     announce('sections');
 
     expect(result.current.s1).toBe('My climb');

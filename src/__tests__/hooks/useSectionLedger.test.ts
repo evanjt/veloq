@@ -1,43 +1,51 @@
 import { renderHook, act } from '@testing-library/react-native';
-import { useSectionLedger } from '@/features/routes/hooks/useSectionLedger';
+import { useSectionLedger, type BundledLedger } from '@/features/routes/hooks/useSectionLedger';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
-function engineWith(pinned: number | null) {
+function engineWith() {
   return {
-    getSectionHistory: jest.fn(() => [
-      {
-        id: 1n,
-        at: '2026-08-01 00:00:00',
-        kind: 'formed',
-        details: undefined,
-        geometryVersion: 1n as bigint | undefined,
-      },
-      {
-        id: 2n,
-        at: '2026-08-20 00:00:00',
-        kind: 'recut',
-        details: '{}',
-        geometryVersion: 2n as bigint | undefined,
-      },
-    ]),
-    getSectionGeometryVersions: jest.fn(() => [
-      { version: 1n, createdAt: '2026-08-01', milestone: true, pinned: pinned === 1 },
-      { version: 2n, createdAt: '2026-08-20', milestone: false, pinned: pinned === 2 },
-    ]),
-    getPinnedSectionVersion: jest.fn(() => pinned),
     getSectionGeometryVersionPolyline: jest.fn(() => [{ lat: 46, lng: 7 }]),
     revertSectionToVersion: jest.fn(() => [] as unknown[]),
     unpinSection: jest.fn(() => true),
   };
 }
 
+function bundleWith(pinned: number | null): BundledLedger {
+  return {
+    history: [
+      {
+        id: 1n,
+        at: '2026-08-01 00:00:00',
+        kind: 'formed',
+        details: null,
+        geometryVersion: 1n,
+      },
+      {
+        id: 2n,
+        at: '2026-08-20 00:00:00',
+        kind: 'recut',
+        details: { around: [], forkAround: [], prs: [], siblings: [], splitInto: [], reasons: [] },
+        geometryVersion: 2n,
+      },
+    ],
+    geometryVersions: [
+      { version: 1n, createdAt: '2026-08-01', milestone: true, pinned: pinned === 1 },
+      { version: 2n, createdAt: '2026-08-20', milestone: false, pinned: pinned === 2 },
+    ],
+    pinnedVersion: pinned,
+  };
+}
+
 describe('useSectionLedger', () => {
-  it('reads the ledger newest first with numbers, and re-reads after a revert', () => {
-    const engine = engineWith(null);
+  it('shows the bundle newest first with numbers, and follows the next bundle after a write', () => {
+    const engine = engineWith();
     (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result } = renderHook(() => useSectionLedger('sec1'));
+    const { result, rerender } = renderHook(
+      ({ bundle }: { bundle: BundledLedger }) => useSectionLedger('sec1', bundle),
+      { initialProps: { bundle: bundleWith(null) } }
+    );
 
     expect(result.current.history.map((e) => e.kind)).toEqual(['recut', 'formed']);
     expect(result.current.history[0].id).toBe(2);
@@ -46,82 +54,56 @@ describe('useSectionLedger', () => {
     expect(result.current.pinnedVersion).toBeNull();
     expect(result.current.versionPolyline(1)).toEqual([{ lat: 46, lng: 7 }]);
 
-    engine.getPinnedSectionVersion.mockReturnValue(1);
     act(() => {
       expect(result.current.revert(1)).toBe(true);
     });
     expect(engine.revertSectionToVersion).toHaveBeenCalledWith('sec1', 1);
+    expect(result.current.pinnedVersion).toBeNull();
+    rerender({ bundle: bundleWith(1) });
     expect(result.current.pinnedVersion).toBe(1);
 
-    engine.getPinnedSectionVersion.mockReturnValue(null);
     act(() => {
       expect(result.current.unpin()).toBe(true);
     });
+    expect(engine.unpinSection).toHaveBeenCalledWith('sec1');
+    rerender({ bundle: bundleWith(null) });
     expect(result.current.pinnedVersion).toBeNull();
   });
 
-  it('is empty without an engine or a section', () => {
+  it('is empty without a bundle, and writes nothing without an engine', () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = renderHook(() => useSectionLedger('sec1'));
     expect(result.current.history).toEqual([]);
-    expect(result.current.failureKey).toBeNull();
     expect(result.current.revert(1)).toBe(false);
+    expect(result.current.unpin()).toBe(false);
   });
 
-  it('carries a failed read as a failure, apart from an empty ledger', () => {
+  it('draws no line for a stored version it cannot read', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const engine = engineWith(null);
-    engine.getSectionHistory.mockImplementation(() => {
-      throw Object.assign(new Error('Database'), { tag: 'Database' });
-    });
+    const engine = engineWith();
     engine.getSectionGeometryVersionPolyline.mockImplementation(() => {
       throw Object.assign(new Error('Database'), { tag: 'Database' });
     });
     (getEngine as jest.Mock).mockReturnValue(engine);
 
-    const { result } = renderHook(() => useSectionLedger('sec1'));
+    const { result } = renderHook(() => useSectionLedger('sec1', bundleWith(null)));
 
-    expect(result.current.failureKey).toBe('engine.failure.database');
-    expect(result.current.history).toEqual([]);
+    expect(result.current.history).toHaveLength(2);
     expect(result.current.versionPolyline(1)).toEqual([]);
   });
 
-  it('re-reads when refreshKey changes and holds still when it does not', () => {
-    const engine = engineWith(null);
+  it('keeps the same rows while the bundle holds still, and empties when the id goes away', () => {
+    const engine = engineWith();
     (getEngine as jest.Mock).mockReturnValue(engine);
+    const bundle = bundleWith(1);
     const { result, rerender } = renderHook(
-      ({ key }: { key: number }) => useSectionLedger('sec1', key),
-      { initialProps: { key: 0 } }
-    );
-
-    expect(engine.getSectionHistory).toHaveBeenCalledTimes(1);
-
-    rerender({ key: 0 });
-    expect(engine.getSectionHistory).toHaveBeenCalledTimes(1);
-
-    engine.getPinnedSectionVersion.mockReturnValue(2);
-    rerender({ key: 1 });
-    expect(engine.getSectionHistory).toHaveBeenCalledTimes(2);
-    expect(engine.getSectionGeometryVersions).toHaveBeenCalledTimes(2);
-    expect(result.current.pinnedVersion).toBe(2);
-
-    rerender({ key: 2 });
-    expect(engine.getSectionHistory).toHaveBeenCalledTimes(3);
-  });
-
-  it('re-reads for a new section id and empties when the id goes away', () => {
-    const engine = engineWith(1);
-    (getEngine as jest.Mock).mockReturnValue(engine);
-    const { result, rerender } = renderHook(
-      ({ id }: { id: string | undefined }) => useSectionLedger(id, 0),
+      ({ id }: { id: string | undefined }) => useSectionLedger(id, id ? bundle : undefined),
       { initialProps: { id: 'sec1' as string | undefined } }
     );
+    const rows = result.current.history;
 
-    expect(engine.getSectionHistory).toHaveBeenCalledWith('sec1');
-
-    rerender({ id: 'sec2' });
-    expect(engine.getSectionHistory).toHaveBeenCalledWith('sec2');
-    expect(result.current.pinnedVersion).toBe(1);
+    rerender({ id: 'sec1' });
+    expect(result.current.history).toBe(rows);
 
     rerender({ id: undefined });
     expect(result.current.history).toEqual([]);
@@ -131,44 +113,41 @@ describe('useSectionLedger', () => {
     expect(result.current.unpin()).toBe(false);
   });
 
-  it('carries resolved split links from the engine ledger into the panel', () => {
-    const engine = engineWith(null);
-    engine.getSectionHistory.mockReturnValue([
+  it("hands the engine's typed details to the panel and reads an absent record as none", () => {
+    const engine = engineWith();
+    const linked = { id: 'parent', name: 'Col de la Croix', available: true };
+    const bundle = bundleWith(null);
+    bundle.history = [
       {
         id: 3n,
         at: '2026-08-21 00:00:00',
         kind: 'formed',
-        details: JSON.stringify({
-          split_from: 'parent',
-          split_from_link: { id: 'parent', name: 'Col de la Croix', available: true },
-        }),
+        details: {
+          around: ['a1'],
+          forkAround: [],
+          prs: [],
+          siblings: [],
+          splitFrom: linked,
+          splitInto: [],
+          reasons: [],
+        },
         geometryVersion: 1n,
       },
       {
         id: 4n,
         at: '2026-08-22 00:00:00',
-        kind: 'split',
-        details: JSON.stringify({
-          siblings: ['child', 'missing'],
-          split_into_links: [
-            { id: 'child', name: 'Col de la Croix / 1 / 2', available: true },
-            { id: 'missing', name: null, available: false },
-          ],
-        }),
-        geometryVersion: undefined,
+        kind: 'recut',
+        details: null,
+        geometryVersion: null,
       },
-    ]);
+    ];
+    bundle.geometryVersions = [];
     (getEngine as jest.Mock).mockReturnValue(engine);
 
-    const { result } = renderHook(() => useSectionLedger('child'));
-    expect(result.current.history[0].splitInto).toEqual([
-      { id: 'child', name: 'Col de la Croix / 1 / 2', available: true },
-      { id: 'missing', name: null, available: false },
-    ]);
-    expect(result.current.history[1].splitFrom).toEqual({
-      id: 'parent',
-      name: 'Col de la Croix',
-      available: true,
-    });
+    const { result } = renderHook(() => useSectionLedger('child', bundle));
+
+    expect(result.current.history[1].details?.splitFrom).toEqual(linked);
+    expect(result.current.history[1].details?.around).toEqual(['a1']);
+    expect(result.current.history[0].details).toBeUndefined();
   });
 });

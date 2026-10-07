@@ -6,6 +6,7 @@ import {
   minAgeDaysFor,
   type InsightsConfig,
 } from './config';
+import { TIME } from '@/shared/app/time';
 
 export type GateReason =
   | 'recency_too_old'
@@ -33,8 +34,6 @@ export interface ScoredInsight {
   };
 }
 
-const DAY_MS = 86_400_000;
-
 // ---------------------------------------------------------------------------
 // Hard gates
 // ---------------------------------------------------------------------------
@@ -53,7 +52,7 @@ export function passesRecency(
   const ts = insight.meta?.sourceTimestamp;
   if (ts == null || !Number.isFinite(ts)) return { passed: true };
 
-  const ageDays = (now - ts) / DAY_MS;
+  const ageDays = (now - ts) / TIME.DAY;
   const maxDays = maxAgeDaysFor(insight.category, cfg);
   const minDays = minAgeDaysFor(insight.category, cfg);
 

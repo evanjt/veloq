@@ -39,6 +39,7 @@ function renderControls(handlers: Partial<React.ComponentProps<typeof ActivityMa
         bearingAnim={new Animated.Value(0)}
         onResetOrientation={jest.fn()}
         locationLoading={false}
+        userLocationActive={false}
         onGetLocation={jest.fn()}
         enableFullscreen={true}
         onOpenFullscreen={jest.fn()}

@@ -14,7 +14,7 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
-  TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
@@ -24,7 +24,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
-import { EmptyState, SearchBar } from '@/shared/ui';
+import { EmptyState, SearchBar, pressable, pressRipple } from '@/shared/ui';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -191,7 +191,7 @@ export const RoutesList = memo(function RoutesList({
           <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
             {t('routes.noRoutesYet')}
           </Text>
-          <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
+          <Text style={[styles.emptySubtitle, isDark && styles.textSecondary]}>
             {t('routes.routesWillAppear')}
           </Text>
         </View>
@@ -208,7 +208,7 @@ export const RoutesList = memo(function RoutesList({
         <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
           {t('routes.noMatchingRoutes')}
         </Text>
-        <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
+        <Text style={[styles.emptySubtitle, isDark && styles.textSecondary]}>
           {t('routes.routesWithTwoPlus')}
         </Text>
       </View>
@@ -259,18 +259,18 @@ export const RoutesList = memo(function RoutesList({
               sortChips.map((chip) => {
                 const isActive = sortOption === chip.key;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={chip.key}
                     accessibilityRole="button"
                     accessibilityState={{ selected: isActive }}
                     accessibilityLabel={chip.label}
-                    style={[
+                    style={pressable([
                       styles.sortChip,
                       isDark && styles.sortChipDark,
                       isActive && styles.sortChipActive,
-                    ]}
+                    ])}
+                    android_ripple={pressRipple}
                     onPress={() => onSortChange(chip.key)}
-                    activeOpacity={0.7}
                   >
                     <MaterialCommunityIcons
                       name={chip.icon}
@@ -286,14 +286,14 @@ export const RoutesList = memo(function RoutesList({
                     <Text
                       style={[
                         styles.sortChipLabel,
-                        isDark && styles.textMuted,
+                        isDark && styles.textSecondary,
                         isActive && styles.sortChipLabelActive,
                         isActive && isDark && { color: darkColors.linkTeal },
                       ]}
                     >
                       {chip.label}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
           </View>
@@ -429,8 +429,8 @@ const styles = StyleSheet.create({
   textLight: {
     color: colors.textOnDark,
   },
-  textMuted: {
-    color: darkColors.textMuted,
+  textSecondary: {
+    color: darkColors.textSecondary,
   },
   loadingMore: {
     paddingVertical: spacing.md,

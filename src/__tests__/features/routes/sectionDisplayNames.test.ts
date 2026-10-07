@@ -16,13 +16,27 @@ jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
 
 describe('getAllSectionDisplayNames', () => {
+  beforeEach(() => jest.clearAllMocks());
+
   it('shows the label the engine sent', () => {
     mockEngine.getSectionSummaries.mockReturnValue({
       summaries: [{ id: 's1', name: 'Section 12', sportTypes: ['Ride'], distanceMeters: 2300 }],
     });
-    mockEngine.getAllSectionNames.mockReturnValue({});
 
     expect(getAllSectionDisplayNames()).toEqual({ s1: 'Section 12' });
+  });
+
+  it('takes the name from the summary alone and makes no second read', () => {
+    mockEngine.getAllSectionNames.mockReturnValue({ s1: 'Not the summary name' });
+    mockEngine.getSectionSummaries.mockReturnValue({
+      summaries: [
+        { id: 's1', name: 'Col du Pillon' },
+        { id: 's2', name: 'Section 3' },
+      ],
+    });
+
+    expect(getAllSectionDisplayNames()).toEqual({ s1: 'Col du Pillon', s2: 'Section 3' });
+    expect(mockEngine.getAllSectionNames).not.toHaveBeenCalled();
   });
 
   it('leaves a section with no name out instead of describing its terrain', () => {
@@ -37,7 +51,6 @@ describe('getAllSectionDisplayNames', () => {
         },
       ],
     });
-    mockEngine.getAllSectionNames.mockReturnValue({});
 
     expect(getAllSectionDisplayNames()).toEqual({});
   });

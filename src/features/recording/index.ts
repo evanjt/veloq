@@ -4,7 +4,6 @@ export {
   ControlBar,
   DataFieldGrid,
   ConnectedDataFieldGrid,
-  FieldPickerModal,
   GrantAccessButton,
   IndoorDisplay,
   ManualEntry,
@@ -17,7 +16,6 @@ export {
   RecordingReturnPill,
   RecordingTitle,
   ReviewMapHero,
-  RouteOverlayPicker,
   RpeSlider,
   SaveErrorBanner,
   StatusSlot,
@@ -57,6 +55,7 @@ export {
 } from './lib/holdRecordingOnSignOut';
 export { promptInterruptedRecording } from './lib/interruptedRecording';
 export { defaultEntrySport, entrySportChips, recordingEntryHref } from './lib/recordEntry';
+export { ALL_DATA_FIELDS } from './lib/dataFields';
 export { recordingActions } from './lib/recordingActions';
 export { ACTIVITY_CATEGORIES, getRecordingMode, screenRecordingMode } from './lib/recordingModes';
 export { installRecordingSession } from './lib/recordingSession';

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme, useMetricSystem } from '@/shared/app';
+import { useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { navigateTo } from '@/shared/app/navigation';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
@@ -16,8 +16,6 @@ import {
   RecordingMap,
   ConnectedDataFieldGrid,
   ControlBar,
-  FieldPickerModal,
-  RouteOverlayPicker,
   ManualEntry,
   TimerHeader,
   StatusSlot,
@@ -50,6 +48,8 @@ import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useRepresentativeRoute } from '@/features/routes';
 import { colors, spacing } from '@/theme';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
+import type { FieldPickerSheetInput } from '@/app/sheets/field-picker';
+import type { RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
 import type { ActivityType, DataFieldType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
@@ -63,7 +63,6 @@ function RecordingScreenContent() {
 function RecordingContent() {
   useRecordingKeepAwake();
 
-  const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
   const { type, pairedEventId, from } = useLocalSearchParams<{
@@ -153,15 +152,10 @@ function RecordingContent() {
 
   // Saved-route overlay on the live map (GPS mode only, session-scoped)
   const [overlayRouteId, setOverlayRouteId] = useState<string | null>(null);
-  const [showRoutePicker, setShowRoutePicker] = useState(false);
   const { points: overlayPoints } = useRepresentativeRoute(mode === 'gps' ? overlayRouteId : null);
-
-  // In-place tile customisation (long-press a tile while unlocked)
-  const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
 
   // Stable handles and styles let memoised children hold when store updates
   // do not change the values they draw.
-  const openRoutePicker = useCallback(() => setShowRoutePicker(true), []);
   const openReview = useCallback(() => navigateTo('/recording/review'), []);
   const openSensorPairing = useCallback(() => navigateTo('/sensor-settings'), []);
   const dismissGpsWarning = useCallback(() => setGpsWarning(null), [setGpsWarning]);
@@ -180,24 +174,28 @@ function RecordingContent() {
     [dataFields, mode]
   );
 
-  const handleFieldSelect = useCallback(
-    (field: DataFieldType) => {
-      if (editingFieldIndex == null) return;
+  // In-place tile customisation (long-press a tile while unlocked)
+  const openSheet = useSheetOpener();
+  const editField = useCallback(
+    async (index: number) => {
+      const result = await openSheet<FieldPickerSheetInput, DataFieldType>('sheets/field-picker', {
+        selectedField: effectiveFields[index] ?? null,
+      });
+      if (result.kind !== 'selected') return;
+      const field = result.value;
       const next = [...effectiveFields];
       const existing = next.indexOf(field);
-      if (existing >= 0 && existing !== editingFieldIndex) {
-        next[existing] = next[editingFieldIndex];
+      if (existing >= 0 && existing !== index) {
+        next[existing] = next[index];
       }
-      next[editingFieldIndex] = field;
+      next[index] = field;
       setDataFields(mode, next);
-      setEditingFieldIndex(null);
     },
-    [editingFieldIndex, effectiveFields, mode, setDataFields]
+    [openSheet, effectiveFields, mode, setDataFields]
   );
 
   const currentActivityType = storeActivityType ?? activityType;
 
-  const openSheet = useSheetOpener();
   const openTypePicker = useCallback(async () => {
     const result = await openSheet<ActivityTypeSheetInput, ActivityType>('sheets/activity-type', {
       selectedType: currentActivityType,
@@ -205,6 +203,14 @@ function RecordingContent() {
     });
     if (result.kind === 'selected') handleChangeType(result.value);
   }, [openSheet, currentActivityType, handleChangeType]);
+
+  const openRoutePicker = useCallback(async () => {
+    const result = await openSheet<RouteOverlaySheetInput, string | null>('sheets/route-overlay', {
+      activityType: currentActivityType,
+      selectedRouteId: overlayRouteId,
+    });
+    if (result.kind === 'selected') setOverlayRouteId(result.value);
+  }, [openSheet, currentActivityType, overlayRouteId]);
 
   // An answer that has not arrived is not a refusal. A cold start from a widget,
   // tile, shortcut or Siri can beat the permission store, and gating there shows
@@ -320,7 +326,7 @@ function RecordingContent() {
         fields={effectiveFields}
         isMetric={isMetric}
         activityType={currentActivityType}
-        onLongPressField={isLocked ? undefined : setEditingFieldIndex}
+        onLongPressField={isLocked ? undefined : editField}
         onEmptySensorTap={isLocked ? undefined : openSensorPairing}
       />
 
@@ -342,26 +348,6 @@ function RecordingContent() {
           style={controlBarStyle}
         />
       )}
-
-      {/* In-place data field picker */}
-      <FieldPickerModal
-        visible={editingFieldIndex != null}
-        selectedField={
-          editingFieldIndex != null ? (effectiveFields[editingFieldIndex] ?? null) : null
-        }
-        isDark={isDark}
-        onSelect={handleFieldSelect}
-        onClose={() => setEditingFieldIndex(null)}
-      />
-
-      {/* Saved-route overlay picker */}
-      <RouteOverlayPicker
-        visible={showRoutePicker}
-        activityType={currentActivityType}
-        selectedRouteId={overlayRouteId}
-        onSelect={setOverlayRouteId}
-        onClose={() => setShowRoutePicker(false)}
-      />
     </View>
   );
 }

@@ -4,8 +4,8 @@ import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
 import { sparkline } from '../lib/sparkline';
+import { TIME } from '@/shared/app/time';
 
-const DAY_MS = 86_400_000;
 const MAX_ROUTES_IN_BODY = 3;
 
 /** The engine's counts over every row it returned, which this generator does not recompute. */
@@ -81,7 +81,7 @@ export function generateRouteInsights(
     // The freshest row, so the card is only as stale as its least stale route;
     // and the thinnest, so one thin route does not carry a group through a gate
     // it would fail alone.
-    sourceTimestamp: now - Math.min(...rows.map((r) => r.daysSinceLast)) * DAY_MS,
+    sourceTimestamp: now - Math.min(...rows.map((r) => r.daysSinceLast)) * TIME.DAY,
     repetitionCount: thinnest,
   };
   const methodology = {

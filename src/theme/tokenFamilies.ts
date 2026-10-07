@@ -41,7 +41,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   // variants B927 and B928 cut out of the series and zone hues.
   textPrimary: 'text',
   textSecondary: 'text',
-  textMuted: 'text',
   textDisabled: 'text',
   textOnDark: 'text',
   textOnPrimary: 'text',

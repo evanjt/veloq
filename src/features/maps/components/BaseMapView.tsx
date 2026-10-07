@@ -1,16 +1,14 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
 // app shell still has to draw, and the barrel is what such a caller stubs.
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import * as Location from 'expo-location';
 import {
   colors,
   darkColors,
-  mapLayerColors,
   spacing,
   layout,
   shadows,
@@ -31,8 +29,15 @@ import {
 } from '@/features/maps/lib/coordinates';
 import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
+import { composeBaseMapLayers } from '@/features/maps/lib/baseMapLayers';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
+import { useLocateUser } from '@/features/maps/hooks/useLocateUser';
+import {
+  USER_LOCATION_SOURCE_ID,
+  buildUserLocationCollection,
+  buildUserLocationLayers,
+} from '@/features/maps/lib/userLocationLayer';
 
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
 const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
@@ -68,6 +73,8 @@ export interface BaseMapViewProps {
   overlaySources?: Record<string, MapSourceSpec> | undefined;
   /** Extra layers over the route, in draw order. */
   overlayLayers?: MapLayerSpec[] | undefined;
+  /** Extra layers beneath the route line, in draw order; they read the overlay sources. */
+  underRouteLayers?: MapLayerSpec[] | undefined;
   /** Images the overlay layers reference by id. */
   overlayImages?: MapImageSpec[] | undefined;
   /** Overlay layers that respond to a tap, most specific first. */
@@ -95,6 +102,7 @@ export function BaseMapView({
   onPress,
   overlaySources = NO_SOURCES,
   overlayLayers = NO_LAYERS,
+  underRouteLayers = NO_LAYERS,
   overlayImages,
   interactiveLayers,
   extraControls,
@@ -207,25 +215,12 @@ export function BaseMapView({
     []
   );
 
-  // Get user location and refocus camera
-  const handleGetLocation = useCallback(async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const target = is3DMode && is3DReady ? map3DRef.current : surfaceRef.current;
-      target?.setCamera(
-        { center: [location.coords.longitude, location.coords.latitude], zoom: 14 },
-        500
-      );
-    } catch {
-      // Silently fail - location is optional
-    }
-  }, [is3DMode, is3DReady]);
+  // The camera on screen is the one the locate flow moves; the dot is drawn
+  // on the 2D surface only.
+  const { userLocation, locationLoading, locate } = useLocateUser();
+  const handleGetLocation = useCallback(() => {
+    void locate(is3DMode && is3DReady ? map3DRef.current : surfaceRef.current);
+  }, [locate, is3DMode, is3DReady]);
 
   // The 2D surface comes down once the 3D layer covers it, so where it was is
   // captured on the way out and handed back to the remount.
@@ -243,33 +238,29 @@ export function BaseMapView({
     return { bounds: fitBounds, padding };
   }, [bounds, padding, cameraOnHide]);
 
+  const userLocationCollection = useMemo(
+    () => buildUserLocationCollection(userLocation),
+    [userLocation]
+  );
+
   const sources = useMemo<Record<string, MapSourceSpec>>(
     () => ({
       route: { kind: 'geojson', data: featureCollection([lineFeature(routeCoords)]) },
       ...overlaySources,
+      [USER_LOCATION_SOURCE_ID]: { kind: 'geojson', data: userLocationCollection },
     }),
-    [routeCoords, overlaySources]
+    [routeCoords, overlaySources, userLocationCollection]
   );
 
   const layers = useMemo<MapLayerSpec[]>(
-    () => [
-      {
-        id: 'route-casing',
-        type: 'line',
-        source: 'route',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': mapLayerColors.casing, 'line-width': 5 },
-      },
-      {
-        id: 'route-line',
-        type: 'line',
-        source: 'route',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': routeColor, 'line-width': 4 },
-      },
-      ...overlayLayers,
-    ],
-    [routeColor, overlayLayers]
+    () =>
+      composeBaseMapLayers({
+        routeColor,
+        underRouteLayers,
+        overlayLayers,
+        userLocationLayers: buildUserLocationLayers(userLocation !== null),
+      }),
+    [routeColor, underRouteLayers, overlayLayers, userLocation]
   );
 
   // Satellite mode reads its attribution from the viewport, so the sources named
@@ -371,16 +362,31 @@ export function BaseMapView({
 
         {showLocationButton && (
           <IconButton
-            style={[styles.controlButton, isDark && styles.controlButtonDark]}
+            style={[styles.controlButton, isDark && !userLocation && styles.controlButtonDark]}
             onPress={handleGetLocation}
-            variant="secondary"
+            disabled={locationLoading}
+            variant={userLocation ? 'primary' : 'secondary'}
             accessibilityLabel={t('maps.goToLocation')}
+            accessibilityState={{ disabled: locationLoading, busy: locationLoading }}
           >
-            <MaterialCommunityIcons
-              name="crosshairs-gps"
-              size={22}
-              color={isDark ? colors.textOnDark : colors.textSecondary}
-            />
+            {locationLoading ? (
+              <ActivityIndicator
+                size="small"
+                color={isDark ? colors.textOnDark : colors.textSecondary}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="crosshairs-gps"
+                size={22}
+                color={
+                  userLocation
+                    ? colors.textOnPrimary
+                    : isDark
+                      ? colors.textOnDark
+                      : colors.textSecondary
+                }
+              />
+            )}
           </IconButton>
         )}
 

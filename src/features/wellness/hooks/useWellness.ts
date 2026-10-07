@@ -21,6 +21,7 @@ import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { WellnessData } from '@/types';
 import type { WellnessDay } from 'veloqrs';
 import type { TimeRange } from '@/shared/app/timeRange';
+import { TIME } from '@/shared/app/time';
 
 export type { TimeRange };
 
@@ -123,7 +124,7 @@ export function useWellness(range: TimeRange = '3m') {
     enabled: isAuthenticated,
     // SQLite is the source, so staleness is decided by the sync, not a clock.
     staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 24,
+    gcTime: TIME.DAY,
     placeholderData: keepPreviousData,
   });
 }
@@ -143,6 +144,6 @@ export function useWellnessForDate(date: string | undefined) {
     },
     enabled: isAuthenticated && !!date,
     staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 24,
+    gcTime: TIME.DAY,
   });
 }

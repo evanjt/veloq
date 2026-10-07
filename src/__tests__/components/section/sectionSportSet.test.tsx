@@ -1,20 +1,17 @@
 /**
  * Scenario: a climb run thirty times and ridden twenty. The ground has no
  * sport of its own, so the busier sport is not the section's.
- * Expected behaviour: the sections row, the regional map popup, the merge
- * picker and the merge dialog each draw every sport that took the section, and
- * none of them names one sport as the section's.
+ * Expected behaviour: the sections row and the regional map popup each draw
+ * every sport that took the section, and neither names one sport as the
+ * section's.
  */
 
 import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { render } from '@testing-library/react-native';
-import type { MergeCandidate } from 'veloqrs';
 
 import { SectionRow } from '@/features/routes/components/SectionRow';
 import { SectionPopup } from '@/features/maps/components/regional/SectionPopup';
-import { MergeCandidatesModal } from '@/features/routes/components/section/MergeCandidatesModal';
-import { MergeConfirmDialog } from '@/features/routes/components/section/MergeConfirmDialog';
 import type { FrequentSection } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -60,59 +57,4 @@ it('the map popup draws every sport and names none of them', () => {
   expect(iconNames(view)).toContain('bike');
   expect(view.queryByText('Run')).toBeNull();
   expect(view.queryByText('Ride')).toBeNull();
-});
-
-it('the merge picker draws every sport of a candidate', () => {
-  const candidate = {
-    sectionId: 's2',
-    name: 'Other Hill',
-    sportType: 'Run',
-    sportTypes: ['Ride', 'Run'],
-    distanceMeters: 1150,
-    visitCount: 12,
-    overlapPct: 0.8,
-    centerDistanceMeters: 40,
-  } as MergeCandidate;
-  const view = render(
-    <MergeCandidatesModal
-      visible
-      candidates={[candidate]}
-      onSelect={jest.fn()}
-      onCancel={jest.fn()}
-    />
-  );
-  const names = iconNames(view);
-
-  expect(count(names, 'bike')).toBe(1);
-  expect(count(names, 'run')).toBe(1);
-});
-
-it('the merge dialog draws every sport of each section', () => {
-  const view = render(
-    <MergeConfirmDialog
-      visible
-      primary={{
-        id: 's1',
-        name: 'Hill',
-        sportTypes: ['Ride', 'Run'],
-        visitCount: 50,
-        distanceMeters: 1200,
-      }}
-      secondary={{
-        id: 's2',
-        name: 'Other Hill',
-        sportTypes: ['Walk'],
-        visitCount: 3,
-        distanceMeters: 1150,
-      }}
-      onConfirm={jest.fn()}
-      onCancel={jest.fn()}
-      previewDropped={() => []}
-    />
-  );
-  const names = iconNames(view);
-
-  expect(count(names, 'bike')).toBe(1);
-  expect(count(names, 'run')).toBe(1);
-  expect(count(names, 'walk')).toBe(1);
 });

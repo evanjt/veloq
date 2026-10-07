@@ -47,6 +47,11 @@ export interface StreamBackfillState {
    * answer, which must never read as a stocked library.
    */
   remaining: number | null;
+  /**
+   * What those activities would download, from the same read as `remaining`
+   * and null on the same terms, so a null size never reads as a free download.
+   */
+  remainingBytes: number | null;
   isRunning: boolean;
   /** The engine is holding a large download for the athlete's answer. */
   awaitingConsent: boolean;
@@ -62,6 +67,7 @@ const IDLE: StreamBackfillState = {
   total: 0,
   stored: 0,
   remaining: null,
+  remainingBytes: null,
   isRunning: false,
   awaitingConsent: false,
   estimateRequests: 0,
@@ -88,6 +94,7 @@ function stateOf(status: RoutesStatus | null): StreamBackfillState {
     total: status.stream.total,
     stored: status.stream.stored,
     remaining: status.streamRemaining,
+    remainingBytes: status.streamRemainingBytes,
     isRunning: phase === 'fetching',
     awaitingConsent: phase === 'awaiting_consent',
     estimateRequests: status.stream.estimateRequests,
@@ -106,6 +113,7 @@ function same(a: StreamBackfillState, b: StreamBackfillState): boolean {
     a.total === b.total &&
     a.stored === b.stored &&
     a.remaining === b.remaining &&
+    a.remainingBytes === b.remainingBytes &&
     a.awaitingConsent === b.awaitingConsent &&
     a.estimateRequests === b.estimateRequests &&
     a.estimateMegabytes === b.estimateMegabytes

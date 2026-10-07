@@ -30,7 +30,7 @@ function activityDetail(activityCount: number) {
     matchedSections: [],
     customSections: [],
     encounters: [],
-    highlights: { indicators: [], routeHighlights: [], strengthCards: [] },
+    highlights: { indicators: [], routeHighlights: [], newGround: [], strengthCards: [] },
     sectionTraces: [],
     prSectionIds: [],
   };

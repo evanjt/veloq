@@ -861,6 +861,20 @@ describe('keeping a preview starts an observable re-cut', () => {
     expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBeFalsy();
   });
 
+  it('exposes discard, run and keep as named buttons beside their test ids', () => {
+    const tree = render(<DetectionPreviewScreen />);
+
+    expect(tree.getByRole('button', { name: 'settings.previewDiscard' })).toBe(
+      tree.getByTestId('preview-discard-button')
+    );
+    expect(tree.getByRole('button', { name: 'settings.previewRun' })).toBe(
+      tree.getByTestId('preview-run-button')
+    );
+    expect(tree.getByRole('button', { name: 'settings.previewKeep' })).toBe(
+      tree.getByTestId('preview-keep-button')
+    );
+  });
+
   it('starts nothing when the preview is discarded', () => {
     const tree = render(<DetectionPreviewScreen />);
 
