@@ -7,10 +7,53 @@ use std::collections::{HashMap, HashSet};
 
 use super::{PersistentEngine, codec, sections};
 
-/// App-level schema version for post-migration Rust hooks.
-/// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
-/// Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 39;
+/// App-level schema version, written to `schema_info` after the migration
+/// pass and read by the post-migration hooks. `PRAGMA user_version` is the
+/// other record, the one `rusqlite_migration` skips on, and it ends one for
+/// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 62;
+
+/// The migration that drops the cutover archive tables, counted from one. The
+/// open carries their rows into the ledger before it runs.
+const ARCHIVE_DROP_MIGRATION: usize = 54;
+
+const HEATMAP_INTENSITY: &str = "CASE
+    WHEN MAX(moving_time) > 7200 THEN 4
+    WHEN MAX(moving_time) > 5400 THEN 3
+    WHEN MAX(moving_time) > 3600 THEN 2
+    WHEN MAX(moving_time) > 0 THEN 1
+    ELSE 0 END";
+
+fn heatmap_insert(predicate: &str) -> String {
+    format!(
+        "INSERT INTO activity_heatmap (date, intensity, max_duration, activity_count)
+         SELECT date(date, 'unixepoch'), {HEATMAP_INTENSITY}, MAX(moving_time), COUNT(*)
+         FROM activity_metrics {predicate} GROUP BY date(date, 'unixepoch')"
+    )
+}
+
+pub(super) fn recompute_heatmap_day(conn: &Connection, timestamp: i64) -> SqlResult<()> {
+    let Some(date): Option<String> =
+        conn.query_row("SELECT date(?1, 'unixepoch')", [timestamp], |row| {
+            row.get(0)
+        })?
+    else {
+        return Ok(());
+    };
+    conn.execute("DELETE FROM activity_heatmap WHERE date = ?", [&date])?;
+    let start = timestamp.div_euclid(86_400) * 86_400;
+    conn.execute(
+        &heatmap_insert("WHERE date >= ?1 AND date < ?2"),
+        params![start, start + 86_400],
+    )?;
+    Ok(())
+}
+
+pub(super) fn recompute_all_heatmap(conn: &Connection) -> SqlResult<()> {
+    conn.execute("DELETE FROM activity_heatmap", [])?;
+    conn.execute(&heatmap_insert(""), [])?;
+    Ok(())
+}
 
 /// Marks the refusal to open a database a later build wrote, so the init
 /// failover can tell it apart from corruption and leave the file alone.
@@ -63,9 +106,22 @@ fn trigger_has_guard(conn: &Connection, name: &str) -> bool {
 /// tables, so a caller can tell it from an ordinary migration failure.
 pub(crate) const OVERSTATED_SCHEMA_MARKER: &str = "schema version overstated";
 
-/// Whether an open failed because the file is ahead of this build.
-pub(crate) fn is_forward_schema_error(e: &rusqlite::Error) -> bool {
-    e.to_string().contains(FORWARD_SCHEMA_MARKER)
+/// The init outcome for an open the schema check refused, or `None` when the
+/// failure is not one of its refusals.
+///
+/// Both refusals are about the version records, not the bytes, so the file is
+/// healthy as far as SQLite goes and the remedy is never to replace it: the
+/// init path returns this outcome before it reaches the quarantine.
+pub(crate) fn refused_outcome(e: &rusqlite::Error) -> Option<crate::objects::init::FfiInitOutcome> {
+    use crate::objects::init::FfiInitOutcome;
+    let message = e.to_string();
+    if message.contains(FORWARD_SCHEMA_MARKER) {
+        Some(FfiInitOutcome::ForwardSchema)
+    } else if message.contains(OVERSTATED_SCHEMA_MARKER) {
+        Some(FfiInitOutcome::VersionMismatch)
+    } else {
+        None
+    }
 }
 
 impl PersistentEngine {
@@ -86,6 +142,15 @@ impl PersistentEngine {
     /// M22: how much of its section a traversal covers, for the record rule.
     /// M23: activity_matches indexed by activity, for the section-to-route join.
     /// M24: the intervals.icu id as metadata beside the key, not as the key.
+    /// M56: per-section ranking inputs kept as a running summary.
+    /// M57: the visible section count kept as a stored row.
+    /// M58: the route lines the map draws, built once per group write.
+    /// M59: each climbing activity's best window per length.
+    /// M60: a trim's original line and an intent's footprint as quantised blobs.
+    /// M61: which altitude series each stored track's points carry.
+    /// M62: each background job's last run, one row per job.
+    /// M54: the cutover archive tables dropped, their rows carried into the
+    /// section ledger first by [`Self::init_schema`].
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
     /// numbered migration, so the version stays one for one with the SQL.
     pub(super) fn migrations() -> Migrations<'static> {
@@ -138,19 +203,44 @@ impl PersistentEngine {
             include_str!("../migrations/037_recording_kind.sql"),
             include_str!("../migrations/038_pace_history_window.sql"),
             include_str!("../migrations/039_push_runs.sql"),
+            include_str!("../migrations/040_lap_power.sql"),
+            include_str!("../migrations/041_remove_unused_metrics_copies.sql"),
+            include_str!("../migrations/042_rebuild_activity_heatmap.sql"),
+            include_str!("../migrations/043_recording_notes_rpe.sql"),
+            include_str!("../migrations/044_activity_bodies_intervals_id.sql"),
+            include_str!("../migrations/045_hr_zone_six_and_seven.sql"),
+            include_str!("../migrations/046_route_numbers.sql"),
+            include_str!("../migrations/047_section_numbers.sql"),
+            include_str!("../migrations/048_section_forced_matches.sql"),
+            include_str!("../migrations/049_census_track_refusal.sql"),
+            include_str!("../migrations/050_lap_series_empty.sql"),
+            include_str!("../migrations/051_hr_zone_top_backfill.sql"),
+            include_str!("../migrations/052_route_representative_chosen.sql"),
+            include_str!("../migrations/053_census_track_failures.sql"),
+            include_str!("../migrations/054_catalogue_archive_in_ledger.sql"),
+            include_str!("../migrations/055_lap_time_empty.sql"),
+            include_str!("../migrations/056_section_rank_inputs.sql"),
+            include_str!("../migrations/057_section_visible_count.sql"),
+            include_str!("../migrations/058_route_line_layer.sql"),
+            include_str!("../migrations/059_activity_climb_bests.sql"),
+            include_str!("../migrations/060_section_line_blobs.sql"),
+            include_str!("../migrations/061_gps_track_elevation_source.sql"),
+            include_str!("../migrations/062_job_runs.sql"),
         ]
     }
 
-    /// The tables migrations `1..=n` leave behind, read from the migration SQL
-    /// itself rather than from a list beside it: a hand-kept map drifts, and
-    /// what this has to describe is exactly what those files do.
+    /// The tables each prefix of the migrations leaves behind, entry `n` for
+    /// migrations `1..=n`, read from the migration SQL itself rather than from
+    /// a list beside it: a hand-kept map drifts, and what this has to describe
+    /// is exactly what those files do.
     ///
     /// Creates add, drops remove and a rename moves the name, in file order,
     /// so a table a later migration rebuilt under a temporary name is not
     /// claimed. Index and trigger DDL is not a table and is passed over.
-    pub(super) fn tables_after(n: usize) -> std::collections::BTreeSet<String> {
+    pub(super) fn tables_after_each() -> Vec<std::collections::BTreeSet<String>> {
         let mut tables: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
-        for script in Self::migration_scripts().iter().take(n) {
+        let mut after = vec![tables.clone()];
+        for script in Self::migration_scripts() {
             // Comments first: a statement here nearly always opens with a
             // `--` line, and its words would otherwise be the ones matched.
             let stripped: String = script
@@ -179,8 +269,9 @@ impl PersistentEngine {
                     _ => {}
                 }
             }
+            after.push(tables.clone());
         }
-        tables
+        after
     }
 
     /// Refuse a file whose `PRAGMA user_version` claims migrations that did not
@@ -190,12 +281,22 @@ impl PersistentEngine {
     /// the pragma implies but the file does not hold, because the failure it
     /// replaces named whichever table the pass reached first and nothing about
     /// why it was reached.
+    ///
+    /// The tables it expects are the ones every prefix from the pragma's to
+    /// this build's holds. A table a later migration drops can be missing from
+    /// a file whose pragma understates what ran, so its absence says nothing
+    /// about an overstatement.
     fn refuse_an_overstated_version(conn: &Connection, app_version: i32) -> SqlResult<()> {
         let pragma: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
         if pragma <= 0 {
             return Ok(());
         }
-        let expected = Self::tables_after(pragma as usize);
+        let after = Self::tables_after_each();
+        let from = (pragma as usize).min(after.len() - 1);
+        let mut expected = after[from].clone();
+        for later in &after[from + 1..] {
+            expected.retain(|table| later.contains(table));
+        }
         if expected.is_empty() {
             return Ok(());
         }
@@ -230,6 +331,17 @@ impl PersistentEngine {
         )))
     }
 
+    /// Keeps the SQLite error a migration pass hit, so a busy file stays
+    /// retryable instead of reading as a corrupt one.
+    fn migration_error(e: rusqlite_migration::Error) -> rusqlite::Error {
+        match e {
+            rusqlite_migration::Error::RusqliteError { err, .. } => err,
+            other => rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(
+                other.to_string(),
+            ))),
+        }
+    }
+
     /// Initialise the database schema using migrations.
     pub(super) fn init_schema(conn: &mut Connection) -> SqlResult<()> {
         // Create schema_info table if not exists (for app-level version tracking)
@@ -260,13 +372,23 @@ impl PersistentEngine {
         // nothing the app can add: it has columns this code does not know and
         // lacks none it does. Opening it fails at query time instead, one
         // feature at a time. Refuse it whole, and leave the file where it is.
-        if current_version > Self::SCHEMA_VERSION {
+        //
+        // Either record can be the one ahead. A later build stamps
+        // `schema_info` only after its pass, so a kill between the two leaves
+        // the pragma ahead and the app record at this build's version, and the
+        // migration library would refuse that file without saying why.
+        let applied_migrations: i64 =
+            conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        let known_migrations = Self::migration_scripts().len() as i64;
+        if current_version > Self::SCHEMA_VERSION || applied_migrations > known_migrations {
             return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
                 std::io::Error::other(format!(
-                    "{}: file is version {}, this build supports {}",
+                    "{}: file is schema_info {} and user_version {}, this build supports {} and {}",
                     FORWARD_SCHEMA_MARKER,
                     current_version,
-                    Self::SCHEMA_VERSION
+                    applied_migrations,
+                    Self::SCHEMA_VERSION,
+                    known_migrations
                 )),
             )));
         }
@@ -281,9 +403,41 @@ impl PersistentEngine {
 
         // Run all pending migrations
         let migrations_started = std::time::Instant::now();
-        Self::migrations().to_latest(conn).map_err(|e| {
-            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(e.to_string())))
-        })?;
+        if current_version < 4 && applied_migrations < 40 {
+            let scripts = Self::migration_scripts();
+            Migrations::new(scripts[..39].iter().copied().map(M::up).collect())
+                .to_latest(conn)
+                .map_err(Self::migration_error)?;
+            Self::populate_all_performance_caches(conn)?;
+        }
+        // 054 drops the cutover archive tables, and what they hold is carried
+        // into the ledger by Rust that no SQL file can run. So the files
+        // before it run first, the rows move, and the drop runs after.
+        if applied_migrations < ARCHIVE_DROP_MIGRATION as i64 {
+            let scripts = Self::migration_scripts();
+            Migrations::new(
+                scripts[..ARCHIVE_DROP_MIGRATION - 1]
+                    .iter()
+                    .copied()
+                    .map(M::up)
+                    .collect(),
+            )
+            .to_latest(conn)
+            .map_err(Self::migration_error)?;
+            // The ledger and live-row columns the carry reads and writes,
+            // which older files gain only from these hooks.
+            Self::ensure_section_geometry_provenance(conn)?;
+            Self::ensure_sections_geometry_provenance(conn)?;
+            let carried = super::cutover::carry_legacy_archive_into_ledger(conn)?;
+            if carried > 0 {
+                log::info!(
+                    "veloqrs: [Migration] Carried {carried} archived sections into the ledger"
+                );
+            }
+        }
+        Self::migrations()
+            .to_latest(conn)
+            .map_err(Self::migration_error)?;
 
         // Update schema version
         conn.execute(
@@ -313,17 +467,45 @@ impl PersistentEngine {
         Self::ensure_visit_count_denormalisation(conn)?;
         Self::ensure_section_summary_denormalisation(conn)?;
         Self::ensure_section_intents_named_shape(conn)?;
+        Self::repair_orphan_supersession(conn)?;
         Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_sections_geometry_provenance(conn)?;
         Self::backfill_custom_section_reference(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
         Self::ensure_gps_track_elevation_state(conn)?;
         Self::ensure_gps_track_elevation_attempts(conn)?;
+        Self::ensure_gps_track_elevation_source(conn)?;
         Self::ensure_section_elevation_columns(conn)?;
         Self::ensure_sections_polyline_nullable(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
-        Self::ensure_catalogue_archive(conn);
         Self::ensure_content_ids(conn)?;
+        // After every rebuild of `sections`, which drops the numbering trigger.
+        // Below 47 the rows carry the labels a build before numbers minted.
+        sections::numbers::ensure_section_numbers(conn, current_version < 47)?;
+        Self::ensure_section_rank_triggers(conn)?;
+        Self::ensure_section_visible_count(conn)?;
+
+        // Migration 042 rebuilds the heatmap for files that run it. A file
+        // whose migrations are already complete but whose app record lags
+        // runs nothing, so it is rebuilt here.
+        if current_version < 40 && applied_migrations >= 42 {
+            recompute_all_heatmap(conn)?;
+        }
+
+        // A new file holds no activity body, so none was fetched with another
+        // field set. Unstamped, its first sync would refetch the library it
+        // had just downloaded. A file an older build wrote stays unstamped,
+        // and that is what makes its next sync refetch.
+        if current_version == 0 {
+            conn.execute(
+                "INSERT OR IGNORE INTO settings (key, value, updated_at)
+                 VALUES (?1, ?2, strftime('%s', 'now'))",
+                params![
+                    super::settings_keys::ACTIVITY_BODY_FIELDS,
+                    crate::net::types::stored_activity_fields()
+                ],
+            )?;
+        }
 
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
@@ -341,9 +523,6 @@ impl PersistentEngine {
                     );
                     Self::populate_performance_cache(conn)?;
                 }
-            }
-            if current_version < 4 {
-                Self::populate_all_performance_caches(conn)?;
             }
             if current_version < 5 {
                 Self::populate_section_bounds(conn)?;
@@ -507,6 +686,22 @@ impl PersistentEngine {
         {
             conn.execute(
                 "ALTER TABLE gps_tracks ADD COLUMN elevation_attempts INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Add `gps_tracks.elevation_source` when a `user_version` overstating
+    /// what was applied skipped the numbered file that adds it. Keyed on column
+    /// presence, not on the version, so it is safe to run on every open.
+    fn ensure_gps_track_elevation_source(conn: &Connection) -> SqlResult<()> {
+        if conn
+            .prepare("SELECT elevation_source FROM gps_tracks LIMIT 0")
+            .is_err()
+        {
+            conn.execute(
+                "ALTER TABLE gps_tracks ADD COLUMN elevation_source INTEGER NOT NULL DEFAULT 0",
                 [],
             )?;
         }
@@ -846,49 +1041,6 @@ impl PersistentEngine {
         }
     }
 
-    /// Ensure the cutover archive tables exist. Databases that ran 017 before
-    /// these tables were added need the CREATE IF NOT EXISTS here. The DDL
-    /// must stay byte-identical to 017's, or two populations diverge.
-    fn ensure_catalogue_archive(conn: &Connection) {
-        if let Err(e) = conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS section_catalogue_archive (
-                 token TEXT NOT NULL,
-                 section_id TEXT NOT NULL,
-                 name TEXT,
-                 sport_type TEXT NOT NULL,
-                 polyline_blob BLOB,
-                 polyline_json TEXT,
-                 distance_meters REAL NOT NULL DEFAULT 0,
-                 visit_count INTEGER NOT NULL DEFAULT 0,
-                 created_at TEXT,
-                 bounds_min_lat REAL,
-                 bounds_max_lat REAL,
-                 bounds_min_lng REAL,
-                 bounds_max_lng REAL,
-                 PRIMARY KEY (token, section_id)
-             );
-             CREATE TABLE IF NOT EXISTS section_catalogue_archive_members (
-                 token TEXT NOT NULL,
-                 section_id TEXT NOT NULL,
-                 activity_id TEXT NOT NULL,
-                 direction TEXT NOT NULL DEFAULT 'same',
-                 start_index INTEGER NOT NULL DEFAULT 0,
-                 end_index INTEGER NOT NULL DEFAULT 0,
-                 distance_meters REAL NOT NULL DEFAULT 0,
-                 lap_time REAL,
-                 lap_pace REAL,
-                 excluded INTEGER NOT NULL DEFAULT 0,
-                 avg_hr REAL,
-                 PRIMARY KEY (token, section_id, activity_id, start_index)
-             )",
-        ) {
-            log::warn!(
-                "veloqrs: [Migration] ensure_catalogue_archive failed: {}",
-                e
-            );
-        }
-    }
-
     /// Add the visit_count column, backfill it once, and create the
     /// recompute triggers. Idempotent and self-healing: the column is added only
     /// when absent (SQLite has no ADD COLUMN IF NOT EXISTS), the backfill runs only
@@ -1033,11 +1185,110 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// The triggers that keep the stored ranking inputs honest: any change to a
+    /// traversal, to what makes one complete or a section visible, to an
+    /// activity's date or sport, marks the section for a recompute.
+    ///
+    /// They are made on every open and not by the migration, because the
+    /// rebuilds of `sections` and `section_activities` drop the triggers on
+    /// those tables, and a trigger body that names a table a rebuild has
+    /// dropped makes the rename fail. Each inserts with `ON CONFLICT DO
+    /// NOTHING` and not `OR IGNORE`: a statement that fires a trigger imposes
+    /// its own conflict policy on the trigger's inserts, so an `INSERT OR
+    /// REPLACE` on the junction would otherwise fail on a section already
+    /// marked.
+    fn ensure_section_rank_triggers(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(
+            r#"CREATE TRIGGER IF NOT EXISTS section_rank_dirty_sections_au
+AFTER UPDATE OF distance_meters, disabled, superseded_by ON sections BEGIN
+    INSERT INTO section_rank_dirty (section_id) VALUES (NEW.id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_rank_dirty_sections_ad AFTER DELETE ON sections BEGIN
+    DELETE FROM section_rank_inputs WHERE section_id = OLD.id;
+    DELETE FROM section_rank_dirty WHERE section_id = OLD.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_rank_dirty_sa_ai AFTER INSERT ON section_activities BEGIN
+    INSERT INTO section_rank_dirty (section_id) VALUES (NEW.section_id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_rank_dirty_sa_ad AFTER DELETE ON section_activities BEGIN
+    INSERT INTO section_rank_dirty (section_id) VALUES (OLD.section_id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_rank_dirty_sa_au AFTER UPDATE ON section_activities BEGIN
+    INSERT INTO section_rank_dirty (section_id) VALUES (OLD.section_id) ON CONFLICT DO NOTHING;
+    INSERT INTO section_rank_dirty (section_id) VALUES (NEW.section_id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_rank_dirty_metrics_ai AFTER INSERT ON activity_metrics BEGIN
+    INSERT INTO section_rank_dirty_activity (activity_id) VALUES (NEW.activity_id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_rank_dirty_metrics_au AFTER UPDATE OF date ON activity_metrics BEGIN
+    INSERT INTO section_rank_dirty_activity (activity_id) VALUES (NEW.activity_id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_rank_dirty_metrics_sport_au AFTER UPDATE OF sport_type ON activity_metrics BEGIN
+    INSERT INTO section_rank_dirty_activity (activity_id) VALUES (NEW.activity_id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_rank_dirty_metrics_ad AFTER DELETE ON activity_metrics BEGIN
+    INSERT INTO section_rank_dirty_activity (activity_id) VALUES (OLD.activity_id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_rank_dirty_activities_au AFTER UPDATE OF sport_type ON activities BEGIN
+    INSERT INTO section_rank_dirty_activity (activity_id) VALUES (NEW.id) ON CONFLICT DO NOTHING;
+END;"#,
+        )
+    }
+
+    /// The stored visible section count, its triggers and the index that lists
+    /// the sections with no name of their own.
+    ///
+    /// Made on every open, like the ranking triggers, because a rebuild of
+    /// `sections` drops the triggers and the index and copies its rows without
+    /// firing them. The count is reseeded here for the same reason. A writer
+    /// that replaces a section row would skip the delete trigger, so sections
+    /// are written by insert, upsert or update only.
+    fn ensure_section_visible_count(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(
+            r#"CREATE INDEX IF NOT EXISTS idx_sections_unnamed ON sections(id) WHERE name IS NULL;
+
+CREATE TRIGGER IF NOT EXISTS section_visible_count_ai
+AFTER INSERT ON sections WHEN NEW.disabled = 0 AND NEW.superseded_by IS NULL BEGIN
+    INSERT INTO section_visible_count (id, n) VALUES (1, 1)
+    ON CONFLICT(id) DO UPDATE SET n = n + 1;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_visible_count_ad
+AFTER DELETE ON sections WHEN OLD.disabled = 0 AND OLD.superseded_by IS NULL BEGIN
+    INSERT INTO section_visible_count (id, n) VALUES (1, -1)
+    ON CONFLICT(id) DO UPDATE SET n = n - 1;
+END;
+
+CREATE TRIGGER IF NOT EXISTS section_visible_count_au
+AFTER UPDATE OF disabled, superseded_by ON sections BEGIN
+    INSERT INTO section_visible_count (id, n) VALUES (1,
+        (NEW.disabled = 0 AND NEW.superseded_by IS NULL)
+        - (OLD.disabled = 0 AND OLD.superseded_by IS NULL))
+    ON CONFLICT(id) DO UPDATE SET n = n
+        + (NEW.disabled = 0 AND NEW.superseded_by IS NULL)
+        - (OLD.disabled = 0 AND OLD.superseded_by IS NULL);
+END;
+
+INSERT INTO section_visible_count (id, n)
+SELECT 1, COUNT(*) FROM sections WHERE disabled = 0 AND superseded_by IS NULL
+ON CONFLICT(id) DO UPDATE SET n = excluded.n;"#,
+        )
+    }
+
     /// Re-mint every clock-minted section id as a content id and re-key
     /// every table that holds it, once, in one transaction. Ids used to be
     /// `s_<millis>__<seq>`: unique, but two devices cutting the same ground
-    /// could never agree. A content id is the sport and the global cell of
-    /// the section's heart, so they can. Foreign keys are deferred to the
+    /// could never agree. A content id is the global cell of the section's
+    /// heart, so they can. Foreign keys are deferred to the
     /// commit, so parents and children move in any order.
     fn ensure_content_ids(conn: &Connection) -> SqlResult<()> {
         const MARKER: &str = "content_ids_v1";
@@ -1068,7 +1319,6 @@ impl PersistentEngine {
         // first so a shared cell resolves in first-seen order.
         type ClockMinted = (
             String,
-            String,
             Option<Vec<u8>>,
             Option<String>,
             Option<String>,
@@ -1076,13 +1326,13 @@ impl PersistentEngine {
             Option<u32>,
         );
         let mut stmt = conn.prepare(if has_reference {
-            "SELECT id, sport_type, polyline_blob, polyline_json,
+            "SELECT id, polyline_blob, polyline_json,
                     representative_activity_id, rep_start_index, rep_end_index
              FROM sections
              WHERE id GLOB 's_[0-9]*__[0-9]*'
              ORDER BY created_at, id"
         } else {
-            "SELECT id, sport_type, polyline_blob, polyline_json,
+            "SELECT id, polyline_blob, polyline_json,
                     NULL, NULL, NULL
              FROM sections
              WHERE id GLOB 's_[0-9]*__[0-9]*'
@@ -1097,7 +1347,6 @@ impl PersistentEngine {
                     row.get(3)?,
                     row.get(4)?,
                     row.get(5)?,
-                    row.get(6)?,
                 ))
             })?
             .filter_map(|r| r.ok())
@@ -1110,7 +1359,7 @@ impl PersistentEngine {
             .filter_map(|r| r.ok())
             .collect();
         let mut renames: Vec<(String, String)> = Vec::new();
-        for (old, sport, blob, json, rep_id, start, end) in rows {
+        for (old, blob, json, rep_id, start, end) in rows {
             // The blob is a cache, and the new id is a function of the line.
             // A cleared cache would leave the row on its clock-minted id for
             // ever, which is the one id two devices can never agree on.
@@ -1120,7 +1369,7 @@ impl PersistentEngine {
             else {
                 continue;
             };
-            let Some(new) = sections::content_id_for(&polyline, &sport, &taken) else {
+            let Some(new) = sections::content_id_for(&polyline, &taken) else {
                 continue;
             };
             taken.remove(&old);
@@ -1139,8 +1388,6 @@ impl PersistentEngine {
                 "UPDATE section_geometry SET section_id = ?2 WHERE section_id = ?1",
                 "UPDATE section_pins SET section_id = ?2 WHERE section_id = ?1",
                 "UPDATE section_intents SET id = ?2 WHERE id = ?1",
-                "UPDATE section_catalogue_archive SET section_id = ?2 WHERE section_id = ?1",
-                "UPDATE section_catalogue_archive_members SET section_id = ?2 WHERE section_id = ?1",
                 "UPDATE activity_indicators SET target_id = ?2
                  WHERE target_id = ?1 AND indicator_type IN ('section_pr', 'section_trend')",
             ] {
@@ -1166,66 +1413,9 @@ impl PersistentEngine {
         Ok(())
     }
 
-    /// Bring `section_intents` to the named-corridor shape (kinds 'named' and
-    /// 'fixed' plus `name`/`sport_type` columns), widen its key to `(id, kind)`,
-    /// and backfill legacy user names once. Idempotent: each rebuild runs only
-    /// while sqlite_master still shows the older shape, preserving every row so
-    /// user suppression and naming survive; the backfill is guarded by a
-    /// schema_info marker so a v12 upgrade (whose 013 already creates the
-    /// extended table) still promotes its legacy names exactly once.
+    /// Backfill legacy auto-section names once. Migration 017 creates the
+    /// named intent columns and 032 widens its key to `(id, kind)`.
     fn ensure_section_intents_named_shape(conn: &Connection) -> SqlResult<()> {
-        let table_sql: Option<String> = conn
-            .query_row(
-                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'section_intents'",
-                [],
-                |row| row.get(0),
-            )
-            .ok();
-        let Some(table_sql) = table_sql else {
-            return Ok(());
-        };
-        if !table_sql.contains("'named'") {
-            conn.execute_batch(
-                "BEGIN;
-                 DROP TABLE IF EXISTS section_intents_named_shape;
-                 CREATE TABLE section_intents_named_shape (
-                     id TEXT NOT NULL,
-                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named', 'fixed')),
-                     polyline_json TEXT NOT NULL,
-                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                     name TEXT,
-                     sport_type TEXT,
-                     PRIMARY KEY (id, kind)
-                 );
-                 INSERT INTO section_intents_named_shape (id, kind, polyline_json, created_at)
-                     SELECT id, kind, polyline_json, created_at FROM section_intents;
-                 DROP TABLE section_intents;
-                 ALTER TABLE section_intents_named_shape RENAME TO section_intents;
-                 COMMIT;",
-            )?;
-        } else if !table_sql.contains("PRIMARY KEY (id, kind)") || !table_sql.contains("'fixed'") {
-            conn.execute_batch(
-                "BEGIN;
-                 DROP TABLE IF EXISTS section_intents_keyed_shape;
-                 CREATE TABLE section_intents_keyed_shape (
-                     id TEXT NOT NULL,
-                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named', 'fixed')),
-                     polyline_json TEXT NOT NULL,
-                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                     name TEXT,
-                     sport_type TEXT,
-                     PRIMARY KEY (id, kind)
-                 );
-                 INSERT INTO section_intents_keyed_shape
-                     (id, kind, polyline_json, created_at, name, sport_type)
-                     SELECT id, kind, polyline_json, created_at, name, sport_type
-                     FROM section_intents;
-                 DROP TABLE section_intents;
-                 ALTER TABLE section_intents_keyed_shape RENAME TO section_intents;
-                 COMMIT;",
-            )?;
-        }
-
         let backfill_done: Option<String> = conn
             .query_row(
                 "SELECT value FROM schema_info WHERE key = 'named_backfill_done'",
@@ -1240,24 +1430,159 @@ impl PersistentEngine {
                 [],
             )?;
         }
+        Self::backfill_legacy_suppression_intents(conn)
+    }
+
+    /// Give every row hidden or replaced before suppression intents existed a
+    /// disabled intent, once. Older builds recorded both only on the row, and
+    /// the cutover's cold detect reads suppression from intents alone, so a
+    /// hidden section's ground would come back under a new id.
+    fn backfill_legacy_suppression_intents(conn: &Connection) -> SqlResult<()> {
+        const MARKER: &str = "legacy_suppression_backfill_done";
+        let done: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM schema_info WHERE key = ?)",
+            params![MARKER],
+            |row| row.get(0),
+        )?;
+        if done {
+            return Ok(());
+        }
+        let has_reference = conn
+            .prepare("SELECT rep_start_index, rep_end_index FROM sections LIMIT 0")
+            .is_ok();
+        let query = if has_reference {
+            "SELECT id, polyline_json, polyline_blob,
+                    representative_activity_id, rep_start_index, rep_end_index
+             FROM sections WHERE disabled = 1 OR superseded_by IS NOT NULL"
+        } else {
+            "SELECT id, polyline_json, polyline_blob, NULL, NULL, NULL
+             FROM sections WHERE disabled = 1 OR superseded_by IS NOT NULL"
+        };
+        type SuppressedRow = (
+            String,
+            Option<String>,
+            Option<Vec<u8>>,
+            Option<String>,
+            Option<u32>,
+            Option<u32>,
+        );
+        let rows: Vec<SuppressedRow> = conn
+            .prepare(query)?
+            .query_map([], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                ))
+            })?
+            .flatten()
+            .collect();
+        let tx = conn.unchecked_transaction()?;
+        let mut promoted = 0usize;
+        for (id, polyline_json, blob, rep_id, start, end) in rows {
+            let reference = super::sections::geometry::reference(rep_id.as_deref(), start, end);
+            let Ok(polyline) = super::sections::geometry::line(
+                conn,
+                blob.as_deref(),
+                polyline_json.as_deref(),
+                reference,
+            ) else {
+                continue;
+            };
+            if polyline.is_empty() {
+                continue;
+            }
+            promoted += tx.execute(
+                "INSERT OR IGNORE INTO section_intents (id, kind, polyline_blob, created_at)
+                 VALUES (?, 'disabled', ?, datetime('now'))",
+                params![id, codec::serialize_track_points(&polyline)],
+            )?;
+        }
+        tx.execute(
+            "INSERT INTO schema_info (key, value) VALUES (?, '1')",
+            params![MARKER],
+        )?;
+        tx.commit()?;
+        if promoted > 0 {
+            log::info!(
+                "veloqrs: [Schema] Promoted {promoted} legacy hidden sections to disabled intents"
+            );
+        }
         Ok(())
+    }
+
+    fn repair_orphan_supersession(conn: &Connection) -> SqlResult<()> {
+        const MARKER: &str = "orphan_superseded_repair_done";
+        let done: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM schema_info WHERE key = ?)",
+            params![MARKER],
+            |row| row.get(0),
+        )?;
+        if done {
+            return Ok(());
+        }
+        let tx = conn.unchecked_transaction()?;
+        tx.execute(
+            "UPDATE sections SET superseded_by = NULL
+             WHERE superseded_by IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM sections owner WHERE owner.id = sections.superseded_by
+               )",
+            [],
+        )?;
+        tx.execute(
+            "INSERT INTO schema_info (key, value) VALUES (?, '1')",
+            params![MARKER],
+        )?;
+        tx.commit()
     }
 
     /// Promote legacy user names on auto rows into named intents. Before named
     /// corridors, `set_section_name` wrote plain row names that die with the
-    /// row on the next re-cut; any auto-row name that does not match the
-    /// generated patterns ("<word> N", legacy "<sport> <word> N") is user data
-    /// and becomes a durable intent seeded with the row's footprint. A user
-    /// name that happens to match a generated pattern stays row-local, no
-    /// worse than before.
+    /// row on the next re-cut; any auto-row name that is not a section
+    /// handle ("<word> N", legacy "<sport> <word> N", in any shipped
+    /// language) is user data and becomes a durable intent seeded with the
+    /// row's footprint.
     fn backfill_named_intents(conn: &Connection) -> SqlResult<()> {
-        use super::sections::looks_generated;
+        Self::promote_legacy_named_rows(conn, conn, true)?;
+        Ok(())
+    }
 
-        let mut stmt = conn.prepare(
-            "SELECT id, name, polyline_json, sport_type, polyline_blob FROM sections
-             WHERE section_type = 'auto' AND is_user_defined = 0 AND name IS NOT NULL",
-        )?;
-        type NamedRow = (String, String, Option<String>, String, Option<Vec<u8>>);
+    pub(crate) fn promote_legacy_named_rows(
+        source: &Connection,
+        destination: &Connection,
+        clear_source_names: bool,
+    ) -> SqlResult<usize> {
+        use super::sections::is_section_handle;
+
+        let has_reference = source
+            .prepare("SELECT rep_start_index, rep_end_index FROM sections LIMIT 0")
+            .is_ok();
+        let query = if has_reference {
+            "SELECT id, name, polyline_json, sport_type, polyline_blob,
+                    representative_activity_id, rep_start_index, rep_end_index
+             FROM sections WHERE section_type = 'auto' AND is_user_defined = 0
+               AND name IS NOT NULL"
+        } else {
+            "SELECT id, name, polyline_json, sport_type, polyline_blob,
+                    NULL, NULL, NULL
+             FROM sections WHERE section_type = 'auto' AND is_user_defined = 0
+               AND name IS NOT NULL"
+        };
+        let mut stmt = source.prepare(query)?;
+        type NamedRow = (
+            String,
+            String,
+            Option<String>,
+            String,
+            Option<Vec<u8>>,
+            Option<String>,
+            Option<u32>,
+            Option<u32>,
+        );
         let rows: Vec<NamedRow> = stmt
             .query_map([], |row| {
                 Ok((
@@ -1266,37 +1591,52 @@ impl PersistentEngine {
                     row.get(2)?,
                     row.get(3)?,
                     row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
                 ))
             })?
             .flatten()
             .collect();
         let mut promoted = 0usize;
-        for (section_id, name, polyline_json, sport_type, polyline_blob) in rows {
-            if looks_generated(&name) {
+        for (section_id, name, polyline_json, sport_type, polyline_blob, rep_id, start, end) in rows
+        {
+            if is_section_handle(&name) {
                 continue;
             }
-            // The intent keeps its own JSON footprint, so decode the row's
-            // authoritative geometry rather than copying the column.
-            let Ok(polyline) = super::codec::decode_polyline_row(
+            let reference = super::sections::geometry::reference(rep_id.as_deref(), start, end);
+            // A line that reads as empty would give the intent no footprint,
+            // and one without a footprint never resolves, so the row keeps
+            // its name instead.
+            let Ok(polyline) = super::sections::geometry::line(
+                source,
                 polyline_blob.as_deref(),
                 polyline_json.as_deref(),
+                reference,
             ) else {
                 continue;
             };
-            let Ok(polyline_json) = serde_json::to_string(&polyline) else {
+            if polyline.is_empty() {
                 continue;
-            };
-            conn.execute(
-                "INSERT OR IGNORE INTO section_intents (id, kind, polyline_json, created_at, name, sport_type)
+            }
+            destination.execute(
+                "INSERT OR IGNORE INTO section_intents (id, kind, polyline_blob, created_at, name, sport_type)
                  VALUES (?, 'named', ?, datetime('now'), ?, ?)",
-                params![format!("ni_bf_{section_id}"), polyline_json, name, sport_type],
+                params![
+                    format!("ni_bf_{section_id}"),
+                    codec::serialize_track_points(&polyline),
+                    name,
+                    sport_type
+                ],
             )?;
             // The intent is the name's home now; a surviving row copy would
             // resurface after an unname and make the name unremovable.
-            conn.execute(
-                "UPDATE sections SET name = NULL WHERE id = ?",
-                params![section_id],
-            )?;
+            if clear_source_names {
+                source.execute(
+                    "UPDATE sections SET name = NULL WHERE id = ?",
+                    params![section_id],
+                )?;
+            }
             promoted += 1;
         }
         if promoted > 0 {
@@ -1304,7 +1644,7 @@ impl PersistentEngine {
                 "veloqrs: [Schema] Promoted {promoted} legacy section names to named intents"
             );
         }
-        Ok(())
+        Ok(promoted)
     }
 
     /// Populate performance cache for all existing section portions.
@@ -1354,14 +1694,30 @@ impl PersistentEngine {
                 portions.iter().map(|(id, _, _, _)| id.clone()).collect();
 
             let mut time_streams: HashMap<String, Vec<u32>> = HashMap::new();
+            // The track's length is the index space the portions are in, and a
+            // stream of any other length is not in it.
+            let mut track_points: HashMap<String, usize> = HashMap::new();
             for activity_id in &activity_ids {
+                if let Ok(points) = conn.query_row(
+                    "SELECT point_count FROM gps_tracks WHERE activity_id = ?",
+                    [activity_id],
+                    |row| row.get::<_, i64>(0),
+                ) {
+                    track_points.insert(activity_id.clone(), points as usize);
+                }
                 if let Ok(stream) = conn.query_row(
                     "SELECT times FROM time_streams WHERE activity_id = ?",
                     [activity_id],
                     |row| {
                         let bytes: Vec<u8> = row.get(0)?;
-                        let times: Vec<u32> = codec::deserialize(&bytes)
-                            .map_err(|_| rusqlite::Error::InvalidQuery)?;
+                        let times: Vec<u32> = codec::deserialize(&bytes).map_err(|e| {
+                            log::error!("time_streams {activity_id}: times decode failed: {e}");
+                            rusqlite::Error::FromSqlConversionFailure(
+                                0,
+                                rusqlite::types::Type::Blob,
+                                e.into(),
+                            )
+                        })?;
                         Ok(times)
                     },
                 ) {
@@ -1378,25 +1734,13 @@ impl PersistentEngine {
 
             for (activity_id, start_idx, end_idx, distance) in portions {
                 // Calculate performance metrics
-                let (lap_time, lap_pace) = if let Some(times) = time_streams.get(&activity_id) {
-                    let start_idx_usize = start_idx as usize;
-                    let end_idx_usize = end_idx as usize;
-
-                    if start_idx_usize < times.len() && end_idx_usize < times.len() {
-                        let lap_time =
-                            (times[end_idx_usize] as f64 - times[start_idx_usize] as f64).abs();
-                        if lap_time > 0.0 {
-                            let lap_pace = distance / lap_time;
-                            (Some(lap_time), Some(lap_pace))
-                        } else {
-                            (None, None)
-                        }
-                    } else {
-                        (None, None)
-                    }
-                } else {
-                    (None, None)
-                };
+                let (lap_time, lap_pace) = super::sections::compute_lap_time_from_stream(
+                    time_streams.get(&activity_id).map(Vec::as_slice),
+                    track_points.get(&activity_id).copied(),
+                    start_idx,
+                    end_idx,
+                    distance,
+                );
 
                 update_stmt.execute(params![
                     lap_time,
@@ -1566,26 +1910,13 @@ impl PersistentEngine {
 
         // Part 3: Heatmap intensity cache
         log::info!("veloqrs: [Migration]   - Populating heatmap intensity cache...");
-        conn.execute("DELETE FROM activity_heatmap", [])?;
-        conn.execute(
-            "INSERT INTO activity_heatmap (date, intensity, max_duration, activity_count)
-             SELECT
-                 date(date, 'unixepoch') as date_str,
-                 CASE
-                     WHEN MAX(moving_time) > 7200 THEN 4
-                     WHEN MAX(moving_time) > 5400 THEN 3
-                     WHEN MAX(moving_time) > 3600 THEN 2
-                     WHEN MAX(moving_time) > 0 THEN 1
-                     ELSE 0
-                 END as intensity,
-                 MAX(moving_time) as max_duration,
-                 COUNT(*) as activity_count
-             FROM activity_metrics
-             GROUP BY date_str",
-            [],
-        )?;
+        recompute_all_heatmap(conn)?;
 
         log::info!("veloqrs: [Migration] All performance caches populated successfully");
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/schema.rs"]
+mod tests;

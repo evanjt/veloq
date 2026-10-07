@@ -6,22 +6,24 @@
 //!
 //! Sequence: archive, commit token, cold detect, diff, promote.
 //!
-//! The archive is the diff's snapshot of the outgoing catalogue and nothing
-//! else: promotion trims its lines, and only its ids, names and counts stay,
-//! for the change card and the id-mint guard. A section's own history and
-//! revert live in the ledger (`section_history`, `section_geometry`,
-//! `section_pins`), so a revert pins a stored version and never reads the
-//! archive. There is no other detector to go back to, so the config stays as
-//! it is.
+//! The archive is the ledger. Each outgoing section becomes one
+//! `archived` row in `section_history` naming a milestone version in
+//! `section_geometry`, which holds the activity and range its line was sliced
+//! from and a copy of the line only while that range cannot rebuild it. The
+//! diff reads those rows, so a past catalogue state is pinned, rolled back and
+//! backed up like any other version, and nothing is trimmed at promotion.
+//! There is no other detector to go back to, so the config stays as it is.
 
+use crate::objects::FfiStartOutcome;
 use crate::objects::observer::Announcement;
-use crate::persistence::sections::geometry;
+use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
+use crate::persistence::sections::{KIND_ARCHIVED, geometry, history};
 use crate::persistence::{
     PersistentEngine, codec, engine_install, settings_keys, suspend_detection,
     with_persistent_engine, with_persistent_engine_for,
 };
 use log::info;
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tracematch::sections::SectionConfig;
@@ -39,6 +41,12 @@ pub(super) const CUTOVER_DIFF_KEY: &str = "__detector_cutover_diff";
 /// The section config the switch replaced, kept until the token is promoted
 /// so a resumed run can still name it in the diff.
 pub(super) const CUTOVER_PREVIOUS_CONFIG_KEY: &str = "__detector_cutover_previous_config";
+
+/// The token and the `section_history` ids this library's archive wrote, so a
+/// resumed run reuses its snapshot and its diff reads only it. A restore can
+/// place another library's archived rows under the same token, so the token
+/// alone does not say which rows are this library's.
+pub(super) const CUTOVER_ARCHIVE_KEY: &str = "__detector_cutover_archive";
 
 /// Sentinel written on revert, so the cutover does not re-fire.
 const CUTOVER_REVERTED: &str = "reverted";
@@ -76,6 +84,147 @@ pub fn cutover_cancelled() -> bool {
     CUTOVER_CANCELLED.load(Ordering::SeqCst)
 }
 
+fn has_unprocessed_activity(activity_ids: &[String], processed_ids: &[String]) -> bool {
+    let processed: std::collections::HashSet<&String> = processed_ids.iter().collect();
+    activity_ids.iter().any(|id| !processed.contains(id))
+}
+
+trait CutoverDetect {
+    fn receive(
+        &self,
+        limit: std::time::Duration,
+    ) -> (
+        crate::persistence::WorkerPoll<super::DetectionOutput>,
+        Option<super::CacheUpdate>,
+    );
+    fn request_cancel(&self);
+}
+
+impl CutoverDetect for super::SectionDetectionHandle {
+    fn receive(
+        &self,
+        limit: std::time::Duration,
+    ) -> (
+        crate::persistence::WorkerPoll<super::DetectionOutput>,
+        Option<super::CacheUpdate>,
+    ) {
+        self.recv_state_with_cache_within(Some(limit))
+    }
+
+    fn request_cancel(&self) {
+        super::SectionDetectionHandle::request_cancel(self);
+    }
+}
+
+/// A timed-out cutover detect that is still folding.
+///
+/// The fold reads the cancel after each cluster, so a worker the wait gave up
+/// on stops at the next cluster boundary, and until then holds the whole track
+/// pool resident.
+trait OrphanedDetect {
+    fn still_running(&self) -> bool;
+}
+
+impl OrphanedDetect for super::SectionDetectionHandle {
+    fn still_running(&self) -> bool {
+        matches!(self.poll_state(), crate::persistence::WorkerPoll::Running)
+    }
+}
+
+/// A cutover detect the run can both wait on and, past its limit, abandon.
+trait CutoverWorker: CutoverDetect + OrphanedDetect + Send {}
+
+impl<T: CutoverDetect + OrphanedDetect + Send> CutoverWorker for T {}
+
+/// The detect the last run gave up on, held until its worker settles.
+static ORPHANED_DETECT: Mutex<Option<Box<dyn OrphanedDetect + Send>>> = Mutex::new(None);
+
+fn adopt_orphaned_detect(orphan: Box<dyn OrphanedDetect + Send>) {
+    *ORPHANED_DETECT.lock().unwrap_or_else(|e| e.into_inner()) = Some(orphan);
+}
+
+/// Whether an abandoned detect is still folding, forgetting it once it is not.
+fn orphaned_detect_running() -> bool {
+    let mut held = ORPHANED_DETECT.lock().unwrap_or_else(|e| e.into_inner());
+    let running = held.as_ref().is_some_and(|orphan| orphan.still_running());
+    if !running {
+        *held = None;
+    }
+    running
+}
+
+/// Take the run slot, or refuse while a run holds it or while the detect the
+/// last run gave up on is still folding. A retry beside that worker would load
+/// the whole pool a second time.
+fn claim_run_slot() -> bool {
+    if CUTOVER_RUNNING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return false;
+    }
+    // Read under the claim, since a run adopts its orphan before it lets the
+    // slot go.
+    if orphaned_detect_running() {
+        CUTOVER_RUNNING.store(false, Ordering::SeqCst);
+        return false;
+    }
+    true
+}
+
+/// The wait's answer when the athlete's cancel stopped the worker.
+const DETECT_CANCELLED: &str = "detect cancelled";
+
+/// How often the wait takes the run's newest checkpoint to disk.
+const CHECKPOINT_POLL: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Wait up to `limit` for the detect, persisting its checkpoints on the way.
+///
+/// The cutover's handle is never the shared one, so no driver persists its
+/// checkpoints. Taken only at the limit, they never reached disk for a process
+/// the OS killed before it, and every such launch detected from zero.
+fn wait_for_cutover_detect(
+    handle: &(impl CutoverDetect + ?Sized),
+    limit: std::time::Duration,
+    mut persist: impl FnMut(super::CacheUpdate),
+) -> Result<(super::DetectionOutput, Option<super::CacheUpdate>), String> {
+    let started = std::time::Instant::now();
+    // The worker sends its final update just before its answer, so a step can
+    // read the one without the other. It belongs to the answer.
+    let mut final_update = None;
+    let mut cancel_sent = false;
+    loop {
+        let step = limit.saturating_sub(started.elapsed()).min(CHECKPOINT_POLL);
+        let (main, cache_update) = handle.receive(step);
+        match main {
+            crate::persistence::WorkerPoll::Ready(output) => {
+                return Ok((output, final_update.or(cache_update)));
+            }
+            crate::persistence::WorkerPoll::Died if cancel_sent => {
+                return Err(DETECT_CANCELLED.to_string());
+            }
+            crate::persistence::WorkerPoll::Died => return Err("detect died".to_string()),
+            crate::persistence::WorkerPoll::Running => {
+                match cache_update {
+                    Some(update) if !update.checkpoint => final_update = Some(update),
+                    Some(checkpoint) => persist(checkpoint),
+                    None => {}
+                }
+                if started.elapsed() >= limit {
+                    handle.request_cancel();
+                    return Err("detect never answered".to_string());
+                }
+                // Forwarded once, then the wait stays bounded by the limit
+                // until the worker settles, so the caller finds it stopped.
+                if !cancel_sent && cutover_cancelled() {
+                    handle.request_cancel();
+                    cancel_sent = true;
+                }
+            }
+        }
+    }
+}
+
 /// Whether section ids derive from the ground rather than the clock. Until
 /// they do, two devices cut the same library into the same sections under
 /// different ids, and the card must not claim otherwise.
@@ -86,6 +235,39 @@ pub const CONTENT_DERIVED_IDS: bool = true;
 /// only cut a library the same way while both sit on this one.
 fn validated_config_digest() -> String {
     super::sections::section_config_digest(&tracematch::sections::SectionConfig::default())
+}
+
+/// The claims the change card may make for a catalogue cut by `method` under
+/// `config`. A flag is false until its feature ships, so the card never says
+/// more than the build can show.
+pub(crate) fn change_card_support_for(
+    method: Option<&str>,
+    config: &SectionConfig,
+) -> ChangeCardSupport {
+    let unified = method == Some(super::sections::DETECTOR_METHOD);
+    ChangeCardSupport {
+        deterministic: unified,
+        same_result_drip_or_batch: unified,
+        ledger: true,
+        revert: true,
+        retired: true,
+        pinned_survive: true,
+        // Ids reproduce for the same activities in the same order, which
+        // one device cannot check. The other half is the config, which the
+        // user's own sliders move and nothing syncs.
+        same_on_every_device: CONTENT_DERIVED_IDS
+            && super::sections::section_config_digest(config) == validated_config_digest(),
+    }
+}
+
+/// [`change_card_support_for`] over the rows a pooled connection reads: the
+/// stored catalogue method and the persisted section config.
+pub(crate) fn change_card_support_from(
+    conn: &rusqlite::Connection,
+) -> rusqlite::Result<ChangeCardSupport> {
+    let config = super::settings::section_config_from(conn)?;
+    let method = super::sections::pooled::catalogue_detection_method(conn);
+    Ok(change_card_support_for(method.as_deref(), &config))
 }
 
 /// The claims the change card is allowed to make on this build.
@@ -110,6 +292,9 @@ pub const PHASE_DETECTING: &str = "detecting";
 pub const PHASE_DIFFING: &str = "diffing";
 pub const PHASE_COMPLETE: &str = "complete";
 pub const PHASE_FAILED: &str = "failed";
+/// Failed after the new catalogue was applied: the sections were re-cut and
+/// only the summary of the change is still owed, which the next launch writes.
+pub const PHASE_FAILED_AFTER_APPLY: &str = "failed_after_apply";
 
 static CUTOVER_PHASE: Mutex<&'static str> = Mutex::new(PHASE_IDLE);
 
@@ -133,6 +318,9 @@ struct PhaseClock {
     phase: &'static str,
     started: std::time::Instant,
     run_started: std::time::Instant,
+    /// Whether the new catalogue has replaced the old one, so a failure from
+    /// here on is not one that left the sections unchanged.
+    applied: bool,
 }
 
 impl PhaseClock {
@@ -142,6 +330,7 @@ impl PhaseClock {
             phase: PHASE_IDLE,
             started: now,
             run_started: now,
+            applied: false,
         }
     }
 
@@ -172,6 +361,10 @@ impl PhaseClock {
         );
     }
 
+    fn mark_applied(&mut self) {
+        self.applied = true;
+    }
+
     fn run_ms(&self) -> u64 {
         crate::elapsed_ms(self.run_started)
     }
@@ -185,7 +378,11 @@ impl Drop for PhaseClock {
         // phase to idle before dropping, so a clock still inside a phase here
         // is a run that died in it.
         if self.phase != PHASE_IDLE {
-            set_phase(PHASE_FAILED);
+            set_phase(if self.applied {
+                PHASE_FAILED_AFTER_APPLY
+            } else {
+                PHASE_FAILED
+            });
         }
     }
 }
@@ -204,27 +401,34 @@ pub enum CutoverOutcome {
 
 /// Start a cutover on a detached thread.
 ///
-/// Returns false when there is no engine, when the migration is not owed, or
-/// when a run is already in flight, so a caller can fire this at every launch
-/// and let it decide. The running flag is claimed here rather than inside the
-/// run, so a caller that polls immediately never reads `false` against a run
-/// it just started.
-pub fn start_cutover() -> bool {
-    let owed = with_persistent_engine(|e| e.cutover_is_owed()).unwrap_or(false);
+/// Returns the reason for a refusal or `Started` when the run owns its slot.
+pub fn start_cutover() -> FfiStartOutcome {
+    // Both reads go through the pool, so a sync page or a detection apply
+    // holding the write lock does not hold the JS thread that asked. The
+    // queue is counted only once the migration is known to be owed.
+    let Ok(owed) = crate::objects::error::with_reader(|conn| {
+        pooled::cutover_is_owed(conn) || crate::persistence::sections::anchoring_owed(conn)
+    }) else {
+        return FfiStartOutcome::NotReady;
+    };
     if !owed {
-        return false;
+        return FfiStartOutcome::NotOwed;
     }
-    if CUTOVER_RUNNING
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
-        return false;
+    match crate::objects::error::with_reader(
+        crate::net::elevation_backfill::pooled_elevation_backfill_remaining,
+    ) {
+        Ok(Ok(0)) => {}
+        Ok(Ok(_)) => return FfiStartOutcome::Held,
+        _ => return FfiStartOutcome::NotReady,
+    }
+    if !claim_run_slot() {
+        return FfiStartOutcome::Busy;
     }
     // Which library this cutover belongs to, read here rather than on the
     // worker: a restore mid-run would otherwise get a catalogue cut from the
     // old library's tracks.
     let install = engine_install();
-    std::thread::spawn(move || {
+    crate::threads::spawn_named("veloq-cutover", move || {
         // The flag is already claimed, so the run adopts it rather than
         // taking it again.
         let outcome = run_cutover_claimed(install, &|_phase: &str| cutover_cancelled());
@@ -232,7 +436,7 @@ pub fn start_cutover() -> bool {
             log::warn!("veloqrs: [cutover] Run failed: {}", e);
         }
     });
-    true
+    FfiStartOutcome::Started
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -248,7 +452,7 @@ pub fn start_cutover() -> bool {
 /// EXISTS against a small table, on a path that runs at launch and on a status
 /// poll, so the cache was never buying anything.
 pub fn cutover_pending() -> bool {
-    with_persistent_engine(|e| e.cutover_is_owed()).unwrap_or(false)
+    crate::objects::error::with_reader(pooled::cutover_is_owed).unwrap_or(false)
 }
 
 /// Whether a cutover run is in flight.
@@ -268,6 +472,109 @@ pub enum CutoverState {
     Reverted,
 }
 
+/// The cutover reads that need committed rows only, on a connection that holds
+/// no engine lock.
+pub(crate) mod pooled {
+    use super::{
+        CUTOVER_DIFF_KEY, CUTOVER_ID, CUTOVER_INFLIGHT, CUTOVER_KEY, CUTOVER_REVERTED, CutoverState,
+    };
+    use crate::persistence::settings::setting_from;
+    use rusqlite::Connection;
+
+    fn cutover_state(conn: &Connection) -> CutoverState {
+        match setting_from(conn, CUTOVER_KEY) {
+            Ok(Some(ref v)) if v == CUTOVER_ID => CutoverState::Done,
+            Ok(Some(ref v)) if v == CUTOVER_REVERTED => CutoverState::Reverted,
+            Ok(Some(ref v)) if v == CUTOVER_INFLIGHT => CutoverState::InFlight,
+            _ => CutoverState::Never,
+        }
+    }
+
+    fn has_archivable_catalogue(conn: &Connection) -> bool {
+        conn.query_row(
+            &format!(
+                "SELECT EXISTS(SELECT 1 FROM sections WHERE {})",
+                crate::persistence::sections::DERIVED_SECTION_PREDICATE
+            ),
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|n| n == 1)
+        .unwrap_or(false)
+            || crate::persistence::sections::anchoring_owed(conn)
+    }
+
+    /// Whether the migration still has work to do.
+    ///
+    /// An in-flight token is always owed: its config already reads Unified, so
+    /// the method check would wave it through as finished when in fact it died
+    /// mid-run. A never-seen token is owed only while the stored catalogue was
+    /// cut by another detector, so a catalogue this build cut is left alone.
+    pub(crate) fn cutover_is_owed(conn: &Connection) -> bool {
+        match cutover_state(conn) {
+            CutoverState::InFlight => true,
+            CutoverState::Never => {
+                crate::persistence::sections::pooled::catalogue_detection_method(conn).as_deref()
+                    != Some(crate::persistence::sections::DETECTOR_METHOD)
+                    && has_archivable_catalogue(conn)
+            }
+            CutoverState::Done | CutoverState::Reverted => false,
+        }
+    }
+
+    /// The stored diff payload as the reader sees it, and whether the row
+    /// still carries geometry an older build wrote and so is owed a rewrite.
+    pub(crate) struct StoredDiff {
+        pub(crate) payload: String,
+        pub(crate) trim_owed: bool,
+    }
+
+    /// The stored diff, trimmed in memory. None before the cutover has run.
+    pub(crate) fn stored_cutover_diff(conn: &Connection) -> Option<StoredDiff> {
+        let stored = setting_from(conn, CUTOVER_DIFF_KEY).ok().flatten()?;
+        Some(match super::trimmed(&stored) {
+            Some(payload) => StoredDiff {
+                payload,
+                trim_owed: true,
+            },
+            None => StoredDiff {
+                payload: stored,
+                trim_owed: false,
+            },
+        })
+    }
+}
+
+/// The diff payload without the section rows an older build wrote, or None
+/// when it carries none and the row is as it should be.
+fn trimmed(stored: &str) -> Option<String> {
+    let mut payload = serde_json::from_str::<serde_json::Value>(stored).ok()?;
+    payload.as_object_mut()?.remove("sections")?;
+    serde_json::to_string(&payload).ok()
+}
+
+/// The stored diff payload for the FFI read. Reads on a pooled connection, and
+/// takes the engine write lock only when the row carries legacy geometry and a
+/// rewrite is owed.
+pub fn cutover_diff_payload() -> Option<String> {
+    let stored = crate::objects::error::with_reader(pooled::stored_cutover_diff)
+        .ok()
+        .flatten()?;
+    if stored.trim_owed {
+        persist_trimmed_diff(&stored.payload);
+    }
+    Some(stored.payload)
+}
+
+fn persist_trimmed_diff(trimmed: &str) {
+    let written = with_persistent_engine(|e| e.set_setting(CUTOVER_DIFF_KEY, trimmed));
+    if !matches!(written, Some(Ok(()))) {
+        // The caller still gets the trimmed copy; the row is retried on the
+        // next read.
+        log::warn!("veloqrs: [cutover] Failed to trim the stored diff");
+    }
+}
+
 impl PersistentEngine {
     /// Called from `load()`. Reads the cutover token and sets the
     /// process-global pending flag. Nothing slow, nothing fallible beyond
@@ -278,50 +585,11 @@ impl PersistentEngine {
         }
     }
 
-    fn cutover_state_from_db(&self) -> CutoverState {
-        match self.get_setting(CUTOVER_KEY) {
-            Ok(Some(ref v)) if v == CUTOVER_ID => CutoverState::Done,
-            Ok(Some(ref v)) if v == CUTOVER_REVERTED => CutoverState::Reverted,
-            Ok(Some(ref v)) if v == CUTOVER_INFLIGHT => CutoverState::InFlight,
-            _ => CutoverState::Never,
-        }
-    }
-
-    /// Whether the migration still has work to do.
-    ///
-    /// An in-flight token is always owed: its config already reads Unified, so
-    /// the method check below would wave it through as finished when in fact
-    /// it died mid-run. A never-seen token is owed only while the stored
-    /// catalogue was cut by another detector, so a catalogue this build cut
-    /// is left alone.
+    /// Whether the migration still has work to do, read from the connection
+    /// the engine holds. [`pooled::cutover_is_owed`] is the same answer without
+    /// the engine lock.
     pub fn cutover_is_owed(&self) -> bool {
-        match self.cutover_state_from_db() {
-            CutoverState::InFlight => true,
-            CutoverState::Never => {
-                self.catalogue_detection_method().as_deref()
-                    != Some(super::sections::DETECTOR_METHOD)
-                    && self.has_archivable_catalogue()
-            }
-            CutoverState::Done | CutoverState::Reverted => false,
-        }
-    }
-
-    /// Whether there is a Corridor-era catalogue to migrate. A fresh install
-    /// has none, and burning the one-shot token on an empty archive would
-    /// leave the change card with nothing to show.
-    fn has_archivable_catalogue(&self) -> bool {
-        self.db
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM sections
-                 WHERE section_type = 'auto'
-                   AND original_polyline_json IS NULL
-                   AND is_user_defined = 0
-                   AND disabled = 0)",
-                [],
-                |row| row.get::<_, i64>(0),
-            )
-            .map(|n| n == 1)
-            .unwrap_or(false)
+        pooled::cutover_is_owed(&self.db)
     }
 }
 
@@ -340,57 +608,124 @@ struct ArchivableSection {
     distance_meters: f64,
     visit_count: Option<u32>,
     created_at: Option<String>,
-    bounds: (Option<f64>, Option<f64>, Option<f64>, Option<f64>),
     rep_activity_id: Option<String>,
     rep_start: Option<u32>,
     rep_end: Option<u32>,
+    consensus: bool,
+}
+
+/// The first and last `section_history` id one archive wrote under `token`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ArchiveRange {
+    token: String,
+    first: Option<i64>,
+    last: Option<i64>,
+}
+
+/// The range this library's archive wrote under `token`, if it wrote one.
+fn archive_range_on(
+    conn: &rusqlite::Connection,
+    token: &str,
+) -> rusqlite::Result<Option<ArchiveRange>> {
+    let stored: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?",
+            params![CUTOVER_ARCHIVE_KEY],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(stored
+        .and_then(|json| serde_json::from_str::<ArchiveRange>(&json).ok())
+        .filter(|range| range.token == token))
+}
+
+fn store_archive_range_on(
+    conn: &rusqlite::Connection,
+    range: &ArchiveRange,
+) -> rusqlite::Result<()> {
+    let json = serde_json::to_string(&range)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+        params![CUTOVER_ARCHIVE_KEY, json],
+    )?;
+    Ok(())
+}
+
+/// What an archived row says about the section besides its shape.
+fn archived_details(
+    token: &str,
+    name: Option<&str>,
+    sport_type: &str,
+    distance_meters: f64,
+    visit_count: Option<u32>,
+    created_at: Option<&str>,
+) -> String {
+    serde_json::json!({
+        "token": token,
+        "name": name,
+        "sport_type": sport_type,
+        "distance_meters": distance_meters,
+        "visit_count": visit_count,
+        "created_at": created_at,
+    })
+    .to_string()
+}
+
+/// One archived row: section id, details and the version that draws the state.
+type ArchivedRow = (String, Option<String>, Option<i64>);
+
+/// The archived rows of `token` inside `range`.
+fn archived_rows_in(
+    conn: &rusqlite::Connection,
+    range: &ArchiveRange,
+) -> rusqlite::Result<Vec<ArchivedRow>> {
+    let (Some(first), Some(last)) = (range.first, range.last) else {
+        return Ok(Vec::new());
+    };
+    let mut stmt = conn.prepare(
+        "SELECT section_id, details, geometry_version FROM section_history
+         WHERE id BETWEEN ? AND ? AND kind = ? AND json_extract(details, '$.token') = ?
+         ORDER BY id",
+    )?;
+    stmt.query_map(params![first, last, KIND_ARCHIVED, range.token], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+    })?
+    .collect()
 }
 
 impl PersistentEngine {
-    /// Step 1: snapshot every auto section about to be wiped, and its
-    /// members. The row predicate is `write_catalogue`'s DELETE predicate:
-    /// exactly the rows the coming detect destroys, no more.
+    /// Step 1: keep every auto section about to be wiped as a ledger state.
+    /// The row predicate is `write_catalogue`'s DELETE predicate: exactly the
+    /// rows the coming detect destroys, no more.
     ///
-    /// Members ride along because the wipe cascades `section_activities`
-    /// away, and their ids feed the mint guard. The lines feed the diff and
-    /// are trimmed once it is stored; the bounds columns are 017's DDL and
-    /// have no reader.
+    /// Each state is an `archived` history row and the milestone version it
+    /// names, written in one transaction with the range they occupy.
     fn archive_current_catalogue(&self) -> rusqlite::Result<u32> {
         let tx = self.db.unchecked_transaction()?;
 
         // Write-once per token. A run that died after the switch and before
-        // the diff may retry with a Unified catalogue already on disk, and
-        // re-archiving would bury the Corridor snapshot the diff needs.
-        let already: i64 = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM section_catalogue_archive WHERE token = ?)",
-            params![CUTOVER_ID],
-            |row| row.get(0),
-        )?;
-        if already == 1 {
-            let kept: u32 = tx.query_row(
-                "SELECT COUNT(*) FROM section_catalogue_archive WHERE token = ?",
-                params![CUTOVER_ID],
-                |row| row.get(0),
-            )?;
+        // the promotion retries with the new catalogue already on disk, and
+        // archiving again would bury the snapshot the diff needs.
+        if let Some(range) = archive_range_on(&tx, CUTOVER_ID)? {
+            let kept = archived_rows_in(&tx, &range)?.len() as u32;
             info!("veloqrs: [cutover] Reusing archive of {} sections", kept);
             return Ok(kept);
         }
 
-        // Row by row rather than INSERT..SELECT, so each line is resolved the
-        // way a read resolves it. The archive carries no reference triple of
-        // its own, so a copied-across empty blob is the diff's old line gone
-        // and nothing in the archive can rebuild it.
-        let mut stmt = tx.prepare(
-            "SELECT id, name, sport_type, polyline_blob, polyline_json,
+        let mut stmt = tx.prepare(&format!(
+            "SELECT id,
+                    COALESCE(name, (SELECT i.name FROM section_intents i
+                                    WHERE i.id = 'ni_bf_' || sections.id
+                                      AND i.kind = 'named')),
+                    sport_type, polyline_blob, polyline_json,
                     distance_meters, visit_count, created_at,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    representative_activity_id, rep_start_index, rep_end_index
+                    representative_activity_id, rep_start_index, rep_end_index,
+                    geometry_source IS 'consensus'
              FROM sections
-             WHERE section_type = 'auto'
-               AND original_polyline_json IS NULL
-               AND is_user_defined = 0
-               AND disabled = 0",
-        )?;
+             WHERE {}",
+            crate::persistence::sections::DERIVED_SECTION_PREDICATE
+        ))?;
         let archivable: Vec<ArchivableSection> = stmt
             .query_map([], |row| {
                 Ok(ArchivableSection {
@@ -402,22 +737,29 @@ impl PersistentEngine {
                     distance_meters: row.get(5)?,
                     visit_count: row.get(6)?,
                     created_at: row.get(7)?,
-                    bounds: (row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?),
-                    rep_activity_id: row.get(12)?,
-                    rep_start: row.get(13)?,
-                    rep_end: row.get(14)?,
+                    rep_activity_id: row.get(8)?,
+                    rep_start: row.get(9)?,
+                    rep_end: row.get(10)?,
+                    consensus: row.get(11)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         drop(stmt);
 
-        let mut count = 0u32;
-        for section in archivable {
+        let mut range = ArchiveRange {
+            token: CUTOVER_ID.to_string(),
+            first: None,
+            last: None,
+        };
+        for section in &archivable {
+            // An averaged line belongs to no activity, so its range is not
+            // its provenance and the line is kept whole.
             let reference = geometry::reference(
                 section.rep_activity_id.as_deref(),
                 section.rep_start,
                 section.rep_end,
-            );
+            )
+            .filter(|_| !section.consensus);
             let line = geometry::line(
                 &tx,
                 section.blob.as_deref(),
@@ -425,57 +767,35 @@ impl PersistentEngine {
                 reference,
             )
             .unwrap_or_default();
-            let blob = (!line.is_empty())
-                .then(|| codec::serialize_track_points(&line))
-                .or(section.blob);
-            count += tx.execute(
-                "INSERT INTO section_catalogue_archive
-                     (token, section_id, name, sport_type, polyline_blob,
-                      polyline_json, distance_meters, visit_count, created_at,
-                      bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-                 VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)",
-                params![
-                    CUTOVER_ID,
-                    section.id,
-                    section.name,
-                    section.sport_type,
-                    blob,
-                    section.distance_meters,
-                    section.visit_count,
-                    section.created_at,
-                    section.bounds.0,
-                    section.bounds.1,
-                    section.bounds.2,
-                    section.bounds.3,
-                ],
-            )? as u32;
+            let version = history::record_archived_geometry_on(&tx, &section.id, &line, reference)?;
+            let details = archived_details(
+                CUTOVER_ID,
+                section.name.as_deref(),
+                &section.sport_type,
+                section.distance_meters,
+                section.visit_count,
+                section.created_at.as_deref(),
+            );
+            let row = history::append_history_on(
+                &tx,
+                &section.id,
+                KIND_ARCHIVED,
+                Some(&details),
+                version,
+                None,
+            )?;
+            range.first.get_or_insert(row);
+            range.last = Some(row);
         }
-
-        // Every portion, excluded ones included: an exclusion is a user
-        // decision and restoring without it would silently re-admit a
-        // traversal the user threw out.
-        let members = tx.execute(
-            "INSERT INTO section_catalogue_archive_members
-                 (token, section_id, activity_id, direction, start_index,
-                  end_index, distance_meters, lap_time, lap_pace, excluded, avg_hr)
-             SELECT ?, sa.section_id, sa.activity_id, sa.direction, sa.start_index,
-                    sa.end_index, sa.distance_meters, sa.lap_time, sa.lap_pace,
-                    sa.excluded, sa.avg_hr
-             FROM section_activities sa
-             JOIN sections s ON s.id = sa.section_id
-             WHERE s.section_type = 'auto'
-               AND s.original_polyline_json IS NULL
-               AND s.is_user_defined = 0
-               AND s.disabled = 0",
-            params![CUTOVER_ID],
-        )?;
+        store_archive_range_on(&tx, &range)?;
 
         tx.commit()?;
         info!(
-            "veloqrs: [cutover] Archived {} auto sections and {} members under token '{}'",
-            count, members, CUTOVER_ID
+            "veloqrs: [cutover] Archived {} auto sections into the ledger under token '{}'",
+            archivable.len(),
+            CUTOVER_ID
         );
-        Ok(count)
+        Ok(archivable.len() as u32)
     }
 
     /// Step 2: persist the canonical config and write the token, atomically
@@ -485,6 +805,17 @@ impl PersistentEngine {
         // on the TS side. A slider an older build let the athlete move is
         // reset here and reported on the change card.
         let config = SectionConfig::default();
+        let stored_default = self
+            .get_setting(settings_keys::SECTION_CONFIG_JSON)?
+            .and_then(|json| serde_json::from_str::<SectionConfig>(&json).ok())
+            .is_some_and(|stored| stored == config);
+        if self.get_setting(CUTOVER_KEY)?.as_deref() == Some(CUTOVER_INFLIGHT)
+            && stored_default
+            && self.section_config == config
+        {
+            self.restore_evidence_cache();
+            return Ok(());
+        }
         let to_json = |c: &SectionConfig| {
             serde_json::to_string(c).map_err(|e| {
                 rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(e)))
@@ -537,21 +868,17 @@ impl PersistentEngine {
     /// Promote the in-flight token once the diff is stored. Until this runs,
     /// the cutover is owed and re-runs from the top on the next launch.
     ///
-    /// The stored diff was the archive's only reader, so the archived lines
-    /// go in the same transaction. The rows keep their id, name and count for
-    /// the change card and the mint guard, and a member stays re-derivable
-    /// from its triple.
-    fn finish_cutover(&self) -> rusqlite::Result<()> {
+    /// The archived states stay in the ledger for good, and so does the range
+    /// that names them.
+    fn finish_cutover(&self, diff: &str) -> rusqlite::Result<()> {
         let tx = self.db.unchecked_transaction()?;
         tx.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            params![CUTOVER_KEY, CUTOVER_ID],
+            params![CUTOVER_DIFF_KEY, diff],
         )?;
-        let trimmed = tx.execute(
-            "UPDATE section_catalogue_archive
-             SET polyline_blob = NULL, polyline_json = NULL
-             WHERE token = ? AND (polyline_blob IS NOT NULL OR polyline_json IS NOT NULL)",
-            params![CUTOVER_ID],
+        tx.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            params![CUTOVER_KEY, CUTOVER_ID],
         )?;
         // The diff carries the old values from here on.
         tx.execute(
@@ -559,26 +886,20 @@ impl PersistentEngine {
             params![CUTOVER_PREVIOUS_CONFIG_KEY],
         )?;
         tx.commit()?;
-        info!(
-            "veloqrs: [cutover] Token promoted to '{}', {} archived lines trimmed",
-            CUTOVER_ID, trimmed
-        );
+        info!("veloqrs: [cutover] Token promoted to '{}'", CUTOVER_ID);
         Ok(())
     }
 
     /// Build the diff payload comparing archive (old catalogue) to the
-    /// current live catalogue. Serialised as JSON into the settings table
-    /// so the card can show it across restarts.
+    /// current live catalogue.
     fn build_cutover_diff(&self) -> rusqlite::Result<String> {
-        // Load the archive as FrequentSection stand-ins (polyline + id + name +
-        // sport + visits + distance). We only need the fields `diff_catalogues`
-        // reads.
+        // Load the archived states as FrequentSection stand-ins (polyline + id
+        // + name + sport + visits + distance). We only need the fields
+        // `diff_catalogues` reads.
         let archived = self.load_archived_sections(CUTOVER_ID)?;
         let live: Vec<&tracematch::sections::FrequentSection> = self
             .sections
             .iter()
-            // `is_user_defined` is the whole test. Ids are minted by the
-            // identity registry, so no prefix identifies an auto section.
             // `is_user_defined` is the whole test. Ids are minted by the
             // identity registry, so no prefix identifies an auto section.
             .filter(|s| !s.is_user_defined)
@@ -599,13 +920,8 @@ impl PersistentEngine {
         });
         let json = serde_json::to_string(&payload).unwrap_or_default();
 
-        self.set_setting(CUTOVER_DIFF_KEY, &json)
-            .unwrap_or_else(|e| {
-                log::warn!("veloqrs: [cutover] Failed to persist diff: {}", e);
-            });
-
         info!(
-            "veloqrs: [cutover] Diff stored: {} current, {} new, {} changed, {} gone",
+            "veloqrs: [cutover] Diff built: {} current, {} new, {} changed, {} gone",
             counts.current, counts.new, counts.changed, counts.gone
         );
         Ok(json)
@@ -630,112 +946,267 @@ impl PersistentEngine {
         }))
     }
 
+    /// The states this run archived under `token`, each drawn from the
+    /// version it names. A state whose range cannot rebuild it here draws
+    /// nothing, which the diff reads as a changed shape.
     fn load_archived_sections(
         &self,
         token: &str,
     ) -> rusqlite::Result<Vec<tracematch::sections::FrequentSection>> {
-        let mut stmt = self.db.prepare(
-            "SELECT section_id, name, sport_type, polyline_blob, polyline_json,
-                    distance_meters, visit_count, created_at
-             FROM section_catalogue_archive
-             WHERE token = ?
-             ORDER BY section_id",
-        )?;
-        let rows = stmt.query_map(params![token], |row| {
-            let id: String = row.get(0)?;
-            let polyline_blob: Option<Vec<u8>> = row.get(3)?;
-            let polyline_json: Option<String> = row.get(4)?;
-            let polyline =
-                codec::decode_polyline_row(polyline_blob.as_deref(), polyline_json.as_deref())
+        let Some(range) = archive_range_on(&self.db, token)? else {
+            return Ok(Vec::new());
+        };
+        let mut archived = archived_rows_in(&self.db, &range)?;
+        archived.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(archived
+            .into_iter()
+            .map(|(id, details, version)| {
+                let details: serde_json::Value = details
+                    .as_deref()
+                    .and_then(|d| serde_json::from_str(d).ok())
+                    .unwrap_or(serde_json::Value::Null);
+                let polyline = version
+                    .and_then(|v| history::pooled::section_geometry_version(&self.db, &id, v))
+                    .map(|(points, _)| points)
                     .unwrap_or_default();
-            Ok(tracematch::sections::FrequentSection {
-                id,
-                name: row.get(1)?,
-                sport_type: row.get(2)?,
-                polyline,
-                distance_meters: row.get(5)?,
-                visit_count: row.get::<_, Option<u32>>(6)?.unwrap_or(0),
-                created_at: row.get(7)?,
-                representative_activity_id: String::new(),
-                representative_range: None,
-                activity_ids: Vec::new(),
-                activity_portions: Vec::new(),
-                activity_traces: std::collections::HashMap::new(),
-                confidence: 0.0,
-                observation_count: 0,
-                average_spread: 0.0,
-                point_density: Vec::new(),
-                scale: None,
-                is_user_defined: false,
-                stability: 0.0,
-                elevation_gain_m: None,
-                avg_grade_percent: None,
-                version: 1,
-                updated_at: None,
-                enrichment: Default::default(),
-                rank: None,
-                consensus_state: None,
+                let text = |key: &str| {
+                    details
+                        .get(key)
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string)
+                };
+                tracematch::sections::FrequentSection {
+                    id,
+                    name: text("name"),
+                    sport_type: text("sport_type").unwrap_or_default(),
+                    polyline,
+                    distance_meters: details
+                        .get("distance_meters")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0),
+                    visit_count: details
+                        .get("visit_count")
+                        .and_then(|v| v.as_u64())
+                        .and_then(|v| u32::try_from(v).ok())
+                        .unwrap_or(0),
+                    created_at: text("created_at"),
+                    representative_activity_id: String::new(),
+                    representative_range: None,
+                    activity_ids: Vec::new(),
+                    activity_portions: Vec::new(),
+                    activity_traces: std::collections::HashMap::new(),
+                    confidence: 0.0,
+                    observation_count: 0,
+                    average_spread: 0.0,
+                    point_density: Vec::new(),
+                    scale: None,
+                    is_user_defined: false,
+                    stability: 0.0,
+                    elevation_gain_m: None,
+                    avg_grade_percent: None,
+                    version: 1,
+                    updated_at: None,
+                    enrichment: Default::default(),
+                    rank: None,
+                    consensus_state: None,
+                }
             })
-        })?;
-        rows.collect()
+            .collect())
     }
 
     /// Which claims the change card may make, each backed by the tables and
     /// code that deliver it. A flag is false until its feature ships, so the
     /// card never says more than the build can show.
     pub fn change_card_support(&self) -> ChangeCardSupport {
-        let unified = self
-            .catalogue_detection_method()
-            .as_deref()
-            .map(|m| m == super::sections::DETECTOR_METHOD)
-            .unwrap_or(false);
-        ChangeCardSupport {
-            deterministic: unified,
-            same_result_drip_or_batch: unified,
-            ledger: true,
-            revert: true,
-            retired: true,
-            pinned_survive: true,
-            // Reproducible ids are half of it. The other half is the config,
-            // which the user's own sliders move and nothing syncs.
-            same_on_every_device: CONTENT_DERIVED_IDS
-                && super::sections::section_config_digest(&self.section_config)
-                    == validated_config_digest(),
-        }
+        change_card_support_for(
+            self.catalogue_detection_method().as_deref(),
+            &self.section_config,
+        )
     }
 
     /// The stored diff payload, if any. None before the cutover has run.
-    pub fn cutover_diff(&self) -> Option<String> {
-        let stored = self.get_setting(CUTOVER_DIFF_KEY).ok().flatten()?;
-        Some(self.trim_stored_diff(stored))
-    }
-
-    /// Drop the section rows an older build wrote, and rewrite the row.
     ///
     /// The key is written once at promotion and deleted only by the sign-out
-    /// wipe, so an install that migrated before this change never runs the
-    /// new build path and would carry both catalogues' geometry for good.
-    /// The read is the only place left to catch it.
-    fn trim_stored_diff(&self, stored: String) -> String {
-        let Ok(mut payload) = serde_json::from_str::<serde_json::Value>(&stored) else {
-            return stored;
-        };
-        let carried_rows = payload
-            .as_object_mut()
-            .is_some_and(|map| map.remove("sections").is_some());
-        if !carried_rows {
-            return stored;
-        }
-        let Ok(trimmed) = serde_json::to_string(&payload) else {
-            return stored;
-        };
-        if let Err(e) = self.set_setting(CUTOVER_DIFF_KEY, &trimmed) {
+    /// wipe, so an install that migrated before the section rows left the
+    /// payload carries both catalogues' geometry for good. The read is the only
+    /// place left to catch it, so it rewrites the row trimmed.
+    pub fn cutover_diff(&self) -> Option<String> {
+        let stored = pooled::stored_cutover_diff(&self.db)?;
+        if stored.trim_owed
+            && let Err(e) = self.set_setting(CUTOVER_DIFF_KEY, &stored.payload)
+        {
             // The caller still gets the trimmed copy; the row is retried on
             // the next read.
             log::warn!("veloqrs: [cutover] Failed to trim the stored diff: {}", e);
         }
-        trimmed
+        Some(stored.payload)
     }
+}
+
+// ───────────────────────────────────────────────────────────────────
+// The archive an older build wrote
+// ───────────────────────────────────────────────────────────────────
+
+/// One row of the archive tables an older build wrote.
+struct LegacyArchiveRow {
+    token: String,
+    section_id: String,
+    name: Option<String>,
+    sport_type: String,
+    blob: Option<Vec<u8>>,
+    json: Option<String>,
+    distance_meters: f64,
+    visit_count: Option<u32>,
+    created_at: Option<String>,
+}
+
+/// Carry the archive tables an older build wrote into the ledger, before the
+/// migration that drops them. Returns how many states it wrote.
+///
+/// A row whose line is still stored keeps it, as the version that already
+/// draws it when the ledger holds one, and otherwise as a new milestone named
+/// by the live row's range when that range re-slices to it. A row a promotion
+/// trimmed has no line left, so it names the shape the cutover's own detect
+/// milestoned when it replaced the section, or no shape at all. Its name,
+/// sport, distance, count and birth travel either way. The rows get their
+/// range, so an in-flight cutover's retry reads them as its snapshot.
+///
+/// Idempotent, so a kill between this commit and the drop repeats nothing.
+pub(super) fn carry_legacy_archive_into_ledger(
+    conn: &rusqlite::Connection,
+) -> rusqlite::Result<u32> {
+    carry_legacy_archive_between(conn, conn)
+}
+
+/// The same carry with the archive read from `source` and the ledger written
+/// in `conn`, which is how a quarantine salvage moves a file's archive into
+/// the fresh library. The ledger rows the carry keys on (`algorithm_changed`
+/// versions, live section ranges) are read from `conn`, so they must already
+/// be salvaged.
+pub(super) fn carry_legacy_archive_between(
+    source: &rusqlite::Connection,
+    conn: &rusqlite::Connection,
+) -> rusqlite::Result<u32> {
+    let present: bool = source.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master
+                       WHERE type = 'table' AND name = 'section_catalogue_archive')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !present {
+        return Ok(0);
+    }
+    let rows: Vec<LegacyArchiveRow> = {
+        let mut stmt = source.prepare(
+            "SELECT token, section_id, name, sport_type, polyline_blob, polyline_json,
+                    distance_meters, visit_count, created_at
+             FROM section_catalogue_archive ORDER BY token, section_id",
+        )?;
+        stmt.query_map([], |row| {
+            Ok(LegacyArchiveRow {
+                token: row.get(0)?,
+                section_id: row.get(1)?,
+                name: row.get(2)?,
+                sport_type: row.get(3)?,
+                blob: row.get(4)?,
+                json: row.get(5)?,
+                distance_meters: row.get(6)?,
+                visit_count: row.get(7)?,
+                created_at: row.get(8)?,
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?
+    };
+    if rows.is_empty() {
+        return Ok(0);
+    }
+
+    let tx = conn.unchecked_transaction()?;
+    let mut range = ArchiveRange {
+        token: CUTOVER_ID.to_string(),
+        first: None,
+        last: None,
+    };
+    let mut written = 0u32;
+    for row in rows {
+        let carried: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM section_history
+                           WHERE section_id = ? AND kind = ?
+                             AND json_extract(details, '$.token') = ?)",
+            params![row.section_id, KIND_ARCHIVED, row.token],
+            |r| r.get(0),
+        )?;
+        if carried {
+            continue;
+        }
+        // When the cutover's detect replaced the section, which is the moment
+        // the archived shape stopped being the live one.
+        let replaced: Option<(String, Option<i64>)> = tx
+            .query_row(
+                "SELECT at, geometry_version FROM section_history
+                 WHERE section_id = ? AND kind = 'algorithm_changed' ORDER BY id LIMIT 1",
+                params![row.section_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        let line = codec::decode_polyline_row(row.blob.as_deref(), row.json.as_deref())
+            .unwrap_or_default();
+        let version = if line.is_empty() {
+            let milestoned = replaced.as_ref().and_then(|(_, version)| *version);
+            match milestoned {
+                Some(version) => tx
+                    .query_row(
+                        "SELECT version FROM section_geometry WHERE section_id = ? AND version = ?",
+                        params![row.section_id, version],
+                        |r| r.get::<_, i64>(0),
+                    )
+                    .optional()?,
+                None => None,
+            }
+        } else {
+            let live: Option<(Option<String>, Option<u32>, Option<u32>)> = tx
+                .query_row(
+                    "SELECT representative_activity_id, rep_start_index, rep_end_index
+                     FROM sections WHERE id = ? AND geometry_source = 'exact'",
+                    params![row.section_id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .optional()?;
+            let reference = live.as_ref().and_then(|(id, start, end)| {
+                let reference = geometry::reference(id.as_deref(), *start, *end)?;
+                let sliced = geometry::rebuild(&tx, reference)?;
+                (codec::encode_polyline(&sliced) == codec::encode_polyline(&line))
+                    .then_some(reference)
+            });
+            history::record_archived_geometry_on(&tx, &row.section_id, &line, reference)?
+        };
+        let details = archived_details(
+            &row.token,
+            row.name.as_deref(),
+            &row.sport_type,
+            row.distance_meters,
+            row.visit_count,
+            row.created_at.as_deref(),
+        );
+        let id = history::append_history_on(
+            &tx,
+            &row.section_id,
+            KIND_ARCHIVED,
+            Some(&details),
+            version,
+            replaced.as_ref().map(|(at, _)| at.as_str()),
+        )?;
+        if row.token == CUTOVER_ID {
+            range.first.get_or_insert(id);
+            range.last = Some(id);
+        }
+        written += 1;
+    }
+    if range.first.is_some() {
+        store_archive_range_on(&tx, &range)?;
+    }
+    tx.commit()?;
+    Ok(written)
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -746,10 +1217,7 @@ impl PersistentEngine {
 /// Shaped on `run_elevation_backfill`: suspends detection, holds the
 /// guard across the whole pass, fires one terminal re-cut.
 pub fn run_cutover() -> Result<CutoverOutcome, String> {
-    if CUTOVER_RUNNING
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
+    if !claim_run_slot() {
         return Err("cutover already running".into());
     }
     run_cutover_claimed(engine_install(), &|_phase: &str| cutover_cancelled())
@@ -764,10 +1232,7 @@ pub fn run_cutover() -> Result<CutoverOutcome, String> {
 pub fn run_cutover_with(
     should_stop: &(dyn Fn(&str) -> bool + Sync),
 ) -> Result<CutoverOutcome, String> {
-    if CUTOVER_RUNNING
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
+    if !claim_run_slot() {
         return Err("cutover already running".into());
     }
     run_cutover_claimed(engine_install(), should_stop)
@@ -778,17 +1243,38 @@ fn run_cutover_claimed(
     install: u64,
     should_stop: &(dyn Fn(&str) -> bool + Sync),
 ) -> Result<CutoverOutcome, String> {
+    run_cutover_claimed_with(
+        install,
+        should_stop,
+        crate::objects::detection::SLOT_WAIT_LIMIT,
+        &|install| {
+            with_persistent_engine_for(install, |e| e.detect_sections_background_unchecked())
+                .map(|handle| Box::new(handle) as Box<dyn CutoverWorker>)
+        },
+    )
+}
+
+/// [`run_cutover_claimed`] with the detect's wait limit and its starter handed
+/// in, so a test can drive a real run into a timeout with a worker that
+/// outlasts a short limit.
+fn run_cutover_claimed_with(
+    install: u64,
+    should_stop: &(dyn Fn(&str) -> bool + Sync),
+    wait_limit: std::time::Duration,
+    start_detect: &dyn Fn(u64) -> Option<Box<dyn CutoverWorker>>,
+) -> Result<CutoverOutcome, String> {
     /// Stop here if the athlete has asked to. Every call site is a point the
     /// crash path already leaves the library at, so stopping needs no state of
     /// its own: the token is untouched and the next launch runs it again.
     macro_rules! stop_if_cancelled {
-        ($phase:expr, $clock:expr) => {
+        ($guard:ident, $phase:expr, $clock:expr) => {
             if should_stop($phase) {
                 info!(
                     "veloqrs: [cutover] Stopped at the athlete's request in {}",
                     $phase
                 );
                 $clock;
+                $guard.ended = Some((RunOutcome::Stopped, None));
                 return Ok(CutoverOutcome::Cancelled);
             }
         };
@@ -802,16 +1288,31 @@ fn run_cutover_claimed(
     // rebuilt nothing to report.
     struct RunGuard {
         announce: bool,
+        install: u64,
+        /// How the run ended, set where the outcome is in hand. An owed run
+        /// that leaves it unset ended on an error.
+        ended: Option<(RunOutcome, Option<String>)>,
     }
     impl Drop for RunGuard {
         fn drop(&mut self) {
             CUTOVER_RUNNING.store(false, Ordering::SeqCst);
             if self.announce {
+                // Written before the settle is announced, so a reader woken by
+                // it finds this run.
+                let (outcome, diff) = self.ended.take().unwrap_or((RunOutcome::Failed, None));
+                let summary = cutover_job_run(outcome, diff.as_deref());
+                let _ =
+                    with_persistent_engine_for(self.install, |e| record_job_run(&e.db, &summary));
                 crate::objects::observer::notify(Announcement::CutoverSettled);
+                crate::net::stream_backfill::autostart_stream_backfill();
             }
         }
     }
-    let mut guard = RunGuard { announce: false };
+    let mut guard = RunGuard {
+        announce: false,
+        install,
+        ended: None,
+    };
 
     // The cancel belongs to the run it stopped. Cleared here, where the slot
     // is already claimed, so a flag left standing cannot refuse the next
@@ -825,7 +1326,16 @@ fn run_cutover_claimed(
     let mut clock = PhaseClock::new();
 
     // Check whether the cutover is actually owed.
-    let owed = with_persistent_engine_for(install, |e| e.cutover_is_owed()).ok_or("no engine")?;
+    // A library whose flip is done or reverted still owes its own sections an
+    // anchor, so the worker places them on this same lock take.
+    let owed = with_persistent_engine_for(install, |e| {
+        let owed = e.cutover_is_owed();
+        if !owed && let Err(error) = e.anchor_user_owned_references() {
+            log::warn!("veloqrs: [cutover] Anchoring failed: {}", error);
+        }
+        owed
+    })
+    .ok_or("no engine")?;
     if !owed {
         set_phase(PHASE_IDLE);
         return Ok(CutoverOutcome::NotOwed);
@@ -836,28 +1346,32 @@ fn run_cutover_claimed(
     // it, which is what the drain below is for.
     let _suspend = suspend_detection();
 
-    // A Corridor run started before the suspension is still live, and
-    // `poll_detection_once` applies whatever it returns. Left alone it lands
-    // its Corridor catalogue after the cutover has finished, over a config
-    // and a token that both say Unified. Drive it to its end first; the
-    // suspension keeps the slot empty once it drains.
+    // Drain any run holding the slot before changing the catalogue and token.
     clock.enter(PHASE_DRAINING);
-    stop_if_cancelled!(PHASE_DRAINING, clock.finish(PHASE_IDLE));
+    stop_if_cancelled!(guard, PHASE_DRAINING, clock.finish(PHASE_IDLE));
     drain_detection_slot()?;
-    stop_if_cancelled!(PHASE_DRAINING, clock.finish(PHASE_IDLE));
+    stop_if_cancelled!(guard, PHASE_DRAINING, clock.finish(PHASE_IDLE));
 
     // Step 1: archive. Additive and idempotent per token, so a crash here
     // leaves the user on Corridor with an intact catalogue and the cutover
     // still owed.
     clock.enter(PHASE_ARCHIVING);
-    let archived = with_persistent_engine_for(install, |e| e.archive_current_catalogue())
-        .ok_or("no engine")?
-        .map_err(|e| format!("archive failed: {}", e))?;
+    let archived = with_persistent_engine_for(install, |e| {
+        let archived = e
+            .archive_current_catalogue()
+            .map_err(|e| format!("archive failed: {}", e))?;
+        // The athlete's own sections keep their rows through the re-cut, so
+        // they are placed on a track before the switch rather than after.
+        e.anchor_user_owned_references()
+            .map_err(|e| format!("anchoring failed: {}", e))?;
+        Ok::<u32, String>(archived)
+    })
+    .ok_or("no engine")??;
     info!("veloqrs: [cutover] Archived {} sections", archived);
     // The archive is additive and idempotent per token, so stopping here is
     // the state a crash here already leaves: still on the old detector, with
     // the catalogue intact and the cutover owed.
-    stop_if_cancelled!(PHASE_ARCHIVING, clock.finish(PHASE_IDLE));
+    stop_if_cancelled!(guard, PHASE_ARCHIVING, clock.finish(PHASE_IDLE));
 
     // Step 2: commit the switch. Config, in-flight token and the cleared
     // processed set land together, so a crash after this point resumes rather
@@ -871,50 +1385,59 @@ fn run_cutover_claimed(
     clock.enter(PHASE_DETECTING);
     // Past the switch the token is in flight, which is exactly what makes the
     // next launch run this again from the top.
-    stop_if_cancelled!(PHASE_DETECTING, clock.finish(PHASE_IDLE));
-    // The pool as it stood when the detect was spawned. A sync running
-    // alongside a multi-minute cut adds activities the detect never saw, and
-    // the apply below clears `sections_dirty` for all of them.
-    let pool_at_spawn =
-        with_persistent_engine_for(install, |e| e.get_activity_ids().len()).ok_or("no engine")?;
-    let handle = with_persistent_engine_for(install, |e| e.detect_sections_background_unchecked())
-        .ok_or("no engine")?;
+    stop_if_cancelled!(guard, PHASE_DETECTING, clock.finish(PHASE_IDLE));
+    let handle = start_detect(install).ok_or("no engine")?;
 
     // Drive the detect to completion, bounded by the same ceiling the slot wait
     // twenty lines up already uses. A worker that hangs rather than dies never
     // closes its channel, and an unbounded read here held `CUTOVER_RUNNING` for
     // the life of the process, so every later launch was refused its cutover.
-    let (main, cache_update) =
-        handle.recv_state_with_cache_within(Some(crate::objects::detection::SLOT_WAIT_LIMIT));
-    // A cancel arriving inside the detect discards the result rather than
-    // shortening the run, the same honest caveat the preview carries: the
-    // detect is one call and it does not read this flag. Discarding is safe
-    // because nothing has been applied, so the next launch redoes it.
-    stop_if_cancelled!(PHASE_DETECTING, clock.finish(PHASE_IDLE));
-    let (sections, processed_ids) = match main {
-        crate::persistence::WorkerPoll::Ready(v) => v,
-        // A panic inside the fold drops the sender, which used to be
-        // indistinguishable from a run with nothing to report.
-        crate::persistence::WorkerPoll::Died => return Err("detect died".to_string()),
-        // The read gave up. The run may still be folding, and its checkpoints
-        // are on disk, so the next launch resumes rather than starting cold.
-        crate::persistence::WorkerPoll::Running => return Err("detect never answered".to_string()),
+    let waited = wait_for_cutover_detect(&*handle, wait_limit, |checkpoint| {
+        crate::objects::detection::persist_checkpoint(install, checkpoint)
+    });
+    // The detect may have regrouped and committed the groups on its own
+    // connection, and it leaves the adopt to the caller it hands its result
+    // to. Adopted here, whatever the wait answered, so a run that stops or
+    // fails from here on does not leave the engine regrouping over the
+    // catalogue the detect replaced.
+    with_persistent_engine_for(install, |e| e.adopt_committed_groups());
+    let ((sections, processed_ids), cache_update) = match waited {
+        Ok(answer) => answer,
+        Err(e) if e == DETECT_CANCELLED => {
+            // The worker has settled, so there is nothing to adopt.
+            stop_if_cancelled!(guard, PHASE_DETECTING, clock.finish(PHASE_IDLE));
+            return Err(e);
+        }
+        Err(e) => {
+            // Adopted before the guard frees the slot, so no retry can claim
+            // it while this worker still folds.
+            adopt_orphaned_detect(handle);
+            return Err(e);
+        }
     };
+    // A cancel that arrives as the detect answers discards the result. That
+    // is safe because nothing has been applied, so the next launch redoes it.
+    stop_if_cancelled!(guard, PHASE_DETECTING, clock.finish(PHASE_IDLE));
 
     with_persistent_engine_for(install, |e| {
-        e.apply_sections_with_cache(sections, cache_update)
+        // Ranking reads every needed track, so it runs after this lock is
+        // released, on a connection of its own.
+        e.apply_sections_save_with_cache_row_ranked(sections, cache_update, None, false)
             .map_err(|err| format!("apply failed: {}", err))?;
+        e.apply_sections_finalize();
+        clock.mark_applied();
         e.save_processed_activity_ids(&processed_ids)
             .map_err(|err| format!("save processed ids failed: {}", err))?;
         // Anything that arrived mid-cut is neither processed nor dirty
         // otherwise, so the next launch would never section it.
-        if e.get_activity_ids().len() > pool_at_spawn {
+        if has_unprocessed_activity(&e.get_activity_ids(), &processed_ids) {
             e.mark_sections_dirty();
         }
         Ok::<(), String>(())
     })
     .ok_or("no engine")?
     .map_err(|e| format!("apply: {}", e))?;
+    crate::persistence::sections::rank_off_lock(install);
 
     // Step 4: diff, then promote the token. The promotion is last, so any
     // failure above leaves the token in flight and the whole run is retried
@@ -924,14 +1447,36 @@ fn run_cutover_claimed(
         .ok_or("no engine")?
         .map_err(|e| format!("diff failed: {}", e))?;
 
-    with_persistent_engine_for(install, |e| e.finish_cutover())
+    with_persistent_engine_for(install, |e| e.finish_cutover(&diff))
         .ok_or("no engine")?
         .map_err(|e| format!("token promotion failed: {}", e))?;
 
     let run_ms = clock.run_ms();
     clock.finish(PHASE_COMPLETE);
     info!("veloqrs: [cutover] Cutover complete in {}ms", run_ms);
+    guard.ended = Some((RunOutcome::Complete, Some(diff.clone())));
     Ok(CutoverOutcome::Completed(diff))
+}
+
+/// The last-run summary of a rebuild: the diff's counts, read from the same
+/// payload the change card shows. A rebuild is not a detection run, though it
+/// applies through the same save, so it records only here.
+fn cutover_job_run(outcome: RunOutcome, diff: Option<&str>) -> JobRun {
+    let counts = diff
+        .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+        .map(|payload| payload["counts"].clone())
+        .unwrap_or(serde_json::Value::Null);
+    let count = |key: &str| counts[key].as_u64().unwrap_or(0) as u32;
+    JobRun {
+        job: BackgroundJob::Cutover,
+        finished_at: crate::persistence::attempts::now_ms(),
+        outcome,
+        handled: count("proposed"),
+        added: count("new"),
+        changed: count("changed"),
+        retired: count("gone"),
+        failed: 0,
+    }
 }
 
 /// Drive any run already holding the detection slot to its end, applying its
@@ -952,6 +1497,22 @@ fn drain_detection_slot() -> Result<(), String> {
         other => Err(format!("unexpected drain outcome: {:?}", other)),
     }
 }
+
+#[cfg(test)]
+#[path = "tests/cutover_pool.rs"]
+mod pool_tests;
+
+#[cfg(test)]
+#[path = "tests/cutover_retry.rs"]
+mod retry_tests;
+
+#[cfg(test)]
+#[path = "tests/cutover_anchoring.rs"]
+mod anchoring_tests;
+
+#[cfg(test)]
+#[path = "tests/cutover_ledger.rs"]
+mod ledger_tests;
 
 #[cfg(test)]
 mod tests {
@@ -995,58 +1556,195 @@ mod tests {
         engine
     }
 
-    fn archived_line(engine: &PersistentEngine) -> Vec<GpsPoint> {
-        let blob: Option<Vec<u8>> = engine
+    /// Scenario: a section's stored version was sliced from a stream that
+    /// carries elevation, and the line the archive reads back from the old
+    /// catalogue is the same course with no elevation.
+    /// Expected behaviour: the archive reuses the stored version and writes no
+    /// second one, so the ledger offers no revert to an identical line.
+    #[test]
+    fn archiving_a_line_that_differs_only_in_elevation_adds_no_version() {
+        let dir = TempDir::new().expect("dir");
+        let path = dir.path().join("elevation.db");
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        let climbing: Vec<GpsPoint> = track()
+            .into_iter()
+            .enumerate()
+            .map(|(i, p)| GpsPoint {
+                elevation: Some(400.0 + i as f64),
+                ..p
+            })
+            .collect();
+        engine
+            .add_activity("a1".into(), climbing.clone(), "Ride".into())
+            .expect("add_activity");
+
+        let sliced = climbing[0..12].to_vec();
+        let first = crate::persistence::sections::history::record_archived_geometry_on(
+            &engine.db,
+            "s_pinned",
+            &sliced,
+            Some(("a1", 0, 12)),
+        )
+        .expect("first");
+        let flat = track()[0..12].to_vec();
+        let second = crate::persistence::sections::history::record_archived_geometry_on(
+            &engine.db, "s_pinned", &flat, None,
+        )
+        .expect("second");
+
+        assert_eq!(second, first);
+        let versions: i64 = engine
             .db
             .query_row(
-                "SELECT polyline_blob FROM section_catalogue_archive WHERE section_id = 's_auto'",
+                "SELECT COUNT(*) FROM section_geometry WHERE section_id = 's_pinned'",
                 [],
                 |row| row.get(0),
             )
-            .expect("archived row");
-        codec::decode_polyline_row(blob.as_deref(), None).unwrap_or_default()
-    }
-
-    /// Scenario: the cutover archives the outgoing catalogue after a clear.
-    /// Expected behaviour: the archive holds a real line, rebuilt from the
-    /// triple. An empty one is the diff's old line gone, and no triple in the
-    /// archive can undo it.
-    #[test]
-    fn the_archive_keeps_a_line_the_cache_no_longer_holds() {
-        let dir = TempDir::new().expect("tempdir");
-        let engine = engine_with_archivable_section(&dir);
-        engine
-            .db
-            .execute(
-                "UPDATE sections SET polyline_blob = NULL, polyline_json = NULL",
-                [],
-            )
-            .expect("clear the cached geometry");
-
-        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
-
-        assert_eq!(
-            archived_line(&engine).len(),
-            12,
-            "the archive has to snapshot the rebuilt line, not the cleared blob"
-        );
-    }
-
-    /// The cached blob is still what the archive copies when it is there.
-    #[test]
-    fn the_archive_copies_the_cached_line_when_it_is_there() {
-        let dir = TempDir::new().expect("tempdir");
-        let engine = engine_with_archivable_section(&dir);
-
-        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
-
-        assert_eq!(archived_line(&engine).len(), 12);
+            .expect("count");
+        assert_eq!(versions, 1);
     }
 
     fn previous_config(engine: &PersistentEngine) -> Option<String> {
         engine
             .get_setting(super::CUTOVER_PREVIOUS_CONFIG_KEY)
             .expect("read")
+    }
+
+    /// Scenario: the cutover is owed and the athlete keeps new detection
+    /// settings, which the flip would then reset to the defaults.
+    /// Expected behaviour: the write is refused as a held cutover and neither
+    /// the live config nor the persisted blob changes.
+    #[test]
+    fn a_config_write_is_refused_while_the_cutover_is_owed() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_with_archivable_section(&dir);
+        assert!(engine.cutover_is_owed());
+        let before = engine.get_section_config();
+        let blob_before = engine
+            .get_setting(crate::persistence::settings_keys::SECTION_CONFIG_JSON)
+            .expect("read");
+
+        let strict = tracematch::SectionConfig {
+            proximity_threshold: 300.0,
+            ..Default::default()
+        };
+        assert_eq!(
+            engine.set_section_config(strict.clone()),
+            Err(crate::persistence::sections::DetectionRefusal::CutoverOwed)
+        );
+        assert_eq!(engine.get_section_config(), before);
+        assert_eq!(
+            engine
+                .get_setting(crate::persistence::settings_keys::SECTION_CONFIG_JSON)
+                .expect("read"),
+            blob_before
+        );
+
+        engine.commit_switch().expect("switch");
+        let diff = engine.build_cutover_diff().expect("diff");
+        engine.finish_cutover(&diff).expect("promote");
+        assert!(!engine.cutover_is_owed());
+        assert_eq!(engine.set_section_config(strict.clone()), Ok(()));
+        assert_eq!(engine.get_section_config(), strict);
+    }
+
+    fn junction_activity_ids(engine: &PersistentEngine, section: &str) -> Vec<String> {
+        let mut stmt = engine
+            .db
+            .prepare("SELECT activity_id FROM section_activities WHERE section_id = ? ORDER BY 1")
+            .expect("prepare");
+        stmt.query_map([section], |row| row.get::<_, String>(0))
+            .expect("query")
+            .flatten()
+            .collect()
+    }
+
+    /// Scenario: the cutover is owed and a store re-ingests an activity whose
+    /// track is unchanged and which already has junction rows.
+    /// Expected behaviour: the rows stay as the 0.3.x matcher wrote them, a
+    /// second identical store changes nothing, a new activity and a changed
+    /// track still attach, and once the cutover is done an unchanged store
+    /// attaches again.
+    #[test]
+    fn an_unchanged_store_keeps_the_rows_the_archive_snapshots() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_with_archivable_section(&dir);
+        assert!(engine.cutover_is_owed());
+        engine.load_sections().expect("load the catalogue");
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters)
+                 VALUES ('s_auto', 'a1', 'same', 0, 5, 100.0)",
+                [],
+            )
+            .expect("a row only the old matcher wrote");
+        let before = junction_activity_ids(&engine, "s_auto");
+        assert_eq!(before, vec!["a1".to_string()]);
+
+        let changed = engine
+            .add_activity("a1".into(), track(), "Ride".into())
+            .expect("re-add");
+        assert!(changed.is_empty());
+        engine.attach_after_store("a1", !changed.is_empty());
+        engine.attach_after_store("a1", false);
+        assert_eq!(junction_activity_ids(&engine, "s_auto"), before);
+        let end: i64 = engine
+            .db
+            .query_row(
+                "SELECT end_index FROM section_activities WHERE activity_id = 'a1'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("row");
+        assert_eq!(end, 5, "the old row survives untouched");
+
+        engine
+            .add_activity("a2".into(), track(), "Ride".into())
+            .expect("new activity");
+        engine.attach_after_store("a2", false);
+        assert!(
+            junction_activity_ids(&engine, "s_auto").contains(&"a2".to_string()),
+            "a new activity attaches before the cut"
+        );
+
+        let shifted: Vec<GpsPoint> = track().into_iter().take(30).collect();
+        let changed = engine
+            .add_activity("a1".into(), shifted, "Ride".into())
+            .expect("changed track");
+        assert_eq!(changed, vec!["a1".to_string()]);
+        engine.attach_after_store("a1", true);
+        let end: i64 = engine
+            .db
+            .query_row(
+                "SELECT end_index FROM section_activities WHERE activity_id = 'a1'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("row");
+        assert_ne!(end, 5, "a changed track is re-attached");
+
+        engine.commit_switch().expect("switch");
+        let diff = engine.build_cutover_diff().expect("diff");
+        engine.finish_cutover(&diff).expect("promote");
+        assert!(!engine.cutover_is_owed());
+        engine
+            .db
+            .execute(
+                "UPDATE section_activities SET end_index = 5 WHERE activity_id = 'a2'",
+                [],
+            )
+            .expect("mark");
+        engine.attach_after_store("a2", false);
+        let end: i64 = engine
+            .db
+            .query_row(
+                "SELECT end_index FROM section_activities WHERE activity_id = 'a2'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("row");
+        assert_ne!(end, 5, "after the cut an unchanged store attaches");
     }
 
     /// Scenario: a run dies between the switch and the promotion, so the
@@ -1062,7 +1760,13 @@ mod tests {
             min_activities: 3,
             ..Default::default()
         };
-        engine.set_section_config(strict);
+        engine.section_config = strict.clone();
+        engine
+            .set_setting(
+                crate::persistence::settings_keys::SECTION_CONFIG_JSON,
+                &serde_json::to_string(&strict).expect("json"),
+            )
+            .expect("persist");
 
         engine.commit_switch().expect("first switch");
         assert_eq!(
@@ -1088,7 +1792,8 @@ mod tests {
             Some(2)
         );
 
-        engine.finish_cutover().expect("promote");
+        let diff = engine.build_cutover_diff().expect("diff");
+        engine.finish_cutover(&diff).expect("promote");
         assert!(
             previous_config(&engine).is_none(),
             "the promotion left the old values behind"
@@ -1105,150 +1810,5 @@ mod tests {
         let diff: serde_json::Value =
             serde_json::from_str(&engine.build_cutover_diff().expect("diff")).expect("json");
         assert!(diff["settings_reset"].is_null());
-    }
-
-    fn archived_blob(engine: &PersistentEngine) -> Vec<u8> {
-        engine
-            .db
-            .query_row(
-                "SELECT polyline_blob FROM section_catalogue_archive WHERE section_id = 's_auto'",
-                [],
-                |row| row.get::<_, Option<Vec<u8>>>(0),
-            )
-            .expect("archived row")
-            .expect("archived blob")
-    }
-
-    /// Scenario: the archive is one of the stores the quantised codec covers,
-    /// and it was still writing postcard after the tracks moved across.
-    ///
-    /// Expected behaviour: a line the archive rebuilds is written in the
-    /// quantised container, and it still reads back as the same line, because
-    /// the reader was never narrowed to one container.
-    #[test]
-    fn the_archive_writes_the_quantised_container() {
-        let dir = TempDir::new().expect("tempdir");
-        let engine = engine_with_archivable_section(&dir);
-        engine
-            .db
-            .execute(
-                "UPDATE sections SET polyline_blob = NULL, polyline_json = NULL",
-                [],
-            )
-            .expect("clear the cached geometry");
-
-        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
-
-        let blob = archived_blob(&engine);
-        assert_eq!(blob[0], 0xC0, "the archived blob is not the polyline tag");
-        assert!(
-            blob.len()
-                < codec::serialize_points(&archived_line(&engine))
-                    .expect("postcard")
-                    .len(),
-            "the archived blob is no smaller than postcard for the same line"
-        );
-        assert_eq!(archived_line(&engine).len(), 12);
-    }
-
-    fn archived_row(engine: &PersistentEngine) -> (String, Option<Vec<u8>>, Option<String>, u32) {
-        engine
-            .db
-            .query_row(
-                "SELECT name, polyline_blob, polyline_json, visit_count
-                 FROM section_catalogue_archive WHERE section_id = 's_auto'",
-                [],
-                |row| {
-                    Ok((
-                        row.get(0)?,
-                        row.get(1)?,
-                        row.get(2)?,
-                        row.get::<_, Option<u32>>(3)?.unwrap_or(0),
-                    ))
-                },
-            )
-            .expect("archived row")
-    }
-
-    /// Scenario: the token is promoted after the diff is stored, and the diff
-    /// was the archive's only reader.
-    /// Expected behaviour: the archived line goes with the promotion, the id,
-    /// name and count stay for the change card and the mint guard.
-    #[test]
-    fn promoting_the_token_trims_the_archived_lines() {
-        let dir = TempDir::new().expect("tempdir");
-        let engine = engine_with_archivable_section(&dir);
-        engine
-            .db
-            .execute(
-                "UPDATE sections SET visit_count = 7 WHERE id = 's_auto'",
-                [],
-            )
-            .expect("set the count");
-        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
-        assert_eq!(archived_line(&engine).len(), 12);
-
-        engine.build_cutover_diff().expect("diff");
-        engine.finish_cutover().expect("promote");
-
-        let (name, blob, json, visits) = archived_row(&engine);
-        assert!(blob.is_none(), "the blob outlived the promotion");
-        assert!(json.is_none(), "the json line outlived the promotion");
-        assert_eq!(name, "Auto");
-        assert_eq!(visits, 7);
-        assert_eq!(
-            engine.get_setting(super::CUTOVER_KEY).expect("token"),
-            Some(super::CUTOVER_ID.to_string())
-        );
-        assert!(
-            engine.section_ids_a_mint_must_avoid().contains("s_auto"),
-            "a trimmed archive row still claims its id"
-        );
-    }
-
-    /// Scenario: the run dies between the diff and the promotion.
-    /// Expected behaviour: the archive still holds its line, so the retry can
-    /// see what left. Only the promotion trims those lines, and only the
-    /// counts reach the card: the payload carries no geometry of its own.
-    #[test]
-    fn a_run_that_dies_before_promotion_keeps_the_lines_for_the_retry() {
-        let dir = TempDir::new().expect("tempdir");
-        let engine = engine_with_archivable_section(&dir);
-        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
-
-        engine.build_cutover_diff().expect("first diff");
-        assert_eq!(archived_line(&engine).len(), 12);
-
-        let diff = engine.build_cutover_diff().expect("retried diff");
-        let payload: serde_json::Value = serde_json::from_str(&diff).expect("json");
-        assert!(
-            payload.get("sections").is_none(),
-            "the payload stores no rows: {payload}"
-        );
-        assert_eq!(
-            payload["counts"]["gone"].as_u64(),
-            Some(1),
-            "the retry still sees the archived section leave: {payload}"
-        );
-        assert_eq!(
-            archived_line(&engine).len(),
-            12,
-            "only the promotion trims the archived line"
-        );
-    }
-
-    /// A second promotion, the shape a retried launch takes, finds nothing
-    /// left to trim and does not fail.
-    #[test]
-    fn a_second_promotion_is_a_no_op() {
-        let dir = TempDir::new().expect("tempdir");
-        let engine = engine_with_archivable_section(&dir);
-        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
-
-        engine.finish_cutover().expect("promote");
-        engine.finish_cutover().expect("promote again");
-
-        let (_, blob, _, _) = archived_row(&engine);
-        assert!(blob.is_none());
     }
 }
