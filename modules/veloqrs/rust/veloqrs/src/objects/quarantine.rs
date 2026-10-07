@@ -32,6 +32,10 @@ pub struct FfiQuarantineReport {
     pub sections: u32,
     /// Suppressions, whose contract is that a removed corridor stays removed.
     pub intents: u32,
+    /// Handset recordings whose FIT files stay on disk.
+    pub recordings: u32,
+    /// Route names the athlete typed.
+    pub route_names: u32,
 }
 
 /// The quarantine this process did, until something reads it.
@@ -48,6 +52,8 @@ pub(crate) fn record_quarantine(salvaged: &SalvageCounts) {
         pins: salvaged.pins as u32,
         sections: salvaged.sections as u32,
         intents: salvaged.intents as u32,
+        recordings: salvaged.recordings as u32,
+        route_names: salvaged.route_names as u32,
     };
     *LAST.lock().unwrap_or_else(|e| e.into_inner()) = Some(report);
 }
@@ -73,6 +79,8 @@ mod tests {
             pins: 2,
             sections: 1,
             intents: 5,
+            recordings: 6,
+            route_names: 7,
         }
     }
 
@@ -93,6 +101,8 @@ mod tests {
         assert_eq!(report.pins, 2);
         assert_eq!(report.sections, 1);
         assert_eq!(report.intents, 5);
+        assert_eq!(report.recordings, 6);
+        assert_eq!(report.route_names, 7);
 
         assert_eq!(take_quarantine_report(), None);
     }
@@ -109,6 +119,8 @@ mod tests {
             pins: 0,
             sections: 0,
             intents: 0,
+            recordings: 0,
+            route_names: 0,
         });
 
         assert_eq!(take_quarantine_report().expect("recorded").history, 0);

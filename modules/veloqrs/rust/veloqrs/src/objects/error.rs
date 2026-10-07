@@ -2,8 +2,6 @@
 pub enum VeloqError {
     #[error("Engine not initialised")]
     NotInitialized,
-    #[error("Engine lock failed")]
-    LockFailed,
     #[error("Database error: {msg}")]
     Database { msg: String },
     #[error("Not found: {msg}")]
@@ -14,20 +12,27 @@ pub enum VeloqError {
     ReferenceActivity { msg: String },
     #[error("Basemap tile store: {msg}")]
     TileStore { msg: String },
+    /// A job of that kind already holds its slot. Not a failure: the running
+    /// one carries on, and a caller shows it as still running.
+    #[error("Already running: {msg}")]
+    Busy { msg: String },
+    /// A rename to a name another section already shows. The athlete picks a
+    /// different name, so a caller shows it as a refusal and not a failure.
+    #[error("Another section is already named {name}")]
+    NameTaken { name: String },
 }
 
 /// Execute a closure with a **write lock** on the persistent engine.
 ///
-/// Use for any mutation, for FFI methods whose closures call through to
-/// engine helpers that take `&mut self` (LRU-cache-touching lookups like
-/// `get_signature`, `get_group_by_id`, `get_section_by_id`,
-/// `get_consensus_route`, `get_section_performances`, `get_groups`), and
-/// for any closure that dereferences `self.db` - see the safety invariant
-/// on `PERSISTENT_ENGINE`.
+/// Use for a mutation, and for a read that needs engine memory: the in-memory
+/// tiers, the section and match configs, or a lookup that fills an engine LRU.
+/// A read that needs only committed SQLite rows goes through [`with_reader`]
+/// and a pooled function on a `&Connection`, so it does not wait behind a
+/// write in flight.
 ///
 /// Poison recovery lives in `with_persistent_engine_at`: builds unwind on
 /// panic, so a single panic under the write lock would otherwise turn every
-/// later FFI call into `LockFailed` for the rest of the session.
+/// later FFI call into a failure for the rest of the session.
 #[track_caller]
 pub fn with_engine<F, R>(f: F) -> Result<R, VeloqError>
 where

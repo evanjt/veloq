@@ -166,12 +166,39 @@ fn rmp_exact<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
     }
 }
 
+/// Round a legacy container's points to the grid the quantised container
+/// stores, with the same arithmetic encode and decode apply. A legacy row then
+/// reads as the track its next rewrite will hold, so storing it again moves no
+/// coordinate.
+fn quantised(points: Vec<crate::GpsPoint>) -> Vec<crate::GpsPoint> {
+    // A non-finite value has no place on the grid and stays as stored, so
+    // the readers that reject such points still see them.
+    let snap = |v: f64, scale: f64| {
+        if v.is_finite() {
+            (v * scale).round() as i64 as f64 / scale
+        } else {
+            v
+        }
+    };
+    points
+        .into_iter()
+        .map(|p| crate::GpsPoint {
+            latitude: snap(p.latitude, POLYLINE_SCALE),
+            longitude: snap(p.longitude, POLYLINE_SCALE),
+            elevation: p.elevation.map(|e| snap(e, ELEVATION_SCALE)),
+        })
+        .collect()
+}
+
 /// Decode a stored point blob, trying framed postcard, unframed postcard and
 /// rmp-serde in that order. On failure the error names the containers that were
 /// tried and what each said, plus the blob length and its first byte, so a log
 /// line is enough to identify the format. A blob claimed by no container (the
 /// quantised polyline stream carries no version byte, it opens on a varint
 /// count) reports as unrecognised rather than as a postcard error.
+///
+/// Points from a legacy container come back rounded to the quantised grid, so
+/// the read does not depend on whether the row has been rewritten yet.
 pub fn deserialize_points(bytes: &[u8]) -> Result<Vec<crate::GpsPoint>, String> {
     let expand = |compact: Vec<CompactGpsPoint>| -> Vec<crate::GpsPoint> {
         compact
@@ -205,7 +232,7 @@ pub fn deserialize_points(bytes: &[u8]) -> Result<Vec<crate::GpsPoint>, String> 
         claimed = true;
         match unframe_postcard(bytes) {
             Some(payload) => match postcard_exact::<Vec<CompactGpsPoint>>(payload) {
-                Ok(compact) => return Ok(expand(compact)),
+                Ok(compact) => return Ok(quantised(expand(compact))),
                 Err(e) => steps.push(format!("framed postcard body: {}", e)),
             },
             None => steps.push("framed postcard: length prefix disagrees with payload".to_string()),
@@ -213,14 +240,14 @@ pub fn deserialize_points(bytes: &[u8]) -> Result<Vec<crate::GpsPoint>, String> 
     }
 
     match postcard_exact::<Vec<CompactGpsPoint>>(bytes) {
-        Ok(compact) => return Ok(expand(compact)),
+        Ok(compact) => return Ok(quantised(expand(compact))),
         Err(e) => steps.push(format!("unframed postcard: {}", e)),
     }
 
     if is_rmp_array_header(first) {
         claimed = true;
         match rmp_exact::<Vec<crate::GpsPoint>>(bytes) {
-            Ok(points) => return Ok(points),
+            Ok(points) => return Ok(quantised(points)),
             Err(e) => steps.push(format!("rmp-serde: {}", e)),
         }
     } else {
@@ -423,14 +450,30 @@ fn read_varint(bytes: &[u8], pos: &mut usize) -> Option<u64> {
     }
 }
 
+/// An elevation that is not a number is unknown, never a height: written as
+/// one it would quantise to 0 m, or to the edge of the integer range, and read
+/// back as sea level or as nonsense.
+fn known_elevation(p: &crate::GpsPoint) -> Option<f64> {
+    p.elevation.filter(|e| e.is_finite())
+}
+
 /// Quantised zigzag-varint polyline stream: point count, elevation mode
 /// (none / all / mixed with a presence bitmap), then per point the deltas of
 /// the quantised lat, lng, and (where present) elevation. Exact on 6-decimal
-/// coordinates and 0.1 m elevations; None elevations survive as None.
+/// coordinates and 0.1 m elevations; None elevations survive as None, and a
+/// non-finite one is written as None.
+///
+/// The one encoding of a track: it is the stored body of every quantised track
+/// row, inside its frame, and it is what every encoded track crossing the FFI
+/// carries, unframed. The TypeScript `decodeCoords` reads it, and
+/// `tests/fixtures/track_codec_vectors.json` pins the bytes for both suites.
 pub fn encode_polyline(points: &[crate::GpsPoint]) -> Vec<u8> {
     let mut out = Vec::new();
     write_varint(&mut out, points.len() as u64);
-    let with_ele = points.iter().filter(|p| p.elevation.is_some()).count();
+    let with_ele = points
+        .iter()
+        .filter(|p| known_elevation(p).is_some())
+        .count();
     let mode = match with_ele {
         0 => ELE_NONE,
         n if n == points.len() => ELE_ALL,
@@ -440,7 +483,7 @@ pub fn encode_polyline(points: &[crate::GpsPoint]) -> Vec<u8> {
     if mode == ELE_MIXED {
         let mut bitmap = vec![0u8; points.len().div_ceil(8)];
         for (i, p) in points.iter().enumerate() {
-            if p.elevation.is_some() {
+            if known_elevation(p).is_some() {
                 bitmap[i / 8] |= 1 << (i % 8);
             }
         }
@@ -455,7 +498,7 @@ pub fn encode_polyline(points: &[crate::GpsPoint]) -> Vec<u8> {
         plat = lat;
         plng = lng;
         if mode != ELE_NONE
-            && let Some(e) = p.elevation
+            && let Some(e) = known_elevation(p)
         {
             let e = (e * ELEVATION_SCALE).round() as i64;
             write_varint(&mut out, zigzag(e - pele));
@@ -508,15 +551,15 @@ pub fn decode_polyline(bytes: &[u8]) -> Option<Vec<crate::GpsPoint>> {
     let mut points = Vec::with_capacity(n.min(POLYLINE_RESERVE_CAP));
     let (mut lat, mut lng, mut ele) = (0i64, 0i64, 0i64);
     for i in 0..n {
-        lat += unzigzag(read_varint(bytes, &mut pos)?);
-        lng += unzigzag(read_varint(bytes, &mut pos)?);
+        lat = lat.checked_add(unzigzag(read_varint(bytes, &mut pos)?))?;
+        lng = lng.checked_add(unzigzag(read_varint(bytes, &mut pos)?))?;
         let has_ele = match mode {
             ELE_ALL => true,
             ELE_MIXED => bitmap[i / 8] & (1 << (i % 8)) != 0,
             _ => false,
         };
         let elevation = if has_ele {
-            ele += unzigzag(read_varint(bytes, &mut pos)?);
+            ele = ele.checked_add(unzigzag(read_varint(bytes, &mut pos)?))?;
             Some(ele as f64 / ELEVATION_SCALE)
         } else {
             None
@@ -538,6 +581,9 @@ const SERIES_TAG: u8 = 0xC1;
 const SERIES_NONE: u8 = 0;
 const SERIES_ALL: u8 = 1;
 const SERIES_MIXED: u8 = 2;
+
+/// Most samples an all-gap series may claim: about twelve days at 1 Hz.
+const SERIES_NONE_MAX_SAMPLES: usize = 1 << 20;
 
 /// Counts per unit for each series the store holds. A scale is chosen so the
 /// server's own precision is exact rather than approximated: the integer
@@ -603,17 +649,23 @@ pub fn decode_series(bytes: &[u8]) -> Option<Vec<Option<f64>>> {
     let body = unframe(SERIES_TAG, bytes)?;
     let mut pos = 0usize;
     let n = usize::try_from(read_varint(body, &mut pos)?).ok()?;
-    // A varint can claim an absurd count; bound it by what the remaining bytes
-    // could hold, one byte per present sample at minimum.
-    if n > body.len().saturating_sub(pos).saturating_mul(8) {
-        return None;
-    }
     let scale = read_varint(body, &mut pos)? as f64;
     if scale <= 0.0 {
         return None;
     }
     let mode = *body.get(pos)?;
     pos += 1;
+    // A varint can claim an absurd count. An all-gap series spends no bytes per
+    // sample, so it is bounded by a fixed ceiling and must end at the mode
+    // byte; every other mode by what the remaining bytes could hold, one byte
+    // per present sample at minimum.
+    if mode == SERIES_NONE {
+        if n > SERIES_NONE_MAX_SAMPLES || pos != body.len() {
+            return None;
+        }
+    } else if n > body.len().saturating_sub(pos).saturating_mul(8) {
+        return None;
+    }
     let bitmap: &[u8] = if mode == SERIES_MIXED {
         let len = n.div_ceil(8);
         let slice = body.get(pos..pos + len)?;
@@ -637,7 +689,7 @@ pub fn decode_series(bytes: &[u8]) -> Option<Vec<Option<f64>>> {
             out.push(None);
             continue;
         }
-        prev += unzigzag(read_varint(body, &mut pos)?);
+        prev = prev.checked_add(unzigzag(read_varint(body, &mut pos)?))?;
         out.push(Some(prev as f64 / scale));
     }
     Some(out)
@@ -685,6 +737,76 @@ mod tests {
                 points,
                 "{n} points decoded as something other than the track written"
             );
+        }
+    }
+
+    fn full_precision_points() -> Vec<GpsPoint> {
+        vec![
+            pt(46.12345678, 7.12345678, Some(1234.56789)),
+            pt(46.123_456_49, -7.987_654_51, None),
+            pt(-33.000_000_5, 151.999_999_5, Some(-12.04)),
+        ]
+    }
+
+    fn legacy_blobs(points: &[GpsPoint]) -> Vec<(&'static str, Vec<u8>)> {
+        let compact: Vec<CompactGpsPoint> = points
+            .iter()
+            .map(|p| CompactGpsPoint {
+                latitude: p.latitude,
+                longitude: p.longitude,
+                elevation: p.elevation,
+            })
+            .collect();
+        vec![
+            ("framed postcard", serialize_points(points).unwrap()),
+            (
+                "unframed postcard",
+                postcard::to_allocvec(&compact).unwrap(),
+            ),
+            ("rmp", rmp_serde::to_vec(points).unwrap()),
+        ]
+    }
+
+    /// Scenario: a track written before the quantised container holds
+    /// coordinates at seven or more decimals.
+    ///
+    /// Expected behaviour: every legacy container reads back as the points
+    /// the quantised container would hold, so rewriting the row moves nothing.
+    #[test]
+    fn legacy_containers_read_in_their_quantised_form() {
+        let points = full_precision_points();
+        let expected = decode_polyline(&encode_polyline(&points)).unwrap();
+        assert_ne!(expected, points, "fixture must carry sub-step precision");
+        for (name, blob) in legacy_blobs(&points) {
+            let read = deserialize_points(&blob).unwrap();
+            assert_eq!(read.len(), expected.len(), "{name}");
+            for (r, e) in read.iter().zip(&expected) {
+                assert_eq!(
+                    r.latitude.to_bits(),
+                    e.latitude.to_bits(),
+                    "{name} latitude"
+                );
+                assert_eq!(
+                    r.longitude.to_bits(),
+                    e.longitude.to_bits(),
+                    "{name} longitude"
+                );
+                assert_eq!(
+                    r.elevation.map(f64::to_bits),
+                    e.elevation.map(f64::to_bits),
+                    "{name} elevation"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_legacy_read_rewritten_and_read_again_is_the_identity() {
+        let points = full_precision_points();
+        for (name, blob) in legacy_blobs(&points) {
+            let first = deserialize_points(&blob).unwrap();
+            let again = deserialize_points(&serialize_track_points(&first)).unwrap();
+            assert_eq!(first, again, "{name}");
         }
     }
 
@@ -823,6 +945,39 @@ mod tests {
         let mut truncated = encode_polyline(&[pt(46.2, 7.36, Some(500.0))]);
         truncated.truncate(truncated.len() - 1);
         assert!(decode_polyline(&truncated).is_none());
+    }
+
+    /// Scenario: a varint of `u64::MAX` unzigzags to `i64::MIN`, so the second
+    /// delta overflows the running sum.
+    ///
+    /// Expected behaviour: both decoders return None rather than panicking in
+    /// debug or wrapping into nonsense coordinates in release.
+    #[test]
+    fn overflowing_deltas_decode_to_none_not_wrap() {
+        let mut poly = Vec::new();
+        write_varint(&mut poly, 2);
+        poly.push(ELE_NONE);
+        for v in [u64::MAX, 0, u64::MAX, 0] {
+            write_varint(&mut poly, v);
+        }
+        assert!(decode_polyline(&poly).is_none());
+
+        let mut with_ele = Vec::new();
+        write_varint(&mut with_ele, 2);
+        with_ele.push(ELE_ALL);
+        for v in [0, 0, u64::MAX, 0, 0, u64::MAX, u64::MAX] {
+            write_varint(&mut with_ele, v);
+        }
+        assert!(decode_polyline(&with_ele).is_none());
+
+        let mut body = Vec::new();
+        write_varint(&mut body, 2);
+        write_varint(&mut body, 1);
+        body.push(SERIES_ALL);
+        for v in [u64::MAX, u64::MAX] {
+            write_varint(&mut body, v);
+        }
+        assert!(decode_series(&frame(SERIES_TAG, body)).is_none());
     }
 
     // ------------------------------------------- postcard framing
@@ -1081,5 +1236,109 @@ mod tests {
             .collect();
         let bytes = encode_polyline(&points);
         assert_eq!(decode_polyline(&bytes).unwrap().len(), points.len());
+    }
+
+    /// Scenario: a series with no present sample spends no bytes per sample,
+    /// so the decoder's per-byte bound refused every one longer than 16.
+    ///
+    /// Expected behaviour: an all-gap series round-trips at any realistic length.
+    #[test]
+    fn an_all_gap_series_round_trips_past_sixteen_samples() {
+        for len in [17usize, 20, 10_000] {
+            let values = vec![None; len];
+            let bytes = encode_series(&values, 1.0);
+            assert_eq!(decode_series(&bytes), Some(values), "length {len}");
+        }
+    }
+
+    /// A torn all-gap body claiming millions of samples with trailing bytes is
+    /// refused before anything is built.
+    #[test]
+    fn an_all_gap_body_with_a_huge_count_or_trailing_bytes_decodes_to_nothing() {
+        let mut huge = Vec::new();
+        write_varint(&mut huge, 32_000_000);
+        write_varint(&mut huge, 1);
+        huge.push(SERIES_NONE);
+        huge.extend(std::iter::repeat_n(0u8, 4 << 20));
+        assert_eq!(decode_series(&frame(SERIES_TAG, huge)), None);
+
+        let mut trailing = Vec::new();
+        write_varint(&mut trailing, 20);
+        write_varint(&mut trailing, 1);
+        trailing.push(SERIES_NONE);
+        trailing.push(0);
+        assert_eq!(decode_series(&frame(SERIES_TAG, trailing)), None);
+    }
+
+    #[test]
+    fn a_present_series_still_refuses_a_count_the_bytes_cannot_hold() {
+        let mut torn = Vec::new();
+        write_varint(&mut torn, 4096 * 8 + 1);
+        write_varint(&mut torn, 1);
+        torn.push(SERIES_ALL);
+        torn.extend(std::iter::repeat_n(0u8, 4096));
+        assert_eq!(decode_series(&frame(SERIES_TAG, torn)), None);
+    }
+
+    #[derive(Deserialize)]
+    struct TrackVectors {
+        cases: Vec<TrackVector>,
+    }
+
+    #[derive(Deserialize)]
+    struct TrackVector {
+        name: String,
+        points: Vec<(f64, f64, Option<f64>)>,
+        bytes: Vec<u8>,
+    }
+
+    /// Scenario: a track crosses the bridge as bytes and the TypeScript decoder
+    /// reads them.
+    ///
+    /// Expected behaviour: the engine writes exactly the bytes the shared
+    /// vectors pin, which the TypeScript suite decodes from the same file, so a
+    /// change to the stream on one side fails the other.
+    #[test]
+    fn polyline_writes_the_vectors_the_typescript_decoder_reads() {
+        let vectors: TrackVectors = serde_json::from_str(include_str!(
+            "../../tests/fixtures/track_codec_vectors.json"
+        ))
+        .unwrap();
+        assert!(!vectors.cases.is_empty());
+        for case in vectors.cases {
+            let points: Vec<GpsPoint> = case
+                .points
+                .iter()
+                .map(|&(lat, lng, ele)| pt(lat, lng, ele))
+                .collect();
+            assert_eq!(encode_polyline(&points), case.bytes, "{}", case.name);
+            assert_eq!(decode_polyline(&case.bytes), Some(points), "{}", case.name);
+            for cut in 0..case.bytes.len() {
+                assert_eq!(decode_polyline(&case.bytes[..cut]), None, "{}", case.name);
+            }
+        }
+    }
+
+    /// An elevation that is not a number is unknown, and sea level is a value,
+    /// so a NaN must not come back as 0 m.
+    #[test]
+    fn a_non_finite_elevation_is_written_as_absent() {
+        let points = [
+            pt(46.5, 6.6, Some(f64::NAN)),
+            pt(46.5001, 6.6001, Some(f64::INFINITY)),
+            pt(46.5002, 6.6002, Some(0.0)),
+        ];
+        let elevations: Vec<Option<f64>> = decode_polyline(&encode_polyline(&points))
+            .unwrap()
+            .iter()
+            .map(|p| p.elevation)
+            .collect();
+        assert_eq!(elevations, vec![None, None, Some(0.0)]);
+
+        let none_known = [pt(46.5, 6.6, Some(f64::NAN))];
+        assert_eq!(
+            encode_polyline(&none_known),
+            encode_polyline(&[pt(46.5, 6.6, None)])
+        );
     }
 }

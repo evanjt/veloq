@@ -65,18 +65,50 @@ impl BasemapManager {
     }
 
     /// Total bytes across every source, answered without a WebView.
-    fn get_cache_size(&self) -> u64 {
-        basemap::store().map(|s| s.size()).unwrap_or(0)
+    ///
+    /// Async because the first read of a session loads every source's sidecar,
+    /// and a source with none is rebuilt by walking its tree: about 330 ms on
+    /// the S22 at the 400 MB ceiling, on a screen with a 100 ms mount budget.
+    async fn get_cache_size(&self) -> f64 {
+        off_the_caller(|| Ok(basemap::store().map(|s| s.size()).unwrap_or(0)))
+            .await
+            .unwrap_or(0) as f64
     }
 
-    /// Bytes held for one source.
-    fn get_source_size(&self, source: String) -> u64 {
-        basemap::store().map(|s| s.size_of(&source)).unwrap_or(0)
+    /// Bytes held for one source. Async for the reason
+    /// [`get_cache_size`](Self::get_cache_size) is.
+    async fn get_source_size(&self, source: String) -> f64 {
+        off_the_caller(move || Ok(basemap::store().map(|s| s.size_of(&source)).unwrap_or(0)))
+            .await
+            .unwrap_or(0) as f64
+    }
+
+    /// Drop every tile that is not part of the pinned pre-seed, across every
+    /// source. Async for the reason [`set_budget`](Self::set_budget) is: it
+    /// can delete thousands of files.
+    async fn clear_unpinned_tiles(&self) -> Result<u32, VeloqError> {
+        let store = store()?;
+        off_the_caller(move || store.clear_all_opportunistic().map_err(tile_store_error)).await
     }
 
     /// Drop every basemap tile, pinned pre-seed included.
     fn clear_tiles(&self) -> Result<u32, VeloqError> {
         store()?.clear().map_err(tile_store_error)
+    }
+
+    /// Hits, misses and fetches since start or the last reset, one row per
+    /// source. Empty when no path has been set.
+    fn tile_counts(&self) -> Vec<basemap::SourceTileCounts> {
+        basemap::store()
+            .map(|s| s.source_tile_counts())
+            .unwrap_or_default()
+    }
+
+    /// Zero the tile counters.
+    fn reset_tile_counts(&self) {
+        if let Some(store) = basemap::store() {
+            store.reset_tile_counts();
+        }
     }
 
     /// Drop every tile of one source.
@@ -100,12 +132,33 @@ impl BasemapManager {
         }
     }
 
-    /// Bring the whole tree under one byte budget, least recently read first
-    /// across every source and the pinned pre-seed last. One pool, because the
-    /// athlete sets one number.
-    fn evict_to(&self, budget_bytes: u64) -> Result<u32, VeloqError> {
-        store()?.evict_to(budget_bytes).map_err(tile_store_error)
+    /// Keep the whole tree under the athlete's ceiling, in bytes, and bring it
+    /// under at once. One pool, least recently read first across every source
+    /// and the pinned pre-seed last, because the athlete sets one number.
+    /// Every tile stored afterwards is held to it too. Answers how many tiles
+    /// went.
+    ///
+    /// Async because lowering the ceiling can delete thousands of files.
+    async fn set_budget(&self, budget_bytes: f64) -> Result<u32, VeloqError> {
+        let budget_bytes = crate::ffi_types::uint_from_wire(budget_bytes);
+        let store = store()?;
+        off_the_caller(move || store.set_budget(budget_bytes).map_err(tile_store_error)).await
     }
+}
+
+/// Run `work` on a blocking thread of the shared runtime, so the JS thread
+/// that awaits it is free while the filesystem is walked.
+async fn off_the_caller<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, VeloqError> + Send + 'static,
+) -> Result<T, VeloqError> {
+    crate::runtime::ASYNC_RUNTIME
+        .spawn_blocking(work)
+        .await
+        .unwrap_or_else(|e| {
+            Err(VeloqError::TileStore {
+                msg: format!("the tile store thread died without a result: {e}"),
+            })
+        })
 }
 
 fn store() -> Result<Arc<basemap::TileStore>, VeloqError> {
@@ -121,6 +174,7 @@ fn tile_store_error(e: std::io::Error) -> VeloqError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::block_on;
     use crate::test_globals::serial_global_state;
 
     #[test]
@@ -144,16 +198,16 @@ mod tests {
             manager.get_tile("osm".into(), 3, 4, 2),
             Some(vec![1, 2, 3, 4])
         );
-        assert_eq!(manager.get_source_size("osm".into()), 6);
-        assert_eq!(manager.get_source_size("sat".into()), 3);
-        assert_eq!(manager.get_cache_size(), 9);
+        assert_eq!(block_on(manager.get_source_size("osm".into())), 6.0);
+        assert_eq!(block_on(manager.get_source_size("sat".into())), 3.0);
+        assert_eq!(block_on(manager.get_cache_size()), 9.0);
 
         // One budget over the whole tree. The other source's tile is the
         // least recently read, so it goes even though this source is the one
         // that is over.
-        assert_eq!(manager.evict_to(6).unwrap(), 1);
-        assert_eq!(manager.get_cache_size(), 6);
-        assert_eq!(manager.get_source_size("sat".into()), 0);
+        assert_eq!(block_on(manager.set_budget(6.0)).unwrap(), 1);
+        assert_eq!(block_on(manager.get_cache_size()), 6.0);
+        assert_eq!(block_on(manager.get_source_size("sat".into())), 0.0);
         assert_eq!(
             manager.get_tile("osm".into(), 3, 4, 2),
             Some(vec![1, 2, 3, 4]),
@@ -162,8 +216,46 @@ mod tests {
         assert_eq!(manager.get_tile("osm".into(), 3, 4, 3), Some(vec![5, 6]));
 
         assert_eq!(manager.clear_source_tiles("osm".into()).unwrap(), 2);
-        assert_eq!(manager.get_source_size("osm".into()), 0);
-        assert_eq!(manager.get_cache_size(), 0);
+        assert_eq!(block_on(manager.get_source_size("osm".into())), 0.0);
+        assert_eq!(block_on(manager.get_cache_size()), 0.0);
+    }
+
+    /// The ceiling holds for every tile stored after it is set, and survives a
+    /// clear of the whole store.
+    #[test]
+    fn a_budget_holds_the_tiles_stored_after_it_and_outlives_a_clear() {
+        let _guard = serial_global_state();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let manager = BasemapManager::new();
+        manager.set_path(tmp.path().to_string_lossy().into_owned());
+
+        assert_eq!(block_on(manager.set_budget(100.0)).unwrap(), 0);
+        for y in 0..4u32 {
+            manager
+                .put_tile("osm".into(), 10, 1, y, "pbf".into(), vec![7; 40], false)
+                .unwrap();
+        }
+        assert_eq!(block_on(manager.get_cache_size()), 80.0);
+
+        assert_eq!(manager.clear_tiles().unwrap(), 2);
+        assert_eq!(block_on(manager.get_cache_size()), 0.0);
+        for y in 0..4u32 {
+            manager
+                .put_tile("osm".into(), 10, 1, y, "pbf".into(), vec![7; 40], false)
+                .unwrap();
+        }
+        assert_eq!(block_on(manager.get_cache_size()), 80.0);
+    }
+
+    #[test]
+    fn a_store_with_no_path_refuses_a_budget_and_sizes_as_empty() {
+        let _guard = serial_global_state();
+        basemap::close();
+        let manager = BasemapManager::new();
+
+        assert!(block_on(manager.set_budget(100.0)).is_err());
+        assert!(manager.clear_tiles().is_err());
+        assert_eq!(block_on(manager.get_cache_size()), 0.0);
     }
 
     /// Scenario: Android kills the app process without unwinding the store, so
@@ -221,7 +313,7 @@ mod tests {
         // tile answering proves the parsed index is complete.
         let reopened = BasemapManager::new();
         reopened.set_path(root.to_string_lossy().into_owned());
-        assert_eq!(reopened.get_source_size("osm".into()), 5 * 64);
+        assert_eq!(block_on(reopened.get_source_size("osm".into())), 5.0 * 64.0);
         for y in 0..5u32 {
             assert!(
                 reopened.get_tile("osm".into(), 10, 1, y).is_some(),
@@ -259,6 +351,9 @@ mod tests {
 
         let reopened = BasemapManager::new();
         reopened.set_path(root.to_string_lossy().into_owned());
-        assert_eq!(reopened.get_source_size("osm".into()), 64 + 32);
+        assert_eq!(
+            block_on(reopened.get_source_size("osm".into())),
+            64.0 + 32.0
+        );
     }
 }

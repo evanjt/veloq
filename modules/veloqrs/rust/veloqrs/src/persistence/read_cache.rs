@@ -21,6 +21,7 @@
 //! worse, hit when the database had moved.
 
 use std::num::NonZeroUsize;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 
 use lru::LruCache;
@@ -28,6 +29,7 @@ use rusqlite::{Connection, OpenFlags};
 use tracematch::RouteSignature;
 
 struct ReadCache {
+    generation: AtomicU64,
     /// The database, and the connection the stamp is read on. Opened on the
     /// first cached read after a bind.
     stamp: Mutex<Stamp>,
@@ -40,29 +42,31 @@ struct ReadCache {
     /// decode rather than a row to read, so this is the one read where the
     /// saving is the parse and not the query.
     signatures: Mutex<LruCache<String, Arc<RouteSignature>>>,
-    /// Consensus routes, by group. The medoid is computed over every track in
-    /// the group, so this is the one cached read whose miss costs more than a
-    /// query: the route tab asks for it on every open of the same route.
-    consensus: Mutex<LruCache<String, Arc<Vec<tracematch::GpsPoint>>>>,
     /// Section performances, by section and sport filter. The section detail
     /// screen asks for one and the insights batch asks for many in a row, and
     /// the answer is built from every traversal of the section, so this is the
     /// engine's `perf_cache` on the reader's side of the lock.
     performances: Mutex<LruCache<String, Arc<crate::SectionPerformanceResult>>>,
-    /// The corridor names an athlete gave their sections, resolved onto the
-    /// catalogue. One map for the whole library, and every pooled read that
-    /// names a section wants it, so it is a slot rather than an LRU.
-    named_overlay: Mutex<Option<Arc<std::collections::BTreeMap<String, String>>>>,
+    /// Section lap delta curves, keyed as `performances` is and built from
+    /// them. Each lap costs a track and a stream decode, and the section
+    /// screen asks again on every time chip, which only filters this set.
+    lap_curves: Mutex<LruCache<String, Arc<Option<crate::FfiSectionLapCurves>>>>,
+    sections: Mutex<LruCache<String, Arc<tracematch::FrequentSection>>>,
+    /// The corridors an athlete named, resolved onto the catalogue: the name
+    /// per section and the corridor listing. One value for the whole library,
+    /// and every pooled read that names a section or lists corridors wants
+    /// it, so it is a slot rather than an LRU.
+    named_overlay: Mutex<Option<Arc<crate::persistence::sections::named::NamedOverlay>>>,
+    /// Each live split child's parent and part. Every pooled name read in a
+    /// library holding an unnamed split child composes from it, and building
+    /// it walks the whole ledger, so it is a slot like the overlay.
+    split_lineage: Mutex<Option<Arc<crate::persistence::sections::numbers::SplitLineage>>>,
 }
 
 /// How many signatures to keep. The feed draws a screenful and the athlete
 /// scrolls back over the same cards, so a couple of hundred covers a session's
 /// worth without holding a library of blobs in memory.
 const SIGNATURE_CAPACITY: usize = 200;
-
-/// How many consensus routes to keep. The athlete opens a handful of routes in
-/// a sitting and each is a whole track, so this stays small.
-const CONSENSUS_CAPACITY: usize = 16;
 
 /// How many section performance results to keep. The insights batch asks for
 /// a screenful of sections at once, and each result carries every traversal,
@@ -77,18 +81,23 @@ struct Stamp {
 }
 
 static READ_CACHE: LazyLock<ReadCache> = LazyLock::new(|| ReadCache {
+    generation: AtomicU64::new(0),
     stamp: Mutex::new(Stamp::default()),
     sport_types: Mutex::new(None),
     signatures: Mutex::new(LruCache::new(
         NonZeroUsize::new(SIGNATURE_CAPACITY).expect("a cache with no room is a bug"),
     )),
-    consensus: Mutex::new(LruCache::new(
-        NonZeroUsize::new(CONSENSUS_CAPACITY).expect("a cache with no room is a bug"),
-    )),
     performances: Mutex::new(LruCache::new(
         NonZeroUsize::new(PERFORMANCE_CAPACITY).expect("a cache with no room is a bug"),
     )),
+    lap_curves: Mutex::new(LruCache::new(
+        NonZeroUsize::new(PERFORMANCE_CAPACITY).expect("a cache with no room is a bug"),
+    )),
+    sections: Mutex::new(LruCache::new(
+        NonZeroUsize::new(32).expect("a cache with no room is a bug"),
+    )),
     named_overlay: Mutex::new(None),
+    split_lineage: Mutex::new(None),
 });
 
 /// The same poison recovery the pool and the engine take: the panic was in a
@@ -111,16 +120,70 @@ pub(crate) fn bind(db_path: &str) {
 /// Drop every cached value. The stamp connection stays: it is the thing that
 /// says whether the next fill is still current.
 pub(crate) fn clear() {
+    #[cfg(test)]
+    hold_clear();
+    READ_CACHE.generation.fetch_add(1, Ordering::AcqRel);
     *lock(&READ_CACHE.sport_types) = None;
     lock(&READ_CACHE.signatures).clear();
-    lock(&READ_CACHE.consensus).clear();
     lock(&READ_CACHE.performances).clear();
+    lock(&READ_CACHE.lap_curves).clear();
+    lock(&READ_CACHE.sections).clear();
     *lock(&READ_CACHE.named_overlay) = None;
+    *lock(&READ_CACHE.split_lineage) = None;
 }
 
-/// Forget the database and everything held for it. Nothing in the app closes
-/// the engine, so this is for the tests that bind a throwaway one.
+/// A clear on one thread, held before it empties anything, so a test can read
+/// from another thread inside that window.
 #[cfg(test)]
+type ClearHold = (
+    std::thread::ThreadId,
+    std::sync::mpsc::Sender<()>,
+    std::sync::mpsc::Receiver<()>,
+);
+
+#[cfg(test)]
+static CLEAR_HOLD: Mutex<Option<ClearHold>> = Mutex::new(None);
+
+/// Hold this thread's next clear until the receiver it returns is answered.
+/// Scoped to the calling thread, so a clear any other test runs passes.
+#[cfg(test)]
+fn pause_next_clear_on_this_thread() -> (std::sync::mpsc::Receiver<()>, std::sync::mpsc::Sender<()>)
+{
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+    let (resume_tx, resume_rx) = std::sync::mpsc::channel();
+    *lock(&CLEAR_HOLD) = Some((std::thread::current().id(), entered_tx, resume_rx));
+    (entered_rx, resume_tx)
+}
+
+#[cfg(test)]
+fn hold_clear() {
+    let hold = {
+        let mut slot = lock(&CLEAR_HOLD);
+        if slot
+            .as_ref()
+            .is_some_and(|(thread, _, _)| *thread == std::thread::current().id())
+        {
+            slot.take()
+        } else {
+            None
+        }
+    };
+    if let Some((_, entered, resume)) = hold {
+        let _ = entered.send(());
+        let _ = resume.recv();
+    }
+}
+
+fn cache_generation() -> Option<u64> {
+    super::read_pool::reader_current().then(|| READ_CACHE.generation.load(Ordering::Acquire))
+}
+
+fn generation_current(generation: u64) -> bool {
+    super::read_pool::reader_current()
+        && READ_CACHE.generation.load(Ordering::Acquire) == generation
+}
+
+/// Forget the database and everything held for it when the engine closes.
 pub(crate) fn close() {
     clear();
     *lock(&READ_CACHE.stamp) = Stamp::default();
@@ -129,25 +192,6 @@ pub(crate) fn close() {
 /// The sports the map filter offers, cached until the database moves.
 pub fn sport_types(fill: impl FnOnce() -> Vec<String>) -> Vec<String> {
     cached(&READ_CACHE.sport_types, fill)
-}
-
-/// One route group's consensus line, cached until the database moves.
-///
-/// `None` is not cached, for the same reason a missing signature is not: a
-/// group with no track yet gets one, and that write moves the stamp.
-pub fn consensus(
-    group_id: &str,
-    fill: impl FnOnce() -> Option<Vec<tracematch::GpsPoint>>,
-) -> Option<Arc<Vec<tracematch::GpsPoint>>> {
-    if database_moved() {
-        clear();
-    }
-    if let Some(hit) = lock(&READ_CACHE.consensus).get(group_id) {
-        return Some(Arc::clone(hit));
-    }
-    let value = Arc::new(fill()?);
-    lock(&READ_CACHE.consensus).put(group_id.to_string(), Arc::clone(&value));
-    Some(value)
 }
 
 /// One section's performances under one sport filter, cached until the
@@ -159,34 +203,133 @@ pub fn performances(
     key: &str,
     fill: impl FnOnce() -> crate::SectionPerformanceResult,
 ) -> Arc<crate::SectionPerformanceResult> {
-    if database_moved() {
-        clear();
+    cached_by_key(&READ_CACHE.performances, key, fill)
+}
+
+/// One section's lap delta curves under one sport filter, cached until the
+/// database moves. `None` is an answer like any other: a section with no lap
+/// to compare stays so until a write moves the stamp.
+pub fn lap_curves(
+    key: &str,
+    fill: impl FnOnce() -> Option<crate::FfiSectionLapCurves>,
+) -> Arc<Option<crate::FfiSectionLapCurves>> {
+    cached_by_key(&READ_CACHE.lap_curves, key, fill)
+}
+
+/// Serve one keyed entry, filling it on a miss, under the same rules as
+/// [`cached`].
+fn cached_by_key<V>(
+    slot: &Mutex<LruCache<String, Arc<V>>>,
+    key: &str,
+    fill: impl FnOnce() -> V,
+) -> Arc<V> {
+    if !super::read_pool::reader_current() {
+        return Arc::new(fill());
     }
-    if let Some(hit) = lock(&READ_CACHE.performances).get(key) {
-        return Arc::clone(hit);
+    database_moved();
+    let Some(generation) = cache_generation() else {
+        return Arc::new(fill());
+    };
+    {
+        let mut cache = lock(slot);
+        if generation_current(generation)
+            && let Some(hit) = cache.get(key)
+        {
+            return Arc::clone(hit);
+        }
     }
     let value = Arc::new(fill());
-    lock(&READ_CACHE.performances).put(key.to_string(), Arc::clone(&value));
+    let mut cache = lock(slot);
+    if generation_current(generation) {
+        cache.put(key.to_string(), Arc::clone(&value));
+    }
     value
 }
 
-/// The section display names the corridor overlay resolves, cached until the
-/// database moves.
-///
-/// An empty map is cached like any other answer: a library with no named
-/// intents is the common one, and the fill short-circuits it with a single
-/// `EXISTS` probe rather than resolving a catalogue nobody has named.
-pub fn named_overlay(
-    fill: impl FnOnce() -> std::collections::BTreeMap<String, String>,
-) -> Arc<std::collections::BTreeMap<String, String>> {
+/// One raw section, cached until the database moves. Names are overlaid only
+/// after this read so a rename never bakes an old name into the value.
+pub fn section(
+    section_id: &str,
+    fill: impl FnOnce() -> Option<tracematch::FrequentSection>,
+) -> Option<Arc<tracematch::FrequentSection>> {
+    if !super::read_pool::reader_current() {
+        return fill().map(Arc::new);
+    }
     if database_moved() {
         clear();
     }
-    if let Some(hit) = lock(&READ_CACHE.named_overlay).as_ref() {
-        return Arc::clone(hit);
+    let generation = cache_generation()?;
+    {
+        let mut cache = lock(&READ_CACHE.sections);
+        if generation_current(generation)
+            && let Some(hit) = cache.get(section_id)
+        {
+            return Some(Arc::clone(hit));
+        }
+    }
+    let value = Arc::new(fill()?);
+    let mut cache = lock(&READ_CACHE.sections);
+    if generation_current(generation) {
+        cache.put(section_id.to_string(), Arc::clone(&value));
+    }
+    Some(value)
+}
+
+/// The resolved corridor overlay, cached until the database moves.
+///
+/// An empty overlay is cached like any other answer: a library with no named
+/// intents is the common one, and the fill short-circuits it with a single
+/// `EXISTS` probe rather than resolving a catalogue nobody has named.
+pub fn named_overlay(
+    fill: impl FnOnce() -> crate::persistence::sections::named::NamedOverlay,
+) -> Arc<crate::persistence::sections::named::NamedOverlay> {
+    if !super::read_pool::reader_current() {
+        return Arc::new(fill());
+    }
+    database_moved();
+    let Some(generation) = cache_generation() else {
+        return Arc::new(fill());
+    };
+    {
+        let cache = lock(&READ_CACHE.named_overlay);
+        if generation_current(generation)
+            && let Some(hit) = cache.as_ref()
+        {
+            return Arc::clone(hit);
+        }
     }
     let value = Arc::new(fill());
-    *lock(&READ_CACHE.named_overlay) = Some(Arc::clone(&value));
+    let mut cache = lock(&READ_CACHE.named_overlay);
+    if generation_current(generation) {
+        *cache = Some(Arc::clone(&value));
+    }
+    value
+}
+
+/// Each live split child's parent and part, cached until the database moves.
+pub fn split_lineage(
+    fill: impl FnOnce() -> crate::persistence::sections::numbers::SplitLineage,
+) -> Arc<crate::persistence::sections::numbers::SplitLineage> {
+    if !super::read_pool::reader_current() {
+        return Arc::new(fill());
+    }
+    database_moved();
+    let Some(generation) = cache_generation() else {
+        return Arc::new(fill());
+    };
+    {
+        let cache = lock(&READ_CACHE.split_lineage);
+        if generation_current(generation)
+            && let Some(hit) = cache.as_ref()
+        {
+            return Arc::clone(hit);
+        }
+    }
+    let value = Arc::new(fill());
+    let mut cache = lock(&READ_CACHE.split_lineage);
+    if generation_current(generation) {
+        *cache = Some(Arc::clone(&value));
+    }
     value
 }
 
@@ -199,14 +342,26 @@ pub fn signature(
     activity_id: &str,
     fill: impl FnOnce() -> Option<RouteSignature>,
 ) -> Option<Arc<RouteSignature>> {
-    if database_moved() {
-        clear();
+    if !super::read_pool::reader_current() {
+        return fill().map(Arc::new);
     }
-    if let Some(hit) = lock(&READ_CACHE.signatures).get(activity_id) {
-        return Some(Arc::clone(hit));
+    database_moved();
+    let Some(generation) = cache_generation() else {
+        return fill().map(Arc::new);
+    };
+    {
+        let mut cache = lock(&READ_CACHE.signatures);
+        if generation_current(generation)
+            && let Some(hit) = cache.get(activity_id)
+        {
+            return Some(Arc::clone(hit));
+        }
     }
     let value = Arc::new(fill()?);
-    lock(&READ_CACHE.signatures).put(activity_id.to_string(), Arc::clone(&value));
+    let mut cache = lock(&READ_CACHE.signatures);
+    if generation_current(generation) {
+        cache.put(activity_id.to_string(), Arc::clone(&value));
+    }
     Some(value)
 }
 
@@ -218,18 +373,30 @@ pub fn signature(
 /// holding the slot across that would serialise every reader behind the first
 /// miss.
 fn cached<T: Clone>(slot: &Mutex<Option<T>>, fill: impl FnOnce() -> T) -> T {
-    if database_moved() {
-        clear();
+    if !super::read_pool::reader_current() {
+        return fill();
     }
-    if let Some(value) = lock(slot).clone() {
-        return value;
+    database_moved();
+    let Some(generation) = cache_generation() else {
+        return fill();
+    };
+    {
+        let cache = lock(slot);
+        if generation_current(generation)
+            && let Some(value) = cache.clone()
+        {
+            return value;
+        }
     }
     let value = fill();
-    *lock(slot) = Some(value.clone());
+    let mut cache = lock(slot);
+    if generation_current(generation) {
+        *cache = Some(value.clone());
+    }
     value
 }
 
-/// Whether anything has committed since the last look.
+/// Clear cached values before publishing a new database stamp.
 ///
 /// A stamp that cannot be read is reported as moved: the honest answer to "is
 /// this still current" with no way to ask is no, and the cost of that is one
@@ -238,6 +405,7 @@ fn database_moved() -> bool {
     let mut stamp = lock(&READ_CACHE.stamp);
     if stamp.conn.is_none() {
         let Some(path) = stamp.path.clone() else {
+            clear();
             return true;
         };
         match Connection::open_with_flags(
@@ -247,6 +415,7 @@ fn database_moved() -> bool {
             Ok(conn) => stamp.conn = Some(conn),
             Err(e) => {
                 log::warn!("veloqrs: [ReadCache] stamp connection to '{path}': {e:?}");
+                clear();
                 return true;
             }
         }
@@ -257,10 +426,14 @@ fn database_moved() -> bool {
             .ok()
     });
     let Some(current) = current else {
+        clear();
         return true;
     };
 
     let moved = stamp.seen != Some(current);
+    if moved {
+        clear();
+    }
     stamp.seen = Some(current);
     moved
 }
@@ -268,6 +441,7 @@ fn database_moved() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::persistence::read_pool;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tempfile::TempDir;
 
@@ -355,5 +529,260 @@ mod tests {
         );
 
         close();
+    }
+
+    #[test]
+    fn an_old_reader_cannot_repopulate_the_cache_after_rebind() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let old_path = dir.path().join("old.db");
+        let new_path = dir.path().join("new.db");
+        let old = Connection::open(&old_path).unwrap();
+        let new = Connection::open(&new_path).unwrap();
+        for (conn, name) in [(&old, "old"), (&new, "new")] {
+            conn.execute("CREATE TABLE sports (name TEXT)", []).unwrap();
+            conn.execute("INSERT INTO sports VALUES (?1)", [name])
+                .unwrap();
+        }
+        let old_path = old_path.to_str().unwrap().to_string();
+        let new_path = new_path.to_str().unwrap().to_string();
+        read_pool::bind(&old_path);
+
+        let (entered, held) = std::sync::mpsc::channel();
+        let (release, resume) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            read_pool::with_read_conn(|conn| {
+                sport_types(|| {
+                    let name: String = conn
+                        .query_row("SELECT name FROM sports", [], |row| row.get(0))
+                        .unwrap();
+                    entered.send(()).unwrap();
+                    resume.recv().unwrap();
+                    vec![name]
+                })
+            })
+            .unwrap()
+        });
+        held.recv().unwrap();
+        read_pool::close();
+        read_pool::bind(&new_path);
+        let read_new = || {
+            read_pool::with_read_conn(|conn| {
+                sport_types(|| {
+                    vec![
+                        conn.query_row("SELECT name FROM sports", [], |row| row.get(0))
+                            .unwrap(),
+                    ]
+                })
+            })
+            .unwrap()
+        };
+        assert_eq!(read_new(), vec!["new"]);
+        release.send(()).unwrap();
+        assert_eq!(reader.join().unwrap(), vec!["old"]);
+        assert_eq!(read_new(), vec!["new"], "old fill entered the new cache");
+        read_pool::close();
+    }
+
+    #[test]
+    fn a_fill_started_before_a_commit_cannot_replace_the_new_value() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("read_cache.db");
+        let writer = Connection::open(&path).unwrap();
+        writer
+            .execute_batch("CREATE TABLE sports (name TEXT); INSERT INTO sports VALUES ('Ride')")
+            .unwrap();
+        let path = path.to_str().unwrap().to_string();
+        read_pool::bind(&path);
+
+        let (entered, held) = std::sync::mpsc::channel();
+        let (release, resume) = std::sync::mpsc::channel();
+        let old = std::thread::spawn(move || {
+            read_pool::with_read_conn(|conn| {
+                sport_types(|| {
+                    let name = conn
+                        .query_row("SELECT name FROM sports", [], |row| row.get(0))
+                        .unwrap();
+                    entered.send(()).unwrap();
+                    resume.recv().unwrap();
+                    vec![name]
+                })
+            })
+            .unwrap()
+        });
+        held.recv().unwrap();
+        writer
+            .execute("INSERT INTO sports VALUES ('Run')", [])
+            .unwrap();
+        let read = || {
+            read_pool::with_read_conn(|conn| {
+                sport_types(|| {
+                    conn.prepare("SELECT name FROM sports ORDER BY name")
+                        .unwrap()
+                        .query_map([], |row| row.get(0))
+                        .unwrap()
+                        .map(Result::unwrap)
+                        .collect()
+                })
+            })
+            .unwrap()
+        };
+        assert_eq!(read(), vec!["Ride", "Run"]);
+        release.send(()).unwrap();
+        assert_eq!(old.join().unwrap(), vec!["Ride"]);
+        assert_eq!(read(), vec!["Ride", "Run"]);
+        read_pool::close();
+    }
+
+    #[test]
+    fn a_new_stamp_is_never_visible_with_a_precommit_cached_value() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("read_cache.db");
+        let writer = Connection::open(&path).unwrap();
+        writer
+            .execute_batch("CREATE TABLE sports (name TEXT); INSERT INTO sports VALUES ('Ride')")
+            .unwrap();
+        let path = path.to_str().unwrap().to_string();
+        read_pool::bind(&path);
+        let read = || {
+            read_pool::with_read_conn(|conn| {
+                sport_types(|| {
+                    conn.prepare("SELECT name FROM sports ORDER BY name")
+                        .unwrap()
+                        .query_map([], |row| row.get(0))
+                        .unwrap()
+                        .map(Result::unwrap)
+                        .collect()
+                })
+            })
+            .unwrap()
+        };
+        assert_eq!(read(), vec!["Ride"]);
+        writer
+            .execute("INSERT INTO sports VALUES ('Run')", [])
+            .unwrap();
+
+        assert!(database_moved());
+
+        assert_eq!(read(), vec!["Ride", "Run"]);
+        read_pool::close();
+    }
+
+    /// Scenario: a commit lands, and one thread's read notices the move and
+    /// starts dropping the cache while another thread reads.
+    ///
+    /// Expected behaviour: the second reader never sees the new stamp beside
+    /// the value cached before the commit. The clear runs before the stamp is
+    /// published, both under the stamp lock, so the second reader either
+    /// waits for the clear or sees the move itself.
+    #[test]
+    fn a_reader_racing_the_clear_never_gets_the_precommit_value() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("read_cache.db");
+        let writer = Connection::open(&path).unwrap();
+        writer
+            .execute_batch("CREATE TABLE sports (name TEXT); INSERT INTO sports VALUES ('Ride')")
+            .unwrap();
+        let path = path.to_str().unwrap().to_string();
+        read_pool::bind(&path);
+        fn read() -> Vec<String> {
+            read_pool::with_read_conn(|conn| {
+                sport_types(|| {
+                    conn.prepare("SELECT name FROM sports ORDER BY name")
+                        .unwrap()
+                        .query_map([], |row| row.get(0))
+                        .unwrap()
+                        .map(Result::unwrap)
+                        .collect()
+                })
+            })
+            .unwrap()
+        }
+        assert_eq!(read(), vec!["Ride"]);
+        writer
+            .execute("INSERT INTO sports VALUES ('Run')", [])
+            .unwrap();
+
+        let (armed_tx, armed_rx) = std::sync::mpsc::channel();
+        let noticing = std::thread::spawn(move || {
+            armed_tx.send(pause_next_clear_on_this_thread()).unwrap();
+            read()
+        });
+        let (entered, resume) = armed_rx.recv().unwrap();
+        entered
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("the noticing read reached its clear");
+
+        let (racing_tx, racing_rx) = std::sync::mpsc::channel();
+        let racing = std::thread::spawn(move || racing_tx.send(read()).unwrap());
+        // A reader that is correctly held waits on the stamp lock until the
+        // clear finishes, so this times out. One that is not answers at once.
+        let early = racing_rx
+            .recv_timeout(std::time::Duration::from_millis(500))
+            .ok();
+        resume.send(()).unwrap();
+        let racing_read = early.unwrap_or_else(|| racing_rx.recv().unwrap());
+        racing.join().unwrap();
+
+        assert_eq!(
+            racing_read,
+            vec!["Ride", "Run"],
+            "a read during the clear served the value cached before the commit"
+        );
+        assert_eq!(noticing.join().unwrap(), vec!["Ride", "Run"]);
+        read_pool::close();
+    }
+
+    #[test]
+    fn test_sport_types_rejects_old_reader_starting_after_rebind() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let old_path = dir.path().join("old.db");
+        let new_path = dir.path().join("new.db");
+        for (path, name) in [(&old_path, "old"), (&new_path, "new")] {
+            let writer = Connection::open(path).unwrap();
+            writer
+                .execute("CREATE TABLE sports (name TEXT)", [])
+                .unwrap();
+            writer
+                .execute("INSERT INTO sports VALUES (?1)", [name])
+                .unwrap();
+        }
+        read_pool::bind(old_path.to_str().unwrap());
+
+        let (entered, held) = std::sync::mpsc::channel();
+        let (release, resume) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            read_pool::with_read_conn(|conn| {
+                entered.send(()).unwrap();
+                resume.recv().unwrap();
+                sport_types(|| {
+                    vec![
+                        conn.query_row("SELECT name FROM sports", [], |row| row.get(0))
+                            .unwrap(),
+                    ]
+                })
+            })
+            .unwrap()
+        });
+        held.recv().unwrap();
+        read_pool::close();
+        read_pool::bind(new_path.to_str().unwrap());
+        release.send(()).unwrap();
+        assert_eq!(reader.join().unwrap(), vec!["old"]);
+
+        let current = read_pool::with_read_conn(|conn| {
+            sport_types(|| {
+                vec![
+                    conn.query_row("SELECT name FROM sports", [], |row| row.get(0))
+                        .unwrap(),
+                ]
+            })
+        });
+        assert_eq!(current.unwrap(), vec!["new"], "old reader filled new cache");
+        read_pool::close();
     }
 }

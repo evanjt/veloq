@@ -87,24 +87,23 @@ impl HeatmapManager {
         with_engine(|e| e.clear_heatmap_tiles_path())
     }
 
-    /// Clear all heatmap tiles from disk.
-    fn clear_tiles(&self, base_path: String) -> Result<u32, VeloqError> {
-        let cleared = with_engine(|e| e.clear_heatmap_tiles(&base_path))?;
+    /// Stop any tile pass, then clear every heatmap tile at `base_path`.
+    ///
+    /// Async because the stop waits out a pass that is drawing, seconds on a
+    /// large library, and the walk is tens of thousands of files. Rejects when
+    /// a pass would not stop or a tile could not be removed.
+    async fn clear_tiles(&self, base_path: String) -> Result<(), VeloqError> {
+        let cleared = crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || {
+                crate::persistence::tiles::clear_tile_set(std::path::Path::new(&base_path))
+            })
+            .await
+            .unwrap_or_else(|e| Err(format!("Tile clear thread died without a result: {e}")));
         // The remembered figure describes a tree that is gone, and the row
         // that reads it is the same row the athlete just cleared from.
         *last_cache_size() = None;
-        Ok(cleared)
-    }
-
-    /// Get total size of heatmap tile cache in bytes.
-    /// Walks the z/x/y directory tree natively - much faster than JS filesystem calls.
-    ///
-    /// Blocking, and linear in cached tiles: 40,061 of them measured 170 ms on
-    /// the CPH2653, against a 100 ms mount budget. Every mount path uses
-    /// `start_cache_size` and `poll_cache_size` instead. This stays for the
-    /// callers that are already off the JS thread and for the tests.
-    fn get_cache_size(&self, base_path: String) -> Result<u64, VeloqError> {
-        Ok(walk_cache_size(&base_path))
+        // The same variant the whole wipe fails with when its tiles would not go.
+        cleared.map_err(|msg| VeloqError::Database { msg })
     }
 
     /// Start the cache-size walk on its own thread. Poll `poll_cache_size`
@@ -247,16 +246,16 @@ mod tests {
         let heatmap = HeatmapManager::new();
         let base = tmp.path().join("tiles");
         let base_str = base.to_string_lossy().into_owned();
-        assert_eq!(heatmap.get_cache_size(base_str.clone()).unwrap(), 0);
+        assert_eq!(walk_cache_size(&base_str), 0);
 
         std::fs::create_dir_all(base.join("12").join("2130")).unwrap();
         std::fs::write(base.join("12").join("2130").join("1450.png"), [0u8; 300]).unwrap();
         std::fs::write(base.join("12").join("2130").join("1451.png"), [0u8; 200]).unwrap();
         std::fs::write(base.join("version.txt"), "ignored, not under z/x/").unwrap();
-        assert_eq!(heatmap.get_cache_size(base_str).unwrap(), 500);
+        assert_eq!(walk_cache_size(&base_str), 500);
     }
 
-    /// Scenario: three settings mount effects each called `get_cache_size`,
+    /// Scenario: three settings mount effects each called a blocking walk,
     /// which walks the whole z/x/y tree synchronously. At 40,061 tiles that
     /// was measured at 170 ms on the CPH2653, against a 100 ms mount budget.
     ///
@@ -280,7 +279,7 @@ mod tests {
 
         let done = poll_until_complete(&heatmap);
         assert_eq!(done.bytes, 500.0);
-        assert_eq!(done.bytes, heatmap.get_cache_size(base_str).unwrap() as f64);
+        assert_eq!(done.bytes, walk_cache_size(&base_str) as f64);
         // The slot is released, and the figure outlives the poll that took it:
         // two of the three mount effects only ever see this.
         let after = heatmap.poll_cache_size().unwrap();
@@ -371,9 +370,60 @@ mod tests {
         heatmap.start_cache_size(base_str.clone()).unwrap();
         assert_eq!(poll_until_complete(&heatmap).bytes, 42.0);
 
-        heatmap.clear_tiles(base_str).unwrap();
+        crate::runtime::block_on(heatmap.clear_tiles(base_str)).unwrap();
         assert_eq!(heatmap.poll_cache_size().unwrap().bytes, 0.0);
         heatmap.clear_tiles_path().unwrap();
+    }
+
+    /// Scenario: the athlete clears the map cache while a sync holds the
+    /// engine write lock. The clear ran under that lock, so the delete of a
+    /// full cache queued behind the sync and every engine call queued behind
+    /// the delete.
+    ///
+    /// Expected behaviour: the clear finishes while another thread still
+    /// holds the engine lock.
+    #[test]
+    fn a_clear_does_not_wait_for_the_engine_lock() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("tiles-unlocked.db");
+        let heatmap = HeatmapManager::new();
+        let base = tmp.path().join("heat");
+        let base_str = base.to_string_lossy().into_owned();
+        heatmap.set_tiles_path(base_str.clone()).unwrap();
+        for x in 0..20 {
+            std::fs::create_dir_all(base.join("14").join(x.to_string())).unwrap();
+            for y in 0..20 {
+                std::fs::write(
+                    base.join("14").join(x.to_string()).join(format!("{y}.png")),
+                    [0u8; 16],
+                )
+                .unwrap();
+            }
+        }
+        let (held_tx, held_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let holder = std::thread::spawn(move || {
+            crate::persistence::with_persistent_engine(|_| {
+                held_tx.send(()).unwrap();
+                let _ = release_rx.recv();
+            });
+        });
+        held_rx.recv().expect("the holder takes the lock");
+
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let clear_path = base_str.clone();
+        let clearer = std::thread::spawn(move || {
+            let outcome = crate::runtime::block_on(HeatmapManager::new().clear_tiles(clear_path));
+            let _ = done_tx.send(outcome.is_ok());
+        });
+        let finished = done_rx.recv_timeout(std::time::Duration::from_secs(30));
+        release_tx.send(()).unwrap();
+        holder.join().unwrap();
+        clearer.join().unwrap();
+        heatmap.clear_tiles_path().unwrap();
+
+        assert_eq!(finished, Ok(true), "the clear waited on the engine lock");
+        assert_eq!(walk_cache_size(&base_str), 0);
     }
 
     /// The two slots are process-wide, so every test here takes
@@ -401,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    fn the_path_is_set_and_cleared_on_the_engine_and_a_clear_counts_files() {
+    fn the_path_is_set_and_cleared_on_the_engine_and_a_clear_empties_the_set() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("tiles.db");
         let heatmap = HeatmapManager::new();
@@ -411,14 +461,14 @@ mod tests {
         heatmap.set_tiles_path(base_str.clone()).unwrap();
         std::fs::create_dir_all(base.join("10").join("1")).unwrap();
         std::fs::write(base.join("10").join("1").join("1.png"), [0u8; 10]).unwrap();
-        assert_eq!(heatmap.clear_tiles(base_str.clone()).unwrap(), 1);
-        assert_eq!(heatmap.get_cache_size(base_str).unwrap(), 0);
+        crate::runtime::block_on(heatmap.clear_tiles(base_str.clone())).unwrap();
+        assert_eq!(walk_cache_size(&base_str), 0);
         heatmap.clear_tiles_path().unwrap();
     }
 
     /// Scenario: a panic inside a tile job poisons the handle or the sweep
-    /// cancel slot, and both were read with `map_err(|_| LockFailed)`. Every
-    /// later call answered `LockFailed`, so heatmap generation was over for the
+    /// cancel slot, and both were read with `map_err(|_| ...)` into an error. Every
+    /// later call failed, so heatmap generation was over for the
     /// life of the process. Every other slot in this file already recovers.
     ///
     /// Expected behaviour: a poisoned lock is taken anyway, the same way the
@@ -495,6 +545,37 @@ mod tests {
 
         drop(second);
         assert!(!heatmap.cancel().unwrap(), "nothing was left to stop");
+    }
+
+    /// Scenario: another test's sweep is registered on its own thread while
+    /// this one runs, as a sweep spawned by an unrelated lib test is under the
+    /// full suite.
+    ///
+    /// Expected behaviour: a cancel from this test neither reports nor stops
+    /// that sweep, so a test's answer depends on its own sweeps alone.
+    #[test]
+    fn a_cancel_does_not_reach_a_sweep_registered_by_another_test() {
+        let _guard = serial_global_state();
+        let heatmap = HeatmapManager::new();
+
+        let (registered, wait_registered) = std::sync::mpsc::channel::<()>();
+        let (release, held) = std::sync::mpsc::channel::<()>();
+        let other = std::thread::spawn(move || {
+            let sweep = crate::persistence::register_tile_sweep();
+            let token = sweep.token();
+            registered.send(()).unwrap();
+            held.recv().unwrap();
+            token.is_cancelled()
+        });
+        wait_registered.recv().unwrap();
+
+        assert!(
+            !heatmap.cancel().unwrap(),
+            "no sweep of this test was running"
+        );
+
+        release.send(()).unwrap();
+        assert!(!other.join().unwrap(), "another test's sweep was stopped");
     }
 
     #[test]

@@ -8,9 +8,12 @@
 //!    - Activity IDs, sport types, bounds
 //!    - In-memory R-tree spatial index
 //!
-//! 2. **LRU cached** (~2MB max):
+//! 2. **LRU cached**, each bounded by entry count:
 //!    - Route signatures (200 entry cache)
-//!    - Consensus routes (50 entry cache)
+//!    - Route groups (100 entry cache)
+//!    - Sections (50 entry cache)
+//!    - Time streams (200 entry cache)
+//!    - Section performances (64 entry cache)
 //!
 //! 3. **On-demand** (0 memory baseline):
 //!    - Full GPS tracks (only loaded for section detection)
@@ -20,19 +23,21 @@
 //!    - Detected sections
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 
+#[cfg(test)]
+use crate::GpsPoint;
 use crate::objects::error::VeloqError;
 use crate::sections::SectionSummary;
 use crate::{
-    ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, GpsPoint, MatchConfig, RouteGroup,
+    ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, MatchConfig, RouteGroup,
     RouteSignature, SectionConfig, SectionEvidenceCache, SectionPerformanceResult,
 };
 use lru::LruCache;
 use rstar::{AABB, RTree, RTreeObject};
-use rusqlite::{Connection, Result as SqlResult};
+use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 use std::sync::LazyLock;
 
 /// How many section performance results the engine keeps warm.
@@ -54,41 +59,53 @@ const PERF_CACHE_ENTRIES: std::num::NonZeroUsize = match std::num::NonZeroUsize:
 
 pub(crate) mod activities;
 pub mod attempts;
+pub(crate) mod climb_bests;
 pub use activities::{
-    DerivedClear, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
-    ELEVATION_STATE_UNREACHABLE, ElevationStateCounts, mint_local_activity_id,
+    DerivedClear, ELEVATION_SOURCE_CORRECTED, ELEVATION_SOURCE_DEVICE, ELEVATION_SOURCE_RECORDED,
+    ELEVATION_SOURCE_UNKNOWN, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE,
+    ELEVATION_STATE_UNKNOWN, ELEVATION_STATE_UNREACHABLE, ElevationSeries, ElevationStateCounts,
+    SourceSettled, TRACK_FAILURE_LIMIT, TrackRefusalKind, elevation_source_of,
+    mint_local_activity_id,
 };
 /// On-disk blob format. Public so diagnostics that open a database file
 /// directly decode it the same way the engine wrote it.
 pub mod codec;
 pub mod cutover;
 pub(crate) mod export;
+pub mod feed_rings;
+pub(crate) mod file_lock;
 pub use export::{ExportPrivacyPreview, SuggestedHome};
 pub(crate) mod fitness;
-mod indicators;
+pub(crate) mod indicators;
+pub mod job_runs;
 #[cfg(feature = "lock-trace")]
 pub mod lock_trace;
 pub mod read_cache;
 pub mod read_pool;
+pub(crate) mod record_backup;
+pub(crate) mod record_restore;
 pub mod recordings;
 pub(crate) mod records;
 pub use recordings::{FfiRecordingEntry, MAX_AUTO_RETRIES};
 pub mod route_grouping_preview;
 mod route_identity;
-mod routes;
+pub(crate) mod route_lines;
+pub(crate) mod routes;
 mod schema;
 pub use schema::SUPPORTED_SCHEMA_VERSION;
 pub(crate) mod screens;
 pub mod sections;
+pub use sections::SectionNameError;
 pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
 pub mod settings;
 pub mod streams;
+pub use bodies::BodiesOwed;
 pub use streams::StreamGap;
 pub mod tables;
 pub use settings::settings_keys;
 pub mod bodies;
 pub mod curves;
-mod strength;
+pub(crate) mod strength;
 pub use strength::FitOutcome;
 pub mod tiles;
 pub mod wellness;
@@ -203,8 +220,6 @@ pub struct GroupSummary {
     pub group_id: String,
     /// Representative activity ID
     pub representative_id: String,
-    /// Sport type ("Run", "Ride", etc.)
-    pub sport_type: String,
     /// Number of activities in this group
     pub activity_count: u32,
     /// Custom name (user-defined, None if not set)
@@ -213,6 +228,9 @@ pub struct GroupSummary {
     pub bounds: Option<crate::FfiBounds>,
     /// All sport types present in this group's activities
     pub sport_types: Vec<String>,
+    /// The representative activity's distance in metres, 0 when it has no
+    /// metrics row. The routes list shows the same figure.
+    pub distance_meters: f64,
 }
 
 /// Complete activity data for map display.
@@ -224,6 +242,9 @@ pub struct MapActivityComplete {
     pub activity_id: String,
     /// Sport type ("Run", "Ride", etc.)
     pub sport_type: String,
+    /// Whether the sport is recorded in a simulated world, so its track is not
+    /// where the athlete rides.
+    pub is_virtual: bool,
     /// Bounding box for map display
     pub bounds: crate::FfiBounds,
     /// Where the ride began, for the marker. `None` leaves the caller the
@@ -245,9 +266,8 @@ pub struct MapActivityComplete {
 
 #[derive(Debug, Clone)]
 pub struct SectionDetectionProgress {
-    /// Current phase: "loading", "analyzing", "building_rtrees",
-    /// "finding_overlaps", "clustering", "postprocessing", "saving",
-    /// "diffing" (preview only), "complete"
+    /// Current phase: "loading", "analyzing", "saving", "diffing"
+    /// (preview only), "complete"
     pub phase: Arc<std::sync::Mutex<String>>,
     /// Number of items completed in current phase
     pub completed: Arc<AtomicU32>,
@@ -274,6 +294,13 @@ impl SectionDetectionProgress {
         self.completed.fetch_add(1, Ordering::SeqCst);
     }
 
+    pub fn set_progress(&self, completed: usize, total: usize) {
+        self.total
+            .store(total.min(u32::MAX as usize) as u32, Ordering::SeqCst);
+        self.completed
+            .store(completed.min(u32::MAX as usize) as u32, Ordering::SeqCst);
+    }
+
     pub fn get_phase(&self) -> String {
         self.phase.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
@@ -288,8 +315,7 @@ impl SectionDetectionProgress {
 
     /// Phase-weighted overall percent (0–100).
     ///
-    /// Weights are tuned to wall-clock shares so the progress bar advances
-    /// roughly linearly. `finding_overlaps` dominates at ~55%.
+    /// The fold occupies the share between loading and saving.
     pub fn get_percent(&self) -> u32 {
         let phase = self.get_phase();
         let completed = self.get_completed();
@@ -302,11 +328,7 @@ impl SectionDetectionProgress {
 
         let (accumulated, weight) = match phase.as_str() {
             "loading" => (0.0, 0.04),
-            "analyzing" => (0.04, 0.01),
-            "building_rtrees" => (0.05, 0.10),
-            "finding_overlaps" => (0.15, 0.55),
-            "clustering" => (0.70, 0.05),
-            "postprocessing" => (0.75, 0.10),
+            "analyzing" => (0.04, 0.81),
             "saving" => (0.85, 0.08),
             "recomputing_indicators" => (0.93, 0.04),
             // Preview only: the detect is already done and the catalogues are
@@ -318,16 +340,6 @@ impl SectionDetectionProgress {
         };
         let pct = (accumulated + weight * fraction) * 100.0;
         (pct.round() as u32).min(100)
-    }
-}
-
-impl tracematch::DetectionProgressCallback for SectionDetectionProgress {
-    fn on_phase(&self, phase: tracematch::DetectionPhase, total: u32) {
-        self.set_phase(phase.as_str(), total);
-    }
-
-    fn on_progress(&self) {
-        self.increment();
     }
 }
 
@@ -368,9 +380,16 @@ pub struct CacheUpdate {
 /// hundreds of copies held until the apply frees the lot. Only the newest is
 /// ever wanted: an older one describes less of the same fold. So the worker
 /// overwrites rather than appends, and the memory is one checkpoint whether or
-/// not anything is polling.
+/// not anything is polling. Its two state bits handshake worker completion
+/// with slot installation, in either order.
 #[derive(Default)]
-pub struct CheckpointSlot(std::sync::Mutex<Option<CacheUpdate>>);
+pub struct CheckpointSlot(
+    std::sync::Mutex<Option<CacheUpdate>>,
+    AtomicU8,
+    AtomicU64,
+    AtomicBool,
+    AtomicU64,
+);
 
 impl CheckpointSlot {
     /// Replace whatever is held. Never blocks the fold for a reader.
@@ -381,6 +400,45 @@ impl CheckpointSlot {
     /// Take the held checkpoint, leaving the slot empty.
     pub fn take(&self) -> Option<CacheUpdate> {
         self.0.lock().unwrap_or_else(|e| e.into_inner()).take()
+    }
+
+    /// Record that this worker owns the shared detection slot.
+    pub fn mark_installed(self: &Arc<Self>, install: u64) {
+        self.2.store(install, Ordering::Release);
+        if self.1.fetch_or(1, Ordering::SeqCst) & 2 != 0 {
+            crate::objects::detection::settle_finished_worker(self);
+        }
+    }
+
+    /// The engine installation that owns this run.
+    pub fn install(&self) -> u64 {
+        self.2.load(Ordering::Acquire)
+    }
+
+    /// Mark this run as the owner of the detection attempt key.
+    pub fn mark_detect_claimed(&self) {
+        self.3.store(true, Ordering::Release);
+    }
+
+    /// Whether this run may settle the detection attempt key.
+    pub fn detect_claimed(&self) -> bool {
+        self.3.load(Ordering::Acquire)
+    }
+
+    /// Identity of the detection run holding this slot.
+    pub fn run_id(&self) -> u64 {
+        self.4.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn mark_run_id(&self, run_id: u64) {
+        self.4.store(run_id, Ordering::Release);
+    }
+
+    /// Release a self-applying run after its result channel has closed.
+    pub fn mark_worker_finished(self: &Arc<Self>) {
+        if self.1.fetch_or(2, Ordering::SeqCst) & 1 != 0 {
+            crate::objects::detection::settle_finished_worker(self);
+        }
     }
 }
 
@@ -393,11 +451,11 @@ pub struct SectionDetectionHandle {
     receiver: mpsc::Receiver<DetectionOutput>,
     /// The final cache update, when a checkpoint drain met it first.
     final_update: std::sync::Mutex<Option<CacheUpdate>>,
-    /// Out-of-band channel for the Unified detector's evidence-cache update.
+    /// Out-of-band channel for the detector's evidence-cache update.
     /// The worker sends this BEFORE the section result on `receiver`, so a
     /// `Ready`/`recv` on the main channel guarantees the cache is already
-    /// available to `take_cache`. The legacy detectors and the no-new-activities
-    /// short-circuit never send here, so `take_cache` returns None and the
+    /// available to `take_cache`. The no-new-activities short-circuit does not
+    /// send here, so `take_cache` returns None and the
     /// caller leaves the engine cache untouched.
     cache_receiver: mpsc::Receiver<CacheUpdate>,
     /// The newest mid-fold checkpoint. Off the channel on purpose: a run the
@@ -439,13 +497,11 @@ pub enum WorkerPoll<T> {
 }
 
 impl SectionDetectionHandle {
-    /// Ask the run to stop. Cooperative: the worker checks between stages, so
-    /// a cancel arriving inside the detector's own call does not shorten it.
-    ///
-    /// The grouping and detection calls are atomic, so a cancel that lands
-    /// inside one discards that work rather than saving a partial catalogue.
-    /// The same caveat the preview carries, and for the same reason: a
-    /// half-detected catalogue is worse than none.
+    /// Ask the run to stop. Cooperative: the worker checks between stages and
+    /// after each cluster the fold cuts, so a cancel ends the fold at its next
+    /// cluster boundary and discards the run rather than saving a partial
+    /// catalogue. The grouping call is atomic, so a cancel that lands inside it
+    /// does not shorten it.
     pub fn request_cancel(&self) {
         self.cancel.store(true, Ordering::SeqCst);
     }
@@ -497,9 +553,8 @@ impl SectionDetectionHandle {
         self.receiver.recv().map_err(|_| progress.get_phase())
     }
 
-    /// Take the Unified detector's evidence-cache update, if any. Only the
-    /// Unified path sends one; the legacy detectors and the short-circuit do
-    /// not, so this returns None and the caller leaves the engine cache as-is.
+    /// Take the detector's evidence-cache update, if any. The short-circuit
+    /// sends none, leaving the engine cache as-is.
     /// Call only after the main result is `Ready`/recv'd, the worker sends the
     /// cache first, so by then it is present.
     pub fn take_cache(&self) -> Option<CacheUpdate> {
@@ -583,7 +638,7 @@ impl SectionDetectionHandle {
     /// `Running` is the honest answer for an expiry: the run may still be going,
     /// and its checkpoints are on disk for the next launch to resume from.
     pub fn recv_state_with_cache_within(
-        self,
+        &self,
         limit: Option<std::time::Duration>,
     ) -> (WorkerPoll<DetectionOutput>, Option<CacheUpdate>) {
         let received = match limit {
@@ -648,30 +703,6 @@ impl ClearHandle {
     }
 }
 
-/// Wipe the derived catalogue on a background thread.
-///
-/// The wipe mutates the engine's own in-memory state, so unlike a backup it
-/// cannot run on its own connection: it takes the write lock like any other
-/// writer. What moves off the calling thread is the wait. A 750-activity
-/// library takes 367 ms to wipe, and on the JS thread that is a settings
-/// toggle that freezes the app.
-///
-/// The sender is dropped if the wipe unwinds, so a panicking worker reads back
-/// as `WorkerPoll::Died` rather than leaving the slot claimed forever.
-pub fn clear_routes_and_sections_background() -> ClearHandle {
-    let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
-        let result = with_persistent_engine(|engine| {
-            engine
-                .clear_routes_and_sections()
-                .map_err(|e| format!("{}", e))
-        })
-        .unwrap_or_else(|| Err("Engine is not initialised".to_string()));
-        tx.send(result).ok();
-    });
-    ClearHandle { receiver: rx }
-}
-
 /// Handle for a background wipe of everything the engine can re-derive.
 ///
 /// Its own type rather than a reuse of `ClearHandle`: it carries the counts the
@@ -702,14 +733,16 @@ impl DerivedClearHandle {
 /// Empty what the engine can re-derive, on a background thread.
 ///
 /// 734 ms on a 750-activity library, the worst of the three wipes, and it sits
-/// behind the clear-cache button. Same shape as the catalogue wipe above: the
-/// write lock is still taken, what moves off the calling thread is the wait.
+/// behind the clear-cache button. The write lock is still taken, what moves off
+/// the calling thread is the wait.
 pub fn clear_derived_background() -> DerivedClearHandle {
+    let install = engine_install();
     let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
-        let result =
-            with_persistent_engine(|engine| engine.clear_derived().map_err(|e| format!("{}", e)))
-                .unwrap_or_else(|| Err("Engine is not initialised".to_string()));
+    crate::threads::spawn_named("veloq-clear", move || {
+        let result = wipe_with_persistent_engine_for(install, |engine| {
+            engine.clear_derived().map_err(|e| format!("{}", e))
+        })
+        .unwrap_or_else(|| Err("Engine is not initialised".to_string()));
         tx.send(result).ok();
     });
     DerivedClearHandle { receiver: rx }
@@ -719,16 +752,17 @@ pub fn clear_derived_background() -> DerivedClearHandle {
 ///
 /// 401 ms on a 750-activity library. The caller re-opens the engine after
 /// this, and that re-open must stay ordered against the wipe rather than
-/// racing it, which is what the poll gives it.
+/// racing it, which is what waiting on the handle gives it.
 ///
 /// `heatmap_tiles_dir` is where the app keeps the tiles whether or not the
 /// heatmap is on. The engine knows the path only once the heatmap is turned on
 /// in this process, and the login screen wipes before that, so the caller
 /// names it. The path in force is wiped too, when it is somewhere else.
 pub fn clear_all_background(heatmap_tiles_dir: Option<String>) -> ClearHandle {
+    let install = engine_install();
     let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
-        let result = with_persistent_engine(|engine| {
+    crate::threads::spawn_named("veloq-clear", move || {
+        let result = wipe_with_persistent_engine_for(install, |engine| {
             let in_force = engine.heatmap_tiles_path().map(std::path::PathBuf::from);
             engine
                 .clear()
@@ -739,15 +773,13 @@ pub fn clear_all_background(heatmap_tiles_dir: Option<String>) -> ClearHandle {
         // Out here because the lock is released: a full set is tens of
         // thousands of files, and every reader would otherwise wait out the
         // walk. A wipe that failed keeps the library, so it keeps its tiles.
-        let result = result.map(|in_force| {
+        let result = result.and_then(|in_force| {
             let mut dirs: Vec<std::path::PathBuf> = heatmap_tiles_dir
                 .map(std::path::PathBuf::from)
                 .into_iter()
                 .collect();
             dirs.extend(in_force.filter(|dir| !dirs.contains(dir)));
-            for dir in &dirs {
-                tiles::wipe_tile_set(dir);
-            }
+            tiles::wipe_tile_sets(&dirs)
         });
         tx.send(result).ok();
     });
@@ -812,7 +844,7 @@ impl CacheSizeHandle {
 /// Start a cache-size walk on its own thread.
 pub fn walk_cache_size_background(base_path: String, walk: fn(&str) -> u64) -> CacheSizeHandle {
     let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
+    crate::threads::spawn_named("veloq-du", move || {
         tx.send(walk(&base_path)).ok();
     });
     CacheSizeHandle { receiver: rx }
@@ -834,7 +866,7 @@ impl BulkExportHandle {
         }
     }
 
-    /// Activities written so far, and how many the export expects to visit.
+    /// Tracks visited so far, and how many the export expects to visit.
     pub fn progress(&self) -> (u32, u32) {
         self.progress.read()
     }
@@ -852,12 +884,16 @@ impl BulkExportHandle {
     }
 }
 
-#[cfg(test)]
+/// Finished runs for the slot's tests. The synthetic lane gets them too,
+/// because an integration test can only stand a worker-applied run in the
+/// shared slot through one of these.
+#[cfg(any(test, feature = "synthetic"))]
 impl SectionDetectionHandle {
     /// A finished run whose worker apply never landed, for the poll's
     /// failure path: the channel carries the empty message the worker sends
     /// after it applies, and the flag says the apply did not happen.
-    pub(crate) fn finished_without_its_worker_apply() -> Self {
+    #[doc(hidden)]
+    pub fn finished_without_its_worker_apply() -> Self {
         let (tx, rx) = mpsc::channel();
         let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         tx.send((Vec::new(), Vec::new())).ok();
@@ -874,6 +910,20 @@ impl SectionDetectionHandle {
         }
     }
 
+    #[doc(hidden)]
+    pub fn finished_after_worker_apply() -> Self {
+        let handle = Self::finished_without_its_worker_apply();
+        handle
+            .worker_applied
+            .as_ref()
+            .expect("self-applying handle")
+            .store(true, Ordering::SeqCst);
+        handle
+    }
+}
+
+#[cfg(test)]
+impl SectionDetectionHandle {
     /// A worker that hangs rather than dies: it holds its sender, so the
     /// channel neither answers nor closes. The sender is returned so the test
     /// keeps it alive; dropping it would make this a dead worker instead.
@@ -940,8 +990,22 @@ impl CancelToken {
 /// A set rather than a guard refusing the second sweep. Refusing it would drop
 /// the invalidation that sweep was spawned to do, and the tiles it would have
 /// taken stay on disk claiming ground that has changed.
-static TILE_SWEEPS: LazyLock<Mutex<Vec<(u64, CancelToken)>>> =
+static TILE_SWEEPS: LazyLock<Mutex<Vec<(u64, SweepScope, CancelToken)>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
+
+/// What a registration is scoped to. Production has one library and every
+/// sweep belongs to it. Lib tests share the process and run in parallel, and
+/// the ones that add activities spawn sweeps without any guard, so a test's
+/// cancel reaches only the sweeps registered from its own thread.
+#[derive(PartialEq)]
+struct SweepScope(#[cfg(test)] std::thread::ThreadId);
+
+fn current_sweep_scope() -> SweepScope {
+    SweepScope(
+        #[cfg(test)]
+        std::thread::current().id(),
+    )
+}
 
 static NEXT_TILE_SWEEP_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -963,7 +1027,7 @@ impl TileSweepRegistration {
 impl Drop for TileSweepRegistration {
     fn drop(&mut self) {
         if let Ok(mut sweeps) = TILE_SWEEPS.lock() {
-            sweeps.retain(|(id, _)| *id != self.id);
+            sweeps.retain(|(id, _, _)| *id != self.id);
         }
     }
 }
@@ -974,7 +1038,7 @@ pub fn register_tile_sweep() -> TileSweepRegistration {
     let id = NEXT_TILE_SWEEP_ID.fetch_add(1, Ordering::SeqCst);
     let token = CancelToken::new();
     if let Ok(mut sweeps) = TILE_SWEEPS.lock() {
-        sweeps.push((id, token.clone()));
+        sweeps.push((id, current_sweep_scope(), token.clone()));
     }
     TileSweepRegistration { id, token }
 }
@@ -989,10 +1053,15 @@ pub fn cancel_tile_sweeps() -> bool {
     let Ok(sweeps) = TILE_SWEEPS.lock() else {
         return false;
     };
-    for (_, token) in sweeps.iter() {
-        token.cancel();
+    let scope = current_sweep_scope();
+    let mut reached = false;
+    for (_, owner, token) in sweeps.iter() {
+        if *owner == scope {
+            token.cancel();
+            reached = true;
+        }
     }
-    !sweeps.is_empty()
+    reached
 }
 
 /// Handle for background heatmap tile generation with progress tracking.
@@ -1094,73 +1163,6 @@ mod worker_poll_tests {
 }
 
 // ============================================================================
-// Helper Functions for Background Threads
-// ============================================================================
-
-/// Load route groups from SQLite database.
-/// Used by background threads that have their own DB connection.
-fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
-    let mut stmt = match conn.prepare(
-        "SELECT id, representative_id, activity_ids, sport_type,
-                bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                activity_ids_blob
-         FROM route_groups",
-    ) {
-        Ok(s) => s,
-        Err(e) => {
-            log::warn!(
-                "veloqrs: [load_groups_from_db] Failed to prepare statement: {:?}",
-                e
-            );
-            return Vec::new();
-        }
-    };
-
-    let groups: Vec<RouteGroup> = stmt
-        .query_map([], |row| {
-            let activity_ids: Vec<String> = if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8)
-            {
-                codec::deserialize(&blob).unwrap_or_default()
-            } else {
-                let json: String = row.get(2)?;
-                serde_json::from_str(&json).unwrap_or_default()
-            };
-
-            let bounds = match (
-                row.get::<_, Option<f64>>(4)?,
-                row.get::<_, Option<f64>>(5)?,
-                row.get::<_, Option<f64>>(6)?,
-                row.get::<_, Option<f64>>(7)?,
-            ) {
-                (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) => Some(Bounds {
-                    min_lat,
-                    max_lat,
-                    min_lng,
-                    max_lng,
-                }),
-                _ => None,
-            };
-
-            Ok(RouteGroup {
-                group_id: row.get(0)?,
-                representative_id: row.get(1)?,
-                activity_ids,
-                sport_type: row.get(3)?,
-                bounds,
-                custom_name: None, // Custom names loaded separately if needed
-                best_time: None,
-                avg_time: None,
-                best_pace: None,
-                best_activity_id: None,
-            })
-        })
-        .map(|rows| rows.filter_map(|r| r.ok()).collect())
-        .unwrap_or_default();
-
-    groups
-}
-
-// ============================================================================
 // Persistent Route Engine
 // ============================================================================
 
@@ -1187,17 +1189,8 @@ pub struct PersistentEngine {
     /// nothing, and callers that need ownership clone once instead of twice.
     signature_cache: LruCache<String, Arc<RouteSignature>>,
 
-    /// Tier 2: LRU cached consensus routes (50 max).
-    /// `Arc` avoids cloning the full `Vec<GpsPoint>` on every read - cache hits
-    /// just bump the refcount and callers either consume a clone of the inner
-    /// data or iterate via `&*arc`.
-    consensus_cache: LruCache<String, Arc<Vec<GpsPoint>>>,
-
     /// Tier 2: LRU cached sections for single-item lookups (50 max = ~5MB)
     section_cache: LruCache<String, FrequentSection>,
-
-    /// Tier 2: LRU cached groups for single-item lookups (100 max = ~1MB)
-    group_cache: LruCache<String, RouteGroup>,
 
     /// Cached route groups (loaded from DB). Their `group_id` is a stable
     /// assign-once id carried by `route_identity`, not the churning Union-Find root.
@@ -1230,7 +1223,7 @@ pub struct PersistentEngine {
     /// Sections a custom section has replaced. They stay in `sections` because
     /// supersession only hides: the ground is still a detection prior, and
     /// dropping it would re-mint it under a new id on the next detect. Held in
-    /// memory so the read-lock views can hide them without touching `self.db`.
+    /// memory so the memory-only views can hide them without touching `self.db`.
     superseded_ids: std::collections::HashSet<String>,
 
     /// Named-corridor resolution: display name per visible section plus the
@@ -1263,14 +1256,13 @@ pub struct PersistentEngine {
     /// Activities that have been through section detection (persisted in SQLite)
     processed_activity_ids: HashSet<String>,
 
-    /// In-memory per-(sport, cluster) evidence for the Unified incremental
+    /// In-memory per-(sport, cluster) evidence for the incremental
     /// detector. Holds each cluster's last catalogue so a sync recomputes only
     /// the cluster(s) a new activity touches (O(touched-cluster), not O(pool)).
     /// Persisted in `evidence_cache` beside the config digest it was folded
     /// under, so a restart resumes warm; an unreadable or stale row leaves the
     /// engine cold, which is what every engine did before the row existed.
-    /// Only the Unified detection path reads or writes it; the legacy detectors
-    /// never touch it. Moves in lockstep with `cache_folded_ids`.
+    /// Moves in lockstep with `cache_folded_ids`.
     section_evidence_cache: SectionEvidenceCache,
     /// The boundary records of the detect being applied, held only for the
     /// duration of one apply so the event emitter can read them.
@@ -1293,6 +1285,16 @@ pub struct PersistentEngine {
 
     /// Dirty tracking
     pub(crate) groups_dirty: bool,
+    /// Counts every time the grouping was marked stale. A run compares it with
+    /// the value it captured at spawn to tell a store made while it ran from the
+    /// stale flag it was started to clear.
+    pub(crate) groups_dirty_epoch: u64,
+    /// The committed route catalogue `groups` was read from or written as. A
+    /// background regroup captures it at spawn and commits only over that one.
+    pub(crate) group_generation: u64,
+
+    /// The route word the in-memory groups' shown names were composed in.
+    pub(crate) route_names_word: String,
     sections_dirty: bool,
 
     /// Configuration
@@ -1316,33 +1318,12 @@ pub struct PersistentEngine {
     /// one without timing it.
     perf_computations: u64,
 
-    /// Memoised `compute_activity_patterns`, held under the metric row count,
-    /// the newest metric date and the day it was computed on. The clustering
-    /// runs over every metric row and costs 13 to 42 ms, and the insights
-    /// bundle asks for it twice per call. Nothing it reads can move while no
-    /// row is added or removed and no newer activity lands, and the day is in
-    /// the key because a pattern carries `days_since_last`.
-    pattern_cache: Option<(PatternCacheKey, Vec<crate::FfiActivityPattern>)>,
-
-    /// Full computations of `activity_patterns`, memo hits excluded. Exposed
-    /// for the same reason as `perf_computations`.
-    pattern_computations: u64,
-
     /// The external-write token this engine's tiers already speak for.
     ///
     /// Zero until the first `load`, which is correct: an engine that has just
     /// read the file speaks for whatever the file said, and a handler that
     /// wrote before the app launched has its rows in that read already.
     seen_external_write_token: u64,
-}
-
-/// What the memoised patterns were computed from. A pattern carries
-/// `days_since_last`, so the day is as much a part of the answer as the rows.
-#[derive(PartialEq, Eq)]
-struct PatternCacheKey {
-    metric_count: usize,
-    newest_metric_date: i64,
-    day: i64,
 }
 
 /// The pragmas a connection that writes has to set for itself.
@@ -1357,7 +1338,45 @@ pub(crate) fn apply_write_pragmas(conn: &Connection) -> SqlResult<()> {
     conn.pragma_update(None, "synchronous", "NORMAL")
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EngineOpenMode {
+    Foreground,
+    Push,
+}
+
+/// Commit a write transaction, rolling it back if SQLite leaves it open.
+pub(crate) fn commit_write_txn(conn: &Connection) -> SqlResult<()> {
+    if let Err(error) = conn.execute_batch("COMMIT") {
+        let _ = conn.execute_batch("ROLLBACK");
+        return Err(error);
+    }
+    Ok(())
+}
+
+static GROUPS_DIRTY_FOR_READERS: AtomicBool = AtomicBool::new(false);
+static SECTIONS_DIRTY_FOR_READERS: AtomicBool = AtomicBool::new(false);
+static SIGNATURE_CACHE_LEN_FOR_READERS: AtomicU32 = AtomicU32::new(0);
+
+/// Copy the facts that live only in engine memory to where a pooled reader
+/// can see them. Called each time the write lock is let go, so a reader sees
+/// them as of the last write that finished.
+fn publish_for_readers(engine: &PersistentEngine) {
+    GROUPS_DIRTY_FOR_READERS.store(engine.groups_dirty, Ordering::Release);
+    SECTIONS_DIRTY_FOR_READERS.store(engine.sections_dirty, Ordering::Release);
+    SIGNATURE_CACHE_LEN_FOR_READERS.store(engine.signature_cache.len() as u32, Ordering::Release);
+}
+
+pub(crate) fn groups_dirty_for_readers() -> bool {
+    GROUPS_DIRTY_FOR_READERS.load(Ordering::Acquire)
+}
+
 impl PersistentEngine {
+    pub(crate) fn set_groups_dirty(&mut self, dirty: bool) {
+        self.groups_dirty = dirty;
+        if dirty {
+            self.groups_dirty_epoch += 1;
+        }
+    }
     /// Invalidate the performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
     /// Run one editor's whole write inside a transaction, rolling back if any
@@ -1374,20 +1393,49 @@ impl PersistentEngine {
         &mut self,
         work: impl FnOnce(&mut Self) -> Result<T, String>,
     ) -> Result<T, String> {
+        let nested = !self.db.is_autocommit();
         self.db
-            .execute_batch("BEGIN IMMEDIATE")
+            .execute_batch(if nested {
+                "SAVEPOINT veloq_nested_write"
+            } else {
+                "BEGIN IMMEDIATE"
+            })
             .map_err(|e| format!("Failed to open the write transaction: {}", e))?;
         match work(self) {
             Ok(value) => {
-                self.db
-                    .execute_batch("COMMIT")
-                    .map_err(|e| format!("Failed to commit: {}", e))?;
+                if nested {
+                    if let Err(error) = self
+                        .db
+                        .execute_batch("RELEASE SAVEPOINT veloq_nested_write")
+                    {
+                        let _ = self.db.execute_batch(
+                            "ROLLBACK TO SAVEPOINT veloq_nested_write; RELEASE SAVEPOINT veloq_nested_write",
+                        );
+                        return Err(format!("Failed to commit: {}", error));
+                    }
+                } else {
+                    self.refresh_section_rank_inputs();
+                    commit_write_txn(&self.db).map_err(|e| format!("Failed to commit: {}", e))?;
+                }
                 Ok(value)
             }
             Err(e) => {
-                let _ = self.db.execute_batch("ROLLBACK");
+                let _ = self.db.execute_batch(if nested {
+                    "ROLLBACK TO SAVEPOINT veloq_nested_write; RELEASE SAVEPOINT veloq_nested_write"
+                } else {
+                    "ROLLBACK"
+                });
                 Err(e)
             }
+        }
+    }
+
+    /// Bring the stored ranking inputs up to the traversals a write just
+    /// changed. A failure leaves the sections marked, and a read recomputes
+    /// those itself, so it costs speed and never a wrong answer.
+    pub(crate) fn refresh_section_rank_inputs(&self) {
+        if let Err(e) = sections::ranking::pooled::refresh_rank_inputs(&self.db) {
+            log::warn!("veloqrs: [RankedSections] refreshing the stored inputs failed: {e}");
         }
     }
 
@@ -1402,9 +1450,7 @@ impl PersistentEngine {
     /// them have been reloaded and an entry may describe rows that are gone.
     pub(crate) fn clear_memory_caches(&mut self) {
         self.signature_cache.clear();
-        self.consensus_cache.clear();
         self.section_cache.clear();
-        self.group_cache.clear();
         self.time_streams.clear();
         self.perf_cache.clear();
     }
@@ -1412,46 +1458,11 @@ impl PersistentEngine {
     /// How many section performance results have been computed in full.
     #[doc(hidden)]
     pub fn performance_computations(&self) -> u64 {
-        self.perf_computations
+        self.perf_computations + fitness::performances::pooled::computations() as u64
     }
 
     pub(crate) fn note_performance_computation(&mut self) {
         self.perf_computations += 1;
-    }
-
-    /// How many times the pattern clustering has run.
-    #[doc(hidden)]
-    pub fn pattern_computations(&self) -> u64 {
-        self.pattern_computations
-    }
-
-    /// Activity patterns for the whole library, memoised on the metric row
-    /// count, the newest metric date and the day `now_ts` falls on.
-    pub fn activity_patterns_as_of(&mut self, now_ts: i64) -> Vec<crate::FfiActivityPattern> {
-        let key = self.pattern_cache_key(now_ts);
-        if let Some((held, patterns)) = &self.pattern_cache
-            && *held == key
-        {
-            return patterns.clone();
-        }
-        let patterns = crate::patterns::compute_activity_patterns(&self.db, &self.activity_metrics);
-        self.pattern_computations += 1;
-        self.pattern_cache = Some((key, patterns.clone()));
-        patterns
-    }
-
-    fn pattern_cache_key(&self, now_ts: i64) -> PatternCacheKey {
-        let newest = self
-            .activity_metrics
-            .values()
-            .map(|m| m.date)
-            .max()
-            .unwrap_or(0);
-        PatternCacheKey {
-            metric_count: self.activity_metrics.len(),
-            newest_metric_date: newest,
-            day: now_ts.div_euclid(86_400),
-        }
     }
 
     /// Drop the Unified evidence cache (and its folded-id shadow) so the next
@@ -1471,9 +1482,14 @@ impl PersistentEngine {
     }
 
     pub(crate) fn invalidate_evidence_cache(&mut self) {
+        self.forget_evidence_cache_in_memory();
+        self.clear_persisted_evidence_cache();
+    }
+
+    /// Empty the evidence tiers after their persisted row has been deleted.
+    pub(crate) fn forget_evidence_cache_in_memory(&mut self) {
         self.section_evidence_cache = SectionEvidenceCache::new();
         self.cache_folded_ids.clear();
-        self.clear_persisted_evidence_cache();
     }
 
     // ========================================================================
@@ -1482,6 +1498,15 @@ impl PersistentEngine {
 
     /// Create a new persistent engine with the given database path.
     pub fn new(db_path: &str) -> SqlResult<Self> {
+        Self::open(db_path, EngineOpenMode::Foreground)
+    }
+
+    /// Open a push handler's connection without changing foreground launch state.
+    pub fn new_for_push(db_path: &str) -> SqlResult<Self> {
+        Self::open(db_path, EngineOpenMode::Push)
+    }
+
+    fn open(db_path: &str, mode: EngineOpenMode) -> SqlResult<Self> {
         // Before any FFI call can reach a `par_iter`, since the pool takes its
         // names when it is built and cannot be renamed after.
         crate::threads::name_cpu_pool();
@@ -1506,9 +1531,7 @@ impl PersistentEngine {
             activity_metadata: HashMap::new(),
             spatial_index: RTree::new(),
             signature_cache: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
-            consensus_cache: LruCache::new(std::num::NonZeroUsize::new(50).unwrap()),
             section_cache: LruCache::new(std::num::NonZeroUsize::new(50).unwrap()),
-            group_cache: LruCache::new(std::num::NonZeroUsize::new(100).unwrap()),
             groups: Vec::new(),
             route_identity: route_identity::RouteIdentity::default(),
             activity_matches: HashMap::new(),
@@ -1526,30 +1549,33 @@ impl PersistentEngine {
             cache_folded_ids: HashSet::new(),
             pending_processed_clear: false,
             groups_dirty: false,
+            groups_dirty_epoch: 0,
+            group_generation: 0,
+            route_names_word: String::new(),
             sections_dirty: false,
             match_config: MatchConfig::default(),
             section_config: SectionConfig::default(),
             heatmap_tiles_path: None,
             perf_cache: LruCache::new(PERF_CACHE_ENTRIES),
             perf_computations: 0,
-            pattern_cache: None,
-            pattern_computations: 0,
             seen_external_write_token: 0,
         };
 
         // A ride is marked `uploading` before its request goes out, so a kill
         // strands the row where neither retry path looks. This is the one
         // moment per launch where nothing can be in flight.
-        if let Err(e) = engine.release_stranded_uploads(attempts::now_ms()) {
-            log::warn!(
-                "veloqrs: [PersistentEngine] could not release stranded uploads: {}",
-                e
-            );
-        }
+        if mode == EngineOpenMode::Foreground {
+            if let Err(e) = engine.release_stranded_uploads(attempts::now_ms()) {
+                log::warn!(
+                    "veloqrs: [PersistentEngine] could not release stranded uploads: {}",
+                    e
+                );
+            }
 
-        // Before anything can read a badge, and once. The version is a build
-        // constant, so the open is the only moment it can have moved.
-        engine.recompute_indicators_if_stale();
+            // Before anything can read a badge, and once. The version is a build
+            // constant, so the open is the only moment it can have moved.
+            engine.recompute_indicators_if_stale();
+        }
 
         Ok(engine)
     }
@@ -1656,7 +1682,8 @@ impl PersistentEngine {
     /// file, so a foreground engine that was alive throughout holds tiers that
     /// predate every one of those rows and nothing says so.
     ///
-    /// Deliberately not `load`. Measured on the S22's own 29.2 MB library: the
+    /// Deliberately not `load`. Measured on the S22's own 29.2 MB library in a debug app build, so
+    /// read the ratios and not the milliseconds: the
     /// five loaders here are 23.9 ms of `load`'s 39.8 ms, of which
     /// `load_sections` alone is 22.3 ms, and the memory saving is 0.7 MB of
     /// 7.7, which is not the reason. The reason is that `load` is not a
@@ -1674,9 +1701,11 @@ impl PersistentEngine {
     /// stale one. The evidence cache is restored last and only when all five
     /// succeeded, since it is keyed on the catalogue they just replaced.
     pub fn reload_external_writes(&mut self) -> SqlResult<()> {
+        let metadata = self.load_metadata();
+        let groups = self.load_groups_with_registry();
         let outcomes = [
-            ("metadata", self.load_metadata()),
-            ("groups", self.load_groups()),
+            ("metadata", metadata),
+            ("groups", groups),
             ("sections", self.load_sections()),
             ("processed_activity_ids", self.load_processed_activity_ids()),
             ("activity_metrics", self.load_activity_metrics()),
@@ -1693,7 +1722,7 @@ impl PersistentEngine {
         // Every read behind the ladder and the screens is computed from the
         // tiers just replaced, so a cache kept across them answers for rows
         // that are gone.
-        self.invalidate_perf_cache();
+        self.clear_memory_caches();
         if first_error.is_none() {
             self.restore_evidence_cache();
         }
@@ -1704,16 +1733,27 @@ impl PersistentEngine {
     }
 
     pub fn load(&mut self) -> SqlResult<()> {
+        self.load_in_mode(EngineOpenMode::Foreground)
+    }
+
+    /// `load` for a push handler's engine. The metadata backfill and the
+    /// identity registry write are repairs the next foreground open makes, and
+    /// a push has a few seconds and no need of either.
+    pub fn load_for_push(&mut self) -> SqlResult<()> {
+        self.load_in_mode(EngineOpenMode::Push)
+    }
+
+    fn load_in_mode(&mut self, mode: EngineOpenMode) -> SqlResult<()> {
+        // Before the groups: whether they stand is a question about the rule
+        // they were made under, and the rule is what this loads.
+        let match_strictness = self.load_match_strictness_from_settings();
         let outcomes = [
             ("metadata", self.load_metadata()),
             ("groups", self.load_groups()),
             ("sections", self.load_sections()),
             ("processed_activity_ids", self.load_processed_activity_ids()),
             ("activity_metrics", self.load_activity_metrics()),
-            (
-                "match_strictness",
-                self.load_match_strictness_from_settings(),
-            ),
+            ("match_strictness", match_strictness),
             ("section_config", self.load_section_config_from_settings()),
         ];
         let mut first_error: Option<rusqlite::Error> = None;
@@ -1726,6 +1766,14 @@ impl PersistentEngine {
             }
         }
         let loaded_whole = first_error.is_none();
+        if mode == EngineOpenMode::Foreground {
+            self.refresh_section_rank_inputs();
+            // After the groups load, which numbers any route that has no
+            // number yet. A library upgraded with stored groups has no layer.
+            if let Err(e) = route_lines::ensure_current(&self.db) {
+                log::warn!("veloqrs: [PersistentEngine] route line layer: {}", e);
+            }
+        }
         // The tiers now speak for the file as it stands, handler writes and
         // all, so nothing read here is owed a reload.
         self.seen_external_write_token = self.external_write_token();
@@ -1759,7 +1807,7 @@ impl PersistentEngine {
         // from the whole catalogue instead of restoring the truncation.
         if !self.section_identity_restore() {
             self.section_identity_reseed();
-            if loaded_whole {
+            if loaded_whole && mode == EngineOpenMode::Foreground {
                 self.section_identity_persist();
             }
         }
@@ -1771,39 +1819,16 @@ impl PersistentEngine {
             self.route_identity_reseed();
         }
 
-        // Backfill activities.duration_secs and .distance_meters from the
-        // metrics row. Both are written by one UPDATE in the fitness import,
-        // and that UPDATE matches nothing when the metrics arrive before the
-        // activity row, which is the order a first sync uses. Only
-        // `duration_secs` was carried across here, so a real library read
-        // `duration_secs` on every row and `distance_meters` on none: 316 of
-        // 316 on the S22, 2026-09-18.
-        //
-        // `COALESCE` rather than an overwrite: the import is the authority
-        // wherever it could write, and this only fills a hole.
-        let backfilled = self
-            .db
-            .execute(
-                "UPDATE activities SET
-                duration_secs = COALESCE(duration_secs, (
-                    SELECT moving_time FROM activity_metrics
-                    WHERE activity_metrics.activity_id = activities.id
-                )),
-                distance_meters = COALESCE(distance_meters, (
-                    SELECT distance FROM activity_metrics
-                    WHERE activity_metrics.activity_id = activities.id
-                ))
-            WHERE (duration_secs IS NULL OR distance_meters IS NULL)
-              AND EXISTS (
-                SELECT 1 FROM activity_metrics
-                WHERE activity_metrics.activity_id = activities.id
-              )",
-                [],
-            )
-            .unwrap_or(0);
+        // Repair for libraries written before the activity write filled these
+        // itself. The fitness import remains authoritative.
+        let backfilled = if mode == EngineOpenMode::Foreground {
+            self.fill_activity_metadata_from_metrics(None).unwrap_or(0)
+        } else {
+            0
+        };
         if backfilled > 0 {
             log::info!(
-                "veloqrs: [PersistentEngine] Backfilled duration_secs and distance_meters for {} activities",
+                "veloqrs: [PersistentEngine] Backfilled activity metadata for {} activities",
                 backfilled
             );
         }
@@ -1818,7 +1843,7 @@ impl PersistentEngine {
             self.sections_dirty = true;
         }
 
-        // Warm the named-corridor overlay so read-lock listings (which may not
+        // Warm the named-corridor overlay so memory-only listings (which may not
         // refresh it themselves) start correct rather than empty. One EXISTS
         // probe when no names exist.
         self.ensure_named_overlay();
@@ -1868,7 +1893,14 @@ impl PersistentEngine {
     }
 
     /// Set section configuration.
-    pub fn set_section_config(&mut self, config: SectionConfig) {
+    ///
+    /// Refused with `CutoverOwed` while the detector cutover is owed: the flip
+    /// resets the config to the defaults, so a value written now would be
+    /// reported as saved and then replaced.
+    pub fn set_section_config(
+        &mut self,
+        config: SectionConfig,
+    ) -> Result<(), sections::DetectionRefusal> {
         // A config identical to the active one is a NO-OP. The TS init path
         // re-sends the persisted config on every launch (GlobalDataSync applies
         // the strictness preset whenever detectionStrictness != 60), so without
@@ -1878,7 +1910,10 @@ impl PersistentEngine {
         // the config round-trips through the settings table as the same f64/u32
         // strings, so a re-sent config compares equal.
         if config == self.section_config {
-            return;
+            return Ok(());
+        }
+        if self.cutover_is_owed() {
+            return Err(sections::DetectionRefusal::CutoverOwed);
         }
 
         // Persist the user's chosen detection params alongside MatchConfig
@@ -1914,7 +1949,7 @@ impl PersistentEngine {
             );
         }
         // Persist the WHOLE config so a restart restores every field, not just the
-        // four slider keys above. This is what makes the TS launch re-apply a true
+        // three slider keys above. This is what makes the TS launch re-apply a true
         // no-op (see the SECTION_CONFIG_JSON key doc); the loader prefers it.
         match serde_json::to_string(&config) {
             Ok(json) => {
@@ -1942,6 +1977,7 @@ impl PersistentEngine {
         // registry is rebuilt from the catalogue so ids carry, and the next fold
         // applies the new params' answer in one step.
         self.section_identity_reseed_decisive();
+        Ok(())
     }
 
     // ========================================================================
@@ -1993,6 +2029,10 @@ impl PersistentEngine {
                 Vec::new()
             });
 
+        // Written through the one metrics writer after the loop, so the clones
+        // reach the heatmap and their activity rows as a synced row does.
+        let mut clone_metrics: Vec<ActivityMetrics> = Vec::new();
+
         // Use epoch millis to ensure unique IDs across invocations
         let batch_ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -2025,34 +2065,11 @@ impl PersistentEngine {
                 continue;
             }
 
-            // Insert activity metrics if available
             if let Some(ref metrics) = source_metrics {
-                if let Err(e) = self.db.execute(
-                    "INSERT OR IGNORE INTO activity_metrics
-                     (activity_id, name, date, distance, moving_time, elapsed_time,
-                      elevation_gain, avg_hr, avg_power, sport_type)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    rusqlite::params![
-                        clone_id,
-                        metrics.name,
-                        metrics.date,
-                        metrics.distance,
-                        metrics.moving_time,
-                        metrics.elapsed_time,
-                        metrics.elevation_gain,
-                        metrics.avg_hr,
-                        metrics.avg_power,
-                        metrics.sport_type,
-                    ],
-                ) {
-                    log::warn!("veloqrs: debug_clone_activity metrics insert failed: {e:?}");
-                }
-
-                // Add to in-memory metrics
-                let mut clone_metrics = metrics.clone();
-                clone_metrics.activity_id = clone_id.clone();
-                self.activity_metrics
-                    .insert(clone_id.clone(), clone_metrics);
+                clone_metrics.push(ActivityMetrics {
+                    activity_id: clone_id.clone(),
+                    ..metrics.clone()
+                });
             }
 
             // Copy section_activities entries including cached performance
@@ -2092,6 +2109,10 @@ impl PersistentEngine {
             created += 1;
         }
 
+        if let Err(e) = self.set_activity_metrics(clone_metrics) {
+            log::warn!("veloqrs: debug_clone_activity metrics write failed: {e:?}");
+        }
+
         // Rebuild spatial index if we added any clones
         if created > 0 {
             let entries: Vec<ActivityBoundsEntry> = self
@@ -2114,324 +2135,540 @@ impl PersistentEngine {
 
     /// Get engine statistics.
     pub fn stats(&self) -> PersistentEngineStats {
-        // Count GPS tracks in database
-        let gps_track_count: u32 = self
-            .db
-            .query_row("SELECT COUNT(*) FROM gps_tracks", [], |row| row.get(0))
-            .unwrap_or(0);
+        let mut stats = pooled_stats(&self.db);
+        stats.activity_count = self.activity_metadata.len() as u32;
+        stats.signature_cache_size = self.signature_cache.len() as u32;
+        stats.group_count = self.groups.len() as u32;
+        stats.section_count = self.sections.len() as u32;
+        stats.groups_dirty = self.groups_dirty;
+        stats.sections_dirty = self.sections_dirty;
+        stats
+    }
 
-        // Get oldest and newest activity dates from activity_metrics table (always has dates)
-        let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
-            .db
-            .query_row(
-                "SELECT MIN(date), MAX(date) FROM activity_metrics",
-                [],
-                |row| Ok((row.get(0).ok(), row.get(1).ok())),
-            )
-            .unwrap_or((None, None));
+    /// The routes screen read on the engine's own connection, which sees its
+    /// own writes and its own `groups_dirty`. The assembly is the pooled one
+    /// the export takes, so a test through here runs what production runs.
+    pub fn get_routes_screen_data(
+        &self,
+        query: crate::FfiRoutesScreenQuery,
+    ) -> crate::FfiRoutesScreenData {
+        routes_screen_data(&self.db, query, self.groups_dirty)
+    }
+}
 
-        PersistentEngineStats {
-            activity_count: self.activity_metadata.len() as u32,
-            signature_cache_size: self.signature_cache.len() as u32,
-            consensus_cache_size: self.consensus_cache.len() as u32,
-            group_count: self.groups.len() as u32,
-            section_count: self.sections.len() as u32,
-            groups_dirty: self.groups_dirty,
-            sections_dirty: self.sections_dirty,
-            gps_track_count,
-            oldest_date: oldest_date.map(|v| v as f64),
-            newest_date: newest_date.map(|v| v as f64),
+/// Engine statistics from committed rows, and from the values published each
+/// time the write lock was let go for the two flags and the cache length that
+/// exist only in memory. The counts are the rows the engine's catalogues load
+/// from, so they equal its own while no write is in flight.
+pub(crate) fn pooled_stats(conn: &Connection) -> PersistentEngineStats {
+    let count = |sql: &str| -> u32 { conn.query_row(sql, [], |row| row.get(0)).unwrap_or(0) };
+    let (oldest_date, newest_date): (Option<i64>, Option<i64>) = conn
+        .query_row(
+            "SELECT MIN(date), MAX(date) FROM activity_metrics",
+            [],
+            |row| Ok((row.get(0).ok(), row.get(1).ok())),
+        )
+        .unwrap_or((None, None));
+    PersistentEngineStats {
+        activity_count: count("SELECT COUNT(*) FROM activities"),
+        library_count: count("SELECT COUNT(*) FROM activity_metrics"),
+        signature_cache_size: SIGNATURE_CACHE_LEN_FOR_READERS.load(Ordering::Acquire),
+        group_count: count("SELECT COUNT(*) FROM route_groups"),
+        section_count: count("SELECT COUNT(*) FROM sections"),
+        groups_dirty: groups_dirty_for_readers(),
+        sections_dirty: SECTIONS_DIRTY_FOR_READERS.load(Ordering::Acquire),
+        gps_track_count: count("SELECT COUNT(*) FROM gps_tracks"),
+        oldest_date: oldest_date.map(|v| v as f64),
+        newest_date: newest_date.map(|v| v as f64),
+        activity_window_oldest: held_window_oldest(conn),
+    }
+}
+
+/// The held window for the athlete the library is stored for. With no athlete
+/// the window is the default one, as a legacy fallback read off the stored
+/// bodies would name a library nobody has signed in to.
+fn held_window_oldest(conn: &Connection) -> String {
+    let athlete: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params![settings_keys::ATHLETE_ID],
+            |row| row.get(0),
+        )
+        .optional()
+        .ok()
+        .flatten();
+    activities::pooled::activity_window_oldest(conn, athlete.as_deref().unwrap_or(""))
+}
+
+/// The committed catalogue for the routes screen. A deferred regroup is
+/// announced through the engine's reader-visible dirty flag.
+pub(crate) fn pooled_routes_screen_data(
+    conn: &Connection,
+    query: crate::FfiRoutesScreenQuery,
+) -> crate::FfiRoutesScreenData {
+    routes_screen_data(conn, query, groups_dirty_for_readers())
+}
+
+/// Every group and section the catalogue holds, then the search, the filters
+/// and the order, and only then the page.
+fn routes_screen_data(
+    conn: &Connection,
+    query: crate::FfiRoutesScreenQuery,
+    groups_dirty: bool,
+) -> crate::FfiRoutesScreenData {
+    let (oldest_date, newest_date): (Option<i64>, Option<i64>) = conn
+        .query_row(
+            "SELECT MIN(date), MAX(date) FROM activity_metrics",
+            [],
+            |row| Ok((row.get(0).ok(), row.get(1).ok())),
+        )
+        .unwrap_or((None, None));
+    let group_page = pooled_route_group_page(conn, &query);
+    let section_page = pooled_route_section_page(conn, &query);
+    let activity_count = activities::pooled::activity_count(conn).unwrap_or(0);
+    crate::FfiRoutesScreenData {
+        activity_count,
+        group_count: group_page.total_count,
+        section_count: section_page.total_count,
+        oldest_date: oldest_date.map(|date| date as f64),
+        newest_date: newest_date.map(|date| date as f64),
+        groups: group_page.groups,
+        sections: section_page.sections,
+        has_more_groups: group_page.has_more,
+        has_more_sections: section_page.has_more,
+        groups_dirty,
+        filtered_group_count: group_page.filtered_count,
+        filtered_section_count: section_page.filtered_count,
+        unaccepted_auto_count: section_page.unaccepted_auto_count,
+        accepted_auto_count: section_page.accepted_auto_count,
+        custom_count: section_page.custom_count,
+        retired_count: section_page.retired_count,
+        available_sport_types: read_cache::sport_types(|| {
+            screens::pooled::available_sport_types(conn)
+        }),
+    }
+}
+
+struct PooledGroupPage {
+    groups: Vec<crate::FfiGroupWithPolyline>,
+    total_count: u32,
+    filtered_count: u32,
+    has_more: bool,
+}
+
+fn pooled_route_group_page(
+    conn: &Connection,
+    query: &crate::FfiRoutesScreenQuery,
+) -> PooledGroupPage {
+    let min_group_activity_count = query.min_group_activity_count;
+    let group_needle = query.group_search.trim().to_lowercase();
+    let group_sort = query.group_sort;
+    let group_offset = query.group_offset;
+    let group_limit = query.group_limit;
+    let user_lat = query.user_lat;
+    let user_lng = query.user_lng;
+    // Every group the catalogue holds, then the search and the minimum
+    // activity count, then the order, and only then the page. Doing any of
+    // it after the page would order fifty rows and call it the library.
+    // Only a search and the name order read the shown name of every group, so
+    // any other list reads names for its page alone.
+    let reads_names = !group_needle.is_empty() || matches!(group_sort, crate::FfiGroupSort::Name);
+    let mut raw_summaries = routes::pooled::group_keys(
+        conn,
+        matches!(group_sort, crate::FfiGroupSort::Distance),
+        reads_names,
+    );
+    if let Some(sport) = query.group_sport_type.as_deref() {
+        routes::pooled::fill_page_details(conn, &mut raw_summaries);
+        raw_summaries.retain(|g| in_sport(&g.sport_types, sport));
+    }
+    let total_groups = raw_summaries.len();
+    if min_group_activity_count > 0 {
+        raw_summaries.retain(|g| g.activity_count >= min_group_activity_count);
+    }
+    if !group_needle.is_empty() {
+        raw_summaries.retain(|g| {
+            g.custom_name
+                .as_deref()
+                .is_some_and(|n| n.to_lowercase().contains(&group_needle))
+        });
+    }
+    // The representative's distance is what the list shows, so it is what
+    // the distance order has to read, and the summary carries it.
+    sort_pooled_groups(&mut raw_summaries, group_sort, user_lat, user_lng);
+    let filtered_group_count = raw_summaries.len();
+    let paged_summaries: Vec<_> = raw_summaries
+        .into_iter()
+        .skip(group_offset as usize)
+        .take(group_limit as usize)
+        .collect();
+    let has_more_groups = filtered_group_count > (group_offset as usize + paged_summaries.len());
+
+    let mut paged_summaries = paged_summaries;
+    if !reads_names {
+        routes::pooled::name_groups(conn, &mut paged_summaries);
+    }
+    routes::pooled::fill_page_details(conn, &mut paged_summaries);
+    let groups = pooled_group_rows(conn, paged_summaries);
+
+    PooledGroupPage {
+        groups,
+        total_count: total_groups as u32,
+        filtered_count: filtered_group_count as u32,
+        has_more: has_more_groups,
+    }
+}
+
+fn pooled_group_rows(
+    conn: &Connection,
+    paged_summaries: Vec<GroupSummary>,
+) -> Vec<crate::FfiGroupWithPolyline> {
+    // Batch-load representative polylines from signatures table (1 query instead of N)
+    let rep_ids: Vec<&str> = paged_summaries
+        .iter()
+        .map(|g| g.representative_id.as_str())
+        .collect();
+    let rep_polylines = routes::pooled::representative_polylines(conn, &rep_ids);
+
+    let groups: Vec<crate::FfiGroupWithPolyline> = paged_summaries
+        .into_iter()
+        .map(|g| {
+            let encoded_polyline = rep_polylines
+                .get(&g.representative_id)
+                .cloned()
+                .unwrap_or_default();
+            crate::FfiGroupWithPolyline {
+                group_id: g.group_id,
+                representative_id: g.representative_id,
+                activity_count: g.activity_count,
+                custom_name: g.custom_name,
+                bounds: g.bounds,
+                distance_meters: g.distance_meters,
+                encoded_polyline,
+                sport_types: g.sport_types,
+            }
+        })
+        .collect();
+
+    groups
+}
+
+struct PooledSectionPage {
+    sections: Vec<crate::FfiSectionWithPolyline>,
+    total_count: u32,
+    filtered_count: u32,
+    has_more: bool,
+    unaccepted_auto_count: u32,
+    accepted_auto_count: u32,
+    custom_count: u32,
+    retired_count: u32,
+}
+
+fn pooled_route_section_page(
+    conn: &Connection,
+    query: &crate::FfiRoutesScreenQuery,
+) -> PooledSectionPage {
+    let section_needle = query.section_search.trim().to_lowercase();
+    let section_sort = query.section_sort;
+    let section_filters = &query.section_filters;
+    let section_offset = query.section_offset;
+    let section_limit = query.section_limit;
+    let within_sport = query.section_sport_type.is_some();
+    let user_lat = query.user_lat;
+    let user_lng = query.user_lng;
+    // Removed sections are listed too, behind the Removed filter, so the
+    // catalogue total counts only the visible ones. The catalogue is read for
+    // the columns the filters and the order need, and only the page is read
+    // in full.
+    // Only a search and the name order read the shown name of every section,
+    // so any other list builds names for its page alone.
+    let reads_names =
+        !section_needle.is_empty() || matches!(section_sort, crate::FfiSectionSort::Name);
+    let all_names = reads_names.then(|| sections::named::pooled::overlay_names(conn));
+    let mut raw_sections = sections::queries::pooled::section_list_keys(conn, all_names.as_deref());
+    if let Some(sport) = query.section_sport_type.as_deref() {
+        raw_sections.retain(|s| in_sport(&s.sport_types, sport));
+    }
+    let total_sections = raw_sections
+        .iter()
+        .filter(|s| !s.disabled && s.superseded_by.is_none())
+        .count();
+
+    let (unaccepted_auto_count, accepted_auto_count, custom_count, retired_count) =
+        pooled_section_counts(conn, &raw_sections);
+
+    raw_sections.retain(|s| !section_filters_hide(section_filters, s));
+    if !section_needle.is_empty() {
+        raw_sections.retain(|s| {
+            s.name
+                .as_deref()
+                .is_some_and(|n| n.to_lowercase().contains(&section_needle))
+        });
+    }
+    sort_pooled_sections(
+        &mut raw_sections,
+        section_sort,
+        within_sport,
+        user_lat,
+        user_lng,
+    );
+    // A removed section follows every visible one, in the same order.
+    raw_sections.sort_by_key(|s| s.disabled || s.superseded_by.is_some());
+    let filtered_section_count = raw_sections.len();
+    let page_ids: Vec<&str> = raw_sections
+        .iter()
+        .skip(section_offset as usize)
+        .take(section_limit as usize)
+        .map(|s| s.id.as_str())
+        .collect();
+    let has_more_sections = filtered_section_count > (section_offset as usize + page_ids.len());
+    let page_names;
+    let names = match all_names.as_deref() {
+        Some(names) => names,
+        None => {
+            page_names = sections::named::pooled::overlay_names_for(conn, &page_ids);
+            &page_names
+        }
+    };
+    let paged_sections =
+        sections::queries::pooled::section_summaries_by_ids(conn, &page_ids, names);
+
+    let sections = pooled_section_rows(conn, paged_sections, query.section_sport_type.as_deref());
+
+    PooledSectionPage {
+        sections,
+        total_count: total_sections as u32,
+        filtered_count: filtered_section_count as u32,
+        has_more: has_more_sections,
+        unaccepted_auto_count,
+        accepted_auto_count,
+        custom_count,
+        retired_count,
+    }
+}
+
+/// Whether a group or section recorded in `sport_types` belongs to `sport`.
+fn in_sport(sport_types: &[String], sport: &str) -> bool {
+    sport_types.iter().any(|s| s == sport)
+}
+
+fn pooled_section_counts(conn: &Connection, summaries: &[SectionSummary]) -> (u32, u32, u32, u32) {
+    // The four counters are the catalogue's, not the page's, so they are
+    // taken before anything is hidden or paged.
+    let mut unaccepted_auto_count: u32 = 0;
+    let mut accepted_auto_count: u32 = 0;
+    let mut custom_count: u32 = 0;
+    let retired_count = conn.query_row(
+            "SELECT COUNT(*) FROM sections WHERE section_type = 'auto' AND (disabled = 1 OR superseded_by IS NOT NULL)",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(0);
+    for s in summaries {
+        if is_visible_auto(s) {
+            if s.is_user_defined {
+                accepted_auto_count += 1;
+            } else {
+                unaccepted_auto_count += 1;
+            }
+        }
+        if s.section_type == "custom" {
+            custom_count += 1;
         }
     }
 
-    /// Get all data needed by the Routes screen in a single call.
-    /// Returns group summaries with consensus polylines, section summaries with polylines,
-    /// and aggregate counts/stats - all in one mutex acquisition.
-    /// Supports pagination via limit/offset for both groups and sections.
-    pub fn get_routes_screen_data(
-        &mut self,
-        query: crate::FfiRoutesScreenQuery,
-    ) -> crate::FfiRoutesScreenData {
-        let crate::FfiRoutesScreenQuery {
-            group_limit,
-            group_offset,
-            section_limit,
-            section_offset,
-            min_group_activity_count,
-            group_sort,
-            group_search,
-            section_sort,
-            section_search,
-            section_filters,
-            section_sport_type,
-            user_lat,
-            user_lng,
-        } = query;
-        let has_user_location = user_lat.is_finite() && user_lng.is_finite();
-        let group_needle = group_search.trim().to_lowercase();
-        let section_needle = section_search.trim().to_lowercase();
-        let within_sport = section_sport_type.is_some();
+    (
+        unaccepted_auto_count,
+        accepted_auto_count,
+        custom_count,
+        retired_count,
+    )
+}
 
-        // Get date range from activity_metrics
-        let (oldest_date, newest_date): (Option<i64>, Option<i64>) = self
-            .db
-            .query_row(
-                "SELECT MIN(date), MAX(date) FROM activity_metrics",
-                [],
-                |row| Ok((row.get(0).ok(), row.get(1).ok())),
-            )
-            .unwrap_or((None, None));
+fn pooled_section_rows(
+    conn: &Connection,
+    paged_sections: Vec<SectionSummary>,
+    selected_sport: Option<&str>,
+) -> Vec<crate::FfiSectionWithPolyline> {
+    // Batch-load section polylines (1 query instead of N)
+    let section_ids: Vec<&str> = paged_sections.iter().map(|s| s.id.as_str()).collect();
+    let section_polylines = sections::pooled::section_polylines(conn, &section_ids);
+    let latest_is_record = sections::pooled::sections_where_latest_is_record(conn, &section_ids);
+    let trends = sections::ranking::pooled::page_trends(conn, &section_ids, selected_sport);
 
-        // Every group the catalogue holds, then the search and the minimum
-        // activity count, then the order, and only then the page. Doing any of
-        // it after the page would order fifty rows and call it the library.
-        let mut raw_summaries = self.get_group_summaries();
-        let total_groups = raw_summaries.len();
-        if min_group_activity_count > 0 {
-            raw_summaries.retain(|g| g.activity_count >= min_group_activity_count);
-        }
-        if !group_needle.is_empty() {
-            raw_summaries.retain(|g| {
-                g.custom_name
-                    .as_deref()
-                    .is_some_and(|n| n.to_lowercase().contains(&group_needle))
+    let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
+        .into_iter()
+        .map(|s| {
+            let encoded_polyline = section_polylines.get(&s.id).cloned().unwrap_or_default();
+            let latest_is_record = latest_is_record.contains(&s.id);
+            let trend = trends.get(&s.id).copied();
+            crate::FfiSectionWithPolyline {
+                id: s.id,
+                name: s.name,
+                section_type: s.section_type,
+                visit_count: s.visit_count,
+                distance_meters: s.distance_meters,
+                activity_count: s.activity_count,
+                confidence: s.confidence,
+                scale: s.scale,
+                bounds: s.bounds,
+                encoded_polyline,
+                sport_types: s.sport_types,
+                is_user_defined: s.is_user_defined,
+                disabled: s.disabled,
+                superseded_by: s.superseded_by,
+                elevation_gain_m: s.elevation_gain_m,
+                elevation_loss_m: s.elevation_loss_m,
+                avg_grade_percent: s.avg_grade_percent,
+                max_grade_percent: s.max_grade_percent,
+                klass: s.klass,
+                is_lift: s.is_lift,
+                rank_score: s.rank_score,
+                sport_rank_score: s.sport_rank_score,
+                latest_is_record,
+                trend,
+            }
+        })
+        .collect();
+
+    sections
+}
+
+fn sort_pooled_sections(
+    sections: &mut [SectionSummary],
+    section_sort: crate::FfiSectionSort,
+    within_sport: bool,
+    user_lat: f64,
+    user_lng: f64,
+) {
+    let has_user_location = user_lat.is_finite() && user_lng.is_finite();
+    match section_sort {
+        crate::FfiSectionSort::Nearby if has_user_location => {
+            sections.sort_by(|a, b| {
+                let dist_a = bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
+                let dist_b = bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
+                dist_a
+                    .partial_cmp(&dist_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| b.visit_count.cmp(&a.visit_count))
             });
         }
-        // The representative's distance is what the list shows, so it is what
-        // the distance order has to read.
-        let group_distance = |id: &str| -> f64 {
-            self.activity_metrics
-                .get(id)
-                .map(|m| m.distance)
-                .unwrap_or(0.0)
-        };
-        match group_sort {
-            crate::FfiGroupSort::Nearby if has_user_location => {
-                raw_summaries.sort_by(|a, b| {
-                    let dist_a =
-                        bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
-                    let dist_b =
-                        bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
-                    dist_a
-                        .partial_cmp(&dist_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then_with(|| b.activity_count.cmp(&a.activity_count))
-                });
-            }
-            crate::FfiGroupSort::Distance => {
-                raw_summaries.sort_by(|a, b| {
-                    group_distance(&b.representative_id)
-                        .partial_cmp(&group_distance(&a.representative_id))
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then_with(|| a.group_id.cmp(&b.group_id))
-                });
-            }
-            crate::FfiGroupSort::Name => {
-                raw_summaries.sort_by(|a, b| {
-                    a.custom_name
-                        .as_deref()
-                        .unwrap_or("")
-                        .cmp(b.custom_name.as_deref().unwrap_or(""))
-                        .then_with(|| a.group_id.cmp(&b.group_id))
-                });
-            }
-            _ => raw_summaries.sort_by_key(|b| std::cmp::Reverse(b.activity_count)),
-        }
-        let filtered_group_count = raw_summaries.len();
-        let paged_summaries: Vec<_> = raw_summaries
-            .into_iter()
-            .skip(group_offset as usize)
-            .take(group_limit as usize)
-            .collect();
-        let has_more_groups =
-            filtered_group_count > (group_offset as usize + paged_summaries.len());
-
-        // Batch-load representative polylines from signatures table (1 query instead of N)
-        let rep_ids: Vec<&str> = paged_summaries
-            .iter()
-            .map(|g| g.representative_id.as_str())
-            .collect();
-        let rep_polylines = self.get_representative_polylines_batch(&rep_ids);
-
-        let groups: Vec<crate::FfiGroupWithPolyline> = paged_summaries
-            .into_iter()
-            .map(|g| {
-                let encoded_polyline = rep_polylines
-                    .get(&g.representative_id)
-                    .cloned()
-                    .unwrap_or_default();
-                let distance_meters = self
-                    .activity_metrics
-                    .get(&g.representative_id)
-                    .map(|m| m.distance)
-                    .unwrap_or(0.0);
-                crate::FfiGroupWithPolyline {
-                    group_id: g.group_id,
-                    representative_id: g.representative_id,
-                    sport_type: g.sport_type,
-                    activity_count: g.activity_count,
-                    custom_name: g.custom_name,
-                    bounds: g.bounds,
-                    distance_meters,
-                    encoded_polyline,
-                    sport_types: g.sport_types,
-                }
-            })
-            .collect();
-
-        let mut raw_sections = self.get_section_summaries();
-        let total_sections = raw_sections.len();
-
-        // The four counters are the catalogue's, not the page's, so they are
-        // taken before anything is hidden or paged.
-        let mut unaccepted_auto_count: u32 = 0;
-        let mut accepted_auto_count: u32 = 0;
-        let mut custom_count: u32 = 0;
-        // A retired section fails `VISIBLE_FILTER`, so `raw_sections` never
-        // holds one and only its own count can find them.
-        let retired_count = self.get_retired_section_count();
-        for s in &raw_sections {
-            if is_visible_auto(s) {
-                if s.is_user_defined {
-                    accepted_auto_count += 1;
+        crate::FfiSectionSort::Signature => {
+            // A section the engine has not ranked sorts last, which is what
+            // the list did with -1.
+            let score = |s: &SectionSummary| -> f64 {
+                let pooled = s.rank_score;
+                if within_sport {
+                    s.sport_rank_score.or(pooled).unwrap_or(-1.0)
                 } else {
-                    unaccepted_auto_count += 1;
+                    pooled.unwrap_or(-1.0)
                 }
-            }
-            if s.section_type == "custom" {
-                custom_count += 1;
-            }
-        }
-
-        raw_sections.retain(|s| !section_filters_hide(&section_filters, s));
-        if !section_needle.is_empty() {
-            raw_sections.retain(|s| {
-                s.name
-                    .as_deref()
-                    .is_some_and(|n| n.to_lowercase().contains(&section_needle))
+            };
+            sections.sort_by(|a, b| {
+                score(b)
+                    .partial_cmp(&score(a))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.id.cmp(&b.id))
             });
         }
-        match section_sort {
-            crate::FfiSectionSort::Nearby if has_user_location => {
-                raw_sections.sort_by(|a, b| {
-                    let dist_a =
-                        bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
-                    let dist_b =
-                        bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
-                    dist_a
-                        .partial_cmp(&dist_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then_with(|| b.visit_count.cmp(&a.visit_count))
-                });
-            }
-            crate::FfiSectionSort::Signature => {
-                // A section the engine has not ranked sorts last, which is what
-                // the list did with -1.
-                let score = |s: &SectionSummary| -> f64 {
-                    let pooled = s.rank_score;
-                    if within_sport {
-                        s.sport_rank_score.or(pooled).unwrap_or(-1.0)
-                    } else {
-                        pooled.unwrap_or(-1.0)
-                    }
-                };
-                raw_sections.sort_by(|a, b| {
-                    score(b)
-                        .partial_cmp(&score(a))
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then_with(|| a.id.cmp(&b.id))
-                });
-            }
-            crate::FfiSectionSort::Distance => {
-                raw_sections.sort_by(|a, b| {
-                    b.distance_meters
-                        .partial_cmp(&a.distance_meters)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then_with(|| a.id.cmp(&b.id))
-                });
-            }
-            crate::FfiSectionSort::Name => {
-                raw_sections.sort_by(|a, b| {
-                    a.name
-                        .as_deref()
-                        .unwrap_or("")
-                        .cmp(b.name.as_deref().unwrap_or(""))
-                        .then_with(|| a.id.cmp(&b.id))
-                });
-            }
-            _ => raw_sections.sort_by(|a, b| {
-                b.visit_count
-                    .cmp(&a.visit_count)
+        crate::FfiSectionSort::Distance => {
+            sections.sort_by(|a, b| {
+                b.distance_meters
+                    .partial_cmp(&a.distance_meters)
+                    .unwrap_or(std::cmp::Ordering::Equal)
                     .then_with(|| a.id.cmp(&b.id))
-            }),
+            });
         }
-        let filtered_section_count = raw_sections.len();
-        let paged_sections: Vec<_> = raw_sections
-            .into_iter()
-            .skip(section_offset as usize)
-            .take(section_limit as usize)
-            .collect();
-        let has_more_sections =
-            filtered_section_count > (section_offset as usize + paged_sections.len());
-
-        // Batch-load section polylines (1 query instead of N)
-        let section_ids: Vec<&str> = paged_sections.iter().map(|s| s.id.as_str()).collect();
-        let section_polylines = self.get_section_polylines_batch(&section_ids);
-        let latest_is_record = self.sections_where_latest_is_record(&section_ids);
-
-        let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
-            .into_iter()
-            .map(|s| {
-                let encoded_polyline = section_polylines.get(&s.id).cloned().unwrap_or_default();
-                let latest_is_record = latest_is_record.contains(&s.id);
-                crate::FfiSectionWithPolyline {
-                    id: s.id,
-                    name: s.name,
-                    sport_type: s.sport_type.clone(),
-                    visit_count: s.visit_count,
-                    distance_meters: s.distance_meters,
-                    activity_count: s.activity_count,
-                    confidence: s.confidence,
-                    scale: s.scale,
-                    bounds: s.bounds,
-                    encoded_polyline,
-                    sport_types: s.sport_types,
-                    is_user_defined: s.is_user_defined,
-                    disabled: s.disabled,
-                    superseded_by: s.superseded_by,
-                    elevation_gain_m: s.elevation_gain_m,
-                    elevation_loss_m: s.elevation_loss_m,
-                    avg_grade_percent: s.avg_grade_percent,
-                    max_grade_percent: s.max_grade_percent,
-                    klass: s.klass,
-                    is_lift: s.is_lift,
-                    rank_score: s.rank_score,
-                    sport_rank_score: s.sport_rank_score,
-                    latest_is_record,
-                }
-            })
-            .collect();
-
-        let activity_count = self.activity_metadata.len() as u32;
-
-        crate::FfiRoutesScreenData {
-            activity_count,
-            group_count: total_groups as u32,
-            section_count: total_sections as u32,
-            oldest_date: oldest_date.map(|v| v as f64),
-            newest_date: newest_date.map(|v| v as f64),
-            groups,
-            sections,
-            has_more_groups,
-            has_more_sections,
-            groups_dirty: self.groups_dirty,
-            filtered_group_count: filtered_group_count as u32,
-            filtered_section_count: filtered_section_count as u32,
-            unaccepted_auto_count,
-            accepted_auto_count,
-            custom_count,
-            retired_count,
+        // The name the list shows, which is the id where there is none,
+        // folded so case does not split the alphabet.
+        crate::FfiSectionSort::Name => {
+            sections.sort_by_cached_key(|s| {
+                (
+                    name_sort_key(s.name.as_deref().unwrap_or(&s.id)),
+                    s.id.clone(),
+                )
+            });
         }
+        _ => sections.sort_by(|a, b| {
+            b.visit_count
+                .cmp(&a.visit_count)
+                .then_with(|| a.id.cmp(&b.id))
+        }),
+    }
+}
+
+/// The key a Name sort orders by: lowercase with Latin accents removed, so
+/// "Épalinges" sorts among the E names and case does not split the alphabet.
+fn name_sort_key(name: &str) -> String {
+    name.chars()
+        .flat_map(char::to_lowercase)
+        .map(|c| match c {
+            'à'..='å' | 'ā' | 'ă' | 'ą' => 'a',
+            'ç' | 'ć' | 'č' => 'c',
+            'ď' | 'đ' => 'd',
+            'è'..='ë' | 'ē' | 'ė' | 'ę' | 'ě' => 'e',
+            'ğ' => 'g',
+            'ì'..='ï' | 'ī' | 'į' | 'ı' => 'i',
+            'ł' => 'l',
+            'ñ' | 'ń' | 'ň' => 'n',
+            'ò'..='ö' | 'ø' | 'ō' | 'ő' => 'o',
+            'ř' => 'r',
+            'ś' | 'š' | 'ş' => 's',
+            'ť' | 'ţ' => 't',
+            'ù'..='ü' | 'ū' | 'ů' | 'ű' | 'ų' => 'u',
+            'ý' | 'ÿ' => 'y',
+            'ź' | 'ż' | 'ž' => 'z',
+            other => other,
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod name_sort_key_tests {
+    use super::name_sort_key;
+
+    #[test]
+    fn orders_mixed_case_and_accented_names_alphabetically() {
+        let mut names = ["Zurich loop", "alpine climb", "Épalinges drag", "Östersund"];
+        names.sort_by_key(|n| name_sort_key(n));
+        assert_eq!(
+            names,
+            ["alpine climb", "Épalinges drag", "Östersund", "Zurich loop"]
+        );
+    }
+}
+
+fn sort_pooled_groups(
+    groups: &mut [GroupSummary],
+    sort: crate::FfiGroupSort,
+    user_lat: f64,
+    user_lng: f64,
+) {
+    match sort {
+        crate::FfiGroupSort::Nearby if user_lat.is_finite() && user_lng.is_finite() => {
+            groups.sort_by(|a, b| {
+                let a_distance =
+                    bounds_center_distance_meters(a.bounds.as_ref(), user_lat, user_lng);
+                let b_distance =
+                    bounds_center_distance_meters(b.bounds.as_ref(), user_lat, user_lng);
+                a_distance
+                    .partial_cmp(&b_distance)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| b.activity_count.cmp(&a.activity_count))
+            });
+        }
+        crate::FfiGroupSort::Distance => groups.sort_by(|a, b| {
+            b.distance_meters
+                .partial_cmp(&a.distance_meters)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.group_id.cmp(&b.group_id))
+        }),
+        crate::FfiGroupSort::Name => groups.sort_by_cached_key(|g| {
+            (
+                name_sort_key(g.custom_name.as_deref().unwrap_or(&g.group_id)),
+                g.group_id.clone(),
+            )
+        }),
+        _ => groups.sort_by_key(|group| std::cmp::Reverse(group.activity_count)),
     }
 }
 
@@ -2439,9 +2676,11 @@ impl PersistentEngine {
 
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct PersistentEngineStats {
+    /// Activities with a mirrored GPS-backed row.
     pub activity_count: u32,
+    /// Activities in the library, with or without GPS: what the athlete holds.
+    pub library_count: u32,
     pub signature_cache_size: u32,
-    pub consensus_cache_size: u32,
     pub group_count: u32,
     pub section_count: u32,
     pub groups_dirty: bool,
@@ -2451,6 +2690,10 @@ pub struct PersistentEngineStats {
     pub oldest_date: Option<f64>,
     /// Newest activity date (Unix timestamp in seconds), or None if no activities
     pub newest_date: Option<f64>,
+    /// The oldest date the athlete has asked the device to hold, as `YYYY-MM-DD`.
+    /// Unlike `oldest_date` it leaves out activities kept only because a
+    /// section or record names them.
+    pub activity_window_oldest: String,
 }
 
 // ============================================================================
@@ -2478,6 +2721,21 @@ pub struct PersistentEngineStats {
 pub static PERSISTENT_ENGINE: LazyLock<Mutex<Option<PersistentEngine>>> =
     LazyLock::new(|| Mutex::new(None));
 
+/// Serialises lifecycle decisions with init, including a push that arrives
+/// while a restore has closed the engine.
+static ENGINE_LIFECYCLE: Mutex<()> = Mutex::new(());
+static RESTORE_CLOSING: AtomicBool = AtomicBool::new(false);
+
+pub fn close_for_restore() {
+    let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
+    RESTORE_CLOSING.store(true, Ordering::Release);
+    let mut engine = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+    *engine = None;
+    ENGINE_INSTALL.fetch_add(1, Ordering::AcqRel);
+    drop(engine);
+    read_pool::close();
+}
+
 /// Which install of the process-wide engine is open, counted from one.
 ///
 /// A cancel is cooperative, so a worker already past its last check reaches
@@ -2499,16 +2757,66 @@ pub fn engine_install() -> u64 {
     ENGINE_INSTALL.load(Ordering::Acquire)
 }
 
-/// Whether the memory tiers have already been put back in step after a panic.
+/// Invalidate work captured before an account wipe starts.
+pub fn invalidate_engine_install() {
+    {
+        let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+        ENGINE_INSTALL.fetch_add(1, Ordering::AcqRel);
+    }
+    #[cfg(test)]
+    run_after_invalidate();
+}
+
+/// Work a test starts once the install has moved and both locks are free,
+/// which for a clear is the window between its retire and its wipe.
+#[cfg(test)]
+type AfterInvalidate = Box<dyn FnOnce() + Send>;
+
+#[cfg(test)]
+pub(crate) static AFTER_INVALIDATE: Mutex<Option<AfterInvalidate>> = Mutex::new(None);
+
+/// Work a test runs once a clear's wipe has committed and before the install
+/// moves, with the wipe's locks still held.
+#[cfg(test)]
+pub(crate) static AFTER_WIPE: Mutex<Option<AfterInvalidate>> = Mutex::new(None);
+
+#[cfg(test)]
+fn run_after_invalidate() {
+    run_hook(&AFTER_INVALIDATE);
+}
+
+#[cfg(test)]
+fn run_hook(slot: &Mutex<Option<AfterInvalidate>>) {
+    let hook = slot.lock().unwrap_or_else(|e| e.into_inner()).take();
+    if let Some(hook) = hook {
+        hook();
+    }
+}
+
+/// Run a clear's wipe for a job that started against `install`, and move the
+/// install before the write lock is released.
 ///
-/// A `std::sync::Mutex` stays poisoned for good once one closure has unwound
-/// through it: `into_inner` recovers the data, it does not clear the flag, so
-/// every later take answers `Err` too. Keying the reload off that `Err` would
-/// put a whole-library pass on every engine call for the rest of the session,
-/// which is why it is keyed off this instead. Cleared under the same lock as
-/// [`ENGINE_INSTALL`] where an engine is installed, because a fresh engine has
-/// nothing to recover and the next panic is its own.
-static POISON_RELOADED: AtomicBool = AtomicBool::new(false);
+/// The clear retired the running jobs when it began, but a detection started
+/// between that retire and this lock captures the install the retire left
+/// open, together with a snapshot of the catalogue about to go, and its save
+/// would pass the install check after the wipe. Moving the install again
+/// inside the same hold refuses that run. The lifecycle lock is held across
+/// the wipe's commit and the move, so a worker's check and commit in
+/// `worker_write` lands wholly before the wipe or is refused after it.
+pub(crate) fn wipe_with_persistent_engine_for<F, R>(install: u64, f: F) -> Option<R>
+where
+    F: FnOnce(&mut PersistentEngine) -> R,
+{
+    let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
+    with_persistent_engine_for(install, |engine| {
+        let result = f(engine);
+        #[cfg(test)]
+        run_hook(&AFTER_WIPE);
+        ENGINE_INSTALL.fetch_add(1, Ordering::AcqRel);
+        result
+    })
+}
 
 /// Put the memory tiers back in step with SQLite after a panic under the write
 /// lock.
@@ -2542,18 +2850,17 @@ fn reload_after_poison(engine: &mut PersistentEngine) {
 #[cfg(test)]
 pub(crate) fn clear_persistent_engine() {
     *PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    RESTORE_CLOSING.store(false, Ordering::Release);
     read_pool::close();
 }
 
 /// Acquire the **write** lock on the global persistent engine.
 ///
-/// Required for any closure that needs `&mut PersistentEngine` -
-/// includes all mutation FFIs (`add_*`, `set_*`, `save_*`, `clear_*`,
-/// `apply_*`, `remove_*`, `detect_*`) plus read-looking helpers that
-/// mutate LRU caches (`get_signature`, `get_group_by_id`,
-/// `get_section_by_id`, `get_consensus_route`, `get_section_performances`,
-/// `get_groups`) **and any closure that touches `self.db`** (the read lock
-/// is memory-only - see safety invariant above).
+/// For a mutation (`add_*`, `set_*`, `save_*`, `clear_*`, `apply_*`,
+/// `remove_*`, `detect_*`) and for a read that needs engine memory: the
+/// in-memory tiers, the configs, or a lookup that fills an engine LRU. A read
+/// of committed rows alone goes to `read_pool::with_read_conn`, which the
+/// export layer reaches as `with_reader`, and takes no engine lock.
 #[track_caller]
 pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
@@ -2580,22 +2887,36 @@ where
     // Poison recovery: builds unwind on panic, and refusing a poisoned lock
     // here would disable the engine for the rest of the session. The data is
     // taken back, and the tiers the panic left ahead of SQLite are reloaded
-    // once, by the first caller through.
+    // once per panic, by the first caller through.
     let mut guard = match PERSISTENT_ENGINE.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
             let mut guard = poisoned.into_inner();
-            if !POISON_RELOADED.swap(true, Ordering::AcqRel)
-                && let Some(engine) = guard.as_mut()
-            {
+            if let Some(engine) = guard.as_mut() {
                 reload_after_poison(engine);
             }
+            PERSISTENT_ENGINE.clear_poison();
             guard
         }
     };
     #[cfg(feature = "lock-trace")]
     timing.acquired();
-    guard.as_mut().map(f)
+    guard.as_mut().map(|engine| {
+        follow_group_commit_off_engine(engine);
+        let result = f(engine);
+        publish_for_readers(engine);
+        result
+    })
+}
+
+/// The one point the engine catches up with a route group write the
+/// background regroup committed on its own connection, before the caller reads
+/// memory. Every reader of the in-memory catalogue sits behind the lock, so
+/// none of them needs a check of its own.
+fn follow_group_commit_off_engine(engine: &mut PersistentEngine) {
+    if route_identity::take_group_commit_off_engine() {
+        engine.follow_committed_groups();
+    }
 }
 
 /// `with_persistent_engine` for a job that started against one install.
@@ -2605,6 +2926,7 @@ where
 /// mid-detection leaves, is refused here rather than writing a catalogue
 /// computed from the old database into the new one. `None` is the same answer
 /// a closed engine gives, so a caller already handling that handles this.
+#[track_caller]
 pub fn with_persistent_engine_for<F, R>(install: u64, f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentEngine) -> R,
@@ -2627,9 +2949,37 @@ where
     .flatten()
 }
 
+/// Run a best-effort mutation only when the original engine is immediately available.
+pub(crate) fn try_with_persistent_engine_for<F, R>(install: u64, f: F) -> Option<R>
+where
+    F: FnOnce(&mut PersistentEngine) -> R,
+{
+    let mut guard = match PERSISTENT_ENGINE.try_lock() {
+        Ok(guard) => guard,
+        Err(std::sync::TryLockError::WouldBlock) => return None,
+        Err(std::sync::TryLockError::Poisoned(poisoned)) => {
+            let mut guard = poisoned.into_inner();
+            if let Some(engine) = guard.as_mut() {
+                reload_after_poison(engine);
+            }
+            PERSISTENT_ENGINE.clear_poison();
+            guard
+        }
+    };
+    if ENGINE_INSTALL.load(Ordering::Acquire) != install {
+        return None;
+    }
+    guard.as_mut().map(|engine| {
+        follow_group_commit_off_engine(engine);
+        let result = f(engine);
+        publish_for_readers(engine);
+        result
+    })
+}
+
 /// `with_persistent_engine` for async callers, off the async workers.
 ///
-/// The write lock is a blocking `RwLock` and the closure runs SQLite, so taking
+/// The engine lock is a blocking `Mutex` and the closure runs SQLite, so taking
 /// it directly from an `async fn` parks one of the runtime's worker threads for
 /// the whole transaction. There are only eight (`runtime.rs`), and a sync pass
 /// takes this lock once per page, so enough concurrent passes starve the pool
@@ -2649,7 +2999,10 @@ where
 {
     let caller = std::panic::Location::caller();
     async move {
-        match tokio::task::spawn_blocking(move || with_persistent_engine_at(caller, f)).await {
+        match crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || with_persistent_engine_at(caller, f))
+            .await
+        {
             Ok(result) => result,
             // The blocking task itself panicked, or the runtime is shutting down.
             // Either way the write did not happen; the caller's other work should
@@ -2679,24 +3032,25 @@ where
 {
     let caller = std::panic::Location::caller();
     async move {
-        match tokio::task::spawn_blocking(move || {
-            with_persistent_engine_at(caller, |engine| {
-                // Read under the lock the install is written under, so the
-                // answer belongs to the engine this closure was handed.
-                let open = ENGINE_INSTALL.load(Ordering::Acquire);
-                if open != install {
-                    log::warn!(
-                        "veloqrs: [Engine] discarding work from install {} against install {}",
-                        install,
-                        open
-                    );
-                    return None;
-                }
-                Some(f(engine))
+        match crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || {
+                with_persistent_engine_at(caller, |engine| {
+                    // Read under the lock the install is written under, so the
+                    // answer belongs to the engine this closure was handed.
+                    let open = ENGINE_INSTALL.load(Ordering::Acquire);
+                    if open != install {
+                        log::warn!(
+                            "veloqrs: [Engine] discarding work from install {} against install {}",
+                            install,
+                            open
+                        );
+                        return None;
+                    }
+                    Some(f(engine))
+                })
+                .flatten()
             })
-            .flatten()
-        })
-        .await
+            .await
         {
             Ok(result) => result,
             Err(e) => {
@@ -2719,10 +3073,11 @@ pub(crate) fn is_corruption_error(e: &rusqlite::Error) -> bool {
 /// Whether the file at this path can be a SQLite database at all.
 ///
 /// Every SQLite database opens with the 16 bytes `SQLite format 3\0`. Absent
-/// and zero-length are both new rather than broken: SQLite creates the file on
-/// open and writes the header on the first write, so a fresh install passes
-/// through here. Anything else with bytes in it and the wrong header is not a
-/// database, whatever a log beside it could rebuild.
+/// and zero-length without a populated WAL are new: SQLite creates the file on
+/// open and writes the header on the first write. A zero-length main file with
+/// a populated WAL is damaged, since a fresh database cannot have written a
+/// log before its first page. Other bytes with the wrong header are not a
+/// database, whatever a log beside them could rebuild.
 ///
 /// The check exists because inferring corruption from a failed open stops
 /// working under WAL: SQLite rebuilds the schema out of a healthy log beside a
@@ -2730,7 +3085,8 @@ pub(crate) fn is_corruption_error(e: &rusqlite::Error) -> bool {
 /// athlete's library reads as zero activities with nothing said. Sixteen bytes
 /// cost nothing against a launch budget of 200 ms, and an unreadable file is
 /// treated as new rather than corrupt so a permissions failure still takes the
-/// open path that reports it.
+/// open path that reports it. An intact header does not prove its later pages
+/// are sound. Damage there reaches the open and load paths instead.
 pub(crate) fn file_can_be_a_database(path: &str) -> bool {
     use std::io::Read;
     const HEADER: &[u8; 16] = b"SQLite format 3\0";
@@ -2749,20 +3105,24 @@ pub(crate) fn file_can_be_a_database(path: &str) -> bool {
         }
     }
     if read == 0 {
-        return true;
+        return std::fs::metadata(format!("{path}-wal"))
+            .map(|meta| meta.len() == 0)
+            .unwrap_or(true);
     }
     read == head.len() && &head == HEADER
 }
 
-/// SQLite error codes for failures a later launch can plausibly succeed on
-/// (lock contention, a transient open failure). These must not trigger the
-/// quarantine failover, which would discard a healthy cache.
+/// SQLite failures caused by contention or unavailable storage. They must not
+/// quarantine a healthy library.
 pub(crate) fn is_transient_open_error(e: &rusqlite::Error) -> bool {
     matches!(
         e.sqlite_error_code(),
         Some(rusqlite::ErrorCode::DatabaseBusy)
             | Some(rusqlite::ErrorCode::DatabaseLocked)
             | Some(rusqlite::ErrorCode::CannotOpen)
+            | Some(rusqlite::ErrorCode::DiskFull)
+            | Some(rusqlite::ErrorCode::SystemIoFailure)
+            | Some(rusqlite::ErrorCode::ReadOnly)
     )
 }
 
@@ -2778,11 +3138,24 @@ pub mod persistent_engine_ffi {
     /// Guards one-time installation of the Rust panic hook.
     static PANIC_HOOK_INIT: std::sync::Once = std::sync::Once::new();
 
-    /// Install a process-wide panic hook (once) that appends the panic
-    /// message + location to `veloq_panic.log` in the DB directory. Under
-    /// `panic = "abort"` the process dies before any JS handler runs, so this
-    /// file is the only record the JS crash sink (source: 'rust-panic') can
-    /// recover on the next launch. Infallible: write errors are ignored.
+    fn panic_log_line(
+        time: chrono::DateTime<chrono::Utc>,
+        thread: &str,
+        location: &str,
+        message: &str,
+    ) -> String {
+        format!(
+            "{} [{}] panic at {}: {}",
+            time.to_rfc3339(),
+            thread,
+            location,
+            message
+        )
+    }
+
+    /// Install a process-wide panic hook that logs before the crate unwinds.
+    /// The default hook still runs, and the file is read by hand from the
+    /// device. Write errors are ignored.
     fn install_panic_hook(db_path: &str) {
         let log_path = std::path::Path::new(db_path)
             .parent()
@@ -2811,7 +3184,14 @@ pub mod persistent_engine_ffi {
                     .append(true)
                     .open(&log_path)
                 {
-                    let _ = writeln!(file, "panic at {}: {}", location, message);
+                    let thread = std::thread::current();
+                    let line = panic_log_line(
+                        chrono::Utc::now(),
+                        thread.name().unwrap_or("unnamed"),
+                        &location,
+                        &message,
+                    );
+                    let _ = writeln!(file, "{line}");
                 }
                 default_hook(info);
             }));
@@ -2826,6 +3206,58 @@ pub mod persistent_engine_ffi {
     /// The bare `bool` is "is the engine usable"; `last_init_outcome` carries
     /// why it is not.
     pub fn persistent_engine_init(db_path: String) -> bool {
+        let opened = persistent_engine_init_without_owed_work(db_path);
+        if opened {
+            crate::net::elevation_backfill::start_owed_work();
+        }
+        opened
+    }
+
+    /// Open the library and start nothing, for a caller that drives the owed
+    /// elevation backfill and detector cutover by hand from a known state.
+    pub fn persistent_engine_init_without_owed_work(db_path: String) -> bool {
+        let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
+        persistent_engine_init_locked(db_path, EngineOpenMode::Foreground)
+    }
+
+    /// Open once under the lifecycle lock. A native push may cold-start the
+    /// engine, but cannot reopen it after JavaScript began replacing the file.
+    pub fn open_if_closed(db_path: String, owner_reopen: bool) -> Option<bool> {
+        let opened = open_if_closed_with_mode(db_path, owner_reopen, EngineOpenMode::Foreground);
+        if opened == Some(true) {
+            crate::net::elevation_backfill::start_owed_work();
+        }
+        opened
+    }
+
+    /// Open a push handler's engine once without foreground launch recovery.
+    /// A failed open leaves the live database in place for its owner.
+    pub fn open_for_push_if_closed(db_path: String) -> Option<bool> {
+        open_if_closed_with_mode(db_path, false, EngineOpenMode::Push)
+    }
+
+    fn open_if_closed_with_mode(
+        db_path: String,
+        owner_reopen: bool,
+        mode: EngineOpenMode,
+    ) -> Option<bool> {
+        let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
+        if owner_reopen {
+            RESTORE_CLOSING.store(false, Ordering::Release);
+        } else if RESTORE_CLOSING.load(Ordering::Acquire) {
+            return None;
+        }
+        if PERSISTENT_ENGINE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+        {
+            return Some(false);
+        }
+        persistent_engine_init_locked(db_path, mode).then_some(true)
+    }
+
+    fn persistent_engine_init_locked(db_path: String, mode: EngineOpenMode) -> bool {
         crate::init_logging();
         install_panic_hook(&db_path);
         info!(
@@ -2850,82 +3282,125 @@ pub mod persistent_engine_ffi {
             );
         }
 
+        // Another process can reach the same App Group file while this one
+        // upgrades it. Hold a sibling-file lock before reading user_version so
+        // the second opener sees the version the first one committed.
+        let lock_path = format!("{db_path}.init.lock");
+        let init_file = match std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&lock_path)
+        {
+            Ok(file) => file,
+            Err(e) => {
+                log::error!("veloqrs: [PersistentEngine] Could not open init lock: {e}");
+                return record_init_outcome(FfiInitOutcome::StorageUnavailable);
+            }
+        };
+        if let Err(e) = file_lock::lock_exclusive(&init_file) {
+            log::error!("veloqrs: [PersistentEngine] Could not lock database init: {e}");
+            return record_init_outcome(FfiInitOutcome::StorageUnavailable);
+        }
+
         // Read the file before opening it. Under WAL a ruined main file beside
         // an intact log opens cleanly and loads cleanly, and the library reads
         // as zero activities, so the open cannot be the only thing that decides
         // whether the file is a database.
-        if !file_can_be_a_database(&db_path) {
+        let mut engine = if !file_can_be_a_database(&db_path) {
             log::error!(
-                "veloqrs: [PersistentEngine] '{}' carries no SQLite header; quarantining it",
+                "veloqrs: [PersistentEngine] '{}' carries no SQLite header",
                 db_path
             );
-            let engine = match reopen_after_quarantine(&db_path) {
+            if mode == EngineOpenMode::Push {
+                return record_init_outcome(FfiInitOutcome::StorageUnavailable);
+            }
+            match reopen_after_quarantine(&db_path) {
                 Some(engine) => engine,
                 None => return record_init_outcome(FfiInitOutcome::StorageUnavailable),
+            }
+        } else {
+            let opened = match mode {
+                EngineOpenMode::Foreground => PersistentEngine::new(&db_path),
+                EngineOpenMode::Push => PersistentEngine::new_for_push(&db_path),
             };
-            let mut guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
-            *guard = Some(engine);
-            ENGINE_INSTALL.fetch_add(1, Ordering::AcqRel);
-            POISON_RELOADED.store(false, Ordering::Release);
-            read_pool::bind(&db_path);
-            return record_init_outcome(FfiInitOutcome::Opened);
-        }
-
-        let mut engine = match PersistentEngine::new(&db_path) {
-            Ok(engine) => engine,
-            Err(e) => {
-                log::error!(
-                    "veloqrs: [PersistentEngine] Failed to open database '{}': {:?}",
-                    db_path,
-                    e
-                );
-                if schema::is_forward_schema_error(&e) {
-                    // A newer database is healthy, not broken. Quarantining it
-                    // would move the athlete's library aside for being ahead
-                    // of the app they downgraded to.
-                    return record_init_outcome(FfiInitOutcome::ForwardSchema);
-                }
-                if is_transient_open_error(&e) {
-                    // The next launch (or the banner retry) can succeed on the
-                    // same file. Quarantining here would discard a healthy
-                    // cache over lock contention.
-                    //
-                    // The three codes share that decision and not the reason.
-                    // A held file opens on the retry; SQLITE_CANTOPEN means
-                    // nothing can be written at that path at all, which is a
-                    // full disk or a denied permission and never lifts by
-                    // waiting.
-                    return record_init_outcome(
-                        if e.sqlite_error_code() == Some(rusqlite::ErrorCode::CannotOpen) {
-                            FfiInitOutcome::StorageUnavailable
-                        } else {
-                            FfiInitOutcome::Busy
-                        },
+            match opened {
+                Ok(engine) => engine,
+                Err(e) => {
+                    log::error!(
+                        "veloqrs: [PersistentEngine] Failed to open database '{}': {:?}",
+                        db_path,
+                        e
                     );
-                }
-                // Corruption or a deterministic open/migration failure: the
-                // same file would fail every launch, bricking the engine
-                // permanently. Quarantine and start fresh.
-                match reopen_after_quarantine(&db_path) {
-                    Some(engine) => engine,
-                    None => return record_init_outcome(FfiInitOutcome::StorageUnavailable),
+                    if let Some(outcome) = schema::refused_outcome(&e) {
+                        // The schema check refused the version records, not the
+                        // bytes. A newer database is healthy and an overstated
+                        // one is a diagnosis, so quarantining either would move
+                        // the athlete's library aside for a fault no fresh file
+                        // fixes.
+                        return record_init_outcome(outcome);
+                    }
+                    if is_transient_open_error(&e) {
+                        // The next launch (or the banner retry) can succeed on the
+                        // same file. Quarantining here would discard a healthy
+                        // cache over lock contention.
+                        //
+                        // Busy and locked can clear on retry. The others need
+                        // storage or permissions to change before opening again.
+                        return record_init_outcome(
+                            if matches!(
+                                e.sqlite_error_code(),
+                                Some(rusqlite::ErrorCode::CannotOpen)
+                                    | Some(rusqlite::ErrorCode::DiskFull)
+                                    | Some(rusqlite::ErrorCode::SystemIoFailure)
+                                    | Some(rusqlite::ErrorCode::ReadOnly)
+                            ) {
+                                FfiInitOutcome::StorageUnavailable
+                            } else {
+                                FfiInitOutcome::Busy
+                            },
+                        );
+                    }
+                    if mode == EngineOpenMode::Push {
+                        return record_init_outcome(FfiInitOutcome::StorageUnavailable);
+                    }
+                    // Corruption or a deterministic open/migration failure: the
+                    // same file would fail every launch, bricking the engine
+                    // permanently. Quarantine and start fresh.
+                    match reopen_after_quarantine(&db_path) {
+                        Some(engine) => engine,
+                        None => return record_init_outcome(FfiInitOutcome::StorageUnavailable),
+                    }
                 }
             }
         };
 
-        if let Err(e) = engine.load() {
+        let loaded = match mode {
+            EngineOpenMode::Foreground => engine.load(),
+            EngineOpenMode::Push => engine.load_for_push(),
+        };
+        if let Err(e) = loaded {
             if is_corruption_error(&e) {
                 log::error!(
                     "veloqrs: [PersistentEngine] Corruption while loading '{}': {:?}",
                     db_path,
                     e
                 );
+                if mode == EngineOpenMode::Push {
+                    return record_init_outcome(FfiInitOutcome::StorageUnavailable);
+                }
                 // Close the connection before the quarantine rename.
                 drop(engine);
                 engine = match reopen_after_quarantine(&db_path) {
                     Some(engine) => engine,
                     None => return record_init_outcome(FfiInitOutcome::StorageUnavailable),
                 };
+                if let Err(reload_error) = engine.load() {
+                    log::error!(
+                        "veloqrs: [PersistentEngine] Could not load salvaged data after quarantine: {:?}",
+                        reload_error
+                    );
+                }
             } else {
                 info!(
                     "veloqrs: [PersistentEngine] Warning: Failed to load existing data: {:?}",
@@ -2938,28 +3413,29 @@ pub mod persistent_engine_ffi {
         // last one left behind. A generation costs no clock, so a process that
         // was killed mid-fetch strands nothing: `attempts::claim_job` reads
         // any row from an earlier generation as free.
-        match engine.mint_lease_generation() {
-            Ok(generation) => info!(
-                "veloqrs: [PersistentEngine] Lease generation {}",
-                generation
-            ),
-            // A store that cannot mint holds no leases anybody claimed, so the
-            // run goes on with the generation it has rather than refusing to
-            // open over bookkeeping.
-            Err(e) => log::warn!(
-                "veloqrs: [PersistentEngine] Could not mint a lease generation: {:?}",
-                e
-            ),
+        if mode == EngineOpenMode::Foreground {
+            match engine.mint_lease_generation() {
+                Ok(generation) => info!(
+                    "veloqrs: [PersistentEngine] Lease generation {}",
+                    generation
+                ),
+                // A store that cannot mint holds no leases anybody claimed, so the
+                // run goes on with the generation it has rather than refusing to
+                // open over bookkeeping.
+                Err(e) => log::warn!(
+                    "veloqrs: [PersistentEngine] Could not mint a lease generation: {:?}",
+                    e
+                ),
+            }
         }
 
         let mut guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+        publish_for_readers(&engine);
         *guard = Some(engine);
         // Under the same lock as the install, so a worker taking the lock next
         // reads the counter that belongs to the engine it was handed.
         ENGINE_INSTALL.fetch_add(1, Ordering::AcqRel);
-        // A fresh engine's tiers came out of SQLite a moment ago, so the next
-        // panic is the one this owes a reload for, not the last one.
-        POISON_RELOADED.store(false, Ordering::Release);
+        PERSISTENT_ENGINE.clear_poison();
         // After the engine, so the pool never points at a database no engine
         // has opened, and after the quarantine rename for the same reason.
         read_pool::bind(&db_path);
@@ -2970,11 +3446,11 @@ pub mod persistent_engine_ffi {
 
     /// Move an unusable database aside and open a fresh one in its place.
     ///
-    /// The database is a re-derivable cache of intervals.icu data. A file
-    /// that cannot be opened or migrated would otherwise brick every
-    /// engine-backed feature on every launch, permanently. Renaming it aside
-    /// loses only the cache, which the next sync repopulates. The quarantined
-    /// copy is kept (one generation) for post-mortem inspection.
+    /// A file that cannot be opened or migrated would otherwise brick every
+    /// engine-backed feature on every launch. The file also holds athlete
+    /// records and handset recordings, so salvage every readable owned row
+    /// before the next sync refills the replaceable data. Keep one quarantined
+    /// generation for recovery from anything the damaged file could not read.
     fn reopen_after_quarantine(db_path: &str) -> Option<PersistentEngine> {
         let path = std::path::Path::new(db_path);
         if !path.exists() {
@@ -3040,18 +3516,31 @@ pub mod persistent_engine_ffi {
                 // Detector output is a re-derivable cache; the ledger and the
                 // user's own rows are not. Whatever the quarantined file still
                 // yields comes across.
-                let salvaged = engine.salvage_ledger_from(&format!("{}.corrupt-{}", db_path, ts));
+                let quarantined_path = format!("{}.corrupt-{}", db_path, ts);
+                // Opening a zero-page database makes SQLite discard its WAL.
+                // Preserve that log as evidence; it is the only surviving
+                // content when the main file was truncated to zero bytes.
+                let salvaged = if std::fs::metadata(&quarantined_path)
+                    .map(|meta| meta.len() == 0)
+                    .unwrap_or(false)
+                {
+                    sections::SalvageCounts::default()
+                } else {
+                    engine.salvage_ledger_from(&quarantined_path)
+                };
                 // The warning below is the whole record today, and release
                 // keeps it where nobody reads it. This is the same fact where
                 // the app can ask for it.
                 crate::objects::quarantine::record_quarantine(&salvaged);
                 log::warn!(
-                    "veloqrs: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins, {} user sections, {} intents from the quarantined database",
+                    "veloqrs: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins, {} user sections, {} intents, {} recordings, {} route names from the quarantined database",
                     salvaged.history,
                     salvaged.geometry,
                     salvaged.pins,
                     salvaged.sections,
-                    salvaged.intents
+                    salvaged.intents,
+                    salvaged.recordings,
+                    salvaged.route_names
                 );
                 Some(engine)
             }
@@ -3099,9 +3588,19 @@ pub mod persistent_engine_ffi {
     pub static CLEAR_DERIVED_HANDLE: LazyLock<Mutex<Option<DerivedClearHandle>>> =
         LazyLock::new(|| Mutex::new(None));
 
-    /// Handle for the running whole-database wipe, if any.
-    pub static CLEAR_ALL_HANDLE: LazyLock<Mutex<Option<ClearHandle>>> =
-        LazyLock::new(|| Mutex::new(None));
+    #[cfg(test)]
+    mod panic_log_tests {
+        #[test]
+        fn panic_line_identifies_time_thread_and_location() {
+            let time = chrono::DateTime::parse_from_rfc3339("2026-09-30T14:00:00Z")
+                .unwrap()
+                .with_timezone(&chrono::Utc);
+            assert_eq!(
+                super::panic_log_line(time, "fetch-worker", "worker.rs:3:2", "failed"),
+                "2026-09-30T14:00:00+00:00 [fetch-worker] panic at worker.rs:3:2: failed"
+            );
+        }
+    }
 }
 
 /// An R-tree over one polyline, so a run of comparisons against it builds the
@@ -3271,6 +3770,26 @@ fn whole_points(name: &str, coords: &[f64]) -> Result<(), VeloqError> {
 // ============================================================================
 
 #[cfg(test)]
+#[path = "tests/backfill_activity_metadata.rs"]
+mod backfill_activity_metadata_tests;
+
+#[cfg(test)]
+#[path = "tests/screen_read_statements.rs"]
+mod screen_read_statements;
+
+#[cfg(test)]
+#[path = "tests/section_summaries_read_work.rs"]
+mod section_summaries_read_work;
+
+#[cfg(test)]
+#[path = "tests/production_index_plans.rs"]
+mod production_index_plans;
+
+#[cfg(test)]
+#[path = "tests/blocking_engine.rs"]
+mod blocking_engine;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::Direction;
@@ -3327,20 +3846,19 @@ mod tests {
     fn a_hung_worker_gives_the_read_back_instead_of_keeping_it() {
         let (handle, _tx, _cache_tx) = SectionDetectionHandle::worker_that_never_answers();
 
-        let started = std::time::Instant::now();
-        let (state, cache) =
-            handle.recv_state_with_cache_within(Some(std::time::Duration::from_millis(50)));
+        // A read that kept waiting would never return, since the worker never
+        // answers and never closes.
+        let (state, cache) = crate::test_globals::returns_within(
+            std::time::Duration::from_secs(60),
+            "the bounded read of a hung worker",
+            move || handle.recv_state_with_cache_within(Some(std::time::Duration::from_millis(50))),
+        );
 
         assert!(
             matches!(state, WorkerPoll::Running),
             "a worker still holding its sender is running, not dead"
         );
         assert!(cache.is_none());
-        assert!(
-            started.elapsed() < std::time::Duration::from_secs(5),
-            "the read did not give up: {:?}",
-            started.elapsed()
-        );
     }
 
     /// A bounded read must still tell a hang from a death, because the cutover
@@ -3363,15 +3881,18 @@ mod tests {
         let (handle, tx, _cache_tx) = SectionDetectionHandle::worker_that_never_answers();
         tx.send((Vec::new(), vec!["a1".to_string()])).expect("send");
 
-        let started = std::time::Instant::now();
-        let (state, _) =
-            handle.recv_state_with_cache_within(Some(std::time::Duration::from_secs(30)));
+        // The ceiling is an hour, so a read that waited it out before taking
+        // the answer would outlast the guard.
+        let (state, _) = crate::test_globals::returns_within(
+            std::time::Duration::from_secs(60),
+            "the bounded read of an answer already sent",
+            move || handle.recv_state_with_cache_within(Some(std::time::Duration::from_secs(3600))),
+        );
 
         match state {
             WorkerPoll::Ready((_, processed)) => assert_eq!(processed, vec!["a1".to_string()]),
             _ => panic!("the answer that was sent was not read back"),
         }
-        assert!(started.elapsed() < std::time::Duration::from_secs(5));
     }
 
     fn sample_coords() -> Vec<GpsPoint> {
@@ -3494,6 +4015,60 @@ mod tests {
             assert_eq!(engine.activity_count(), 1);
             assert!(engine.has_activity("test-1"));
         }
+    }
+
+    #[test]
+    fn push_load_leaves_the_backfill_and_identity_write_to_the_foreground() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("push_load.db");
+        let path = path.to_str().unwrap();
+        {
+            let mut engine = PersistentEngine::new(path).unwrap();
+            engine
+                .add_activity("a1".to_string(), sample_coords(), "cycling".to_string())
+                .unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                         elapsed_time, elevation_gain, sport_type)
+                     VALUES ('a1', 'n', 0, 1, 1, 1, 0, 'Ride')",
+                    [],
+                )
+                .unwrap();
+            engine
+                .db
+                .execute("UPDATE activities SET name = NULL WHERE id = 'a1'", [])
+                .unwrap();
+            engine.db.execute("DELETE FROM identity_state", []).unwrap();
+        }
+        let named = |engine: &PersistentEngine| -> bool {
+            engine
+                .db
+                .query_row(
+                    "SELECT name IS NOT NULL FROM activities WHERE id = 'a1'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap()
+        };
+        let identity_rows = |engine: &PersistentEngine| -> i64 {
+            engine
+                .db
+                .query_row("SELECT COUNT(*) FROM identity_state", [], |r| r.get(0))
+                .unwrap()
+        };
+
+        let mut push = PersistentEngine::new_for_push(path).unwrap();
+        push.load_for_push().unwrap();
+        assert!(!named(&push));
+        assert_eq!(identity_rows(&push), 0);
+        drop(push);
+
+        let mut foreground = PersistentEngine::new(path).unwrap();
+        foreground.load().unwrap();
+        assert!(named(&foreground));
+        assert!(identity_rows(&foreground) > 0);
     }
 
     #[test]
@@ -4511,10 +5086,6 @@ mod detection_progress_percent {
         let run_phases = [
             "loading",
             "analyzing",
-            "building_rtrees",
-            "finding_overlaps",
-            "clustering",
-            "postprocessing",
             "saving",
             "recomputing_indicators",
             "diffing",
@@ -4580,17 +5151,17 @@ fn is_visible_auto(s: &SectionSummary) -> bool {
     s.section_type == "auto" && !s.disabled && s.superseded_by.is_none()
 }
 
-/// Whether the sections list hides this section. The four kinds are the ones
-/// the filter bar offers and they are mutually exclusive by construction.
+/// Whether the sections list hides this section. A disabled custom section
+/// follows the Removed filter as well as the Custom filter.
 fn section_filters_hide(filters: &crate::FfiSectionFilters, s: &SectionSummary) -> bool {
     let visible_auto = is_visible_auto(s);
     let custom = s.section_type == "custom";
-    let disabled_auto = s.section_type == "auto" && (s.disabled || s.superseded_by.is_some());
+    let removed = s.disabled || s.superseded_by.is_some();
     let unaccepted_auto = visible_auto && !s.is_user_defined;
 
     (custom && filters.hide_custom)
         || (visible_auto && filters.hide_auto)
-        || (disabled_auto && filters.hide_disabled)
+        || (removed && filters.hide_disabled)
         || (unaccepted_auto && filters.hide_unaccepted)
 }
 
@@ -4774,5 +5345,125 @@ mod reload_cost {
             Ok(shape) => run_one_shape(&path, &shape),
             Err(_) => run_breakdown(&path),
         }
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/write_txn.rs"]
+mod write_txn_tests;
+
+#[cfg(test)]
+mod sport_filter_tests {
+    use super::{in_sport, sort_pooled_sections};
+    use crate::{FfiSectionSort, SectionSummary};
+
+    fn sports(names: &[&str]) -> Vec<String> {
+        names.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn a_mixed_group_belongs_to_each_of_its_sports() {
+        let mixed = sports(&["Ride", "Run"]);
+        assert!(in_sport(&mixed, "Run"));
+        assert!(in_sport(&mixed, "Ride"));
+        assert!(!in_sport(&mixed, "Walk"));
+    }
+
+    #[test]
+    fn nothing_recorded_matches_no_sport() {
+        assert!(!in_sport(&[], "Run"));
+    }
+
+    fn ranked(id: &str, pooled: f64, sport: f64) -> SectionSummary {
+        SectionSummary {
+            id: id.to_string(),
+            rank_score: Some(pooled),
+            sport_rank_score: Some(sport),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn signature_reads_the_sport_rank_only_when_narrowed() {
+        let order = |within_sport: bool| {
+            let mut list = vec![ranked("a", 0.9, 0.1), ranked("b", 0.2, 0.8)];
+            sort_pooled_sections(
+                &mut list,
+                FfiSectionSort::Signature,
+                within_sport,
+                f64::NAN,
+                f64::NAN,
+            );
+            list.into_iter().map(|s| s.id).collect::<Vec<_>>()
+        };
+        assert_eq!(order(false), ["a", "b"]);
+        assert_eq!(order(true), ["b", "a"]);
+    }
+
+    fn ids(list: Vec<SectionSummary>) -> Vec<String> {
+        list.into_iter().map(|s| s.id).collect()
+    }
+
+    #[test]
+    fn signature_falls_back_to_the_pooled_rank_inside_a_sport() {
+        let mut list = vec![
+            SectionSummary {
+                id: "a".into(),
+                rank_score: Some(0.4),
+                ..Default::default()
+            },
+            ranked("b", 0.1, 0.2),
+        ];
+        sort_pooled_sections(
+            &mut list,
+            FfiSectionSort::Signature,
+            true,
+            f64::NAN,
+            f64::NAN,
+        );
+        assert_eq!(ids(list), ["a", "b"]);
+    }
+
+    #[test]
+    fn signature_puts_an_unranked_section_last_and_breaks_ties_by_id() {
+        let mut list = vec![
+            ranked("c", 0.5, 0.5),
+            SectionSummary {
+                id: "unranked".into(),
+                ..Default::default()
+            },
+            ranked("b", 0.9, 0.9),
+            ranked("a", 0.9, 0.9),
+        ];
+        sort_pooled_sections(
+            &mut list,
+            FfiSectionSort::Signature,
+            false,
+            f64::NAN,
+            f64::NAN,
+        );
+        assert_eq!(ids(list), ["a", "b", "c", "unranked"]);
+    }
+
+    #[test]
+    fn distance_orders_longest_first_and_breaks_ties_by_id() {
+        let section = |id: &str, distance_meters: f64| SectionSummary {
+            id: id.into(),
+            distance_meters,
+            ..Default::default()
+        };
+        let mut list = vec![
+            section("c", 400.0),
+            section("a", 1200.0),
+            section("b", 400.0),
+        ];
+        sort_pooled_sections(
+            &mut list,
+            FfiSectionSort::Distance,
+            false,
+            f64::NAN,
+            f64::NAN,
+        );
+        assert_eq!(ids(list), ["a", "b", "c"]);
     }
 }

@@ -1,13 +1,13 @@
 //! Read-only SQLite connections that no engine lock stands in front of.
 //!
-//! `PERSISTENT_ENGINE` is an `RwLock`, and a read closure needs its read
-//! guard, so a screen read waits for whatever write is in flight: measured at
+//! `PERSISTENT_ENGINE` is a `Mutex`, so a read through the engine waits for
+//! whatever write is in flight: measured at
 //! 200.1 ms against a writer holding for 200 ms, where the same read through a
 //! second connection took 0.4 ms. The wait was never SQLite's. Under WAL
 //! readers overlap the writer, so a connection of one's own is served the last
 //! commit while the writer is mid-transaction.
 //!
-//! So this is the second access path: the write lock stays exactly as it is for
+//! So this is the second access path: the engine `Mutex` stays exactly as it is for
 //! the call sites that mutate, and a read that only needs SQLite comes through
 //! here instead, touching no engine state at all. The pool is bound to the
 //! database when the engine is installed and holds nothing else, which is why
@@ -15,9 +15,11 @@
 //!
 //! What a pooled reader cannot do is see a write that has not committed, and it
 //! cannot see the engine's in-memory tier either. A caller that needs either of
-//! those belongs on the write lock.
+//! those belongs on the engine `Mutex`.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex, MutexGuard};
+use std::{cell::Cell, thread_local};
 
 use rusqlite::{Connection, OpenFlags};
 
@@ -32,12 +34,33 @@ struct ReadPool {
     /// refused rather than served.
     path: Mutex<Option<String>>,
     idle: Mutex<Vec<Connection>>,
+    generation: AtomicU64,
 }
 
 static READ_POOL: LazyLock<ReadPool> = LazyLock::new(|| ReadPool {
     path: Mutex::new(None),
     idle: Mutex::new(Vec::new()),
+    generation: AtomicU64::new(0),
 });
+
+thread_local! {
+    static READER_GENERATION: Cell<Option<u64>> = const { Cell::new(None) };
+}
+
+struct ReaderScope(Option<u64>);
+
+impl Drop for ReaderScope {
+    fn drop(&mut self) {
+        READER_GENERATION.with(|slot| slot.set(self.0));
+    }
+}
+
+pub(crate) fn reader_current() -> bool {
+    READER_GENERATION.with(|slot| {
+        slot.get()
+            .is_none_or(|generation| generation == READ_POOL.generation.load(Ordering::Acquire))
+    })
+}
 
 /// A poisoned pool is still a valid pool: the panic happened in a caller's
 /// closure, not in the `Vec`, and refusing the lock afterwards would leave
@@ -54,21 +77,23 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 /// quarantine the file they hold open has been renamed aside, so reusing one
 /// would serve reads from the database that was moved away.
 pub(crate) fn bind(db_path: &str) {
-    lock(&READ_POOL.idle).clear();
-    *lock(&READ_POOL.path) = Some(db_path.to_string());
+    let mut idle = lock(&READ_POOL.idle);
+    idle.clear();
+    READ_POOL.generation.fetch_add(1, Ordering::AcqRel);
     // What a reader is allowed to remember belongs to the database it was read
     // from, so it moves with the binding.
     super::read_cache::bind(db_path);
+    *lock(&READ_POOL.path) = Some(db_path.to_string());
 }
 
-/// Forget the database and drop every idle connection. Nothing in the app
-/// closes the engine, so this exists for the tests that open one on a
-/// throwaway file and must not leave the next test reading it.
-#[cfg(test)]
+/// Forget the database and drop every idle connection when an engine closes.
+/// Restore must not leave a reader pointed at the file it is replacing.
 pub(crate) fn close() {
-    *lock(&READ_POOL.path) = None;
-    lock(&READ_POOL.idle).clear();
+    let mut idle = lock(&READ_POOL.idle);
+    READ_POOL.generation.fetch_add(1, Ordering::AcqRel);
     super::read_cache::close();
+    *lock(&READ_POOL.path) = None;
+    idle.clear();
 }
 
 /// Run `f` against a connection of this thread's own, with no engine lock
@@ -83,9 +108,12 @@ pub fn with_read_conn<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&Connection) -> R,
 {
+    let generation = READ_POOL.generation.load(Ordering::Acquire);
     let conn = take()?;
+    let previous = READER_GENERATION.with(|slot| slot.replace(Some(generation)));
+    let _scope = ReaderScope(previous);
     let out = f(&conn);
-    give_back(conn);
+    give_back(conn, generation);
     Some(out)
 }
 
@@ -103,9 +131,9 @@ fn take() -> Option<Connection> {
     }
 }
 
-fn give_back(conn: Connection) {
+fn give_back(conn: Connection, generation: u64) {
     let mut idle = lock(&READ_POOL.idle);
-    if idle.len() < IDLE_LIMIT {
+    if READ_POOL.generation.load(Ordering::Acquire) == generation && idle.len() < IDLE_LIMIT {
         idle.push(conn);
     }
 }
@@ -229,6 +257,36 @@ mod tests {
             }
         });
 
+        close();
+    }
+
+    #[test]
+    fn a_reader_finishing_after_restore_cannot_repool_the_old_file() {
+        let _serial = crate::test_globals::serial_global_state();
+        let (_old_dir, _old_writer) = bound_pool("old.db");
+        let (entered, held) = std::sync::mpsc::channel();
+        let (release, resume) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            with_read_conn(|_| {
+                entered.send(()).unwrap();
+                resume.recv().unwrap();
+            });
+        });
+        held.recv().unwrap();
+        close();
+        let (_new_dir, new_writer) = bound_pool("new.db");
+        new_writer
+            .execute("INSERT INTO names (id) VALUES ('new')", [])
+            .unwrap();
+        release.send(()).unwrap();
+        reader.join().unwrap();
+
+        let count: i64 = with_read_conn(|conn| {
+            conn.query_row("SELECT COUNT(*) FROM names", [], |row| row.get(0))
+                .unwrap()
+        })
+        .unwrap();
+        assert_eq!(count, 1, "the new library must serve the next read");
         close();
     }
 

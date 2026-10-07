@@ -1,5 +1,9 @@
-use super::error::{VeloqError, with_engine};
+use super::error::{VeloqError, with_engine, with_reader};
+use crate::net::upload_recording::{FfiUploadOutcome, FfiUploadResult, Live, upload_ride};
 use crate::persistence::FfiRecordingEntry;
+use crate::persistence::recordings::{
+    FfiUploadTransitionAnswer, UploadRefusal, UploadTransition, pooled,
+};
 use std::sync::Arc;
 
 fn db(err: rusqlite::Error) -> VeloqError {
@@ -10,11 +14,10 @@ fn db(err: rusqlite::Error) -> VeloqError {
 
 /// The recording index's FFI surface.
 ///
-/// Every call is one statement against one table, so nothing here needs a
-/// promise chain around it the way the AsyncStorage index did: two writers
-/// racing is what SQLite already answers. The FIT file and the streams sidecar
-/// stay TypeScript's to write and delete, because the upload streams the FIT
-/// rather than reading it into memory.
+/// Every call is one transaction, so nothing here needs a promise chain around
+/// it the way the AsyncStorage index did: two writers racing is what SQLite
+/// already answers. The FIT file and a manual entry's body stay TypeScript's
+/// to write and delete; the upload reads them from the paths the row names.
 #[derive(uniffi::Object)]
 pub struct RecordingManager {
     pub(crate) _private: (),
@@ -36,11 +39,37 @@ impl RecordingManager {
 
     /// Every recording, newest first.
     fn list_recordings(&self) -> Result<Vec<FfiRecordingEntry>, VeloqError> {
-        with_engine(|e| e.list_recordings().map_err(db))?
+        with_reader(|conn| pooled::list(conn).map_err(db))?
     }
 
     fn get_recording(&self, id: String) -> Result<Option<FfiRecordingEntry>, VeloqError> {
-        with_engine(|e| e.get_recording(&id).map_err(db))?
+        with_reader(|conn| pooled::recording(conn, &id).map_err(db))?
+    }
+
+    /// Every recording the signed-in athlete may see, newest first: their own
+    /// and the unstamped ones, never another athlete's held rides.
+    fn list_visible_recordings(
+        &self,
+        athlete_id: Option<String>,
+    ) -> Result<Vec<FfiRecordingEntry>, VeloqError> {
+        with_reader(|conn| pooled::list_visible(conn, athlete_id.as_deref()).map_err(db))?
+    }
+
+    /// One recording, `None` when it is stamped with another athlete.
+    fn get_visible_recording(
+        &self,
+        id: String,
+        athlete_id: Option<String>,
+    ) -> Result<Option<FfiRecordingEntry>, VeloqError> {
+        with_reader(|conn| pooled::recording_visible(conn, &id, athlete_id.as_deref()).map_err(db))?
+    }
+
+    /// Recordings intervals.icu does not hold yet, among those the signed-in
+    /// athlete may see.
+    fn unuploaded_visible_count(&self, athlete_id: Option<String>) -> Result<u32, VeloqError> {
+        with_reader(|conn| {
+            pooled::unuploaded_visible_count(conn, athlete_id.as_deref()).map_err(db)
+        })?
     }
 
     /// Remember the engine key the recording was written under, so a
@@ -62,58 +91,49 @@ impl RecordingManager {
         with_engine(|e| e.set_recording_reconciled(&id).map_err(db))?
     }
 
-    fn mark_uploading(&self, id: String) -> Result<(), VeloqError> {
-        with_engine(|e| e.set_recording_uploading(&id).map_err(db))?
+    /// intervals.icu has the effort the athlete set, so the sweep that sends
+    /// an owed one can stop.
+    fn mark_rpe_sent(&self, id: String) -> Result<(), VeloqError> {
+        with_engine(|e| e.set_recording_rpe_sent(&id).map_err(db))?
     }
 
-    fn mark_uploaded(
+    /// Move one recording's upload by a named transition, refused when the row
+    /// is in a state the transition may not leave from. A begin answers the
+    /// install it ran under; an outcome carries that install back, runs under
+    /// it, and is refused once a restore or wipe has moved it on.
+    fn transition(
         &self,
         id: String,
-        intervals_activity_id: Option<String>,
-    ) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.set_recording_uploaded(&id, intervals_activity_id.as_deref())
-                .map_err(db)
-        })?
-    }
-
-    /// A retriable failure. Returns the attempt count it now stands at, so the
-    /// caller can log the same "retry n of m" line it used to compute itself.
-    fn mark_upload_failed(
-        &self,
-        id: String,
-        error: String,
-        now_ms: i64,
-    ) -> Result<u32, VeloqError> {
-        with_engine(|e| {
-            e.set_recording_upload_failed(&id, &error, now_ms)
-                .map_err(db)
-        })?
-    }
-
-    /// A server-side rejection automatic retries cannot fix.
-    fn mark_rejected(&self, id: String, error: String, now_ms: i64) -> Result<(), VeloqError> {
-        with_engine(|e| e.set_recording_rejected(&id, &error, now_ms).map_err(db))?
-    }
-
-    fn mark_permission_blocked(&self, id: String, now_ms: i64) -> Result<(), VeloqError> {
-        with_engine(|e| e.set_recording_permission_blocked(&id, now_ms).map_err(db))?
-    }
-
-    /// A credential was refused mid-upload. The ride goes back in the queue
-    /// with its attempts intact, because a 401 is not an attempt it spent.
-    fn hold_for_auth(&self, id: String, error: String) -> Result<(), VeloqError> {
-        with_engine(|e| e.hold_recording_for_auth(&id, &error).map_err(db))?
-    }
-
-    /// The transport failed before the server was reached. The ride keeps its
-    /// attempts for the same reason a 401 does, and is stamped so the backoff
-    /// still holds it back.
-    fn hold_for_network(&self, id: String, error: String, now_ms: i64) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.hold_recording_for_network(&id, &error, now_ms)
-                .map_err(db)
-        })?
+        transition: UploadTransition,
+        now_ms: f64,
+    ) -> Result<FfiUploadTransitionAnswer, VeloqError> {
+        let now_ms = crate::ffi_types::int_from_wire(now_ms);
+        let apply = |e: &mut crate::persistence::PersistentEngine| {
+            // Read under the engine lock, so it names the engine written to.
+            let install = crate::persistence::engine_install() as f64;
+            let answer = e
+                .transition_recording(&id, &transition, now_ms)
+                .map_err(db)?;
+            Ok(FfiUploadTransitionAnswer { install, ..answer })
+        };
+        let Some(install) = transition.install() else {
+            return with_engine(apply)?;
+        };
+        let install = crate::ffi_types::uint_from_wire(install);
+        match crate::persistence::with_persistent_engine_for(install, apply) {
+            Some(answer) => answer,
+            None => {
+                let open = crate::persistence::engine_install();
+                if open == install {
+                    Err(VeloqError::NotInitialized)
+                } else {
+                    Ok(FfiUploadTransitionAnswer::refused_unread(
+                        UploadRefusal::AnotherInstall,
+                        open as f64,
+                    ))
+                }
+            }
+        }
     }
 
     /// An athlete signed in: stop auto-uploading every ride that is not
@@ -122,37 +142,61 @@ impl RecordingManager {
         with_engine(|e| e.hold_recordings_of_other_athletes(&athlete_id).map_err(db))?
     }
 
-    /// A manual retry, or a requeue after an upgrade.
-    fn requeue(&self, id: String) -> Result<(), VeloqError> {
-        with_engine(|e| e.requeue_recording(&id).map_err(db))?
+    /// Name the library's athlete on every ride that has none. Returns how
+    /// many were named.
+    fn stamp_ownerless(&self, athlete_id: String) -> Result<u32, VeloqError> {
+        with_engine(|e| e.stamp_ownerless_recordings(&athlete_id).map_err(db))?
     }
 
-    /// After an OAuth write upgrade, everything permission-blocked becomes
-    /// uploadable again. Returns how many moved.
-    fn clear_permission_blocked(&self) -> Result<u32, VeloqError> {
-        with_engine(|e| e.clear_recording_permission_blocked().map_err(db))?
+    /// After an OAuth write upgrade, the upgrading athlete's permission-blocked
+    /// rides become uploadable again, and nobody else's. Returns how many moved.
+    fn clear_permission_blocked(&self, athlete_id: String) -> Result<u32, VeloqError> {
+        with_engine(|e| {
+            e.clear_recording_permission_blocked(&athlete_id)
+                .map_err(db)
+        })?
     }
 
-    /// On logout: keep every recording on device, but stop auto-uploading so
-    /// nothing lands in a different account after the next login.
-    fn demote_pending_to_local_only(&self) -> Result<u32, VeloqError> {
-        with_engine(|e| e.demote_recordings_to_local_only().map_err(db))?
+    /// Start the upload schedule if it is not running, and wake it. Called when
+    /// the engine is ready and when the athlete grants write permission, the one
+    /// trigger that is theirs rather than the schedule's.
+    fn wake_upload_schedule(&self) {
+        crate::net::upload_schedule::start_or_wake();
     }
 
-    /// The next recording due an automatic upload, respecting the backoff.
-    fn next_pending_upload(&self, now_ms: i64) -> Result<Option<FfiRecordingEntry>, VeloqError> {
-        with_engine(|e| e.next_pending_recording(now_ms).map_err(db))?
+    /// Upload one recording now, the whole sequence the schedule runs for a
+    /// due ride, and answer how it ended. `manual` is the athlete asking, from
+    /// the review save or Upload now: a parked ride is requeued first and its
+    /// backoff does not apply.
+    ///
+    /// The requests block, so the sequence runs on a thread of its own and
+    /// this resolves when it has finished.
+    async fn upload_recording(&self, id: String, manual: bool) -> FfiUploadResult {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        crate::threads::spawn_named("veloq-upload", move || {
+            let now = || chrono::Utc::now().timestamp_millis();
+            let _ = tx.send(upload_ride(&id, manual, &Live, &now));
+        });
+        // A sequence that died without answering sent something or nothing,
+        // and either way the row says which: nothing was settled by this call.
+        rx.await.unwrap_or(FfiUploadResult {
+            outcome: FfiUploadOutcome::NotStarted,
+            error_detail: None,
+        })
     }
 
-    /// Remove one recording, handing back the row so the caller can delete the
-    /// files it names.
-    fn delete_recording(&self, id: String) -> Result<Option<FfiRecordingEntry>, VeloqError> {
-        with_engine(|e| e.delete_recording(&id).map_err(db))?
-    }
-
-    /// Recordings intervals.icu does not hold yet.
-    fn unuploaded_count(&self) -> Result<u32, VeloqError> {
-        with_engine(|e| e.unuploaded_recording_count().map_err(db))?
+    /// Remove one recording the signed-in athlete may see, handing back the
+    /// row so the caller can delete the files it names. A row stamped with
+    /// another athlete is left in place and answers `None`.
+    fn delete_own_recording(
+        &self,
+        id: String,
+        athlete_id: Option<String>,
+    ) -> Result<Option<FfiRecordingEntry>, VeloqError> {
+        with_engine(|e| {
+            e.delete_own_recording(&id, athlete_id.as_deref())
+                .map_err(db)
+        })?
     }
 
     /// Drop every row. A `.veloqdb` restore carries this table like any other
@@ -162,3 +206,7 @@ impl RecordingManager {
         with_engine(|e| e.clear_recordings().map_err(db))?
     }
 }
+
+#[cfg(test)]
+#[path = "tests/recordings_pooled.rs"]
+mod pooled_tests;
