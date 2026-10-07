@@ -14,7 +14,7 @@
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::LazyLock;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
@@ -52,6 +52,9 @@ pub trait EngineObserver: Send + Sync {
     fn tiles_generated(&self);
     /// The elevation backfill entered `phase`.
     fn backfill_phase(&self, phase: String);
+    /// The sensor series download entered `phase`. It is its own event so a
+    /// listener for the elevation pass is never woken by this one.
+    fn stream_backfill_phase(&self, phase: String);
     /// The section cutover committed.
     fn cutover_settled(&self);
     /// A preview detection run entered `phase`. Four per run, so the screen
@@ -59,6 +62,12 @@ pub trait EngineObserver: Send + Sync {
     fn preview_phase(&self, phase: String);
     /// A preview detection run finished.
     fn preview_finished(&self);
+    /// A recording's upload moved, or the library of recordings otherwise
+    /// changed under the engine. Carries no payload, the reader lists again.
+    fn recordings_changed(&self);
+    /// intervals.icu refused an upload for want of write permission, so every
+    /// other ride would meet the same refusal until the athlete grants it.
+    fn upload_permission_refused(&self);
 }
 
 /// One queued event, ready to hand to the observer.
@@ -79,9 +88,12 @@ pub(crate) enum Announcement {
     DetectionApplied,
     TilesGenerated,
     BackfillPhase(String),
+    StreamBackfillPhase(String),
     CutoverSettled,
     PreviewPhase(String),
     PreviewFinished,
+    RecordingsChanged,
+    UploadPermissionRefused,
 }
 
 impl Announcement {
@@ -100,15 +112,68 @@ impl Announcement {
             Self::DetectionApplied => observer.detection_applied(),
             Self::TilesGenerated => observer.tiles_generated(),
             Self::BackfillPhase(phase) => observer.backfill_phase(phase.clone()),
+            Self::StreamBackfillPhase(phase) => observer.stream_backfill_phase(phase.clone()),
             Self::CutoverSettled => observer.cutover_settled(),
             Self::PreviewPhase(phase) => observer.preview_phase(phase.clone()),
             Self::PreviewFinished => observer.preview_finished(),
+            Self::RecordingsChanged => observer.recordings_changed(),
+            Self::UploadPermissionRefused => observer.upload_permission_refused(),
         }
     }
 }
 
+impl Announcement {
+    fn channel(&self) -> &'static str {
+        match self {
+            Self::SyncProgress => "sync_progress",
+            Self::SyncSettled => "sync_settled",
+            Self::ActivitiesStored => "activities_stored",
+            Self::BodyStored { .. } => "body_stored",
+            Self::TimeStreamsStored(_) => "time_streams_stored",
+            Self::GpsTrackStored(_) => "gps_track_stored",
+            Self::GpsTracksMutated(_) => "gps_tracks_mutated",
+            Self::FitParsed(_) => "fit_parsed",
+            Self::DetectionApplied => "detection_applied",
+            Self::TilesGenerated => "tiles_generated",
+            Self::BackfillPhase(_) => "backfill_phase",
+            Self::StreamBackfillPhase(_) => "stream_backfill_phase",
+            Self::CutoverSettled => "cutover_settled",
+            Self::PreviewPhase(_) => "preview_phase",
+            Self::PreviewFinished => "preview_finished",
+            Self::RecordingsChanged => "recordings_changed",
+            Self::UploadPermissionRefused => "upload_permission_refused",
+        }
+    }
+}
+
+/// Set once an announcement has found no observer, cleared on every registration
+/// change so a later withdrawal is logged again.
+static UNOBSERVED_LOGGED: AtomicBool = AtomicBool::new(false);
+
+/// True the first time it is called after a registration change. Release
+/// builds drop console output, so this is the one line a handset keeps.
+fn first_unobserved() -> bool {
+    !UNOBSERVED_LOGGED.swap(true, Ordering::Relaxed)
+}
+
 static OBSERVER: LazyLock<RwLock<Option<Arc<dyn EngineObserver>>>> =
     LazyLock::new(|| RwLock::new(None));
+
+/// An announcement and the observer that was registered when it was pushed.
+///
+/// Delivery goes to that handle, so replacing or clearing the registration
+/// never has to wait for the queue: what was announced under one observer still
+/// reaches it, and nothing reaches its replacement.
+struct Queued {
+    observer: Arc<dyn EngineObserver>,
+    announcement: Announcement,
+}
+
+impl PartialEq for Queued {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.observer, &other.observer) && self.announcement == other.announcement
+    }
+}
 
 /// What is queued, and whether the delivery thread is inside a call.
 ///
@@ -118,7 +183,7 @@ static OBSERVER: LazyLock<RwLock<Option<Arc<dyn EngineObserver>>>> =
 /// observer has heard nothing.
 #[derive(Default)]
 struct Pending {
-    queued: Vec<Announcement>,
+    queued: Vec<Queued>,
     delivering: bool,
 }
 
@@ -142,12 +207,12 @@ static ANNOUNCER: LazyLock<Arc<Announcer>> = LazyLock::new(|| {
 });
 
 impl Announcer {
-    fn push(&self, announcement: Announcement) {
+    fn push(&self, queued: Queued) {
         self.pending
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .queued
-            .push(announcement);
+            .push(queued);
         self.changed.notify_all();
     }
 
@@ -166,8 +231,8 @@ impl Announcer {
                 coalesce(std::mem::take(&mut pending.queued))
             };
 
-            for announcement in batch {
-                deliver(&announcement);
+            for queued in batch {
+                deliver(&queued);
             }
 
             self.pending
@@ -212,8 +277,8 @@ impl Announcer {
 /// payload-free `sync_progress` per stored activity says the same thing as one.
 /// Two announcements that differ in any field are two facts, so only an exact
 /// match collapses.
-fn coalesce(batch: Vec<Announcement>) -> Vec<Announcement> {
-    let mut kept: Vec<Announcement> = Vec::with_capacity(batch.len());
+fn coalesce(batch: Vec<Queued>) -> Vec<Queued> {
+    let mut kept: Vec<Queued> = Vec::with_capacity(batch.len());
     for announcement in batch {
         if !kept.contains(&announcement) {
             kept.push(announcement);
@@ -227,11 +292,13 @@ fn coalesce(batch: Vec<Announcement>) -> Vec<Announcement> {
 /// One registration per process: the engine is a singleton and so is the
 /// JavaScript side that owns the listener map.
 ///
-/// The queue is drained before the swap, so an announcement pushed while one
-/// observer was installed reaches that observer rather than its replacement.
+/// This never waits on a delivery. The delivery thread may be parked on the
+/// JavaScript thread, which is usually the thread calling here, so waiting for
+/// the queue would hold both. An announcement pushed while one observer was
+/// installed carries that observer and still reaches it, never its replacement.
 pub fn set_observer(observer: Option<Arc<dyn EngineObserver>>) {
-    ANNOUNCER.drain();
     *OBSERVER.write().unwrap_or_else(|e| e.into_inner()) = observer;
+    UNOBSERVED_LOGGED.store(false, Ordering::Relaxed);
 }
 
 /// Announcements that came back as a panic from the foreign side.
@@ -248,7 +315,22 @@ pub fn observer_panics() -> u32 {
 /// Queue an announcement and return. The delivery happens on the announce
 /// thread, so the caller never waits on the JavaScript thread.
 pub(crate) fn notify(announcement: Announcement) {
-    ANNOUNCER.push(announcement);
+    let observer = OBSERVER
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map(Arc::clone);
+    if let Some(observer) = observer {
+        ANNOUNCER.push(Queued {
+            observer,
+            announcement,
+        });
+    } else if first_unobserved() {
+        log::warn!(
+            "veloqrs: [observer] {} announced with no observer registered; the screen is not hearing the engine until one is set",
+            announcement.channel()
+        );
+    }
 }
 
 /// Block until every queued announcement has been delivered.
@@ -260,10 +342,10 @@ pub fn flush() {
     ANNOUNCER.drain();
 }
 
-/// Hand one announcement to the registered observer, if there is one.
+/// Hand one announcement to the observer it was pushed under.
 ///
-/// The handle is cloned out and the read lock dropped before the call runs, so a
-/// call into JavaScript never holds the registry.
+/// The handle was cloned out at push, so a call into JavaScript never holds the
+/// registry.
 ///
 /// The call is caught. uniffi's dispatch panics with "Foreign pointer not set"
 /// when the vtable slot behind a registered observer was never installed, and
@@ -277,14 +359,11 @@ pub fn flush() {
 /// `AssertUnwindSafe` because the only state across the boundary is the foreign
 /// handle, which is not ours to hold invariants for, and the registry lock is
 /// already released.
-fn deliver(announcement: &Announcement) {
-    let observer = OBSERVER
-        .read()
-        .unwrap_or_else(|e| e.into_inner())
-        .as_ref()
-        .map(Arc::clone);
-    if let Some(observer) = observer
-        && catch_unwind(AssertUnwindSafe(|| announcement.deliver(observer.as_ref()))).is_err()
+fn deliver(queued: &Queued) {
+    if catch_unwind(AssertUnwindSafe(|| {
+        queued.announcement.deliver(queued.observer.as_ref());
+    }))
+    .is_err()
     {
         let total = OBSERVER_PANICS.fetch_add(1, Ordering::Relaxed) + 1;
         log::error!(
@@ -360,6 +439,9 @@ pub(crate) mod recorder {
         fn backfill_phase(&self, phase: String) {
             self.push(&format!("backfill_phase:{phase}"));
         }
+        fn stream_backfill_phase(&self, phase: String) {
+            self.push(&format!("stream_backfill_phase:{phase}"));
+        }
         fn cutover_settled(&self) {
             self.push("cutover_settled");
         }
@@ -369,6 +451,12 @@ pub(crate) mod recorder {
         fn preview_finished(&self) {
             self.push("preview_finished");
         }
+        fn recordings_changed(&self) {
+            self.push("recordings_changed");
+        }
+        fn upload_permission_refused(&self) {
+            self.push("upload_permission_refused");
+        }
     }
 }
 
@@ -377,6 +465,24 @@ mod tests {
     use super::recorder::Recorder;
     use super::*;
     use crate::test_globals::serial_global_state;
+
+    #[test]
+    fn an_unobserved_announcement_is_logged_once_until_the_registration_changes() {
+        let _guard = serial_global_state();
+        set_observer(None);
+        assert!(first_unobserved());
+        assert!(!first_unobserved());
+        set_observer(None);
+        assert!(first_unobserved());
+        set_observer(Some(Recorder::new()));
+        notify(Announcement::SyncSettled);
+        flush();
+        assert!(
+            first_unobserved(),
+            "a delivered announcement must not consume the flag"
+        );
+        set_observer(None);
+    }
 
     #[test]
     fn the_registry_delivers_to_one_observer_at_a_time() {
@@ -505,9 +611,12 @@ mod tests {
             fn detection_applied(&self) {}
             fn tiles_generated(&self) {}
             fn backfill_phase(&self, _: String) {}
+            fn stream_backfill_phase(&self, _: String) {}
             fn cutover_settled(&self) {}
             fn preview_phase(&self, _: String) {}
             fn preview_finished(&self) {}
+            fn recordings_changed(&self) {}
+            fn upload_permission_refused(&self) {}
         }
 
         #[test]
@@ -531,6 +640,65 @@ mod tests {
                 vec!["the emitter returned", "sync_settled"],
                 "the emitter waited on the foreign side"
             );
+        }
+
+        /// Scenario: a delivery is parked until the JavaScript thread returns,
+        /// and the JavaScript thread then clears and re-registers the observer.
+        ///
+        /// Expected behaviour: both calls return while the delivery is still
+        /// parked, so the thread that must release it is not the one waiting.
+        #[test]
+        fn replacing_the_observer_does_not_wait_for_a_parked_delivery() {
+            let _guard = serial_global_state();
+            let (gated, was_entered, release) = Slow::gated();
+            let slow = Arc::new(gated);
+            set_observer(Some(slow.clone()));
+
+            notify(Announcement::SyncSettled);
+            was_entered
+                .recv_timeout(Duration::from_secs(5))
+                .expect("the announcement never reached the observer");
+
+            let (returned, was_returned) = channel();
+            let caller = std::thread::spawn(move || {
+                set_observer(None);
+                set_observer(Some(Recorder::new()));
+                let _ = returned.send(());
+            });
+            let result = was_returned.recv_timeout(Duration::from_secs(2));
+            let _ = release.send(());
+            caller.join().unwrap();
+            flush();
+            set_observer(None);
+
+            assert!(
+                result.is_ok(),
+                "set_observer waited on a delivery parked behind its own caller"
+            );
+        }
+
+        /// What was announced under one observer reaches it and not its
+        /// replacement, even though the swap no longer waits for the queue.
+        #[test]
+        fn a_queued_announcement_reaches_the_observer_it_was_pushed_under() {
+            let _guard = serial_global_state();
+            let (gated, was_entered, release) = Slow::gated();
+            let slow = Arc::new(gated);
+            set_observer(Some(slow.clone()));
+
+            notify(Announcement::SyncSettled);
+            was_entered
+                .recv_timeout(Duration::from_secs(5))
+                .expect("the announcement never reached the observer");
+            notify(Announcement::ActivitiesStored);
+            let replacement = Recorder::new();
+            set_observer(Some(replacement.clone()));
+            let _ = release.send(());
+            flush();
+            set_observer(None);
+
+            assert_eq!(slow.events(), vec!["sync_settled", "activities_stored"]);
+            assert!(replacement.events().is_empty());
         }
 
         /// `sync_progress` carries no payload and the reader takes one status
@@ -603,6 +771,7 @@ mod tests {
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
         SYNC_SERVICE.finish(SyncState::Idle, None, true);
+        flush();
         set_observer(None);
 
         assert!(
@@ -621,6 +790,19 @@ mod tests {
 
         let _guard = serial_global_state();
         let _tmp = init_global_engine("time_stream_announcement.db");
+        crate::persistence::with_persistent_engine(|engine| {
+            for id in ["a1", "a2", "a3"] {
+                engine
+                    .db
+                    .execute(
+                        "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                         VALUES (?, 'Ride', 0, 0, 0, 0)",
+                        rusqlite::params![id],
+                    )
+                    .unwrap();
+            }
+        })
+        .unwrap();
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
         crate::runtime::block_on(store_time_stream(
@@ -671,6 +853,35 @@ mod tests {
         );
     }
 
+    /// Scenario: the engine starts a series pass of its own, so the Settings
+    /// row has no start of its own to follow.
+    ///
+    /// Expected behaviour: each phase change is announced once, on the series
+    /// event and never on the elevation one.
+    #[test]
+    fn the_stream_backfill_announces_every_phase_it_enters() {
+        use crate::net::stream_backfill::{
+            STREAM_PHASE_COMPLETE, STREAM_PHASE_FETCHING, STREAM_PHASE_IDLE, set_phase,
+        };
+
+        let _guard = serial_global_state();
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+        set_phase(STREAM_PHASE_FETCHING);
+        set_phase(STREAM_PHASE_COMPLETE);
+        flush();
+        set_observer(None);
+        set_phase(STREAM_PHASE_IDLE);
+
+        assert_eq!(
+            recorder.events(),
+            vec![
+                "stream_backfill_phase:fetching",
+                "stream_backfill_phase:complete"
+            ]
+        );
+    }
+
     /// The backfill sets its phase from a background thread, so the settings
     /// row hears the transition instead of re-reading the snapshot on a timer.
     #[test]
@@ -684,6 +895,7 @@ mod tests {
         set_observer(Some(recorder.clone()));
         set_phase(BACKFILL_PHASE_FETCHING);
         set_phase(BACKFILL_PHASE_COMPLETE);
+        flush();
         set_observer(None);
         set_phase(BACKFILL_PHASE_IDLE);
 
@@ -704,7 +916,7 @@ mod tests {
     /// call across a boundary, so a panic coming back over it is caught here.
     mod a_foreign_side_that_panics {
         use super::*;
-        use std::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
         /// Every method panics the way uniffi's dispatch does when the vtable
         /// slot was never installed, and counts itself on the way out.
@@ -748,9 +960,12 @@ mod tests {
                 detection_applied();
                 tiles_generated();
                 backfill_phase(phase: String);
+                stream_backfill_phase(phase: String);
                 cutover_settled();
                 preview_phase(phase: String);
                 preview_finished();
+                recordings_changed();
+                upload_permission_refused();
             }
         }
 

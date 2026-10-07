@@ -35,10 +35,54 @@ pub enum FfiStartOutcome {
     /// is the verdict TypeScript records when the FFI call itself fails, so a
     /// caught error is still a reason and not another bare `false`.
     Failed = 7,
-    /// The device is offline, and the work needs the network. The engine
-    /// sleeps on its own connectivity edge rather than a timer, so a caller
-    /// that reads this has somewhere to put the retry.
+    /// The device is offline, and the work needs the network. Only the
+    /// elevation backfill sleeps on a connectivity edge. For every other
+    /// caller this is a refusal to show, and the retry is the athlete's.
     Offline = 8,
+}
+
+/// A start verdict and the time a failed key becomes claimable again.
+///
+/// Only an attempt-store backoff has a deadline. Other `Held` refusals wait
+/// for work whose end is not known when the start is refused.
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct FfiStartResult {
+    pub outcome: FfiStartOutcome,
+    /// Epoch milliseconds. A floating-point wire value keeps this readable
+    /// as a JavaScript number; present-day millisecond timestamps are exact.
+    pub retry_at_ms: Option<f64>,
+}
+
+impl FfiStartResult {
+    pub fn backing_off(until: i64) -> Self {
+        Self {
+            outcome: FfiStartOutcome::Held,
+            retry_at_ms: Some(until as f64),
+        }
+    }
+
+    pub fn is_retryable(self) -> bool {
+        self.outcome.is_retryable()
+    }
+
+    pub fn started(self) -> bool {
+        self.outcome.started()
+    }
+}
+
+impl From<FfiStartOutcome> for FfiStartResult {
+    fn from(outcome: FfiStartOutcome) -> Self {
+        Self {
+            outcome,
+            retry_at_ms: None,
+        }
+    }
+}
+
+impl PartialEq<FfiStartOutcome> for FfiStartResult {
+    fn eq(&self, other: &FfiStartOutcome) -> bool {
+        self.outcome == *other
+    }
 }
 
 impl FfiStartOutcome {

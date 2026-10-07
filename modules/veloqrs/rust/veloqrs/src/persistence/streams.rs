@@ -9,7 +9,7 @@
 //! live in `gps_tracks` and `time_streams` and are reconstructed from there, so
 //! storing them again would pay twice for the same samples.
 
-use rusqlite::{Result as SqlResult, params};
+use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::{PersistentEngine, codec};
 use crate::net::types::StreamDto;
@@ -28,8 +28,126 @@ pub const DEFAULT_STREAM_RETENTION_DAYS: Option<i64> = None;
 /// is what "no hard ceiling" comes to when the window is opened all the way.
 pub const STREAM_RETENTION_DAYS_KEY: &str = "__stream_retention_days";
 
+pub(crate) mod pooled {
+    use super::*;
+
+    pub(crate) fn activity_streams(
+        conn: &Connection,
+        activity_id: &str,
+    ) -> SqlResult<Vec<StreamDto>> {
+        let mut stmt = conn.prepare(
+            "SELECT kind, data FROM activity_streams WHERE activity_id = ? ORDER BY kind",
+        )?;
+        let rows = stmt.query_map(params![activity_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (kind, blob) = row?;
+            match codec::decode_series(&blob) {
+                Some(data) => out.push(StreamDto {
+                    kind,
+                    data,
+                    data2: None,
+                }),
+                None => log::warn!(
+                    "veloqrs: [Streams] {} series for {} did not decode, dropping it",
+                    kind,
+                    activity_id
+                ),
+            }
+        }
+        Ok(out)
+    }
+
+    pub(crate) fn retention_days(conn: &Connection) -> Option<i64> {
+        let raw = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                params![STREAM_RETENTION_DAYS_KEY],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .ok()
+            .flatten()
+            .and_then(|v| v.trim().parse::<i64>().ok());
+        match raw {
+            Some(0) => None,
+            Some(days) if days > 0 => Some(days),
+            _ => DEFAULT_STREAM_RETENTION_DAYS,
+        }
+    }
+
+    pub(crate) fn store_bytes(conn: &Connection) -> SqlResult<i64> {
+        conn.query_row(
+            "SELECT COALESCE(SUM(LENGTH(data)), 0) FROM activity_streams",
+            [],
+            |r| r.get(0),
+        )
+    }
+
+    pub(crate) fn backfill_remaining(conn: &Connection, attempt_limit: u32) -> SqlResult<usize> {
+        let window = retention_days(conn);
+        let count: i64 = conn.query_row(
+            &stream_gap_count_sql(),
+            params![attempt_limit, window],
+            |row| row.get(0),
+        )?;
+        Ok(count.max(0) as usize)
+    }
+
+    /// The queue's length and the moving seconds it covers, read through the
+    /// same rows as the count so the two cannot describe different queues.
+    pub(crate) fn backfill_estimate(
+        conn: &Connection,
+        attempt_limit: u32,
+    ) -> SqlResult<(usize, u64)> {
+        let window = retention_days(conn);
+        let (count, seconds): (i64, i64) = conn.query_row(
+            &format!(
+                "SELECT COUNT(*),
+                        COALESCE(SUM((SELECT m.moving_time FROM activity_metrics m
+                                       WHERE m.activity_id = a.id)), 0)
+                 {STREAM_GAP_FROM_WHERE}"
+            ),
+            params![attempt_limit, window],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        Ok((count.max(0) as usize, seconds.max(0) as u64))
+    }
+}
+
+/// The rows the stream backfill still has to ask about, shared by the queue
+/// and its count so the two cannot disagree. `?1` is the attempt limit and
+/// `?2` the retention window in days, or NULL when it is unbounded.
+pub(crate) const STREAM_GAP_FROM_WHERE: &str = "FROM activities a
+               JOIN gps_tracks g ON g.activity_id = a.id
+               LEFT JOIN activity_stream_backfill b ON b.activity_id = a.id
+              WHERE NOT EXISTS (
+                        SELECT 1 FROM activity_streams s WHERE s.activity_id = a.id)
+                AND (a.id NOT LIKE 'local-%' OR a.intervals_id IS NOT NULL)
+                AND COALESCE(b.attempts, 0) < ?1
+                AND (?2 IS NULL
+                     OR (a.start_date IS NOT NULL
+                         AND a.start_date >= strftime('%s', 'now') - ?2 * 86400))";
+
+/// The queue read, in the order the athlete watches it fill.
+pub(crate) fn stream_gap_queue_sql() -> String {
+    format!(
+        "SELECT a.id, g.point_count {STREAM_GAP_FROM_WHERE}
+              ORDER BY a.start_date IS NULL, a.start_date DESC, a.id"
+    )
+}
+
+/// The count read: no order, so it never materialises the rows to sort them.
+pub(crate) fn stream_gap_count_sql() -> String {
+    format!("SELECT COUNT(*) {STREAM_GAP_FROM_WHERE}")
+}
+
 /// Series that come out of the track and its time stream rather than out of
-/// this store. Writing them here would hold the same samples twice.
+/// this store. The writers skip them, since storing them would hold the same
+/// samples twice, and the reader rebuilds them from the track without looking
+/// for a stored copy. Anything outside this set only arrives as a fetched body.
 pub const FROM_THE_TRACK: [&str; 4] = ["latlng", "altitude", "fixed_altitude", "time"];
 
 /// The rows one activity's response becomes: each series the track does not
@@ -79,16 +197,7 @@ impl PersistentEngine {
     /// everything: a setting nobody can read must not silently start deleting
     /// an athlete's history.
     pub fn stream_retention_days(&self) -> Option<i64> {
-        let raw = self
-            .get_setting(STREAM_RETENTION_DAYS_KEY)
-            .ok()
-            .flatten()
-            .and_then(|v| v.trim().parse::<i64>().ok());
-        match raw {
-            Some(0) => None,
-            Some(d) if d > 0 => Some(d),
-            _ => DEFAULT_STREAM_RETENTION_DAYS,
-        }
+        pooled::retention_days(&self.db)
     }
 
     /// Set the retention window. Zero keeps everything; anything negative is
@@ -133,7 +242,7 @@ impl PersistentEngine {
         // activity with four series held every screen read out five times.
         self.db.execute_batch("BEGIN IMMEDIATE")?;
         match self.write_activity_streams(activity_id, raw) {
-            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Ok(()) => super::commit_write_txn(&self.db)?,
             Err(e) => {
                 let _ = self.db.execute_batch("ROLLBACK");
                 return Err(e);
@@ -159,6 +268,16 @@ impl PersistentEngine {
                     updated_at = excluded.updated_at",
                 params![activity_id, kind, blob, samples as i64],
             )?;
+            // A new series may cover the traversals the old one left empty.
+            let cleared = match kind {
+                "heartrate" => "hr_empty",
+                "watts" => "power_empty",
+                _ => continue,
+            };
+            self.db.execute(
+                &format!("UPDATE section_activities SET {cleared} = 0 WHERE activity_id = ? AND {cleared} = 1"),
+                params![activity_id],
+            )?;
         }
         // The prune runs on the way out, so an activity outside the window is
         // written and deleted inside this one call. That is deliberate: the
@@ -176,29 +295,7 @@ impl PersistentEngine {
     /// empty series reads downstream as "the ride had no power", which is a
     /// different claim from "this row is unreadable".
     pub fn load_activity_streams(&self, activity_id: &str) -> SqlResult<Vec<StreamDto>> {
-        let mut stmt = self.db.prepare(
-            "SELECT kind, data FROM activity_streams WHERE activity_id = ? ORDER BY kind",
-        )?;
-        let rows = stmt.query_map(params![activity_id], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, Vec<u8>>(1)?))
-        })?;
-        let mut out = Vec::new();
-        for row in rows {
-            let (kind, blob) = row?;
-            match codec::decode_series(&blob) {
-                Some(data) => out.push(StreamDto {
-                    kind,
-                    data,
-                    data2: None,
-                }),
-                None => log::warn!(
-                    "veloqrs: [Streams] {} series for {} did not decode, dropping it",
-                    kind,
-                    activity_id
-                ),
-            }
-        }
-        Ok(out)
+        pooled::activity_streams(&self.db, activity_id)
     }
 
     /// Which of the wanted series this store can answer for an activity.
@@ -247,19 +344,7 @@ impl PersistentEngine {
     /// care about most fill in first.
     pub fn activities_missing_streams(&self, attempt_limit: u32) -> SqlResult<Vec<StreamGap>> {
         let window = self.stream_retention_days();
-        let mut stmt = self.db.prepare(
-            "SELECT a.id, g.point_count
-               FROM activities a
-               JOIN gps_tracks g ON g.activity_id = a.id
-               LEFT JOIN activity_stream_backfill b ON b.activity_id = a.id
-              WHERE NOT EXISTS (
-                        SELECT 1 FROM activity_streams s WHERE s.activity_id = a.id)
-                AND COALESCE(b.attempts, 0) < ?1
-                AND (?2 IS NULL
-                     OR (a.start_date IS NOT NULL
-                         AND a.start_date >= strftime('%s', 'now') - ?2 * 86400))
-              ORDER BY a.start_date IS NULL, a.start_date DESC, a.id",
-        )?;
+        let mut stmt = self.db.prepare(&stream_gap_queue_sql())?;
         let rows = stmt.query_map(params![attempt_limit, window], |row| {
             Ok(StreamGap {
                 activity_id: row.get(0)?,
@@ -271,7 +356,7 @@ impl PersistentEngine {
 
     /// How many activities the stream backfill still has to ask about.
     pub fn stream_backfill_remaining(&self, attempt_limit: u32) -> SqlResult<usize> {
-        Ok(self.activities_missing_streams(attempt_limit)?.len())
+        pooled::backfill_remaining(&self.db, attempt_limit)
     }
 
     /// Count one ask that settled nothing against an activity, so an activity
@@ -293,11 +378,7 @@ impl PersistentEngine {
 
     /// Bytes the stream store holds, for the settings readout.
     pub fn stream_store_bytes(&self) -> SqlResult<i64> {
-        self.db.query_row(
-            "SELECT COALESCE(SUM(LENGTH(data)), 0) FROM activity_streams",
-            [],
-            |r| r.get(0),
-        )
+        pooled::store_bytes(&self.db)
     }
 }
 
@@ -440,6 +521,62 @@ mod tests {
         );
     }
 
+    /// Scenario: the ask before a large download sizes the queue.
+    ///
+    /// Expected behaviour: the count is the queue's own, and the moving
+    /// seconds are summed over exactly those activities.
+    #[test]
+    fn the_estimate_sums_moving_seconds_over_the_queue_only() {
+        let (_dir, engine) = engine();
+        for (id, secs) in [("a", 600), ("b", 1800), ("stocked", 9000)] {
+            activity_aged(&engine, id, 10);
+            track(&engine, id, 10);
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_metrics
+                         (activity_id, name, date, distance, moving_time, elapsed_time,
+                          elevation_gain, sport_type)
+                     VALUES (?, 'r', 0, 0, ?, ?, 0, 'Ride')",
+                    params![id, secs, secs],
+                )
+                .unwrap();
+        }
+        engine
+            .store_activity_streams("stocked", &[series("heartrate", &[Some(120.0)])])
+            .unwrap();
+
+        assert_eq!(pooled::backfill_estimate(&engine.db, 3).unwrap(), (2, 2400));
+    }
+
+    /// Scenario: a recorded ride with a track is saved under a `local-` key
+    /// and has not uploaded.
+    ///
+    /// Expected behaviour: the queue and its count leave it out until an
+    /// intervals id is recorded for it.
+    #[test]
+    fn a_local_recording_with_no_server_id_is_not_in_the_stream_queue() {
+        let (_dir, engine) = engine();
+        for id in ["i1", "local-unsent", "local-sent"] {
+            activity_aged(&engine, id, 10);
+            track(&engine, id, 10);
+        }
+        engine
+            .db
+            .execute(
+                "UPDATE activities SET intervals_id = 'i2' WHERE id = 'local-sent'",
+                [],
+            )
+            .unwrap();
+
+        let queue = engine.activities_missing_streams(3).unwrap();
+
+        let mut ids: Vec<&str> = queue.iter().map(|g| g.activity_id.as_str()).collect();
+        ids.sort();
+        assert_eq!(ids, vec!["i1", "local-sent"]);
+        assert_eq!(engine.stream_backfill_remaining(3).unwrap(), 2);
+    }
+
     /// The queue is derived, so a pass that stored half its batch and died
     /// resumes on what is left rather than starting over.
     #[test]
@@ -464,6 +601,75 @@ mod tests {
             vec!["b"],
             "the stored activity is out of the queue, the other is still in it"
         );
+    }
+
+    #[test]
+    fn counting_the_stream_queue_does_not_sort_but_reading_it_does() {
+        let (_dir, engine) = engine();
+        let plan = |sql: String| {
+            let mut stmt = engine
+                .db
+                .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+                .expect("prepares");
+            let rows = stmt
+                .query_map(params![3, 90], |row| row.get::<_, String>(3))
+                .expect("plan reads")
+                .collect::<SqlResult<Vec<String>>>()
+                .expect("rows read");
+            rows.join(" | ")
+        };
+
+        let count = plan(stream_gap_count_sql());
+        let queue = plan(stream_gap_queue_sql());
+
+        assert!(!count.contains("TEMP B-TREE"), "the count sorts: {count}");
+        assert!(
+            queue.contains("TEMP B-TREE"),
+            "the queue lost its order: {queue}"
+        );
+    }
+
+    #[test]
+    fn test_backfill_remaining_attempt_retention_edges() {
+        let (_dir, engine) = engine();
+        for (id, start_date) in [
+            ("recent", 4_000_000_000i64),
+            ("old", 0),
+            ("stocked", 4_000_000_000),
+            ("retired", 4_000_000_000),
+        ] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+                     VALUES (?1, 'Ride', 0, 0, 0, 0, ?2)",
+                    params![id, start_date],
+                )
+                .expect("activity");
+            track(&engine, id, 10);
+        }
+        engine
+            .store_activity_streams("stocked", &[series("watts", &[Some(1.0)])])
+            .expect("stocked stream");
+        for _ in 0..3 {
+            engine
+                .record_stream_backfill_attempt("retired")
+                .expect("attempt");
+        }
+
+        for days in [0, 90] {
+            engine.set_stream_retention_days(days).expect("retention");
+            for limit in [0, 3, 4] {
+                assert_eq!(
+                    pooled::backfill_remaining(&engine.db, limit).expect("count"),
+                    engine
+                        .activities_missing_streams(limit)
+                        .expect("queue")
+                        .len(),
+                    "retention {days}, attempt limit {limit}"
+                );
+            }
+        }
     }
 
     /// An athlete who narrowed the window is asking for less on disk, so the

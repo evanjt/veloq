@@ -40,6 +40,10 @@ pub enum FfiInitOutcome {
     /// outcome TypeScript records when the FFI boundary fails, so a caught
     /// error is still a reason and not another bare `false`.
     Failed = 6,
+    /// The database's version records claim migrations whose tables it does
+    /// not hold. No build can open it as it stands, and it is left where it
+    /// is rather than replaced, so the library is still on the device.
+    VersionMismatch = 7,
 }
 
 impl FfiInitOutcome {
@@ -60,6 +64,7 @@ impl FfiInitOutcome {
             3 => FfiInitOutcome::ForwardSchema,
             4 => FfiInitOutcome::StorageUnavailable,
             6 => FfiInitOutcome::Failed,
+            7 => FfiInitOutcome::VersionMismatch,
             _ => FfiInitOutcome::NotAttempted,
         }
     }
@@ -95,13 +100,32 @@ mod tests {
             FfiInitOutcome::StorageUnavailable,
             FfiInitOutcome::NotAttempted,
             FfiInitOutcome::Failed,
+            FfiInitOutcome::VersionMismatch,
         ] {
             assert!(!outcome.is_retryable(), "{outcome:?} does not lift");
         }
     }
 
+    /// The outcome crosses an atomic as its discriminant, so a variant
+    /// `from_wire` does not name would read back as "not attempted".
+    #[test]
+    fn every_recorded_outcome_reads_back() {
+        for outcome in [
+            FfiInitOutcome::Opened,
+            FfiInitOutcome::Busy,
+            FfiInitOutcome::ForwardSchema,
+            FfiInitOutcome::StorageUnavailable,
+            FfiInitOutcome::NotAttempted,
+            FfiInitOutcome::Failed,
+            FfiInitOutcome::VersionMismatch,
+        ] {
+            assert_eq!(FfiInitOutcome::from_wire(outcome as u8), outcome);
+        }
+    }
+
     #[test]
     fn recording_returns_whether_the_engine_is_usable() {
+        let _serial = crate::test_globals::serial_global_state();
         assert!(record_init_outcome(FfiInitOutcome::Opened));
         assert_eq!(last_init_outcome(), FfiInitOutcome::Opened);
 

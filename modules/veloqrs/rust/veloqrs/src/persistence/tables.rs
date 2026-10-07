@@ -20,13 +20,20 @@
 //!   it costs time, never information.
 //! - `Record` is athlete work that exists nowhere else. Losing it is data loss
 //!   and it is exactly what a backup carries.
+//! - `Identity` is the library's own registry of the ids it minted, with the
+//!   tombstones and streaks that keep them stable across detects. Losing it
+//!   costs this library its id stability, so a same-device salvage copies it
+//!   like a record. An id names nothing in another library, so a backup does
+//!   not carry it, and a restored library rebuilds its own from the sections
+//!   it places.
 //! - `Meta` is the store's own version and configuration.
 //! - `Device` is what this handset holds and no account does: rows naming
 //!   files on its own filesystem. It is the athlete's own, like `Record`, but
 //!   a sign-out does not take it, because the files it names stay on the disk
 //!   either way and the ride they hold has reached no server.
 //!
-//! `Meta` and `Device` are the two classes that survive a logout.
+//! `Meta` and `Device` are the two classes that survive a logout, less the
+//! settings `clear()` takes because they name the library it held.
 
 /// What a table holds, and therefore who may delete it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,7 +44,12 @@ pub enum TableClass {
     Derived,
     /// Athlete work that exists nowhere else.
     Record,
-    /// The store's own version and configuration.
+    /// This library's id registry. Salvaged on the same device, never
+    /// carried to another library.
+    Identity,
+    /// The store's own version and configuration. Survives a logout, except
+    /// the settings that name the library it held: `clear()` takes the
+    /// athlete id and the detector's cutover and config with the data.
     Meta,
     /// This handset's own, naming files on its own filesystem. Survives a
     /// logout: the files stay on disk regardless, and a recording that has
@@ -80,7 +92,7 @@ const fn mixed(
     }
 }
 
-use TableClass::{Derived, Device, Meta, Mirror, Record};
+use TableClass::{Derived, Device, Identity, Meta, Mirror, Record};
 
 /// Every table in the schema, in the order `sqlite_master` lists them.
 static TABLES: &[Table] = &[
@@ -88,6 +100,11 @@ static TABLES: &[Table] = &[
         "activity_census",
         Mirror,
         "what intervals.icu says the account holds; a sync pulls it whole",
+    ),
+    t(
+        "activity_climb_bests",
+        Derived,
+        "each climbing activity's best window per length, measured from its track and stream",
     ),
     t(
         "activities",
@@ -102,7 +119,7 @@ static TABLES: &[Table] = &[
     t(
         "activity_heatmap",
         Derived,
-        "per-day intensity, recomputed from the tracks",
+        "per-day intensity, recomputed from activity metrics",
     ),
     t(
         "activity_indicators",
@@ -161,7 +178,6 @@ static TABLES: &[Table] = &[
         Mirror,
         "the activities the server says moved the accepted eFTP",
     ),
-    t("ftp_history", Mirror, "dated FTP readings from the server"),
     t(
         "gps_tracks",
         Mirror,
@@ -169,8 +185,8 @@ static TABLES: &[Table] = &[
     ),
     t(
         "identity_state",
-        Record,
-        "the section id registry and its tombstones, which every athlete decision hangs off",
+        Identity,
+        "the section and route id registries and their tombstones, keyed by this library's ids",
     ),
     t(
         "interval_bodies",
@@ -181,6 +197,11 @@ static TABLES: &[Table] = &[
         "job_attempts",
         Derived,
         "what has been asked for and what it cost; losing it costs one attempt",
+    ),
+    t(
+        "job_runs",
+        Derived,
+        "each background job's last run on this library; losing it costs the line until the job next runs",
     ),
     t(
         "overlap_cache",
@@ -208,11 +229,21 @@ static TABLES: &[Table] = &[
         "grouping output, re-cut by every detect",
     ),
     t(
+        "route_line_layer",
+        Derived,
+        "every route's line encoded for the map, rebuilt by every group write",
+    ),
+    t(
         "recordings",
         Device,
         "rides this handset recorded, naming FIT files on its own disk",
     ),
     t("route_names", Record, "names the athlete typed"),
+    t(
+        "route_numbers",
+        Record,
+        "the number each route is shown under, which the athlete knows it by",
+    ),
     t("schema_info", Meta, "the schema version"),
     mixed(
         "section_activities",
@@ -220,17 +251,12 @@ static TABLES: &[Table] = &[
         "the laps a detect cut, re-cut by the next one",
         "the `excluded` column is the athlete taking one lap out of a section",
     ),
-    t(
-        "section_catalogue_archive",
-        Record,
-        "a frozen snapshot of what the catalogue once was; re-cutting cannot reproduce it",
-    ),
-    t(
-        "section_catalogue_archive_members",
-        Record,
-        "the archived catalogue's rows, with the lap data denormalised into them",
-    ),
     t("section_geometry", Derived, "the shapes a detect drew"),
+    t(
+        "section_forced_matches",
+        Record,
+        "the rides the athlete attached to a section by hand",
+    ),
     t(
         "section_history",
         Record,
@@ -241,19 +267,48 @@ static TABLES: &[Table] = &[
         Record,
         "hand cuts, trims and the athlete's own sections",
     ),
+    t(
+        "section_rank_dirty",
+        Derived,
+        "the sections whose stored ranking inputs are owed a recompute",
+    ),
+    t(
+        "section_rank_dirty_activity",
+        Derived,
+        "the activities whose sections' stored ranking inputs are owed a recompute",
+    ),
+    t(
+        "section_rank_inputs",
+        Derived,
+        "what the relevance ranking reads from each section's traversals, recomputed from them",
+    ),
+    t(
+        "section_numbers",
+        Record,
+        "the number each section is shown under, which the athlete knows it by",
+    ),
     t("section_pins", Record, "sections the athlete pinned"),
+    t(
+        "section_visible_count",
+        Derived,
+        "how many sections the catalogue shows, kept by triggers on the sections table",
+    ),
     mixed(
         "sections",
         Derived,
         "the catalogue a detect cuts",
         "rows the detector did not draw, which `DERIVED_SECTION_PREDICATE` is what excludes",
     ),
-    t("settings", Meta, "the store's own configuration"),
+    t(
+        "settings",
+        Meta,
+        "the store's own configuration, less the athlete id and detector keys a clear takes",
+    ),
     t("signatures", Derived, "computed from the tracks"),
     t(
         "sport_settings",
-        Record,
-        "per-sport preferences the athlete set",
+        Mirror,
+        "the sport settings body intervals.icu holds; a sync refills it",
     ),
     t(
         "stream_bodies",
@@ -276,6 +331,11 @@ pub fn declared_tables() -> &'static [Table] {
 /// What a table holds, or `None` for a name the declaration does not carry.
 pub fn class_of(name: &str) -> Option<TableClass> {
     TABLES.iter().find(|t| t.name == name).map(|t| t.class)
+}
+
+/// A table's whole declaration, or `None` for a name it does not carry.
+pub fn declaration_of(name: &str) -> Option<&'static Table> {
+    TABLES.iter().find(|t| t.name == name)
 }
 
 /// Every table of one class, in schema order.

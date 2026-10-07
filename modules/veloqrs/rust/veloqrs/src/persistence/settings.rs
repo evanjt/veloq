@@ -28,12 +28,53 @@ pub mod settings_keys {
     /// The WHOLE SectionConfig as a JSON blob. The individual keys above persist
     /// the strictness-slider fields; this captures every field so a restart
     /// restores the EXACT config that was last set. Without it the load path
-    /// rebuilds `default()` + the four slider fields, and the TS launch re-apply
+    /// rebuilds `default()` + the three slider fields, and the TS launch re-apply
     /// (which spreads the current config and re-sets whatever it holds) then
     /// reads as a genuine change every boot, clearing the processed set and
     /// renumbering every section. Preferred by the loader; the individual keys remain as a
     /// pre-blob-install fallback.
     pub const SECTION_CONFIG_JSON: &str = "__section_config_json";
+
+    /// Prefix of one key per sport type, valued with the epoch second an
+    /// activity of that sport last left intervals.icu and was removed here.
+    /// The curve sweep reads it as an arrival: the server's stored curves
+    /// were drawn with that activity in them, and a removal only lowers the
+    /// family's newest body, so nothing else would mark them stale.
+    pub const CURVE_REMOVED_AT_PREFIX: &str = "__curve_removed_at:";
+
+    /// Prefix of one key per activity that left intervals.icu and was kept
+    /// for a section with no other member. Its departure has stamped its
+    /// sport under `CURVE_REMOVED_AT_PREFIX` once, so a later census that
+    /// finds it gone again, or the removal once the section can do without
+    /// it, stamps nothing more. Deleted with the activity's rows.
+    pub const CURVE_DEPARTED_PREFIX: &str = "__curve_departed:";
+
+    /// The feed's new-activity marker, stamps and dismissals as one JSON row.
+    /// It describes this device's use of this library, so a clear takes it and
+    /// a record backup and a restore leave it out: a restored library has no
+    /// marker and nothing in it rings.
+    pub const FEED_RINGS: &str = "__feed_rings";
+
+    /// Whose library this database holds. It names the data, not the device,
+    /// so a clear takes it with the library.
+    pub const ATHLETE_ID: &str = "__athlete_id";
+
+    /// This library wrote the device-backup record zip, or the athlete has
+    /// answered its offer. It describes the library, so a clear takes it.
+    pub const PLATFORM_RECORD_ANSWERED: &str = "__platform_record_answered";
+
+    /// The one-shot section redetect has been spent on this library. It
+    /// describes the library, so a clear takes it and a record backup leaves it
+    /// out: a restored library starts with it unset and is checked again.
+    pub const SECTION_HEALTH_CHECK_DONE: &str = "__section_health_check_done";
+
+    /// The field set the stored activity list bodies were fetched with. A
+    /// build that asks for another set refetches every stored activity once
+    /// and then writes its own here, so a field added to the request reaches
+    /// rides already on the device and not only the ones the census still
+    /// owes. It describes the bodies rather than the athlete, so a clear
+    /// leaves it: an emptied library holds no body fetched with another set.
+    pub const ACTIVITY_BODY_FIELDS: &str = "__activity_body_fields";
 
     /// Whether the athlete wants section detection at all. Absent means yes:
     /// the feature is on by default and an install that never touched the
@@ -47,6 +88,10 @@ pub mod settings_keys {
     pub const EXPORT_HOME_LNG: &str = "__export_home_lng";
     pub const EXPORT_PRIVACY_RADIUS_M: &str = "__export_privacy_radius_m";
 
+    /// When the last sync finished, written by the app's sync health. It
+    /// belongs to the library that synced, so a clear takes it.
+    pub const SYNC_LAST_SUCCESS_AT: &str = "sync.last_success_at";
+
     /// The notification templates for the locale JavaScript last resolved,
     /// with the locale tag beside them, as one JSON blob. A push handler
     /// woken with the app killed formats from this: the crate holds no
@@ -55,6 +100,12 @@ pub mod settings_keys {
     /// One key rather than fifteen so a locale change is one write and can
     /// never leave half of one bundle beside half of another.
     pub const NOTIFICATION_TEMPLATES: &str = "__notification_templates";
+
+    /// What the widget snapshot needs that only the app knows, as the JSON
+    /// `widget_snapshot::WidgetContext` reads: the translated words, the date
+    /// names, the palette, the summary card settings and the recent sports. A
+    /// push handler that writes the snapshot with no JavaScript composes from it.
+    pub const WIDGET_CONTEXT: &str = "__widget_context";
 
     /// Bumped by a push handler that wrote to the database, and read by the
     /// foreground to tell whether its in-memory tiers still speak for the
@@ -122,20 +173,73 @@ pub fn setting_from(conn: &rusqlite::Connection, key: &str) -> SqlResult<Option<
     .optional()
 }
 
+/// The match config the settings rows hold, from a connection that holds no
+/// engine lock. A missing or unparseable value keeps the default.
+pub fn match_config_from(conn: &rusqlite::Connection) -> SqlResult<tracematch::MatchConfig> {
+    let mut config = tracematch::MatchConfig::default();
+    if let Some(raw) = setting_from(conn, settings_keys::MATCH_MIN_MATCH_PCT)?
+        && let Ok(v) = raw.parse::<f64>()
+    {
+        config.min_match_percentage = v;
+    }
+    if let Some(raw) = setting_from(conn, settings_keys::MATCH_ENDPOINT_THRESHOLD)?
+        && let Ok(v) = raw.parse::<f64>()
+    {
+        config.endpoint_threshold = v;
+    }
+    Ok(config)
+}
+
+/// The section config the settings rows hold, from a connection that holds no
+/// engine lock. The whole-config blob restores every field, so the launch
+/// re-apply of the same preset compares equal and no-ops. Installs written
+/// before the blob existed, and a blob that does not parse, fall back to the
+/// individual slider keys over the default.
+pub fn section_config_from(conn: &rusqlite::Connection) -> SqlResult<tracematch::SectionConfig> {
+    if let Some(json) = setting_from(conn, settings_keys::SECTION_CONFIG_JSON)? {
+        match serde_json::from_str::<tracematch::SectionConfig>(&json) {
+            Ok(config) => return Ok(config),
+            Err(e) => log::warn!(
+                "veloqrs: [section_config_from] config blob unparseable, falling back to slider keys: {}",
+                e
+            ),
+        }
+    }
+
+    let mut config = tracematch::SectionConfig::default();
+    if let Some(raw) = setting_from(conn, settings_keys::SECTION_PROXIMITY_THRESHOLD)?
+        && let Ok(v) = raw.parse::<f64>()
+    {
+        config.proximity_threshold = v;
+    }
+    if let Some(raw) = setting_from(conn, settings_keys::SECTION_MIN_LENGTH)?
+        && let Ok(v) = raw.parse::<f64>()
+    {
+        config.min_section_length = v;
+    }
+    if let Some(raw) = setting_from(conn, settings_keys::SECTION_MIN_ACTIVITIES)?
+        && let Ok(v) = raw.parse::<u32>()
+    {
+        config.min_activities = v;
+    }
+    Ok(config)
+}
+
+/// The cached athlete profile JSON from a connection that holds no engine
+/// lock, or `None` when none is cached or the read fails.
+pub fn athlete_profile_from(conn: &rusqlite::Connection) -> Option<String> {
+    conn.query_row(
+        "SELECT data FROM athlete_profile WHERE id = 'current'",
+        [],
+        |row| row.get(0),
+    )
+    .ok()
+}
+
 impl PersistentEngine {
     /// Get a single setting by key.
     pub fn get_setting(&self, key: &str) -> SqlResult<Option<String>> {
-        self.db
-            .query_row(
-                "SELECT value FROM settings WHERE key = ?",
-                params![key],
-                |row| row.get(0),
-            )
-            .map(Some)
-            .or_else(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                other => Err(other),
-            })
+        setting_from(&self.db, key)
     }
 
     /// Set a single setting (upsert).
@@ -253,6 +357,17 @@ impl PersistentEngine {
         Ok(true)
     }
 
+    /// Store the widget context the app resolved, replacing whatever was held.
+    /// Answers whether anything was written, which is false for the ordinary
+    /// refresh that hands over the context it handed over last time.
+    pub fn set_widget_context(&self, json: &str) -> SqlResult<bool> {
+        if self.get_setting(settings_keys::WIDGET_CONTEXT)?.as_deref() == Some(json) {
+            return Ok(false);
+        }
+        self.set_setting(settings_keys::WIDGET_CONTEXT, json)?;
+        Ok(true)
+    }
+
     /// The templates the last push left, or none on an install whose app has
     /// never started.
     pub fn notification_templates(&self) -> SqlResult<Option<NotificationTemplates>> {
@@ -268,58 +383,15 @@ impl PersistentEngine {
 
     /// Apply persisted match-strictness overrides to the in-memory `match_config`.
     /// Called from `load()` so a fresh engine instance reflects the user's last
-    /// chosen strictness without any TS round-trip. Missing or unparseable
-    /// values silently fall back to whatever `match_config` already holds.
-    pub(super) fn load_match_strictness_from_settings(&mut self) -> SqlResult<()> {
-        if let Some(raw) = self.get_setting(settings_keys::MATCH_MIN_MATCH_PCT)?
-            && let Ok(v) = raw.parse::<f64>()
-        {
-            self.match_config.min_match_percentage = v;
-        }
-        if let Some(raw) = self.get_setting(settings_keys::MATCH_ENDPOINT_THRESHOLD)?
-            && let Ok(v) = raw.parse::<f64>()
-        {
-            self.match_config.endpoint_threshold = v;
-        }
+    /// chosen strictness without any TS round-trip.
+    pub(crate) fn load_match_strictness_from_settings(&mut self) -> SqlResult<()> {
+        self.match_config = match_config_from(&self.db)?;
         Ok(())
     }
 
     /// Mirror of `load_match_strictness_from_settings` for `section_config`.
-    /// Missing or unparseable values fall back to the default SectionConfig
-    /// fields already in place (set during `PersistentEngine::new`).
-    pub(super) fn load_section_config_from_settings(&mut self) -> SqlResult<()> {
-        // Prefer the whole-config blob: it restores EVERY field, so the TS launch
-        // re-apply of the same preset compares equal and no-ops (no re-detect, no
-        // section renumber). Fall back to the individual slider keys below for
-        // installs written before the blob key existed.
-        if let Some(json) = self.get_setting(settings_keys::SECTION_CONFIG_JSON)? {
-            match serde_json::from_str::<tracematch::SectionConfig>(&json) {
-                Ok(cfg) => {
-                    self.section_config = cfg;
-                    return Ok(());
-                }
-                Err(e) => log::warn!(
-                    "veloqrs: [load_section_config] config blob unparseable, falling back to slider keys: {}",
-                    e
-                ),
-            }
-        }
-
-        if let Some(raw) = self.get_setting(settings_keys::SECTION_PROXIMITY_THRESHOLD)?
-            && let Ok(v) = raw.parse::<f64>()
-        {
-            self.section_config.proximity_threshold = v;
-        }
-        if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_LENGTH)?
-            && let Ok(v) = raw.parse::<f64>()
-        {
-            self.section_config.min_section_length = v;
-        }
-        if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_ACTIVITIES)?
-            && let Ok(v) = raw.parse::<u32>()
-        {
-            self.section_config.min_activities = v;
-        }
+    pub(crate) fn load_section_config_from_settings(&mut self) -> SqlResult<()> {
+        self.section_config = section_config_from(&self.db)?;
         Ok(())
     }
 }

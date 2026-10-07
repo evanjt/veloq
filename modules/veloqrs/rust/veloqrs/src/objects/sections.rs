@@ -1,11 +1,56 @@
-use super::error::{VeloqError, with_engine, with_reader};
-use crate::persistence::sections::{named, queries};
-use crate::sections::SectionType;
 use std::sync::Arc;
+
+use super::error::{VeloqError, with_engine, with_reader};
+use crate::persistence::sections::history::pooled as history;
+use crate::persistence::sections::{SectionNameError, named, pooled, queries};
+use crate::sections::SectionType;
+
+/// The rides an edit took out of a section, named from the library.
+fn departed_rides(
+    engine: &crate::persistence::PersistentEngine,
+    departed: &[String],
+) -> Vec<crate::FfiDepartedRide> {
+    engine
+        .departed_rides(departed)
+        .into_iter()
+        .map(|(activity_id, name, date)| crate::FfiDepartedRide {
+            activity_id,
+            name,
+            date: date as f64,
+        })
+        .collect()
+}
 
 #[derive(uniffi::Object)]
 pub struct SectionManager {
     pub(crate) _private: (),
+}
+
+/// The points `start..=end` of a stored track. A reversed or out-of-range
+/// cut, or one under two points, is refused rather than clamped, so the
+/// stored reference triple always names a line the track holds.
+fn slice_inclusive(
+    track: &[tracematch::GpsPoint],
+    start: u32,
+    end: u32,
+) -> Result<Vec<tracematch::GpsPoint>, VeloqError> {
+    let (start, end) = (start as usize, end as usize);
+    if start >= end {
+        return Err(VeloqError::ParseError {
+            msg: "Section must have at least 2 points".into(),
+        });
+    }
+    if end >= track.len() {
+        return Err(VeloqError::ParseError {
+            msg: format!(
+                "Section range {}..={} is outside a track of {} points",
+                start,
+                end,
+                track.len()
+            ),
+        });
+    }
+    Ok(track[start..=end].to_vec())
 }
 
 #[uniffi::export]
@@ -25,32 +70,10 @@ impl SectionManager {
         &self,
         filter: crate::FfiSectionFilter,
     ) -> Result<Vec<crate::FfiSection>, VeloqError> {
-        // A filter naming more than one narrowing is finished here rather
-        // than in three query builders, because each path filters by its own
-        // key alone.
-        let narrow = |sections: &mut Vec<crate::FfiSection>| {
-            if filter.activity_id.is_some() || filter.section_type.is_some() {
-                if let Some(sport) = filter.sport_type.as_deref() {
-                    sections.retain(|s| s.sport_type == sport);
-                }
-                if let Some(min_visits) = filter.min_visits {
-                    sections.retain(|s| s.visit_count >= min_visits);
-                }
-            }
-            if let Some(section_type) = filter.section_type.as_deref() {
-                sections.retain(|s| s.section_type == section_type);
-            }
-        };
-
-        // The two database-backed paths read through the pool, overlay and
-        // all, so opening a ride's sections never waits behind a sync. The
-        // unfiltered one still takes the write lock: `get_sections_filtered`
-        // reads the in-memory catalogue with a pin exemption and per-sport
-        // outing counts, and re-expressing that as SQL is its own item.
         if filter.activity_id.is_some() || filter.section_type.is_some() {
-            let mut sections = with_reader(|conn| {
+            return with_reader(|conn| {
                 let names = named::pooled::overlay_names(conn);
-                match filter.activity_id.as_deref() {
+                let mut sections = match filter.activity_id.as_deref() {
                     Some(activity_id) => {
                         queries::pooled::sections_for_activity(conn, activity_id, &names)
                     }
@@ -62,23 +85,44 @@ impl SectionManager {
                 }
                 .into_iter()
                 .map(crate::FfiSection::from)
-                .collect::<Vec<crate::FfiSection>>()
-            })?;
-            narrow(&mut sections);
-            return Ok(sections);
+                .collect::<Vec<crate::FfiSection>>();
+                if filter.sport_type.is_some() || filter.min_visits.unwrap_or(0) > 0 {
+                    let supported = queries::pooled::supported_section_ids(
+                        conn,
+                        filter.sport_type.as_deref(),
+                        filter.min_visits.unwrap_or(0),
+                    );
+                    sections.retain(|s| supported.contains(&s.id));
+                }
+                if let Some(section_type) = filter.section_type.as_deref() {
+                    sections.retain(|s| s.section_type == section_type);
+                }
+                sections
+            });
         }
 
-        with_engine(|e| {
-            let mut sections: Vec<crate::FfiSection> = e
-                .get_sections_filtered(filter.sport_type.as_deref(), filter.min_visits)
+        with_reader(|conn| {
+            let names = named::pooled::overlay_names(conn);
+            let (stored, stored_ids) =
+                queries::pooled::sections_by_type_with_ids(conn, None, &names);
+            let mut stored = stored
                 .into_iter()
-                .map(crate::FfiSection::from)
-                .collect();
-            narrow(&mut sections);
-
-            let names = e.named_overlay_cached_names();
+                .map(|section| (section.id.clone(), section))
+                .collect::<std::collections::HashMap<_, _>>();
+            let mut sections: Vec<crate::FfiSection> =
+                pooled::catalogue_sections(conn, filter.sport_type.as_deref(), filter.min_visits)
+                    .into_iter()
+                    .filter_map(|catalogue| match stored.remove(&catalogue.id) {
+                        Some(section) => Some(
+                            crate::FfiSection::from(section)
+                                .with_portions(catalogue.activity_portions.clone()),
+                        ),
+                        None if stored_ids.contains(&catalogue.id) => None,
+                        None => Some(crate::FfiSection::from(&catalogue)),
+                    })
+                    .collect();
             for section in &mut sections {
-                if section.is_user_defined {
+                if section.is_user_defined && section.name.is_some() {
                     continue;
                 }
                 if let Some(name) = names.get(&section.id) {
@@ -89,28 +133,24 @@ impl SectionManager {
         })
     }
 
-    // The catalogue record carries no type, visibility or source slice, so
-    // those come from the row itself. A doc comment here would go into the
-    // UniFFI metadata buffer and move the checksum the bindings assert.
     fn get_by_id(&self, section_id: String) -> Result<Option<crate::FfiSection>, VeloqError> {
-        with_engine(|e| {
-            let mut section = crate::FfiSection::from(e.get_section_by_id(&section_id)?);
-            if let Some(row) = e.section_row_identity(&section_id) {
-                section.section_type = row.section_type;
-                section.disabled = row.disabled;
-                section.superseded_by = row.superseded_by;
-                section.source_activity_id = row.source_activity_id;
-                section.start_index = row.start_index;
-                section.end_index = row.end_index;
+        with_reader(|conn| {
+            let mut section = queries::pooled::section_raw(conn, &section_id)?;
+            let names = named::pooled::overlay_names(conn);
+            if (!section.is_user_defined || section.name.is_none())
+                && let Some(name) = names.get(&section.id)
+            {
+                section.name = Some(name.clone());
             }
-            Some(section)
+            let portions = pooled::section_portions(conn, &section_id);
+            Some(crate::FfiSection::from(section).with_portions(portions))
         })
     }
 
     /// Total number of sections, without deserializing any section blobs.
     /// Cheap alternative to `get_summaries`/`get_all` for count-only callers.
     fn get_count(&self) -> Result<u32, VeloqError> {
-        with_engine(|e| e.get_section_count())
+        with_reader(queries::pooled::section_count)
     }
 
     /// Section summaries for a filter, with the total count beside them.
@@ -124,14 +164,25 @@ impl SectionManager {
         filter: crate::FfiSectionFilter,
         sort_key: Option<String>,
     ) -> Result<crate::FfiSectionSummariesResult, VeloqError> {
-        with_engine(|e| {
-            let total_count = e.get_section_count();
-            let mut summaries = match filter.sport_type {
-                Some(ref sport) => e.get_section_summaries_for_sport(sport),
-                None => e.get_section_summaries(),
-            };
-            if let Some(min_visits) = filter.min_visits {
-                summaries.retain(|s| s.activity_count >= min_visits);
+        with_reader(|conn| {
+            let total_count = queries::pooled::section_count(conn);
+            let names = named::pooled::overlay_names(conn);
+            let mut summaries =
+                queries::pooled::section_summaries_filtered(conn, None, true, &names);
+            if let Some(ref sport) = filter.sport_type {
+                summaries.retain(|s| {
+                    crate::persistence::PersistentEngine::summary_covers_sport(s, sport)
+                });
+            }
+            // The floor `get_sections` applies: the filtered sport's outings,
+            // and a pin exempts it.
+            if let Some(min_visits) = filter.min_visits.filter(|&min| min > 0) {
+                let supported = queries::pooled::supported_section_ids(
+                    conn,
+                    filter.sport_type.as_deref(),
+                    min_visits,
+                );
+                summaries.retain(|s| supported.contains(&s.id));
             }
             if let Some(section_type) = filter.section_type.as_deref() {
                 summaries.retain(|s| s.section_type == section_type);
@@ -142,7 +193,14 @@ impl SectionManager {
                         .partial_cmp(&a.distance_meters)
                         .unwrap_or(std::cmp::Ordering::Equal)
                 }),
-                Some("name") => summaries.sort_by(|a, b| a.id.cmp(&b.id)),
+                Some("name") => summaries.sort_by(|a, b| {
+                    let a_name = a.name.as_deref().unwrap_or(&a.id);
+                    let b_name = b.name.as_deref().unwrap_or(&b.id);
+                    a_name
+                        .to_lowercase()
+                        .cmp(&b_name.to_lowercase())
+                        .then_with(|| a.id.cmp(&b.id))
+                }),
                 Some("visits") => summaries.sort_by_key(|b| std::cmp::Reverse(b.visit_count)),
                 _ => {}
             }
@@ -158,28 +216,13 @@ impl SectionManager {
         sport_type: Option<String>,
         min_visits: Option<u32>,
     ) -> Result<Vec<crate::FfiMapSection>, VeloqError> {
-        // The write lock: `get_map_sections` reaches `get_section_summaries`,
-        // which prepares a statement, and the read lock may not.
-        with_engine(|e| e.get_map_sections(sport_type.as_deref(), min_visits))
-    }
-
-    /// The section's line, coordinate-encoded like every other track that
-    /// leaves the engine. It used to box a record per point and its one caller
-    /// unboxed them again, which is the cost the encoding exists to avoid.
-    fn get_polyline(&self, section_id: String) -> Result<Vec<u8>, VeloqError> {
-        with_engine(|e| {
-            let flat = e.get_section_polyline(&section_id);
-            let points: Vec<crate::GpsPoint> = flat
-                .as_chunks::<2>()
-                .0
-                .iter()
-                .map(|c| crate::GpsPoint {
-                    latitude: c[0],
-                    longitude: c[1],
-                    elevation: None,
-                })
-                .collect();
-            crate::coords::encode(&points)
+        with_reader(|conn| {
+            crate::persistence::sections::pooled::map_sections(
+                conn,
+                sport_type.as_deref(),
+                min_visits,
+                &named::pooled::overlay_names(conn),
+            )
         })
     }
 
@@ -195,9 +238,13 @@ impl SectionManager {
     ) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
         with_reader(|conn| {
             crate::FfiSectionPerformanceResult::from(
-                pooled_performances(conn, &section_id, sport_type.as_deref())
-                    .as_ref()
-                    .clone(),
+                crate::persistence::fitness::performances::pooled::cached_section_performances(
+                    conn,
+                    &section_id,
+                    sport_type.as_deref(),
+                )
+                .as_ref()
+                .clone(),
             )
         })
     }
@@ -215,7 +262,11 @@ impl SectionManager {
             section_ids
                 .into_iter()
                 .map(|id| {
-                    let result = pooled_performances(conn, &id, sport_type.as_deref());
+                    let result = crate::persistence::fitness::performances::pooled::cached_section_performances(
+                        conn,
+                        &id,
+                        sport_type.as_deref(),
+                    );
                     crate::FfiSectionPerformanceBatchEntry {
                         section_id: id,
                         result: crate::FfiSectionPerformanceResult::from(result.as_ref().clone()),
@@ -225,39 +276,13 @@ impl SectionManager {
         })
     }
 
-    fn get_excluded_performances(
-        &self,
-        section_id: String,
-    ) -> Result<crate::FfiSectionPerformanceResult, VeloqError> {
-        with_engine(|e| {
-            let records = e.get_excluded_section_performances(&section_id);
-            crate::FfiSectionPerformanceResult::from(crate::SectionPerformanceResult {
-                records,
-                best_record: None,
-                best_forward_record: None,
-                best_reverse_record: None,
-                forward_stats: None,
-                reverse_stats: None,
-            })
-        })
-    }
-
-    fn get_calendar_summary(
-        &self,
-        section_id: String,
-    ) -> Result<Option<crate::FfiCalendarSummary>, VeloqError> {
-        with_engine(|e| {
-            e.get_section_calendar_summary(&section_id, None)
-                .map(crate::FfiCalendarSummary::from)
-        })
-    }
-
     fn get_reference_info(
         &self,
         section_id: String,
     ) -> Result<crate::FfiSectionReferenceInfo, VeloqError> {
-        with_engine(|e| {
-            e.get_section(&section_id)
+        // The raw row: neither field is one the corridor-name overlay touches.
+        with_reader(|conn| {
+            queries::pooled::section_raw(conn, &section_id)
                 .map(|s| crate::FfiSectionReferenceInfo {
                     activity_id: s.representative_activity_id.unwrap_or_default(),
                     is_user_defined: s.is_user_defined,
@@ -269,16 +294,25 @@ impl SectionManager {
         })
     }
 
-    fn set_reference(&self, section_id: String, activity_id: String) -> Result<(), VeloqError> {
+    fn set_reference(
+        &self,
+        section_id: String,
+        activity_id: String,
+    ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
         with_engine(|e| {
             e.set_section_reference(&section_id, &activity_id)
+                .map(|departed| departed_rides(e, &departed))
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
 
-    fn reset_reference(&self, section_id: String) -> Result<(), VeloqError> {
+    fn reset_reference(
+        &self,
+        section_id: String,
+    ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
         with_engine(|e| {
             e.reset_section_reference(&section_id)
+                .map(|departed| departed_rides(e, &departed))
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
@@ -305,8 +339,9 @@ impl SectionManager {
         };
         with_engine(|e| {
             e.set_section_name(&section_id, name_opt)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
+                .map_err(|e| match e {
+                    SectionNameError::Taken(name) => VeloqError::NameTaken { name },
+                    SectionNameError::Failed(msg) => VeloqError::Database { msg },
                 })
         })?
     }
@@ -324,8 +359,8 @@ impl SectionManager {
     }
 
     fn get_named_corridors(&self) -> Result<Vec<crate::FfiNamedCorridor>, VeloqError> {
-        with_engine(|e| {
-            e.get_named_corridors()
+        with_reader(|conn| {
+            named::pooled::named_corridors(conn)
                 .into_iter()
                 .map(crate::FfiNamedCorridor::from)
                 .collect()
@@ -342,39 +377,39 @@ impl SectionManager {
     }
 
     fn get_all_names(&self) -> Result<std::collections::HashMap<String, String>, VeloqError> {
-        with_engine(|e| e.get_all_section_names())
+        with_reader(crate::persistence::sections::naming::pooled::all_section_names)
     }
 
-    // The FFI signature, which takes each field as its own argument.
-    #[allow(clippy::too_many_arguments)]
+    /// Cut a section from an inclusive index range of a stored activity's
+    /// track. The engine holds the track, so the slice is taken here and the
+    /// elevation travels with it.
     fn create(
         &self,
         sport_type: String,
-        polyline: Vec<crate::FfiGpsPoint>,
-        _distance_meters: f64,
         name: Option<String>,
-        source_activity_id: Option<String>,
-        start_index: Option<u32>,
-        end_index: Option<u32>,
+        source_activity_id: String,
+        start_index: u32,
+        end_index: u32,
     ) -> Result<String, VeloqError> {
-        let polyline: Vec<tracematch::GpsPoint> = polyline
-            .into_iter()
-            .map(tracematch::GpsPoint::from)
-            .collect();
-
-        let computed_distance = tracematch::matching::calculate_route_distance(&polyline);
-
-        let params = crate::sections::CreateSectionParams {
-            sport_type,
-            polyline,
-            distance_meters: computed_distance,
-            name,
-            source_activity_id,
-            start_index,
-            end_index,
-        };
-
         with_engine(|e| {
+            let track = e
+                .get_gps_track(&source_activity_id)
+                .filter(|track| !track.is_empty())
+                .ok_or_else(|| VeloqError::NotFound {
+                    msg: format!("No GPS track found for activity {}", source_activity_id),
+                })?;
+            let polyline = slice_inclusive(&track, start_index, end_index)?;
+            let distance_meters = tracematch::matching::calculate_route_distance(&polyline);
+
+            let params = crate::sections::CreateSectionParams {
+                sport_type,
+                polyline,
+                distance_meters,
+                name,
+                source_activity_id: Some(source_activity_id),
+                start_index: Some(start_index),
+                end_index: Some(end_index),
+            };
             e.create_section(params)
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
@@ -411,7 +446,7 @@ impl SectionManager {
     }
 
     fn get_excluded_activities(&self, section_id: String) -> Result<Vec<String>, VeloqError> {
-        with_engine(|e| e.get_excluded_activity_ids(&section_id))
+        with_reader(|conn| queries::pooled::excluded_activity_ids(conn, &section_id))
     }
 
     fn exclude_lap(
@@ -456,8 +491,8 @@ impl SectionManager {
         &self,
         section_id: String,
     ) -> Result<Vec<crate::FfiSectionHistoryEvent>, VeloqError> {
-        with_engine(|e| {
-            e.section_history(&section_id)
+        with_reader(|conn| {
+            history::linked_section_history(conn, &section_id, &named::pooled::overlay_names(conn))
                 .into_iter()
                 .map(|h| crate::FfiSectionHistoryEvent {
                     id: h.id as f64,
@@ -474,9 +509,9 @@ impl SectionManager {
         &self,
         section_id: String,
     ) -> Result<Vec<crate::FfiSectionGeometryVersion>, VeloqError> {
-        with_engine(|e| {
-            let pinned = e.pinned_section_version(&section_id);
-            e.section_geometry_versions(&section_id)
+        with_reader(|conn| {
+            let pinned = history::pinned_section_version(conn, &section_id);
+            history::section_geometry_versions(conn, &section_id)
                 .into_iter()
                 .map(|v| crate::FfiSectionGeometryVersion {
                     version: v.version as f64,
@@ -492,18 +527,25 @@ impl SectionManager {
     fn get_geometry_version_coords(
         &self,
         section_id: String,
-        version: i64,
+        version: f64,
     ) -> Result<Vec<u8>, VeloqError> {
-        with_engine(|e| {
-            e.section_geometry_polyline(&section_id, version)
-                .map(|pts| crate::coords::encode(&pts))
+        let version = crate::ffi_types::int_from_wire(version);
+        with_reader(|conn| {
+            history::section_geometry_version(conn, &section_id, version)
+                .map(|(pts, _)| crate::persistence::codec::encode_polyline(&pts))
                 .unwrap_or_default()
         })
     }
 
-    fn revert_to_version(&self, section_id: String, version: i64) -> Result<(), VeloqError> {
+    fn revert_to_version(
+        &self,
+        section_id: String,
+        version: f64,
+    ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
+        let version = crate::ffi_types::int_from_wire(version);
         with_engine(|e| {
             e.revert_section_to_version(&section_id, version)
+                .map(|departed| departed_rides(e, &departed))
                 .map_err(|msg| VeloqError::Database { msg })
         })?
     }
@@ -517,61 +559,20 @@ impl SectionManager {
         })?
     }
 
-    fn get_pinned_version(&self, section_id: String) -> Result<Option<i64>, VeloqError> {
-        with_engine(|e| e.pinned_section_version(&section_id))
+    fn get_pinned_version(&self, section_id: String) -> Result<Option<f64>, VeloqError> {
+        with_reader(|conn| history::pinned_section_version(conn, &section_id).map(|v| v as f64))
     }
 
     fn get_retired(&self) -> Result<Vec<crate::FfiRetiredSection>, VeloqError> {
-        with_engine(|e| {
-            e.retired_sections()
+        with_reader(|conn| {
+            history::retired_sections(conn)
                 .into_iter()
                 .map(|r| crate::FfiRetiredSection {
                     section_id: r.section_id,
                     kind: r.kind,
                     at: r.at,
                     into: r.into,
-                    versions: r.versions,
-                })
-                .collect()
-        })
-    }
-
-    fn get_recent_changes(&self, days: u32) -> Result<Vec<crate::FfiSectionChange>, VeloqError> {
-        with_engine(|e| {
-            e.recent_section_changes(days)
-                .into_iter()
-                .map(|c| crate::FfiSectionChange {
-                    section_id: c.section_id,
-                    kind: c.kind,
-                    at: c.at,
-                })
-                .collect()
-        })
-    }
-
-    fn get_lineages(&self) -> Result<Vec<crate::FfiSectionLineage>, VeloqError> {
-        with_engine(|e| {
-            e.section_lineages()
-                .into_iter()
-                .map(|l| crate::FfiSectionLineage {
-                    section_id: l.section_id,
-                    parent_id: l.parent_id,
-                    discriminator: l.discriminator,
-                })
-                .collect()
-        })
-    }
-
-    fn get_excluded_laps(
-        &self,
-        section_id: String,
-    ) -> Result<Vec<crate::FfiExcludedLap>, VeloqError> {
-        with_engine(|e| {
-            e.get_excluded_section_laps(&section_id)
-                .into_iter()
-                .map(|(activity_id, start_index)| crate::FfiExcludedLap {
-                    activity_id,
-                    start_index,
+                    versions: r.versions.into_iter().map(|v| v as f64).collect(),
                 })
                 .collect()
         })
@@ -584,16 +585,23 @@ impl SectionManager {
         })?
     }
 
-    fn trim(&self, section_id: String, start_index: u32, end_index: u32) -> Result<(), VeloqError> {
+    fn trim(
+        &self,
+        section_id: String,
+        start_index: u32,
+        end_index: u32,
+    ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
         with_engine(|e| {
             e.trim_section(&section_id, start_index, end_index)
+                .map(|departed| departed_rides(e, &departed))
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
 
-    fn reset_bounds(&self, section_id: String) -> Result<(), VeloqError> {
+    fn reset_bounds(&self, section_id: String) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
         with_engine(|e| {
             e.reset_section_bounds(&section_id)
+                .map(|departed| departed_rides(e, &departed))
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
@@ -602,12 +610,14 @@ impl SectionManager {
         &self,
         section_id: String,
     ) -> Result<crate::FfiSectionExtensionTrack, VeloqError> {
-        with_engine(|e| {
-            let (track, start, end) = e
-                .get_section_extension_track(&section_id)
-                .map_err(|msg| VeloqError::Database { msg })?;
+        with_reader(|conn| {
+            let config = crate::persistence::settings::section_config_from(conn)
+                .map_err(|e| VeloqError::Database { msg: e.to_string() })?;
+            let (track, start, end) =
+                queries::pooled::section_extension_track(conn, &section_id, &config)
+                    .map_err(|msg| VeloqError::Database { msg })?;
             Ok(crate::FfiSectionExtensionTrack {
-                encoded_track: crate::coords::encode(&track),
+                encoded_track: crate::persistence::codec::encode_polyline(&track),
                 section_start_idx: start,
                 section_end_idx: end,
             })
@@ -620,9 +630,10 @@ impl SectionManager {
         activity_id: String,
         start_index: u32,
         end_index: u32,
-    ) -> Result<(), VeloqError> {
+    ) -> Result<Vec<crate::FfiDepartedRide>, VeloqError> {
         with_engine(|e| {
             e.expand_section_bounds(&section_id, &activity_id, start_index, end_index)
+                .map(|departed| departed_rides(e, &departed))
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
@@ -630,8 +641,17 @@ impl SectionManager {
     fn get_efficiency_trend(
         &self,
         section_id: String,
+        sport_type: String,
     ) -> Result<Option<crate::FfiEfficiencyTrend>, VeloqError> {
-        with_engine(|e| e.get_section_efficiency_trend(&section_id))
+        with_reader(|conn| {
+            let names = named::pooled::overlay_names(conn);
+            crate::persistence::screens::pooled::section_efficiency_trend_of(
+                conn,
+                &section_id,
+                &sport_type,
+                &names,
+            )
+        })
     }
 
     fn disable(&self, section_id: String) -> Result<(), VeloqError> {
@@ -648,85 +668,21 @@ impl SectionManager {
         })?
     }
 
-    fn set_superseded(
-        &self,
-        auto_section_id: String,
-        custom_section_id: String,
-    ) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.set_superseded(&auto_section_id, &custom_section_id)
-                .map_err(|e| VeloqError::Database { msg: e })
-        })?
-    }
-
-    /// Auto sections the given custom section covers, in one read.
-    ///
-    /// The tolerance is the 50 m the overlap call has always defaulted to, and
-    /// it stays here rather than on the surface: no caller has ever chosen
-    /// another one.
-    fn find_superseded(
-        &self,
-        custom_section_id: String,
-        overlap_threshold: f64,
-    ) -> Result<Vec<String>, VeloqError> {
-        // The write lock: `find_superseded_auto_sections` prepares a statement,
-        // which the read lock may not reach.
-        with_engine(|e| {
-            e.find_superseded_auto_sections(&custom_section_id, 50.0, overlap_threshold)
-        })
-    }
-
-    fn clear_superseded(&self, custom_section_id: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.clear_superseded(&custom_section_id)
-                .map_err(|e| VeloqError::Database { msg: e })
-        })?
-    }
-
     /// Match an activity's GPS track against all existing sections.
     /// Returns all matches found (may be empty if activity doesn't traverse any section).
     fn match_activity_to_sections(
         &self,
         activity_id: String,
     ) -> Result<Vec<crate::FfiSectionMatch>, VeloqError> {
-        with_engine(|engine| {
-            let track = match engine.get_gps_track(&activity_id) {
-                Some(t) if t.len() >= 3 => t,
-                _ => return vec![],
-            };
-
-            let sections = engine.get_sections();
-            if sections.is_empty() {
-                return vec![];
-            }
-
-            // The user's config, matching the attach path's window.
-            let config = engine.get_section_config();
-            let matches =
-                tracematch::sections::optimized::find_sections_in_route(&track, sections, &config);
-
-            matches
-                .into_iter()
-                .map(|m| {
-                    let section = sections.iter().find(|s| s.id == m.section_id);
-                    let portion_slice =
-                        &track[m.start_index as usize..(m.end_index as usize).min(track.len())];
-                    let distance = tracematch::matching::calculate_route_distance(portion_slice);
-                    crate::FfiSectionMatch {
-                        section_id: m.section_id,
-                        section_name: section.and_then(|s| s.name.clone()),
-                        sport_type: section.map(|s| s.sport_type.clone()).unwrap_or_default(),
-                        // The matcher counts stream points in u64; a track long
-                        // enough to overflow u32 is 4 billion points.
-                        start_index: m.start_index as u32,
-                        end_index: m.end_index as u32,
-                        match_quality: m.match_quality,
-                        same_direction: m.same_direction,
-                        distance_meters: distance,
-                    }
-                })
-                .collect()
-        })
+        with_reader(|conn| {
+            let config = crate::persistence::settings::section_config_from(conn)
+                .map_err(|e| VeloqError::Database { msg: e.to_string() })?;
+            Ok(queries::pooled::activity_section_matches(
+                conn,
+                &activity_id,
+                &config,
+            ))
+        })?
     }
 
     /// Cheap post-ingest indexing for one freshly downloaded activity: match it
@@ -762,23 +718,48 @@ impl SectionManager {
         })
     }
 
-    /// Merge two sections. Moves all traversal history from secondary into primary.
-    /// Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
+    /// Merge two sections. Rebuilds the primary's traversals against its own line
+    /// over the rides of both. A donor ride with no pass over that line leaves
+    /// the section and stays in the library. Deletes secondary. Returns the
+    /// primary section ID and the rides that left.
     fn merge_sections(
         &self,
         primary_id: String,
         secondary_id: String,
-    ) -> Result<String, VeloqError> {
+    ) -> Result<crate::FfiMergeOutcome, VeloqError> {
         with_engine(|engine| {
-            engine
-                .merge_user_sections(&primary_id, &secondary_id)
+            let (section_id, departed) = engine
+                .merge_user_sections_reporting(&primary_id, &secondary_id)
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
-                })
+                })?;
+            Ok(crate::FfiMergeOutcome {
+                section_id,
+                departed: departed_rides(engine, &departed),
+            })
         })?
     }
 
-    /// Home-screen "Sections for you" list. Composes ML ranking + performance
+    /// The donor rides a merge into `primary_id` would leave out of the section:
+    /// those with no pass over its line. Writes nothing.
+    fn merge_preview(
+        &self,
+        primary_id: String,
+        secondary_id: String,
+    ) -> Result<Vec<crate::FfiMergeDropped>, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::sections::merging::pooled::merge_preview(
+                conn,
+                &primary_id,
+                &secondary_id,
+            )
+            .map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+        })?
+    }
+
+    /// Home-screen "Sections for you" list. Composes the weighted ranking + performance
     /// lookups in one FFI round-trip instead of N+1 per-section `getPerformances`
     /// calls from TS.
     fn get_workout_sections(
@@ -786,42 +767,19 @@ impl SectionManager {
         sport_type: String,
         limit: u32,
     ) -> Result<Vec<crate::FfiWorkoutSection>, VeloqError> {
-        with_engine(|e| e.get_workout_sections_for_sport(&sport_type, limit))
-    }
-
-    /// Pre-computed chart payload for the section-detail screen: per-lap
-    /// points, speed ranks, best/avg/last stats - all in one FFI round-trip.
-    /// Replaces the 3+ useMemo aggregations in `useSectionChartData`.
-    fn get_chart_data(
-        &self,
-        section_id: String,
-        time_range_days: u32,
-        sport_filter: Option<String>,
-    ) -> Result<crate::FfiSectionChartData, VeloqError> {
-        with_engine(|e| {
-            e.get_section_chart_data(&section_id, time_range_days, sport_filter.as_deref())
-        })
-    }
-
-    /// The sections a fix could be entering, nearest start first.
-    ///
-    /// Keyed on a coordinate rather than a section, so a live recording can
-    /// ask what is in front of it. `sport` matches the stored sport exactly.
-    fn get_near_point(
-        &self,
-        latitude: f64,
-        longitude: f64,
-        sport_type: Option<String>,
-        radius_meters: f64,
-    ) -> Result<Vec<crate::FfiSectionNearPoint>, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::sections::proximity::pooled::sections_near_point(
-                conn,
-                latitude,
-                longitude,
-                sport_type.as_deref(),
-                radius_meters,
-            )
+            use crate::persistence::sections::ranking::pooled as ranking;
+            let names = named::pooled::overlay_names(conn);
+            let candidates = ranking::workout_candidates(conn, &sport_type, limit, &names);
+            ranking::workout_sections(candidates, |id| {
+                crate::persistence::fitness::performances::pooled::cached_section_performances(
+                    conn,
+                    id,
+                    Some(&sport_type),
+                )
+                .as_ref()
+                .clone()
+            })
         })
     }
 
@@ -840,14 +798,9 @@ impl SectionManager {
     fn get_detail_data(
         &self,
         section_id: String,
-        nearby_radius_meters: f64,
     ) -> Result<crate::FfiSectionDetailData, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::screens::pooled::section_detail_data(
-                conn,
-                &section_id,
-                nearby_radius_meters,
-            )
+            crate::persistence::screens::pooled::section_detail_data(conn, &section_id)
         })
     }
 
@@ -878,25 +831,6 @@ impl SectionManager {
     }
 }
 
-/// One section's performances on a pooled connection, remembered until the
-/// database moves. The key carries the sport filter, because a filtered read
-/// and an unfiltered one are different answers for the same section.
-fn pooled_performances(
-    conn: &rusqlite::Connection,
-    section_id: &str,
-    sport_type: Option<&str>,
-) -> std::sync::Arc<crate::SectionPerformanceResult> {
-    let key = match sport_type {
-        Some(sport) => format!("{}:{}", section_id, sport),
-        None => section_id.to_string(),
-    };
-    crate::persistence::read_cache::performances(&key, || {
-        crate::persistence::fitness::performances::pooled::section_performances(
-            conn, section_id, sport_type,
-        )
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -906,49 +840,23 @@ mod tests {
     /// page holds the engine write lock for the length of its transaction and
     /// the performance bundle used to wait it out, which is the whole screen.
     ///
-    /// Expected behaviour: the read goes through the pool, so it is inside a
-    /// frame however long the writer holds.
+    /// Expected behaviour: the read goes through the pool, so it does not
+    /// wait for the writer however long it holds.
     #[test]
     fn the_section_performance_does_not_wait_for_a_writer() {
-        use std::sync::Arc as StdArc;
-        use std::sync::atomic::{AtomicBool, Ordering};
-        use std::time::{Duration, Instant};
-
-        /// One 60 Hz frame.
-        const FRAME_BUDGET: Duration = Duration::from_millis(16);
-        /// Long enough that a wait cannot be read as scheduling noise.
-        const WRITE_HOLD: Duration = Duration::from_millis(200);
-
         let _guard = serial_global_state();
         let _tmp = init_global_engine("section_perf_under_a_writer.db");
         let manager = SectionManager::new();
 
-        let holding = StdArc::new(AtomicBool::new(false));
-        let signal = StdArc::clone(&holding);
-        let writer = std::thread::spawn(move || {
-            crate::with_persistent_engine(|_| {
-                signal.store(true, Ordering::SeqCst);
-                std::thread::sleep(WRITE_HOLD);
-            });
+        let bundle = crate::test_globals::read_while_writer_holds(|| {
+            manager
+                .get_detail_performance("no-such-section".to_string(), 0, None)
+                .expect("the bundle reads while a writer holds the engine")
         });
-        while !holding.load(Ordering::SeqCst) {
-            std::thread::yield_now();
-        }
 
-        let started = Instant::now();
-        let bundle = manager
-            .get_detail_performance("no-such-section".to_string(), 0, None)
-            .expect("the bundle reads while a writer holds the engine");
-        let waited = started.elapsed();
-
-        writer.join().expect("writer");
         assert!(
             bundle.performances.records.is_empty(),
             "a section nothing traversed has no efforts, on either path"
-        );
-        assert!(
-            waited < FRAME_BUDGET,
-            "the bundle waited {waited:?} behind a writer holding for {WRITE_HOLD:?}"
         );
     }
 
@@ -956,49 +864,23 @@ mod tests {
     /// detail bundle, the half the screen paints before its streams land, used
     /// to wait the write out.
     ///
-    /// Expected behaviour: the read goes through the pool, so it is inside a
-    /// frame however long the writer holds.
+    /// Expected behaviour: the read goes through the pool, so it does not
+    /// wait for the writer however long it holds.
     #[test]
     fn the_section_detail_does_not_wait_for_a_writer() {
-        use std::sync::Arc as StdArc;
-        use std::sync::atomic::{AtomicBool, Ordering};
-        use std::time::{Duration, Instant};
-
-        /// One 60 Hz frame.
-        const FRAME_BUDGET: Duration = Duration::from_millis(16);
-        /// Long enough that a wait cannot be read as scheduling noise.
-        const WRITE_HOLD: Duration = Duration::from_millis(200);
-
         let _guard = serial_global_state();
         let _tmp = init_global_engine("section_detail_under_a_writer.db");
         let manager = SectionManager::new();
 
-        let holding = StdArc::new(AtomicBool::new(false));
-        let signal = StdArc::clone(&holding);
-        let writer = std::thread::spawn(move || {
-            crate::with_persistent_engine(|_| {
-                signal.store(true, Ordering::SeqCst);
-                std::thread::sleep(WRITE_HOLD);
-            });
+        let bundle = crate::test_globals::read_while_writer_holds(|| {
+            manager
+                .get_detail_data("no-such-section".to_string())
+                .expect("the bundle reads while a writer holds the engine")
         });
-        while !holding.load(Ordering::SeqCst) {
-            std::thread::yield_now();
-        }
 
-        let started = Instant::now();
-        let bundle = manager
-            .get_detail_data("no-such-section".to_string(), 500.0)
-            .expect("the bundle reads while a writer holds the engine");
-        let waited = started.elapsed();
-
-        writer.join().expect("writer");
         assert!(
             bundle.section.is_none(),
             "a section that is not there answers nothing, on either path"
-        );
-        assert!(
-            waited < FRAME_BUDGET,
-            "the detail bundle waited {waited:?} behind a writer holding for {WRITE_HOLD:?}"
         );
     }
 
@@ -1011,112 +893,49 @@ mod tests {
         }
     }
 
-    fn line(seed: f64) -> Vec<crate::FfiGpsPoint> {
-        (0..12)
-            .map(|i| crate::FfiGpsPoint {
-                latitude: 46.2 + seed + f64::from(i) * 0.001,
-                longitude: 7.35 + seed,
-                elevation: None,
-            })
-            .collect()
-    }
-
     /// Scenario: the athlete opens a ride's sections while a sync page
     /// commits, which is the list every detail screen draws.
     ///
-    /// Expected behaviour: the filtered list comes back inside a frame,
-    /// because it reads through the pool and never asks for the engine lock
-    /// the writer holds.
+    /// Expected behaviour: the filtered list comes back without waiting for
+    /// the writer, because it reads through the pool and never asks for the
+    /// engine lock the writer holds.
     #[test]
     fn the_sections_list_does_not_wait_for_a_writer() {
-        use std::sync::Arc as StdArc;
-        use std::sync::atomic::{AtomicBool, Ordering};
-        use std::time::{Duration, Instant};
-
-        /// One 60 Hz frame.
-        const FRAME_BUDGET: Duration = Duration::from_millis(16);
-        /// Long enough that a wait cannot be read as scheduling noise.
-        const WRITE_HOLD: Duration = Duration::from_millis(200);
-
         let _guard = serial_global_state();
         let _tmp = init_global_engine("sections_under_a_writer.db");
         let sections = SectionManager::new();
 
-        let holding = StdArc::new(AtomicBool::new(false));
-        let signal = StdArc::clone(&holding);
-        let writer = std::thread::spawn(move || {
-            crate::with_persistent_engine(|_| {
-                signal.store(true, Ordering::SeqCst);
-                std::thread::sleep(WRITE_HOLD);
-            });
-        });
-        while !holding.load(Ordering::SeqCst) {
-            std::thread::yield_now();
-        }
-
         let mut by_activity = filter();
         by_activity.activity_id = Some("a1".to_string());
 
-        let started = Instant::now();
-        let listed = sections
-            .get_sections(by_activity)
-            .expect("the list reads while a writer holds the engine");
-        let waited = started.elapsed();
+        let listed = crate::test_globals::read_while_writer_holds(|| {
+            sections
+                .get_sections(by_activity)
+                .expect("the list reads while a writer holds the engine")
+        });
 
         assert!(listed.is_empty(), "nothing is seeded");
-        assert!(
-            waited < FRAME_BUDGET,
-            "the sections list waited {waited:?} behind a writer, which is over a frame"
-        );
-
-        writer.join().expect("writer");
     }
 
     /// Scenario: the athlete opens a section while a sync page commits, and
     /// the performance read is the whole screen.
     ///
-    /// Expected behaviour: it comes back inside a frame, because it reads
-    /// through the pool and never asks for the engine lock the writer holds.
+    /// Expected behaviour: it comes back without waiting for the writer,
+    /// because it reads through the pool and never asks for the engine lock
+    /// the writer holds.
     #[test]
     fn the_section_performance_read_does_not_wait_for_a_writer() {
-        use std::sync::Arc as StdArc;
-        use std::sync::atomic::{AtomicBool, Ordering};
-        use std::time::{Duration, Instant};
-
-        /// One 60 Hz frame.
-        const FRAME_BUDGET: Duration = Duration::from_millis(16);
-        /// Long enough that a wait cannot be read as scheduling noise.
-        const WRITE_HOLD: Duration = Duration::from_millis(200);
-
         let _guard = serial_global_state();
         let _tmp = init_global_engine("section_perf_under_a_writer.db");
         let sections = SectionManager::new();
 
-        let holding = StdArc::new(AtomicBool::new(false));
-        let signal = StdArc::clone(&holding);
-        let writer = std::thread::spawn(move || {
-            crate::with_persistent_engine(|_| {
-                signal.store(true, Ordering::SeqCst);
-                std::thread::sleep(WRITE_HOLD);
-            });
+        let performances = crate::test_globals::read_while_writer_holds(|| {
+            sections
+                .get_performances("s1".to_string(), None)
+                .expect("the section reads while a writer holds the engine")
         });
-        while !holding.load(Ordering::SeqCst) {
-            std::thread::yield_now();
-        }
-
-        let started = Instant::now();
-        let performances = sections
-            .get_performances("s1".to_string(), None)
-            .expect("the section reads while a writer holds the engine");
-        let waited = started.elapsed();
 
         assert!(performances.records.is_empty(), "nothing is seeded");
-        assert!(
-            waited < FRAME_BUDGET,
-            "the section performance read waited {waited:?} behind a writer, which is over a frame"
-        );
-
-        writer.join().expect("writer");
     }
 
     #[test]
@@ -1132,12 +951,9 @@ mod tests {
             .unwrap();
         assert_eq!(result.total_count, 0);
         assert!(result.summaries.is_empty());
-        assert!(crate::coords::decode(&sections.get_polyline("s1".into()).unwrap()).is_empty());
         assert!(sections.get_all_names().unwrap().is_empty());
         assert!(sections.get_named_corridors().unwrap().is_empty());
         assert!(sections.get_retired().unwrap().is_empty());
-        assert!(sections.get_recent_changes(30).unwrap().is_empty());
-        assert!(sections.get_lineages().unwrap().is_empty());
         assert!(sections.get_history("s1".into()).unwrap().is_empty());
         assert!(
             sections
@@ -1145,7 +961,6 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
-        assert!(sections.get_excluded_laps("s1".into()).unwrap().is_empty());
         assert!(
             crate::persistence::with_persistent_engine(|e| e.get_all_section_summaries(None))
                 .expect("engine")
@@ -1167,21 +982,37 @@ mod tests {
     }
 
     #[test]
+    fn a_rename_to_a_name_another_section_shows_is_a_typed_refusal() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        let sections = SectionManager::new();
+        let make = |name: &str| {
+            sections
+                .create("Ride".into(), Some(name.into()), "a0".into(), 0, 7)
+                .unwrap()
+        };
+        let first = make("Climb");
+        let second = make("Descent");
+
+        let refused = sections.set_name(second.clone(), "Climb".into());
+
+        assert!(
+            matches!(&refused, Err(VeloqError::NameTaken { name }) if name == "Climb"),
+            "{refused:?}"
+        );
+        let kept = sections.get_by_id(second).unwrap().unwrap();
+        assert_eq!(kept.name.as_deref(), Some("Descent"));
+        sections.set_name(first, "Climb".into()).unwrap();
+    }
+
+    #[test]
     fn a_custom_section_is_created_named_filtered_disabled_and_deleted() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();
         let sections = SectionManager::new();
 
         let id = sections
-            .create(
-                "Ride".into(),
-                line(0.0),
-                0.0,
-                Some("Climb".into()),
-                Some("a0".into()),
-                Some(0),
-                Some(11),
-            )
+            .create("Ride".into(), Some("Climb".into()), "a0".into(), 0, 7)
             .unwrap();
         assert_eq!(sections.get_count().unwrap(), 1);
 
@@ -1192,12 +1023,16 @@ mod tests {
             .unwrap()
             .expect("created section");
         assert_eq!(section.name.as_deref(), Some("Climb"));
-        assert_eq!(section.sport_type, "Ride");
+        assert_eq!(section.sport_types, vec!["Ride"]);
         assert!(
-            section.distance_meters > 1000.0,
-            "twelve points a metre-ish apart in latitude"
+            section.distance_meters > 500.0,
+            "eight points a hundred metres or so apart in latitude"
         );
-        assert!(!sections.get_polyline(id.clone()).unwrap().is_empty());
+        assert!(
+            !with_reader(|conn| crate::persistence::sections::pooled::section_polyline(conn, &id))
+                .unwrap()
+                .is_empty()
+        );
 
         let custom = sections
             .get_summaries(
@@ -1244,9 +1079,14 @@ mod tests {
             Some("Col")
         );
         sections.set_name(id.clone(), String::new()).unwrap();
-        assert!(
-            !sections.get_all_names().unwrap().contains_key(&id),
-            "an empty name clears it"
+        assert_eq!(
+            sections
+                .get_all_names()
+                .unwrap()
+                .get(&id)
+                .map(String::as_str),
+            Some("Section 1"),
+            "an empty name clears it, and the section is shown under its number"
         );
 
         sections.disable(id.clone()).unwrap();
@@ -1275,9 +1115,14 @@ mod tests {
             1
         );
 
-        // A name or visibility edit is not a lifecycle event; only a geometry
-        // change, a supersession or a rebase writes one.
-        assert!(sections.get_history(id.clone()).unwrap().is_empty());
+        // A rename is a ledger event; hiding and showing a section is not.
+        let kinds: Vec<String> = sections
+            .get_history(id.clone())
+            .unwrap()
+            .into_iter()
+            .map(|event| event.kind)
+            .collect();
+        assert_eq!(kinds, vec!["renamed", "renamed"]);
 
         sections.delete(id.clone()).unwrap();
         assert_eq!(sections.get_count().unwrap(), 0);
@@ -1293,24 +1138,13 @@ mod tests {
         let _tmp = seeded_global_engine();
         let sections = SectionManager::new();
         let id = sections
-            .create(
-                "Ride".into(),
-                line(0.0),
-                0.0,
-                None,
-                Some("a0".into()),
-                Some(0),
-                Some(11),
-            )
+            .create("Ride".into(), None, "a0".into(), 0, 7)
             .unwrap();
 
         let section = sections.get_by_id(id.clone()).unwrap().expect("created");
         assert_eq!(section.section_type, "custom");
         assert_eq!(section.source_activity_id.as_deref(), Some("a0"));
-        assert_eq!(
-            (section.start_index, section.end_index),
-            (Some(0), Some(11))
-        );
+        assert_eq!((section.start_index, section.end_index), (Some(0), Some(7)));
         assert!(!section.disabled);
         assert_eq!(section.superseded_by, None);
 
@@ -1324,21 +1158,66 @@ mod tests {
         );
     }
 
+    /// Scenario: the athlete cuts points 2 to 5 of a stored ride.
+    ///
+    /// Expected behaviour: the section is those four points of the engine's
+    /// own track, and its distance is measured over them.
+    #[test]
+    fn a_section_is_the_stored_slice_of_the_activity_track() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        let sections = SectionManager::new();
+
+        let id = sections
+            .create("Ride".into(), None, "a0".into(), 2, 5)
+            .unwrap();
+
+        let stored =
+            with_reader(|conn| crate::persistence::sections::pooled::section_polyline(conn, &id))
+                .unwrap();
+        assert_eq!(stored.len(), 8);
+        let track = crate::persistence::with_persistent_engine(|e| e.get_gps_track("a0"))
+            .expect("engine")
+            .expect("track");
+        assert_eq!(stored[0], track[2].latitude);
+        assert_eq!(stored[6], track[5].latitude);
+        let section = sections.get_by_id(id).unwrap().expect("created");
+        assert!(
+            (200.0..400.0).contains(&section.distance_meters),
+            "three 0.001 degree steps, {}",
+            section.distance_meters
+        );
+    }
+
+    #[test]
+    fn a_range_the_track_cannot_hold_is_refused_and_writes_nothing() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        let sections = SectionManager::new();
+        let cut = |activity: &str, start: u32, end: u32| {
+            sections.create("Ride".into(), None, activity.into(), start, end)
+        };
+
+        assert!(cut("a0", 5, 2).is_err(), "reversed");
+        assert!(cut("a0", 3, 3).is_err(), "one point is not a line");
+        assert!(cut("a0", 0, 8).is_err(), "end past the last point");
+        assert!(cut("a0", 8, 20).is_err(), "wholly outside");
+        assert!(
+            matches!(cut("nope", 0, 3), Err(VeloqError::NotFound { .. })),
+            "no stored track"
+        );
+        assert_eq!(sections.get_count().unwrap(), 0);
+
+        assert!(cut("a0", 0, 7).is_ok(), "the whole track is in range");
+    }
+
     #[test]
     fn exclusions_are_flags_on_a_membership() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();
         let sections = SectionManager::new();
         let id = sections
-            .create(
-                "Ride".into(),
-                line(0.0),
-                0.0,
-                None,
-                Some("a0".into()),
-                Some(0),
-                Some(11),
-            )
+            .create("Ride".into(), None, "a0".into(), 0, 7)
             .unwrap();
 
         sections.exclude_activity(id.clone(), "a0".into()).unwrap();
@@ -1348,3 +1227,27 @@ mod tests {
         assert!(sections.get_excluded_activities(id).unwrap().is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "tests/section_sort.rs"]
+mod sort_regressions;
+
+#[cfg(test)]
+#[path = "tests/sections.rs"]
+mod section_tests;
+
+#[cfg(test)]
+#[path = "tests/sections_pooled.rs"]
+mod pooled_tests;
+
+#[cfg(test)]
+#[path = "tests/section_names_trend_pooled.rs"]
+mod names_trend_pooled_tests;
+
+#[cfg(test)]
+#[path = "tests/section_scans_pooled.rs"]
+mod scans_pooled_tests;
+
+#[cfg(test)]
+#[path = "tests/sections_ledger_pooled.rs"]
+mod ledger_pooled_tests;

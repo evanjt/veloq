@@ -1,7 +1,12 @@
 use super::error::{VeloqError, with_engine, with_reader};
-use crate::persistence::fitness::stale_pr;
-use std::collections::HashSet;
 use std::sync::Arc;
+
+fn unix_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
 
 #[derive(uniffi::Object)]
 pub struct FitnessManager {
@@ -15,11 +20,6 @@ impl FitnessManager {
         Arc::new(Self { _private: () })
     }
 
-    /// Get all activity IDs that have metrics stored (GPS and non-GPS).
-    fn get_activity_metric_ids(&self) -> Result<Vec<String>, VeloqError> {
-        with_engine(|e| e.get_activity_metric_ids())
-    }
-
     /// Weekly training totals over a range, one entry per Monday-anchored
     /// week that has activities. Derived from `activity_metrics` rather than
     /// fetched, so there is no athlete-summary endpoint to keep in sync.
@@ -28,23 +28,20 @@ impl FitnessManager {
     /// local-calendar question, and Rust has no view of the device timezone.
     fn get_weekly_summaries(
         &self,
-        week_starts: Vec<i64>,
-        week_length_secs: i64,
+        week_starts: Vec<f64>,
+        week_length_secs: f64,
     ) -> Result<Vec<crate::FfiWeeklySummary>, VeloqError> {
-        with_engine(|e| {
-            week_starts
-                .into_iter()
-                .map(|start| {
-                    let stats = e.get_period_stats(start, start + week_length_secs);
-                    crate::FfiWeeklySummary {
-                        week_start: start as f64,
-                        count: stats.count,
-                        moving_time: stats.total_duration,
-                        distance: stats.total_distance,
-                        training_load: stats.total_tss,
-                    }
-                })
-                .collect()
+        let week_starts = week_starts
+            .into_iter()
+            .map(crate::ffi_types::int_from_wire)
+            .collect::<Vec<_>>();
+        let week_length_secs = crate::ffi_types::int_from_wire(week_length_secs);
+        with_reader(|conn| {
+            crate::persistence::fitness::derivations::pooled::weekly_summaries(
+                conn,
+                &week_starts,
+                week_length_secs,
+            )
         })
     }
 
@@ -60,22 +57,34 @@ impl FitnessManager {
     fn get_power_curve(
         &self,
         sport: String,
-        days: i64,
+        days: f64,
     ) -> Result<Option<crate::persistence::curves::FfiPowerCurve>, VeloqError> {
-        let stored = with_engine(|e| {
-            e.get_stored_curve(
-                crate::persistence::bodies::CurveKind::Power,
-                &sport,
-                days,
-                false,
-            )
-            .map_err(|err| VeloqError::Database {
-                msg: format!("{}", err),
+        let days = crate::ffi_types::int_from_wire(days);
+        let (_, curve) = with_reader(|conn| {
+            crate::persistence::curves::pooled::power_curve(conn, &sport, days).map_err(|err| {
+                VeloqError::Database {
+                    msg: err.to_string(),
+                }
             })
         })??;
-        Ok(stored.and_then(|c| {
-            crate::persistence::curves::parse_power_curve(&c.raw, &sport, c.fetched_at as i64)
-        }))
+        Ok(curve)
+    }
+
+    /// Everything the Best Efforts screen paints with over the last `days`
+    /// days, or all time when `days` is 0. Off the engine lock, since it reads
+    /// only committed rows.
+    fn get_best_efforts_data(&self, days: f64) -> Result<crate::FfiBestEffortsData, VeloqError> {
+        let days = crate::ffi_types::int_from_wire(days);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs() as i64);
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::best_efforts_data(conn, days, now).map_err(|err| {
+                VeloqError::Database {
+                    msg: format!("{}", err),
+                }
+            })
+        })?
     }
 
     /// A stored pace curve, parsed, keyed by sport, window and the gap flag,
@@ -83,43 +92,41 @@ impl FitnessManager {
     fn get_pace_curve(
         &self,
         sport: String,
-        days: i64,
+        days: f64,
         gap: bool,
     ) -> Result<Option<crate::persistence::curves::FfiPaceCurve>, VeloqError> {
-        let stored = with_engine(|e| {
-            e.get_stored_curve(
-                crate::persistence::bodies::CurveKind::Pace,
-                &sport,
-                days,
-                gap,
-            )
-            .map_err(|err| VeloqError::Database {
-                msg: format!("{}", err),
+        let days = crate::ffi_types::int_from_wire(days);
+        let (_, curve) = with_reader(|conn| {
+            crate::persistence::curves::pooled::pace_curve(conn, &sport, days, gap).map_err(|err| {
+                VeloqError::Database {
+                    msg: err.to_string(),
+                }
             })
         })??;
-        Ok(stored.and_then(|c| {
-            crate::persistence::curves::parse_pace_curve(&c.raw, &sport, c.fetched_at as i64)
-        }))
+        Ok(curve)
     }
 
     /// An activity's stored interval body, or `None` if never fetched.
     fn get_interval_body(&self, activity_id: String) -> Result<Option<String>, VeloqError> {
-        with_engine(|e| {
-            e.get_interval_body(&activity_id)
-                .map_err(|err| VeloqError::Database {
+        with_reader(|conn| {
+            crate::persistence::bodies::pooled::interval_body(conn, &activity_id).map_err(|err| {
+                VeloqError::Database {
                     msg: format!("{}", err),
-                })
+                }
+            })
         })?
     }
 
     /// Calendar event bodies over an inclusive window, oldest first.
     fn get_calendar_event_bodies(
         &self,
-        oldest_ts: i64,
-        newest_ts: i64,
+        oldest_ts: f64,
+        newest_ts: f64,
     ) -> Result<Vec<String>, VeloqError> {
-        with_engine(|e| {
-            e.get_calendar_event_bodies(oldest_ts, newest_ts)
+        let oldest_ts = crate::ffi_types::int_from_wire(oldest_ts);
+        let newest_ts = crate::ffi_types::int_from_wire(newest_ts);
+        with_reader(|conn| {
+            crate::persistence::bodies::pooled::calendar_event_bodies(conn, oldest_ts, newest_ts)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })
@@ -130,8 +137,20 @@ impl FitnessManager {
         &self,
         sport_type: String,
         zone_type: String,
-    ) -> Result<Vec<f64>, VeloqError> {
-        with_engine(|e| e.get_zone_distribution(&sport_type, &zone_type))
+        start_ts: f64,
+        end_ts: f64,
+    ) -> Result<crate::FfiZoneDistribution, VeloqError> {
+        let start_ts = crate::ffi_types::int_from_wire(start_ts);
+        let end_ts = crate::ffi_types::int_from_wire(end_ts);
+        with_reader(|conn| {
+            crate::persistence::fitness::derivations::pooled::zone_distribution_named(
+                conn,
+                &sport_type,
+                &zone_type,
+                start_ts,
+                end_ts,
+            )
+        })
     }
 
     /// Record one critical-speed snapshot under the window it was read over.
@@ -146,67 +165,104 @@ impl FitnessManager {
         critical_speed: f64,
         d_prime: Option<f64>,
         r2: Option<f64>,
-        date: i64,
-        window_days: i64,
+        date: f64,
+        window_days: f64,
     ) -> Result<(), VeloqError> {
+        let date = crate::ffi_types::int_from_wire(date);
+        let window_days = crate::ffi_types::int_from_wire(window_days);
         with_engine(|e| {
             e.save_pace_snapshot(&sport_type, critical_speed, d_prime, r2, date, window_days);
         })
     }
 
-    /// The activities that moved the accepted eFTP, oldest first. The markers
-    /// the fitness plot draws, derived where the sync stores them rather than
-    /// from a parsed body per activity on every render.
-    fn get_eftp_changes(&self) -> Result<Vec<crate::FfiEftpChange>, VeloqError> {
-        with_engine(|e| e.eftp_changes())
+    /// Everything the fitness tab paints with that stays fixed while it is
+    /// mounted: the cycling eFTP trend over the chart's three months with the
+    /// activities that moved it, and the last stored running and swimming
+    /// critical speeds. Off the engine lock, since it reads only committed
+    /// rows. Stale when the `activities` event fires.
+    fn get_fitness_screen_data(&self) -> Result<crate::FfiFitnessScreenData, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::fitness_screen_data(
+                conn,
+                &crate::persistence::wellness::today_iso(),
+            )
+        })
     }
 
     fn get_available_sport_types(&self) -> Result<Vec<String>, VeloqError> {
-        with_engine(|e| e.get_available_sport_types())
+        with_reader(|conn| {
+            crate::persistence::fitness::derivations::pooled::try_available_sport_types(conn)
+                .unwrap_or_default()
+        })
     }
 
-    fn get_activity_heatmap(
+    /// Everything the training tab paints with that stays fixed while it is
+    /// mounted, over the windows it draws. Off the engine lock, since it reads
+    /// only committed rows. Stale when the `activities` event fires.
+    fn get_training_screen_data(
         &self,
-        start_date: String,
-        end_date: String,
-    ) -> Result<Vec<crate::FfiHeatmapDay>, VeloqError> {
-        with_engine(|e| e.get_activity_heatmap(&start_date, &end_date))
+        windows: crate::FfiTrainingScreenWindows,
+    ) -> Result<crate::FfiTrainingScreenData, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::training_screen_data(conn, &windows).map_err(
+                |err| VeloqError::Database {
+                    msg: format!("{}", err),
+                },
+            )
+        })?
     }
 
     fn get_summary_card_data(
         &self,
-        current_start: i64,
-        current_end: i64,
-        prev_start: i64,
-        prev_end: i64,
+        current_start: f64,
+        current_end: f64,
+        prev_start: f64,
+        prev_end: f64,
     ) -> Result<crate::FfiSummaryCardData, VeloqError> {
-        with_engine(|e| crate::FfiSummaryCardData {
-            wellness: e.wellness_summary(),
-            current_week: e.get_period_stats(current_start, current_end),
-            prev_week: e.get_period_stats(prev_start, prev_end),
-            ftp_trend: e.get_ftp_trend(),
-            run_pace_trend: e.get_pace_trend("Run"),
-            swim_pace_trend: e.get_pace_trend("Swim"),
+        let current_start = crate::ffi_types::int_from_wire(current_start);
+        let current_end = crate::ffi_types::int_from_wire(current_end);
+        let prev_start = crate::ffi_types::int_from_wire(prev_start);
+        let prev_end = crate::ffi_types::int_from_wire(prev_end);
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::summary_card(
+                conn,
+                current_start,
+                current_end,
+                prev_start,
+                prev_end,
+            )
         })
     }
 
     /// Aggregated totals for one date window: count, duration, distance, TSS.
     fn get_period_stats(
         &self,
-        start_ts: i64,
-        end_ts: i64,
+        start_ts: f64,
+        end_ts: f64,
     ) -> Result<crate::FfiPeriodStats, VeloqError> {
-        with_engine(|e| e.get_period_stats(start_ts, end_ts))
+        let start_ts = crate::ffi_types::int_from_wire(start_ts);
+        let end_ts = crate::ffi_types::int_from_wire(end_ts);
+        with_reader(|conn| {
+            crate::persistence::fitness::derivations::pooled::period_stats(conn, start_ts, end_ts)
+        })
     }
 
-    /// A window's totals grouped by calendar month, oldest first. Months with
-    /// no activity are absent rather than zero.
-    fn get_monthly_stats(
+    /// Recorded activity load per local day over an inclusive window of
+    /// wall-clock timestamps, oldest first. A day with activities and no load
+    /// reads `Unavailable`, one with only some `Partial`; days with no
+    /// activities are absent.
+    fn get_daily_activity_loads(
         &self,
-        start_ts: i64,
-        end_ts: i64,
-    ) -> Result<Vec<crate::FfiMonthlyStats>, VeloqError> {
-        with_engine(|e| e.get_monthly_stats(start_ts, end_ts))
+        start_ts: f64,
+        end_ts: f64,
+    ) -> Result<Vec<crate::FfiDayLoad>, VeloqError> {
+        let start_ts = crate::ffi_types::int_from_wire(start_ts);
+        let end_ts = crate::ffi_types::int_from_wire(end_ts);
+        with_reader(|conn| {
+            crate::persistence::fitness::derivations::pooled::daily_activity_loads(
+                conn, start_ts, end_ts,
+            )
+        })
     }
 
     /// Sync a batch of wellness rows from the intervals.icu API into SQLite.
@@ -248,11 +304,12 @@ impl FitnessManager {
         oldest: String,
         newest: String,
     ) -> Result<Vec<crate::FfiWellnessDay>, VeloqError> {
-        with_engine(|e| {
-            e.get_wellness_days(&oldest, &newest)
-                .map_err(|err| VeloqError::Database {
+        with_reader(|conn| {
+            crate::persistence::wellness::pooled::wellness_days(conn, &oldest, &newest).map_err(
+                |err| VeloqError::Database {
                     msg: format!("{}", err),
-                })
+                },
+            )
         })?
     }
 
@@ -279,72 +336,16 @@ impl FitnessManager {
         &self,
         days: u32,
     ) -> Result<Option<crate::FfiWellnessSparklines>, VeloqError> {
-        with_engine(|e| {
-            e.get_wellness_sparklines(days)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
-        })?
-    }
-
-    /// HRV trend (label + averages + sparkline) over the trailing `days`
-    /// window. Returns `None` when there are <5 valid HRV days. TS maps
-    /// the returned label to an i18n key and renders.
-    fn compute_hrv_trend(&self, days: u32) -> Result<Option<crate::FfiHrvTrend>, VeloqError> {
-        with_engine(|e| {
-            e.compute_hrv_trend(days)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
-        })?
-    }
-
-    /// Stale-PR opportunity detection.
-    ///
-    /// Pure pattern recognition: flags sections whose PR might be beatable
-    /// because the user's threshold fitness (FTP for cycling, critical speed
-    /// for run/swim) has improved by at least `min_gain_percent` since the
-    /// PR was set, and the section hasn't been visited in `stale_threshold_days+`
-    /// days. Sport-aware: cycling sections look at FTP, running at run pace,
-    /// swimming at swim pace.
-    ///
-    /// `exclude_section_ids` is the set of section IDs already surfaced by
-    /// other insights (e.g. recent section_pr cards) - we don't want to
-    /// double-surface the same section in the same insights feed.
-    ///
-    /// Returns up to `max_opportunities` opportunities, sorted by
-    /// traversal_count DESC (more-frequented sections first).
-    fn find_stale_pr_opportunities(
-        &self,
-        stale_threshold_days: u32,
-        min_gain_percent: f64,
-        max_opportunities: u32,
-        exclude_section_ids: Vec<String>,
-    ) -> Result<Vec<crate::FfiStalePrOpportunity>, VeloqError> {
-        with_engine(|e| {
-            let ftp_trend = e.get_ftp_trend();
-            let run_pace_trend = e.get_pace_trend("Run");
-            let swim_pace_trend = e.get_pace_trend("Swim");
-            let exclude: HashSet<String> = exclude_section_ids.into_iter().collect();
-            let sport_types = e.get_available_sport_types();
-
-            stale_pr::opportunities(
-                &stale_pr::StalePrTrends {
-                    ftp: &ftp_trend,
-                    run_pace: &run_pace_trend,
-                    swim_pace: &swim_pace_trend,
-                },
-                &sport_types,
-                &stale_pr::StalePrRequest {
-                    stale_threshold_days,
-                    min_gain_percent,
-                    max_opportunities,
-                    exclude_section_ids: &exclude,
-                },
-                |sport| e.get_stale_ranked_sections(sport, stale_threshold_days),
-                |sport, at| e.fitness_on(sport, at),
+        with_reader(|conn| {
+            crate::persistence::wellness::pooled::sparklines_to(
+                conn,
+                days,
+                &crate::persistence::wellness::today_iso(),
             )
-        })
+            .map_err(|err| VeloqError::Database {
+                msg: format!("{}", err),
+            })
+        })?
     }
 
     /// Batch insights data: combines period stats, trends, patterns, recent PRs
@@ -376,6 +377,7 @@ impl FitnessManager {
         // Off the engine lock: the feed's first paint is committed rows and
         // nothing the engine holds in memory, so a sync page mid-transaction
         // does not hold the first screen the athlete sees.
+        let now = unix_now();
         with_reader(|conn| {
             crate::persistence::screens::pooled::startup_data(
                 conn,
@@ -384,37 +386,82 @@ impl FitnessManager {
                 params.prev_start as i64,
                 params.prev_end as i64,
                 &preview_activity_ids,
+                now,
             )
         })
     }
 
-    /// Everything the home-screen widget snapshot is composed from: wellness
-    /// sparklines, the summary card, and the latest activity with its record
-    /// flag and GPS track, strided to `max_gps_points`. Replaces the six-call
-    /// gather in the widget writer. Zero means the whole track.
-    fn get_widget_snapshot(
+    /// Tell the engine the feed opened, closed or had rings dismissed. It
+    /// writes one settings row and decides every ring the next
+    /// `get_startup_data` returns.
+    fn record_feed_seen(&self, event: crate::FfiFeedSeen) -> Result<(), VeloqError> {
+        let now = unix_now();
+        with_engine(|e| {
+            e.record_feed_seen(&event.into(), now)
+                .map_err(|msg| VeloqError::Database { msg })
+        })?
+    }
+
+    /// The home-screen widget snapshot, as the JSON the widgets read, composed
+    /// from the engine's rows and the context the app hands over. The Android
+    /// push worker composes the same file from the stored context, so there is
+    /// one composer whichever process writes it.
+    ///
+    /// `now_seconds` stamps the snapshot and `now_wall_seconds` is the same
+    /// moment on the zoneless wall clock activity dates are recorded in, which
+    /// is what the week bounds and the relative dates are judged on.
+    fn compose_widget_snapshot(
         &self,
-        current_start: i64,
-        current_end: i64,
-        prev_start: i64,
-        prev_end: i64,
-        sparkline_days: u32,
-        max_gps_points: u32,
-    ) -> Result<crate::FfiWidgetSnapshotData, VeloqError> {
+        context_json: String,
+        now_seconds: f64,
+        now_wall_seconds: f64,
+    ) -> Result<String, VeloqError> {
+        let now_seconds = crate::ffi_types::int_from_wire(now_seconds);
+        let now_wall_seconds = crate::ffi_types::int_from_wire(now_wall_seconds);
+        let ctx: crate::widget_snapshot::WidgetContext = serde_json::from_str(&context_json)
+            .map_err(|e| VeloqError::Database {
+                msg: format!("widget context: {e}"),
+            })?;
+        let clock = crate::widget_snapshot::Clock {
+            now_seconds,
+            now_wall_seconds,
+        };
         // Off the engine lock: every read behind this is committed rows. The
         // writer runs on every background transition and every settled sync,
         // which is exactly when the lock is held by the sync itself.
-        with_reader(|conn| {
-            crate::persistence::screens::pooled::widget_snapshot_data(
+        with_reader(|conn| crate::widget_snapshot::snapshot_json(conn, &ctx, clock))
+    }
+
+    /// Store the widget context, so a push handler with no JavaScript can
+    /// compose the snapshot the app would. Answers whether anything was
+    /// written. A context that does not parse is refused rather than stored.
+    ///
+    /// The app hands it over on every refresh, so the comparison is read off
+    /// the pool first and the engine lock is taken only for a context that
+    /// changed, which is a locale, a unit or a setting and not a sync.
+    fn set_widget_context(&self, context_json: String) -> Result<bool, VeloqError> {
+        serde_json::from_str::<crate::widget_snapshot::WidgetContext>(&context_json).map_err(
+            |e| VeloqError::Database {
+                msg: format!("widget context: {e}"),
+            },
+        )?;
+        let held = with_reader(|conn| {
+            crate::persistence::settings::setting_from(
                 conn,
-                current_start,
-                current_end,
-                prev_start,
-                prev_end,
-                sparkline_days,
-                max_gps_points,
+                crate::persistence::settings::settings_keys::WIDGET_CONTEXT,
             )
-        })
+            .ok()
+            .flatten()
+        })?;
+        if held.as_deref() == Some(context_json.as_str()) {
+            return Ok(false);
+        }
+        with_engine(|e| {
+            e.set_widget_context(&context_json)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{e}"),
+                })
+        })?
     }
 }
 
@@ -426,37 +473,36 @@ mod tests {
     /// paint while a sync page commits.
     ///
     /// Expected behaviour: the summary card and the preview tracks come back
-    /// inside a frame, because the feed reads through the pool and never asks
-    /// for the engine lock the writer is holding.
+    /// without waiting for the writer, because the feed reads through the pool
+    /// and never asks for the engine lock the writer is holding.
     #[test]
     fn the_feed_first_paint_does_not_wait_for_a_writer() {
         use crate::test_globals::{init_global_engine, serial_global_state};
-        use std::sync::Arc as StdArc;
-        use std::sync::atomic::{AtomicBool, Ordering};
-        use std::time::{Duration, Instant};
-
-        /// One 60 Hz frame.
-        const FRAME_BUDGET: Duration = Duration::from_millis(16);
-        /// Long enough that a wait cannot be read as scheduling noise.
-        const WRITE_HOLD: Duration = Duration::from_millis(200);
-
         let _guard = serial_global_state();
         let _tmp = init_global_engine("feed_under_a_writer.db");
         let fitness = FitnessManager::new();
-
-        let holding = StdArc::new(AtomicBool::new(false));
-        let signal = StdArc::clone(&holding);
-        let writer = std::thread::spawn(move || {
-            crate::with_persistent_engine(|_| {
-                signal.store(true, Ordering::SeqCst);
-                std::thread::sleep(WRITE_HOLD);
-            });
+        let now = 1_700_200_000i64;
+        crate::with_persistent_engine(|engine| {
+            engine
+                .set_activity_metrics(vec![crate::types::ActivityMetrics {
+                    activity_id: "a1".into(),
+                    name: "Ride".into(),
+                    date: now - 86_400,
+                    distance: 1000.0,
+                    moving_time: 300,
+                    elapsed_time: 300,
+                    elevation_gain: 0.0,
+                    avg_hr: None,
+                    avg_power: None,
+                    sport_type: "Ride".into(),
+                    training_load: None,
+                    ftp: None,
+                    power_zone_times: None,
+                    hr_zone_times: None,
+                }])
+                .expect("activity metrics");
         });
-        while !holding.load(Ordering::SeqCst) {
-            std::thread::yield_now();
-        }
 
-        let now = 1_700_200_000;
         let params = crate::FfiInsightsParams {
             history_limit: 20,
             current_start: (now - 7 * 86_400) as f64,
@@ -469,8 +515,10 @@ mod tests {
             ranked_limit: 50,
             active_window_days: 90,
             efficiency_per_sport: 5,
+            efficiency_min_hr_change_bpm: 1,
             efficiency_limit: 2,
             efficiency_min_efforts: 3,
+            efficiency_declining_min_efforts: 5,
             strength_month: crate::FfiTimestampRange {
                 start_ts: (now - 28 * 86_400) as f64,
                 end_ts: now as f64,
@@ -486,58 +534,41 @@ mod tests {
             stale_threshold_days: 30,
             stale_min_gain_percent: 3.0,
             stale_max_opportunities: 3,
+            stale_min_traversals: 1,
+            recent_pr_window_days: 7,
+            recent_pr_min_outings: 3,
         };
 
-        let started = Instant::now();
-        let feed = fitness
-            .get_startup_data(params, vec!["a1".to_string()])
-            .expect("the feed reads while a writer holds the engine");
-        let waited = started.elapsed();
+        let feed = crate::test_globals::read_while_writer_holds(|| {
+            fitness
+                .get_startup_data(params, vec!["a1".to_string()])
+                .expect("the feed reads while a writer holds the engine")
+        });
 
-        assert_eq!(feed.summary_card.current_week.count, 0);
-        assert!(
-            waited < FRAME_BUDGET,
-            "the feed's first paint waited {waited:?} behind a writer, which is over a frame"
-        );
-
-        writer.join().expect("writer");
+        assert_eq!(feed.summary_card.current_week.count, 1);
+        let direct = fitness
+            .get_summary_card_data(
+                (now - 7 * 86_400) as f64,
+                now as f64,
+                (now - 14 * 86_400) as f64,
+                (now - 7 * 86_400) as f64,
+            )
+            .expect("direct summary card");
+        assert_eq!(format!("{direct:?}"), format!("{:?}", feed.summary_card));
     }
 
     /// Scenario: the athlete opens the insights tab while a sync page commits.
     /// The page holds the engine write lock for the length of its transaction
     /// and the whole tab used to wait it out.
     ///
-    /// Expected behaviour: the read goes through the pool, so it is inside a
-    /// frame however long the writer holds. The metrics load that replaces the
-    /// memory tier is 2.5 ms on a 1,598-activity library, so the budget here is
-    /// the lock and not the query.
+    /// Expected behaviour: the read goes through the pool, so it does not
+    /// wait for the writer however long it holds.
     #[test]
     fn the_insights_tab_does_not_wait_for_a_writer() {
         use crate::test_globals::{init_global_engine, serial_global_state};
-        use std::sync::Arc as StdArc;
-        use std::sync::atomic::{AtomicBool, Ordering};
-        use std::time::{Duration, Instant};
-
-        /// One 60 Hz frame.
-        const FRAME_BUDGET: Duration = Duration::from_millis(16);
-        /// Long enough that a wait cannot be read as scheduling noise.
-        const WRITE_HOLD: Duration = Duration::from_millis(200);
-
         let _guard = serial_global_state();
         let _tmp = init_global_engine("insights_under_a_writer.db");
         let fitness = FitnessManager::new();
-
-        let holding = StdArc::new(AtomicBool::new(false));
-        let signal = StdArc::clone(&holding);
-        let writer = std::thread::spawn(move || {
-            crate::with_persistent_engine(|_| {
-                signal.store(true, Ordering::SeqCst);
-                std::thread::sleep(WRITE_HOLD);
-            });
-        });
-        while !holding.load(Ordering::SeqCst) {
-            std::thread::yield_now();
-        }
 
         let now = 1_700_200_000;
         let params = crate::FfiInsightsParams {
@@ -552,8 +583,10 @@ mod tests {
             ranked_limit: 50,
             active_window_days: 90,
             efficiency_per_sport: 5,
+            efficiency_min_hr_change_bpm: 1,
             efficiency_limit: 2,
             efficiency_min_efforts: 3,
+            efficiency_declining_min_efforts: 5,
             strength_month: crate::FfiTimestampRange {
                 start_ts: (now - 28 * 86_400) as f64,
                 end_ts: now as f64,
@@ -569,20 +602,29 @@ mod tests {
             stale_threshold_days: 30,
             stale_min_gain_percent: 3.0,
             stale_max_opportunities: 3,
+            stale_min_traversals: 1,
+            recent_pr_window_days: 7,
+            recent_pr_min_outings: 3,
         };
 
-        let started = Instant::now();
-        let insights = fitness
-            .get_insights_data(params)
-            .expect("the tab reads while a writer holds the engine");
-        let waited = started.elapsed();
+        let insights = crate::test_globals::read_while_writer_holds(|| {
+            fitness
+                .get_insights_data(params)
+                .expect("the tab reads while a writer holds the engine")
+        });
 
         assert_eq!(insights.section_count, 0);
-        assert!(
-            waited < FRAME_BUDGET,
-            "the insights tab waited {waited:?} behind a writer, which is over a frame"
-        );
-
-        writer.join().expect("writer");
     }
 }
+
+#[cfg(test)]
+#[path = "tests/fitness_interval.rs"]
+mod fitness_interval_tests;
+
+#[cfg(test)]
+#[path = "tests/fitness_summary_card.rs"]
+mod fitness_summary_card_tests;
+
+#[cfg(test)]
+#[path = "tests/fitness_pooled.rs"]
+mod fitness_pooled_tests;

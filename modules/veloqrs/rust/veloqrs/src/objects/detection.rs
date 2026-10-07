@@ -1,23 +1,26 @@
-use super::error::{VeloqError, with_engine};
-use super::start::FfiStartOutcome;
+use super::error::{VeloqError, with_engine, with_reader};
+use super::start::{FfiStartOutcome, FfiStartResult};
 use crate::persistence::attempts::{Claim, JobKey, Release, now_ms};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::sections::DetectionRefusal;
 use log::{info, warn};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize, Ordering};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 
-/// How the last run this process finished ended, for surfaces that may look
-/// but must not take.
-///
-/// The completion itself is a taking read: `poll_detection_once` receives it
-/// from the worker's channel and whoever gets there first applies it, so a
-/// second caller sees `Idle`. A status screen polling on a timer therefore
-/// settles a run the follower is still waiting on, and the rescan behind it
-/// reports no change. This is the observable half: written where the outcome
-/// is already known, read by anyone, and it consumes nothing.
+/// Status of the current or most recently finished run for read-only surfaces.
+/// A start resets it to idle until the run ends.
 static LAST_DETECTION_OUTCOME: AtomicU8 = AtomicU8::new(OUTCOME_IDLE);
+static NEXT_RUN_ID: AtomicU64 = AtomicU64::new(1);
+static RUN_OUTCOMES: LazyLock<Mutex<RunOutcomes>> =
+    LazyLock::new(|| Mutex::new(RunOutcomes::default()));
+
+#[derive(Default)]
+struct RunOutcomes {
+    latest: u64,
+    terminal: HashMap<u64, u8>,
+}
 
 const OUTCOME_IDLE: u8 = 0;
 const OUTCOME_COMPLETE: u8 = 1;
@@ -25,6 +28,24 @@ const OUTCOME_ERROR: u8 = 2;
 
 fn record_outcome(outcome: u8) {
     LAST_DETECTION_OUTCOME.store(outcome, Ordering::Relaxed);
+}
+
+pub(crate) fn record_started_run(slot: &crate::persistence::CheckpointSlot) {
+    slot.mark_run_id(NEXT_RUN_ID.fetch_add(1, Ordering::Relaxed));
+    record_outcome(OUTCOME_IDLE);
+}
+
+fn record_run_outcome(slot: &crate::persistence::CheckpointSlot, outcome: u8) {
+    record_outcome(outcome);
+    if outcome == OUTCOME_ERROR {
+        crate::persistence::sections::detection::record_failed_run(slot.install());
+    }
+    let run_id = slot.run_id();
+    if run_id != 0 {
+        let mut outcomes = RUN_OUTCOMES.lock().unwrap_or_else(|e| e.into_inner());
+        outcomes.latest = run_id;
+        outcomes.terminal.insert(run_id, outcome);
+    }
 }
 
 /// Put the record back to "nothing has finished here".
@@ -36,6 +57,7 @@ fn record_outcome(outcome: u8) {
 #[cfg(test)]
 pub(crate) fn reset_last_outcome() {
     record_outcome(OUTCOME_IDLE);
+    *RUN_OUTCOMES.lock().unwrap_or_else(|e| e.into_inner()) = RunOutcomes::default();
 }
 
 #[derive(uniffi::Object)]
@@ -153,9 +175,9 @@ pub(crate) fn wait_on_slot_counting(
 /// Three production paths spawn one and none of them is joined: the
 /// conditioning driver (`persistence/sections/conditioning.rs`), the
 /// elevation re-cut (`net/elevation_backfill.rs`) and the resume ladder's
-/// drain. Each outlives the call that spawned it, and each polls through
-/// `poll_detection_once`, which is the call that publishes an outcome. So a
-/// driver left over from earlier work can settle a run somebody else started.
+/// drain. Each outlives the call that spawned it. A following driver uses
+/// `poll_detection_once_for_follower` and a draining driver uses
+/// `poll_detection_once`, so either can settle a run somebody else started.
 static SLOT_DRIVERS: AtomicUsize = AtomicUsize::new(0);
 
 /// Waits on the slot that ran out of time rather than reaching an end.
@@ -200,9 +222,8 @@ impl Drop for SlotDriver {
 ///
 /// Counted for the whole wait. Every caller of this is polling the slot on
 /// somebody else's behalf, from a thread that outlives the call, and the FFI
-/// poll goes straight to `poll_detection_once` instead. So the count is
-/// exactly the drivers, which is what a caller needing to be the only poller
-/// has to wait out.
+/// polls use `poll_detection_once_for_follower` or a recorded verdict without
+/// entering this wait. The count is exactly the drivers a caller must wait out.
 pub(crate) fn wait_on_slot(poll_every: Duration, stop_at_end: bool) -> SlotWait {
     let _counted = SlotDriver::started();
     let started = std::time::Instant::now();
@@ -210,7 +231,13 @@ pub(crate) fn wait_on_slot(poll_every: Duration, stop_at_end: bool) -> SlotWait 
         SLOT_WAIT_LIMIT,
         poll_every,
         stop_at_end,
-        poll_detection_once,
+        || {
+            if stop_at_end {
+                poll_detection_once_for_follower()
+            } else {
+                poll_detection_once()
+            }
+        },
         std::thread::sleep,
         || started.elapsed(),
     )
@@ -229,13 +256,13 @@ pub(crate) fn detect_key() -> JobKey {
 /// worker. `BackingOff` is `Held` and not `Busy`: nothing else holds the key,
 /// the last run failed, and this one would too. `Held` is the answer for work
 /// a stage that does finish is keeping back, and it is retryable.
-fn outcome_for_claim(claim: Claim) -> Result<(), FfiStartOutcome> {
+fn outcome_for_claim(claim: Claim) -> Result<(), FfiStartResult> {
     match claim {
         Claim::Taken => Ok(()),
-        Claim::InFlight => Err(FfiStartOutcome::Busy),
+        Claim::InFlight => Err(FfiStartOutcome::Busy.into()),
         Claim::BackingOff { until } => {
             info!("veloqrs: [DetectionManager] section_detect is backing off until {until}");
-            Err(FfiStartOutcome::Held)
+            Err(FfiStartResult::backing_off(until))
         }
     }
 }
@@ -245,14 +272,18 @@ fn outcome_for_claim(claim: Claim) -> Result<(), FfiStartOutcome> {
 /// An engine that is not open yet is `NotReady` rather than a refusal that
 /// will never lift: the lease lives in the engine, so nothing is known about
 /// the key until it opens. Same reading as `spawn_once`.
-pub(crate) fn claim_detect() -> Result<(), FfiStartOutcome> {
-    match crate::persistence::with_persistent_engine(|engine| {
+pub(crate) fn claim_detect() -> Result<(), FfiStartResult> {
+    claim_detect_for(crate::persistence::engine_install())
+}
+
+pub(crate) fn claim_detect_for(install: u64) -> Result<(), FfiStartResult> {
+    match crate::persistence::with_persistent_engine_for(install, |engine| {
         engine.claim_job(&detect_key(), now_ms())
     }) {
-        None => Err(FfiStartOutcome::NotReady),
+        None => Err(FfiStartOutcome::NotReady.into()),
         Some(Err(e)) => {
             log::warn!("veloqrs: [DetectionManager] could not claim section_detect: {e}");
-            Err(FfiStartOutcome::NotReady)
+            Err(FfiStartOutcome::NotReady.into())
         }
         Some(Ok(claim)) => outcome_for_claim(claim),
     }
@@ -264,30 +295,169 @@ pub(crate) fn claim_detect() -> Result<(), FfiStartOutcome> {
 /// points that records the outcome. A key never released is detection wedged
 /// for the session, so a path that clears the handle clears this too.
 pub(crate) fn settle_detect(release: Release) {
-    crate::persistence::with_persistent_engine(|engine| {
+    settle_detect_for(crate::persistence::engine_install(), release);
+}
+
+pub(crate) fn settle_detect_for(install: u64, release: Release) {
+    crate::persistence::with_persistent_engine_for(install, |engine| {
         if let Err(e) = engine.release_job(&detect_key(), release, now_ms()) {
             log::warn!("veloqrs: [DetectionManager] could not release section_detect: {e}");
         }
     });
 }
 
-/// Poll the shared detection handle once and, when the worker has finished,
-/// apply its results under the engine lock. Shared by the FFI poll (the TS
-/// sync UI) and the conditioning driver: whichever caller polls Ready first
-/// applies, the other sees Idle on its next poll.
+fn settle_claimed_detect(slot: &crate::persistence::CheckpointSlot, release: Release) {
+    if slot.detect_claimed() {
+        settle_detect_for(slot.install(), release);
+    }
+}
+
+/// Settle only the self-applying run that still owns this slot.
+pub(crate) fn settle_finished_worker(slot: &Arc<crate::persistence::CheckpointSlot>) {
+    let mut guard = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let Some(handle) = guard.as_ref() else {
+        return;
+    };
+    if !Arc::ptr_eq(&handle.checkpoint_slot(), slot) {
+        return;
+    }
+    let cancelled =
+        handle.get_progress().0 == crate::persistence::sections::detection::PHASE_CANCELLED;
+    let applied = handle.worker_apply() == crate::persistence::WorkerApply::Landed;
+    *guard = None;
+    if cancelled {
+        record_run_outcome(slot, OUTCOME_IDLE);
+        settle_claimed_detect(slot, Release::Done);
+    } else if applied {
+        record_run_outcome(slot, OUTCOME_COMPLETE);
+        settle_claimed_detect(slot, Release::Done);
+    } else {
+        record_run_outcome(slot, OUTCOME_ERROR);
+        settle_claimed_detect(
+            slot,
+            Release::failed(
+                FfiStartOutcome::Failed,
+                Some("the detection worker ended without applying"),
+            ),
+        );
+    }
+}
+
+/// Poll the shared detection handle once. The worker applies and settles its
+/// own run, so a poll after completion reads an empty slot.
 ///
 /// Every take of the detection handle recovers a poisoned guard rather than
 /// failing: one panic under the lock would otherwise kill detection for the
 /// rest of the process with no way back.
 pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
+    poll_detection_once_with(|| {})
+}
+
+fn poll_detection_once_for_follower() -> Result<DetectionPoll, VeloqError> {
+    poll_detection_once_inner(|| {}, true)
+}
+
+fn poll_followed_run(run_id: &str) -> Result<String, VeloqError> {
+    poll_followed_run_with(run_id, || {})
+}
+
+fn poll_followed_run_with(run_id: &str, after_prior: impl FnOnce()) -> Result<String, VeloqError> {
+    let current = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map(|handle| handle.checkpoint_slot().run_id())
+        .unwrap_or(0);
+    let latest = RUN_OUTCOMES
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .latest;
+    let expected = if run_id.is_empty() {
+        if current == 0 { latest } else { current }
+    } else {
+        run_id.parse::<u64>().unwrap_or(0)
+    };
+    let prior = recorded_run_outcome(expected);
+    if let Some(outcome) = prior {
+        return Ok(format!("{expected}:{}", outcome_name(outcome)));
+    }
+    after_prior();
+    let polled = match poll_detection_once_for_follower() {
+        Ok(polled) => polled,
+        Err(error) => {
+            if let Some(outcome) = recorded_run_outcome(expected) {
+                return Ok(format!("{expected}:{}", outcome_name(outcome)));
+            }
+            return Err(error);
+        }
+    };
+    let terminal = recorded_run_outcome(expected);
+    let status = match terminal {
+        Some(outcome) => outcome_name(outcome),
+        _ if expected == current && current != 0 => "running",
+        _ if expected == 0 => match polled {
+            DetectionPoll::Applied => "complete",
+            DetectionPoll::Died => "error",
+            DetectionPoll::Running => "running",
+            DetectionPoll::Idle => "idle",
+        },
+        _ => "error",
+    };
+    Ok(format!("{expected}:{status}"))
+}
+
+fn recorded_run_outcome(run_id: u64) -> Option<u8> {
+    RUN_OUTCOMES
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .terminal
+        .get(&run_id)
+        .copied()
+}
+
+fn outcome_name(outcome: u8) -> &'static str {
+    match outcome {
+        OUTCOME_COMPLETE => "complete",
+        OUTCOME_ERROR => "error",
+        _ => "idle",
+    }
+}
+
+fn poll_detection_once_with(after_slot_clear: impl FnOnce()) -> Result<DetectionPoll, VeloqError> {
+    poll_detection_once_inner(after_slot_clear, false)
+}
+
+fn poll_detection_once_inner(
+    after_slot_clear: impl FnOnce(),
+    follow_idle: bool,
+) -> Result<DetectionPoll, VeloqError> {
     let mut handle_guard = SECTION_DETECTION_HANDLE
         .lock()
         .unwrap_or_else(|e| e.into_inner());
 
     if handle_guard.is_none() {
-        return Ok(DetectionPoll::Idle);
+        return Ok(if follow_idle {
+            match LAST_DETECTION_OUTCOME.load(Ordering::Relaxed) {
+                OUTCOME_COMPLETE => DetectionPoll::Applied,
+                OUTCOME_ERROR => DetectionPoll::Died,
+                _ => DetectionPoll::Idle,
+            }
+        } else {
+            DetectionPoll::Idle
+        });
     }
 
+    let slot = handle_guard.as_ref().unwrap().checkpoint_slot();
+    let install = slot.install();
+    // Zero is the gap between publishing a handle and `mark_installed`. A
+    // settle against it is refused and the lease would stay taken for the
+    // session, so the run is left for `mark_installed`, which settles a worker
+    // that finished first.
+    if install == 0 {
+        return Ok(DetectionPoll::Running);
+    }
     let result = handle_guard.as_ref().unwrap().poll_state();
 
     match result {
@@ -305,134 +475,73 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             *handle_guard = None;
             if cancelled {
                 info!("veloqrs: [DetectionManager] Detection cancelled, the slot is free");
-                record_outcome(OUTCOME_IDLE);
+                record_run_outcome(&slot, OUTCOME_IDLE);
                 // A run that was asked to stop did what it was told, so the
                 // key starts clean: backing it off would hold the next detect
                 // back for a cancel the athlete made.
-                settle_detect(Release::Done);
+                settle_claimed_detect(&slot, Release::Done);
             } else {
                 log::error!("veloqrs: [DetectionManager] Detection thread died without a result");
-                record_outcome(OUTCOME_ERROR);
-                settle_detect(Release::failed(
-                    FfiStartOutcome::Failed,
-                    Some("the detection thread died without a result"),
-                ));
+                record_run_outcome(&slot, OUTCOME_ERROR);
+                settle_claimed_detect(
+                    &slot,
+                    Release::failed(
+                        FfiStartOutcome::Failed,
+                        Some("the detection thread died without a result"),
+                    ),
+                );
             }
             Ok(DetectionPoll::Died)
         }
-        crate::persistence::WorkerPoll::Ready((sections, detection_activity_ids)) => {
-            // A self-applying run saved itself on its own thread before it
-            // reported finished, so this poll has nothing to write. That is
-            // the whole point of the split: the tick that happens to observe
-            // completion is a JavaScript frame, and the apply is hundreds of
-            // milliseconds of hot save on a real library.
+        crate::persistence::WorkerPoll::Ready(_) => {
             let worker_apply = handle_guard
                 .as_ref()
                 .map(|h| h.worker_apply())
                 .unwrap_or(crate::persistence::WorkerApply::Caller);
-            if worker_apply != crate::persistence::WorkerApply::Caller {
-                *handle_guard = None;
-                drop(handle_guard);
-                if worker_apply == crate::persistence::WorkerApply::Failed {
-                    // The result went into the failed attempt, so there is
-                    // nothing here to save. Applying the empty message the
-                    // worker sends behind it would wipe the catalogue.
-                    log::error!(
-                        "veloqrs: [DetectionManager] The run could not apply itself, the catalogue is unchanged"
-                    );
-                    settle_detect(Release::failed(
-                        FfiStartOutcome::Failed,
-                        Some("the run could not apply itself"),
-                    ));
-                    return Err(VeloqError::Database {
-                        msg: "detection apply failed on the worker".to_string(),
-                    });
-                }
-                info!("veloqrs: [DetectionManager] Section detection complete");
-                record_outcome(OUTCOME_COMPLETE);
-                settle_detect(Release::Done);
-                return Ok(DetectionPoll::Applied);
-            }
-
-            // Tier 1.1 split: hot save + processed_ids return synchronously
-            // (sections are queryable immediately), then run the
-            // indicator recompute under the engine lock as the deferred
-            // tail. The total wall-clock is unchanged on the write side,
-            // but get_progress() callers see the apply tail emit phase
-            // events (recomputing_indicators / complete) and the UI can
-            // keep showing forward motion instead of freezing on a
-            // stalled "100%" bar.
-            let progress = handle_guard.as_ref().map(|h| h.progress.clone());
-
-            // Take the Unified evidence-cache update (None for the legacy
-            // detectors and the short-circuit) BEFORE clearing the handle. The
-            // main result is already Ready, and the worker sends the cache
-            // first, so it is present now.
-            let cache_update = handle_guard.as_ref().and_then(|h| h.take_cache());
-
-            // The channel message is consumed, so this run is over whatever
-            // happens next. Clear the handle before the fallible apply so
-            // an apply error cannot leave detection permanently "running"
-            // on a drained channel.
             *handle_guard = None;
-            drop(handle_guard);
-
-            // Hot save under the write lock - sections are queryable as soon
-            // as this returns. The cache is adopted only if the save succeeds
-            // and dropped if it fails, so it never outruns the applied
-            // catalogue.
-            // Off the lock: a 1,000-activity cache is about 13 MB to encode and
-            // every reader used to wait it out inside the apply.
-            let encoded = crate::persistence::sections::detection::encode_cache_for_apply(
-                cache_update.as_ref(),
+            // A new start publishes Idle under this same slot lock. Publish
+            // this run's verdict before the slot is free for that start.
+            record_run_outcome(
+                &slot,
+                if worker_apply == crate::persistence::WorkerApply::Landed {
+                    OUTCOME_COMPLETE
+                } else {
+                    OUTCOME_ERROR
+                },
             );
-            with_engine(|e| {
-                if let Err(err) =
-                    e.apply_sections_save_with_cache_row(sections, cache_update, encoded)
-                {
-                    log::error!("apply_sections_save failed: {}", err);
-                    return Err(VeloqError::Database {
-                        msg: format!("apply_sections_save failed: {}", err),
-                    });
+            drop(handle_guard);
+            after_slot_clear();
+            match worker_apply {
+                crate::persistence::WorkerApply::Landed => {
+                    info!("veloqrs: [DetectionManager] Section detection complete");
+                    settle_claimed_detect(&slot, Release::Done);
+                    Ok(DetectionPoll::Applied)
                 }
-                if let Err(err) = e.save_processed_activity_ids(&detection_activity_ids) {
-                    // Non-fatal: sections WERE saved above. The
-                    // consequence is that the next sync will re-detect
-                    // these activities (wasted work, not data loss).
-                    // Logging at warn-level with explicit "partial
-                    // success" so it's distinguishable from the fatal
-                    // apply_sections_save case above.
-                    log::warn!(
-                        "veloqrs: [DetectionManager] poll: detection apply partially \
-                         succeeded - sections saved but save_processed_activity_ids \
-                         failed ({} ids): {}. Next sync will re-process these activities.",
-                        detection_activity_ids.len(),
-                        err
+                crate::persistence::WorkerApply::Caller
+                | crate::persistence::WorkerApply::Failed => {
+                    log::error!(
+                        "veloqrs: [DetectionManager] Run in shared slot did not apply on worker"
                     );
+                    settle_claimed_detect(
+                        &slot,
+                        Release::failed(
+                            FfiStartOutcome::Failed,
+                            Some("the run did not apply on its worker"),
+                        ),
+                    );
+                    Err(VeloqError::Database {
+                        msg: "detection did not apply on worker".to_string(),
+                    })
                 }
-                Ok(())
-            })??;
-
-            // Release the write lock above before the finalize tail so any
-            // queued reads see the saved sections during the indicator
-            // recompute, which re-takes a separate lock.
-            with_engine(|e| {
-                e.apply_sections_finalize_with_progress(progress.as_ref());
-                // Reload groups from DB in case the background thread
-                // recomputed and saved them.
-                e.reload_groups_from_db();
-                Ok(())
-            })??;
-
-            info!("veloqrs: [DetectionManager] Section detection complete");
-            record_outcome(OUTCOME_COMPLETE);
-            settle_detect(Release::Done);
-            Ok(DetectionPoll::Applied)
+            }
         }
         crate::persistence::WorkerPoll::Running => {
-            if let Some(checkpoint) = handle_guard.as_ref().and_then(|h| h.take_checkpoint()) {
+            if let Some((install, checkpoint)) = handle_guard.as_ref().and_then(|h| {
+                h.take_checkpoint()
+                    .map(|checkpoint| (h.checkpoint_slot().install(), checkpoint))
+            }) {
                 drop(handle_guard);
-                persist_checkpoint(checkpoint);
+                persist_checkpoint(install, checkpoint);
             }
             Ok(DetectionPoll::Running)
         }
@@ -448,15 +557,13 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
 /// a `force_redetect` clears the processed set and the evidence cache, so it is
 /// a cold rebatch of minutes that resumed from nothing when the OS killed it.
 ///
-/// It writes checkpoints and nothing else. It deliberately does not go through
-/// `poll_detection_once`, which is what applies a finished run and publishes
-/// its outcome: the follower that asked for this run is the one that settles
-/// it, and a second poller would take that completion out from under it.
+/// It writes checkpoints and nothing else. The worker applies and settles
+/// the run, so this thread never needs to read the result channel.
 ///
 /// It follows the run it was spawned for and no other, by holding that run's
 /// own checkpoint slot: a handle in the shared slot whose slot is a different
 /// one is somebody else's run, and this thread is done.
-fn spawn_checkpoint_driver() {
+fn spawn_checkpoint_driver(install: u64) {
     const DRIVER_POLL: Duration = Duration::from_millis(250);
 
     let Some(slot) = SECTION_DETECTION_HANDLE
@@ -471,7 +578,7 @@ fn spawn_checkpoint_driver() {
     // Counted before the thread starts, so a caller that asks straight after
     // the start does not race the spawn and read no driver at all.
     let counted = SlotDriver::started();
-    std::thread::spawn(move || {
+    crate::threads::spawn_named("veloq-ckpt", move || {
         let _counted = counted;
         let started = std::time::Instant::now();
         loop {
@@ -480,7 +587,7 @@ fn spawn_checkpoint_driver() {
                 return;
             }
             if let Some(checkpoint) = slot.take() {
-                persist_checkpoint(checkpoint);
+                persist_checkpoint(install, checkpoint);
             }
             if started.elapsed() > SLOT_WAIT_LIMIT {
                 log::warn!(
@@ -508,24 +615,32 @@ fn still_running(slot: &Arc<crate::persistence::CheckpointSlot>) -> bool {
 /// the lock it was that long a hold every two seconds for the length of the
 /// detect, and every screen read arriving inside one waited it out. So the lock
 /// is taken twice and briefly instead: once for the digest, once for the write.
-fn persist_checkpoint(checkpoint: crate::persistence::CacheUpdate) {
+pub(crate) fn persist_checkpoint(install: u64, checkpoint: crate::persistence::CacheUpdate) {
+    persist_checkpoint_with(install, checkpoint, || {});
+}
+
+fn persist_checkpoint_with(
+    install: u64,
+    checkpoint: crate::persistence::CacheUpdate,
+    after_digest: impl FnOnce(),
+) {
     if checkpoint.folded_ids.is_empty() {
         return;
     }
-    let digest =
-        match with_engine(|e| -> Result<String, VeloqError> { Ok(e.evidence_config_digest()) }) {
-            Ok(Ok(d)) => d,
-            _ => return,
-        };
+    let Some(digest) =
+        crate::persistence::with_persistent_engine_for(install, |e| e.evidence_config_digest())
+    else {
+        return;
+    };
+    after_digest();
     let row = crate::persistence::sections::detection::encode_evidence_row(
         &checkpoint.cache,
         &checkpoint.folded_ids,
         digest,
     );
     if let Some(row) = row {
-        let _ = with_engine(|e| -> Result<(), VeloqError> {
+        let _ = crate::persistence::with_persistent_engine_for(install, |e| {
             e.write_evidence_row(&row);
-            Ok(())
         });
     }
 }
@@ -567,6 +682,10 @@ fn refusal_outcome(refusal: DetectionRefusal) -> FfiStartOutcome {
     }
 }
 
+fn refusal_result(refusal: DetectionRefusal) -> FfiStartResult {
+    refusal_outcome(refusal).into()
+}
+
 /// The refusal as one line of log, so the reason is in the log as well as in
 /// the return.
 fn refusal_reason(refusal: DetectionRefusal) -> &'static str {
@@ -577,6 +696,163 @@ fn refusal_reason(refusal: DetectionRefusal) -> &'static str {
     }
 }
 
+fn start_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, VeloqError> {
+    // Refuse before touching the shared handle: installing a refused
+    // handle would occupy the slot with a dead run and block the
+    // backfill's final re-cut behind it.
+    if crate::persistence::detection_suspended() {
+        log::warn!(
+            "veloqrs: [DetectionManager] Start refused: {}",
+            refusal_reason(DetectionRefusal::Suspended)
+        );
+        return Ok(FfiStartOutcome::Held.into());
+    }
+    // A cheap refusal before the cancel below, so a start that is going to
+    // lose does not cost a running preview its answer. The decision that
+    // counts is made under the guard held further down.
+    if detection_running() {
+        info!("veloqrs: [DetectionManager] Section detection already running");
+        return Ok(FfiStartOutcome::Busy.into());
+    }
+    // Before the preview is cancelled and before the pool is read: a run
+    // inside its backoff is not going to happen, so it must not cost a
+    // running preview its answer either.
+    if let Err(refusal) = claim_detect() {
+        return Ok(refusal);
+    }
+    after_claim();
+
+    // A real detect supersedes any running preview: the preview's answer
+    // is for a catalogue that is about to move, so cancel it rather than
+    // let the two runs overlap. Done before the guard is taken, because
+    // `objects/preview.rs` takes the preview slot then the detection slot
+    // and the reverse order here would deadlock the pair.
+    cancel_running_preview();
+
+    // Held across check, spawn and install. Releasing it to spawn lets
+    // every loser start a worker of its own that rewrites `route_groups`
+    // beside the winner, and then overwrite the winner's handle so the
+    // run left in the slot is not the one being polled.
+    let mut handle_guard = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if handle_guard.is_some() {
+        info!("veloqrs: [DetectionManager] Section detection already running");
+        // This start did no work. Preserve an earlier failure count when
+        // the run holding the slot did not claim the key.
+        settle_detect(Release::Deferred);
+        return Ok(FfiStartOutcome::Busy.into());
+    }
+
+    let (install, handle) = with_engine(|e| {
+        (
+            crate::persistence::engine_install(),
+            e.detect_sections_background_applying(
+                crate::persistence::sections::detection::ApplyOn::Worker,
+            ),
+        )
+    })?;
+    // The funnel refuses with a dead handle when a backfill takes the
+    // suspension, or the detector cutover is still owed. Installing it
+    // would occupy the slot with a run that never happened.
+    if let Some(refusal) = crate::persistence::sections::detection_refusal(&handle) {
+        // `warn!` rather than `info!`: a release build filters the
+        // engine's log at Warn (`log_level` in `lib.rs`), so at `info!` this
+        // said nothing on the CI runner, where detection is held for a
+        // whole flow and the only evidence was a screenshot.
+        warn!(
+            "veloqrs: [DetectionManager] Start refused: {}",
+            refusal_reason(refusal)
+        );
+        // Nothing ran, so nothing failed. A backoff for a suspension or an
+        // owed cutover would hold detection back after the stage that
+        // refused it has finished.
+        settle_detect(Release::Deferred);
+        return Ok(refusal_result(refusal));
+    }
+
+    let slot = handle.checkpoint_slot();
+    slot.mark_detect_claimed();
+    // The record describes the last run that finished. A run that has just
+    // started has not, so the previous outcome stops being the answer the
+    // moment this one takes the slot.
+    record_started_run(&slot);
+    *handle_guard = Some(handle);
+    drop(handle_guard);
+    slot.mark_installed(install);
+    spawn_checkpoint_driver(install);
+    info!("veloqrs: [DetectionManager] Section detection started");
+    Ok(FfiStartOutcome::Started.into())
+}
+
+fn force_redetect_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, VeloqError> {
+    // Refuse before clearing the processed set: a refused run must not
+    // cost the evidence cache, and must not park a dead handle in the
+    // slot the backfill's final re-cut needs.
+    if crate::persistence::detection_suspended() {
+        log::warn!(
+            "veloqrs: [DetectionManager] Force redetect refused: {}",
+            refusal_reason(DetectionRefusal::Suspended)
+        );
+        return Ok(FfiStartOutcome::Held.into());
+    }
+    if detection_running() {
+        info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
+        return Ok(FfiStartOutcome::Busy.into());
+    }
+
+    let install = crate::persistence::engine_install();
+    if let Err(refusal) = claim_detect_for(install) {
+        return Ok(refusal);
+    }
+    after_claim();
+
+    cancel_running_preview();
+
+    // Held across check, clear, spawn and install, for the same reason as
+    // `start`. The clear belongs inside it too: two losers clearing the
+    // processed set behind the winner would throw away the evidence cache
+    // a run that is already going has been folding into.
+    let mut handle_guard = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if handle_guard.is_some() {
+        info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
+        settle_detect_for(install, Release::Deferred);
+        return Ok(FfiStartOutcome::Busy.into());
+    }
+
+    // Clear and spawn against the engine that owns the claim. A refusal
+    // leaves the processed set intact.
+    let started = crate::persistence::with_persistent_engine_for(install, |e| {
+        e.force_detect_sections_background_applying()
+    });
+    let handle = match started {
+        Some(Ok(handle)) => handle,
+        Some(Err(refusal)) => {
+            warn!(
+                "veloqrs: [DetectionManager] Force redetect refused: {}",
+                refusal_reason(refusal)
+            );
+            settle_detect_for(install, Release::Deferred);
+            return Ok(refusal_result(refusal));
+        }
+        None => {
+            settle_detect_for(install, Release::Deferred);
+            return Ok(FfiStartOutcome::NotReady.into());
+        }
+    };
+    let slot = handle.checkpoint_slot();
+    slot.mark_detect_claimed();
+    record_started_run(&slot);
+    *handle_guard = Some(handle);
+    drop(handle_guard);
+    slot.mark_installed(install);
+    spawn_checkpoint_driver(install);
+    info!("veloqrs: [DetectionManager] Forced full section re-detection started");
+    Ok(FfiStartOutcome::Started.into())
+}
+
 #[uniffi::export]
 impl DetectionManager {
     #[uniffi::constructor]
@@ -584,84 +860,8 @@ impl DetectionManager {
         Arc::new(Self { _private: () })
     }
 
-    pub fn start(&self) -> Result<FfiStartOutcome, VeloqError> {
-        // Refuse before touching the shared handle: installing a refused
-        // handle would occupy the slot with a dead run and block the
-        // backfill's final re-cut behind it.
-        if crate::persistence::detection_suspended() {
-            info!("veloqrs: [DetectionManager] Start refused: detection is suspended");
-            return Ok(FfiStartOutcome::Held);
-        }
-        // A cheap refusal before the cancel below, so a start that is going to
-        // lose does not cost a running preview its answer. The decision that
-        // counts is made under the guard held further down.
-        if detection_running() {
-            info!("veloqrs: [DetectionManager] Section detection already running");
-            return Ok(FfiStartOutcome::Busy);
-        }
-        // Before the preview is cancelled and before the pool is read: a run
-        // inside its backoff is not going to happen, so it must not cost a
-        // running preview its answer either.
-        if let Err(refusal) = claim_detect() {
-            return Ok(refusal);
-        }
-
-        // A real detect supersedes any running preview: the preview's answer
-        // is for a catalogue that is about to move, so cancel it rather than
-        // let the two runs overlap. Done before the guard is taken, because
-        // `objects/preview.rs` takes the preview slot then the detection slot
-        // and the reverse order here would deadlock the pair.
-        cancel_running_preview();
-
-        // Held across check, spawn and install. Releasing it to spawn lets
-        // every loser start a worker of its own that rewrites `route_groups`
-        // beside the winner, and then overwrite the winner's handle so the
-        // run left in the slot is not the one being polled.
-        let mut handle_guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if handle_guard.is_some() {
-            info!("veloqrs: [DetectionManager] Section detection already running");
-            // The claim above won, and this start is not the run that will use
-            // it. Handing it straight back keeps the key with whoever holds
-            // the slot rather than wedging it on a start that did nothing.
-            settle_detect(Release::Done);
-            return Ok(FfiStartOutcome::Busy);
-        }
-
-        let handle = with_engine(|e| {
-            e.detect_sections_background_applying(
-                crate::persistence::sections::detection::ApplyOn::Worker,
-            )
-        })?;
-        // The funnel refuses with a dead handle when a backfill takes the
-        // suspension, or the detector cutover is still owed. Installing it
-        // would occupy the slot with a run that never happened.
-        if let Some(refusal) = crate::persistence::sections::detection_refusal(&handle) {
-            // `warn!` rather than `info!`: a release build filters the
-            // engine's log at Warn (`log_level` in `lib.rs`), so at `info!` this
-            // said nothing on the CI runner, where detection is held for a
-            // whole flow and the only evidence was a screenshot.
-            warn!(
-                "veloqrs: [DetectionManager] Start refused: {}",
-                refusal_reason(refusal)
-            );
-            // Nothing ran, so nothing failed. A backoff for a suspension or an
-            // owed cutover would hold detection back after the stage that
-            // refused it has finished.
-            settle_detect(Release::Done);
-            return Ok(refusal_outcome(refusal));
-        }
-
-        *handle_guard = Some(handle);
-        // The record describes the last run that finished. A run that has just
-        // started has not, so the previous outcome stops being the answer the
-        // moment this one takes the slot.
-        record_outcome(OUTCOME_IDLE);
-        drop(handle_guard);
-        spawn_checkpoint_driver();
-        info!("veloqrs: [DetectionManager] Section detection started");
-        Ok(FfiStartOutcome::Started)
+    pub fn start(&self) -> Result<FfiStartResult, VeloqError> {
+        start_with(|| {})
     }
 
     /// How the last finished run ended, without taking anything.
@@ -680,12 +880,17 @@ impl DetectionManager {
     }
 
     pub fn poll(&self) -> Result<String, VeloqError> {
-        Ok(match poll_detection_once()? {
+        Ok(match poll_detection_once_for_follower()? {
             DetectionPoll::Idle => "idle".to_string(),
             DetectionPoll::Running => "running".to_string(),
             DetectionPoll::Applied => "complete".to_string(),
             DetectionPoll::Died => "error".to_string(),
         })
+    }
+
+    /// Polls the run named by `run_id`, or binds to the current run when empty.
+    pub fn poll_followed(&self, run_id: String) -> Result<String, VeloqError> {
+        poll_followed_run(&run_id)
     }
 
     /// How many stored activities have never been through a detect.
@@ -696,10 +901,12 @@ impl DetectionManager {
     /// counted against the persisted processed set, and it is what a resting
     /// row on the jobs screen rests on.
     pub fn awaiting_count(&self) -> Result<u32, VeloqError> {
-        let owed = crate::objects::error::with_engine(|e| e.activities_awaiting_detection())?
-            .map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })?;
+        let owed = crate::objects::error::with_reader(
+            crate::persistence::sections::pooled::activities_awaiting_detection,
+        )?
+        .map_err(|e| VeloqError::Database {
+            msg: format!("{}", e),
+        })?;
         Ok(owed.try_into().unwrap_or(u32::MAX))
     }
 
@@ -722,11 +929,9 @@ impl DetectionManager {
 
     /// Ask a running detection to stop. Returns whether there was one.
     ///
-    /// Cooperative: the worker checks between stages, so the call returns at
-    /// once and the run ends on its own clock. A cancel that lands inside the
-    /// detector's own call discards that work rather than shortening it, which
-    /// is the same caveat the preview carries and for the same reason: a
-    /// half-detected catalogue is worse than none.
+    /// Cooperative: the call returns at once and the run ends on its own
+    /// clock, at the next stage check or the next cluster the fold cuts. The
+    /// run is discarded rather than saved as a partial catalogue.
     pub fn cancel(&self) -> bool {
         let guard = SECTION_DETECTION_HANDLE
             .lock()
@@ -744,71 +949,22 @@ impl DetectionManager {
     /// Force full re-detection by clearing processed activity IDs first.
     /// This ensures all activities are re-evaluated against sections.
     /// Refuses, and says why, if detection is suspended or already running.
-    pub fn force_redetect(&self) -> Result<FfiStartOutcome, VeloqError> {
-        // Refuse before clearing the processed set: a refused run must not
-        // cost the evidence cache, and must not park a dead handle in the
-        // slot the backfill's final re-cut needs.
-        if crate::persistence::detection_suspended() {
-            info!("veloqrs: [DetectionManager] Force redetect refused: detection is suspended");
-            return Ok(FfiStartOutcome::Held);
-        }
-        if detection_running() {
-            info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
-            return Ok(FfiStartOutcome::Busy);
-        }
-
-        cancel_running_preview();
-
-        // Held across check, clear, spawn and install, for the same reason as
-        // `start`. The clear belongs inside it too: two losers clearing the
-        // processed set behind the winner would throw away the evidence cache
-        // a run that is already going has been folding into.
-        let mut handle_guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if handle_guard.is_some() {
-            info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
-            return Ok(FfiStartOutcome::Busy);
-        }
-
-        // Clear processed activity IDs to force full re-evaluation
-        with_engine(|e| {
-            e.clear_processed_activity_ids();
-        })?;
-
-        let handle = with_engine(|e| {
-            e.detect_sections_background_applying(
-                crate::persistence::sections::detection::ApplyOn::Worker,
-            )
-        })?;
-        if let Some(refusal) = crate::persistence::sections::detection_refusal(&handle) {
-            // `warn!` rather than `info!`: a release build filters the
-            // engine's log at Warn (`log_level` in `lib.rs`), so at `info!` this
-            // said nothing on the CI runner, where detection is held for a
-            // whole flow and the only evidence was a screenshot.
-            warn!(
-                "veloqrs: [DetectionManager] Force redetect refused: {}",
-                refusal_reason(refusal)
-            );
-            return Ok(refusal_outcome(refusal));
-        }
-
-        *handle_guard = Some(handle);
-        record_outcome(OUTCOME_IDLE);
-        drop(handle_guard);
-        spawn_checkpoint_driver();
-        info!("veloqrs: [DetectionManager] Forced full section re-detection started");
-        Ok(FfiStartOutcome::Started)
+    pub fn force_redetect(&self) -> Result<FfiStartResult, VeloqError> {
+        force_redetect_with(|| {})
     }
 
     pub fn set_config(&self, config: crate::FfiSectionConfig) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.set_section_config(config.into());
+        with_engine(|e| e.set_section_config(config.into()))?.map_err(|refusal| VeloqError::Busy {
+            msg: refusal_reason(refusal).to_string(),
         })
     }
 
     pub fn get_config(&self) -> Result<crate::FfiSectionConfig, VeloqError> {
-        with_engine(|e| crate::FfiSectionConfig::from(&e.section_config))
+        with_reader(|conn| {
+            crate::persistence::settings::section_config_from(conn)
+                .map(|config| crate::FfiSectionConfig::from(&config))
+                .map_err(|e| VeloqError::Database { msg: e.to_string() })
+        })?
     }
 
     pub fn set_match_strictness(
@@ -821,10 +977,14 @@ impl DetectionManager {
     }
 
     pub fn get_match_strictness(&self) -> Result<crate::FfiMatchStrictness, VeloqError> {
-        with_engine(|e| crate::FfiMatchStrictness {
-            min_match_pct: e.match_config.min_match_percentage,
-            endpoint_threshold: e.match_config.endpoint_threshold,
-        })
+        with_reader(|conn| {
+            crate::persistence::settings::match_config_from(conn)
+                .map(|config| crate::FfiMatchStrictness {
+                    min_match_pct: config.min_match_percentage,
+                    endpoint_threshold: config.endpoint_threshold,
+                })
+                .map_err(|e| VeloqError::Database { msg: e.to_string() })
+        })?
     }
 }
 
@@ -1015,8 +1175,8 @@ mod tests {
     use crate::persistence::sections::detection_workers_started;
     use crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE;
     use crate::test_globals::{
-        clear_detection_handle, drain_detection, race, seeded_global_engine, serial_global_state,
-        wait_for_slot_drivers,
+        clear_detection_handle, drain_detection, hold_detection_workers, race,
+        seeded_global_engine, serial_global_state, wait_for_slot_drivers,
     };
     use std::panic::{AssertUnwindSafe, catch_unwind};
     use std::sync::{Barrier, Mutex};
@@ -1068,6 +1228,16 @@ mod tests {
                 FfiStartOutcome::Held,
                 "nothing holds it, the last run failed, and this one would too"
             );
+            assert_eq!(
+                outcome_for_claim(Claim::BackingOff { until: 42 })
+                    .unwrap_err()
+                    .retry_at_ms,
+                Some(42.0),
+            );
+            assert_eq!(
+                refusal_result(DetectionRefusal::Suspended).retry_at_ms,
+                None,
+            );
             assert!(
                 FfiStartOutcome::Held.is_retryable(),
                 "a backoff ends, so the caller has somewhere to put the retry"
@@ -1106,6 +1276,17 @@ mod tests {
                 outcome,
                 FfiStartOutcome::Held,
                 "a key inside its backoff holds the start rather than refusing it for ever"
+            );
+            let row = with_persistent_engine(|engine| {
+                engine
+                    .job_attempt(&detect_key())
+                    .expect("read")
+                    .expect("row")
+            })
+            .expect("engine");
+            assert_eq!(
+                outcome.retry_at_ms,
+                Some((row.last_attempt_at.expect("failure time") + 1_000) as f64),
             );
             assert!(
                 SECTION_DETECTION_HANDLE
@@ -1200,7 +1381,9 @@ mod tests {
         clear_detection_handle();
         let before = detection_workers_started();
 
+        let hold = hold_detection_workers();
         let won = race(|| DetectionManager::new().start().expect("start").started());
+        drop(hold);
 
         assert_eq!(won, 1, "exactly one start may win the race");
         assert_eq!(
@@ -1219,12 +1402,14 @@ mod tests {
         clear_detection_handle();
         let before = detection_workers_started();
 
+        let hold = hold_detection_workers();
         let won = race(|| {
             DetectionManager::new()
                 .force_redetect()
                 .expect("redetect")
                 .started()
         });
+        drop(hold);
 
         assert_eq!(won, 1, "exactly one force redetect may win the race");
         assert_eq!(
@@ -1234,6 +1419,188 @@ mod tests {
         );
 
         drain_detection();
+    }
+
+    fn busy_ffi_refusal_keeps_an_aged_failure(force: bool) {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = crate::persistence::engine_install();
+        assert!(claim_detect_for(install).is_ok());
+        settle_detect_for(
+            install,
+            Release::failed(FfiStartOutcome::Failed, Some("earlier failure")),
+        );
+        let earlier = now_ms() - 86_400_000;
+        with_engine(|e| {
+            e.db.execute(
+                "UPDATE job_attempts SET last_attempt_at = ? WHERE key = ?",
+                rusqlite::params![earlier, detect_key().as_str()],
+            )
+        })
+        .expect("engine")
+        .expect("age failure");
+
+        let install_unclaimed_recut = || {
+            let handle = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
+            let slot = handle.checkpoint_slot();
+            *SECTION_DETECTION_HANDLE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+            slot.mark_installed(install);
+        };
+        let outcome = if force {
+            force_redetect_with(install_unclaimed_recut)
+        } else {
+            start_with(install_unclaimed_recut)
+        };
+        assert_eq!(outcome.expect("refusal"), FfiStartOutcome::Busy);
+        let row = with_engine(|e| {
+            e.db.query_row(
+                "SELECT attempts, last_attempt_at FROM job_attempts WHERE key = ?",
+                [detect_key().as_str()],
+                |row| Ok((row.get::<_, u32>(0)?, row.get::<_, i64>(1)?)),
+            )
+        })
+        .expect("engine")
+        .expect("attempt row");
+        assert_eq!(
+            row,
+            (1, earlier),
+            "the busy refusal keeps the failure ladder"
+        );
+        clear_detection_handle();
+    }
+
+    #[test]
+    fn test_start_busy_unclaimed_recut_keeps_failure() {
+        busy_ffi_refusal_keeps_an_aged_failure(false);
+    }
+
+    #[test]
+    fn test_force_redetect_busy_unclaimed_recut_keeps_failure() {
+        busy_ffi_refusal_keeps_an_aged_failure(true);
+    }
+
+    fn followed_run_keeps_its_verdict_after_a_successor(first_applied: bool) {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = crate::persistence::engine_install();
+        let first = if first_applied {
+            crate::persistence::SectionDetectionHandle::finished_after_worker_apply()
+        } else {
+            crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply()
+        };
+        let first_slot = first.checkpoint_slot();
+        record_started_run(&first_slot);
+        let followed_id = first_slot.run_id();
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(first);
+        first_slot.mark_installed(install);
+        first_slot.mark_worker_finished();
+
+        let successor = if first_applied {
+            crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply()
+        } else {
+            crate::persistence::SectionDetectionHandle::finished_after_worker_apply()
+        };
+        let successor_slot = successor.checkpoint_slot();
+        record_started_run(&successor_slot);
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(successor);
+        successor_slot.mark_installed(install);
+        assert_eq!(
+            poll_followed_run(&followed_id.to_string()).expect("followed verdict"),
+            format!(
+                "{followed_id}:{}",
+                if first_applied { "complete" } else { "error" }
+            ),
+            "a successor cannot change the followed run's verdict"
+        );
+        clear_detection_handle();
+    }
+
+    #[test]
+    fn test_poll_followed_complete_survives_failing_successor() {
+        followed_run_keeps_its_verdict_after_a_successor(true);
+    }
+
+    #[test]
+    fn test_poll_followed_error_survives_successful_successor() {
+        followed_run_keeps_its_verdict_after_a_successor(false);
+    }
+
+    #[test]
+    fn test_poll_followed_running_binds_before_successor() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = crate::persistence::engine_install();
+        let (first, sender, cache_sender) =
+            crate::persistence::SectionDetectionHandle::worker_that_never_answers();
+        let first_slot = first.checkpoint_slot();
+        record_started_run(&first_slot);
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(first);
+        first_slot.mark_installed(install);
+        let bound = poll_followed_run("").expect("first poll");
+        assert_eq!(bound, format!("{}:running", first_slot.run_id()));
+
+        drop(sender);
+        drop(cache_sender);
+        assert_eq!(
+            poll_detection_once().expect("failed first run"),
+            DetectionPoll::Died
+        );
+        let successor = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
+        let successor_slot = successor.checkpoint_slot();
+        record_started_run(&successor_slot);
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(successor);
+        successor_slot.mark_installed(install);
+        assert_eq!(
+            poll_followed_run(&first_slot.run_id().to_string()).expect("followed poll"),
+            format!("{}:error", first_slot.run_id())
+        );
+        clear_detection_handle();
+    }
+
+    #[test]
+    fn test_poll_followed_handoff_keeps_completed_verdict() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = crate::persistence::engine_install();
+        let first = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
+        let first_slot = first.checkpoint_slot();
+        record_started_run(&first_slot);
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(first);
+        first_slot.mark_installed(install);
+        let followed_id = first_slot.run_id();
+
+        let verdict = poll_followed_run_with(&followed_id.to_string(), || {
+            first_slot.mark_worker_finished();
+            let successor =
+                crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
+            let successor_slot = successor.checkpoint_slot();
+            record_started_run(&successor_slot);
+            *SECTION_DETECTION_HANDLE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = Some(successor);
+            successor_slot.mark_installed(install);
+        });
+        assert_eq!(
+            verdict.expect("followed verdict"),
+            format!("{followed_id}:complete")
+        );
+        clear_detection_handle();
     }
 
     /// Expected behaviour: the second caller of an idle-then-busy slot is
@@ -1284,13 +1651,40 @@ mod tests {
     #[test]
     pub fn a_start_with_detection_switched_off_says_so() {
         let _serial = serial_global_state();
-        let _tmp = seeded_global_engine();
+        let tmp = seeded_global_engine();
         clear_detection_handle();
         let before = detection_workers_started();
 
         with_engine(|e| e.set_detection_enabled(false))
             .expect("engine")
             .expect("switch off");
+        with_engine(|e| e.save_processed_activity_ids(&["a0".to_string()]))
+            .expect("engine")
+            .expect("processed marker");
+        with_engine(|e| {
+            e.db.execute(
+                "INSERT INTO evidence_cache (id, config_digest, folded_ids, cache, updated_at)
+                 VALUES (1, 'digest', x'00', x'00', 0)",
+                [],
+            )
+        })
+        .expect("engine")
+        .expect("evidence row");
+        let install = crate::persistence::engine_install();
+        assert!(claim_detect_for(install).is_ok());
+        settle_detect_for(
+            install,
+            Release::failed(FfiStartOutcome::Failed, Some("earlier failure")),
+        );
+        let earlier = now_ms() - 86_400_000;
+        with_engine(|e| {
+            e.db.execute(
+                "UPDATE job_attempts SET last_attempt_at = ? WHERE key = ?",
+                rusqlite::params![earlier, detect_key().as_str()],
+            )
+        })
+        .expect("engine")
+        .expect("age failure");
 
         let manager = DetectionManager::new();
         assert_eq!(
@@ -1302,6 +1696,35 @@ mod tests {
             manager.force_redetect().expect("redetect"),
             FfiStartOutcome::NotConfigured,
             "the force path answers the same way"
+        );
+        let conn = rusqlite::Connection::open(tmp.path().join("detection.db")).expect("db");
+        assert_eq!(
+            conn.query_row(
+                "SELECT attempts, last_attempt_at FROM job_attempts WHERE key = ?",
+                [detect_key().as_str()],
+                |row| Ok((row.get::<_, u32>(0)?, row.get::<_, i64>(1)?)),
+            )
+            .expect("earlier failure retained"),
+            (1, earlier),
+            "no-work refusals preserve the prior backoff ladder"
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM processed_activities WHERE activity_id = 'a0'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .expect("processed marker"),
+            1,
+            "a refused force must preserve the processed set"
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM evidence_cache", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .expect("evidence row"),
+            1,
+            "a refused force must preserve the evidence cache"
         );
         assert!(
             !manager.start().expect("start").is_retryable(),
@@ -1337,11 +1760,13 @@ mod tests {
 
         let _suspension = crate::persistence::suspend_detection();
         let manager = DetectionManager::new();
+        let held = manager.start().expect("start");
         assert_eq!(
-            manager.start().expect("start"),
+            held,
             FfiStartOutcome::Held,
-            "suspended start refuses, and names the hold"
+            "suspended start names the hold"
         );
+        assert_eq!(held.retry_at_ms, None);
         assert_eq!(
             manager.force_redetect().expect("redetect"),
             FfiStartOutcome::Held,
@@ -1366,15 +1791,29 @@ mod tests {
     /// `poll_detection_once`: the poll is what applied the result under the
     /// old shape, so polling here would hide the thing under test. Returns
     /// the last phase seen.
+    ///
+    /// A run reads complete before its worker has settled it and let go of
+    /// the slot, so on complete this also waits for the worker to exit. A
+    /// caller that reads the outcome, polls or starts the next run straight
+    /// after would otherwise meet the run still going whenever the machine
+    /// is busy enough to hold the worker back between the two.
     pub fn wait_for_the_run_to_apply(manager: &DetectionManager) -> String {
         let deadline = Instant::now() + Duration::from_secs(30);
         loop {
+            if manager.last_outcome() == "complete" {
+                crate::test_globals::wait_for_detection_workers();
+                return "complete".to_string();
+            }
             let phase = manager
                 .get_progress()
                 .expect("progress")
                 .map(|p| p.phase)
                 .unwrap_or_default();
-            if phase == "complete" || Instant::now() >= deadline {
+            if phase == "complete" {
+                crate::test_globals::wait_for_detection_workers();
+                return phase;
+            }
+            if Instant::now() >= deadline {
                 return phase;
             }
             std::thread::sleep(Duration::from_millis(10));
@@ -1400,23 +1839,35 @@ mod tests {
             phase
         );
 
-        let (poll, held) = timed_poll_to_completion();
-        assert_eq!(
-            poll,
-            DetectionPoll::Applied,
-            "the poll that observes completion still reports the run applied"
-        );
-        assert!(
-            held < Duration::from_millis(16),
-            "the poll that observes completion has to stay inside one frame, it held {:?}",
-            held
-        );
+        // The worker settles its own run and has exited, so a poll that still
+        // had a write to do would wait for this writer.
+        let poll = crate::test_globals::read_while_writer_holds(poll_to_completion);
+        assert!(matches!(poll, DetectionPoll::Applied | DetectionPoll::Idle));
 
         assert_eq!(
             poll_detection_once().expect("second poll"),
             DetectionPoll::Idle,
             "the applied run leaves the slot free"
         );
+    }
+
+    #[test]
+    pub fn a_finished_run_releases_its_slot_without_a_poll() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started());
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while detection_running() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(!detection_running(), "the worker frees its own slot");
+        assert_eq!(manager.last_outcome(), "complete");
+        assert!(manager.get_progress().expect("progress").is_none());
+        assert!(manager.start().expect("restart").started());
+        poll_to_completion();
     }
 
     /// Scenario: the background-jobs screen polled the completion on a one
@@ -1447,20 +1898,16 @@ mod tests {
         assert!(manager.start().expect("start").started(), "the run starts");
         wait_for_the_run_to_apply(&manager);
 
-        // Read it as often as a one second timer would, before anything polls.
+        // Read it as often as a one second timer would, without taking a result.
         for _ in 0..5 {
             assert_eq!(
                 manager.last_outcome(),
-                "idle",
-                "the run has not settled yet"
+                "complete",
+                "the worker has settled its own run"
             );
         }
 
-        assert_eq!(
-            timed_poll_to_completion().0,
-            DetectionPoll::Applied,
-            "the completion is still there for the caller that follows the run"
-        );
+        assert_eq!(poll_to_completion(), DetectionPoll::Idle);
         assert_eq!(
             manager.last_outcome(),
             "complete",
@@ -1482,7 +1929,7 @@ mod tests {
             "a started run has not finished, so the previous outcome stops being the answer"
         );
         wait_for_the_run_to_apply(&manager);
-        timed_poll_to_completion();
+        poll_to_completion();
     }
 
     /// Scenario: the outcome is a process-wide atomic and the crate's tests
@@ -1503,7 +1950,7 @@ mod tests {
         let manager = DetectionManager::new();
         assert!(manager.start().expect("start").started(), "the run starts");
         wait_for_the_run_to_apply(&manager);
-        assert_eq!(timed_poll_to_completion().0, DetectionPoll::Applied);
+        assert_eq!(poll_to_completion(), DetectionPoll::Idle);
         assert_eq!(manager.last_outcome(), "complete", "the run finished");
 
         clear_detection_handle();
@@ -1582,11 +2029,10 @@ mod tests {
         wait_for_slot_drivers();
     }
 
-    /// The follower writes checkpoints and never applies. A second poller would
-    /// take the completion the follower that asked for the run is waiting on,
-    /// which is the bug the background-jobs screen already caused once.
+    /// A checkpoint follower keeps watching only its own live slot. Once the
+    /// worker has settled, the follower leaves its outcome and slot alone.
     #[test]
-    fn the_checkpoint_follower_never_settles_the_run() {
+    fn the_checkpoint_follower_leaves_a_finished_run_settled() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
         clear_detection_handle();
@@ -1594,19 +2040,56 @@ mod tests {
 
         let manager = DetectionManager::new();
         assert!(manager.start().expect("start").started());
-        // Longer than the follower's own 250 ms tick, so it has polled if it
-        // ever will.
-        std::thread::sleep(Duration::from_millis(600));
+        // The follower counts as a slot driver until it stops at the run's
+        // end, so this returns once it has taken the outcome if it ever will.
+        wait_for_slot_drivers();
 
         assert_eq!(
             manager.last_outcome(),
-            "idle",
-            "the follower publishes no outcome, so the run is still the caller's to settle"
+            "complete",
+            "the worker's outcome stays visible after the follower stops"
         );
+        assert!(!detection_running());
 
         manager.cancel();
         drain_detection();
         wait_for_slot_drivers();
+    }
+
+    #[test]
+    fn a_replacement_between_checkpoint_reads_receives_no_old_row() {
+        let _serial = serial_global_state();
+        let tmp = init_global_engine();
+        clear_detection_handle();
+        let old_install = crate::persistence::engine_install();
+        let checkpoint = crate::persistence::CacheUpdate {
+            cache: crate::SectionEvidenceCache::new(),
+            folded_ids: std::collections::HashSet::from(["old-activity".to_string()]),
+            checkpoint: true,
+            boundaries: Vec::new(),
+        };
+
+        persist_checkpoint_with(old_install, checkpoint, || {
+            crate::persistence::clear_persistent_engine();
+            assert!(
+                crate::persistence::persistent_engine_ffi::persistent_engine_init(
+                    tmp.path()
+                        .join("replacement.db")
+                        .to_string_lossy()
+                        .into_owned()
+                )
+            );
+        });
+
+        let rows: i64 = with_engine(|e| {
+            e.db.query_row("SELECT COUNT(*) FROM evidence_cache", [], |r| r.get(0))
+        })
+        .expect("engine")
+        .expect("count");
+        assert_eq!(
+            rows, 0,
+            "the replacement has no checkpoint from the old run"
+        );
     }
 
     /// A checkpoint from a run that has already left the slot belongs to
@@ -1686,7 +2169,7 @@ mod tests {
             "and the next detection can start"
         );
         wait_for_the_run_to_apply(&manager);
-        timed_poll_to_completion();
+        poll_to_completion();
     }
 
     /// Cancelling when nothing is running says so, rather than arming a flag
@@ -1703,17 +2186,15 @@ mod tests {
         );
     }
 
-    /// The poll that observes completion, timed. A `Running` poll or two can
+    /// The poll that observes completion. A `Running` poll or two can
     /// precede it: the worker posts its result just after the last phase
     /// marker, so the phase leads the channel by a hair.
-    pub fn timed_poll_to_completion() -> (DetectionPoll, Duration) {
+    pub fn poll_to_completion() -> DetectionPoll {
         let deadline = Instant::now() + Duration::from_secs(30);
         loop {
-            let started = Instant::now();
             let poll = poll_detection_once().expect("poll");
-            let held = started.elapsed();
             if poll != DetectionPoll::Running || Instant::now() >= deadline {
-                return (poll, held);
+                return poll;
             }
             std::thread::sleep(Duration::from_millis(5));
         }
@@ -1808,18 +2289,67 @@ mod tests {
             "the echo applies with nothing polling it"
         );
 
-        let (poll, held) = timed_poll_to_completion();
-        assert_eq!(poll, DetectionPoll::Applied, "the echo reports applied");
-        assert!(
-            held < Duration::from_millis(16),
-            "the poll behind the echo has to stay inside one frame, it held {:?}",
-            held
-        );
+        // The worker settles its own run and has exited, so a poll that still
+        // had a write to do would wait for this writer.
+        let poll = crate::test_globals::read_while_writer_holds(poll_to_completion);
+        assert_eq!(poll, DetectionPoll::Idle, "the echo settled on its worker");
         assert_eq!(
             with_engine(|e| e.get_sections().len()).expect("engine"),
             found,
             "the echo leaves the catalogue where it stood"
         );
+    }
+
+    #[test]
+    fn an_empty_new_ride_settles_a_warm_worker_without_replacing_its_catalogue() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let manager = DetectionManager::new();
+        with_engine(|e| {
+            for i in 0..24 {
+                let points = (0..64)
+                    .map(|j| {
+                        tracematch::GpsPoint::new(
+                            46.2 + f64::from(j) * 0.0002,
+                            7.35 + f64::from(i) * 0.000001,
+                        )
+                    })
+                    .collect();
+                e.add_activity(format!("overlap_{i}"), points, "Ride".into())
+                    .expect("overlapping ride");
+            }
+        })
+        .expect("engine");
+        assert!(manager.start().expect("seed detect").started());
+        assert_eq!(wait_for_the_run_to_apply(&manager), "complete");
+
+        let before = with_engine(|e| serde_json::to_value(e.get_sections()).expect("catalogue"))
+            .expect("engine");
+        assert!(!before.as_array().expect("catalogue array").is_empty());
+        for i in 0..4 {
+            with_engine(|e| {
+                e.add_activity(format!("indoor_{i}"), Vec::new(), "VirtualRide".into())
+                    .expect("indoor ride");
+            })
+            .expect("engine");
+            assert!(manager.start().expect("warm detect").started());
+            assert_eq!(wait_for_the_run_to_apply(&manager), "complete");
+            assert_eq!(manager.poll().expect("follower"), "complete");
+            assert_eq!(
+                with_engine(|e| serde_json::to_value(e.get_sections()).expect("catalogue"))
+                    .expect("engine"),
+                before,
+                "indoor ride {i} must preserve the catalogue"
+            );
+            assert!(!with_engine(|e| e.detection_owed()).expect("engine"));
+        }
+        let install = crate::persistence::engine_install();
+        assert!(
+            claim_detect_for(install).is_ok(),
+            "the completed run releases its key"
+        );
+        settle_detect_for(install, Release::Done);
     }
 
     /// Expected behaviour: a run that could not apply itself reports the
@@ -1833,10 +2363,13 @@ mod tests {
 
         let held = with_engine(|e| e.get_sections().len()).expect("engine");
 
+        let handle =
+            crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
+        let slot = handle.checkpoint_slot();
         *SECTION_DETECTION_HANDLE
             .lock()
-            .unwrap_or_else(|e| e.into_inner()) =
-            Some(crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply());
+            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        slot.mark_installed(crate::persistence::engine_install());
 
         assert!(
             poll_detection_once().is_err(),
@@ -1855,6 +2388,433 @@ mod tests {
     }
 
     #[test]
+    fn polling_an_old_handle_does_not_release_the_replacements_lease() {
+        let _serial = serial_global_state();
+        let tmp = seeded_global_engine();
+        clear_detection_handle();
+        let old_install = crate::persistence::engine_install();
+        let handle =
+            crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
+        handle.checkpoint_slot().mark_installed(old_install);
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+
+        crate::persistence::clear_persistent_engine();
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init(
+                tmp.path()
+                    .join("detection.db")
+                    .to_string_lossy()
+                    .into_owned()
+            )
+        );
+        let new_install = crate::persistence::engine_install();
+        assert_ne!(old_install, new_install);
+        assert!(claim_detect_for(new_install).is_ok());
+
+        assert!(
+            poll_detection_once().is_err(),
+            "the old handle still fails its own poll"
+        );
+        assert_eq!(
+            crate::persistence::with_persistent_engine_for(new_install, |engine| {
+                engine
+                    .claim_job(&detect_key(), now_ms())
+                    .expect("claim state")
+            }),
+            Some(Claim::InFlight),
+            "polling the old handle cannot settle the new engine's lease"
+        );
+        settle_detect_for(new_install, Release::Done);
+    }
+
+    /// Every install publishes the handle and drops the slot lock before
+    /// `mark_installed` stores its install, and a worker over a small pool can
+    /// finish inside that gap. A poll there has no install to settle against.
+    #[test]
+    fn a_poll_before_mark_installed_leaves_the_lease_to_the_install() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = crate::persistence::engine_install();
+        assert!(claim_detect_for(install).is_ok());
+        let handle = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
+        let slot = handle.checkpoint_slot();
+        slot.mark_detect_claimed();
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        slot.mark_worker_finished();
+
+        assert_eq!(
+            poll_detection_once().expect("poll"),
+            DetectionPoll::Running,
+            "a run not yet installed is still its starter's to settle"
+        );
+
+        slot.mark_installed(install);
+        assert!(!detection_running(), "the install settles the finished run");
+        assert_eq!(DetectionManager::new().last_outcome(), "complete");
+        assert!(
+            claim_detect_for(install).is_ok(),
+            "the lease went back with the run"
+        );
+        settle_detect_for(install, Release::Done);
+    }
+
+    fn ready_verdict_precedes_the_next_runs_idle(applied: bool) {
+        let _serial = serial_global_state();
+        let tmp = seeded_global_engine();
+        clear_detection_handle();
+        let old_install = crate::persistence::engine_install();
+        let old_handle = if applied {
+            crate::persistence::SectionDetectionHandle::finished_after_worker_apply()
+        } else {
+            crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply()
+        };
+        old_handle.checkpoint_slot().mark_installed(old_install);
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(old_handle);
+
+        crate::persistence::clear_persistent_engine();
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init(
+                tmp.path()
+                    .join("detection.db")
+                    .to_string_lossy()
+                    .into_owned()
+            )
+        );
+        let new_install = crate::persistence::engine_install();
+        assert!(claim_detect_for(new_install).is_ok());
+        let (next_handle, next_tx, next_cache_tx) =
+            crate::persistence::SectionDetectionHandle::worker_that_never_answers();
+        next_handle.checkpoint_slot().mark_installed(new_install);
+
+        let first = poll_detection_once_with(|| {
+            let mut slot = match SECTION_DETECTION_HANDLE.try_lock() {
+                Ok(guard) => guard,
+                Err(std::sync::TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    panic!("the Ready poll kept the slot locked through the next start")
+                }
+            };
+            assert!(slot.is_none(), "the finished handle left the slot");
+            // The same slot and outcome update DetectionManager::start uses,
+            // with a held sender so the next poll stays Running.
+            *slot = Some(next_handle);
+            record_outcome(OUTCOME_IDLE);
+        });
+        if applied {
+            assert_eq!(first.expect("applied poll"), DetectionPoll::Applied);
+        } else {
+            assert!(first.is_err(), "unapplied poll reports its failure");
+        }
+        assert_eq!(
+            DetectionManager::new().last_outcome(),
+            "idle",
+            "the old Ready verdict cannot overwrite the new run's reset"
+        );
+        assert_eq!(
+            poll_detection_once().expect("second poll"),
+            DetectionPoll::Running,
+            "the second poll observes the new run"
+        );
+        assert_eq!(DetectionManager::new().last_outcome(), "idle");
+        clear_detection_handle();
+        drop(next_tx);
+        drop(next_cache_tx);
+    }
+
+    #[test]
+    fn a_ready_success_cannot_overwrite_a_new_runs_idle() {
+        ready_verdict_precedes_the_next_runs_idle(true);
+    }
+
+    #[test]
+    fn a_ready_failure_cannot_overwrite_a_new_runs_idle() {
+        ready_verdict_precedes_the_next_runs_idle(false);
+    }
+
+    #[test]
+    pub fn a_failed_worker_releases_its_slot_without_a_poll() {
+        let _serial = serial_global_state();
+        let _tmp = engine_with_a_catalogue();
+        clear_detection_handle();
+        let held = with_engine(|e| e.get_sections().len()).expect("engine");
+        let handle =
+            crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
+        let slot = handle.checkpoint_slot();
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+
+        slot.mark_installed(crate::persistence::engine_install());
+        slot.mark_worker_finished();
+
+        assert!(!detection_running(), "the failed worker frees its slot");
+        assert_eq!(DetectionManager::new().last_outcome(), "error");
+        assert_eq!(
+            with_engine(|e| e.get_sections().len()).expect("engine"),
+            held
+        );
+    }
+
+    #[test]
+    fn a_failed_claimed_worker_keeps_its_detect_key_in_backoff() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = crate::persistence::engine_install();
+        assert!(claim_detect_for(install).is_ok());
+        let handle =
+            crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
+        let slot = handle.checkpoint_slot();
+        slot.mark_detect_claimed();
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+
+        slot.mark_installed(install);
+        slot.mark_worker_finished();
+
+        assert!(!detection_running());
+        assert_eq!(DetectionManager::new().last_outcome(), "error");
+        assert!(
+            claim_detect_for(install).is_err(),
+            "a claimed failure backs off the next start"
+        );
+        settle_detect_for(install, Release::Done);
+    }
+
+    #[test]
+    fn a_follower_reads_the_recorded_outcome_after_the_worker_frees_its_slot() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = crate::persistence::engine_install();
+
+        for (applied, expected) in [(false, SlotWait::Died), (true, SlotWait::Applied)] {
+            assert!(claim_detect_for(install).is_ok());
+            let handle = if applied {
+                crate::persistence::SectionDetectionHandle::finished_after_worker_apply()
+            } else {
+                crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply()
+            };
+            let slot = handle.checkpoint_slot();
+            slot.mark_detect_claimed();
+            *SECTION_DETECTION_HANDLE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+            slot.mark_installed(install);
+            slot.mark_worker_finished();
+
+            assert_eq!(
+                DetectionManager::new().poll().expect("FFI poll"),
+                if applied { "complete" } else { "error" },
+                "the FFI follower reads the terminal outcome with the empty slot"
+            );
+
+            assert_eq!(
+                wait_on_slot(Duration::from_millis(1), true),
+                expected,
+                "the follower reads the outcome after the slot is empty"
+            );
+            assert_eq!(
+                wait_on_slot(Duration::from_millis(1), true),
+                expected,
+                "a second follower gets the same result"
+            );
+            assert_eq!(
+                wait_on_slot(Duration::from_millis(1), false),
+                SlotWait::Idle,
+                "a drain only waits for an empty slot"
+            );
+            if !applied {
+                settle_detect_for(install, Release::Done);
+            }
+        }
+    }
+
+    #[test]
+    fn an_indoor_library_completes_detection_without_backoff() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine();
+        clear_detection_handle();
+        with_engine(|engine| {
+            engine
+                .add_activity("indoor".into(), Vec::new(), "Run".into())
+                .expect("indoor activity");
+        })
+        .expect("engine");
+
+        let manager = DetectionManager::new();
+        assert_eq!(manager.start().expect("start"), FfiStartOutcome::Started);
+        drain_detection();
+        assert_eq!(manager.last_outcome(), "complete");
+        assert!(
+            claim_detect().is_ok(),
+            "an empty usable pool has no backoff"
+        );
+        settle_detect(Release::Done);
+    }
+
+    #[test]
+    fn an_empty_library_completes_detection_without_backoff() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine();
+        clear_detection_handle();
+
+        let manager = DetectionManager::new();
+        assert_eq!(manager.start().expect("start"), FfiStartOutcome::Started);
+        drain_detection();
+        assert_eq!(manager.last_outcome(), "complete");
+        assert!(claim_detect().is_ok(), "an empty library has no backoff");
+        settle_detect(Release::Done);
+    }
+
+    #[test]
+    fn a_failed_track_pool_read_cannot_be_saved_as_empty() {
+        let _serial = serial_global_state();
+        let tmp = seeded_global_engine();
+        clear_detection_handle();
+        rusqlite::Connection::open(tmp.path().join("detection.db"))
+            .expect("db")
+            .execute("DROP TABLE gps_tracks", [])
+            .expect("remove track table");
+
+        let manager = DetectionManager::new();
+        assert_eq!(manager.start().expect("start"), FfiStartOutcome::Started);
+        drain_detection();
+        assert_eq!(manager.last_outcome(), "error");
+        assert_eq!(manager.start().expect("retry"), FfiStartOutcome::Held);
+        settle_detect(Release::Done);
+    }
+
+    #[test]
+    fn an_unreadable_track_is_not_an_empty_usable_pool() {
+        let _serial = serial_global_state();
+        let tmp = init_global_engine();
+        clear_detection_handle();
+        with_engine(|engine| {
+            let points = (0..32)
+                .map(|i| crate::GpsPoint::new(46.0 + f64::from(i) * 0.0001, 7.0))
+                .collect();
+            engine
+                .add_activity("broken".into(), points, "Ride".into())
+                .expect("activity");
+        })
+        .expect("engine");
+        rusqlite::Connection::open(tmp.path().join("poison.db"))
+            .expect("db")
+            .execute(
+                "UPDATE gps_tracks SET track_data = ? WHERE activity_id = 'broken'",
+                rusqlite::params![&[0x7f_u8, 1, 2, 3][..]],
+            )
+            .expect("corrupt track");
+
+        let manager = DetectionManager::new();
+        assert_eq!(manager.start().expect("start"), FfiStartOutcome::Started);
+        drain_detection();
+        assert_eq!(manager.last_outcome(), "error");
+        assert_eq!(manager.start().expect("retry"), FfiStartOutcome::Held);
+        settle_detect(Release::Done);
+    }
+
+    #[test]
+    fn a_failed_forced_run_backs_off_without_clearing_a_refused_retry() {
+        let _serial = serial_global_state();
+        let tmp = seeded_global_engine();
+        clear_detection_handle();
+        with_engine(|engine| {
+            for i in 6..12 {
+                engine
+                    .add_activity(
+                        format!("a{i}"),
+                        vec![crate::GpsPoint::new(46.0, 7.0)],
+                        "Ride".into(),
+                    )
+                    .expect("activity");
+            }
+        })
+        .expect("engine");
+        let conn = rusqlite::Connection::open(tmp.path().join("detection.db")).expect("db");
+        for i in 0..12 {
+            conn.execute(
+                "UPDATE gps_tracks SET track_data = ? WHERE activity_id = ?",
+                rusqlite::params![&[0x7f_u8, 1, 2, 3][..], format!("a{i}")],
+            )
+            .expect("corrupt track");
+        }
+
+        let manager = DetectionManager::new();
+        assert_eq!(
+            manager.force_redetect().expect("first"),
+            FfiStartOutcome::Started
+        );
+        drain_detection();
+        assert_eq!(manager.last_outcome(), "error");
+        with_engine(|engine| {
+            engine
+                .save_processed_activity_ids(&["a0".to_string()])
+                .expect("processed marker");
+        })
+        .expect("engine");
+
+        assert_eq!(
+            manager.force_redetect().expect("retry"),
+            FfiStartOutcome::Held
+        );
+        assert!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM processed_activities WHERE activity_id = 'a0'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .expect("processed marker")
+                > 0,
+            "a refused retry preserves processed evidence"
+        );
+        settle_detect(Release::Done);
+        assert_eq!(
+            manager.force_redetect().expect("after release"),
+            FfiStartOutcome::Started,
+            "a released key admits the next forced run"
+        );
+        drain_detection();
+        settle_detect(Release::Done);
+    }
+
+    #[test]
+    pub fn a_caller_applied_handle_in_the_shared_slot_is_rejected() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let handle = with_engine(|e| e.detect_sections_background()).expect("engine");
+        let slot = handle.checkpoint_slot();
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        slot.mark_installed(crate::persistence::engine_install());
+
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            match poll_detection_once() {
+                Ok(DetectionPoll::Running) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                result => {
+                    assert!(result.is_err(), "caller apply must not run from the slot");
+                    break;
+                }
+            }
+        }
+        assert!(!detection_running());
+    }
+
+    #[test]
     pub fn detection_survives_a_poisoned_handle_lock() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine();
@@ -1863,17 +2823,14 @@ mod tests {
         poison(&SECTION_DETECTION_HANDLE);
 
         assert_eq!(
-            poll_detection_once().expect("poll must not answer LockFailed"),
+            poll_detection_once().expect("poll must not fail"),
             DetectionPoll::Idle,
             "an empty handle reads Idle through a poisoned lock"
         );
 
         let manager = DetectionManager::new();
         assert!(
-            manager
-                .start()
-                .expect("start must not answer LockFailed")
-                .started(),
+            manager.start().expect("start must not fail").started(),
             "detection still starts after the handle lock is poisoned"
         );
         assert!(
@@ -1898,10 +2855,7 @@ mod tests {
 
         let manager = DetectionManager::new();
         assert!(
-            manager
-                .start()
-                .expect("start must not answer LockFailed")
-                .started(),
+            manager.start().expect("start must not fail").started(),
             "a detect starts after cancelling through a poisoned preview lock"
         );
 
@@ -1952,14 +2906,18 @@ mod tests {
 
             assert_eq!(
                 manager.last_outcome(),
-                "idle",
-                "nothing has polled this run, so nothing has settled it"
+                "complete",
+                "the worker settles this run without a poll"
             );
             assert_eq!(
-                timed_poll_to_completion().0,
-                DetectionPoll::Applied,
-                "and the completion is still there for the caller that follows it"
+                poll_to_completion(),
+                DetectionPoll::Idle,
+                "and the caller sees the freed slot"
             );
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/detection_pooled.rs"]
+mod detection_pooled_tests;

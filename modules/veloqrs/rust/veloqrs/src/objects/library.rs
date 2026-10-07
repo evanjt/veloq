@@ -2,7 +2,7 @@
 //!
 //! Every progress figure the app had was the current run's own queue, so a
 //! library of 1,598 rides with 400 tracks stored showed "12/12" and then
-//! nothing. This is the whole account instead, from the census.
+//! nothing. This is the window the athlete asked for instead, from the census.
 
 /// The four counts the sync row reports, for the signed-in athlete.
 ///

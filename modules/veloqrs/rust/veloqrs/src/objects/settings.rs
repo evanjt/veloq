@@ -26,6 +26,24 @@ pub struct SettingsManager {
     pub(crate) _private: (),
 }
 
+fn write_setting_and_start(
+    key: &str,
+    value: &str,
+    start_backfill: impl FnOnce(),
+) -> Result<(), VeloqError> {
+    with_engine(|engine| {
+        engine
+            .set_setting(key, value)
+            .map_err(|error| VeloqError::Database {
+                msg: format!("{}", error),
+            })
+    })??;
+    if key == crate::persistence::settings::settings_keys::DETECTION_ENABLED && value == "1" {
+        start_backfill();
+    }
+    Ok(())
+}
+
 #[uniffi::export]
 impl SettingsManager {
     #[uniffi::constructor]
@@ -34,7 +52,7 @@ impl SettingsManager {
     }
 
     fn get_athlete_profile(&self) -> Result<Option<String>, VeloqError> {
-        with_engine(|e| e.get_athlete_profile())
+        with_reader(crate::persistence::settings::athlete_profile_from)
     }
 
     fn set_athlete_profile(&self, json: String) -> Result<(), VeloqError> {
@@ -47,7 +65,14 @@ impl SettingsManager {
     }
 
     fn get_sport_settings(&self) -> Result<Option<String>, VeloqError> {
-        with_engine(|e| e.get_sport_settings())
+        with_reader(crate::persistence::fitness::sport_settings_from)
+    }
+
+    /// The heart rate zone, numbered from 1, a reading falls in for a sport
+    /// type, from the athlete's own zones. None when the reading is not a
+    /// positive number.
+    fn hr_zone_for(&self, sport_type: String, bpm: f64) -> Result<Option<u32>, VeloqError> {
+        with_reader(|conn| crate::persistence::screens::hr_zone_for_sport(conn, &sport_type, bpm))
     }
 
     fn set_sport_settings(&self, json: String) -> Result<(), VeloqError> {
@@ -63,7 +88,23 @@ impl SettingsManager {
     /// privacy row to offer. A guess: the trim stays off until it is confirmed
     /// or replaced, and a library with too little to cluster answers none.
     fn suggest_export_home(&self) -> Result<Option<crate::persistence::SuggestedHome>, VeloqError> {
-        with_engine(|e| e.suggest_export_home())
+        with_reader(crate::persistence::export::suggest_export_home_from)
+    }
+
+    /// The fixed export privacy facts shown when backup settings opens.
+    fn backup_screen_data(&self) -> Result<crate::FfiBackupScreenData, VeloqError> {
+        with_reader(crate::persistence::screens::backup_screen_data)?
+    }
+
+    /// The stream history readout shown when cache settings opens.
+    fn cache_screen_data(&self) -> Result<crate::FfiCacheScreenData, VeloqError> {
+        with_reader(crate::persistence::screens::cache_screen_data)?
+    }
+
+    /// Each background job's last run and what the jobs still owe, read when a
+    /// job settles or activities land rather than on the progress poll.
+    fn background_jobs_data(&self) -> Result<crate::FfiBackgroundJobsData, VeloqError> {
+        with_reader(crate::persistence::screens::background_jobs_data)?
     }
 
     /// What a trim at this home and radius would do to the stored library.
@@ -76,31 +117,63 @@ impl SettingsManager {
         home_lng: f64,
         radius_m: f64,
     ) -> Result<crate::persistence::ExportPrivacyPreview, VeloqError> {
-        with_engine(|e| {
-            e.export_privacy_preview(home_lat, home_lng, radius_m)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
+        with_reader(|conn| {
+            crate::persistence::export::export_privacy_preview_from(
+                conn, home_lat, home_lng, radius_m,
+            )
+            .map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
         })?
+    }
+
+    /// The GPX file for one shared track, with the export privacy trim
+    /// applied: the name to save it under and its XML.
+    ///
+    /// `None` means the trim left fewer points than a track, so nothing should
+    /// be shared. With no trim configured the points are written whole. The
+    /// bulk export writes through the same function, so both name and fill a
+    /// file the same way.
+    fn build_gpx_file(
+        &self,
+        name: String,
+        sport: Option<String>,
+        time: Option<String>,
+        points: Vec<crate::ffi_types::FfiGpsPoint>,
+    ) -> Result<Option<crate::persistence::export::GpxFile>, VeloqError> {
+        let points: Vec<crate::GpsPoint> = points.into_iter().map(Into::into).collect();
+        with_reader(|conn| {
+            crate::persistence::export::single_gpx_file_from(
+                conn,
+                &name,
+                sport.as_deref(),
+                time.as_deref(),
+                &points,
+            )
+        })
+    }
+
+    /// The current engine install, moved by every wipe, restore and reopen.
+    fn engine_install(&self) -> f64 {
+        crate::persistence::engine_install() as f64
     }
 
     /// Get a single user preference by key.
     fn get_setting(&self, key: String) -> Result<Option<String>, VeloqError> {
-        with_engine(|e| {
-            e.get_setting(&key).map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
+        with_reader(|conn| {
+            crate::persistence::settings::setting_from(conn, &key).map_err(|e| {
+                VeloqError::Database {
+                    msg: format!("{}", e),
+                }
             })
         })?
     }
 
     /// Set a single user preference (upsert).
     fn set_setting(&self, key: String, value: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.set_setting(&key, &value)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-        })?
+        write_setting_and_start(&key, &value, || {
+            crate::net::elevation_backfill::start_elevation_backfill();
+        })
     }
 
     /// Set several user preferences in one transaction, skipping each pair
@@ -173,27 +246,35 @@ impl SettingsManager {
     ///
     /// This only ever evicts stored series: nothing deletes whole activities
     /// by age.
-    fn stream_retention_days(&self) -> Result<i64, VeloqError> {
-        with_engine(|e| e.stream_retention_days().unwrap_or(0))
+    fn stream_retention_days(&self) -> Result<f64, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::streams::pooled::retention_days(conn).unwrap_or(0) as f64
+        })
     }
 
     /// Set the stream retention window in days, then evict what now falls
     /// outside it. Zero keeps everything.
-    fn set_stream_retention_days(&self, days: i64) -> Result<(), VeloqError> {
+    fn set_stream_retention_days(&self, days: f64) -> Result<(), VeloqError> {
+        let days = crate::ffi_types::int_from_wire(days);
         with_engine(|e| {
             e.set_stream_retention_days(days)
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
                 })
-        })?
+        })??;
+        crate::net::stream_backfill::release_autostart_hold();
+        crate::net::stream_backfill::autostart_stream_backfill();
+        Ok(())
     }
 
     /// Bytes the stream store holds, for the cache readout.
-    fn stream_store_bytes(&self) -> Result<i64, VeloqError> {
-        with_engine(|e| {
-            e.stream_store_bytes().map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+    fn stream_store_bytes(&self) -> Result<f64, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::streams::pooled::store_bytes(conn)
+                .map(|bytes| bytes as f64)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
         })?
     }
 
@@ -208,9 +289,37 @@ impl SettingsManager {
 }
 
 #[cfg(test)]
+#[path = "tests/settings_screen.rs"]
+mod settings_screen_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_globals::{init_global_engine, serial_global_state};
+
+    #[test]
+    fn enabling_detection_starts_owed_elevation_after_the_setting_is_written() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("detection_setting.db");
+        let mut starts = 0;
+
+        write_setting_and_start("__detection_enabled", "0", || starts += 1).unwrap();
+        assert_eq!(starts, 0);
+        write_setting_and_start("theme", "dark", || starts += 1).unwrap();
+        assert_eq!(starts, 0);
+        write_setting_and_start("__detection_enabled", "1", || {
+            assert_eq!(
+                SettingsManager::new()
+                    .get_setting("__detection_enabled".into())
+                    .unwrap()
+                    .as_deref(),
+                Some("1")
+            );
+            starts += 1;
+        })
+        .unwrap();
+        assert_eq!(starts, 1);
+    }
 
     #[test]
     fn a_setting_round_trips_and_a_delete_removes_it() {
@@ -306,12 +415,12 @@ mod tests {
 
         // The FFI carries "keep everything" as zero, which is also what the
         // athlete sets to ask for it.
-        assert_eq!(settings.stream_retention_days().unwrap(), 0);
-        assert_eq!(settings.stream_store_bytes().unwrap(), 0);
-        settings.set_stream_retention_days(30).unwrap();
-        assert_eq!(settings.stream_retention_days().unwrap(), 30);
-        settings.set_stream_retention_days(0).unwrap();
-        assert_eq!(settings.stream_retention_days().unwrap(), 0);
+        assert_eq!(settings.stream_retention_days().unwrap(), 0.0);
+        assert_eq!(settings.stream_store_bytes().unwrap(), 0.0);
+        settings.set_stream_retention_days(30.0).unwrap();
+        assert_eq!(settings.stream_retention_days().unwrap(), 30.0);
+        settings.set_stream_retention_days(0.0).unwrap();
+        assert_eq!(settings.stream_retention_days().unwrap(), 0.0);
     }
 
     #[test]
@@ -331,9 +440,7 @@ mod tests {
     #[test]
     fn every_call_reports_not_initialised_without_an_engine() {
         let _guard = serial_global_state();
-        *crate::persistence::PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        crate::persistence::clear_persistent_engine();
         let settings = SettingsManager::new();
         assert!(matches!(
             settings.get_setting("k".into()),
@@ -347,5 +454,29 @@ mod tests {
             settings.stream_retention_days(),
             Err(VeloqError::NotInitialized)
         ));
+        assert!(matches!(
+            settings.get_athlete_profile(),
+            Err(VeloqError::NotInitialized)
+        ));
+        assert!(matches!(
+            settings.get_sport_settings(),
+            Err(VeloqError::NotInitialized)
+        ));
+        assert!(matches!(
+            settings.suggest_export_home(),
+            Err(VeloqError::NotInitialized)
+        ));
+        assert!(matches!(
+            settings.export_privacy_preview(46.2, 7.35, 500.0),
+            Err(VeloqError::NotInitialized)
+        ));
+        assert!(matches!(
+            settings.stream_store_bytes(),
+            Err(VeloqError::NotInitialized)
+        ));
     }
 }
+
+#[cfg(test)]
+#[path = "tests/settings_pooled.rs"]
+mod settings_pooled_tests;
