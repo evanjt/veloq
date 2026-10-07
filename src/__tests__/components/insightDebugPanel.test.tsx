@@ -140,4 +140,33 @@ describe('InsightDebugPanel', () => {
       screen.getByText('DROPPED fitness_milestone/capped - score=12 (surface_cap)')
     ).toBeTruthy();
   });
+
+  it('shows the priority base in the breakdown of on-screen and cap-dropped rows', () => {
+    const shown = insight('shown', 'stale_pr');
+    const capped = insight('capped', 'section_trend');
+    const breakdown = (base: number) => ({
+      base,
+      confidence: 10,
+      ranking: 20,
+      category: 0,
+      specificity: 0,
+      temporalSelf: 0,
+      signal: 5,
+    });
+    mockOutcome.mockReturnValue(
+      outcome({
+        consolidated: [shown],
+        scored: [
+          { insight: shown, score: 200, breakdown: breakdown(200) },
+          { insight: capped, score: 150, breakdown: breakdown(150) },
+        ] as unknown as PipelineOutcome['scored'],
+        capDropped: [{ insight: capped, score: 150, reason: 'surface_cap' }],
+      })
+    );
+
+    render(<InsightDebugPanel visible onClose={() => {}} />);
+
+    expect(rowIds('insight-debug-onscreen')[0]).toContain('base=200');
+    expect(screen.getByText(/DROPPED section_trend\/capped.*base=150/)).toBeTruthy();
+  });
 });

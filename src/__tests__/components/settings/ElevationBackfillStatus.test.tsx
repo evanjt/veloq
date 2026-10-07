@@ -4,13 +4,21 @@
  * which is what proves the sentence comes from i18n and not from the component.
  */
 
+import { resolvedLocale } from '../../i18n/resolvedLocale';
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { initializeI18n, changeLanguage } from '@/i18n';
-import enAU from '@/i18n/locales/en-AU.json';
 import { ElevationBackfillStatus } from '@/features/settings/components/ElevationBackfillStatus';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
+
+const enAU = resolvedLocale('en-AU');
+
+const mockRouteMatching = { enabled: true };
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
+  useRouteSettings: (select: (state: { settings: { enabled: boolean } }) => boolean) =>
+    select({ settings: mockRouteMatching }),
+}));
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -58,6 +66,21 @@ function statusText(): string {
   const tree = render(<ElevationBackfillStatus />);
   return tree.getByTestId('elevation-backfill-status').props.children as string;
 }
+
+it('reports a switched off download as stopped even when an earlier pass was fetching', async () => {
+  await initializeI18n('en-AU');
+  mockRouteMatching.enabled = false;
+  mockUseElevationBackfill.mockReturnValue({ ...partialRun(0), phase: 'fetching' });
+  try {
+    const tree = render(<ElevationBackfillStatus />);
+    expect(tree.getByTestId('elevation-backfill-status').props.children).toBe(
+      enAU.settings.elevationBackfillSwitchedOff
+    );
+    expect(tree.queryByText(enAU.settings.elevationBackfillRunning)).toBeNull();
+  } finally {
+    mockRouteMatching.enabled = true;
+  }
+});
 
 describe('ElevationBackfillStatus retry line', () => {
   beforeAll(async () => {
@@ -300,13 +323,12 @@ describe('ElevationBackfillStatus pause', () => {
     expect(tree.queryByTestId('elevation-backfill-pause')).not.toBeNull();
   });
 
-  it('says the download is paused, when it resumes, and where the switch is', () => {
+  it('says the download is paused and names the switch needed to continue', () => {
     mockUseElevationBackfill.mockReturnValue(paused());
     const tree = render(<ElevationBackfillStatus />);
 
     const text = tree.getByTestId('elevation-backfill-status').props.children as string;
     expect(text).toContain('paused');
-    expect(text).toContain('next time you open');
     // Read the label rather than repeating it: the sentence points at that row,
     // so a rename of either has to move both or this fails.
     expect(text).toContain(enAU.settings.routeMatching);

@@ -21,12 +21,15 @@ jest.mock('@/features/routes/components/section/SectionSparkline', () => ({
 
 function encounter(overrides: Partial<SectionEncounter> & { sectionId: string }): SectionEncounter {
   return {
+    sectionType: 'auto',
     sectionName: 'Mont d’Orge',
     direction: 'same',
     distanceMeters: 1200,
+    startIndex: 0,
     lapTime: 140,
     lapPace: 2.3,
     isPr: false,
+    isComplete: true,
     visitCount: 8,
     historyTimes: [],
     historyActivityIds: [],
@@ -34,13 +37,13 @@ function encounter(overrides: Partial<SectionEncounter> & { sectionId: string })
   };
 }
 
-function renderGroup(encounters: SectionEncounter[], index = 0) {
+function renderGroup(encounters: SectionEncounter[], index = 0, sportType = 'Ride') {
   const [group] = groupSectionEncounters(encounters);
   return render(
     <SectionInlinePlot
       group={group}
       activityId="act-1"
-      sportType="Ride"
+      sportType={sportType}
       index={index}
       isHighlighted={false}
       isDark={false}
@@ -54,6 +57,34 @@ function renderGroup(encounters: SectionEncounter[], index = 0) {
 }
 
 describe('SectionInlinePlot', () => {
+  it('shows the engine pace for a run even when distance and time imply another pace', () => {
+    const { getByText } = renderGroup(
+      [encounter({ sectionId: 'sec-pace', distanceMeters: 1000, lapTime: 100, lapPace: 2.5 })],
+      0,
+      'Run'
+    );
+
+    expect(getByText('6:40 /km')).toBeTruthy();
+  });
+
+  it('shows the engine pace per 100 metres for a swim', () => {
+    const { getByText } = renderGroup(
+      [encounter({ sectionId: 'sec-swim', distanceMeters: 100, lapTime: 100, lapPace: 2.5 })],
+      0,
+      'Swim'
+    );
+
+    expect(getByText('0:40 /100m')).toBeTruthy();
+  });
+
+  it('keeps elapsed time for a ride', () => {
+    const { getByText } = renderGroup([
+      encounter({ sectionId: 'sec-ride', lapTime: 140, lapPace: 2.5 }),
+    ]);
+
+    expect(getByText('2:20')).toBeTruthy();
+  });
+
   it('shows one index and one name for a section crossed both ways', () => {
     const { getAllByText, queryByText } = renderGroup([
       encounter({ sectionId: 'sec-63', direction: 'same' }),
@@ -96,6 +127,51 @@ describe('SectionInlinePlot', () => {
 
     expect(queryByTestId('section-inline-trophy-0')).toBeTruthy();
     expect(queryByTestId('section-inline-trophy-0-1')).toBeNull();
+  });
+
+  it.each([
+    [2, 'sections.placeSecond'],
+    [3, 'sections.placeThird'],
+  ])('marks place %i beside the trophy slot with its label', (rank, label) => {
+    const { getByTestId, queryByTestId } = renderGroup([
+      encounter({ sectionId: 'sec-podium', rank }),
+    ]);
+
+    expect(getByTestId('section-inline-place-0').props.accessibilityLabel).toBe(label);
+    expect(queryByTestId('section-inline-trophy-0')).toBeNull();
+  });
+
+  it.each([4, undefined])('draws no place mark for rank %s', (rank) => {
+    const { queryByTestId } = renderGroup([
+      encounter({ sectionId: 'sec-podium', ...(rank === undefined ? {} : { rank }) }),
+    ]);
+
+    expect(queryByTestId('section-inline-place-0')).toBeNull();
+  });
+
+  it('labels an under-coverage pass without a trophy', () => {
+    const { getByTestId, queryByTestId } = renderGroup([
+      encounter({ sectionId: 'sec-short', isComplete: false, isPr: true }),
+    ]);
+
+    expect(getByTestId('section-inline-partial-0')).toBeTruthy();
+    expect(queryByTestId('section-inline-trophy-0')).toBeNull();
+  });
+
+  it('does not label a complete pass as partial', () => {
+    const { queryByTestId } = renderGroup([encounter({ sectionId: 'sec-full' })]);
+    expect(queryByTestId('section-inline-partial-0')).toBeNull();
+  });
+
+  it('shows neither direction nor visits for a partial-direction pass', () => {
+    const { getByTestId, queryByText } = renderGroup([
+      encounter({ sectionId: 'sec-short', direction: 'partial', isComplete: false, visitCount: 0 }),
+    ]);
+
+    expect(getByTestId('section-inline-partial-0')).toBeTruthy();
+    expect(queryByText('→')).toBeNull();
+    expect(queryByText('↩')).toBeNull();
+    expect(queryByText(/0 routes.visits/)).toBeNull();
   });
 
   it('reports the whole card height once, not one height per direction', () => {

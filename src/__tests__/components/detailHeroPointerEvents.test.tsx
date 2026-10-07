@@ -14,28 +14,28 @@ import { DetailHero } from '@/shared/ui/DetailHero';
 
 const renderHero = () =>
   render(
-    <DetailHero
-      height={320}
-      insetTop={24}
-      onBack={jest.fn()}
-      overlay={<Text>Lausanne half marathon</Text>}
-    >
+    <DetailHero height={320} overlay={<Text>Lausanne half marathon</Text>}>
       <Text>map</Text>
     </DetailHero>
   );
 
 describe('DetailHero pointer events', () => {
-  it('passes touches through the header and overlay to the map beneath', () => {
+  it('passes touches through the overlay to the map beneath', () => {
     renderHero();
 
-    expect(screen.getByTestId('detail-hero-header').props.pointerEvents).toBe('box-none');
     expect(screen.getByTestId('detail-hero-overlay').props.pointerEvents).toBe('box-none');
   });
 
-  it('takes no touches at all on the gradient or the header spacer', () => {
+  it('takes no touches at all on the gradient', () => {
     renderHero();
 
     expect(screen.getByTestId('detail-hero-gradient').props.pointerEvents).toBe('none');
-    expect(screen.getByTestId('detail-hero-header-spacer').props.pointerEvents).toBe('none');
+  });
+
+  it('draws no back control, the stack header owns it', () => {
+    renderHero();
+
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByTestId('detail-hero-header')).toBeNull();
   });
 });

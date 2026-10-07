@@ -22,6 +22,7 @@ import { SwimPaceCurveChart } from '@/features/stats/components/SwimPaceCurveCha
 const NOT_DOWNLOADED = 'stats.rangeNotDownloaded';
 
 const coverage: { current: RangeCoverage } = { current: RangeCoverage.Empty };
+const bodyStatus: { current: string } = { current: 'idle' };
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
@@ -33,8 +34,8 @@ jest.mock('@/features/stats/hooks/usePowerCurve', () => ({
     isLoading: false,
     error: null,
     coverage: coverage.current,
+    bodyStatus: bodyStatus.current,
   }),
-  POWER_CURVE_DURATIONS: [],
 }));
 
 // The pace chart looks activity names up for its labels, and that hook reaches
@@ -49,8 +50,8 @@ jest.mock('@/features/stats/hooks/usePaceCurve', () => ({
     isLoading: false,
     error: null,
     coverage: coverage.current,
+    bodyStatus: bodyStatus.current,
   }),
-  PACE_CURVE_DISTANCES: [],
 }));
 
 let client: QueryClient;
@@ -61,6 +62,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 beforeEach(() => {
   coverage.current = RangeCoverage.Empty;
+  bodyStatus.current = 'idle';
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 });
 
@@ -100,5 +102,33 @@ describe('a curve chart with nothing to draw', () => {
 
     expect(screen.getByText(NOT_DOWNLOADED)).toBeTruthy();
     expect(screen.queryByText('stats.noPaceData')).toBeNull();
+  });
+});
+
+describe('a curve chart whose body the engine is fetching', () => {
+  const charts: [string, () => React.ReactElement][] = [
+    ['power', () => <PowerCurveChart ftp={300} />],
+    ['pace', () => <PaceCurveChart />],
+    ['swim pace', () => <SwimPaceCurveChart />],
+  ];
+
+  it.each(charts)('moves instead of saying not downloaded on the %s curve', (_, chart) => {
+    coverage.current = RangeCoverage.NotFetched;
+    bodyStatus.current = 'waiting';
+
+    render(chart(), { wrapper });
+
+    expect(screen.getByTestId('curve-loading-placeholder')).toBeTruthy();
+    expect(screen.queryByText(NOT_DOWNLOADED)).toBeNull();
+  });
+
+  it.each(charts)('settles on not downloaded once the %s wait times out', (_, chart) => {
+    coverage.current = RangeCoverage.NotFetched;
+    bodyStatus.current = 'timedOut';
+
+    render(chart(), { wrapper });
+
+    expect(screen.getByText(NOT_DOWNLOADED)).toBeTruthy();
+    expect(screen.queryByTestId('curve-loading-placeholder')).toBeNull();
   });
 });

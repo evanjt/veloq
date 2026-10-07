@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 import { StorageStatsPanel } from '@/features/settings/components/StorageStatsPanel';
 import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudget';
@@ -50,13 +50,13 @@ const baseProps = {
   dateRangeText: 'range',
   lastSync: null,
   totalQueries: 1,
-  databaseSize: 100,
   onClearMapCache: jest.fn(),
   routesSize: 100,
+  athleteFilesSize: 0,
   freeStorage: 4_000_000_000,
   terrainCacheSize: 4_000_000,
   heatmapCacheSize: 2_000_000,
-  tileCacheStats: { tileCount: 9, totalBytes: 6_000_000 },
+  basemapTiles: { totalBytes: 6_000_000, vectorBytes: 4_000_000 },
 };
 
 function renderPanel() {
@@ -98,6 +98,20 @@ describe('the tile budget row', () => {
     expect(view.queryByTestId('settings-tile-cache-picker')).toBeNull();
   });
 
+  it('reports the new limit as applied only once the store has taken it', async () => {
+    let takeLimit: () => void = () => {};
+    mockSetBudgetMb.mockReturnValueOnce(new Promise<void>((resolve) => (takeLimit = resolve)));
+    const onBudgetApplied = jest.fn();
+    const view = render(<StorageStatsPanel {...baseProps} onBudgetApplied={onBudgetApplied} />);
+    fireEvent.press(view.getByTestId('settings-tile-cache-limit'));
+
+    fireEvent.press(view.getByTestId('settings-tile-cache-choice-50'));
+    expect(onBudgetApplied).not.toHaveBeenCalled();
+
+    takeLimit();
+    await waitFor(() => expect(onBudgetApplied).toHaveBeenCalledTimes(1));
+  });
+
   it('says what raising the limit buys', () => {
     const view = renderPanel();
 
@@ -116,7 +130,7 @@ describe('the tile budget row', () => {
   });
 
   it('does not claim a usage figure while a store has not answered', () => {
-    const view = render(<StorageStatsPanel {...baseProps} tileCacheStats={null} />);
+    const view = render(<StorageStatsPanel {...baseProps} basemapTiles={null} />);
 
     expect(view.getByTestId('settings-tile-cache-used').props.children).toBe(
       'settings.tileCacheUsedOfBudgetAtLeast'

@@ -10,9 +10,13 @@
  */
 
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
-import { ExportPrivacyRow } from '@/features/settings/components/ExportPrivacyRow';
+import {
+  ExportPrivacyRow,
+  endpointSharePercent,
+} from '@/features/settings/components/ExportPrivacyRow';
 import { getEngine } from '@/shared/native/engine';
 import type { HomeRadiusMapProps } from '@/features/maps';
 
@@ -43,6 +47,15 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+/** The text the info button holds, which is where the row's description lives. */
+function describedRadius(tree: ReturnType<typeof render>): string {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  fireEvent.press(tree.getByTestId('export-privacy-info'));
+  const message = String(alert.mock.calls.at(-1)?.[1]);
+  alert.mockRestore();
+  return message;
+}
+
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 const HOME = {
@@ -68,6 +81,22 @@ function engineWith(over: Record<string, unknown> = {}) {
     ),
     getSetting: jest.fn((key: string) => settings.get(key)),
     setSetting: jest.fn((key: string, value: string) => settings.set(key, value)),
+    getBackupScreenData: jest.fn(() => {
+      const homeLat = settings.get('__export_home_lat');
+      const homeLng = settings.get('__export_home_lng');
+      return {
+        homeLat,
+        homeLng,
+        radiusM: settings.get('__export_privacy_radius_m'),
+        suggestion:
+          homeLat && homeLng
+            ? null
+            : typeof over.suggestExportHome === 'function'
+              ? (over.suggestExportHome as () => typeof HOME | null)()
+              : HOME,
+      };
+    }),
+    subscribe: jest.fn(() => () => undefined),
     ...over,
   };
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
@@ -82,6 +111,17 @@ afterEach(() => {
 const lastMap = () => mapProps[mapProps.length - 1];
 
 describe('the export privacy row', () => {
+  it('reads the fixed settings in one screen call', () => {
+    const { engine } = engineWith({
+      getSetting: jest.fn(() => {
+        throw new Error('separate read');
+      }),
+    });
+    render(<ExportPrivacyRow />);
+    expect(engine.getBackupScreenData).toHaveBeenCalledTimes(1);
+    expect(engine.getSetting).not.toHaveBeenCalled();
+  });
+
   it('offers the home the engine guessed', async () => {
     engineWith();
     const tree = render(<ExportPrivacyRow />);
@@ -173,6 +213,51 @@ describe('the export privacy row', () => {
     expect(tree.getByTestId('export-privacy-count').props.children).toContain('50');
   });
 
+  it('describes the trim at the radius the row is set to', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '100');
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-radius-500')).toBeTruthy());
+
+    fireEvent.press(tree.getByTestId('export-privacy-radius-500'));
+
+    await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('500'));
+    const description = describedRadius(tree);
+    expect(description).toContain('"radius":500');
+    expect(description).not.toContain('"radius":100');
+  });
+
+  it('describes the default radius in the off position, the one turning it on applies', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '0');
+
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
+    expect(describedRadius(tree)).toContain('"radius":100');
+  });
+
+  it('describes the radius a switch back on applies after a pick and a switch off', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '100');
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-radius-500')).toBeTruthy());
+    fireEvent.press(tree.getByTestId('export-privacy-radius-500'));
+
+    fireEvent(tree.getByTestId('export-privacy-switch'), 'onValueChange', false);
+
+    await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('0'));
+    expect(describedRadius(tree)).toContain('"radius":500');
+    fireEvent(tree.getByTestId('export-privacy-switch'), 'onValueChange', true);
+    await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('500'));
+  });
+
   it('reports that nothing is trimmed in the off position', async () => {
     const { settings } = engineWith();
     settings.set('__export_home_lat', String(HOME.latitude));
@@ -198,6 +283,21 @@ describe('the export privacy row', () => {
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
     expect(tree.queryByTestId('export-privacy-count')).toBeNull();
+  });
+
+  it('shows the share of ride ends beside the count as a whole percentage', async () => {
+    engineWith();
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-home')).toBeTruthy());
+    expect(JSON.stringify(tree.toJSON())).toContain('\\"share\\":24');
+  });
+
+  it('never rounds a non-zero share down to zero', () => {
+    expect(endpointSharePercent(0.004)).toBe(1);
+    expect(endpointSharePercent(0)).toBe(0);
+    expect(endpointSharePercent(1)).toBe(100);
+    expect(endpointSharePercent(0.245)).toBe(25);
   });
 
   it('draws the suggested home on a map before it is confirmed', async () => {

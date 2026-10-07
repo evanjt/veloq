@@ -293,6 +293,56 @@ describe('ActivityMapView', () => {
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     });
 
+    describe('a camera that arrives after mount', () => {
+      function rerenderWith(
+        view: ReturnType<typeof renderActivityMap>,
+        camera: typeof CAMERA_3D,
+        on3DModeChange?: () => void
+      ) {
+        view.rerender(
+          <SafeAreaProvider initialMetrics={METRICS}>
+            <ActivityMapView
+              activityType="Ride"
+              coordinates={COORDINATES}
+              showStyleToggle
+              initial3DCamera={camera}
+              on3DModeChange={on3DModeChange}
+            />
+          </SafeAreaProvider>
+        );
+      }
+
+      it('switches to 3D once, without reporting it as a choice', () => {
+        const on3DModeChange = jest.fn();
+        const view = renderActivityMap({ on3DModeChange });
+        expect(screen.queryByTestId('webview')).toBeNull();
+
+        rerenderWith(view, CAMERA_3D, on3DModeChange);
+
+        expect(screen.getByTestId('webview')).toBeTruthy();
+        expect(on3DModeChange).not.toHaveBeenCalled();
+      });
+
+      it('stays flat when the athlete has already used the toggle', () => {
+        const view = renderActivityMap();
+        fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+        fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+
+        rerenderWith(view, CAMERA_3D);
+
+        expect(screen.queryByTestId('webview')).toBeNull();
+      });
+
+      it('stays flat after a failure', () => {
+        const view = renderActivityMap({ initial3DCamera: CAMERA_3D });
+        post({ type: 'mapFailed', reason: 'load timeout' });
+
+        rerenderWith(view, { ...CAMERA_3D, bearing: 90 });
+
+        expect(screen.queryByTestId('webview')).toBeNull();
+      });
+    });
+
     it('does not re-enter 3D after a failure', () => {
       renderActivityMap({ initial3DCamera: CAMERA_3D });
 

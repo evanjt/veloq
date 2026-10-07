@@ -76,15 +76,17 @@ describe('WeeklySummary', () => {
     expect(new Set(windows).size).toBe(2);
   });
 
-  it('takes the athlete-summary week over an engine read when it has one', async () => {
+  it('takes the current week from the athlete summary and the span before it from the engine', async () => {
     jest
       .requireMock('@/features/fitness/hooks')
       .useAthleteSummary.mockReturnValue({ data: SUMMARY, isLoading: false });
 
     render(<WeeklySummary />, { wrapper });
 
-    await waitFor(() => expect(engine.subscribe).toHaveBeenCalled());
-    expect(engine.getPeriodStats).not.toHaveBeenCalled();
+    await waitFor(() => expect(engine.getPeriodStats).toHaveBeenCalledTimes(1));
+    // Monday 15 June 2026 is the current week, so the previous window starts a week before it.
+    const [startTs] = engine.getPeriodStats.mock.calls[0] as unknown as [number];
+    expect(new Date(startTs * 1000).toISOString()).toBe('2026-06-08T00:00:00.000Z');
   });
 
   it('shows the engine totals for the period', async () => {

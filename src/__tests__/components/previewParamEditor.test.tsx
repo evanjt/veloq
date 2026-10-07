@@ -23,7 +23,10 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
+}));
 
 const params = {
   proximityThreshold: 200,
@@ -48,14 +51,14 @@ describe('typing a parameter', () => {
     expect(queryByTestId('param-editor')).toBeNull();
     fireEvent.press(getByTestId('param-edit-maxSectionLength'));
 
-    expect(getByTestId('param-editor-input').props.value).toBe('200000');
+    expect(getByTestId('param-editor-input').props.value).toBe('200');
   });
 
   it('takes a value past the slider, which is the reason it exists', () => {
     const { getByTestId, onChange } = panel();
 
     fireEvent.press(getByTestId('param-edit-maxSectionLength'));
-    fireEvent.changeText(getByTestId('param-editor-input'), '500000');
+    fireEvent.changeText(getByTestId('param-editor-input'), '500');
     fireEvent.press(getByTestId('param-editor-save'));
 
     expect(onChange).toHaveBeenCalledWith({ ...params, maxSectionLength: 500000 });

@@ -28,6 +28,28 @@ const history = [
   },
   { id: 1, at: '2026-08-01 00:00:00', kind: 'formed', details: undefined, geometryVersion: 1 },
 ];
+
+const perSportHistory = [
+  {
+    id: 5,
+    at: '2026-09-29 00:00:00',
+    kind: 'dissolved',
+    details: JSON.stringify({
+      prs: {
+        Ride: { activity_id: 'b1', time: 65 },
+        Run: { activity_id: 'r1', time: 250 },
+      },
+    }),
+    geometryVersion: null,
+  },
+  {
+    id: 6,
+    at: '2026-09-30 00:00:00',
+    kind: 'pr_rebased',
+    details: JSON.stringify({ sport: 'Run', from_time: 250, to_time: 240 }),
+    geometryVersion: null,
+  },
+];
 const versions = [
   { version: 2, createdAt: '2026-08-20', milestone: false, pinned: false },
   { version: 1, createdAt: '2026-08-01', milestone: true, pinned: false },
@@ -60,6 +82,13 @@ describe('SectionHistoryPanel', () => {
     expect(getByTestId('section-history-fork-2-act_f')).toBeTruthy();
   });
 
+  it('names the sport of each era record and of a record that moved', () => {
+    const { getByText } = renderPanel({ history: perSportHistory });
+    expect(getByText('activityTypes.Ride:Ride · sectionHistory.prEra:1:05')).toBeTruthy();
+    expect(getByText('activityTypes.Run:Run · sectionHistory.prEra:4:10')).toBeTruthy();
+    expect(getByText('activityTypes.Run:Run · sectionHistory.prMoved:4:10,4:00')).toBeTruthy();
+  });
+
   it('opens the activity a chip names', () => {
     const { getByTestId } = renderPanel();
     fireEvent.press(getByTestId('section-history-around-2-act_b'));
@@ -88,6 +117,104 @@ describe('SectionHistoryPanel', () => {
   it('says so when nothing is recorded', () => {
     const { getByText } = renderPanel({ history: [], versions: [] });
     expect(getByText('sectionHistory.empty')).toBeTruthy();
+  });
+
+  it('names a ledger that could not be read rather than calling it empty', () => {
+    const { getByTestId, queryByText } = renderPanel({
+      history: [],
+      versions: [],
+      failureKey: 'engine.failure.database',
+    });
+    expect(getByTestId('section-history-failed').props.children).toBe('engine.failure.database');
+    expect(queryByText('sectionHistory.empty')).toBeNull();
+  });
+
+  it('shows a translated line for a reference_anchored event, by whether the line moved', () => {
+    const event = (id: number, moved: boolean) => ({
+      id,
+      at: '2026-08-23 00:00:00',
+      kind: 'reference_anchored',
+      details: JSON.stringify({ moved }),
+      geometryVersion: 2,
+      splitFrom: null,
+      splitInto: [],
+    });
+    const { getByText, queryByText } = renderPanel({ history: [event(6, true), event(7, false)] });
+
+    expect(getByText('sectionHistory.kind_reference_anchored')).toBeTruthy();
+    expect(getByText('sectionHistory.kind_reference_anchored_in_place')).toBeTruthy();
+    expect(queryByText('reference_anchored')).toBeNull();
+  });
+
+  it('links a split child to its named parent', () => {
+    const { getByTestId, getByText } = renderPanel({
+      history: [
+        {
+          id: 4,
+          at: '2026-08-21 00:00:00',
+          kind: 'formed',
+          details: JSON.stringify({ split_from: 'parent' }),
+          geometryVersion: 1,
+          splitFrom: { id: 'parent', name: 'Col de la Croix', available: true },
+          splitInto: [],
+        },
+      ],
+    });
+
+    expect(getByText('sectionHistory.splitFrom')).toBeTruthy();
+    const link = getByTestId('section-history-split-from-parent');
+    expect(link).toHaveTextContent('Col de la Croix');
+    fireEvent.press(link);
+    expect(router.push).toHaveBeenCalledWith('/section/parent');
+  });
+
+  it('links every split child using the engine display name, including nested names', () => {
+    const { getByTestId, getByText } = renderPanel({
+      history: [
+        {
+          id: 5,
+          at: '2026-08-22 00:00:00',
+          kind: 'split',
+          details: JSON.stringify({ siblings: ['child-1', 'child-2'] }),
+          geometryVersion: null,
+          splitFrom: null,
+          splitInto: [
+            { id: 'child-1', name: 'Col de la Croix / 1', available: true },
+            { id: 'child-2', name: 'Col de la Croix / 1 / 2', available: true },
+          ],
+        },
+      ],
+    });
+
+    expect(getByText('sectionHistory.splitInto')).toBeTruthy();
+    expect(getByTestId('section-history-split-into-child-1')).toHaveTextContent(
+      'Col de la Croix / 1'
+    );
+    const nested = getByTestId('section-history-split-into-child-2');
+    expect(nested).toHaveTextContent('Col de la Croix / 1 / 2');
+    fireEvent.press(nested);
+    expect(router.push).toHaveBeenCalledWith('/section/child-2');
+  });
+
+  it('shows an unavailable split target without navigation', () => {
+    const { getByTestId } = renderPanel({
+      history: [
+        {
+          id: 6,
+          at: '2026-08-23 00:00:00',
+          kind: 'formed',
+          details: JSON.stringify({ split_from: 'retired-parent' }),
+          geometryVersion: 1,
+          splitFrom: { id: 'retired-parent', name: null, available: false },
+          splitInto: [],
+        },
+      ],
+    });
+
+    const target = getByTestId('section-history-split-from-retired-parent');
+    expect(target).toHaveTextContent('sectionHistory.unavailable');
+    fireEvent.press(target);
+    expect(router.push).not.toHaveBeenCalledWith('/section/retired-parent');
   });
 });
 

@@ -11,8 +11,13 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as format from '@/shared/format/format';
+import { exportRecordBackup } from '@/features/settings/lib/backup';
+import { inBackupSlot } from '@/features/settings/lib/backupSlot';
+import { shareExistingFile } from '@/features/settings/lib/shareFile';
 
-import { initializeApp } from '@/app/launch';
+import { initializeApp } from '@/shared/app/launch';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useLanguageStore } from '@/shared/app/LanguageStore';
 import { i18n } from '@/i18n';
@@ -24,6 +29,8 @@ const calls: Call[] = [];
 const stored = new Map<string, string>();
 
 let mockEngineOpen = false;
+let mockRouteDbPath = '/data/routes.db';
+const mockFiles = new Set<string>();
 
 const mockEngine = {
   get ready(): boolean {
@@ -47,6 +54,18 @@ const mockEngine = {
   }),
   setSyncCredentials: jest.fn(),
   clearSyncCredentials: jest.fn(),
+  getUnplacedBackupRecords: jest.fn(async () => {
+    calls.push({ name: 'getUnplacedBackupRecords' });
+    return [{ kind: 'import', name: null, reason: 'import_paused' }];
+  }),
+  restoreRecordJson: jest.fn(async () => {
+    calls.push({ name: 'restoreRecordJson' });
+    return { placed: 1, unplaced: 0, missingActivityIds: [] };
+  }),
+  syncNow: jest.fn(),
+  runRecordBackup: jest.fn(async (path: string) => {
+    mockFiles.add(`file://${path}`);
+  }),
 };
 
 jest.mock('@/features/settings/stores/DebugStore', () => ({
@@ -55,23 +74,40 @@ jest.mock('@/features/settings/stores/DebugStore', () => ({
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
-  getRouteDbPath: () => '/data/routes.db',
+  getRouteDbPath: () => mockRouteDbPath,
   isEngineReady: () => mockEngineOpen,
   resolveRouteDbPath: () => {
     calls.push({ name: 'resolveRouteDbPath' });
-    return Promise.resolve('/data/routes.db');
+    return Promise.resolve(mockRouteDbPath);
   },
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   documentDirectory: 'file:///data/documents/',
+  cacheDirectory: 'file:///cache/',
+  makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+  readDirectoryAsync: jest.fn(async (dir: string) => [
+    ...new Set(
+      [...mockFiles]
+        .filter((uri) => uri.startsWith(dir))
+        .map((uri) => uri.slice(dir.length).split('/')[0])
+    ),
+  ]),
+  deleteAsync: jest.fn(async (uri: string) => {
+    mockFiles.delete(uri);
+  }),
+}));
+
+jest.mock('@/features/settings/lib/shareFile', () => ({
+  shareExistingFile: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/backupExclusion', () => ({
   excludeFromBackup: jest.fn(() => true),
+  excludeExistingFromBackup: jest.fn(() => true),
 }));
 
 const secureGet = SecureStore.getItemAsync as jest.Mock;
@@ -86,10 +122,9 @@ const MIGRATED_KEYS = [
   'veloq-theme-preference',
   'veloq-primary-sport',
   'veloq-unit-preference',
-  'veloq-hr-zones',
   'veloq-route-settings',
   'veloq-heatmap-enabled',
-  'dashboard_preferences',
+  'veloq-map-routes-visible',
   'dashboard_summary_card',
   'veloq-debug-mode',
   'veloq-tile-cache',
@@ -111,7 +146,9 @@ function migratedLibrary(): void {
 beforeEach(() => {
   calls.length = 0;
   stored.clear();
+  mockFiles.clear();
   mockEngineOpen = false;
+  mockRouteDbPath = '/data/routes.db';
   jest.clearAllMocks();
   useAuthStore.setState({ isAuthenticated: false, isLoading: true, athleteId: null });
   useLanguageStore.setState({ language: null, isInitialized: false });
@@ -221,6 +258,18 @@ describe('initializeApp', () => {
     expect(path.startsWith('file://')).toBe(false);
   });
 
+  it('hands the basemap store the tile limit once it has its directory', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+
+    await initializeApp();
+
+    const basemap = jest.requireMock('veloqrs').basemapStore();
+    expect(basemap.setBudget).toHaveBeenCalledWith(50 * 1_000_000);
+    expect(basemap.setPath.mock.invocationCallOrder[0]).toBeLessThan(
+      basemap.setBudget.mock.invocationCallOrder[0]
+    );
+  });
+
   it('keeps the tile tree out of the device backup, on the directory the store was handed', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
@@ -235,6 +284,70 @@ describe('initializeApp', () => {
     );
   });
 
+  it('keeps the database and its sidecars out of the device backup, after the engine opened', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    mockRouteDbPath = '/group/app/routes.db';
+    const { excludeExistingFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    const marked = excludeExistingFromBackup.mock.calls.map(([path]: [string]) => path);
+    expect(marked).toEqual(
+      expect.arrayContaining([
+        '/group/app/routes.db',
+        '/group/app/routes.db-wal',
+        '/group/app/routes.db-shm',
+      ])
+    );
+    expect(mockEngine.initWithPath.mock.invocationCallOrder[0]).toBeLessThan(
+      excludeExistingFromBackup.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('marks the database under Documents when there is no App Group', async () => {
+    keychain({});
+    mockRouteDbPath = '/data/documents/routes.db';
+    const { excludeExistingFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    const marked = excludeExistingFromBackup.mock.calls.map(([path]: [string]) => path);
+    expect(marked).toEqual(
+      expect.arrayContaining([
+        '/data/documents/routes.db',
+        '/data/documents/routes.db-wal',
+        '/data/documents/routes.db-shm',
+      ])
+    );
+  });
+
+  it('never marks the record zip, which is the payload the device backup carries', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    const { excludeFromBackup, excludeExistingFromBackup } = jest.requireMock(
+      '@/shared/native/backupExclusion'
+    );
+
+    await initializeApp();
+
+    const marked = [...excludeFromBackup.mock.calls, ...excludeExistingFromBackup.mock.calls].map(
+      ([path]: [string]) => path
+    );
+    expect(marked.filter((path: string) => path.includes('veloq-decisions'))).toEqual([]);
+  });
+
+  it('warns and carries on when the database mark does not take', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    const { excludeExistingFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+    excludeExistingFromBackup.mockReturnValue(false);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await expect(initializeApp()).resolves.toBeNull();
+
+    expect(warn.mock.calls.some(([m]) => String(m).includes('routes.db'))).toBe(true);
+    warn.mockRestore();
+    excludeExistingFromBackup.mockReturnValue(true);
+  });
+
   it('keeps the terrain previews out of the backup too, on every launch', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
@@ -243,6 +356,26 @@ describe('initializeApp', () => {
 
     const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
     expect(marked).toContain('/data/documents/terrain_previews/');
+  });
+
+  it('keeps the local backup directory out of the backup, on every launch', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
+    expect(marked).toContain('file:///data/documents/backups/');
+  });
+
+  it('marks the local backup directory with no credentials, since a backup outlives a sign-out', async () => {
+    keychain({});
+    const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
+
+    await initializeApp();
+
+    const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
+    expect(marked).toContain('file:///data/documents/backups/');
   });
 
   it('does not mark a directory the store refused', async () => {
@@ -261,10 +394,174 @@ describe('initializeApp', () => {
     expect(marked).not.toContain('/data/documents/basemap-tiles');
   });
 
-  it('still resolves, with the first message, when an initialiser rejects', async () => {
+  it('resolves to the failed area and never to the engine message', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     (initializeDebugStore as jest.Mock).mockRejectedValueOnce(new Error('debug store unreadable'));
 
-    await expect(initializeApp()).resolves.toBe('debug store unreadable');
+    await expect(initializeApp()).resolves.toEqual(['other']);
+  });
+
+  it('resumes a paused record import once the engine is open', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    migratedLibrary();
+
+    await initializeApp();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const open = calls.findIndex((c) => c.name === 'initWithPath');
+    const resume = calls.findIndex((c) => c.name === 'restoreRecordJson');
+    expect(mockEngine.restoreRecordJson).toHaveBeenCalledTimes(1);
+    expect(resume).toBeGreaterThan(open);
+  });
+
+  it('starts no import resume while signed out', async () => {
+    keychain({});
+
+    await initializeApp();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(mockEngine.restoreRecordJson).not.toHaveBeenCalled();
+  });
+
+  it('launches when the paused import cannot resume yet', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    migratedLibrary();
+    mockEngine.restoreRecordJson.mockRejectedValueOnce(new Error('database or disk is full'));
+
+    await expect(initializeApp()).resolves.toBeNull();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(mockEngine.restoreRecordJson).toHaveBeenCalledTimes(1);
+  });
+});
+
+const staleBackups = [
+  'file:///cache/exports/veloq-backup-2026-09-01.zip',
+  'file:///cache/exports/veloq-record-abandoned.tmp',
+  'file:///cache/veloq-backup-2026-09-01.veloqdb',
+  'file:///cache/veloq-autobackup-123.veloqdb',
+  'file:///data/documents/veloq-record-abandoned.tmp',
+];
+const retainedFiles = [
+  'file:///data/documents/veloq-decisions.zip',
+  'file:///data/documents/backups/veloq-backup-kept.zip',
+  'file:///cache/restores/veloq-record-active.tmp',
+  'file:///cache/DocumentPicker/veloq-backup-picked.zip',
+  'file:///cache/exports/veloq-activities-2026-09-01.zip',
+  'file:///cache/exports/River_Ride.gpx',
+  'file:///cache/exports/veloq-crash-log.txt',
+  'file:///cache/veloq-backup-unrelated.txt',
+  'file:///cache/veloq-autobackup-unrelated.zip',
+];
+
+function seedBackupFiles() {
+  for (const uri of [...staleBackups, ...retainedFiles]) mockFiles.add(uri);
+}
+
+function deferred() {
+  let resolve = () => {};
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+async function finishBackupWork() {
+  await inBackupSlot(async () => {});
+}
+
+describe('backup temporary files', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('sweeps only abandoned backup copies at launch, even when signed out', async () => {
+    keychain({});
+    seedBackupFiles();
+
+    await initializeApp();
+    await finishBackupWork();
+
+    expect([...mockFiles].sort()).toEqual([...retainedFiles].sort());
+  });
+
+  it('keeps only the second export across different dates, until another sweep', async () => {
+    jest
+      .spyOn(format, 'formatLocalDate')
+      .mockReturnValueOnce('2026-09-01')
+      .mockReturnValueOnce('2026-09-02');
+    await exportRecordBackup();
+    expect(mockFiles.has('file:///cache/exports/veloq-backup-2026-09-01.zip')).toBe(true);
+
+    await exportRecordBackup();
+
+    expect([...mockFiles]).toEqual(['file:///cache/exports/veloq-backup-2026-09-02.zip']);
+    expect(shareExistingFile).toHaveBeenLastCalledWith([...mockFiles][0], 'application/zip');
+  });
+
+  it('launches without waiting for a sweep queued behind an open share sheet', async () => {
+    keychain({});
+    const sharing = deferred();
+    const opened = deferred();
+    jest.mocked(shareExistingFile).mockImplementationOnce(() => {
+      opened.resolve();
+      return sharing.promise;
+    });
+    const exporting = exportRecordBackup();
+    await opened.promise;
+    const sharedUri = jest.mocked(shareExistingFile).mock.calls[0][0];
+    try {
+      await expect(initializeApp()).resolves.toBeNull();
+      expect(mockFiles.has(sharedUri)).toBe(true);
+    } finally {
+      sharing.resolve();
+      await exporting;
+      await finishBackupWork();
+    }
+    expect(mockFiles.has(sharedUri)).toBe(false);
+  });
+
+  it('sweeps after a rejected share releases the slot', async () => {
+    keychain({});
+    jest.mocked(shareExistingFile).mockRejectedValueOnce(new Error('share unavailable'));
+    await expect(exportRecordBackup()).rejects.toThrow('share unavailable');
+    expect(mockFiles.size).toBe(1);
+
+    await initializeApp();
+    await finishBackupWork();
+
+    expect(mockFiles.size).toBe(0);
+  });
+
+  it.each(['launch', 'export'])(
+    'continues the %s sweep after one deletion rejects',
+    async (trigger) => {
+      keychain({});
+      seedBackupFiles();
+      const failure = new Error('file busy');
+      jest.mocked(FileSystem.deleteAsync).mockImplementationOnce(async () => {
+        throw failure;
+      });
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      if (trigger === 'launch') await expect(initializeApp()).resolves.toBeNull();
+      else await expect(exportRecordBackup()).resolves.toBe('complete');
+      await finishBackupWork();
+
+      expect(staleBackups.filter((uri) => mockFiles.has(uri))).toHaveLength(1);
+      expect(retainedFiles.every((uri) => mockFiles.has(uri))).toBe(true);
+      expect(warn.mock.calls.some((args) => args.includes(failure))).toBe(true);
+    }
+  );
+
+  it('continues other directories when listing one directory rejects', async () => {
+    keychain({});
+    seedBackupFiles();
+    jest
+      .mocked(FileSystem.readDirectoryAsync)
+      .mockRejectedValueOnce(new Error('directory unreadable'));
+
+    await expect(initializeApp()).resolves.toBeNull();
+    await finishBackupWork();
+
+    expect(mockFiles.has('file:///data/documents/veloq-record-abandoned.tmp')).toBe(false);
+    expect(retainedFiles.every((uri) => mockFiles.has(uri))).toBe(true);
   });
 });

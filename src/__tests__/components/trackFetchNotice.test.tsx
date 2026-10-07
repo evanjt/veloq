@@ -9,6 +9,7 @@
 
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import { initializeI18n } from '@/i18n';
 import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
@@ -26,7 +27,10 @@ describe('the missing-tracks notice', () => {
     await initializeI18n('en-AU');
   });
 
-  beforeEach(() => useTrackFetchNotice.setState({ failedCount: 0, dismissed: false }));
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
+  });
 
   it('says nothing while every track landed', () => {
     const { queryByTestId } = render(<TrackFetchNotice />);
@@ -58,5 +62,22 @@ describe('the missing-tracks notice', () => {
     fireEvent.press(getByTestId('track-fetch-notice-dismiss'));
 
     expect(queryByTestId('track-fetch-notice')).toBeNull();
+  });
+
+  it('opens the activity when exactly one route failed', () => {
+    useTrackFetchNotice.setState({ failedIds: ['i42'], failedCount: 1, dismissed: false });
+
+    const { getByTestId } = render(<TrackFetchNotice />);
+    fireEvent.press(getByTestId('track-fetch-notice-open'));
+
+    expect(router.push).toHaveBeenCalledWith('/activity/i42');
+  });
+
+  it('offers no activity to open when several routes failed', () => {
+    useTrackFetchNotice.setState({ failedIds: ['a', 'b'], failedCount: 2, dismissed: false });
+
+    const { queryByTestId } = render(<TrackFetchNotice />);
+
+    expect(queryByTestId('track-fetch-notice-open')).toBeNull();
   });
 });

@@ -60,7 +60,6 @@ const renderHero = (insetTop: number, detail: ActivityDetail) =>
       coordinates={[]}
       isMetric={true}
       debugEnabled={false}
-      insetTop={insetTop}
       mapHeight={360}
       highlightIndex={null}
       sectionCreationMode={false}
@@ -99,7 +98,7 @@ describe('activity hero clears the map attribution', () => {
   const cases: [string, number, ActivityDetail][] = [
     ['no safe-area inset', 0, activity()],
     ['a large safe-area inset', 62, activity()],
-    ['the tallest hero content', 62, activity({ locality: 'Lausanne', country: 'Switzerland' })],
+    ['the tallest hero content', 62, activity()],
   ];
 
   it.each(cases)('leaves the attribution uncovered with %s', (_label, insetTop, detail) => {
@@ -110,7 +109,7 @@ describe('activity hero clears the map attribution', () => {
   });
 
   it('grows the reservation when the credit line wraps to a second row', () => {
-    renderHero(0, activity({ locality: 'Lausanne', country: 'Switzerland' }));
+    renderHero(0, activity());
     const oneLine = overlayPaddingBottom();
 
     // Satellite with 3D on runs to two rows at phone width, which the
@@ -140,16 +139,16 @@ describe('activity hero clears the map attribution', () => {
     expect(overlayPaddingBottom()).toBeLessThan(wrapped);
     expect(overlayPaddingBottom()).toBeGreaterThanOrEqual(oneLine);
   });
+});
 
-  it('spends the safe-area inset on the top header, not the bottom overlay', () => {
-    renderHero(0, activity());
-    const withoutInset = overlayPaddingBottom();
-    screen.unmount();
+describe('activity hero place line', () => {
+  it('shows nothing for a locality an older stored body still carries', () => {
+    renderHero(
+      0,
+      activity({ locality: 'Lausanne', country: 'Switzerland' } as Partial<ActivityDetail>)
+    );
 
-    renderHero(62, activity());
-    const header = StyleSheet.flatten(screen.getByTestId('detail-hero-header').props.style);
-
-    expect(header.paddingTop).toBe(62);
-    expect(overlayPaddingBottom()).toBe(withoutInset);
+    expect(screen.queryByText(/Lausanne,|^Lausanne$/)).toBeNull();
+    expect(screen.queryByText(/Switzerland/)).toBeNull();
   });
 });

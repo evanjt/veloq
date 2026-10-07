@@ -1,5 +1,7 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { fireEvent, render } from '@testing-library/react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 
 import { initializeI18n } from '@/i18n';
 import { SectionsList } from '@/features/routes/components/SectionsList';
@@ -17,7 +19,10 @@ import type { SectionWithPolyline } from 'veloqrs';
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/app', () => ({
-  useTheme: () => ({ isDark: false }),
+  useTheme: () => ({
+    isDark: false,
+    colors: { text: '#000000', textSecondary: '#666666', textOnDark: '#ffffff' },
+  }),
   useMetricSystem: () => true,
   useAppSettings: () => ({ settings: {} }),
 }));
@@ -46,13 +51,22 @@ jest.mock('@/features/routes/hooks/useCustomSections', () => ({
   }),
 }));
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+const mockEnableSection = jest.fn();
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({ enableSection: mockEnableSection }),
+}));
 
-const record = (id: string, name: string, visitCount: number): SectionWithPolyline =>
+const record = (
+  id: string,
+  name: string,
+  visitCount: number,
+  sectionType: 'auto' | 'custom' = 'auto'
+): SectionWithPolyline =>
   ({
     id,
     name,
-    sportType: 'Ride',
+    sectionType,
+    sportTypes: ['Ride'],
     encodedPolyline: '',
     distanceMeters: 1000,
     visitCount,
@@ -98,7 +112,8 @@ describe('SectionsList over an engine-ordered page', () => {
     const tree = renderList();
 
     const ids = tree
-      .getAllByTestId(/^section-row-auto_/)
+      .getAllByTestId(/^section-row-auto_[a-z0-9]+(-body)?$/)
+      .filter((node) => !String(node.props.testID).endsWith('-body'))
       .map((node) => String(node.props.testID).replace('section-row-', ''))
       .filter((id, i, all) => all.indexOf(id) === i);
 
@@ -112,6 +127,38 @@ describe('SectionsList over an engine-ordered page', () => {
 
     expect(tree.getByText('Accept All')).toBeTruthy();
     expect(tree.getByText('Accepted only')).toBeTruthy();
+  });
+
+  it('names the selected row before deleting a custom section', () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const tree = renderList({
+      batchSections: [
+        record('custom_a', 'Zulu', 1, 'custom'),
+        record('custom_b', 'Alpha', 1, 'custom'),
+      ],
+    });
+    const rows = tree.UNSAFE_getAllByType(Swipeable);
+    const actions = rows[1].props.renderRightActions(null, {
+      interpolate: () => 1,
+    });
+    const swipe = render(actions);
+
+    fireEvent.press(swipe.getByText('Delete'));
+
+    expect(alert.mock.calls[0][1]).toContain('Alpha');
+    expect(alert.mock.calls[0][1]).not.toContain('Zulu');
+    expect(alert.mock.calls[0][2]?.map((button) => button.style)).toContain('cancel');
+  });
+
+  it('offers Restore for a retired row and enables that section', () => {
+    const retired = { ...record('auto_retired', 'Retired climb', 2), disabled: true };
+    const tree = renderList({ batchSections: [retired] });
+    const row = tree.UNSAFE_getByType(Swipeable);
+    const swipe = render(row.props.renderRightActions(null, { interpolate: () => 1 }));
+
+    expect(tree.getByTestId('section-row-auto_retired')).toBeTruthy();
+    fireEvent.press(swipe.getByText('Restore'));
+    expect(mockEnableSection).toHaveBeenCalledWith('auto_retired');
   });
 });
 
@@ -142,5 +189,25 @@ describe('the filter chips count the catalogue, not the page', () => {
     expect(getByText('4 Custom')).toBeTruthy();
     expect(getByText('2 Removed')).toBeTruthy();
     expect(queryByText('0 Removed')).toBeNull();
+  });
+});
+
+describe('SectionsList over a failed page read', () => {
+  beforeAll(async () => {
+    await initializeI18n('en-AU');
+  });
+
+  it('shows the failure with a retry, not the empty library copy', () => {
+    const onRetry = jest.fn();
+    const tree = renderList({
+      batchSections: undefined,
+      totalSectionCount: 0,
+      loadError: new Error('database is locked'),
+      onRetry,
+    });
+
+    expect(tree.queryByText(/No frequent sections/)).toBeNull();
+    fireEvent.press(tree.getByText('Retry'));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

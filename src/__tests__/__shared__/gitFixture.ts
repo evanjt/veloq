@@ -20,6 +20,7 @@ const INHERITED = [
   'GIT_ALTERNATE_OBJECT_DIRECTORIES',
   'GIT_PREFIX',
   'GIT_CEILING_DIRECTORIES',
+  'GIT_REFLOG_ACTION',
 ];
 
 /**
@@ -34,10 +35,20 @@ const IDENTITY = {
   GIT_COMMITTER_EMAIL: 'fixture@veloq.invalid',
 };
 
-/** `process.env` with every inherited git pointer removed. */
+/**
+ * The session's own switches: `VELOQ_SKIP_GATES`, the lock-held markers, the
+ * merge base. A fixture that inherits one runs the scripts under test as the
+ * calling session asked, so a `VELOQ_SKIP_GATES=tsc` commit skipped `tsc`
+ * inside the very fixture that asserts nothing is skipped. A fixture that
+ * means one sets it after this call.
+ */
+const SESSION_SWITCH = /^VELOQ_/;
+
+/** `process.env` with every inherited git pointer and session switch removed. */
 export function gitFreeEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...base, ...IDENTITY };
   for (const key of INHERITED) delete env[key];
+  for (const key of Object.keys(env)) if (SESSION_SWITCH.test(key)) delete env[key];
   return env;
 }
 

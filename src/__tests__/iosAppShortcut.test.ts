@@ -22,4 +22,9 @@ describe('the record deep link is one rule, shared by both targets', () => {
     expect(iosPlugin.SHARED_APP_FILES).toContain('VeloqAppShortcuts.swift');
     expect(iosPlugin.widgetSwiftFiles(projectRoot)).toContain('RecordDeepLink.swift');
   });
+
+  it('compiles the sport entity in both targets, so the phrase and the widget share one list', () => {
+    expect(iosPlugin.SHARED_APP_FILES).toContain('RecordSportEntity.swift');
+    expect(iosPlugin.widgetSwiftFiles(projectRoot)).toContain('RecordSportEntity.swift');
+  });
 });

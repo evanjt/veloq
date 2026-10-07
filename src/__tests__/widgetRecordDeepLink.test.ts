@@ -5,61 +5,60 @@
  * Expected behaviour: every record surface opens the deep link the snapshot
  * carries for the most recent sport, which starts the ride on mount, and falls
  * back to `veloq://record` only when the snapshot names none. The link is
- * composed in `widgetSnapshot.ts` and read everywhere else, so a snapshot
+ * composed in `widgetSnapshot.ts`, carried on the context the engine copies into
+ * the snapshot, and read everywhere else, so a snapshot
  * written before the field, or before anything was recorded, opens the picker
  * rather than an empty path.
  */
 
 import {
-  composeSnapshot,
+  composeWidgetContext,
   RECORD_PICKER_URL,
-  type RawWidgetData,
+  type WidgetContextInput,
 } from '@/features/home/lib/widgetSnapshot';
 
-function raw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
-  return {
-    sparklines: null,
-    summary: null,
-    latest: null,
-    locale: 'en-AU',
-    isMetric: true,
-    nowSeconds: 1_700_000_000,
-    nowWallSeconds: 1_700_000_000,
-    ...overrides,
-  };
+const NO_DATES = {
+  weekdays: [],
+  monthDay: { parts: [], months: [] },
+  monthDayYear: { parts: [], months: [] },
+};
+
+function raw(overrides: Partial<WidgetContextInput> = {}): WidgetContextInput {
+  return { locale: 'en-AU', isMetric: true, dates: NO_DATES, ...overrides };
 }
 
 describe('the deep link is composed once, in the snapshot', () => {
   it('starts the ride for a known sport', () => {
-    const snap = composeSnapshot(raw({ recentRecordingTypes: ['Ride'] }));
-    expect(snap.recordShortcuts[0].url).toBe('veloq://recording/Ride?from=quickstart');
+    const context = composeWidgetContext(raw({ recentRecordingTypes: ['Ride'] }));
+    expect(context.recordShortcuts[0].url).toBe('veloq://recording/Ride?from=quickstart');
   });
 
   it('escapes a sport whose name is not URL-safe', () => {
-    const snap = composeSnapshot(raw({ recentRecordingTypes: ['Stand Up Paddling'] }));
-    expect(snap.recordShortcuts[0].url).toBe(
+    const context = composeWidgetContext(raw({ recentRecordingTypes: ['Stand Up Paddling'] }));
+    expect(context.recordShortcuts[0].url).toBe(
       'veloq://recording/Stand%20Up%20Paddling?from=quickstart'
     );
   });
 
   it('names the picker as the fallback, and only there', () => {
     expect(RECORD_PICKER_URL).toBe('veloq://record');
-    expect(composeSnapshot(raw()).recordShortcuts).toEqual([]);
+    expect(composeWidgetContext(raw()).recordShortcuts).toEqual([]);
   });
 });
 
 describe('the gather path reads the sports the recording preferences published', () => {
   // An engine with nothing in it still answers. Handing back undefined models
   // a shape the FFI never produces: it returns the payload or it throws.
+  // The engine copies the shortcuts off the context it is handed, so the
+  // context is what these read.
   const mockEngine = {
-    getWidgetSnapshot: jest.fn(() => ({
-      sparklines: null,
-      summary: null,
-      latest: null,
-      latestIsPr: false,
-      latestGps: null,
-    })),
+    composeWidgetSnapshot: jest.fn((_context: string) => '{}'),
+    setWidgetContext: jest.fn(() => true),
   };
+  const handed = () =>
+    JSON.parse(mockEngine.composeWidgetSnapshot.mock.calls.at(-1)![0]) as {
+      recordShortcuts: { type: string }[];
+    };
 
   beforeEach(() => {
     jest.resetModules();
@@ -79,7 +78,8 @@ describe('the gather path reads the sports the recording preferences published',
     const { setRecentRecordingTypes } = require('@/shared/recording');
     setRecentRecordingTypes(types);
     const { gatherWidgetSnapshot } = require('@/features/home/lib/widgetSnapshot');
-    return gatherWidgetSnapshot({ locale: 'en-AU', isMetric: true, now: new Date(0) });
+    gatherWidgetSnapshot({ locale: 'en-AU', isMetric: true, now: new Date(0) });
+    return handed();
   }
 
   it('takes them in the order they were published', () => {
@@ -126,10 +126,9 @@ describe('the recording preferences publish the sports for the widget path', () 
       getSetting: jest.fn(async () => JSON.stringify({ recentActivityTypes: [] })),
       setSetting: jest.fn(async () => {}),
     }));
-    const { getRecentRecordingTypes, getLastRecordingType } = require('@/shared/recording');
+    const { getRecentRecordingTypes } = require('@/shared/recording');
     await store().getState().initialize();
     expect(getRecentRecordingTypes()).toEqual([]);
-    expect(getLastRecordingType()).toBeNull();
     jest.dontMock('@/shared/storage');
   });
 });

@@ -2,7 +2,7 @@ import { StartOutcome } from 'veloqrs';
 import React from 'react';
 import { Alert, ScrollView } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { PreviewCentrePicker } from '@/features/routes/components/preview/PreviewCentrePicker';
 import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewParamPanel';
@@ -39,6 +39,7 @@ const mockEnv = {
   currentSections: null as unknown,
   rescan: null as (() => unknown) | null,
   hold: null as (() => unknown) | null,
+  cutover: null as (() => boolean) | null,
   components: {} as Record<string, Slot>,
   realI18n: false,
   stubShell: false,
@@ -79,6 +80,7 @@ jest.mock('react-native-iap', () => ({
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   router: { back: jest.fn(), push: jest.fn() },
+  useFocusEffect: (effect: () => void | (() => void)) => require('react').useEffect(effect, []),
 }));
 
 jest.mock('@/shared/app', () => {
@@ -96,12 +98,14 @@ jest.mock('@/shared/app', () => {
   };
 });
 
-jest.mock('@/features/routes', () => {
+jest.mock('@/features/routes/hooks/useDetectionHold', () => {
   const actual = jest.requireActual('@/features/routes/hooks/useDetectionHold');
   return {
     ...actual,
     useDetectionHold: (...args: unknown[]) =>
       mockEnv.hold ? mockEnv.hold() : actual.useDetectionHold(...args),
+    useCutoverHeld: (...args: unknown[]) =>
+      mockEnv.cutover ? mockEnv.cutover() : actual.useCutoverHeld(...args),
   };
 });
 
@@ -171,6 +175,7 @@ function resetEnv() {
   mockEnv.currentSections = null;
   mockEnv.rescan = null;
   mockEnv.hold = null;
+  mockEnv.cutover = null;
   mockEnv.components = NO_CHILDREN;
   mockEnv.realI18n = false;
   mockEnv.stubShell = false;
@@ -190,6 +195,7 @@ describe('detection preview bottom buffer', () => {
     resetEnv();
     mockEnv.engine = () => ({
       sectionDetectionAwaiting: () => 0,
+      subscribe: () => () => {},
       getSectionConfig: () => ({
         proximityThreshold: 50,
         minSectionLength: 500,
@@ -212,7 +218,7 @@ describe('detection preview bottom buffer', () => {
       status: 'idle',
       progress: null,
       result: null,
-      suspended: false,
+      refusal: null,
       start: jest.fn(),
       cancel: jest.fn(),
       reset: jest.fn(),
@@ -274,7 +280,6 @@ describe('changing the riding area under a finished preview', () => {
       visitTotal: 20,
       sectionCount: 4,
       source: 'sections',
-      locality: null,
     },
     {
       binKey: 'b',
@@ -283,7 +288,6 @@ describe('changing the riding area under a finished preview', () => {
       visitTotal: 9,
       sectionCount: 2,
       source: 'sections',
-      locality: null,
     },
   ];
 
@@ -296,7 +300,7 @@ describe('changing the riding area under a finished preview', () => {
       pool: { activities: 12, empty: 0, unreadable: 0 },
       elapsedMs: 900,
     },
-    suspended: false,
+    refusal: null,
     start: jest.fn(() => true),
     cancel: jest.fn(),
     reset: mockReset,
@@ -327,6 +331,7 @@ describe('changing the riding area under a finished preview', () => {
     resetEnv();
     mockEnv.engine = () => ({
       sectionDetectionAwaiting: () => 0,
+      subscribe: () => () => {},
       getSectionConfig: () => CONFIG,
       setSectionConfig: jest.fn(),
       forceRedetectSections: jest.fn(),
@@ -377,7 +382,6 @@ describe('detection preview screen', () => {
     lng: 8.7,
     visitTotal: 40,
     sectionCount: 2,
-    locality: null,
     source: 'sections',
   };
 
@@ -387,7 +391,6 @@ describe('detection preview screen', () => {
       liveId: id,
       status: 'unchanged',
       name: `Section ${id}`,
-      sport: 'Ride',
       polyline: new ArrayBuffer(0),
       visits: 7,
       distanceM: 4200,
@@ -441,6 +444,7 @@ describe('detection preview screen', () => {
     resetEnv();
     mockEnv.engine = () => ({
       sectionDetectionAwaiting: () => 0,
+      subscribe: () => () => {},
       getSectionConfig: () => ({
         proximityThreshold: 50,
         minSectionLength: 500,
@@ -463,7 +467,7 @@ describe('detection preview screen', () => {
       status: 'idle',
       progress: null,
       result: mockResult,
-      suspended: false,
+      refusal: null,
       start: (...args: unknown[]) => mockStart(...args),
       cancel: jest.fn(),
       reset: jest.fn(),
@@ -532,13 +536,13 @@ describe('detection preview screen', () => {
  * still migrating. A notice, not a door.
  */
 describe('the preview during the detector cutover', () => {
-  const mockHold = jest.fn<'elevation' | 'cutover' | null, []>(() => null);
+  const mockCutover = jest.fn<boolean, []>(() => false);
 
   beforeEach(() => {
     resetEnv();
     mockEnv.realI18n = true;
     mockEnv.stubShell = true;
-    mockEnv.hold = () => mockHold();
+    mockEnv.cutover = () => mockCutover();
     mockEnv.engine = () => ({
       sectionDetectionAwaiting: () => 0,
       getSectionConfig: () => null,
@@ -558,18 +562,18 @@ describe('the preview during the detector cutover', () => {
       status: 'idle',
       progress: null,
       result: null,
-      suspended: false,
+      refusal: null,
       start: jest.fn(),
       cancel: jest.fn(),
     });
   });
 
   beforeEach(() => {
-    mockHold.mockReturnValue(null);
+    mockCutover.mockReturnValue(false);
   });
 
   it('says the library is still migrating while the cutover is owed', () => {
-    mockHold.mockReturnValue('cutover');
+    mockCutover.mockReturnValue(true);
     const { getByTestId } = render(<DetectionPreviewScreen />);
 
     expect(getByTestId('preview-migrating')).toBeTruthy();
@@ -581,13 +585,139 @@ describe('the preview during the detector cutover', () => {
     expect(queryByTestId('preview-migrating')).toBeNull();
   });
 
-  /// The elevation backfill is a different kind of gate and has its own
-  /// refusal; this notice is about the cutover alone.
-  it('says nothing while the elevation backfill holds', () => {
-    mockHold.mockReturnValue('elevation');
+  /// The upgrade path owes the cutover and the elevation queue together, and
+  /// the hold the hook ranks first is the backfill's. The notice follows the
+  /// cutover, not that ranking.
+  it('says the library is migrating while elevation is also owed', () => {
+    mockEnv.hold = () => 'elevation-waiting';
+    mockCutover.mockReturnValue(true);
+    const { getByTestId } = render(<DetectionPreviewScreen />);
+
+    expect(getByTestId('preview-migrating')).toBeTruthy();
+  });
+
+  it('says nothing when only the elevation backfill is owed', () => {
+    mockEnv.hold = () => 'elevation-waiting';
     const { queryByTestId } = render(<DetectionPreviewScreen />);
 
     expect(queryByTestId('preview-migrating')).toBeNull();
+  });
+
+  /// Scenario: the start's refusal is the engine's own answer, and each one
+  /// ends differently, so each reads as its own line.
+  /// Expected behaviour: the elevation line shows only under an elevation hold.
+  describe('a refused start', () => {
+    function refusedWith(refusal: StartOutcome | null, hold: string | null) {
+      mockEnv.hold = () => hold;
+      mockEnv.detect = () => ({
+        status: 'idle',
+        progress: null,
+        result: null,
+        refusal,
+        start: jest.fn(),
+        cancel: jest.fn(),
+      });
+      return render(<DetectionPreviewScreen />);
+    }
+
+    it.each([
+      [StartOutcome.Busy, null, 'settings.previewRefusedBusy'],
+      [StartOutcome.Held, 'elevation-running', 'settings.previewSuspended'],
+      [StartOutcome.Held, null, 'settings.previewRefusedRecentFailure'],
+      [StartOutcome.NotReady, null, 'sections.rescanRefusedNotReady'],
+      [StartOutcome.NotOwed, null, 'settings.previewRefusedNothingCovers'],
+      [StartOutcome.Failed, null, 'settings.previewRefusedFailed'],
+    ])('gives %s under hold %s its own line', (outcome, hold, key) => {
+      const { getByTestId } = refusedWith(outcome, hold);
+
+      expect(getByTestId('preview-refusal').props.children).toBe(key);
+    });
+
+    it('shows nothing when the start was not refused', () => {
+      const { queryByTestId } = refusedWith(null, 'elevation-running');
+
+      expect(queryByTestId('preview-refusal')).toBeNull();
+    });
+  });
+});
+
+/**
+ * Scenario: a config change clears the processed set and the re-detect that
+ * follows lands after the screen has mounted. The count of activities the
+ * catalogue has not seen was read once, keyed on a handle that never changes,
+ * so the notice kept saying the catalogue was current, or kept saying it was
+ * behind after detection caught up.
+ * Expected behaviour: the count is read again when the engine announces that
+ * the sections or the activities moved.
+ */
+describe('the stale catalogue notice', () => {
+  const listeners = new Map<string, Set<() => void>>();
+  let awaiting = 0;
+  const engine = {
+    sectionDetectionAwaiting: () => awaiting,
+    getSectionConfig: () => null,
+    subscribe: (event: string, callback: () => void) => {
+      const forEvent = listeners.get(event) ?? new Set<() => void>();
+      forEvent.add(callback);
+      listeners.set(event, forEvent);
+      return () => forEvent.delete(callback);
+    },
+  };
+
+  function fire(event: string) {
+    act(() => {
+      listeners.get(event)?.forEach((listener) => listener());
+    });
+  }
+
+  beforeEach(() => {
+    resetEnv();
+    mockEnv.stubShell = true;
+    listeners.clear();
+    awaiting = 0;
+    mockEnv.engine = () => engine;
+    mockEnv.unifiedConfig = {
+      proximityThreshold: 200,
+      minSectionLength: 150,
+      maxSectionLength: 200000,
+      minActivities: 2,
+      divergenceThreshold: 0.15,
+    };
+    mockEnv.centres = { centres: [], labels: {} };
+    mockEnv.currentSections = { sections: [], failed: false };
+    mockEnv.rescan = () => ({ forceRescan: jest.fn() });
+    mockEnv.detect = () => ({
+      status: 'idle',
+      progress: null,
+      result: null,
+      refusal: null,
+      start: jest.fn(),
+      cancel: jest.fn(),
+    });
+  });
+
+  it.each(['activities', 'sections', 'detectionApplied'])(
+    'shows the notice once %s announces activities the catalogue has not seen',
+    (event) => {
+      const { queryByTestId } = render(<DetectionPreviewScreen />);
+      expect(queryByTestId('preview-stale-catalogue')).toBeNull();
+
+      awaiting = 3;
+      fire(event);
+
+      expect(queryByTestId('preview-stale-catalogue')).toBeTruthy();
+    }
+  );
+
+  it('drops the notice once detection has caught up', () => {
+    awaiting = 3;
+    const { queryByTestId } = render(<DetectionPreviewScreen />);
+    expect(queryByTestId('preview-stale-catalogue')).toBeTruthy();
+
+    awaiting = 0;
+    fire('detectionApplied');
+
+    expect(queryByTestId('preview-stale-catalogue')).toBeNull();
   });
 });
 
@@ -618,6 +748,7 @@ describe('keeping a preview starts an observable re-cut', () => {
     resetEnv();
     mockEnv.engine = () => ({
       sectionDetectionAwaiting: () => 0,
+      subscribe: () => () => {},
       getSectionConfig: () => ({
         proximityThreshold: 50,
         minSectionLength: 500,
@@ -652,8 +783,18 @@ describe('keeping a preview starts an observable re-cut', () => {
     mockEnv.detect = () => ({
       status: 'idle',
       progress: null,
-      result: { sections: [], counts: { kept: 1, added: 0, removed: 0 } },
-      suspended: false,
+      result: {
+        sections: [],
+        counts: { kept: 1, added: 0, removed: 0 },
+        config: {
+          proximityThreshold: 50,
+          minSectionLength: 500,
+          maxSectionLength: 20000,
+          minActivities: 3,
+          divergenceThreshold: 0.2,
+        },
+      },
+      refusal: null,
       start: jest.fn(),
       cancel: jest.fn(),
       reset: jest.fn(),
@@ -686,6 +827,38 @@ describe('keeping a preview starts an observable re-cut', () => {
     pressKeepAndConfirm();
 
     expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  /// Scenario: the cutover is owed, so the flip would reset whatever Keep wrote.
+  /// Expected behaviour: Keep is disabled with a notice and writes nothing.
+  describe('while the cutover is owed', () => {
+    beforeEach(() => {
+      mockEnv.cutover = () => true;
+    });
+    afterEach(() => {
+      mockEnv.cutover = () => false;
+    });
+
+    it('disables Keep and says it can be kept once the upgrade finishes', () => {
+      const tree = render(<DetectionPreviewScreen />);
+
+      expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBe(true);
+      expect(tree.getByTestId('preview-keep-after-upgrade')).toBeTruthy();
+    });
+
+    it('writes no config when Keep is pressed', () => {
+      pressKeepAndConfirm();
+
+      expect(mockSetSectionConfig).not.toHaveBeenCalled();
+      expect(mockForceRescan).not.toHaveBeenCalled();
+    });
+  });
+
+  it('shows no upgrade notice and an enabled Keep once the cutover has run', () => {
+    const tree = render(<DetectionPreviewScreen />);
+
+    expect(tree.queryByTestId('preview-keep-after-upgrade')).toBeNull();
+    expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBeFalsy();
   });
 
   it('starts nothing when the preview is discarded', () => {
@@ -730,6 +903,7 @@ describe('preview screen layout', () => {
     resetEnv();
     mockEnv.engine = () => ({
       sectionDetectionAwaiting: () => 0,
+      subscribe: () => () => {},
       getSectionConfig: () => ({
         proximityThreshold: 200,
         minSectionLength: 150,
@@ -757,7 +931,6 @@ describe('preview screen layout', () => {
           visitTotal: 10,
           sectionCount: 3,
           source: 'visits',
-          locality: null,
         },
         {
           binKey: 'b2',
@@ -766,7 +939,6 @@ describe('preview screen layout', () => {
           visitTotal: 6,
           sectionCount: 1,
           source: 'sections',
-          locality: null,
         },
       ],
       labels: [
@@ -780,7 +952,7 @@ describe('preview screen layout', () => {
       status: 'idle',
       progress: null,
       result: mockResult.value,
-      suspended: false,
+      refusal: null,
       start: jest.fn(),
       cancel: jest.fn(),
       reset: jest.fn(),
@@ -879,7 +1051,18 @@ describe('detection preview sensitivity controls', () => {
   }));
 
   const mockStart = jest.fn();
-  const previewResult = { counts: { current: 4, proposed: 6, kept: 3 }, sections: [] };
+  const previewedConfig = {
+    proximityThreshold: 50,
+    minSectionLength: 500,
+    maxSectionLength: 50000,
+    minActivities: 3,
+    divergenceThreshold: 0.2,
+  };
+  const previewResult = {
+    counts: { current: 4, proposed: 6, kept: 3 },
+    sections: [],
+    config: previewedConfig,
+  };
   let mockResult: typeof previewResult | null = previewResult;
 
   function sliders(tree: ReturnType<typeof render>) {
@@ -896,6 +1079,7 @@ describe('detection preview sensitivity controls', () => {
     resetEnv();
     mockEnv.engine = () => ({
       sectionDetectionAwaiting: () => 0,
+      subscribe: () => () => {},
       getSectionConfig: mockGetSectionConfig,
       setSectionConfig: mockSetSectionConfig,
       forceRedetectSections: mockForceRedetect,
@@ -911,7 +1095,7 @@ describe('detection preview sensitivity controls', () => {
       status: 'done',
       progress: null,
       result: mockResult,
-      suspended: false,
+      refusal: null,
       start: mockStart,
       cancel: jest.fn(),
     });
@@ -966,17 +1150,38 @@ describe('detection preview sensitivity controls', () => {
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
   });
 
-  it('commits the staged values only when Keep is confirmed', () => {
+  it('commits the previewed values only when Keep is confirmed', () => {
     confirmNextAlert();
+    mockResult = {
+      ...previewResult,
+      config: { ...previewedConfig, proximityThreshold: 150, minActivities: 5 },
+    };
     const tree = render(<DetectionPreviewScreen />);
     fireEvent(sliders(tree)[0], 'valueChange', 150);
     fireEvent(sliders(tree)[3], 'valueChange', 5);
-    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    fireEvent.press(tree.getByTestId('preview-keep-button'));
     expect(mockSetSectionConfig).toHaveBeenCalledTimes(1);
     expect(mockSetSectionConfig).toHaveBeenCalledWith(
       expect.objectContaining({ proximityThreshold: 150, minActivities: 5 })
     );
     expect(mockForceRedetect).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Keep once a slider moves away from the previewed config', () => {
+    confirmNextAlert();
+    const tree = render(<DetectionPreviewScreen />);
+    expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBeFalsy();
+    fireEvent(sliders(tree)[0], 'valueChange', 400);
+    expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBe(true);
+    fireEvent.press(tree.getByTestId('preview-keep-button'));
+    expect(mockSetSectionConfig).not.toHaveBeenCalled();
+  });
+
+  it('enables Keep again when the slider returns to the previewed value', () => {
+    const tree = render(<DetectionPreviewScreen />);
+    fireEvent(sliders(tree)[0], 'valueChange', 400);
+    fireEvent(sliders(tree)[0], 'valueChange', 50);
+    expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBeFalsy();
   });
 
   it('leaves the config alone when Keep is cancelled', () => {
@@ -1015,7 +1220,21 @@ describe('detection preview sensitivity controls', () => {
     fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     const [title, message] = alert.mock.calls[alert.mock.calls.length - 1];
     expect(title).toBe('settings.previewKeepRefusedTitle');
-    expect(message).toBe('settings.previewKeepRefused');
+    expect(message).toBe('settings.previewKeepRefused sections.rescanRefusedHeld');
+  });
+
+  it.each([
+    [StartOutcome.Busy, 'sections.rescanRefusedBusy'],
+    [StartOutcome.Held, 'sections.rescanRefusedHeld'],
+    [StartOutcome.NotReady, 'sections.rescanRefusedNotReady'],
+    [StartOutcome.NotConfigured, 'sections.rescanRefusedOff'],
+  ])('gives each refusal its own reason (%s)', (outcome, key) => {
+    mockForceRedetect.mockReturnValue(outcome);
+    const alert = confirmNextAlert();
+    const tree = render(<DetectionPreviewScreen />);
+    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    const [, message] = alert.mock.calls[alert.mock.calls.length - 1];
+    expect(message).toContain(key);
   });
 
   it('lets a refused accept be retried without leaving the screen', () => {
@@ -1060,6 +1279,7 @@ describe('preview run progress', () => {
     resetEnv();
     mockEnv.engine = () => ({
       sectionDetectionAwaiting: () => 0,
+      subscribe: () => () => {},
       getSectionConfig: () => ({
         proximityThreshold: 200,
         minSectionLength: 150,
@@ -1087,7 +1307,7 @@ describe('preview run progress', () => {
       status: mockStatus.value,
       progress: mockProgress.value,
       result: null,
-      suspended: false,
+      refusal: null,
       lapsed: mockLapsed.value,
       start: jest.fn(),
       cancel: jest.fn(),
@@ -1191,7 +1411,7 @@ describe('the preview against a catalogue that has not caught up', () => {
       status: 'idle',
       progress: null,
       result: null,
-      suspended: false,
+      refusal: null,
       start: jest.fn(),
       cancel: jest.fn(),
     });

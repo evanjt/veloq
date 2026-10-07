@@ -11,12 +11,15 @@ import type { SectionEncounter } from 'veloqrs';
 
 function encounter(overrides: Partial<SectionEncounter> & { sectionId: string }): SectionEncounter {
   return {
+    sectionType: 'auto',
     sectionName: `Section ${overrides.sectionId}`,
     direction: 'same',
     distanceMeters: 1000,
+    startIndex: 0,
     lapTime: 120,
     lapPace: 2,
     isPr: false,
+    isComplete: true,
     visitCount: 3,
     historyTimes: [],
     historyActivityIds: [],

@@ -21,13 +21,15 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => `t(${key})` }),
 }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useSectionDetail: () => ({ section: { id: 'auto1', sportType: 'Ride', activityPortions: [] } }),
+jest.mock('@/shared/native/useSectionDetail', () => ({
+  useSectionDetail: () => ({
+    section: { id: 'auto1', sportTypes: ['Ride'], activityPortions: [] },
+  }),
 }));
 
 const mockPerformances = jest.fn((_section: unknown, _sportType?: string) => ({
   records: [],
-  bestRecord: null,
+  bests: { forward: null, reverse: null, forwardIsPr: false, reverseIsPr: false },
   isLoading: false,
 }));
 jest.mock('@/features/routes/hooks/useSectionPerformances', () => ({
@@ -74,7 +76,7 @@ describe('an insight sheet', () => {
 
   it('reads the trend sport the accordion row carries', () => {
     const { getByText } = render(<SectionTrendContent insight={insight('section_trend', 'Run')} />);
-    getByText('Shared Climb');
+    getByText('t(insights.sectionWithSport)');
     expect(sportAsked()).toBe('Run');
   });
 

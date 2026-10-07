@@ -49,7 +49,7 @@ const RIDE = {
   max_speed: 14.2,
   average_heartrate: 142,
   max_heartrate: 168,
-  average_watts: 210,
+  icu_average_watts: 210,
   average_cadence: 88,
   calories: 1200,
   icu_training_load: 85,
@@ -117,7 +117,7 @@ const NULL_ACTIVITY = {
   max_speed: 5.0,
   average_heartrate: null,
   max_heartrate: null,
-  average_watts: null,
+  icu_average_watts: null,
   average_cadence: null,
   calories: null,
   icu_training_load: null,
@@ -138,7 +138,7 @@ const ZERO_DIST = {
   max_speed: 0,
   average_heartrate: 120,
   max_heartrate: 145,
-  average_watts: 150,
+  icu_average_watts: 150,
   calories: 200,
   icu_training_load: 30,
   icu_ftp: 250,
@@ -154,8 +154,8 @@ describe('Data Pipeline', () => {
     expect(formatDistance(RIDE.distance)).toBe('45.0 km');
     expect(formatDuration(RIDE.moving_time)).toBe('1:30:00');
     expect(formatElevation(RIDE.total_elevation_gain)).toBe('850 m');
-    expect(formatSpeed(RIDE.average_speed)).toBe('29.9 km/h');
-    expect(formatPower(RIDE.average_watts)).toBe('210 W');
+    expect(formatSpeed(RIDE.average_speed, true)).toBe('29.9 km/h');
+    expect(formatPower(RIDE.icu_average_watts)).toBe('210 W');
     expect(formatHeartRate(RIDE.average_heartrate)).toBe('142 bpm');
     expect(formatTSS(RIDE.icu_training_load)).toBe('85 TSS');
     expect(formatCalories(RIDE.calories)).toBe('1.2k cal');
@@ -164,18 +164,18 @@ describe('Data Pipeline', () => {
   // Test 3: Run shows pace not speed
   it('run fixture → pace in min/km, not speed in km/h', () => {
     // 3.15 m/s → 1000/3.15 = 317.46 s/km = 5:17 /km
-    const pace = formatPace(RUN.average_speed);
+    const pace = formatPace(RUN.average_speed, true);
     expect(pace).toMatch(/\d+:\d{2} \/km/);
     expect(pace).toBe('5:17 /km');
 
     // Compact pace (no unit suffix)
-    expect(formatPaceCompact(RUN.average_speed)).toBe('5:17');
+    expect(formatPaceCompact(RUN.average_speed, true)).toBe('5:17');
   });
 
   // Test 4: Swim pace per 100m (metric) and per 100yd (imperial)
   it('swim fixture → pace per 100m and per 100yd', () => {
     // 0.83 m/s → 100 / 0.83 = 120.48 s ≈ 2:00
-    const metricPace = formatSwimPace(SWIM.average_speed);
+    const metricPace = formatSwimPace(SWIM.average_speed, true);
     expect(metricPace).toMatch(/\d+:\d{2}/);
     expect(metricPace).toBe('2:00');
 
@@ -312,18 +312,18 @@ describe('Zero-distance activity contract', () => {
     // All formatters should return a valid string, not NaN or crash
     expect(formatDistance(0)).toBeTruthy();
     expect(formatDuration(0)).toBeTruthy();
-    expect(formatPace(0)).toBeTruthy(); // 0 m/s pace
-    expect(formatSpeed(0)).toBeTruthy();
+    expect(formatPace(0, true)).toBeTruthy(); // 0 m/s pace
+    expect(formatSpeed(0, true)).toBeTruthy();
   });
 
   it('format functions on zero-distance produce no NaN or Infinity', () => {
     const results = [
       formatDistance(0),
       formatDuration(0),
-      formatPace(0),
-      formatPaceCompact(0),
-      formatSwimPace(0),
-      formatSpeed(0),
+      formatPace(0, true),
+      formatPaceCompact(0, true),
+      formatSwimPace(0, true),
+      formatSpeed(0, true),
       formatElevation(0),
       formatHeartRate(0),
       formatPower(0),
@@ -368,20 +368,20 @@ describe('All-null activity fields', () => {
 
 describe('Swim pace edge cases', () => {
   it('handles zero speed', () => {
-    expect(formatSwimPace(0)).toBeTruthy();
-    expect(formatSwimPace(0)).not.toContain('NaN');
-    expect(formatSwimPace(0)).not.toContain('Infinity');
+    expect(formatSwimPace(0, true)).toBeTruthy();
+    expect(formatSwimPace(0, true)).not.toContain('NaN');
+    expect(formatSwimPace(0, true)).not.toContain('Infinity');
   });
 
   it('returns --:-- for zero and negative speed', () => {
     // formatSwimPace guards with: metersPerSecond <= 0 → '--:--'
-    expect(formatSwimPace(0)).toBe('--:--');
-    expect(formatSwimPace(-1)).toBe('--:--');
+    expect(formatSwimPace(0, true)).toBe('--:--');
+    expect(formatSwimPace(-1, true)).toBe('--:--');
   });
 
   it('handles very high speed without crash', () => {
     // 100 m/s is absurdly fast but should not crash or produce NaN
-    const fast = formatSwimPace(100);
+    const fast = formatSwimPace(100, true);
     expect(fast).not.toContain('NaN');
     expect(fast).not.toContain('Infinity');
     // 100 / 100 m/s = 1 second → 0:01
@@ -390,7 +390,7 @@ describe('Swim pace edge cases', () => {
 
   it('handles very slow speed without overflow', () => {
     // 0.01 m/s → 100/0.01 = 10000s = 166:40
-    const slow = formatSwimPace(0.01);
+    const slow = formatSwimPace(0.01, true);
     expect(slow).not.toContain('NaN');
     expect(slow).not.toContain('Infinity');
     expect(slow).toMatch(/\d+:\d{2}/);

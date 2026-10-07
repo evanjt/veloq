@@ -1,11 +1,11 @@
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { SectionChangeCardSlide } from '@/features/settings/components/whatsNew/SectionChangeCardSlide';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { getSlidesSince } from '@/features/settings/components/whatsNew/slides';
 
 import { routesStatus } from '../../__shared__/routesStatusStub';
+import { resolvedLocale } from '../../i18n/resolvedLocale';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -22,87 +22,21 @@ const ALL_BUT_DEVICE = {
 };
 
 describe('SectionChangeCardSlide', () => {
-  it('shows one row per supported claim and never the cross-device row', () => {
+  it('draws no claim rows and no elevation line, whatever the engine supports', () => {
     (getEngine as jest.Mock).mockReturnValue({
       subscribe: () => () => {},
       getChangeCardSupport: () => ALL_BUT_DEVICE,
     });
-    const { getByTestId, queryByTestId, getAllByText } = render(<SectionChangeCardSlide />);
-    for (const flag of [
-      'deterministic',
-      'sameResultDripOrBatch',
-      'ledger',
-      'revert',
-      'retired',
-      'pinnedSurvive',
-    ]) {
-      expect(getByTestId(`change-card-row-${flag}`)).toBeTruthy();
-    }
-    expect(queryByTestId('change-card-row-sameOnEveryDevice')).toBeNull();
-    expect(getAllByText(/whatsNew\.v040\.row/).length).toBe(6);
+    const { getByTestId, queryByTestId, queryByText } = render(<SectionChangeCardSlide />);
+    expect(getByTestId('change-card')).toBeTruthy();
+    expect(queryByTestId('change-card-row-ledger')).toBeNull();
+    expect(queryByTestId('change-card-elevation')).toBeNull();
+    expect(queryByText(/whatsNew\.v040\.row/)).toBeNull();
   });
 
-  it('hides a row whose flag is false and the card when nothing is supported', () => {
-    (getEngine as jest.Mock).mockReturnValue({
-      subscribe: () => () => {},
-      getChangeCardSupport: () => ({
-        ...ALL_BUT_DEVICE,
-        deterministic: false,
-        revert: false,
-      }),
-    });
-    const { queryByTestId } = render(<SectionChangeCardSlide />);
-    expect(queryByTestId('change-card-row-deterministic')).toBeNull();
-    expect(queryByTestId('change-card-row-revert')).toBeNull();
-    expect(queryByTestId('change-card-row-ledger')).toBeTruthy();
-
-    (getEngine as jest.Mock).mockReturnValue({
-      subscribe: () => () => {},
-      getChangeCardSupport: () => ({
-        ...ALL_BUT_DEVICE,
-        deterministic: false,
-        sameResultDripOrBatch: false,
-        ledger: false,
-        revert: false,
-        retired: false,
-        pinnedSurvive: false,
-      }),
-    });
-    expect(render(<SectionChangeCardSlide />).queryByTestId('change-card')).toBeNull();
+  it('shows no engine-support rows even when the engine is not open', () => {
     (getEngine as jest.Mock).mockReturnValue(null);
-    expect(render(<SectionChangeCardSlide />).queryByTestId('change-card')).toBeNull();
-  });
-
-  it('announces the one-time elevation download above the claims', () => {
-    (getEngine as jest.Mock).mockReturnValue({
-      subscribe: () => () => {},
-      getChangeCardSupport: () => ALL_BUT_DEVICE,
-    });
-    const { getByTestId, getByText } = render(<SectionChangeCardSlide />);
-    expect(getByTestId('change-card-elevation')).toBeTruthy();
-    expect(getByText('whatsNew.v040.elevationLine')).toBeTruthy();
-  });
-
-  it('re-reads the claims when the catalogue changes under an open carousel', () => {
-    const listeners = new Set<() => void>();
-    const getChangeCardSupport = jest.fn(() => ({ ...ALL_BUT_DEVICE, revert: false }));
-    (getEngine as jest.Mock).mockReturnValue({
-      subscribe: (event: string, cb: () => void) => {
-        if (event === 'sections') listeners.add(cb);
-        return () => listeners.delete(cb);
-      },
-      getChangeCardSupport,
-    });
-
-    const { queryByTestId } = render(<SectionChangeCardSlide />);
-    expect(queryByTestId('change-card-row-revert')).toBeNull();
-    const afterMount = getChangeCardSupport.mock.calls.length;
-
-    getChangeCardSupport.mockImplementation(() => ALL_BUT_DEVICE);
-    act(() => listeners.forEach((cb) => cb()));
-
-    expect(getChangeCardSupport.mock.calls.length).toBeGreaterThan(afterMount);
-    expect(queryByTestId('change-card-row-revert')).toBeTruthy();
+    expect(render(<SectionChangeCardSlide />).queryByTestId('change-card-row-ledger')).toBeNull();
   });
 
   it('is registered as the 0.4.0 slide', () => {
@@ -172,41 +106,20 @@ describe('SectionChangeCardSlide', () => {
       expect(line).toHaveTextContent(/"sections":40/);
     });
 
-    it('falls back to the claim rows when there is no stored diff', () => {
+    it('shows neither progress nor counts when there is no stored diff', () => {
       engineWith({ phase: 'idle', running: false }, null);
-      const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
+      const { queryByTestId } = render(<SectionChangeCardSlide />);
       expect(queryByTestId('change-card-counts')).toBeNull();
       expect(queryByTestId('change-card-progress')).toBeNull();
-      expect(getByTestId('change-card-row-ledger')).toBeTruthy();
     });
 
-    it('keeps the claim rows when the engine has no cutover calls at all', () => {
+    it('shows neither when the engine has no cutover calls at all', () => {
       (getEngine as jest.Mock).mockReturnValue({
         subscribe: () => () => {},
-        getChangeCardSupport: () => ALL_BUT_DEVICE,
       });
-      const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
+      const { queryByTestId } = render(<SectionChangeCardSlide />);
       expect(queryByTestId('change-card-counts')).toBeNull();
-      expect(getByTestId('change-card-row-ledger')).toBeTruthy();
-    });
-
-    it('shows nothing at all when no claim is supported, run or not', () => {
-      (getEngine as jest.Mock).mockReturnValue({
-        subscribe: () => () => {},
-        getChangeCardSupport: () => ({
-          deterministic: false,
-          sameResultDripOrBatch: false,
-          ledger: false,
-          revert: false,
-          retired: false,
-          pinnedSurvive: false,
-          sameOnEveryDevice: false,
-        }),
-        getCutoverProgress: () => ({ phase: 'detecting', running: true }),
-        getRoutesStatusData: () => routesStatus({ cutover: { phase: 'detecting', running: true } }),
-        getCutoverDiff: () => ({ counts: COUNTS }),
-      });
-      expect(render(<SectionChangeCardSlide />).queryByTestId('change-card')).toBeNull();
+      expect(queryByTestId('change-card-progress')).toBeNull();
     });
 
     it('says the re-cut failed, and shows no counts from the run before it', () => {
@@ -217,11 +130,12 @@ describe('SectionChangeCardSlide', () => {
       expect(queryByTestId('change-card-progress')).toBeNull();
     });
 
-    it('keeps the claim rows under a failure', () => {
-      engineWith({ phase: 'failed', running: false }, null);
-      const { getByTestId } = render(<SectionChangeCardSlide />);
-      expect(getByTestId('change-card-failed')).toBeTruthy();
-      expect(getByTestId('change-card-row-ledger')).toBeTruthy();
+    it('says the sections were replaced when the run failed after the apply', () => {
+      engineWith({ phase: 'failed_after_apply', running: false }, { counts: COUNTS });
+      const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
+      expect(getByTestId('change-card-failed')).toHaveTextContent(/recutFailedAfterApply/);
+      expect(queryByTestId('change-card-counts')).toBeNull();
+      expect(queryByTestId('change-card-progress')).toBeNull();
     });
 
     const RESET = {
@@ -278,29 +192,6 @@ describe('SectionChangeCardSlide', () => {
       ).toBeNull();
     });
 
-    /**
-     * Scenario: the carousel is shown at app start, and the root layout opens
-     * the engine in an effect. The support read was memoised on an empty deps
-     * list, so a slide that mounted first read `null` and kept it for the life
-     * of the carousel: no rows, and the whole slide returning null.
-     *
-     * Expected behaviour: the read is keyed on the subscription trigger, which
-     * bumps when the engine arrives, so the slide fills in.
-     */
-    it('fills in when the engine opens after the slide has mounted', () => {
-      (getEngine as jest.Mock).mockReturnValue(null);
-      const tree = render(<SectionChangeCardSlide />);
-      expect(tree.queryByTestId('change-card-row-ledger')).toBeNull();
-
-      engineWith({ phase: 'idle', running: false }, null);
-      act(() => {
-        useEngineStatus.setState((prior) => ({ readyNonce: prior.readyNonce + 1 }));
-      });
-      tree.rerender(<SectionChangeCardSlide />);
-
-      expect(tree.getByTestId('change-card-row-ledger')).toBeTruthy();
-    });
-
     it('reads draining and archiving as the one preparing line', () => {
       for (const phase of ['draining', 'archiving']) {
         engineWith({ phase, running: true }, null);
@@ -309,5 +200,20 @@ describe('SectionChangeCardSlide', () => {
         expect(line).not.toHaveTextContent(new RegExp(phase, 'i'));
       }
     });
+  });
+});
+
+describe('v040 sections body', () => {
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+  const dir = path.join(__dirname, '../../../i18n/locales');
+
+  it.each(fs.readdirSync(dir))('states a rule and not a result of the run, in %s', (file) => {
+    const locale = resolvedLocale(file.replace('.json', ''));
+    const body: string = locale.whatsNew.v040.sectionsBody;
+    // The first-person-plural "now cut by" form is a claim about the run that a
+    // failed re-analysis falsifies; the body states the detector's property.
+    expect(body.split(/[.。]/).filter((s) => s.trim()).length).toBe(1);
+    expect(body).not.toMatch(/\b(now|jetzt|maintenant|ahora|agora|ora)\b/i);
   });
 });

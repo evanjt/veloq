@@ -20,14 +20,6 @@ jest.mock('veloqrs', () =>
   })
 );
 
-jest.mock('@/features/maps/components', () => {
-  const { View } = require('react-native');
-  return {
-    ...require('@/features/maps/components/AttributionOverlay'),
-    MapSurface: () => <View testID="map-surface" />,
-  };
-});
-
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({ getGlobalMapStyle: () => 'light' }),
 }));

@@ -10,10 +10,12 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, within } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
+import { Card } from '@/shared/ui/Card';
 import type { Activity } from '@/types';
+import { layout, spacing } from '@/theme';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -62,7 +64,7 @@ const activity = (overrides: Partial<Activity> = {}): Activity =>
     total_elevation_gain: 1047,
     icu_training_load: 50,
     average_heartrate: 157,
-    average_watts: 342,
+    icu_average_watts: 342,
     calories: 382,
     average_temp: 22,
     stream_types: ['latlng', 'heartrate'],
@@ -75,6 +77,21 @@ const bottomPaddingBottom = () =>
   StyleSheet.flatten(screen.getByTestId('activity-card-bottom').props.style).paddingBottom ?? 0;
 
 describe('the feed card keeps its bottom band for the stats', () => {
+  it('uses the same raised card with and without a map', () => {
+    const mapped = renderCard();
+    expect(mapped.UNSAFE_getByType(Card).props.variant).toBe('raised');
+    mapped.unmount();
+
+    const compact = renderCard(activity({ stream_types: [] }));
+    expect(compact.UNSAFE_getByType(Card).props.variant).toBe('raised');
+  });
+
+  it('shows the synced power used by the metrics row', () => {
+    renderCard(activity({ icu_average_watts: 205 }));
+
+    expect(screen.getByText('205 W')).toBeTruthy();
+  });
+
   it('draws no map credit of its own', () => {
     renderCard();
 
@@ -86,5 +103,32 @@ describe('the feed card keeps its bottom band for the stats', () => {
     renderCard();
 
     expect(bottomPaddingBottom()).toBe(0);
+  });
+
+  it('keeps every stat row over the full-height preview', () => {
+    renderCard(activity({ icu_average_watts: 205 }));
+
+    const band = within(screen.getByTestId('activity-card-bottom'));
+    expect(band.getByTestId('activity-card-a1-distance')).toBeTruthy();
+    expect(band.getByText('205 W')).toBeTruthy();
+  });
+});
+
+describe('the feed card keeps its stat row clear of the record button', () => {
+  it('insets the secondary stat row on the right by the button footprint and its margin', () => {
+    renderCard();
+    const style = StyleSheet.flatten(
+      screen.getByTestId('activity-card-a1-secondary-stats').props.style
+    );
+    expect(style.marginRight).toBe(layout.recordFabSize + spacing.md * 2);
+  });
+});
+
+describe('the feed card draws no place line', () => {
+  it('shows nothing for a locality an older stored body still carries', () => {
+    renderCard(activity({ locality: 'Lausanne', country: 'Switzerland' } as Partial<Activity>));
+
+    expect(screen.queryByText('Lausanne')).toBeNull();
+    expect(screen.queryByText(/Switzerland/)).toBeNull();
   });
 });

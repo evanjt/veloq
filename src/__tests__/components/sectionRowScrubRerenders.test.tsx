@@ -28,12 +28,15 @@ jest.mock('@/features/routes/components/section/SectionSparkline', () => ({
 function encounter(sectionId: string): SectionEncounter {
   return {
     sectionId,
+    sectionType: 'auto',
     sectionName: 'Mont d’Orge',
     direction: 'same',
     distanceMeters: 1200,
+    startIndex: 0,
     lapTime: 140,
     lapPace: 2.3,
     isPr: false,
+    isComplete: true,
     visitCount: 8,
     historyTimes: [],
     historyActivityIds: [],
@@ -79,16 +82,25 @@ describe('section row scrub re-renders', () => {
   });
 
   /** A re-render with the same props does no work in the row at all. */
-  it('renders the same tree when nothing about the row changed', () => {
-    const p = props(
-      's1',
-      jest.fn<React.ReactNode, [SectionEncounterGroup]>(() => null)
-    );
+  it('does no work in the row when nothing about it changed', () => {
+    const renderRightActions = jest.fn<React.ReactNode, [SectionEncounterGroup]>(() => null);
+    const p = props('s1', renderRightActions);
 
     const tree = render(<SectionInlinePlot {...p} />);
-    const first = tree.toJSON();
+    const rendersAfterMount = renderRightActions.mock.calls.length;
     tree.rerender(<SectionInlinePlot {...p} />);
 
-    expect(tree.toJSON()).toEqual(first);
+    expect(renderRightActions.mock.calls.length).toBe(rendersAfterMount);
+  });
+
+  it('does render the row again when its highlight changes', () => {
+    const renderRightActions = jest.fn<React.ReactNode, [SectionEncounterGroup]>(() => null);
+    const p = props('s1', renderRightActions);
+
+    const tree = render(<SectionInlinePlot {...p} />);
+    const rendersAfterMount = renderRightActions.mock.calls.length;
+    tree.rerender(<SectionInlinePlot {...p} isHighlighted />);
+
+    expect(renderRightActions.mock.calls.length).toBeGreaterThan(rendersAfterMount);
   });
 });

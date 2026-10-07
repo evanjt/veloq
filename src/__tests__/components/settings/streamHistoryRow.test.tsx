@@ -61,6 +61,9 @@ function buildEngine() {
       bytes = days === 0 ? 9 * 1024 * 1024 : (days / 90) * 4 * 1024 * 1024;
     },
     streamStoreBytes: () => bytes,
+    getCacheScreenData: () =>
+      stored === undefined ? undefined : { streamRetentionDays: stored, streamStoreBytes: bytes },
+    subscribe: () => () => undefined,
   };
 }
 
@@ -83,7 +86,25 @@ describe('StreamHistoryRow', () => {
 
   it('shows what the store holds', () => {
     const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
-    expect(getByTestId('settings-stream-bytes').props.children).toBe('4.0 MB');
+    expect(getByTestId('settings-stream-bytes').props.children).toBe('4.2 MB');
+  });
+
+  it('reads the window and bytes in one screen call', () => {
+    const engine = {
+      ...buildEngine(),
+      streamRetentionDays: jest.fn(() => {
+        throw new Error('separate read');
+      }),
+      streamStoreBytes: jest.fn(() => {
+        throw new Error('separate read');
+      }),
+      getCacheScreenData: jest.fn(() => ({ streamRetentionDays: 0, streamStoreBytes: bytes })),
+    };
+    mockEngineHandle = engine;
+    render(<StreamHistoryRow isDark={false} />);
+    expect(engine.getCacheScreenData).toHaveBeenCalledTimes(1);
+    expect(engine.streamRetentionDays).not.toHaveBeenCalled();
+    expect(engine.streamStoreBytes).not.toHaveBeenCalled();
   });
 
   it('writes the next window once and re-reads the size the eviction left', () => {
@@ -98,15 +119,15 @@ describe('StreamHistoryRow', () => {
     expect(setStreamRetentionDays).toHaveBeenCalledWith(next);
     // The default is the open window, so the step off it is the narrowest one
     // and the readout drops rather than grows.
-    expect(getByTestId('settings-stream-bytes').props.children).toBe('1.3 MB');
+    expect(getByTestId('settings-stream-bytes').props.children).toBe('1.4 MB');
   });
 
   it('shrinking the window drops the readout', () => {
     bytes = 9 * 1024 * 1024;
     const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
-    expect(getByTestId('settings-stream-bytes').props.children).toBe('9.0 MB');
+    expect(getByTestId('settings-stream-bytes').props.children).toBe('9.4 MB');
     fireEvent.press(getByTestId('settings-stream-window'));
-    expect(getByTestId('settings-stream-bytes').props.children).toBe('1.3 MB');
+    expect(getByTestId('settings-stream-bytes').props.children).toBe('1.4 MB');
   });
 
   it('cycles through every choice and comes back to where it started', () => {
@@ -161,5 +182,20 @@ describe('StreamHistoryRow', () => {
     stored = undefined;
     const { queryByTestId } = render(<StreamHistoryRow isDark={false} />);
     expect(queryByTestId('settings-stream-history')).toBeNull();
+  });
+
+  it('names a failed size read rather than showing an empty store', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockEngineHandle = {
+      ...buildEngine(),
+      getCacheScreenData: () => {
+        throw Object.assign(new Error('Database'), { tag: 'Database' });
+      },
+    };
+
+    const { getByTestId, queryByTestId } = render(<StreamHistoryRow isDark={false} />);
+
+    expect(getByTestId('settings-stream-failed').props.children).toBe('engine.failure.database');
+    expect(queryByTestId('settings-stream-bytes')).toBeNull();
   });
 });

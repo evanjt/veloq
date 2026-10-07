@@ -5,7 +5,9 @@
  * Expected behaviour: that one flag gates every widget route into recording, on
  * both platforms. The standalone widget is not the only one, the Dashboard
  * widget's large layout carries a record button over the same deep link, so the
- * flag has to reach the layout as well as the manifest. On iOS the same flag
+ * flag has to reach the layout as well as the manifest. That the Kotlin
+ * renderer reads the flag resource written here, and the layout's button, is a
+ * row of `contracts/nativeContracts.test.ts`. On iOS the same flag
  * decides whether `VeloqRecordWidget` is in either bundle, which is what puts a
  * widget in the gallery. Both states are asserted, because the flag is the only
  * thing between a shipped widget and no widget at all, and every resource it
@@ -19,11 +21,6 @@ import path from 'path';
 const plugin = require('@/../src/plugins/with-android-widget.js');
 const iosPlugin = require('@/../src/plugins/with-ios-widget.js');
 const flags = require('@/../src/plugins/widgetFlags.js');
-
-const KOTLIN = fs.readFileSync(
-  path.join(__dirname, '../../widget/android/java/WidgetRenderer.kt'),
-  'utf8'
-);
 
 function runSourcesMod(): string {
   const projectRoot = path.join(__dirname, '../..');
@@ -82,16 +79,6 @@ describe('the record gate is one flag', () => {
     );
     expect(flags).toContain('name="widget_record_enabled"');
     expect(flags).toContain(`>${String(plugin.INCLUDE_RECORD_WIDGET)}<`);
-  });
-
-  it('gates the dashboard widget’s record button on that flag', () => {
-    const gate = KOTLIN.indexOf('getBoolean(R.bool.widget_record_enabled)');
-    expect(gate).toBeGreaterThan(-1);
-    const attach = KOTLIN.indexOf('setOnClickPendingIntent(R.id.large_record');
-    expect(attach).toBeGreaterThan(gate);
-    expect(KOTLIN.indexOf('setOnClickPendingIntent(R.id.large_record', attach + 1)).toBe(-1);
-    expect(KOTLIN).toContain('setViewVisibility(R.id.large_record, View.GONE)');
-    expect(KOTLIN).toContain('setViewVisibility(R.id.large_record, View.VISIBLE)');
   });
 
   it('leaves the button hidden in the layout, so an ungated build never shows it', () => {

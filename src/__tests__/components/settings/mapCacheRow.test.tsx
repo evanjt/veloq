@@ -1,6 +1,6 @@
 /**
- * Scenario: the cache screen read `Map tiles 14.7 MB` with the legend under the
- * bar reading `3D previews 14.7 MB`. The same number under two names, because
+ * Scenario: the cache screen read `Map tiles 15.4 MB` with the legend under the
+ * bar reading `3D previews 15.4 MB`. The same number under two names, because
  * the row sums three stores and on a real device two of them are zero.
  *
  * Expected behaviour: the row is named for everything it holds, and a store
@@ -21,13 +21,13 @@ describe('the map cache total', () => {
     const total = mapCacheTotal({
       terrainBytes: 3,
       heatmapBytes: 5,
-      tileStats: { tileCount: 2, totalBytes: 7 },
+      tiles: { totalBytes: 7 },
     });
     expect(total).toEqual({ bytes: 15, complete: true });
   });
 
   it('reports a store that never answered as incomplete, not as zero', () => {
-    const total = mapCacheTotal({ terrainBytes: 3, heatmapBytes: 5, tileStats: null });
+    const total = mapCacheTotal({ terrainBytes: 3, heatmapBytes: 5, tiles: null });
     expect(total).toEqual({ bytes: 8, complete: false });
   });
 
@@ -35,7 +35,7 @@ describe('the map cache total', () => {
     const total = mapCacheTotal({
       terrainBytes: 14,
       heatmapBytes: 0,
-      tileStats: { tileCount: 0, totalBytes: 0 },
+      tiles: { totalBytes: 0 },
     });
     expect(total).toEqual({ bytes: 14, complete: true });
   });
@@ -47,7 +47,7 @@ describe('the map cache total', () => {
 
 /**
  * The row and the legend on the same render, which is what made `Map tiles
- * 14.7 MB` and `3D previews 14.7 MB` read as one number twice.
+ * 15.4 MB` and `3D previews 15.4 MB` read as one number twice.
  */
 
 jest.mock('react-i18next', () => ({
@@ -78,9 +78,9 @@ const baseProps = {
   dateRangeText: 'range',
   lastSync: null,
   totalQueries: 1,
-  databaseSize: 100,
   onClearMapCache: jest.fn(),
   routesSize: 100,
+  athleteFilesSize: 0,
   freeStorage: 1000,
 };
 
@@ -95,7 +95,7 @@ describe('the map cache row against its legend', () => {
     const { getByTestId } = renderPanel({
       terrainCacheSize: 15_400_000,
       heatmapCacheSize: 0,
-      tileCacheStats: { tileCount: 0, totalBytes: 0 },
+      basemapTiles: { totalBytes: 0, vectorBytes: 0 },
     });
     expect(getByTestId('settings-map-cache-label').props.children).toBe('settings.mapCache');
   });
@@ -104,10 +104,10 @@ describe('the map cache row against its legend', () => {
     const { getByTestId } = renderPanel({
       terrainCacheSize: 15_400_000,
       heatmapCacheSize: 0,
-      tileCacheStats: null,
+      basemapTiles: null,
     });
     expect(getByTestId('settings-map-cache-value').props.children).toBe(
-      'settings.sizeAtLeast:14.7 MB'
+      'settings.sizeAtLeast:15.4 MB'
     );
   });
 
@@ -115,18 +115,18 @@ describe('the map cache row against its legend', () => {
     const { getByTestId } = renderPanel({
       terrainCacheSize: 15_400_000,
       heatmapCacheSize: 0,
-      tileCacheStats: { tileCount: 0, totalBytes: 0 },
+      basemapTiles: { totalBytes: 0, vectorBytes: 0 },
     });
-    expect(getByTestId('settings-map-cache-value').props.children).toBe('14.7 MB');
+    expect(getByTestId('settings-map-cache-value').props.children).toBe('15.4 MB');
   });
 
   it('keeps the row and the legend from being the same number twice', () => {
     const { getByTestId } = renderPanel({
       terrainCacheSize: 4_000_000,
       heatmapCacheSize: 2_000_000,
-      tileCacheStats: { tileCount: 9, totalBytes: 6_000_000 },
+      basemapTiles: { totalBytes: 6_000_000, vectorBytes: 6_000_000 },
     });
-    expect(getByTestId('settings-map-cache-value').props.children).toBe('11.4 MB');
+    expect(getByTestId('settings-map-cache-value').props.children).toBe('12.0 MB');
     expect(getByTestId('settings-map-cache-label').props.children).not.toBe(
       'settings.storagePreviews'
     );

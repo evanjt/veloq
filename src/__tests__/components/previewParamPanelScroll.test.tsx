@@ -18,7 +18,10 @@ import { layout } from '@/theme';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
+}));
 
 const params = {
   proximityThreshold: 200,
@@ -83,10 +86,18 @@ describe('the parameter panel on a short screen', () => {
     const { tree, node } = panel(true);
 
     expect(node.props.pointerEvents).not.toBe('none');
+    expect(node.props.pointerEvents).not.toBe('box-none');
     expect(node.props.scrollEnabled).not.toBe(false);
     for (const slider of tree.UNSAFE_getAllByType(Slider)) {
       expect(slider.props.disabled).toBe(true);
     }
+  });
+
+  it('leaves the card able to take a scroll touch when idle', () => {
+    const { node } = panel();
+
+    expect(node.props.pointerEvents).not.toBe('none');
+    expect(node.props.pointerEvents).not.toBe('box-none');
   });
 
   it('leaves the sliders live when no run is going', () => {

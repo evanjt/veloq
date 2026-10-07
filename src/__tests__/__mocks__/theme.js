@@ -73,8 +73,6 @@ module.exports = {
     boundaryCasing: '#000000',
     sectionCreation: '#22C55E',
     extension: '#FF6B00',
-    nearbyStart: 'rgba(34,197,94,0.6)',
-    nearbyEnd: 'rgba(239,68,68,0.6)',
     userLocation: '#2196F3',
   },
   mapStyleSwatch: { light: '#E5E7EB', dark: '#374151', satellite: '#1E6B5A' },
@@ -122,6 +120,5 @@ module.exports = {
   colorWithOpacity: (color) => color,
   shadows: {},
   createShadow: () => ({}),
-  cardShadow: {},
   smallElementShadow: {},
 };

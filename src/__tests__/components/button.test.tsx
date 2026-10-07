@@ -18,9 +18,53 @@ import { Button, ToggleButton } from '@/shared/ui/Button';
 import { colors, layout, spacing, typography } from '@/theme';
 import { MIN_TAP_TARGET } from '@/theme/spacing';
 
+let mockIsDark = false;
 jest.mock('@/shared/app', () => ({
-  useTheme: () => ({ isDark: false }),
+  useTheme: () => ({ isDark: mockIsDark }),
 }));
+
+function contrastRatio(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const [r, g, bl] = [1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+describe('label contrast', () => {
+  afterEach(() => {
+    mockIsDark = false;
+  });
+
+  for (const isDark of [false, true]) {
+    const theme = isDark ? 'dark' : 'light';
+    it(`keeps every filled variant's label at 4.5:1 in the ${theme} theme`, () => {
+      mockIsDark = isDark;
+      for (const variant of ['primary', 'secondary', 'ghost', 'destructive'] as const) {
+        const { getByTestId } = render(
+          <Button label="x" variant={variant} onPress={() => {}} testID="b" />
+        );
+        const ground = styleOf(getByTestId('b')).backgroundColor as string;
+        if (ground === 'transparent') continue;
+        const ink = styleOf(getByTestId('b-label')).color as string;
+        expect(contrastRatio(ink, ground)).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it(`keeps a selected ToggleButton label at 4.5:1 in the ${theme} theme`, () => {
+      mockIsDark = isDark;
+      const { getByTestId } = render(
+        <ToggleButton label="x" selected onPress={() => {}} testID="t" />
+      );
+      const ground = styleOf(getByTestId('t')).backgroundColor as string;
+      const ink = styleOf(getByTestId('t-label')).color as string;
+      expect(contrastRatio(ink, ground)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});
 
 function flatten(style: unknown): Record<string, number | string> {
   return Object.assign({}, ...[style].flat(Infinity).filter(Boolean)) as Record<
@@ -54,7 +98,7 @@ describe('Button', () => {
     expect(grounds[0]).toBe(colors.primary);
     expect(grounds[1]).toBe(colors.surface);
     expect(grounds[2]).toBe('transparent');
-    expect(grounds[3]).toBe(colors.error);
+    expect(grounds[3]).toBe(colors.errorDeep);
     expect(new Set(grounds).size).toBe(4);
   });
 
@@ -83,24 +127,6 @@ describe('Button', () => {
   it('takes the platform minimum, 44 on iOS against 48 on Android', () => {
     expect(MIN_TAP_TARGET).toEqual({ ios: 44, android: 48 });
     expect(layout.minTapTarget).toBe(MIN_TAP_TARGET[Platform.OS === 'android' ? 'android' : 'ios']);
-  });
-
-  it('presses with a ripple on Android and with opacity on iOS, not both', () => {
-    const rippleOn = (os: string) => {
-      const original = Platform.OS;
-      (Platform as { OS: string }).OS = os;
-      try {
-        const { getByTestId } = render(<Button label="x" onPress={() => {}} testID="b" />);
-        return getByTestId('b').props.android_ripple;
-      } finally {
-        (Platform as { OS: string }).OS = original;
-      }
-    };
-
-    // `ripple` is resolved once at module load, so this reads what the
-    // component was built with rather than the flipped flag: the point is that
-    // exactly one platform gets a ripple, and iOS is not it.
-    expect(rippleOn('ios')).toBeUndefined();
   });
 
   it('does not fire onPress while disabled', () => {

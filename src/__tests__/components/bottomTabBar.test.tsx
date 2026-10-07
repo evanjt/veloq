@@ -12,6 +12,14 @@ import { render } from '@testing-library/react-native';
 
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
 
+let mockSegments: string[] = ['(tabs)'];
+
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  usePathname: () => '/',
+  useSegments: () => mockSegments,
+}));
+
 const authState = { isAuthenticated: false, isDemoMode: false };
 
 jest.mock('@/shared/app', () => ({
@@ -33,6 +41,25 @@ describe('BottomTabBar', () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
     authState.isDemoMode = false;
+    mockSegments = ['(tabs)'];
+  });
+
+  it('renders nothing on a stack screen outside the tabs group', () => {
+    authState.isAuthenticated = true;
+    mockSegments = ['backup-settings'];
+
+    const { queryByTestId } = render(<BottomTabBar />);
+
+    expect(queryByTestId('bottom-tab-bar')).toBeNull();
+  });
+
+  it('renders nothing on the recording screen', () => {
+    authState.isAuthenticated = true;
+    mockSegments = ['record'];
+
+    const { queryByTestId } = render(<BottomTabBar />);
+
+    expect(queryByTestId('bottom-tab-bar')).toBeNull();
   });
 
   it('renders nothing without a session', () => {

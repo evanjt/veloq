@@ -21,7 +21,10 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
+}));
 
 const params = {
   proximityThreshold: 200,

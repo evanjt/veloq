@@ -10,31 +10,28 @@
  */
 
 import {
-  composeSnapshot,
+  composeWidgetContext,
   RECORD_SHORTCUT_LIMIT,
-  type RawWidgetData,
+  type WidgetContextInput,
 } from '@/features/home/lib/widgetSnapshot';
 
-function raw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
-  return {
-    sparklines: null,
-    summary: null,
-    latest: null,
-    locale: 'en-AU',
-    isMetric: true,
-    nowSeconds: 1_700_000_000,
-    nowWallSeconds: 1_700_000_000,
-    ...overrides,
-  };
+const NO_DATES = {
+  weekdays: [],
+  monthDay: { parts: [], months: [] },
+  monthDayYear: { parts: [], months: [] },
+};
+
+function raw(overrides: Partial<WidgetContextInput> = {}): WidgetContextInput {
+  return { locale: 'en-AU', isMetric: true, dates: NO_DATES, ...overrides };
 }
 
 describe('the sport list a phrase can choose from comes from the snapshot', () => {
   it('carries every sport the athlete has recorded, not just what a launcher shows', () => {
-    const snap = composeSnapshot(
+    const context = composeWidgetContext(
       raw({ recentRecordingTypes: ['Ride', 'Run', 'Swim', 'Hike', 'Rowing'] })
     );
-    expect(snap.recordShortcuts.length).toBeGreaterThan(RECORD_SHORTCUT_LIMIT);
-    expect(snap.recordShortcuts.map((s) => s.type)).toEqual([
+    expect(context.recordShortcuts.length).toBeGreaterThan(RECORD_SHORTCUT_LIMIT);
+    expect(context.recordShortcuts.map((s) => s.type)).toEqual([
       'Ride',
       'Run',
       'Swim',
@@ -44,20 +41,22 @@ describe('the sport list a phrase can choose from comes from the snapshot', () =
   });
 
   it('still hands the launcher only what it will show', () => {
-    const snap = composeSnapshot(
+    const context = composeWidgetContext(
       raw({ recentRecordingTypes: ['Ride', 'Run', 'Swim', 'Hike', 'Rowing'] })
     );
-    expect(snap.launcherShortcuts).toHaveLength(RECORD_SHORTCUT_LIMIT);
-    expect(snap.launcherShortcuts).toEqual(snap.recordShortcuts.slice(0, RECORD_SHORTCUT_LIMIT));
+    expect(context.launcherShortcuts).toHaveLength(RECORD_SHORTCUT_LIMIT);
+    expect(context.launcherShortcuts).toEqual(
+      context.recordShortcuts.slice(0, RECORD_SHORTCUT_LIMIT)
+    );
   });
 
   it('keeps the labels localised, because that is the whole point', () => {
-    const snap = composeSnapshot(
+    const context = composeWidgetContext(
       raw({
         recentRecordingTypes: ['Ride'],
         translate: (k) => (k === 'activityTypes.Ride' ? 'Vélo' : k),
       })
     );
-    expect(snap.recordShortcuts[0].label).toBe('Vélo');
+    expect(context.recordShortcuts[0].label).toBe('Vélo');
   });
 });

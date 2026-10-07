@@ -16,6 +16,7 @@ import { HrvTrendContent } from '@/features/insights/components/content/HrvTrend
 import { SectionPerformanceTimeline } from '@/features/insights/components/content/SectionPerformanceTimeline';
 import { SectionInsightMap } from '@/features/insights/components/content/SectionInsightMap';
 import type { Insight } from '@/features/insights/types';
+import { NO_BESTS } from '@/features/insights/lib/directionBests';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -56,6 +57,8 @@ function record(id: string, day: number, bestTime: number): SectionPerformanceRe
     lapCount: 1,
     bestTime,
     bestPace: 5,
+    bestForwardTime: bestTime,
+    bestReverseTime: null,
   } as unknown as SectionPerformanceRecord;
 }
 
@@ -79,14 +82,19 @@ describe('insight charts measure outside the chart branch', () => {
 
   it('draws the section PR timeline once laid out', () => {
     const records = [record('a', 1, 300), record('b', 5, 290), record('c', 9, 310)];
-    const tree = render(<SectionPerformanceTimeline records={records} bestRecord={records[1]} />);
+    const tree = render(
+      <SectionPerformanceTimeline
+        records={records}
+        bests={{ forward: records[1], reverse: null, forwardIsPr: true, reverseIsPr: false }}
+      />
+    );
     layout(tree);
     expect(canvases(tree)).toHaveLength(1);
   });
 
   it('draws no timeline from one effort', () => {
     const tree = render(
-      <SectionPerformanceTimeline records={[record('a', 1, 300)]} bestRecord={null} />
+      <SectionPerformanceTimeline records={[record('a', 1, 300)]} bests={NO_BESTS} />
     );
     expect(tree.toJSON()).toBeNull();
   });

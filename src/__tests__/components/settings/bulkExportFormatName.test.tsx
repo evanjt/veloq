@@ -22,6 +22,12 @@ jest.mock('@/features/settings/lib/bulkExport', () => ({
   bulkExportActivities: jest.fn(),
   bulkExportActivitiesGeoJson: jest.fn(),
   resumePendingBulkExport: jest.fn(),
+  hasPendingBulkExport: () => false,
+  pendingBulkExportSettled: () => Promise.resolve(),
+  pendingBulkExportKind: () => null,
+  // A worker still writing, which is what a still-running outcome means.
+  readBulkExportProgress: () => ({ current: 0, total: 0 }),
+  PROGRESS_INTERVAL_MS: 250,
 }));
 
 const { bulkExportActivities, bulkExportActivitiesGeoJson, resumePendingBulkExport } =
@@ -31,26 +37,49 @@ const { bulkExportActivities, bulkExportActivitiesGeoJson, resumePendingBulkExpo
     resumePendingBulkExport: jest.Mock;
   };
 
+const complete = (kind: 'gpx' | 'geojson', exported: number, noTrack: number) => ({
+  state: 'complete',
+  exported,
+  noTrack,
+  trimmed: 0,
+  failed: 0,
+  kind,
+});
+
 beforeEach(() => {
-  bulkExportActivities
-    .mockReset()
-    .mockResolvedValue({ state: 'complete', exported: 3, skipped: 0 });
-  bulkExportActivitiesGeoJson
-    .mockReset()
-    .mockResolvedValue({ state: 'complete', exported: 3, skipped: 0 });
+  bulkExportActivities.mockReset().mockResolvedValue(complete('gpx', 3, 0));
+  bulkExportActivitiesGeoJson.mockReset().mockResolvedValue(complete('geojson', 3, 0));
   resumePendingBulkExport.mockReset().mockResolvedValue({ state: 'nothing-pending' });
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 
 describe('the progress row names the format being written', () => {
   it('says GeoJSON for a GeoJSON export', () => {
-    render(<BulkExportProgress phase="generating" format="geojson" sizeBytes={0} isDark={false} />);
+    render(
+      <BulkExportProgress
+        phase="generating"
+        format="geojson"
+        current={0}
+        total={0}
+        sizeBytes={0}
+        isDark={false}
+      />
+    );
 
     expect(screen.getByText(/export\.bulkExporting.*GeoJSON/)).toBeTruthy();
   });
 
   it('says GPX for a GPX export', () => {
-    render(<BulkExportProgress phase="generating" format="gpx" sizeBytes={0} isDark={false} />);
+    render(
+      <BulkExportProgress
+        phase="generating"
+        format="gpx"
+        current={0}
+        total={0}
+        sizeBytes={0}
+        isDark={false}
+      />
+    );
 
     expect(screen.getByText(/export\.bulkExporting.*GPX/)).toBeTruthy();
     expect(screen.queryByText(/GeoJSON/)).toBeNull();
@@ -81,7 +110,7 @@ describe('the hook reports which format is running', () => {
   });
 
   it('names the format in the alert that reports what was skipped', async () => {
-    bulkExportActivitiesGeoJson.mockResolvedValue({ state: 'complete', exported: 2, skipped: 1 });
+    bulkExportActivitiesGeoJson.mockResolvedValue(complete('geojson', 2, 1));
     const { result } = renderHook(() => useBulkExport());
 
     await act(async () => {
@@ -116,7 +145,7 @@ describe('an export that outlived the wait', () => {
   });
 
   it('stops saying so once the file the next mount finds has been shared', async () => {
-    resumePendingBulkExport.mockResolvedValue({ state: 'complete', exported: 3, skipped: 0 });
+    resumePendingBulkExport.mockResolvedValue(complete('gpx', 3, 0));
     const { result } = renderHook(() => useBulkExport());
 
     await waitFor(() => expect(resumePendingBulkExport).toHaveBeenCalled());
