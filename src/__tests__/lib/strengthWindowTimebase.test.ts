@@ -48,9 +48,15 @@ describe('strength window timebase', () => {
   );
 
   it('asks the insights for the same four weeks the tab draws', () => {
-    const [params, weeks] = withTz(10, () => [buildInsightsParams(), getTrailingWeekRanges(4)]);
-    expect(params.strengthWeeks).toEqual(trailingWeekRanges(4));
-    expect(weeks.map(({ startTs, endTs }) => ({ startTs, endTs }))).toEqual(trailingWeekRanges(4));
+    // The reference is built under the same offset, or near midnight the
+    // runner's own zone sits a calendar day away from it.
+    const [params, weeks, reference] = withTz(10, () => [
+      buildInsightsParams(),
+      getTrailingWeekRanges(4),
+      trailingWeekRanges(4),
+    ]);
+    expect(params.strengthWeeks).toEqual(reference);
+    expect(weeks.map(({ startTs, endTs }) => ({ startTs, endTs }))).toEqual(reference);
   });
 
   it.each([10, -7])(
