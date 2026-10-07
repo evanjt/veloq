@@ -7,7 +7,9 @@
  * itself one of the modes here.
  */
 import { GroupSort, SectionSort, type SectionHiddenFilters } from 'veloqrs';
-import type { SectionsSortOption } from './sectionRanking';
+
+/** The orders the sections list offers. `nearby` is ranked in Rust. */
+export type SectionsSortOption = 'signature' | 'visits' | 'distance' | 'name' | 'nearby';
 
 /** The orders the routes list offers. `nearby` needs a user location. */
 export type RoutesSortOption = 'activities' | 'distance' | 'name' | 'nearby';
@@ -62,4 +64,25 @@ export function sectionFiltersFor(hidden: SectionHideFlags): SectionHiddenFilter
     hideDisabled: hidden.disabled,
     hideUnaccepted: hidden.unaccepted,
   };
+}
+
+export interface SectionCounts {
+  total: number;
+  shown: number;
+  custom: number;
+}
+
+/**
+ * The engine counts the catalogue, narrows it to the chosen sport and counts
+ * the custom sections of what is left, so the header and the Custom chip read
+ * those counts as they are.
+ */
+export function sectionCountsOf(
+  page:
+    | { sectionCount: number; filteredSectionCount?: number; customCount: number }
+    | null
+    | undefined
+): SectionCounts {
+  const total = page?.sectionCount ?? 0;
+  return { total, shown: page?.filteredSectionCount ?? total, custom: page?.customCount ?? 0 };
 }

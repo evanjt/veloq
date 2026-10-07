@@ -5,14 +5,16 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
+import { Card } from '@/shared/ui';
 import { polylineSvgPath, type XY } from '@/shared/charts';
-import { colors, darkColors, spacing, typography, layout, colorWithOpacity } from '@/theme';
-import type { EfficiencyPoint, EfficiencyTrend } from 'veloqrs';
+import { colors, darkColors, spacing, typography, colorWithOpacity, verdictColor } from '@/theme';
+import { EfficiencyDirection, type EfficiencyPoint, type EfficiencyTrend } from 'veloqrs';
 import { useSectionEfficiencyTrend } from '@/features/routes/hooks/useSectionEfficiencyTrend';
+import { engineErrorKey } from '@/shared/native/engineError';
 
 const CHART_HEIGHT = 56;
 const PAD = 6;
@@ -44,6 +46,8 @@ export function efficiencySeriesVertices(
 
 export interface SectionEfficiencyCardProps {
   sectionId: string;
+  /** The sport on screen, whose efforts the trend is taken over. */
+  sportType?: string | null | undefined;
   isDark: boolean;
   /** Canvas width. The card is full-bleed inside its own padding. */
   width?: number | undefined;
@@ -53,26 +57,41 @@ export interface SectionEfficiencyCardProps {
 
 export function SectionEfficiencyCard({
   sectionId,
+  sportType,
   isDark,
   width = 280,
   bundledTrend,
 }: SectionEfficiencyCardProps) {
   const { t } = useTranslation();
-  const trend = useSectionEfficiencyTrend(sectionId, bundledTrend);
+  const { trend, error } = useSectionEfficiencyTrend(sectionId, sportType, bundledTrend);
 
+  if (error !== undefined) {
+    return (
+      <Text
+        testID="section-efficiency-failure"
+        style={[styles.caption, isDark && styles.captionDark]}
+      >
+        {t(engineErrorKey(error, 'engine.failure.database'))}
+      </Text>
+    );
+  }
   if (!trend) return null;
 
   const vertices = efficiencySeriesVertices(trend.points, width, CHART_HEIGHT);
   const linePath = Skia.Path.MakeFromSVGString(polylineSvgPath(vertices));
   const hrChange = Math.round(trend.hrChangeBpm);
   const signedHrChange = hrChange > 0 ? `+${hrChange}` : `${hrChange}`;
-  const lineColor = trend.isImproving ? colors.success : colors.textSecondary;
+  const lineColor =
+    trend.direction === EfficiencyDirection.Improving
+      ? verdictColor('positive', isDark)
+      : colors.textSecondary;
 
   return (
-    <View
+    <Card
+      variant="flat"
       testID="section-efficiency-card"
-      style={[styles.card, isDark && styles.cardDark]}
       accessibilityRole="summary"
+      style={{ gap: spacing.xs }}
     >
       <Text style={[styles.heading, isDark && styles.headingDark]}>
         {t('sections.aerobicEfficiency')}
@@ -102,23 +121,11 @@ export function SectionEfficiencyCard({
       <Text style={[styles.caption, isDark && styles.captionDark]}>
         {t('sections.aerobicEfficiencyCaption')}
       </Text>
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surfaceCard,
-    borderColor: darkColors.border,
-  },
   heading: {
     ...typography.cardTitle,
     color: colors.textPrimary,

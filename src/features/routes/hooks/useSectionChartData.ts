@@ -1,21 +1,17 @@
 /**
  * Section-detail chart data hook.
  *
- * Thin pass-through to the Rust atomic `getSectionChartData`, which emits
- * per-lap chart points + speed ranks + best/avg/last stats in one FFI
- * round-trip. Conversion here is strictly shape-matching (Rust types →
+ * Thin pass-through to the chart payload of the section performance screen
+ * read, which carries per-lap chart points + speed ranks + best/avg/last
+ * stats. Conversion here is strictly shape-matching (Rust types →
  * UI types) and null-safe defaulting - no aggregation.
  */
 
 import { useMemo } from 'react';
-import { type ChartSummaryStats } from '@/features/routes/lib/performanceTypes';
-import { RANGE_DAYS } from '@/features/routes/constants';
-import { getEngine } from '@/shared/native/engine';
 import { fromUnixSeconds, castDirection, ensureFinite } from '@/shared/ffi/ffiConversions';
 import type { FfiSectionChartData } from 'veloqrs';
 import type { Activity, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionPerformanceRecord } from './useSectionPerformances';
-import type { SectionTimeRange } from '@/features/routes/constants';
 
 interface SectionWithTraces {
   activityTraces?: Record<string, RoutePoint[]>;
@@ -26,11 +22,8 @@ interface UseSectionChartDataParams {
   performanceRecords: SectionPerformanceRecord[] | undefined;
   sectionActivitiesUnsorted: Activity[];
   sectionWithTraces: (FrequentSection & SectionWithTraces) | null;
-  sectionTimeRange: SectionTimeRange;
-  /** Optional sport filter for cross-sport sections. */
-  sportFilter?: string | undefined;
-  /** Chart payload a caller already read, so this hook skips its own FFI call. */
-  preComputedChart?: FfiSectionChartData | null;
+  /** The chart payload the screen read returned for the range and sport. */
+  preComputedChart: FfiSectionChartData | null;
 }
 
 export interface UseSectionChartDataResult {
@@ -43,16 +36,10 @@ export interface UseSectionChartDataResult {
   chartData: (PerformanceDataPoint & { x: number })[];
   minSpeed: number;
   maxSpeed: number;
-  bestIndex: number;
   hasReverseRuns: boolean;
 
   // Stats (from Rust)
-  summaryStats: ChartSummaryStats;
-  rankMap: Map<string, number>;
-  bestActivityId: string | null;
   bestTimeValue: number | undefined;
-  bestPaceValue: number | undefined;
-  averageTime: number | undefined;
   lastActivityDate: string | undefined;
 }
 
@@ -61,8 +48,6 @@ export function useSectionChartData({
   performanceRecords,
   sectionActivitiesUnsorted,
   sectionWithTraces,
-  sectionTimeRange,
-  sportFilter,
   preComputedChart,
 }: UseSectionChartDataParams): UseSectionChartDataResult {
   // Cheap O(n) lookup maps - keep in TS, consumed by the section detail screen.
@@ -87,29 +72,14 @@ export function useSectionChartData({
     });
   }, [sectionActivitiesUnsorted, performanceRecordMap]);
 
-  // The fallback re-reads when `section` moves, and the screen's section is
-  // re-read with its bundle on every sections announcement, so that is the
-  // sync key without listing a value the body never reads.
-  const rustChart = useMemo(() => {
-    if (preComputedChart !== undefined) return preComputedChart;
-    if (!section) return null;
-    const engine = getEngine();
-    if (!engine) return null;
-    try {
-      const rangeDays = RANGE_DAYS[sectionTimeRange];
-      return engine.getSectionChartData(section.id, rangeDays, sportFilter);
-    } catch {
-      return null;
-    }
-  }, [section, sectionTimeRange, sportFilter, preComputedChart]);
+  const rustChart = preComputedChart;
 
-  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
+  const { chartData, minSpeed, maxSpeed, hasReverseRuns } = useMemo(() => {
     if (!rustChart) {
       return {
         chartData: [] as (PerformanceDataPoint & { x: number })[],
         minSpeed: 0,
         maxSpeed: 1,
-        bestIndex: 0,
         hasReverseRuns: false,
       };
     }
@@ -131,59 +101,38 @@ export function useSectionChartData({
       sectionTime: ensureFinite(p.sectionTime, 0),
       sectionDistance: ensureFinite(p.sectionDistance, 0),
       lapCount: 1,
+      isBest: p.isBest,
+      avgPower: p.avgPower ?? undefined,
     }));
 
     return {
       chartData,
       minSpeed: Math.max(0, minSpeed - padding),
       maxSpeed: maxSpeed + padding,
-      bestIndex: rustChart.bestIndex,
       hasReverseRuns: rustChart.hasReverseRuns,
     };
   }, [rustChart, sectionWithTraces]);
 
-  const { rankMap, bestActivityId, bestTimeValue, bestPaceValue, averageTime, lastActivityDate } =
-    useMemo(() => {
-      if (!rustChart) {
-        return {
-          rankMap: new Map<string, number>(),
-          bestActivityId: null as string | null,
-          bestTimeValue: undefined as number | undefined,
-          bestPaceValue: undefined as number | undefined,
-          averageTime: undefined as number | undefined,
-          lastActivityDate: undefined as string | undefined,
-        };
-      }
-      const rankMap = new Map<string, number>();
-      for (const p of rustChart.points) {
-        if (!rankMap.has(p.activityId)) rankMap.set(p.activityId, p.rank);
-      }
-      // Preserve nullable semantics: a missing field stays undefined; a
-      // present-but-non-finite Rust value (e.g. 0/0 pace) collapses to
-      // undefined so the UI sees a clean absent stat, not 'NaN'.
-      const sanitizeStat = (v: number | undefined): number | undefined =>
-        v == null ? undefined : Number.isFinite(v) ? v : undefined;
+  const { bestTimeValue, lastActivityDate } = useMemo(() => {
+    if (!rustChart) {
       return {
-        rankMap,
-        bestActivityId: rustChart.bestActivityId ?? null,
-        bestTimeValue: sanitizeStat(rustChart.bestTimeSecs),
-        bestPaceValue: sanitizeStat(rustChart.bestPace),
-        averageTime: sanitizeStat(rustChart.averageTimeSecs),
-        lastActivityDate:
-          rustChart.lastActivityDate != null
-            ? (fromUnixSeconds(rustChart.lastActivityDate)?.toISOString() ?? undefined)
-            : undefined,
+        bestTimeValue: undefined as number | undefined,
+        lastActivityDate: undefined as string | undefined,
       };
-    }, [rustChart]);
-
-  const summaryStats = useMemo((): ChartSummaryStats => {
+    }
+    // Preserve nullable semantics: a missing field stays undefined; a
+    // present-but-non-finite Rust value (e.g. 0/0 pace) collapses to
+    // undefined so the UI sees a clean absent stat, not 'NaN'.
+    const sanitizeStat = (v: number | undefined): number | undefined =>
+      v == null ? undefined : Number.isFinite(v) ? v : undefined;
     return {
-      bestTime: bestTimeValue ?? null,
-      avgTime: averageTime ?? null,
-      totalActivities: rustChart?.totalActivities ?? chartData.length,
-      lastActivity: lastActivityDate ? new Date(lastActivityDate) : null,
+      bestTimeValue: sanitizeStat(rustChart.bestTimeSecs),
+      lastActivityDate:
+        rustChart.lastActivityDate != null
+          ? (fromUnixSeconds(rustChart.lastActivityDate)?.toISOString() ?? undefined)
+          : undefined,
     };
-  }, [bestTimeValue, averageTime, chartData.length, lastActivityDate, rustChart]);
+  }, [rustChart]);
 
   return {
     portionMap,
@@ -192,14 +141,8 @@ export function useSectionChartData({
     chartData,
     minSpeed,
     maxSpeed,
-    bestIndex,
     hasReverseRuns,
-    summaryStats,
-    rankMap,
-    bestActivityId,
     bestTimeValue,
-    bestPaceValue,
-    averageTime,
     lastActivityDate,
   };
 }

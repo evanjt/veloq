@@ -1,17 +1,20 @@
 import React from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import { View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme';
 import type { FrequentSection } from '@/types';
+import { sectionActionChips } from '../../lib/sectionActionChips';
+import { Button, IconButton } from '@/shared/ui';
 import { styles } from './SectionDetail.styles';
 
 export interface SectionActionRowProps {
   isDark: boolean;
-  isCustomId: boolean;
   isSectionDisabled: boolean;
   isRematching: boolean;
+  /** Detection is held, so a rematch would be refused. */
+  isRematchHeld?: boolean;
   section: FrequentSection;
   startTrim: () => void;
   handleDeleteSection: () => void;
@@ -26,9 +29,9 @@ export interface SectionActionRowProps {
 
 export function SectionActionRow({
   isDark,
-  isCustomId,
   isSectionDisabled,
   isRematching,
+  isRematchHeld = false,
   section,
   startTrim,
   handleDeleteSection,
@@ -39,46 +42,43 @@ export function SectionActionRow({
   partlyExcluded = false,
 }: SectionActionRowProps) {
   const { t } = useTranslation();
+  const chips = sectionActionChips({
+    sectionType: section.sectionType,
+    isUserDefined: section.isUserDefined === true,
+    pinnedVersion,
+  });
 
   return (
     <View style={styles.actionRow}>
-      <TouchableOpacity
+      <Button
         testID="section-trim-button"
-        style={[
-          styles.actionPill,
-          { backgroundColor: isDark ? darkColors.surface : colors.surface },
-        ]}
+        variant="secondary"
+        size="sm"
+        label={t('sections.editBounds')}
         onPress={startTrim}
-        activeOpacity={0.7}
-      >
-        <MaterialCommunityIcons
-          name="content-cut"
-          size={16}
-          color={isDark ? darkColors.textPrimary : colors.textSecondary}
-        />
-        <Text style={[styles.actionPillText, isDark && { color: darkColors.textPrimary }]}>
-          {t('sections.editBounds')}
-        </Text>
-      </TouchableOpacity>
-      {isCustomId ? (
-        <TouchableOpacity
-          style={[
-            styles.actionCircle,
-            { backgroundColor: isDark ? darkColors.surface : colors.surface },
-          ]}
+        icon={
+          <MaterialCommunityIcons
+            name="content-cut"
+            size={16}
+            color={isDark ? darkColors.textPrimary : colors.textSecondary}
+          />
+        }
+      />
+      {section.sectionType === 'custom' ? (
+        <IconButton
+          variant="secondary"
+          accessibilityLabel={t('sections.deleteSection')}
           onPress={handleDeleteSection}
-          activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="delete-outline" size={16} color={colors.error} />
-        </TouchableOpacity>
+        </IconButton>
       ) : (
-        <TouchableOpacity
-          style={[
-            styles.actionCircle,
-            { backgroundColor: isDark ? darkColors.surface : colors.surface },
-          ]}
+        <IconButton
+          variant="secondary"
+          accessibilityLabel={
+            isSectionDisabled ? t('sections.restoreSection') : t('sections.removeSection')
+          }
           onPress={handleToggleDisable}
-          activeOpacity={0.7}
         >
           <MaterialCommunityIcons
             name={isSectionDisabled ? 'undo' : 'delete-outline'}
@@ -91,37 +91,72 @@ export function SectionActionRow({
                   : colors.textSecondary
             }
           />
-        </TouchableOpacity>
+        </IconButton>
       )}
       {handleRematchActivities && (
-        <TouchableOpacity
-          style={[
-            styles.actionCircle,
-            { backgroundColor: isDark ? darkColors.surface : colors.surface },
-          ]}
+        <IconButton
+          variant="secondary"
+          accessibilityLabel={t('sections.rematchActivities')}
           onPress={handleRematchActivities}
-          activeOpacity={0.7}
-          disabled={isRematching}
+          disabled={isRematching || isRematchHeld}
         >
           <MaterialCommunityIcons
             name={isRematching ? 'loading' : 'refresh'}
             size={16}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </IconButton>
       )}
-      {/* Accept/Pin chip - inline with action buttons */}
-      {section &&
-        section.sectionType === 'auto' &&
-        !isCustomId &&
-        (section.isUserDefined ? (
+      <View style={styles.actionChips}>
+        {partlyExcluded && (
+          <View
+            testID="section-partly-excluded"
+            style={[
+              styles.actionPill,
+              { backgroundColor: isDark ? darkColors.surface : colors.surface },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="eye-off-outline"
+              size={14}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.actionPillText,
+                { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+              ]}
+            >
+              {t('sections.partlyExcluded')}
+            </Text>
+          </View>
+        )}
+        {chips.pinned && (
+          <View
+            testID="section-pinned-version"
+            style={[
+              styles.actionPill,
+              { backgroundColor: isDark ? darkColors.surface : colors.surface },
+            ]}
+          >
+            <MaterialCommunityIcons name="pin" size={14} color={colors.primary} />
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.actionPillText,
+                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+              ]}
+            >
+              {t('sections.pinned')}
+            </Text>
+          </View>
+        )}
+        {chips.accept === 'accepted' && (
           <View
             style={[
               styles.actionPill,
-              {
-                backgroundColor: isDark ? darkColors.surface : colors.surface,
-                marginLeft: 'auto',
-              },
+              { backgroundColor: isDark ? darkColors.surface : colors.surface },
             ]}
           >
             <MaterialCommunityIcons
@@ -130,6 +165,7 @@ export function SectionActionRow({
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
             <Text
+              numberOfLines={1}
               style={[
                 styles.actionPillText,
                 { color: isDark ? darkColors.textSecondary : colors.textSecondary },
@@ -138,61 +174,17 @@ export function SectionActionRow({
               {t('sections.accepted')}
             </Text>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={[
-              styles.actionPill,
-              {
-                backgroundColor: isDark ? darkColors.surface : colors.surface,
-                marginLeft: 'auto',
-              },
-            ]}
+        )}
+        {chips.accept === 'offer' && (
+          <Button
+            variant="secondary"
+            size="sm"
+            label={t('sections.acceptSection')}
             onPress={handleAcceptSection}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name="pin-outline" size={14} color={colors.primary} />
-            <Text style={[styles.actionPillText, { color: colors.primary }]}>
-              {t('sections.acceptSection')}
-              {partlyExcluded && (
-                <View
-                  testID="section-partly-excluded"
-                  style={[
-                    styles.actionPill,
-                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name="eye-off-outline"
-                    size={14}
-                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.actionPillText,
-                      { color: isDark ? darkColors.textSecondary : colors.textSecondary },
-                    ]}
-                  >
-                    {t('sections.partlyExcluded')}
-                  </Text>
-                </View>
-              )}
-              {pinnedVersion != null && (
-                <View
-                  testID="section-pinned-version"
-                  style={[
-                    styles.actionPill,
-                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
-                  ]}
-                >
-                  <MaterialCommunityIcons name="pin" size={14} color={colors.primary} />
-                  <Text style={[styles.actionPillText, { color: colors.primary }]}>
-                    {t('sections.pinned')}
-                  </Text>
-                </View>
-              )}
-            </Text>
-          </TouchableOpacity>
-        ))}
+            icon={<MaterialCommunityIcons name="pin-outline" size={14} color={colors.primary} />}
+          />
+        )}
+      </View>
     </View>
   );
 }

@@ -43,10 +43,9 @@ export function useRouteReoptimization() {
 
     log.log('Cache expansion detected, marking for re-computation');
 
-    // Mark engine for re-computation
-    engine.markForRecomputation();
-
-    // Mark expansion as processed
-    markExpansionProcessed();
+    // Mark expansion as processed only when the engine took the request
+    if (engine.markForRecomputation()) {
+      markExpansionProcessed();
+    }
   }, [hasExpanded, markExpansionProcessed]);
 }

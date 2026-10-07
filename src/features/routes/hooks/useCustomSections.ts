@@ -4,10 +4,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { SectionRenameError } from '../lib/sectionRenameFailure';
 import { decodeCoords } from 'veloqrs';
 import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -57,13 +58,6 @@ export interface CreateSectionParams {
   name?: string;
 }
 
-/**
- * Overlap threshold for considering sections as superseded.
- * If a custom section covers more than 80% of an auto section, that auto
- * section is hidden.
- */
-const OVERLAP_THRESHOLD = 0.8;
-
 /** Engine sections in the app's shape: decoded polyline, custom type, created stamp. */
 function toAppSections(sections: NativeSection[]): Section[] {
   return sections.map((s) => ({
@@ -84,7 +78,6 @@ function toAppSections(sections: NativeSection[]): Section[] {
 export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
   const { sportType, enabled = true, preComputedSections } = options;
   const queryClient = useQueryClient();
-  const { t, i18n } = useTranslation();
 
   // A caller that already read the sections owns the answer. Seeding the query
   // was not enough: a cache another screen primed wins over `initialData`, so
@@ -98,6 +91,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     error,
     refetch,
   } = useQuery<Section[]>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.sections.custom,
     enabled: enabled && !skipOwnFfiCall,
     queryFn: async () => {
@@ -133,9 +127,9 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   const sections = useMemo(() => {
     let filtered = preComputed ?? rawSections ?? [];
 
-    // Filter by sport type if specified
+    // A sport keeps the sections it has taken, whichever sport took them most.
     if (sportType) {
-      filtered = filtered.filter((s) => s.sportType === sportType);
+      filtered = filtered.filter((s) => s.sportTypes.includes(sportType));
     }
 
     // Sort by creation date (newest first)
@@ -159,17 +153,9 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Route engine not initialized');
       }
 
-      // Generate date-stamped default name if none provided. The date is the
-      // athlete's locale, not en-US, and so is the wording around it.
-      const name =
-        params.name ??
-        t('routes.sectionDefaultName', {
-          sport: params.sportType,
-          date: new Date().toLocaleDateString(i18n.language, {
-            month: 'short',
-            day: 'numeric',
-          }),
-        });
+      // No name leaves the section unnamed, shown under the number the engine
+      // gives it.
+      const name = params.name?.trim() ? params.name : undefined;
 
       // Create section via unified FFI
       const sectionId = engine.createSectionFromIndices(
@@ -210,31 +196,10 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         );
       }
 
-      // Which auto sections this one supersedes is the engine's answer, in one
-      // read. Asking per section decoded every auto polyline here and rebuilt
-      // the same R-tree for each, on the JS thread.
-      try {
-        const supersededIds = engine.findSupersededSections(result.id, OVERLAP_THRESHOLD);
-        if (supersededIds.length > 0) {
-          for (const autoId of supersededIds) {
-            engine.setSuperseded(autoId, result.id);
-          }
-          if (__DEV__) {
-            log.log(
-              `[useCustomSections] Custom section ${result.id} supersedes ${supersededIds.length} auto sections`
-            );
-          }
-        }
-      } catch (overlapError) {
-        if (__DEV__) {
-          console.warn('[useCustomSections] Failed to compute superseded sections:', overlapError);
-        }
-      }
-
       await invalidate();
       return result;
     },
-    [invalidate, t, i18n.language]
+    [invalidate]
   );
 
   // Delete a section
@@ -249,9 +214,6 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       if (!deleted) {
         throw new Error(`Failed to delete section ${sectionId}`);
       }
-
-      // Clear superseded entries for this section (un-hides auto sections it replaced)
-      engine.clearSuperseded(sectionId);
 
       // Optimistically remove from cache to prevent stale data showing in activity detail
       queryClient.setQueryData(
@@ -272,7 +234,10 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         throw new Error('Route engine not initialized');
       }
 
-      engine.setSectionName(sectionId, name);
+      const outcome = engine.setSectionName(sectionId, name);
+      if (outcome !== 'saved') {
+        throw new SectionRenameError(`Failed to rename section ${sectionId}`, outcome);
+      }
       await invalidate();
     },
     [invalidate]

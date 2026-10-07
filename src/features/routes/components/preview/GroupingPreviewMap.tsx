@@ -5,7 +5,7 @@
  * draws; what the preview decides is which of them share a group at the chosen
  * setting, and the paint says so: the most-ridden group opaque, a pair the
  * setting would merge in the merge colour, and a route whose ride falls out of
- * every group faded to the casing grey.
+ * every group faded to the casing grey, each with its own legend row.
  *
  * Every source stays mounted with an empty FeatureCollection when it has
  * nothing to draw, so a knob move is a data swap and never a layer rebuild.
@@ -14,7 +14,7 @@
 import React, { useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { decodeCoords } from 'veloqrs';
-import { colors, darkColors, brand, mapLayerColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app/useTheme';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +30,7 @@ import {
   type MapSurfaceRef,
 } from '@/features/maps';
 import type { PaintedRoute } from '../../lib/groupingParams';
+import { GROUPING_LAYER_PAINT as PAINT, groupingLegendRows } from '../../lib/groupingLegend';
 
 /** One of today's routes, with the line the routes screen already holds. */
 export interface GroupingRoute {
@@ -43,6 +44,8 @@ interface GroupingPreviewMapProps {
   routes: GroupingRoute[];
   /** The paint for each route, or empty until a preview has answered. */
   painted: PaintedRoute[];
+  /** Every route the setting would merge, the largest group's included. */
+  mergedCount: number;
   mapStyle: MapStyleType;
 }
 
@@ -50,7 +53,12 @@ function collection(features: GeoJSON.Feature[]): GeoJSON.FeatureCollection {
   return features.length === 0 ? EMPTY_FEATURE_COLLECTION : { type: 'FeatureCollection', features };
 }
 
-export function GroupingPreviewMap({ routes, painted, mapStyle }: GroupingPreviewMapProps) {
+export function GroupingPreviewMap({
+  routes,
+  painted,
+  mergedCount,
+  mapStyle,
+}: GroupingPreviewMapProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const surfaceRef = useRef<MapSurfaceRef>(null);
@@ -129,9 +137,9 @@ export function GroupingPreviewMap({ routes, painted, mapStyle }: GroupingPrevie
         source: 'grouping-dropped',
         layout: roundLine,
         paint: {
-          'line-color': mapLayerColors.casing,
-          'line-opacity': 0.5,
-          'line-width': 1.5,
+          'line-color': PAINT.dropped.colour,
+          'line-opacity': PAINT.dropped.opacity,
+          'line-width': PAINT.dropped.width,
           'line-dasharray': [3, 3],
         },
       },
@@ -140,21 +148,33 @@ export function GroupingPreviewMap({ routes, painted, mapStyle }: GroupingPrevie
         type: 'line',
         source: 'grouping-other',
         layout: roundLine,
-        paint: { 'line-color': brand.tealLight, 'line-opacity': 0.4, 'line-width': 2 },
+        paint: {
+          'line-color': PAINT.other.colour,
+          'line-opacity': PAINT.other.opacity,
+          'line-width': PAINT.other.width,
+        },
       },
       {
         id: 'grouping-merging-line',
         type: 'line',
         source: 'grouping-merging',
         layout: roundLine,
-        paint: { 'line-color': colors.warning, 'line-opacity': 0.85, 'line-width': 3 },
+        paint: {
+          'line-color': PAINT.merging.colour,
+          'line-opacity': PAINT.merging.opacity,
+          'line-width': PAINT.merging.width,
+        },
       },
       {
         id: 'grouping-largest-line',
         type: 'line',
         source: 'grouping-largest',
         layout: roundLine,
-        paint: { 'line-color': brand.tealLight, 'line-opacity': 1, 'line-width': 4 },
+        paint: {
+          'line-color': PAINT.largest.colour,
+          'line-opacity': PAINT.largest.opacity,
+          'line-width': PAINT.largest.width,
+        },
       },
     ];
   }, []);
@@ -177,21 +197,15 @@ export function GroupingPreviewMap({ routes, painted, mapStyle }: GroupingPrevie
         style={[styles.legend, { backgroundColor: chipBg, borderColor: chipBorder }]}
         pointerEvents="none"
       >
-        <LegendRow
-          colour={brand.tealLight}
-          label={t('settings.groupingLegendMostRidden')}
-          textColour={chipText}
-        />
-        <LegendRow
-          colour={colors.warning}
-          label={t('settings.groupingMerged', { count: features.merging.length })}
-          textColour={chipText}
-        />
-        <LegendRow
-          colour={mapLayerColors.casing}
-          label={t('settings.groupingLegendOther')}
-          textColour={chipText}
-        />
+        {groupingLegendRows(mergedCount).map((row) => (
+          <LegendRow
+            key={row.kind}
+            colour={row.colour}
+            opacity={row.opacity}
+            label={t(row.labelKey, { count: row.count ?? 0 })}
+            textColour={chipText}
+          />
+        ))}
       </View>
     </View>
   );
@@ -199,16 +213,18 @@ export function GroupingPreviewMap({ routes, painted, mapStyle }: GroupingPrevie
 
 function LegendRow({
   colour,
+  opacity,
   label,
   textColour,
 }: {
   colour: string;
+  opacity: number;
   label: string;
   textColour: string;
 }) {
   return (
     <View style={styles.legendRow}>
-      <View style={[styles.swatch, { backgroundColor: colour }]} />
+      <View style={[styles.swatch, { backgroundColor: colour, opacity }]} />
       <Text style={[styles.legendLabel, { color: textColour }]}>{label}</Text>
     </View>
   );

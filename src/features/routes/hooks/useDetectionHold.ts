@@ -40,6 +40,47 @@ function readCutoverHold(): boolean {
 }
 
 /**
+ * Whether the detector cutover is still owed, whatever else holds detection.
+ *
+ * `useDetectionHold` ranks the backfill ahead of it, so on the upgrade path,
+ * where both are owed, the ranked answer never says `cutover`. A surface that
+ * is about the migration itself reads this instead.
+ *
+ * The cutover turns off at most once in an install's life, so it is read on
+ * the `sections` channel, which the migration's own detect fires, with a slow
+ * timer only while it holds.
+ */
+export function useCutoverHeld(): boolean {
+  const [cutoverHeld, setCutoverHeld] = useState(readCutoverHold);
+
+  const recheck = useCallback(() => {
+    const next = readCutoverHold();
+    setCutoverHeld((current) => (current === next ? current : next));
+  }, []);
+
+  useEffect(() => {
+    const engine = getEngine();
+    if (!engine) return undefined;
+    // Defensive like the read above: a host that cannot answer must not cost
+    // the screen its mount.
+    try {
+      return engine.subscribe?.('sections', recheck);
+    } catch {
+      // empty-on-error: a subscribe, not a read. No subscription means the slow timer below
+      // is the only recheck, and the initial read has already drawn the answer.
+      return undefined;
+    }
+  }, [recheck]);
+
+  useEffect(() => {
+    if (!cutoverHeld) return undefined;
+    const timer = setInterval(recheck, RECHECK_MS);
+    return () => clearInterval(timer);
+  }, [cutoverHeld, recheck]);
+  return cutoverHeld;
+}
+
+/**
  * Why the engine is refusing to detect, so the sections page can say which.
  *
  * Two things hold it and they end differently, which is why the answer is a
@@ -58,37 +99,12 @@ function readCutoverHold(): boolean {
  * on its own: with nothing left to download there is nothing for the pause to
  * hold up.
  *
- * The cutover turns off at most once in an install's life, so it is read on
- * the `sections` channel, which the migration's own detect fires, with a slow
- * timer only while it holds. The backfill's own hook carries its events.
+ * The backfill's own hook carries its events, and the cutover is read through
+ * `useCutoverHeld`.
  */
 export function useDetectionHold(): DetectionHold {
   const backfill = useElevationBackfill();
-  const [cutoverHeld, setCutoverHeld] = useState(readCutoverHold);
-
-  const recheck = useCallback(() => {
-    const next = readCutoverHold();
-    setCutoverHeld((current) => (current === next ? current : next));
-  }, []);
-
-  useEffect(() => {
-    const engine = getEngine();
-    if (!engine) return undefined;
-    // Defensive like the read above: a host that cannot answer must not cost
-    // the screen its mount.
-    try {
-      return engine.subscribe?.('sections', recheck);
-    } catch {
-      return undefined;
-    }
-  }, [recheck]);
-
-  useEffect(() => {
-    if (!cutoverHeld) return undefined;
-    const timer = setInterval(recheck, RECHECK_MS);
-    return () => clearInterval(timer);
-  }, [cutoverHeld, recheck]);
-
+  const cutoverHeld = useCutoverHeld();
   const owed = backfill.remaining !== null && backfill.remaining > 0;
   if (backfill.isPaused && (owed || backfill.isRunning)) return 'elevation-paused';
   if (backfill.isRunning) return 'elevation-running';

@@ -13,7 +13,7 @@ export interface PreComputedSectionActivityData {
 
 export function useSectionActivityData(
   section: FrequentSection | null,
-  selectedSportType: string | undefined,
+  sportType: string | undefined,
   bundle: PreComputedSectionActivityData
 ) {
   // Held as locals so each memo keys on the bundle's own array, not the
@@ -55,50 +55,22 @@ export function useSectionActivityData(
       }
       return Object.keys(result).length > 0 ? result : undefined;
     } catch {
+      // empty-on-error: decodes signatures the screen bundle already carries, no engine read;
+      // without traces the scrub draws no activity overlay and every figure is unaffected.
       return undefined;
     }
   }, [section?.activityIds, bundledSignatures]);
 
-  // Compute available sport types with activity counts for cross-sport sections.
-  // Derived from the metrics already fetched for sectionActivitiesUnsorted to
-  // avoid a second getActivityMetricsForIds round-trip.
-  const sportTypeCounts = useMemo(() => {
-    if (!section?.activityIds?.length) return [];
-    const counts = new Map<string, number>();
-    for (const a of sectionActivitiesUnsorted) {
-      if (a.type) counts.set(a.type, (counts.get(a.type) ?? 0) + 1);
-    }
-    if (counts.size === 0) {
-      return [{ type: section.sportType, count: section.activityIds?.length ?? 0 }];
-    }
-    return Array.from(counts.entries())
-      .map(([type, count]) => ({ type, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [section, sectionActivitiesUnsorted]);
-
-  const availableSportTypes = useMemo(() => sportTypeCounts.map((s) => s.type), [sportTypeCounts]);
-
-  // Effective sport type: matches the visually-selected pill.
-  // When selectedSportType is undefined (initial state), default to section's own sport type
-  // so the chart data matches the highlighted pill.
-  const effectiveSportType = useMemo(() => {
-    if (selectedSportType) return selectedSportType;
-    if (availableSportTypes.length > 1 && section?.sportType) return section.sportType;
-    return undefined;
-  }, [selectedSportType, availableSportTypes, section]);
-
-  // Filter activities by selected sport type for chart data
+  // The activities of the sport on screen. The sport comes from the engine's
+  // screen read, which counts the pills and picks the default.
   const filteredActivities = useMemo(() => {
-    if (!effectiveSportType) return sectionActivitiesUnsorted;
-    return sectionActivitiesUnsorted.filter((a) => a.type === effectiveSportType);
-  }, [sectionActivitiesUnsorted, effectiveSportType]);
+    if (!sportType) return sectionActivitiesUnsorted;
+    return sectionActivitiesUnsorted.filter((a) => a.type === sportType);
+  }, [sectionActivitiesUnsorted, sportType]);
 
   return {
     sectionActivitiesUnsorted,
     allActivityTraces,
-    sportTypeCounts,
-    availableSportTypes,
-    effectiveSportType,
     filteredActivities,
   };
 }

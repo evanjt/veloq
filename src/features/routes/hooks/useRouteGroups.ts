@@ -16,7 +16,7 @@ interface UseRouteGroupsOptions {
   /** Minimum number of activities in group */
   minActivities?: number;
   /** Sort order */
-  sortBy?: 'count' | 'recent' | 'name';
+  sortBy?: 'count' | 'name';
   /** Filter routes by date range - only show routes with activities in this range */
   startDate?: Date;
   /** Filter routes by date range - only show routes with activities in this range */
@@ -30,7 +30,6 @@ interface RouteGroupExtended {
   name: string;
   representativeId: string;
   activityIds: string[];
-  sportType: string;
   bounds: {
     minLat: number;
     maxLat: number;
@@ -41,14 +40,8 @@ interface RouteGroupExtended {
   type: ActivityType;
   /** All sport types present in this group's activities */
   sportTypes?: string[] | undefined;
-  /** Route signature with points for mini-trace preview */
-  signature?:
-    | {
-        points: { lat: number; lng: number }[];
-        distance: number;
-      }
-    | null
-    | undefined;
+  /** The representative activity's distance in metres, absent when unknown */
+  distance?: number | undefined;
   /** Best moving time in seconds (fastest completion) */
   bestTime?: number | undefined;
   /** Average moving time in seconds */
@@ -67,9 +60,10 @@ interface UseRouteGroupsResult {
   /** Number of processed activities */
   processedCount: number;
   /** Whether the store is initialized */
-  isReady: boolean;
   /** Rename a route (triggers refresh via engine events) */
   renameRoute: (routeId: string, name: string) => void;
+  /** What the engine threw, when the read failed. Empty groups with no error is an empty library. */
+  error?: unknown;
 }
 
 export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGroupsResult {
@@ -77,9 +71,9 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 
   // Use lightweight summaries instead of full groups (no activityIds arrays)
   // Activity-count filter + sort pushed into Rust.
-  const { totalCount, summaries } = useGroupSummaries({
+  const { totalCount, summaries, error } = useGroupSummaries({
     minActivities,
-    sortBy: sortBy === 'name' ? 'name' : 'count',
+    sortBy,
   });
 
   // Rename a route - uses Rust engine as single source of truth
@@ -95,32 +89,23 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
   }, []);
 
   const result = useMemo(() => {
-    // Convert summaries to extended format
-    // NOTE: Signature is NOT loaded here to avoid blocking render with sync FFI calls.
-    // Use useConsensusRoute hook to load signature lazily when needed.
+    // Convert summaries to extended format. The trace is not loaded here, to
+    // keep sync FFI calls off the render: useRepresentativeRoute loads it.
     // Names are stored persistently in Rust and available via customName
 
     const extended: RouteGroupExtended[] = summaries.map((g) => {
-      // The engine's own label, which is the sport most of the group's members
-      // carry. The set beside it is what membership reads; this is the one
-      // sport a row that can only draw one has to draw. It used to fall back
-      // to a literal `Ride`, which minted a sport the engine never said.
-      const sportType = g.sportType || g.sportTypes?.[0] || '';
-
       return {
         id: g.groupId,
         representativeId: g.representativeId,
-        activityIds: [], // Not loaded in summaries - use useGroupDetail for full data
-        sportType: g.sportType,
+        activityIds: [], // Not loaded in summaries
         bounds: g.bounds ?? null,
         // Names are stored in Rust (user-set or auto-generated on creation/migration)
-        name: g.customName ?? g.groupId,
+        name: g.customName ?? '',
         activityCount: g.activityCount,
-        type: toActivityType(sportType),
-        sportTypes: g.sportTypes?.length ? g.sportTypes : [sportType],
-        // Signature loaded lazily via useConsensusRoute to avoid blocking render
-        signature: undefined,
-        // Performance stats not in summaries - use useGroupDetail for full data
+        type: toActivityType(undefined),
+        sportTypes: g.sportTypes,
+        distance: g.distanceMeters > 0 ? g.distanceMeters : undefined,
+        // Performance stats not in summaries
         bestTime: undefined,
         avgTime: undefined,
         bestPace: undefined,
@@ -139,10 +124,10 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       groups: filtered,
       totalCount,
       processedCount: summaries.reduce((sum, g) => sum + g.activityCount, 0),
-      isReady: true,
       renameRoute,
+      error,
     };
-  }, [summaries, type, totalCount, renameRoute]);
+  }, [summaries, type, totalCount, renameRoute, error]);
 
   return result;
 }

@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, LayoutChangeEvent } from 'react-native';
+import { Pressable, View, StyleSheet, Text, LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, darkColors, typography, spacing, layout, ink } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
+import { Button, IconButton, ToggleButton, pressable, pressRipple } from '@/shared/ui';
 import {
   precisionLevel,
   precisionRatio,
@@ -68,7 +69,6 @@ export function SectionTrimOverlay({
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const { isDark } = useTheme();
-  const errorDeep = isDark ? darkColors.errorDeep : colors.errorDeep;
   const trackWidthSV = useSharedValue(0);
 
   const maxIndex = Math.max(pointCount - 1, 1);
@@ -301,28 +301,17 @@ export function SectionTrimOverlay({
           {endIndex - startIndex + 1} / {pointCount} {t('sections.points', 'points')}
         </Text>
         <View style={{ flex: 1 }} />
-        <TouchableOpacity
+        <ToggleButton
           testID="section-expand-toggle"
+          label={isExpandMode ? t('sections.trimMode', 'Trim') : t('sections.expandMode', 'Expand')}
+          selected={isExpandMode}
           onPress={onToggleExpand}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={[styles.expandToggle, isExpandMode && styles.expandToggleActive]}
           disabled={isSaving}
-        >
-          <MaterialCommunityIcons
-            name={isExpandMode ? 'content-cut' : 'arrow-expand-horizontal'}
-            size={14}
-            color={isExpandMode ? colors.primary : mutedColor}
-          />
-          <Text
-            style={[styles.expandToggleText, { color: isExpandMode ? colors.primary : mutedColor }]}
-          >
-            {isExpandMode ? t('sections.trimMode', 'Trim') : t('sections.expandMode', 'Expand')}
-          </Text>
-        </TouchableOpacity>
+        />
         {canReset && (
-          <TouchableOpacity onPress={onReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <IconButton accessibilityLabel={t('sections.resetBounds')} onPress={onReset}>
             <MaterialCommunityIcons name="refresh" size={16} color={colors.primary} />
-          </TouchableOpacity>
+          </IconButton>
         )}
       </View>
 
@@ -360,36 +349,40 @@ export function SectionTrimOverlay({
       {/* Step buttons */}
       <View style={styles.stepRow}>
         <View style={styles.stepGroup}>
-          <TouchableOpacity
-            style={[styles.stepButton, isDark && styles.stepButtonDark]}
+          <Pressable
+            style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
             onPress={() => nudgeStart(-1)}
             disabled={startIndex <= 0}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="chevron-left" size={16} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.stepButton, isDark && styles.stepButtonDark]}
+          </Pressable>
+          <Pressable
+            style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
             onPress={() => nudgeStart(1)}
             disabled={startIndex >= endIndex - Math.ceil(maxIndex * MIN_HANDLE_GAP)}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="chevron-right" size={16} color={colors.primary} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
         <View style={styles.stepGroup}>
-          <TouchableOpacity
-            style={[styles.stepButton, isDark && styles.stepButtonDark]}
+          <Pressable
+            style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
             onPress={() => nudgeEnd(-1)}
             disabled={endIndex <= startIndex + Math.ceil(maxIndex * MIN_HANDLE_GAP)}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="chevron-left" size={16} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.stepButton, isDark && styles.stepButtonDark]}
+          </Pressable>
+          <Pressable
+            style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
             onPress={() => nudgeEnd(1)}
             disabled={endIndex >= maxIndex}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons name="chevron-right" size={16} color={colors.primary} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
 
@@ -400,37 +393,29 @@ export function SectionTrimOverlay({
 
       {/* Action buttons */}
       <View style={styles.actions}>
-        <TouchableOpacity
+        <Button
           testID="section-trim-cancel"
-          style={[styles.actionBtn, isDark ? styles.actionBtnDark : styles.actionBtnLight]}
+          variant="secondary"
+          label={t('common.cancel')}
           onPress={onCancel}
-          activeOpacity={0.8}
           disabled={isSaving}
-        >
-          <MaterialCommunityIcons name="close" size={18} color={colors.error} />
-          <Text style={[styles.actionLabel, { color: errorDeep }]}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+          style={styles.actionBtn}
+          icon={<MaterialCommunityIcons name="close" size={18} color={colors.error} />}
+        />
+        <Button
           testID="section-trim-confirm"
-          style={[
-            styles.actionBtn,
-            isTrimmed ? styles.confirmBtn : isDark ? styles.actionBtnDark : styles.actionBtnLight,
-          ]}
+          label={t('common.save')}
           onPress={onConfirm}
-          activeOpacity={0.8}
           disabled={!isTrimmed || isSaving}
-        >
-          <MaterialCommunityIcons
-            name="check"
-            size={18}
-            color={isTrimmed ? colors.textOnPrimary : mutedColor}
-          />
-          <Text
-            style={[styles.actionLabel, { color: isTrimmed ? colors.textOnPrimary : mutedColor }]}
-          >
-            {t('common.save')}
-          </Text>
-        </TouchableOpacity>
+          style={styles.actionBtn}
+          icon={
+            <MaterialCommunityIcons
+              name="check"
+              size={18}
+              color={isTrimmed ? colors.textOnPrimary : mutedColor}
+            />
+          }
+        />
       </View>
     </View>
   );
@@ -453,24 +438,6 @@ const styles = StyleSheet.create({
   },
   infoMuted: {
     ...typography.caption,
-  },
-  expandToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusMd,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  expandToggleActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '10',
-  },
-  expandToggleText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '500',
   },
   sliderContainer: {
     height: HANDLE_SIZE + 8,
@@ -535,7 +502,7 @@ const styles = StyleSheet.create({
   stepButton: {
     width: 30,
     height: 28,
-    borderRadius: spacing.xsPlus,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
@@ -555,28 +522,5 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.smPlus,
-    borderRadius: layout.borderRadiusSm,
-  },
-  actionBtnLight: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  actionBtnDark: {
-    backgroundColor: darkColors.surface,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-  },
-  confirmBtn: {
-    backgroundColor: colors.primary,
-  },
-  actionLabel: {
-    ...typography.body,
-    fontWeight: '600',
   },
 });

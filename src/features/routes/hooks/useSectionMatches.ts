@@ -7,8 +7,7 @@
  */
 
 import { useMemo } from 'react';
-import { generateSectionName } from '@/features/routes/lib/sectionNaming';
-import { convertSectionWithPolylineToApp } from '@/features/routes/lib/sectionConversions';
+import { convertSectionWithPolylineToApp } from '@/shared/ffi/sectionConversions';
 import type { SectionWithPolyline } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
@@ -41,12 +40,6 @@ export interface UseSectionMatchesResult {
   sections: SectionMatch[];
   /** Total number of sections */
   count: number;
-  /** Whether data is ready */
-  isReady: boolean;
-  /** Whether engine data is still loading (engine not available or not yet subscribed) */
-  isLoading: boolean;
-  /** Whether the engine subscription timed out (engine never became available) */
-  timedOut: boolean;
 }
 
 /** Section matches a caller already read, so this hook can skip its own reads. */
@@ -66,10 +59,6 @@ export function useSectionMatches(
   activityId: string | undefined,
   bundle: PreComputedSectionMatches
 ): UseSectionMatchesResult {
-  const sectionCount = bundle.sectionCount;
-  const isReady = sectionCount > 0;
-  const isLoading = false;
-
   // Rust already filters out disabled/superseded sections in getSectionsForActivity
   const sections = useMemo(() => {
     if (!activityId) {
@@ -83,11 +72,7 @@ export function useSectionMatches(
     for (const native of nativeSections) {
       try {
         // Convert to app format
-        const converted = convertSectionWithPolylineToApp(native);
-        const section = {
-          ...converted,
-          name: generateSectionName(converted),
-        };
+        const section = convertSectionWithPolylineToApp(native);
 
         // Validate section structure to prevent crashes from malformed engine data
         if (!isValidSection(section)) {
@@ -114,8 +99,5 @@ export function useSectionMatches(
   return {
     sections,
     count: sections.length,
-    isReady,
-    isLoading,
-    timedOut: false,
   };
 }

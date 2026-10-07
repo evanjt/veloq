@@ -14,14 +14,18 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StartOutcome } from 'veloqrs';
+import {
+  StartOutcome,
+  startOutcome,
+  type StartVerdict,
+  type PreviewClient,
+  type PreviewParams,
+  type PreviewPollStatus,
+  type PreviewResult,
+} from 'veloqrs';
 import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
-import type {
-  PreviewClient,
-  PreviewParams,
-  PreviewPollStatus,
-  PreviewResult,
-} from '../../../../modules/veloqrs/src/delegates/preview';
+import { createAwakeClock } from '@/shared/app/awakeClock';
+import { attemptEngineRead, engineErrorTag } from '@/shared/native/engineError';
 
 /**
  * How often a lapsed run's status is re-read. The read is one poll of the
@@ -38,9 +42,6 @@ export const PREVIEW_POLL_INTERVAL_MS = 1000;
  */
 export const PREVIEW_LAPSE_AFTER_MS = 45_000;
 
-/** How long a run may go before it is called failed. */
-export const PREVIEW_TIMEOUT_MS = 5 * 60_000;
-
 export interface PreviewProgress {
   phase: string;
   displayName: string;
@@ -53,16 +54,15 @@ export interface PreviewDetectState {
   status: PreviewPollStatus;
   progress: PreviewProgress | null;
   result: PreviewResult | null;
-  /** True when start was refused, ie. another run or the elevation backfill. */
-  suspended: boolean;
+  /** The engine's refusal of the last start, or null when it started. */
+  refusal: StartVerdict | null;
   /** True once a still-running run has outlived its lapse budget. */
   lapsed: boolean;
   /**
-   * Ask for a preview run. The verdict names the refusal: a run already going
-   * or a backfill holding detection both lift on their own, a missing config
-   * does not.
+   * Ask for a preview run. The verdict names the refusal, and the same value
+   * stays in `refusal` until the next start.
    */
-  start: (lat: number, lng: number, params: PreviewParams) => StartOutcome;
+  start: (lat: number, lng: number, params: PreviewParams) => StartVerdict;
   cancel: () => void;
   reset: () => void;
 }
@@ -71,17 +71,17 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   const [status, setStatus] = useState<PreviewPollStatus>('idle');
   const [progress, setProgress] = useState<PreviewProgress | null>(null);
   const [result, setResult] = useState<PreviewResult | null>(null);
-  const [suspended, setSuspended] = useState(false);
+  const [refusal, setRefusal] = useState<StartVerdict | null>(null);
   const [lapsed, setLapsed] = useState(false);
   const unsubscribeRef = useRef<(() => void)[]>([]);
   const runningRef = useRef(false);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const tickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopRun = useCallback(() => {
     unsubscribeRef.current.forEach((off) => off());
     unsubscribeRef.current = [];
-    timersRef.current.forEach((timer) => clearTimeout(timer));
-    timersRef.current = [];
+    if (tickerRef.current) clearInterval(tickerRef.current);
+    tickerRef.current = null;
     runningRef.current = false;
   }, []);
 
@@ -93,8 +93,19 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     if (polled === 'running') return false;
     stopRun();
     if (polled === 'complete') {
-      setResult(client.takePreviewResult());
-      setStatus('complete');
+      // Settled from a timer as well as an announcement, so a failed take is
+      // the run's error state rather than a throw nothing catches.
+      const taken = attemptEngineRead(() => client.takePreviewResult());
+      if (taken.ok) {
+        setResult(taken.value);
+        setStatus('complete');
+      } else {
+        console.warn(
+          '[PreviewDetect] Could not take the result:',
+          engineErrorTag(taken.error) ?? taken.error
+        );
+        setStatus('error');
+      }
     } else {
       // Idle at the announcement means the engine lost the run.
       setStatus(polled === 'idle' ? 'error' : polled);
@@ -105,7 +116,9 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
 
   const readProgress = useCallback(() => {
     if (!client || !runningRef.current) return;
-    const p = client.getPreviewProgress();
+    // Progress is advisory: a failed read leaves the last figures and the run
+    // settles on its own announcement.
+    const p = attemptEngineRead(() => client.getPreviewProgress()).value;
     if (!p) return;
     setProgress({
       phase: p.phase,
@@ -117,7 +130,7 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   }, [client]);
 
   const start = useCallback(
-    (lat: number, lng: number, params: PreviewParams): StartOutcome => {
+    (lat: number, lng: number, params: PreviewParams): StartVerdict => {
       if (!client) return StartOutcome.NotReady;
       if (runningRef.current) return StartOutcome.Busy;
       const config = client.getSectionConfig();
@@ -125,7 +138,7 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
         setStatus('error');
         return StartOutcome.NotConfigured;
       }
-      setSuspended(false);
+      setRefusal(null);
       // The previous result stands until this run settles. During a run there
       // is no newer answer, and the old one is still the truth about the last
       // parameters, so clearing it here left the map blank for the length of
@@ -134,12 +147,10 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
       // case where the held diff is about somewhere else.
       setProgress(null);
       const outcome = client.startPreviewDetect(lat, lng, { ...config, ...params });
-      if (outcome !== StartOutcome.Started) {
-        // The engine's own answer, rather than one refusal standing in for
-        // four. `Held` and `Busy` both end, so the screen says it is waiting.
-        // `NotOwed` is no activity covering the point, which no amount of
-        // asking changes, so it does not read as a hold.
-        setSuspended(outcome === StartOutcome.Held || outcome === StartOutcome.Busy);
+      if (startOutcome(outcome) !== StartOutcome.Started) {
+        // The engine's own answer, kept whole: each refusal ends differently,
+        // so the screen words each one.
+        setRefusal(outcome);
         setStatus('idle');
         return outcome;
       }
@@ -154,29 +165,25 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
       // is withheld when the binding checksum fails, and a run that dies
       // between the announcement and its delivery announces to nobody. A run
       // that outlives its lapse budget is abnormal by then, so that is where
-      // the fallback poll arms, and the timeout bounds a run that reaches no
-      // terminal state at all.
-      timersRef.current = [
-        setTimeout(() => {
+      // the fallback poll arms. The app never cancels a run for being slow: the
+      // run ends on the engine's own outcome or the athlete's cancel.
+      // One ticker on a clock that drops suspended time, so a resume does not
+      // read as a lapse. Before the lapse it reads nothing from the engine.
+      const awake = createAwakeClock(PREVIEW_POLL_INTERVAL_MS);
+      const startedAt = awake();
+      let lapsedAt = false;
+      tickerRef.current = setInterval(() => {
+        if (!lapsedAt) {
+          if (awake() - startedAt < PREVIEW_LAPSE_AFTER_MS) return;
+          lapsedAt = true;
           setLapsed(true);
-          const poller = setInterval(settle, PREVIEW_POLL_INTERVAL_MS);
-          timersRef.current.push(poller as unknown as ReturnType<typeof setTimeout>);
-        }, PREVIEW_LAPSE_AFTER_MS),
-        setTimeout(() => {
-          // One last read, since a run that ended without its event is a
-          // finished preview and not a failed one.
-          if (settle()) return;
-          // Nobody follows this run any more, and a run left holding the
-          // single preview slot refuses the next start as a suspension.
-          client.cancelPreviewDetect();
-          stopRun();
-          setStatus('error');
-          setProgress(null);
-        }, PREVIEW_TIMEOUT_MS),
-      ];
-      return StartOutcome.Started;
+          return;
+        }
+        settle();
+      }, PREVIEW_POLL_INTERVAL_MS);
+      return outcome;
     },
-    [client, settle, readProgress, stopRun]
+    [client, settle, readProgress]
   );
 
   const cancel = useCallback(() => {
@@ -192,7 +199,7 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     setStatus('idle');
     setProgress(null);
     setResult(null);
-    setSuspended(false);
+    setRefusal(null);
     setLapsed(false);
   }, [stopRun]);
 
@@ -203,5 +210,5 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     };
   }, [client, stopRun]);
 
-  return { status, progress, result, suspended, lapsed, start, cancel, reset };
+  return { status, progress, result, refusal, lapsed, start, cancel, reset };
 }

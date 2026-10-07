@@ -12,10 +12,13 @@ import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/shared/native/engine';
+import { engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
 import { decodeCoords } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { haversineDistance, polylineDistance } from '@/shared/geo/distance';
+import type { FfiDepartedRide } from 'veloqrs';
 import type { FrequentSection, RoutePoint } from '@/types';
+import { announceDepartedRides } from '../lib/departedRides';
 
 /** Padded window context for expand mode */
 interface ExpandContext {
@@ -215,10 +218,13 @@ export function useSectionTrim(
       setTrimStart(ctx.sectionStartInWindow);
       setTrimEnd(ctx.sectionEndInWindow);
       setIsExpanded(true);
-    } catch {
+    } catch (error) {
+      // A failed read is not a missing track, so the engine's failure is named.
       Alert.alert(
         t('common.error'),
-        t('sections.expandUnavailable', 'No activity track available for expansion')
+        engineErrorTag(error)
+          ? t(engineErrorKey(error, 'engine.failure.database'))
+          : t('sections.expandUnavailable', 'No activity track available for expansion')
       );
     }
   }, [section, isExpanded, t]);
@@ -248,7 +254,7 @@ export function useSectionTrim(
       return;
     }
 
-    let success = false;
+    let departed: FfiDepartedRide[] | null = null;
 
     if (isExpanded && expandContext) {
       // Check if the user expanded beyond the section or shrunk within it
@@ -264,7 +270,7 @@ export function useSectionTrim(
           Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
           return;
         }
-        success = engine.expandSectionBounds(
+        departed = engine.expandSectionBounds(
           section.id,
           activityId,
           expandContext.windowStartIdx + trimStart,
@@ -274,21 +280,22 @@ export function useSectionTrim(
         // User shrunk within section - map window indices back to section polyline indices
         const sectionStart = trimStart - expandContext.sectionStartInWindow;
         const sectionEnd = trimEnd - expandContext.sectionStartInWindow;
-        success = engine.trimSection(section.id, sectionStart, sectionEnd);
+        departed = engine.trimSection(section.id, sectionStart, sectionEnd);
       }
     } else {
       // Trim mode - pure trim on section polyline
-      success = engine.trimSection(section.id, trimStart, trimEnd);
+      departed = engine.trimSection(section.id, trimStart, trimEnd);
     }
 
     setIsSaving(false);
 
-    if (success) {
+    if (departed) {
       setIsTrimming(false);
       setIsExpanded(false);
       setExpandContext(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
       onRefresh();
+      announceDepartedRides(departed, t);
     } else {
       Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
     }
@@ -305,13 +312,14 @@ export function useSectionTrim(
           const engine = getEngine();
           if (!engine) return;
 
-          const success = engine.resetSectionBounds(section.id);
-          if (success) {
+          const departed = engine.resetSectionBounds(section.id);
+          if (departed) {
             setIsTrimming(false);
             setIsExpanded(false);
             setExpandContext(null);
             queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
             onRefresh();
+            announceDepartedRides(departed, t);
           }
         },
       },

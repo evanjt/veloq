@@ -136,8 +136,8 @@ export interface RouteGroup {
   name: string;
   /** Representative route signature (from the first/best activity) - optional for engine groups */
   signature?: RouteSignature | null | undefined;
-  /** Consensus route - the common core that 80%+ of activities share */
-  consensusPoints?: RoutePoint[] | undefined;
+  /** Stored representative activity's route points */
+  representativePoints?: RoutePoint[] | undefined;
   /** Activity IDs in this group */
   activityIds: string[];
   /** Total count of activities */
@@ -153,7 +153,7 @@ export interface RouteGroup {
   /** Distance in meters (from representative activity) */
   distance?: number | undefined;
   /** Pre-computed center point for proximity sorting */
-  center?: { lat: number; lng: number } | undefined;
+  center?: LatLngShort | undefined;
   /** Average match quality for grouped activities (0-100) - optional for engine groups */
   averageMatchQuality?: number | undefined;
   /** Best moving time in seconds (fastest completion) */
@@ -208,8 +208,11 @@ export interface Section {
   sectionType: SectionType;
   /** Section name */
   name?: string | undefined;
-  /** Sport type (e.g., "Ride", "Run") */
-  sportType: string;
+  /**
+   * Every sport whose included outings have taken the section, sorted. Ground
+   * has no sport of its own, so nothing reads one sport as the section's.
+   */
+  sportTypes: string[];
   /** GPS points defining the section */
   polyline: RoutePoint[];
   /** Section length in meters */
@@ -279,10 +282,8 @@ export interface Section {
   activityPortions?: ActivitySectionRecord[] | undefined;
   /** Activity traces (loaded on-demand for section detail) */
   activityTraces?: Record<string, RoutePoint[]> | undefined;
-  /** All sport types present in this section's activities */
-  sportTypes?: string[] | undefined;
   /** Pre-computed center point for proximity sorting */
-  center?: { lat: number; lng: number } | undefined;
+  center?: LatLngShort | undefined;
   /** Whether the user has disabled (hidden) this section */
   disabled?: boolean | undefined;
   /** If superseded by a custom section, stores its ID */
@@ -293,39 +294,13 @@ export interface Section {
    * every conversion that does not come from the sections page.
    */
   latestIsRecord?: boolean | undefined;
+  /** Eligible recent section trend: positive is faster, negative is slower. */
+  trend?: number | null | undefined;
 }
 
 /** Backward compatibility aliases */
 export type FrequentSection = Section;
 export type CustomSection = Section;
-
-/**
- * Lightweight section summary (no polyline).
- */
-export interface SectionSummary {
-  id: string;
-  sectionType: SectionType;
-  name?: string;
-  sportType: string;
-  distanceMeters: number;
-  visitCount: number;
-  representativeActivityId?: string;
-  createdAt: string;
-  /** Elevation gain in metres over the representative slice, absent when unknown */
-  elevationGainM?: number;
-  /** Elevation loss in metres over the representative slice, absent when unknown */
-  elevationLossM?: number;
-  /** Net grade percent over the representative slice, absent when unknown */
-  avgGradePercent?: number;
-  /** Steepest grade percent held over 300 m of the slice, absent when unknown */
-  maxGradePercent?: number;
-  /** climb, descent, rolling, flat or loop, absent when nothing says */
-  klass?: string;
-  /** Interestingness percentile across the catalogue, 0 to 1 */
-  rankScore?: number;
-  /** Interestingness percentile within the section's sport, 0 to 1 */
-  sportRankScore?: number;
-}
 
 /**
  * Each activity's portion of a section (for pace comparison).
@@ -372,9 +347,13 @@ export interface PerformanceDataPoint {
   sectionDistance?: number | undefined;
   lapCount?: number | undefined;
   isExcluded?: boolean | undefined;
+  /** Recorded distance lies outside the route's distance band: plotted, never a record. */
+  outsideDistanceBand?: boolean | undefined;
   bestTime?: number | undefined;
   bestSpeed?: number | undefined;
   isBest?: boolean | undefined;
+  /** The lap's stored mean watts; absent when the lap has no power stream. */
+  avgPower?: number | undefined;
 }
 
 /**
@@ -385,6 +364,6 @@ export interface DirectionStats {
   avgTime: number | null;
   lastActivity: Date | null;
   count: number;
-  /** Average speed across traversals (m/s). Populated for route stats; null for section. */
+  /** Average speed across traversals (m/s). Total lap distance over total lap time; null when there is no time. */
   avgSpeed: number | null;
 }

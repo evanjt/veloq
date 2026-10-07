@@ -11,10 +11,8 @@
  */
 
 import { useMemo } from 'react';
-import type {
-  PreviewClient,
-  PreviewSection,
-} from '../../../../modules/veloqrs/src/delegates/preview';
+import type { PreviewClient, PreviewSection } from 'veloqrs';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 export interface PreviewCurrentSections {
   sections: PreviewSection[];
@@ -27,7 +25,7 @@ const FAILED: PreviewCurrentSections = { sections: [], failed: true };
 
 export function usePreviewCurrentSections(
   client: PreviewClient | null,
-  centre: { lat: number; lng: number } | null
+  centre: LatLngShort | null
 ): PreviewCurrentSections {
   const lat = centre?.lat ?? null;
   const lng = centre?.lng ?? null;

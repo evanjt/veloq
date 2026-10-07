@@ -6,18 +6,22 @@
  * redetect so the user sees real section data without manually digging into
  * the detection settings.
  *
- * Runs at most once per install (flagged in AsyncStorage). Designed to be
+ * Runs at most once per library (stamped in the engine's settings, so a wipe
+ * or a restore leaves the next library owed the check). Designed to be
  * cheap when there is nothing to do.
  */
 
 import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hasStarted } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 
-/** Whether this device has spent its one-shot redetect on this database. */
-export const SECTION_HEALTH_CHECK_KEY = 'veloq-section-health-check-v1';
-const FLAG_KEY = SECTION_HEALTH_CHECK_KEY;
+/** Whether this library has spent its one-shot redetect. Engine-owned: a clear removes it. */
+export const SECTION_HEALTH_CHECK_SETTING = '__section_health_check_done';
+
+/** Where builds before the engine stamp kept it, read once and removed. */
+export const LEGACY_SECTION_HEALTH_CHECK_KEY = 'veloq-section-health-check-v1';
 
 export function useSectionHealthCheck(syncComplete: boolean): void {
   const ranRef = useRef(false);
@@ -30,18 +34,22 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
 
     (async () => {
       try {
-        const alreadyRan = await AsyncStorage.getItem(FLAG_KEY);
-        if (alreadyRan === 'done') return;
-
         const engine = getEngine();
         if (!engine) return;
+
+        const legacy = await AsyncStorage.getItem(LEGACY_SECTION_HEALTH_CHECK_KEY);
+        if (legacy !== null) {
+          if (legacy === 'done') engine.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
+          await AsyncStorage.removeItem(LEGACY_SECTION_HEALTH_CHECK_KEY);
+        }
+        if (engine.getSetting(SECTION_HEALTH_CHECK_SETTING)) return;
 
         const activityCount = engine.getActivityCount?.() ?? 0;
         if (activityCount === 0) return;
 
         const sectionCount = engine.getSectionCount?.() ?? 0;
         if (sectionCount > 0) {
-          await AsyncStorage.setItem(FLAG_KEY, 'done');
+          engine.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
           return;
         }
 
@@ -52,8 +60,8 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
 
         // Stamp only on a redetect the engine actually accepted. A refusal
         // means detection is suspended, and the check is owed a later launch.
-        if (engine.forceRedetectSections()) {
-          await AsyncStorage.setItem(FLAG_KEY, 'done');
+        if (hasStarted(engine.forceRedetectSections())) {
+          engine.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
         }
       } catch {
         // best-effort

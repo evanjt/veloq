@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface DateRangeSummaryProps {
   activityCount: number;
@@ -58,12 +58,7 @@ export function DateRangeSummary({
           exiting={FadeOut.duration(150)}
           style={[styles.syncBanner, isDark && styles.syncBannerDark]}
         >
-          <MaterialCommunityIcons
-            name="sync"
-            size={16}
-            color={themeColors.primary}
-            style={styles.syncIcon}
-          />
+          <ActivityIndicator size="small" color={themeColors.primary} style={styles.syncIcon} />
           <Text style={[styles.syncText, isDark && styles.textMuted]}>{syncMessage}</Text>
         </Animated.View>
       )}
@@ -71,11 +66,16 @@ export function DateRangeSummary({
       {/* Summary row */}
       <View style={styles.summaryRow}>
         <View style={styles.dateInfo}>
-          <Text style={[styles.countText, isDark && styles.textLight]}>
-            {isLoading
-              ? t('mapScreen.loadingActivities')
-              : `${activityCount} ${t('common.activities')}`}
-          </Text>
+          <View style={styles.countRow}>
+            {isLoading && (
+              <ActivityIndicator size="small" color={themeColors.primary} style={styles.syncIcon} />
+            )}
+            <Text style={[styles.countText, isDark && styles.textLight]}>
+              {isLoading
+                ? t('mapScreen.loadingActivities')
+                : `${activityCount} ${t('common.activities')}`}
+            </Text>
+          </View>
           {!isLoading && oldestDate && newestDate && (
             <Text style={[styles.dateText, isDark && styles.textMuted]}>
               {formatDate(oldestDate)} - {formatDate(newestDate)}
@@ -83,7 +83,11 @@ export function DateRangeSummary({
           )}
         </View>
 
-        <Pressable style={pressable(styles.expandButton)} onPress={handleExpandPress}>
+        <Pressable
+          style={pressable(styles.expandButton)}
+          android_ripple={pressRipple}
+          onPress={handleExpandPress}
+        >
           <MaterialCommunityIcons
             name="calendar-expand-horizontal"
             size={18}
@@ -131,6 +135,10 @@ const styles = StyleSheet.create({
   },
   dateInfo: {
     flex: 1,
+  },
+  countRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   countText: {
     fontSize: typography.bodySmall.fontSize,

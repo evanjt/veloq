@@ -1,12 +1,14 @@
 /**
  * Scatter chart for section performance data.
- * Fixed-width chart showing all traversals at a glance with LOESS trend lines.
- * Forward and reverse directions share a single Y axis.
+ * Fixed-width chart showing one direction at a time, with an engine trend
+ * and confidence band on that direction's Y axis.
  */
 
+import { useMetricSystem } from '@/shared/app';
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, Pressable, StyleSheet, type ViewStyle, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,21 +25,19 @@ import {
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
-import {
-  formatAxisDate,
-  formatDuration,
-  formatPace,
-  formatSpeed,
-  formatSwimPace,
-} from '@/shared/format/format';
+import { formatAxisDate, formatDuration } from '@/shared/format/format';
+import { formatSectionSpeed } from '@/features/routes/lib/sectionSpeedFormat';
 import {
   splitAndPositionChartData,
-  buildTrendWithBand,
+  placeEngineTrend,
   nearestScatterPointIndex,
+  resolveChartDirection,
+  type ChartDirection,
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
 import { colors, darkColors, layout, typography, spacing } from '@/theme';
+import type { FfiSectionTrendCurves } from 'veloqrs';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
   DirectionBestRecord,
@@ -45,7 +45,7 @@ import type {
 } from '@/features/routes/lib/performanceTypes';
 import { StatsRow } from './StatsRow';
 import { PerformanceTooltip } from './PerformanceTooltip';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple, ToggleButton } from '@/shared/ui';
 
 /** Horizontal room the chart leaves at the window edge. */
 const CHART_INSET = 32;
@@ -63,6 +63,8 @@ export interface SectionScatterChartProps {
   isDark: boolean;
   bestForwardRecord: DirectionBestRecord | null;
   bestReverseRecord: DirectionBestRecord | null;
+  bestForwardIsRecord: boolean;
+  bestReverseIsRecord: boolean;
   forwardStats: DirectionSummaryStats | null;
   reverseStats: DirectionSummaryStats | null;
   onActivitySelect?:
@@ -85,6 +87,13 @@ export interface SectionScatterChartProps {
   highlightedActivityId?: string | undefined;
   /** When true, Y-axis shows time (inverted: shorter = higher) instead of speed */
   useTimeAxis?: boolean | undefined;
+  /** The engine's trend curves for the counted attempts. */
+  trendCurves: FfiSectionTrendCurves;
+  /**
+   * The direction shown, when a parent owns the direction control. The chart
+   * then draws no direction toggles of its own.
+   */
+  selectedDirection?: ChartDirection | undefined;
 }
 
 export function SectionScatterChart({
@@ -93,6 +102,8 @@ export function SectionScatterChart({
   isDark,
   bestForwardRecord,
   bestReverseRecord,
+  bestForwardIsRecord,
+  bestReverseIsRecord,
   forwardStats,
   reverseStats,
   onActivitySelect,
@@ -108,6 +119,8 @@ export function SectionScatterChart({
   containerStyle,
   highlightedActivityId,
   useTimeAxis,
+  trendCurves,
+  selectedDirection: controlledDirection,
 }: SectionScatterChartProps) {
   const isSwimming = isSwimmingActivity(activityType);
   const showPace = isPaceSport(activityType) || isSwimming;
@@ -116,7 +129,6 @@ export function SectionScatterChart({
   // so it is a mark and owes 3:1 rather than a chart tone.
   const prMarkColor = isDark ? darkColors.chartGoldMark : colors.chartGoldMark;
   const highlightMarkColor = isDark ? darkColors.chartGreenMark : colors.chartGreenMark;
-  const sectionDistance = chartData[0]?.sectionDistance || 0;
 
   const effectiveHeight = mini ? MINI_HEIGHT : CHART_HEIGHT;
   const effectivePadding = mini ? MINI_PADDING : CHART_PADDING;
@@ -126,41 +138,57 @@ export function SectionScatterChart({
   const [selectedPoint, setSelectedPoint] = useState<(PerformanceDataPoint & { x: number }) | null>(
     null
   );
+  const [requestedDirection, setRequestedDirection] = useState<ChartDirection | null>(null);
+  const { t } = useTranslation();
 
   // Clear selection when chart data changes (e.g., sport type filter switch).
   // Clearing while rendering keeps the previous selection out of the first
   // frame drawn against the new data.
   const [selectionFor, setSelectionFor] = useState(chartData);
-  if (chartData !== selectionFor) {
+  const [selectionDirection, setSelectionDirection] = useState(controlledDirection);
+  if (chartData !== selectionFor || controlledDirection !== selectionDirection) {
     setSelectionFor(chartData);
+    setSelectionDirection(controlledDirection);
     setSelectedPoint(null);
   }
 
+  const isMetric = useMetricSystem();
   const { width: windowWidth } = useWindowDimensions();
   const chartWidth = windowWidth - CHART_INSET;
 
   const formatSpeedValue = useCallback(
-    (speed: number) =>
-      isSwimming ? formatSwimPace(speed) : showPace ? formatPace(speed) : formatSpeed(speed),
-    [showPace, isSwimming]
+    (speed: number) => formatSectionSpeed(speed, activityType, isMetric),
+    [activityType, isMetric]
   );
 
   // Separate forward/reverse, compute positions, find PRs (pure fn in lib/scatterData)
-  // Gold ring = highest point on displayed axis (speed for sections, time for routes)
-  const {
-    forwardPoints,
-    reversePoints,
-    allPoints,
-    forwardBestIdx,
-    reverseBestIdx,
-    minSpeed,
-    maxSpeed,
-    minTime,
-    maxTime,
-  } = useMemo(
-    () => splitAndPositionChartData(chartData, useTimeAxis ? 'time' : 'speed'),
-    [chartData, useTimeAxis]
+  // Gold ring = the points the engine flags as a record, whichever axis is shown
+  const { forwardPoints, reversePoints, allPoints, domains } = useMemo(
+    () => splitAndPositionChartData(chartData),
+    [chartData]
   );
+  const hasForward = domains.forward !== null;
+  const hasReverse = domains.reverse !== null;
+  const originDirection =
+    allPoints.find((point) => point.activityId === highlightedActivityId)?.direction === 'reverse'
+      ? 'reverse'
+      : 'forward';
+  const selectedDirection =
+    controlledDirection ??
+    resolveChartDirection(requestedDirection, originDirection, hasForward, hasReverse);
+  const drawnPoints = useMemo(
+    () =>
+      allPoints.filter(
+        (point) => (point.direction === 'reverse' ? 'reverse' : 'forward') === selectedDirection
+      ),
+    [allPoints, selectedDirection]
+  );
+  const { minSpeed, maxSpeed, minTime, maxTime } = domains[selectedDirection] ?? {
+    minSpeed: 0,
+    maxSpeed: 1,
+    minTime: 0,
+    maxTime: 1,
+  };
 
   const yMin = useTimeAxis ? maxTime : minSpeed;
   const yMax = useTimeAxis ? minTime : maxSpeed;
@@ -172,13 +200,21 @@ export function SectionScatterChart({
     [useTimeAxis]
   );
 
-  // Compute Gaussian kernel trend lines with confidence bands for all point counts (≥2)
-  const { forwardTrend, reverseTrend } = useMemo(
-    () => ({
-      forwardTrend: buildTrendWithBand(forwardPoints, 200, useTimeAxis ? 'sectionTime' : 'speed'),
-      reverseTrend: buildTrendWithBand(reversePoints, 200, useTimeAxis ? 'sectionTime' : 'speed'),
-    }),
-    [forwardPoints, reversePoints, useTimeAxis]
+  // Trend lines with confidence bands: the engine's curves placed on the
+  // chart's x axis.
+  const selectedTrend = useMemo(
+    () =>
+      placeEngineTrend(
+        selectedDirection === 'reverse'
+          ? useTimeAxis
+            ? trendCurves.reverseTime
+            : trendCurves.reverseSpeed
+          : useTimeAxis
+            ? trendCurves.forwardTime
+            : trendCurves.forwardSpeed,
+        allPoints
+      ),
+    [trendCurves, allPoints, useTimeAxis, selectedDirection]
   );
 
   // Time axis labels: start, middle, end - include day when months repeat
@@ -197,15 +233,18 @@ export function SectionScatterChart({
   // to snap against.
   const pointXCoords = useMemo(() => {
     const contentWidth = chartWidth - effectivePadding.left - effectivePadding.right;
-    return allPoints.map((point) => effectivePadding.left + point.x * contentWidth);
-  }, [allPoints, effectivePadding, chartWidth]);
+    return drawnPoints.map((point) => effectivePadding.left + point.x * contentWidth);
+  }, [drawnPoints, effectivePadding, chartWidth]);
 
   // The tap has to resolve against the axis the chart drew, so the points go
   // in on the same accessor and domain the dots are placed with.
-  const tapPoints = useMemo(() => allPoints.map((p) => ({ x: p.x, y: yOf(p) })), [allPoints, yOf]);
+  const tapPoints = useMemo(
+    () => drawnPoints.map((p) => ({ x: p.x, y: yOf(p) })),
+    [drawnPoints, yOf]
+  );
 
   // Trend and band paths are pixels, so they only move when the box or the
-  // domain does. Rebuilding them inside the render prop re-parsed four SVG
+  // domain does. Rebuilding them inside the render prop re-parsed the SVG
   // strings on every scrub tick.
   const trendPaths = useMemo(() => {
     const bounds = chartBoundsFor(chartWidth, effectiveHeight, effectivePadding);
@@ -222,8 +261,8 @@ export function SectionScatterChart({
         band: Skia.Path.MakeFromSVGString(bandSvgPath(upperPts, lowerPts)),
       };
     };
-    return { fwd: build(forwardTrend), rev: build(reverseTrend) };
-  }, [forwardTrend, reverseTrend, chartWidth, effectiveHeight, effectivePadding, yDomain]);
+    return build(selectedTrend);
+  }, [selectedTrend, chartWidth, effectiveHeight, effectivePadding, yDomain]);
 
   // Taps match on 2D distance so an outlier high above the trend is reachable.
   const resolveTapIndex = useCallback(
@@ -245,7 +284,7 @@ export function SectionScatterChart({
   const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<
     PerformanceDataPoint & { x: number }
   >({
-    data: allPoints,
+    data: drawnPoints,
     enabled: !mini,
     scrubEnabled: !compact,
     crosshairMode: 'finger',
@@ -260,9 +299,6 @@ export function SectionScatterChart({
 
   if (chartData.length < 1) return null;
 
-  const hasForward = forwardPoints.length > 0;
-  const hasReverse = reversePoints.length > 0;
-
   return (
     <View style={[styles.container, isDark && styles.containerDark, containerStyle]}>
       {/* Eye toggle for excluded activities */}
@@ -272,6 +308,7 @@ export function SectionScatterChart({
             onPress={onToggleShowExcluded}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={pressable(styles.eyeToggle)}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons
               name={showExcluded ? 'eye' : 'eye-off'}
@@ -281,16 +318,36 @@ export function SectionScatterChart({
           </Pressable>
         </View>
       )}
+      {!mini && controlledDirection === undefined && hasForward && hasReverse && (
+        <View style={styles.directionControl}>
+          {(['forward', 'reverse'] as const).map((direction) => (
+            <ToggleButton
+              key={direction}
+              testID={`section-chart-direction-${direction}`}
+              label={t(direction === 'reverse' ? 'sections.reverse' : 'sections.forward')}
+              selected={selectedDirection === direction}
+              onPress={() => {
+                setRequestedDirection(direction);
+                setSelectedPoint(null);
+                onActivitySelect?.(null);
+              }}
+              style={{
+                borderColor: direction === 'reverse' ? colors.reverseDirection : activityColor,
+              }}
+            />
+          ))}
+        </View>
+      )}
       {/* Forward stats row above chart */}
-      {!mini && hasForward && (
+      {!mini && selectedDirection === 'forward' && forwardPoints.length > 0 && (
         <StatsRow
           direction="forward"
           stats={forwardStats}
           bestRecord={bestForwardRecord}
+          bestIsRecord={bestForwardIsRecord}
           pointCount={forwardPoints.length}
           color={activityColor}
           showPace={showPace}
-          sectionDistance={sectionDistance}
           isDark={isDark}
         />
       )}
@@ -299,7 +356,7 @@ export function SectionScatterChart({
       <View style={{ width: chartWidth, height: effectiveHeight }}>
         <View style={StyleSheet.absoluteFill}>
           <ChartCanvas
-            data={allPoints}
+            data={drawnPoints}
             x={xOf}
             series={NO_SERIES}
             xDomain={X_DOMAIN}
@@ -308,43 +365,26 @@ export function SectionScatterChart({
             grid={5}
           >
             {({ xFor, yFor }) => {
-              // Track which allPoints index maps to forward/reverse
-              let fwdIdx = 0;
-              let revIdx = 0;
-
               return (
                 <>
                   {/* Confidence bands (drawn first, behind everything) */}
-                  {trendPaths.fwd.band && (
+                  {trendPaths.band && (
                     <Path
-                      path={trendPaths.fwd.band}
-                      color={activityColor}
-                      style="fill"
-                      opacity={0.08}
-                    />
-                  )}
-                  {trendPaths.rev.band && (
-                    <Path
-                      path={trendPaths.rev.band}
-                      color={colors.reverseDirection}
+                      path={trendPaths.band}
+                      color={
+                        selectedDirection === 'reverse' ? colors.reverseDirection : activityColor
+                      }
                       style="fill"
                       opacity={0.08}
                     />
                   )}
                   {/* Trend lines */}
-                  {trendPaths.fwd.line && (
+                  {trendPaths.line && (
                     <Path
-                      path={trendPaths.fwd.line}
-                      color={activityColor}
-                      style="stroke"
-                      strokeWidth={2}
-                      opacity={0.6}
-                    />
-                  )}
-                  {trendPaths.rev.line && (
-                    <Path
-                      path={trendPaths.rev.line}
-                      color={colors.reverseDirection}
+                      path={trendPaths.line}
+                      color={
+                        selectedDirection === 'reverse' ? colors.reverseDirection : activityColor
+                      }
                       style="stroke"
                       strokeWidth={2}
                       opacity={0.6}
@@ -355,7 +395,7 @@ export function SectionScatterChart({
                   {(() => {
                     const highlight: { x: number; y: number }[] = [];
 
-                    const dots = allPoints.map((dataPoint, idx) => {
+                    const dots = drawnPoints.map((dataPoint, idx) => {
                       const yValue = yOf(dataPoint);
                       if (yValue == null || !Number.isFinite(yValue)) return null;
                       const point = { x: xFor(dataPoint.x), y: yFor(yValue) };
@@ -364,17 +404,7 @@ export function SectionScatterChart({
                       const dotColor = isReverse ? colors.reverseDirection : activityColor;
                       const isPointExcluded = dataPoint.isExcluded === true;
 
-                      // Determine if this is the best in its direction
-                      let isBest = false;
-                      if (!isPointExcluded) {
-                        if (isReverse) {
-                          if (revIdx === reverseBestIdx) isBest = true;
-                          revIdx++;
-                        } else {
-                          if (fwdIdx === forwardBestIdx) isBest = true;
-                          fwdIdx++;
-                        }
-                      }
+                      const isBest = !isPointExcluded && dataPoint.isBest === true;
 
                       // Track highlighted point for rendering last (on top)
                       const isHighlighted =
@@ -414,6 +444,20 @@ export function SectionScatterChart({
                             r={dotRadius - 1}
                             color={isDark ? darkColors.textSecondary : colors.textSecondary}
                             opacity={0.25}
+                          />
+                        );
+                      }
+
+                      if (dataPoint.outsideDistanceBand === true) {
+                        return (
+                          <Circle
+                            key={`pt-${idx}`}
+                            cx={point.x}
+                            cy={point.y}
+                            r={dotRadius - 0.75}
+                            color={dotColor}
+                            style="stroke"
+                            strokeWidth={1.5}
                           />
                         );
                       }
@@ -528,15 +572,15 @@ export function SectionScatterChart({
       )}
 
       {/* Reverse stats row below chart */}
-      {!mini && hasReverse && (
+      {!mini && selectedDirection === 'reverse' && reversePoints.length > 0 && (
         <StatsRow
           direction="reverse"
           stats={reverseStats}
           bestRecord={bestReverseRecord}
+          bestIsRecord={bestReverseIsRecord}
           pointCount={reversePoints.length}
           color={colors.reverseDirection}
           showPace={showPace}
-          sectionDistance={sectionDistance}
           isDark={isDark}
         />
       )}
@@ -579,6 +623,14 @@ const styles = StyleSheet.create({
   },
   eyeToggle: {
     padding: spacing.xs,
+  },
+  directionControl: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    gap: spacing.xs,
+    borderRadius: layout.borderRadiusMd,
+    backgroundColor: colors.backgroundAlt,
+    marginBottom: spacing.xs,
   },
   tapTarget: {
     ...StyleSheet.absoluteFill,

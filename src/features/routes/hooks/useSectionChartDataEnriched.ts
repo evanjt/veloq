@@ -1,105 +1,56 @@
 import { useMemo } from 'react';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
-import type { FfiCalendarSummary } from 'veloqrs';
-import type { FrequentSection, PerformanceDataPoint } from '@/types';
-import { debug } from '@/shared/debug/debug';
-
-const log = debug.create('SectionChartDataEnriched');
+import { castDirection, ensureFinite, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
+import type { FfiCalendarSummary, FfiSectionChartPoint } from 'veloqrs';
+import type { PerformanceDataPoint } from '@/types';
 
 interface UseSectionChartDataEnrichedArgs {
-  id: string | undefined;
-  section: FrequentSection | null;
   chartData: (PerformanceDataPoint & { x: number })[];
   showExcluded: boolean;
-  excludedActivityIds: Set<string>;
-  /** Calendar summary a caller already read, so this hook skips its own FFI call. */
-  preComputedCalendarSummary?: FfiCalendarSummary | null;
+  /**
+   * The excluded attempts the screen read returned, for the same range and
+   * sport as `chartData`, so the dimmed points never stretch the axis or
+   * cross the sport filter.
+   */
+  excludedPoints: readonly FfiSectionChartPoint[];
+  /** The calendar summary the screen read returned for the same range and sport. */
+  preComputedCalendarSummary: FfiCalendarSummary | null;
 }
 
 export function useSectionChartDataEnriched({
-  id,
-  section,
   chartData,
   showExcluded,
-  excludedActivityIds,
+  excludedPoints,
   preComputedCalendarSummary,
 }: UseSectionChartDataEnrichedArgs) {
-  // A rematch or a sync changes what the excluded attempts read, and neither
-  // moves the other keys below.
-  const readSections = useEngineRead(['sections']);
-
-  // Build chart data points for excluded activities (shown dimmed on scatter chart)
+  // The excluded attempts, dimmed on the scatter chart when shown.
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
-    if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
-    try {
-      const result = readSections((engine) => engine.getExcludedSectionPerformances(id));
-      if (!result?.records?.length) return [];
+    if (!showExcluded) return [];
+    return excludedPoints.flatMap((p) => {
+      const date = fromUnixSeconds(p.activityDate);
+      if (!date || !(p.speed > 0)) return [];
+      return [
+        {
+          x: 0,
+          id: p.lapId,
+          activityId: p.activityId,
+          speed: ensureFinite(p.speed, 0),
+          date,
+          activityName: p.activityName,
+          direction: castDirection(p.direction),
+          sectionTime: ensureFinite(p.sectionTime, 0),
+          sectionDistance: ensureFinite(p.sectionDistance, 0),
+          lapCount: 1,
+          isExcluded: true,
+          avgPower: p.avgPower ?? undefined,
+        },
+      ];
+    });
+  }, [showExcluded, excludedPoints]);
 
-      const points: (PerformanceDataPoint & { x: number })[] = [];
-      for (const r of result.records) {
-        const date = fromUnixSeconds(r.activityDate);
-        if (!date) continue;
-        if (r.laps?.length) {
-          for (const lap of r.laps) {
-            if (lap.pace > 0) {
-              points.push({
-                x: 0,
-                id: lap.id,
-                activityId: r.activityId,
-                speed: lap.pace,
-                date,
-                activityName: r.activityName,
-                direction: (lap.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-                sectionTime: Math.round(lap.time),
-                sectionDistance: lap.distance || r.sectionDistance,
-                lapCount: 1,
-                isExcluded: true,
-              });
-            }
-          }
-        } else if (r.bestPace > 0) {
-          points.push({
-            x: 0,
-            id: r.activityId,
-            activityId: r.activityId,
-            speed: r.bestPace,
-            date,
-            activityName: r.activityName,
-            direction: (r.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-            sectionTime: Math.round(r.bestTime),
-            sectionDistance: r.sectionDistance,
-            lapCount: 1,
-            isExcluded: true,
-          });
-        }
-      }
-      return points;
-    } catch (e) {
-      if (__DEV__) console.warn('[SectionDetail] getExcludedSectionPerformances failed:', e);
-      return [];
-    }
-  }, [showExcluded, excludedActivityIds, id, readSections]);
+  const calendarSummary = preComputedCalendarSummary;
 
-  // Calendar summary: Year > Month performance history
-  const calendarSummary = useMemo(() => {
-    if (preComputedCalendarSummary !== undefined) return preComputedCalendarSummary;
-    if (!section?.id) return null;
-    try {
-      const engine = getEngine();
-      if (!engine) return null;
-      const t0 = performance.now();
-      const result = engine.getSectionCalendarSummary(section.id);
-      if (__DEV__)
-        log.log(`[PERF] getSectionCalendarSummary: ${(performance.now() - t0).toFixed(1)}ms`);
-      return result ?? null;
-    } catch {
-      return null;
-    }
-  }, [section, preComputedCalendarSummary]);
-
-  // Enrich chart data with PR info for tooltip display
+  // Enrich chart data with the best to compare each point against; the
+  // record flag itself is the engine's, carried on the point
   const enrichedChartData = useMemo(() => {
     if (chartData.length === 0) return chartData;
 
@@ -127,8 +78,7 @@ export function useSectionChartDataEnriched({
       const isReverse = p.direction === 'reverse';
       const dirBestTime = isReverse ? revBestTime : fwdBestTime;
       const dirBestSpeed = isReverse ? revBestSpeed : fwdBestSpeed;
-      const isBest = dirBestSpeed !== undefined && p.speed === dirBestSpeed;
-      return { ...p, bestTime: dirBestTime, bestSpeed: dirBestSpeed, isBest };
+      return { ...p, bestTime: dirBestTime, bestSpeed: dirBestSpeed };
     });
   }, [chartData]);
 

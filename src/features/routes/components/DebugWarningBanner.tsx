@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { amberBanner, redBanner, spacing, typography } from '@/theme';
+import { amberBanner, redBanner, spacing, layout, typography } from '@/theme';
 
 interface DebugWarning {
   level: 'warn' | 'error';
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xsPlus,
     paddingHorizontal: spacing.smPlus,
-    borderRadius: spacing.xsPlus,
+    borderRadius: layout.borderRadiusSm,
     borderLeftWidth: 3,
   },
   text: {

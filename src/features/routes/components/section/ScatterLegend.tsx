@@ -1,6 +1,7 @@
 /**
  * Legend for the performance scatter chart: PR ring, reverse-direction
- * fill, and this-activity ring. Shared by the route detail, section
+ * fill, this-activity ring, and the hollow mark for an attempt outside the
+ * route's distance band. Shared by the route detail, section
  * detail, and activity Routes tab surfaces.
  */
 
@@ -15,9 +16,15 @@ export interface ScatterLegendProps {
   isDark: boolean;
   showReverse: boolean;
   showThisActivity: boolean;
+  showOutsideBand?: boolean;
 }
 
-export function ScatterLegend({ isDark, showReverse, showThisActivity }: ScatterLegendProps) {
+export function ScatterLegend({
+  isDark,
+  showReverse,
+  showThisActivity,
+  showOutsideBand = false,
+}: ScatterLegendProps) {
   const { t } = useTranslation();
 
   return (
@@ -47,6 +54,20 @@ export function ScatterLegend({ isDark, showReverse, showThisActivity }: Scatter
           />
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
             {t('sections.legendThisActivity')}
+          </Text>
+        </View>
+      )}
+      {showOutsideBand && (
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendSwatch,
+              styles.outsideBandSwatch,
+              isDark && styles.outsideBandSwatchDark,
+            ]}
+          />
+          <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
+            {t('sections.legendOutsideBand')}
           </Text>
         </View>
       )}
@@ -89,6 +110,13 @@ const styles = StyleSheet.create({
   },
   thisActivitySwatchDark: {
     borderColor: darkColors.chartGreenMark,
+  },
+  outsideBandSwatch: {
+    borderColor: colors.textSecondary,
+    borderWidth: 1.5,
+  },
+  outsideBandSwatchDark: {
+    borderColor: darkColors.textSecondary,
   },
   legendText: {
     fontSize: typography.label.fontSize,

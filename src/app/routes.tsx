@@ -7,8 +7,9 @@
 import { useEffect, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { replaceTo } from '@/shared/app/navigation';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-export default function RoutesRedirectScreen() {
+function RoutesRedirectScreenContent() {
   const params = useLocalSearchParams() as Record<string, string | undefined>;
   const sent = useRef(false);
 
@@ -20,3 +21,5 @@ export default function RoutesRedirectScreen() {
 
   return null;
 }
+
+export default withScreenBoundary(RoutesRedirectScreenContent, 'Routes');

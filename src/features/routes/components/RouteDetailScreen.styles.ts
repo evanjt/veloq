@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, ink } from '@/theme';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 
 export const styles = StyleSheet.create({
@@ -10,12 +10,6 @@ export const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: darkColors.background,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
   },
   scrollView: {
     flex: 1,
@@ -32,24 +26,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  floatingHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colorWithOpacity(ink.black, 0.4),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   // Export GPX button
   exportGpxButton: {
     flexDirection: 'row',
@@ -62,7 +38,7 @@ export const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
     gap: spacing.xs,
-    shadowColor: '#000',
+    shadowColor: ink.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -80,44 +56,6 @@ export const styles = StyleSheet.create({
   contentSection: {
     padding: layout.screenPadding,
     paddingTop: spacing.lg,
-  },
-  // Summary stats card
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  summaryCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xxs,
-  },
-  summaryValue: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: typography.body.fontSize,
-    color: colors.textPrimary,
-    marginTop: spacing.md,
   },
   chartSection: {
     marginBottom: spacing.lg,

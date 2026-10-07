@@ -1,19 +1,9 @@
 import { useMemo } from 'react';
-import { decodeCoords } from 'veloqrs';
 
 import type { FrequentSection, RoutePoint } from '@/types';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps';
 
 type FeatureOrCollection = GeoJSON.FeatureCollection | GeoJSON.Feature;
-
-export interface NearbyPolyline {
-  id: string;
-  name?: string | undefined;
-  sportType: string;
-  distanceMeters: number;
-  visitCount: number;
-  encodedPolyline: ArrayBuffer;
-}
 
 interface SectionMapLayersInput {
   section: FrequentSection;
@@ -24,7 +14,6 @@ interface SectionMapLayersInput {
   allActivityTraces?: Record<string, RoutePoint[]> | undefined;
   trimRange?: { start: number; end: number } | null | undefined;
   extensionTrack?: RoutePoint[] | null | undefined;
-  nearbyPolylines?: NearbyPolyline[] | undefined;
 }
 
 export interface SectionMapLayers {
@@ -32,7 +21,6 @@ export interface SectionMapLayers {
   trimmedGeoJSON: FeatureOrCollection;
   shadowGeoJSON: FeatureOrCollection;
   extensionGeoJSON: FeatureOrCollection;
-  nearbyGeoJSON: GeoJSON.FeatureCollection;
   allTracesFeatureCollection: GeoJSON.FeatureCollection;
   hasAllTraces: boolean;
   /** MapLibre filter expression, or undefined when nothing is highlighted. */
@@ -60,7 +48,7 @@ function lineFeature(
 }
 
 // Builds every GeoJSON overlay the section map renders: the section polyline,
-// the trimmed/shadow/extension overlays for bounds editing, nearby sections,
+// the trimmed/shadow/extension overlays for bounds editing,
 // and the pre-loaded activity traces used for fast scrubbing.
 export function useSectionMapLayers({
   section,
@@ -71,7 +59,6 @@ export function useSectionMapLayers({
   allActivityTraces,
   trimRange,
   extensionTrack,
-  nearbyPolylines,
 }: SectionMapLayersInput): SectionMapLayers {
   const sectionGeoJSON = useMemo<FeatureOrCollection>(() => {
     const validPoints = displayPoints.filter(isFinitePoint);
@@ -114,27 +101,6 @@ export function useSectionMapLayers({
     if (validCoords.length < 2) return EMPTY_FEATURE_COLLECTION;
     return lineFeature(validCoords);
   }, [extensionTrack]);
-
-  const nearbyGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
-    if (!nearbyPolylines || nearbyPolylines.length === 0) return EMPTY_FEATURE_COLLECTION;
-    const features = nearbyPolylines
-      .map((entry) => {
-        if (!entry.encodedPolyline) return null;
-        const decoded = decodeCoords(entry.encodedPolyline);
-        if (decoded.length < 2) return null;
-        const coordinates: [number, number][] = decoded
-          .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
-          .map((p) => [p.longitude, p.latitude]);
-        if (coordinates.length < 2) return null;
-        return {
-          type: 'Feature' as const,
-          properties: { sectionId: entry.id },
-          geometry: { type: 'LineString' as const, coordinates },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-    return { type: 'FeatureCollection', features };
-  }, [nearbyPolylines]);
 
   const allTracesFeatureCollection = useMemo<GeoJSON.FeatureCollection>(() => {
     if (!allActivityTraces || Object.keys(allActivityTraces).length === 0)
@@ -192,7 +158,6 @@ export function useSectionMapLayers({
     trimmedGeoJSON,
     shadowGeoJSON,
     extensionGeoJSON,
-    nearbyGeoJSON,
     allTracesFeatureCollection,
     hasAllTraces,
     highlightedTraceFilter,

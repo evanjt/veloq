@@ -8,7 +8,7 @@ import { useActivities } from '@/features/activity';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getEngine } from '@/shared/native/engine';
-import { engineErrorKey } from '@/shared/native/engineError';
+import { attemptEngineRead, engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
 import { i18n } from '@/i18n';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -96,10 +96,14 @@ export function SyncDebugTab() {
     [readActivities]
   );
 
-  const engineStats: PersistentEngineStats | undefined = useMemo(
-    () => readActivities((client) => client.getStats()),
+  const engineStatsRead = useMemo(
+    () =>
+      attemptEngineRead((): PersistentEngineStats | undefined =>
+        readActivities((client) => client.getStats())
+      ),
     [readActivities]
   );
+  const engineStats = engineStatsRead.value;
 
   // Alignment computation
   const alignment = useMemo(() => {
@@ -273,7 +277,9 @@ export function SyncDebugTab() {
             onPress={() => setShowMissing(!showMissing)}
             activeOpacity={0.7}
           >
-            <Text style={[styles.expandText, { color: colors.primary }]}>
+            <Text
+              style={[styles.expandText, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
+            >
               {showMissing ? 'Hide' : 'Show'} missing IDs ({alignment.missingFromEngine.length})
             </Text>
             <MaterialCommunityIcons
@@ -304,7 +310,9 @@ export function SyncDebugTab() {
             onPress={() => setShowExtra(!showExtra)}
             activeOpacity={0.7}
           >
-            <Text style={[styles.expandText, { color: colors.primary }]}>
+            <Text
+              style={[styles.expandText, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
+            >
               {showExtra ? 'Hide' : 'Show'} extra IDs ({alignment.extraInEngine.length})
             </Text>
             <MaterialCommunityIcons
@@ -354,16 +362,15 @@ export function SyncDebugTab() {
               isDark={isDark}
             />
             <StatRow
-              label="Consensus Cache"
-              value={`${engineStats.consensusCacheSize}/50`}
-              isDark={isDark}
-            />
-            <StatRow
               label="Date Range"
               value={`${formatDate(engineStats.oldestDate ?? null)} - ${formatDate(engineStats.newestDate ?? null)}`}
               isDark={isDark}
             />
           </>
+        ) : !engineStatsRead.ok ? (
+          <Text style={[styles.emptyText, { color: mutedColor }]}>
+            {`Could not read engine stats: ${engineErrorTag(engineStatsRead.error) ?? String(engineStatsRead.error)}`}
+          </Text>
         ) : (
           <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialized</Text>
         )}
@@ -397,7 +404,14 @@ export function SyncDebugTab() {
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="refresh" size={18} color={colors.primary} />
-          <Text style={[styles.actionButtonText, { color: colors.primary }]}>Force Sync</Text>
+          <Text
+            style={[
+              styles.actionButtonText,
+              { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+            ]}
+          >
+            Force Sync
+          </Text>
         </TouchableOpacity>
         {forceSyncStatus !== '' && (
           <Text style={[styles.statusText, { color: mutedColor }]}>{forceSyncStatus}</Text>

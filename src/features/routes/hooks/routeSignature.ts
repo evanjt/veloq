@@ -1,3 +1,4 @@
+import type { LatLngShort } from '@/shared/geo/distance';
 /**
  * The simplified track the map draws a route group from.
  *
@@ -16,7 +17,7 @@ export interface RouteSignature {
    * wants, for the points it actually draws.
    */
   points: Float64Array;
-  center: { lat: number; lng: number };
+  center: LatLngShort;
 }
 
 /** How many points a flat track carries. */

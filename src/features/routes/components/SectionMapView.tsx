@@ -15,7 +15,6 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect, memo } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   Modal,
   StatusBar,
@@ -23,10 +22,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { getActivityColor } from '@/shared/activity/activityUtils';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 import {
   BaseMapView,
   boundsOfLngLat,
@@ -34,7 +32,6 @@ import {
   getNextStyle,
   getStyleIcon,
   isDarkStyle,
-  lineEndpoints,
   lngLatFromShort,
   lngLatFromShortPoint,
   Map3DWebView,
@@ -45,19 +42,25 @@ import {
   pointFeature,
   TRIM_UPDATE_THROTTLE_MS,
   useMapFullscreen,
+  useDrawnMapStyle,
   useMapPreferences,
   useThrottledValue,
+  buildSectionTrimCollection,
+  EMPTY_FEATURE_COLLECTION,
+  cameraAfter3D,
+  type Camera3DState,
 } from '@/features/maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompassArrow, ComponentErrorBoundary, HERO_HEADER_HEIGHT } from '@/shared/ui';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { toActivityType } from '@/features/routes/types';
-import { useSectionMapLayers, type NearbyPolyline } from './useSectionMapLayers';
-import { SectionMapLegend } from './section/SectionMapLegend';
-import {
-  buildSectionLayers,
-  buildSectionSources,
-  NEARBY_LINE_LAYER_ID,
-} from './sectionMapLayerSpecs';
+import { onlySport } from '@/shared/activity/sportSet';
+import { useSectionMapLayers } from './useSectionMapLayers';
+import { buildSection3DOverlays } from './sectionMap3DOverlays';
+import { buildDeltaLineStops } from '@/features/maps';
+import type { SectionDeltaLine } from '../lib/deltaLayout';
+import { SectionMapLegend, hasLegendLayers } from './section/SectionMapLegend';
+import { buildSectionLayers, buildSectionSources } from './sectionMapLayerSpecs';
 import {
   SECTION_MAP_BOUNDS_PADDING,
   SECTION_MAP_FIT_PADDING,
@@ -68,6 +71,12 @@ import { styles } from './sectionMapView.styles';
 
 interface SectionMapViewProps {
   section: FrequentSection;
+  /**
+   * The sport the screen is reading the section in. Without one the map takes
+   * the section's only sport, and for ground several sports have taken, the
+   * athlete's default style and the neutral line colour.
+   */
+  sportType?: string | undefined;
   height?: number | undefined;
   /** Enable map interaction (zoom, pan). Default false for preview, true for detail. */
   interactive?: boolean | undefined;
@@ -90,16 +99,14 @@ interface SectionMapViewProps {
   trimRange?: { start: number; end: number } | null | undefined;
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
   extensionTrack?: RoutePoint[] | null | undefined;
-  /** Nearby section polylines to render as muted gray overlays. Each entry has encoded coords. */
-  nearbyPolylines?: NearbyPolyline[] | undefined;
-  /** Called when a nearby section polyline is tapped */
-  onNearbyPress?: ((sectionId: string) => void) | undefined;
   /**
    * Top safe-area inset of the screen the map fills. The map draws edge to
    * edge, so the legend and the controls are offset by this and the hero's
    * header row to clear the status bar and the back button.
    */
   insetTop?: number | undefined;
+  /** The attempt the chart's delta plot shows. While set, the section line is coloured by it. */
+  deltaLine?: SectionDeltaLine | null | undefined;
 }
 
 // Stable identities, so the closed-modal memos below return the same empty set
@@ -109,6 +116,7 @@ const EMPTY_LAYERS: ReturnType<typeof buildSectionLayers> = [];
 
 export const SectionMapView = memo(function SectionMapView({
   section,
+  sportType,
   height = 200,
   interactive = false,
   enableFullscreen = false,
@@ -118,28 +126,30 @@ export const SectionMapView = memo(function SectionMapView({
   allActivityTraces,
   trimRange = null,
   extensionTrack = null,
-  nearbyPolylines,
-  onNearbyPress,
   insetTop = 0,
+  deltaLine = null,
 }: SectionMapViewProps) {
-  const { t } = useTranslation();
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
-  const [selectedNearby, setSelectedNearby] = useState<string | null>(null);
-  const { getStyleForActivity } = useMapPreferences();
+  const { getStyleForActivity, preferences } = useMapPreferences();
 
   // The first row of the map that is not under the status bar or the hero's
   // back button. Everything floated over the map's top corners starts here.
+  const fullscreenInsets = useSafeAreaInsets();
   const overlayTop = insetTop + HERO_HEADER_HEIGHT + spacing.sm;
 
   // The engine sends the sport as a string, so it is read against the one
   // activity vocabulary the app keeps. A sport nothing recognises is `Other`,
   // which has a style and a colour of its own; calling it a road ride hands
   // back the wrong one of the athlete's own choices.
-  const validSportType: ActivityType = toActivityType(section.sportType);
+  const sport = sportType ?? onlySport(section.sportTypes);
+  const validSportType: ActivityType | undefined = sport ? toActivityType(sport) : undefined;
 
-  const preferredStyle = getStyleForActivity(validSportType);
+  const preferredStyle = validSportType
+    ? getStyleForActivity(validSportType)
+    : preferences.defaultStyle;
   const [currentMapStyle, setCurrentMapStyle] = useState(preferredStyle);
-  const activityColor = getActivityColor(validSportType);
+  const drawnMapStyle = useDrawnMapStyle(currentMapStyle);
+  const activityColor = getActivityColor(validSportType ?? 'Other');
   const surfaceRef = useRef<MapSurfaceRef>(null);
   // The surface is unmounted while the 3D layer covers it, so the viewport it
   // settled on is what a remount opens with, not the section fit again.
@@ -154,6 +164,14 @@ export const SectionMapView = memo(function SectionMapView({
 
   // Interactive-mode state
   const [is3DMode, setIs3DMode] = useState(false);
+  const camera3DRef = useRef<Camera3DState | null>(null);
+  const handleCamera3DChange = useCallback((camera: Camera3DState) => {
+    camera3DRef.current = camera;
+  }, []);
+  // A camera from an earlier 3D visit is not where this one was left.
+  useEffect(() => {
+    if (is3DMode) camera3DRef.current = null;
+  }, [is3DMode]);
   const [is3DReady, setIs3DReady] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
@@ -182,7 +200,7 @@ export const SectionMapView = memo(function SectionMapView({
   );
 
   const hasRoute = sectionCoords.length > 0;
-  const isDark = isDarkStyle(currentMapStyle);
+  const isDark = isDarkStyle(drawnMapStyle);
 
   // The 2D surface comes down once the 3D layer covers it, so where it was is
   // captured on the way out and handed back to the remount.
@@ -289,14 +307,15 @@ export const SectionMapView = memo(function SectionMapView({
         accuracy: Location.Accuracy.Balanced,
       });
       setLocationLoading(false);
-      surfaceRef.current?.setCamera(
+      const target = is3DMode && is3DReady ? map3DRef.current : surfaceRef.current;
+      target?.setCamera(
         { center: [location.coords.longitude, location.coords.latitude], zoom: 14 },
         500
       );
     } catch {
       setLocationLoading(false);
     }
-  }, []);
+  }, [is3DMode, is3DReady]);
 
   const sectionLayerData = useSectionMapLayers({
     section,
@@ -307,8 +326,36 @@ export const SectionMapView = memo(function SectionMapView({
     allActivityTraces,
     trimRange,
     extensionTrack,
-    nearbyPolylines,
   });
+
+  const overlays3D = useMemo(
+    () => buildSection3DOverlays(sectionLayerData, highlightedActivityId),
+    [sectionLayerData, highlightedActivityId]
+  );
+
+  const deltaLineStops = useMemo(
+    () =>
+      deltaLine
+        ? buildDeltaLineStops(
+            deltaLine.splits,
+            deltaLine.splitStepM,
+            deltaLine.sectionLengthM,
+            deltaLine.direction
+          )
+        : null,
+    [deltaLine]
+  );
+
+  const legendLayers = {
+    showActivity:
+      sectionLayerData.highlightedTraceGeoJSON !== EMPTY_FEATURE_COLLECTION ||
+      sectionLayerData.highlightedTraceFilter !== undefined,
+    showEarlierVersion: sectionLayerData.shadowGeoJSON !== EMPTY_FEATURE_COLLECTION,
+  };
+  // The inline map draws the section line itself; the fullscreen modal draws
+  // it through the base map and carries no delta colouring.
+  const inlineLegendLayers = { ...legendLayers, showDelta: deltaLineStops !== null };
+  const fullscreenLegendLayers = { ...legendLayers, showDelta: false };
 
   // Adjust opacity when something is highlighted or trimming
   const sectionOpacity = highlightedActivityId || highlightedLapPoints || trimRange ? 0.4 : 1;
@@ -330,13 +377,6 @@ export const SectionMapView = memo(function SectionMapView({
     ]);
   }, [startPoint, endPoint]);
 
-  // The nearby lines are already decoded into `nearbyGeoJSON`, so the dots come
-  // off that geometry rather than decoding every polyline a second time.
-  const nearbyEndpoints = useMemo(
-    () => lineEndpoints(sectionLayerData.nearbyGeoJSON),
-    [sectionLayerData.nearbyGeoJSON]
-  );
-
   // Trim drags arrive faster than the map needs. The slider stays smooth on the
   // UI thread while the geometry that reaches the surface is held to a budget.
   const trimmedGeoJSON = useThrottledValue(
@@ -344,28 +384,37 @@ export const SectionMapView = memo(function SectionMapView({
     TRIM_UPDATE_THROTTLE_MS
   );
 
+  const sectionTrimGeoJSON = useMemo(
+    () =>
+      buildSectionTrimCollection({
+        trimRange,
+        trimmed: trimmedGeoJSON,
+        extension: sectionLayerData.extensionGeoJSON,
+        endpoints,
+      }),
+    [trimRange, trimmedGeoJSON, sectionLayerData.extensionGeoJSON, endpoints]
+  );
+
   const specInput = useMemo(
     () => ({
       ...sectionLayerData,
+      deltaLineStops,
       trimmedGeoJSON,
-      nearbyEndpoints,
       endpoints,
       activityColor,
       sectionOpacity,
       trimRange,
       hasExtension: extensionCoords.length > 0,
-      selectedNearbyId: selectedNearby,
     }),
     [
       sectionLayerData,
+      deltaLineStops,
       trimmedGeoJSON,
-      nearbyEndpoints,
       endpoints,
       activityColor,
       sectionOpacity,
       trimRange,
       extensionCoords.length,
-      selectedNearby,
     ]
   );
 
@@ -421,16 +470,6 @@ export const SectionMapView = memo(function SectionMapView({
     [isFullscreen, fullscreenSpecArgs]
   );
 
-  const handleSurfacePress = useCallback(
-    ({ feature }: { feature: { properties: Record<string, unknown> } | null }) => {
-      const sectionId = feature?.properties?.sectionId;
-      if (typeof sectionId === 'string') {
-        setSelectedNearby((current) => (current === sectionId ? null : sectionId));
-      }
-    },
-    []
-  );
-
   if (!bounds || displayPoints.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
@@ -442,17 +481,18 @@ export const SectionMapView = memo(function SectionMapView({
   const mapContent = (
     <MapSurface
       ref={surfaceRef}
-      mapStyle={currentMapStyle}
+      mapStyle={drawnMapStyle}
       initialCamera={
-        cameraOnHide ?? { ...sectionCameraSpec(bounds), maxZoom: SECTION_MAP_MAX_ZOOM }
+        cameraAfter3D(camera3DRef.current, cameraOnHide) ?? {
+          ...sectionCameraSpec(bounds),
+          maxZoom: SECTION_MAP_MAX_ZOOM,
+        }
       }
       sources={inlineSources}
       layers={inlineLayers}
-      interactiveLayers={NEARBY_INTERACTIVE_LAYERS}
       scrollEnabled={interactive}
       zoomEnabled={interactive}
       rotateEnabled={interactive}
-      onPress={handleSurfacePress}
       onBearingChange={interactive ? handleBearingChange : undefined}
       onRegionDidChange={handleRegionDidChange}
     />
@@ -488,11 +528,14 @@ export const SectionMapView = memo(function SectionMapView({
                   <Map3DWebView
                     ref={map3DRef}
                     coordinates={sectionCoords}
-                    mapStyle={currentMapStyle}
+                    mapStyle={drawnMapStyle}
                     routeColor={activityColor}
+                    sectionTrimGeoJSON={sectionTrimGeoJSON}
+                    highlightedTraceGeoJSON={overlays3D.highlightGeoJSON}
                     onMapReady={handleMap3DReady}
                     onMapFailed={handleMap3DFailed}
                     onBearingChange={handleBearingChange}
+                    onCameraStateChange={handleCamera3DChange}
                   />
                 </Animated.View>
               </ComponentErrorBoundary>
@@ -521,7 +564,7 @@ export const SectionMapView = memo(function SectionMapView({
                 hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               >
                 <MaterialCommunityIcons
-                  name={getStyleIcon(currentMapStyle)}
+                  name={getStyleIcon(drawnMapStyle)}
                   size={22}
                   color={isDark ? colors.textOnDark : colors.textSecondary}
                 />
@@ -610,71 +653,10 @@ export const SectionMapView = memo(function SectionMapView({
             </View>
           )}
 
-          {/* What the map is drawing, named. The dashed nearby lines and their
-              endpoint dots read as this activity's own coverage otherwise. */}
-          {interactive && nearbyPolylines && nearbyPolylines.length > 0 && (
-            <SectionMapLegend isDark={isDark} sectionColor={activityColor} top={overlayTop} />
+          {/* The layers drawn over the section's own line, named. */}
+          {interactive && hasLegendLayers(inlineLegendLayers) && (
+            <SectionMapLegend isDark={isDark} top={overlayTop} {...inlineLegendLayers} />
           )}
-
-          {/* Nearby section preview popup */}
-          {selectedNearby &&
-            nearbyPolylines &&
-            (() => {
-              const nearbySection = nearbyPolylines.find((n) => n.id === selectedNearby);
-              if (!nearbySection) return null;
-              return (
-                <View style={[styles.nearbyPopup, isDark && styles.nearbyPopupDark]}>
-                  <View style={styles.nearbyPopupContent}>
-                    <View style={styles.nearbyPopupInfo}>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.nearbyPopupName,
-                          isDark && { color: darkColors.textPrimary },
-                        ]}
-                      >
-                        {nearbySection.name || nearbySection.id.slice(0, 8)}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.nearbyPopupMeta,
-                          isDark && { color: darkColors.textSecondary },
-                        ]}
-                      >
-                        {Math.round(nearbySection.distanceMeters)}m ·{' '}
-                        {t('sections.visitsCount', { count: nearbySection.visitCount })}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.nearbyPopupViewBtn}
-                      onPress={() => {
-                        setSelectedNearby(null);
-                        onNearbyPress?.(nearbySection.id);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.nearbyPopupViewText}>{t('sections.viewSection')}</Text>
-                      <MaterialCommunityIcons
-                        name="chevron-right"
-                        size={16}
-                        color={colors.primary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.nearbyPopupClose}
-                    onPress={() => setSelectedNearby(null)}
-                    hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-                  >
-                    <MaterialCommunityIcons
-                      name="close"
-                      size={18}
-                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </View>
-              );
-            })()}
         </View>
       ) : (
         // Non-interactive map - tap anywhere to fullscreen
@@ -714,9 +696,14 @@ export const SectionMapView = memo(function SectionMapView({
           overlaySources={fullscreenSources}
           overlayLayers={fullscreenLayers}
         />
+        {hasLegendLayers(fullscreenLegendLayers) && (
+          <SectionMapLegend
+            isDark={isDark}
+            top={fullscreenInsets.top + spacing.sm}
+            {...fullscreenLegendLayers}
+          />
+        )}
       </Modal>
     </>
   );
 });
-
-const NEARBY_INTERACTIVE_LAYERS = [NEARBY_LINE_LAYER_ID];

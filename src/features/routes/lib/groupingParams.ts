@@ -14,7 +14,7 @@
  * control that moves and does nothing.
  */
 
-import type { RouteGroupPreview } from '../../../../modules/veloqrs/src/delegates/routeGroupingPreview';
+import type { RouteGroupPreview } from 'veloqrs';
 
 export interface GroupingParams {
   /** Percentage of the route that has to match, 0 to 100. */
@@ -36,6 +36,12 @@ export const GROUPING_PARAM_RANGES: Record<GroupingParamKey, GroupingRange> = {
   minMatchPercentage: { min: 50, max: 65, step: 1 },
   endpointThreshold: { min: 180, max: 300, step: 10 },
 };
+
+/** Whether a value lies outside the range the grouper has been run over. */
+export function isPastGroupingRange(key: GroupingParamKey, value: number): boolean {
+  const { min, max } = GROUPING_PARAM_RANGES[key];
+  return value < min || value > max;
+}
 
 /**
  * Where the sliders open when the engine has no answer, before it is open or

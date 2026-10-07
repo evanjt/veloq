@@ -1,5 +1,4 @@
 import { getEngine } from '@/shared/native/engine';
-import { generateSectionName, resolveSectionNames } from '@/features/routes/lib/sectionNaming';
 
 export function getAllSectionDisplayNames(): Record<string, string> {
   const engine = getEngine();
@@ -11,17 +10,10 @@ export function getAllSectionDisplayNames(): Record<string, string> {
   const result: Record<string, string> = {};
 
   for (const summary of summaries) {
-    // Use custom name if set, otherwise use name from section or generate one
-    if (customNames[summary.id]) {
-      result[summary.id] = customNames[summary.id];
-    } else if (summary.name) {
-      result[summary.id] = summary.name;
-    } else {
-      result[summary.id] = generateSectionName(summary);
-    }
+    // The engine's name: the section's own, a split child's composed from its
+    // parent's, or the numbered label when it has neither.
+    const name = customNames[summary.id] || summary.name;
+    if (name) result[summary.id] = name;
   }
-
-  // A split sibling without a name of its own reads as a part of its parent.
-  const lineages = engine.getSectionLineages().filter((l) => !customNames[l.sectionId]);
-  return resolveSectionNames(result, lineages);
+  return result;
 }

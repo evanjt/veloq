@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { InitOutcome } from 'veloqrs';
+import type { FfiQuarantineReport, InitOutcome } from 'veloqrs';
 
 interface EngineStatusState {
   /** Whether the Rust engine failed to initialize after all retries */
@@ -13,8 +13,6 @@ interface EngineStatusState {
   initFailureReason: InitOutcome | null;
   setInitFailureReason: (v: InitOutcome | null) => void;
   /** Whether the user dismissed the engine init failure banner */
-  engineBannerDismissed: boolean;
-  setEngineBannerDismissed: (v: boolean) => void;
   /**
    * Bumped by the failure banner's retry button. The root layout's init
    * effect depends on it, so a bump re-runs the full init sequence
@@ -31,6 +29,8 @@ interface EngineStatusState {
    */
   readyNonce: number;
   markEngineReady: () => void;
+  quarantineReport: FfiQuarantineReport | null;
+  setQuarantineReport: (report: FfiQuarantineReport | null) => void;
 }
 
 export const useEngineStatus = create<EngineStatusState>((set) => ({
@@ -38,10 +38,10 @@ export const useEngineStatus = create<EngineStatusState>((set) => ({
   setInitFailed: (v: boolean) => set({ initFailed: v }),
   initFailureReason: null,
   setInitFailureReason: (v: InitOutcome | null) => set({ initFailureReason: v }),
-  engineBannerDismissed: false,
-  setEngineBannerDismissed: (v: boolean) => set({ engineBannerDismissed: v }),
   retryNonce: 0,
   requestRetry: () => set((s) => ({ retryNonce: s.retryNonce + 1 })),
   readyNonce: 0,
   markEngineReady: () => set((s) => ({ readyNonce: s.readyNonce + 1 })),
+  quarantineReport: null,
+  setQuarantineReport: (report: FfiQuarantineReport | null) => set({ quarantineReport: report }),
 }));

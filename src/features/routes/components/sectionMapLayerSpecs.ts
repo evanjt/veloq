@@ -9,10 +9,7 @@ import { colors, mapLayerColors, mapPreviewColors } from '@/theme';
 import { type MapLayerSpec, type MapSourceSpec } from '@/features/maps';
 import type { SectionMapLayers } from './useSectionMapLayers';
 
-export const NEARBY_LINE_LAYER_ID = 'nearby-line';
-
 interface SectionLayerInput extends SectionMapLayers {
-  nearbyEndpoints: GeoJSON.FeatureCollection;
   endpoints: GeoJSON.FeatureCollection;
   activityColor: string;
   sectionOpacity: number;
@@ -24,17 +21,20 @@ interface SectionLayerInput extends SectionMapLayers {
   trimLineWidth: number;
   traceCasingWidth: number;
   traceLineWidth: number;
-  /** Neighbouring section the user tapped, drawn in the accent colour. */
-  selectedNearbyId: string | null;
+  /**
+   * `line-progress` stops colouring the section line by time won or lost, while
+   * the chart shows the delta plot. Without them the line keeps `activityColor`.
+   */
+  deltaLineStops?: (string | number)[] | null;
 }
 
 export function buildSectionSources(input: SectionLayerInput): Record<string, MapSourceSpec> {
   return {
-    nearby: { kind: 'geojson', data: input.nearbyGeoJSON },
-    'nearby-endpoints': { kind: 'geojson', data: input.nearbyEndpoints },
     shadow: { kind: 'geojson', data: input.shadowGeoJSON },
     extension: { kind: 'geojson', data: input.extensionGeoJSON },
-    section: { kind: 'geojson', data: input.sectionGeoJSON },
+    // line-gradient addresses the line by line-progress, which needs line metrics;
+    // the source stays the same in every mode and only the paint changes.
+    section: { kind: 'geojson', data: input.sectionGeoJSON, lineMetrics: true },
     trimmed: { kind: 'geojson', data: input.trimmedGeoJSON },
     'all-traces': { kind: 'geojson', data: input.allTracesFeatureCollection },
     'highlighted-lap': { kind: 'geojson', data: input.highlightedLapGeoJSON },
@@ -54,53 +54,15 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
     trimLineWidth,
     traceCasingWidth,
     traceLineWidth,
-    selectedNearbyId,
+    deltaLineStops,
     highlightedTraceFilter,
     hasAllTraces,
   } = input;
 
-  const selected = selectedNearbyId ?? '';
-  const isSelected = ['==', ['get', 'sectionId'], selected];
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   const traceVisible = hasAllTraces && !!highlightedTraceFilter;
 
   const layers: MapLayerSpec[] = [
-    {
-      id: NEARBY_LINE_LAYER_ID,
-      type: 'line',
-      source: 'nearby',
-      layout: roundLine,
-      paint: {
-        'line-color': ['case', isSelected, colors.primary, colors.neutralLine],
-        'line-opacity': ['case', isSelected, 0.8, 0.4],
-        'line-width': ['case', isSelected, 5, 3],
-        'line-dasharray': [2, 2],
-      },
-    },
-    {
-      id: 'nearby-endpoint-border',
-      type: 'circle',
-      source: 'nearby-endpoints',
-      paint: {
-        'circle-radius': 6.5,
-        'circle-color': mapLayerColors.casing,
-        'circle-opacity': 0.5,
-      },
-    },
-    {
-      id: 'nearby-endpoint-fill',
-      type: 'circle',
-      source: 'nearby-endpoints',
-      paint: {
-        'circle-radius': 5,
-        'circle-color': [
-          'case',
-          ['==', ['get', 'position'], 'start'],
-          mapLayerColors.nearbyStart,
-          mapLayerColors.nearbyEnd,
-        ],
-      },
-    },
     {
       id: 'shadow-line',
       type: 'line',
@@ -151,7 +113,9 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
         source: 'section',
         layout: roundLine,
         paint: {
-          'line-color': activityColor,
+          ...(deltaLineStops
+            ? { 'line-gradient': ['interpolate', ['linear'], ['line-progress'], ...deltaLineStops] }
+            : { 'line-color': activityColor }),
           'line-opacity': sectionOpacity,
           'line-width': 4,
         },

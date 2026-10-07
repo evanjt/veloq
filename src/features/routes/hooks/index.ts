@@ -1,16 +1,10 @@
 export { useRouteGroups } from './useRouteGroups';
+export { useSectionRescan } from './useSectionRescan';
 export { useRouteGroupingPreview, type RouteGroupingPreviewState } from './useRouteGroupingPreview';
 export { useRouteMatch } from './useRouteMatch';
 export { useRoutePerformances } from './useRoutePerformances';
-export { useRouteProcessing } from './useRouteProcessing';
 export { pointCount, type RouteSignature } from './routeSignature';
-export {
-  useEngineSections,
-  useEngineSectionCount,
-  useMapSections,
-  useSectionDetail,
-  type MapSection,
-} from './useEngine';
+export { useEngineSectionCount, useMapSections, type MapSection } from './useEngine';
 export { useSectionMatches } from './useSectionMatches';
 export {
   useSectionPerformances,
@@ -26,6 +20,7 @@ export { useSectionChartData } from './useSectionChartData';
 export { useSectionActions, type UseSectionActionsResult } from './useSectionActions';
 export { useSectionDataRefresh } from './useSectionDataRefresh';
 export { useSectionUIState } from './useSectionUIState';
+export { useRevealMapOnDraw } from './useRevealMapOnDraw';
 export { useSectionActivityData } from './useSectionActivityData';
 export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';
 export { useSectionMapData } from './useSectionMapData';
@@ -35,5 +30,9 @@ export { useRouteChartData } from './useRouteChartData';
 export { useRouteReference } from './useRouteReference';
 export { useExcludedActivities } from './useExcludedActivities';
 export { useRouteRenaming } from './useRouteRenaming';
-export { useDetectionHold } from './useDetectionHold';
+export { isElevationHold, useCutoverHeld, useDetectionHold } from './useDetectionHold';
 export { useLedgerActivityNames } from './useLedgerActivityNames';
+export { useSectionDetailData, useSectionDetailPerformance } from './useSectionDetailData';
+export { useSectionLedger } from './useSectionLedger';
+export { useSectionLaps } from './useSectionLaps';
+export { useSectionTimeStreamSync, toPerformanceRecord } from './useSectionPerformances';

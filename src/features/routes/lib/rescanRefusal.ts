@@ -1,4 +1,4 @@
-import { StartOutcome } from 'veloqrs';
+import { StartOutcome, startOutcome, type StartVerdict } from 'veloqrs';
 
 /**
  * The line a refused rescan shows, or none when the run started.
@@ -17,8 +17,8 @@ export type RescanRefusalKey =
   | 'sections.rescanRefusedNothingOwed'
   | 'sections.rescanRefusedFailed';
 
-export function rescanRefusalKey(outcome: StartOutcome | null): RescanRefusalKey | null {
-  switch (outcome) {
+export function rescanRefusalKey(outcome: StartVerdict | null): RescanRefusalKey | null {
+  switch (outcome === null ? null : startOutcome(outcome)) {
     case StartOutcome.Busy:
       return 'sections.rescanRefusedBusy';
     case StartOutcome.Held:

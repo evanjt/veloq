@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import { attemptEngineRead } from '@/shared/native/engineError';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import type { PerformanceDataPoint } from '../types';
@@ -17,7 +18,7 @@ export function useExcludedActivities(
   // excluded ones read, and neither moves the keys below. The reader is that
   // announcement: the memo calls it, so the dependency is one both gates read
   // the same way.
-  const readSections = useEngineRead(['sections']);
+  const readSections = useEngineRead(['sections', 'detectionApplied']);
 
   // Excluded activities state
   const [showExcluded, setShowExcluded] = useState(false);
@@ -67,30 +68,36 @@ export function useExcludedActivities(
   }, []);
 
   // Build chart data points for excluded activities
-  const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
-    if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
-    try {
-      const result = readSections((engine) => engine.getExcludedRoutePerformances(id, sportFilter));
-      if (!result?.performances?.length) return [];
-
-      return result.performances
-        .filter((p) => Number.isFinite(p.speed))
-        .map((p) => ({
-          x: 0,
-          id: p.activityId,
-          activityId: p.activityId,
-          speed: p.speed,
-          date: fromUnixSeconds(p.date) ?? new Date(),
-          activityName: p.name,
-          direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-          sectionTime: Math.round(p.duration),
-          matchPercentage: p.matchPercentage,
-          isExcluded: true,
-        }));
-    } catch (e) {
-      if (__DEV__) console.warn('[RouteDetail] getExcludedRoutePerformances failed:', e);
-      return [];
+  const excluded = useMemo((): {
+    points: (PerformanceDataPoint & { x: number })[];
+    error: unknown;
+  } => {
+    if (!showExcluded || excludedActivityIds.size === 0 || !id) {
+      return { points: [], error: undefined };
     }
+    const read = attemptEngineRead(() =>
+      readSections((engine) => engine.getExcludedRoutePerformances(id, sportFilter))
+    );
+    if (!read.ok) return { points: [], error: read.error };
+    const result = read.value;
+    if (!result?.performances?.length) return { points: [], error: undefined };
+
+    const points = result.performances
+      .filter((p) => Number.isFinite(p.speed))
+      .map((p) => ({
+        x: 0,
+        id: p.activityId,
+        activityId: p.activityId,
+        speed: p.speed,
+        date: fromUnixSeconds(p.date) ?? new Date(),
+        activityName: p.name,
+        direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
+        sectionTime: Math.round(p.duration),
+        matchPercentage: p.matchPercentage,
+        isExcluded: true,
+        outsideDistanceBand: p.outsideDistanceBand,
+      }));
+    return { points, error: undefined };
   }, [showExcluded, excludedActivityIds, id, sportFilter, readSections]);
 
   return {
@@ -99,6 +106,8 @@ export function useExcludedActivities(
     handleExcludeActivity,
     handleIncludeActivity,
     handleToggleShowExcluded,
-    excludedChartData,
+    excludedChartData: excluded.points,
+    /** What the excluded performances read threw, when it threw. */
+    excludedReadError: excluded.error,
   };
 }

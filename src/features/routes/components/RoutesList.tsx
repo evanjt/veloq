@@ -6,30 +6,29 @@
  * Full group data is only loaded on detail page.
  */
 
+import { listCountLabel } from '@/features/routes/lib/listCountLabel';
 import React, { memo, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
   RefreshControl,
-  Platform,
   ActivityIndicator,
   TouchableOpacity,
-  TextInput,
 } from 'react-native';
-import { useRouteProcessing } from '@/features/routes/hooks/useRouteProcessing';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import type { GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
-import { UI } from '@/shared/app/constants';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
-import { Shimmer } from '@/shared/ui';
+import { EmptyState, SearchBar } from '@/shared/ui';
+import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
+import { SportFilterMenu } from './SportFilterMenu';
 import type { RouteGroup } from '@/types';
 import { batchGroupToRouteGroup } from '@/features/routes/lib/batchGroupToRouteGroup';
 import type { RoutesSortOption } from '@/features/routes/lib/routesScreenQuery';
@@ -41,7 +40,7 @@ interface RoutesListProps {
   onRefresh?: () => void;
   /** Whether refresh is in progress */
   isRefreshing?: boolean;
-  /** Pre-loaded groups with consensus polylines from batch FFI call */
+  /** Pre-loaded groups with representative polylines from batch FFI call */
   batchGroups: GroupWithPolyline[];
   /** Callback to load more groups (pagination) */
   onLoadMore?: () => void;
@@ -51,6 +50,8 @@ interface RoutesListProps {
   userLocation?: LatLngShort | null;
   /** Total routes count for the header summary */
   totalGroupCount?: number;
+  /** Routes the search leaves, for the header beside the list. */
+  shownGroupCount?: number;
   /** Active sort option */
   sortOption: RoutesSortOption;
   /** Called when sort changes */
@@ -59,20 +60,18 @@ interface RoutesListProps {
   searchQuery: string;
   /** Called when the search term changes */
   onSearchChange: (next: string) => void;
+  /** The sports the athlete has activities in, offered in the sport filter menu */
+  sportOptions?: string[] | undefined;
+  /** The sport the list is narrowed to, if any */
+  sportType?: string | undefined;
+  /** Called with the sport chosen, or undefined for all sports */
+  onSportChange?: (next: string | undefined) => void;
   /** Engine data still loading - show skeletons instead of an empty state */
   isLoading?: boolean;
-}
-
-function RouteRowSkeleton() {
-  return (
-    <View style={styles.skeletonRow}>
-      <Shimmer width={50} height={36} borderRadius={layout.borderRadiusSm} />
-      <View style={styles.skeletonText}>
-        <Shimmer width="60%" height={14} borderRadius={layout.borderRadiusXs} />
-        <Shimmer width="40%" height={12} borderRadius={layout.borderRadiusXs} />
-      </View>
-    </View>
-  );
+  /** The page read failed: shown with a retry, never as skeletons or an empty library */
+  loadError?: Error | null | undefined;
+  /** Reads the page again after a failure */
+  onRetry?: (() => void) | undefined;
 }
 
 export const RoutesList = memo(function RoutesList({
@@ -83,11 +82,17 @@ export const RoutesList = memo(function RoutesList({
   hasMore = false,
   userLocation,
   totalGroupCount,
+  shownGroupCount,
   sortOption,
   onSortChange,
   isLoading = false,
+  loadError,
+  onRetry,
   searchQuery,
   onSearchChange,
+  sportOptions = [],
+  sportType,
+  onSportChange,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -112,25 +117,11 @@ export const RoutesList = memo(function RoutesList({
     return map;
   }, [groups, userLocation]);
 
-  // Calculate processed count
-  const processedCount = useMemo(
-    () => allGroups.reduce((sum, g) => sum + g.activityCount, 0),
-    [allGroups]
-  );
-
-  const isReady = true; // Summaries are always ready (query on demand)
-
-  const { progress } = useRouteProcessing();
-
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
 
   // Note: useFocusEffect refresh removed - useGroupSummaries subscribes to engine events
   // and automatically refreshes when data changes (e.g., after renaming on detail page)
-
-  const showProcessing = progress.status === 'processing';
-
-  const showActivityList = progress.status === 'processing';
 
   const sortChips: {
     key: RoutesSortOption;
@@ -158,83 +149,38 @@ export const RoutesList = memo(function RoutesList({
     [t]
   );
 
-  const displayRouteCount = totalGroupCount ?? allGroups.length;
-
-  const renderHeader = () => (
-    <View>
-      {/* Discovered routes during processing */}
-      {showActivityList && (
-        <View style={styles.discoveredSection}>
-          <View style={[styles.currentActivity, isDark && styles.currentActivityDark]}>
-            <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
-            <Text
-              style={[styles.currentActivityText, isDark && styles.textMuted]}
-              numberOfLines={1}
-            >
-              {progress.message
-                ? (t('routes.checking' as never, { name: progress.message }) as string)
-                : (t('routes.waiting' as never) as string)}
-            </Text>
-          </View>
-          <View style={styles.noRoutesYet}>
-            <MaterialCommunityIcons
-              name="map-search-outline"
-              size={32}
-              color={isDark ? darkColors.iconDisabled : colors.gray400}
-            />
-            <Text style={[styles.noRoutesText, isDark && styles.textMuted]}>
-              {t('routes.lookingForRoutes' as never) as string}
-            </Text>
-          </View>
-        </View>
-      )}
-    </View>
+  const routeTotal = totalGroupCount ?? allGroups.length;
+  const routeCountLabel = listCountLabel(
+    t,
+    t('trainingScreen.routes'),
+    shownGroupCount ?? routeTotal,
+    routeTotal
   );
 
   const renderEmpty = () => {
+    if (loadError) {
+      return (
+        <EmptyState
+          icon="alert-circle-outline"
+          title={t('emptyState.error.title')}
+          description={t('emptyState.error.description')}
+          actionLabel={t('common.retry')}
+          onAction={onRetry}
+        />
+      );
+    }
+
     if (isLoading) {
       return (
         <View style={styles.skeletonList}>
           {[0, 1, 2, 3, 4].map((i) => (
-            <RouteRowSkeleton key={i} />
+            <RowSkeleton key={i} />
           ))}
         </View>
       );
     }
 
-    if (!isReady) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator
-            size="large"
-            color={isDark ? darkColors.iconDisabled : colors.gray400}
-          />
-          <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            {t('routes.loadingRoutes')}
-          </Text>
-        </View>
-      );
-    }
-
-    if (showProcessing) {
-      return (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons
-            name="map-search-outline"
-            size={48}
-            color={isDark ? darkColors.iconDisabled : colors.gray400}
-          />
-          <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            {t('routes.analysingRoutes')}
-          </Text>
-          <Text style={[styles.emptySubtitle, isDark && styles.textMuted]}>
-            {t('routes.thisMayTakeMoment')}
-          </Text>
-        </View>
-      );
-    }
-
-    if (processedCount === 0) {
+    if (routeTotal === 0) {
       return (
         <View style={styles.emptyContainer}>
           <MaterialCommunityIcons
@@ -286,42 +232,25 @@ export const RoutesList = memo(function RoutesList({
   return (
     <View style={styles.outerContainer}>
       {/* Search and sport filters - outside FlatList to prevent keyboard dismissal */}
-      {!showProcessing && allGroups.length > 0 && (
+      {(routeTotal > 0 || searchQuery.length > 0 || sportType !== undefined) && (
         <View style={styles.filterHeader}>
-          <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
-            <MaterialCommunityIcons
-              name="magnify"
-              size={18}
-              color={isDark ? darkColors.textDisabled : colors.textDisabled}
+          <SearchBar
+            value={searchQuery}
+            onChangeText={onSearchChange}
+            placeholder={t('routes.searchRoutes' as never) as string}
+            style={styles.searchBar}
+          />
+          {onSportChange && (sportOptions.length > 1 || sportType !== undefined) && (
+            <SportFilterMenu
+              options={sportOptions.map((type) => ({ type }))}
+              selectedType={sportType}
+              onSelect={onSportChange}
             />
-            <TextInput
-              style={[styles.searchInput, isDark && styles.searchInputDark]}
-              placeholder={t('routes.searchRoutes' as never) as string}
-              placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
-              value={searchQuery}
-              onChangeText={onSearchChange}
-              returnKeyType="search"
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => onSearchChange('')}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={t('common.clearSearch')}
-              >
-                <MaterialCommunityIcons
-                  name="close-circle"
-                  size={16}
-                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
+          )}
           {/* Count line */}
           <View style={styles.countRow}>
             <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
-              {displayRouteCount} {t('trainingScreen.routes')}
+              {routeCountLabel}
             </Text>
           </View>
           {/* Sort chips */}
@@ -359,6 +288,7 @@ export const RoutesList = memo(function RoutesList({
                         styles.sortChipLabel,
                         isDark && styles.textMuted,
                         isActive && styles.sortChipLabelActive,
+                        isActive && isDark && { color: darkColors.linkTeal },
                       ]}
                     >
                       {chip.label}
@@ -382,7 +312,6 @@ export const RoutesList = memo(function RoutesList({
             />
           </View>
         )}
-        ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderFooter}
         contentContainerStyle={groups.length === 0 ? styles.emptyList : styles.list}
@@ -390,7 +319,7 @@ export const RoutesList = memo(function RoutesList({
         onEndReached={hasMore ? onLoadMore : undefined}
         onEndReachedThreshold={0.5}
         // Performance optimizations
-        removeClippedSubviews={Platform.OS === 'ios'}
+        removeClippedSubviews
         maxToRenderPerBatch={10}
         windowSize={5}
         initialNumToRender={8}
@@ -408,30 +337,14 @@ export const RoutesList = memo(function RoutesList({
   );
 });
 
+const LIST_EMPTY_VERTICAL_PADDING = spacing.xxl * 2;
+
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
   },
   filterHeader: {
     marginBottom: 0,
-  },
-  infoNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginHorizontal: spacing.md,
-  },
-  infoNoticeDark: {},
-  infoText: {
-    flex: 1,
-    fontSize: typography.caption.fontSize,
-    color: colors.textDisabled,
-    lineHeight: 16,
-  },
-  infoTextDark: {
-    color: darkColors.textDisabled,
   },
   countRow: {
     flexDirection: 'row',
@@ -451,52 +364,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.gray100,
-    borderRadius: layout.borderRadiusMd,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: Platform.OS === 'ios' ? 4 : 2,
+  searchBar: {
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  searchContainerDark: {
-    backgroundColor: darkColors.surface,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-  },
-  searchInputDark: {
-    color: darkColors.textPrimary,
-  },
-  sportFilterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xxs,
-  },
-  sportFilterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sportFilterChipDark: {
-    borderColor: darkColors.border,
-  },
-  sportFilterLabel: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
   },
   sortChipRow: {
     flexDirection: 'row',
@@ -529,7 +399,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   sortChipLabelActive: {
-    color: colors.primary,
+    color: colors.linkTeal,
   },
   emptyList: {
     flexGrow: 1,
@@ -540,7 +410,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: layout.screenPadding * 2,
-    paddingVertical: spacing.xxl * 2,
+    paddingVertical: LIST_EMPTY_VERTICAL_PADDING,
   },
   emptyTitle: {
     fontSize: typography.cardTitle.fontSize,
@@ -562,58 +432,11 @@ const styles = StyleSheet.create({
   textMuted: {
     color: darkColors.textMuted,
   },
-  discoveredSection: {
-    marginBottom: spacing.md,
-  },
-  currentActivity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: spacing.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: spacing.xsPlus,
-    marginBottom: spacing.sm,
-    gap: spacing.xs,
-    height: 32, // Fixed height to prevent jumps
-  },
-  currentActivityDark: {
-    backgroundColor: opacity.overlayDark.subtle,
-  },
-  currentActivityText: {
-    flex: 1,
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  routesList: {
-    maxHeight: UI.ROUTES_LIST_MAX_HEIGHT,
-  },
-  noRoutesYet: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-    marginHorizontal: spacing.md,
-  },
-  noRoutesText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-  },
   loadingMore: {
     paddingVertical: spacing.md,
     alignItems: 'center',
   },
   skeletonList: {
     paddingTop: spacing.md,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  skeletonText: {
-    flex: 1,
-    gap: spacing.xs,
   },
 });

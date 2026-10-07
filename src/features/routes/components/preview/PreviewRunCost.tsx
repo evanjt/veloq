@@ -16,7 +16,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import type { PreviewResult } from '../../../../../modules/veloqrs/src/delegates/preview';
+import type { PreviewResult } from 'veloqrs';
 
 interface PreviewRunCostProps {
   pool: PreviewResult['pool'];

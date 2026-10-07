@@ -6,6 +6,8 @@ import { useHeroMapHeight } from '@/shared/ui';
 import { styles } from './RouteDetailScreen.styles';
 import type { buildFinalRouteGroup } from '../lib/buildRouteGroup';
 import type { RoutePoint } from '../types';
+import type { ActivityType } from '@/types';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 type FinalRouteGroup = NonNullable<ReturnType<typeof buildFinalRouteGroup>>;
 
@@ -13,9 +15,10 @@ interface RouteDetailMapProps {
   routeGroup: FinalRouteGroup;
   highlightedActivityId: string | null;
   highlightedActivityPoints: RoutePoint[] | undefined;
-  signatures: Record<string, { points: { lat: number; lng: number }[] }>;
+  signatures: Record<string, { points: LatLngShort[] }>;
   hasMapData: boolean;
   activityColor: string;
+  selectedSportType?: ActivityType | undefined;
 }
 
 export function RouteDetailMap({
@@ -25,6 +28,7 @@ export function RouteDetailMap({
   signatures,
   hasMapData,
   activityColor,
+  selectedSportType,
 }: RouteDetailMapProps) {
   const mapHeight = useHeroMapHeight();
   return (
@@ -32,6 +36,7 @@ export function RouteDetailMap({
       {hasMapData ? (
         <RouteMapView
           routeGroup={routeGroup}
+          selectedSportType={selectedSportType}
           height={mapHeight}
           interactive={false}
           highlightedActivityId={highlightedActivityId}

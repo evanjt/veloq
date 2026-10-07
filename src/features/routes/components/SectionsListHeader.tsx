@@ -1,26 +1,22 @@
+import { listCountLabel } from '@/features/routes/lib/listCountLabel';
 import React from 'react';
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  Platform,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native';
+import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SearchBar } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { isElevationHold, type DetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import { rescanRefusalKey } from '@/features/routes/lib/rescanRefusal';
-import type { StartOutcome } from 'veloqrs';
+import type { StartVerdict } from 'veloqrs';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 
 interface SectionsListHeaderProps {
   searchQuery: string;
   onSearchChange: (text: string) => void;
   displaySectionCount: number;
+  shownSectionCount?: number;
   unacceptedAutoCount: number;
   acceptAllResult: number | null;
   isScanning: boolean;
@@ -29,7 +25,7 @@ interface SectionsListHeaderProps {
   /** The elevation download this page reports for the length of the migration. */
   elevationBackfill?: ElevationBackfillState | undefined;
   /** How the engine answered the last rescan, when it refused it. */
-  rescanRefusal?: StartOutcome | null | undefined;
+  rescanRefusal?: StartVerdict | null | undefined;
   onAcceptAll: () => void;
   onRescan: () => void;
 }
@@ -38,6 +34,7 @@ export function SectionsListHeader({
   searchQuery,
   onSearchChange,
   displaySectionCount,
+  shownSectionCount,
   unacceptedAutoCount,
   acceptAllResult,
   isScanning,
@@ -82,39 +79,20 @@ export function SectionsListHeader({
 
   return (
     <>
-      <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={18}
-          color={isDark ? darkColors.textDisabled : colors.textDisabled}
-        />
-        <TextInput
-          style={[styles.searchInput, isDark && styles.searchInputDark]}
-          placeholder={t('routes.searchSections')}
-          placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
-          value={searchQuery}
-          onChangeText={onSearchChange}
-          returnKeyType="search"
-          autoCorrect={false}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => onSearchChange('')}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.clearSearch')}
-          >
-            <MaterialCommunityIcons
-              name="close-circle"
-              size={16}
-              color={isDark ? darkColors.textDisabled : colors.textDisabled}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={onSearchChange}
+        placeholder={t('routes.searchSections')}
+        style={styles.searchBar}
+      />
       <View style={styles.countRow}>
         <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
-          {displaySectionCount} {t('trainingScreen.sections')}
+          {listCountLabel(
+            t,
+            t('trainingScreen.sections'),
+            shownSectionCount ?? displaySectionCount,
+            displaySectionCount
+          )}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           {unacceptedAutoCount > 0 && (
@@ -125,7 +103,12 @@ export function SectionsListHeader({
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
             >
               <MaterialCommunityIcons name="pin-outline" size={13} color={colors.primary} />
-              <Text style={{ fontSize: typography.caption.fontSize, color: colors.primary }}>
+              <Text
+                style={{
+                  fontSize: typography.caption.fontSize,
+                  color: isDark ? darkColors.linkTeal : colors.linkTeal,
+                }}
+              >
                 {t('sections.acceptAllSections')}
               </Text>
             </TouchableOpacity>
@@ -204,28 +187,9 @@ export function SectionsListHeader({
 }
 
 const styles = StyleSheet.create({
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  searchBar: {
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: Platform.OS === 'ios' ? 4 : 2,
-    borderRadius: layout.borderRadiusMd,
-    backgroundColor: colors.gray100,
-  },
-  searchContainerDark: {
-    backgroundColor: darkColors.surface,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-  },
-  searchInputDark: {
-    color: colors.textOnDark,
   },
   countRow: {
     flexDirection: 'row',

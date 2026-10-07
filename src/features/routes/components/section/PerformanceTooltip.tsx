@@ -9,8 +9,9 @@
  * on the chart surface.
  */
 
+import { useMetricSystem } from '@/shared/app';
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Pressable, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -20,11 +21,13 @@ import {
   formatPace,
   formatSpeed,
   formatDuration,
+  formatPower,
   formatPerformanceDelta,
   formatShortDateWithYear,
 } from '@/shared/format/format';
 import { colors, darkColors, layout, typography, spacing, verdictColor } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
+import { pressable, pressRipple } from '@/shared/ui';
 
 /** Scatter chart point - adds the computed X coordinate to the base record. */
 type ChartPoint = PerformanceDataPoint & { x: number };
@@ -58,8 +61,10 @@ export function PerformanceTooltip({
   onClearSelection,
 }: PerformanceTooltipProps) {
   const { t } = useTranslation();
+  const isMetric = useMetricSystem();
 
-  const formatSpeedValue = (speed: number) => (showPace ? formatPace(speed) : formatSpeed(speed));
+  const formatSpeedValue = (speed: number) =>
+    showPace ? formatPace(speed, isMetric) : formatSpeed(speed, isMetric);
 
   if (!selectedPoint) {
     return (
@@ -74,6 +79,7 @@ export function PerformanceTooltip({
   }
 
   const delta = formatPerformanceDelta({
+    isMetric,
     isBest: selectedPoint.isBest === true,
     showPace,
     currentSpeed: selectedPoint.speed,
@@ -127,6 +133,14 @@ export function PerformanceTooltip({
                 {formatDuration(selectedPoint.sectionTime)}
               </Text>
             )}
+            {selectedPoint.avgPower != null &&
+              Number.isFinite(selectedPoint.avgPower) &&
+              selectedPoint.avgPower > 0 && (
+                <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
+                  {' \u00b7 '}
+                  {formatPower(selectedPoint.avgPower)}
+                </Text>
+              )}
             {delta.deltaDisplay && (
               <Text
                 style={[
@@ -162,12 +176,13 @@ export function PerformanceTooltip({
             {formatSpeedValue(selectedPoint.speed)}
           </Text>
           {onSetAsReference && !selectedPoint.isExcluded && (
-            <TouchableOpacity
+            <Pressable
               onPress={() => onSetAsReference(selectedPoint.activityId)}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={styles.referenceButton}
-              accessibilityLabel="Set as reference"
+              style={pressable(styles.referenceButton)}
+              accessibilityLabel={t('sections.setAsReference')}
               accessibilityRole="button"
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons
                 name={selectedPoint.activityId === referenceActivityId ? 'star' : 'star-outline'}
@@ -180,36 +195,38 @@ export function PerformanceTooltip({
                       : colors.textSecondary
                 }
               />
-            </TouchableOpacity>
+            </Pressable>
           )}
           {selectedPoint.isExcluded && onIncludeActivity ? (
-            <TouchableOpacity
+            <Pressable
               onPress={() => {
                 onIncludeActivity(selectedPoint.activityId);
                 onClearSelection();
               }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.excludeButton}
+              style={pressable(styles.excludeButton)}
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons name="undo" size={16} color={colors.primary} />
-            </TouchableOpacity>
+            </Pressable>
           ) : (
             onExcludeActivity &&
             !selectedPoint.isExcluded && (
-              <TouchableOpacity
+              <Pressable
                 onPress={() => {
                   onExcludeActivity(selectedPoint.activityId);
                   onClearSelection();
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={styles.excludeButton}
+                style={pressable(styles.excludeButton)}
+                android_ripple={pressRipple}
               >
                 <MaterialCommunityIcons
                   name="close-circle-outline"
                   size={16}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
-              </TouchableOpacity>
+              </Pressable>
             )
           )}
           <MaterialCommunityIcons
@@ -268,11 +285,11 @@ const styles = StyleSheet.create({
   prTag: {
     fontSize: typography.caption.fontSize,
     fontWeight: '700',
-    color: colors.chartGoldMark,
+    color: colors.chartGoldText,
     marginRight: spacing.xs,
   },
   prTagDark: {
-    color: darkColors.chartGoldMark,
+    color: darkColors.chartGoldText,
   },
   lapBadge: {
     backgroundColor: colors.textMuted + '20',

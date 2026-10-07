@@ -6,10 +6,6 @@
 const PHASE_DISPLAY_NAMES: Record<string, string> = {
   loading: 'Loading tracks',
   analyzing: 'Analyzing activities',
-  building_rtrees: 'Building spatial index',
-  finding_overlaps: 'Finding overlaps',
-  clustering: 'Clustering sections',
-  postprocessing: 'Processing sections',
   saving: 'Saving sections',
   recomputing_indicators: 'Computing indicators',
   diffing: 'Comparing catalogues',

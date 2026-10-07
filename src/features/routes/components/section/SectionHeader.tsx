@@ -11,20 +11,13 @@ import { useTranslation } from 'react-i18next';
 import { useMetricSystem } from '@/shared/app';
 import { DetailHero, HeroNameRow, HeroStatsRow, useHeroMapHeight } from '@/shared/ui';
 import { SectionMapView } from '../SectionMapView';
-import type { NearbyPolyline } from '../useSectionMapLayers';
+import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
-import type { SectionHeartRate } from '@/features/routes/hooks/useSectionLaps';
 import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
-
-// Coverage rides on the chip whenever the mean is not over every lap, so a
-// number taken from three traversals of a hundred cannot read as the whole.
-function heartRateChip(hr: SectionHeartRate, label: string): string {
-  const value = `${label} ${Math.round(hr.bpm)}`;
-  return hr.laps < hr.ofLaps ? `${value} (${hr.laps}/${hr.ofLaps})` : value;
-}
+import { PERIOD_LABEL_KEYS, type Period } from '@/shared/app/period';
 
 export interface SectionHeaderProps {
   section: FrequentSection;
@@ -32,9 +25,14 @@ export interface SectionHeaderProps {
   insetTop: number;
   activityColor: string;
   iconName: MaterialIconName;
-  activityCount: number;
-  /** Mean heart rate across the laps that carried one, with its coverage. */
-  avgHr?: SectionHeartRate | null | undefined;
+  /** Traversals the chart plots, absent until the lap times are read. */
+  activityCount?: number | undefined;
+  /** The sport the count is for, given when the section has more than one. */
+  scopeSport?: string | undefined;
+  /** The sport the screen reads the section in, which styles the map. */
+  sportType?: string | undefined;
+  /** The range the count is over, left off for all time. */
+  scopeRange?: Period | undefined;
   mapReady: boolean;
   isTrimming: boolean;
   isExpandMode: boolean;
@@ -48,12 +46,11 @@ export interface SectionHeaderProps {
   shadowTrack?: [number, number][] | undefined;
   highlightedActivityId: string | null;
   highlightedLapPoints?: RoutePoint[] | undefined;
+  /** The attempt the chart's delta plot shows, which colours the section line. */
+  deltaLine?: SectionDeltaLine | null | undefined;
   allActivityTraces?: Record<string, RoutePoint[]> | undefined;
-  nearbyPolylines?: NearbyPolyline[] | undefined;
-  onNearbyPress?: ((sectionId: string) => void) | undefined;
   /** Take the detector's lift flag off. Absent leaves the badge inert. */
   onUnflagLift?: (() => void) | undefined;
-  onBack: () => void;
   onStartEditing: () => void;
   onSaveName: () => void;
   onCancelEdit: () => void;
@@ -66,7 +63,9 @@ export function SectionHeader({
   activityColor,
   iconName,
   activityCount,
-  avgHr = null,
+  scopeSport,
+  sportType,
+  scopeRange,
   mapReady,
   mapHeight: mapHeightProp,
   isTrimming,
@@ -81,11 +80,9 @@ export function SectionHeader({
   shadowTrack,
   highlightedActivityId,
   highlightedLapPoints,
+  deltaLine,
   allActivityTraces,
-  nearbyPolylines,
-  onNearbyPress,
   onUnflagLift,
-  onBack,
   onStartEditing,
   onSaveName,
   onCancelEdit,
@@ -96,12 +93,15 @@ export function SectionHeader({
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const elevation = sectionElevation(section);
+  const traversalScope = [
+    `${activityCount} ${t('sections.traversals')}`,
+    ...(scopeSport ? [t(`activityTypes.${scopeSport}`, scopeSport)] : []),
+    ...(scopeRange && scopeRange !== 'all' ? [t(PERIOD_LABEL_KEYS.long[scopeRange])] : []),
+  ].join(' · ');
 
   return (
     <DetailHero
       height={mapHeight}
-      insetTop={insetTop}
-      onBack={onBack}
       overlay={
         <>
           <HeroNameRow
@@ -144,8 +144,7 @@ export function SectionHeader({
           <HeroStatsRow
             stats={[
               formatDistance(section.distanceMeters, isMetric),
-              `${activityCount} ${t('sections.traversals')}`,
-              ...(avgHr != null ? [heartRateChip(avgHr, t('sections.avgHr'))] : []),
+              ...(activityCount != null ? [traversalScope] : []),
               ...(elevation
                 ? [
                     elevation.direction === 'loss'
@@ -170,17 +169,17 @@ export function SectionHeader({
       {mapReady ? (
         <SectionMapView
           section={section}
+          sportType={sportType}
           height={mapHeight}
           interactive={true}
           enableFullscreen={!isTrimming}
           shadowTrack={shadowTrack}
           highlightedActivityId={highlightedActivityId}
           highlightedLapPoints={highlightedLapPoints}
+          deltaLine={deltaLine}
           allActivityTraces={allActivityTraces}
           trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
           extensionTrack={isTrimming && isExpandMode ? expandContextPoints : null}
-          nearbyPolylines={nearbyPolylines}
-          onNearbyPress={onNearbyPress}
           insetTop={insetTop}
         />
       ) : (

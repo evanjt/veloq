@@ -5,16 +5,17 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
-import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
-import { useWellness } from '@/features/wellness';
+import { useTodayWorkout, useWorkoutSections, type WorkoutSection } from '@/features/home';
 import {
   getFormZone,
+  formatForm,
   FORM_ZONE_COLORS,
   formZoneTextColor,
   formZoneLabel,
-} from '@/features/fitness/lib/fitness';
-import { formatDuration, formatDurationHuman, isolateNumeric } from '@/shared/format/format';
+} from '@/features/fitness';
+import { formatDuration, isolateNumeric } from '@/shared/format/format';
+import { formFromLoads } from '@/shared/math';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { WorkoutStepBar } from './WorkoutStepBar';
 import {
   colors,
@@ -26,60 +27,33 @@ import {
   verdictColor,
   typography,
 } from '@/theme';
-import type { CalendarEvent, ActivityPattern } from '@/types';
-import type { WorkoutSection } from '@/features/home/hooks/useWorkoutSections';
+import type { CalendarEvent } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import { pressable } from '@/shared/ui';
-import { formFromLoads } from '@/shared/math';
+import { pressable, pressRipple } from '@/shared/ui';
 
 const PR_RECENCY_DAYS = 7;
 
-// 2024-01-01 was a Monday, and `primaryDay` is 0 for Monday, so the offset is
-// the index. The weekday name then comes from the athlete's own locale rather
-// than a list that only ever held English.
-function weekdayName(primaryDay: number, locale: string): string {
-  const monday = new Date(Date.UTC(2024, 0, 1 + primaryDay));
-  return new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(monday);
-}
-
 interface TodayBannerProps {
   /**
-   * Today's matching pattern, from the insights bundle the parent already
-   * holds. The k-means pass behind it is the most expensive row of that
-   * bundle, so the banner is handed the answer rather than asking again.
+   * The newest form reading from the same bundle, or null when the window
+   * holds no wellness row. Without one the readiness row is not drawn.
    */
-  todayPattern: ActivityPattern | null;
+  form: { ctl: number; atl: number } | null;
 }
 
 /**
- * Routes page banner showing today's context: planned workout, activity patterns, or readiness.
+ * Routes page banner showing today's context: planned workout or readiness.
  * Gracefully degrades - shows nothing when there's no relevant content.
  */
-export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: TodayBannerProps) {
+export const TodayBanner = React.memo(function TodayBanner({ form: formLoads }: TodayBannerProps) {
   const { isDark } = useTheme();
-  const { t } = useTranslation();
   const { todayWorkout, tomorrowWorkout, isLoading } = useTodayWorkout();
 
-  const sportType = todayWorkout?.type ?? tomorrowWorkout?.type ?? todayPattern?.sportType;
+  const sportType = todayWorkout?.type ?? tomorrowWorkout?.type;
   const { sections } = useWorkoutSections(sportType);
 
-  // Readiness from wellness data
-  const { data: wellnessData } = useWellness('1m');
-  const latestWellness = wellnessData
-    ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id))[0]
-    : null;
-  const ctl = latestWellness?.ctl ?? 0;
-  const atl = latestWellness?.atl ?? 0;
-  const tsb = ctl - atl;
-  const form = formFromLoads(ctl, atl);
-  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
-  const formZone = getFormZone(tsb, ctl, asPercent);
-  const formColor = FORM_ZONE_COLORS[formZone];
-  const formTextColor = formZoneTextColor(formZone, isDark);
-  const formLabel = formZoneLabel(formZone);
-
   if (isLoading) return null;
-  if (!todayWorkout && !tomorrowWorkout && !todayPattern && !latestWellness) return null;
+  if (!todayWorkout && !tomorrowWorkout && !formLoads) return null;
 
   const isTomorrow = !todayWorkout && !!tomorrowWorkout;
   const workout = todayWorkout ?? tomorrowWorkout;
@@ -87,28 +61,51 @@ export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: Tod
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Readiness header */}
-      <View style={styles.readinessRow}>
-        <View style={[styles.formDot, { backgroundColor: formColor }]} />
-        <Text style={[styles.readinessLabel, isDark && styles.textLight]}>
-          {isTomorrow
-            ? t('routeIntelligence.tomorrow', 'TOMORROW')
-            : t('routeIntelligence.today', 'TODAY')}
-        </Text>
-        <Text style={[styles.readinessValue, { color: formTextColor }]}>
-          {formLabel} ({isolateNumeric(`${form > 0 ? '+' : ''}${form}`)} TSB)
-        </Text>
-      </View>
+      {formLoads && <ReadinessRow loads={formLoads} isTomorrow={isTomorrow} isDark={isDark} />}
 
       {/* Planned workout */}
       {workout && <WorkoutCard workout={workout} isTomorrow={isTomorrow} isDark={isDark} />}
 
-      {/* Activity pattern (when no workout) */}
-      {!workout && todayPattern && <PatternCard pattern={todayPattern} isDark={isDark} />}
-
-      {/* Section highlights (for today's workout or pattern) */}
+      {/* Section highlights (for today's workout) */}
       {!isTomorrow && sections.length > 0 && (
         <SectionHighlights sections={sections} isDark={isDark} />
       )}
+    </View>
+  );
+});
+
+/** Readiness header: the form zone and figure for one pair of loads */
+const ReadinessRow = React.memo(function ReadinessRow({
+  loads,
+  isTomorrow,
+  isDark,
+}: {
+  loads: { ctl: number; atl: number };
+  isTomorrow: boolean;
+  isDark: boolean;
+}) {
+  const { t } = useTranslation();
+  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
+  const { ctl, atl } = loads;
+  const form = formFromLoads(ctl, atl);
+  const formZone = getFormZone(ctl - atl, ctl, asPercent);
+  const formColor = formZone ? FORM_ZONE_COLORS[formZone] : 'transparent';
+  const formTextColor = formZone ? formZoneTextColor(formZone, isDark) : undefined;
+  const formLabel = formZone ? formZoneLabel(formZone) : '';
+  const formValue = formatForm(form, ctl, asPercent);
+
+  return (
+    <View style={styles.readinessRow}>
+      <View style={[styles.formDot, { backgroundColor: formColor }]} />
+      <Text style={[styles.readinessLabel, isDark && styles.textLight]}>
+        {isTomorrow
+          ? t('routeIntelligence.tomorrow', 'TOMORROW')
+          : t('routeIntelligence.today', 'TODAY')}
+      </Text>
+      <Text style={[styles.readinessValue, { color: formTextColor }]}>
+        {formLabel}
+        {formValue !== null && ` (${isolateNumeric(formValue)}${asPercent ? '' : ' TSB'})`}
+      </Text>
     </View>
   );
 });
@@ -124,7 +121,6 @@ const WorkoutCard = React.memo(function WorkoutCard({
   isDark: boolean;
 }) {
   const { t } = useTranslation();
-  const sportIcon = workout.type === 'Run' ? '\u{1F3C3}' : '\u{1F6B4}';
   const targetLabel =
     workout.target === 'POWER'
       ? t('routes.targetPower')
@@ -137,7 +133,12 @@ const WorkoutCard = React.memo(function WorkoutCard({
   return (
     <View style={[styles.workoutCard, isTomorrow && styles.dimmed]}>
       <Text style={[styles.workoutName, isDark && styles.textLight]}>
-        {sportIcon} {workout.name}
+        <MaterialCommunityIcons
+          name={getActivityIcon(workout.type)}
+          size={typography.body.fontSize}
+          color={isDark ? darkColors.textPrimary : colors.textPrimary}
+        />{' '}
+        {workout.name}
       </Text>
       <Text style={[styles.workoutMeta, isDark && styles.textMuted]}>
         {formatDuration(workout.moving_time)}
@@ -145,37 +146,6 @@ const WorkoutCard = React.memo(function WorkoutCard({
         {targetLabel && ` \u00B7 ${targetLabel}`}
       </Text>
       {workout.workout_doc?.steps && <WorkoutStepBar steps={workout.workout_doc.steps} />}
-    </View>
-  );
-});
-
-/** Activity pattern summary (shown when no planned workout) */
-const PatternCard = React.memo(function PatternCard({
-  pattern,
-  isDark,
-}: {
-  pattern: ActivityPattern;
-  isDark: boolean;
-}) {
-  const { t, i18n } = useTranslation();
-  const sport = t(pattern.sportType === 'Run' ? 'routes.patternRun' : 'routes.patternRide');
-  const day = weekdayName(pattern.primaryDay, i18n.language);
-
-  return (
-    <View style={styles.patternCard}>
-      <Text style={[styles.patternText, isDark && styles.textLight]}>
-        {t('routes.patternSentence', {
-          day,
-          sport,
-          duration: formatDurationHuman(pattern.avgDurationSecs),
-        })}
-      </Text>
-      {pattern.avgTss > 0 && (
-        <Text style={[styles.workoutMeta, isDark && styles.textMuted]}>
-          ~{Math.round(pattern.avgTss)} TSS {'\u00B7'} {pattern.activityCount}{' '}
-          {t('routes.activities')}
-        </Text>
-      )}
     </View>
   );
 });
@@ -221,6 +191,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
           <Pressable
             key={section.id}
             style={pressable(styles.sectionRow)}
+            android_ripple={pressRipple}
             onPress={() => router.push(`/section/${section.id}`)}
           >
             <Text
@@ -331,14 +302,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
-  patternCard: {
-    marginBottom: spacing.xs,
-  },
-  patternText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
   sectionsContainer: {
     marginTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -394,11 +357,6 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: brand.tealLight,
-    fontVariant: ['tabular-nums'],
-  },
-  prBadge: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   prBadgeAccent: {

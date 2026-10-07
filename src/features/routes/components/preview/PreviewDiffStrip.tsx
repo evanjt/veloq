@@ -9,7 +9,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
-import type { PreviewResult } from '../../../../../modules/veloqrs/src/delegates/preview';
+import type { PreviewResult } from 'veloqrs';
 
 interface PreviewDiffStripProps {
   counts: PreviewResult['counts'];
@@ -21,7 +21,7 @@ export function PreviewDiffStrip({ counts }: PreviewDiffStripProps) {
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
   const neutral = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const success = isDark ? darkColors.success : colors.success;
+  const success = isDark ? darkColors.successDeep : colors.successDeep;
   const danger = isDark ? darkColors.error : colors.error;
 
   const cells: { key: string; text: string; color: string }[] = [

@@ -16,19 +16,22 @@ import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/shared/native/engine';
-import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { announceDepartedRides } from '@/features/routes/lib/departedRides';
+import type { StartVerdict } from 'veloqrs';
+import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { FrequentSection } from '@/types';
 import { debug } from '@/shared/debug/debug';
+import { renameFailureMessageKey } from '../lib/sectionRenameFailure';
 
 const log = debug.create('SectionActions');
 
 interface UseSectionActionsArgs {
   /** Section id from the URL (may be undefined on first render). */
   id: string | undefined;
-  /** Whether `id` is a custom (user-defined) section id. */
+  /** Whether the loaded section has the custom type. */
   isCustomId: boolean;
   /** The currently loaded section (null while loading / on not-found). */
   section: FrequentSection | null;
@@ -74,11 +77,15 @@ export interface UseSectionActionsResult {
   // --- rematch state ---
   /** True while a rematch scan is in progress. */
   isRematching: boolean;
+  /** True while the engine holds detection, so a rematch would be refused. */
+  isRematchHeld: boolean;
+  /** The engine's last refusal of a rematch, for the screen to name. */
+  rescanRefusal: StartVerdict | null;
 
   // --- actions ---
   /** Begin editing the section name (focuses input after ~100ms). */
   handleStartEditing: () => void;
-  /** Commit the rename, validating uniqueness across all sections. */
+  /** Commit the rename through the engine. */
   handleSaveName: () => void;
   /** Cancel editing without saving. */
   handleCancelEdit: () => void;
@@ -114,7 +121,8 @@ export function useSectionActions({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { removeSection, renameSection } = useCustomSections();
-  const { rescan, isScanning: isRematching } = useSectionRescan();
+  const { rescan, refusal: rescanRefusal, isScanning: isRematching } = useSectionRescan();
+  const isRematchHeld = useDetectionHold() !== null;
 
   // --- name edit state ---
   const [isEditing, setIsEditing] = useState(false);
@@ -184,25 +192,17 @@ export function useSectionActions({
       return;
     }
 
-    // Check uniqueness against ALL section names (custom + auto-generated)
-    const allDisplayNames = getAllSectionDisplayNames();
-    const isDuplicate = Object.entries(allDisplayNames).some(
-      ([existingId, name]) => existingId !== id && name === trimmedName
-    );
-
-    if (isDuplicate) {
-      Alert.alert(t('sections.duplicateNameTitle'), t('sections.duplicateNameMessage'));
-      return;
-    }
-
     // Update local state immediately for instant feedback
+    const previousName = customName ?? section?.name ?? null;
     setCustomName(trimmedName);
 
     // Fire rename in background - don't await, cache invalidation happens async
-    renameSection(id, trimmedName).catch((error) => {
+    renameSection(id, trimmedName).catch((error: unknown) => {
+      setCustomName((current) => (current === trimmedName ? previousName : current));
+      Alert.alert(t('sections.renameFailedTitle'), t(renameFailureMessageKey(error)));
       if (__DEV__) console.error('Failed to save section name:', error);
     });
-  }, [editName, id, renameSection, t]);
+  }, [customName, editName, id, renameSection, section?.name, t]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
@@ -217,23 +217,27 @@ export function useSectionActions({
       return;
     }
 
-    Alert.alert(t('sections.deleteSection'), t('sections.deleteSectionConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await removeSection(id);
-            router.back();
-          } catch (error) {
-            if (__DEV__) console.error('Failed to delete section:', error);
-            Alert.alert(t('common.error'), String(error));
-          }
+    Alert.alert(
+      t('sections.deleteSection'),
+      t('sections.deleteSectionConfirm', { name: customName || section?.name || id }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeSection(id);
+              router.back();
+            } catch (error) {
+              if (__DEV__) console.error('Failed to delete section:', error);
+              Alert.alert(t('common.error'), String(error));
+            }
+          },
         },
-      },
-    ]);
-  }, [id, isCustomId, removeSection, t]);
+      ]
+    );
+  }, [customName, id, isCustomId, removeSection, section?.name, t]);
 
   // --- reference actions ---
   const handleSetAsReference = useCallback(
@@ -254,8 +258,8 @@ export function useSectionActions({
           {
             text: t('common.reset'),
             onPress: () => {
-              const success = engine.resetSectionReference(id);
-              if (success) {
+              const departed = engine.resetSectionReference(id);
+              if (departed) {
                 // Reset to automatic - clear override to use section's original
                 setOverrideReferenceId(null);
                 // Force section data refresh to get recalculated polyline
@@ -264,6 +268,7 @@ export function useSectionActions({
                 if (isCustomId) {
                   queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
                 }
+                announceDepartedRides(departed, t);
               }
             },
           },
@@ -284,9 +289,9 @@ export function useSectionActions({
                   activityId
                 );
               }
-              const success = engine.setSectionReference(id, activityId);
-              if (__DEV__) log.log('[SetReference] Result:', success);
-              if (success) {
+              const departed = engine.setSectionReference(id, activityId);
+              if (__DEV__) log.log('[SetReference] Result:', departed !== null);
+              if (departed) {
                 // Update local state immediately for responsive UI
                 setOverrideReferenceId(activityId);
                 // Force section data refresh to get updated polyline
@@ -295,6 +300,7 @@ export function useSectionActions({
                 if (isCustomId) {
                   queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
                 }
+                announceDepartedRides(departed, t);
               } else {
                 // Show error if operation failed
                 Alert.alert(
@@ -423,6 +429,8 @@ export function useSectionActions({
     excludedActivityIds,
     // rematch
     isRematching,
+    isRematchHeld,
+    rescanRefusal,
     // actions
     handleStartEditing,
     handleSaveName,
