@@ -60,7 +60,7 @@ appId: com.veloq.app.dev
             visible:
               id: "control-stop"
           commands:
-            - longPressOn:
+            - tapOn:
                 id: "control-stop"
 
       - extendedWaitUntil:
@@ -75,7 +75,7 @@ appId: com.veloq.app.dev
       visible:
         id: "review-discard-button"
     commands:
-      - longPressOn:
+      - tapOn:
           id: "review-discard-button"
       - extendedWaitUntil:
           visible:

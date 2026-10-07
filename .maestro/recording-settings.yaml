@@ -6,12 +6,20 @@ tags:
   - tier2
   - pack-recording
 onFlowComplete:
-  - openLink: "veloq://"
+  # Only a demo session is this flow's to clean up. The hook runs after a
+  # failure too, including the shared setup refusing a real account, and that
+  # session is left as it was found.
   - runFlow:
       when:
-        visible: "(?i)discard"
+        visible:
+          id: "demo-mode-banner"
       commands:
-        - tapOn: "(?i)discard"
+        - openLink: "veloq://"
+        - runFlow:
+            when:
+              visible: "(?i)discard"
+            commands:
+              - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -32,10 +40,10 @@ onFlowComplete:
     commands:
       - tapOn: "(?i)discard"
 
-# Wait for record screen to show activity types
+# Wait for the record entry screen
 - extendedWaitUntil:
     visible:
-      id: "record-type-Ride"
+      id: "record-start"
     timeout: 10000
 
 # Tap settings button to navigate to recording settings

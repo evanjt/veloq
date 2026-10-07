@@ -1,0 +1,63 @@
+# Recording entry response
+# Tests: a Start tap on the record entry screen begins the recording at once,
+# on an arrival that raises the notification prompt. The prompt belongs to the
+# arrival, so it never lands over the recording.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-recording
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+    env:
+      NOTIFICATIONS_PERMISSION: unset
+
+# Discard a session an earlier flow left running: `record-fab` hides while one
+# is active, and the return pill covers the feed.
+- runFlow:
+    file: helpers/discard-recording.yaml
+
+- tapOn:
+    id: "record-fab"
+
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "(?i)discard"
+    commands:
+      - tapOn: "(?i)discard"
+
+# Android 13 and later asks for notifications on arrival, before any tap.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: "(?i)don.t allow"
+          timeout: 10000
+          optional: true
+      - takeScreenshot: "screenshots/recording-entry-notification-prompt"
+      - runFlow:
+          when:
+            visible: "(?i)don.t allow"
+          commands:
+            - tapOn: "(?i)don.t allow"
+
+- runFlow:
+    file: helpers/choose-sport.yaml
+    env:
+      SPORT: Ride
+
+- takeScreenshot: "screenshots/recording-entry-map"
+
+# Start begins the recording at once, with the map in view and no prompt
+# raised over it.
+- tapOn:
+    id: "record-start"
+- extendedWaitUntil:
+    visible:
+      id: "recording-timer"
+    timeout: 10000
+- assertNotVisible: "(?i)don.t allow"
+- takeScreenshot: "screenshots/recording-entry-started-map"

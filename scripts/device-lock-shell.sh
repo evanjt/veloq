@@ -22,10 +22,10 @@ set -eu
 veloq_refuse_if_ambiguous device-lock-shell || exit 2
 
 if ! command -v flock >/dev/null 2>&1; then
-  echo "device-lock-shell: no flock, running unserialised" >&2
+  echo "device-lock-shell: no flock, running without the local lock" >&2
   VELOQ_DEVICE_LOCK_HELD=1
   export VELOQ_DEVICE_LOCK_HELD
-  exec "$@"
+  exec "$(dirname "$0")/device-lock-handset.sh" "$@"
 fi
 
 if ! flock -n "$VELOQ_DEVICE_LOCK_PATH" true 2>/dev/null; then
@@ -34,4 +34,4 @@ fi
 
 VELOQ_DEVICE_LOCK_HELD=1
 export VELOQ_DEVICE_LOCK_HELD
-exec flock "$VELOQ_DEVICE_LOCK_PATH" "$@"
+exec flock "$VELOQ_DEVICE_LOCK_PATH" "$(dirname "$0")/device-lock-handset.sh" "$@"

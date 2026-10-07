@@ -10,6 +10,13 @@
 # gate.
 set -uo pipefail
 
+# A flow force-stops the app and clears its data, so a hand run takes the
+# device lock like every other script that drives a handset. CI attaches one
+# emulator, where the lock buys nothing.
+if [ -z "${CI:-}" ] && [ -z "${VELOQ_DEVICE_LOCK_HELD:-}" ]; then
+  exec "$(dirname "$0")/../scripts/with-device-lock.sh" "$0" "$@"
+fi
+
 MAESTRO="${MAESTRO_BIN:-$HOME/.maestro/bin/maestro}"
 
 # Which device every invocation runs on. Maestro picks one itself when it is
@@ -18,9 +25,16 @@ MAESTRO="${MAESTRO_BIN:-$HOME/.maestro/bin/maestro}"
 # `[shard 1] Selected device 10.0.0.3:5555`. CI attaches one device, so the
 # gate never sees this and the cost lands on whoever runs the suite by hand.
 # `--device` is a global flag, so it goes ahead of `test`.
+#
+# Both arrays are expanded as `${a[@]+"${a[@]}"}`, since bash before 4.4 reads
+# an empty array under `set -u` as unbound and stops the script, and macOS
+# ships bash 3.2.
 device=()
 adb_device=()
-if [ -n "${MAESTRO_DEVICE:-}" ]; then
+# Under the lock the locked serial is the default, so the suite drives the
+# phone whose lock it holds.
+MAESTRO_DEVICE="${MAESTRO_DEVICE:-${VELOQ_DEVICE_SERIAL:-}}"
+if [ -n "$MAESTRO_DEVICE" ]; then
   device=(--device "$MAESTRO_DEVICE")
   adb_device=(-s "$MAESTRO_DEVICE")
 fi
@@ -29,7 +43,7 @@ report="$1"
 debug="$2"
 shift 2
 
-if "$MAESTRO" "${device[@]}" test .maestro/ "$@" --debug-output "$debug" --format junit --output "$report" --no-ansi; then
+if "$MAESTRO" ${device[@]+"${device[@]}"} test .maestro/ "$@" --debug-output "$debug" --format junit --output "$report" --no-ansi; then
   exit 0
 fi
 
@@ -75,13 +89,14 @@ restart_device() {
   fi
   # `kill-server` is server-wide: it drops every attached device's connection,
   # not just this one's. That is fine on the gate's single-device runner and
-  # not fine on a workstation, so a named device gets the scoped restart.
-  if [ ${#adb_device[@]} -eq 0 ]; then
+  # not fine on a workstation, so a named device gets the scoped restart and
+  # only CI restarts the whole server.
+  if [ ${#adb_device[@]} -eq 0 ] && [ -n "${CI:-}" ]; then
     adb kill-server || true
     adb start-server || true
   fi
-  adb "${adb_device[@]}" wait-for-device || true
-  adb "${adb_device[@]}" shell am force-stop dev.mobile.maestro || true
+  adb ${adb_device[@]+"${adb_device[@]}"} wait-for-device || true
+  adb ${adb_device[@]+"${adb_device[@]}"} shell am force-stop dev.mobile.maestro || true
 }
 
 # The restart above revives the device the suite pass lost. It says nothing about
@@ -95,7 +110,7 @@ device_alive() {
     eval "$MAESTRO_HEALTH_CMD" > /dev/null 2>&1
     return
   fi
-  [ "$(adb "${adb_device[@]}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]
+  [ "$(adb ${adb_device[@]+"${adb_device[@]}"} shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]
 }
 
 if printf '%s\n' "$failed" | grep -q ' device$'; then
@@ -105,6 +120,7 @@ fi
 
 mkdir -p retry-reports
 status=0
+retried=""
 while read -r flow verdict; do
   [ -n "$flow" ] || continue
   file=".maestro/$flow.yaml"
@@ -118,9 +134,24 @@ while read -r flow verdict; do
     restart_device
   fi
   echo "Retrying $file ($verdict)"
-  "$MAESTRO" "${device[@]}" test "$file" --debug-output "$debug" \
+  # A report an earlier run left here would otherwise stand in for this retry.
+  rm -f "retry-reports/$flow.xml"
+  retried="$retried $flow"
+  "$MAESTRO" ${device[@]+"${device[@]}"} test "$file" --debug-output "$debug" \
     --format junit --output "retry-reports/$flow.xml" --no-ansi || status=1
 done <<EOF_FAILED
 $failed
 EOF_FAILED
+
+# The gate is decided on the retries, and the summary and the junit check read
+# the named report, so the report takes each retry's result in place of the
+# first pass's. Otherwise a suite the retries recovered reads as failed.
+if command -v node >/dev/null 2>&1; then
+  # Flow names carry no spaces, since each is a file's basename.
+  # shellcheck disable=SC2086
+  node "$(dirname "$0")/merge-retry-reports.mjs" "$report" retry-reports $retried ||
+    echo "Could not fold the retry reports into $report, so it holds the first pass."
+else
+  echo "No node to fold the retry reports into $report, so it holds the first pass."
+fi
 exit "$status"

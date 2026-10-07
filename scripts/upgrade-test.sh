@@ -13,8 +13,8 @@
 # INSTALL_FAILED_UPDATE_INCOMPATIBLE. That gives two usable modes:
 #
 #   CI, against the real shipped binary. The release keystore is in secrets
-#   (build.yml:202-213), so a release-signed branch build can upgrade a published
-#   release directly:
+#   (the signing step in build-android.yml), so a release-signed branch build can
+#   upgrade a published release directly:
 #     NEW_APK=path/to/branch-release.apk scripts/upgrade-test.sh
 #
 #   Local, both sides from source. The release keystore is not on a dev machine,
@@ -49,6 +49,10 @@ NEW_APK="${NEW_APK:-}"
 APP_ID="${APP_ID:-com.veloq.app}"
 WORK="${WORK:-${TMPDIR:-/tmp}/upgrade-test}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Through the wrapper, which pins the handset the lock was taken on: Maestro
+# picks a transport of its own otherwise, and the flow lands on another phone
+# while every `adb` call here reaches this one.
+MAESTRO="$ROOT/scripts/with-maestro.sh"
 ADB="${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb"
 DB="/data/data/$APP_ID/files/routes.db"
 
@@ -97,7 +101,9 @@ sleep 3
 
 # clearState would run `pm clear` and wipe the database this test exists to
 # preserve, turning the whole run into a no-op that passes.
-maestro test "$ROOT/.maestro/upgrade/seed.yaml" --no-ansi
+# The flows take the application id from here, so they launch the app this
+# script installs and counts rather than the one their header names.
+"$MAESTRO" test -e APP_ID="$APP_ID" "$ROOT/.maestro/upgrade/seed.yaml" --no-ansi
 
 before="$(counts)"
 echo "before upgrade:"; echo "$before" | sed 's/^/  /'
@@ -111,7 +117,7 @@ fi
 # -r keeps /data/data. Without it this reduces to a fresh-install test.
 "$ADB" install -r "$NEW_APK"
 
-maestro test "$ROOT/.maestro/upgrade/assert.yaml" --no-ansi
+"$MAESTRO" test -e APP_ID="$APP_ID" "$ROOT/.maestro/upgrade/assert.yaml" --no-ansi
 
 after="$(counts)"
 echo "after upgrade:"; echo "$after" | sed 's/^/  /'

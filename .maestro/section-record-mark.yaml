@@ -1,0 +1,38 @@
+# Section record mark
+# Tests: the sections list marks a section whose latest traversal holds the
+# record. demo-test-7 is the newest and fastest ride on its route, so its
+# sections carry the mark.
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+- tapOn:
+    text: "Sections"
+
+# The catalogue is cut from scratch on every cold launch, so the wait is the
+# runner's budget and not the workstation's.
+- extendedWaitUntil:
+    visible:
+      id: "section-row-.*"
+    timeout: 300000
+
+- scrollUntilVisible:
+    element:
+      id: "section-row-record-.*"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "section-row-record-.*"

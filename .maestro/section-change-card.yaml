@@ -1,0 +1,133 @@
+# Section change card
+# Tests: the What's New tour reaches the sections slide, and the slide renders
+# its card and reports the re-analysis once it has settled.
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# The slide's rows and counts read the cutover the engine runs after the seed
+# lands. It is cut from scratch on every cold launch, ~69 s on a workstation
+# emulator and about 2.5x that on the gate runner, so the wait is the runner's.
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+- tapOn:
+    text: "Sections"
+
+- extendedWaitUntil:
+    visible:
+      id: "section-row-.*"
+    timeout: 300000
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# The tour row sits in the footer, below the fold.
+- scrollUntilVisible:
+    element:
+      text: "App Tour"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
+    visibilityPercentage: 50
+
+- tapOn:
+    text: "App Tour"
+
+# The 0.4.0 slide is the last in the tour. Walk forward from the first one.
+- repeat:
+    times: 12
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "change-card"
+          commands:
+            - tapOn: "Next"
+
+- extendedWaitUntil:
+    visible:
+      id: "change-card"
+    timeout: 10000
+
+- takeScreenshot: "screenshots/section-change-card"
+
+# Keep a moved slider, which writes the config the claim is read from.
+- openLink: "veloq://detection-preview"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "detection-preview-screen"
+    timeout: 10000
+
+- tapOn:
+    id: "param-edit-proximityThreshold"
+- tapOn:
+    id: "param-editor-input"
+- eraseText: 10
+- inputText: "150"
+- tapOn:
+    id: "param-editor-save"
+
+- tapOn:
+    id: "preview-run-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "preview-keep-button"
+    timeout: 300000
+
+- tapOn:
+    id: "preview-keep-button"
+- tapOn: "Confirm"
+
+# Keep leaves the screen once the re-cut has started.
+- extendedWaitUntil:
+    notVisible:
+      id: "detection-preview-screen"
+    timeout: 30000
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+- scrollUntilVisible:
+    element:
+      text: "App Tour"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
+    visibilityPercentage: 50
+- tapOn:
+    text: "App Tour"
+
+- repeat:
+    times: 12
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "change-card"
+          commands:
+            - tapOn: "Next"
+
+- extendedWaitUntil:
+    visible:
+      id: "change-card"
+    timeout: 10000
+
+
+- takeScreenshot: "screenshots/section-change-card-moved-config"

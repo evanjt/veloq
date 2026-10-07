@@ -365,25 +365,26 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'StrengthManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'SyncManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
 
-  // Built for a caller that is not TypeScript. The push handler this exists
-  // for runs in Kotlin, and on iOS in Swift, with no JS runtime alive: it
-  // holds an activity id, fetches the track, stores it and indexes it in one
-  // blocking call, because it has no run loop to poll the batch path's global
-  // result slot on. Delete it if that handler is never written.
-  fetchAndIndexActivity:
-    'called from the native push handler, which runs with no JS runtime, not from TypeScript',
-
   // The basemap tile store. Reached by the offline map work rather than a
   // screen, so none of it has a caller here yet.
   'BasemapManager.setPath':
     'the basemap tile store, reached from the offline map work rather than a screen',
   'BasemapManager.putTile': 'the basemap tile store, written by the tile pipeline',
   'BasemapManager.getTile': 'the basemap tile store, read by the tile pipeline',
-  'BasemapManager.getCacheSize': 'the basemap tile store, read by the cache accounting',
-  'BasemapManager.getSourceSize': 'the basemap tile store, read by the cache accounting',
+  'BasemapManager.getCacheSize':
+    'read by the cache screen and the hub total, through a lazy require the scan does not follow',
+  'BasemapManager.getSourceSize':
+    'read by the cache screen for its vector row, through a lazy require the scan does not follow',
   'BasemapManager.clearTiles': 'the basemap tile store, the whole-store clear',
+  'BasemapManager.clearUnpinnedTiles':
+    'the Clear cache buttons, through a lazy require the scan does not follow',
+  'BasemapManager.tileCounts':
+    "the debug screen's tile table, through a lazy require the scan does not follow",
+  'BasemapManager.resetTileCounts':
+    "the debug screen's Clear metrics button, through a lazy require the scan does not follow",
   'BasemapManager.clearSourceTiles': 'the basemap tile store, the per-source clear',
-  'BasemapManager.evictTo': 'the basemap tile store, the budget eviction',
+  'BasemapManager.setBudget':
+    'handed the tile limit by the settings store, through a lazy require the scan does not follow',
   'BasemapManager.flush':
     'written back when the app backgrounds, through a lazy require the scan does not follow',
   'BasemapManager.setSourceTemplate':
@@ -391,16 +392,10 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'BasemapManager.getOrFetchTile':
     'the interceptor reaches the store through the JNI symbol, not this mirror, and iOS has no interceptor yet',
 
-  'DetectionManager.setMatchStrictness':
-    'route-grouping strictness, kept for the preview its screen will get',
-  'DetectionManager.getMatchStrictness': 'the read half of that setter, and its screen is unbuilt',
   validateBackupDatabase:
     'reached through a dynamic property off the native module, so no static call exists to find',
   // The engine can answer what shape a week's load had; no screen asks yet,
   // and the surface that would draw it is its own item.
-
-  'SectionManager.getNearPoint':
-    'the point query a live recording asks the catalogue, and the recording screen that would call it is frozen',
 };
 
 /**
@@ -441,6 +436,142 @@ export function clientMethodReach(
     }
   }
   return reach;
+}
+
+/** Source with comments blanked, one declaration per `EngineClient` member. */
+function clientMemberSpans(classSource: string): Map<string, string> {
+  const text = withoutComments(classSource);
+  const declaration =
+    /^ {2}(?:(?:public|private|protected|static|async)\s+)*([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:=\s*(?:async\s*)?\(|\()/gm;
+  const heads = [...text.matchAll(declaration)].filter(
+    (m) =>
+      m[1] !== undefined &&
+      !['if', 'for', 'while', 'switch', 'catch', 'constructor', 'return'].includes(m[1])
+  );
+  const spans = new Map<string, string>();
+  heads.forEach((m, i) => {
+    const end = heads[i + 1]?.index ?? text.length;
+    if (m[1] !== undefined) spans.set(m[1], text.slice(m.index, end));
+  });
+  return spans;
+}
+
+/** Every function a delegate module declares, with its body. */
+function delegateFunctions(sources: string[]): Map<string, string> {
+  const functions = new Map<string, string>();
+  for (const source of sources) {
+    const text = withoutComments(source);
+    const head =
+      /^export\s+(?:async\s+)?(?:function\s+([A-Za-z_$][A-Za-z0-9_$]*)|const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=)/gm;
+    const heads = [...text.matchAll(head)];
+    heads.forEach((m, i) => {
+      const end = heads[i + 1]?.index ?? text.length;
+      const name = m[1] ?? m[2];
+      if (name !== undefined) functions.set(name, text.slice(m.index, end));
+    });
+  }
+  return functions;
+}
+
+/**
+ * The export rows each `EngineClient` method reaches.
+ *
+ * A screen calls the client, never an export, and the client forwards through
+ * a delegate that renames as it goes: `getStrengthScreenData` is
+ * `strength().getScreenData`. Reading the member's own body, then each delegate
+ * function it names and the helpers that function calls in its module, gives
+ * the rows that call is a call to. Without it a manager export reached as
+ * `engine.getInsightsData()` is attributed to no area.
+ *
+ * `delegates` is the delegate layer's sources by repository path.
+ */
+export function clientMethodExports(
+  classSource: string,
+  delegates: Map<string, string>,
+  keys: ExportKey[],
+  local: Record<string, string> = {}
+): Map<string, string[]> {
+  const spans = clientMemberSpans(classSource);
+  const modules = new Map<string, Map<string, string>>();
+  const aliasOf = new Map<string, Map<string, string>>();
+  for (const m of withoutComments(classSource).matchAll(
+    /import\s+\*\s+as\s+(\w+)\s+from\s+'\.\/delegates\/([\w/]+)'/g
+  )) {
+    const [, alias, wanted] = m;
+    if (alias === undefined || wanted === undefined) continue;
+    const files = [...delegates.entries()].filter(([file]) => {
+      const rel = normalise(file).split(DELEGATE_LAYER)[1] ?? '';
+      return rel === `${wanted}.ts` || rel.startsWith(`${wanted}/`);
+    });
+    if (!modules.has(wanted)) {
+      modules.set(wanted, delegateFunctions(files.map(([, source]) => source)));
+    }
+    aliasOf.set(alias, modules.get(wanted) as Map<string, string>);
+  }
+
+  // `engine.fitness()` is how a delegate reaches a manager, not a read of its
+  // own, so the accessor is no row of the method that goes through it.
+  const accessorRows = new Set(Object.keys(accessorObjects()).map((a) => `VeloqEngine.${a}`));
+  const rowsIn = (text: string): string[] =>
+    callsIn(text).flatMap((call) => {
+      if (!callIsAttributed(call, keys, local, true)) return [];
+      return resolveCall(call, keys, local, true).filter((key) => !accessorRows.has(key));
+    });
+
+  const reach = (
+    text: string,
+    module: Map<string, string> | undefined,
+    seen: Set<string>,
+    found: Set<string>
+  ): void => {
+    for (const key of rowsIn(text)) found.add(key);
+    for (const call of callsIn(text)) {
+      const target = call.receiver === 'this' ? spans : aliasOf.get(call.receiver);
+      const body = target?.get(call.method);
+      const id = `${call.receiver}.${call.method}`;
+      if (body === undefined || seen.has(id)) continue;
+      seen.add(id);
+      reach(body, call.receiver === 'this' ? undefined : target, seen, found);
+    }
+    if (module) {
+      for (const m of text.matchAll(/(?<![.\w$])([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g)) {
+        const name = m[1];
+        if (name === undefined) continue;
+        const body = module.get(name);
+        const id = `${module.size}:${name}:${text.length}`;
+        if (body === undefined || body === text || seen.has(id)) continue;
+        seen.add(id);
+        reach(body, module, seen, found);
+      }
+    }
+  };
+
+  const result = new Map<string, string[]>();
+  for (const [method, span] of spans) {
+    const found = new Set<string>();
+    reach(span, undefined, new Set([`this.${method}`]), found);
+    result.set(method, [...found].sort());
+  }
+  return result;
+}
+
+/**
+ * The rows a call from the app reaches through the client.
+ *
+ * Only a receiver that holds the client counts: the engine handle the screens
+ * import, or the accessor that returns it. A method name alone would score
+ * every `.get(` on a map.
+ */
+export function clientCallRows(
+  call: Call,
+  clientRows: Map<string, string[]>,
+  local: Record<string, string> = {}
+): string[] {
+  const holdsClient =
+    local[call.receiver] === 'VeloqEngine' ||
+    call.receiver === 'getEngine' ||
+    call.receiver === 'getInstance';
+  return holdsClient ? (clientRows.get(call.method) ?? []) : [];
 }
 
 /**

@@ -19,7 +19,9 @@
 # For an API-key or OAuth install the session does survive, so a login screen
 # after upgrade would be a real regression. That case needs a seeded credential
 # and is not covered here.
-appId: com.veloq.app
+# The caller names the application: scripts/upgrade-test.sh installs either the
+# release or the dev build, and the flow has to launch the one it counted.
+appId: ${APP_ID}
 ---
 - launchApp:
     clearState: false

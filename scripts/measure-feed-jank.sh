@@ -19,6 +19,20 @@
 # blocks disagree by ten points and say nothing about the change under test.
 set -u
 
+# The handset driven is the handset locked. `DEVICE` is still taken, as the
+# name of that handset, and it becomes the serial the lock is taken on. Naming
+# two different phones is refused: the lock would sit on one while the
+# installs and the `gfxinfo` resets went to the other.
+if [ -n "${DEVICE:-}" ]; then
+  if [ -n "${ANDROID_SERIAL:-}" ] && [ "$ANDROID_SERIAL" != "$DEVICE" ]; then
+    echo "measure-feed-jank: DEVICE=$DEVICE and ANDROID_SERIAL=$ANDROID_SERIAL name two handsets." >&2
+    echo "measure-feed-jank: set one of them." >&2
+    exit 2
+  fi
+  ANDROID_SERIAL=$DEVICE
+  export ANDROID_SERIAL
+fi
+
 # One measurement at a time against one handset: `docket start` locks the item
 # and not the phone, and a second session resetting or relaunching the app
 # mid-run lands in this run's numbers. Re-exec through the lock unless
@@ -27,7 +41,15 @@ if [ -z "${VELOQ_DEVICE_LOCK_HELD:-}" ]; then
   exec "$(dirname "$0")/with-device-lock.sh" "$0" "$@"
 fi
 
-D=${DEVICE:-192.168.1.118:5555}
+D=${VELOQ_DEVICE_SERIAL:-${ANDROID_SERIAL:-}}
+if [ -z "$D" ]; then
+  echo "measure-feed-jank: no handset attached, or none named." >&2
+  exit 2
+fi
+if [ -n "${DEVICE:-}" ] && [ "$DEVICE" != "$D" ]; then
+  echo "measure-feed-jank: DEVICE=$DEVICE but the lock held is for $D." >&2
+  exit 2
+fi
 PKG=com.veloq.app.dev
 RIG=$(dirname "$0")/../.maestro/jank
 FLOOR=${FLOOR:-2800}
@@ -62,11 +84,24 @@ one() {
   echo "$total $janky"
 }
 
-# `set LABEL APK N` installs, enters, and prints N good runs.
+# The first run after an entry is a warm-up, so it is printed and never counted.
+warm_up() {
+  local line
+  if line=$(one); then
+    echo "$1 warm-up  frames=$(echo "$line" | cut -d' ' -f1)  janky=$(echo "$line" | cut -d' ' -f2)  pct=$(echo "$line" | cut -d' ' -f3)"
+  else
+    echo "$1 warm-up failed its checks"
+  fi
+}
+
+# `set LABEL APK N` installs, enters, and prints N good runs after a warm-up.
 set_runs() {
   local label=$1 apk=$2 want=$3 got=0 tries=0 line
-  adb -s "$D" install -r "$apk" >/dev/null 2>&1 || { echo "$label INSTALL FAILED"; return 1; }
+  # --stale because the before and after builds are cut from other commits on
+  # purpose. The stamp it prints keeps the pair readable.
+  ANDROID_SERIAL=$D "$(dirname "$0")/install-apk.sh" "$apk" --stale >&2 || { echo "$label INSTALL FAILED"; return 1; }
   enter || { echo "$label ENTRY FAILED"; return 1; }
+  warm_up "$label"
   while [ "$got" -lt "$want" ] && [ "$tries" -lt $((want * 3)) ]; do
     tries=$((tries + 1))
     if line=$(one); then
@@ -75,6 +110,7 @@ set_runs() {
     else
       echo "$label discarded (attempt $tries)"
       enter
+      warm_up "$label"
     fi
   done
   [ "$got" -eq "$want" ] || echo "$label SHORT: $got of $want"
@@ -82,7 +118,7 @@ set_runs() {
 
 if [ $# -ne 3 ]; then
   echo "usage: $(basename "$0") LABEL APK RUNS" >&2
-  echo "  DEVICE=<serial> FLOOR=<frames> override the defaults." >&2
+  echo "  ANDROID_SERIAL=<serial> names the handset, FLOOR=<frames> the frame floor." >&2
   exit 2
 fi
 

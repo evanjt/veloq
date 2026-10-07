@@ -64,6 +64,8 @@ tags:
 - waitForAnimationToEnd:
     timeout: 1500
 - takeScreenshot: "screenshots/strength-muscle-panel"
+- assertVisible:
+    id: "strength-selected-summary"
 
 # Methodology disclaimer (US-T2). Match on the distinctive "approximations"
 # wording.

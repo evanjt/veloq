@@ -21,18 +21,14 @@ tags:
     visible:
       id: "settings-notifications-toggle"
     timeout: 10000
-    optional: true
 
-# Verify notifications toggle exists
+# A demo session is not an OAuth one, so notifications cannot be turned on: the
+# switch is there and disabled, and the hint under it says why.
 - assertVisible:
     id: "settings-notifications-toggle"
-    optional: true
+    enabled: false
 
-# Verify OAuth hint text (demo mode is not OAuth)
 - assertVisible:
     id: "settings-notifications-oauth-hint"
-    optional: true
 
 - takeScreenshot: "screenshots/settings-notifications"
-
-- takeScreenshot: "screenshots/settings-notifications-complete"

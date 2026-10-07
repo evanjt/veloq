@@ -13,22 +13,50 @@ tags:
 - runFlow:
     file: helpers/navigate-to-fitness.yaml
 
-# Verify power curve chart is displayed (if demo data has power)
-- extendedWaitUntil:
-    visible:
-      id: "power-curve-chart"
+# The power curve is the cycling chart, inside the performance section, which
+# starts collapsed. The demo athlete rides, so the curve has data to draw.
+- scrollUntilVisible:
+    element:
+      id: "fitness-sport-toggle-Cycling"
+    direction: DOWN
     timeout: 10000
-    optional: true
+    speed: 40
+
+- tapOn:
+    id: "fitness-sport-toggle-Cycling"
+
+# Centred, because the tab bar draws over the bottom of the screen and a header
+# stopped at the edge takes the tap meant for it.
+- scrollUntilVisible:
+    element:
+      id: "fitness-section-performance"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    centerElement: true
+
+# The tab stays mounted between flows, so an earlier one may have left it open.
+- runFlow:
+    when:
+      notVisible:
+        id: "power-curve-chart"
+    commands:
+      - tapOn:
+          id: "fitness-section-performance"
+
+- scrollUntilVisible:
+    element:
+      id: "power-curve-chart"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
 
 - takeScreenshot: "screenshots/stats-power-curve-chart-loaded"
 
-# If power curve is visible, check for values
 - assertVisible:
     id: "power-curve-duration"
-    optional: true
 
 - assertVisible:
     id: "power-curve-watts"
-    optional: true
 
 - takeScreenshot: "screenshots/power-curve-complete"

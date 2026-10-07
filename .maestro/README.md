@@ -43,24 +43,26 @@ Flows are organized into tiers via tags. CI runs different tiers based on the ev
 | Command | Tiers | Description |
 |---------|-------|-------------|
 | `npm run maestro:smoke` | tier0 | Basic app launch + demo mode |
-| `npm run maestro:critical` | tier0+tier1 | Smoke + critical path |
-| `npm run maestro:tier2` | tier2 | Feature tests only |
-| `npm run maestro:regression` | tier0+tier1+tier2 | Full regression suite |
+| `npm run maestro:gate` | tier0+tier1 | Smoke + critical path |
+| `npm run maestro:test` | tier0+tier1+tier2 | Full regression suite |
 | `npm run maestro:stress` | tier3 | Stress tests only |
 | `npm run maestro:screenshots` | tier4 | Marketing screenshots |
-| `npm run maestro:all` | tier0-tier3 | Everything except screenshots |
+| `npm run maestro:full` | tier0-tier3 | Everything except screenshots |
 
 ### Run Individual Flows
 
+With both handsets attached, export `ANDROID_SERIAL` first. Maestro takes no lock and picks its own transport, so run flows through the wrapper.
+
 ```bash
-maestro test .maestro/smoke.yaml
-maestro test .maestro/navigation-main-tabs.yaml
+export ANDROID_SERIAL=<serial>
+scripts/with-maestro.sh test .maestro/smoke.yaml
+scripts/with-maestro.sh test .maestro/navigation-main-tabs.yaml
 ```
 
 ### Run by Tag
 
 ```bash
-maestro test .maestro/ --include-tags=tier0,tier1
+scripts/with-maestro.sh test .maestro/ --include-tags=tier0,tier1
 ```
 
 ## Shared Helpers
@@ -115,7 +117,6 @@ Usage in a flow:
 | `fitness-time-range.yaml` | tier2 | Switch fitness time ranges |
 | `wellness-dashboard.yaml` | tier2 | Wellness data display |
 | `training-wellness-dashboard.yaml` | tier2 | Wellness indicators on training |
-| `training-wellness-trends.yaml` | tier2 | Wellness trends chart |
 | `routes-list.yaml` | tier2 | Routes listing |
 | `sections-list.yaml` | tier2 | Sections listing |
 | `route-detail.yaml` | tier2 | Route detail navigation |
@@ -151,7 +152,6 @@ Usage in a flow:
 | `stress-activity-cycling.yaml` | tier3 | Rapid activity switching |
 | `stress-activity-sections.yaml` | tier3 | Section loading under stress |
 | `stress-chart-scrubbing.yaml` | tier3 | Rapid chart scrubbing |
-| `stress-map-marker-taps.yaml` | tier3 | Rapid map marker interaction |
 | `stress-map-toggles.yaml` | tier3 | Map toggle stress test |
 | `stress-navigation-rapid.yaml` | tier3 | Rapid navigation switching |
 | `stress-timeline-scrub.yaml` | tier3 | Timeline scrubbing performance |
@@ -231,7 +231,7 @@ Opens browser UI for real-time device view and visual test building.
 ### Verbose Output
 
 ```bash
-maestro test .maestro/smoke.yaml --debug-output ./debug
+scripts/with-maestro.sh test .maestro/smoke.yaml --debug-output ./debug
 ```
 
 ## Recording Flows

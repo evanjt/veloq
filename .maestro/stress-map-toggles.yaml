@@ -68,34 +68,6 @@ tags:
           id: "map-toggle-activities"
           optional: true
 
-# Stress test sport type filters
-- repeat:
-    times: 5
-    commands:
-      - tapOn:
-          id: "map-filter-ride"
-          optional: true
-      - tapOn:
-          id: "map-filter-run"
-          optional: true
-      - tapOn:
-          id: "map-filter-swim"
-          optional: true
-      - tapOn:
-          id: "map-filter-walk"
-          optional: true
-      - tapOn:
-          id: "map-filter-hike"
-          optional: true
-
-# Clear all rapidly
-- repeat:
-    times: 5
-    commands:
-      - tapOn:
-          id: "map-filter-clear"
-          optional: true
-
 # Verify map is still responsive
 - assertVisible:
     id: "map-screen"

@@ -1,0 +1,10 @@
+appId: com.veloq.app.dev
+---
+- extendedWaitUntil:
+    visible: ${PUSH_EXPECTED_TITLE}
+    timeout: 30000
+- tapOn: ${PUSH_EXPECTED_TITLE}
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-screen"
+    timeout: 15000

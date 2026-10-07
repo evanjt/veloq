@@ -18,12 +18,14 @@
 // Usage:
 //   node scripts/cold-start-scaling-harness.mjs
 //   node scripts/cold-start-scaling-harness.mjs --n 50,200
+//   RING_DIR=dir reads ring-<n>.json, a debug snapshot's ffiMetrics, for detectionMs
 //   APP_ID=com.veloq.app.dev SETTLE_MS=120000 node scripts/cold-start-scaling-harness.mjs
 
 import { execSync, spawn, spawnSync } from 'node:child_process';
-import { writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { detectionMsFromRing } from './lib/ffi-ring.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -54,6 +56,7 @@ const APP_ID = process.env.APP_ID || 'com.veloq.app.dev';
 // sync (see "Detection progress" in docs/AUDIT_PLAN.md §7). We settle for that long
 // so the banner-state capture reflects the post-120s case the audit cares about.
 const SETTLE_MS = Number(process.env.SETTLE_MS || 120000);
+const RING_DIR = process.env.RING_DIR || '';
 const MEMINFO_POLL_MS = Number(process.env.MEMINFO_POLL_MS || 3000);
 
 const DEFAULT_NS = [50, 200, 500, 1000];
@@ -176,21 +179,18 @@ function countOomEvents(logText) {
   return matches ? matches.length : 0;
 }
 
-function parseDetectionMs(logText) {
-  // Detection phase markers come from PERF_DEBUG in src/shared/debug/renderTimer.ts:
-  // FFI timing lines like "🟡 [FFI] detectSections: 1234.5ms" and the colored
-  // [SCREEN]/[HOOK] markers. We sum the explicit FFI durations for detection-named
-  // calls; fall back to 0 when PERF_DEBUG is off or markers are absent.
-  let totalMs = 0;
-  const ffiRe = /\[FFI\]\s+(\w+):\s+([\d.]+)ms/g;
-  let m;
-  while ((m = ffiRe.exec(logText)) !== null) {
-    const name = m[1].toLowerCase();
-    if (name.includes('detect') || name.includes('section') || name.includes('sync')) {
-      totalMs += Number(m[2]);
-    }
+// The app writes no per-call logcat lines. The ring summary comes from a debug
+// snapshot the operator shares from the Developer Dashboard, saved as
+// `ring-<n>.json` under RING_DIR. A missing dump is unknown, not a zero-cost run.
+function readDetectionMs(n) {
+  if (!RING_DIR) return null;
+  const path = join(RING_DIR, `ring-${n}.json`);
+  if (!existsSync(path)) return null;
+  try {
+    return detectionMsFromRing(JSON.parse(readFileSync(path, 'utf8')));
+  } catch {
+    return null;
   }
-  return Math.round(totalMs);
 }
 
 function captureBannerState(logText) {
@@ -222,10 +222,10 @@ async function measureN(n) {
 
   const logText = logcat.stop();
   const oomEvents = countOomEvents(logText);
-  const detectionMs = parseDetectionMs(logText);
+  const detectionMs = readDetectionMs(n);
   const bannerState = captureBannerState(logText);
 
-  log(`  peakRssMb=${peakRssMb} detectionMs=${detectionMs} oomEvents=${oomEvents}`);
+  log(`  peakRssMb=${peakRssMb} detectionMs=${detectionMs ?? 'unknown'} oomEvents=${oomEvents}`);
   log(`  post-${Math.round(SETTLE_MS / 1000)}s banner: ${bannerState}`);
 
   return { n, peakRssMb, detectionMs, oomEvents, bannerState };
@@ -246,7 +246,7 @@ function writeCsv(rows) {
   const header = 'N,peakRssMb,detectionMs,oomEvents,bannerState,timestamp';
   const lines = rows.map(
     (r) =>
-      `${r.n},${r.peakRssMb},${r.detectionMs},${r.oomEvents},"${r.bannerState.replace(/"/g, "'")}",${new Date().toISOString()}`
+      `${r.n},${r.peakRssMb},${r.detectionMs ?? ''},${r.oomEvents},"${r.bannerState.replace(/"/g, "'")}",${new Date().toISOString()}`
   );
   const existed = existsSync(CSV_PATH);
   writeFileSync(CSV_PATH, [header, ...lines].join('\n') + '\n');

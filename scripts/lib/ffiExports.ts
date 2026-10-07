@@ -105,15 +105,16 @@ function parseFnDecl(
   };
 }
 
-/** The doc comment above `declLine` on one line, skipping attributes in between. */
+/**
+ * The doc comment above `declLine` on one line. Attributes and blank lines
+ * between `///` blocks are skipped, as rustc attaches every outer doc block
+ * above an item whether or not a blank line separates them.
+ */
 function docsAbove(lines: string[], declLine: number): string {
   const collected: string[] = [];
   for (let i = declLine - 1; i >= 0; i--) {
     const trimmed = lines[i].trim();
-    if (trimmed.startsWith('#[') || trimmed.length === 0) {
-      if (trimmed.length === 0 && collected.length > 0) break;
-      continue;
-    }
+    if (trimmed.startsWith('#[') || trimmed.length === 0) continue;
     if (trimmed.startsWith('///')) {
       collected.push(trimmed.slice(3).trim());
       continue;
@@ -215,6 +216,36 @@ export function extractFfiExports(srcDir: string = RUST_SRC_DIR): FfiExport[] {
     return a.line - b.line;
   });
   return exports;
+}
+
+/**
+ * Methods of every `#[uniffi::export(...)] trait`, such as the `with_foreign`
+ * callback interfaces. The codegen copies their argument names into the C++
+ * bridge, so the keyword check reads them, but they are not exports Rust
+ * exposes to TypeScript and stay out of the manifest.
+ */
+export function extractTraitMethods(
+  srcDir: string = RUST_SRC_DIR
+): { name: string; object: string; file: string; line: number; params: string[] }[] {
+  const methods: ReturnType<typeof extractTraitMethods> = [];
+  for (const filePath of findRustFiles(srcDir)) {
+    const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
+    const file = path.relative(srcDir, filePath);
+    for (let i = 0; i < lines.length; i++) {
+      if (!/^#\[uniffi::export\(.*\)\]$/.test(lines[i].trim())) continue;
+      let declStart = i + 1;
+      while (declStart < lines.length && lines[declStart].trim().startsWith('#[')) declStart++;
+      const trait = lines[declStart]?.trim().match(/^(?:pub\s+)?trait\s+(\w+)/);
+      if (!trait) continue;
+      const end = findImplBlockEnd(lines, declStart);
+      for (let j = declStart + 1; j < end; j++) {
+        if (!/^(?:async\s+)?fn\s+\w/.test(lines[j].trim())) continue;
+        const decl = parseFnDecl(lines, j);
+        if (decl) methods.push({ ...decl, object: trait[1], file });
+      }
+    }
+  }
+  return methods;
 }
 
 /** The manifest the binding tests read, built from `exports`. */

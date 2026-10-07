@@ -12,6 +12,11 @@
 #   - App running in demo mode on a connected device/simulator
 #   - Maestro installed and on PATH
 #   - For iOS: simulator booted. For Android: device/emulator connected via adb.
+#   - APP_ID names the build on the device, the dev build unless it says otherwise.
+#
+# A dump reads whatever has focus, so nothing is written for a screen unless
+# Veloq is the app in front: the text of another app on the owner's phone is
+# not a snapshot.
 
 set -euo pipefail
 
@@ -25,6 +30,8 @@ fi
 
 
 PLATFORM="${1:-android}"
+APP_ID="${APP_ID:-com.veloq.app.dev}"
+MAESTRO="$(dirname "$0")/with-maestro.sh"
 SNAPSHOT_DIR=".maestro/snapshots"
 SCHEME="veloq"
 WAIT_SECS=4  # seconds to wait for screen to settle after navigation
@@ -38,15 +45,10 @@ fi
 
 mkdir -p "$SNAPSHOT_DIR"
 
-# Navigate to a screen via deep link
-navigate() {
-  local route="$1"
-  local url="${SCHEME}://${route}"
-
-  if [ "$PLATFORM" = "ios" ]; then
-    # Get booted simulator UDID
-    local udid
-    udid=$(xcrun simctl list devices booted -j | python3 -c "
+# The simulator to read on iOS. Maestro is handed it by name, since left to
+# itself it can choose an attached Android handset instead.
+booted_simulator() {
+  xcrun simctl list devices booted -j | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 for runtime, devices in data.get('devices', {}).items():
@@ -54,14 +56,47 @@ for runtime, devices in data.get('devices', {}).items():
         if d.get('state') == 'Booted':
             print(d['udid'])
             sys.exit(0)
-" 2>/dev/null || true)
+" 2>/dev/null || true
+}
+
+# Navigate to a screen via deep link
+navigate() {
+  local route="$1"
+  local url="${SCHEME}://${route}"
+
+  if [ "$PLATFORM" = "ios" ]; then
+    local udid
+    udid=$(booted_simulator)
     if [ -z "$udid" ]; then
       echo "Error: No booted iOS simulator found"
       exit 1
     fi
     xcrun simctl openurl "$udid" "$url"
   else
-    adb shell am start -a android.intent.action.VIEW -d "$url" com.veloq.app 2>/dev/null
+    local out
+    out=$(adb shell am start -a android.intent.action.VIEW -d "$url" "$APP_ID" 2>&1 | tr -d '\r')
+    if printf '%s\n' "$out" | grep -q 'Error'; then
+      echo "" >&2
+      echo "capture-hierarchy: could not open $url in $APP_ID:" >&2
+      printf '%s\n' "$out" | sed 's/^/  /' >&2
+      exit 1
+    fi
+  fi
+}
+
+# Whether the app in front is the one being captured. Read immediately before
+# each dump, since a launch that did not take leaves the previous app there.
+veloq_has_focus() {
+  [ "$PLATFORM" = "ios" ] && return 0
+  adb shell dumpsys window 2>/dev/null | grep mCurrentFocus | grep -q "$APP_ID/"
+}
+
+# The dump, from the handset this run holds the lock on.
+dump_hierarchy() {
+  if [ "$PLATFORM" = "ios" ]; then
+    "$MAESTRO" --device "$(booted_simulator)" hierarchy 2>/dev/null
+  else
+    "$MAESTRO" hierarchy 2>/dev/null
   fi
 }
 
@@ -75,8 +110,20 @@ capture() {
   navigate "$route"
   sleep "$WAIT_SECS"
 
-  # Capture hierarchy and normalize to JSON
-  maestro hierarchy 2>/dev/null | python3 -c "
+  if ! veloq_has_focus; then
+    local focus
+    focus=$(adb shell dumpsys window 2>/dev/null | grep mCurrentFocus | tr -d '\r' || true)
+    echo "" >&2
+    echo "capture-hierarchy: $APP_ID is not in front, so nothing is written for ${name}." >&2
+    echo "capture-hierarchy: ${focus:-no focused window}" >&2
+    exit 1
+  fi
+
+  # Capture hierarchy and normalize to JSON. Written beside the snapshot and
+  # moved over it, so a failed dump leaves nothing behind.
+  local raw
+  raw=$(dump_hierarchy)
+  printf '%s' "$raw" | python3 -c "
 import sys, json
 
 raw = sys.stdin.read().strip()
@@ -111,7 +158,8 @@ try:
 except ET.ParseError:
     # Last resort: save raw
     sys.stdout.write(raw)
-" > "$output_file" 2>/dev/null
+" > "${output_file}.part" 2>/dev/null
+  mv "${output_file}.part" "$output_file"
 
   local size
   size=$(wc -c < "$output_file" | tr -d ' ')
@@ -129,7 +177,7 @@ capture "home"           ""
 capture "fitness"        "fitness"
 capture "training"       "training"
 capture "map"            "map"
-capture "routes"         "routes"
+capture "insights"       "insights"
 
 echo ""
 echo "Detail screens:"

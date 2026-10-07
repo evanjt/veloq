@@ -37,15 +37,11 @@ const MERGE_FEATURE = 'synthetic';
  * back by passing `--features real-corpus`.
  */
 function unrunnableSuites(): Set<string> {
-  const manifest = readManifest();
-  const stanzas = manifest.matchAll(
-    /\[\[test\]\]\s*\nname = "([^"]+)"\s*\nrequired-features = \[([^\]]*)\]/g
+  return new Set(
+    manifestTests()
+      .filter(({ features }) => features.some((feature) => feature !== MERGE_FEATURE))
+      .map(({ name }) => name)
   );
-  const unrunnable = new Set<string>();
-  for (const [, name, features] of stanzas) {
-    if (!features.includes(`"${MERGE_FEATURE}"`)) unrunnable.add(name);
-  }
-  return unrunnable;
 }
 
 /**
@@ -74,32 +70,117 @@ export interface MergeTargets {
   typescript: string[];
 }
 
-/** The integration test a path names, or null when it is not one. */
-function rustTestName(path: string): string | null {
-  if (!path.startsWith(RUST_TEST_DIR) || !path.endsWith('.rs')) return null;
-  const rest = path.slice(RUST_TEST_DIR.length);
-  if (!rest.includes('/')) return rest.slice(0, -'.rs'.length);
-  // A directory holding a `main.rs` is one suite, named after the directory,
-  // and every module in it belongs to that suite. Any other helper module
-  // belongs to whichever suite includes it, so it names no target of its own.
-  const dir = rest.slice(0, rest.indexOf('/'));
-  return suiteDirectories().has(dir) ? dir : null;
+interface ManifestTest {
+  name: string;
+  path: string;
+  features: string[];
 }
 
-/** The directories under `tests/` that cargo builds as a suite of their own. */
-let suiteDirCache: Set<string> | null = null;
-function suiteDirectories(): Set<string> {
-  if (suiteDirCache === null) {
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const tests = path.join(__dirname, '../..', RUST_TEST_DIR);
-    suiteDirCache = new Set(
-      (fs.readdirSync(tests, { withFileTypes: true }) as { name: string; isDirectory(): boolean }[])
-        .filter((e) => e.isDirectory() && fs.existsSync(path.join(tests, e.name, 'main.rs')))
-        .map((e) => e.name)
-    );
+function manifestTests(): ManifestTest[] {
+  return readManifest()
+    .split('[[test]]')
+    .slice(1)
+    .map((stanza) => {
+      const name = stanza.match(/^name = "([^"]+)"/m)?.[1];
+      const path = stanza.match(/^path = "([^"]+)"/m)?.[1];
+      const features = stanza.match(/^required-features = \[([^\]]*)\]/m)?.[1] ?? '';
+      if (!name) return null;
+      return {
+        name,
+        path: `${CRATE}${path ?? `tests/${name}.rs`}`,
+        features: [...features.matchAll(/"([^"]+)"/g)].map((match) => match[1]),
+      };
+    })
+    .filter((target): target is ManifestTest => target !== null);
+}
+
+function testRoots(): ManifestTest[] {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const explicit = manifestTests();
+  if (/^autotests\s*=\s*false\s*$/m.test(readManifest())) return explicit;
+  const tests = path.join(__dirname, '../..', RUST_TEST_DIR);
+  const discovered = (
+    fs.readdirSync(tests, { withFileTypes: true }) as {
+      name: string;
+      isFile(): boolean;
+      isDirectory(): boolean;
+    }[]
+  )
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.rs'))
+    .map((entry) => ({
+      name: entry.name.slice(0, -3),
+      path: `${RUST_TEST_DIR}${entry.name}`,
+      features: [],
+    }));
+  for (const entry of fs.readdirSync(tests, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !fs.existsSync(path.join(tests, entry.name, 'main.rs'))) continue;
+    discovered.push({
+      name: entry.name,
+      path: `${RUST_TEST_DIR}${entry.name}/main.rs`,
+      features: [],
+    });
   }
-  return suiteDirCache;
+  return [...new Map([...discovered, ...explicit].map((target) => [target.name, target])).values()];
+}
+
+function modulePaths(source: string, file: string): string[] {
+  const fs = require('node:fs');
+  const path = require('node:path').posix;
+  const declarations = source.matchAll(
+    /^[ \t]*(?:#\[path[ \t]*=[ \t]*"([^"]+)"\][ \t]*\r?\n?[ \t]*)?mod[ \t]+([a-zA-Z_]\w*)[ \t]*;/gm
+  );
+  const modules: string[] = [];
+  for (const [, override, name] of declarations) {
+    const base = path.join(path.dirname(file), override ?? name);
+    const candidates = override ? [base] : [`${base}.rs`, path.join(base, 'mod.rs')];
+    const found = candidates.find((candidate) =>
+      fs.existsSync(path.join(__dirname, '../..', candidate))
+    );
+    if (found) modules.push(found);
+  }
+  return modules;
+}
+
+function includedFiles(source: string, file: string): string[] {
+  const fs = require('node:fs');
+  const path = require('node:path').posix;
+  const includes = source.matchAll(/\binclude(?:_str|_bytes)?!\s*\(\s*"([^"]+)"\s*\)/g);
+  const macros = [...includes].map(([, name]) => path.join(path.dirname(file), name));
+  const fixtures = [...source.matchAll(/"(tests\/fixtures\/[^"]+)"/g)].map(
+    ([, name]) => `${CRATE}${name}`
+  );
+  return [...new Set([...macros, ...fixtures])].filter((included) => {
+    const full = path.join(__dirname, '../..', included);
+    return fs.existsSync(full) && fs.statSync(full).isFile();
+  });
+}
+
+function suiteDependencies(): Map<string, Set<string>> {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const includedBy = new Map<string, Set<string>>();
+  for (const target of testRoots()) {
+    const pending = [target.path];
+    const seen = new Set<string>();
+    while (pending.length > 0) {
+      const file = pending.pop();
+      if (!file) continue;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      const suites = includedBy.get(file) ?? new Set<string>();
+      suites.add(target.name);
+      includedBy.set(file, suites);
+      const source = fs.readFileSync(path.join(__dirname, '../..', file), 'utf8') as string;
+      pending.push(...modulePaths(source, file));
+      for (const included of includedFiles(source, file)) {
+        const consumers = includedBy.get(included) ?? new Set<string>();
+        consumers.add(target.name);
+        includedBy.set(included, consumers);
+      }
+    }
+  }
+  return includedBy;
 }
 
 /**
@@ -110,12 +191,10 @@ function suiteDirectories(): Set<string> {
  * under `tests/`, so the plan named `--lib` and stopped. The golden is a
  * tripwire nobody runs on purpose, so it has to be named here.
  *
- * `migration_checksums` is the guard against editing an already-applied
- * migration's bytes, which splits the installed base. `migration_upgrade`
- * walks the live upgrade path. `schema_golden` is the fixture that says a
- * schema moved at all.
+ * The `migration` target owns the checksum, self-seeded upgrade and released
+ * v12 upgrade tests, so one target covers every schema gate.
  */
-const SCHEMA_SUITES = ['schema_golden', 'migration_checksums', 'migration_upgrade'];
+const SCHEMA_SUITES = ['migration'];
 
 /** Paths whose change is a schema change, whatever else the merge touched. */
 function touchesSchema(path: string): boolean {
@@ -150,12 +229,60 @@ function isTypeScript(path: string): boolean {
   return /\.(ts|tsx)$/.test(path) && !path.startsWith('modules/veloqrs/src/generated/');
 }
 
+/**
+ * The guards on the test targets themselves read the manifest and every test
+ * source: a source no target owns, a stanza with no recorded reason, a test in
+ * an area binary that reaches the engine without that binary's serial guard.
+ * A test file is the change that breaks them, so any one plans them.
+ */
+const LAYOUT_SUITE = 'feature_gates';
+
+function touchesTestLayout(path: string): boolean {
+  return (
+    path === `${CRATE}Cargo.toml` ||
+    (path.startsWith(RUST_TEST_DIR) && path.endsWith('.rs')) ||
+    definesEngineEntryPoint(path)
+  );
+}
+
+/**
+ * The names the layout guard treats as reaching the process-wide engine, read
+ * from the guard's own list so there is one list and not a copy here.
+ */
+function engineEntryNames(): string[] {
+  const guard = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '../..', RUST_TEST_DIR, 'test_layout.rs'),
+    'utf8'
+  ) as string;
+  const list = guard.match(/const GLOBAL_ENGINE_CALLS: &\[&str\] = &\[([^\]]*)\];/)?.[1] ?? '';
+  return [...list.matchAll(/"([^"]+)"/g)].flatMap((match) => match[1] ?? []);
+}
+
+/**
+ * A crate source that defines or calls an engine entry point. Adding, renaming
+ * or removing one there is the change that leaves the guard's list stale, and
+ * the guard is the suite that checks the list against the source.
+ */
+function definesEngineEntryPoint(path: string): boolean {
+  if (!path.startsWith(`${CRATE}src/`) || !path.endsWith('.rs')) return false;
+  const fs = require('node:fs');
+  const file = require('node:path').join(__dirname, '../..', path);
+  if (!fs.existsSync(file)) return false;
+  const source = fs.readFileSync(file, 'utf8') as string;
+  return engineEntryNames().some((name) => new RegExp(`\\b${name}\\b`).test(source));
+}
+
 /** The suites to run for a set of changed paths. */
 export function mergeTestTargets(changed: string[]): MergeTargets {
   const unrunnable = unrunnableSuites();
-  const named = changed.map(rustTestName).filter((n): n is string => n !== null);
+  const dependencies = suiteDependencies();
+  const named = changed.flatMap((path) => [...(dependencies.get(path) ?? [])]);
   const schema = changed.some(touchesSchema) ? SCHEMA_SUITES : [];
-  const rustTests = [...new Set([...named, ...schema])].filter((n) => !unrunnable.has(n));
+  const manifest = changed.includes(`${CRATE}Cargo.toml`) ? ['app'] : [];
+  const layout = changed.some(touchesTestLayout) ? [LAYOUT_SUITE] : [];
+  const rustTests = [...new Set([...named, ...schema, ...manifest, ...layout])].filter(
+    (n) => !unrunnable.has(n)
+  );
   return {
     rustTests: rustTests.sort(),
     rustLib: changed.some(touchesRustSource),
@@ -179,11 +306,56 @@ function shellQuote(path: string): string {
   return `'${path.replace(/'/g, "'\\''")}'`;
 }
 
+/** Data directories the bitwise gates read, each present only when it exists on disk. */
+export interface Corpora {
+  geolife?: string | undefined;
+  private?: string | undefined;
+}
+
+/** `KEY = "value"` under `[env]` in the nearest cargo config above the repository, if any. */
+function cargoConfigEnv(key: string): string | undefined {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  for (let dir = path.join(__dirname, '../..'); ; dir = path.dirname(dir)) {
+    const file = path.join(dir, '.cargo', 'config.toml');
+    if (fs.existsSync(file)) {
+      const match = fs
+        .readFileSync(file, 'utf8')
+        .match(new RegExp(`^${key}\\s*=\\s*"([^"]+)"`, 'm'));
+      if (match) return match[1];
+    }
+    if (path.dirname(dir) === dir) return undefined;
+  }
+}
+
+/**
+ * Where the two golden comparisons find their data on this machine. The shell
+ * variable wins, then the cargo config that sets it for local runs, and a
+ * directory that does not exist counts as absent.
+ */
+export function detectCorpora(env: NodeJS.ProcessEnv = process.env): Corpora {
+  const fs = require('node:fs');
+  const exists = (dir: string | undefined) =>
+    dir && fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? dir : undefined;
+  return {
+    geolife: exists(env.LAB_GEOLIFE_DIR),
+    private: exists(env.TRACEMATCH_CORPUS ?? cargoConfigEnv('TRACEMATCH_CORPUS')),
+  };
+}
+
+function bitwiseCommand(variable: string, dir: string | undefined, feature: string, test: string) {
+  if (!dir) return `echo ${shellQuote(`skipped ${test}: ${variable} is unset or missing`)}`;
+  return `${variable}=${shellQuote(dir)} cargo test --release --manifest-path ${TRACEMATCH}/Cargo.toml --features ${feature} --test ${test}`;
+}
+
 /** The shell commands those targets call for, one per line, in order. */
-export function mergeTestCommands(targets: MergeTargets): string[] {
+export function mergeTestCommands(
+  targets: MergeTargets,
+  corpora: Corpora = detectCorpora()
+): string[] {
   const commands: string[] = [];
 
-  // Sixty-one suites carry `required-features = ["synthetic"]`, and cargo
+  // Most suites carry `required-features = ["synthetic"]`, and cargo
   // refuses a `--test` naming one without the feature rather than skipping it.
   // The ones this lane cannot supply are already out of `rustTests`.
   const cargo: string[] = [`--features ${MERGE_FEATURE}`];
@@ -198,6 +370,12 @@ export function mergeTestCommands(targets: MergeTargets): string[] {
   if (targets.tracematchLib) {
     commands.push(
       `cargo test --manifest-path ${TRACEMATCH}/Cargo.toml -p tracematch --features ${MERGE_FEATURE}`
+    );
+    // A corpus gate runs where its data is and skips loudly where it is not,
+    // because a pointer bump is the one change that moves fold output.
+    commands.push(
+      bitwiseCommand('LAB_GEOLIFE_DIR', corpora.geolife, 'public-corpus', 'geolife_bitwise'),
+      bitwiseCommand('TRACEMATCH_CORPUS', corpora.private, 'real-corpus', 'full_corpus_bitwise')
     );
   }
   if (targets.typescript.length > 0) {

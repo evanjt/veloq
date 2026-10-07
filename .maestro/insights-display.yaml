@@ -41,23 +41,11 @@ tags:
     timeout: 5000
     optional: true
 
-# Check for quick take section
-- assertVisible:
-    id: "insight-quick-take"
-    optional: true
-
 # Check for methodology section
 - assertVisible:
     id: "methodology-section"
     optional: true
 
 - takeScreenshot: "screenshots/insights-detail-sheet"
-
-# Try tapping a different card (if pattern detail exists)
-- extendedWaitUntil:
-    visible:
-      id: "pattern-detail-sheet"
-    timeout: 3000
-    optional: true
 
 - takeScreenshot: "screenshots/insights-display-complete"
