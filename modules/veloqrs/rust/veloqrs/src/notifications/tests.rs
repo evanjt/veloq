@@ -1,6 +1,7 @@
 //! The ladder and both renderings, against the real English templates.
 
 use super::*;
+use crate::persistence::PersistentEngine;
 
 /// The real `en-AU` bundle, so a length assertion means something.
 fn english() -> Templates {
@@ -17,9 +18,11 @@ fn english() -> Templates {
         section_pr_delta: "PR on {{name}} ({{delta}} faster)".into(),
         section_pr_count: "PR on {{count}} sections".into(),
         section_pr_many: "PR on {{name}} and {{count}} more".into(),
+        section_pr_many_one: "PR on {{name}} and one more".into(),
         faster_on_route: "Faster than usual on {{name}}".into(),
         faster_on_route_delta: "Faster than usual on {{name}} ({{delta}} off PR)".into(),
-        on_route: "On {{name}}".into(),
+        ftp_milestone: "Cycling eFTP: {{current}}W (+{{change}}W)".into(),
+        pace_milestone: "Pace improved {{delta}}".into(),
     }
 }
 
@@ -67,7 +70,10 @@ fn a_named_route_pr_beats_everything() {
         Some(&route("Lake Loop", true, 1, None, None)),
         &prs(1, "Climb", true, None),
         true,
-        Some("Fittest in a year"),
+        Some(Highlight::FtpMilestone {
+            current_watts: 285,
+            change_watts: 12,
+        }),
     );
 
     assert_eq!(
@@ -94,6 +100,26 @@ fn several_section_prs_name_the_first_and_count_the_rest() {
     let picked = pick_highlight(None, &prs(3, "Climb", true, None), true, None);
 
     assert_eq!(body_of(&picked, ""), "PR on Climb and 2 more");
+}
+
+#[test]
+fn two_section_prs_use_the_count_of_one_form() {
+    let french = Templates {
+        section_pr_many: "PR sur {{name}} et {{count}} autres".into(),
+        section_pr_many_one: "PR sur {{name}} et un autre".into(),
+        ..english()
+    };
+    let two = pick_highlight(None, &prs(2, "Climb", true, None), true, None);
+    let three = pick_highlight(None, &prs(3, "Climb", true, None), true, None);
+
+    assert_eq!(
+        highlight_detail(&two, &french).as_deref(),
+        Some("PR sur Climb et un autre")
+    );
+    assert_eq!(
+        highlight_detail(&three, &french).as_deref(),
+        Some("PR sur Climb et 2 autres")
+    );
 }
 
 #[test]
@@ -125,13 +151,13 @@ fn an_unnamed_route_pr_still_reads_as_a_pr() {
 #[test]
 fn the_pr_category_off_suppresses_prs_but_keeps_route_identity() {
     let picked = pick_highlight(
-        Some(&route("Lake Loop", true, 0, Some(12), None)),
+        Some(&route("Lake Loop", true, 1, Some(12), None)),
         &prs(2, "Climb", true, None),
         false,
         None,
     );
 
-    assert_eq!(body_of(&picked, ""), "On Lake Loop");
+    assert_eq!(body_of(&picked, ""), "Faster than usual on Lake Loop");
 }
 
 #[test]
@@ -172,7 +198,7 @@ fn a_downward_trend_is_never_surfaced() {
         None,
     );
 
-    assert_eq!(body_of(&picked, ""), "On Lake Loop");
+    assert_eq!(picked, Highlight::None);
 }
 
 #[test]
@@ -181,12 +207,15 @@ fn a_milestone_is_the_last_rung_there_is() {
         None,
         &SectionPrs::default(),
         true,
-        Some("Fittest in a year"),
+        Some(Highlight::FtpMilestone {
+            current_watts: 285,
+            change_watts: 12,
+        }),
     );
 
     assert_eq!(
         body_of(&picked, "Morning Ride"),
-        "Fittest in a year - Morning Ride"
+        "Cycling eFTP: 285W (+12W) - Morning Ride"
     );
     assert_eq!(picked.tier(), Tier::Recorded);
 }
@@ -203,13 +232,6 @@ fn a_ride_with_nothing_in_it_says_nothing() {
         notification_for(&picked, LONG_ACTIVITY, &english()).sentence,
         None
     );
-}
-
-#[test]
-fn a_milestone_the_athlete_switched_off_is_not_passed_in_and_says_nothing() {
-    let picked = pick_highlight(None, &SectionPrs::default(), true, None);
-
-    assert_eq!(body_of(&picked, "Morning Ride"), "");
 }
 
 // ============================================================================
@@ -260,27 +282,47 @@ fn the_activity_name_is_dropped_rather_than_cutting_into_the_finding() {
     assert!(!body_of(&picked, LONG_ACTIVITY).contains("Wednesday"));
 }
 
+/// Scenario: an athlete names their commute and rides it daily, none of them a
+/// PR and none faster than average.
+///
+/// Expected behaviour: a named route is not a result on its own, so nothing
+/// is raised.
 #[test]
-fn a_short_name_is_kept_when_there_is_room_for_it() {
+fn an_unremarkable_ride_on_a_named_route_raises_nothing() {
     let picked = pick_highlight(
-        Some(&route("Lake Loop", false, 0, None, None)),
+        Some(&route("Work", false, 0, None, None)),
         &SectionPrs::default(),
         true,
         None,
     );
 
-    assert_eq!(body_of(&picked, "Ride"), "On Lake Loop - Ride");
+    assert_eq!(picked, Highlight::None);
+}
+
+#[test]
+fn a_short_name_is_kept_when_there_is_room_for_it() {
+    let picked = pick_highlight(
+        Some(&route("Lake Loop", false, 1, None, None)),
+        &SectionPrs::default(),
+        true,
+        None,
+    );
+
+    assert_eq!(
+        body_of(&picked, "Ride"),
+        "Faster than usual on Lake Loop - Ride"
+    );
 }
 
 #[test]
 fn a_name_that_lands_exactly_on_the_cap_is_kept_whole() {
     let picked = pick_highlight(
-        Some(&route("Lake Loop", false, 0, None, None)),
+        Some(&route("Lake Loop", false, 1, None, None)),
         &SectionPrs::default(),
         true,
         None,
     );
-    let detail = "On Lake Loop - ";
+    let detail = "Faster than usual on Lake Loop - ";
     let name = "x".repeat(NOTIFICATION_BODY_MAX - detail.len());
 
     let body = body_of(&picked, &name);
@@ -338,10 +380,10 @@ fn a_longer_translation_gives_up_the_place_name_and_keeps_the_delta() {
 #[test]
 fn a_clause_with_no_name_left_to_give_is_cut_rather_than_collapsed() {
     let mut verbose = english();
-    verbose.on_route =
+    verbose.faster_on_route =
         "On the route known to everyone in the whole club as {{name}}, once again".into();
     let picked = pick_highlight(
-        Some(&route(LONG_ROUTE, false, 0, None, None)),
+        Some(&route(LONG_ROUTE, false, 1, None, None)),
         &SectionPrs::default(),
         true,
         None,
@@ -368,13 +410,13 @@ fn a_clause_with_no_name_left_to_give_is_cut_rather_than_collapsed() {
 #[test]
 fn a_nameless_activity_is_the_finding_alone_with_no_dangling_separator() {
     let picked = pick_highlight(
-        Some(&route("Lake Loop", false, 0, None, None)),
+        Some(&route("Lake Loop", false, 1, None, None)),
         &SectionPrs::default(),
         true,
         None,
     );
 
-    assert_eq!(body_of(&picked, ""), "On Lake Loop");
+    assert_eq!(body_of(&picked, ""), "Faster than usual on Lake Loop");
 }
 
 #[test]
@@ -441,7 +483,9 @@ fn route_identity_milestones_and_nothing_are_all_titled_recorded() {
             None,
             &SectionPrs::default(),
             true,
-            Some("Fittest in a year"),
+            Some(Highlight::PaceMilestone {
+                delta: "12s/km".into(),
+            }),
         ),
         pick_highlight(None, &SectionPrs::default(), true, None),
     ] {
@@ -539,13 +583,20 @@ fn a_stored_bundle_comes_back_as_it_went_in() {
     let engine =
         PersistentEngine::new(&tmp.path().join("routes.db").to_string_lossy()).expect("the engine");
 
-    assert_eq!(stored_templates(&engine), None, "nothing pushed yet");
+    assert_eq!(
+        crate::persistence::settings::notification_templates_from(&engine.db).expect("the read"),
+        None,
+        "nothing pushed yet"
+    );
 
     engine
         .set_notification_templates("en-AU", &stored_pairs())
         .expect("the write");
 
-    assert_eq!(stored_templates(&engine), Some(english()));
+    let stored = crate::persistence::settings::notification_templates_from(&engine.db)
+        .expect("the read")
+        .expect("the bundle");
+    assert_eq!(templates_from_stored(&stored), Some(english()));
 }
 
 /// Scenario: a native push handler cold-starts the process on an install whose
@@ -555,11 +606,11 @@ fn a_stored_bundle_comes_back_as_it_went_in() {
 #[test]
 fn no_stored_bundle_means_no_notification_rather_than_raw_keys() {
     let tmp = tempfile::TempDir::new().expect("tempdir");
-    let mut engine =
+    let engine =
         PersistentEngine::new(&tmp.path().join("routes.db").to_string_lossy()).expect("the engine");
 
     assert_eq!(
-        build_notification(&mut engine, "a1", "Ride", true, None),
+        build_notification_pooled(&engine.db, "a1", "Ride", true, false),
         None
     );
 }
@@ -572,7 +623,7 @@ fn no_stored_bundle_means_no_notification_rather_than_raw_keys() {
 #[test]
 fn a_bundle_missing_a_key_reads_as_none_rather_than_a_dotted_path() {
     let mut pairs = stored_pairs();
-    pairs.retain(|(key, _)| key != "notifications.activityBody.onRoute");
+    pairs.retain(|(key, _)| key != "notifications.activityBody.fasterOnRoute");
     let stored = crate::persistence::settings::NotificationTemplates {
         locale: "en-AU".into(),
         templates: pairs.into_iter().collect(),
@@ -581,7 +632,7 @@ fn a_bundle_missing_a_key_reads_as_none_rather_than_a_dotted_path() {
     assert_eq!(templates_from_stored(&stored), None);
 }
 
-/// The fifteen keys the push site resolves, as it stores them.
+/// The seventeen keys the push site resolves, as it stores them.
 fn stored_pairs() -> Vec<(String, String)> {
     let t = english();
     [
@@ -613,6 +664,10 @@ fn stored_pairs() -> Vec<(String, String)> {
             t.section_pr_many,
         ),
         (
+            "notifications.activityBody.sectionPrManyOne",
+            t.section_pr_many_one,
+        ),
+        (
             "notifications.activityBody.fasterOnRoute",
             t.faster_on_route,
         ),
@@ -620,7 +675,8 @@ fn stored_pairs() -> Vec<(String, String)> {
             "notifications.activityBody.fasterOnRouteDelta",
             t.faster_on_route_delta,
         ),
-        ("notifications.activityBody.onRoute", t.on_route),
+        ("insights.ftpIncrease", t.ftp_milestone),
+        ("insights.paceImproved", t.pace_milestone),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))
@@ -632,13 +688,14 @@ fn stored_pairs() -> Vec<(String, String)> {
 #[test]
 fn the_ladder_answers_nothing_for_an_activity_the_engine_does_not_hold() {
     let tmp = tempfile::TempDir::new().expect("tempdir");
-    let mut engine =
+    let engine =
         PersistentEngine::new(&tmp.path().join("routes.db").to_string_lossy()).expect("the engine");
     engine
         .set_notification_templates("en-AU", &stored_pairs())
         .expect("the write");
 
-    let built = build_notification(&mut engine, "a1", "Morning Ride", true, None).expect("a built");
+    let built =
+        build_notification_pooled(&engine.db, "a1", "Morning Ride", true, false).expect("a built");
 
     assert_eq!(built.body, "");
     assert_eq!(built.tier, "recorded");
@@ -649,8 +706,64 @@ fn the_ladder_answers_nothing_for_an_activity_the_engine_does_not_hold() {
 // Every rung, every locale
 // ============================================================================
 
+/// The locale every fallback chain ends at, as the app's bundle loader has it.
+const ROOT_LOCALE: &str = "en-GB";
+
+/// The first bundle in `chain` holding a string at `path`, the way i18next
+/// reads a key through a fallback chain: a regional bundle carries only what
+/// differs from its base, so a key it omits is read from the next one.
+fn resolved<'a>(chain: &'a [&serde_json::Value], path: &[&str]) -> Option<&'a str> {
+    chain.iter().find_map(|bundle| {
+        path.iter()
+            .try_fold(*bundle, |node, key| node.get(key))
+            .and_then(|v| v.as_str())
+    })
+}
+
+/// The app's fallback chain for each locale, read from `LOCALE_FALLBACKS`
+/// rather than copied here, so a bundle stored as overrides is checked with
+/// the strings an athlete actually reads.
+fn fallback_chains() -> std::collections::HashMap<String, Vec<String>> {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../src/i18n/types.ts");
+    let source = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("the fallback map at {}: {e}", path.display()));
+    let start = source
+        .find("export const LOCALE_FALLBACKS")
+        .unwrap_or_else(|| panic!("{} has no LOCALE_FALLBACKS", path.display()));
+    let block = &source[start..];
+    let block = &block[..block.find("\n};").expect("the fallback map closes")];
+    let unquote = |s: &str| s.trim().trim_matches('\'').to_string();
+    let mut chains = std::collections::HashMap::new();
+    for line in block.lines().skip(1) {
+        let line = line.trim();
+        let Some((key, rest)) = line.split_once(':') else {
+            continue;
+        };
+        let Some(list) = rest.trim().strip_prefix('[') else {
+            continue;
+        };
+        let list = list.split(']').next().unwrap_or("");
+        chains.insert(
+            unquote(key),
+            list.split(',')
+                .map(unquote)
+                .filter(|s| !s.is_empty())
+                .collect(),
+        );
+    }
+    assert!(
+        !chains.is_empty(),
+        "no fallback chains in {}",
+        path.display()
+    );
+    chains
+}
+
 /// The seventeen bundles the app ships, read from the tree rather than copied
-/// here, so a template edited in one of them is checked by this.
+/// here, so a template edited in one of them is checked by this. Each is
+/// resolved through its fallback chain, so a regional bundle holding only its
+/// overrides is checked with the strings it inherits.
 ///
 /// A missing directory fails rather than skipping: a guard that goes quiet
 /// when it cannot find its input is worth less than no guard at all.
@@ -658,7 +771,7 @@ fn every_locale() -> Vec<(String, Templates)> {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../src/i18n/locales");
     let entries = std::fs::read_dir(&dir)
         .unwrap_or_else(|e| panic!("the locale bundles at {}: {e}", dir.display()));
-    let mut out = Vec::new();
+    let mut bundles = std::collections::BTreeMap::new();
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("json") {
@@ -666,36 +779,72 @@ fn every_locale() -> Vec<(String, Templates)> {
         }
         let raw = std::fs::read_to_string(&path).expect("the bundle");
         let json: serde_json::Value = serde_json::from_str(&raw).expect("the bundle parses");
-        let n = &json["notifications"];
-        let body = &n["activityBody"];
-        let at = |v: &serde_json::Value, k: &str| -> String {
-            v[k].as_str()
-                .unwrap_or_else(|| panic!("{} is missing {k}", path.display()))
+        bundles.insert(
+            path.file_stem().unwrap().to_string_lossy().to_string(),
+            json,
+        );
+    }
+    assert!(!bundles.is_empty(), "no bundles at {}", dir.display());
+
+    let chains = fallback_chains();
+    let mut out = Vec::new();
+    for locale in bundles.keys() {
+        let mut names = chains
+            .get(locale)
+            .unwrap_or_else(|| panic!("{locale} has no fallback chain"))
+            .clone();
+        names.push(ROOT_LOCALE.to_string());
+        let mut chain: Vec<&serde_json::Value> = Vec::new();
+        for name in &names {
+            let bundle = bundles
+                .get(name)
+                .unwrap_or_else(|| panic!("{locale} falls back to {name}, which has no bundle"));
+            if !chain.iter().any(|b| std::ptr::eq(*b, bundle)) {
+                chain.push(bundle);
+            }
+        }
+        let at = |path: &[&str]| -> String {
+            resolved(&chain, path)
+                .unwrap_or_else(|| panic!("{locale} resolves no {}", path.join(".")))
                 .to_string()
         };
+        let body = |key: &str| at(&["notifications", "activityBody", key]);
         out.push((
-            path.file_stem().unwrap().to_string_lossy().to_string(),
+            locale.clone(),
             Templates {
-                title_pr: at(&n["activityPr"], "title"),
-                title_faster: at(&n["activityFaster"], "title"),
-                title_recorded: at(&n["activityRecorded"], "title"),
-                a_section: at(body, "aSection"),
-                route_pr: at(body, "routePr"),
-                route_pr_delta: at(body, "routePrDelta"),
-                route_pr_unnamed: at(body, "routePrUnnamed"),
-                route_pr_unnamed_delta: at(body, "routePrUnnamedDelta"),
-                section_pr: at(body, "sectionPr"),
-                section_pr_delta: at(body, "sectionPrDelta"),
-                section_pr_count: at(body, "sectionPrCount"),
-                section_pr_many: at(body, "sectionPrMany"),
-                faster_on_route: at(body, "fasterOnRoute"),
-                faster_on_route_delta: at(body, "fasterOnRouteDelta"),
-                on_route: at(body, "onRoute"),
+                title_pr: at(&["notifications", "activityPr", "title"]),
+                title_faster: at(&["notifications", "activityFaster", "title"]),
+                title_recorded: at(&["notifications", "activityRecorded", "title"]),
+                a_section: body("aSection"),
+                route_pr: body("routePr"),
+                route_pr_delta: body("routePrDelta"),
+                route_pr_unnamed: body("routePrUnnamed"),
+                route_pr_unnamed_delta: body("routePrUnnamedDelta"),
+                section_pr: body("sectionPr"),
+                section_pr_delta: body("sectionPrDelta"),
+                section_pr_count: body("sectionPrCount"),
+                section_pr_many: body("sectionPrMany"),
+                section_pr_many_one: body("sectionPrManyOne"),
+                faster_on_route: body("fasterOnRoute"),
+                faster_on_route_delta: body("fasterOnRouteDelta"),
+                ftp_milestone: at(&["insights", "ftpIncrease"]),
+                pace_milestone: at(&["insights", "paceImproved"]),
             },
         ));
     }
-    assert!(!out.is_empty(), "no bundles at {}", dir.display());
     out
+}
+
+#[test]
+fn a_key_resolves_from_the_first_bundle_in_the_chain_that_holds_it() {
+    let regional = serde_json::json!({ "n": { "title": "Regional" } });
+    let base = serde_json::json!({ "n": { "title": "Base", "body": "Base body" } });
+    let chain = [&regional, &base];
+
+    assert_eq!(resolved(&chain, &["n", "title"]), Some("Regional"));
+    assert_eq!(resolved(&chain, &["n", "body"]), Some("Base body"));
+    assert_eq!(resolved(&chain, &["n", "missing"]), None);
+    assert_eq!(resolved(&[], &["n", "title"]), None);
 }
 
 /// Long enough that the place-name cap is what decides, in every language.
@@ -797,17 +946,17 @@ fn every_rung() -> Vec<(&'static str, Highlight, bool)> {
             false,
         ),
         (
-            "onRoute",
-            Highlight::OnRoute {
-                route_name: LONG_PLACE.into(),
+            "ftpMilestone",
+            Highlight::FtpMilestone {
+                current_watts: 285,
+                change_watts: 12,
             },
             false,
         ),
         (
-            "milestone",
-            Highlight::Milestone {
-                title: "Functional threshold power is up by five watts on the twelve week trend"
-                    .into(),
+            "paceMilestone",
+            Highlight::PaceMilestone {
+                delta: "154s/km".into(),
             },
             false,
         ),
@@ -827,13 +976,6 @@ fn every_rung() -> Vec<(&'static str, Highlight, bool)> {
 fn giving_the_place_name_back_makes_every_rung_fit_in_every_locale() {
     for (locale, strings) in every_locale() {
         for (rung, highlight, _) in every_rung() {
-            // The milestone rung carries the insight generator's own sentence
-            // rather than a template, so there is no place name to give back
-            // and the final cut is the only thing holding it. It is covered by
-            // the body test below.
-            if matches!(highlight, Highlight::Milestone { .. }) {
-                continue;
-            }
             let detail = highlight_detail(&highlight, &strings).expect("a clause");
             assert!(
                 units(&detail) <= NOTIFICATION_BODY_MAX,
@@ -882,15 +1024,9 @@ fn every_rung_with_a_delta_keeps_it_in_every_locale() {
     }
 }
 
-/// Scenario: the ladder now has two paths, one holding the engine lock and one
-/// reading from a pooled connection, and only the second is reached from a
-/// push.
-///
-/// Expected behaviour: they answer the same for the same library. Two paths to
-/// one notification is how a tray entry starts disagreeing with the screen the
-/// athlete opens from it.
-mod parity {
-    use crate::notifications::{resolve_highlight, resolve_highlight_pooled};
+/// The pooled reader uses committed rows and the athlete's section names.
+mod pooled_highlight {
+    use crate::notifications::{resolve_highlight_pooled, section_prs_from};
     use crate::persistence::PersistentEngine;
     use crate::test_globals::serial_global_state;
     use rusqlite::params;
@@ -905,7 +1041,7 @@ mod parity {
     /// has no path to stamp, so it reads whatever another test's database left
     /// in the slot and a rename here would not be seen.
     fn engine_with_a_section_pr(tmp: &TempDir) -> PersistentEngine {
-        let db = tmp.path().join("notification_parity.db");
+        let db = tmp.path().join("notification_pooled.db");
         let db_path = db.to_str().unwrap();
         // File-backed is only half of it: nothing but `persistent_engine_init`
         // binds, so a test opening its own database leaves the stamp pointing
@@ -973,58 +1109,342 @@ mod parity {
         engine
     }
 
-    fn both_paths(
-        engine: &mut PersistentEngine,
-        announce_prs: bool,
-    ) -> crate::notifications::Highlight {
-        let through_the_pool = resolve_highlight_pooled(&engine.db, "a1", announce_prs, None);
-        let through_the_lock = resolve_highlight(engine, "a1", announce_prs, None);
-        assert_eq!(through_the_pool, through_the_lock);
-        through_the_pool
+    #[test]
+    fn test_pooled_section_pr_single_outing_has_no_pr() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let engine = engine_with_a_section_pr(&tmp);
+        let announced = resolve_highlight_pooled(&engine.db, "a1", true, false);
+        assert_eq!(
+            announced,
+            crate::notifications::Highlight::None,
+            "the first outing has no rival to beat"
+        );
+        assert_eq!(
+            resolve_highlight_pooled(&engine.db, "a1", false, false),
+            crate::notifications::Highlight::None
+        );
     }
 
     #[test]
-    fn the_two_ladders_agree_on_a_library_with_a_section() {
+    fn test_section_notification_first_outing_has_no_pr() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
         let mut engine = engine_with_a_section_pr(&tmp);
-        // Agreeing on `None` would prove nothing, so the section case has to
-        // reach a highlight before the equality above means anything.
-        let announced = both_paths(&mut engine, true);
-        assert_ne!(
-            announced,
-            crate::notifications::Highlight::None,
-            "the ride holds the record on the section it traversed"
-        );
-        both_paths(&mut engine, false);
+        let sections = engine.get_sections_for_activity("a1");
+        let prs = section_prs_from(&sections, "a1", |id| engine.get_section_performances(id));
+        assert_eq!(prs.count, 0);
+    }
+
+    fn add_section_outing(engine: &mut PersistentEngine, id: &str, direction: &str, time: f64) {
+        let coords: Vec<GpsPoint> = (0..8)
+            .map(|i| GpsPoint::new(46.2 + f64::from(i) * 0.001, 7.3))
+            .collect();
+        engine
+            .add_activity(id.to_string(), coords, "Ride".to_string())
+            .unwrap();
+        let mut second = engine.activity_metrics.get("a1").unwrap().clone();
+        second.activity_id = id.to_string();
+        second.name = id.to_string();
+        second.date += 86_400;
+        engine.set_activity_metrics(vec![second]).unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
+                 VALUES ('s0', ?1, ?2, 1, 5, 400.0, ?3, ?4)",
+                params![id, direction, time, 400.0 / time],
+            )
+            .unwrap();
     }
 
     #[test]
-    fn the_two_ladders_agree_on_an_empty_library() {
+    fn test_section_notification_same_direction_requires_strict_beat() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
-        let db = tmp.path().join("notification_parity_empty.db");
+        let mut engine = engine_with_a_section_pr(&tmp);
+        let old_time = engine.get_section_performances("s0").records[0].best_time;
+        add_section_outing(&mut engine, "a2", "same", old_time - 1.0);
+        let sections = engine.get_sections_for_activity("a2");
+        let beat = section_prs_from(&sections, "a2", |id| engine.get_section_performances(id));
+        assert_eq!(beat.count, 1);
+
+        add_section_outing(&mut engine, "a3", "same", old_time - 1.0);
+        let tied = section_prs_from(&sections, "a2", |id| engine.get_section_performances(id));
+        assert_eq!(tied.count, 0, "the earlier of two tied efforts");
+        let sections = engine.get_sections_for_activity("a3");
+        let later = section_prs_from(&sections, "a3", |id| engine.get_section_performances(id));
+        assert_eq!(later.count, 0, "the later of two tied efforts");
+    }
+
+    #[test]
+    fn test_section_notification_first_reverse_outing_has_no_pr() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let mut engine = engine_with_a_section_pr(&tmp);
+        add_section_outing(&mut engine, "a2", "reverse", 2.0);
+        let sections = engine.get_sections_for_activity("a2");
+        let prs = section_prs_from(&sections, "a2", |id| engine.get_section_performances(id));
+        assert_eq!(prs.count, 0);
+    }
+
+    #[test]
+    fn test_section_notification_out_and_back_compares_forward_lap() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let mut engine = engine_with_a_section_pr(&tmp);
+        let old_time = engine.get_section_performances("s0").records[0].best_time;
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
+                 VALUES ('s0', 'a1', 'reverse', 5, 7, 400.0, ?1, ?2)",
+                params![old_time - 2.0, 400.0 / (old_time - 2.0)],
+            )
+            .unwrap();
+        add_section_outing(&mut engine, "a2", "same", old_time - 1.0);
+        let sections = engine.get_sections_for_activity("a2");
+        let prs = section_prs_from(&sections, "a2", |id| engine.get_section_performances(id));
+        assert_eq!(prs.count, 1);
+        assert_eq!(prs.first_improvement_seconds, Some(1));
+    }
+
+    #[test]
+    fn an_empty_library_has_no_pooled_highlight() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let db = tmp.path().join("notification_pooled_empty.db");
         let db_path = db.to_str().unwrap();
         crate::persistence::read_pool::bind(db_path);
-        let mut engine = PersistentEngine::new(db_path).unwrap();
-        both_paths(&mut engine, true);
+        let engine = PersistentEngine::new(db_path).unwrap();
+        assert_eq!(
+            resolve_highlight_pooled(&engine.db, "a1", true, false),
+            crate::notifications::Highlight::None
+        );
     }
 
     /// The corridor name an athlete gave is resolved from the intent rather
     /// than read off the row, so a pooled ladder that skipped the overlay
     /// would name the section differently in the tray.
     #[test]
-    fn the_two_ladders_agree_on_the_name_the_athlete_gave() {
+    fn the_pooled_highlight_uses_the_name_the_athlete_gave() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
         let mut engine = engine_with_a_section_pr(&tmp);
+        let old_time = engine.get_section_performances("s0").records[0].best_time;
+        add_section_outing(&mut engine, "a0", "same", old_time + 1.0);
         engine
             .set_section_name("s0", Some("Col de la Forclaz"))
             .unwrap();
-        let announced = both_paths(&mut engine, true);
+        let announced = resolve_highlight_pooled(&engine.db, "a1", true, false);
         assert!(
             format!("{announced:?}").contains("Col de la Forclaz"),
-            "the overlay name reaches the tray on both paths: {announced:?}"
+            "the overlay name reaches the tray: {announced:?}"
+        );
+    }
+
+    #[test]
+    fn a_kept_section_pr_is_not_announced_while_route_matching_is_off() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let mut engine = engine_with_a_section_pr(&tmp);
+        let old_time = engine.get_section_performances("s0").records[0].best_time;
+        add_section_outing(&mut engine, "a0", "same", old_time + 1.0);
+        assert_ne!(
+            resolve_highlight_pooled(&engine.db, "a1", true, false),
+            crate::notifications::Highlight::None,
+            "the section PR is announced while detection is on"
+        );
+        engine.set_detection_enabled(false).unwrap();
+        assert_eq!(
+            resolve_highlight_pooled(&engine.db, "a1", true, false),
+            crate::notifications::Highlight::None
+        );
+    }
+}
+
+/// The fitness step a ride caused, found by the engine from its own rows.
+mod fitness_milestone {
+    use crate::notifications::{Highlight, fitness_milestone_pooled, resolve_highlight_pooled};
+    use crate::persistence::PersistentEngine;
+
+    /// 2023-11-14 UTC, the day every ride here is dated.
+    const RIDE_DATE: i64 = 1_699_920_000;
+    const DAY: i64 = 86_400;
+
+    fn engine_with_rides(rides: &[(&str, &str, i64)]) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let rows = rides
+            .iter()
+            .map(|(id, sport, date)| crate::ActivityMetrics {
+                activity_id: id.to_string(),
+                name: id.to_string(),
+                date: *date,
+                distance: 1000.0,
+                moving_time: 300,
+                elapsed_time: 300,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: sport.to_string(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            })
+            .collect();
+        engine.set_activity_metrics(rows).unwrap();
+        engine
+    }
+
+    fn day_string(offset: i64) -> String {
+        chrono::DateTime::from_timestamp(RIDE_DATE + offset * DAY, 0)
+            .unwrap()
+            .format("%Y-%m-%d")
+            .to_string()
+    }
+
+    /// One eFTP per day from `days_before` days before the ride to `days_after`
+    /// after it, the value given by `eftp_on(offset)`.
+    fn write_eftp(
+        engine: &PersistentEngine,
+        days_before: i64,
+        days_after: i64,
+        eftp_on: impl Fn(i64) -> u32,
+    ) {
+        for offset in -days_before..=days_after {
+            let raw = format!(
+                r#"{{"sportInfo":[{{"type":"Ride","eftp":{}}}]}}"#,
+                eftp_on(offset)
+            );
+            engine
+                .db
+                .execute(
+                    "INSERT INTO wellness (date, raw) VALUES (?, ?)",
+                    rusqlite::params![day_string(offset), raw],
+                )
+                .unwrap();
+        }
+    }
+
+    /// Scenario: eFTP sat at 250 W for six weeks and reads 256 W on the day of
+    /// the ride, a six watt rise on thirty days earlier.
+    ///
+    /// Expected behaviour: that ride carries the milestone with the current
+    /// figure and the rise, and a ride the next day, with the same rise still
+    /// standing, does not announce it a second time.
+    #[test]
+    fn the_ride_that_crosses_the_ftp_step_carries_it_once() {
+        let engine = engine_with_rides(&[
+            ("crossing", "Ride", RIDE_DATE + 3_600),
+            ("next-day", "Ride", RIDE_DATE + DAY + 3_600),
+        ]);
+        write_eftp(&engine, 45, 1, |offset| if offset >= 0 { 256 } else { 250 });
+
+        assert_eq!(
+            fitness_milestone_pooled(&engine.db, "crossing"),
+            Some(Highlight::FtpMilestone {
+                current_watts: 256,
+                change_watts: 6
+            })
+        );
+        assert_eq!(fitness_milestone_pooled(&engine.db, "next-day"), None);
+    }
+
+    #[test]
+    fn a_rise_under_the_step_is_not_a_milestone() {
+        let engine = engine_with_rides(&[("ride", "Ride", RIDE_DATE + 3_600)]);
+        write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 254 } else { 250 });
+
+        assert_eq!(fitness_milestone_pooled(&engine.db, "ride"), None);
+    }
+
+    #[test]
+    fn a_fall_in_ftp_is_not_a_milestone() {
+        let engine = engine_with_rides(&[("ride", "Ride", RIDE_DATE + 3_600)]);
+        write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 240 } else { 250 });
+
+        assert_eq!(fitness_milestone_pooled(&engine.db, "ride"), None);
+    }
+
+    #[test]
+    fn a_run_does_not_carry_the_cycling_step() {
+        let engine = engine_with_rides(&[("run", "Run", RIDE_DATE + 3_600)]);
+        write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 256 } else { 250 });
+
+        assert_eq!(fitness_milestone_pooled(&engine.db, "run"), None);
+    }
+
+    #[test]
+    fn an_unknown_activity_has_no_milestone() {
+        let engine = engine_with_rides(&[]);
+        write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 256 } else { 250 });
+
+        assert_eq!(fitness_milestone_pooled(&engine.db, "missing"), None);
+    }
+
+    /// Expected behaviour: the switch gates the milestone in the ladder the
+    /// push handlers call, and a ride that crosses nothing keeps the ladder's
+    /// other rungs.
+    #[test]
+    fn the_switch_gates_the_milestone_in_the_ladder() {
+        let engine = engine_with_rides(&[("ride", "Ride", RIDE_DATE + 3_600)]);
+        write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 256 } else { 250 });
+
+        assert!(matches!(
+            resolve_highlight_pooled(&engine.db, "ride", true, true),
+            Highlight::FtpMilestone { .. }
+        ));
+        assert_eq!(
+            resolve_highlight_pooled(&engine.db, "ride", true, false),
+            Highlight::None
+        );
+    }
+
+    /// Scenario: the sync's snapshot on the day of a run raised critical
+    /// speed from 4.00 to 4.10 m/s, about six seconds off the kilometre.
+    ///
+    /// Expected behaviour: that run carries the pace milestone with the saving
+    /// in seconds per kilometre. A run the next day, with no newer snapshot,
+    /// does not, and neither does a run on a day the snapshot got slower.
+    #[test]
+    fn the_run_on_the_day_of_an_improving_snapshot_carries_the_pace_step() {
+        let engine = engine_with_rides(&[
+            ("run", "Run", RIDE_DATE + 3_600),
+            ("next-day", "Run", RIDE_DATE + DAY + 3_600),
+        ]);
+        engine.save_pace_snapshot("Run", 4.00, None, None, RIDE_DATE - 7 * DAY, 42);
+        engine.save_pace_snapshot("Run", 4.10, None, None, RIDE_DATE + 1_800, 42);
+
+        assert_eq!(
+            fitness_milestone_pooled(&engine.db, "run"),
+            Some(Highlight::PaceMilestone {
+                delta: "6s/km".into()
+            })
+        );
+        assert_eq!(fitness_milestone_pooled(&engine.db, "next-day"), None);
+    }
+
+    #[test]
+    fn a_slower_snapshot_is_not_a_pace_milestone() {
+        let engine = engine_with_rides(&[("run", "Run", RIDE_DATE + 3_600)]);
+        engine.save_pace_snapshot("Run", 4.10, None, None, RIDE_DATE - 7 * DAY, 42);
+        engine.save_pace_snapshot("Run", 4.00, None, None, RIDE_DATE + 1_800, 42);
+
+        assert_eq!(fitness_milestone_pooled(&engine.db, "run"), None);
+    }
+
+    #[test]
+    fn a_swim_reports_its_saving_per_hundred_metres() {
+        let engine = engine_with_rides(&[("swim", "Swim", RIDE_DATE + 3_600)]);
+        engine.save_pace_snapshot("Swim", 1.00, None, None, RIDE_DATE - 7 * DAY, 42);
+        engine.save_pace_snapshot("Swim", 1.05, None, None, RIDE_DATE + 1_800, 42);
+
+        assert_eq!(
+            fitness_milestone_pooled(&engine.db, "swim"),
+            Some(Highlight::PaceMilestone {
+                delta: "5s/100m".into()
+            })
         );
     }
 }

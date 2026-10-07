@@ -14,14 +14,14 @@
 
 /// How one native push run ended.
 ///
-/// The three silent outcomes are the ones that were indistinguishable: the
-/// athlete has notifications off, the ladder found nothing worth a sentence,
-/// or no string bundle has been pushed yet, which is a fresh install whose
-/// JavaScript has not had a full launch.
+/// Only notifications off is silent. The ladder finding nothing worth a
+/// sentence, or no string bundle having been pushed yet (a fresh install whose
+/// JavaScript has not had a full launch), post the plain entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PushRunOutcome {
     Posted,
     NotificationsOff,
+    AthleteMismatch,
     NothingWorthPosting,
     NoStringBundle,
     Failed,
@@ -33,6 +33,7 @@ impl PushRunOutcome {
         match self {
             PushRunOutcome::Posted => "posted",
             PushRunOutcome::NotificationsOff => "notifications-off",
+            PushRunOutcome::AthleteMismatch => "athlete-mismatch",
             PushRunOutcome::NothingWorthPosting => "nothing-worth-posting",
             PushRunOutcome::NoStringBundle => "no-string-bundle",
             PushRunOutcome::Failed => "failed",
@@ -62,7 +63,18 @@ pub struct FfiPushRun {
 /// than no diagnostic. It takes the writer, which a sync page may be holding,
 /// and the run is over by the time it is called, so nothing is waiting on it.
 pub fn record(activity_id: &str, outcome: PushRunOutcome, detail: Option<&str>) {
-    let wrote = crate::persistence::with_persistent_engine(|engine| {
+    record_for(
+        crate::persistence::engine_install(),
+        activity_id,
+        outcome,
+        detail,
+    );
+}
+
+/// [`record`] against the library a run started in. A run that outlived its
+/// library leaves nothing in the next athlete's table.
+pub fn record_for(install: u64, activity_id: &str, outcome: PushRunOutcome, detail: Option<&str>) {
+    let wrote = crate::persistence::with_persistent_engine_for(install, |engine| {
         engine.record_push_run(activity_id, outcome.as_str(), detail, KEPT)
     });
     match wrote {

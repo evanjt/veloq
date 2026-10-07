@@ -35,21 +35,26 @@
 //! so it is asked again. A 401 ends the pass outright rather than spending the
 //! whole library on rejected requests.
 //!
-//! Unlike the elevation backfill this is not fired at launch. It is tens of
-//! megabytes on whatever connection the phone has, so the athlete starts it and
-//! the athlete stops it, and [`stop_stream_backfill`] takes effect at the next
-//! batch boundary.
+//! A sync that settles successfully starts the pass by itself when activities
+//! inside the window still owe their series, and so does the detector
+//! cutover's settle on an upgrade ([`autostart_stream_backfill`] decides for
+//! both). It defers while the elevation backfill still owes or a cutover is
+//! pending or running, so it never competes with the work the cutover waits
+//! on. The athlete can still stop it, and [`stop_stream_backfill`] takes effect
+//! at the next batch boundary. A stop holds the automatic start until the
+//! retention window next changes ([`release_autostart_hold`]); the Download
+//! action on the settings row starts a pass regardless.
 
 use crate::governor::Lane;
 use crate::net::endpoints::DEFAULT_STREAM_TYPES;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{StreamDto, storable_series};
 use crate::objects::FfiStartOutcome;
-use crate::persistence::{
-    PersistentEngine, StreamGap, engine_install, with_persistent_engine, with_persistent_engine_for,
-};
+use crate::persistence::attempts::now_ms;
+use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
+use crate::persistence::{PersistentEngine, StreamGap, engine_install, with_persistent_engine_for};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 /// Activities asked for per batch. The cancel flag and the connectivity state
 /// are read at the boundary, so this is also how long a stop takes to land.
@@ -81,10 +86,30 @@ pub const STREAM_PHASE_COMPLETE: &str = "complete";
 /// A pass ended before its queue did, and the rows it did not reach are
 /// unchanged, so the next pass asks about them.
 pub const STREAM_PHASE_PARTIAL: &str = "partial";
+/// The queue is past the large-download threshold and the athlete has not said
+/// yes, so nothing is fetched.
+pub const STREAM_PHASE_AWAITING_CONSENT: &str = "awaiting_consent";
 /// The athlete stopped it.
 pub const STREAM_PHASE_STOPPED: &str = "stopped";
 /// A pass could not proceed at all.
 pub const STREAM_PHASE_FAILED: &str = "failed";
+
+/// Activities owed at or below which the automatic start needs no answer. The
+/// same figure as the history slider's large-download threshold.
+pub const STREAM_CONSENT_THRESHOLD: u32 = 500;
+
+/// Bytes on the wire per moving second of one full series request, measured
+/// against the live API with gzip (20.5, rounded up).
+pub const WIRE_BYTES_PER_MOVING_SECOND: u64 = 21;
+
+/// The settings row holding a recorded yes, so later automatic starts skip the
+/// ask.
+pub const STREAM_CONSENT_KEY: &str = "__stream_backfill_consent";
+
+/// What the stream pass would download, in the units the ask states.
+pub fn estimate_bytes(moving_seconds: u64) -> u64 {
+    moving_seconds.saturating_mul(WIRE_BYTES_PER_MOVING_SECOND)
+}
 
 struct BackfillState {
     running: AtomicBool,
@@ -93,6 +118,8 @@ struct BackfillState {
     total: AtomicU32,
     stored: AtomicU32,
     failed: AtomicU32,
+    estimate_requests: AtomicU32,
+    estimate_bytes: AtomicU64,
     phase: Mutex<&'static str>,
 }
 
@@ -103,11 +130,18 @@ static BACKFILL: BackfillState = BackfillState {
     total: AtomicU32::new(0),
     stored: AtomicU32::new(0),
     failed: AtomicU32::new(0),
+    estimate_requests: AtomicU32::new(0),
+    estimate_bytes: AtomicU64::new(0),
     phase: Mutex::new(STREAM_PHASE_IDLE),
 };
 
-fn set_phase(phase: &'static str) {
+pub(crate) fn set_phase(phase: &'static str) {
     *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
+    // The guard above is a temporary of the statement it is in, so the
+    // announcement is made with the phase lock already released.
+    crate::objects::observer::notify(crate::objects::observer::Announcement::StreamBackfillPhase(
+        phase.to_string(),
+    ));
 }
 
 /// What a poller sees while the pass runs and after it settles.
@@ -122,6 +156,10 @@ pub struct StreamBackfillSnapshot {
     pub stored: u32,
     /// Activities whose fetch failed, so they are unchanged and asked again.
     pub failed: u32,
+    /// Requests the held pass would make; meaningful while awaiting consent.
+    pub estimate_requests: u32,
+    /// Bytes on the wire the held pass would download.
+    pub estimate_bytes: u64,
 }
 
 impl StreamBackfillSnapshot {
@@ -142,6 +180,8 @@ pub fn stream_backfill_progress() -> StreamBackfillSnapshot {
         total: BACKFILL.total.load(Ordering::Relaxed),
         stored: BACKFILL.stored.load(Ordering::Relaxed),
         failed: BACKFILL.failed.load(Ordering::Relaxed),
+        estimate_requests: BACKFILL.estimate_requests.load(Ordering::Relaxed),
+        estimate_bytes: BACKFILL.estimate_bytes.load(Ordering::Relaxed),
     }
 }
 
@@ -150,8 +190,128 @@ pub fn stream_backfill_progress() -> StreamBackfillSnapshot {
 ///
 /// Nothing is persisted: the queue is derived, so a stopped pass and a crashed
 /// one resume identically.
+///
+/// Stopping a pass the engine is holding for the athlete's answer is the no:
+/// nothing is fetched, the phase reads stopped, and the automatic start stays
+/// quiet until the window changes.
 pub fn stop_stream_backfill() {
     BACKFILL.cancelled.store(true, Ordering::SeqCst);
+    if BACKFILL.running.load(Ordering::SeqCst) {
+        AUTOSTART_HELD.store(true, Ordering::SeqCst);
+    } else if stream_backfill_progress().phase == STREAM_PHASE_AWAITING_CONSENT {
+        AUTOSTART_HELD.store(true, Ordering::SeqCst);
+        set_phase(STREAM_PHASE_STOPPED);
+    }
+}
+
+/// Set when the athlete stops a running pass, so the automatic start leaves the
+/// queue alone until the window changes.
+static AUTOSTART_HELD: AtomicBool = AtomicBool::new(false);
+
+fn autostart_held() -> bool {
+    AUTOSTART_HELD.load(Ordering::SeqCst)
+}
+
+/// Lift the hold a stop left. Called when the retention window changes, which
+/// is what the stop was about.
+pub fn release_autostart_hold() {
+    AUTOSTART_HELD.store(false, Ordering::SeqCst);
+}
+
+/// What the automatic start reads.
+#[derive(Debug, Clone, Copy)]
+struct AutostartInputs {
+    /// Activities inside the window still owing their series.
+    owed: u64,
+    /// Tracks the elevation backfill still owes.
+    elevation_owed: u64,
+    /// A detector cutover is pending or running.
+    cutover_busy: bool,
+    stopped_by_athlete: bool,
+    /// The athlete has said yes to a large download.
+    consented: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AutostartVerdict {
+    Start,
+    /// The queue is past the large-download threshold and nothing says yes.
+    AwaitingConsent,
+    NotOwed,
+    /// The elevation backfill or the cutover still has work.
+    Deferred,
+    /// The athlete stopped the pass and the window has not changed since.
+    Held,
+}
+
+fn autostart_verdict(i: AutostartInputs) -> AutostartVerdict {
+    if i.owed == 0 {
+        AutostartVerdict::NotOwed
+    } else if i.stopped_by_athlete {
+        AutostartVerdict::Held
+    } else if i.elevation_owed > 0 || i.cutover_busy {
+        AutostartVerdict::Deferred
+    } else if i.owed > STREAM_CONSENT_THRESHOLD as u64 && !i.consented {
+        AutostartVerdict::AwaitingConsent
+    } else {
+        AutostartVerdict::Start
+    }
+}
+
+/// Start the pass when the library owes series and nothing else has a claim on
+/// the engine first. The one place that decides, called after a successful
+/// sync and after a cutover settles. Answers what the start did, so a caller
+/// that cares can read it; the others ignore it.
+pub fn autostart_stream_backfill() -> Option<FfiStartOutcome> {
+    let inputs = crate::objects::error::with_reader(|conn| {
+        let (owed, moving_seconds) =
+            crate::persistence::streams::pooled::backfill_estimate(conn, STREAM_ATTEMPT_LIMIT)?;
+        let elevation_owed =
+            crate::net::elevation_backfill::pooled_elevation_backfill_remaining(conn)?;
+        let consented = crate::persistence::settings::setting_from(conn, STREAM_CONSENT_KEY)?
+            .is_some_and(|v| v == "yes");
+        Ok::<_, rusqlite::Error>((owed as u64, moving_seconds, elevation_owed, consented))
+    })
+    .ok()?
+    .ok()?;
+    let verdict = autostart_verdict(AutostartInputs {
+        owed: inputs.0,
+        elevation_owed: inputs.2,
+        cutover_busy: crate::persistence::cutover::cutover_pending()
+            || crate::persistence::cutover::cutover_running(),
+        stopped_by_athlete: autostart_held(),
+        consented: inputs.3,
+    });
+    if !BACKFILL.running.load(Ordering::SeqCst) {
+        if verdict == AutostartVerdict::AwaitingConsent {
+            BACKFILL
+                .estimate_requests
+                .store(inputs.0.try_into().unwrap_or(u32::MAX), Ordering::Relaxed);
+            BACKFILL
+                .estimate_bytes
+                .store(estimate_bytes(inputs.1), Ordering::Relaxed);
+            set_phase(STREAM_PHASE_AWAITING_CONSENT);
+        } else if stream_backfill_progress().phase == STREAM_PHASE_AWAITING_CONSENT
+            && verdict != AutostartVerdict::Held
+        {
+            set_phase(STREAM_PHASE_IDLE);
+        }
+    }
+    match verdict {
+        AutostartVerdict::Start => Some(start_stream_backfill()),
+        _ => None,
+    }
+}
+
+/// Record the athlete's yes to a large download and start the pass. Later
+/// automatic starts skip the ask.
+pub fn consent_stream_backfill() -> FfiStartOutcome {
+    let recorded = crate::objects::error::with_engine(|e| e.set_setting(STREAM_CONSENT_KEY, "yes"));
+    if !matches!(recorded, Ok(Ok(()))) {
+        return FfiStartOutcome::NotReady;
+    }
+    release_autostart_hold();
+    start_stream_backfill()
 }
 
 /// Whether a stop is pending or the pass that honoured one has not been
@@ -207,6 +367,10 @@ pub enum StreamBackfillRun {
 
 /// Why a pass ended before its queue did.
 enum Stopped {
+    SignedOut,
+    /// Another library was installed under the walk, so what it fetches would
+    /// be discarded.
+    Superseded,
     /// The credential was rejected, so every remaining request would be too.
     Unauthorized,
     /// [`MAX_CONSECUTIVE_FAILURES`] in a row: there is nothing to work with.
@@ -241,6 +405,13 @@ fn is_connectivity(e: &NetError) -> bool {
         NetError::Http { status, .. } => *status >= 500,
         _ => false,
     }
+}
+
+/// Whether this failure is upstream answering for the one activity asked
+/// about, so the ask counts against it. A refused credential speaks for the
+/// whole account and is not counted.
+fn says_something_about_the_activity(e: &NetError) -> bool {
+    !is_connectivity(e) && !matches!(e, NetError::Unauthorized)
 }
 
 /// One activity's series, reduced to the index space its stored track is in.
@@ -331,7 +502,13 @@ impl PersistentEngine {
                         log::warn!("[Streams] counting the ask for {} failed: {}", id, e);
                     }
                 }
-                Fetched::Failed(_) => {}
+                Fetched::Failed(e) => {
+                    if says_something_about_the_activity(e)
+                        && let Err(e) = self.record_stream_backfill_attempt(id)
+                    {
+                        log::warn!("[Streams] counting the ask for {} failed: {}", id, e);
+                    }
+                }
             }
         }
         (stored, empty)
@@ -353,6 +530,53 @@ fn run_in_slot(
     transport: &Transport,
     athlete_id: &str,
 ) -> StreamBackfillRun {
+    let run = run_pass(install, transport, athlete_id);
+    record_run(install, &run);
+    run
+}
+
+/// The pass's one exit: the last-run summary is written here, from the phase
+/// the pass settled on, so no early return can skip it.
+fn record_run(install: u64, run: &StreamBackfillRun) {
+    let phase = stream_backfill_progress().phase;
+    let summary = match run {
+        StreamBackfillRun::Refused => return,
+        StreamBackfillRun::Failed(_) => JobRun {
+            job: BackgroundJob::StreamBackfill,
+            finished_at: now_ms(),
+            outcome: RunOutcome::Failed,
+            handled: 0,
+            added: 0,
+            changed: 0,
+            retired: 0,
+            failed: 0,
+        },
+        StreamBackfillRun::Finished(outcome) => JobRun {
+            job: BackgroundJob::StreamBackfill,
+            finished_at: now_ms(),
+            outcome: run_outcome(phase, outcome.failed),
+            handled: outcome.queued,
+            added: 0,
+            changed: outcome.stored,
+            retired: 0,
+            failed: outcome.failed,
+        },
+    };
+    let _ = with_persistent_engine_for(install, |engine| record_job_run(&engine.db, &summary));
+}
+
+/// How a finished pass reads in the last-run summary. A pass that walked its
+/// whole queue but left activities for the next one is partial, not complete.
+fn run_outcome(phase: &str, failed: u32) -> RunOutcome {
+    match phase {
+        STREAM_PHASE_STOPPED => RunOutcome::Stopped,
+        STREAM_PHASE_FAILED => RunOutcome::Failed,
+        STREAM_PHASE_COMPLETE if failed == 0 => RunOutcome::Complete,
+        _ => RunOutcome::Partial,
+    }
+}
+
+fn run_pass(install: u64, transport: &Transport, athlete_id: &str) -> StreamBackfillRun {
     let queue = match with_persistent_engine_for(install, |engine| {
         engine.activities_missing_streams(STREAM_ATTEMPT_LIMIT)
     }) {
@@ -378,10 +602,14 @@ fn run_in_slot(
         queue.len()
     );
 
-    let (outcome, stopped) = drain_queue(install, transport, &queue);
+    let (outcome, stopped) = drain_queue(install, transport, athlete_id, &queue);
     BACKFILL.failed.store(outcome.failed, Ordering::Relaxed);
 
     match stopped {
+        Some(Stopped::SignedOut | Stopped::Superseded) => {
+            set_phase(STREAM_PHASE_PARTIAL);
+            return StreamBackfillRun::Finished(outcome);
+        }
         Some(Stopped::Unauthorized) => {
             set_phase(STREAM_PHASE_FAILED);
             log::warn!("[Streams] backfill stopped: unauthorized");
@@ -423,12 +651,25 @@ fn run_in_slot(
 /// because `BACKFILL.cancelled` is process-wide: a walk that read it directly
 /// answered to any stop anywhere, which under cargo's parallel runner is the
 /// test in the next thread rather than the athlete.
+#[cfg(test)]
 fn drain_queue_with(
+    queue: &[StreamGap],
+    fetch: impl FnMut(&[StreamGap]) -> Vec<(String, Fetched)>,
+    apply: impl FnMut(&[(String, Fetched)]) -> (u32, u32),
+    cancelled: impl FnMut() -> bool,
+    offline: impl FnMut() -> bool,
+) -> (StreamBackfillOutcome, Option<Stopped>) {
+    drain_queue_with_auth(queue, fetch, apply, cancelled, offline, || true, || true)
+}
+
+fn drain_queue_with_auth(
     queue: &[StreamGap],
     mut fetch: impl FnMut(&[StreamGap]) -> Vec<(String, Fetched)>,
     mut apply: impl FnMut(&[(String, Fetched)]) -> (u32, u32),
     mut cancelled: impl FnMut() -> bool,
     mut offline: impl FnMut() -> bool,
+    mut still_signed_in: impl FnMut() -> bool,
+    mut install_current: impl FnMut() -> bool,
 ) -> (StreamBackfillOutcome, Option<Stopped>) {
     let mut outcome = StreamBackfillOutcome {
         queued: queue.len() as u32,
@@ -437,6 +678,12 @@ fn drain_queue_with(
     let mut consecutive_failures = 0usize;
 
     for batch in queue.chunks(BATCH) {
+        if !install_current() {
+            return (outcome, Some(Stopped::Superseded));
+        }
+        if !still_signed_in() {
+            return (outcome, Some(Stopped::SignedOut));
+        }
         // Read at the boundary, not only before the walk: a pass that loses the
         // network half way through would otherwise spend the rest of its queue
         // discovering that one request at a time.
@@ -487,6 +734,7 @@ fn drain_queue_with(
 fn drain_queue(
     install: u64,
     transport: &Transport,
+    athlete_id: &str,
     queue: &[StreamGap],
 ) -> (StreamBackfillOutcome, Option<Stopped>) {
     let ids: Vec<String> = queue.iter().map(|g| g.activity_id.clone()).collect();
@@ -496,7 +744,7 @@ fn drain_queue(
     let upstream = with_persistent_engine_for(install, |engine| engine.intervals_ids(&ids))
         .unwrap_or_default();
 
-    drain_queue_with(
+    drain_queue_with_auth(
         queue,
         |batch| crate::runtime::block_on(fetch_batch(transport, batch, &upstream)),
         |results| {
@@ -505,6 +753,8 @@ fn drain_queue(
         },
         stream_backfill_cancelled,
         crate::net::connectivity::is_offline,
+        || crate::objects::sync::still_signed_in(athlete_id),
+        || engine_install() == install,
     )
 }
 
@@ -513,11 +763,14 @@ fn drain_queue(
 /// The verdict names the refusal, so a caller can tell an empty queue, which is
 /// the job finished, from a device that is merely offline.
 pub fn start_stream_backfill() -> FfiStartOutcome {
-    let remaining =
-        with_persistent_engine(|engine| engine.stream_backfill_remaining(STREAM_ATTEMPT_LIMIT));
+    // A count, so it reads through the pool rather than waiting on the write
+    // lock behind a sync page: the screen that taps start is on the JS thread.
+    let remaining = crate::objects::error::with_reader(|conn| {
+        crate::persistence::streams::pooled::backfill_remaining(conn, STREAM_ATTEMPT_LIMIT)
+    });
     match remaining {
-        Some(Ok(n)) if n > 0 => {}
-        Some(Ok(_)) => return FfiStartOutcome::NotOwed,
+        Ok(Ok(n)) if n > 0 => {}
+        Ok(Ok(_)) => return FfiStartOutcome::NotOwed,
         _ => {
             log::info!("[Streams] backfill deferred: queue unreadable");
             return FfiStartOutcome::NotReady;
@@ -542,7 +795,7 @@ pub fn start_stream_backfill() -> FfiStartOutcome {
     // a restore installing another database mid-pass would otherwise take
     // streams fetched against the old library's activity ids.
     let install = engine_install();
-    std::thread::spawn(move || {
+    crate::threads::spawn_named("veloq-streams", move || {
         run_in_slot(slot, install, &transport, &athlete_id);
     });
     FfiStartOutcome::Started
@@ -592,6 +845,173 @@ mod tests {
             || false,
         );
         (outcome, stopped, asked.get())
+    }
+
+    /// Scenario: a sync settles on a library whose activities inside the window
+    /// have tracks and no series.
+    ///
+    /// Expected behaviour: the pass starts by itself, unless nothing is owed,
+    /// the elevation backfill or a cutover still has work, or the athlete
+    /// stopped the pass and the window has not changed since.
+    #[test]
+    fn the_automatic_start_waits_for_what_the_cutover_waits_on() {
+        let idle = AutostartInputs {
+            owed: 245,
+            elevation_owed: 0,
+            cutover_busy: false,
+            stopped_by_athlete: false,
+            consented: false,
+        };
+        assert_eq!(autostart_verdict(idle), AutostartVerdict::Start);
+        assert_eq!(
+            autostart_verdict(AutostartInputs { owed: 0, ..idle }),
+            AutostartVerdict::NotOwed
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                elevation_owed: 1,
+                ..idle
+            }),
+            AutostartVerdict::Deferred
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                cutover_busy: true,
+                ..idle
+            }),
+            AutostartVerdict::Deferred
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                stopped_by_athlete: true,
+                ..idle
+            }),
+            AutostartVerdict::Held
+        );
+    }
+
+    /// Scenario: a library upgrades with more activities owing series than the
+    /// large-download threshold.
+    ///
+    /// Expected behaviour: at the threshold the pass starts; one past it the
+    /// start holds for the athlete's answer. A recorded yes starts at any
+    /// size, and a stop or other work in flight still outranks the ask.
+    #[test]
+    fn a_queue_past_the_large_download_threshold_asks_before_it_starts() {
+        let at = AutostartInputs {
+            owed: STREAM_CONSENT_THRESHOLD as u64,
+            elevation_owed: 0,
+            cutover_busy: false,
+            stopped_by_athlete: false,
+            consented: false,
+        };
+        assert_eq!(autostart_verdict(at), AutostartVerdict::Start);
+        let past = AutostartInputs {
+            owed: STREAM_CONSENT_THRESHOLD as u64 + 1,
+            ..at
+        };
+        assert_eq!(autostart_verdict(past), AutostartVerdict::AwaitingConsent);
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                consented: true,
+                ..past
+            }),
+            AutostartVerdict::Start
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                stopped_by_athlete: true,
+                ..past
+            }),
+            AutostartVerdict::Held
+        );
+        assert_eq!(
+            autostart_verdict(AutostartInputs {
+                elevation_owed: 1,
+                ..past
+            }),
+            AutostartVerdict::Deferred
+        );
+    }
+
+    /// Scenario: the card shows the size of the download it asks about.
+    ///
+    /// Expected behaviour: bytes are the queue's moving seconds times the
+    /// measured wire rate, so the figure and the pass's own total are one queue.
+    #[test]
+    fn the_estimate_prices_moving_seconds_at_the_wire_rate() {
+        assert_eq!(estimate_bytes(0), 0);
+        assert_eq!(estimate_bytes(1000), 1000 * WIRE_BYTES_PER_MOVING_SECOND);
+    }
+
+    /// Scenario: the athlete answers the ask.
+    ///
+    /// Expected behaviour: a stop while the pass is held holds the automatic
+    /// start until the window changes and reads as stopped, not as still asking.
+    #[test]
+    fn stopping_a_held_pass_is_the_no_and_holds_the_automatic_start() {
+        let _serial = crate::test_globals::serial_global_state();
+        release_autostart_hold();
+        set_phase(STREAM_PHASE_AWAITING_CONSENT);
+        stop_stream_backfill();
+        assert!(autostart_held());
+        assert_eq!(stream_backfill_progress().phase, STREAM_PHASE_STOPPED);
+        release_autostart_hold();
+        BACKFILL.cancelled.store(false, Ordering::SeqCst);
+        set_phase(STREAM_PHASE_IDLE);
+    }
+
+    /// Scenario: the athlete stops a running pass, then widens the window.
+    ///
+    /// Expected behaviour: the stop holds the automatic start until the window
+    /// changes, and a stop with no pass running holds nothing.
+    #[test]
+    fn a_stop_holds_the_automatic_start_until_the_window_changes() {
+        let _serial = crate::test_globals::serial_global_state();
+        release_autostart_hold();
+        stop_stream_backfill();
+        assert!(!autostart_held(), "no pass was running, so nothing is held");
+
+        BACKFILL.running.store(true, Ordering::SeqCst);
+        stop_stream_backfill();
+        BACKFILL.running.store(false, Ordering::SeqCst);
+        assert!(autostart_held());
+
+        release_autostart_hold();
+        assert!(!autostart_held());
+        BACKFILL.cancelled.store(false, Ordering::SeqCst);
+    }
+
+    /// Scenario: a restore installs another library while a walk is part way
+    /// through its queue.
+    ///
+    /// Expected behaviour: the walk ends at the next batch boundary and the
+    /// activities behind it are never fetched.
+    #[test]
+    fn a_restore_mid_walk_ends_it_before_the_next_batch() {
+        let queue = gaps(BATCH * 3);
+        let asked = std::cell::Cell::new(0usize);
+        let installed = std::cell::Cell::new(true);
+
+        let (_, stopped) = drain_queue_with_auth(
+            &queue,
+            |batch| {
+                asked.set(asked.get() + batch.len());
+                installed.set(false);
+                batch
+                    .iter()
+                    .map(|g| (g.activity_id.clone(), Fetched::Nothing))
+                    .collect()
+            },
+            |_| (0, 0),
+            || false,
+            || false,
+            || true,
+            || installed.get(),
+        );
+
+        assert!(matches!(stopped, Some(Stopped::Superseded)));
+        assert_eq!(asked.get(), BATCH);
     }
 
     /// Scenario: 34 MB on a phone connection is not a silent operation, so the
@@ -694,6 +1114,75 @@ mod tests {
         assert_eq!(outcome.queued, queue.len() as u32);
     }
 
+    fn engine_holding(id: &str) -> (tempfile::TempDir, PersistentEngine) {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("routes.db");
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        let track = (0..4)
+            .map(|i| tracematch::GpsPoint::new(46.2 + i as f64 * 0.001, 7.35))
+            .collect();
+        engine
+            .add_activity(id.to_string(), track, "Ride".into())
+            .unwrap();
+        (dir, engine)
+    }
+
+    fn still_owed(engine: &PersistentEngine) -> usize {
+        engine
+            .stream_backfill_remaining(STREAM_ATTEMPT_LIMIT)
+            .unwrap()
+    }
+
+    /// Scenario: upstream answers 403 or 404 for one activity on every pass.
+    ///
+    /// Expected behaviour: each answer counts against the activity, so after
+    /// `STREAM_ATTEMPT_LIMIT` passes it leaves the queue and the backfill can
+    /// report finished.
+    #[test]
+    fn an_answer_about_one_activity_retires_it_after_the_attempt_limit() {
+        for status in [403, 404, 410] {
+            let (_dir, engine) = engine_holding("a1");
+            for _ in 0..STREAM_ATTEMPT_LIMIT {
+                assert_eq!(still_owed(&engine), 1, "status {status}");
+                engine.apply_stream_batch(&[(
+                    "a1".to_string(),
+                    Fetched::Failed(NetError::Http {
+                        status,
+                        body: String::new(),
+                    }),
+                )]);
+            }
+            assert_eq!(still_owed(&engine), 0, "status {status}");
+        }
+    }
+
+    /// Scenario: the connection drops, the rate limit bites, upstream errors
+    /// or the credential is refused.
+    ///
+    /// Expected behaviour: nothing is said about the activity, so it stays
+    /// owed however many passes fail this way.
+    #[test]
+    fn a_failure_that_says_nothing_about_the_activity_never_retires_it() {
+        let failures = || {
+            vec![
+                NetError::Transport("no route".to_string()),
+                NetError::RateLimited,
+                NetError::Unauthorized,
+                NetError::Http {
+                    status: 503,
+                    body: String::new(),
+                },
+            ]
+        };
+        let (_dir, engine) = engine_holding("a1");
+        for _ in 0..=STREAM_ATTEMPT_LIMIT {
+            for e in failures() {
+                engine.apply_stream_batch(&[("a1".to_string(), Fetched::Failed(e))]);
+            }
+        }
+        assert_eq!(still_owed(&engine), 1);
+    }
+
     fn body(series: &[(&str, &str)]) -> Vec<u8> {
         let json: Vec<_> = series
             .iter()
@@ -757,6 +1246,8 @@ mod tests {
             total: 0,
             stored: 0,
             failed: 0,
+            estimate_requests: 0,
+            estimate_bytes: 0,
         };
         assert_eq!(snapshot.percent(), 100);
     }
@@ -771,6 +1262,8 @@ mod tests {
             total,
             stored: 0,
             failed: 0,
+            estimate_requests: 0,
+            estimate_bytes: 0,
         };
         assert_eq!(snapshot(1, 3).percent(), 33);
         assert_eq!(snapshot(7, 5).percent(), 100);
@@ -808,6 +1301,8 @@ mod tests {
         /// streams, so every id is in the derived queue.
         fn engine_with(ids: &[&str]) -> TempDir {
             let tmp = init_global_engine("stream_backfill.db");
+            crate::objects::sync::set_credentials_from_native("api_key", "secret", "1")
+                .expect("test credential");
             with_persistent_engine(|engine| {
                 for (i, id) in ids.iter().enumerate() {
                     engine
@@ -913,6 +1408,69 @@ mod tests {
             assert_eq!((progress.completed, progress.total), (4, 4));
             assert_eq!((progress.stored, progress.failed), (2, 1));
             assert_eq!(progress.percent(), 100);
+        }
+
+        fn recorded_run() -> crate::FfiJobRun {
+            with_persistent_engine(|e| crate::persistence::job_runs::job_runs(&e.db))
+                .expect("engine")
+                .expect("runs read")
+                .into_iter()
+                .find(|run| run.job == "streamBackfill")
+                .expect("the pass recorded its run")
+        }
+
+        /// Scenario: a pass stores one activity's series and upstream refuses
+        /// another's.
+        ///
+        /// Expected behaviour: the run is recorded once as partial, with both
+        /// activities handled, one changed and one failed, and it reads the
+        /// same after the engine is reopened. A pass that is refused the slot
+        /// records nothing.
+        #[test]
+        fn a_pass_records_its_last_run() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _tmp = engine_with(&["i1", "i3"]);
+            let server = MockServer::start();
+            serves(
+                &server,
+                "i1",
+                &[("latlng", &latlng(POINTS)), ("watts", &watts())],
+            );
+            server.mock(|when, then| {
+                when.method(GET).path("/activity/i3/streams.json");
+                then.status(404);
+            });
+
+            let held = RunGuard::claim().expect("the slot starts free");
+            run_stream_backfill(&transport(&server), "1");
+            drop(held);
+            let none_yet =
+                with_persistent_engine(|e| crate::persistence::job_runs::job_runs(&e.db))
+                    .expect("engine")
+                    .expect("runs read");
+            assert!(none_yet.is_empty(), "a refused start ran nothing");
+
+            run_stream_backfill(&transport(&server), "1");
+
+            let run = recorded_run();
+            assert_eq!(run.outcome, "partial");
+            assert_eq!(
+                (run.handled, run.added, run.changed, run.retired, run.failed),
+                (2, 0, 1, 0, 1)
+            );
+            assert!(run.finished_at > 0.0);
+        }
+
+        /// Scenario: a pass cannot read its queue because there is no engine.
+        ///
+        /// Expected behaviour: nothing can be recorded and nothing panics.
+        #[test]
+        fn a_pass_with_no_engine_records_nothing_and_does_not_panic() {
+            let _serial = serial_global_state();
+            crate::persistence::clear_persistent_engine();
+            let server = MockServer::start();
+            run_stream_backfill(&transport(&server), "1");
         }
 
         /// Scenario: a ride recorded with no sensors answers every pass with
@@ -1047,9 +1605,9 @@ mod tests {
         #[test]
         fn without_an_engine_a_pass_fails_and_a_start_is_not_ready() {
             let _serial = serial_global_state();
-            *crate::persistence::PERSISTENT_ENGINE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner()) = None;
+            // The pool goes too: a start counts through it, and one an earlier
+            // test bound would read an empty queue rather than none at all.
+            crate::persistence::clear_persistent_engine();
             let server = MockServer::start();
 
             assert_eq!(
@@ -1081,3 +1639,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/stream_auth.rs"]
+mod auth_tests;

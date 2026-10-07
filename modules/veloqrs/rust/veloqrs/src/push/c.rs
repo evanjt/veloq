@@ -2,7 +2,7 @@
 //!
 //! An extension is a second process with no JavaScript and no JSI, and iOS has
 //! no JNI, so the shortest path from `didReceive` to the engine is a plain C
-//! symbol in the xcframework: the twin of `jni.rs` and the same shape as
+//! symbol in the static library: the twin of `jni.rs` and the same shape as
 //! `basemap/c.rs`. All three block, which is what the extension wants, since
 //! it does the work off its main thread and answers `contentHandler` once the
 //! sentence is in hand.
@@ -51,71 +51,55 @@ fn hand_over(text: String) -> *mut c_char {
 /// gets: nothing can read the token there, and a silent failure would be a
 /// notification that never arrives.
 ///
+/// On a refusal `refusal` is written with the sentence behind it, which the
+/// caller hands to [`veloq_push_record_refusal`] and then to
+/// [`veloq_push_string_free`]. It is left untouched on success, and may be
+/// null when the caller wants no sentence.
+///
 /// # Safety
 ///
-/// Every argument is a NUL-terminated string or null.
+/// Every argument is a NUL-terminated string or null, and `refusal` is null or
+/// points at a writable `char *`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn veloq_push_prepare(
     db_path: *const c_char,
     access_token: *const c_char,
     api_key: *const c_char,
     athlete_id: *const c_char,
+    refusal: *mut *mut c_char,
 ) -> bool {
-    // SAFETY: the caller's contract above.
-    let (db_path, access_token, api_key, athlete_id) = unsafe {
-        (
-            read(db_path),
-            read(access_token),
-            read(api_key),
-            read(athlete_id),
-        )
-    };
-    let Some(db_path) = db_path else {
-        log::warn!("[push] prepare was handed no database path");
-        return false;
-    };
-
-    match super::prepare_native_session_from_keychain(db_path, access_token, api_key, athlete_id) {
-        Ok(()) => true,
-        Err(e) => {
-            log::warn!("[push] prepare refused: {e}");
+    crate::ffi_refuse_on_panic("push prepare", false, || {
+        // SAFETY: the caller's contract above.
+        let (db_path, access_token, api_key, athlete_id) = unsafe {
+            (
+                read(db_path),
+                read(access_token),
+                read(api_key),
+                read(athlete_id),
+            )
+        };
+        let refuse = |why: String| {
+            log::warn!("[push] prepare refused: {why}");
+            if !refusal.is_null() {
+                // SAFETY: the caller's contract above says `refusal` is writable.
+                unsafe { *refusal = hand_over(why) };
+            }
             false
-        }
-    }
-}
+        };
+        let Some(db_path) = db_path else {
+            return refuse("prepare was handed no database path".to_string());
+        };
 
-/// Fetch one activity's track, store it and index it, and answer with the
-/// summary as JSON.
-///
-/// Null for anything that did not end in an indexed activity, with the reason
-/// logged: the extension has no screen to put it on. `sport_type` may be null,
-/// which is what a push carrying no sport is.
-///
-/// The string is the caller's until it hands it back to
-/// [`veloq_push_string_free`]. Nothing else may free it.
-///
-/// # Safety
-///
-/// Both arguments are NUL-terminated strings or null.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn veloq_push_fetch_and_index(
-    activity_id: *const c_char,
-    sport_type: *const c_char,
-) -> *mut c_char {
-    // SAFETY: the caller's contract above.
-    let (activity_id, sport_type) = unsafe { (read(activity_id), read(sport_type)) };
-    let Some(activity_id) = activity_id else {
-        log::warn!("[push] fetch was handed no activity id");
-        return std::ptr::null_mut();
-    };
-
-    match super::fetch_and_index_json(activity_id, sport_type.unwrap_or_default()) {
-        Ok(json) => hand_over(json),
-        Err(e) => {
-            log::warn!("[push] {activity_id} was not indexed: {e}");
-            std::ptr::null_mut()
+        match super::prepare_native_session_from_keychain(
+            db_path,
+            access_token,
+            api_key,
+            athlete_id,
+        ) {
+            Ok(()) => true,
+            Err(e) => refuse(e),
         }
-    }
+    })
 }
 
 /// One activity push, end to end: the gate, the detail body, the track and its
@@ -126,35 +110,92 @@ pub unsafe extern "C" fn veloq_push_fetch_and_index(
 /// is what writes the `activity_metrics` row the ladder needs to date a lap,
 /// and it also carries the ride's name, which the push itself does not.
 ///
-/// Null when there is nothing to post: the switch is off, the ladder found
-/// nothing, or no string bundle has been pushed. The extension delivers the
-/// notification the worker wrote in that case, rather than replacing it with
-/// an empty line. A step that failed is null too, with the reason logged: the
-/// extension has no screen to put it on and no second attempt inside a push's
-/// budget that would go differently.
+/// Null when the switch is off, the athlete differs or the engine is not open.
+/// The extension delivers the server's original notification in that case.
 ///
 /// The string is the caller's until it hands it back to
 /// [`veloq_push_string_free`]. Nothing else may free it.
 ///
 /// # Safety
 ///
-/// `activity_id` is a NUL-terminated string or null.
+/// Both arguments are NUL-terminated strings or null.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn veloq_push_activity(activity_id: *const c_char) -> *mut c_char {
-    // SAFETY: the caller's contract above.
-    let Some(activity_id) = (unsafe { read(activity_id) }) else {
-        log::warn!("[push] an activity push was asked for without an activity id");
-        return std::ptr::null_mut();
-    };
+pub unsafe extern "C" fn veloq_push_activity(
+    activity_id: *const c_char,
+    athlete_id: *const c_char,
+) -> *mut c_char {
+    crate::ffi_refuse_on_panic("push activity", std::ptr::null_mut(), || {
+        // SAFETY: the caller's contract above.
+        let (Some(activity_id), Some(athlete_id)) =
+            (unsafe { (read(activity_id), read(athlete_id)) })
+        else {
+            log::warn!("[push] an activity push was asked for without an activity id");
+            return std::ptr::null_mut();
+        };
 
-    match super::activity_push_json(activity_id) {
-        Ok(Some(json)) => hand_over(json),
-        Ok(None) => std::ptr::null_mut(),
-        Err(e) => {
-            log::warn!("[push] nothing to post for {activity_id}: {e}");
-            std::ptr::null_mut()
+        match super::activity_push_json(activity_id, athlete_id) {
+            Ok(Some(json)) => hand_over(json),
+            Ok(None) => std::ptr::null_mut(),
+            Err(e) => {
+                log::warn!("[push] nothing to post for {activity_id}: {e}");
+                std::ptr::null_mut()
+            }
         }
-    }
+    })
+}
+
+/// Record a push that ended before the engine answered, as a `failed` run
+/// with `reason`, in the database at `db_path`.
+///
+/// The extension calls it on every exit that has a database path and posts
+/// nothing enriched: an unreadable payload, a keychain that answered nothing,
+/// a refused prepare, an answer that would not parse, the time running out.
+/// A null or empty `activity_id` is a payload that named none, and is kept as
+/// an empty id. Best effort and silent, so a diagnostic never fails a push.
+///
+/// # Safety
+///
+/// Every argument is a NUL-terminated string or null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn veloq_push_record_refusal(
+    db_path: *const c_char,
+    activity_id: *const c_char,
+    reason: *const c_char,
+) {
+    crate::ffi_refuse_on_panic("push record refusal", (), || {
+        // SAFETY: the caller's contract above.
+        let (db_path, activity_id, reason) =
+            unsafe { (read(db_path), read(activity_id), read(reason)) };
+        let (Some(db_path), Some(reason)) = (db_path, reason) else {
+            log::warn!("[push] a refusal was handed no database path or reason");
+            return;
+        };
+        super::record_refusal(db_path, activity_id.unwrap_or(""), reason);
+    })
+}
+
+/// The reason for a payload the extension could not read, from key names only.
+///
+/// Each argument is the key names joined by newlines; `body_keys` is null when
+/// the payload has no `body` dictionary. Values never cross the boundary, so
+/// none can reach the stored reason. Null when it will not fit in a C string.
+/// The caller hands the string back to [`veloq_push_string_free`].
+///
+/// # Safety
+///
+/// Both arguments are NUL-terminated strings or null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn veloq_push_payload_reason(
+    top_level_keys: *const c_char,
+    body_keys: *const c_char,
+) -> *mut c_char {
+    crate::ffi_refuse_on_panic("push payload reason", std::ptr::null_mut(), || {
+        // SAFETY: the caller's contract above.
+        let (top, body) = unsafe { (read(top_level_keys), read(body_keys)) };
+        let top: Vec<&str> = top.map(|t| t.lines().collect()).unwrap_or_default();
+        let body: Option<Vec<&str>> = body.map(|b| b.lines().collect());
+        hand_over(super::payload_refusal_reason(&top, body.as_deref()))
+    })
 }
 
 /// Give back what either of the two above handed out. Null is a no-op, which

@@ -21,7 +21,14 @@ pub mod elevation_backfill;
 pub mod stream_backfill;
 
 pub mod offline_prefetch;
+pub(crate) mod record_dependency_fetch;
 
 /// The connectivity state TypeScript pushes, and the only thing in this crate
 /// that knows whether there is a network at all.
 pub mod connectivity;
+
+/// When the recording upload queue is due, and the drain that follows.
+pub mod upload_schedule;
+
+/// One recording's upload, from the begin to the effort.
+pub mod upload_recording;

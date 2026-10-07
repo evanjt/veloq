@@ -6,6 +6,55 @@
 //! that asks for the lot, and the estimate the athlete is shown before they
 //! start it.
 
+use crate::persistence::bodies::CurveKind;
+
+/// The windows read by the stats and fitness screens.
+pub(crate) const CURVE_DAYS: &[i64] = &[7, 30, 42, 90, 180, 365, ALL_TIME_CURVE_DAYS];
+
+/// The window value that stands for the whole history. It is the stored key
+/// for the all-time curve and is sent upstream as `all`, not as a day count.
+pub(crate) const ALL_TIME_CURVE_DAYS: i64 = 0;
+
+/// The `curves` spec for a window: `all` for the whole history, `{days}d`
+/// otherwise.
+pub(crate) fn curve_window(days: i64) -> String {
+    if days == ALL_TIME_CURVE_DAYS {
+        "all".to_string()
+    } else {
+        format!("{days}d")
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct CurveKey {
+    pub kind: CurveKind,
+    pub sport: &'static str,
+    pub gap: bool,
+}
+
+pub(crate) const CURVE_KEYS: &[CurveKey] = &[
+    CurveKey {
+        kind: CurveKind::Power,
+        sport: "Ride",
+        gap: false,
+    },
+    CurveKey {
+        kind: CurveKind::Pace,
+        sport: "Run",
+        gap: false,
+    },
+    CurveKey {
+        kind: CurveKind::Pace,
+        sport: "Run",
+        gap: true,
+    },
+    CurveKey {
+        kind: CurveKind::Pace,
+        sport: "Swim",
+        gap: false,
+    },
+];
+
 /// What a range costs to make available offline.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct OfflineEstimate {
@@ -21,9 +70,8 @@ pub struct OfflineEstimate {
 }
 
 /// Requests that do not scale with the range: the athlete, sport settings, a
-/// wellness year, an events year, and the power and pace curves at three
-/// sports by seven windows by two kinds.
-const CONSTANT_REQUESTS: u32 = 46;
+/// wellness year, an events year, and every screen-read curve key and window.
+const CONSTANT_REQUESTS: u32 = 4 + (CURVE_KEYS.len() * CURVE_DAYS.len()) as u32;
 /// Their bodies together, measured once each.
 const CONSTANT_BYTES: u64 = 600_000;
 
@@ -64,9 +112,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_all_time_window_is_requested_as_all_and_the_rest_as_days() {
+        assert_eq!(curve_window(ALL_TIME_CURVE_DAYS), "all");
+        assert_eq!(curve_window(90), "90d");
+        assert_eq!(curve_window(365), "365d");
+    }
+
+    #[test]
     fn a_range_with_nothing_in_it_still_costs_the_constants() {
         let estimate = estimate_range(0, 0);
-        assert_eq!(estimate.requests, 47);
+        assert_eq!(estimate.requests, 33);
         assert_eq!(estimate.bytes, 600_000);
     }
 
@@ -74,7 +129,7 @@ mod tests {
     fn a_month_of_the_measured_library_is_the_order_the_surface_will_show() {
         // 35 activities, about 43 hours moving.
         let estimate = estimate_range(35, 43 * 3_600);
-        assert_eq!(estimate.requests, 152);
+        assert_eq!(estimate.requests, 138);
         assert_eq!(estimate.bytes / 1_000_000, 10);
     }
 }

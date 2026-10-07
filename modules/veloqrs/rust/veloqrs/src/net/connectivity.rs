@@ -24,11 +24,13 @@ use std::time::{Duration, Instant};
 /// How long a pushed state is believed.
 ///
 /// The foreground push is the real mechanism: `NetworkContext` re-states what
-/// it knows on every `active`, so an app the user opens is never stale by more
-/// than one event. This window only covers the app that is never opened, where
-/// nothing refreshes the state and the only cost of believing it too long is a
-/// deferred pass. The only cost of believing it too briefly is a backgrounded
-/// engine asking a network the device already said was gone.
+/// it knows on every `active`, and re-reads and re-states it every fifteen
+/// minutes while the app stays active, so an app the user has open never ages
+/// past this window. This window only covers the app that is not in the
+/// foreground, where nothing refreshes the state and the only cost of
+/// believing it too long is a deferred pass. The only cost of believing it too
+/// briefly is a backgrounded engine asking a network the device already said
+/// was gone.
 ///
 /// So it is generous, and longer than the elevation backfill's resting rung of
 /// 1800 s (`net::elevation_backfill::RESUME_WAITS`), which is the slowest thing
@@ -43,6 +45,11 @@ static STATE: Mutex<Option<(bool, Instant)>> = Mutex::new(None);
 /// before the sleep began is not mistaken for one during it.
 static ONLINE_EDGES: Mutex<u64> = Mutex::new(0);
 static ONLINE_EDGE: Condvar = Condvar::new();
+
+/// How many times work has been nudged, counted beside the edges so a sleeper
+/// that wants either can wait on the one condvar. A nudge wakes edge-only
+/// sleepers too, and they go back to sleep because their own count is unchanged.
+static NUDGES: Mutex<u64> = Mutex::new(0);
 
 fn state() -> std::sync::MutexGuard<'static, Option<(bool, Instant)>> {
     STATE.lock().unwrap_or_else(|e| e.into_inner())
@@ -79,6 +86,40 @@ pub fn sleep_or_online_edge(wait: Duration) -> bool {
     let at_start = *seen;
     loop {
         if *seen != at_start {
+            return true;
+        }
+        let now = Instant::now();
+        if now >= deadline {
+            return false;
+        }
+        seen = ONLINE_EDGE
+            .wait_timeout(seen, deadline - now)
+            .unwrap_or_else(|e| e.into_inner())
+            .0;
+    }
+}
+
+/// Wake every [`sleep_or_online_edge_or_nudge`] sleeper, for a change that can
+/// make queued work due earlier than the sleeper believes.
+pub fn nudge() {
+    *NUDGES.lock().unwrap_or_else(|e| e.into_inner()) += 1;
+    // Taking the edges lock before notifying orders this against a sleeper that
+    // has read the counts and not yet started waiting.
+    drop(edges());
+    ONLINE_EDGE.notify_all();
+}
+
+/// [`sleep_or_online_edge`] that a [`nudge`] also cuts short.
+///
+/// True when an online edge or a nudge arrived during the sleep.
+pub fn sleep_or_online_edge_or_nudge(wait: Duration) -> bool {
+    let deadline = Instant::now() + wait;
+    let nudges_now = || *NUDGES.lock().unwrap_or_else(|e| e.into_inner());
+    let mut seen = edges();
+    let edges_at_start = *seen;
+    let nudges_at_start = nudges_now();
+    loop {
+        if *seen != edges_at_start || nudges_now() != nudges_at_start {
             return true;
         }
         let now = Instant::now();
@@ -208,16 +249,25 @@ mod tests {
         reset();
         set_online(false);
 
-        let waker = std::thread::spawn(|| {
-            std::thread::sleep(Duration::from_millis(50));
-            set_online(true);
+        // The sleep is an hour, so a sleeper the edge did not wake outlasts
+        // the guard. The edge repeats until the sleeper answers, because one
+        // that lands before it starts waiting is rightly not its edge.
+        let (tx, rx) = std::sync::mpsc::channel();
+        let sleeper = std::thread::spawn(move || {
+            let _ = tx.send(sleep_or_online_edge(Duration::from_secs(3600)));
         });
-        let started = Instant::now();
-        let woken = sleep_or_online_edge(Duration::from_secs(30));
-        waker.join().unwrap();
+        let guard = Instant::now() + Duration::from_secs(60);
+        let woken = loop {
+            set_online(false);
+            set_online(true);
+            if let Ok(woken) = rx.recv_timeout(Duration::from_millis(10)) {
+                break woken;
+            }
+            assert!(Instant::now() < guard, "no edge woke the sleeper");
+        };
+        sleeper.join().unwrap();
 
         assert!(woken, "the edge has to cut the sleep short");
-        assert!(started.elapsed() < Duration::from_secs(5));
         reset();
     }
 
@@ -285,5 +335,32 @@ mod tests {
 
         assert!(!woken);
         reset();
+    }
+
+    /// A nudge cuts a nudgeable sleep short, and leaves an edge-only sleeper
+    /// to its own clock.
+    #[test]
+    fn a_nudge_wakes_a_nudgeable_sleeper_only() {
+        let _serial = serial_global_state();
+        reset();
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let sleeper = std::thread::spawn(move || {
+            let _ = tx.send(sleep_or_online_edge_or_nudge(Duration::from_secs(3600)));
+        });
+        let guard = Instant::now() + Duration::from_secs(60);
+        let woken = loop {
+            nudge();
+            match rx.recv_timeout(Duration::from_millis(20)) {
+                Ok(woken) => break woken,
+                Err(_) if Instant::now() < guard => {}
+                Err(_) => panic!("a nudge did not wake the sleeper"),
+            }
+        };
+        sleeper.join().unwrap();
+        assert!(woken);
+
+        let edge_only = sleep_or_online_edge(Duration::from_millis(100));
+        assert!(!edge_only, "a nudge is not an online edge");
     }
 }
