@@ -13,36 +13,56 @@ import { colors, darkColors, brand, spacing, shadows, layout, typography } from 
 import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useTimer } from '@/features/recording/hooks/useTimer';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
+import { sessionReturnRoute } from '@/features/recording/lib/sessionReturnRoute';
+import type { RecordingStatus } from '@/types';
 
 /**
- * Global pill shown while a recording session is active and the user has
- * navigated elsewhere in the app. Tapping returns to the live screen.
+ * Global pill shown while a session is in the store and the user has navigated
+ * elsewhere in the app. Tapping returns to the live screen, or to review for a
+ * stopped ride that is not saved yet.
  * Rendered once in the root layout.
  */
 export function RecordingReturnPill() {
   const status = useRecordingStore((s) => s.status);
+  const owner = useRecordingStore((s) => s.athleteId);
+  const mode = useRecordingStore((s) => s.mode);
+  const savedToLibrary = useRecordingStore((s) => s.savedToLibrary);
+  const authenticated = useAuthStore((s) => s.isAuthenticated);
+  const athleteId = useAuthStore((s) => s.athleteId);
   const pathname = usePathname();
 
-  const active = status === 'recording' || status === 'paused';
   const onRecordingScreens =
     pathname.startsWith('/recording') || pathname === '/record' || pathname.startsWith('/record/');
-  if (!active || onRecordingScreens) return null;
+  if (
+    !authenticated ||
+    !owner ||
+    owner !== athleteId ||
+    mode === 'manual' ||
+    savedToLibrary ||
+    status === 'idle' ||
+    onRecordingScreens
+  )
+    return null;
 
-  return <RecordingReturnPillInner paused={status === 'paused'} />;
+  return <RecordingReturnPillInner status={status} />;
 }
 
-function RecordingReturnPillInner({ paused }: { paused: boolean }) {
+function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const activityType = useRecordingStore((s) => s.activityType);
   const { formattedElapsed } = useTimer();
+  const paused = status === 'paused';
+  const stopped = status === 'stopped';
+  const route = sessionReturnRoute({ status, activityType });
 
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const accent = paused ? colors.warning : brand.teal;
+  const accent = paused ? (isDark ? darkColors.warningAmber : colors.warningAmber) : brand.teal;
   const bottomOffset = TAB_BAR_HEIGHT + GRADIENT_HEIGHT + insets.bottom + spacing.sm;
 
   return (
@@ -55,7 +75,8 @@ function RecordingReturnPillInner({ paused }: { paused: boolean }) {
       <Pressable
         testID="recording-return-pill"
         style={pressable([styles.pill, { backgroundColor: bgColor }, shadows.elevated])}
-        onPress={() => activityType && navigateTo(`/recording/${activityType}`)}
+        android_ripple={pressRipple}
+        onPress={() => route && navigateTo(route)}
         accessibilityRole="button"
         accessibilityLabel={t('recording.returnToRecording', 'Return to recording')}
       >
@@ -65,9 +86,11 @@ function RecordingReturnPillInner({ paused }: { paused: boolean }) {
         )}
         <Text style={[styles.elapsed, { color: textPrimary }]}>{formattedElapsed}</Text>
         <Text style={[styles.label, { color: accent }]}>
-          {paused
-            ? t('recording.status.paused', 'Paused')
-            : t('recording.status.recording', 'Recording')}
+          {stopped
+            ? t('recording.reviewActivity', 'Review Activity')
+            : paused
+              ? t('recording.status.paused', 'Paused')
+              : t('recording.status.recording', 'Recording')}
         </Text>
         <MaterialCommunityIcons name="chevron-right" size={18} color={accent} />
       </Pressable>

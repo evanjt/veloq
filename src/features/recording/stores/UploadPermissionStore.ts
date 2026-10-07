@@ -59,6 +59,19 @@ function scopeIncludesWrite(scope: string): boolean {
     .includes('ACTIVITY:WRITE');
 }
 
+function persistPermission(
+  state: Pick<UploadPermissionState, 'hasWritePermission' | 'bannerDismissed' | 'grantedScopes'>
+): void {
+  setSetting(
+    STORAGE_KEY,
+    JSON.stringify({
+      hasWritePermission: state.hasWritePermission,
+      bannerDismissed: state.bannerDismissed,
+      grantedScopes: state.grantedScopes,
+    })
+  ).catch(() => {});
+}
+
 export const useUploadPermissionStore = create<UploadPermissionState>((set, get) => ({
   needsUpgrade: false,
   hasWritePermission: null,
@@ -93,35 +106,25 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
   setFromOAuthScope: (scope: string) => {
     const hasWrite = scopeIncludesWrite(scope);
     log.log(`OAuth scope check: ${hasWrite ? 'has' : 'missing'} ACTIVITY:WRITE (scope: ${scope})`);
-    const { bannerDismissed } = get();
     set({
       hasWritePermission: hasWrite,
       needsUpgrade: !hasWrite,
       grantedScopes: scope,
       isLoaded: true,
     });
-    setSetting(
-      STORAGE_KEY,
-      JSON.stringify({ hasWritePermission: hasWrite, bannerDismissed, grantedScopes: scope })
-    ).catch(() => {});
+    persistPermission(get());
   },
 
   setNeedsUpgrade: (v) => set({ needsUpgrade: v }),
 
   setHasWritePermission: (v) => {
-    const { bannerDismissed } = get();
     set({ hasWritePermission: v, needsUpgrade: !v, isLoaded: true });
-    setSetting(STORAGE_KEY, JSON.stringify({ hasWritePermission: v, bannerDismissed })).catch(
-      () => {}
-    );
+    persistPermission(get());
   },
 
   dismissBanner: () => {
-    const { hasWritePermission } = get();
     set({ bannerDismissed: true });
-    setSetting(STORAGE_KEY, JSON.stringify({ hasWritePermission, bannerDismissed: true })).catch(
-      () => {}
-    );
+    persistPermission(get());
   },
 
   continueWithoutScope: () => set({ recordingWithoutScope: true }),
@@ -136,6 +139,7 @@ export const useUploadPermissionStore = create<UploadPermissionState>((set, get)
       hasWritePermission: null,
       isLoaded: false,
       bannerDismissed: false,
+      grantedScopes: null,
       recordingWithoutScope: false,
     });
     removeSetting(STORAGE_KEY).catch(() => {});

@@ -45,8 +45,8 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: spacing.md,
-    width: 56,
-    height: 56,
+    width: layout.recordFabSize,
+    height: layout.recordFabSize,
     borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',

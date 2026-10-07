@@ -5,9 +5,9 @@ import type { ActivityType } from '@/types';
 
 export type TimeOfDayKey = 'morning' | 'afternoon' | 'evening' | 'night';
 
-/** Returns the time-of-day bucket for the current hour. */
-export function getTimeOfDayKey(): TimeOfDayKey {
-  const hour = new Date().getHours();
+/** The local time-of-day bucket of the hour the activity started, or of now when it has none. */
+export function getTimeOfDayKey(startTime: number | null): TimeOfDayKey {
+  const hour = new Date(startTime ?? Date.now()).getHours();
   if (hour < 12) return 'morning';
   if (hour < 17) return 'afternoon';
   if (hour < 21) return 'evening';
@@ -19,6 +19,8 @@ export interface UseActivityNameGenerationArgs {
   initialName?: string | undefined;
   /** Activity type used to generate the default name. */
   type: ActivityType;
+  /** When the ride started, epoch ms; null for a manual entry, which is named from now. */
+  startTime: number | null;
 }
 
 export interface UseActivityNameGeneration {
@@ -28,7 +30,7 @@ export interface UseActivityNameGeneration {
 
 /**
  * Manages the activity name state, seeding a default name on first render
- * based on the current time-of-day and activity type (e.g. "Morning Ride").
+ * based on the start time-of-day and activity type (e.g. "Morning Ride").
  *
  * If `initialName` is provided (typically from route params), it takes
  * precedence over the generated default. The user can freely edit the name
@@ -41,14 +43,12 @@ export interface UseActivityNameGeneration {
 export function useActivityNameGeneration({
   initialName,
   type,
+  startTime,
 }: UseActivityNameGenerationArgs): UseActivityNameGeneration {
   const { t } = useTranslation();
-  // Geocoding disabled for Nominatim ToS compliance.
-  // See: https://operations.osmfoundation.org/policies/nominatim/
-  // Will re-enable once a caching proxy is in place.
   const [name, setName] = useState(() => {
     if (initialName) return initialName;
-    const tod = getTimeOfDayKey();
+    const tod = getTimeOfDayKey(startTime);
     return `${t(`recording.timeOfDay.${tod}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`;
   });
 

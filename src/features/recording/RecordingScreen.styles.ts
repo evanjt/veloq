@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs / 2,
+    gap: spacing.xxs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
@@ -131,13 +131,13 @@ export const styles = StyleSheet.create({
   },
   primaryButton: {
     borderRadius: layout.borderRadiusSm,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     minHeight: layout.minTapTarget,
   },
   primaryButtonText: {
     ...typography.bodyBold,
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
   },
 });

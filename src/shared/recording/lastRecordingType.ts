@@ -18,11 +18,21 @@ export function setRecentRecordingTypes(types: readonly (string | null | undefin
     .filter((t) => t.length > 0);
 }
 
-export function getRecentRecordingTypes(): string[] {
-  return [...recentRecordingTypes];
+function clean(types: readonly (string | null | undefined)[]): string[] {
+  return types.map((t) => (typeof t === 'string' ? t.trim() : '')).filter((t) => t.length > 0);
 }
 
-/** The one a single-sport surface starts. */
-export function getLastRecordingType(): string | null {
-  return recentRecordingTypes[0] ?? null;
+/** Every distinct sport recorded in the app, most recent first and uncapped. */
+let recordedRecordingTypes: string[] = [];
+
+export function setRecordedRecordingTypes(types: readonly (string | null | undefined)[]): void {
+  recordedRecordingTypes = clean(types);
+}
+
+export function getRecordedRecordingTypes(): string[] {
+  return [...recordedRecordingTypes];
+}
+
+export function getRecentRecordingTypes(): string[] {
+  return [...recentRecordingTypes];
 }

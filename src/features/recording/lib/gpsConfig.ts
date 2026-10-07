@@ -37,3 +37,16 @@ export function getGpsWatchOptions(): GpsWatchOptions {
 export function getAccuracyRejectThreshold(): number {
   return useRecordingPreferences.getState().accuracyRejectThreshold;
 }
+
+/**
+ * A fix's altitude, or null when it has none. Core Location reports an invalid
+ * altitude as a number beside a negative vertical accuracy, so the number alone
+ * would record sea level for a reading that does not exist.
+ */
+export function fixAltitude(coords: {
+  altitude: number | null;
+  altitudeAccuracy?: number | null;
+}): number | null {
+  if (coords.altitudeAccuracy != null && coords.altitudeAccuracy < 0) return null;
+  return coords.altitude;
+}

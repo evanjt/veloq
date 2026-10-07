@@ -5,13 +5,14 @@
  */
 
 import React from 'react';
-import { View, Modal, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { Pressable, View, Modal, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import type { DataFieldType } from '@/types';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export const ALL_DATA_FIELDS: DataFieldType[] = [
   'speed',
@@ -61,14 +62,16 @@ function FieldPickerModalInner({
             <Text style={[styles.title, { color: textPrimary }]}>
               {t('recording.settingsDataFields', 'Data Fields')}
             </Text>
-            <TouchableOpacity
+            <Pressable
               onPress={onClose}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}
+              style={pressable()}
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
           <FlatList
             data={ALL_DATA_FIELDS}
@@ -137,7 +140,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     minHeight: layout.minTapTarget,
   },

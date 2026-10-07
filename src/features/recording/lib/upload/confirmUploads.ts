@@ -18,7 +18,12 @@ import { engine, CallKind, type CallOutcome } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { debug } from '@/shared/debug/debug';
-import { deleteRecording, listRecordings } from '@/features/recording/lib/storage/recordingLibrary';
+import {
+  deleteRecording,
+  listRecordings,
+  recordingInstall,
+  transitionRecording,
+} from '@/features/recording/lib/storage/recordingLibrary';
 import type { RecordingLibraryEntry } from '@/types';
 
 const log = debug.create('Recording');
@@ -50,10 +55,18 @@ function canConfirm(): boolean {
   return isAuthenticated && !isDemoMode;
 }
 
-/** The entries this pass is about: uploaded, with an id, still on disk. */
+/**
+ * The entries this pass is about: uploaded, with an id, still on disk, and
+ * with the engine reconcile done. An entry still owing its effort is read back
+ * too, so a vanished upload is parked, but it is never deleted: the effort
+ * lives only on the row until `sendOwedRpe` has sent it.
+ */
 function owed(entries: RecordingLibraryEntry[]): RecordingLibraryEntry[] {
   return entries.filter(
-    (entry) => entry.uploadStatus === 'uploaded' && Boolean(entry.intervalsActivityId)
+    (entry) =>
+      entry.uploadStatus === 'uploaded' &&
+      Boolean(entry.intervalsActivityId) &&
+      (!entry.engineActivityId || entry.engineReconciled === true)
   );
 }
 
@@ -67,6 +80,7 @@ function owed(entries: RecordingLibraryEntry[]): RecordingLibraryEntry[] {
 export async function confirmAndDeleteUploaded(): Promise<number> {
   if (!canConfirm()) return 0;
 
+  const install = recordingInstall();
   let deleted = 0;
   for (const entry of owed(await listRecordings())) {
     // The filter above proves it, TypeScript cannot see through it.
@@ -80,14 +94,18 @@ export async function confirmAndDeleteUploaded(): Promise<number> {
     }
 
     if (verdict === 'present') {
+      if (entry.rpe != null && entry.rpeSent !== true) continue;
       await deleteRecording(entry.id);
       deleted += 1;
       log.log(`Confirmed ${intervalsId} on intervals.icu, deleted recording ${entry.id}`);
       continue;
     }
     if (verdict === 'gone') {
-      // The ride is on the device and nowhere else. Say so loudly and keep it:
-      // the athlete still has the FIT to upload again.
+      await transitionRecording(entry.id, {
+        kind: 'rejected',
+        install,
+        error: 'intervals.icu no longer has this activity',
+      });
       log.warn(`Upload ${intervalsId} is not on intervals.icu, keeping recording ${entry.id}`);
     }
   }

@@ -12,7 +12,7 @@ import { View } from 'react-native';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { getRecording } from '@/features/recording/lib/storage/recordingLibrary';
+import { getVisibleRecording } from '@/features/recording/lib/storage/recordingLibrary';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import type { RecordingLibraryEntry } from '@/types';
 
@@ -24,7 +24,7 @@ export function RecordingTitle() {
   useEffect(() => {
     let live = true;
     if (id) {
-      getRecording(id).then((found) => {
+      getVisibleRecording(id).then((found) => {
         if (live) setEntry(found);
       });
     }

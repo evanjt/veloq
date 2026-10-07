@@ -9,10 +9,23 @@ import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUti
 import type { ActivityType } from '@/types';
 import type { RecordingMode, RecordingStatus } from '../types';
 import { GpsSignalIndicator } from './GpsSignalIndicator';
+import { RecordingCloseButton } from './RecordingCloseButton';
 import { styles } from '../RecordingScreen.styles';
+import { useTimer } from '../hooks/useTimer';
+
+function ElapsedTime({ textPrimary, autoPaused }: { textPrimary: string; autoPaused: boolean }) {
+  const { formattedElapsed } = useTimer();
+  return (
+    <Text
+      testID="recording-timer"
+      style={[styles.timerText, { color: textPrimary }, autoPaused && styles.timerPaused]}
+    >
+      {formattedElapsed}
+    </Text>
+  );
+}
 
 function TimerHeaderInner({
-  formattedElapsed,
   currentActivityType,
   status,
   statusPulse,
@@ -26,7 +39,6 @@ function TimerHeaderInner({
   onOpenTypePicker,
   onLock,
 }: {
-  formattedElapsed: string;
   currentActivityType: ActivityType;
   status: RecordingStatus;
   statusPulse: Animated.Value;
@@ -46,12 +58,8 @@ function TimerHeaderInner({
   return (
     <View style={styles.timerHeader}>
       <View>
-        <Text
-          testID="recording-timer"
-          style={[styles.timerText, { color: textPrimary }, autoPaused && styles.timerPaused]}
-        >
-          {formattedElapsed}
-        </Text>
+        {status === 'idle' && <RecordingCloseButton />}
+        <ElapsedTime textPrimary={textPrimary} autoPaused={autoPaused} />
         {autoPaused && (
           <Text
             testID="recording-autopause"
@@ -96,8 +104,8 @@ function TimerHeaderInner({
               color={textSecondary}
             />
           </TouchableOpacity>
-          {/* Nothing is recording after a cancelled arm, and a badge reading
-              PAUSED there is the confusion the countdown exists to avoid. The
+          {/* Nothing is recording on a screen waiting for Start, and a badge
+              reading PAUSED there would mislead. The
               GPS indicator goes with it: no watch runs while idle. */}
           {status !== 'idle' && (
             <View testID="recording-status" style={styles.statusBadge}>
@@ -124,8 +132,4 @@ function TimerHeaderInner({
   );
 }
 
-/**
- * The recording screen re-renders every second while the timer runs, so the
- * parts of it that do not change with the clock are held here.
- */
 export const TimerHeader = React.memo(TimerHeaderInner);

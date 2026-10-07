@@ -1,4 +1,5 @@
 import type { ActivityType } from '@/features/activity';
+import type { WorkoutFollow } from '@/features/recording/lib/planFollow';
 
 /** Recording mode determines the UI and data collection approach */
 export type RecordingMode = 'gps' | 'indoor' | 'manual';
@@ -70,13 +71,13 @@ export type RecordingUploadStatus =
 /** What a recording holds: a FIT this device wrote, or a body the athlete typed. */
 export type RecordingKind = 'fit' | 'manual';
 
-/** A recording saved permanently on device (FIT file + metadata + streams sidecar) */
+/** A recording saved permanently on device: its FIT file and its metadata. */
 export interface RecordingLibraryEntry {
   id: string;
   /**
    * `fit` for a recorded ride, `manual` for an indoor entry typed into the app.
    * A manual entry has no file: `fitPath` is empty and the request body sits
-   * where the streams sidecar would.
+   * at `streamsPath`.
    */
   kind: RecordingKind;
   fitPath: string;
@@ -105,10 +106,17 @@ export interface RecordingLibraryEntry {
    * stamp is never treated as a match: the entry is held rather than uploaded.
    */
   athleteId?: string;
+  /** What the athlete wrote on the review screen. */
+  notes?: string;
+  /** The effort from 1 to 10 the athlete set, absent when it was never moved. */
+  rpe?: number;
+  /** Whether intervals.icu has the effort. Absent on a row adopted from the old index. */
+  rpeSent?: boolean;
 }
 
 /** Crash recovery backup */
 export interface RecordingBackup {
+  athleteId?: string;
   activityType: ActivityType;
   mode: RecordingMode;
   /** Session state at save time. A 'stopped' backup restores to the review screen. */
@@ -119,9 +127,13 @@ export interface RecordingBackup {
   pausedDuration: number;
   /** Pauses as elapsed seconds since startTime. Older backups carry none. */
   pauseIntervals?: { start: number; end: number }[];
+  /** True when a paused ride was paused by auto-pause, so a restore can resume it on movement. */
+  autoPaused?: boolean;
   streams: RecordingStreams;
   laps: RecordingLap[];
   pairedEventId: number | null;
+  /** The plan the ride follows and the progress through it. Older backups carry none. */
+  workout?: WorkoutFollow;
   savedAt: number; // Date.now()
 }
 

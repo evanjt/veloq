@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { ensureLocationWatch } from '@/features/recording/lib/recordingSession';
+import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
+import { isPositioned } from '@/shared/geo/routePreview';
 import { debug } from '@/shared/debug/debug';
 import { GPS_WARNING_MS, GPS_ALERT_MS } from '../lib/constants';
 import type { RecordingMode, RecordingStatus } from '../types';
@@ -14,7 +16,9 @@ const log = debug.create('RecordingScreen');
 /**
  * The screen's half of the GPS session: the permission prompt and the
  * signal-loss warnings. The watch itself belongs to the recording session, so
- * nothing here starts or stops it and leaving the screen does not end the ride.
+ * leaving the screen does not end the ride. The one thing here that does is the
+ * no-fix alert's stop, which is the stop every surface uses, so it reaches
+ * review with the ride and its backup intact.
  */
 export function useGpsSessionEffect({
   mode,
@@ -22,14 +26,12 @@ export function useGpsSessionEffect({
   hasPermission,
   requestPermission,
   setGpsWarning,
-  onDiscard,
 }: {
   mode: RecordingMode;
   status: RecordingStatus;
   hasPermission: boolean;
   requestPermission: () => Promise<boolean>;
   setGpsWarning: (warning: string | null) => void;
-  onDiscard: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -47,7 +49,7 @@ export function useGpsSessionEffect({
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, [gpsSessionActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gpsSessionActive]); // eslint-disable-line react-hooks/exhaustive-deps -- Only session activation starts the watchdog.
 
   useEffect(() => {
     if (!gpsSessionActive) return undefined;
@@ -77,7 +79,7 @@ export function useGpsSessionEffect({
         if (!cancelled) {
           gpsWarningTimer = setTimeout(() => {
             const loc = useRecordingStore.getState().streams.latlng;
-            if (loc.length === 0) {
+            if (!loc.some(([lat, lng]) => isPositioned(lat, lng))) {
               setGpsWarning(t('recording.gpsWaiting'));
             }
           }, GPS_WARNING_MS);
@@ -87,7 +89,7 @@ export function useGpsSessionEffect({
         if (!cancelled) {
           gpsAlertTimer = setTimeout(() => {
             const loc = useRecordingStore.getState().streams.latlng;
-            if (loc.length === 0 && !gpsAlertShown) {
+            if (!loc.some(([lat, lng]) => isPositioned(lat, lng)) && !gpsAlertShown) {
               gpsAlertShown = true;
               Alert.alert(
                 t('recording.gpsAlertTitle', 'GPS Signal Not Found'),
@@ -108,7 +110,7 @@ export function useGpsSessionEffect({
                   {
                     text: t('recording.gpsAlertStop', 'Stop Recording'),
                     style: 'destructive',
-                    onPress: () => onDiscard(),
+                    onPress: () => void endRecordingSession(),
                   },
                 ]
               );
@@ -134,5 +136,5 @@ export function useGpsSessionEffect({
         gpsAlertTimer = null;
       }
     };
-  }, [gpsSessionActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gpsSessionActive]); // eslint-disable-line react-hooks/exhaustive-deps -- One warning sequence belongs to each active session.
 }

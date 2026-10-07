@@ -4,8 +4,9 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { GrantAccessButton } from './GrantAccessButton';
 
 export interface SaveErrorBannerProps {
@@ -45,10 +46,12 @@ export function SaveErrorBanner({
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
+  useAnnounceOnAppear(errorMessage);
+
   if (!errorMessage) return null;
 
   return (
-    <View style={styles.errorBanner}>
+    <View style={styles.errorBanner} accessibilityLiveRegion="assertive">
       <Text style={[styles.errorBannerText, isDark && styles.errorBannerTextDark]}>
         {errorMessage}
       </Text>
@@ -57,7 +60,7 @@ export function SaveErrorBanner({
       )}
       {!showPermissionFix && onRetry && (
         <TouchableOpacity
-          style={[styles.oauthUpgradeBtn, { backgroundColor: brand.teal }]}
+          style={[styles.oauthUpgradeBtn, { backgroundColor: colors.primary }]}
           onPress={onRetry}
           disabled={isRetrying}
           activeOpacity={0.8}
@@ -65,10 +68,10 @@ export function SaveErrorBanner({
           accessibilityLabel={t('common.retry', 'Retry')}
         >
           {isRetrying ? (
-            <ActivityIndicator size="small" color={colors.textOnDark} />
+            <ActivityIndicator size="small" color={colors.textOnPrimary} />
           ) : (
             <>
-              <MaterialCommunityIcons name="refresh" size={16} color={colors.textOnDark} />
+              <MaterialCommunityIcons name="refresh" size={16} color={colors.textOnPrimary} />
               <Text style={styles.oauthUpgradeBtnText}>{t('common.retry', 'Retry')}</Text>
             </>
           )}
@@ -106,7 +109,7 @@ const styles = StyleSheet.create({
   },
   oauthUpgradeBtnText: {
     ...typography.bodyBold,
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
     fontSize: typography.bodySmall.fontSize,
   },
 });

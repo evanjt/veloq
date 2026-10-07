@@ -1,120 +1,101 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import type { ActivityType } from '@/features/activity';
-import { ARM_COUNTDOWN_SECONDS, planRecordingStart } from '../lib/armCountdown';
+import { planRecordingStart } from '../lib/armCountdown';
+import { getRecordingMode } from '../lib/recordingModes';
+import { readPlannedWorkout } from '../lib/plannedWorkout';
 import type { RecordingMode, RecordingStatus } from '../types';
 
 export interface InitRecordingState {
-  /** Seconds left before the ride starts, or null when nothing is armed. */
-  countdown: number | null;
-  /** Stop the armed start. Nothing is recorded and no FIT is written. */
-  cancelCountdown: () => void;
   /**
-   * Begin the ride the athlete cancelled out of, under the sport they hold now.
-   * The cancel is an abort and a pause, so the screen stays and this is the
-   * Start button behind it.
+   * Begin the ride under the sport held now. This is the Start button on a
+   * screen reached idle, and it begins nothing twice.
    */
   startNow: () => void;
 }
 
 /**
- * Start the recording on arrival, or arm it.
+ * Recording screens mounted, oldest first. The one on top owns a sport picked
+ * before a start, and when it goes the one beneath owns it again.
+ */
+const choosingScreens: object[] = [];
+
+/**
+ * Start the recording on arrival, or leave it idle behind its Start button.
  *
  * `canRecord` is not a courtesy: every one-tap surface deep-links straight to
  * this screen, so this hook is the only thing between a signed-out tap and a
  * full ride recorded against no account.
  *
- * A one-tap entry arms a countdown rather than starting, because a pocket tap
- * on a widget, an iOS Control or a launcher shortcut used to record a ride and
- * write its FIT backup. The picker path starts on arrival, since getting there
- * was already the athlete's second tap.
+ * A one-tap system entry stays idle, because a pocket tap on a widget, an iOS
+ * Control or a launcher shortcut used to record a ride and write its FIT
+ * backup. The entry screen's Start and the picker begin on arrival.
  */
 export function useInitRecordingEffect(
   status: RecordingStatus,
   activityType: ActivityType,
-  mode: RecordingMode,
   pairedEventId?: string,
   canRecord: boolean = true,
-  from?: string
+  from?: string,
+  mode: RecordingMode = getRecordingMode(activityType)
 ): InitRecordingState {
-  const plan = planRecordingStart({ canRecord, status, from });
-  const [countdown, setCountdown] = useState<number | null>(
-    plan === 'arm' ? ARM_COUNTDOWN_SECONDS : null
-  );
+  const plan = planRecordingStart({ canRecord, status, from, mode });
 
-  // The ride is decided once. A cancel that arrives after the countdown fired
-  // is the existing discard, not this, and must not undo a started recording;
-  // a tick that fires after a cancel must not start one.
-  const outcomeRef = useRef<'pending' | 'started' | 'cancelled'>('pending');
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const leftRef = useRef(ARM_COUNTDOWN_SECONDS);
-
-  const stopTicking = useCallback(() => {
-    if (tickRef.current === null) return;
-    clearInterval(tickRef.current);
-    tickRef.current = null;
-  }, []);
+  // The ride is decided once, so a second Start cannot begin it again. A
+  // screen that mounts on a ride already under way has decided it too: the
+  // idle that follows a discard or save beneath the review is not a start.
+  const startedRef = useRef(status !== 'idle');
 
   const begin = useCallback(() => {
-    outcomeRef.current = 'started';
-    stopTicking();
-    setCountdown(null);
+    startedRef.current = true;
     // The sport is read here rather than closed over, because the athlete may
-    // have corrected a wrong tap inside the window. The route param is what
+    // have corrected a wrong tap before the ride began. The route param is what
     // they tapped; the store holds what they chose after it.
+    // The mode follows the same choice, or a Ride corrected to VirtualRide
+    // would run a GPS watch on a trainer and record nothing.
     const chosen = useRecordingStore.getState().activityType ?? activityType;
-    useRecordingStore
-      .getState()
-      .startRecording(chosen, mode, pairedEventId ? Number(pairedEventId) : undefined);
-    useRecordingPreferences.getState().addRecentType(chosen);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopTicking]);
-
-  const start = useCallback(() => {
-    if (outcomeRef.current !== 'pending') return;
-    begin();
-  }, [begin]);
-
-  // The Start button on the screen a cancel leaves behind. A cancelled window
-  // is a decision not to ride yet, not a decision never to, so this is the one
-  // path that begins after one. A ride already under way is left alone.
-  const startNow = useCallback(() => {
-    if (outcomeRef.current === 'started') return;
-    begin();
-  }, [begin]);
-
-  const cancelCountdown = useCallback(() => {
-    if (outcomeRef.current !== 'pending') return;
-    outcomeRef.current = 'cancelled';
-    stopTicking();
-    setCountdown(null);
-  }, [stopTicking]);
-
-  useEffect(() => {
-    if (plan === 'nothing') return undefined;
-    if (plan === 'start') {
-      start();
-      return undefined;
+    const chosenMode = getRecordingMode(chosen);
+    const eventId = pairedEventId ? Number(pairedEventId) : undefined;
+    useRecordingStore.getState().startRecording(chosen, chosenMode, eventId);
+    // The plan is read here, once, and frozen with the recording. A manual
+    // session follows its plan on its own screen.
+    if (eventId != null && chosenMode !== 'manual') {
+      useRecordingStore.getState().followWorkout(readPlannedWorkout(eventId));
     }
-
-    // The decision is made here rather than inside a state updater, so a tick
-    // and a cancel in the same frame resolve in the order they happened.
-    tickRef.current = setInterval(() => {
-      leftRef.current -= 1;
-      if (leftRef.current <= 0) {
-        start();
-        return;
-      }
-      setCountdown(leftRef.current);
-    }, 1000);
-
-    // Leaving the screen inside the window records nothing: the tap that armed
-    // it is not a decision to ride.
-    return stopTicking;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useRecordingPreferences.getState().addRecentType(chosen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The chosen sport is read from the store when recording starts.
   }, []);
 
-  return { countdown, cancelCountdown, startNow };
+  const startNow = useCallback(() => {
+    if (startedRef.current) return;
+    begin();
+  }, [begin]);
+
+  // A sport picked before a start belongs to the screen it was picked on. The
+  // store outlives that screen, and a widget can open a second one over it, so
+  // a screen opening clears a choice it did not make, and a screen leaving
+  // clears its own only while it is the one on top. Declared before the start
+  // below, which reads the choice on mount.
+  useEffect(() => {
+    const screen = {};
+    choosingScreens.push(screen);
+    const { status, activityType: held } = useRecordingStore.getState();
+    if (status === 'idle' && held !== null) useRecordingStore.setState({ activityType: null });
+    return () => {
+      const onTop = choosingScreens[choosingScreens.length - 1] === screen;
+      choosingScreens.splice(choosingScreens.indexOf(screen), 1);
+      if (!onTop) return;
+      const now = useRecordingStore.getState();
+      if (now.status !== 'idle' || now.activityType === null) return;
+      useRecordingStore.setState({ activityType: null });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (plan === 'start') startNow();
+  }, [plan, startNow]);
+
+  return { startNow };
 }

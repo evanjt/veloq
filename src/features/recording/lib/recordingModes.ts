@@ -1,4 +1,4 @@
-import type { ActivityType, RecordingMode } from '@/types';
+import type { ActivityType, RecordingMode, RecordingStatus } from '@/types';
 
 const GPS_TYPES: ActivityType[] = [
   'Ride',
@@ -69,6 +69,20 @@ export const RECORDING_MODE_MAP: Record<ActivityType, RecordingMode> = Object.fr
 
 export function getRecordingMode(type: ActivityType): RecordingMode {
   return RECORDING_MODE_MAP[type] ?? 'manual';
+}
+
+/**
+ * The mode the recording screen lays out for. A started ride keeps the mode it
+ * started in, since the session's GPS watch or indoor sampler runs on it. Before
+ * the start the sport the athlete holds decides, and the route param is only
+ * what they tapped.
+ */
+export function screenRecordingMode(
+  store: { status: RecordingStatus; mode: RecordingMode | null; activityType: ActivityType | null },
+  routeType: ActivityType
+): RecordingMode {
+  if (store.status !== 'idle' && store.mode) return store.mode;
+  return getRecordingMode(store.activityType ?? routeType);
 }
 
 export const ACTIVITY_CATEGORIES = {

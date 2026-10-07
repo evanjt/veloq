@@ -4,13 +4,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debug } from '@/shared/debug/debug';
 import { getEngine } from '@/shared/native/engine';
 import { present } from 'veloqrs/src/delegates/optional';
+import type {
+  RecordingTransition,
+  RecordingTransitionAnswer,
+} from 'veloqrs/src/delegates/recordings';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
+import { OWNERLESS_RECORDINGS_SETTLED_KEY } from './recordingBackup';
 import type {
   ActivityType,
   ManualActivityData,
   RecordingKind,
   RecordingLibraryEntry,
-  RecordingStreams,
   RecordingUploadStatus,
 } from '@/types';
 
@@ -41,7 +45,8 @@ type EngineEntry = ReturnType<ReturnType<typeof library>['listRecordings']>[numb
  * The app's entry as the engine row wants it. Two fields differ and both are
  * the app's looseness, not the engine's: an absent average heart rate is an
  * absent field rather than a recorded `null`, and a row adopted from the old
- * AsyncStorage index carries no reconcile flag, which reads as owing one.
+ * AsyncStorage index carries no reconcile or effort flag, which reads as
+ * owing one.
  */
 function toEngineEntry(entry: RecordingLibraryEntry): EngineEntry {
   const { avgHeartrate, ...rest } = entry;
@@ -49,6 +54,7 @@ function toEngineEntry(entry: RecordingLibraryEntry): EngineEntry {
     ...rest,
     ...(avgHeartrate != null && { avgHeartrate }),
     engineReconciled: entry.engineReconciled ?? false,
+    rpeSent: entry.rpeSent ?? false,
   };
 }
 
@@ -120,7 +126,6 @@ export interface SaveRecordingParams {
    * entry survives a relaunch and drains through the same queue.
    */
   manualBody?: ManualActivityData | undefined;
-  streams?: RecordingStreams | undefined;
   activityType: ActivityType;
   name: string;
   startTime: number;
@@ -129,10 +134,21 @@ export interface SaveRecordingParams {
   elevationGain?: number | undefined;
   avgHeartrate?: number | null | undefined;
   pairedEventId?: number | undefined;
+  /** What the athlete wrote on the review screen. */
+  notes?: string | undefined;
+  /** The effort from 1 to 10, absent when the slider was never moved. */
+  rpe?: number | undefined;
   uploadStatus: Extract<RecordingUploadStatus, 'pending' | 'localOnly'>;
+  /**
+   * Whose ride this is, taken when Save was tapped. The write can finish after
+   * that athlete signed out and another signed in, so it is never read from
+   * whoever is signed in at write time.
+   */
+  athleteId: string;
 }
 
-// Keep the FIT, sidecar and index until confirmation reads the activity back.
+// Keep the FIT and the index until confirmation reads the activity back. The
+// track lives in the FIT and the engine's row, so no streams copy is written.
 export async function saveRecording(
   params: SaveRecordingParams
 ): Promise<RecordingLibraryEntry | null> {
@@ -156,12 +172,11 @@ export async function saveRecording(
     if (manual) {
       streamsPath = `${RECORDINGS_DIR}${id}.manual.json`;
       await FileSystem.writeAsStringAsync(streamsPath, JSON.stringify(params.manualBody));
-    } else if (params.streams) {
-      streamsPath = `${RECORDINGS_DIR}${id}.streams.json`;
-      await FileSystem.writeAsStringAsync(streamsPath, JSON.stringify(params.streams));
     }
 
     const kind: RecordingKind = manual ? 'manual' : 'fit';
+    const signedIn = getStoredCredentials().athleteId;
+    const othersSignedIn = !!signedIn && signedIn !== params.athleteId;
     const entry: RecordingLibraryEntry = present({
       id,
       kind,
@@ -175,17 +190,22 @@ export async function saveRecording(
       elevationGain: params.elevationGain,
       avgHeartrate: params.avgHeartrate,
       pairedEventId: params.pairedEventId,
+      notes: params.notes?.trim() ? params.notes : undefined,
+      rpe: params.rpe,
+      rpeSent: false,
       createdAt: Date.now(),
-      uploadStatus: params.uploadStatus,
+      // The sign-in hold has already run when another athlete is signed in by
+      // the time the write lands, so the row is held here instead.
+      uploadStatus: othersSignedIn ? 'localOnly' : params.uploadStatus,
       retryCount: 0,
-      // Whose ride this is, read once at save time. A forced sign-out holds
-      // pending entries instead of demoting them, so this is what keeps one
-      // athlete's recording out of the next athlete's account.
-      athleteId: getStoredCredentials().athleteId ?? undefined,
+      // A forced sign-out holds pending entries instead of demoting them, so
+      // this is what keeps one athlete's recording out of the next athlete's
+      // account.
+      athleteId: params.athleteId,
     });
 
     library().addRecording(toEngineEntry(entry));
-    log.log(`Saved recording ${id} (${params.name}, ${params.uploadStatus})`);
+    log.log(`Saved recording ${id} (${params.name}, ${entry.uploadStatus})`);
     return entry;
   } catch (error) {
     log.error('Failed to save recording:', error);
@@ -196,6 +216,29 @@ export async function saveRecording(
 /** All recordings, newest first. */
 export async function listRecordings(): Promise<RecordingLibraryEntry[]> {
   return library().listRecordings().map(toLibraryEntry);
+}
+
+/**
+ * Whether a recorded ride in the library starts inside this window. Read in
+ * place, so a caller can decide before anything else moves.
+ */
+export function holdsRecordingStartingIn(from: number, to: number): boolean {
+  return library()
+    .listRecordings()
+    .some((row) => row.kind !== 'manual' && row.startTime >= from && row.startTime <= to);
+}
+
+/** The recordings the signed-in athlete may see, newest first. */
+export async function listVisibleRecordings(): Promise<RecordingLibraryEntry[]> {
+  return library()
+    .listVisibleRecordings(getStoredCredentials().athleteId ?? undefined)
+    .map(toLibraryEntry);
+}
+
+/** One recording, null when another athlete holds it. */
+export async function getVisibleRecording(id: string): Promise<RecordingLibraryEntry | null> {
+  const row = library().getVisibleRecording(id, getStoredCredentials().athleteId ?? undefined);
+  return row ? toLibraryEntry(row) : null;
 }
 
 export async function getRecording(id: string): Promise<RecordingLibraryEntry | null> {
@@ -213,54 +256,6 @@ export async function recordingFitExists(entry: RecordingLibraryEntry): Promise<
     return info.exists;
   } catch {
     return false;
-  }
-}
-
-export async function readRecordingFit(entry: RecordingLibraryEntry): Promise<ArrayBuffer | null> {
-  try {
-    const info = await FileSystem.getInfoAsync(entry.fitPath);
-    if (!info.exists) return null;
-    const base64 = await FileSystem.readAsStringAsync(entry.fitPath, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    return base64ToBuffer(base64);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * The request body a manual entry holds, or null when it cannot be read.
- *
- * Null is not "no body": it is a body the device cannot produce right now, and
- * the caller holds the entry rather than posting an entry it cannot describe.
- */
-export async function readRecordingManualBody(
-  entry: RecordingLibraryEntry
-): Promise<ManualActivityData | null> {
-  if (entry.kind !== 'manual' || !entry.streamsPath) return null;
-  try {
-    const info = await FileSystem.getInfoAsync(entry.streamsPath);
-    if (!info.exists) return null;
-    return JSON.parse(await FileSystem.readAsStringAsync(entry.streamsPath)) as ManualActivityData;
-  } catch {
-    return null;
-  }
-}
-
-export async function readRecordingStreams(
-  entry: RecordingLibraryEntry
-): Promise<RecordingStreams | null> {
-  if (!entry.streamsPath) return null;
-  try {
-    const info = await FileSystem.getInfoAsync(entry.streamsPath);
-    if (!info.exists) return null;
-    const data = await FileSystem.readAsStringAsync(entry.streamsPath);
-    const streams = JSON.parse(data) as RecordingStreams;
-    streams.altitude = streams.altitude.map((alt) => alt ?? NaN);
-    return streams;
-  } catch {
-    return null;
   }
 }
 
@@ -284,57 +279,61 @@ export async function markRecordingReconciled(id: string): Promise<RecordingLibr
   return getRecording(id);
 }
 
-export async function markRecordingUploading(id: string): Promise<void> {
-  library().markRecordingUploading(id);
-}
-
-export async function markRecordingUploaded(id: string, intervalsActivityId?: string) {
-  library().markRecordingUploaded(id, intervalsActivityId);
-  log.log(`Recording uploaded: ${id}`);
+/** intervals.icu has the effort the athlete set, so nothing is owed. */
+export async function markRecordingRpeSent(id: string): Promise<void> {
+  library().markRecordingRpeSent(id);
 }
 
 /**
- * Record a retriable upload failure. The entry stays 'pending' until automatic
- * retries are exhausted, then parks as 'failed' for manual retry. The FIT file
- * is always kept.
+ * The install the engine is open under. An upload outcome carries it back, so
+ * one that outlived a restore or a wipe is refused rather than written into
+ * another library. A begin answers the install its attempt ran under; work
+ * that has no begin reads it before it starts.
  */
-export async function markRecordingUploadFailed(id: string, error: string): Promise<void> {
-  const retryCount = library().markRecordingUploadFailed(id, error, Date.now());
-  log.log(`Upload failed for ${id} (retry ${retryCount}/${MAX_AUTO_RETRIES}): ${error}`);
+export function recordingInstall(): number {
+  return library().engineInstall();
 }
 
 /**
- * The transport failed before intervals.icu was reached.
+ * Move one recording's upload by a named transition. The engine keeps the one
+ * table of legal moves, so a refusal is an answer, not an error: nothing was
+ * written and the caller stops.
  *
- * The ride keeps its attempt count: a request that never arrived says nothing
- * about the ride, and a device out of signal for a week would otherwise spend
- * all five attempts on cold launches and park a ride the server never saw. The
- * attempt is stamped, so the ordinary backoff still applies.
+ * What an outcome means is logged here: a retriable failure counts an attempt,
+ * a held ride keeps its attempts, a rejection parks the ride for the athlete.
+ * The FIT file is never deleted by a transition.
  */
-export async function holdRecordingForNetwork(id: string, error: string): Promise<void> {
-  library().holdRecordingForNetwork(id, error, Date.now());
-  log.log(`Upload held for the network: ${id} (${error})`);
-}
-
-/** A server-side rejection that automatic retries cannot fix. */
-export async function markRecordingRejected(id: string, error: string): Promise<void> {
-  library().markRecordingRejected(id, error, Date.now());
-  log.warn(`Upload rejected for ${id}: ${error}`);
-}
-
-export async function markRecordingPermissionBlocked(id: string): Promise<void> {
-  library().markRecordingPermissionBlocked(id, Date.now());
-}
-
-/**
- * A credential was refused mid-upload. The ride goes back in the queue with its
- * attempt count intact: a 401 says nothing about the ride, and spending one of
- * its attempts on a dead credential would retire a recording the server never
- * saw.
- */
-export async function holdRecordingForAuth(id: string, error: string): Promise<void> {
-  library().holdRecordingForAuth(id, error);
-  log.log(`Holding ${id}: the credential was refused`);
+export async function transitionRecording(
+  id: string,
+  transition: RecordingTransition
+): Promise<RecordingTransitionAnswer> {
+  const answer = library().transitionRecording(id, transition, Date.now());
+  if (!answer.applied) {
+    log.warn(`Upload move ${transition.kind} refused for ${id}: ${answer.refusal ?? 'unknown'}`);
+    return answer;
+  }
+  switch (transition.kind) {
+    case 'uploaded':
+      log.log(`Recording uploaded: ${id}`);
+      break;
+    case 'failed':
+      log.log(
+        `Upload failed for ${id} (retry ${answer.retryCount}/${MAX_AUTO_RETRIES}): ${transition.error}`
+      );
+      break;
+    case 'heldForNetwork':
+      log.log(`Upload held for the network: ${id} (${transition.error})`);
+      break;
+    case 'heldForAuth':
+      log.log(`Holding ${id}: the credential was refused`);
+      break;
+    case 'rejected':
+      log.warn(`Upload rejected for ${id}: ${transition.error}`);
+      break;
+    default:
+      break;
+  }
+  return answer;
 }
 
 /**
@@ -350,30 +349,34 @@ export async function holdRecordingsOfOtherAthletes(athleteId: string): Promise<
   log.log(`Held any recording not belonging to ${athleteId}`);
 }
 
-/** Manual retry (or post-upgrade requeue): back to 'pending' with a clean slate. */
-export async function requeueRecording(id: string): Promise<void> {
-  library().requeueRecording(id);
-}
-
-/** After an OAuth write upgrade, everything permission-blocked becomes uploadable. */
-export async function clearPermissionBlocked(): Promise<void> {
-  library().clearRecordingPermissionBlocked();
-  log.log('Cleared permission-blocked recordings');
+/**
+ * After an OAuth write upgrade, the upgrading athlete's permission-blocked
+ * recordings become uploadable, and nobody else's: the grant is theirs.
+ */
+export async function clearPermissionBlocked(athleteId: string): Promise<void> {
+  library().clearRecordingPermissionBlocked(athleteId);
+  log.log(`Cleared permission-blocked recordings of ${athleteId}`);
 }
 
 /**
- * On logout: keep every recording on device, but stop auto-uploading so
- * nothing lands in a different account after the next login.
+ * Start the engine's upload schedule and wake it. The engine decides when a
+ * pending ride is due and uploads it itself.
  */
-export async function demotePendingToLocalOnly(): Promise<void> {
-  library().demoteRecordingsToLocalOnly();
-  log.log('Demoted pending uploads to local-only');
+export function wakeUploadSchedule(): void {
+  library(true).wakeUploadSchedule();
 }
 
-/** Next entry eligible for automatic upload, respecting exponential backoff. */
-export async function nextPendingUpload(now = Date.now()): Promise<RecordingLibraryEntry | null> {
-  const row = library().nextPendingRecording(now);
-  return row ? toLibraryEntry(row) : null;
+/** Call `onChange` each time the engine moves a recording's upload. */
+export function onRecordingsChanged(onChange: () => void): () => void {
+  return library().subscribe('recordingsChanged', onChange);
+}
+
+/**
+ * Call `onRefused` each time intervals.icu refuses an upload for want of write
+ * permission, which every other ride would meet too.
+ */
+export function onUploadPermissionRefused(onRefused: () => void): () => void {
+  return library().subscribe('uploadPermissionRefused', onRefused);
 }
 
 // ─── Deletion ─────────────────────────────────────────────────────────────────
@@ -381,7 +384,7 @@ export async function nextPendingUpload(now = Date.now()): Promise<RecordingLibr
 // ─── Deletion after confirmation or on user request ───────────────────────────
 
 export async function deleteRecording(id: string): Promise<void> {
-  const entry = library().deleteRecording(id);
+  const entry = library().deleteOwnRecording(id, getStoredCredentials().athleteId ?? undefined);
   if (!entry) return;
   for (const path of [entry.fitPath, entry.streamsPath]) {
     if (!path) continue;
@@ -396,9 +399,12 @@ export async function deleteRecording(id: string): Promise<void> {
 
 // ─── Counts ───────────────────────────────────────────────────────────────────
 
-/** Recordings not yet on intervals.icu (any status except 'uploaded'). */
-export async function getUnuploadedCount(): Promise<number> {
-  return library().unuploadedRecordingCount();
+/**
+ * Recordings not yet on intervals.icu (any status except 'uploaded') that the
+ * signed-in athlete may see.
+ */
+export async function getVisibleUnuploadedCount(): Promise<number> {
+  return library().unuploadedVisibleRecordingCount(getStoredCredentials().athleteId ?? undefined);
 }
 
 // ─── Legacy migration ─────────────────────────────────────────────────────────
@@ -406,11 +412,8 @@ export async function getUnuploadedCount(): Promise<number> {
 /**
  * Adopt the AsyncStorage index into the table, once.
  *
- * Runs after `migrateLegacyUploadQueue`, not instead of it: a released install
- * may still be arriving through the old `veloq-upload-queue`, and that path
- * writes into the index this one then reads. Insert-if-absent, so a partial
- * run that is interrupted before the key is removed adopts the rest next time
- * without duplicating what it already took.
+ * Runs after `migrateLegacyUploadQueue`, which writes directly to the table.
+ * Insert-if-absent lets a partial pass retry without duplicating rows.
  */
 export async function adoptAsyncStorageIndex(): Promise<number> {
   try {
@@ -425,12 +428,26 @@ export async function adoptAsyncStorageIndex(): Promise<number> {
     }
 
     let adopted = 0;
+    let complete = true;
     for (const entry of parsed as RecordingLibraryEntry[]) {
-      // An entry with no id has no row to be, and nothing can find it again.
-      if (!entry?.id || !entry.fitPath) continue;
-      if (library().addRecording(toEngineEntry(entry))) adopted += 1;
+      if (!entry?.id || !entry.fitPath) {
+        complete = false;
+        continue;
+      }
+      try {
+        const engine = library(true);
+        if (engine.addRecording(toEngineEntry({ ...entry, kind: entry.kind ?? 'fit' }))) {
+          adopted += 1;
+        } else if (!engine.getRecording(entry.id)) {
+          complete = false;
+        }
+      } catch (error) {
+        complete = false;
+        log.warn(`Failed to adopt recording ${entry.id}:`, error);
+      }
     }
 
+    if (!complete) return adopted;
     await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
     log.log(`Adopted ${adopted} recording(s) from the AsyncStorage index`);
     return adopted;
@@ -439,6 +456,39 @@ export async function adoptAsyncStorageIndex(): Promise<number> {
     // the only record of a recording that has not been uploaded.
     log.warn('Recording index adoption failed:', error);
     return 0;
+  }
+}
+
+/**
+ * Rides an older build left in AsyncStorage reach the table with no athlete,
+ * and an unstamped ride is held from every upload. They belong to the athlete
+ * whose library they were adopted beside, so the first launch that opens that
+ * library adopts them and names that athlete, before a sign-in can wipe or
+ * rename it. It runs once: a library named later is not the one the rides were
+ * recorded beside. With no library to name, nothing is stamped and the pass
+ * still settles. The marker waits for both legacy keys to be gone, so a
+ * partial adoption retries at the next launch.
+ */
+export async function adoptOwnerlessRecordings(
+  libraryAthlete: () => Promise<string | null>
+): Promise<void> {
+  try {
+    if (await AsyncStorage.getItem(OWNERLESS_RECORDINGS_SETTLED_KEY)) return;
+  } catch {
+    return;
+  }
+  try {
+    await migrateLegacyUploadQueue();
+    await adoptAsyncStorageIndex();
+    const athleteId = await libraryAthlete();
+    if (athleteId) library(true).stampOwnerlessRecordings(athleteId);
+    const pending =
+      (await AsyncStorage.getItem(LEGACY_QUEUE_KEY)) ??
+      (await AsyncStorage.getItem(LEGACY_INDEX_KEY));
+    if (pending) return;
+    await AsyncStorage.setItem(OWNERLESS_RECORDINGS_SETTLED_KEY, '1');
+  } catch (error) {
+    log.warn('Ownerless recordings left unstamped:', error);
   }
 }
 
@@ -477,7 +527,12 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
         const destination = await FileSystem.getInfoAsync(fitPath);
         if (!destination.exists) {
           const source = await FileSystem.getInfoAsync(old.filePath);
-          if (!source.exists) throw new Error('Legacy recording FIT is missing');
+          // No retry can bring the file back, so holding the queue for it
+          // would repeat this pass on every engine ready for ever.
+          if (!source.exists) {
+            log.warn(`Legacy upload ${old.id} has no FIT on disk, skipping it`);
+            continue;
+          }
           await FileSystem.copyAsync({ from: old.filePath, to: fitPath });
         }
 

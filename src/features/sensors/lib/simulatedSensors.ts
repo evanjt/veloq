@@ -38,7 +38,5 @@ export function stopSimulatedSensors(): void {
     timer = null;
   }
   tick = 0;
-  const store = useSensorStore.getState();
-  store.setConnection(SIMULATED_ID, null);
-  store.clearLatest();
+  useSensorStore.getState().setConnection(SIMULATED_ID, null);
 }

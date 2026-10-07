@@ -1,42 +1,36 @@
 import { useEffect, useRef } from 'react';
 
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { useHRZones } from '@/features/fitness';
+import { engineHrZone } from '@/shared/native/hrZone';
+import { HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import type { HrZoneInfo } from '../components/DataFieldGrid';
 
+/**
+ * Tints the heart rate tile from `heartrate`, the live bpm the tile shows, with
+ * the zone the engine names for `sportType` from the athlete's own zones.
+ * The recorded stream grows only while recording, so reading it left the tint
+ * behind the number while armed, waiting for a fix and paused.
+ */
 export function useHrZoneColorEffect(
-  heartrateLength: number,
+  heartrate: number,
+  sportType: string,
   setHrZone: (zone: HrZoneInfo | null) => void
 ) {
-  const hrZones = useHRZones((s) => s.zones);
-  const maxHR = useHRZones((s) => s.maxHR);
-  const prevColorRef = useRef<string | null>(null);
+  const prevKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const heartrate = useRecordingStore.getState().streams.heartrate;
-    const lastHR = heartrate[heartrate.length - 1];
-    if (!lastHR || lastHR <= 0 || !maxHR) {
-      prevColorRef.current = null;
-      setHrZone(null);
-      return;
-    }
-
-    const hrPercent = lastHR / maxHR;
-    let zone: HrZoneInfo | null = null;
-    for (let i = 0; i < hrZones.length; i++) {
-      if (hrPercent >= hrZones[i].min && hrPercent < hrZones[i].max) {
-        zone = { color: hrZones[i].color, zone: i + 1 };
-        break;
-      }
-    }
-    // If above all zones, use the last zone
-    if (!zone && hrPercent >= 1.0 && hrZones.length > 0) {
-      zone = { color: hrZones[hrZones.length - 1].color, zone: hrZones.length };
-    }
-
-    if (zone && zone.color !== prevColorRef.current) {
-      prevColorRef.current = zone.color;
-      setHrZone(zone);
-    }
-  }, [heartrateLength, hrZones, maxHR]); // eslint-disable-line react-hooks/exhaustive-deps
+    // The live value moves every second, so the screen is told only when the
+    // zone it paints changes.
+    const number = heartrate > 0 ? engineHrZone(sportType, heartrate) : null;
+    const zone: HrZoneInfo | null =
+      number === null
+        ? null
+        : {
+            zone: number,
+            color: HR_ZONE_COLORS[Math.min(number, HR_ZONE_COLORS.length) - 1],
+          };
+    const key = zone ? `${zone.zone}:${zone.color}` : null;
+    if (key === prevKeyRef.current) return;
+    prevKeyRef.current = key;
+    setHrZone(zone);
+  }, [heartrate, sportType, setHrZone]);
 }

@@ -1,29 +1,24 @@
 import { create } from 'zustand';
 
-import { getSetting, setSetting } from '@/shared/storage';
+import { getSetting, removeSetting, setSetting } from '@/shared/storage';
 // Deep store import (same pattern as settings/lib/backup.ts): the recording
 // barrel would pull UI components into this lib-level module graph.
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingStore } from '@/features/recording';
 import type {
   DiscoveredSensor,
   KnownSensor,
   SensorConnection,
   SensorConnectionStatus,
   SensorKind,
-  SensorSample,
 } from './types';
 
 const STORAGE_KEY = 'veloq-known-sensors';
-
-/** A sensor value older than this is stale and no longer fed into recordings. */
-export const SENSOR_STALE_MS = 5000;
 
 interface SensorState {
   // Runtime
   scanning: boolean;
   discovered: DiscoveredSensor[];
   connections: Record<string, SensorConnection>;
-  latest: Record<SensorKind, SensorSample | null>;
   // Persisted
   knownSensors: KnownSensor[];
   isLoaded: boolean;
@@ -35,8 +30,8 @@ interface SensorState {
   setConnection: (id: string, connection: SensorConnection | null) => void;
   setConnectionStatus: (id: string, status: SensorConnectionStatus) => void;
   setBattery: (id: string, percent: number) => void;
+  /** Hand a notification's value to the recording store, which holds the live sample. */
   setLatest: (kind: SensorKind, value: number) => void;
-  clearLatest: () => void;
   addKnownSensor: (sensor: KnownSensor) => void;
   removeKnownSensor: (id: string) => void;
 }
@@ -45,7 +40,6 @@ export const useSensorStore = create<SensorState>((set) => ({
   scanning: false,
   discovered: [],
   connections: {},
-  latest: { heartRate: null, power: null, cadence: null },
   knownSensors: [],
   isLoaded: false,
 
@@ -113,16 +107,11 @@ export const useSensorStore = create<SensorState>((set) => ({
   },
 
   setLatest: (kind, value) => {
-    set((state) => ({
-      latest: { ...state.latest, [kind]: { value, at: Date.now() } },
-    }));
-    // Mirror into the recording store's sample-and-hold so live recordings
-    // pick sensor values up per point without a recording→sensors dependency.
+    // The recording store's sample-and-hold is the one live copy, with the one
+    // stale window, and every tile and the recorder read it.
     const recordingKind = kind === 'heartRate' ? 'heartrate' : kind;
     useRecordingStore.getState().setSensorSample(recordingKind, value);
   },
-
-  clearLatest: () => set({ latest: { heartRate: null, power: null, cadence: null } }),
 
   addKnownSensor: (sensor) => {
     set((state) => {
@@ -154,10 +143,8 @@ export async function initializeKnownSensors(): Promise<void> {
   await useSensorStore.getState().initialize();
 }
 
-/** Fresh (non-stale) latest value for a sensor kind, or null. */
-export function getFreshSensorValue(kind: SensorKind, now = Date.now()): number | null {
-  const sample = useSensorStore.getState().latest[kind];
-  if (!sample) return null;
-  if (now - sample.at > SENSOR_STALE_MS) return null;
-  return sample.value;
+/** Empties the paired and discovered sensors, in memory and in the settings. */
+export async function forgetKnownSensors(): Promise<void> {
+  useSensorStore.setState({ knownSensors: [], connections: {}, discovered: [] });
+  await removeSetting(STORAGE_KEY).catch(() => {});
 }

@@ -9,12 +9,15 @@ import { ScreenSafeAreaView, EmptyState, TAB_BAR_SAFE_PADDING } from '@/shared/u
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
-import { formatDistance, formatDuration } from '@/shared/format/format';
+import { formatDistance, formatDuration, getIntlLocale } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
-import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
-import { recordingActions } from '@/features/recording';
-import { PermissionUpgradeBanner } from '@/features/recording/components/PermissionUpgradeBanner';
+import {
+  useRecordingLibrary,
+  recordingActions,
+  PermissionUpgradeBanner,
+} from '@/features/recording';
 import type { RecordingLibraryEntry, RecordingUploadStatus } from '@/types';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 /**
  * The status marks. A function of the theme rather than a constant: the
@@ -44,7 +47,7 @@ const statusMeta = (
 /** The row's retry is small, and a press that misses opens the recording. */
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
-export default function RecordingsLibraryScreen() {
+function RecordingsLibraryScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
@@ -83,7 +86,7 @@ export default function RecordingsLibraryScreen() {
               {item.name}
             </Text>
             <Text style={[styles.cardMeta, { color: textSecondary }]} numberOfLines={1}>
-              {date.toLocaleDateString()}
+              {date.toLocaleDateString(getIntlLocale())}
               {item.distanceMeters > 0 ? ` · ${formatDistance(item.distanceMeters, isMetric)}` : ''}
               {item.durationSeconds > 0 ? ` · ${formatDuration(item.durationSeconds)}` : ''}
             </Text>
@@ -215,3 +218,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+export default withScreenBoundary(RecordingsLibraryScreenContent, 'RecordingsLibrary');

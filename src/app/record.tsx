@@ -1,84 +1,76 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
+  Pressable,
   TouchableOpacity,
-  FlatList,
-  Alert,
   Linking,
   Platform,
   ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { CollapsibleSection, SignalStatus, signalColor, type SignalLevel } from '@/shared/ui';
-import { Stack, router } from 'expo-router';
+import {
+  Button,
+  ScreenSafeAreaView,
+  TAB_BAR_SAFE_PADDING,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
+import { SignalStatus, signalColor, type SignalLevel } from '@/shared/ui';
+import { Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
-import type { MaterialIconName } from '@/shared/activity/activityUtils';
-import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';
-import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { useCanRecord } from '@/features/recording/hooks/useCanRecord';
-import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import {
-  hasRecordingBackup,
-  loadRecordingBackup,
-  clearRecordingBackup,
-} from '@/features/recording/lib/storage/recordingBackup';
-import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
-import {
+  getRecordingMode,
+  defaultEntrySport,
+  entrySportChips,
+  recordingEntryHref,
+  type EntryGpsState,
+  useRecordingStore,
+  useEntryLocation,
+  BatteryOptimisationNudge,
   RecordingGate,
+  RecordingMap,
+  useCanRecord,
+  useRecordingPreferences,
+  usePermissionUpgrade,
   useUploadPermissionStore,
-  restoreRecordingBackup,
+  promptInterruptedRecording,
+  sessionReturnRoute,
 } from '@/features/recording';
+import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
 import { getEngine } from '@/shared/native/engine';
-import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
-import { navigateTo } from '@/shared/app/navigation';
+import { readCalendarEvents } from '@/features/home';
+import { navigateTo, replaceTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
+import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { ActivityType, CalendarEvent } from '@/types';
+import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
-const DEFAULT_QUICK_TYPES: ActivityType[] = [
-  'Ride',
-  'Run',
-  'Walk',
-  'Swim',
-  'Hike',
-  'WeightTraining',
-];
+const NO_TRACK: [number, number][] = [];
 
-const GPS_READINESS_TIMEOUT_MS = 15_000;
-
-const CATEGORY_LABELS: Record<string, string> = {
-  cycling: 'Cycling',
-  running: 'Running',
-  swimming: 'Swimming',
-  winter: 'Winter Sports',
-  water: 'Water Sports',
-  gym: 'Gym & Fitness',
-  racket: 'Racket Sports',
-  other: 'Other',
-};
-
-const CATEGORY_ICONS: Record<string, MaterialIconName> = {
-  cycling: 'bike',
-  running: 'run',
-  swimming: 'swim',
-  winter: 'snowflake',
-  water: 'waves',
-  gym: 'dumbbell',
-  racket: 'tennis',
-  other: 'dots-horizontal',
-};
-
-export default function RecordScreen() {
+/**
+ * The record entry screen: the recording, before it begins.
+ *
+ * The map is the screen, with the live position and its accuracy acquiring.
+ * One Start begins the sport it names, the recent sports sit beside it as
+ * chips with the full list behind More, and today's planned workout is a card
+ * only when there is one. An indoor or manual sport swaps the map for its own
+ * surface and keeps the layout.
+ *
+ * Start only navigates. The recording screen begins the ride on arrival with
+ * the map in view, and every prompt this screen needs is raised on arrival
+ * rather than by the tap.
+ */
+function RecordScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -88,32 +80,35 @@ export default function RecordScreen() {
   const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
   const recentTypes = useRecordingPreferences((s) => s.recentActivityTypes);
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  const [showAllActivities, setShowAllActivities] = useState(false);
+  const sessionStatus = useRecordingStore((s) => s.status);
+
+  // Null until the athlete chooses, so the default follows the recent list
+  // once preferences load rather than freezing on the first empty read.
+  const [chosenSport, setChosenSport] = useState<ActivityType | null>(null);
+  const sport = chosenSport ?? defaultEntrySport(recentTypes);
+  const mode = getRecordingMode(sport);
+  const chips = useMemo(() => entrySportChips(recentTypes, sport), [recentTypes, sport]);
+  const [gpsWarningDismissed, setGpsWarningDismissed] = useState(false);
+
   // Read at first render rather than in an effect. An engine that is not open
-  // yet answers empty either way, and the `activities` subscription below is
-  // what recovers that case, as it was before.
+  // yet answers empty either way, and the subscriptions below recover it.
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>(() => {
     const today = formatLocalDate(new Date());
     return readCalendarEvents(today, today);
   });
 
-  // GPS readiness state
-  const [gpsState, setGpsState] = useState<'checking' | 'ready' | 'weak' | 'none'>('checking');
+  const gps = useEntryLocation(mode === 'gps' && sessionStatus === 'idle');
 
-  // A session is already active (cold navigation, notification tap, FAB while
-  // recording) - go straight back to the live screen instead of the picker.
+  // A session is already in the store (cold navigation, notification tap, FAB
+  // while recording, or a stopped ride not saved yet) - go straight back to it
+  // instead of the entry screen.
   useEffect(() => {
-    const { status, activityType } = useRecordingStore.getState();
-    if ((status === 'recording' || status === 'paused') && activityType) {
-      router.replace(`/recording/${activityType}`);
-    }
+    const auth = useAuthStore.getState();
+    const session = useRecordingStore.getState();
+    if (!auth.isAuthenticated || !auth.athleteId || session.athleteId !== auth.athleteId) return;
+    const route = sessionReturnRoute(session);
+    if (route) replaceTo(route);
   }, []);
-
-  const quickTypes = useMemo(
-    () => (recentTypes.length > 0 ? recentTypes : DEFAULT_QUICK_TYPES),
-    [recentTypes]
-  );
 
   useEffect(() => {
     if (!isLoaded) {
@@ -121,103 +116,57 @@ export default function RecordScreen() {
     }
   }, [isLoaded]);
 
-  // GPS readiness gate
+  // Android 13+ suppresses the foreground-service notification without this.
+  // Asked here once the location question is behind the athlete, since Android
+  // shows one dialog at a time, and never by Start: a dialog raised by the tap
+  // lands over the recording it began. A denial never blocks the recording.
+  // A live session sends the athlete straight back to it, so it asks nothing.
+  const notificationsAsked = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    (async () => {
-      try {
-        const { status } = await Location.getForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          // Request permission
-          const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
-          if (newStatus !== 'granted') {
-            if (!cancelled) setGpsState('none');
-            return;
-          }
-        }
-
-        // Set timeout for weak GPS
-        timeoutId = setTimeout(() => {
-          if (!cancelled) setGpsState('weak');
-        }, GPS_READINESS_TIMEOUT_MS);
-
-        // Try to get a single location fix
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-        if (!cancelled) {
-          if (timeoutId) clearTimeout(timeoutId);
-          setGpsState(
-            location.coords.accuracy != null && location.coords.accuracy <= 20 ? 'ready' : 'weak'
-          );
-        }
-      } catch {
-        if (!cancelled) setGpsState('weak');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, []);
+    if (!gps.promptSettled || sessionStatus !== 'idle' || notificationsAsked.current) return;
+    notificationsAsked.current = true;
+    if (Platform.OS === 'android') requestNotificationPermission().catch(() => {});
+  }, [gps.promptSettled, sessionStatus]);
 
   // Crash recovery check
   useEffect(() => {
-    (async () => {
-      // An in-memory session owns the backup file - nothing to recover
-      if (useRecordingStore.getState().status !== 'idle') return;
-      const hasBackup = await hasRecordingBackup();
-      if (!hasBackup) return;
-
-      Alert.alert(t('recording.resumePrevious'), t('recording.resumePreviousMessage'), [
-        {
-          text: t('recording.discard'),
-          style: 'destructive',
-          onPress: () => clearRecordingBackup(),
-        },
-        {
-          text: t('recording.controls.resume'),
-          onPress: async () => {
-            const backup = await loadRecordingBackup();
-            if (!backup) return;
-
-            navigateTo(restoreRecordingBackup(backup));
-          },
-        },
-      ]);
-    })();
-  }, [t]);
+    void promptInterruptedRecording();
+  }, []);
 
   // Today's planned workouts. The stored day is read in the initialiser above,
-  // so the first paint has it; this asks Rust to refresh the day and the engine
-  // event brings in anything the refresh adds.
+  // so the first paint has it; this asks Rust to refresh the day. The refresh
+  // stores a `calendar` body and announces that alone, and a full sync rewrites
+  // the calendar and settles on `activities`, so both re-read.
   useEffect(() => {
     const today = formatLocalDate(new Date());
     const engine = getEngine();
-    engine?.syncCalendarEvents(today, today);
-
     if (!engine) return undefined;
-    return engine.subscribe('activities', () => {
-      setTodayEvents(readCalendarEvents(today, today));
+    const reread = () => setTodayEvents(readCalendarEvents(today, today));
+    const offCalendar = engine.subscribe('bodyStored', (payload) => {
+      if ((payload as { kind?: string } | undefined)?.kind !== 'calendar') return;
+      reread();
     });
+    const offActivities = engine.subscribe('activities', reread);
+    engine.syncCalendarEvents(today, today);
+    return () => {
+      offCalendar();
+      offActivities();
+    };
   }, []);
 
-  const handleSelectType = useCallback((type: ActivityType, pairedEventId?: number) => {
-    // Android 13+ suppresses the foreground-service notification without this;
-    // fire-and-forget so a denial never blocks the recording itself.
-    if (Platform.OS === 'android') {
-      requestNotificationPermission().catch(() => {});
-    }
-    const params = pairedEventId ? `?pairedEventId=${pairedEventId}` : '';
-    navigateTo(`/recording/${type}${params}`);
+  const start = useCallback((type: ActivityType, pairedEventId?: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    navigateTo(recordingEntryHref(type, pairedEventId));
   }, []);
 
-  const toggleCategory = useCallback((key: string) => {
-    setExpandedCategories((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
+  const openSheet = useSheetOpener();
+  const chooseFromSheet = useCallback(async () => {
+    const result = await openSheet<ActivityTypeSheetInput, ActivityType>('sheets/activity-type', {
+      selectedType: sport,
+      mode: 'recording',
+    });
+    if (result.kind === 'selected') setChosenSport(result.value);
+  }, [openSheet, sport]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -230,11 +179,11 @@ export default function RecordScreen() {
   //
   // `checking` is shown as the scope gate here on purpose. The recording screen
   // waits for it, because a one-tap start arrives before the store and the
-  // athlete has already committed. The picker is reached by an athlete still
-  // choosing a sport, so the safe default costs nothing and flips to the picker
-  // the moment the answer lands.
+  // athlete has already committed. This screen is reached by an athlete who has
+  // not tapped Start yet, so the safe default costs nothing and flips to the
+  // entry screen the moment the answer lands.
   // A missing scope warns rather than refuses, here as on the recording screen:
-  // continuing picks a sport and the ride stays on the device. `checking` gets no
+  // continuing arms a sport and the ride stays on the device. `checking` gets no
   // continue, because nothing is known to be missing yet.
   const warnedPastScope = reason === 'no_permission' && ridingWithoutScope;
   if (!canRecord && reason !== 'ok' && !warnedPastScope) {
@@ -251,6 +200,10 @@ export default function RecordScreen() {
     );
   }
 
+  const sportLabel = t(`activityTypes.${sport}` as never, sport) as string;
+  const showGpsWarning =
+    mode === 'gps' && !gpsWarningDismissed && (gps.state === 'weak' || gps.state === 'none');
+
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
       <Stack.Screen
@@ -260,7 +213,7 @@ export default function RecordScreen() {
               <TouchableOpacity
                 testID="record-library"
                 onPress={() => navigateTo('/recordings')}
-                style={styles.settingsButton}
+                style={styles.headerButton}
                 activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityLabel={t('recording.library.title', 'My Recordings')}
@@ -274,7 +227,7 @@ export default function RecordScreen() {
               <TouchableOpacity
                 testID="record-settings"
                 onPress={() => navigateTo('/recording-settings')}
-                style={styles.settingsButton}
+                style={styles.headerButton}
                 activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityLabel={t('settings.title', 'Settings')}
@@ -285,207 +238,275 @@ export default function RecordScreen() {
           ),
         }}
       />
-      {/* GPS readiness line */}
-      <View style={styles.gpsReadinessWrap}>
-        <GpsReadinessBar state={gpsState} testID="record-gps-status" />
-      </View>
 
-      <BatteryOptimisationNudge />
-
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
-        ]}
-      >
-        {/* Quick Start */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-            {t('recording.quickStart', 'Quick Start')}
-          </Text>
-          <FlatList
-            horizontal
-            data={quickTypes}
-            keyExtractor={(item) => item}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickStartList}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                testID={`record-type-${item}`}
-                style={[styles.quickTypeCard, { backgroundColor: surface, borderColor: border }]}
-                onPress={() => handleSelectType(item)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={getActivityIcon(item)}
-                  size={28}
-                  color={getActivityColor(item)}
-                />
-                <Text style={[styles.quickTypeLabel, { color: textPrimary }]} numberOfLines={1}>
-                  {t(`activityTypes.${item}`, item)}
-                </Text>
-              </TouchableOpacity>
-            )}
+      {/* The surface: the map for a GPS sport, the sport's own face otherwise */}
+      <View style={styles.surface}>
+        {mode === 'gps' ? (
+          <>
+            <RecordingMap
+              coordinates={NO_TRACK}
+              currentLocation={gps.location}
+              accuracy={gps.accuracy}
+              style={styles.map}
+            />
+            <View style={styles.gpsStatusWrap} pointerEvents="none">
+              <GpsStatusPill state={gps.state} testID="record-gps-status" />
+            </View>
+          </>
+        ) : (
+          <SportSurface
+            sport={sport}
+            mode={mode}
+            surface={surface}
+            textPrimary={textPrimary}
+            textSecondary={textSecondary}
           />
-        </View>
-
-        {/* Today's Workouts - only when something is planned */}
-        {todayEvents.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-              {t('recording.todaysWorkouts', "Today's Workouts")}
-            </Text>
-            {todayEvents.map((event) => (
-              <TouchableOpacity
-                key={event.id}
-                testID={`record-event-${event.id}`}
-                style={[styles.eventCard, { backgroundColor: surface, borderColor: border }]}
-                onPress={() => handleSelectType(event.type as ActivityType, event.id)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={getActivityIcon(event.type as ActivityType)}
-                  size={24}
-                  color={getActivityColor(event.type as ActivityType)}
-                  style={styles.eventIcon}
-                />
-                <View style={styles.eventDetails}>
-                  <Text style={[styles.eventName, { color: textPrimary }]} numberOfLines={1}>
-                    {event.name}
-                  </Text>
-                  {event.moving_time != null && event.moving_time > 0 && (
-                    <Text style={[styles.eventMeta, { color: textSecondary }]}>
-                      {formatDuration(event.moving_time)}
-                    </Text>
-                  )}
-                </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
-              </TouchableOpacity>
-            ))}
-          </View>
         )}
 
-        {/* All Activities - tucked behind one expander */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            testID="record-all-activities"
-            style={styles.allActivitiesHeader}
-            onPress={() => setShowAllActivities((v) => !v)}
-            activeOpacity={0.7}
+        {/* Warnings: one line each, only when true, each dismissable */}
+        <View style={styles.warnings}>
+          {showGpsWarning && (
+            <GpsWarningLine
+              state={gps.state}
+              onDismiss={() => setGpsWarningDismissed(true)}
+              surface={surface}
+            />
+          )}
+          <BatteryOptimisationNudge />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.panel,
+          {
+            backgroundColor: surface,
+            borderTopColor: border,
+            paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING,
+          },
+        ]}
+      >
+        {/* Today's planned workout - only when something is planned */}
+        {todayEvents.map((event) => (
+          <Pressable
+            key={event.id}
+            testID={`record-event-${event.id}`}
+            style={pressable([styles.eventCard, { borderColor: border }])}
+            android_ripple={pressRipple}
+            onPress={() => start(event.type as ActivityType, event.id)}
             accessibilityRole="button"
           >
-            <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-              {t('recording.allActivities', 'All Activities')}
-            </Text>
             <MaterialCommunityIcons
-              name={showAllActivities ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={textSecondary}
+              name={getActivityIcon(event.type as ActivityType)}
+              size={24}
+              color={getActivityColor(event.type as ActivityType)}
+              style={styles.eventIcon}
             />
-          </TouchableOpacity>
-          {showAllActivities &&
-            Object.entries(ACTIVITY_CATEGORIES).map(([category, types]) => (
-              <CollapsibleSection
-                key={category}
-                testID={`record-category-${category}`}
-                title={t(`recording.categories.${category}`, CATEGORY_LABELS[category] ?? category)}
-                icon={CATEGORY_ICONS[category]}
-                expanded={expandedCategories[category] ?? false}
-                onToggle={() => toggleCategory(category)}
-                style={[styles.categorySection, { backgroundColor: surface, borderColor: border }]}
-                subtitle={`${types.length} ${t('recording.types', 'types')}`}
+            <View style={styles.eventDetails}>
+              <Text style={[styles.eventName, { color: textPrimary }]} numberOfLines={1}>
+                {event.name}
+              </Text>
+              {event.moving_time != null && event.moving_time > 0 && (
+                <Text style={[styles.eventMeta, { color: textSecondary }]}>
+                  {formatDuration(event.moving_time)}
+                </Text>
+              )}
+            </View>
+            <Text
+              style={[
+                styles.followLabel,
+                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+              ]}
+            >
+              {t('recording.followWorkout')}
+            </Text>
+          </Pressable>
+        ))}
+
+        {/* The sport: recent ones as chips, the full list behind More */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
+        >
+          {chips.map((type) => {
+            const selected = type === sport;
+            return (
+              <Pressable
+                key={type}
+                testID={`record-type-${type}`}
+                style={pressable([
+                  styles.chip,
+                  { borderColor: selected ? colors.primary : border },
+                  selected && styles.chipSelected,
+                ])}
+                android_ripple={pressRipple}
+                onPress={() => setChosenSport(type)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
               >
-                <View style={styles.typeGrid}>
-                  {(types as readonly ActivityType[]).map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      testID={`record-type-${type}`}
-                      style={[styles.typeItem, { borderBottomColor: border }]}
-                      onPress={() => handleSelectType(type)}
-                      activeOpacity={0.7}
-                    >
-                      <MaterialCommunityIcons
-                        name={getActivityIcon(type)}
-                        size={22}
-                        color={getActivityColor(type)}
-                        style={styles.typeIcon}
-                      />
-                      <Text style={[styles.typeLabel, { color: textPrimary }]}>
-                        {t(`activityTypes.${type}`, type)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </CollapsibleSection>
-            ))}
-        </View>
-      </ScrollView>
+                <MaterialCommunityIcons
+                  name={getActivityIcon(type)}
+                  size={18}
+                  color={getActivityColor(type)}
+                />
+                <Text style={[styles.chipLabel, { color: textPrimary }]} numberOfLines={1}>
+                  {t(`activityTypes.${type}` as never, type) as string}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Pressable
+            testID="record-sport-more"
+            style={pressable([styles.chip, { borderColor: border }])}
+            android_ripple={pressRipple}
+            onPress={chooseFromSheet}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons name="dots-horizontal" size={18} color={textSecondary} />
+            <Text style={[styles.chipLabel, { color: textPrimary }]}>
+              {t('recording.moreSports')}
+            </Text>
+          </Pressable>
+        </ScrollView>
+
+        {/* One Start, labelled with what it starts */}
+        <Button
+          testID="record-start"
+          label={t('recording.startSport', { sport: sportLabel })}
+          onPress={() => start(sport)}
+          icon={
+            <MaterialCommunityIcons
+              name={mode === 'manual' ? 'pencil' : 'play'}
+              size={22}
+              color={colors.textOnPrimary}
+            />
+          }
+          style={styles.startButton}
+        />
+      </View>
     </ScreenSafeAreaView>
   );
 }
 
-/** GPS readiness line for the pre-start screen */
-function GpsReadinessBar({
-  state,
-  testID,
+/** The face an indoor or manual sport shows where the map would be. */
+function SportSurface({
+  sport,
+  mode,
+  surface,
+  textPrimary,
+  textSecondary,
 }: {
-  state: 'checking' | 'ready' | 'weak' | 'none';
-  testID?: string;
+  sport: ActivityType;
+  mode: 'indoor' | 'manual';
+  surface: string;
+  textPrimary: string;
+  textSecondary: string;
 }) {
   const { t } = useTranslation();
-
-  const configs: Record<
-    string,
-    {
-      icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-      level: SignalLevel;
-      text: string;
-    }
-  > = {
-    checking: {
-      icon: 'crosshairs-question',
-      level: 'idle',
-      text: t('recording.gpsAcquiring'),
-    },
-    ready: {
-      icon: 'crosshairs-gps',
-      level: 'ok',
-      text: t('recording.gpsReady'),
-    },
-    weak: {
-      icon: 'crosshairs',
-      level: 'warn',
-      text: t('recording.gpsWeakWarning'),
-    },
-    none: {
-      icon: 'crosshairs-off',
-      level: 'bad',
-      text: t('recording.gpsNone', 'Location denied'),
-    },
-  };
-
-  const config = configs[state];
-  if (!config) return null;
-  const tint = signalColor(config.level);
-
   return (
-    <SignalStatus
-      testID={testID}
-      variant="line"
-      level={config.level}
-      icon={config.icon}
-      label={config.text}
+    <View
+      testID={`record-surface-${mode}`}
+      style={[styles.sportSurface, { backgroundColor: colorWithOpacity(surface, 0.6) }]}
     >
-      {state === 'checking' && <ActivityIndicator size="small" color={tint} />}
-      {state === 'ready' && <MaterialCommunityIcons name="check-circle" size={14} color={tint} />}
-      {state === 'none' && (
-        <TouchableOpacity onPress={() => Linking.openSettings()}>
-          <Text style={[styles.gpsSettingsLink, { color: tint }]}>
-            {t('recording.gpsAlertSettings', 'Open Settings')}
-          </Text>
-        </TouchableOpacity>
+      <MaterialCommunityIcons
+        name={getActivityIcon(sport)}
+        size={64}
+        color={getActivityColor(sport)}
+      />
+      <Text style={[styles.sportSurfaceTitle, { color: textPrimary }]}>
+        {t(`activityTypes.${sport}` as never, sport) as string}
+      </Text>
+      <Text style={[styles.sportSurfaceCaption, { color: textSecondary }]}>
+        {mode === 'indoor' ? t('recording.entryIndoorCaption') : t('recording.entryManualCaption')}
+      </Text>
+    </View>
+  );
+}
+
+const GPS_STATUS: Record<
+  EntryGpsState,
+  { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; level: SignalLevel }
+> = {
+  checking: { icon: 'crosshairs-question', level: 'idle' },
+  ready: { icon: 'crosshairs-gps', level: 'ok' },
+  weak: { icon: 'crosshairs', level: 'warn' },
+  none: { icon: 'crosshairs-off', level: 'bad' },
+};
+
+/** The GPS state as one word over the map, beside the ring it describes. */
+function GpsStatusPill({ state, testID }: { state: EntryGpsState; testID?: string }) {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const { icon, level } = GPS_STATUS[state];
+  const label = {
+    checking: t('recording.gpsAcquiring'),
+    ready: t('recording.gpsReady'),
+    weak: t('recording.gpsWeak'),
+    none: t('recording.gpsNone', 'Location denied'),
+  }[state];
+  return (
+    <SignalStatus testID={testID} variant="chip" level={level} icon={icon} label={label}>
+      {state === 'checking' && (
+        <ActivityIndicator size="small" color={signalColor(level, isDark)} />
       )}
     </SignalStatus>
+  );
+}
+
+/** A weak fix or a denied location, as one dismissable line. */
+function GpsWarningLine({
+  state,
+  onDismiss,
+  surface,
+}: {
+  state: EntryGpsState;
+  onDismiss: () => void;
+  surface: string;
+}) {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const { icon, level } = GPS_STATUS[state];
+  const tint = signalColor(level, isDark);
+  return (
+    <View style={[styles.warningLine, { backgroundColor: surface }]}>
+      <View style={styles.warningBody}>
+        <SignalStatus
+          testID="record-gps-warning"
+          variant="line"
+          level={level}
+          icon={icon}
+          label={
+            state === 'none'
+              ? t('recording.gpsNone', 'Location denied')
+              : t('recording.gpsWeakWarning')
+          }
+        >
+          {state === 'none' && (
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              style={pressable()}
+              android_ripple={pressRipple}
+            >
+              <Text style={[styles.gpsSettingsLink, { color: tint }]}>
+                {t('recording.gpsAlertSettings', 'Open Settings')}
+              </Text>
+            </Pressable>
+          )}
+        </SignalStatus>
+      </View>
+      <Pressable
+        testID="record-gps-warning-dismiss"
+        onPress={onDismiss}
+        style={pressable(styles.dismissButton)}
+        android_ripple={pressRipple}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.close')}
+        hitSlop={spacing.sm}
+      >
+        <MaterialCommunityIcons name="close" size={18} color={tint} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -497,60 +518,81 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  settingsButton: {
+  headerButton: {
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gpsReadinessWrap: {
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+  surface: {
+    flex: 1,
   },
-  allActivitiesHeader: {
+  map: {
+    flex: 1,
+  },
+  gpsStatusWrap: {
+    position: 'absolute',
+    bottom: spacing.md,
+    left: spacing.md,
+  },
+  warnings: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.md,
+    right: spacing.md,
+    gap: spacing.xs,
+  },
+  warningLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: layout.minTapTarget,
+    borderRadius: layout.borderRadiusSm,
+    overflow: 'hidden',
+    paddingRight: spacing.xs,
+  },
+  warningBody: {
+    flex: 1,
+  },
+  dismissButton: {
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   gpsSettingsLink: {
     fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-  scrollContent: {},
-  section: {
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.label,
-    marginBottom: spacing.sm,
-  },
-  quickStartList: {
-    gap: spacing.sm,
-  },
-  quickTypeCard: {
+  sportSurface: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    minWidth: 90,
+    padding: spacing.xl,
   },
-  quickTypeLabel: {
-    ...typography.bodySmall,
+  sportSurfaceTitle: {
+    ...typography.sectionTitle,
+    marginTop: spacing.md,
+  },
+  sportSurfaceCaption: {
+    ...typography.body,
     marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  panel: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
   },
   eventCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: layout.minTapTarget,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadius,
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: spacing.sm,
+    overflow: 'hidden',
   },
   eventIcon: {
     marginRight: spacing.sm,
@@ -565,29 +607,33 @@ const styles = StyleSheet.create({
     ...typography.caption,
     marginTop: spacing.xxs,
   },
-  categorySection: {
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: spacing.sm,
-    overflow: 'hidden',
+  followLabel: {
+    ...typography.bodyBold,
+    marginLeft: spacing.sm,
   },
-  typeGrid: {
-    paddingHorizontal: spacing.sm,
+  chipRow: {
+    gap: spacing.sm,
   },
-  typeItem: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
     minHeight: layout.minTapTarget,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    borderRadius: layout.borderRadiusFull,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
-  typeIcon: {
-    marginRight: spacing.sm,
-    width: 28,
-    textAlign: 'center',
+  chipSelected: {
+    borderWidth: 2,
+    backgroundColor: colorWithOpacity(colors.primary, 0.1),
   },
-  typeLabel: {
-    ...typography.body,
+  chipLabel: {
+    ...typography.bodySmall,
+  },
+  startButton: {
+    minHeight: layout.minTapTarget + spacing.md,
   },
 });
+
+export default withScreenBoundary(RecordScreenContent, 'Record');

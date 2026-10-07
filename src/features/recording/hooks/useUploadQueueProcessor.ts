@@ -1,17 +1,19 @@
-import { useEffect, useRef, useCallback } from 'react';
-import { AppState } from 'react-native';
+import { useEffect } from 'react';
 
-import { useNetwork } from '@/shared/app/NetworkContext';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import {
-  nextPendingUpload,
   migrateLegacyUploadQueue,
   adoptAsyncStorageIndex,
   holdRecordingsOfOtherAthletes,
+  onUploadPermissionRefused,
+  wakeUploadSchedule,
 } from '@/features/recording/lib/storage/recordingLibrary';
-import { reconcileProvisionalUploads } from '@/features/recording/lib/storage/provisionalActivity';
-import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
+import {
+  reconcileProvisionalUploads,
+  replayProvisionalWrites,
+} from '@/features/recording/lib/storage/provisionalActivity';
+import { sendOwedRpe } from '@/features/recording/lib/upload/owedRpe';
 import { confirmAndDeleteUploaded } from '@/features/recording/lib/upload/confirmUploads';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineStatus } from '@/features/routes';
@@ -19,29 +21,31 @@ import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('UploadQueue');
 
-/** Low-frequency safety net so backoff-delayed retries fire without an app event. */
-const RETRY_TICK_MS = 2 * 60 * 1000;
-
 /**
- * Drains pending library uploads when connectivity is restored, the app comes
- * to the foreground, write permission is granted, or on a slow periodic tick
- * (exponential backoff gates each entry via `nextPendingUpload`).
- * Must be rendered inside NetworkProvider and after auth is established.
+ * Starts the engine's upload schedule, which drains pending library uploads
+ * itself: it waits for the connection and for each entry's backoff, in the
+ * foreground or not. Write permission being granted is the one trigger that
+ * stays here, since it is the athlete's action, and it wakes the schedule.
+ * Must be rendered after auth is established.
  */
 export function useUploadQueueProcessor() {
-  const { isOnline } = useNetwork();
   const engine = useEngineReady();
+  const engineReady = engine?.ready === true;
   const readyNonce = useEngineStatus((s) => s.readyNonce);
   const athleteId = useAuthStore((state) => state.athleteId);
   const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
-  const isProcessing = useRef(false);
 
-  // One-off adoption of the pre-library pending_uploads queue, then of the
-  // AsyncStorage index it writes into. Order matters: the queue migration adds
-  // entries the adoption has to see.
+  // Adopt the old upload queue into the table, then the old AsyncStorage index,
+  // then write the engine row of any ride whose save never got one. Once per
+  // engine open: a write that fails again waits for the next one.
   useEffect(() => {
     if (!engine?.ready) return;
-    void migrateLegacyUploadQueue().then(adoptAsyncStorageIndex);
+    void migrateLegacyUploadQueue()
+      .then(adoptAsyncStorageIndex)
+      .then(replayProvisionalWrites)
+      .catch((err: unknown) => {
+        log.warn(`Replaying missed engine rows failed: ${String(err)}`);
+      });
   }, [engine, readyNonce]);
 
   // A forced sign-out holds the queue rather than demoting it, so whoever
@@ -55,76 +59,35 @@ export function useUploadQueueProcessor() {
   }, [athleteId]);
 
   // An upload whose engine write missed leaves a row the sync will duplicate.
-  // The confirmation runs behind it, over the same entries: an upload is not
-  // finished until the activity has been read back off intervals.icu, and only
-  // then does the recording go.
+  // An effort the upload could not set is sent next, since the row is its only
+  // record. The confirmation runs behind both, over the same entries: an upload
+  // is not finished until the activity has been read back off intervals.icu,
+  // and only then does the recording go.
   useEffect(() => {
     reconcileProvisionalUploads()
+      .then(() => sendOwedRpe())
       .then(() => confirmAndDeleteUploaded())
       .catch((err: unknown) => {
         log.warn(`Reconcile pass failed: ${String(err)}`);
       });
   }, []);
 
-  const processQueue = useCallback(async () => {
-    if (isProcessing.current) return;
-    isProcessing.current = true;
-
-    try {
-      let next = await nextPendingUpload();
-      while (next) {
-        log.log(`Processing pending upload: ${next.name} (${next.id})`);
-        const result = await uploadRecording(next);
-
-        if (result.outcome === 'permissionBlocked') {
-          useUploadPermissionStore.getState().setHasWritePermission(false);
-          break; // All subsequent uploads would also fail
-        }
-        if (result.outcome === 'network' || result.outcome === 'retriable') {
-          break; // Backoff applies; wait for the next trigger
-        }
-        if (result.outcome === 'authExpired') {
-          // Every entry would meet the same refused credential, and the ride is
-          // held rather than spent. The sign-out this 401 triggers is what
-          // gets the athlete back.
-          break;
-        }
-        // uploaded / rejected / missing → move on to the next entry
-        next = await nextPendingUpload();
-      }
-    } finally {
-      isProcessing.current = false;
-    }
-  }, []);
-
-  // Process when network comes online
+  // The engine decides when a ride is due and uploads it. Opening the
+  // subscription before the wake means a refusal from the first drain is heard:
+  // every other ride would meet it too, until the athlete grants write access.
   useEffect(() => {
-    if (isOnline) {
-      processQueue();
-    }
-  }, [isOnline, processQueue]);
-
-  // Process when app comes to foreground
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && isOnline) {
-        processQueue();
-      }
+    if (!engineReady) return undefined;
+    const off = onUploadPermissionRefused(() => {
+      useUploadPermissionStore.getState().setHasWritePermission(false);
     });
-    return () => sub.remove();
-  }, [isOnline, processQueue]);
+    wakeUploadSchedule();
+    return off;
+  }, [engineReady, readyNonce]);
 
-  // Re-process after successful permission upgrade
+  // A write upgrade makes the athlete's blocked rides pending again, which
+  // the schedule has to be told about.
   useEffect(() => {
-    if (!needsUpgrade && isOnline) {
-      processQueue();
-    }
-  }, [needsUpgrade, isOnline, processQueue]);
-
-  // Periodic safety net for backoff-delayed retries
-  useEffect(() => {
-    if (!isOnline) return undefined;
-    const interval = setInterval(processQueue, RETRY_TICK_MS);
-    return () => clearInterval(interval);
-  }, [isOnline, processQueue]);
+    if (!engineReady || needsUpgrade) return;
+    wakeUploadSchedule();
+  }, [engineReady, readyNonce, needsUpgrade]);
 }
