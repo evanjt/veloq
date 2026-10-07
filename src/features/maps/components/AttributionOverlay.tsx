@@ -10,7 +10,7 @@
 
 import React, { memo, forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import { colors, spacing, typography, colorWithOpacity, ink } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 
 const PILL_INSET = 4;
 /** Share of the map the pill may claim before it wraps instead of spreading. */
@@ -34,13 +34,15 @@ export interface AttributionOverlayRef {
 
 export interface AttributionOverlayProps {
   initialAttribution: string;
+  /** The basemap is dark, so the pill must not be the brightest mark on it. */
+  isDark?: boolean | undefined;
   /** Measured pill height plus its inset, reported whenever the wrap changes. */
   onClearanceChange?: ((clearance: number) => void) | undefined;
 }
 
 export const AttributionOverlay = memo(
   forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
-    ({ initialAttribution, onClearanceChange }, ref) => {
+    ({ initialAttribution, isDark = false, onClearanceChange }, ref) => {
       const [attribution, setAttribution] = useState(initialAttribution);
       const reportedRef = useRef<number | null>(null);
 
@@ -62,10 +64,19 @@ export const AttributionOverlay = memo(
         <View testID="map-attribution" style={attributionStyles.attribution} pointerEvents="none">
           <View
             testID="map-attribution-pill"
-            style={attributionStyles.attributionPill}
+            style={[
+              attributionStyles.attributionPill,
+              isDark && attributionStyles.attributionPillDark,
+            ]}
             onLayout={handleLayout}
           >
-            <Text testID="map-attribution-text" style={attributionStyles.attributionText}>
+            <Text
+              testID="map-attribution-text"
+              style={[
+                attributionStyles.attributionText,
+                isDark && attributionStyles.attributionTextDark,
+              ]}
+            >
               {attribution}
             </Text>
           </View>
@@ -97,11 +108,17 @@ const attributionStyles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.white, 0.7),
     paddingHorizontal: spacing.smPlus,
     paddingVertical: PILL_PADDING_VERTICAL,
-    borderRadius: spacing.sm,
+    borderRadius: layout.borderRadiusSm,
+  },
+  attributionPillDark: {
+    backgroundColor: colorWithOpacity(darkColors.surfaceElevated, 0.8),
   },
   attributionText: {
     fontSize: typography.pillLabel.fontSize,
     lineHeight: PILL_LINE_HEIGHT,
     color: colors.textSecondary,
+  },
+  attributionTextDark: {
+    color: darkColors.textSecondary,
   },
 });

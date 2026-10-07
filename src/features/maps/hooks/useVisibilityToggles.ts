@@ -17,6 +17,8 @@
 
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
 
+import { useHeatmapPreference } from '../stores/HeatmapPreferenceStore';
+
 interface UseVisibilityTogglesResult {
   // State
   showActivities: boolean;
@@ -41,8 +43,25 @@ interface UseVisibilityTogglesResult {
 export function useVisibilityToggles(): UseVisibilityTogglesResult {
   const [showActivities, setShowActivities] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
-  const [showSections, setShowSections] = useState(true);
-  const [showRoutes, setShowRoutes] = useState(false);
+  const showSections = useHeatmapPreference((s) => s.sectionsVisible);
+  const setSectionsVisible = useHeatmapPreference((s) => s.setSectionsVisible);
+  const setShowSections: Dispatch<SetStateAction<boolean>> = useCallback(
+    (next) => {
+      const current = useHeatmapPreference.getState().sectionsVisible;
+      setSectionsVisible(typeof next === 'function' ? next(current) : next);
+    },
+    [setSectionsVisible]
+  );
+  // Kept by the map layer preference store: the map screen reads it too, to ask the engine for the lines.
+  const showRoutes = useHeatmapPreference((s) => s.routesVisible);
+  const setVisible = useHeatmapPreference((s) => s.setRoutesVisible);
+  const setShowRoutes: Dispatch<SetStateAction<boolean>> = useCallback(
+    (next) => {
+      const current = useHeatmapPreference.getState().routesVisible;
+      setVisible(typeof next === 'function' ? next(current) : next);
+    },
+    [setVisible]
+  );
   const [is3DMode, setIs3DMode] = useState(false);
 
   const toggleHeatmap = useCallback(() => {

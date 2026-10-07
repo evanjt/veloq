@@ -1,12 +1,5 @@
 import { useMemo, type MutableRefObject } from 'react';
-import type { WebView } from 'react-native-webview';
-import * as FileSystem from 'expo-file-system/legacy';
 
-import { HEATMAP_TILES_DIR } from '@/features/maps/hooks/useHeatmapTiles';
-import { heatmapTilePath, jsLiteral } from '@/features/maps/lib/webViewLiterals';
-import { APP_TILE_MISS, APP_TILE_READ_ERROR } from '@/features/maps/lib/htmlBuilders/map3D';
-import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
-import { buildBundledAssetReplyScript } from '@/features/maps/lib/htmlBuilders';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
 import type {
   WebViewBridgeHandlers,
@@ -24,30 +17,36 @@ type Camera = {
 };
 
 interface Map3DBridgeParams {
-  webViewRef: MutableRefObject<WebView | null>;
   mapReadyRef: MutableRefObject<boolean>;
   savedCameraRef: MutableRefObject<Camera | null>;
   onMapClickRef: MutableRefObject<((coordinate: [number, number]) => void) | undefined>;
   onSectionClickRef: MutableRefObject<((sectionId: string) => void) | undefined>;
-  onActivityClickRef: MutableRefObject<((activityId: string) => void) | undefined>;
+  onActivityClickRef: MutableRefObject<
+    ((activityId: string, hits: GeoJSON.Feature[]) => void) | undefined
+  >;
   updateLayers: () => void;
+  /** Draws the selected route when the page came up without it. */
+  syncRoute: () => void;
+  /** Moves a page that came up in its built style to the one the toggle shows. */
+  syncStyle: () => void;
   onMapReady?: (() => void) | undefined;
   onMapFailed?: ((reason: string) => void) | undefined;
   onTerrainUnavailable?: ((reason: string) => void) | undefined;
   onBearingChange?: ((bearing: number) => void) | undefined;
-  onCameraStateChange?: ((camera: Camera) => void) | undefined;
+  onCameraStateChange?: ((camera: Camera, gesture: boolean) => void) | undefined;
 }
 
 // Parses and dispatches messages from the 3D MapLibre WebView. Handlers keep
 // their bodies inline because each closes over the parent's refs and callbacks.
 export function useMap3DBridge({
-  webViewRef,
   mapReadyRef,
   savedCameraRef,
   onMapClickRef,
   onSectionClickRef,
   onActivityClickRef,
   updateLayers,
+  syncRoute,
+  syncStyle,
   onMapReady,
   onMapFailed,
   onTerrainUnavailable,
@@ -62,6 +61,8 @@ export function useMap3DBridge({
       mapReady: () => {
         mapReadyRef.current = true;
         onMapReady?.();
+        syncStyle();
+        syncRoute();
         // Update layers after map is ready - small delay ensures style is fully settled
         setTimeout(() => updateLayers(), 100);
       },
@@ -87,7 +88,7 @@ export function useMap3DBridge({
         const camera = data.camera as Camera;
         // Save camera state for restoration
         savedCameraRef.current = camera;
-        onCameraStateChange?.(camera);
+        onCameraStateChange?.(camera, data.gesture === true);
       },
       mapClick: (data: WebViewBridgeMessage) => {
         if (Array.isArray(data.coordinate) && data.coordinate.length === 2) {
@@ -101,93 +102,14 @@ export function useMap3DBridge({
       },
       activityClick: (data: WebViewBridgeMessage) => {
         if (typeof data.activityId === 'string') {
-          onActivityClickRef.current?.(data.activityId);
+          onActivityClickRef.current?.(
+            data.activityId,
+            Array.isArray(data.features) ? (data.features as GeoJSON.Feature[]) : []
+          );
         }
-      },
-      bundledAssetRequest: (data: WebViewBridgeMessage) => {
-        if (!data.requestId || !data.path) return;
-        const base64 = bundledBasemapAsset(data.path as string);
-        webViewRef.current?.injectJavaScript(
-          buildBundledAssetReplyScript(data.requestId as string, base64)
-        );
-      },
-      heatmapTileRequest: (data: WebViewBridgeMessage) => {
-        if (!data.requestId) return;
-        const requestId = data.requestId as string;
-        // The page decides this path, so it is checked against the one shape a
-        // tile can take before it is joined onto anything.
-        const tilePath = heatmapTilePath(data.tilePath);
-        if (!tilePath) return;
-        // Heatmap tile request from WebView - read PNG from filesystem, return as base64
-        const fullPath = `${HEATMAP_TILES_DIR}${tilePath}`;
-        FileSystem.getInfoAsync(fullPath)
-          .then((info) => {
-            if (info.exists && info.size > 0) {
-              return FileSystem.readAsStringAsync(fullPath, {
-                encoding: FileSystem.EncodingType.Base64,
-              });
-            }
-            return null;
-          })
-          .then((base64) => {
-            if (!webViewRef.current) return;
-            if (base64) {
-              // MapLibre's addProtocol expects { data: ArrayBuffer } for raster
-              // tiles. The previous implementation passed an Image (decode
-              // failed) and built a Blob via `new Blob([atob(b64)])` which
-              // re-encodes the binary string as UTF-8 - the PNG bytes get
-              // mangled. Convert base64 → Uint8Array → ArrayBuffer manually
-              // by walking charCodeAt to preserve raw bytes.
-              webViewRef.current.injectJavaScript(`
-                  (function() {
-                    var req = window._heatmapRequests && window._heatmapRequests[${jsLiteral(requestId)}];
-                    if (!req) return;
-                    try {
-                      var binary = atob(${jsLiteral(base64)});
-                      var len = binary.length;
-                      var bytes = new Uint8Array(len);
-                      for (var i = 0; i < len; i++) {
-                        bytes[i] = binary.charCodeAt(i);
-                      }
-                      req.resolve({ data: bytes.buffer });
-                    } catch (err) {
-                      req.reject(new Error('heatmap base64 decode failed: ' + err));
-                    }
-                    delete window._heatmapRequests[${jsLiteral(requestId)}];
-                  })();
-                  true;
-                `);
-            } else {
-              // Tile not found
-              webViewRef.current.injectJavaScript(`
-                  (function() {
-                    var req = window._heatmapRequests && window._heatmapRequests[${jsLiteral(requestId)}];
-                    if (req) {
-                      req.reject(new Error(${jsLiteral(APP_TILE_MISS)}));
-                      delete window._heatmapRequests[${jsLiteral(requestId)}];
-                    }
-                  })();
-                  true;
-                `);
-            }
-          })
-          .catch(() => {
-            // Read error
-            webViewRef.current?.injectJavaScript(`
-                (function() {
-                  var req = window._heatmapRequests && window._heatmapRequests[${jsLiteral(requestId)}];
-                  if (req) {
-                    req.reject(new Error(${jsLiteral(APP_TILE_READ_ERROR)}));
-                    delete window._heatmapRequests[${jsLiteral(requestId)}];
-                  }
-                })();
-                true;
-              `);
-          });
       },
     }),
     [
-      webViewRef,
       mapReadyRef,
       savedCameraRef,
       onMapClickRef,
@@ -199,6 +121,8 @@ export function useMap3DBridge({
       onBearingChange,
       onCameraStateChange,
       updateLayers,
+      syncRoute,
+      syncStyle,
     ]
   );
 

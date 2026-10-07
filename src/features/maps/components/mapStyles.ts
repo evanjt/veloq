@@ -1,10 +1,13 @@
 // Shared map style definitions and constants
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
-import { NATIVE_TILE_TRANSPORT, nativeTileUrl } from '@/features/maps/lib/tileTransport';
+import { mapPageBaseUrl, nativeTileUrl } from '@/features/maps/lib/tileTransport';
+import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
+import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import { ink, colorWithOpacity } from '@/theme';
+import { HILLSHADE_DARK_SHADOW, HILLSHADE_DARK_HIGHLIGHT } from '@/features/maps/styles/hillshade';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
@@ -124,6 +127,13 @@ interface SatelliteSource {
   boxes?: Bbox[];
 }
 
+/**
+ * Every provider serves 256-pixel tiles. Declaring 128 keeps a 2x oversample
+ * for sharpness while asking for a quarter of the tiles a 256 declaration would
+ * need at zoom levels two deeper than declaring 64 does.
+ */
+export const SATELLITE_TILE_SIZE = 128;
+
 // Satellite tile sources - all commercially licensed
 export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   // Switzerland: Swisstopo SWISSIMAGE (OGD license - commercial OK)
@@ -142,7 +152,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg',
     ],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
     attribution: '© swisstopo',
     boxes: [
@@ -155,6 +165,10 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
       [6.1, 46.36, 6.45, 46.47], // The lake's north shore, west of Thonon
       [6.75, 46.36, 9.9, 46.47], // Montreux east, skipping the French shore
       [6.1, 46.47, 9.9, 46.62], // Vaud, Oberland and Graubünden
+      [6.3, 46.62, 6.6, 46.75], // Orbe and the Vallée de Joux, east of Vallorbe
+      [6.5, 46.75, 6.6, 47.0], // Sainte-Croix and the Val-de-Travers, east of Pontarlier
+      [6.82, 46.15, 6.95, 46.36], // Val d'Illiez, east of Morzine
+      [7.05, 45.94, 7.5, 46.1], // Entremont, Bagnes and Hérens, north of Aosta
       [6.6, 46.62, 10.5, 47.0], // The Mittelland and the Engadine
       [6.35, 47.0, 9.55, 47.45], // Jura, Aargau and the Zürich basin, west of Vorarlberg
       [7.0, 47.45, 9.55, 47.82], // Basel, Schaffhausen and the Bodensee shore
@@ -188,13 +202,15 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     ],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
     attribution: '© IGN France',
     boxes: [
       [8.5, 41.33, 9.6, 43.05], // Corsica
       [1.45, 42.33, 9.56, 42.6], // Cerdagne and Roussillon, east of the Segre
       [0.55, 42.6, 9.56, 42.8], // Ariège, Aude and Luchon
+      [-0.15, 42.72, 0.55, 42.8], // Gavarnie to Aragnouet
+      [-1.3, 42.99, -0.75, 43.05], // Soule and Iraty
       [-0.75, 42.8, 9.56, 43.05], // Comminges and the Hautes-Pyrénées
       [-1.8, 43.05, 7.75, 43.35], // Béarn, Marseille and the coast to Hendaye
       [-5.142, 43.35, 7.75, 44.2], // Aquitaine and Provence, north of the border
@@ -210,7 +226,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/tile/{z}/{y}/{x}',
     ],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 17,
     attribution: 'USGS NAIP',
     bounds: [-124.733, 24.544, -66.95, 49.384], // Continental USA [west, south, east, north]
@@ -221,7 +237,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://www.ign.es/wmts/pnoa-ma?service=WMTS&request=GetTile&version=1.0.0&Format=image/jpeg&layer=OI.OrthoimageCoverage&style=default&tilematrixset=GoogleMapsCompatible&TileMatrix={z}&TileRow={y}&TileCol={x}',
     ],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
     attribution: 'CC BY 4.0 scne.es',
     bounds: [-9.4, 36.0, 4.4, 43.8],
@@ -230,7 +246,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   // maps{1-4}.wien.gv.at subdomains have DNS issues - use maps.wien.gv.at (load-balanced)
   austria: {
     tiles: ['https://maps.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg'],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
     attribution: 'Datenquelle: basemap.at',
     bounds: [9.53, 46.37, 17.17, 49.02],
@@ -240,7 +256,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg',
     ],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 21,
     attribution: '© Kadaster / PDOK',
     bounds: [3.37, 50.75, 7.21, 53.55],
@@ -250,7 +266,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/WMTS/tile/1.0.0/ORTOFOTO_WM/default/GoogleMapsCompatible/{z}/{y}/{x}',
     ],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 18,
     attribution: '© ČÚZK',
     bounds: [12.09, 48.55, 18.85, 51.06],
@@ -260,7 +276,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: [
       'https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMTS/StandardResolution?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTOFOTOMAPA&STYLE=default&FORMAT=image/jpeg&TILEMATRIXSET=EPSG:3857&TILEMATRIX=EPSG:3857:{z}&TILEROW={y}&TILECOL={x}',
     ],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 19,
     attribution: '© GUGiK',
     bounds: [14.12, 49.0, 24.15, 54.85],
@@ -273,7 +289,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
       'https://wmts3.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg',
       'https://wmts4.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg',
     ],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 21,
     attribution: '© ACT Luxembourg',
     bounds: [5.73, 49.44, 6.53, 50.18],
@@ -282,7 +298,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   // Note: 2018+ versions are CC BY-NC-SA (not commercial)
   eox: {
     tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg'],
-    tileSize: 64,
+    tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 14,
     attribution: 'Sentinel-2 cloudless - s2maps.eu by EOX, Copernicus Sentinel data 2017',
     // No bounds - global coverage
@@ -577,62 +593,81 @@ function satelliteLayerStack(): { id: SatelliteSourceId; minzoom: number }[] {
   return layerStack;
 }
 
-/**
- * The credit for the satellite imagery drawn at (lat, lng) on this zoom.
- *
- * Every regional raster is opaque and they are stacked in one fixed order, so
- * at any one point exactly one of them is visible: the topmost whose bounds
- * contain the point and whose layer `minzoom` is met. EOX sits under all of
- * them and is credited only where nothing covers it.
- *
- * It used to credit every source whose box contained the point plus EOX
- * unconditionally, which over Valais named IGN France for ground it does not
- * draw and Sentinel-2 underneath imagery that fully covers it.
- */
-export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: number): string {
+/** The source drawn at one point on this zoom: the topmost that covers it. */
+function visibleSourceAt(lng: number, lat: number, zoom: number): SatelliteSourceId {
   for (const { id, minzoom } of satelliteLayerStack()) {
     if (zoom < minzoom) continue;
     const source = SATELLITE_SOURCES[id];
     // No box anywhere means global coverage, which is EOX and the end of the
     // stack.
     if ((source.bounds || source.boxes) && !sourceCovers(source, lng, lat)) continue;
-    return source.attribution;
+    return id;
   }
-  return SATELLITE_SOURCES.eox.attribution;
+  return 'eox';
 }
 
 /**
- * Point every satellite raster at whichever tile transport is in force.
+ * The credit for the satellite imagery drawn at (lat, lng) on this zoom, or
+ * across a viewport when its bounds are given.
  *
- * The native transport hands each source's upstream template to Rust once and
- * asks for an intercepted URL, so the store answers a hit and fills a miss
- * without the page knowing which happened. A source Rust will not take stays
- * on `cached-satellite://` rather than drawing nothing.
+ * Every regional raster is opaque and they are stacked in one fixed order, so
+ * at any one point exactly one of them is visible: the topmost whose bounds
+ * contain the point and whose layer `minzoom` is met. EOX sits under all of
+ * them and is credited only where nothing covers it.
+ *
+ * A viewport is sampled at its corners, edge midpoints and centre, and every
+ * source visible at any of them is credited once, in stack order, so a view
+ * across a region border names each source it draws. Sources are credited from
+ * samples, so a source covering only a sliver between samples can go unnamed.
+ */
+export function getCombinedSatelliteAttribution(
+  lat: number,
+  lng: number,
+  zoom: number,
+  bounds?: LngLatBounds
+): string {
+  const visible = new Set<SatelliteSourceId>([visibleSourceAt(lng, lat, zoom)]);
+  if (bounds) {
+    const [west, south] = bounds.sw;
+    const [east, north] = bounds.ne;
+    const lngs = [west, (west + east) / 2, east];
+    const lats = [south, (south + north) / 2, north];
+    for (const x of lngs) for (const y of lats) visible.add(visibleSourceAt(x, y, zoom));
+  }
+  // EOX has no layer minzoom, so it is not in the stack and sits under it.
+  const ordered = [...new Set(satelliteLayerStack().map(({ id }) => id))];
+  if (!ordered.includes('eox')) ordered.push('eox');
+  return ordered
+    .filter((id) => visible.has(id))
+    .map((id) => SATELLITE_SOURCES[id].attribution)
+    .join(' | ');
+}
+
+/**
+ * Point every satellite raster at the tile store.
+ *
+ * Each source's upstream template goes to Rust once and the page asks for an
+ * intercepted URL, so the store answers a hit and fills a miss without the page
+ * knowing which happened. Where Rust cannot be reached, which is the test
+ * bench, a source keeps its upstream URL.
  */
 export function rewriteSatelliteUrls(style: CombinedSatelliteMapStyle): CombinedSatelliteMapStyle {
   const rewritten: CombinedSatelliteMapStyle = JSON.parse(JSON.stringify(style));
   for (const [key, source] of Object.entries(rewritten.sources)) {
     if (source.type !== 'raster' || !source.tiles) continue;
-    if (NATIVE_TILE_TRANSPORT) {
-      const native = nativeTileUrl(key, source.tiles[0]);
-      if (native) {
-        source.tiles = [native];
-        continue;
-      }
-    }
-    source.tiles = source.tiles.map((url) => url.replace(/^https:\/\//, 'cached-satellite://'));
+    const native = nativeTileUrl(key, source.tiles[0]);
+    if (native) source.tiles = [native];
   }
   return rewritten;
 }
 
 /**
- * Point the light style's `ne2_shaded` ground raster at whichever tile transport
- * is in force.
+ * Point the light style's `ne2_shaded` ground raster at the tile store.
  *
  * The layer draws below zoom 6, where it is the whole visible ground, so left on
  * the network a map with no radio opens on nothing. Only sources pointing at the
  * OpenFreeMap Natural Earth path are touched, so a satellite raster keeps the
- * protocol `rewriteSatelliteUrls` gave it.
+ * URL `rewriteSatelliteUrls` gave it.
  */
 export function rewriteGroundRasterUrls<T extends object>(style: T): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -644,23 +679,16 @@ export function rewriteGroundRasterUrls<T extends object>(style: T): T {
     if (source.type !== 'raster' || !Array.isArray(source.tiles)) continue;
     const tiles = source.tiles as string[];
     if (!tiles.some((url) => url.startsWith(NATURAL_EARTH_ORIGIN))) continue;
-    if (NATIVE_TILE_TRANSPORT) {
-      const native = nativeTileUrl(key, tiles[0]);
-      if (native) {
-        source.tiles = [native];
-        continue;
-      }
-    }
-    source.tiles = tiles.map((url) => url.replace(/^https:\/\//, 'cached-ground://'));
+    const native = nativeTileUrl(key, tiles[0]);
+    if (native) source.tiles = [native];
   }
   return rewritten;
 }
 
 /**
- * Point every vector source at whichever tile transport is in force.
+ * Point every vector source at the tile store.
  *
- * Under the native transport Rust is handed the TileJSON url itself rather than
- * a tile template, because the origin serves tiles from a dated snapshot
+ * Rust is handed the TileJSON url itself rather than a tile template, because the origin serves tiles from a dated snapshot
  * segment only that document names and answers the unversioned path with an
  * empty body. Rust resolves it once and keeps what it resolved, so the page
  * never learns a tile path and states the extension instead.
@@ -677,11 +705,10 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
       // match used to be the literal openfreemap planet url, so a style on any
       // other vector host went through uncached with nothing saying so.
       //
-      // Point the source at the TileJSON through the protocol, rather than at a
-      // tile path built here. The origin serves tiles from a dated snapshot
-      // segment the TileJSON names, and answers the unversioned path with an
-      // empty body, so a template written here draws nothing. The handler
-      // rewrites the TileJSON's own template back onto the protocol.
+      // Hand Rust the TileJSON, rather than a tile path built here. The origin
+      // serves tiles from a dated snapshot segment the TileJSON names, and
+      // answers the unversioned path with an empty body, so a template written
+      // here draws nothing.
       if (
         source.type === 'vector' &&
         typeof source.url === 'string' &&
@@ -689,16 +716,13 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
       ) {
         // `pbf` is stated rather than read off the template: a TileJSON url
         // names no file, and a vector tile is always protobuf.
-        const native = NATIVE_TILE_TRANSPORT ? nativeTileUrl(key, source.url, 'pbf') : null;
+        const native = nativeTileUrl(key, source.url, 'pbf');
         if (native) {
           source.tiles = [native];
           delete source.url;
-        } else {
-          source.url = source.url.replace(/^https:\/\//, 'cached-vector://');
-          delete source.tiles;
+          // The TileJSON carried it, and the store hands none to MapLibre.
+          source.maxzoom = 14;
         }
-        // The TileJSON carried it, and neither transport hands one to MapLibre.
-        source.maxzoom = 14;
       }
     }
   }
@@ -708,24 +732,19 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
 /**
  * Point the sprite and the glyphs at the app bundle.
  *
- * The handler falls back to the network for anything not bundled, so a style
- * keeps every label it had online and gains the Latin ones offline. Only pages
- * that register the `bundled` protocol may be rewritten.
+ * The platform interceptor answers `veloq-asset/<path>` on the page's own
+ * origin out of the app bundle, and answers 404 for a path the app does not
+ * carry. Only pages loaded on `mapPageBaseUrl()` may be rewritten.
  */
 export function rewriteBundledAssets<T extends object>(style: T): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rewritten: any = JSON.parse(JSON.stringify(style));
+  const assets = `${mapPageBaseUrl()}veloq-asset/`;
   if (typeof rewritten.sprite === 'string') {
-    rewritten.sprite = rewritten.sprite.replace(
-      /^https:\/\/tiles\.openfreemap\.org\//,
-      'bundled://'
-    );
+    rewritten.sprite = rewritten.sprite.replace(/^https:\/\/tiles\.openfreemap\.org\//, assets);
   }
   if (typeof rewritten.glyphs === 'string') {
-    rewritten.glyphs = rewritten.glyphs.replace(
-      /^https:\/\/tiles\.openfreemap\.org\//,
-      'bundled://'
-    );
+    rewritten.glyphs = rewritten.glyphs.replace(/^https:\/\/tiles\.openfreemap\.org\//, assets);
   }
   return rewritten;
 }
@@ -738,9 +757,7 @@ export const TERRAIN_ATTRIBUTION = 'Terrain: USGS, NOAA (Mapzen Terrain Tiles)';
  * Map3DWebView (interactive detail) and TerrainSnapshotWebView (feed previews).
  * Keeps terrain source, sky, and hillshade definitions in sync.
  */
-/** Where the terrarium DEM tiles come from, whichever transport carries them. */
-export const TERRAIN_UPSTREAM_TEMPLATE =
-  'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+export { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
 
 export const TERRAIN_3D_CONFIG = {
   source: {
@@ -782,8 +799,8 @@ export const TERRAIN_3D_CONFIG = {
   },
   hillshadePaint: {
     dark: {
-      'hillshade-shadow-color': 'rgba(10,10,20,0.35)',
-      'hillshade-highlight-color': 'rgba(200,210,230,0.25)',
+      'hillshade-shadow-color': HILLSHADE_DARK_SHADOW,
+      'hillshade-highlight-color': HILLSHADE_DARK_HIGHLIGHT,
       'hillshade-illumination-anchor': 'map',
       'hillshade-exaggeration': 0.4,
     },
@@ -814,21 +831,36 @@ export const TERRAIN_3D_CONFIG = {
 } as const;
 
 /**
- * The 3D terrain source, pointed at whichever tile transport is in force.
+ * Page script defining `hillshadeInsertIndex(layers, candidates)`: the index of
+ * the first layer, in the style's own order, whose id is a candidate, or the
+ * layer count when none is. Every 3D page walks the style's layers with it, so
+ * the hillshade lands under the roads however the candidate list is ordered.
+ */
+export const HILLSHADE_INSERT_INDEX_SCRIPT = `
+function hillshadeInsertIndex(layers, candidates) {
+  var wanted = {};
+  for (var ci = 0; ci < candidates.length; ci++) wanted[candidates[ci]] = true;
+  for (var li = 0; li < layers.length; li++) {
+    if (wanted[layers[li].id]) return li;
+  }
+  return layers.length;
+}
+`;
+
+/**
+ * The 3D terrain source, pointed at the tile store.
  *
  * A DEM miss is the one that shows: the page reports terrain unavailable and
  * drops the view to 2D, so the tiles belong in the Rust store, which is the
  * only tier that can be pre-seeded around a riding area and sized against the
- * one budget. Where nothing can intercept, the web, the page asks the host
- * itself: it keeps no DEM cache of its own, so there is no second tier for
- * Rust to be unable to see.
+ * one budget. Where Rust cannot be reached, the test bench, the source keeps
+ * the upstream host.
  *
- * A function rather than a constant: the transport is decided per platform at
- * the moment the page is built, and building it is what hands Rust the
+ * A function rather than a constant: building the page is what hands Rust the
  * upstream template.
  */
 export function terrain3DSource() {
-  const native = NATIVE_TILE_TRANSPORT ? nativeTileUrl('terrain', TERRAIN_UPSTREAM_TEMPLATE) : null;
+  const native = nativeTileUrl('terrain', TERRAIN_UPSTREAM_TEMPLATE);
   return {
     ...TERRAIN_3D_CONFIG.source,
     tiles: [native ?? TERRAIN_UPSTREAM_TEMPLATE],

@@ -7,6 +7,8 @@
  * Rust walks on its own thread and this only polls the figure.
  */
 
+import { createAwakeClock } from '@/shared/app/awakeClock';
+
 /** Cheap enough to poll at, short enough that a small tree still returns promptly. */
 const POLL_INTERVAL_MS = 50;
 
@@ -34,14 +36,15 @@ export async function readHeatmapCacheSize(
 ): Promise<number> {
   engine.startHeatmapCacheSize(basePath);
 
-  const deadline = Date.now() + timeoutMs;
+  const awake = createAwakeClock(POLL_INTERVAL_MS);
+  const deadline = awake() + timeoutMs;
   for (;;) {
     const poll = engine.pollHeatmapCacheSize();
     // Idle after a start means the walk finished under another caller's poll,
     // which is the second and third mount effect sharing one pass. The figure
     // outlives the poll that observed it, so both states carry it.
     if (poll.state !== 'running') return poll.bytes;
-    if (Date.now() > deadline) return poll.bytes;
+    if (awake() > deadline) return poll.bytes;
     await wait(POLL_INTERVAL_MS);
   }
 }

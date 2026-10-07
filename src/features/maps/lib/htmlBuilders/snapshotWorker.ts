@@ -11,11 +11,8 @@
  *
  * Kept as a pure function so callers can memoize it off the worker list.
  */
-import { bundledAssetsScript, consoleBridgeScript, mapLibreHead } from './shared';
-import {
-  cacheEvictionScript,
-  DEFAULT_TILE_CACHE_BUDGET_MB,
-} from '@/features/maps/lib/tileCacheBudget';
+import { consoleBridgeScript, mapLibreHead, terrainVisibilityScript } from './shared';
+import { dropRetiredTileCachesScript } from '@/features/maps/lib/tileCacheBudget';
 
 /**
  * Snapshot viewport height in CSS pixels. Mirrors the value in
@@ -88,10 +85,7 @@ export function heartbeatScript(): string {
  */
 export const SNAPSHOT_BOOT_STYLE = { version: 8, sources: {}, layers: [] } as const;
 
-export function buildSnapshotWorkerHtml(
-  workerId: number,
-  tileCacheBudgetMb: number = DEFAULT_TILE_CACHE_BUDGET_MB
-): string {
+export function buildSnapshotWorkerHtml(workerId: number): string {
   return `${mapLibreHead({ title: 'Snapshot Worker', mapHeight: `${SNAPSHOT_HEIGHT}px` })}
 <body>
   <div id="map"></div>
@@ -108,47 +102,9 @@ export function buildSnapshotWorkerHtml(
     // Track current base style for reuse optimisation
     window._currentBaseStyle = null;
 
-    // Decode ArrayBuffer/Blob into HTMLImageElement via Object URL.
-    // MapLibre v5 uses it directly (instanceof HTMLImageElement check),
-    // bypassing arrayBufferToCanvasImageSource → createImageBitmap
-    // which fails silently in Android WebView.
-    function demBlobToImage(blob) {
-      return new Promise(function(resolve, reject) {
-        var url = URL.createObjectURL(blob);
-        var img = new Image();
-        img.onload = function() {
-          URL.revokeObjectURL(url);
-          resolve({ data: img });
-        };
-        img.onerror = function() {
-          URL.revokeObjectURL(url);
-          reject(new Error('DEM image decode failed'));
-        };
-        img.src = url;
-      });
-    }
+${dropRetiredTileCachesScript()}
 
-    // Imagery is fetched through and dropped, not kept. The worker shares the
-    // device's caches with the interactive pages, so a snapshot render here
-    // would otherwise refill the satellite cache they stopped writing to.
-    //
-    // Reached only where nothing can intercept, which is the web: on both
-    // handsets a preview's imagery is asked for on the page's own origin and
-    // answered out of the Rust store, the same as an interactive surface's. No
-    // style this page is ever given names the vector protocol, so that one is
-    // not registered here at all, and the terrain DEM has no protocol either:
-    // it goes through the intercept and the Rust store is what keeps it.
-    maplibregl.addProtocol('cached-satellite', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
-      return fetch(realUrl).then(function(r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.blob().then(demBlobToImage);
-      });
-    });
-
-    ${bundledAssetsScript({ workerId: 'window._workerId' })}
-
-${cacheEvictionScript(tileCacheBudgetMb)}
+${terrainVisibilityScript()}
 
     window._rn_log('Initializing MapLibre (worker ${workerId})...');
 

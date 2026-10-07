@@ -21,12 +21,6 @@ export const REGION_CHANGE_DEBOUNCE_MS = 200;
 /** Work deferred until a gesture has settled, such as recomputing attribution. */
 export const REGION_SETTLE_DEBOUNCE_MS = 300;
 
-/**
- * Activity count above which the regional map culls to the viewport. Below it
- * the whole set is drawn, because filtering costs more than it saves.
- */
-export const VIEWPORT_CULLING_THRESHOLD = 2000;
-
 /** Zoom at which the regional map starts drawing per-activity detail. */
 export const TRACE_ZOOM_THRESHOLD = 11;
 
@@ -45,3 +39,9 @@ export const MAP_3D_READY_TIMEOUT_MS = 15000;
  * rectangle.
  */
 export const MAP_SURFACE_READY_TIMEOUT_MS = 15000;
+
+/**
+ * How long tiles may stay in flight before the map shows a loading indicator.
+ * A pan over cached ground settles inside this, so it never flashes.
+ */
+export const TILE_LOADING_INDICATOR_DELAY_MS = 400;

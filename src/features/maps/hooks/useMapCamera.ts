@@ -15,6 +15,7 @@ import { Animated } from 'react-native';
 import * as Location from 'expo-location';
 import { type LatLng, getMapLibreBounds } from '@/shared/geo/polyline';
 import type { MapCameraState, MapSurfaceRef } from '@/features/maps/components/MapSurface';
+import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 
@@ -44,6 +45,8 @@ interface UseMapCameraResult {
   boundsCenter: [number, number] | null;
   /** Current viewport center ref (updated on region change, no re-renders) */
   currentCenterRef: React.MutableRefObject<[number, number] | null>;
+  /** Current viewport extent ref (updated on region change, null until one is reported) */
+  currentBoundsRef: React.MutableRefObject<LngLatBounds | null>;
   /** Current viewport zoom ref (updated on region change, no re-renders) */
   currentZoomRef: React.MutableRefObject<number>;
   /**
@@ -60,6 +63,8 @@ interface UseMapCameraResult {
   handleMapReady: () => void;
   /** Called when the surface reports it cannot render a basemap */
   handleMapFailed: () => void;
+  /** Called when the surface is unmounted, so the next one starts not ready */
+  resetSurface: () => void;
   /** Called continuously during a gesture (bearing sync for compass) */
   handleRegionIsChanging: (state: MapCameraState) => void;
   /** Called once a gesture settles (viewport tracking) */
@@ -91,6 +96,7 @@ export function useMapCamera({
 
   const currentCenterRef = useRef<[number, number] | null>(boundsCenter);
   const currentZoomRef = useRef(14);
+  const currentBoundsRef = useRef<LngLatBounds | null>(null);
   // Null until the surface reports a viewport, so a first mount still fits the
   // track and only a remount restores what the user was looking at.
   const settledCameraRef = useRef<MapCameraSpec | null>(null);
@@ -117,6 +123,13 @@ export function useMapCamera({
     setMapFailed(true);
   }, []);
 
+  // Readiness belongs to one mounted surface. A surface that is dropped takes
+  // it along, otherwise its replacement is revealed before it has loaded.
+  const resetSurface = useCallback(() => {
+    setMapReady(false);
+    setMapFailed(false);
+  }, []);
+
   const handleRegionIsChanging = useCallback(
     (state: MapCameraState) => {
       bearingAnim.setValue(-state.bearing);
@@ -127,6 +140,7 @@ export function useMapCamera({
   const handleRegionDidChange = useCallback((state: MapCameraState) => {
     currentCenterRef.current = state.center;
     currentZoomRef.current = state.zoom;
+    currentBoundsRef.current = state.bounds;
     settledCameraRef.current = { center: state.center, zoom: state.zoom };
   }, []);
 
@@ -155,14 +169,15 @@ export function useMapCamera({
         accuracy: Location.Accuracy.Balanced,
       });
       setLocationLoading(false);
-      surfaceRef.current?.setCamera(
+      const target = is3DMode && is3DReady ? map3DRef.current : surfaceRef.current;
+      target?.setCamera(
         { center: [location.coords.longitude, location.coords.latitude], zoom: 14 },
         500
       );
     } catch {
       setLocationLoading(false);
     }
-  }, []);
+  }, [is3DMode, is3DReady, map3DRef]);
 
   return {
     surfaceRef,
@@ -171,12 +186,14 @@ export function useMapCamera({
     bounds,
     boundsCenter,
     currentCenterRef,
+    currentBoundsRef,
     currentZoomRef,
     settledCameraRef,
     bearingAnim,
     locationLoading,
     handleMapReady,
     handleMapFailed,
+    resetSurface,
     handleRegionIsChanging,
     handleRegionDidChange,
     resetOrientation,

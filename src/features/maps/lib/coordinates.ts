@@ -24,6 +24,34 @@ function isFinitePair(lng: number, lat: number): boolean {
   return Number.isFinite(lng) && Number.isFinite(lat);
 }
 
+/** The `[0, 0]` the recording store pads a sample with when it has no fix. */
+function isUnpositioned(lng: number, lat: number): boolean {
+  return lng === 0 && lat === 0;
+}
+
+/**
+ * The kept points whose source index lies in `[from, to]`. Trim handles are in
+ * source index space, which dropped placeholders make differ from point space.
+ */
+export function pointsBetweenSourceIndices(
+  growth: Pick<GrowingLngLat, 'points' | 'indices'>,
+  from: number,
+  to: number
+): LngLat[] {
+  const firstAtOrAfter = (x: number): number => {
+    let lo = 0;
+    let hi = growth.indices.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      const at = growth.indices[mid];
+      if (at !== undefined && at < x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  return growth.points.slice(firstAtOrAfter(from), firstAtOrAfter(to + 1));
+}
+
 /** Pass through `[lng, lat]` tuples, dropping non-finite entries. */
 export function lngLatFromTuples(points: readonly (readonly [number, number])[]): LngLat[] {
   const out: LngLat[] = [];
@@ -33,13 +61,46 @@ export function lngLatFromTuples(points: readonly (readonly [number, number])[])
   return out;
 }
 
-/** Flip `[lat, lng]` tuples, the shape recording and activity bounds use. */
-export function lngLatFromLatLngTuples(points: readonly (readonly [number, number])[]): LngLat[] {
-  const out: LngLat[] = [];
-  for (const [lat, lng] of points) {
-    if (isFinitePair(lng, lat)) out.push([lng, lat]);
+/** A `[lat, lng]` track flipped as it grows, for a line that gains a point per fix. */
+export interface GrowingLngLat {
+  source: readonly (readonly [number, number])[] | null;
+  seen: number;
+  points: LngLat[];
+  /** The source index each kept point came from, ascending. */
+  indices: number[];
+}
+
+export function emptyGrowingLngLat(): GrowingLngLat {
+  return { source: null, seen: 0, points: [], indices: [] };
+}
+
+/**
+ * Flip the first `length` points of `source`, touching only the ones not seen
+ * before. The points array is kept and appended to, so its identity says which
+ * track it is, not which fix. A shorter length or another source starts again.
+ */
+export function growLngLat(
+  growth: GrowingLngLat,
+  source: readonly (readonly [number, number])[],
+  length: number
+): LngLat[] {
+  if (growth.source !== source || length < growth.seen) {
+    growth.source = source;
+    growth.seen = 0;
+    growth.points = [];
+    growth.indices = [];
   }
-  return out;
+  const end = Math.min(length, source.length);
+  for (let i = growth.seen; i < end; i++) {
+    const lat = source[i][0];
+    const lng = source[i][1];
+    if (isFinitePair(lng, lat) && !isUnpositioned(lng, lat)) {
+      growth.points.push([lng, lat]);
+      growth.indices.push(i);
+    }
+  }
+  growth.seen = Math.max(growth.seen, end);
+  return growth.points;
 }
 
 /** Read `{ lat, lng }` objects. */
@@ -126,26 +187,6 @@ export function featureCollection(
     type: 'FeatureCollection',
     features: features.filter((feature): feature is GeoJSON.Feature => feature !== null),
   };
-}
-
-/**
- * The start and end points of every line in a collection that has already been
- * built. The nearby sections on the section map are decoded once into
- * LineStrings, so their dots come off that geometry rather than decoding the
- * same polylines a second time.
- */
-export function lineEndpoints(lines: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
-  return featureCollection(
-    lines.features.flatMap((feature) => {
-      if (feature.geometry?.type !== 'LineString') return [];
-      const { coordinates } = feature.geometry;
-      if (coordinates.length < 2) return [];
-      return [
-        pointFeature(coordinates[0] as LngLat, { position: 'start' }),
-        pointFeature(coordinates[coordinates.length - 1] as LngLat, { position: 'end' }),
-      ];
-    })
-  );
 }
 
 /** Empty collection shared by every surface so idle sources stay cheap. */

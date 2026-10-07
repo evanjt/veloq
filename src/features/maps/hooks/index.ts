@@ -1,5 +1,4 @@
 export { useEngineMapActivities } from './useEngineMapActivities';
-export { HEATMAP_TILES_DIR } from './useHeatmapTiles';
 export { useMapCamera } from './useMapCamera';
 export { useMap3DBridge } from './useMap3DBridge';
 export { useMapLayers } from './useMapLayers';
@@ -7,3 +6,4 @@ export { useMapFullscreen } from './useMapFullscreen';
 export { useSectionAutoToggle } from './useSectionAutoToggle';
 export { useSectionCreation } from './useSectionCreation';
 export { useVisibilityToggles } from './useVisibilityToggles';
+export { useDrawnMapStyle } from './useDrawnMapStyle';

@@ -1,9 +1,13 @@
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import { TERRAIN_3D_CONFIG, terrain3DSource } from '@/features/maps/components/mapStyles';
+import {
+  HILLSHADE_INSERT_INDEX_SCRIPT,
+  TERRAIN_3D_CONFIG,
+  terrain3DSource,
+} from '@/features/maps/components/mapStyles';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
-import { resolveStyleExpression, TERRAIN_STYLE_OPTIONS } from './styleResolution';
+import { resolveStyleExpression } from './styleResolution';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
-import { colors, colorWithOpacity } from '@/theme';
+import { colors, colorWithOpacity, mapLayerColors } from '@/theme';
 
 /**
  * JPEG quality for a captured preview.
@@ -32,6 +36,8 @@ export interface SnapshotRequest {
   activityId: string;
   coordinates: [number, number][];
   camera: TerrainCamera;
+  /** The athlete saved this camera, so it is drawn as given and never turned. */
+  cameraPinned?: boolean;
   mapStyle: MapStyleType;
   routeColor: string;
   /** Flat top-down basemap - no terrain drape, sky, or hillshade */
@@ -73,16 +79,9 @@ export function buildRenderSnapshotScript(
   const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
   const isFlat = request.flat === true;
 
-  // Satellite and dark are inline objects; light is fetched from its URL so
-  // MapLibre resolves the TileJSON itself, the same as the detail 3D view. The
-  // bundle reaches the two inline styles only: a light snapshot fetches the
-  // hosted style and takes its sprite and glyph URLs from there, so it needs the
-  // radio for the style before the labels are a question at all.
-  const { styleJSON: styleConfig, url } = resolveStyleExpression(
-    request.mapStyle,
-    TERRAIN_STYLE_OPTIONS
-  );
-  const lightStyleUrl = url ?? '';
+  // Every style is an inline object, so the vector tiles, sprite and glyphs
+  // all go through the interceptor and the page fetches no style.
+  const { styleJSON: styleConfig } = resolveStyleExpression(request.mapStyle);
 
   const coordsJSON = JSON.stringify(request.coordinates);
   const cameraJSON = JSON.stringify(request.camera);
@@ -131,8 +130,8 @@ export function buildRenderSnapshotScript(
               var isSatellite = ${isSatellite};
               var isDark = ${isDark};
               var isFlat = ${isFlat};
+              var cameraPinned = ${request.cameraPinned === true};
               var routeColor = ${jsLiteral(request.routeColor)};
-              var lightStyleUrl = ${jsLiteral(lightStyleUrl)};
               var inlineStyle = ${styleConfig};
               var activityId = ${jsLiteral(request.activityId)};
               var mapStyle = ${jsLiteral(request.mapStyle)};
@@ -140,10 +139,15 @@ export function buildRenderSnapshotScript(
               var terrainSource = ${terrainSourceJSON};
               var skyConfig = ${skyConfigJSON};
               var hillshadePaint = ${hillshadePaintJSON};
-              var hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
+              ${HILLSHADE_INSERT_INDEX_SCRIPT}
+          var hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
               window._snapshotGen = myGen;
               window._tileErrorCount = 0;
+              // The host pauses the whole pool on any throttle a render
+              // reports, so a count carried over from an earlier render would
+              // pause it again for a server that has since recovered.
+              window._tileThrottleCount = 0;
               // A request is in flight from here until it posts its result.
               window._heartbeat.start();
 
@@ -221,11 +225,11 @@ export function buildRenderSnapshotScript(
                       var isGap = false;
                       // Pure black = failed DEM tile
                       if (r === 0 && g === 0 && b === 0) isGap = true;
-                      // Satellite: sky color range (#1a3a5c area)
+                      // Satellite: dark blue sky colour range
                       else if (isSatellite && r < 40 && g < 70 && b > 70 && b < 120) isGap = true;
                       // Dark style: only catch failed DEM tiles (near pure black)
                       else if (!isSatellite && isDark && r < 5 && g < 5 && b < 5) isGap = true;
-                      // Light style: background #E8E0D8 range
+                      // Light style: pale beige background range
                       else if (!isSatellite && !isDark && r > 220 && g > 210 && b > 200 && r < 245 && g < 235 && b < 225) isGap = true;
                       if (isGap) gapCount++;
                     }
@@ -305,6 +309,48 @@ export function buildRenderSnapshotScript(
                 }
               }
 
+              // A 3D render is checked once its style has loaded: when the
+              // terrain hides the route the camera turns, and the capture
+              // waits for the tiles the new view asks for. A camera the
+              // athlete saved is theirs and is never turned.
+              function captureAfterCamera() {
+                if (isStale()) return;
+                var picked = camera;
+                if (!isFlat && hasRoute && window._pickUnhiddenCamera && !cameraPinned) {
+                  try {
+                    picked = window._pickUnhiddenCamera(window.map, camera, coords, boundsSpans());
+                  } catch (e) {
+                    window._rn_log('Camera check failed: ' + e.message);
+                  }
+                }
+                if (picked === camera) {
+                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                  return;
+                }
+                window._rn_log('Terrain hides the route, turning to bearing ' + picked.bearing + ' pitch ' + picked.pitch);
+                window.map.jumpTo({
+                  center: picked.center, zoom: picked.zoom,
+                  bearing: picked.bearing, pitch: picked.pitch,
+                });
+                var turnedAt = Date.now();
+                var turnPoll = setInterval(function() {
+                  if (isStale()) { clearInterval(turnPoll); return; }
+                  if (window.map.isStyleLoaded() || Date.now() - turnedAt > 2500) {
+                    clearInterval(turnPoll);
+                    requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                  }
+                }, 200);
+              }
+
+              function boundsSpans() {
+                var minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+                for (var bi = 0; bi < coords.length; bi++) {
+                  minLng = Math.min(minLng, coords[bi][0]); maxLng = Math.max(maxLng, coords[bi][0]);
+                  minLat = Math.min(minLat, coords[bi][1]); maxLat = Math.max(maxLat, coords[bi][1]);
+                }
+                return [maxLng - minLng, maxLat - minLat];
+              }
+
               // --- Helper: add route sources + layers via map API ---
               // At IIFE scope so both fast path and full path can use it.
               var hasRoute = coords.length > 0;
@@ -337,7 +383,7 @@ export function buildRenderSnapshotScript(
                 window.map.addLayer({
                   id: 'route-outline', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.8 },
+                  paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 5, 'line-opacity': 0.8 },
                 });
                 window.map.addLayer({
                   id: 'route-line', type: 'line', source: 'route',
@@ -346,7 +392,7 @@ export function buildRenderSnapshotScript(
                 });
                 window.map.addLayer({
                   id: 'start-end-border', type: 'circle', source: 'start-end-markers',
-                  paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' },
+                  paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} },
                 });
                 window.map.addLayer({
                   id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
@@ -356,30 +402,6 @@ export function buildRenderSnapshotScript(
                   },
                 });
                 window._rn_log('Route layers added via API');
-              }
-
-              // --- Helper: add terrain + hillshade (no route yet) ---
-              // Route is added AFTER terrain is fully rendered (separate idle cycle)
-              // so the drape texture re-render includes the route.
-              function addTerrain() {
-                window.map.addSource('terrain', terrainSource);
-                window.map.setTerrain({ source: 'terrain', exaggeration: ${TERRAIN_3D_CONFIG.defaultExaggeration} });
-                try { window.map.setSky(skyConfig); } catch(e) {}
-                if (!isSatellite) {
-                  var beforeId = null;
-                  for (var ci = 0; ci < hillshadeInsertCandidates.length; ci++) {
-                    if (window.map.getLayer(hillshadeInsertCandidates[ci])) {
-                      beforeId = hillshadeInsertCandidates[ci];
-                      break;
-                    }
-                  }
-                  window.map.addLayer({
-                    id: 'hillshading', type: 'hillshade', source: 'terrain',
-                    layout: { visibility: 'visible' },
-                    paint: hillshadePaint,
-                  }, beforeId);
-                }
-                window._rn_log('Terrain + hillshade added via API');
               }
 
               // --- Fast path: same base style + mode, just update camera + route ---
@@ -395,67 +417,36 @@ export function buildRenderSnapshotScript(
                   // jump alone. That it is near zero while the elapsed is not
                   // is the reading.
                   phase('style');
-                  window._rn_log('Fast path: jumped camera, waiting for terrain...');
+                  addRouteLayers();
+                  window._rn_log('Fast path: camera and route ready, waiting for tiles...');
                   var done = false;
                   var fpStart = Date.now();
-                  var fpLastData = 0;
 
-                  function fpOnData() { fpLastData = Date.now(); }
-                  window.map.on('data', fpOnData);
-
-                  // Helper: add route layers after terrain settles, then capture
-                  function fpAddRouteAndCapture(reason) {
+                  function fpCapture(reason) {
+                    if (done || isStale()) return;
+                    done = true;
+                    clearInterval(fpPoll);
                     window._rn_log(reason);
-                    addRouteLayers();
-                    window.map.once('idle', function() {
-                      window._rn_log('Fast path route idle, capturing...');
-                      requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
-                    });
+                    captureAfterCamera();
                   }
 
-                  // Fast path: idle event - deferred by one frame so MapLibre
-                  // processes the camera change and queues tile requests first.
+                  // Let MapLibre queue the camera and route's tile requests first.
                   requestAnimationFrame(function() {
                     window.map.once('idle', function() {
-                      if (done || isStale()) return;
-                      done = true;
-                      window.map.off('data', fpOnData);
-                      fpAddRouteAndCapture('Fast path idle, adding route...');
+                      fpCapture('Fast path idle, capturing...');
                     });
                   });
 
-                  // Fast path: poll for tile activity settlement
                   var fpPoll = setInterval(function() {
                     if (done || isStale()) { clearInterval(fpPoll); return; }
-                    var now = Date.now();
-                    var quietTime = fpLastData > 0 ? now - fpLastData : 0;
-
-                    if (fpLastData > 0 && window.map.isStyleLoaded()) {
-                      done = true;
-                      clearInterval(fpPoll);
-                      window.map.off('data', fpOnData);
-                      fpAddRouteAndCapture('Fast path styleLoaded');
-                      return;
+                    var elapsed = Date.now() - fpStart;
+                    if (window.map.isStyleLoaded() || elapsed > 5000) {
+                      fpCapture('Fast path loaded after ' + elapsed + 'ms, capturing...');
                     }
-                    if (fpLastData > 0 && quietTime > 1500) {
-                      done = true;
-                      clearInterval(fpPoll);
-                      window.map.off('data', fpOnData);
-                      fpAddRouteAndCapture('Fast path settled (' + quietTime + 'ms quiet)');
-                      return;
-                    }
-                    if (now - fpStart > 5000) {
-                      done = true;
-                      clearInterval(fpPoll);
-                      window.map.off('data', fpOnData);
-                      fpAddRouteAndCapture('Fast path max wait (5s)');
-                      return;
-                    }
-                  }, 500);
+                  }, 200);
 
                   setTimeout(function() {
                     clearInterval(fpPoll);
-                    window.map.off('data', fpOnData);
                     if (!done && !isStale()) {
                       done = true;
                       window._rn_log('Fast path timeout (6s)');
@@ -487,17 +478,7 @@ export function buildRenderSnapshotScript(
 
               // Insert hillshade before the first transportation/building layer
               if (!isFlat && !isSatellite) {
-                var candidateSet = {};
-                for (var ci = 0; ci < hillshadeInsertCandidates.length; ci++) {
-                  candidateSet[hillshadeInsertCandidates[ci]] = true;
-                }
-                var hillshadeIdx = styleObj.layers.length;
-                for (var li = 0; li < styleObj.layers.length; li++) {
-                  if (candidateSet[styleObj.layers[li].id]) {
-                    hillshadeIdx = li;
-                    break;
-                  }
-                }
+                var hillshadeIdx = hillshadeInsertIndex(styleObj.layers, hillshadeInsertCandidates);
                 styleObj.layers.splice(hillshadeIdx, 0, {
                   id: 'hillshading',
                   type: 'hillshade',
@@ -531,7 +512,7 @@ export function buildRenderSnapshotScript(
                 styleObj.layers.push({
                   id: 'route-outline', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.8 },
+                  paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 5, 'line-opacity': 0.8 },
                 });
                 styleObj.layers.push({
                   id: 'route-line', type: 'line', source: 'route',
@@ -540,7 +521,7 @@ export function buildRenderSnapshotScript(
                 });
                 styleObj.layers.push({
                   id: 'start-end-border', type: 'circle', source: 'start-end-markers',
-                  paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' },
+                  paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} },
                 });
                 styleObj.layers.push({
                   id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
@@ -581,7 +562,7 @@ export function buildRenderSnapshotScript(
                   window._currentBaseStyle = mapStyle;
                   window._currentBaseMode = baseMode;
                   window._rn_log('All loaded after ' + elapsed + 'ms, capturing...');
-                  requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
+                  captureAfterCamera();
                   return;
                 }
               }, 200);
@@ -608,24 +589,7 @@ export function buildRenderSnapshotScript(
 
               } // end applyStyle
 
-              // Light mode: fetch full Liberty style from URL, then apply.
-              // Don't rewrite vector URLs - let MapLibre handle TileJSON natively.
-              // Dark/satellite: use the inline style object directly.
-              if (lightStyleUrl) {
-                window._rn_log('Fetching Liberty style for light mode...');
-                fetch(lightStyleUrl)
-                  .then(function(r) { return r.json(); })
-                  .then(function(fetchedStyle) {
-                    if (isStale()) return;
-                    applyStyle(fetchedStyle);
-                  })
-                  .catch(function(err) {
-                    window._rn_log('Liberty fetch failed: ' + err.message + ', using fallback');
-                    applyStyle(inlineStyle || { version: 8, sources: {}, layers: [] });
-                  });
-              } else {
-                applyStyle(inlineStyle);
-              }
+              applyStyle(inlineStyle);
 
             } catch(e) {
               window._rn_log('Error: ' + e.message);

@@ -5,7 +5,7 @@
  * Returning users see their last-viewed map position instead of a computed bounds view.
  */
 
-import { getSetting, setSetting } from '@/shared/storage';
+import { getSetting, removeSetting, setSetting } from '@/shared/storage';
 import { getEngine } from '@/shared/native/engine';
 
 const STORAGE_KEY = '@map_camera_state';
@@ -68,4 +68,12 @@ export async function reloadMapCameraState(): Promise<void> {
   state = null;
   initPromise = null;
   await initMapCameraState();
+}
+
+/** Drops the saved camera from memory and from the settings, for a library wipe. */
+export async function forgetMapCameraState(): Promise<void> {
+  state = null;
+  initialized = false;
+  initPromise = null;
+  await removeSetting(STORAGE_KEY).catch(() => {});
 }

@@ -20,35 +20,33 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { PixelRatio, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, PixelRatio, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
-import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { darkColors, spacing, typography } from '@/theme';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { debug } from '@/shared/debug/debug';
-import { HEATMAP_TILES_DIR } from '@/features/maps/hooks/useHeatmapTiles';
-import { heatmapTilePath } from '@/features/maps/lib/webViewLiterals';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
 import type {
   WebViewBridgeHandlers,
   WebViewBridgeMessage,
 } from '@/features/maps/hooks/useWebViewBridge';
-import { REGION_CHANGE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
+import {
+  REGION_CHANGE_DEBOUNCE_MS,
+  TILE_LOADING_INDICATOR_DELAY_MS,
+} from '@/features/maps/lib/mapBudgets';
+import { createTileLoadingGate } from '@/features/maps/lib/tileLoadingGate';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
-import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
 import {
   buildApplyScript,
-  buildBundledAssetReplyScript,
   buildClusterExpansionZoomScript,
   buildClusterLeavesScript,
   buildFitBoundsScript,
-  buildHeatmapTileReplyScript,
   buildMapSurfaceHtml,
   buildProjectPointsScript,
   buildQueryFeaturesScript,
@@ -71,13 +69,7 @@ import type {
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { WebViewStyleOptions } from '@/features/maps/lib/htmlBuilders/styleResolution';
 import type { MapStyleType } from './mapStyles';
-import {
-  emitTileCacheStats,
-  onTileCacheStatsRequest,
-} from '@/features/maps/lib/terrainSnapshotEvents';
-import { useLiveTileCacheBudget } from '@/features/maps/hooks/useLiveTileCacheBudget';
-import { useLiveTileCacheClear } from '@/features/maps/hooks/useLiveTileCacheClear';
-import { tileCacheStatsScript } from '@/features/maps/lib/tileCacheBudget';
+import {} from '@/features/maps/lib/terrainSnapshotEvents';
 
 const log = debug.create('MapSurface');
 
@@ -89,6 +81,7 @@ export const MAP_SURFACE_TEST_ID = 'maplibre-map';
 
 /** The state shown when the page cannot draw a basemap at all. */
 export const MAP_SURFACE_UNAVAILABLE_TEST_ID = 'map-unavailable';
+export const MAP_SURFACE_TILES_LOADING_TEST_ID = 'map-tiles-loading';
 
 /** Long-press duration, matching the platform default for a press-and-hold. */
 const LONG_PRESS_MS = 500;
@@ -114,6 +107,8 @@ export interface MapPressEvent {
   coordinate: LngLat;
   point: [number, number];
   feature: MapFeatureHit | null;
+  /** Every hit in the layer that won the tap, `feature` first. */
+  features?: MapFeatureHit[] | undefined;
 }
 
 export interface MapSurfaceRef {
@@ -155,8 +150,6 @@ export interface MapSurfaceProps {
   zoomEnabled?: boolean | undefined;
   rotateEnabled?: boolean | undefined;
   pitchEnabled?: boolean | undefined;
-  /** Serve heatmap PNG tiles from the device for the `heatmap-file` protocol. */
-  serveHeatmapTiles?: boolean | undefined;
   onMapReady?: (() => void) | undefined;
   /** The page cannot render a basemap. Fires once per failure, with the reason. */
   onMapFailed?: ((reason: string) => void) | undefined;
@@ -188,6 +181,7 @@ function toPressEvent(data: WebViewBridgeMessage): MapPressEvent | null {
     coordinate,
     point: (data.point as [number, number]) ?? [0, 0],
     feature: (data.feature as MapFeatureHit | null) ?? null,
+    features: (data.features as MapFeatureHit[] | undefined) ?? [],
   };
 }
 
@@ -205,7 +199,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     zoomEnabled = true,
     rotateEnabled = true,
     pitchEnabled = false,
-    serveHeatmapTiles = false,
     onMapReady,
     onMapFailed,
     onPress,
@@ -222,6 +215,10 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   const readyRef = useRef(false);
   const failedRef = useRef(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [tilesLoading, setTilesLoading] = useState(false);
+  const tileGateRef = useRef(
+    createTileLoadingGate(TILE_LOADING_INDICATOR_DELAY_MS, setTilesLoading)
+  );
 
   // What the page has been told, so a re-render only ships what moved.
   const patcherRef = useRef(createSurfacePatcher());
@@ -251,7 +248,12 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // The page is rebuilt only for gesture settings, never for data or style.
   const initialCameraRef = useRef(initialCamera);
   const initialStyleRef = useRef(mapStyle);
+  // What the page is showing. A rebuilt page starts from `initialStyleRef`.
   const renderedStyleRef = useRef(mapStyle);
+  const shownStyleRef = useRef(mapStyle);
+  shownStyleRef.current = mapStyle;
+  const styleOptionsRef = useRef(styleOptions);
+  styleOptionsRef.current = styleOptions;
 
   const html = useMemo(
     () =>
@@ -270,7 +272,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         longPressMs: LONG_PRESS_MS,
       }),
     // styleOptions is a plain settings object supplied as a literal by callers.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The settings object is reconstructed by callers.
     [scrollEnabled, zoomEnabled, rotateEnabled, pitchEnabled]
   );
 
@@ -330,13 +332,23 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         readyRef.current = true;
         failedRef.current = false;
         setUnavailable(false);
+        tileGateRef.current.settled();
         patcherRef.current.forget();
+        // A rebuilt page comes up in the first style, and a toggle made before
+        // it was ready had nowhere to go, so catch it up to what is shown.
+        renderedStyleRef.current = initialStyleRef.current;
+        if (shownStyleRef.current !== renderedStyleRef.current) {
+          renderedStyleRef.current = shownStyleRef.current;
+          inject(buildSetStyleScript(shownStyleRef.current, styleOptionsRef.current));
+        }
         sendPatchRef.current();
         callbacksRef.current.onMapReady?.();
       },
       mapFailed: (data) => {
         reportFailure(String(data.reason ?? 'unknown'));
       },
+      tilesLoading: () => tileGateRef.current.loading(),
+      tilesSettled: () => tileGateRef.current.settled(),
       mapClick: (data) => {
         const event = toPressEvent(data);
         if (event) callbacksRef.current.onPress?.(event);
@@ -364,63 +376,9 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       clusterLeaves: (data) => resolvePending(data.requestId as string, data.features ?? []),
       clusterExpansionZoom: (data) => resolvePending(data.requestId as string, data.zoom ?? null),
       projected: (data) => resolvePending(data.requestId as string, data.points ?? []),
-      bundledAssetRequest: (data) => {
-        const requestId = data.requestId as string;
-        const path = data.path as string;
-        if (!requestId || !path) return;
-        inject(buildBundledAssetReplyScript(requestId, bundledBasemapAsset(path)));
-      },
-      heatmapTileRequest: async (data) => {
-        const requestId = data.requestId as string;
-        // The page decides this path, so it is checked against the one shape a
-        // tile can take before it is joined onto anything.
-        const tilePath = heatmapTilePath(data.tilePath);
-        if (!requestId || !tilePath) return;
-        if (!serveHeatmapTiles) {
-          inject(buildHeatmapTileReplyScript(requestId, null));
-          return;
-        }
-        try {
-          const fullPath = `${HEATMAP_TILES_DIR}${tilePath}`;
-          const info = await FileSystem.getInfoAsync(fullPath);
-          const base64 =
-            info.exists && info.size > 0
-              ? await FileSystem.readAsStringAsync(fullPath, {
-                  encoding: FileSystem.EncodingType.Base64,
-                })
-              : null;
-          inject(buildHeatmapTileReplyScript(requestId, base64));
-        } catch {
-          inject(buildHeatmapTileReplyScript(requestId, null));
-        }
-      },
-      tileCacheStats: (data) => {
-        emitTileCacheStats({
-          tileCount: (data.tileCount as number) ?? 0,
-          totalBytes: (data.totalBytes as number) ?? 0,
-          vector: (data.vector as { tileCount: number; totalBytes: number }) ?? undefined,
-          ground: (data.ground as { tileCount: number; totalBytes: number }) ?? undefined,
-        });
-      },
     }),
-    [inject, reportFailure, resolvePending, serveHeatmapTiles]
+    [inject, reportFailure, resolvePending]
   );
-
-  // Any interactive map that is up can read the buckets, and it is the only
-  // surface that can: the snapshot pool is torn down whenever the feed is not
-  // focused, so a request made from settings reached nothing at all.
-  useEffect(() => {
-    return onTileCacheStatsRequest(() => {
-      if (!readyRef.current) return;
-      inject(tileCacheStatsScript());
-    });
-  }, [inject]);
-
-  // The ceiling is baked into the HTML when the page is built, so a change made
-  // while this map is open has to be sent in. The clear is the same: the pool
-  // that used to be the only subscriber is not mounted when settings is up.
-  useLiveTileCacheBudget(inject);
-  useLiveTileCacheClear(inject);
 
   const handleMessage = useWebViewBridge(handlers);
 
@@ -431,11 +389,11 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // Style swaps happen in place. The page replays its cached spec afterwards,
   // so no geometry crosses the bridge a second time.
   useEffect(() => {
-    if (mapStyle === renderedStyleRef.current) return;
+    if (!readyRef.current || mapStyle === renderedStyleRef.current) return;
     renderedStyleRef.current = mapStyle;
     inject(buildSetStyleScript(mapStyle, styleOptions));
     // styleOptions is a settings literal; the style type is what drives the swap.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The map style drives this update, and options are a settings literal.
   }, [mapStyle, inject]);
 
   useImperativeHandle(
@@ -477,6 +435,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // A crashed render process comes back empty, so everything has to resend.
   const handleCrash = useCallback(() => {
     readyRef.current = false;
+    tileGateRef.current.settled();
     patcherRef.current.forget();
     pendingRef.current.abandon();
     webViewRef.current?.reload();
@@ -503,8 +462,10 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     // so reading `webViewRef.current` here finds null and the page goes on
     // loading after the surface is gone.
     const webView = webViewRef.current;
+    const tileGate = tileGateRef.current;
     return () => {
       readyRef.current = false;
+      tileGate.cancel();
       pending.abandon();
       webView?.stopLoading();
     };
@@ -537,6 +498,15 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
           onError={(event) => reportFailure(event.nativeEvent?.description ?? 'webview load error')}
           onHttpError={(event) => reportFailure(`HTTP ${event.nativeEvent?.statusCode ?? '?'}`)}
         />
+        {tilesLoading && !unavailable && (
+          <View
+            style={styles.tilesLoading}
+            pointerEvents="none"
+            testID={MAP_SURFACE_TILES_LOADING_TEST_ID}
+          >
+            <ActivityIndicator size="small" color={darkColors.textSecondary} />
+          </View>
+        )}
         {unavailable && (
           <View style={styles.unavailable} testID={MAP_SURFACE_UNAVAILABLE_TEST_ID}>
             <MaterialCommunityIcons
@@ -561,6 +531,11 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  tilesLoading: {
+    position: 'absolute',
+    top: spacing.md,
+    alignSelf: 'center',
   },
   unavailable: {
     position: 'absolute',

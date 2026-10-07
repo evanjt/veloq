@@ -18,9 +18,14 @@ export const WORLD_CAMERA: RegionalCamera = { center: [0, 0], zoom: 2 };
  * `cameraOnBlur` is where the tab was when it lost focus, which only exists
  * within a session. The stored camera is what carries across a launch.
  */
-export function useInitialRegionalCamera(cameraOnBlur: RegionalCamera | null): RegionalCamera {
+export function useInitialRegionalCamera(cameraOnBlur: RegionalCamera | null): {
+  camera: RegionalCamera;
+  /** True when the camera came from the tab blur or storage, so no opening fit should move it. */
+  restored: boolean;
+} {
   const [stored] = useState(getMapCameraState);
-  return cameraOnBlur ?? stored ?? WORLD_CAMERA;
+  const camera = cameraOnBlur ?? stored;
+  return { camera: camera ?? WORLD_CAMERA, restored: camera != null };
 }
 
 /**

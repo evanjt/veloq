@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
 // app shell still has to draw, and the barrel is what such a caller stubs.
-import { useIsOnline } from '@/shared/app/NetworkContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +32,7 @@ import {
 import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import { offlineMapStyle } from '@/features/maps/lib/offlineStyleFallback';
+import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
 const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
@@ -107,14 +106,7 @@ export function BaseMapView({
   const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
 
   const [chosenStyle, setChosenStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
-  // Satellite imagery is never kept on the device, so with the radio off the
-  // choice is honoured as the vector basemap and the imagery returns by itself
-  // when the connection does.
-  const isOnline = useIsOnline();
-  const mapStyle = useMemo(
-    () => offlineMapStyle(chosenStyle, isOnline, systemStyle),
-    [chosenStyle, isOnline, systemStyle]
-  );
+  const mapStyle = useDrawnMapStyle(chosenStyle);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
   const [terrainUnavailable, setTerrainUnavailable] = useState(false);
@@ -128,6 +120,7 @@ export function BaseMapView({
   }, []);
   const [currentCenter, setCurrentCenter] = useState<LngLat | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
+  const [currentBounds, setCurrentBounds] = useState<LngLatBounds | null>(null);
 
   const surfaceRef = useRef<MapSurfaceRef>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
@@ -204,11 +197,15 @@ export function BaseMapView({
   // it, and it has to come back on the viewport the user left rather than on
   // the fitted track again.
   const settledCameraRef = useRef<{ center: LngLat; zoom: number } | null>(null);
-  const handleRegionDidChange = useCallback((state: { center: LngLat; zoom: number }) => {
-    setCurrentCenter(state.center);
-    setCurrentZoom(state.zoom);
-    settledCameraRef.current = { center: state.center, zoom: state.zoom };
-  }, []);
+  const handleRegionDidChange = useCallback(
+    (state: { center: LngLat; zoom: number; bounds?: LngLatBounds }) => {
+      setCurrentCenter(state.center);
+      setCurrentBounds(state.bounds ?? null);
+      setCurrentZoom(state.zoom);
+      settledCameraRef.current = { center: state.center, zoom: state.zoom };
+    },
+    []
+  );
 
   // Get user location and refocus camera
   const handleGetLocation = useCallback(async () => {
@@ -220,14 +217,15 @@ export function BaseMapView({
         accuracy: Location.Accuracy.Balanced,
       });
 
-      surfaceRef.current?.setCamera(
+      const target = is3DMode && is3DReady ? map3DRef.current : surfaceRef.current;
+      target?.setCamera(
         { center: [location.coords.longitude, location.coords.latitude], zoom: 14 },
         500
       );
     } catch {
       // Silently fail - location is optional
     }
-  }, []);
+  }, [is3DMode, is3DReady]);
 
   // The 2D surface comes down once the 3D layer covers it, so where it was is
   // captured on the way out and handed back to the remount.
@@ -283,8 +281,9 @@ export function BaseMapView({
         is3D: is3DMode,
         center: currentCenter,
         zoom: currentZoom,
+        bounds: currentBounds,
       }),
-    [mapStyle, currentCenter, currentZoom, is3DMode]
+    [mapStyle, currentCenter, currentZoom, currentBounds, is3DMode]
   );
 
   // Render controls (shared between 2D and 3D)
@@ -400,8 +399,10 @@ export function BaseMapView({
       {/* Attribution */}
       {showAttribution && (
         <View style={[styles.attribution, { bottom: insets.bottom }]} pointerEvents="none">
-          <View style={styles.attributionPill}>
-            <Text style={styles.attributionText}>{attributionText}</Text>
+          <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
+            <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
+              {attributionText}
+            </Text>
           </View>
         </View>
       )}
@@ -531,11 +532,17 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.white, 0.7),
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
-    borderRadius: spacing.sm,
+    borderRadius: layout.borderRadiusSm,
+  },
+  attributionPillDark: {
+    backgroundColor: colorWithOpacity(darkColors.surfaceElevated, 0.8),
   },
   attributionText: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
+  },
+  attributionTextDark: {
+    color: darkColors.textSecondary,
   },
 });
 

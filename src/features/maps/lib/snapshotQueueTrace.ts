@@ -1,5 +1,5 @@
 /**
- * A record of what the preview render queue did, readable from `adb logcat` on
+ * A record of what the preview render queue did, readable from the debug screen on
  * a release build.
  *
  * Every existing log in the snapshot pool is `__DEV__`-gated or a `console.log`,
@@ -19,6 +19,8 @@ export type SnapshotQueueEventKind =
   | 'complete'
   | 'fail'
   | 'retry'
+  /** A full queue dropped a waiting request. The card is told nothing. */
+  | 'evict'
   | 'drain'
   | 'throttled'
   | 'workerGone'
@@ -55,8 +57,16 @@ export const HOLDS_BEFORE_REPORT = 4;
 export interface SnapshotQueueTrace {
   record: (event: Omit<SnapshotQueueEvent, 'at'>, now: number) => void;
   events: () => readonly SnapshotQueueEvent[];
-  /** One multi-line report: the queue's shape now, then the buffer oldest first. */
-  report: (now: number, queued: number, inFlight: number) => string;
+  /**
+   * One multi-line report: the queue's shape now, then the buffer oldest first.
+   * The header word is the caller's: `stalled` is only true of the watchdog's dump.
+   */
+  report: (
+    now: number,
+    queued: number,
+    inFlight: number,
+    word: 'stalled' | 'queue' | 'idle'
+  ) => string;
   clear: () => void;
 }
 
@@ -71,8 +81,8 @@ export function createSnapshotQueueTrace(capacity: number = TRACE_CAPACITY): Sna
     events() {
       return events;
     },
-    report(now, queued, inFlight) {
-      const header = `[SnapshotQueue] stalled: ${queued} queued, ${inFlight} in flight`;
+    report(now, queued, inFlight, word) {
+      const header = `[SnapshotQueue] ${word}: ${queued} queued, ${inFlight} in flight`;
       if (events.length === 0) return `${header}\n  (no events recorded)`;
       const origin = events[0].at;
       const lines = events.map((event) => `  ${formatTraceEvent(event, origin)}`);
@@ -102,4 +112,51 @@ export function formatTraceEvent(event: SnapshotQueueEvent, origin: number): str
  */
 export function holdShouldReport(consecutiveHolds: number): boolean {
   return consecutiveHolds === HOLDS_BEFORE_REPORT;
+}
+
+interface PublishedTrace {
+  trace: SnapshotQueueTrace;
+  shape: () => { queued: number; inFlight: number };
+}
+
+let published: PublishedTrace | null = null;
+
+/**
+ * Make the pool's trace readable from outside its component.
+ *
+ * A release bundle carries no console channel to logcat, so the trace is read
+ * on the handset by the debug screen. The newest pool replaces the one before
+ * it, and passing `null` forgets the trace.
+ */
+export function publishSnapshotQueueTrace(
+  trace: SnapshotQueueTrace | null,
+  shape: PublishedTrace['shape'] = () => ({ queued: 0, inFlight: 0 })
+): void {
+  published = trace === null ? null : { trace, shape };
+}
+
+/**
+ * The pool is gone. Its events stay readable, since a stall is read after the
+ * feed has been left, and the shape freezes at the last values it reported.
+ * A trace already replaced by a newer pool is left alone.
+ */
+export function unpublishSnapshotQueueShape(trace: SnapshotQueueTrace): void {
+  if (published === null || published.trace !== trace) return;
+  published = { trace, shape: frozenShape(published.shape()) };
+}
+
+function frozenShape(shape: { queued: number; inFlight: number }): PublishedTrace['shape'] {
+  return () => shape;
+}
+
+/**
+ * The published trace as a report, or null when no pool has published one.
+ * The span is timed to the newest event, so the read spends no clock.
+ */
+export function readSnapshotQueueReport(): string | null {
+  if (published === null) return null;
+  const { queued, inFlight } = published.shape();
+  const newest = published.trace.events().at(-1)?.at ?? 0;
+  const word = queued === 0 && inFlight === 0 ? 'idle' : 'queue';
+  return published.trace.report(newest, queued, inFlight, word);
 }

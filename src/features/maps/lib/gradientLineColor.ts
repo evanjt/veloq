@@ -88,13 +88,27 @@ export function gradientToColor(percent: number): string {
  * To keep the expression size manageable we cap at ~100 stops (downsampling
  * long streams by stride). 100 stops is plenty for a visually smooth gradient.
  *
+ * `hasPosition` marks the samples that are on the drawn line.
+ *
  * Returns `null` if there isn't enough data to render a gradient.
  */
 export function buildGradientLineStops(
   gradient: number[] | undefined,
   distance: number[] | undefined,
-  maxStops = 100
+  maxStops = 100,
+  hasPosition?: boolean[]
 ): (string | number)[] | null {
+  if (gradient && hasPosition && hasPosition.length === gradient.length) {
+    // The drawn line holds only samples with a position, so line-progress
+    // spans those and nothing else.
+    const keep = (_: unknown, i: number) => hasPosition[i];
+    const usable = distance && distance.length === gradient.length;
+    return buildGradientLineStops(
+      gradient.filter(keep),
+      usable ? distance.filter(keep) : undefined,
+      maxStops
+    );
+  }
   if (!gradient || gradient.length < 2) return null;
   const n = gradient.length;
   const last = n - 1;

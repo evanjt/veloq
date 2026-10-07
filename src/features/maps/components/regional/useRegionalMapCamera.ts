@@ -14,11 +14,15 @@ import { startCenterFor } from '../../lib/markerCentre';
 import type { ActivityBoundsItem } from '@/types';
 import type { MapSurfaceRef } from '@/features/maps/components/MapSurface';
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
+import { openingClusterActivities } from '@/features/maps/lib/openingClusterActivities';
 import { densestClusterIndices } from '../../lib/densestCluster';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 interface UseRegionalMapCameraOptions {
   activities: ActivityBoundsItem[];
   surfaceRef: React.RefObject<MapSurfaceRef | null>;
+  /** True when the map opened on a camera the athlete left, so no fit runs over it. */
+  cameraRestored?: boolean;
 }
 
 interface UseRegionalMapCameraResult {
@@ -30,19 +34,18 @@ interface UseRegionalMapCameraResult {
 }
 
 interface BoundsData {
-  bounds: { ne: [number, number]; sw: [number, number] };
   targetBounds: { ne: [number, number]; sw: [number, number] };
   center: [number, number];
-  zoomLevel: number;
-  /** True when activities span multiple continents (zoomLevel < COMPACT_AREA_MIN_ZOOM) */
+  /** True when the densest cluster's own bounds fit below zoom 3 */
   worldSpanning: boolean;
-  /** Zoom level for the most recent activity (used when worldSpanning) */
-  recentZoom: number;
+  /** The cluster's zoom, clamped to 5..9 (used when worldSpanning) */
+  clusterZoom: number;
 }
 
 export function useRegionalMapCamera({
   activities,
   surfaceRef,
+  cameraRestored = false,
 }: UseRegionalMapCameraOptions): UseRegionalMapCameraResult {
   // Refs for zoom/center avoid re-renders during map gestures.
   // State updates from regionDidChange cause React re-renders that disrupt
@@ -77,7 +80,7 @@ export function useRegionalMapCamera({
   // Prevent auto-reposition from firing more than once per camera session.
   // Without this, every 'activities' engine event (background sync, section processing) triggers
   // repositioning, keeping programmaticMoveRef=true indefinitely and blocking user interaction.
-  const hasAutoRepositionedRef = useRef(false);
+  const hasAutoRepositionedRef = useRef(cameraRestored);
 
   // Calculate bounds from activities for initial camera position.
   // When activities span multiple regions, finds the densest cluster
@@ -87,8 +90,9 @@ export function useRegionalMapCamera({
       if (activityList.length === 0) return null;
 
       // Compute center of each activity
-      const centers: { lat: number; lng: number }[] = [];
-      for (const activity of activityList) {
+      const framed = openingClusterActivities(activityList);
+      const centers: LatLngShort[] = [];
+      for (const activity of framed) {
         const n = normalizeBounds(activity.bounds);
         centers.push({
           lat: (n.minLat + n.maxLat) / 2,
@@ -100,7 +104,7 @@ export function useRegionalMapCamera({
       // comparing every activity with every other. That pairwise pass was 240k
       // iterations at 490 activities and ran again on every filter chip tap.
       const clusterActivities: ActivityBoundsItem[] = densestClusterIndices(centers).map(
-        (i) => activityList[i]
+        (i) => framed[i]
       );
 
       // Compute bounds from the cluster (or all activities if they're all in one cluster)
@@ -116,24 +120,9 @@ export function useRegionalMapCamera({
         maxLng = Math.max(maxLng, n.maxLng);
       }
 
-      // Full bounds (all activities) for reference
-      let fullMinLat = Infinity,
-        fullMaxLat = -Infinity;
-      let fullMinLng = Infinity,
-        fullMaxLng = -Infinity;
-      for (const activity of activityList) {
-        const n = normalizeBounds(activity.bounds);
-        fullMinLat = Math.min(fullMinLat, n.minLat);
-        fullMaxLat = Math.max(fullMaxLat, n.maxLat);
-        fullMinLng = Math.min(fullMinLng, n.minLng);
-        fullMaxLng = Math.max(fullMaxLng, n.maxLng);
-      }
-
       const centerLng = (minLng + maxLng) / 2;
       const centerLat = (minLat + maxLat) / 2;
 
-      // Check if cluster covers most activities (>= 70%) - if so, just use it.
-      // Otherwise fall back to the cluster anyway (better than an ocean view).
       const latSpan = maxLat - minLat;
       const lngSpan = maxLng - minLng;
       const latZoom = Math.log2(180 / (latSpan || 1)) - 0.5;
@@ -144,18 +133,13 @@ export function useRegionalMapCamera({
       const worldSpanning = zoomLevel < 3;
 
       return {
-        bounds: {
-          ne: [fullMaxLng, fullMaxLat] as [number, number],
-          sw: [fullMinLng, fullMinLat] as [number, number],
-        },
         targetBounds: {
           ne: [maxLng, maxLat] as [number, number],
           sw: [minLng, minLat] as [number, number],
         },
         center: [centerLng, centerLat] as [number, number],
-        zoomLevel,
         worldSpanning,
-        recentZoom: Math.max(5, Math.min(9, zoomLevel)),
+        clusterZoom: Math.max(5, Math.min(9, zoomLevel)),
       };
     },
     []
@@ -165,14 +149,14 @@ export function useRegionalMapCamera({
   //
   // Keyed on whether there are any rather than on the list, so a background
   // sync landing while the map is open does not recompute them. Each pass
-  // walks the whole library three times and bins every centre, and the answer
+  // walks the whole library twice and bins every centre, and the answer
   // is only ever read while it is the first one: the camera should not jump
   // mid-sync either.
   const hasActivities = activities.length > 0;
   const initialBounds = useMemo(
     () => (hasActivities ? calculateBoundsAndCenter(activities) : null),
     // `activities` is deliberately not a dep. See above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- New activities do not move the initial camera.
     [hasActivities, calculateBoundsAndCenter]
   );
 
@@ -211,7 +195,7 @@ export function useRegionalMapCamera({
       if (data.worldSpanning) {
         // Multi-continent data: jump instantly to the densest cluster. Fitting
         // world-spanning bounds produces an ocean view.
-        surfaceRef.current.setCamera({ center: data.center, zoom: data.recentZoom });
+        surfaceRef.current.setCamera({ center: data.center, zoom: data.clusterZoom });
         programmaticMoveRef.current = false;
       } else {
         surfaceRef.current.fitBounds(

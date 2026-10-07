@@ -3,8 +3,8 @@
  * Shows GPS download, route analysis, and bounds sync progress.
  */
 
-import React, { useMemo, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useMemo, useEffect, useState } from 'react';
+import { View, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,9 +17,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
-import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
+import { formatGpsSyncProgress } from '../../lib/syncProgressFormat';
 import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { colors, ink, typography, spacing, colorWithOpacity } from '@/theme';
 
 interface SyncProgressBannerProps {
@@ -32,6 +33,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   // GPS sync progress from shared store
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
+  const isAnalysingInBackground = useSyncDateRange((s) => s.isAnalysingInBackground);
   const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
 
   // The queue figure above is the running pass's own, so it reaches "12/12"
@@ -40,8 +42,9 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   const libraryLines = useMemo(() => formatLibraryCoverage(coverage, t), [coverage, t]);
 
   const isProcessingRoutes =
-    isGpsSyncing &&
-    (gpsSyncProgress.status === 'fetching' || gpsSyncProgress.status === 'computing');
+    isAnalysingInBackground ||
+    (isGpsSyncing &&
+      (gpsSyncProgress.status === 'fetching' || gpsSyncProgress.status === 'computing'));
 
   // Show immediate feedback when fetching extended date range (before GPS sync starts)
   const isLoadingExtended = isFetchingExtended && !isProcessingRoutes;
@@ -98,8 +101,15 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
     }
   }, [isIndeterminate, indeterminateOffset]);
 
+  // The content decides the height: the library lines come and go, and a fixed
+  // figure clips them and the progress track beneath.
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
+  const onContentLayout = (event: LayoutChangeEvent) => {
+    setContentHeight(event.nativeEvent.layout.height);
+  };
+
   const containerStyle = useAnimatedStyle(() => ({
-    height: heightFraction.value * 42,
+    height: contentHeight === null ? undefined : heightFraction.value * contentHeight,
     opacity: heightFraction.value,
   }));
 
@@ -111,42 +121,50 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
     left: `${indeterminateOffset.value * 130 - 30}%` as `${number}%`,
   }));
 
+  useAnnounceOnAppear(shouldShow ? displayInfo?.text : null);
+
   // Don't render at all if not showing
   if (!shouldShow || !displayInfo) {
     return null;
   }
 
   return (
-    <Animated.View style={[styles.container, containerStyle]} testID="sync-progress-banner">
-      <View style={styles.content}>
-        <MaterialCommunityIcons
-          name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-          size={16}
-          color={ink.white}
-        />
-        <Text style={styles.text} testID="sync-progress-message">
-          {displayInfo.text}
-          {displayInfo.percent > 0 ? `... ${displayInfo.percent}%` : '...'}
-        </Text>
-        {displayInfo.countText && <Text style={styles.countText}>{displayInfo.countText}</Text>}
-      </View>
-      {libraryLines.length > 0 && (
-        <View style={styles.libraryLines} testID="sync-library-coverage">
-          {libraryLines.map((line) => (
-            <Text key={line} style={styles.countText}>
-              {line}
-            </Text>
-          ))}
-        </View>
-      )}
-      <View style={styles.progressTrack}>
-        {displayInfo.indeterminate ? (
-          <Animated.View
-            style={[styles.progressFill, styles.indeterminateFill, indeterminateStyle]}
+    <Animated.View
+      style={[styles.container, containerStyle]}
+      accessibilityLiveRegion="polite"
+      testID="sync-progress-banner"
+    >
+      <View onLayout={onContentLayout} testID="sync-progress-banner-content">
+        <View style={styles.content}>
+          <MaterialCommunityIcons
+            name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+            size={16}
+            color={ink.white}
           />
-        ) : (
-          <Animated.View style={[styles.progressFill, progressStyle]} />
+          <Text style={styles.text} testID="sync-progress-message">
+            {displayInfo.text}
+            {displayInfo.percent > 0 ? `... ${displayInfo.percent}%` : '...'}
+          </Text>
+          {displayInfo.countText && <Text style={styles.countText}>{displayInfo.countText}</Text>}
+        </View>
+        {libraryLines.length > 0 && (
+          <View style={styles.libraryLines} testID="sync-library-coverage">
+            {libraryLines.map((line) => (
+              <Text key={line} style={styles.countText}>
+                {line}
+              </Text>
+            ))}
+          </View>
         )}
+        <View style={styles.progressTrack}>
+          {displayInfo.indeterminate ? (
+            <Animated.View
+              style={[styles.progressFill, styles.indeterminateFill, indeterminateStyle]}
+            />
+          ) : (
+            <Animated.View style={[styles.progressFill, progressStyle]} />
+          )}
+        </View>
       </View>
     </Animated.View>
   );

@@ -130,6 +130,34 @@ export function planClusterZoom(
   };
 }
 
+/**
+ * The points stacked on the first one, within `STACKED_LEAF_SPAN_DEG` of it on
+ * both axes, one per `properties.id`, the first included. A tap that finds more
+ * than one fans them out, since no zoom will ever pull them apart.
+ */
+export function stackedOn(points: readonly GeoJSON.Feature[]): GeoJSON.Feature[] {
+  const first = points[0];
+  if (first?.geometry?.type !== 'Point') return [];
+  const [lng, lat] = (first.geometry as GeoJSON.Point).coordinates;
+  const seen = new Set<unknown>();
+  const stacked: GeoJSON.Feature[] = [];
+  for (const point of points) {
+    if (point.geometry?.type !== 'Point') continue;
+    const [pointLng, pointLat] = (point.geometry as GeoJSON.Point).coordinates;
+    if (
+      Math.abs(pointLng - lng) >= STACKED_LEAF_SPAN_DEG ||
+      Math.abs(pointLat - lat) >= STACKED_LEAF_SPAN_DEG
+    ) {
+      continue;
+    }
+    const id = point.properties?.id;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    stacked.push(point);
+  }
+  return stacked;
+}
+
 /** Re-export the constants so tests and call sites stay in sync with spec. */
 export const CLUSTER_ZOOM_CONSTANTS = {
   STACKED_LEAF_SPAN_DEG,

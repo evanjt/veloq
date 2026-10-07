@@ -1,13 +1,11 @@
 /**
  * buildSpiderGeoJSON - pure GeoJSON generator for cluster spider fan-out.
  *
- * When a MapLibre cluster cannot expand further at max zoom, we render the
- * underlying points as a spider/fan pattern around the cluster center with
- * connecting legs. This function takes a spider state (center + leaves) and
- * the current map zoom, and returns the point and line FeatureCollections
- * needed to render both.
- *
- * Extracted from RegionalMapView.tsx - pure refactor, no behaviour change.
+ * When a MapLibre cluster cannot expand further at max zoom, or a tap lands on
+ * start points stacked on one another, we render the underlying points as a
+ * spider/fan pattern around the centre with connecting legs. This function
+ * takes a spider state (center + leaves) and the current map zoom, and returns
+ * the point and line FeatureCollections needed to render both.
  */
 
 /** Structural input required by buildSpiderGeoJSON. */
@@ -29,12 +27,13 @@ export function buildSpiderGeoJSON(
   const { center, leaves } = spider;
   const n = leaves.length;
 
-  // Convert ~40px screen radius to map degrees at current zoom
-  // At zoom Z, 1 degree of longitude ≈ 256 * 2^Z / 360 pixels
-  const pixelsPerDegree = (256 * Math.pow(2, zoom)) / 360;
-  // Adjust for latitude (longitude degrees are narrower near poles)
-  const latRadians = (center[1] * Math.PI) / 180;
-  const lngScale = 1 / Math.cos(latRadians);
+  // Screen radius to degrees of longitude. The map is MapLibre GL JS, whose
+  // world is 512 * 2^zoom px wide, so a degree of longitude is that over 360.
+  const pixelsPerDegree = (512 * Math.pow(2, zoom)) / 360;
+  // In Web Mercator a degree of latitude spans 1/cos(lat) times a degree of
+  // longitude on screen, so the latitude offset shrinks by cos(lat) to keep the
+  // fan round at the radius asked for.
+  const latScale = Math.cos((center[1] * Math.PI) / 180);
   const radiusPx = n <= 6 ? 40 : n <= 12 ? 55 : 70;
   const radiusDeg = radiusPx / pixelsPerDegree;
 
@@ -42,9 +41,10 @@ export function buildSpiderGeoJSON(
   const lineFeatures: GeoJSON.Feature[] = [];
 
   for (let i = 0; i < n; i++) {
-    const angle = (2 * Math.PI * i) / n - Math.PI / 2; // start at top
-    const dx = radiusDeg * Math.cos(angle) * lngScale;
-    const dy = radiusDeg * Math.sin(angle);
+    // From north, clockwise. Latitude grows upwards on screen.
+    const angle = (2 * Math.PI * i) / n + Math.PI / 2;
+    const dx = -radiusDeg * Math.cos(angle);
+    const dy = radiusDeg * Math.sin(angle) * latScale;
     const spiderCoord: [number, number] = [center[0] + dx, center[1] + dy];
 
     const leaf = leaves[i];

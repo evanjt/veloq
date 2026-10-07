@@ -468,7 +468,7 @@ export const DARK_MATTER_STYLE = {
       ],
       layout: {
         'text-anchor': 'center',
-        'text-field': '{name:latin}\n{name:nonlatin}',
+        'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'center',
         'text-size': 10,
@@ -490,7 +490,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'Point'], ['==', 'class', 'suburb']],
       layout: {
         'text-anchor': 'center',
-        'text-field': '{name:latin}\n{name:nonlatin}',
+        'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'center',
         'text-size': 11,
@@ -512,7 +512,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'Point'], ['==', 'class', 'village']],
       layout: {
         'text-anchor': 'left',
-        'text-field': '{name:latin}\n{name:nonlatin}',
+        'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'left',
         'text-offset': [0.5, 0.2],
@@ -535,7 +535,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'Point'], ['==', 'class', 'town']],
       layout: {
         'text-anchor': 'center',
-        'text-field': '{name:latin}\n{name:nonlatin}',
+        'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'left',
         'text-size': 12,
@@ -557,7 +557,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'Point'], ['==', 'class', 'city'], ['>', 'rank', 3]],
       layout: {
         'text-anchor': 'center',
-        'text-field': '{name:latin}\n{name:nonlatin}',
+        'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'left',
         'text-size': 13,
@@ -579,7 +579,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'Point'], ['<=', 'rank', 3], ['==', 'class', 'city']],
       layout: {
         'text-anchor': 'center',
-        'text-field': '{name:latin}\n{name:nonlatin}',
+        'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
         'text-font': ['Noto Sans Regular'],
         'text-justify': 'left',
         'text-size': 16,
@@ -600,7 +600,7 @@ export const DARK_MATTER_STYLE = {
       maxzoom: 12,
       filter: ['all', ['==', '$type', 'Point'], ['==', 'class', 'state']],
       layout: {
-        'text-field': '{name:latin}\n{name:nonlatin}',
+        'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
         'text-font': ['Noto Sans Regular'],
         'text-size': 11,
         'text-transform': 'uppercase',

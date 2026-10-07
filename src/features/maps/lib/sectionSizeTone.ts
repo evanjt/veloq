@@ -10,7 +10,7 @@
  * hue for the icon.
  */
 
-import { colors } from '@/theme';
+import { colors, darkColors } from '@/theme';
 
 export interface SizeTone {
   /** The icon's colour. A mark, so 3:1, and it carries the band. */
@@ -32,13 +32,15 @@ export const STATUS_FILLS = [
 ] as const;
 
 /**
- * The band a point count falls in. Storage is about 65 bytes a point against a
- * 500 KB limit, so 7,700 points is the ceiling and the bands warn short of it.
+ * The band a point count falls in. Large selections can take longer to process.
+ * The tones answer to the pill they sit on: the light pill, or the dark overlay
+ * surface when `isDark` is set.
  */
-export function sectionSizeTone(pointCount: number | null): SizeTone {
-  if (pointCount === null) return { fill: colors.primary, text: colors.linkTeal };
-  if (pointCount < 2000) return { fill: colors.success, text: colors.successDeep };
-  if (pointCount < 5000) return { fill: colors.cautionYellow, text: colors.cautionYellowText };
-  if (pointCount < 7000) return { fill: colors.cautionOrange, text: colors.cautionOrangeText };
-  return { fill: colors.error, text: colors.errorDeep };
+export function sectionSizeTone(pointCount: number | null, isDark = false): SizeTone {
+  const p = isDark ? darkColors : colors;
+  if (pointCount === null) return { fill: p.primary, text: p.linkTeal };
+  if (pointCount < 2000) return { fill: p.success, text: p.successDeep };
+  if (pointCount < 5000) return { fill: colors.cautionYellow, text: p.cautionYellowText };
+  if (pointCount < 7000) return { fill: colors.cautionOrange, text: p.cautionOrangeText };
+  return { fill: p.error, text: p.errorDeep };
 }

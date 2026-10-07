@@ -1,6 +1,6 @@
 /**
  * Hook for building all GeoJSON data for the regional map.
- * Contains 9 builders covering markers, traces, sections, routes, and user location.
+ * Builders cover activity markers, sections, the selected activity's route, and user location.
  *
  * CRITICAL INVARIANT: All GeoJSON builders return valid FeatureCollection (never null)
  * to avoid iOS Fabric crash when ShapeSources are conditionally added/removed.
@@ -8,34 +8,14 @@
  */
 
 import { useMemo } from 'react';
-import type { TFunction } from 'i18next';
 
 import { convertLatLngTuples } from '@/shared/geo/polyline';
-import type { ActivityBoundsItem, ActivityType } from '@/types';
-import { getSectionStyle, getRouteStyle } from '@/features/routes/constants';
-import { pointCount, type MapSection, type RouteSignature } from '@/features/routes/hooks';
-import { getActivityTypeConfig } from '../ActivityTypeFilter';
+import type { ActivityBoundsItem } from '@/types';
+import { sectionPalette, sectionPaletteIndex } from '@/theme/colors';
+import type { MapSection } from '@/features/routes';
+import { getActivityTypeConfig } from '../../lib/activityCategories';
 import type { SelectedActivity } from './ActivityPopup';
 import { EMPTY_FEATURE_COLLECTION } from '../../lib/coordinates';
-
-/** Minimum route group fields needed for GeoJSON building */
-interface RouteGroupMinimal {
-  id: string;
-  name: string;
-  representativeId: string;
-  activityCount: number;
-  sportType: string;
-  type: ActivityType;
-  bestTime?: number;
-}
-
-export interface RouteMarker {
-  id: string;
-  name: string;
-  coordinate: [number, number];
-  activityCount: number;
-  sportType: string;
-}
 
 // Size based on distance (always returns 24 - kept as function for future scaling)
 const MARKER_SIZE = 24;
@@ -45,94 +25,27 @@ export function getMarkerSize(_distance: number): number {
 
 interface UseMapGeoJSONOptions {
   allActivities: ActivityBoundsItem[];
-  /**
-   * Whose traces and start points to send. Empty below the zoom those layers
-   * draw at, and culled to the camera above it. The markers take
-   * `allActivities`, so nothing here wants the viewport-culled set any more.
-   */
-  traceActivities: ActivityBoundsItem[];
   activityCenters: Record<string, [number, number]>;
-  /**
-   * Signatures for the route groups below. The regional map draws none, so it
-   * passes nothing: the start points take the activity's own start and the
-   * group builders are the only readers left.
-   */
-  routeSignatures?: Record<string, RouteSignature>;
   /** Six fields and a line: everything the overlay draws, and nothing else. */
   sections: MapSection[];
-  routeGroups: RouteGroupMinimal[];
-  showRoutes: boolean;
   userLocation: [number, number] | null;
   selected: SelectedActivity | null;
-  t: TFunction;
 }
 
 interface UseMapGeoJSONResult {
   markersGeoJSON: GeoJSON.FeatureCollection;
-  startPointsGeoJSON: GeoJSON.FeatureCollection;
   sectionsGeoJSON: GeoJSON.FeatureCollection;
-  routesGeoJSON: GeoJSON.FeatureCollection;
-  routeMarkersGeoJSON: GeoJSON.FeatureCollection;
-  routeMarkers: RouteMarker[];
   userLocationGeoJSON: GeoJSON.FeatureCollection;
   routeGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
   routeHasData: boolean;
 }
 
-/**
- * The `[lng, lat]` pairs GeoJSON wants, from a flat `[lat, lng, ...]` track.
- *
- * Every point. The per-activity traces took every second one and were the only
- * caller that ever sampled; a route line is one drawn line rather than one per
- * activity, so it is drawn as it was recorded. Non-finite pairs are left out: a
- * LineString with one of those crashes the iOS renderer.
- */
-function lineCoordinates(points: Float64Array): number[][] {
-  const coordinates: number[][] = [];
-  for (let at = 0; at + 1 < points.length; at += 2) {
-    const lat = points[at];
-    const lng = points[at + 1];
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-    coordinates.push([lng, lat]);
-  }
-  return coordinates;
-}
-
-/** The first point as `[lng, lat]`, or null when the track has none to draw. */
-function startCoordinate(points: Float64Array): [number, number] | null {
-  if (points.length < 2) return null;
-  const [lat, lng] = points;
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return [lng, lat];
-}
-
-/**
- * An activity's own start as `[lng, lat]`, or null when there is none to draw.
- *
- * `ActivityBoundsItem` carries this from the engine's signature record on the
- * first read, which is what stops a marker being uploaded once on its bounds
- * centre and again once the signatures finish loading. Reading it here rather
- * than off a loaded signature is what leaves the regional map with no signature
- * read at all.
- */
-function drawableStart(start: [number, number] | undefined): [number, number] | null {
-  if (!start) return null;
-  const [lng, lat] = start;
-  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
-  return [lng, lat];
-}
-
 export function useMapGeoJSON({
   allActivities,
-  traceActivities,
   activityCenters,
-  routeSignatures = {},
   sections,
-  routeGroups,
-  showRoutes,
   userLocation,
   selected,
-  t,
 }: UseMapGeoJSONOptions): UseMapGeoJSONResult {
   // ===========================================
   // 1. ACTIVITY MARKERS - Point features for CircleLayer hit detection
@@ -202,37 +115,6 @@ export function useMapGeoJSON({
   }, [allActivities, activityCenters]);
 
   // ===========================================
-  // 2b. ACTIVITY START POINTS - First GPS coordinate per activity
-  // ===========================================
-  // Shown at high zoom as small directional markers indicating where each activity began.
-  // Uses the first point from routeSignatures (actual GPS start, not bounds center).
-  // Same budget as the traces: the layer's radius ramp is 0 below the trace
-  // zoom, so below it these are as invisible as the lines they mark.
-  const startPointsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const features = traceActivities
-      .map((activity) => {
-        const start = drawableStart(activity.startPoint);
-        if (!start) return null;
-        const config = getActivityTypeConfig(activity.type);
-        return {
-          type: 'Feature' as const,
-          properties: {
-            id: activity.id,
-            color: config.color,
-          },
-          geometry: {
-            type: 'Point' as const,
-            coordinates: start,
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-
-    if (features.length === 0) return EMPTY_FEATURE_COLLECTION;
-    return { type: 'FeatureCollection', features };
-  }, [traceActivities]);
-
-  // ===========================================
   // 3. SECTIONS - Frequent road/trail section polylines
   // ===========================================
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
@@ -241,7 +123,7 @@ export function useMapGeoJSON({
 
     let skippedCount = 0;
     const features = sections
-      .map((section, idx) => {
+      .map((section) => {
         // Filter out NaN coordinates and validate polyline has at least 2 points
         // GeoJSON LineString requires minimum 2 coordinates to be valid
         const originalCount = section.polyline.length;
@@ -264,20 +146,17 @@ export function useMapGeoJSON({
         }
 
         const coordinates = finitePoints.map((pt) => [pt.lng, pt.lat]);
-        // Use per-section color from expanded palette (cycles through 60 unique styles)
-        const sectionStyle = getSectionStyle(idx);
+        // Keyed by id so the colour matches the activity map and survives a re-order.
 
         return {
           type: 'Feature' as const,
           id: section.id,
           properties: {
             id: section.id,
-            name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
-            sportType: section.sportType,
+            name: section.name ?? '',
             visitCount: section.visitCount,
             distanceMeters: section.distanceMeters,
-            color: sectionStyle.color,
-            patternIndex: sectionStyle.patternIndex,
+            color: sectionPalette[sectionPaletteIndex(section.id)],
           },
           geometry: {
             type: 'LineString' as const,
@@ -294,140 +173,7 @@ export function useMapGeoJSON({
     }
 
     return { type: 'FeatureCollection', features };
-  }, [sections, t]);
-
-  // ===========================================
-  // 4. ROUTES - Polylines for route groups
-  // ===========================================
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
-  const routesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!showRoutes || routeGroups.length === 0) return EMPTY_FEATURE_COLLECTION;
-
-    let skippedCount = 0;
-    let validIdx = 0;
-    const features = routeGroups
-      .filter((group) => routeSignatures[group.representativeId])
-      .map((group) => {
-        const signature = routeSignatures[group.representativeId];
-        const originalCount = pointCount(signature.points);
-        const coordinates = lineCoordinates(signature.points);
-
-        // Skip routes with insufficient valid coordinates
-        if (coordinates.length < 2) {
-          skippedCount++;
-          if (__DEV__) {
-            console.warn(
-              `[useMapGeoJSON] INVALID ROUTE: groupId=${group.id} name="${group.name}" originalPoints=${originalCount} validPoints=${coordinates.length}`
-            );
-          }
-          return null;
-        }
-
-        // Assign per-route color from the route palette
-        const routeStyle = getRouteStyle(validIdx++);
-
-        return {
-          type: 'Feature' as const,
-          id: group.id,
-          properties: {
-            id: group.id,
-            name: group.name,
-            activityCount: group.activityCount,
-            sportType: group.sportType,
-            type: group.type,
-            bestTime: group.bestTime,
-            color: routeStyle.color,
-          },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates,
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-
-    if (__DEV__ && skippedCount > 0) {
-      console.warn(
-        `[useMapGeoJSON] routesGeoJSON: skipped ${skippedCount}/${routeGroups.length} routes with invalid polylines`
-      );
-    }
-
-    return { type: 'FeatureCollection', features };
-  }, [showRoutes, routeGroups, routeSignatures]);
-
-  // ===========================================
-  // 5. ROUTE MARKERS - Start points for routes (GeoJSON for ShapeSource)
-  // ===========================================
-  // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
-  const routeMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!showRoutes || routeGroups.length === 0) return EMPTY_FEATURE_COLLECTION;
-
-    let skippedCount = 0;
-    const features = routeGroups
-      .filter((group) => routeSignatures[group.representativeId])
-      .map((group) => {
-        const signature = routeSignatures[group.representativeId];
-        const start = startCoordinate(signature.points);
-
-        // Skip if no start point or invalid coordinates
-        if (!start) {
-          skippedCount++;
-          if (__DEV__) {
-            console.warn(`[useMapGeoJSON] INVALID ROUTE MARKER: groupId=${group.id}`);
-          }
-          return null;
-        }
-
-        return {
-          type: 'Feature' as const,
-          id: `marker-${group.id}`,
-          properties: {
-            id: group.id,
-            name: group.name,
-            activityCount: group.activityCount,
-          },
-          geometry: {
-            type: 'Point' as const,
-            coordinates: start,
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-
-    if (__DEV__ && skippedCount > 0) {
-      console.warn(
-        `[useMapGeoJSON] routeMarkersGeoJSON: skipped ${skippedCount} route markers with invalid start points`
-      );
-    }
-
-    return { type: 'FeatureCollection', features };
-  }, [showRoutes, routeGroups, routeSignatures]);
-
-  // ===========================================
-  // 6. ROUTE MARKERS - Start point array for MarkerViews
-  // ===========================================
-  // CRITICAL: Do NOT filter based on showRoutes - always compute markers
-  // to keep MarkerViews stable and avoid iOS crash during reconciliation
-  const routeMarkers = useMemo((): RouteMarker[] => {
-    if (routeGroups.length === 0) return [];
-
-    return routeGroups
-      .filter((group) => routeSignatures[group.representativeId])
-      .map((group) => {
-        const signature = routeSignatures[group.representativeId];
-        const start = startCoordinate(signature.points);
-        if (!start) return null;
-
-        return {
-          id: group.id,
-          name: group.name,
-          coordinate: start,
-          activityCount: group.activityCount,
-          sportType: group.sportType,
-        };
-      })
-      .filter((m): m is NonNullable<typeof m> => m !== null);
-  }, [routeGroups, routeSignatures]);
+  }, [sections]);
 
   // ===========================================
   // 7. USER LOCATION - Rendered as CircleLayer to avoid Fabric crash
@@ -527,11 +273,7 @@ export function useMapGeoJSON({
 
   return {
     markersGeoJSON,
-    startPointsGeoJSON,
     sectionsGeoJSON,
-    routesGeoJSON,
-    routeMarkersGeoJSON,
-    routeMarkers,
     userLocationGeoJSON,
     routeGeoJSON,
     routeHasData,

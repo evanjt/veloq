@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
 import { getStyleIcon, type MapStyleType } from './mapStyles';
+import { useMapControlColumn } from '../lib/mapControlColumnLayout';
 import { styles } from './ActivityMapView.styles';
 
 const HIT_SLOP = { top: 8, right: 8, bottom: 8, left: 8 };
@@ -25,6 +26,8 @@ interface ActivityMapControlsProps {
   onGetLocation: () => void;
   enableFullscreen: boolean;
   onOpenFullscreen: () => void;
+  /** Height of the map the column sits in; bounds it so no button leaves the map. */
+  mapHeight: number;
 }
 
 export function ActivityMapControls({
@@ -43,14 +46,18 @@ export function ActivityMapControls({
   onGetLocation,
   enableFullscreen,
   onOpenFullscreen,
+  mapHeight,
 }: ActivityMapControlsProps) {
   const { t } = useTranslation();
+  const { top, maxHeight } = useMapControlColumn(mapHeight);
 
   return (
-    <View style={styles.controlsContainer}>
+    <View testID="activity-map-controls" style={[styles.controlsContainer, { top, maxHeight }]}>
       {/* Style toggle */}
       <TouchableOpacity
         testID="activity-map-style-toggle"
+        accessibilityRole="button"
+        accessibilityLabel={t('maps.toggleStyle')}
         style={[styles.controlButton, isDark && styles.controlButtonDark]}
         onPressIn={onToggleStyle}
         activeOpacity={0.6}
@@ -63,10 +70,12 @@ export function ActivityMapControls({
         />
       </TouchableOpacity>
 
-      {/* Gradient coloring toggle - only shown when gradient data is available; hidden in 3D (no effect there) */}
-      {hasGradientData && !is3DMode && (
+      {/* Gradient coloring toggle - only shown when gradient data is available */}
+      {hasGradientData && (
         <TouchableOpacity
           testID="activity-map-gradient-toggle"
+          accessibilityRole="button"
+          accessibilityState={{ selected: gradientActive }}
           accessibilityLabel={t('maps.colorByGradient')}
           style={[
             styles.controlButton,
@@ -91,6 +100,8 @@ export function ActivityMapControls({
       {hasRoute && (
         <TouchableOpacity
           testID="activity-map-3d-toggle"
+          accessibilityRole="button"
+          accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
           style={[
             styles.controlButton,
             isDark && styles.controlButtonDark,
@@ -110,6 +121,8 @@ export function ActivityMapControls({
 
       {/* Compass */}
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={t('maps.resetOrientation')}
         style={[styles.controlButton, isDark && styles.controlButtonDark]}
         onPressIn={onResetOrientation}
         activeOpacity={0.6}
@@ -125,6 +138,9 @@ export function ActivityMapControls({
 
       {/* GPS location */}
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={t('maps.goToLocation')}
+        accessibilityState={{ disabled: locationLoading, busy: locationLoading }}
         style={[styles.controlButton, isDark && styles.controlButtonDark]}
         onPress={locationLoading ? undefined : onGetLocation}
         activeOpacity={locationLoading ? 1 : 0.6}
@@ -149,6 +165,8 @@ export function ActivityMapControls({
       {enableFullscreen && (
         <TouchableOpacity
           testID="activity-map-fullscreen"
+          accessibilityRole="button"
+          accessibilityLabel={t('maps.openFullscreen')}
           style={[styles.controlButton, isDark && styles.controlButtonDark]}
           onPressIn={onOpenFullscreen}
           activeOpacity={0.6}

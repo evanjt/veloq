@@ -14,13 +14,10 @@
  * neighbours.
  */
 
+import type { LatLngShort } from '@/shared/geo/distance';
+
 /** Half-width of the cluster search, in degrees. About 200 km of latitude. */
 export const CLUSTER_RADIUS_DEG = 2;
-
-export interface Centre {
-  lat: number;
-  lng: number;
-}
 
 /**
  * Indices of the activities in the densest cluster, in input order.
@@ -29,7 +26,7 @@ export interface Centre {
  * fullest cell and the ring around it, which is the same region the pairwise
  * count was looking for.
  */
-export function densestClusterIndices(centres: Centre[]): number[] {
+export function densestClusterIndices(centres: LatLngShort[]): number[] {
   if (centres.length === 0) return [];
 
   const all = centres.map((_, i) => i);
@@ -66,7 +63,7 @@ export function densestClusterIndices(centres: Centre[]): number[] {
 }
 
 /** The larger of the latitude and longitude spans the centres cover. */
-function spans(centres: Centre[]): number {
+function spans(centres: LatLngShort[]): number {
   let minLat = Infinity;
   let maxLat = -Infinity;
   let minLng = Infinity;

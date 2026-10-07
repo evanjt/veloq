@@ -2,12 +2,12 @@ import React, { memo } from 'react';
 import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
-import { colors, darkColors, typography, spacing, shadows } from '@/theme';
-import { getActivityTypeConfig } from '../ActivityTypeFilter';
-import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { useMetricSystem, useTheme } from '@/shared/app';
+import { formatDistance } from '@/shared/format/format';
+import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
+import { SportIcons } from '@/shared/activity/SportIcons';
 import type { FrequentSection } from '@/types';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface SectionPopupProps {
   section: FrequentSection;
@@ -24,7 +24,7 @@ export const SectionPopup = memo(function SectionPopup({
 }: SectionPopupProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const config = getActivityTypeConfig(section.sportType);
+  const isMetric = useMetricSystem();
 
   // Names are stored in Rust (user-set or auto-generated on creation/migration)
   const displayName = section.name ?? section.id;
@@ -38,8 +38,7 @@ export const SectionPopup = memo(function SectionPopup({
           </Text>
           <Text style={[styles.popupDate, isDark && styles.popupDateDark]}>
             {t('sections.visitsCount', { count: section.visitCount })} •{' '}
-            {Math.round(section.distanceMeters)}
-            {t('units.m')}
+            {formatDistance(section.distanceMeters, isMetric)}
           </Text>
         </View>
         {onViewDetails && (
@@ -47,10 +46,13 @@ export const SectionPopup = memo(function SectionPopup({
             testID="section-popup-view-details"
             onPress={onViewDetails}
             style={pressable(styles.viewDetailsInline)}
+            android_ripple={pressRipple}
             accessibilityLabel={t('maps.viewSectionDetails')}
             accessibilityRole="button"
           >
-            <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
+            <Text style={[styles.viewDetailsText, isDark && { color: darkColors.linkTeal }]}>
+              {t('maps.viewDetails')}
+            </Text>
             <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
           </Pressable>
         )}
@@ -58,6 +60,7 @@ export const SectionPopup = memo(function SectionPopup({
           testID="section-popup-close"
           onPress={onClose}
           style={pressable(styles.popupIconButton)}
+          android_ripple={pressRipple}
           accessibilityLabel={t('maps.closeSectionPopup')}
           accessibilityRole="button"
         >
@@ -70,15 +73,13 @@ export const SectionPopup = memo(function SectionPopup({
       </View>
 
       <View style={[styles.popupStats, isDark && styles.popupStatsDark]}>
+        {/* Every sport that has taken the ground, in one colour: none is the section's. */}
         <View style={styles.popupStat}>
-          <MaterialCommunityIcons
-            name={getActivityIcon(section.sportType)}
+          <SportIcons
+            sportTypes={section.sportTypes}
             size={20}
-            color={config.color}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-          <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
-            {section.sportType}
-          </Text>
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     backgroundColor: colors.surface,
-    borderRadius: spacing.md,
+    borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     ...shadows.modal,
@@ -170,6 +171,6 @@ const styles = StyleSheet.create({
   viewDetailsText: {
     fontSize: typography.label.fontSize,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.linkTeal,
   },
 });

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { darkColors } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 export const TERRAIN_UNAVAILABLE_TEST_ID = 'terrain-unavailable-notice';
 
@@ -23,15 +23,23 @@ const DISMISS_AFTER_MS = 6000;
 export function TerrainUnavailableNotice({ onDismiss }: { onDismiss: () => void }) {
   const { t } = useTranslation();
 
+  // Callers pass a fresh arrow each render, so keying the timer on it would restart the clock.
+  const dismissRef = useRef(onDismiss);
   useEffect(() => {
-    const timer = setTimeout(onDismiss, DISMISS_AFTER_MS);
+    dismissRef.current = onDismiss;
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => dismissRef.current(), DISMISS_AFTER_MS);
     return () => clearTimeout(timer);
-  }, [onDismiss]);
+  }, []);
 
   return (
     <Pressable
       style={pressable(styles.wrapper)}
+      android_ripple={pressRipple}
       onPress={onDismiss}
+      accessibilityRole="button"
       testID={TERRAIN_UNAVAILABLE_TEST_ID}
     >
       <View style={styles.pill}>

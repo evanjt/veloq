@@ -8,7 +8,7 @@
  * In-memory Map backed by AsyncStorage for persistence across sessions.
  */
 
-import { getSetting, setSetting } from '@/shared/storage';
+import { getSetting, removeSetting, setSetting } from '@/shared/storage';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { deleteTerrainPreviewsForActivity } from './terrainPreviewCache';
 
@@ -88,6 +88,16 @@ export async function reloadCameraOverrides(): Promise<void> {
   initialized = false;
   overrides.clear();
   await initCameraOverrides();
+}
+
+/**
+ * Forget every override, in memory and stored. They are keyed by the
+ * athlete's activity ids, so the wipe takes them with the library, and the
+ * map has to go too or the next override saved writes them all back.
+ */
+export async function forgetCameraOverrides(): Promise<void> {
+  overrides.clear();
+  await removeSetting(STORAGE_KEY).catch(() => {});
 }
 
 /** Persist current overrides map to AsyncStorage */
