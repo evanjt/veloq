@@ -272,7 +272,7 @@ fn test_map_and_superseded_reads_match_the_engine() {
 #[test]
 fn test_performance_derivations_match_the_engine() {
     let _guard = serial_global_state();
-    let (_tmp, sections, id) = seeded_catalogue();
+    let (_tmp, sections, _id) = seeded_catalogue();
 
     assert_eq!(
         format!(

@@ -38,6 +38,8 @@ impl MapManager {
 
     /// Everything the map tab paints with: the engine total, the sport types
     /// the filter chips offer, and the activities inside the window.
+    // The FFI signature, which takes each layer switch as its own argument.
+    #[allow(clippy::too_many_arguments)]
     fn get_screen_data(
         &self,
         start_date: f64,

@@ -641,12 +641,12 @@ pub fn summarise_session(sets: Vec<FfiExerciseSet>) -> FfiExerciseSession {
 }
 
 fn add_to_group(group: &mut FfiExerciseGroup, set: &FfiExerciseSet) {
-    if let Some(previous) = group.sets.last() {
-        if let (Some(start), Some(next)) = (previous.start_time, set.start_time) {
-            let end = start + previous.duration_secs.unwrap_or(0.0);
-            if next >= end {
-                group.rest_seconds.push(next - end);
-            }
+    if let Some(previous) = group.sets.last()
+        && let (Some(start), Some(next)) = (previous.start_time, set.start_time)
+    {
+        let end = start + previous.duration_secs.unwrap_or(0.0);
+        if next >= end {
+            group.rest_seconds.push(next - end);
         }
     }
     if let Some(weight) = set.weight_kg.filter(|weight| weight.is_finite()) {

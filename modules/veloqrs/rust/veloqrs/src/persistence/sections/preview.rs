@@ -106,12 +106,6 @@ fn spread_centres(centres: Vec<PreviewCentre>, limit: usize) -> Vec<PreviewCentr
     taken
 }
 
-/// The (lat, lng) grid indices a bin key names, or None when it will not parse.
-fn bin_indices(bin_key: &str) -> Option<(i64, i64)> {
-    let (lat, lng) = bin_key.split_once(':')?;
-    Some((lat.parse().ok()?, lng.parse().ok()?))
-}
-
 /// The five caller-exposed detection knobs, overlaid onto the engine's live
 /// config. Only these cross the boundary: trusting a whole caller-supplied
 /// config would silently flip fields the panel never shows, `pool_sports`
@@ -1160,8 +1154,8 @@ pub(crate) mod pooled {
     use tracematch::Bounds;
 
     use super::{
-        BIN_DEG, PayloadSection, PreviewCentre, Tunables, bin_indices, cluster_for,
-        encoded_polyline, spread_centres, within_component,
+        BIN_DEG, PayloadSection, PreviewCentre, Tunables, cluster_for, encoded_polyline,
+        spread_centres, within_component,
     };
     use std::collections::HashSet;
 
@@ -1328,8 +1322,7 @@ pub(crate) mod pooled {
         });
         // Between the sort and the cut, or a dense home region takes every slot
         // in adjacent 5 km bins.
-        let mut centres = spread_centres(centres, limit as usize);
-        centres
+        spread_centres(centres, limit as usize)
     }
 
     pub(crate) fn preview_component(conn: &Connection, lat: f64, lng: f64) -> Option<Vec<String>> {

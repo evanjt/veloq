@@ -118,13 +118,11 @@ impl ActivityManager {
     }
 
     fn get_ids(&self) -> Result<Vec<String>, VeloqError> {
-        with_reader(|conn| crate::persistence::activities::pooled::activity_ids(conn)).and_then(
-            |r| {
-                r.map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-            },
-        )
+        with_reader(crate::persistence::activities::pooled::activity_ids).and_then(|r| {
+            r.map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+        })
     }
 
     /// The activities whose track the engine refused for good at the version
@@ -158,13 +156,11 @@ impl ActivityManager {
     }
 
     fn get_count(&self) -> Result<u32, VeloqError> {
-        with_reader(|conn| crate::persistence::activities::pooled::activity_count(conn)).and_then(
-            |r| {
-                r.map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-            },
-        )
+        with_reader(crate::persistence::activities::pooled::activity_count).and_then(|r| {
+            r.map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+        })
     }
 
     fn set_metrics(&self, metrics: Vec<crate::FfiActivityMetrics>) -> Result<(), VeloqError> {

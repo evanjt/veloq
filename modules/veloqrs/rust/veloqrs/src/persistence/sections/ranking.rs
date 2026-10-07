@@ -1854,8 +1854,8 @@ pub(crate) mod pooled {
                  FROM section_rank_inputs WHERE section_id IN ({marks})
                    AND section_id NOT IN ({DIRTY_SECTIONS})"
             );
-            if let Ok(mut stmt) = conn.prepare(&sql) {
-                if let Ok(rows) = stmt.query_map(rusqlite::params_from_iter(chunk.iter()), |row| {
+            if let Ok(mut stmt) = conn.prepare(&sql)
+                && let Ok(rows) = stmt.query_map(rusqlite::params_from_iter(chunk.iter()), |row| {
                     Ok((
                         row.get(0)?,
                         row.get(1)?,
@@ -1863,30 +1863,30 @@ pub(crate) mod pooled {
                         row.get(3)?,
                         row.get(4)?,
                     ))
-                }) {
-                    for row in rows.flatten() {
-                        keep_page_trend(&mut chosen, row, selected_sport, now);
-                    }
+                })
+            {
+                for row in rows.flatten() {
+                    keep_page_trend(&mut chosen, row, selected_sport, now);
                 }
             }
         }
-        if anything_marked(conn).unwrap_or(true) {
-            if let Ok(rows) = try_traversals_by_sport(conn, DIRTY_SCOPE) {
-                for (sport, input) in inputs_by_sport(rows) {
-                    if ids.contains(input.section_id.as_str()) {
-                        keep_page_trend(
-                            &mut chosen,
-                            (
-                                input.section_id,
-                                sport,
-                                input.traversal_count,
-                                input.last_date,
-                                input.trend,
-                            ),
-                            selected_sport,
-                            now,
-                        );
-                    }
+        if anything_marked(conn).unwrap_or(true)
+            && let Ok(rows) = try_traversals_by_sport(conn, DIRTY_SCOPE)
+        {
+            for (sport, input) in inputs_by_sport(rows) {
+                if ids.contains(input.section_id.as_str()) {
+                    keep_page_trend(
+                        &mut chosen,
+                        (
+                            input.section_id,
+                            sport,
+                            input.traversal_count,
+                            input.last_date,
+                            input.trend,
+                        ),
+                        selected_sport,
+                        now,
+                    );
                 }
             }
         }
