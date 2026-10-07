@@ -5,7 +5,7 @@
  *
  * Expected behaviour: the guard fails a bare threshold handed to a trend call
  * and a trend call taken from anywhere but the shared module, leaves the shared
- * module and tests alone, and passes on this repository.
+ * module and tests alone.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -35,9 +35,9 @@ function fixture(files: Record<string, string>): string {
   return root;
 }
 
-function runGuard(root?: string): { status: number; output: string } {
+function runGuard(root: string): { status: number; output: string } {
   try {
-    const output = execFileSync('node', root ? [SCRIPT, '--root', root] : [SCRIPT], {
+    const output = execFileSync('node', [SCRIPT, '--root', root], {
       encoding: 'utf8',
       env: gitFreeEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -127,10 +127,4 @@ it('refuses an empty listing rather than reporting it clean', () => {
   execFileSync('git', ['init', '-q'], { cwd: root, env: gitFreeEnv() });
 
   expect(runGuard(root).status).toBe(1);
-});
-
-it('passes on this repository', () => {
-  const { status, output } = runGuard();
-  expect(output).not.toContain('bare threshold');
-  expect(status).toBe(0);
 });

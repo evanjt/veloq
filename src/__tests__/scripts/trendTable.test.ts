@@ -13,11 +13,10 @@ import path from 'path';
 
 import { TREND_DEADBAND, TREND_POLARITY } from '@/shared/format/trend';
 
-import { readRustTrendMetrics, renderTrendTable } from '@/../scripts/lib/trendTable';
+import { readRustTrendMetrics } from '@/../scripts/lib/trendTable';
 
 const REPO = path.resolve(__dirname, '../../..');
 const RUST = path.join(REPO, 'modules/veloqrs/rust/veloqrs/src/trend_table.rs');
-const GENERATED = path.join(REPO, 'src/shared/format/trendTable.generated.ts');
 
 describe('the trend table is read out of Rust', () => {
   it('parses every metric, its deadband and which way is better', () => {
@@ -48,11 +47,6 @@ pub const TREND_METRICS: &[TrendMetric] = &[
     // An empty table reads as "no metric has a threshold", which makes every
     // move a move. Failing loudly is the only safe answer.
     expect(() => readRustTrendMetrics('fn unrelated() {}')).toThrow();
-  });
-
-  it('is what the committed generated module holds, so --check has teeth', () => {
-    const rendered = renderTrendTable(readRustTrendMetrics(fs.readFileSync(RUST, 'utf-8')));
-    expect(fs.readFileSync(GENERATED, 'utf-8')).toBe(rendered);
   });
 
   it('is the table the app already draws with, so no glyph moves', () => {

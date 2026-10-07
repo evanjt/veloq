@@ -32,7 +32,7 @@ it('runs the fixer after the export', () => {
 });
 
 /**
- * Scenario: an FFI change is followed by `scripts/generate-bindings.sh`, which
+ * Scenario: an FFI change is followed by `npm run ffi:generate`, which
  * `CLAUDE.md` and the generated files' own header name as the way to
  * regenerate them.
  *
@@ -44,7 +44,10 @@ it('runs the fixer after the export', () => {
  * regeneration undoes.
  */
 it('runs the fixer after generating the bindings by hand', () => {
-  const source = fs.readFileSync(path.join(projectRoot, 'scripts/generate-bindings.sh'), 'utf8');
+  const source = fs.readFileSync(
+    path.join(projectRoot, 'modules/veloqrs/scripts/generate-bindings.sh'),
+    'utf8'
+  );
 
   expect(source).toContain('scripts/fix-generated.sh');
   expect(source.indexOf('uniffi-bindgen-react-native generate')).toBeLessThan(
@@ -147,11 +150,36 @@ describe('a spawn that cannot start says so', () => {
     expect(source).toContain('.error.message');
   });
 
-  it('never falls back to 1 for a status it has already proven is a number', () => {
-    const source = fs.readFileSync(path.join(projectRoot, 'scripts/bundle-android.mjs'), 'utf8');
-
-    // `status ?? 1` after an `error` branch reads as if a null status were
-    // still possible, which is the shape that hid the fault.
-    expect(source).toContain('process.exit(run.status)');
+  it('exits non-zero and names the signal when npx is killed', () => {
+    const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-npx-'));
+    fs.writeFileSync(path.join(bin, 'npx'), '#!/bin/sh\nkill -9 $$\n', { mode: 0o755 });
+    // A tree the bundle step accepts, so it reaches npx wherever this suite runs.
+    const tree = path.join(bin, 'tree');
+    fs.mkdirSync(path.join(tree, 'modules', 'veloqrs'), { recursive: true });
+    fs.mkdirSync(path.join(tree, 'src', 'app'), { recursive: true });
+    fs.mkdirSync(path.join(tree, 'node_modules'));
+    fs.symlinkSync(
+      path.join(tree, 'modules', 'veloqrs'),
+      path.join(tree, 'node_modules', 'veloqrs')
+    );
+    try {
+      let status: number | null = 0;
+      let stderr = '';
+      try {
+        execFileSync('node', [path.join(projectRoot, 'scripts/bundle-android.mjs')], {
+          cwd: tree,
+          env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, NODE_ENV: 'production' },
+          stdio: 'pipe',
+        });
+      } catch (e) {
+        const err = e as { status: number | null; stderr: Buffer };
+        status = err.status;
+        stderr = err.stderr.toString();
+      }
+      expect(status).not.toBe(0);
+      expect(stderr).toContain('SIGKILL');
+    } finally {
+      fs.rmSync(bin, { recursive: true, force: true });
+    }
   });
 });

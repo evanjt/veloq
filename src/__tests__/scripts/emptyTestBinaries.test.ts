@@ -39,6 +39,25 @@ describe('empty test binary guard', () => {
     expect(empty).toEqual(['veloqrs::evidence_cache_encode_off_lock']);
   });
 
+  it('names a target whose every test is ignored, and keeps one with a live test', () => {
+    const ignored = (kind: string, ...names: string[]) => ({
+      kind,
+      testcases: Object.fromEntries(names.map((n) => [n, { ignored: true }])),
+    });
+    const empty = emptySuites({
+      'test-count': 0,
+      'rust-suites': {
+        'veloqrs::only_ignored': ignored('test', 'a_measurement', 'another'),
+        'veloqrs::mixed': {
+          kind: 'test',
+          testcases: { slow: { ignored: true }, fast: { ignored: false } },
+        },
+      },
+    });
+
+    expect(empty).toEqual(['veloqrs::only_ignored']);
+  });
+
   it('leaves a bin target alone, which carries no tests by design', () => {
     const empty = emptySuites(
       list({

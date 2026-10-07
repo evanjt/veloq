@@ -16,6 +16,7 @@ import os from 'os';
 import path from 'path';
 
 import { areaOf, surfaceOverCeiling, surfaceUnderCeiling } from '../../../scripts/lib/ffiUsage';
+import { gitFreeEnv, initFixtureRepo } from '../__shared__/gitFixture';
 
 const CEILINGS = path.join(__dirname, '../../../scripts/ffi-area-ceilings.json');
 const REPORT = path.join(__dirname, '../../../scripts/ffi-usage-report.ts');
@@ -119,14 +120,6 @@ describe('a ceiling the tree has beaten', () => {
 
     expect(under.map(({ area }) => area)).not.toContain('//');
   });
-
-  it('is refused by the area check, which says to remove the entry', () => {
-    const source = fs.readFileSync(REPORT, 'utf-8');
-
-    expect(source).toContain('surfaceUnderCeiling(surface, ceilings)');
-    expect(source).toContain('Remove');
-    expect(source).toContain('scripts/ffi-area-ceilings.json');
-  });
 });
 
 describe('the committed ceilings', () => {
@@ -160,6 +153,190 @@ describe('the committed ceilings', () => {
   });
 });
 
+/** A tree whose one caller reaches `startFetchAndStore` from the insights area. */
+function callerTree(): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffi-area-'));
+  roots.push(root);
+  const file = path.join(root, 'src/features/insights/fetch.ts');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(
+    file,
+    "import { startFetchAndStore } from 'veloqrs';\n\nexport function fetchAll() {\n  startFetchAndStore();\n}\n"
+  );
+  return root;
+}
+
+function withCeilings(root: string, ceilings: Record<string, string[]>): string {
+  const file = path.join(root, 'ceilings.json');
+  fs.writeFileSync(file, JSON.stringify(ceilings));
+  return file;
+}
+
+function checkAreas(
+  root: string,
+  ceilings: string,
+  hookEnv: Record<string, string> = {}
+): { status: number; output: string } {
+  const result = spawnSync(
+    'npx',
+    ['tsx', REPORT, '--check-areas', '--root', root, '--ceilings', ceilings],
+    { encoding: 'utf8', env: { ...gitFreeEnv(), ...hookEnv } }
+  );
+  return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
+}
+
+const roots: string[] = [];
+
+afterAll(() => {
+  for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
+});
+
+/**
+ * A tree whose screen calls a manager export only through the client:
+ * `engine.getInsightsData()` forwards to `fitness().getInsightsData`, and
+ * `engine.readStrength()` to `strength().getScreenData` under another name.
+ */
+function clientTree(): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffi-area-client-'));
+  roots.push(root);
+  const write = (rel: string, text: string): void => {
+    const file = path.join(root, rel);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text);
+  };
+  write(
+    'modules/veloqrs/src/delegates/host.ts',
+    'type EngineHandle = VeloqEngineLike;\nexport interface DelegateHost {\n  readonly engine: EngineHandle;\n}\n'
+  );
+  write(
+    'modules/veloqrs/src/delegates/fitness.ts',
+    'export function getInsightsData(host: DelegateHost, params: unknown) {\n' +
+      "  return host.timed('getInsightsData', () => host.engine.fitness().getInsightsData(params));\n}\n"
+  );
+  write(
+    'modules/veloqrs/src/delegates/strength.ts',
+    'export function readStrengthScreen(host: DelegateHost) {\n' +
+      '  return host.engine.strength().getScreenData(0, 1, []);\n}\n'
+  );
+  write(
+    'modules/veloqrs/src/EngineClient.ts',
+    "import * as fitnessDelegates from './delegates/fitness';\n" +
+      "import * as strengthDelegates from './delegates/strength';\n" +
+      'class EngineClient {\n' +
+      '  getInsightsData = (params: unknown) => fitnessDelegates.getInsightsData(this, params);\n\n' +
+      '  readStrength = () => strengthDelegates.readStrengthScreen(this);\n' +
+      '}\n'
+  );
+  write(
+    'src/features/insights/read.ts',
+    'export function read(params: unknown) {\n  return engine.getInsightsData(params);\n}\n'
+  );
+  write(
+    'src/features/strength/read.ts',
+    'export function read() {\n  return engine.readStrength();\n}\n'
+  );
+  return root;
+}
+
+describe('the area check through the client', () => {
+  it('counts a manager export reached as a client call against the area that calls it', () => {
+    const root = clientTree();
+
+    const { status, output } = checkAreas(
+      root,
+      withCeilings(root, {
+        'features/insights': ['FitnessManager.getInsightsData'],
+        'features/strength': ['StrengthManager.getScreenData'],
+      })
+    );
+
+    expect(output).toContain('2 areas reach 2 exports');
+    expect(status).toBe(0);
+  });
+
+  it('refuses an area that calls a manager export through the client and has no entry', () => {
+    const root = clientTree();
+
+    const { status, output } = checkAreas(
+      root,
+      withCeilings(root, { 'features/strength': ['StrengthManager.getScreenData'] })
+    );
+
+    expect(output).toContain('features/insights reaches the engine and has no entry');
+    expect(output).toContain('- FitnessManager.getInsightsData');
+    expect(status).toBe(1);
+  });
+
+  it('refuses a client call that adds an export to an area with an entry', () => {
+    const root = clientTree();
+
+    const { status, output } = checkAreas(
+      root,
+      withCeilings(root, {
+        'features/insights': ['startFetchAndStore'],
+        'features/strength': ['StrengthManager.getScreenData'],
+      })
+    );
+
+    expect(output).toContain('features/insights reaches 1 export(s) it did not reach before');
+    expect(output).toContain('- FitnessManager.getInsightsData');
+    expect(status).toBe(1);
+  });
+});
+
+describe('the area check', () => {
+  it('passes a tree whose areas reach exactly what their entries list', () => {
+    const root = callerTree();
+
+    const { status, output } = checkAreas(
+      root,
+      withCeilings(root, { 'features/insights': ['startFetchAndStore'] })
+    );
+
+    expect(output).toContain('1 areas reach 1 exports');
+    expect(status).toBe(0);
+  });
+
+  it('refuses a ceiling entry the area no longer reaches, names it and says to remove it', () => {
+    const root = callerTree();
+
+    const { status, output } = checkAreas(
+      root,
+      withCeilings(root, { 'features/insights': ['getDownloadProgress', 'startFetchAndStore'] })
+    );
+
+    expect(output).toContain('features/insights no longer reaches 1 export(s)');
+    expect(output).toContain('- getDownloadProgress');
+    expect(output).toContain('Remove each from ceilings.json');
+    expect(status).toBe(1);
+  });
+
+  it('refuses an area listed in the ceilings that reaches nothing at all', () => {
+    const root = callerTree();
+
+    const { status, output } = checkAreas(
+      root,
+      withCeilings(root, {
+        'features/insights': ['startFetchAndStore'],
+        'features/routes': ['VeloqEngine.getStats'],
+      })
+    );
+
+    expect(output).toContain('features/routes no longer reaches the engine');
+    expect(status).toBe(1);
+  });
+
+  it('refuses an area that reaches an export its ceiling does not list', () => {
+    const root = callerTree();
+
+    const { status, output } = checkAreas(root, withCeilings(root, {}));
+
+    expect(output).toContain('features/insights reaches the engine and has no entry');
+    expect(output).toContain('- startFetchAndStore');
+    expect(status).toBe(1);
+  });
+});
+
 /**
  * Scenario: git hands a hook GIT_DIR, GIT_INDEX_FILE and GIT_WORK_TREE, and
  * every one of them beats the directory a child was started in. The guard
@@ -170,50 +347,34 @@ describe('the committed ceilings', () => {
  * ceiling. A guard that checks nothing and passes is worse than one that
  * answers wrongly, because only the wrong answer gets looked at.
  */
-describe('the guard under a hook\u2019s environment', () => {
-  const source = fs.readFileSync(REPORT, 'utf-8');
+describe('the guard under a hook’s environment', () => {
+  it('reads the checkout it was pointed at even when the environment names another tree', () => {
+    const root = callerTree();
+    initFixtureRepo(root);
+    const ceilings = withCeilings(root, { 'features/insights': ['startFetchAndStore'] });
 
-  it('drops the variables git exports to a hook before running git', () => {
-    // The listing and the batch read both live in the shared reader, so the
-    // scrubbing is asserted where it happens. The run below is the proof; this
-    // says which code is responsible for it.
-    expect(source).toMatch(/from '\.\/lib\/indexedSources\.mjs'/);
-
-    const reader = fs.readFileSync(
-      path.join(__dirname, '../../../scripts/lib/indexedSources.mjs'),
-      'utf-8'
-    );
-    for (const variable of ['GIT_DIR', 'GIT_INDEX_FILE', 'GIT_WORK_TREE']) {
-      expect(reader).toContain(variable);
-    }
-    // Every git call it makes takes the scrubbed environment.
-    expect(reader.match(/env: gitFreeEnv\(\)/g)).toHaveLength(1);
-    expect(reader.match(/execFileSync\(/g)).toHaveLength(1);
-  });
-
-  // Whether the tree is over a ceiling is `npm run audit`'s to say, so the exit
-  // code is not read here, only that the areas were found at all.
-  it('reads its own checkout even when the environment names another tree', () => {
-    const result = spawnSync('npx', ['tsx', REPORT, '--check-areas'], {
-      cwd: path.join(__dirname, '../../..'),
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        GIT_INDEX_FILE: path.join(os.tmpdir(), 'veloq-guard-absent-index'),
-        GIT_WORK_TREE: os.tmpdir(),
-      },
+    const { status, output } = checkAreas(root, ceilings, {
+      GIT_INDEX_FILE: path.join(os.tmpdir(), 'veloq-guard-absent-index'),
+      GIT_WORK_TREE: os.tmpdir(),
     });
-    const run = `${result.stdout}${result.stderr}`;
 
-    expect(run).toContain('areas reach');
-    expect(run).not.toContain('0 areas reach 0 exports');
+    expect(output).toContain('1 areas reach 1 exports');
+    expect(status).toBe(0);
   });
 
   it('refuses rather than passes when it reads no area at all', () => {
-    // `surfaceOverCeiling` cannot answer this on its own: an empty surface is
-    // over no ceiling, which is why the refusal is a separate check.
-    expect(surfaceOverCeiling({}, { 'features/maps': ['setNetworkOnline'] })).toEqual([]);
-    expect(source).toContain('no area reaches the engine at all');
-    expect(source).toMatch(/Object\.keys\(surface\)\.length === 0/);
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffi-area-empty-'));
+    roots.push(root);
+    fs.mkdirSync(path.join(root, 'src'));
+    fs.writeFileSync(path.join(root, 'src/README.ts'), 'export {};\n');
+    initFixtureRepo(root);
+
+    const { status, output } = checkAreas(
+      root,
+      withCeilings(root, { 'features/maps': ['setNetworkOnline'] })
+    );
+
+    expect(output).toContain('no area reaches the engine at all');
+    expect(status).toBe(1);
   });
 });

@@ -103,6 +103,32 @@ describe('the worktree module links', () => {
     expect(result.stdout).toContain('no per-entry set');
   });
 
+  it('leaves an installation of its own alone, so a native build tree stays self-contained', () => {
+    const { main, tree } = trees(['react', '@ubjs'], []);
+    fs.mkdirSync(path.join(tree, 'node_modules', 'react'));
+    fs.writeFileSync(path.join(tree, 'node_modules', '.package-lock.json'), '{}');
+
+    const result = run(tree, main);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('installation of its own');
+    expect(fs.existsSync(path.join(tree, 'node_modules', '@ubjs'))).toBe(false);
+  });
+
+  it('still levels a per-entry set, whose lockfile record is a link like the rest', () => {
+    const { main, tree } = trees(['react', '@ubjs'], ['react']);
+    fs.writeFileSync(path.join(main, 'node_modules', '.package-lock.json'), '{}');
+    fs.symlinkSync(
+      path.join(main, 'node_modules', '.package-lock.json'),
+      path.join(tree, 'node_modules', '.package-lock.json')
+    );
+
+    const result = run(tree, main);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('@ubjs');
+  });
+
   it('runs before the gates rather than once at worktree creation', () => {
     const gates = fs.readFileSync(path.join(projectRoot, 'scripts/run-gates.sh'), 'utf8');
 

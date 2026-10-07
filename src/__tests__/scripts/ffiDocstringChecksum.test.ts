@@ -95,6 +95,26 @@ describe('the FFI docstring matches the generated bindings', () => {
     }
   });
 
+  it('fails when a doc block detached from its export by a blank line changes', () => {
+    const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-ffi-src-'));
+    try {
+      fs.cpSync(RUST_SRC_DIR, copy, { recursive: true });
+      const copied = path.join(copy, 'ffi.rs');
+      fs.writeFileSync(
+        copied,
+        fs
+          .readFileSync(copied, 'utf8')
+          .replace(ANCHOR, `/// A detached block the checksum will notice.\n\n${ANCHOR}`)
+      );
+
+      expect(docDrift(extractFfiExports(copy), bindings())).toEqual([
+        '<standalone>::start_elevation_backfill',
+      ]);
+    } finally {
+      fs.rmSync(copy, { recursive: true, force: true });
+    }
+  });
+
   it('leaves the checked-in tree exactly as it found it', () => {
     expect(fs.readFileSync(RUST_FILE, 'utf8')).not.toContain('the checksum will notice');
   });

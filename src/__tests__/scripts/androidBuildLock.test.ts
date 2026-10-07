@@ -38,14 +38,32 @@ function privateLock(): NodeJS.ProcessEnv {
 
 describe('the Android build takes a lock of its own', () => {
   it('is what the build scripts run through', () => {
-    for (const name of [
-      'android',
-      'android:debug',
-      'android:prod',
-      'rebuild:android',
-      'rebuild:android:prod',
-    ]) {
+    for (const name of ['android', 'android:debug', 'android:prod']) {
       expect(packageJson.scripts[name]).toContain('with-android-build-lock.sh');
+    }
+  });
+
+  it('leaves no rebuild alias beside the build commands', () => {
+    const justfile = fs.readFileSync(path.join(projectRoot, 'justfile'), 'utf8');
+    expect(Object.keys(packageJson.scripts).filter((n) => n.startsWith('rebuild:'))).toEqual([]);
+    expect(justfile).not.toMatch(/^rebuild-/m);
+    expect(justfile).not.toMatch(/npm run rebuild:/);
+  });
+
+  it('is the only path the justfile takes to Gradle', () => {
+    const justfile = fs.readFileSync(path.join(projectRoot, 'justfile'), 'utf8');
+    expect(justfile).not.toMatch(/expo run:android/);
+    expect(justfile).toMatch(/^android:\n\s+npm run android$/m);
+  });
+
+  it('does not call the justfile check the pre-commit hook', () => {
+    const justfile = fs.readFileSync(path.join(projectRoot, 'justfile'), 'utf8');
+    const hook = fs.readFileSync(path.join(projectRoot, '.husky/pre-commit'), 'utf8');
+    const check = justfile.match(/^# (.*)\ncheck:\n\s+(.*)$/m);
+    expect(check).not.toBeNull();
+    if (/pre-commit/.test(check![1])) {
+      expect(check![2]).toContain('run-gates.sh');
+      expect(hook).toContain('run-gates.sh');
     }
   });
 
