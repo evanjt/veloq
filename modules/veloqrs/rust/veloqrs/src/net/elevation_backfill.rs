@@ -45,9 +45,17 @@
 //! run finishes the job.
 //!
 //! On an install still owed the detector cutover that cut is the cutover
-//! itself, not a bare re-cut. The launch trigger declines while this queue is
-//! non-empty, so the drained pass is the only thing left holding the
-//! migration. See [`terminal_cut`].
+//! itself, not a bare re-cut. `cutover::start_cutover` answers `Held` while
+//! this queue is non-empty, so the drained pass is the only thing left holding
+//! the migration. See [`terminal_cut`].
+//!
+//! Every track the pass writes records which upstream series its elevation
+//! is, corrected or device, in `elevation_source`. A track fetched before that
+//! column existed reads unknown, and once a pass has run its queue it asks for
+//! each of those once, with the same elevation-only read. Points that carry
+//! the answered series keep every byte and gain the record. Points that carry
+//! something else go back to this queue, so the splice that replaces them
+//! records the series it writes.
 //!
 //! The athlete can pause the download. The pause lives for the process and
 //! nowhere else: the pass in flight ends at its next batch boundary, no start
@@ -61,11 +69,13 @@ use crate::net::types::ParsedStreams;
 use crate::objects::FfiStartOutcome;
 use crate::objects::detection::{SlotWait, wait_on_slot};
 use crate::objects::observer::Announcement;
+use crate::persistence::attempts::now_ms;
 use crate::persistence::cutover::CutoverOutcome;
+use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::{
-    ELEVATION_STATE_UNAVAILABLE, PersistentEngine, engine_install, suspend_detection,
-    with_persistent_engine, with_persistent_engine_for,
+    ELEVATION_STATE_UNAVAILABLE, ElevationSeries, PersistentEngine, elevation_source_of,
+    engine_install, suspend_detection, with_persistent_engine, with_persistent_engine_for,
 };
 use rusqlite::{Result as SqlResult, params};
 use std::sync::Mutex;
@@ -178,10 +188,10 @@ impl ResumeGuard {
 ///
 /// **This is the one background loop in the crate with no external cancel, and
 /// that is deliberate.** Every other one is either bounded, like both slot
-/// drivers through `wait_on_slot`, or cooperatively stopped. This ends on two
-/// conditions and neither is a caller: the queue reading empty, which is the
-/// job finished for good, and a pause, which lays a fresh ladder on resume. A
-/// cancel would need a terminal state distinguishable from those two, and the
+/// drivers through `wait_on_slot`, or cooperatively stopped. The queue reading
+/// empty finishes the job; a pause or disabled detector ends this climb until
+/// Resume or Route Matching being turned back on arms another. A
+/// cancel would need a terminal state distinguishable from those, and the
 /// climb it would stop costs one sleeping thread waking at most every half
 /// hour, so there is nothing for a caller to gain by stopping it.
 ///
@@ -192,7 +202,7 @@ pub fn resume_ladder(
     mut sleep: impl FnMut(Duration) -> bool,
     mut remaining: impl FnMut() -> Option<u64>,
     mut offline: impl FnMut() -> bool,
-    mut paused: impl FnMut() -> bool,
+    mut paused_or_switched_off: impl FnMut() -> bool,
     mut engine_gone: impl FnMut() -> bool,
     mut attempt: impl FnMut(),
 ) {
@@ -216,10 +226,9 @@ pub fn resume_ladder(
         if engine_gone() {
             return;
         }
-        // A paused install climbed this ladder for ever, calling a `start_pass`
-        // that declined on the pause every half hour. The climb ends instead
-        // and the resume lays a new one.
-        if paused() {
+        // A paused or switched-off install needs no further attempts. Resume
+        // or switching Route Matching back on lays a new ladder.
+        if paused_or_switched_off() {
             return;
         }
         // A rung spent offline costs no request and still moves up the ladder,
@@ -234,7 +243,7 @@ pub fn resume_ladder(
 
 /// What a production rung waits on: its own clock, or the connection coming
 /// back, whichever is first. Always climbs, since in production the ladder
-/// ends on the queue or the pause and never on the sleep.
+/// ends on the queue, pause or switch and never on the sleep.
 pub fn resume_sleep(wait: Duration) -> bool {
     crate::net::connectivity::sleep_or_online_edge(wait);
     true
@@ -246,7 +255,7 @@ fn spawn_resume_ladder(
     climb: impl FnOnce() + Send + 'static,
 ) -> Option<std::thread::JoinHandle<()>> {
     let slot = ResumeGuard::claim()?;
-    Some(std::thread::spawn(move || {
+    Some(crate::threads::spawn_named("veloq-elev", move || {
         let _slot = slot;
         climb();
     }))
@@ -266,6 +275,18 @@ fn engine_gone() -> bool {
         .is_none()
 }
 
+fn detection_switched_off() -> bool {
+    matches!(
+        crate::objects::error::with_reader(|conn| {
+            crate::persistence::settings::setting_from(
+                conn,
+                crate::persistence::settings::settings_keys::DETECTION_ENABLED,
+            )
+        }),
+        Ok(Ok(Some(value))) if value == "0"
+    )
+}
+
 fn arm_resume_ladder() {
     spawn_resume_ladder(|| {
         resume_ladder(
@@ -275,7 +296,7 @@ fn arm_resume_ladder() {
                 _ => None,
             },
             crate::net::connectivity::is_offline,
-            elevation_backfill_paused,
+            || elevation_backfill_paused() || detection_switched_off(),
             engine_gone,
             || {
                 start_pass();
@@ -498,22 +519,92 @@ pub enum BackfillRun {
 // The queue
 // ============================================================================
 
+/// A local key upstream cannot name yet is not owed: the ride waits for its
+/// upload rather than spending attempts on a 404. A key that is not local is
+/// its own upstream id, as every row an older build stored is.
+///
+/// A demo key is never owed. Demo mode seeds its tracks on the device with no
+/// altitude and no credential to ask with, so counting them would hold
+/// detection and the cutover on a queue nothing can ever drain.
+macro_rules! upstream_named_sql {
+    () => {
+        "g.activity_id NOT LIKE 'demo-%'
+                AND (g.activity_id NOT LIKE 'local-%'
+                  OR a.intervals_id IS NOT NULL
+                  OR EXISTS (SELECT 1 FROM activity_bodies b
+                              WHERE b.activity_id = g.activity_id
+                                AND b.intervals_id IS NOT NULL))"
+    };
+}
+
 /// The backfill queue, newest first. The order is what makes a scrolling
 /// athlete's newest activities convert first, and it is worth a sort.
-const ELEVATION_QUEUE_SQL: &str = "SELECT g.activity_id, a.sport_type
+const ELEVATION_QUEUE_SQL: &str = concat!(
+    "SELECT g.activity_id, a.sport_type
                FROM gps_tracks g
                JOIN activities a ON a.id = g.activity_id
               WHERE g.elevation_state = ?1
-              ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id";
+                AND ",
+    upstream_named_sql!(),
+    "
+              ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id"
+);
 
 /// How long that queue is, without building it. Both launch triggers ask, and
 /// neither cares about the order, so counting must not pay for it. The join
 /// stays: a stored track whose activity row has gone is not in the queue, so a
 /// bare count over `gps_tracks` would answer a different question.
-const ELEVATION_REMAINING_SQL: &str = "SELECT COUNT(*)
+const ELEVATION_REMAINING_SQL: &str = concat!(
+    "SELECT COUNT(*)
                FROM gps_tracks g
                JOIN activities a ON a.id = g.activity_id
-              WHERE g.elevation_state = ?1";
+              WHERE g.elevation_state = ?1
+                AND ",
+    upstream_named_sql!()
+);
+
+pub(crate) fn pooled_elevation_backfill_remaining(conn: &rusqlite::Connection) -> SqlResult<u64> {
+    conn.query_row(
+        ELEVATION_REMAINING_SQL,
+        params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|count| count.max(0) as u64)
+}
+
+/// The tracks whose elevation was fetched before the engine recorded which
+/// series it is, newest first. A track asked [`ELEVATION_ATTEMPT_LIMIT`] times
+/// with no answer leaves it and stays unknown, so the walk can end.
+const ELEVATION_SOURCE_QUEUE_SQL: &str = concat!(
+    "SELECT g.activity_id
+               FROM gps_tracks g
+               JOIN activities a ON a.id = g.activity_id
+              WHERE g.elevation_state = ?1
+                AND g.elevation_source = ?2
+                AND g.elevation_attempts < ?3
+                AND ",
+    upstream_named_sql!(),
+    "
+              ORDER BY a.start_date IS NULL, a.start_date DESC, g.activity_id"
+);
+
+impl PersistentEngine {
+    /// Every fetched track whose series is still unknown and still worth
+    /// asking about. Not part of the backfill queue: the points are already
+    /// elevated, so nothing here holds detection or the cutover.
+    pub fn tracks_owed_elevation_source(&self) -> SqlResult<Vec<String>> {
+        let mut stmt = self.db.prepare(ELEVATION_SOURCE_QUEUE_SQL)?;
+        let rows = stmt.query_map(
+            params![
+                i64::from(crate::persistence::ELEVATION_STATE_FETCHED),
+                i64::from(crate::persistence::ELEVATION_SOURCE_UNKNOWN),
+                i64::from(ELEVATION_ATTEMPT_LIMIT)
+            ],
+            |row| row.get::<_, String>(0),
+        )?;
+        rows.collect()
+    }
+}
 
 impl PersistentEngine {
     /// The backfill queue: every stored track upstream has not been asked
@@ -590,13 +681,7 @@ impl PersistentEngine {
     /// triggers treat a zero as the definitive "nothing left", one of them by
     /// stamping the app version, and a locked database at launch is ordinary.
     pub fn elevation_backfill_remaining(&self) -> SqlResult<u64> {
-        self.db
-            .query_row(
-                ELEVATION_REMAINING_SQL,
-                params![i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
-                |row| row.get::<_, i64>(0),
-            )
-            .map(|n| n.max(0) as u64)
+        pooled_elevation_backfill_remaining(&self.db)
     }
 
     /// One track's elevation provenance, or `None` when no track is stored.
@@ -634,10 +719,12 @@ enum Ask {
 
 /// One track's fetch, reduced to what the store step needs.
 enum Fetched {
-    /// An altitude series to splice onto the points already stored.
-    Altitudes(Vec<f64>),
-    /// A whole track, re-fetched because the stored one no longer matches.
-    Elevated(Vec<GpsPoint>),
+    /// An altitude series to splice onto the points already stored, and which
+    /// series it is.
+    Altitudes(Vec<f64>, ElevationSeries),
+    /// A whole track, re-fetched because the stored one no longer matches, and
+    /// the series its elevation came from.
+    Elevated(Vec<GpsPoint>, ElevationSeries),
     /// The response arrived, carried an altitude series, and none of it was
     /// usable. Upstream has answered and the answer will not change.
     NoAltitude,
@@ -657,14 +744,17 @@ enum Fetched {
 /// and those end differently, one permanently and one on the next run. It
 /// comes back as [`Fetched::Empty`], which sends that activity to the whole
 /// track ask, where the coordinates settle it.
-fn reduce_altitudes(altitudes: Option<Vec<f64>>) -> Fetched {
-    let Some(altitudes) = altitudes else {
+fn reduce_altitudes(parsed: Option<ParsedStreams>) -> Fetched {
+    let Some(parsed) = parsed else {
         return Fetched::Empty;
     };
-    if !altitudes.iter().any(|e| e.is_finite()) {
+    if !parsed.altitude.iter().any(|e| e.is_finite()) {
         return Fetched::NoAltitude;
     }
-    Fetched::Altitudes(altitudes)
+    Fetched::Altitudes(
+        parsed.altitude,
+        ElevationSeries::upstream(parsed.altitude_is_fixed),
+    )
 }
 
 /// Reduce a whole-track response to the store step's cases. Coordinates and
@@ -694,23 +784,32 @@ fn reduce(parsed: ParsedStreams) -> Fetched {
             }
         })
         .collect();
-    Fetched::Elevated(points)
+    Fetched::Elevated(points, ElevationSeries::upstream(parsed.altitude_is_fixed))
 }
 
 /// Fetch one batch, bounded to [`FETCH_CONCURRENCY`] requests in flight.
-async fn fetch_batch(transport: &Transport, ids: &[String], ask: Ask) -> Vec<(String, Fetched)> {
+///
+/// The URL names each activity by the id upstream knows it by, which `upstream`
+/// maps from the local key. A key it does not hold is its own upstream id. The
+/// results stay keyed by the local key.
+async fn fetch_batch(
+    transport: &Transport,
+    ids: &[String],
+    ask: Ask,
+    upstream: &std::collections::HashMap<String, String>,
+) -> Vec<(String, Fetched)> {
     use futures::stream::{self, StreamExt};
 
     stream::iter(ids.to_vec())
         .map(|id| async move {
+            let named = upstream.get(&id).unwrap_or(&id).as_str();
             let outcome = match ask {
-                Ask::Elevation => match fetch_altitude(transport, &id, Lane::Backfill).await {
+                Ask::Elevation => match fetch_altitude(transport, named, Lane::Backfill).await {
                     Ok(altitudes) => reduce_altitudes(altitudes),
                     Err(e) => Fetched::Failed(e),
                 },
                 Ask::Track => {
-                    match fetch_streams(transport, &id, Some(TRACK_STREAM_TYPES), Lane::Backfill)
-                        .await
+                    match fetch_streams(transport, named, TRACK_STREAM_TYPES, Lane::Backfill).await
                     {
                         Ok(parsed) => reduce(parsed),
                         Err(e) => Fetched::Failed(e),
@@ -746,22 +845,81 @@ pub fn run_elevation_backfill(transport: &Transport, athlete_id: &str) -> Backfi
 /// The pass proper, on a slot the caller already holds. The guard lives to
 /// the end of the run so the slot is released after the terminal phase, and
 /// after the suspension, which was taken later and so drops first.
+///
+/// A pass that ran its queue without being stopped then settles the series of
+/// the tracks fetched before the engine recorded it, after the suspension has
+/// dropped: that walk moves no point, so it holds nothing.
 fn run_in_slot(
     _slot: RunGuard,
     install: u64,
     transport: &Transport,
     athlete_id: &str,
 ) -> BackfillRun {
+    let (run, stopped) = run_queue(install, transport, athlete_id);
+    if matches!(run, BackfillRun::Finished(_)) && !stopped {
+        resolve_sources(install, transport, athlete_id);
+    }
+    record_run(install, &run);
+    run
+}
+
+/// The pass's one exit: the last-run summary is written here, from the phase
+/// the pass settled on, so no early return can skip it.
+fn record_run(install: u64, run: &BackfillRun) {
+    let phase = backfill_progress().phase;
+    let summary = match run {
+        BackfillRun::Refused => return,
+        BackfillRun::Failed(_) => JobRun {
+            job: BackgroundJob::ElevationBackfill,
+            finished_at: now_ms(),
+            outcome: RunOutcome::Failed,
+            handled: 0,
+            added: 0,
+            changed: 0,
+            retired: 0,
+            failed: 0,
+        },
+        BackfillRun::Finished(outcome) => JobRun {
+            job: BackgroundJob::ElevationBackfill,
+            finished_at: now_ms(),
+            outcome: run_outcome(phase, outcome.failed),
+            handled: outcome.queued,
+            added: 0,
+            changed: outcome.elevated,
+            retired: outcome.unavailable + outcome.retired,
+            failed: outcome.failed,
+        },
+    };
+    let _ = with_persistent_engine_for(install, |engine| record_job_run(&engine.db, &summary));
+}
+
+/// How a finished pass reads in the last-run summary. A pass that walked its
+/// whole queue but left tracks for the next one is partial, not complete.
+fn run_outcome(phase: &str, failed: u32) -> RunOutcome {
+    match phase {
+        BACKFILL_PHASE_PAUSED => RunOutcome::Paused,
+        BACKFILL_PHASE_FAILED => RunOutcome::Failed,
+        BACKFILL_PHASE_COMPLETE if failed == 0 => RunOutcome::Complete,
+        _ => RunOutcome::Partial,
+    }
+}
+
+/// The elevation queue, under the detection suspension. Returns how the pass
+/// ended and whether it was stopped before its queue was.
+fn run_queue(install: u64, transport: &Transport, athlete_id: &str) -> (BackfillRun, bool) {
     let queue =
         match with_persistent_engine_for(install, |engine| engine.tracks_missing_elevation()) {
             Some(Ok(queue)) => queue,
             Some(Err(e)) => {
                 set_phase(BACKFILL_PHASE_FAILED);
-                return BackfillRun::Failed(format!("queue unreadable: {}", e));
+                return (
+                    BackfillRun::Failed(format!("queue unreadable: {}", e)),
+                    true,
+                );
             }
             None => {
                 set_phase(BACKFILL_PHASE_FAILED);
-                return BackfillRun::Failed("no engine".to_string());
+                return (BackfillRun::Failed("no engine".to_string()), true);
             }
         };
 
@@ -779,12 +937,12 @@ fn run_in_slot(
     BACKFILL.completed.store(0, Ordering::Relaxed);
     BACKFILL.failed.store(0, Ordering::Relaxed);
     set_phase(BACKFILL_PHASE_FETCHING);
-    log::info!("[Elevation] backfill starting over {} tracks", queue.len());
+    log::warn!("[Elevation] backfill starting over {} tracks", queue.len());
 
     let _suspend = suspend_detection();
 
-    let walk = drain_queue(install, transport, &queue, true);
-    let (mut outcome, stopped, owed) = re_ask(install, transport, walk);
+    let walk = drain_queue(install, transport, athlete_id, &queue, true);
+    let (mut outcome, stopped, owed) = re_ask(install, transport, athlete_id, walk);
     // Whatever is still owed was asked and refused, so it is this pass's
     // failure count. Stored rather than added: the gauge counted every refusal
     // as it happened, and a track that landed on a later round is not one.
@@ -792,6 +950,10 @@ fn run_in_slot(
     BACKFILL.failed.store(outcome.failed, Ordering::Relaxed);
 
     match stopped {
+        Some(Stopped::SignedOut | Stopped::Superseded) => {
+            set_phase(BACKFILL_PHASE_PARTIAL);
+            return (BackfillRun::Finished(outcome), true);
+        }
         Some(Stopped::Unauthorized) => {
             set_phase(BACKFILL_PHASE_FAILED);
             log::warn!("[Elevation] backfill stopped: unauthorized");
@@ -800,7 +962,7 @@ fn run_in_slot(
             // sync reports one. Nothing else would ask until the next sync,
             // and until then the revoked session stands.
             crate::runtime::block_on(crate::objects::park_auth_expired(transport, athlete_id));
-            return BackfillRun::Failed("unauthorized".to_string());
+            return (BackfillRun::Failed("unauthorized".to_string()), true);
         }
         // Not a failed pass: the rows are untouched and the queue is
         // unchanged, so this ends partial and the next launch retries. A
@@ -824,6 +986,11 @@ fn run_in_slot(
         // launch, by design, and the phase says so.
         Some(Stopped::Paused) => log::info!(
             "[Elevation] backfill stopped: paused, {} of {} tracks still to ask",
+            queue.len() as u32 - outcome.elevated - outcome.unavailable,
+            queue.len()
+        ),
+        Some(Stopped::SwitchedOff) => log::info!(
+            "[Elevation] backfill stopped: Route Matching off, {} of {} tracks still to ask",
             queue.len() as u32 - outcome.elevated - outcome.unavailable,
             queue.len()
         ),
@@ -879,11 +1046,15 @@ fn run_in_slot(
         remaining.map_or_else(|| "an unreadable number of".to_string(), |n| n.to_string())
     );
 
-    BackfillRun::Finished(outcome)
+    (BackfillRun::Finished(outcome), stopped.is_some())
 }
 
 /// Why a pass ended before its queue did.
 enum Stopped {
+    SignedOut,
+    /// Another library was installed under the walk, so what it fetches would
+    /// be discarded and what it holds would keep detection suspended.
+    Superseded,
     /// The credential was rejected, so every remaining request would be too.
     Unauthorized,
     /// Nothing to work with: [`MAX_CONSECUTIVE_FAILURES`] in a row.
@@ -893,6 +1064,8 @@ enum Stopped {
     Offline,
     /// The athlete paused the download.
     Paused,
+    /// Route Matching was switched off during the download.
+    SwitchedOff,
 }
 
 /// Whether this failure says the connection is gone rather than answering for
@@ -921,6 +1094,7 @@ fn is_connectivity(e: &NetError) -> bool {
 fn re_ask(
     install: u64,
     transport: &Transport,
+    athlete_id: &str,
     first: Walk,
 ) -> (BackfillOutcome, Option<Stopped>, Vec<(String, String)>) {
     re_ask_with(
@@ -929,7 +1103,7 @@ fn re_ask(
             std::thread::sleep(delay);
             true
         },
-        |queue| drain_queue(install, transport, queue, false),
+        |queue| drain_queue(install, transport, athlete_id, queue, false),
     )
 }
 
@@ -1011,22 +1185,43 @@ struct Walk {
 fn drain_queue(
     install: u64,
     transport: &Transport,
+    athlete_id: &str,
     queue: &[(String, String)],
     count_progress: bool,
 ) -> Walk {
-    drain_queue_with(install, queue, count_progress, |ids, ask| {
-        crate::runtime::block_on(fetch_batch(transport, ids, ask))
-    })
+    // Resolved once for the walk, so the dispatch loop never waits on the
+    // engine lock.
+    let keys: Vec<String> = queue.iter().map(|(id, _)| id.clone()).collect();
+    let upstream = with_persistent_engine_for(install, |engine| engine.intervals_ids(&keys))
+        .unwrap_or_default();
+    drain_queue_with_auth(
+        install,
+        queue,
+        count_progress,
+        || crate::objects::sync::still_signed_in(athlete_id),
+        |ids, ask| crate::runtime::block_on(fetch_batch(transport, ids, ask, &upstream)),
+    )
 }
 
 /// The walk itself, with the fetch handed in.
 ///
 /// Split from [`drain_queue`] so the stop conditions can be exercised without
 /// a transport: everything that ends a walk early is decided here.
+#[cfg(test)]
 fn drain_queue_with(
     install: u64,
     queue: &[(String, String)],
     count_progress: bool,
+    fetch: impl FnMut(&[String], Ask) -> Vec<(String, Fetched)>,
+) -> Walk {
+    drain_queue_with_auth(install, queue, count_progress, || true, fetch)
+}
+
+fn drain_queue_with_auth(
+    install: u64,
+    queue: &[(String, String)],
+    count_progress: bool,
+    mut still_signed_in: impl FnMut() -> bool,
     mut fetch: impl FnMut(&[String], Ask) -> Vec<(String, Fetched)>,
 ) -> Walk {
     let mut outcome = BackfillOutcome {
@@ -1038,6 +1233,22 @@ fn drain_queue_with(
     let mut consecutive_failures = 0usize;
 
     for (chunk, batch) in queue.chunks(BATCH).enumerate() {
+        if engine_install() != install {
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::Superseded),
+                refused,
+                unasked: queue[chunk * BATCH..].to_vec(),
+            };
+        }
+        if !still_signed_in() {
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::SignedOut),
+                refused,
+                unasked: queue[chunk * BATCH..].to_vec(),
+            };
+        }
         // Read before every batch, not only before the walk: a pass that
         // loses the network half way through would otherwise spend the rest
         // of its queue discovering that one request at a time. Advisory, so
@@ -1054,6 +1265,14 @@ fn drain_queue_with(
             return Walk {
                 outcome,
                 stopped: Some(Stopped::Paused),
+                refused,
+                unasked: queue[chunk * BATCH..].to_vec(),
+            };
+        }
+        if detection_switched_off() {
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::SwitchedOff),
                 refused,
                 unasked: queue[chunk * BATCH..].to_vec(),
             };
@@ -1104,13 +1323,40 @@ fn drain_queue_with(
                 "[Elevation] {} tracks need the whole series, asking again",
                 moved.len()
             );
-            for (id, result) in fetch(&moved, Ask::Track) {
+            let whole = fetch(&moved, Ask::Track);
+            // The same credential rejection as the first ask: none of these
+            // tracks was answered about, so none is counted against its limit.
+            if whole
+                .iter()
+                .any(|(_, f)| matches!(f, Fetched::Failed(NetError::Unauthorized)))
+            {
+                refused.append(&mut plan.refused);
+                outcome.elevated +=
+                    store_batch(install, &plan.store, &plan.states, &plan.sources) as u32;
+                let owed: std::collections::HashSet<&str> =
+                    moved.iter().map(String::as_str).collect();
+                plan.attempted.retain(|id| !owed.contains(id.as_str()));
+                outcome.retired += retire_batch(install, &plan.attempted);
+                let mut unasked: Vec<(String, String)> = batch
+                    .iter()
+                    .filter(|(id, _)| owed.contains(id.as_str()))
+                    .cloned()
+                    .collect();
+                unasked.extend_from_slice(&queue[chunk * BATCH + batch.len()..]);
+                return Walk {
+                    outcome,
+                    stopped: Some(Stopped::Unauthorized),
+                    refused,
+                    unasked,
+                };
+            }
+            for (id, result) in whole {
                 plan.sort(id, result, Ask::Track, &sports, &mut outcome);
             }
         }
         refused.append(&mut plan.refused);
 
-        outcome.elevated += store_batch(install, &plan.store, &plan.states) as u32;
+        outcome.elevated += store_batch(install, &plan.store, &plan.states, &plan.sources) as u32;
         outcome.retired += retire_batch(install, &plan.attempted);
         if count_progress {
             BACKFILL
@@ -1123,7 +1369,7 @@ fn drain_queue_with(
                 outcome,
                 stopped: Some(Stopped::NothingToWorkWith),
                 refused,
-                unasked: queue[(chunk + 1) * BATCH..].to_vec(),
+                unasked: queue[chunk * BATCH + batch.len()..].to_vec(),
             };
         }
     }
@@ -1140,9 +1386,11 @@ fn drain_queue_with(
 #[derive(Default)]
 struct Plan {
     /// Altitude series to splice onto tracks already stored.
-    splice: Vec<(String, Vec<f64>)>,
+    splice: Vec<(String, Vec<f64>, ElevationSeries)>,
     /// Whole tracks to re-ingest, from the whole-track ask.
     store: Vec<(String, Vec<GpsPoint>, String)>,
+    /// The series each of `store` carries, recorded once its points land.
+    sources: Vec<(String, u8)>,
     /// Activities the elevation ask could not settle, which the whole track
     /// can.
     whole: Vec<String>,
@@ -1169,12 +1417,14 @@ impl Plan {
     ) -> bool {
         let sport = |id: &str| sports.get(id).copied().unwrap_or("Ride").to_string();
         match result {
-            Fetched::Altitudes(altitudes) => {
-                self.splice.push((id, altitudes));
+            Fetched::Altitudes(altitudes, series) => {
+                self.splice.push((id, altitudes, series));
                 true
             }
-            Fetched::Elevated(points) => {
+            Fetched::Elevated(points, series) => {
                 let sport = sport(&id);
+                self.sources
+                    .push((id.clone(), elevation_source_of(&points, series)));
                 self.store.push((id, points, sport));
                 true
             }
@@ -1222,15 +1472,18 @@ impl Plan {
 /// matches upstream, which are the only ones that need the whole track. The
 /// splice sets provenance in the same statement, so nothing here goes through
 /// `record_elevation_state`.
-fn splice_batch(install: u64, splice: &[(String, Vec<f64>)]) -> (u32, Vec<String>) {
+fn splice_batch(
+    install: u64,
+    splice: &[(String, Vec<f64>, ElevationSeries)],
+) -> (u32, Vec<String>) {
     if splice.is_empty() {
         return (0, Vec::new());
     }
     with_persistent_engine_for(install, |engine| {
         let mut spliced = 0;
         let mut moved = Vec::new();
-        for (id, altitudes) in splice {
-            match engine.splice_track_elevation(id, altitudes) {
+        for (id, altitudes, series) in splice {
+            match engine.splice_track_elevation(id, altitudes, *series) {
                 Ok(true) => spliced += 1,
                 Ok(false) => moved.push(id.clone()),
                 Err(e) => log::warn!("[Elevation] splice of {} failed: {}", id, e),
@@ -1241,12 +1494,14 @@ fn splice_batch(install: u64, splice: &[(String, Vec<f64>)]) -> (u32, Vec<String
     .unwrap_or((0, Vec::new()))
 }
 
-/// Re-ingest the elevated tracks and stamp provenance for the whole batch.
+/// Re-ingest the elevated tracks and stamp provenance for the whole batch:
+/// `states` for every track, `sources` for the tracks re-ingested.
 /// Returns how many tracks landed with elevation.
 fn store_batch(
     install: u64,
     to_store: &[(String, Vec<GpsPoint>, String)],
     states: &[(String, u8)],
+    sources: &[(String, u8)],
 ) -> usize {
     let (stored, mutated) = with_persistent_engine_for(install, |engine| {
         // The re-ingest upserts the activity row in place, so its date, name
@@ -1265,6 +1520,10 @@ fn store_batch(
                     all_states.extend(to_store.iter().map(|(id, points, _)| {
                         (id.clone(), crate::ffi::elevation_state_of(points))
                     }));
+                    // The re-ingest reset the series to unknown.
+                    if let Err(e) = engine.record_elevation_source(sources) {
+                        log::warn!("[Elevation] series not recorded: {}", e);
+                    }
                 }
                 Err(e) => log::warn!("[Elevation] batch store failed: {}", e),
             }
@@ -1320,16 +1579,185 @@ fn retire_batch(install: u64, attempted: &[String]) -> u32 {
     }
 }
 
+// ============================================================================
+// The series a fetched track carries
+// ============================================================================
+
+/// What one walk of [`PersistentEngine::tracks_owed_elevation_source`] did.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SourceWalk {
+    /// Tracks whose points carry the series upstream answered with, now
+    /// recorded as that series.
+    pub recorded: u32,
+    /// Tracks whose points carry something else, handed back to the elevation
+    /// queue.
+    pub handed_back: u32,
+    /// Tracks upstream answered about with nothing to compare, counted against
+    /// them.
+    pub unanswered: u32,
+    /// Whether the walk ended before its list did.
+    pub stopped: bool,
+}
+
+/// Settle the series of every fetched track the engine does not know it for.
+///
+/// One elevation-only read per track, the cheap ask the backfill makes. A
+/// track handed back is owed elevation again, so the ladder that drains that
+/// queue is armed for it.
+fn resolve_sources(install: u64, transport: &Transport, athlete_id: &str) -> SourceWalk {
+    let (queue, upstream) = match with_persistent_engine_for(install, |engine| {
+        let queue = engine.tracks_owed_elevation_source()?;
+        let upstream = engine.intervals_ids(&queue);
+        Ok::<_, rusqlite::Error>((queue, upstream))
+    }) {
+        Some(Ok(found)) => found,
+        Some(Err(e)) => {
+            log::warn!("[Elevation] series queue unreadable: {}", e);
+            return SourceWalk::default();
+        }
+        None => return SourceWalk::default(),
+    };
+    if queue.is_empty() {
+        return SourceWalk::default();
+    }
+    log::info!("[Elevation] settling the series of {} tracks", queue.len());
+    let walk = resolve_sources_with(
+        install,
+        &queue,
+        || crate::objects::sync::still_signed_in(athlete_id),
+        |ids| crate::runtime::block_on(fetch_batch(transport, ids, Ask::Elevation, &upstream)),
+    );
+    log::info!(
+        "[Elevation] series settled: {} recorded, {} handed back, {} unanswered{}",
+        walk.recorded,
+        walk.handed_back,
+        walk.unanswered,
+        if walk.stopped { ", stopped early" } else { "" }
+    );
+    if walk.handed_back > 0 {
+        arm_resume_ladder();
+    }
+    walk
+}
+
+/// The walk, with the fetch handed in. Stops where the backfill's walk stops:
+/// another library installed, a sign-out, the network gone, a pause, a
+/// rejected credential, or a whole batch of the connection refusing.
+fn resolve_sources_with(
+    install: u64,
+    queue: &[String],
+    mut still_signed_in: impl FnMut() -> bool,
+    mut fetch: impl FnMut(&[String]) -> Vec<(String, Fetched)>,
+) -> SourceWalk {
+    let mut walk = SourceWalk::default();
+    let mut consecutive_failures = 0usize;
+    for batch in queue.chunks(BATCH) {
+        if engine_install() != install
+            || !still_signed_in()
+            || crate::net::connectivity::is_offline()
+            || elevation_backfill_paused()
+        {
+            walk.stopped = true;
+            return walk;
+        }
+        let fetched = fetch(batch);
+        if fetched
+            .iter()
+            .any(|(_, f)| matches!(f, Fetched::Failed(NetError::Unauthorized)))
+        {
+            walk.stopped = true;
+            return walk;
+        }
+
+        let mut answered = Vec::new();
+        let mut attempted = Vec::new();
+        for (id, result) in fetched {
+            match result {
+                Fetched::Altitudes(altitudes, series) => {
+                    consecutive_failures = 0;
+                    answered.push((id, altitudes, series));
+                }
+                Fetched::Failed(e) if is_connectivity(&e) => {
+                    consecutive_failures += 1;
+                }
+                // Upstream replied with nothing to compare the points with.
+                _ => {
+                    consecutive_failures = 0;
+                    attempted.push(id);
+                }
+            }
+        }
+
+        with_persistent_engine_for(install, |engine| {
+            for (id, altitudes, series) in &answered {
+                match engine.settle_elevation_source(id, altitudes, *series) {
+                    Ok(crate::persistence::SourceSettled::Recorded) => walk.recorded += 1,
+                    Ok(crate::persistence::SourceSettled::HandedBack) => walk.handed_back += 1,
+                    Ok(crate::persistence::SourceSettled::Missing) => {}
+                    Err(e) => log::warn!("[Elevation] series of {} not settled: {}", id, e),
+                }
+            }
+            if !attempted.is_empty() {
+                match engine.record_elevation_attempts(&attempted, ELEVATION_ATTEMPT_LIMIT) {
+                    Ok(_) => walk.unanswered += attempted.len() as u32,
+                    Err(e) => log::warn!("[Elevation] series asks not counted: {}", e),
+                }
+            }
+        });
+
+        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
+            walk.stopped = true;
+            return walk;
+        }
+    }
+    walk
+}
+
+/// Put a walk of the unknown series on a thread when nothing holds the slot.
+///
+/// For a launch whose elevation queue is empty: a pass that runs settles the
+/// series itself once its queue is done, and the slot it holds refuses this.
+fn start_source_pass() {
+    let owed = crate::objects::error::with_reader(|conn| {
+        conn.query_row(
+            &format!("SELECT EXISTS ({})", ELEVATION_SOURCE_QUEUE_SQL),
+            params![
+                i64::from(crate::persistence::ELEVATION_STATE_FETCHED),
+                i64::from(crate::persistence::ELEVATION_SOURCE_UNKNOWN),
+                i64::from(ELEVATION_ATTEMPT_LIMIT)
+            ],
+            |row| row.get::<_, bool>(0),
+        )
+    });
+    if !matches!(owed, Ok(Ok(true))) {
+        return;
+    }
+    if elevation_backfill_paused() || crate::net::connectivity::is_offline() {
+        return;
+    }
+    let Some(slot) = RunGuard::claim() else {
+        return;
+    };
+    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
+        return;
+    };
+    let install = engine_install();
+    crate::threads::spawn_named("veloq-elev", move || {
+        let _slot = slot;
+        resolve_sources(install, &transport, &athlete_id);
+    });
+}
+
 /// The one cut a drained pass owes, handed to whoever owns it.
 ///
-/// An upgrading install is owed the detector cutover, and the launch trigger
-/// that would normally run it declines while this queue is non-empty
-/// (`src/features/routes/lib/cutoverTrigger.ts`), so the pass that empties the
-/// queue is the only thing left that can hand it over. It has to hand over
-/// rather than re-cut: the cutover archives the flat-era catalogue, switches
-/// the config and then runs the same cold detect, so a bare re-cut here is
-/// both a duplicate pass and the thing that retires the migration before it
-/// has run. It stamps `DETECTOR_METHOD` on the catalogue, and
+/// An upgrading install is owed the detector cutover, and
+/// `cutover::start_cutover`, which the launch trigger calls, answers `Held`
+/// while this queue is non-empty, so the pass that empties the queue is the
+/// only thing left that can hand it over. It has to hand over rather than
+/// re-cut: the cutover archives the flat-era catalogue, switches the config
+/// and then runs the same cold detect, so a bare re-cut here is both a
+/// duplicate pass and the thing that retires the migration before it has
+/// run. It stamps `DETECTOR_METHOD` on the catalogue, and
 /// `cutover_is_owed` reads false from that stamp forever after.
 ///
 /// Run inline rather than spawned, so the suspension guard this is called
@@ -1369,10 +1797,9 @@ fn terminal_cut(install: u64) -> bool {
 /// alone while the library was flat.
 fn start_final_detect(install: u64) -> bool {
     // A run that predates the backfill may still hold the detection slot.
-    // Drive it to its end through the shared poll, which applies its result
-    // and clears the handle; the cold re-cut below then supersedes whatever
-    // it wrote. The suspension refuses every new start, so once the slot
-    // empties it stays empty.
+    // Wait on the shared poll until its worker has applied and freed it. The
+    // cold re-cut below then supersedes whatever it wrote. The suspension
+    // refuses every new start, so once the slot empties it stays empty.
     match wait_on_slot(DRIVER_POLL, false) {
         SlotWait::Idle => {}
         other => {
@@ -1409,10 +1836,13 @@ fn start_final_detect(install: u64) -> bool {
         return false;
     };
 
+    let slot = handle.checkpoint_slot();
+    crate::objects::detection::record_started_run(&slot);
     *guard = Some(handle);
     drop(guard);
+    slot.mark_installed(install);
 
-    std::thread::spawn(|| {
+    crate::threads::spawn_named("veloq-elev", || {
         // Bounded like the drain above: this thread outlives the call, so a
         // run that hangs would otherwise leave it polling for the life of the
         // process.
@@ -1434,11 +1864,47 @@ fn start_final_detect(install: u64) -> bool {
 /// fire at every launch.
 pub fn start_elevation_backfill() -> FfiStartOutcome {
     let outcome = start_pass();
-    // The ladder outlives this call either way. A pass that was refused for
-    // want of a credential, and one that ends partial because the connection
-    // went away, both need asking again, and nothing outside the engine
-    // schedules that any more.
-    arm_resume_ladder();
+    // A pass refused for want of a credential, or one that ends partial when
+    // the connection goes away, needs the ladder. A switched-off library waits
+    // for the setting write to arm a new one.
+    if !detection_switched_off() {
+        arm_resume_ladder();
+    }
+    outcome
+}
+
+/// What the engine starts on its own once it has a library and a credential.
+///
+/// Called where either arrives: the library opening, which a restore does
+/// too, and the credential being handed over. The queue in `gps_tracks` is the
+/// only record of what is owed, so a library that has been replaced is asked
+/// about afresh with nothing to clear. The pass refuses while Route Matching
+/// is off, and with no credential nothing is armed, since the credential's
+/// arrival asks again. A queue that is empty hands over to the detector
+/// cutover, which answers held while any of it remains; the pass that drains
+/// the queue hands over itself. The stored climb rows owed to a library that
+/// predates them start first, on a thread of their own. The series of tracks
+/// fetched before the engine recorded it is settled last, by the pass when one
+/// runs and on a thread of its own when none does.
+pub fn start_owed_work() -> FfiStartOutcome {
+    // The climb rows read only what is stored, so they are owed whatever the
+    // credential and Route Matching say.
+    crate::persistence::climb_bests::start_backfill();
+    let outcome = match with_persistent_engine(|engine| engine.detection_enabled()) {
+        None => return FfiStartOutcome::NotReady,
+        Some(false) => FfiStartOutcome::NotConfigured,
+        Some(true) if crate::objects::current_session().is_none() => FfiStartOutcome::NotConfigured,
+        Some(true) => start_elevation_backfill(),
+    };
+    if matches!(
+        outcome,
+        FfiStartOutcome::NotOwed | FfiStartOutcome::NotConfigured
+    ) {
+        crate::persistence::cutover::start_cutover();
+    }
+    // Which series a fetched track carries matters to the climb ranking
+    // whether or not Route Matching is on, so this is not gated on it.
+    start_source_pass();
     outcome
 }
 
@@ -1448,14 +1914,20 @@ fn start_pass() -> FfiStartOutcome {
     // queue a run could work, so this declines and the next launch asks again.
     // The two are separate answers: an empty queue is the job finished and
     // stops the caller asking, an unreadable one is worth asking about again.
-    let remaining = with_persistent_engine(|engine| engine.elevation_backfill_remaining());
+    // The count reads through the pool, so a launch sync holding the write
+    // lock for a page does not hold the JS thread that asked.
+    let remaining = crate::objects::error::with_reader(pooled_elevation_backfill_remaining);
     match remaining {
-        Some(Ok(n)) if n > 0 => {}
-        Some(Ok(_)) => return FfiStartOutcome::NotOwed,
+        Ok(Ok(n)) if n > 0 => {}
+        Ok(Ok(_)) => return FfiStartOutcome::NotOwed,
         _ => {
             log::warn!("[Elevation] backfill deferred: queue unreadable");
             return FfiStartOutcome::NotReady;
         }
+    }
+    if detection_switched_off() {
+        log::info!("[Elevation] backfill deferred: Route Matching off");
+        return FfiStartOutcome::NotConfigured;
     }
     // The slot is claimed here, not on the thread, so a `Started` below means a
     // pass holds it: a second start in the same instant is refused rather
@@ -1467,6 +1939,9 @@ fn start_pass() -> FfiStartOutcome {
     };
     if elevation_backfill_paused() {
         log::warn!("[Elevation] backfill deferred: paused");
+        // A pause that arrived while this start held the slot saw a run in
+        // flight and left the phase to it, so it is set here.
+        set_phase(BACKFILL_PHASE_PAUSED);
         return FfiStartOutcome::Held;
     }
     // The state TypeScript pushes is advisory, so this only declines on a
@@ -1485,7 +1960,7 @@ fn start_pass() -> FfiStartOutcome {
     // worker: a restore installing another database mid-splice would otherwise
     // take elevation computed from the old library's tracks.
     let install = engine_install();
-    std::thread::spawn(move || {
+    crate::threads::spawn_named("veloq-elev", move || {
         run_in_slot(slot, install, &transport, &athlete_id);
     });
     FfiStartOutcome::Started
@@ -1524,8 +1999,14 @@ mod tests {
         let _second = init_global_engine("elevation_splice_second.db");
         assert_ne!(engine_install(), started_against);
 
-        let (spliced, moved) =
-            splice_batch(started_against, &[("a1".to_string(), vec![100.0, 101.0])]);
+        let (spliced, moved) = splice_batch(
+            started_against,
+            &[(
+                "a1".to_string(),
+                vec![100.0, 101.0],
+                ElevationSeries::Corrected,
+            )],
+        );
 
         assert_eq!(spliced, 0, "the splice is lost, not applied");
         assert!(moved.is_empty(), "nothing is reported as moved either");
@@ -1537,8 +2018,14 @@ mod tests {
         let _serial = serial_global_state();
         let _dir = seeded_global_engine();
 
-        let (spliced, moved) =
-            splice_batch(engine_install(), &[("a0".to_string(), vec![100.0, 101.0])]);
+        let (spliced, moved) = splice_batch(
+            engine_install(),
+            &[(
+                "a0".to_string(),
+                vec![100.0, 101.0],
+                ElevationSeries::Corrected,
+            )],
+        );
 
         assert_eq!(
             spliced + moved.len() as u32,
@@ -1587,11 +2074,17 @@ mod tests {
         let _tmp = seeded_global_engine();
         clear_detection_handle();
 
-        let earlier = with_persistent_engine(|engine| engine.detect_sections_background())
-            .expect("the earlier run starts");
+        let earlier = with_persistent_engine(|engine| {
+            engine.detect_sections_background_applying(
+                crate::persistence::sections::detection::ApplyOn::Worker,
+            )
+        })
+        .expect("the earlier run starts");
+        let slot = earlier.checkpoint_slot();
         *SECTION_DETECTION_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = Some(earlier);
+        slot.mark_installed(engine_install());
 
         let before = detection_workers_started();
         assert!(
@@ -1605,6 +2098,123 @@ mod tests {
         );
 
         drain_detection();
+    }
+
+    #[test]
+    fn a_final_recut_clears_the_previous_runs_outcome() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let manager = crate::objects::DetectionManager::new();
+        assert!(manager.start().expect("first run").started());
+        drain_detection();
+        assert_eq!(manager.last_outcome(), "complete");
+
+        with_persistent_engine(|engine| {
+            for i in 0..30 {
+                let points = (0..32)
+                    .map(|j| {
+                        GpsPoint::new(46.0 + f64::from(j) * 0.0001, 7.0 + f64::from(i) * 0.001)
+                    })
+                    .collect();
+                engine
+                    .add_activity(format!("next_{i}"), points, "Ride".into())
+                    .expect("activity");
+            }
+        })
+        .expect("engine");
+        assert!(start_final_detect(engine_install()));
+        assert_eq!(
+            manager.last_outcome(),
+            "idle",
+            "the previous verdict cannot describe the re-cut"
+        );
+        drain_detection();
+    }
+
+    #[test]
+    fn an_unclaimed_recut_keeps_another_starts_detect_claim() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = engine_install();
+
+        let handle = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
+        let slot = handle.checkpoint_slot();
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        slot.mark_installed(install);
+        assert!(!slot.detect_claimed(), "the re-cut does not claim the key");
+        assert!(crate::objects::detection::claim_detect_for(install).is_ok());
+        slot.mark_worker_finished();
+
+        assert!(
+            crate::objects::detection::claim_detect_for(install).is_err(),
+            "the re-cut did not own the other start's detect key"
+        );
+        crate::objects::detection::settle_detect_for(
+            install,
+            crate::persistence::attempts::Release::Done,
+        );
+    }
+
+    #[test]
+    fn a_busy_refusal_during_an_unclaimed_recut_keeps_the_failure_ladder() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = engine_install();
+        assert!(crate::objects::detection::claim_detect_for(install).is_ok());
+        crate::objects::detection::settle_detect_for(
+            install,
+            crate::persistence::attempts::Release::failed(
+                FfiStartOutcome::Failed,
+                Some("earlier failure"),
+            ),
+        );
+        let earlier = crate::persistence::attempts::now_ms() - 86_400_000;
+        with_persistent_engine_for(install, |engine| {
+            engine.db.execute(
+                "UPDATE job_attempts SET last_attempt_at = ? WHERE key = ?",
+                rusqlite::params![earlier, crate::objects::detection::detect_key().as_str(),],
+            )
+        })
+        .expect("engine")
+        .expect("age failure");
+
+        let handle = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
+        let slot = handle.checkpoint_slot();
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        slot.mark_installed(install);
+        assert!(!slot.detect_claimed(), "the re-cut does not claim the key");
+        assert!(!crate::persistence::sections::conditioning::try_start_conditioning());
+        let (attempts, failed_at) = with_persistent_engine_for(install, |engine| {
+            engine.db.query_row(
+                "SELECT attempts, last_attempt_at FROM job_attempts WHERE key = ?",
+                [crate::objects::detection::detect_key().as_str()],
+                |row| Ok((row.get::<_, u32>(0)?, row.get::<_, i64>(1)?)),
+            )
+        })
+        .expect("engine")
+        .expect("attempt row");
+        assert_eq!(attempts, 1, "the busy refusal retains the failure count");
+        assert_eq!(
+            failed_at, earlier,
+            "the busy refusal does not restart backoff"
+        );
+        assert!(
+            crate::objects::detection::claim_detect_for(install).is_ok(),
+            "the earlier backoff already elapsed"
+        );
+
+        slot.mark_worker_finished();
+        crate::objects::detection::settle_detect_for(
+            install,
+            crate::persistence::attempts::Release::Done,
+        );
     }
 
     #[test]
@@ -1662,7 +2272,7 @@ mod tests {
             altitude: vec![500.0, f64::NAN, 520.0],
             ..ParsedStreams::default()
         };
-        let Fetched::Elevated(points) = reduce(parsed) else {
+        let Fetched::Elevated(points, _) = reduce(parsed) else {
             panic!("a finite sample makes the track elevated");
         };
         assert_eq!(points.len(), 3);
@@ -1682,24 +2292,48 @@ mod tests {
         assert!(matches!(reduce(parsed), Fetched::NoAltitude));
     }
 
-    /// Scenario: the launch triggers read the remaining count as the one
-    /// definitive answer. `elevationBackfillTrigger` stamps the app version on
-    /// a zero and never asks again for that release, and `cutoverTrigger`
-    /// reads a zero as permission to cut a library over.
+    /// Scenario: the remaining count is read as the one definitive answer.
+    /// `elevationBackfillTrigger` stamps the app version on a zero and never
+    /// asks again for that release, and `start_cutover` reads a zero as
+    /// permission to cut a library over.
     ///
     /// Expected behaviour: an engine that is not there cannot answer, so the
     /// export raises rather than reporting a finished library.
     #[test]
     fn an_engineless_remaining_call_raises_rather_than_reading_zero() {
         let _serial = serial_global_state();
-        *crate::persistence::PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        // The pool goes with the engine, or a pool an earlier test bound
+        // answers the count and the export never reaches the missing engine.
+        crate::persistence::clear_persistent_engine();
 
         assert!(matches!(
             crate::ffi::get_elevation_backfill_remaining(),
             Err(crate::VeloqError::NotInitialized)
         ));
+    }
+
+    /// Scenario: a launch sync holds the write lock for a page while the
+    /// launch trigger asks for a pass.
+    ///
+    /// Expected behaviour: the count a start opens with reads through the
+    /// pool, so an empty queue answers `NotOwed` without waiting for the
+    /// writer.
+    #[test]
+    fn a_start_counts_its_queue_without_waiting_for_a_writer() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine("elevation_start_under_writer.db");
+
+        let outcome = crate::test_globals::read_while_writer_holds(start_pass);
+        assert_eq!(outcome, FfiStartOutcome::NotOwed);
+    }
+
+    /// With no engine and no pool there is no queue to read, which is not an
+    /// empty one: the start declines as not ready rather than as finished.
+    #[test]
+    fn an_engineless_start_is_not_ready() {
+        let _serial = serial_global_state();
+        crate::persistence::clear_persistent_engine();
+        assert_eq!(start_pass(), FfiStartOutcome::NotReady);
     }
 
     /// A busy or locked database is exactly what launch looks like, since a
@@ -1733,9 +2367,11 @@ mod tests {
         *crate::persistence::PERSISTENT_ENGINE
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = Some(engine);
+        crate::persistence::read_pool::bind(path.to_str().unwrap());
 
         let answer = crate::ffi::get_elevation_backfill_remaining();
 
+        crate::persistence::read_pool::close();
         *crate::persistence::PERSISTENT_ENGINE
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
@@ -1900,6 +2536,311 @@ mod tests {
         assert_eq!(engine.elevation_backfill_remaining().ok(), Some(0));
     }
 
+    /// Scenario: a ride recorded on the device is stored under a local key
+    /// that upstream cannot name until the upload gives it an id.
+    ///
+    /// Expected behaviour: before the upload it is not in the queue or the
+    /// count and spends no attempts. After the upload it is asked for under
+    /// the upstream id, never under the local key.
+    mod local_keys {
+        use super::*;
+        use crate::governor::{AuthMethod, Governor, NoopPolicy};
+        use crate::persistence::with_persistent_engine;
+        use httpmock::prelude::*;
+        use std::sync::Arc;
+        use tracematch::GpsPoint;
+
+        fn transport(server: &MockServer) -> Transport {
+            let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("secret"), gov).unwrap()
+        }
+
+        fn engine_with_recorded_ride() -> TempDir {
+            let tmp = init_global_engine("elevation_local_keys.db");
+            crate::objects::sync::set_credentials_from_native("api_key", "secret", "1")
+                .expect("test credential");
+            with_persistent_engine(|engine| {
+                for (id, seed) in [("i1", 0.0), ("local-ab12", 0.05)] {
+                    let track = (0..8)
+                        .map(|i| GpsPoint::new(46.2 + seed + i as f64 * 0.001, 7.35 + seed))
+                        .collect();
+                    engine
+                        .add_activity(id.to_string(), track, "Ride".into())
+                        .expect("add activity");
+                }
+            })
+            .expect("engine");
+            tmp
+        }
+
+        fn queued() -> Vec<String> {
+            let mut ids: Vec<String> = with_persistent_engine(|e| e.tracks_missing_elevation())
+                .expect("engine")
+                .expect("queue")
+                .into_iter()
+                .map(|(id, _)| id)
+                .collect();
+            ids.sort();
+            ids
+        }
+
+        fn remaining() -> u64 {
+            with_persistent_engine(|e| e.elevation_backfill_remaining())
+                .expect("engine")
+                .expect("count")
+        }
+
+        fn attempts(id: &str) -> i64 {
+            with_persistent_engine(|e| {
+                e.db.query_row(
+                    "SELECT elevation_attempts FROM gps_tracks WHERE activity_id = ?1",
+                    params![id],
+                    |row| row.get(0),
+                )
+            })
+            .expect("engine")
+            .expect("attempts")
+        }
+
+        #[test]
+        fn a_ride_no_upload_has_named_is_not_queued_asked_or_counted() {
+            let _serial = serial_global_state();
+            let _tmp = engine_with_recorded_ride();
+            let server = MockServer::start();
+            let by_local_key = server.mock(|when, then| {
+                when.method(GET).path("/activity/local-ab12/streams.json");
+                then.status(404);
+            });
+            let synced = server.mock(|when, then| {
+                when.method(GET).path("/activity/i1/streams.json");
+                then.status(404);
+            });
+
+            assert_eq!(queued(), vec!["i1".to_string()]);
+            assert_eq!(remaining(), 1);
+
+            for _ in 0..ELEVATION_ATTEMPT_LIMIT + 1 {
+                run_elevation_backfill(&transport(&server), "1");
+            }
+
+            by_local_key.assert_hits(0);
+            assert!(synced.hits() > 0, "the synced track is still asked");
+            assert_eq!(attempts("local-ab12"), 0);
+        }
+
+        #[test]
+        fn an_uploaded_ride_is_asked_for_under_its_upstream_id() {
+            let _serial = serial_global_state();
+            let _tmp = engine_with_recorded_ride();
+            with_persistent_engine(|e| e.record_upload("local-ab12", "i123"))
+                .expect("engine")
+                .expect("upload recorded");
+            let server = MockServer::start();
+            let by_local_key = server.mock(|when, then| {
+                when.method(GET).path("/activity/local-ab12/streams.json");
+                then.status(404);
+            });
+            let upstream = server.mock(|when, then| {
+                when.method(GET).path("/activity/i123/streams.json");
+                then.status(200).body("[]");
+            });
+            server.mock(|when, then| {
+                when.method(GET).path("/activity/i1/streams.json");
+                then.status(200).body("[]");
+            });
+
+            assert_eq!(queued(), vec!["i1".to_string(), "local-ab12".to_string()]);
+            run_elevation_backfill(&transport(&server), "1");
+
+            by_local_key.assert_hits(0);
+            assert!(upstream.hits() > 0, "asked under the upstream id");
+        }
+    }
+
+    /// Scenario: a pass elevates two tracks and finds one with no usable
+    /// altitude upstream.
+    ///
+    /// Expected behaviour: the last run is recorded once, complete, with all
+    /// three handled, two changed and one retired, and a refused start
+    /// records nothing.
+    mod last_run {
+        use super::*;
+        use crate::governor::{AuthMethod, Governor, NoopPolicy};
+        use crate::persistence::with_persistent_engine;
+        use httpmock::prelude::*;
+        use std::sync::Arc;
+        use tracematch::GpsPoint;
+
+        fn transport(server: &MockServer) -> Transport {
+            let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("secret"), gov).unwrap()
+        }
+
+        fn engine_with(ids: &[&str]) -> TempDir {
+            let tmp = init_global_engine("elevation_last_run.db");
+            crate::objects::sync::set_credentials_from_native("api_key", "secret", "1")
+                .expect("test credential");
+            with_persistent_engine(|engine| {
+                for (n, id) in ids.iter().enumerate() {
+                    let seed = n as f64 * 0.05;
+                    let track = (0..8)
+                        .map(|i| GpsPoint::new(46.2 + seed + i as f64 * 0.001, 7.35 + seed))
+                        .collect();
+                    engine
+                        .add_activity(id.to_string(), track, "Ride".into())
+                        .expect("add activity");
+                }
+            })
+            .expect("engine");
+            tmp
+        }
+
+        fn runs() -> Vec<crate::FfiJobRun> {
+            with_persistent_engine(|e| crate::persistence::job_runs::job_runs(&e.db))
+                .expect("engine")
+                .expect("runs read")
+        }
+
+        fn serves(server: &MockServer, id: &str, altitude: serde_json::Value) {
+            let path = format!("/activity/{id}/streams.json");
+            server.mock(|when, then| {
+                when.method(GET).path(path);
+                then.status(200)
+                    .json_body(serde_json::json!([{"type": "altitude", "data": altitude}]));
+            });
+        }
+
+        #[test]
+        fn a_pass_records_its_last_run() {
+            let _serial = serial_global_state();
+            let _tmp = engine_with(&["i1", "i2", "i3"]);
+            let server = MockServer::start();
+            let rising: Vec<f64> = (0..8).map(|i| 400.0 + i as f64 * 3.0).collect();
+            serves(&server, "i1", serde_json::json!(rising));
+            serves(&server, "i2", serde_json::json!(rising));
+            serves(
+                &server,
+                "i3",
+                serde_json::json!(vec![serde_json::Value::Null; 8]),
+            );
+
+            let held = RunGuard::claim().expect("the slot starts free");
+            assert_eq!(
+                run_elevation_backfill(&transport(&server), "1"),
+                BackfillRun::Refused
+            );
+            drop(held);
+            assert!(runs().is_empty(), "a refused start ran nothing");
+
+            run_elevation_backfill(&transport(&server), "1");
+
+            let runs = runs();
+            let run = runs
+                .iter()
+                .find(|run| run.job == "elevationBackfill")
+                .expect("the pass recorded its run");
+            assert_eq!(run.outcome, "complete");
+            assert_eq!(
+                (run.handled, run.added, run.changed, run.retired, run.failed),
+                (3, 0, 2, 1, 0)
+            );
+            assert!(run.finished_at > 0.0);
+        }
+    }
+
+    /// Scenario: demo mode seeds its tracks on the device, coordinates only,
+    /// under `demo-` keys no upstream has ever held, and demo mode carries no
+    /// credential to ask with.
+    ///
+    /// Expected behaviour: those tracks are not owed. Counted, they would hold
+    /// detection on "waiting" and hold the cutover for ever, since nothing
+    /// could ever answer for them.
+    mod demo_keys {
+        use super::*;
+        use crate::governor::{AuthMethod, Governor, NoopPolicy};
+        use crate::persistence::with_persistent_engine;
+        use httpmock::prelude::*;
+        use std::sync::Arc;
+        use tracematch::GpsPoint;
+
+        fn engine_with(ids: &[&str]) -> TempDir {
+            let tmp = init_global_engine("elevation_demo_keys.db");
+            with_persistent_engine(|engine| {
+                for (n, id) in ids.iter().enumerate() {
+                    let seed = n as f64 * 0.05;
+                    let track = (0..8)
+                        .map(|i| GpsPoint::new(46.2 + seed + i as f64 * 0.001, 7.35 + seed))
+                        .collect();
+                    engine
+                        .add_activity(id.to_string(), track, "Ride".into())
+                        .expect("add activity");
+                }
+            })
+            .expect("engine");
+            tmp
+        }
+
+        fn queued() -> Vec<String> {
+            let mut ids: Vec<String> = with_persistent_engine(|e| e.tracks_missing_elevation())
+                .expect("engine")
+                .expect("queue")
+                .into_iter()
+                .map(|(id, _)| id)
+                .collect();
+            ids.sort();
+            ids
+        }
+
+        fn remaining() -> u64 {
+            with_persistent_engine(|e| e.elevation_backfill_remaining())
+                .expect("engine")
+                .expect("count")
+        }
+
+        #[test]
+        fn a_demo_library_owes_no_elevation_and_holds_nothing() {
+            let _serial = serial_global_state();
+            let _tmp = engine_with(&["demo-test-0", "demo-2026-08-08-301"]);
+
+            assert!(queued().is_empty(), "no demo track is queued");
+            assert_eq!(remaining(), 0, "no demo track is counted as owed");
+            assert_eq!(
+                start_pass(),
+                FfiStartOutcome::NotOwed,
+                "a demo library is finished, not waiting on a credential"
+            );
+        }
+
+        #[test]
+        fn a_demo_track_is_never_asked_for_beside_a_synced_one() {
+            let _serial = serial_global_state();
+            let _tmp = engine_with(&["i1", "demo-test-0"]);
+            crate::objects::sync::set_credentials_from_native("api_key", "secret", "1")
+                .expect("test credential");
+            let server = MockServer::start();
+            let demo = server.mock(|when, then| {
+                when.method(GET).path("/activity/demo-test-0/streams.json");
+                then.status(404);
+            });
+            let synced = server.mock(|when, then| {
+                when.method(GET).path("/activity/i1/streams.json");
+                then.status(404);
+            });
+
+            assert_eq!(queued(), vec!["i1".to_string()]);
+            assert_eq!(remaining(), 1);
+
+            let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+            let transport =
+                Transport::with_governor(server.base_url(), AuthMethod::ApiKey("secret"), gov)
+                    .unwrap();
+            run_elevation_backfill(&transport, "1");
+
+            demo.assert_hits(0);
+            assert!(synced.hits() > 0, "the synced track is still asked");
+        }
+    }
+
     /// Scenario: the network lifecycle is Rust's, so a pass has to react to
     /// the connectivity TypeScript pushes rather than spending its
     /// whole queue discovering the network is gone one request at a time.
@@ -1964,6 +2905,57 @@ mod tests {
             );
 
             connectivity::reset();
+        }
+
+        /// Scenario: the credential is revoked between a batch's elevation
+        /// ask and its whole-track ask.
+        ///
+        /// Expected behaviour: the walk stops unauthorized, the batch's tracks
+        /// are still owed, and no track is counted against its attempt limit.
+        #[test]
+        fn a_401_on_the_whole_track_ask_stops_the_walk_without_counting_it() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let full = queue(BATCH);
+            let walk = drain_queue_with(engine_install(), &full, true, |ids, ask| {
+                ids.iter()
+                    .map(|id| match ask {
+                        Ask::Elevation => (id.clone(), Fetched::Empty),
+                        _ => (id.clone(), Fetched::Failed(NetError::Unauthorized)),
+                    })
+                    .collect()
+            });
+
+            assert!(matches!(walk.stopped, Some(Stopped::Unauthorized)));
+            assert_eq!(walk.unasked.len(), BATCH, "the batch is still owed");
+            assert_eq!(walk.outcome.retired, 0);
+        }
+
+        /// Scenario: a restore installs another library while a walk is part
+        /// way through its queue.
+        ///
+        /// Expected behaviour: the walk ends at the next batch boundary without
+        /// fetching for the old library, and its stop is not a terminal cut.
+        #[test]
+        fn a_restore_mid_walk_ends_it_before_the_next_batch() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let _first = init_global_engine("elevation_walk_first.db");
+            let started_against = engine_install();
+            let _second_dir = std::cell::RefCell::new(None);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(started_against, &queue(3 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                _second_dir.replace(Some(init_global_engine("elevation_walk_second.db")));
+                answer(ids)
+            });
+
+            assert_ne!(engine_install(), started_against);
+            assert_eq!(asked, BATCH, "no batch is fetched after the install moved");
+            assert!(matches!(walk.stopped, Some(Stopped::Superseded)));
+            assert_eq!(walk.unasked.len(), 2 * BATCH);
         }
 
         #[test]
@@ -2079,6 +3071,40 @@ mod tests {
                 asked.iter().any(|id| !blocked.contains(id)),
                 "the pass after a give-up must reach the tracks behind the block"
             );
+        }
+
+        /// Scenario: the failure threshold is crossed in a final batch shorter
+        /// than `BATCH`, because the count carries across batches.
+        ///
+        /// Expected behaviour: the walk stops with nothing to work with and
+        /// nothing left unasked, rather than slicing past the queue.
+        #[test]
+        fn a_give_up_in_a_short_final_batch_leaves_nothing_unasked() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let full = queue(BATCH + 7);
+            let mut call = 0usize;
+            let walk = drain_queue_with(engine_install(), &full, true, |ids, _ask| {
+                call += 1;
+                ids.iter()
+                    .enumerate()
+                    .map(|(i, id)| {
+                        let answer = if call == 1 && i < 5 {
+                            Fetched::NoAltitude
+                        } else {
+                            Fetched::Failed(NetError::Http {
+                                status: 503,
+                                body: String::new(),
+                            })
+                        };
+                        (id.clone(), answer)
+                    })
+                    .collect()
+            });
+
+            assert!(matches!(walk.stopped, Some(Stopped::NothingToWorkWith)));
+            assert!(walk.unasked.is_empty());
         }
 
         /// Only a give-up moves the start. An outage and a pause say nothing
@@ -2237,6 +3263,114 @@ mod tests {
             assert!(!detection_suspended());
         }
 
+        /// Scenario: the engine opens, or a credential arrives, and nothing
+        /// outside Rust asks for the backfill.
+        /// Expected behaviour: an owed queue with a credential starts a pass, an
+        /// empty one starts none, and the Route Matching switch off refuses.
+        #[test]
+        fn the_engine_starts_an_owed_backfill_itself() {
+            use crate::objects::FfiStartOutcome;
+
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            let _creds = crate::objects::test_credentials();
+
+            assert_eq!(start_owed_work(), FfiStartOutcome::Started);
+            assert!(BACKFILL.running.load(Ordering::SeqCst));
+
+            drain_backfill();
+            drain_detection();
+            assert!(!detection_suspended());
+        }
+
+        #[test]
+        fn the_engine_starts_nothing_for_an_empty_queue() {
+            use crate::objects::FfiStartOutcome;
+
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("no_elevation_owed_launch.db");
+            connectivity::reset();
+            let _creds = crate::objects::test_credentials();
+
+            assert_eq!(start_owed_work(), FfiStartOutcome::NotOwed);
+            assert!(!BACKFILL.running.load(Ordering::SeqCst));
+        }
+
+        #[test]
+        fn the_engine_starts_nothing_with_route_matching_off() {
+            use crate::objects::FfiStartOutcome;
+
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            let _creds = crate::objects::test_credentials();
+            with_persistent_engine(|e| e.set_detection_enabled(false))
+                .expect("engine")
+                .expect("switch");
+
+            assert_eq!(start_owed_work(), FfiStartOutcome::NotConfigured);
+            assert!(!BACKFILL.running.load(Ordering::SeqCst));
+        }
+
+        #[test]
+        fn the_engine_starts_nothing_without_a_credential() {
+            use crate::objects::FfiStartOutcome;
+
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+
+            assert_eq!(start_owed_work(), FfiStartOutcome::NotConfigured);
+            assert!(!BACKFILL.running.load(Ordering::SeqCst));
+        }
+
+        /// Scenario: JavaScript hands the engine its credential after the
+        /// library is open, which is the order of every launch.
+        /// Expected behaviour: the credential itself starts the owed pass.
+        #[test]
+        fn handing_over_a_credential_starts_an_owed_backfill() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+
+            crate::objects::sync::give_credentials("api_key", "secret".into(), "1".into())
+                .expect("credential");
+            assert!(BACKFILL.running.load(Ordering::SeqCst));
+
+            drain_backfill();
+            drain_detection();
+            crate::objects::clear_test_credentials();
+            assert!(!detection_suspended());
+        }
+
+        /// Scenario: the database is opened while a credential is already held,
+        /// as a restore does.
+        /// Expected behaviour: the open starts the owed pass.
+        #[test]
+        fn opening_a_library_starts_an_owed_backfill() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            let _creds = crate::objects::test_credentials();
+            let path = _tmp.path().join("detection.db");
+            crate::persistence::close_for_restore();
+            assert!(!BACKFILL.running.load(Ordering::SeqCst));
+
+            assert_eq!(
+                crate::persistence::persistent_engine_ffi::open_if_closed(
+                    path.to_string_lossy().into_owned(),
+                    true
+                ),
+                Some(true)
+            );
+            assert!(BACKFILL.running.load(Ordering::SeqCst));
+
+            drain_backfill();
+            drain_detection();
+            assert!(!detection_suspended());
+        }
+
         /// Scenario: the launch trigger fires the backfill on every start and
         /// gets the same `false` for five different reasons.
         /// Expected behaviour: the start names the reason, so a caller can
@@ -2279,6 +3413,73 @@ mod tests {
             drain_backfill();
             drain_detection();
             assert!(!detection_suspended());
+        }
+
+        #[test]
+        fn a_switched_off_library_starts_no_elevation_pass() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            reset_pause();
+            let _creds = crate::objects::test_credentials();
+
+            with_persistent_engine(|engine| engine.set_detection_enabled(false))
+                .expect("engine")
+                .expect("switch off");
+            assert_eq!(start_pass(), FfiStartOutcome::NotConfigured);
+            assert_eq!(start_elevation_backfill(), FfiStartOutcome::NotConfigured);
+            assert!(!BACKFILL.running.load(Ordering::SeqCst));
+        }
+
+        #[test]
+        fn switching_off_ends_the_resume_ladder() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            let mut sleeps = 0;
+            let mut attempts = 0;
+            resume_ladder(
+                |_| {
+                    sleeps += 1;
+                    if sleeps == 2 {
+                        with_persistent_engine(|engine| engine.set_detection_enabled(false))
+                            .expect("engine")
+                            .expect("switch off");
+                    }
+                    true
+                },
+                || Some(3),
+                || false,
+                detection_switched_off,
+                || false,
+                || attempts += 1,
+            );
+            assert_eq!(sleeps, 2);
+            assert_eq!(attempts, 1);
+        }
+
+        #[test]
+        fn switching_off_between_batches_leaves_the_rest_unasked() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            reset_pause();
+            let queue: Vec<_> = (0..3 * BATCH)
+                .map(|n| (format!("track-{n}"), "Ride".to_string()))
+                .collect();
+            let mut asked = 0;
+            let walk = drain_queue_with(engine_install(), &queue, true, |ids, _| {
+                asked += ids.len();
+                with_persistent_engine(|engine| engine.set_detection_enabled(false))
+                    .expect("engine")
+                    .expect("switch off");
+                ids.iter()
+                    .map(|id| (id.clone(), Fetched::NoAltitude))
+                    .collect()
+            });
+
+            assert_eq!(asked, BATCH);
+            assert!(matches!(walk.stopped, Some(Stopped::SwitchedOff)));
+            assert_eq!(walk.unasked.len(), 2 * BATCH);
         }
 
         /// The queue running out is the job finishing. It used to arrive as
@@ -2526,46 +3727,53 @@ mod tests {
     mod online_edge {
         use super::*;
         use crate::net::connectivity;
-        use std::sync::mpsc;
-        use std::time::Instant;
+        use std::sync::Arc;
 
-        /// Drive the production sleep for `rungs` rungs, firing an
-        /// offline-to-online edge into each one from another thread.
+        /// Drive the production sleep for `rungs` rungs while another thread
+        /// fires offline-to-online edges until the climb ends. Every rung is a
+        /// minute or more, so a rung the edge did not end outlasts the guard,
+        /// which is half the shortest.
         fn climb_through_edges(
             rungs: usize,
-            remaining: impl Fn() -> Option<u64>,
-        ) -> (Vec<Duration>, usize, Duration) {
-            let (edge_tx, edge_rx) = mpsc::channel::<()>();
+            remaining: impl Fn() -> Option<u64> + Send + 'static,
+        ) -> (Vec<Duration>, usize) {
+            let done = Arc::new(AtomicBool::new(false));
+            let stop = Arc::clone(&done);
             let waker = std::thread::spawn(move || {
-                while edge_rx.recv().is_ok() {
-                    std::thread::sleep(Duration::from_millis(20));
+                while !stop.load(Ordering::SeqCst) {
+                    std::thread::sleep(Duration::from_millis(10));
                     connectivity::set_online(false);
                     connectivity::set_online(true);
                 }
             });
-            let mut slept = Vec::new();
-            let mut attempts = 0usize;
-            let started = Instant::now();
-            resume_ladder(
-                |d| {
-                    if slept.len() == rungs {
-                        return false;
-                    }
-                    slept.push(d);
-                    edge_tx.send(()).unwrap();
-                    resume_sleep(d)
-                },
-                &remaining,
-                || false,
-                || false,
-                || false,
-                || {
-                    attempts += 1;
+            let climbed = crate::test_globals::returns_within(
+                RESUME_WAITS[0] / 2,
+                "a ladder rung the edge did not end",
+                move || {
+                    let mut slept = Vec::new();
+                    let mut attempts = 0usize;
+                    resume_ladder(
+                        |d| {
+                            if slept.len() == rungs {
+                                return false;
+                            }
+                            slept.push(d);
+                            resume_sleep(d)
+                        },
+                        &remaining,
+                        || false,
+                        || false,
+                        || false,
+                        || {
+                            attempts += 1;
+                        },
+                    );
+                    (slept, attempts)
                 },
             );
-            drop(edge_tx);
+            done.store(true, Ordering::SeqCst);
             waker.join().unwrap();
-            (slept, attempts, started.elapsed())
+            climbed
         }
 
         #[test]
@@ -2573,11 +3781,10 @@ mod tests {
             let _serial = serial_global_state();
             connectivity::reset();
 
-            let (slept, attempts, elapsed) = climb_through_edges(1, || Some(5));
+            let (slept, attempts) = climb_through_edges(1, || Some(5));
 
             assert_eq!(slept, vec![RESUME_WAITS[0]]);
             assert_eq!(attempts, 1, "the pass is attempted on the edge");
-            assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
             connectivity::reset();
         }
 
@@ -2586,7 +3793,7 @@ mod tests {
             let _serial = serial_global_state();
             connectivity::reset();
 
-            let (slept, attempts, elapsed) = climb_through_edges(3, || Some(5));
+            let (slept, attempts) = climb_through_edges(3, || Some(5));
 
             assert_eq!(
                 slept,
@@ -2594,7 +3801,6 @@ mod tests {
                 "each edge moves up a rung"
             );
             assert_eq!(attempts, 3);
-            assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
             connectivity::reset();
         }
 
@@ -2603,7 +3809,7 @@ mod tests {
             let _serial = serial_global_state();
             connectivity::reset();
 
-            let (slept, attempts, elapsed) = climb_through_edges(3, || Some(0));
+            let (slept, attempts) = climb_through_edges(3, || Some(0));
 
             assert_eq!(
                 slept.len(),
@@ -2611,7 +3817,6 @@ mod tests {
                 "a zero queue ends the ladder on the woken rung"
             );
             assert_eq!(attempts, 0);
-            assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
             connectivity::reset();
         }
     }
@@ -2692,7 +3897,7 @@ mod tests {
                     "upstream has no altitude",
                 ),
                 (
-                    Fetched::Altitudes(vec![1.0]),
+                    Fetched::Altitudes(vec![1.0], ElevationSeries::Corrected),
                     Ask::Elevation,
                     "a series to splice",
                 ),
@@ -2730,9 +3935,15 @@ mod tests {
         #[test]
         fn a_pause_between_batches_ends_the_walk_with_no_further_fetches() {
             let _serial = serial_global_state();
+            let _previous = seeded_global_engine();
+            with_persistent_engine(|engine| engine.set_detection_enabled(false))
+                .expect("engine")
+                .expect("switch off");
+            let _current = init_global_engine("pause_between_batches.db");
             connectivity::reset();
             reset_pause();
 
+            let completed_before = BACKFILL.completed.load(Ordering::Relaxed);
             let mut asked = 0usize;
             let walk = drain_queue_with(engine_install(), &queue(3 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
@@ -2746,6 +3957,11 @@ mod tests {
             );
             assert!(matches!(walk.stopped, Some(Stopped::Paused)));
             assert_eq!(walk.unasked.len(), 2 * BATCH, "the rest is still owed");
+            assert_eq!(
+                BACKFILL.completed.load(Ordering::Relaxed) - completed_before,
+                BATCH as u32,
+                "the in-flight batch reaches the completion counter"
+            );
 
             reset_pause();
         }
@@ -2764,6 +3980,31 @@ mod tests {
             pause_elevation_backfill();
             assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PAUSED);
             assert!(elevation_backfill_paused());
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_start_that_meets_the_pause_leaves_the_phase_paused() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            reset_pause();
+            set_phase(BACKFILL_PHASE_PARTIAL);
+
+            // A start holds the slot while it checks, and a pause landing in
+            // that window sees a run in flight and leaves the phase to it.
+            let slot = RunGuard::claim().expect("the slot is free");
+            pause_elevation_backfill();
+            assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PARTIAL);
+            drop(slot);
+
+            assert!(matches!(start_pass(), FfiStartOutcome::Held));
+            assert_eq!(
+                backfill_progress().phase,
+                BACKFILL_PHASE_PAUSED,
+                "the start that declines for the pause is the one left to say so"
+            );
 
             reset_pause();
         }
@@ -2923,5 +4164,298 @@ mod tests {
             second.join().expect("the second climb returned");
             assert!(!RESUME_ARMED.load(Ordering::SeqCst));
         }
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/elevation_auth.rs"]
+mod auth_tests;
+
+/// Scenario: a climbing best keeps to the corrected series, so every track the
+/// backfill writes, and every track it wrote before the engine recorded the
+/// series, has to say which series its points carry.
+///
+/// Expected behaviour: the reducers keep the series `parse_streams` chose, a
+/// pass records it with the points, and the walk over older tracks records it
+/// only when the points carry what upstream answers with.
+#[cfg(test)]
+mod series {
+    use super::*;
+    use crate::net::connectivity;
+    use crate::persistence::{
+        ELEVATION_SOURCE_CORRECTED, ELEVATION_SOURCE_DEVICE, ELEVATION_SOURCE_UNKNOWN,
+        ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNKNOWN,
+    };
+    use crate::test_globals::{init_global_engine, serial_global_state};
+    use tempfile::TempDir;
+
+    const POINTS: usize = 8;
+
+    fn line(seed: f64) -> Vec<GpsPoint> {
+        (0..POINTS)
+            .map(|i| GpsPoint::new(46.2 + seed + i as f64 * 0.001, 7.35 + seed))
+            .collect()
+    }
+
+    fn heights(base: f64) -> Vec<f64> {
+        (0..POINTS).map(|i| base + i as f64 * 1.3).collect()
+    }
+
+    fn elevate(points: &[GpsPoint], series: &[f64]) -> Vec<GpsPoint> {
+        points
+            .iter()
+            .zip(series)
+            .map(|(p, e)| GpsPoint::with_elevation(p.latitude, p.longitude, *e))
+            .collect()
+    }
+
+    fn parsed(fixed: bool) -> ParsedStreams {
+        ParsedStreams {
+            latlng: line(0.0)
+                .iter()
+                .map(|p| [p.latitude, p.longitude])
+                .collect(),
+            altitude: heights(500.0),
+            altitude_is_fixed: fixed,
+            ..ParsedStreams::default()
+        }
+    }
+
+    /// A library holding each named track, stored flat.
+    fn library(ids: &[&str]) -> TempDir {
+        let tmp = init_global_engine("elevation_series.db");
+        connectivity::reset();
+        reset_pause();
+        with_persistent_engine(|engine| {
+            for (i, id) in ids.iter().enumerate() {
+                engine
+                    .add_activity(id.to_string(), line(i as f64 * 0.01), "Ride".into())
+                    .expect("add activity");
+            }
+        })
+        .expect("engine");
+        tmp
+    }
+
+    /// A library of tracks a build before the column fetched elevation for:
+    /// elevated, fetched, and of unknown series.
+    fn fetched_library(ids: &[&str]) -> TempDir {
+        let tmp = library(&[]);
+        with_persistent_engine(|engine| {
+            for (i, id) in ids.iter().enumerate() {
+                let flat = line(i as f64 * 0.01);
+                engine
+                    .add_activity(
+                        id.to_string(),
+                        elevate(&flat, &heights(500.0)),
+                        "Ride".into(),
+                    )
+                    .expect("add activity");
+            }
+            let states: Vec<(String, u8)> = ids
+                .iter()
+                .map(|id| (id.to_string(), ELEVATION_STATE_FETCHED))
+                .collect();
+            engine.record_elevation_state(&states).expect("state");
+        })
+        .expect("engine");
+        tmp
+    }
+
+    fn source(id: &str) -> u8 {
+        with_persistent_engine(|e| e.elevation_source_of_track(id))
+            .expect("engine")
+            .expect("stored")
+    }
+
+    fn state(id: &str) -> u8 {
+        let state: i64 = with_persistent_engine(|e| {
+            e.db.query_row(
+                "SELECT elevation_state FROM gps_tracks WHERE activity_id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+        })
+        .expect("engine")
+        .expect("stored");
+        u8::try_from(state).expect("a state")
+    }
+
+    fn blob(id: &str) -> Vec<u8> {
+        with_persistent_engine(|e| {
+            e.db.query_row(
+                "SELECT track_data FROM gps_tracks WHERE activity_id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+        })
+        .expect("engine")
+        .expect("blob")
+    }
+
+    fn owed() -> Vec<String> {
+        with_persistent_engine(|e| e.tracks_owed_elevation_source())
+            .expect("engine")
+            .expect("queue")
+    }
+
+    fn walk(answer: impl Fn(&str) -> Fetched) -> SourceWalk {
+        let queue = owed();
+        resolve_sources_with(
+            engine_install(),
+            &queue,
+            || true,
+            |ids| ids.iter().map(|id| (id.clone(), answer(id))).collect(),
+        )
+    }
+
+    #[test]
+    fn the_reducers_keep_the_series_parse_streams_chose() {
+        assert!(matches!(
+            reduce(parsed(true)),
+            Fetched::Elevated(_, ElevationSeries::Corrected)
+        ));
+        assert!(matches!(
+            reduce(parsed(false)),
+            Fetched::Elevated(_, ElevationSeries::Device)
+        ));
+        assert!(matches!(
+            reduce_altitudes(Some(parsed(true))),
+            Fetched::Altitudes(_, ElevationSeries::Corrected)
+        ));
+        assert!(matches!(
+            reduce_altitudes(Some(parsed(false))),
+            Fetched::Altitudes(_, ElevationSeries::Device)
+        ));
+    }
+
+    /// Scenario: one track takes the splice from the device series, the other
+    /// was re-processed upstream and comes back whole with the corrected one.
+    #[test]
+    fn a_pass_records_the_series_of_each_track_it_elevates() {
+        let _serial = serial_global_state();
+        let _dir = library(&["spliced", "replaced"]);
+        let queue: Vec<(String, String)> = ["spliced", "replaced"]
+            .iter()
+            .map(|id| (id.to_string(), "Ride".to_string()))
+            .collect();
+
+        drain_queue_with(engine_install(), &queue, true, |ids, ask| {
+            ids.iter()
+                .map(|id| {
+                    let answer = match (id.as_str(), ask) {
+                        ("spliced", _) => {
+                            Fetched::Altitudes(heights(700.0), ElevationSeries::Device)
+                        }
+                        (_, Ask::Elevation) => {
+                            Fetched::Altitudes(vec![1.0; POINTS + 2], ElevationSeries::Device)
+                        }
+                        (_, Ask::Track) => Fetched::Elevated(
+                            elevate(&line(0.01), &heights(800.0)),
+                            ElevationSeries::Corrected,
+                        ),
+                    };
+                    (id.clone(), answer)
+                })
+                .collect()
+        });
+
+        assert_eq!(state("spliced"), ELEVATION_STATE_FETCHED);
+        assert_eq!(source("spliced"), ELEVATION_SOURCE_DEVICE);
+        assert_eq!(state("replaced"), ELEVATION_STATE_FETCHED);
+        assert_eq!(source("replaced"), ELEVATION_SOURCE_CORRECTED);
+    }
+
+    /// Only a fetched track of unknown series is owed the read. A track still
+    /// owed elevation goes through the backfill, and one whose series is known
+    /// has nothing to settle.
+    #[test]
+    fn the_series_queue_holds_only_fetched_tracks_of_unknown_series() {
+        let _serial = serial_global_state();
+        let _dir = fetched_library(&["owed", "known", "demo-ride"]);
+        with_persistent_engine(|e| {
+            e.add_activity("flat".into(), line(0.5), "Ride".into())
+                .expect("add flat");
+            e.record_elevation_source(&[("known".to_string(), ELEVATION_SOURCE_CORRECTED)])
+                .expect("source");
+        })
+        .expect("engine");
+
+        assert_eq!(owed(), vec!["owed".to_string()]);
+    }
+
+    /// Scenario: upstream answers with the series the stored points carry.
+    /// Expected behaviour: the series is recorded and not a byte of the track
+    /// moves.
+    #[test]
+    fn a_track_carrying_the_answered_series_records_it_and_keeps_its_points() {
+        let _serial = serial_global_state();
+        let _dir = fetched_library(&["valley"]);
+        let before = blob("valley");
+
+        let walked = walk(|_| Fetched::Altitudes(heights(500.0), ElevationSeries::Device));
+
+        assert_eq!(walked.recorded, 1);
+        assert_eq!(source("valley"), ELEVATION_SOURCE_DEVICE);
+        assert_eq!(state("valley"), ELEVATION_STATE_FETCHED);
+        assert_eq!(blob("valley"), before, "the points are left as they are");
+        assert!(owed().is_empty());
+    }
+
+    /// Scenario: upstream now answers with a series the stored points do not
+    /// carry, so which one they hold cannot be told.
+    /// Expected behaviour: the track goes back to the elevation queue, whose
+    /// splice writes the series a fresh ingest would choose and records it.
+    #[test]
+    fn a_track_carrying_another_series_is_handed_back_to_the_backfill() {
+        let _serial = serial_global_state();
+        let _dir = fetched_library(&["ridge"]);
+
+        let walked = walk(|_| Fetched::Altitudes(heights(900.0), ElevationSeries::Corrected));
+
+        assert_eq!(walked.handed_back, 1);
+        assert_eq!(state("ridge"), ELEVATION_STATE_UNKNOWN);
+        assert_eq!(source("ridge"), ELEVATION_SOURCE_UNKNOWN);
+        let queued = with_persistent_engine(|e| e.tracks_missing_elevation())
+            .expect("engine")
+            .expect("queue");
+        assert_eq!(queued, vec![("ridge".to_string(), "Ride".to_string())]);
+        assert!(owed().is_empty());
+    }
+
+    /// Scenario: upstream answers about the activity with no altitude to
+    /// compare, on every pass.
+    /// Expected behaviour: each answer counts against the track, which leaves
+    /// the series queue at the limit and stays unknown and fetched.
+    #[test]
+    fn a_track_upstream_never_answers_for_leaves_the_series_queue() {
+        let _serial = serial_global_state();
+        let _dir = fetched_library(&["quiet"]);
+
+        for asked in 1..=ELEVATION_ATTEMPT_LIMIT {
+            assert_eq!(owed(), vec!["quiet".to_string()], "owed before ask {asked}");
+            let walked = walk(|_| Fetched::NoAltitude);
+            assert_eq!(walked.unanswered, 1);
+        }
+
+        assert!(owed().is_empty());
+        assert_eq!(source("quiet"), ELEVATION_SOURCE_UNKNOWN);
+        assert_eq!(state("quiet"), ELEVATION_STATE_FETCHED);
+    }
+
+    /// A refused connection and a rejected credential say nothing about the
+    /// track, so neither counts against it.
+    #[test]
+    fn a_refused_ask_counts_nothing_and_a_rejected_credential_stops_the_walk() {
+        let _serial = serial_global_state();
+        let _dir = fetched_library(&["offline"]);
+
+        let walked = walk(|_| Fetched::Failed(NetError::Transport("reset".into())));
+        assert_eq!(walked, SourceWalk::default());
+
+        let walked = walk(|_| Fetched::Failed(NetError::Unauthorized));
+        assert!(walked.stopped);
+        assert_eq!(owed(), vec!["offline".to_string()], "still owed");
+        assert_eq!(source("offline"), ELEVATION_SOURCE_UNKNOWN);
     }
 }

@@ -106,11 +106,7 @@ pub async fn fetch_activities_with_bodies(
     limit: Option<u32>,
     lane: Lane,
 ) -> Result<Vec<(ActivityRecord, String)>, NetError> {
-    let fields = if include_stats {
-        format!("{},{}", ACTIVITY_FIELDS, ACTIVITY_STATS_EXTRA)
-    } else {
-        ACTIVITY_FIELDS.to_string()
-    };
+    let fields = activity_list_fields(include_stats);
     let mut params: Vec<(&str, &str)> =
         vec![("oldest", oldest), ("newest", newest), ("fields", &fields)];
     let limit = limit.map(|n| n.to_string());
@@ -185,13 +181,13 @@ pub async fn fetch_activity_history_summary(
 pub async fn fetch_streams(
     t: &Transport,
     activity_id: &str,
-    types: Option<&str>,
+    types: &str,
     lane: Lane,
 ) -> Result<ParsedStreams, NetError> {
     let raw: Vec<StreamDto> = t
         .get_json(
             &format!("/activity/{}/streams.json", activity_id),
-            &[("types", types.unwrap_or(DEFAULT_STREAM_TYPES))],
+            &[("types", types)],
             lane,
         )
         .await?;
@@ -218,7 +214,8 @@ pub async fn fetch_streams(
     Ok(parsed)
 }
 
-/// The altitude series for one activity, in the index space upstream holds.
+/// The altitude series for one activity, in the index space upstream holds,
+/// with `altitude_is_fixed` saying which of the two it is.
 ///
 /// `None` is a response that carried no altitude series at all, which is
 /// upstream saying nothing yet rather than saying there is none. A series that
@@ -227,7 +224,7 @@ pub async fn fetch_altitude(
     t: &Transport,
     activity_id: &str,
     lane: Lane,
-) -> Result<Option<Vec<f64>>, NetError> {
+) -> Result<Option<ParsedStreams>, NetError> {
     let raw: Vec<StreamDto> = t
         .get_json(
             &format!("/activity/{}/streams.json", activity_id),
@@ -243,7 +240,7 @@ pub async fn fetch_altitude(
     }
     // `parse_streams` prefers the corrected series over the raw one, which is
     // the same preference the full track ingest gets.
-    Ok(Some(parse_streams(raw).altitude))
+    Ok(Some(parse_streams(raw)))
 }
 
 /// `GET /activity/{id}/streams.json` as the untyped body. TypeScript's
@@ -288,7 +285,7 @@ pub async fn fetch_time_stream(
     activity_id: &str,
     lane: Lane,
 ) -> Result<Vec<u32>, NetError> {
-    let parsed = fetch_streams(t, activity_id, Some("time,latlng"), lane).await?;
+    let parsed = fetch_streams(t, activity_id, "time,latlng", lane).await?;
     Ok(parsed.time.into_iter().map(|v| v.max(0) as u32).collect())
 }
 
@@ -399,9 +396,21 @@ const UPLOAD_FILE_FIELD: &str = "file";
 /// What intervals.icu records as the source of an uploaded activity.
 const DEVICE_NAME: &str = "Veloq";
 
-/// Uploads get 60 seconds instead of the transport's 30. A large FIT on a slow
-/// connection needs the headroom, and a timeout here costs the athlete a retry.
+/// Uploads get 60 seconds per attempt instead of the interactive lane's 8 s
+/// ceiling. A large FIT on a slow connection needs the headroom, and a timeout
+/// here costs the athlete a retry. The lane's 10 s budget still bounds the 429
+/// retries.
 const UPLOAD_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// The text an upload carries beside its file. Each is left out when unset.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct UploadDetails<'a> {
+    pub external_id: Option<&'a str>,
+    pub name: Option<&'a str>,
+    /// The documented description, which is where the review screen's notes go.
+    pub description: Option<&'a str>,
+    pub paired_event_id: Option<i64>,
+}
 
 /// `POST /athlete/{id}/activities` with the file streamed from disk.
 ///
@@ -413,18 +422,24 @@ pub async fn upload_activity(
     athlete_id: &str,
     file_path: &str,
     filename: &str,
-    name: Option<&str>,
-    paired_event_id: Option<i64>,
+    details: UploadDetails<'_>,
     lane: Lane,
 ) -> Result<Option<String>, NetError> {
     let mut fields: Vec<(&str, String)> = Vec::new();
-    if let Some(name) = name.filter(|n| !n.is_empty()) {
+    if let Some(name) = details.name.filter(|n| !n.is_empty()) {
         fields.push(("name", name.to_string()));
     }
-    if let Some(event) = paired_event_id.filter(|id| *id != 0) {
+    if let Some(description) = details.description.filter(|d| !d.trim().is_empty()) {
+        fields.push(("description", description.to_string()));
+    }
+    if let Some(event) = details.paired_event_id.filter(|id| *id != 0) {
         fields.push(("paired_event_id", event.to_string()));
     }
     fields.push(("device_name", DEVICE_NAME.to_string()));
+    let query = details
+        .external_id
+        .map(|id| vec![("external_id", id)])
+        .unwrap_or_default();
 
     let part = FilePart {
         field: UPLOAD_FILE_FIELD,
@@ -436,6 +451,7 @@ pub async fn upload_activity(
             &format!("/athlete/{}/activities", athlete_id),
             &part,
             &fields,
+            &query,
             lane,
             UPLOAD_TIMEOUT,
         )
@@ -443,7 +459,25 @@ pub async fn upload_activity(
     Ok(created_activity_id(&body))
 }
 
-/// `POST /athlete/{id}/activities` with a JSON body, for an entry with no file.
+/// `PUT /activity/{id}` setting the effort the athlete gave a ride, as
+/// `icu_rpe`, and nothing else. The upload has no field for it, so it goes up
+/// once the upload has returned the activity's id.
+pub async fn update_activity_rpe(
+    t: &Transport,
+    activity_id: &str,
+    rpe: u32,
+    lane: Lane,
+) -> Result<(), NetError> {
+    t.put_json(
+        &format!("/activity/{}", activity_id),
+        &serde_json::json!({ "icu_rpe": rpe }),
+        lane,
+    )
+    .await?;
+    Ok(())
+}
+
+/// `POST /athlete/{id}/activities/manual` with a JSON body for an entry with no file.
 pub async fn create_activity(
     t: &Transport,
     athlete_id: &str,
@@ -452,7 +486,11 @@ pub async fn create_activity(
 ) -> Result<Option<String>, NetError> {
     let body = serde_json::to_value(activity).map_err(|e| NetError::Decode(e.to_string()))?;
     let response = t
-        .post_json(&format!("/athlete/{}/activities", athlete_id), &body, lane)
+        .post_json(
+            &format!("/athlete/{}/activities/manual", athlete_id),
+            &body,
+            lane,
+        )
         .await?;
     Ok(created_activity_id(&response))
 }
@@ -611,7 +649,13 @@ mod tests {
             ]));
         });
         let t = fast_transport(server.base_url());
-        let s = crate::runtime::block_on(fetch_streams(&t, "77", None, Lane::Interactive)).unwrap();
+        let s = crate::runtime::block_on(fetch_streams(
+            &t,
+            "77",
+            DEFAULT_STREAM_TYPES,
+            Lane::Interactive,
+        ))
+        .unwrap();
         mock.assert();
         assert_eq!(s.latlng, vec![[42.5, 1.1], [42.6, 1.2]]);
     }
@@ -623,16 +667,23 @@ mod tests {
             when.method(GET).path("/activity/77/streams.json");
             then.status(200).json_body(json!([
                 {"type": "latlng", "data": [42.5, 42.6, 42.7], "data2": [1.1, 1.2, 1.3]},
-                {"type": "heartrate", "data": [120, 121]},
-                {"type": "altitude", "data": [400.0, 401.0, 402.0]}
+                {"type": "altitude", "data": [400.0, 401.0]},
+                {"type": "time", "data": [0, 1, 2]}
             ]));
         });
         let t = fast_transport(server.base_url());
-        let s = crate::runtime::block_on(fetch_streams(&t, "77", None, Lane::Interactive)).unwrap();
+        let s = crate::runtime::block_on(fetch_streams(
+            &t,
+            "77",
+            DEFAULT_STREAM_TYPES,
+            Lane::Interactive,
+        ))
+        .unwrap();
         assert_eq!(s.latlng.len(), 3);
-        assert_eq!(s.altitude, vec![400.0, 401.0, 402.0]);
-        assert_eq!(s.heartrate.len(), 3);
-        assert!(s.heartrate[2].is_nan());
+        assert_eq!(s.time, vec![0, 1, 2]);
+        assert_eq!(s.altitude.len(), 3);
+        assert_eq!(s.altitude[1], 401.0);
+        assert!(s.altitude[2].is_nan());
     }
 
     #[test]
@@ -646,7 +697,12 @@ mod tests {
             ]));
         });
         let t = fast_transport(server.base_url());
-        let r = crate::runtime::block_on(fetch_streams(&t, "77", None, Lane::Interactive));
+        let r = crate::runtime::block_on(fetch_streams(
+            &t,
+            "77",
+            DEFAULT_STREAM_TYPES,
+            Lane::Interactive,
+        ));
         assert!(r.is_err(), "a broken index space cannot be trusted");
     }
 
@@ -893,13 +949,80 @@ mod tests {
             "i1",
             &path,
             "Bern loop.fit",
-            Some("Bern loop"),
-            Some(4321),
+            UploadDetails {
+                external_id: None,
+                name: Some("Bern loop"),
+                description: None,
+                paired_event_id: Some(4321),
+            },
             Lane::Interactive,
         ))
         .unwrap();
         mock.assert();
         assert_eq!(id.as_deref(), Some("i999"));
+    }
+
+    /// Scenario: the athlete typed notes on the review screen. They are the
+    /// activity's description, which the upload takes under its documented
+    /// name, so they arrive with the file rather than in a second request.
+    #[test]
+    fn upload_carries_the_notes_as_the_description() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/athlete/i1/activities")
+                .body_contains("name=\"description\"")
+                .body_contains("legs heavy");
+            then.status(200).json_body(json!({"id": "i999"}));
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        crate::runtime::block_on(upload_activity(
+            &t,
+            "i1",
+            &path,
+            "ride.fit",
+            UploadDetails {
+                external_id: None,
+                name: Some("Bern loop"),
+                description: Some("legs heavy"),
+                paired_event_id: None,
+            },
+            Lane::Interactive,
+        ))
+        .unwrap();
+        mock.assert();
+    }
+
+    /// The effort goes up as the activity's `icu_rpe`, and only that field,
+    /// so the update cannot overwrite anything the athlete changed on the web.
+    #[test]
+    fn the_effort_update_sends_only_icu_rpe() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(PUT)
+                .path("/activity/i999")
+                .json_body(json!({"icu_rpe": 8}));
+            then.status(200)
+                .json_body(json!({"id": "i999", "icu_rpe": 8}));
+        });
+        let t = fast_transport(server.base_url());
+        crate::runtime::block_on(update_activity_rpe(&t, "i999", 8, Lane::Interactive)).unwrap();
+        mock.assert();
+    }
+
+    #[test]
+    fn a_refused_effort_update_is_an_error() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(PUT).path("/activity/i999");
+            then.status(500);
+        });
+        let t = fast_transport(server.base_url());
+        assert!(
+            crate::runtime::block_on(update_activity_rpe(&t, "i999", 8, Lane::Interactive))
+                .is_err()
+        );
     }
 
     /// True when the multipart body carries neither optional text part. The
@@ -908,6 +1031,7 @@ mod tests {
     fn without_optional_parts(body: Option<&Vec<u8>>) -> bool {
         let text = String::from_utf8_lossy(body.map_or(&[][..], |b| b.as_slice())).into_owned();
         !text.contains("name=\"name\"")
+            && !text.contains("name=\"description\"")
             && !text.contains("name=\"paired_event_id\"")
             && text.contains("name=\"device_name\"")
     }
@@ -928,8 +1052,12 @@ mod tests {
             "i1",
             &path,
             "ride.fit",
-            None,
-            None,
+            UploadDetails {
+                external_id: None,
+                name: None,
+                description: None,
+                paired_event_id: None,
+            },
             Lane::Interactive,
         ))
         .unwrap();
@@ -952,8 +1080,12 @@ mod tests {
             "i1",
             &path,
             "ride.fit",
-            Some(""),
-            Some(0),
+            UploadDetails {
+                external_id: None,
+                name: Some(""),
+                description: Some(""),
+                paired_event_id: Some(0),
+            },
             Lane::Interactive,
         ))
         .unwrap();
@@ -976,8 +1108,12 @@ mod tests {
             "i1",
             &path,
             "ride.fit",
-            None,
-            None,
+            UploadDetails {
+                external_id: None,
+                name: None,
+                description: None,
+                paired_event_id: None,
+            },
             Lane::Interactive,
         ))
         .unwrap();
@@ -998,8 +1134,12 @@ mod tests {
             "i1",
             &path,
             "ride.fit",
-            None,
-            None,
+            UploadDetails {
+                external_id: None,
+                name: None,
+                description: None,
+                paired_event_id: None,
+            },
             Lane::Interactive,
         ))
         .unwrap();
@@ -1027,7 +1167,7 @@ mod tests {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
             when.method(POST)
-                .path("/athlete/i1/activities")
+                .path("/athlete/i1/activities/manual")
                 .json_body(json!({
                     "type": "WeightTraining",
                     "name": "Gym",

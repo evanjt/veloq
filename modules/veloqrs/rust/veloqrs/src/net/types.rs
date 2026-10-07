@@ -1,8 +1,7 @@
 //! serde response types and parsed output records for intervals.icu endpoints.
 //!
 //! Each raw `*Dto` mirrors the JSON the server returns; the parsed record is the
-//! shape the app consumes (matching the old TypeScript return types and
-//! transforms in `src/api/intervals.ts` + `src/features/activity/lib/streams.ts`).
+//! shape the app consumes.
 //! Unknown JSON fields are ignored, so requesting a `fields=` subset is safe.
 
 use serde::{Deserialize, Serialize};
@@ -38,11 +37,11 @@ pub struct ActivityRecord {
     #[serde(default)]
     pub average_heartrate: Option<f64>,
     #[serde(default)]
+    pub max_heartrate: Option<f64>,
+    #[serde(default)]
     pub icu_average_watts: Option<f64>,
     #[serde(default)]
-    pub average_watts: Option<f64>,
-    #[serde(default)]
-    pub max_watts: Option<f64>,
+    pub icu_pm_p_max: Option<f64>,
     #[serde(default)]
     pub average_cadence: Option<f64>,
     #[serde(default)]
@@ -104,12 +103,32 @@ where
     Ok(serde_json::from_value(value).ok())
 }
 
-/// The base field list the activities request asks for (matches `intervals.ts`).
-pub const ACTIVITY_FIELDS: &str = "id,name,type,start_date_local,moving_time,elapsed_time,distance,total_elevation_gain,average_speed,max_speed,icu_average_hr,icu_max_hr,average_heartrate,average_watts,max_watts,icu_average_watts,average_cadence,calories,icu_training_load,has_weather,average_weather_temp,icu_ftp,stream_types,locality,country,skyline_chart_bytes";
+/// The base field list the activities request asks for. Every name is a field
+/// of the Activity schema.
+pub const ACTIVITY_FIELDS: &str = "id,name,type,start_date_local,moving_time,elapsed_time,distance,total_elevation_gain,average_speed,max_speed,average_heartrate,max_heartrate,icu_average_watts,icu_pm_p_max,average_cadence,calories,icu_training_load,decoupling,has_weather,average_weather_temp,icu_ftp,stream_types,skyline_chart_bytes";
 
 /// The additional stats fields appended when `includeStats` is set.
 pub const ACTIVITY_STATS_EXTRA: &str = "icu_pm_ftp_watts,icu_zone_times,icu_hr_zone_times,\
      icu_power_zones,icu_hr_zones,icu_rolling_ftp,icu_rolling_ftp_delta";
+
+/// The field list one activities request asks for.
+pub fn activity_list_fields(include_stats: bool) -> String {
+    if include_stats {
+        format!("{ACTIVITY_FIELDS},{ACTIVITY_STATS_EXTRA}")
+    } else {
+        ACTIVITY_FIELDS.to_string()
+    }
+}
+
+/// The field list a stored list body was fetched with. Every window sync asks
+/// with the stats, so this is the set `activity_bodies.raw` holds.
+pub fn stored_activity_fields() -> String {
+    activity_list_fields(true)
+}
+
+#[cfg(test)]
+#[path = "tests/activity_fields.rs"]
+mod activity_fields_tests;
 
 // ===========================================================================
 // Streams
@@ -156,26 +175,7 @@ pub struct ParsedStreams {
     pub latlng: Vec<[f64; 2]>,
     pub altitude: Vec<f64>,
     pub altitude_is_fixed: bool,
-    pub heartrate: Vec<f64>,
-    pub watts: Vec<f64>,
-    pub cadence: Vec<f64>,
-    pub velocity_smooth: Vec<f64>,
-    pub distance: Vec<f64>,
-    pub grade_smooth: Vec<f64>,
-    pub temp: Vec<f64>,
-    pub wbal: Vec<f64>,
-    pub gap: Vec<f64>,
     pub misaligned: Vec<SeriesLengthMismatch>,
-}
-
-/// Pace in minutes per `reference_meters`, from a speed in m/s. Mirrors
-/// `paceMinutesFromSpeed` (reference 1000 m). Non-positive / non-finite -> 0.
-pub fn pace_minutes_from_speed(speed_ms: f64, reference_meters: f64) -> f64 {
-    if !speed_ms.is_finite() || speed_ms <= 0.0 {
-        return 0.0;
-    }
-    let pace = reference_meters / speed_ms / 60.0;
-    if pace.is_finite() { pace } else { 0.0 }
 }
 
 fn fill(v: &[Option<f64>]) -> Vec<f64> {
@@ -285,7 +285,7 @@ fn select(
 /// all gaps. A row of nothing reads downstream as "the ride had no power",
 /// which is a different claim from "nothing has been fetched yet".
 pub fn storable_series(raw: &[StreamDto]) -> Vec<StreamDto> {
-    const FROM_THE_TRACK: [&str; 4] = ["latlng", "altitude", "fixed_altitude", "time"];
+    use crate::persistence::streams::FROM_THE_TRACK;
 
     let mut ignored = Vec::new();
     let Some(mask) = latlng_mask(raw, &mut ignored) else {
@@ -330,6 +330,8 @@ pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
     let mut misaligned = Vec::new();
     let mask = latlng_mask(&raw, &mut misaligned);
     let mask = mask.as_deref();
+    let mut fixed_altitude: Option<Vec<f64>> = None;
+    let mut device_altitude: Option<Vec<f64>> = None;
     for s in raw {
         match s.kind.as_str() {
             // A NaN gap saturates to 0 on the cast.
@@ -350,33 +352,24 @@ pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
                         .collect();
                 }
             }
-            "altitude" if !out.altitude_is_fixed => {
-                out.altitude = select("altitude", mask, &s.data, &mut misaligned);
+            "altitude" => {
+                device_altitude = Some(select("altitude", mask, &s.data, &mut misaligned));
             }
             "fixed_altitude" => {
-                out.altitude = select("fixed_altitude", mask, &s.data, &mut misaligned);
-                out.altitude_is_fixed = true;
-            }
-            "heartrate" => out.heartrate = select("heartrate", mask, &s.data, &mut misaligned),
-            "watts" => out.watts = select("watts", mask, &s.data, &mut misaligned),
-            "cadence" => out.cadence = select("cadence", mask, &s.data, &mut misaligned),
-            "velocity_smooth" => {
-                out.velocity_smooth = select("velocity_smooth", mask, &s.data, &mut misaligned)
-            }
-            "distance" => out.distance = select("distance", mask, &s.data, &mut misaligned),
-            "grade_smooth" => {
-                out.grade_smooth = select("grade_smooth", mask, &s.data, &mut misaligned)
-            }
-            "temp" => out.temp = select("temp", mask, &s.data, &mut misaligned),
-            "w_bal" => out.wbal = select("w_bal", mask, &s.data, &mut misaligned),
-            "ga_velocity" => {
-                out.gap = select("ga_velocity", mask, &s.data, &mut misaligned)
-                    .into_iter()
-                    .map(|x| pace_minutes_from_speed(x, 1000.0))
-                    .collect()
+                fixed_altitude = Some(select("fixed_altitude", mask, &s.data, &mut misaligned));
             }
             _ => {}
         }
+    }
+    // The corrected series wins only when it holds a finite sample, whichever
+    // order the response listed the two in.
+    let usable = |v: &Vec<f64>| v.iter().any(|x| x.is_finite());
+    match (fixed_altitude, device_altitude) {
+        (Some(fixed), _) if usable(&fixed) => {
+            out.altitude = fixed;
+            out.altitude_is_fixed = true;
+        }
+        (fixed, device) => out.altitude = device.or(fixed).unwrap_or_default(),
     }
     out.misaligned = misaligned;
     out
@@ -543,6 +536,24 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// The writer drops every kind the reader rebuilds from the track, so a
+    /// kind added to the shared list is never stored and then never read.
+    #[test]
+    fn storable_series_drops_every_kind_the_reader_rebuilds() {
+        let series = |kind: &str| StreamDto {
+            kind: kind.to_string(),
+            data: vec![Some(1.0), Some(2.0)],
+            data2: Some(vec![Some(3.0), Some(4.0)]),
+        };
+        let mut raw: Vec<StreamDto> = crate::persistence::streams::FROM_THE_TRACK
+            .iter()
+            .map(|k| series(k))
+            .collect();
+        raw.push(series("watts"));
+        let kept: Vec<String> = storable_series(&raw).into_iter().map(|s| s.kind).collect();
+        assert_eq!(kept, vec!["watts".to_string()]);
+    }
+
     /// A misaligned series is dropped rather than stored, and the drop says
     /// so. This is the sync path's filter, the one that lets the writer go on
     /// trusting its caller.
@@ -619,7 +630,7 @@ mod tests {
         // Shape derived from the live activities endpoint; values synthetic.
         let body = json!([
             {"id": "a1", "name": "Morning Ride", "type": "Ride", "start_date_local": "2026-06-20T07:00:00",
-             "moving_time": 3600, "distance": 30000.0, "average_watts": 180, "icu_training_load": 65,
+             "moving_time": 3600, "distance": 30000.0, "icu_average_watts": 180, "icu_training_load": 65,
              "has_weather": true, "stream_types": ["time", "watts", "latlng"], "extra_unmodelled": 7},
             {"id": "a2", "name": "Run", "type": "Run", "start_date_local": "2026-06-18T18:00:00",
              "moving_time": 1800, "distance": 5000.0}
@@ -628,7 +639,7 @@ mod tests {
         assert_eq!(acts.len(), 2);
         assert_eq!(acts[0].id, "a1");
         assert_eq!(acts[0].activity_type.as_deref(), Some("Ride"));
-        assert_eq!(acts[0].average_watts, Some(180.0)); // int coerced to f64
+        assert_eq!(acts[0].icu_average_watts, Some(180.0)); // int coerced to f64
         assert_eq!(acts[0].stream_types.as_ref().unwrap().len(), 3);
         assert_eq!(acts[1].distance, Some(5000.0));
     }
@@ -655,8 +666,7 @@ mod tests {
             {"type": "latlng", "data": [42.5, 42.6, 42.7], "data2": [1.1, 1.2, 1.3]},
             {"type": "altitude", "data": [100.0, 101.0, 102.0]},
             {"type": "fixed_altitude", "data": [200.0, 201.0, 202.0]},
-            {"type": "watts", "data": [150, 160, 170]},
-            {"type": "ga_velocity", "data": [5.0, 0.0, 4.0]}
+            {"type": "watts", "data": [150, 160, 170]}
         ]))
         .unwrap();
         let s = parse_streams(raw);
@@ -664,10 +674,69 @@ mod tests {
         assert_eq!(s.latlng, vec![[42.5, 1.1], [42.6, 1.2], [42.7, 1.3]]);
         assert!(s.altitude_is_fixed);
         assert_eq!(s.altitude, vec![200.0, 201.0, 202.0]); // fixed wins
-        assert_eq!(s.watts, vec![150.0, 160.0, 170.0]);
-        // ga_velocity 5 m/s -> 1000/5/60 = 3.333.. min/km; 0 -> 0.
-        assert!((s.gap[0] - (1000.0 / 5.0 / 60.0)).abs() < 1e-9);
-        assert_eq!(s.gap[1], 0.0);
+    }
+
+    fn altitude_pair(
+        fixed: serde_json::Value,
+        device: serde_json::Value,
+        fixed_first: bool,
+    ) -> ParsedStreams {
+        let fixed = json!({"type": "fixed_altitude", "data": fixed});
+        let device = json!({"type": "altitude", "data": device});
+        let (a, b) = if fixed_first {
+            (fixed, device)
+        } else {
+            (device, fixed)
+        };
+        let raw: Vec<StreamDto> = serde_json::from_value(json!([
+            {"type": "latlng", "data": [42.5, 42.6, 42.7], "data2": [1.1, 1.2, 1.3]},
+            a,
+            b
+        ]))
+        .unwrap();
+        parse_streams(raw)
+    }
+
+    #[test]
+    fn parse_streams_falls_back_to_device_altitude_when_corrected_is_unusable() {
+        for fixed_first in [true, false] {
+            for fixed in [json!([null, null, null]), json!([])] {
+                let s = altitude_pair(fixed, json!([10.0, 11.0, 12.0]), fixed_first);
+                assert_eq!(
+                    s.altitude,
+                    vec![10.0, 11.0, 12.0],
+                    "fixed_first={fixed_first}"
+                );
+                assert!(!s.altitude_is_fixed);
+            }
+        }
+    }
+
+    #[test]
+    fn parse_streams_prefers_corrected_altitude_with_one_usable_sample_in_either_order() {
+        for fixed_first in [true, false] {
+            let s = altitude_pair(
+                json!([null, 200.0, null]),
+                json!([10.0, 11.0, 12.0]),
+                fixed_first,
+            );
+            assert!(s.altitude_is_fixed);
+            assert_eq!(s.altitude[1], 200.0);
+            assert!(s.altitude[0].is_nan());
+        }
+    }
+
+    #[test]
+    fn parse_streams_with_both_altitude_series_unusable_has_no_finite_sample() {
+        for fixed_first in [true, false] {
+            let s = altitude_pair(
+                json!([null, null, null]),
+                json!([null, null, null]),
+                fixed_first,
+            );
+            assert!(s.altitude.iter().all(|v| !v.is_finite()));
+            assert!(!s.altitude_is_fixed);
+        }
     }
 
     #[test]
@@ -721,14 +790,6 @@ mod tests {
         assert_eq!(w[0].ramp_rate, Some(1.2));
     }
 
-    #[test]
-    fn pace_minutes_from_speed_guards_invalid() {
-        assert_eq!(pace_minutes_from_speed(0.0, 1000.0), 0.0);
-        assert_eq!(pace_minutes_from_speed(-3.0, 1000.0), 0.0);
-        assert_eq!(pace_minutes_from_speed(f64::NAN, 1000.0), 0.0);
-        assert!((pace_minutes_from_speed(5.0, 1000.0) - 3.3333333333).abs() < 1e-6);
-    }
-
     // Golden tests below mirror the real `streams.json`, activities, intervals,
     // sport-settings, wellness, and curve envelopes captured from intervals.icu.
     // Values are synthetic/anonymised; the key set, types, and null placement
@@ -754,7 +815,6 @@ mod tests {
         let s = parse_streams(raw);
         assert_eq!(s.time, vec![0, 1, 2]);
         assert_eq!(s.latlng, vec![[42.5, 1.1], [42.6, 1.2], [42.7, 1.3]]);
-        assert_eq!(s.watts, vec![150.0, 160.0, 170.0]);
     }
 
     #[test]
@@ -767,7 +827,7 @@ mod tests {
             "start_date_local": "2026-05-01T12:00:00", "moving_time": 2663,
             "elapsed_time": 2700, "distance": 6430.24, "total_elevation_gain": 160.9,
             "average_speed": 2.41, "max_speed": 4.1, "average_heartrate": 145,
-            "icu_average_watts": 210, "average_watts": null, "max_watts": null,
+            "icu_average_watts": 210, "icu_pm_p_max": null,
             "average_cadence": 82, "calories": 541, "icu_training_load": 114,
             "icu_ftp": 250, "has_weather": true, "average_weather_temp": 18.5,
             "stream_types": ["time", "heartrate", "latlng", "distance"],
@@ -783,8 +843,7 @@ mod tests {
         assert_eq!(a.activity_type.as_deref(), Some("Run"));
         assert_eq!(a.moving_time, Some(2663));
         assert_eq!(a.icu_average_watts, Some(210.0));
-        assert_eq!(a.average_watts, None); // null power -> None
-        assert_eq!(a.max_watts, None);
+        assert_eq!(a.icu_pm_p_max, None);
         assert_eq!(a.description, None);
         assert_eq!(a.device_name.as_deref(), Some("Garmin"));
         assert_eq!(a.has_weather, Some(true));

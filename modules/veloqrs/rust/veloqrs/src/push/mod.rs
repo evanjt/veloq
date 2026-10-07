@@ -8,7 +8,7 @@
 //!
 //! Android's handler shares the app process; the iOS one is a Notification
 //! Service Extension, a second process against the same App Group container.
-//! Both arrive with an id and nothing else, so both hand over a database path
+//! Both arrive with an activity and athlete id, then hand over a database path
 //! and a credential first.
 //!
 //! The surface is hand-written JNI rather than generated Kotlin bindings.
@@ -16,9 +16,9 @@
 //! callback-interface initialisation, and a second installer of that vtable in
 //! one process makes Rust dispatch a JavaScript-registered observer through
 //! another language's handle map. `scripts/lint-one-observer-vtable.mjs`
-//! refuses one. Three symbols beside the tile store's is the whole cost of
+//! refuses one. Four JNI symbols beside the tile store's are the whole cost of
 //! avoiding the question. iOS has no JNI and the same objection, so `c.rs` is
-//! the twin: plain C symbols in the xcframework, the shape `basemap/c.rs`
+//! the twin: plain C symbols in the static library, the shape `basemap/c.rs`
 //! already uses for the tile scheme handler.
 //!
 //! The functions here hold the decisions and the two boundary files only
@@ -46,10 +46,38 @@ pub fn prepare_native_session(
     secret: &str,
     athlete_id: &str,
 ) -> Result<(), String> {
-    if crate::persistence::with_persistent_engine(|_| ()).is_none()
-        && !crate::persistence::persistent_engine_ffi::persistent_engine_init(db_path.to_string())
+    if crate::persistence::persistent_engine_ffi::open_if_closed(db_path.to_string(), false)
+        .is_none()
     {
         return Err(format!("the engine did not open at {db_path}"));
+    }
+    if crate::objects::current_transport().is_none() {
+        crate::objects::set_credentials_from_native(auth_method, secret, athlete_id)?;
+    }
+    Ok(())
+}
+
+/// Open the engine for a caller that has no credential to set, so the run can
+/// still be recorded and the plain entry can still read the stored title.
+/// An engine that is already open is left as it is.
+pub fn open_native_engine(db_path: &str) -> Result<(), String> {
+    crate::persistence::persistent_engine_ffi::open_if_closed(db_path.to_string(), false)
+        .map(|_| ())
+        .ok_or_else(|| format!("the engine did not open at {db_path}"))
+}
+
+fn prepare_extension_session(
+    db_path: &str,
+    auth_method: &str,
+    secret: &str,
+    athlete_id: &str,
+) -> Result<(), String> {
+    if crate::persistence::persistent_engine_ffi::open_for_push_if_closed(db_path.to_string())
+        .is_none()
+    {
+        return Err(format!(
+            "the extension could not open the engine at {db_path}"
+        ));
     }
     if crate::objects::current_transport().is_none() {
         crate::objects::set_credentials_from_native(auth_method, secret, athlete_id)?;
@@ -98,7 +126,64 @@ pub fn prepare_native_session_from_keychain(
 ) -> Result<(), String> {
     let (method, secret, athlete) = native_auth_choice(access_token, api_key, athlete_id)
         .ok_or_else(|| "the keychain held no credential this handler can use".to_string())?;
-    prepare_native_session(db_path, method, secret, athlete)
+    prepare_extension_session(db_path, method, secret, athlete)
+}
+
+/// Most key names kept in a refusal reason, and the longest one kept whole.
+/// A payload is the server's to shape, and the reason is a line on a screen.
+const REASON_KEYS_KEPT: usize = 12;
+const REASON_KEY_LENGTH: usize = 32;
+
+/// The reason recorded for a push whose payload the extension could not read.
+///
+/// Built from key names alone, never their values: a payload carries ids and
+/// can carry credentials, and the reason is stored and shown. `body` is
+/// `None` when the payload has no developer data under that key. Names are
+/// sorted so the same shape always reads the same, and trimmed so a hostile
+/// payload cannot fill the table.
+pub fn payload_refusal_reason(top_level: &[&str], body: Option<&[&str]>) -> String {
+    fn list(keys: &[&str]) -> String {
+        let mut names: Vec<String> = keys
+            .iter()
+            .map(|k| k.chars().take(REASON_KEY_LENGTH).collect())
+            .collect();
+        names.sort();
+        names.dedup();
+        let more = names.len().saturating_sub(REASON_KEYS_KEPT);
+        names.truncate(REASON_KEYS_KEPT);
+        let mut joined = names.join(",");
+        if more > 0 {
+            joined.push_str(&format!(",+{more}"));
+        }
+        format!("[{joined}]")
+    }
+    match body {
+        Some(body) => format!(
+            "payload not recognised: keys={} body={}",
+            list(top_level),
+            list(body)
+        ),
+        None => format!("payload not recognised: keys={}", list(top_level)),
+    }
+}
+
+/// Record a run that ended before the engine answered, opening the engine at
+/// `db_path` when it is not already open.
+///
+/// The extension's early exits (an unreadable payload, a keychain that would
+/// not answer, a refused prepare) happen before anything has opened the
+/// engine, and `push_runs` is written only through an open one. Best effort,
+/// like every run record: it cannot fail the push it describes.
+pub fn record_refusal(db_path: &str, activity_id: &str, reason: &str) {
+    if crate::persistence::persistent_engine_ffi::open_for_push_if_closed(db_path.to_string())
+        .is_none()
+    {
+        log::warn!(
+            "[push] the refusal of {activity_id} was not recorded: the engine would not open"
+        );
+        return;
+    }
+    runs::record(activity_id, PushRunOutcome::Failed, Some(reason));
 }
 
 /// One activity's index summary as JSON, for a caller that speaks no UniFFI.
@@ -120,7 +205,21 @@ pub fn index_summary_json(summary: &crate::FfiIndexActivitySummary) -> String {
 /// nothing to retry with that would go differently, so the shapes the JSI path
 /// distinguishes are worth nothing here.
 pub fn fetch_and_index_json(activity_id: &str, sport_type: &str) -> Result<String, String> {
-    crate::ffi::fetch_and_index_activity(activity_id.to_string(), sport_type.to_string())
+    fetch_and_index_json_for(
+        crate::persistence::engine_install(),
+        activity_id,
+        sport_type,
+    )
+}
+
+/// [`fetch_and_index_json`] against the library a push started in, so a wipe
+/// between the push's start and the track's store refuses the write.
+fn fetch_and_index_json_for(
+    install: u64,
+    activity_id: &str,
+    sport_type: &str,
+) -> Result<String, String> {
+    crate::ffi::fetch_and_index_activity_for(install, activity_id, sport_type.to_string())
         .map(|summary| index_summary_json(&summary))
         .map_err(|e| e.to_string())
 }
@@ -136,13 +235,13 @@ pub fn fetch_and_index_json(activity_id: &str, sport_type: &str) -> Result<Strin
 /// ladder found nothing worth one, or no string bundle has been pushed yet.
 /// Neither is a body of raw keys, and the two are told apart because on a
 /// handset they are the difference between a quiet ride and an install whose
-/// JavaScript has never had a full launch. What the Android worker does with
-/// either is post the plain entry of [`fallback_notification_json`]; the iOS
-/// extension leaves the notification it was handed as it is.
+/// JavaScript has never had a full launch. Both handlers
+/// post the plain entry of [`fallback_notification_json`] for either.
 pub fn activity_notification_outcome(
     activity_id: &str,
     activity_name: &str,
     announce_prs: bool,
+    announce_milestones: bool,
 ) -> Result<Result<String, PushRunOutcome>, String> {
     // Off the engine lock: the handler runs whenever the push lands, which is
     // as often as not while a sync page holds the writer.
@@ -152,7 +251,7 @@ pub fn activity_notification_outcome(
             activity_id,
             activity_name,
             announce_prs,
-            None,
+            announce_milestones,
         )
     })
     .ok_or_else(|| "the engine is not open".to_string())?;
@@ -173,64 +272,25 @@ pub fn activity_notification_outcome(
     )))
 }
 
-/// The same sentence for a caller that only wants whether there is one.
-pub fn activity_notification_json(
-    activity_id: &str,
-    activity_name: &str,
-    announce_prs: bool,
-) -> Result<Option<String>, String> {
-    activity_notification_outcome(activity_id, activity_name, announce_prs).map(Result::ok)
-}
-
 /// What the preferences row allows: `None` to post nothing, otherwise whether
-/// section PRs may be announced.
+/// section PRs and fitness milestones may be announced, in that order.
 ///
 /// An absent or unreadable row is the store's default, which is off. A
-/// missing `categories.sectionPr` is the store's default for that flag, which
-/// is on: the row is spread over the defaults on read, so a row written
-/// before the flag existed announces PRs there too.
-pub fn handler_gate(row: Option<&str>) -> Option<bool> {
+/// missing category is the store's default for that flag, which is on: the
+/// row is spread over the defaults on read, so a row written before a flag
+/// existed announces it there too.
+pub fn handler_gate(row: Option<&str>) -> Option<(bool, bool)> {
     let json: serde_json::Value = serde_json::from_str(row?).ok()?;
     if json.get("enabled").and_then(|v| v.as_bool()) != Some(true) {
         return None;
     }
-    Some(
+    let category = |name: &str| {
         json.get("categories")
-            .and_then(|c| c.get("sectionPr"))
+            .and_then(|c| c.get(name))
             .and_then(|v| v.as_bool())
-            .unwrap_or(true),
-    )
-}
-
-/// The gated sentence for an activity the library already holds, which is what
-/// the iOS notification service extension asks for.
-///
-/// iOS splits the work the Android worker does in one call: the extension is
-/// handed a notification that is already on its way, fetches and indexes, then
-/// asks for the sentence to rewrite it with. So the gate and the ladder are
-/// wanted without the fetch that `activity_push_json` does first.
-///
-/// `Ok(None)` is post nothing, whether the gate or the ladder said so. The
-/// error is the engine not being open, which is a caller that skipped
-/// `prepare`, and is worth a log line rather than a quiet `None`.
-pub fn activity_notification_for_handler(
-    activity_id: &str,
-    activity_name: &str,
-) -> Result<Option<String>, String> {
-    let announce_prs = crate::persistence::read_pool::with_read_conn(|conn| {
-        crate::persistence::settings::setting_from(
-            conn,
-            crate::persistence::settings::settings_keys::NOTIFICATION_PREFERENCES,
-        )
-        .map_err(|e| e.to_string())
-    })
-    .ok_or_else(|| "the engine is not open".to_string())?
-    .map(|row| handler_gate(row.as_deref()))?;
-
-    match announce_prs {
-        Some(announce_prs) => activity_notification_json(activity_id, activity_name, announce_prs),
-        None => Ok(None),
-    }
+            .unwrap_or(true)
+    };
+    Some((category("sectionPr"), category("fitnessMilestone")))
 }
 
 /// What the detail body gave the push: the name the sentence carries and the
@@ -288,7 +348,7 @@ const FALLBACK_TITLE: &str = "New activity";
 /// name when the run got far enough to learn it, and empty otherwise: the tap
 /// target is the activity id, which the poster carries either way, so an entry
 /// with no body still opens the ride.
-fn fallback_notification_json(activity_name: Option<&str>) -> String {
+pub fn fallback_notification_json(activity_name: Option<&str>) -> String {
     let title = crate::persistence::read_pool::with_read_conn(|conn| {
         let stored = crate::persistence::settings::notification_templates_from(conn).ok()??;
         stored
@@ -309,7 +369,7 @@ fn fallback_notification_json(activity_name: Option<&str>) -> String {
 /// One activity push, end to end, for a handler that speaks no UniFFI: the
 /// gate, the detail body, the track and its index, then the sentence.
 ///
-/// `Ok(None)` is the athlete's own switch, and nothing else. The server no
+/// `Ok(None)` is the athlete's switch or a mismatched athlete id. The server no
 /// longer sends the placeholder to Android, so this is the only thing that
 /// posts, and every other outcome answers with an entry: the
 /// enriched sentence when the ladder produced one, and the plain entry of
@@ -321,7 +381,7 @@ fn fallback_notification_json(activity_name: Option<&str>) -> String {
 /// recorded and answered with the plain entry, because the athlete's side of
 /// it is the same either way.
 ///
-/// Every one of the five outcomes is written to `push_runs` before the answer
+/// Every outcome is written to `push_runs` before the answer
 /// is handed back, because the log is not a record an athlete's phone keeps:
 /// a device build logs at `Warn` and logcat is gone by the time anyone asks.
 /// The Developer Dashboard reads the table.
@@ -329,7 +389,20 @@ fn fallback_notification_json(activity_name: Option<&str>) -> String {
 /// The gate is read before anything is fetched. An athlete who turned
 /// notifications off gets no fetch on their behalf either, which is what the
 /// JavaScript task did.
-pub fn activity_push_json(activity_id: &str) -> Result<Option<String>, String> {
+pub fn activity_push_json(
+    activity_id: &str,
+    incoming_athlete_id: &str,
+) -> Result<Option<String>, String> {
+    // Taken before the session is read: every write this run makes is refused
+    // once a wipe has moved the install, whatever the session still names.
+    let install = crate::persistence::engine_install();
+    if let Some(session) = crate::objects::current_session() {
+        let (_, signed_in_athlete_id) = session?;
+        if signed_in_athlete_id != incoming_athlete_id {
+            runs::record_for(install, activity_id, PushRunOutcome::AthleteMismatch, None);
+            return Ok(None);
+        }
+    }
     let row = crate::persistence::read_pool::with_read_conn(|conn| {
         crate::persistence::settings::setting_from(
             conn,
@@ -337,30 +410,56 @@ pub fn activity_push_json(activity_id: &str) -> Result<Option<String>, String> {
         )
         .map_err(|e| e.to_string())
     })
-    .ok_or_else(|| "the engine is not open".to_string())??;
-    let Some(announce_prs) = handler_gate(row.as_deref()) else {
+    .ok_or_else(|| "the engine is not open".to_string())?;
+    let row = match row {
+        Ok(row) => row,
+        Err(e) => {
+            log::warn!("[push] settings read failed for {activity_id}: {e}");
+            runs::record_for(install, activity_id, PushRunOutcome::Failed, Some(&e));
+            return Ok(Some(fallback_notification_json(None)));
+        }
+    };
+    let Some((announce_prs, announce_milestones)) = handler_gate(row.as_deref()) else {
         log::warn!("[push] notifications are off, leaving {activity_id} alone");
-        runs::record(activity_id, PushRunOutcome::NotificationsOff, None);
+        runs::record_for(install, activity_id, PushRunOutcome::NotificationsOff, None);
         return Ok(None);
     };
 
-    match activity_push_run(activity_id, announce_prs) {
-        Ok(Ok(json)) => {
-            runs::record(activity_id, PushRunOutcome::Posted, None);
-            Ok(Some(json))
+    match activity_push_run(
+        install,
+        activity_id,
+        incoming_athlete_id,
+        announce_prs,
+        announce_milestones,
+    ) {
+        // The library is no longer the one this push started in or the
+        // incoming athlete's, so nothing was written and the run says nothing:
+        // the server's plain notification is what the athlete gets.
+        Ok(None) => {
+            log::warn!("[push] {activity_id} was dropped: the library changed under it");
+            Ok(None)
         }
-        Ok(Err(quiet)) => {
-            runs::record(activity_id, quiet.outcome, None);
-            Ok(Some(fallback_notification_json(
-                quiet.activity_name.as_deref(),
-            )))
+        Ok(Some(run)) => {
+            let outcome = run
+                .as_ref()
+                .err()
+                .map_or(PushRunOutcome::Posted, |q| q.outcome);
+            runs::record_for(install, activity_id, outcome, None);
+            Ok(Some(answer_for_run(run)))
         }
         Err(e) => {
             log::warn!("[push] {activity_id} fell back to a plain entry: {e}");
-            runs::record(activity_id, PushRunOutcome::Failed, Some(&e));
+            runs::record_for(install, activity_id, PushRunOutcome::Failed, Some(&e));
             Ok(Some(fallback_notification_json(None)))
         }
     }
+}
+
+/// What the handler is handed for a run that got past the gate: the sentence,
+/// or for a quiet ride the plain entry carrying the ride's name when the run
+/// learned it.
+fn answer_for_run(run: Result<String, Quiet>) -> String {
+    run.unwrap_or_else(|quiet| fallback_notification_json(quiet.activity_name.as_deref()))
 }
 
 /// Why a run produced no sentence, and what it had learned by then.
@@ -388,10 +487,15 @@ impl From<PushRunOutcome> for Quiet {
 /// Separate from [`activity_push_json`] so that every path out of it, the
 /// early returns included, is recorded in one place rather than at each
 /// `return`.
+///
+/// `Ok(None)` is a run that wrote nothing because the library changed under it.
 fn activity_push_run(
+    install: u64,
     activity_id: &str,
+    incoming_athlete_id: &str,
     announce_prs: bool,
-) -> Result<Result<String, Quiet>, String> {
+    announce_milestones: bool,
+) -> Result<Option<Result<String, Quiet>>, String> {
     let transport =
         crate::objects::current_transport().ok_or_else(|| "no credentials set".to_string())??;
     // The upstream id is a read, so it comes off the pool rather than the
@@ -412,14 +516,74 @@ fn activity_push_run(
         &upstream,
         crate::governor::Lane::Interactive,
     ))
-    .map_err(|e| format!("the detail of {activity_id}: {e}"))?;
+    .map_err(|e| {
+        if matches!(e, crate::net::transport::NetError::Unauthorized)
+            && let Some(Ok((current, athlete_id))) = crate::objects::current_session()
+        {
+            crate::runtime::block_on(crate::objects::park_auth_expired(&current, &athlete_id));
+        }
+        format!("the detail of {activity_id}: {e}")
+    })?;
 
-    // One take of the lock for the detail and, when the track is already
-    // stored, the index. A webhook delivered twice, or one that arrived before
-    // the track was indexed, has the track already, and indexing is
-    // idempotent, so the second pass costs no network round trip.
-    let (detail, indexed) = crate::persistence::with_persistent_engine(|engine| {
-        let detail = record_activity_detail(engine, activity_id, &body)?;
+    let Some((detail, indexed)) =
+        store_pushed_detail(install, incoming_athlete_id, activity_id, &body)?
+    else {
+        return Ok(None);
+    };
+    crate::objects::observer::notify(crate::objects::observer::Announcement::BodyStored {
+        kind: "activity_detail".to_string(),
+        activity_id: activity_id.to_string(),
+    });
+    if !indexed {
+        // The track's own store and index move the token again, inside the
+        // take that does the indexing, so a foreground that already took the
+        // first bump is told about this one too.
+        fetch_and_index_json_for(install, activity_id, &detail.sport_type)?;
+    }
+
+    Ok(Some(
+        activity_notification_outcome(
+            activity_id,
+            &detail.name,
+            announce_prs,
+            announce_milestones,
+        )?
+        .map_err(|outcome| Quiet {
+            outcome,
+            activity_name: Some(detail.name.clone()),
+        }),
+    ))
+}
+
+/// One take of the lock for the detail and, when the track is already stored,
+/// the index. A webhook delivered twice, or one that arrived before the track
+/// was indexed, has the track already, and indexing is idempotent, so the
+/// second pass costs no network round trip.
+///
+/// `None` is a library that is not the one the push started in or not the
+/// incoming athlete's: the install has moved, or the library names a different
+/// athlete or none, which is what a wipe leaves. The check runs under the lock
+/// the wipe takes, before the first write, so nothing of the ride is stored.
+/// The `bool` is whether the track was already stored and is now indexed.
+fn store_pushed_detail(
+    install: u64,
+    incoming_athlete_id: &str,
+    activity_id: &str,
+    body: &str,
+) -> Result<Option<(ActivityDetail, bool)>, String> {
+    // A plain sign-out keeps the library, so the owner check below cannot see
+    // it: the credential is what says the athlete asked to be forgotten.
+    if !crate::objects::sync::still_signed_in(incoming_athlete_id) {
+        return Ok(None);
+    }
+    let taken = crate::persistence::with_persistent_engine_for(install, |engine| {
+        let owner = engine
+            .get_setting(crate::persistence::settings_keys::ATHLETE_ID)
+            .map_err(|e| e.to_string())?;
+        if owner.as_deref() != Some(incoming_athlete_id) {
+            return Ok::<_, String>(None);
+        }
+        let detail = record_activity_detail(engine, activity_id, body)?;
         // Said before the index rather than after, and inside the same take of
         // the lock: a foreground that resumes between the two sees a token it
         // has not taken and re-reads, which costs a reload it could have
@@ -429,31 +593,18 @@ fn activity_push_run(
             log::warn!("[push] {activity_id} was written without a token: {e}");
         }
         if !engine.has_activity(activity_id) {
-            return Ok((detail, false));
+            return Ok(Some((detail, false)));
         }
         engine.index_new_activity(activity_id)?;
-        Ok::<_, String>((detail, true))
-    })
-    .ok_or_else(|| "the engine is not open".to_string())??;
-    crate::objects::observer::notify(crate::objects::observer::Announcement::BodyStored {
-        kind: "activity_detail".to_string(),
-        activity_id: activity_id.to_string(),
+        Ok(Some((detail, true)))
     });
-    if !indexed {
-        // The track's own store and index move the token again, inside the
-        // take that does the indexing, so a foreground that already took the
-        // first bump is told about this one too.
-        fetch_and_index_json(activity_id, &detail.sport_type)?;
+    match taken {
+        Some(result) => result,
+        // A closed engine and a moved install both answer `None`. A moved
+        // install is the wipe's doing, not an error to report.
+        None if crate::persistence::engine_install() != install => Ok(None),
+        None => Err("the engine is not open".to_string()),
     }
-
-    Ok(
-        activity_notification_outcome(activity_id, &detail.name, announce_prs)?.map_err(
-            |outcome| Quiet {
-                outcome,
-                activity_name: Some(detail.name.clone()),
-            },
-        ),
-    )
 }
 
 /// A JSON string literal. The titles and bodies are translated and carry
@@ -516,33 +667,81 @@ mod tests {
         crate::persistence::clear_persistent_engine();
     }
 
+    /// Scenario: the stored credential no longer decrypts, so a cold push
+    /// reaches the handler with nothing to fetch with.
+    ///
+    /// Expected behaviour: the engine still opens, the failed run is recorded
+    /// with its reason, and the plain entry carries the stored locale's title.
+    #[test]
+    fn an_engine_opened_without_a_credential_records_the_failure_and_reads_the_stored_title() {
+        let _guard = serial_global_state();
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let db = tmp.path().join("routes.db");
+        crate::persistence::clear_persistent_engine();
+        {
+            prepare_native_session(&db.to_string_lossy(), "api_key", "a-secret", "i1")
+                .expect("the first launch");
+            crate::persistence::with_persistent_engine(|engine| {
+                engine
+                    .set_notification_templates("en-AU", &bundle())
+                    .expect("the write");
+            })
+            .expect("the engine");
+            crate::persistence::clear_persistent_engine();
+        }
+
+        open_native_engine(&db.to_string_lossy()).expect("the engine without a credential");
+        runs::record("a1", PushRunOutcome::Failed, Some("missing credential"));
+
+        let kept = runs::recent();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].activity_id, "a1");
+        assert_eq!(kept[0].detail.as_deref(), Some("missing credential"));
+        let stored = crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .notification_templates()
+                .ok()
+                .flatten()
+                .and_then(|t| {
+                    t.templates
+                        .get(crate::notifications::RECORDED_TITLE_KEY)
+                        .cloned()
+                })
+        })
+        .flatten()
+        .expect("a stored title");
+        assert!(fallback_notification_json(None).contains(&json_string(&stored)));
+        crate::persistence::clear_persistent_engine();
+    }
+
     /// Scenario: a handler on an install whose JavaScript has never pushed a
     /// string bundle.
     ///
     /// Expected behaviour: no notification, rather than a body of raw keys,
     /// and the outcome says which of the two silent ones it was.
     #[test]
-    fn a_handler_with_no_string_bundle_posts_nothing() {
+    fn a_handler_with_no_string_bundle_has_no_sentence() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
 
         assert_eq!(
-            activity_notification_json("a1", "Morning Ride", true).expect("the engine"),
+            activity_notification_outcome("a1", "Morning Ride", true, false)
+                .expect("the engine")
+                .ok(),
             None
         );
         assert_eq!(
-            activity_notification_outcome("a1", "Morning Ride", true).expect("the engine"),
+            activity_notification_outcome("a1", "Morning Ride", true, false).expect("the engine"),
             Err(PushRunOutcome::NoStringBundle)
         );
     }
 
     /// Scenario: the ladder found nothing worth a push.
     ///
-    /// Expected behaviour: the same `None`, so the generic tray entry the
-    /// worker already posted is left standing rather than replaced by an empty
-    /// line.
+    /// Expected behaviour: the outcome says nothing was worth a sentence, and
+    /// the caller answers with the plain entry.
     #[test]
-    fn a_ride_with_nothing_in_it_posts_nothing() {
+    fn a_ride_with_nothing_in_it_has_no_sentence() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
         crate::persistence::with_persistent_engine(|engine| {
@@ -553,15 +752,61 @@ mod tests {
         .expect("the engine");
 
         assert_eq!(
-            activity_notification_json("not-an-activity", "Morning Ride", true)
-                .expect("the engine"),
+            activity_notification_outcome("not-an-activity", "Morning Ride", true, false)
+                .expect("the engine")
+                .ok(),
             None
         );
         assert_eq!(
-            activity_notification_outcome("not-an-activity", "Morning Ride", true)
+            activity_notification_outcome("not-an-activity", "Morning Ride", true, false)
                 .expect("the engine"),
             Err(PushRunOutcome::NothingWorthPosting),
             "a quiet ride is not an install with no string bundle"
+        );
+    }
+
+    /// Scenario: a quiet ride whose name the run learned, with a string bundle
+    /// stored.
+    ///
+    /// Expected behaviour: the answer is the stored title over the ride's name.
+    #[test]
+    fn a_quiet_ride_is_answered_with_the_stored_title_and_its_name() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .set_notification_templates("en-AU", &bundle())
+                .expect("the write");
+        })
+        .expect("the engine");
+
+        let json = answer_for_run(Err(Quiet {
+            outcome: PushRunOutcome::NothingWorthPosting,
+            activity_name: Some("Morning Ride".to_string()),
+        }));
+
+        assert_eq!(
+            json,
+            r#"{"title":"Activity Recorded","body":"Morning Ride"}"#
+        );
+    }
+
+    /// Scenario: a quiet ride on an install that has never had a string bundle.
+    ///
+    /// Expected behaviour: the English constant over the ride's name.
+    #[test]
+    fn a_quiet_ride_with_no_bundle_is_answered_with_the_constant_and_its_name() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+
+        let json = answer_for_run(Err(Quiet {
+            outcome: PushRunOutcome::NoStringBundle,
+            activity_name: Some("Morning Ride".to_string()),
+        }));
+
+        assert_eq!(
+            json,
+            format!("{{\"title\":\"{FALLBACK_TITLE}\",\"body\":\"Morning Ride\"}}")
         );
     }
 
@@ -591,16 +836,25 @@ mod tests {
         );
         assert_eq!(
             handler_gate(Some(r#"{"enabled":true,"categories":{"sectionPr":false}}"#)),
-            Some(false)
+            Some((false, true))
         );
         assert_eq!(
             handler_gate(Some(r#"{"enabled":true,"categories":{"sectionPr":true}}"#)),
-            Some(true)
+            Some((true, true))
         );
-        assert_eq!(handler_gate(Some(r#"{"enabled":true}"#)), Some(true));
+        assert_eq!(
+            handler_gate(Some(
+                r#"{"enabled":true,"categories":{"sectionPr":true,"fitnessMilestone":false}}"#
+            )),
+            Some((true, false))
+        );
+        assert_eq!(
+            handler_gate(Some(r#"{"enabled":true}"#)),
+            Some((true, true))
+        );
         assert_eq!(
             handler_gate(Some(r#"{"enabled":true,"categories":{}}"#)),
-            Some(true)
+            Some((true, true))
         );
     }
 
@@ -618,10 +872,10 @@ mod tests {
         let _tmp = global_engine_with_a_section_pr();
         crate::objects::clear_test_credentials();
 
-        assert_eq!(activity_push_json("a1"), Ok(None), "no row");
+        assert_eq!(activity_push_json("a1", "i1"), Ok(None), "no row");
 
         write_preferences(r#"{"enabled":false,"categories":{"sectionPr":true}}"#);
-        assert_eq!(activity_push_json("a1"), Ok(None), "switch off");
+        assert_eq!(activity_push_json("a1", "i1"), Ok(None), "switch off");
     }
 
     /// Scenario: notifications are on and section PRs are off, and the ride's
@@ -636,7 +890,9 @@ mod tests {
         let _tmp = global_engine_with_a_section_pr();
 
         assert_eq!(
-            activity_notification_json("a1", "Morning Ride", false).expect("the engine"),
+            activity_notification_outcome("a1", "Morning Ride", false, false)
+                .expect("the engine")
+                .ok(),
             None
         );
     }
@@ -651,7 +907,7 @@ mod tests {
         let _guard = serial_global_state();
         let _tmp = global_engine_with_a_section_pr();
 
-        let json = activity_notification_json("a1", "Morning Ride", true)
+        let json = activity_notification_outcome("a1", "Morning Ride", true, false)
             .expect("the engine")
             .expect("a notification");
 
@@ -672,7 +928,7 @@ mod tests {
         crate::objects::clear_test_credentials();
         write_preferences(r#"{"enabled":false,"categories":{"sectionPr":true}}"#);
 
-        assert_eq!(activity_push_json("a1"), Ok(None));
+        assert_eq!(activity_push_json("a1", "i1"), Ok(None));
 
         let recorded = runs::recent();
         assert_eq!(recorded.len(), 1);
@@ -694,7 +950,7 @@ mod tests {
         write_preferences(r#"{"enabled":true}"#);
 
         assert!(
-            activity_push_json("a1")
+            activity_push_json("a1", "i1")
                 .expect("a fallback, not an error")
                 .is_some()
         );
@@ -718,81 +974,7 @@ mod tests {
         let _guard = serial_global_state();
         crate::persistence::clear_persistent_engine();
 
-        assert!(activity_push_json("a1").is_err());
-    }
-
-    /// Scenario: an athlete who never turned notifications on uploads a ride
-    /// that set a section record. The JS task returns before the ladder on
-    /// `!prefs.enabled`, and the native worker has to do the same.
-    ///
-    /// Expected behaviour: nothing, with the row absent and with it written
-    /// off, on a ride the ladder would otherwise have a sentence for.
-    #[test]
-    fn a_handler_honours_the_switch_before_it_writes_a_sentence() {
-        let _guard = serial_global_state();
-        let _tmp = global_engine_with_a_section_pr();
-
-        assert_eq!(
-            activity_notification_for_handler("a1", "Morning Ride").expect("the engine"),
-            None,
-            "no row"
-        );
-
-        write_preferences(r#"{"enabled":false,"categories":{"sectionPr":true}}"#);
-        assert_eq!(
-            activity_notification_for_handler("a1", "Morning Ride").expect("the engine"),
-            None,
-            "switch off"
-        );
-    }
-
-    /// Scenario: notifications are on and section PRs are off, and the ride's
-    /// only story is a section PR.
-    ///
-    /// Expected behaviour: nothing. The flag reaches the ladder, which then
-    /// has no rung left for this ride.
-    #[test]
-    fn a_handler_honours_the_section_pr_flag() {
-        let _guard = serial_global_state();
-        let _tmp = global_engine_with_a_section_pr();
-
-        write_preferences(r#"{"enabled":true,"categories":{"sectionPr":false}}"#);
-        assert_eq!(
-            activity_notification_for_handler("a1", "Morning Ride").expect("the engine"),
-            None
-        );
-    }
-
-    /// Scenario: notifications are on and the row predates the category
-    /// flags, so it carries none.
-    ///
-    /// Expected behaviour: the section PR is announced, since the store's
-    /// default for a missing category is on.
-    #[test]
-    fn a_handler_announces_a_section_pr_when_the_switch_is_on() {
-        let _guard = serial_global_state();
-        let _tmp = global_engine_with_a_section_pr();
-
-        write_preferences(r#"{"enabled":true}"#);
-        let json = activity_notification_for_handler("a1", "Morning Ride")
-            .expect("the engine")
-            .expect("a notification");
-
-        assert!(json.contains("PR on Climb 1"), "{json}");
-        assert!(json.contains("\"title\":\"New PR\""), "{json}");
-    }
-
-    /// Scenario: the engine is not open, which is a worker that skipped
-    /// `prepare` or one whose `prepare` was refused.
-    ///
-    /// Expected behaviour: an error the worker logs, not a silent `None` that
-    /// reads as "nothing worth posting".
-    #[test]
-    fn a_handler_with_no_engine_is_told_so() {
-        let _guard = serial_global_state();
-        crate::persistence::clear_persistent_engine();
-
-        assert!(activity_notification_for_handler("a1", "Morning Ride").is_err());
+        assert!(activity_push_json("a1", "i1").is_err());
     }
 
     /// What JavaScript's `persist` writes, as `setSetting` hands it to the
@@ -833,6 +1015,9 @@ mod tests {
             engine
                 .add_activity("a1".to_string(), coords.clone(), "Ride".to_string())
                 .expect("add activity");
+            engine
+                .add_activity("a0".to_string(), coords.clone(), "Ride".to_string())
+                .expect("add earlier activity");
             let polyline = serde_json::to_string(
                 &coords
                     .iter()
@@ -861,22 +1046,36 @@ mod tests {
                 )
                 .expect("the lap");
             engine
-                .set_activity_metrics(vec![crate::ActivityMetrics {
-                    activity_id: "a1".to_string(),
-                    name: "Morning Ride".to_string(),
-                    date: 1_700_000_000,
-                    distance: 400.0,
-                    moving_time: 8,
-                    elapsed_time: 8,
-                    elevation_gain: 0.0,
-                    avg_hr: None,
-                    avg_power: None,
-                    sport_type: "Ride".to_string(),
-                    training_load: None,
-                    ftp: None,
-                    power_zone_times: None,
-                    hr_zone_times: None,
-                }])
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters, lap_time, lap_pace)
+                     VALUES ('s0', 'a0', 'same', 1, 5, 400.0, 6.0, 66.6666667)",
+                    [],
+                )
+                .expect("the earlier lap");
+            let current = crate::ActivityMetrics {
+                activity_id: "a1".to_string(),
+                name: "Morning Ride".to_string(),
+                date: 1_700_000_000,
+                distance: 400.0,
+                moving_time: 8,
+                elapsed_time: 8,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: "Ride".to_string(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            };
+            let mut earlier = current.clone();
+            earlier.activity_id = "a0".to_string();
+            earlier.name = "Earlier Ride".to_string();
+            earlier.date -= 86_400;
+            engine
+                .set_activity_metrics(vec![current, earlier])
                 .expect("the metrics");
             engine.set_time_streams_flat(&["a1".to_string()], &(0..8).collect::<Vec<u32>>(), &[0]);
         })
@@ -915,6 +1114,10 @@ mod tests {
                 "PR on {{name}} and {{count}} more",
             ),
             (
+                "notifications.activityBody.sectionPrManyOne",
+                "PR on {{name}} and one more",
+            ),
+            (
                 "notifications.activityBody.fasterOnRoute",
                 "Faster than usual on {{name}}",
             ),
@@ -922,7 +1125,11 @@ mod tests {
                 "notifications.activityBody.fasterOnRouteDelta",
                 "Faster than usual on {{name}} ({{delta}} off PR)",
             ),
-            ("notifications.activityBody.onRoute", "On {{name}}"),
+            (
+                "insights.ftpIncrease",
+                "Cycling eFTP: {{current}}W (+{{change}}W)",
+            ),
+            ("insights.paceImproved", "Pace improved {{delta}}"),
         ]
         .into_iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -1060,7 +1267,7 @@ mod tests {
         })
         .expect("the engine");
 
-        assert_eq!(activity_push_json("i9"), Ok(None));
+        assert_eq!(activity_push_json("i9", "i1"), Ok(None));
     }
 
     /// Scenario: the same push with notifications on, in a process where no
@@ -1082,7 +1289,7 @@ mod tests {
         })
         .expect("the engine");
 
-        let json = activity_push_json("i9")
+        let json = activity_push_json("i9", "i1")
             .expect("not an error the worker drops")
             .expect("an entry");
 
@@ -1092,6 +1299,43 @@ mod tests {
             Some("no credentials set"),
             "the reason is recorded rather than shown"
         );
+    }
+
+    #[test]
+    fn a_push_for_another_athlete_fetches_and_stores_nothing() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        crate::objects::clear_test_credentials();
+        crate::objects::set_credentials_from_native("api_key", "secret", "i2").expect("credential");
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .set_setting("veloq-notification-preferences", r#"{"enabled":true}"#)
+                .expect("preferences");
+        })
+        .expect("engine");
+
+        assert_eq!(activity_push_json("i9", "i1"), Ok(None));
+        assert_eq!(runs::recent()[0].outcome, "athlete-mismatch");
+        let stored =
+            crate::persistence::with_persistent_engine(|engine| engine.get_activity_body("i9"))
+                .expect("engine");
+        assert_eq!(stored, None);
+    }
+
+    #[test]
+    fn a_settings_read_error_posts_a_plain_entry_and_records_failure() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        crate::persistence::with_persistent_engine(|engine| {
+            engine.db.execute("DROP TABLE settings", []).expect("drop");
+        })
+        .expect("engine");
+
+        let json = activity_push_json("i9", "i1")
+            .expect("fallback")
+            .expect("entry");
+        assert!(json.contains(FALLBACK_TITLE), "{json}");
+        assert_eq!(runs::recent()[0].outcome, "failed");
     }
 
     /// Scenario: the ladder found nothing on an ordinary ride. The string
@@ -1161,6 +1405,163 @@ mod tests {
         crate::objects::clear_test_credentials();
         write_preferences(r#"{"enabled":false,"categories":{"sectionPr":true}}"#);
 
-        assert_eq!(activity_push_json("a1"), Ok(None));
+        assert_eq!(activity_push_json("a1", "i1"), Ok(None));
+    }
+
+    fn stamp_library_owner(athlete_id: &str) {
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .set_setting(crate::persistence::settings_keys::ATHLETE_ID, athlete_id)
+                .expect("the stamp");
+        })
+        .expect("the engine");
+    }
+
+    fn metrics_rows(activity_id: &str) -> i64 {
+        crate::persistence::with_persistent_engine(|engine| {
+            engine
+                .db
+                .query_row(
+                    "SELECT count(*) FROM activity_metrics WHERE activity_id = ?",
+                    [activity_id],
+                    |r| r.get(0),
+                )
+                .expect("the count")
+        })
+        .expect("the engine")
+    }
+
+    /// Scenario: the library names the incoming athlete and the install is the
+    /// one the push started in.
+    ///
+    /// Expected behaviour: the detail is stored.
+    #[test]
+    fn a_library_naming_the_incoming_athlete_stores_the_push() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        stamp_library_owner("i1");
+        crate::objects::clear_test_credentials();
+        crate::objects::set_credentials_from_native("api_key", "secret", "i1").expect("credential");
+        let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
+
+        let stored = store_pushed_detail(crate::persistence::engine_install(), "i1", "i9", &body)
+            .expect("no error")
+            .expect("stored");
+
+        assert_eq!(stored.0.name, "Evening Run");
+        assert_eq!(metrics_rows("i9"), 1);
+    }
+
+    /// Scenario: the athlete signed out while the detail request was in flight.
+    /// The library still names them, since a plain sign-out keeps it.
+    ///
+    /// Expected behaviour: nothing is stored on a credential that was cleared.
+    #[test]
+    fn a_sign_out_during_the_fetch_refuses_the_push() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        stamp_library_owner("i1");
+        crate::objects::clear_test_credentials();
+        let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
+
+        let stored = store_pushed_detail(crate::persistence::engine_install(), "i1", "i9", &body)
+            .expect("no error");
+
+        assert!(stored.is_none());
+        assert_eq!(metrics_rows("i9"), 0);
+    }
+
+    /// Scenario: a wipe emptied the library, so it names no athlete, while the
+    /// session a push read at entry still names the old one.
+    ///
+    /// Expected behaviour: nothing is stored.
+    #[test]
+    fn a_library_naming_nobody_refuses_the_push() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
+
+        let stored = store_pushed_detail(crate::persistence::engine_install(), "i1", "i9", &body)
+            .expect("no error");
+
+        assert!(stored.is_none());
+        assert_eq!(metrics_rows("i9"), 0);
+    }
+
+    /// Scenario: the library names a different athlete from the push's.
+    #[test]
+    fn a_library_naming_another_athlete_refuses_the_push() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        stamp_library_owner("i2");
+        let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
+
+        let stored = store_pushed_detail(crate::persistence::engine_install(), "i1", "i9", &body)
+            .expect("no error");
+
+        assert!(stored.is_none());
+        assert_eq!(metrics_rows("i9"), 0);
+    }
+
+    /// Scenario: the install moved between the push's start and its write, the
+    /// way a wipe moves it while the body is being fetched.
+    ///
+    /// Expected behaviour: the stamp the push took at entry is refused, and the
+    /// run leaves no activity row and no `push_runs` row in the new library.
+    #[test]
+    fn a_push_started_before_a_wipe_writes_nothing_after_it() {
+        let _guard = serial_global_state();
+        let _tmp = crate::test_globals::seeded_global_engine();
+        stamp_library_owner("i1");
+        let started_in = crate::persistence::engine_install();
+        crate::persistence::invalidate_engine_install();
+        stamp_library_owner("i1");
+        let body = detail_body("i9", "Evening Run", Some("2026-09-17T18:30:00"));
+
+        let stored = store_pushed_detail(started_in, "i1", "i9", &body).expect("no error");
+        runs::record_for(started_in, "i9", PushRunOutcome::Posted, None);
+
+        assert!(stored.is_none());
+        assert_eq!(metrics_rows("i9"), 0);
+        assert!(runs::recent().is_empty());
+    }
+
+    /// Scenario: a push arrives for a ride after the athlete regenerated their
+    /// key, so the detail fetch answers 401.
+    ///
+    /// Expected behaviour: a profile that confirms the refusal parks the
+    /// service, and one that does not leaves the session standing.
+    #[test]
+    fn a_401_on_the_push_detail_parks_only_when_the_profile_confirms_it() {
+        use crate::objects::{SYNC_SERVICE, SyncState};
+        use httpmock::prelude::*;
+
+        let _guard = serial_global_state();
+        for (status, expected) in [(401, SyncState::AuthExpired), (200, SyncState::Idle)] {
+            let server = MockServer::start();
+            let _base = crate::objects::sync::test_base_url(server.base_url());
+            crate::objects::set_credentials_from_native("api_key", "key", "1").expect("credential");
+            server.mock(|when, then| {
+                when.method(GET).path("/activity/a1");
+                then.status(401);
+            });
+            server.mock(|when, then| {
+                when.method(GET).path("/athlete/1");
+                then.status(status)
+                    .json_body(serde_json::json!({"id": "1"}));
+            });
+
+            let outcome = activity_push_run(
+                crate::persistence::engine_install(),
+                "a1",
+                "1",
+                false,
+                false,
+            );
+
+            assert!(outcome.is_err(), "a refused detail posts nothing");
+            assert_eq!(SYNC_SERVICE.snapshot().state, expected, "profile {status}");
+            crate::objects::clear_test_credentials();
+        }
     }
 }

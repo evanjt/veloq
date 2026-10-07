@@ -58,12 +58,24 @@ impl LaneTimeouts {
     /// never gets more than the budget has left, so the retries add up to the
     /// budget rather than multiplying the per-attempt ceiling.
     fn attempt(&self, lane: Lane, started: Instant) -> Duration {
+        self.attempt_at(lane, started, Instant::now())
+    }
+
+    /// [`Self::attempt`] as it stands at `now`, so the remainder is a function
+    /// of its inputs rather than of when it was asked.
+    fn attempt_at(&self, lane: Lane, started: Instant, now: Instant) -> Duration {
         match self.budget(lane) {
             None => self.backfill,
             Some(budget) => self
                 .interactive
-                .min(budget.saturating_sub(started.elapsed())),
+                .min(budget.saturating_sub(now.saturating_duration_since(started))),
         }
+    }
+
+    /// Whether an attempt given `timeout` was cut short by the budget rather
+    /// than given the lane's full per-attempt ceiling.
+    fn cut_by_budget(&self, lane: Lane, timeout: Duration) -> bool {
+        self.budget(lane).is_some() && timeout < self.interactive
     }
 
     /// The whole-request ceiling for `lane`, if it has one.
@@ -119,6 +131,15 @@ impl std::fmt::Display for NetError {
 }
 
 impl std::error::Error for NetError {}
+
+impl NetError {
+    /// The request never reached the server or timed out, so the network is
+    /// absent and the same request is as likely to work once it returns. A
+    /// rate limit or a 5xx is the server answering, and is not this.
+    pub fn is_network_absent(&self) -> bool {
+        matches!(self, NetError::Transport(_))
+    }
+}
 
 /// Pooled HTTP transport bound to one base URL and one credential.
 ///
@@ -233,16 +254,24 @@ impl Transport {
         let url = self.url(path);
         let mut attempt = 0u32;
         let started = Instant::now();
+        // What the last attempt failed with, returned as it stands when the
+        // governor's wait for the next slot leaves no budget to send it in, or
+        // too little for the retry to finish.
+        let mut last: Option<NetError> = None;
         loop {
             // Single shared choke point: pace every dispatch.
             self.governor.acquire(lane).await;
+            let timeout = self.timeouts.attempt(lane, started);
+            if timeout.is_zero() {
+                return Err(last.unwrap_or_else(budget_spent));
+            }
 
             let send = self
                 .client
                 .get(&url)
                 .header("Authorization", &self.auth_header)
                 .query(query)
-                .timeout(self.timeouts.attempt(lane, started))
+                .timeout(timeout)
                 .send()
                 .await;
 
@@ -267,28 +296,39 @@ impl Transport {
                         if attempt > MAX_RETRIES || !self.retry_fits(lane, started, wait) {
                             return Err(NetError::RateLimited);
                         }
-                        tokio::time::sleep(wait).await;
+                        last = Some(NetError::RateLimited);
+                        governor::pause(wait).await;
                         continue;
                     }
+                    let code = status.as_u16();
+                    let body = resp.text().await.unwrap_or_default();
+                    let failed = NetError::Http { status: code, body };
                     if status.is_server_error() && attempt < MAX_RETRIES {
                         let wait = governor::decide_backoff(None, attempt + 1, false);
                         if self.retry_fits(lane, started, wait) {
                             attempt += 1;
-                            tokio::time::sleep(wait).await;
+                            last = Some(failed);
+                            governor::pause(wait).await;
                             continue;
                         }
                     }
-                    let code = status.as_u16();
-                    let body = resp.text().await.unwrap_or_default();
-                    return Err(NetError::Http { status: code, body });
+                    return Err(failed);
                 }
                 Err(e) => {
                     attempt += 1;
                     let wait = governor::decide_backoff(None, attempt, false);
                     if attempt > MAX_RETRIES || !self.retry_fits(lane, started, wait) {
-                        return Err(NetError::Transport(e.to_string()));
+                        // A retry sent with only what the budget had left, and
+                        // timed out in it, says nothing new about the server,
+                        // so the answer worth reporting is the one it retried.
+                        let cut_short = self.timeouts.cut_by_budget(lane, timeout);
+                        return Err(match last {
+                            Some(prev) if cut_short && e.is_timeout() => prev,
+                            _ => NetError::Transport(e.to_string()),
+                        });
                     }
-                    tokio::time::sleep(wait).await;
+                    last = Some(NetError::Transport(e.to_string()));
+                    governor::pause(wait).await;
                 }
             }
         }
@@ -308,26 +348,69 @@ impl Transport {
         body: &serde_json::Value,
         lane: Lane,
     ) -> Result<Vec<u8>, NetError> {
+        self.write_json(reqwest::Method::POST, path, body, lane)
+            .await
+    }
+
+    /// PUT a JSON body and return the raw response bytes, under the same
+    /// write retry policy as `post_json`.
+    pub async fn put_json(
+        &self,
+        path: &str,
+        body: &serde_json::Value,
+        lane: Lane,
+    ) -> Result<Vec<u8>, NetError> {
+        self.write_json(reqwest::Method::PUT, path, body, lane)
+            .await
+    }
+
+    async fn write_json(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: &serde_json::Value,
+        lane: Lane,
+    ) -> Result<Vec<u8>, NetError> {
         let url = self.url(path);
         let mut attempt = 0u32;
         let started = Instant::now();
         loop {
             // Same single choke point as the reads: writes share the pace.
             self.governor.acquire(lane).await;
+            let timeout = self.timeouts.attempt(lane, started);
+            if timeout.is_zero() {
+                // Only a 429 is ever retried here, so a retry that finds the
+                // budget spent reports the 429 it was retrying.
+                return Err(if attempt == 0 {
+                    budget_spent()
+                } else {
+                    NetError::RateLimited
+                });
+            }
             let req = self
                 .client
-                .post(&url)
+                .request(method.clone(), &url)
                 .header("Authorization", &self.auth_header)
-                .timeout(self.timeouts.attempt(lane, started))
+                .timeout(timeout)
                 .json(body);
-            match self.settle_write(req.send().await, attempt).await {
+            let send = req.send().await;
+            if attempt > 0
+                && self.timeouts.cut_by_budget(lane, timeout)
+                && send.as_ref().is_err_and(|e| e.is_timeout())
+            {
+                // The retry ran in what the budget had left and did not finish
+                // in it, so it reports the 429 it was retrying, as a retry the
+                // budget left no time for at all does above.
+                return Err(NetError::RateLimited);
+            }
+            match self.settle_write(send, attempt).await {
                 WriteStep::Done(result) => return result,
                 WriteStep::Backoff(wait) => {
                     if !self.retry_fits(lane, started, wait) {
                         return Err(NetError::RateLimited);
                     }
                     attempt += 1;
-                    tokio::time::sleep(wait).await;
+                    governor::pause(wait).await;
                 }
             }
         }
@@ -337,19 +420,28 @@ impl Transport {
     /// filesystem, so a large FIT never lands in memory as bytes.
     ///
     /// `fields` are the plain text parts, in the order the server should see
-    /// them. Same write retry policy as `post_json`: 429 only.
+    /// them. Same write retry policy as `post_json`: 429 only, inside the same
+    /// whole-request budget. `timeout` replaces the lane's per-attempt ceiling,
+    /// since a large file needs longer to send than a JSON body. The budget
+    /// bounds the retries, never the first attempt, so an upload queued behind
+    /// other traffic is still sent.
     pub async fn post_multipart(
         &self,
         path: &str,
         file: &FilePart<'_>,
         fields: &[(&str, String)],
+        query: &[(&str, &str)],
         lane: Lane,
         timeout: Duration,
     ) -> Result<Vec<u8>, NetError> {
         let url = self.url(path);
         let mut attempt = 0u32;
+        let started = Instant::now();
         loop {
             self.governor.acquire(lane).await;
+            if attempt > 0 && self.timeouts.attempt(lane, started).is_zero() {
+                return Err(NetError::RateLimited);
+            }
             // Rebuilt every attempt: a streamed body cannot be replayed.
             let mut form = reqwest::multipart::Form::new()
                 .part(file.field.to_string(), streamed_file_part(file).await?);
@@ -360,13 +452,17 @@ impl Transport {
                 .client
                 .post(&url)
                 .header("Authorization", &self.auth_header)
+                .query(query)
                 .timeout(timeout)
                 .multipart(form);
             match self.settle_write(req.send().await, attempt).await {
                 WriteStep::Done(result) => return result,
                 WriteStep::Backoff(wait) => {
+                    if !self.retry_fits(lane, started, wait) {
+                        return Err(NetError::RateLimited);
+                    }
                     attempt += 1;
-                    tokio::time::sleep(wait).await;
+                    governor::pause(wait).await;
                 }
             }
         }
@@ -423,6 +519,12 @@ impl Transport {
     }
 }
 
+/// The error for a request whose governor wait used up its lane's budget
+/// before anything was sent.
+fn budget_spent() -> NetError {
+    NetError::Transport("the request budget ran out waiting for a dispatch slot".to_string())
+}
+
 /// What a write response asks the caller to do next.
 enum WriteStep {
     Done(Result<Vec<u8>, NetError>),
@@ -462,7 +564,7 @@ async fn streamed_file_part(file: &FilePart<'_>) -> Result<reqwest::multipart::P
 /// Drop a `file://` scheme so an app storage URI opens as a filesystem path.
 /// No percent-decoding: the paths that reach here are generated ids under the
 /// app's own document directory, never user-typed text.
-fn strip_file_scheme(path: &str) -> &str {
+pub(crate) fn strip_file_scheme(path: &str) -> &str {
     path.strip_prefix("file://").unwrap_or(path)
 }
 
@@ -600,6 +702,7 @@ mod tests {
 
     #[test]
     fn each_dispatch_passes_through_the_governor() {
+        let _clock = crate::test_globals::real_clock();
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
             when.method(GET).path("/p");
@@ -687,6 +790,7 @@ mod tests {
             "/athlete/i1/activities",
             &part,
             &upload_parts(),
+            &[],
             Lane::Interactive,
             Duration::from_secs(60),
         ))
@@ -715,6 +819,7 @@ mod tests {
             "/athlete/i1/activities",
             &part,
             &[],
+            &[],
             Lane::Interactive,
             Duration::from_secs(60),
         ))
@@ -742,6 +847,7 @@ mod tests {
             "/athlete/i1/activities",
             &part,
             &upload_parts(),
+            &[],
             Lane::Interactive,
             Duration::from_secs(60),
         ));
@@ -775,6 +881,7 @@ mod tests {
             "/athlete/i1/activities",
             &part,
             &upload_parts(),
+            &[],
             Lane::Backfill,
             Duration::from_secs(60),
         ));
@@ -802,6 +909,7 @@ mod tests {
             "/athlete/i1/activities",
             &part,
             &[],
+            &[],
             Lane::Interactive,
             Duration::from_secs(60),
         ));
@@ -824,6 +932,7 @@ mod tests {
             "/athlete/i1/activities",
             &part,
             &[],
+            &[],
             Lane::Interactive,
             Duration::from_secs(60),
         ));
@@ -843,6 +952,7 @@ mod tests {
         let res = crate::runtime::block_on(t.post_multipart(
             "/athlete/i1/activities",
             &part,
+            &[],
             &[],
             Lane::Interactive,
             Duration::from_secs(60),
@@ -937,19 +1047,19 @@ mod tests {
     fn a_hanging_socket_costs_the_interactive_lane_one_attempt_not_four() {
         let socket = hanging_socket();
         let t = transport_to(socket.addr, brisk_timeouts());
-        let started = std::time::Instant::now();
-        let res: Result<serde_json::Value, _> =
-            crate::runtime::block_on(t.get_json("/x", &[], Lane::Interactive));
+        // The socket never answers, so a request with no ceiling on its
+        // attempt never returns. How much of the budget an attempt may take is
+        // `an_attempt_never_gets_more_than_the_budget_has_left`.
+        let res: Result<serde_json::Value, _> = crate::test_globals::returns_within(
+            Duration::from_secs(60),
+            "the interactive request to a socket that hangs",
+            move || crate::runtime::block_on(t.get_json("/x", &[], Lane::Interactive)),
+        );
         assert!(matches!(res, Err(NetError::Transport(_))), "{:?}", res);
         assert_eq!(
             socket.connections.load(std::sync::atomic::Ordering::SeqCst),
             1,
             "a lane a user waits on must not spend its retries on a socket that hangs"
-        );
-        assert!(
-            started.elapsed() < brisk_timeouts().interactive_budget * 3,
-            "interactive request outran its budget: {:?}",
-            started.elapsed()
         );
     }
 
@@ -1021,23 +1131,266 @@ mod tests {
         assert_eq!(mock.hits(), 1);
     }
 
+    /// A budget of 800 ms on a governor that paces one dispatch a second, so
+    /// the second slot is always claimed after the budget has run out.
+    fn slow_governor_transport(base: String) -> (Transport, Arc<Governor>) {
+        let gov = Arc::new(Governor::new(1, Box::new(NoopPolicy)));
+        let timeouts = LaneTimeouts {
+            connect: Duration::from_millis(200),
+            interactive: Duration::from_millis(800),
+            backfill: Duration::from_millis(800),
+            interactive_budget: Duration::from_millis(800),
+        };
+        let t =
+            Transport::with_timeouts(base, AuthMethod::ApiKey("k"), gov.clone(), timeouts).unwrap();
+        (t, gov)
+    }
+
+    #[test]
+    fn a_retry_whose_governor_wait_spends_the_budget_keeps_the_503() {
+        let _clock = crate::test_globals::real_clock();
+        // The 400 ms backoff fits the 800 ms budget, but the governor's next
+        // slot is a second out. Dispatching then would go with a zero timeout,
+        // send nothing, and report a network failure in place of the 503.
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/y");
+            then.status(503).body("maintenance");
+        });
+        let (t, _gov) = slow_governor_transport(server.base_url());
+        let res = crate::runtime::block_on(t.get_bytes("/y", &[], Lane::Interactive));
+        match res {
+            Err(NetError::Http { status, body }) => {
+                assert_eq!(status, 503);
+                assert_eq!(body, "maintenance");
+            }
+            other => panic!("expected the 503, got {:?}", other),
+        }
+        assert_eq!(mock.hits(), 1);
+    }
+
+    #[test]
+    fn a_429_retry_whose_governor_wait_spends_the_budget_is_rate_limited() {
+        let _clock = crate::test_globals::real_clock();
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/x");
+            then.status(429).header("retry-after", "0");
+        });
+        let (t, _gov) = slow_governor_transport(server.base_url());
+        let res = crate::runtime::block_on(t.get_bytes("/x", &[], Lane::Interactive));
+        assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
+        assert_eq!(mock.hits(), 1);
+    }
+
+    #[test]
+    fn a_first_attempt_queued_past_the_budget_is_never_sent() {
+        let _clock = crate::test_globals::real_clock();
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/x");
+            then.status(200).body("{}");
+        });
+        let (t, gov) = slow_governor_transport(server.base_url());
+        let res = crate::runtime::block_on(async {
+            // Another request takes the slot now, so this one's is a second out.
+            gov.acquire(Lane::Interactive).await;
+            t.get_bytes("/x", &[], Lane::Interactive).await
+        });
+        match res {
+            Err(NetError::Transport(msg)) => assert!(msg.contains("budget"), "{}", msg),
+            other => panic!("expected a spent budget, got {:?}", other),
+        }
+        assert_eq!(mock.hits(), 0);
+    }
+
+    #[test]
+    fn a_post_retry_whose_governor_wait_spends_the_budget_is_rate_limited() {
+        let _clock = crate::test_globals::real_clock();
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(429).header("retry-after", "0");
+        });
+        let (t, _gov) = slow_governor_transport(server.base_url());
+        let res = crate::runtime::block_on(t.post_json(
+            "/athlete/i1/activities",
+            &json!({}),
+            Lane::Interactive,
+        ));
+        assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
+        assert_eq!(mock.hits(), 1);
+    }
+
+    /// A budget of 1010 ms on a governor that paces one dispatch a second, so
+    /// a retry whose backoff fits is claimed with about 10 ms left to run in.
+    fn nearly_spent_transport(base: String) -> Transport {
+        let gov = Arc::new(Governor::new(1, Box::new(NoopPolicy)));
+        let timeouts = LaneTimeouts {
+            connect: Duration::from_millis(200),
+            interactive: Duration::from_millis(1010),
+            backfill: Duration::from_millis(1010),
+            interactive_budget: Duration::from_millis(1010),
+        };
+        Transport::with_timeouts(base, AuthMethod::ApiKey("k"), gov, timeouts).unwrap()
+    }
+
+    #[test]
+    fn a_retry_left_a_sliver_of_budget_keeps_the_503() {
+        // The 503 lands at 200 ms and its 400 ms backoff fits, but the
+        // governor's next slot is at 1000 ms. The retry goes out with 10 ms,
+        // times out, and must not trade the 503 for that timeout.
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/y");
+            then.status(503)
+                .body("maintenance")
+                .delay(Duration::from_millis(200));
+        });
+        let t = nearly_spent_transport(server.base_url());
+        let res = crate::runtime::block_on(t.get_bytes("/y", &[], Lane::Interactive));
+        match res {
+            Err(NetError::Http { status, body }) => {
+                assert_eq!(status, 503);
+                assert_eq!(body, "maintenance");
+            }
+            other => panic!("expected the 503, got {:?}", other),
+        }
+        assert_eq!(mock.hits(), 2);
+    }
+
+    #[test]
+    fn a_post_retry_left_a_sliver_of_budget_is_rate_limited() {
+        let _clock = crate::test_globals::real_clock();
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(429)
+                .header("retry-after", "0")
+                .delay(Duration::from_millis(200));
+        });
+        let t = nearly_spent_transport(server.base_url());
+        let res = crate::runtime::block_on(t.post_json(
+            "/athlete/i1/activities",
+            &json!({}),
+            Lane::Interactive,
+        ));
+        assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
+        assert_eq!(mock.hits(), 2);
+    }
+
+    #[test]
+    fn a_first_attempt_that_times_out_is_still_a_transport_failure() {
+        // Only a retry has an earlier answer to fall back on. A first attempt
+        // that runs out of time never reached the server as far as anyone
+        // knows, and the caller queues it for the network.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(200)
+                .body("{}")
+                .delay(Duration::from_millis(1500));
+        });
+        let t = nearly_spent_transport(server.base_url());
+        let res = crate::runtime::block_on(t.post_json(
+            "/athlete/i1/activities",
+            &json!({}),
+            Lane::Interactive,
+        ));
+        assert!(matches!(res, Err(NetError::Transport(_))), "{:?}", res);
+    }
+
+    #[test]
+    fn a_multipart_429_stops_at_the_interactive_budget() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(429).header("retry-after", "120");
+        });
+        let (_file, path) = staged_fit();
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        let t = Transport::with_timeouts(
+            server.base_url(),
+            AuthMethod::ApiKey("k"),
+            gov,
+            brisk_timeouts(),
+        )
+        .unwrap();
+        // Sleeping the two-minute backoff before giving up would outlast the
+        // guard, which is half of it.
+        let res = crate::test_globals::returns_within(
+            Duration::from_secs(60),
+            "the upload that slept a backoff the budget had no room for",
+            move || {
+                let part = FilePart {
+                    field: "file",
+                    path: &path,
+                    filename: "ride.fit",
+                };
+                crate::runtime::block_on(t.post_multipart(
+                    "/athlete/i1/activities",
+                    &part,
+                    &upload_parts(),
+                    &[],
+                    Lane::Interactive,
+                    Duration::from_secs(60),
+                ))
+            },
+        );
+        assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
+        assert_eq!(
+            mock.hits(),
+            1,
+            "a 120 s Retry-After does not fit a 400 ms budget"
+        );
+    }
+
+    #[test]
+    fn a_multipart_retry_whose_governor_wait_spends_the_budget_is_rate_limited() {
+        let _clock = crate::test_globals::real_clock();
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(429).header("retry-after", "0");
+        });
+        let (_file, path) = staged_fit();
+        let (t, _gov) = slow_governor_transport(server.base_url());
+        let part = FilePart {
+            field: "file",
+            path: &path,
+            filename: "ride.fit",
+        };
+        let res = crate::runtime::block_on(t.post_multipart(
+            "/athlete/i1/activities",
+            &part,
+            &upload_parts(),
+            &[],
+            Lane::Interactive,
+            Duration::from_secs(60),
+        ));
+        assert!(matches!(res, Err(NetError::RateLimited)), "{:?}", res);
+        assert_eq!(mock.hits(), 1);
+    }
+
     #[test]
     fn an_attempt_never_gets_more_than_the_budget_has_left() {
         let t = LaneTimeouts::default();
-        let fresh = Instant::now();
-        assert_eq!(t.attempt(Lane::Interactive, fresh), t.interactive);
+        let now = Instant::now();
+        assert_eq!(t.attempt_at(Lane::Interactive, now, now), t.interactive);
         // Backfill is unbudgeted, so it keeps the long ceiling however long the
         // request has already run.
-        assert_eq!(t.attempt(Lane::Backfill, fresh), t.backfill);
-        let spent = Instant::now() - (t.interactive_budget - Duration::from_secs(1));
-        let left = t.attempt(Lane::Interactive, spent);
-        assert!(
-            left <= Duration::from_secs(1) && left > Duration::from_millis(900),
-            "expected roughly the second the budget had left, got {:?}",
-            left
+        let overrun = now - (t.interactive_budget + Duration::from_secs(1));
+        assert_eq!(t.attempt_at(Lane::Backfill, overrun, now), t.backfill);
+        let spent = now - (t.interactive_budget - Duration::from_secs(1));
+        assert_eq!(
+            t.attempt_at(Lane::Interactive, spent, now),
+            Duration::from_secs(1),
+            "an attempt gets the second the budget has left"
         );
-        let overrun = Instant::now() - (t.interactive_budget + Duration::from_secs(1));
-        assert_eq!(t.attempt(Lane::Interactive, overrun), Duration::ZERO);
+        assert_eq!(
+            t.attempt_at(Lane::Interactive, overrun, now),
+            Duration::ZERO
+        );
     }
 
     #[test]
