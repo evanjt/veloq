@@ -30,11 +30,11 @@ import {
   ink,
   mapTextShadow,
 } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
 import { formatWeightRounded } from '@/shared/format/weight';
 import { pressable, pressRipple } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 import { engineErrorKey } from '@/shared/native/engineError';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 /** Aggregated muscle/exercise data for a strength activity */
 export interface StrengthCardData {
@@ -191,7 +191,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
               testID={`activity-card-${activity.id}`}
               onPress={handlePress}
               onLongPress={handleLongPress}
-              delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+              delayLongPress={PREVIEW_HOLD_MS}
               onPressIn={handlePressIn}
               onPressOut={handlePressOut}
               style={pressable(styles.pressableOverlay)}

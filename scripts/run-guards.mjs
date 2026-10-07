@@ -402,6 +402,12 @@ const GUARDS = [
       'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, or a cache key hashing what the build wrote',
   },
   {
+    name: 'lint:counted-translation',
+    kind: 'correctness',
+    cmd: node('lint-source-rules.mjs', '--rule', 'counted-translation'),
+    catches: 'a numeric expression joined to a bare translated noun on the same line',
+  },
+  {
     name: 'lint:static-loading-glyph',
     kind: 'correctness',
     cmd: node('lint-source-rules.mjs', '--rule', 'static-loading-glyph'),
@@ -619,6 +625,12 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-press-feedback.mjs'),
     catches: 'a pressable with no pressed state',
+  },
+  {
+    name: 'lint:hold-durations',
+    kind: 'style',
+    cmd: node('lint-hold-durations.mjs'),
+    catches: 'a local hold drifting from its preview, deliberate or confirm class',
   },
   {
     name: 'lint:rgba',

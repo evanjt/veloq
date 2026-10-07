@@ -44,7 +44,13 @@ function hrvInsight(sparklineData: number[]): Insight {
     iconTone: 'neutral',
     timestamp: 0,
     isNew: false,
-    supportingData: { sparklineData },
+    supportingData: {
+      history: {
+        kind: 'sparkline',
+        target: '/fitness',
+        series: [{ label: 'HRV', points: sparklineData.map((value, date) => ({ value, date })) }],
+      },
+    },
   } as unknown as Insight;
 }
 

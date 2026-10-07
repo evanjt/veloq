@@ -7,6 +7,7 @@ import type {
   TFunc,
   SeriesPoint,
   SupportingTrend,
+  WeeklyTotal,
 } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { ACTIVE_WINDOW_DAYS, INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
@@ -27,18 +28,20 @@ const WEEK_OVER_WEEK_DAYS = 14;
 /** A week against the four weeks before it, so the whole span is five. */
 const WEEK_AGAINST_CHRONIC_DAYS = ACTIVE_WINDOW_DAYS + 7;
 
-/**
- * The chronic weeks as the points a strip is drawn from, in the unit the
- * comparison is stated in. Dated at the engine's own week boundaries would be
- * better, but the bundle sends totals rather than ranges, so the index stands
- * in: the strip is a shape and not a timeline.
- */
-function weeklySeries(weeks: PeriodStats[] | undefined, useTss: boolean): SeriesPoint[] {
+/** Weekly totals at the starts supplied by the engine. */
+function weeklySeries(weeks: WeeklyTotal[] | undefined, useTss: boolean): SeriesPoint[] {
   if (!weeks) return [];
-  return weeks.map((week, at) => ({
-    value: displayValue(useTss ? week.totalTss : week.totalDuration, useTss),
-    date: at,
+  return weeks.map((week) => ({
+    value: displayValue(useTss ? week.stats.totalTss : week.stats.totalDuration, useTss),
+    date: week.start,
   }));
+}
+
+function weeksTarget(weeks: WeeklyTotal[] | undefined, fallbackDays: number): string {
+  const first = weeks?.[0];
+  const last = weeks?.[weeks.length - 1];
+  const days = first && last ? Math.ceil((last.start - first.start) / 86_400) + 7 : 0;
+  return fitnessTarget({ range: rangeCovering(Math.max(days, fallbackDays)) });
 }
 
 /**
@@ -76,7 +79,7 @@ export function generatePeriodComparisonInsights(
   currentPeriod: PeriodStats | null,
   previousPeriod: PeriodStats | null,
   chronicPeriod: PeriodStats | null | undefined,
-  chronicWeeks: PeriodStats[] | undefined,
+  chronicWeeks: WeeklyTotal[] | undefined,
   weekOverWeek: PeriodComparison | null | undefined,
   weekAgainstChronic: PeriodComparison | null | undefined,
   now: number,
@@ -90,6 +93,7 @@ export function generatePeriodComparisonInsights(
     return generateLastWeekVsAverageInsight(
       prev,
       chronicPeriod ?? null,
+      chronicWeeks,
       weekAgainstChronic ?? null,
       now,
       t
@@ -128,11 +132,17 @@ export function generatePeriodComparisonInsights(
     name: t('insights.methodology.periodComparisonName'),
     description: t('insights.methodology.periodComparison'),
   };
+  const comparedWeek = chronicWeeks?.[chronicWeeks.length - 1];
 
   const comparisonSupportingData: InsightSupportingData = {
-    // The four weeks behind the chronic total, in whichever unit the
-    // comparison is stated in, so the strip and the numbers agree.
-    ...sparkline(weeklySeries(chronicWeeks, useTss), t('insights.data.weeklyLoad')),
+    // The weekly totals in the comparison's unit, including the compared week.
+    ...sparkline(
+      weeklySeries(chronicWeeks, useTss),
+      t('insights.data.weeklyLoad'),
+      weeksTarget(chronicWeeks, WEEK_OVER_WEEK_DAYS),
+      'bars',
+      comparedWeek ? { date: comparedWeek.start } : undefined
+    ),
     trend,
     comparisonData: {
       current: {
@@ -182,7 +192,7 @@ export function generatePeriodComparisonInsights(
         // A comparison is a picture of a fitness window, so it opens that
         // window. It used to open the Insights tab, which is where the sheet
         // was opened from, so the tap read as doing nothing.
-        navigationTarget: fitnessTarget({ range: rangeCovering(WEEK_OVER_WEEK_DAYS) }),
+        navigationTarget: weeksTarget(chronicWeeks, WEEK_OVER_WEEK_DAYS),
         timestamp: now,
         confidence: periodConfidence,
         methodology: comparisonMethodology,
@@ -203,7 +213,7 @@ export function generatePeriodComparisonInsights(
         // A comparison is a picture of a fitness window, so it opens that
         // window. It used to open the Insights tab, which is where the sheet
         // was opened from, so the tap read as doing nothing.
-        navigationTarget: fitnessTarget({ range: rangeCovering(WEEK_OVER_WEEK_DAYS) }),
+        navigationTarget: weeksTarget(chronicWeeks, WEEK_OVER_WEEK_DAYS),
         timestamp: now,
         confidence: periodConfidence,
         methodology: comparisonMethodology,
@@ -219,6 +229,7 @@ export function generatePeriodComparisonInsights(
 function generateLastWeekVsAverageInsight(
   prev: PeriodStats,
   chronic: PeriodStats | null,
+  chronicWeeks: WeeklyTotal[] | undefined,
   comparison: PeriodComparison | null,
   now: number,
   t: TFunc
@@ -232,6 +243,7 @@ function generateLastWeekVsAverageInsight(
 
   const direction = ratio > 0 ? t('insights.weeklyLoad.above') : t('insights.weeklyLoad.below');
   const { metric, trend } = comparisonTrend(comparison);
+  const comparedWeek = chronicWeeks?.[chronicWeeks.length - 2];
 
   return [
     makeInsight({
@@ -241,7 +253,7 @@ function generateLastWeekVsAverageInsight(
       icon: trendIcon(metric, trend.direction),
       iconTone: verdictRung(trend.verdict),
       title: t('insights.weeklyLoad.title', { percent, direction }),
-      navigationTarget: fitnessTarget({ range: rangeCovering(WEEK_AGAINST_CHRONIC_DAYS) }),
+      navigationTarget: weeksTarget(chronicWeeks, WEEK_AGAINST_CHRONIC_DAYS),
       timestamp: now,
       // A week against a chronic average: the week's activities plus the ones
       // the average was built from.
@@ -251,6 +263,13 @@ function generateLastWeekVsAverageInsight(
         comparisonKind: 'self',
       },
       supportingData: {
+        ...sparkline(
+          weeklySeries(chronicWeeks, useTss),
+          t('insights.data.weeklyLoad'),
+          weeksTarget(chronicWeeks, WEEK_AGAINST_CHRONIC_DAYS),
+          'bars',
+          comparedWeek ? { date: comparedWeek.start } : undefined
+        ),
         trend,
         comparisonData: {
           current: {

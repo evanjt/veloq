@@ -9,11 +9,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
-import { CHART_CONFIG } from '@/constants';
 import { bodyDiagram, brand, loupeChrome, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 import { findMuscleAtPoint } from '../lib/polygons';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;
@@ -219,7 +219,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
 
   // LongPress gates activation - ScrollView can claim touch before this fires
   const longPressGesture = Gesture.LongPress()
-    .minDuration(CHART_CONFIG.LONG_PRESS_DURATION)
+    .minDuration(PREVIEW_HOLD_MS)
     .enabled(scrubEnabled)
     .onStart((e) => {
       'worklet';

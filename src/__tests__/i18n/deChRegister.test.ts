@@ -2,6 +2,9 @@
  * Scenario: de-CH errors, failure messages and the buttons every dialog
  * shares are tongue in cheek: oaths are allowed, funny rather than hostile.
  * de-DE stays plain, so a Swiss reader who prefers it keeps that escape.
+ * Destructive confirmations stay in dialect. Review each against de-DE and
+ * name every category, count and date that de-DE names. Dialect wording cannot
+ * be checked by equality, so review remains the rule for new confirmations.
  *
  * Expected behaviour: a Swiss oath in de-DE or in any locale other than
  * de-CH fails this suite, and de-CH keeps its oaths on the error titles.
@@ -45,5 +48,17 @@ describe('de-CH register', () => {
     expect(message).toMatch(/Aktivitäts?date/i);
     expect(message).toMatch(/spure?/i);
     expect(message).toMatch(/Routeabgleich|Routenabgleich/i);
+  });
+
+  it('disconnect confirmation names the API credentials removed from the app', () => {
+    const ch = new Map(flatten(deCH));
+    const message = ch.get('alerts.disconnectMessage') ?? '';
+    expect(message).toMatch(/API-Zuegangsdate|API-Zugangsdaten/i);
+    expect(message).toMatch(/App/i);
+  });
+
+  it('clear cache action says it reloads after deleting', () => {
+    const ch = new Map(flatten(deCH));
+    expect(ch.get('alerts.clearReload')).toMatch(/nöi lade/i);
   });
 });

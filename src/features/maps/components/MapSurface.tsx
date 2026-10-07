@@ -70,6 +70,7 @@ import type {
 import type { WebViewStyleOptions } from '@/features/maps/lib/htmlBuilders/styleResolution';
 import type { MapStyleType } from './mapStyles';
 import {} from '@/features/maps/lib/terrainSnapshotEvents';
+import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
 
 const log = debug.create('MapSurface');
 
@@ -82,9 +83,6 @@ export const MAP_SURFACE_TEST_ID = 'maplibre-map';
 /** The state shown when the page cannot draw a basemap at all. */
 export const MAP_SURFACE_UNAVAILABLE_TEST_ID = 'map-unavailable';
 export const MAP_SURFACE_TILES_LOADING_TEST_ID = 'map-tiles-loading';
-
-/** Long-press duration, matching the platform default for a press-and-hold. */
-const LONG_PRESS_MS = 500;
 
 export interface MapCameraState {
   center: LngLat;
@@ -269,7 +267,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         },
         devicePixelRatio: Math.min(PixelRatio.get(), 2),
         regionChangeThrottleMs: REGION_CHANGE_DEBOUNCE_MS,
-        longPressMs: LONG_PRESS_MS,
+        longPressMs: DELIBERATE_HOLD_MS,
       }),
     // styleOptions is a plain settings object supplied as a literal by callers.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The settings object is reconstructed by callers.

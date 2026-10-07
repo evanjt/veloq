@@ -94,7 +94,7 @@ export function SectionHeader({
   const isMetric = useMetricSystem();
   const elevation = sectionElevation(section);
   const traversalScope = [
-    `${activityCount} ${t('sections.traversals')}`,
+    t('sections.traversalsCount', { count: activityCount ?? 0 }),
     ...(scopeSport ? [t(`activityTypes.${scopeSport}`, scopeSport)] : []),
     ...(scopeRange && scopeRange !== 'all' ? [t(PERIOD_LABEL_KEYS.long[scopeRange])] : []),
   ].join(' · ');

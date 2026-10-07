@@ -12,6 +12,48 @@ use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 /// were made under.
 pub(crate) const GROUPS_MATCH_RULE_KEY: &str = "groups_match_rule";
 
+/// Share of the travelled line within the active match rule's near-route distance.
+pub(crate) fn live_overlap_percentage(
+    track: &[GpsPoint],
+    route: &[GpsPoint],
+    config: &tracematch::MatchConfig,
+) -> f64 {
+    use rstar::{AABB, RTree};
+    use tracematch::geo_utils::haversine_distance;
+    use tracematch::matching::{amd_to_percentage, calculate_route_distance, resample_route};
+
+    if track.len() < 2 || route.len() < 2 {
+        return 0.0;
+    }
+    let sample = |points: &[GpsPoint]| {
+        let count = ((calculate_route_distance(points) / 20.0).ceil() as usize + 1).clamp(2, 2000);
+        resample_route(points, count)
+    };
+    let track = sample(track);
+    let route = sample(route);
+    let index = RTree::bulk_load(route.iter().map(|p| [p.latitude, p.longitude]).collect());
+    let score: f64 = track
+        .iter()
+        .map(|point| {
+            let lat_delta = config.zero_threshold / 110_000.0;
+            let lon_delta = config.zero_threshold
+                / (110_000.0 * point.latitude.to_radians().cos().abs().max(0.01));
+            let bounds = AABB::from_corners(
+                [point.latitude - lat_delta, point.longitude - lon_delta],
+                [point.latitude + lat_delta, point.longitude + lon_delta],
+            );
+            let distance = index
+                .locate_in_envelope_intersecting(&bounds)
+                .map(|candidate| {
+                    haversine_distance(point, &GpsPoint::new(candidate[0], candidate[1]))
+                })
+                .fold(f64::INFINITY, f64::min);
+            amd_to_percentage(distance, config.perfect_threshold, config.zero_threshold)
+        })
+        .sum();
+    score / track.len() as f64
+}
+
 /// The rule a grouping is made under, as the text stored beside the groups.
 pub(crate) fn match_rule_digest(config: &tracematch::MatchConfig) -> String {
     format!("{config:?}")
@@ -408,6 +450,10 @@ pub(super) fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 #[cfg(test)]
 #[path = "tests/route_match_percentages.rs"]
 mod match_percentage_regressions;
+
+#[cfg(test)]
+#[path = "tests/live_route_overlap.rs"]
+mod live_route_overlap_tests;
 
 /// Each route whose representative the athlete chose, with that representative.
 /// A writer that deletes and reinserts the groups reads this first and hands it

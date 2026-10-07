@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use super::*;
@@ -22,6 +23,11 @@ struct Fake {
     manual_bodies: Mutex<Vec<ManualActivityBody>>,
     rpe: Mutex<Vec<(String, u32)>>,
     during_send: Option<Box<dyn Fn() + Send + Sync>>,
+    /// What reading each activity back answers, by intervals id. An id with
+    /// no answer reads as a request that never arrived.
+    read_back: Mutex<HashMap<String, FfiCallOutcome>>,
+    read: Mutex<Vec<String>>,
+    during_read_back: Option<Box<dyn Fn() + Send + Sync>>,
 }
 
 impl Fake {
@@ -35,7 +41,23 @@ impl Fake {
             manual_bodies: Mutex::new(Vec::new()),
             rpe: Mutex::new(Vec::new()),
             during_send: None,
+            read_back: Mutex::new(HashMap::new()),
+            read: Mutex::new(Vec::new()),
+            during_read_back: None,
         }
+    }
+
+    /// Script what reading `intervals_id` back answers.
+    fn reads(self, intervals_id: &str, answer: FfiCallOutcome) -> Self {
+        self.read_back
+            .lock()
+            .unwrap()
+            .insert(intervals_id.to_string(), answer);
+        self
+    }
+
+    fn read(&self) -> Vec<String> {
+        self.read.lock().unwrap().clone()
     }
 
     fn sent(&self) -> Vec<String> {
@@ -78,6 +100,19 @@ impl Uplink for Fake {
             .unwrap()
             .push((intervals_id.to_string(), rpe));
         answer(self.rpe_answer, None, None)
+    }
+
+    fn read_back(&self, intervals_id: &str) -> FfiCallOutcome {
+        self.read.lock().unwrap().push(intervals_id.to_string());
+        if let Some(during) = &self.during_read_back {
+            during();
+        }
+        self.read_back
+            .lock()
+            .unwrap()
+            .get(intervals_id)
+            .cloned()
+            .unwrap_or_else(|| answer(FfiCallKind::Network, None, None))
     }
 }
 
@@ -214,6 +249,7 @@ fn one_scheduled_pass(uplink: &dyn Uplink) {
         },
         || false,
         || drain(uplink, &now),
+        || sweep(uplink, &now),
     );
 }
 
@@ -768,4 +804,276 @@ fn the_live_uplink_sends_what_the_review_saved() {
     let r1 = row("r1");
     assert_eq!(r1.intervals_activity_id.as_deref(), Some("i999"));
     assert!(r1.rpe_sent);
+}
+
+/// A ride the server took, as the row reads once the upload has landed.
+fn landed_ride(dir: &TempDir, id: &str, intervals_id: &str) -> FfiRecordingEntry {
+    FfiRecordingEntry {
+        upload_status: "uploaded".to_string(),
+        intervals_activity_id: Some(intervals_id.to_string()),
+        ..ride(dir, id, 1_000)
+    }
+}
+
+fn gone() -> FfiCallOutcome {
+    http(404, "not found")
+}
+
+fn present() -> FfiCallOutcome {
+    landed("ignored")
+}
+
+fn exists(id: &str) -> bool {
+    with_persistent_engine(|e| e.get_recording(id).unwrap())
+        .unwrap()
+        .is_some()
+}
+
+/// Scenario: a landed ride intervals.icu reads back, owing no effort, with its
+/// FIT and a manual entry's body on the device.
+/// Expected behaviour: the sweep deletes the row and both files.
+#[test]
+fn a_ride_read_back_present_is_deleted_with_its_files() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_present.db");
+    let mut entry = landed_ride(&dir, "r1", "i9");
+    let body = dir.path().join("r1.manual.json");
+    std::fs::write(&body, "{}").unwrap();
+    entry.streams_path = Some(format!("file://{}", body.display()));
+    insert(&entry);
+    let fake = Fake::answering(vec![]).reads("i9", present());
+
+    sweep(&fake, &now);
+
+    assert_eq!(fake.read(), vec!["i9"]);
+    assert!(!exists("r1"), "the row is gone");
+    assert!(!fit_on_disk(&entry), "the FIT is gone");
+    assert!(!body.exists(), "the body is gone");
+}
+
+/// Scenario: a landed ride intervals.icu answers 404 for.
+/// Expected behaviour: the ride parks as failed with the reason, and its FIT
+/// stays, since it is now the only copy.
+#[test]
+fn a_ride_read_back_gone_parks_with_its_file_kept() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_gone.db");
+    let entry = landed_ride(&dir, "r1", "i9");
+    insert(&entry);
+    let fake = Fake::answering(vec![]).reads("i9", gone());
+
+    sweep(&fake, &now);
+
+    let r1 = row("r1");
+    assert_eq!(r1.upload_status, "failed");
+    assert_eq!(
+        r1.last_error.as_deref(),
+        Some("intervals.icu no longer has this activity")
+    );
+    assert!(fit_on_disk(&entry));
+}
+
+/// Scenario: a landed ride whose read-back never reached the server, and one
+/// the server refused to answer for.
+/// Expected behaviour: neither is an answer, so both stay uploaded with their
+/// files.
+#[test]
+fn a_ride_whose_read_back_is_unknown_is_kept() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_unknown.db");
+    let offline = landed_ride(&dir, "r1", "i9");
+    insert(&offline);
+    let refused = landed_ride(&dir, "r2", "i10");
+    insert(&refused);
+    let fake = Fake::answering(vec![]).reads("i10", http(500, "busy"));
+
+    sweep(&fake, &now);
+
+    assert_eq!(row("r1").upload_status, "uploaded");
+    assert_eq!(row("r2").upload_status, "uploaded");
+    assert!(fit_on_disk(&offline));
+    assert!(fit_on_disk(&refused));
+}
+
+/// Scenario: a landed ride owes its effort, and the server refuses the effort
+/// on one sweep and takes it on the next.
+/// Expected behaviour: the first sweep keeps the ride and its file, since the
+/// row is the effort's only record; the second sends the effort to the
+/// activity the upload created and then deletes the ride.
+#[test]
+fn a_ride_owing_its_effort_is_kept_until_the_effort_is_sent() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_owed_effort.db");
+    let mut entry = landed_ride(&dir, "r1", "i9");
+    entry.rpe = Some(7);
+    insert(&entry);
+
+    let mut refusing = Fake::answering(vec![]).reads("i9", present());
+    refusing.rpe_answer = FfiCallKind::Network;
+    sweep(&refusing, &now);
+
+    assert_eq!(*refusing.rpe.lock().unwrap(), vec![("i9".to_string(), 7)]);
+    assert!(exists("r1"), "kept while the effort is owed");
+    assert!(!row("r1").rpe_sent);
+    assert!(fit_on_disk(&entry));
+
+    let taking = Fake::answering(vec![]).reads("i9", present());
+    sweep(&taking, &now);
+
+    assert_eq!(*taking.rpe.lock().unwrap(), vec![("i9".to_string(), 7)]);
+    assert!(!exists("r1"), "deleted once the effort is sent");
+    assert!(!fit_on_disk(&entry));
+}
+
+/// Scenario: a landed ride owing its effort, read back gone.
+/// Expected behaviour: it parks like any vanished upload, with its file.
+#[test]
+fn a_ride_owing_its_effort_read_back_gone_parks() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_owed_gone.db");
+    let mut entry = landed_ride(&dir, "r1", "i9");
+    entry.rpe = Some(7);
+    insert(&entry);
+    let mut fake = Fake::answering(vec![]).reads("i9", gone());
+    fake.rpe_answer = FfiCallKind::Network;
+
+    sweep(&fake, &now);
+
+    assert_eq!(row("r1").upload_status, "failed");
+    assert!(fit_on_disk(&entry));
+}
+
+/// Scenario: a ride landed while the engine was closed, so its provisional row
+/// never took the server's id, and the server holds it.
+/// Expected behaviour: the sweep writes the id onto the provisional row first,
+/// so the next sync does not store the ride twice, and only then deletes the
+/// recording.
+#[test]
+fn a_landed_ride_is_reconciled_before_it_is_confirmed() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_reconcile.db");
+    let entry = with_provisional(landed_ride(&dir, "r1", "i9"), "local-r1");
+    insert(&entry);
+    let fake = Fake::answering(vec![]).reads("i9", present());
+
+    sweep(&fake, &now);
+
+    assert_eq!(intervals_id_of_activity("local-r1").as_deref(), Some("i9"));
+    assert!(!exists("r1"));
+}
+
+/// Scenario: a ride whose provisional row has not taken the server's id, and
+/// whose reconcile cannot run because the provisional row is not there.
+/// Expected behaviour: it is settled anyway, since the row has gone, and the
+/// confirmation then reads it back.
+#[test]
+fn a_reconcile_whose_provisional_row_has_gone_is_settled() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_reconcile_gone.db");
+    let mut entry = landed_ride(&dir, "r1", "i9");
+    entry.engine_activity_id = Some("local-missing".into());
+    insert(&entry);
+    let fake = Fake::answering(vec![]);
+
+    sweep(&fake, &now);
+
+    assert!(row("r1").engine_reconciled);
+    assert_eq!(fake.read(), vec!["i9"]);
+}
+
+/// Scenario: landed rides while nobody is signed in, and while another
+/// athlete is.
+/// Expected behaviour: nothing is read back and no effort is sent, since the
+/// request would go under nobody's credential or someone else's, and every
+/// ride stays as it is.
+#[test]
+fn nothing_is_read_back_for_a_ride_that_is_not_the_signed_in_athletes() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_other_athlete.db");
+    let mut mine = landed_ride(&dir, "r1", "i9");
+    mine.rpe = Some(5);
+    insert(&mine);
+    let mut theirs = landed_ride(&dir, "r2", "i10");
+    theirs.athlete_id = Some("i2".into());
+    theirs.rpe = Some(5);
+    insert(&theirs);
+
+    let nobody = Fake::answering(vec![])
+        .reads("i9", present())
+        .reads("i10", gone());
+    *nobody.athlete.lock().unwrap() = None;
+    sweep(&nobody, &now);
+    assert!(nobody.read().is_empty());
+    assert!(nobody.rpe.lock().unwrap().is_empty());
+
+    let me = Fake::answering(vec![])
+        .reads("i9", gone())
+        .reads("i10", gone());
+    sweep(&me, &now);
+    assert_eq!(me.read(), vec!["i9"], "only the signed-in athlete's ride");
+    assert_eq!(*me.rpe.lock().unwrap(), vec![("i9".to_string(), 5)]);
+    assert_eq!(row("r2").upload_status, "uploaded");
+    assert!(!row("r2").rpe_sent);
+    assert!(fit_on_disk(&theirs));
+}
+
+/// Scenario: a restore lands while a landed ride is being read back.
+/// Expected behaviour: the answer is not written into the library that
+/// replaced the one it was asked for, and the file stays.
+#[test]
+fn a_read_back_that_outlived_its_install_deletes_nothing() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_install_moved.db");
+    let entry = landed_ride(&dir, "r1", "i9");
+    insert(&entry);
+    let mut fake = Fake::answering(vec![]).reads("i9", present());
+    fake.during_read_back = Some(Box::new(crate::persistence::invalidate_engine_install));
+
+    sweep(&fake, &now);
+
+    assert!(exists("r1"));
+    assert!(fit_on_disk(&entry));
+}
+
+/// Scenario: a pending ride, a parked one and one still in flight.
+/// Expected behaviour: the sweep reads none of them back and touches none:
+/// only a landed upload is confirmed.
+#[test]
+fn only_a_landed_upload_is_read_back() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_only_landed.db");
+    for (id, status) in [("r1", "pending"), ("r2", "failed"), ("r3", "uploading")] {
+        let mut entry = ride(&dir, id, 1_000);
+        entry.upload_status = status.into();
+        entry.intervals_activity_id = Some(format!("i-{id}"));
+        insert(&entry);
+    }
+    let fake = Fake::answering(vec![])
+        .reads("i-r1", present())
+        .reads("i-r2", present())
+        .reads("i-r3", present());
+
+    sweep(&fake, &now);
+
+    assert!(fake.read().is_empty());
+    assert!(exists("r1") && exists("r2") && exists("r3"));
+}
+
+/// Scenario: the schedule's own pass uploads a due ride, and the server reads
+/// it straight back.
+/// Expected behaviour: the sweep after the drain deletes the ride, so nothing
+/// on the JavaScript side has to run for a landed ride to leave the device.
+#[test]
+fn the_schedule_confirms_and_deletes_what_its_drain_uploaded() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_after_drain.db");
+    let entry = ride(&dir, "r1", 1_000);
+    insert(&entry);
+    let fake = Fake::answering(vec![landed("i9")]).reads("i9", present());
+
+    one_scheduled_pass(&fake);
+
+    assert_eq!(fake.sent(), vec!["r1"]);
+    assert!(!exists("r1"));
+    assert!(!fit_on_disk(&entry));
 }

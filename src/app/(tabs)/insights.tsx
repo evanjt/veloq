@@ -30,7 +30,7 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useDebugStore } from '@/features/settings';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { requestSyncRefresh } from '@/shared/native/syncRefresh';
+import { SyncRefreshNotice, useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
@@ -71,6 +71,7 @@ function RouteTabEngineState({
 
 function InsightsScreenContent() {
   useTabFirstFrame('/insights');
+  const { notice, requestRefresh } = useSyncRefreshNotice();
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('InsightsScreen');
   useEffect(() => {
@@ -269,8 +270,8 @@ function InsightsScreenContent() {
   );
 
   const handleRefresh = useCallback(() => {
-    requestSyncRefresh();
-  }, []);
+    requestRefresh();
+  }, [requestRefresh]);
 
   const { oldestSyncedDate, newestSyncedDate, activityCount } = useMemo(() => {
     const count = routesData?.activityCount ?? 0;
@@ -531,6 +532,7 @@ function InsightsScreenContent() {
       </View>
 
       {renderSharedRouteState()}
+      <SyncRefreshNotice message={notice} />
 
       <SwipeableTabs
         tabs={tabs}

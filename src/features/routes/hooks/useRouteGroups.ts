@@ -9,6 +9,7 @@ import { useGroupSummaries } from './useEngine';
 import { getEngine } from '@/shared/native/engine';
 import { toActivityType, type ActivityType } from '@/types';
 import { groupCoversType } from '@/features/routes/lib/routeSportMembership';
+import type { LiveRouteOverlap } from 'veloqrs';
 
 interface UseRouteGroupsOptions {
   /** Filter by activity type */
@@ -64,6 +65,7 @@ interface UseRouteGroupsResult {
   renameRoute: (routeId: string, name: string) => void;
   /** What the engine threw, when the read failed. Empty groups with no error is an empty library. */
   error?: unknown;
+  measureLiveOverlap: (groupIds: string[], coordinates: number[]) => Promise<LiveRouteOverlap[]>;
 }
 
 export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGroupsResult {
@@ -86,6 +88,11 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
     engine.setRouteName(routeId, name);
     // No need to manually refresh - engine fires 'groups' event which
     // triggers useGroupSummaries subscriber to call refresh()
+  }, []);
+
+  const measureLiveOverlap = useCallback((groupIds: string[], coordinates: number[]) => {
+    const engine = getEngine();
+    return engine?.liveRouteOverlaps(groupIds, coordinates) ?? Promise.resolve([]);
   }, []);
 
   const result = useMemo(() => {
@@ -126,8 +133,9 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       processedCount: summaries.reduce((sum, g) => sum + g.activityCount, 0),
       renameRoute,
       error,
+      measureLiveOverlap,
     };
-  }, [summaries, type, totalCount, renameRoute, error]);
+  }, [summaries, type, totalCount, renameRoute, error, measureLiveOverlap]);
 
   return result;
 }

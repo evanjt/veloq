@@ -979,6 +979,13 @@ pub struct FfiBackupScreenData {
 pub struct FfiCacheScreenData {
     pub stream_retention_days: f64,
     pub stream_store_bytes: f64,
+    pub activity_year_counts: Vec<FfiYearCount>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiYearCount {
+    pub year: u32,
+    pub count: u32,
 }
 
 /// One background job's last finished run.
@@ -2315,6 +2322,10 @@ pub struct FfiStartupData {
     /// first. Empty on a library with no marker. The feed's rows come from the
     /// activity query, so this set is what marks them.
     pub new_activity_ids: Vec<String>,
+    /// Unix second when the next displayed ring expires.
+    pub next_ring_expiry_at: Option<f64>,
+    /// Whether a displayed ring still needs its first showing recorded.
+    pub ring_stamp_required: bool,
 }
 
 /// What the feed tells the engine about its own use, which the new-activity
@@ -2438,6 +2449,20 @@ pub struct FfiSectionRetirement {
     pub into_name: Option<String>,
 }
 
+/// An activity row in the section detail read.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionActivityRow {
+    pub activity_id: String,
+    pub name: String,
+    pub sport_type: String,
+    /// Unix seconds, as stored by the engine.
+    pub start_time: f64,
+    pub distance: f64,
+    pub moving_time: u32,
+    /// Metres per second; zero when moving time is zero.
+    pub average_speed: f64,
+}
+
 /// The section detail reads that do not depend on time streams.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSectionDetailData {
@@ -2454,8 +2479,8 @@ pub struct FfiSectionDetailData {
     pub excluded_activity_ids: Vec<String>,
     /// Whether the original bounds can still be restored
     pub has_original_bounds: bool,
-    /// Metrics for every activity on the section
-    pub activity_metrics: Vec<FfiActivityMetrics>,
+    /// Display rows for every activity on the section
+    pub activity_rows: Vec<FfiSectionActivityRow>,
     /// Simplified GPS signatures for scrub-time trace display
     pub map_signatures: Vec<FfiMapSignature>,
     /// Activities whose time streams still have to be fetched
@@ -3617,6 +3642,8 @@ pub struct FfiStrengthBalancePair {
 /// Summary of strength training volume over a time period.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiStrengthSummary {
+    /// Start of the summary's range in Unix seconds, or zero for an undated aggregate.
+    pub start_ts: f64,
     /// Per-muscle-group volume data
     pub muscle_volumes: Vec<FfiMuscleVolume>,
     /// Number of WeightTraining activities in the period

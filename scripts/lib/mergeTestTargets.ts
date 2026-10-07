@@ -60,7 +60,7 @@ function readManifest(): string {
 }
 
 export interface MergeTargets {
-  /** `cargo test -p veloqrs --test <name>` for each. */
+  /** `cargo nextest run -p veloqrs --test <name>` for each. */
   rustTests: string[];
   /** Whether the crate's own unit tests have to run. */
   rustLib: boolean;
@@ -68,6 +68,10 @@ export interface MergeTargets {
   tracematchLib: boolean;
   /** TypeScript files to hand to `jest --findRelatedTests`. */
   typescript: string[];
+  androidJvm: boolean;
+  iosProject: boolean;
+  rustLint: boolean;
+  rustAll: boolean;
 }
 
 interface ManifestTest {
@@ -280,6 +284,13 @@ export function mergeTestTargets(changed: string[]): MergeTargets {
   const schema = changed.some(touchesSchema) ? SCHEMA_SUITES : [];
   const manifest = changed.includes(`${CRATE}Cargo.toml`) ? ['app'] : [];
   const layout = changed.some(touchesTestLayout) ? [LAYOUT_SUITE] : [];
+  const rustAll = changed.some((path) =>
+    [
+      'modules/veloqrs/rust/Cargo.toml',
+      'modules/veloqrs/rust/Cargo.lock',
+      'rust-toolchain.toml',
+    ].includes(path)
+  );
   const rustTests = [...new Set([...named, ...schema, ...manifest, ...layout])].filter(
     (n) => !unrunnable.has(n)
   );
@@ -288,6 +299,19 @@ export function mergeTestTargets(changed: string[]): MergeTargets {
     rustLib: changed.some(touchesRustSource),
     tracematchLib: changed.some(touchesTracematch),
     typescript: changed.filter(isTypeScript).sort(),
+    androidJvm: changed.some((path) => path.startsWith('modules/veloqrs/android/')),
+    iosProject: changed.some(
+      (path) =>
+        path === 'app.json' ||
+        path === 'app.config.js' ||
+        path.startsWith('ios/') ||
+        path.startsWith('src/plugins/') ||
+        /\/ios\//.test(path)
+    ),
+    rustLint: changed.some(
+      (path) => path.startsWith('modules/veloqrs/rust/') || path === 'rust-toolchain.toml'
+    ),
+    rustAll,
   };
 }
 
@@ -297,7 +321,11 @@ export function hasTargets(targets: MergeTargets): boolean {
     targets.rustTests.length > 0 ||
     targets.rustLib ||
     targets.tracematchLib ||
-    targets.typescript.length > 0
+    targets.typescript.length > 0 ||
+    targets.androidJvm ||
+    targets.iosProject ||
+    targets.rustLint ||
+    targets.rustAll
   );
 }
 
@@ -355,21 +383,38 @@ export function mergeTestCommands(
 ): string[] {
   const commands: string[] = [];
 
+  if (targets.rustLint) {
+    commands.push(
+      'cargo clippy --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --all-targets --all-features -- -D warnings'
+    );
+  }
+  if (targets.tracematchLib) {
+    commands.push(
+      `cargo clippy --manifest-path ${TRACEMATCH}/Cargo.toml -- -D clippy::iter_over_hash_type`
+    );
+  }
+
   // Most suites carry `required-features = ["synthetic"]`, and cargo
   // refuses a `--test` naming one without the feature rather than skipping it.
   // The ones this lane cannot supply are already out of `rustTests`.
   const cargo: string[] = [`--features ${MERGE_FEATURE}`];
   if (targets.rustLib) cargo.push('--lib');
   for (const name of targets.rustTests) cargo.push(`--test ${name}`);
-  if (cargo.length > 1) {
-    commands.push(`cargo test --manifest-path ${CRATE}Cargo.toml -p veloqrs ${cargo.join(' ')}`);
+  if (targets.rustAll) {
+    commands.push(
+      'cargo nextest run --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --features synthetic --profile ci'
+    );
+  } else if (cargo.length > 1) {
+    commands.push(
+      `cargo nextest run --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs ${cargo.join(' ')} --profile ci`
+    );
   }
   // tracematch gates `fold_resume` and its other synthetic suites the same way,
   // but a run that names no `--test` skips them quietly rather than refusing,
   // so without the feature the gate passes with those suites never built.
   if (targets.tracematchLib) {
     commands.push(
-      `cargo test --manifest-path ${TRACEMATCH}/Cargo.toml -p tracematch --features ${MERGE_FEATURE}`
+      `cargo nextest run --manifest-path ${TRACEMATCH}/Cargo.toml -p tracematch --features ${MERGE_FEATURE} --profile ci`
     );
     // A corpus gate runs where its data is and skips loudly where it is not,
     // because a pointer bump is the one change that moves fold output.
@@ -381,6 +426,13 @@ export function mergeTestCommands(
   if (targets.typescript.length > 0) {
     commands.push(
       `npx jest --config config/jest.config.js --findRelatedTests --passWithNoTests ${targets.typescript.map(shellQuote).join(' ')}`
+    );
+  }
+  if (targets.androidJvm) commands.push('./scripts/check-android-jvm.sh');
+  if (targets.iosProject) {
+    commands.push('node scripts/check-ios-project.mjs');
+    commands.push(
+      'npx jest --config config/jest.config.js --runInBand src/__tests__/plugins/nativeStringCatalogues.test.ts src/__tests__/plugins/withIosWidgetSharedSource.test.ts'
     );
   }
 

@@ -37,21 +37,27 @@ function trend(overrides: Partial<EfficiencyTrend> = {}): EfficiencyTrend {
 it('carries the HR/pace series onto the insight', () => {
   const [insight] = generateEfficiencyTrendInsights([trend()], NOW, t);
 
-  expect(insight.supportingData?.sparklineData).toEqual([0.64, 0.62, 0.59, 0.58]);
-  expect(insight.supportingData?.sparklineLabel).toBe('insights.efficiencyTrend.seriesLabel');
+  expect(insight.supportingData?.history).toMatchObject({
+    kind: 'sparkline',
+    series: [
+      {
+        label: 'insights.efficiencyTrend.seriesLabel',
+        points: [0.64, 0.62, 0.59, 0.58].map((value) => ({ date: 1, value })),
+      },
+    ],
+  });
 });
 
 it('omits the series when the engine sent no points', () => {
   const [insight] = generateEfficiencyTrendInsights([trend({ points: [] })], NOW, t);
 
-  expect(insight.supportingData?.sparklineData).toBeUndefined();
-  expect(insight.supportingData?.sparklineLabel).toBeUndefined();
+  expect(insight.supportingData?.history).toBeUndefined();
 });
 
 it('omits a one-point series, which plots nothing', () => {
   const [insight] = generateEfficiencyTrendInsights([trend({ points: [point(0.6)] })], NOW, t);
 
-  expect(insight.supportingData?.sparklineData).toBeUndefined();
+  expect(insight.supportingData?.history).toBeUndefined();
 });
 
 it('keeps one insight per sport on the same section, each naming its own sport', () => {

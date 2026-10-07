@@ -27,7 +27,6 @@ import {
   useSectionDetailPerformance,
   useSectionDataRefresh,
   useSectionUIState,
-  useSectionActivityData,
   useSectionChartDataEnriched,
   useSectionMapData,
   useSectionTrim,
@@ -123,6 +122,7 @@ function SectionDetailScreenContent() {
     data: detail,
     status: detailStatus,
     retirement,
+    allActivityTraces,
   } = useSectionDetailData(id, sectionRefreshTick);
 
   // Get cached date range from sync store (consolidated calculation)
@@ -257,16 +257,6 @@ function SectionDetailScreenContent() {
     [setHighlightedActivityId, setHighlightedActivityPoints]
   );
 
-  // Memoised so a rename keystroke, which re-renders this screen, hands the
-  // hook the same bundle wrapper rather than a fresh literal.
-  const preComputedActivityData = useMemo(
-    () => ({
-      activityMetrics: detail?.activityMetrics ?? [],
-      mapSignatures: detail?.mapSignatures ?? [],
-    }),
-    [detail]
-  );
-
   // Section times come from activity streams, so wait for the gap the bundle
   // reported to close before reading the records.
   const portionActivityIds = useMemo(() => {
@@ -304,28 +294,12 @@ function SectionDetailScreenContent() {
   const sportCounts = performance?.sportCounts ?? EMPTY_SPORT_COUNTS;
   const showSportChips = shouldShowSportChips(sportCounts);
 
-  const { allActivityTraces, filteredActivities } = useSectionActivityData(
-    section,
-    effectiveSportType,
-    preComputedActivityData
-  );
-
-  const {
-    records: performanceRecords,
-    bestForwardRecord,
-    bestReverseRecord,
-    forwardStats,
-    reverseStats,
-  } = useMemo(
+  const { bestForwardRecord, bestReverseRecord, forwardStats, reverseStats } = useMemo(
     () => (performance ? toPerformanceView(performance.performances) : EMPTY_PERFORMANCE_VIEW),
     [performance]
   );
 
   const { chartData } = useSectionChartData({
-    section,
-    performanceRecords,
-    sectionActivitiesUnsorted: filteredActivities,
-    sectionWithTraces: null,
     preComputedChart: performance?.chartData ?? null,
   });
 

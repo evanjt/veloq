@@ -32,6 +32,7 @@ import {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { CHART_CONFIG } from './constants';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 // ============================================================================
 // Types
@@ -160,7 +161,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     enabled = true,
     scrubEnabled = true,
     scrubActivation = 'longPress',
-    activationDelay = CHART_CONFIG.LONG_PRESS_DURATION,
+    activationDelay = PREVIEW_HOLD_MS,
     verticalSlop = CHART_CONFIG.PAN_THRESHOLD,
     dragSlop = CHART_CONFIG.DRAG_SLOP,
     haptics = true,

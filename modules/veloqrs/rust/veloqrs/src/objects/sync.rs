@@ -1517,6 +1517,27 @@ pub(crate) async fn send_activity_rpe(intervals_id: String, rpe: u32) -> FfiCall
     .await
 }
 
+/// Read the activity an upload created back off intervals.icu.
+///
+/// A 200 from the upload says the server took the bytes, not that the ride
+/// survived: it can be rejected, deduplicated against an existing activity or
+/// lost afterwards, and the device's copy is the only other one. So the
+/// recording is not deleted until this reads the activity back. `Ok` means
+/// present, `Http` with 404 means gone, and everything else means unknown,
+/// which is not an answer and must not be treated as one.
+///
+/// It goes through `run_write` for the credential handling rather than for the
+/// verb: a confirmation refused for a dead credential parks the service exactly
+/// as a refused upload does.
+pub(crate) async fn read_back_activity(intervals_id: String) -> FfiCallOutcome {
+    run_write(move |transport, _athlete_id| async move {
+        endpoints::fetch_activity_body(&transport, &intervals_id, Lane::Backfill)
+            .await
+            .map(|_| Some(intervals_id))
+    })
+    .await
+}
+
 /// Run a write against the held credential.
 async fn run_write<F, Fut>(job: F) -> FfiCallOutcome
 where
@@ -3550,37 +3571,6 @@ impl SyncManager {
             )
             .await
         })
-    }
-
-    /// Set the effort the athlete gave an uploaded ride, as its `icu_rpe`.
-    ///
-    /// A separate call because the upload takes no effort field. It names the
-    /// activity the upload created, so a failure here never sends the file
-    /// again: the recording keeps the effort owed and the next pass retries
-    /// only this.
-    async fn update_activity_rpe(&self, intervals_id: String, rpe: u32) -> FfiCallOutcome {
-        send_activity_rpe(intervals_id, rpe).await
-    }
-
-    /// Answer whether intervals.icu still holds the activity an upload created.
-    ///
-    /// A 200 from the upload says the server took the bytes, not that the ride
-    /// survived: it can be rejected, deduplicated against an existing activity
-    /// or lost afterwards, and the device's copy is the only other one. So the
-    /// recording is not deleted until this reads the activity back. `Ok` means
-    /// present, `Http` with 404 means gone, and everything else means unknown,
-    /// which is not an answer and must not be treated as one.
-    ///
-    /// It goes through `run_write` for the credential handling rather than for
-    /// the verb: a confirmation refused for a dead credential parks the service
-    /// exactly as a refused upload does.
-    async fn confirm_activity_uploaded(&self, intervals_id: String) -> FfiCallOutcome {
-        run_write(move |transport, _athlete_id| async move {
-            endpoints::fetch_activity_body(&transport, &intervals_id, Lane::Backfill)
-                .await
-                .map(|_| Some(intervals_id))
-        })
-        .await
     }
 
     /// Soft-cancel the running sync.
@@ -9711,9 +9701,8 @@ mod write_auth_tests {
         });
         aim_service_at(&server);
 
-        let outcome = off_the_runtime(|| {
-            futures::executor::block_on(SyncManager::new().confirm_activity_uploaded("a9".into()))
-        });
+        let outcome =
+            off_the_runtime(|| futures::executor::block_on(read_back_activity("a9".into())));
 
         assert_eq!(outcome.kind, FfiCallKind::Unauthorized);
         profile.assert();
@@ -9794,9 +9783,8 @@ mod write_auth_tests {
         });
         aim_service_at(&server);
 
-        let outcome = off_the_runtime(|| {
-            futures::executor::block_on(SyncManager::new().confirm_activity_uploaded("a9".into()))
-        });
+        let outcome =
+            off_the_runtime(|| futures::executor::block_on(read_back_activity("a9".into())));
 
         assert_eq!(outcome.kind, FfiCallKind::Unauthorized);
         profile.assert();

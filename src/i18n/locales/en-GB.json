@@ -368,7 +368,6 @@
     "wbal": "W'bal"
   },
   "common": {
-    "activities": "activities",
     "back": "Back",
     "close": "Close",
     "cancel": "Cancel",
@@ -1250,6 +1249,8 @@
     "sportFilterTitle": "Sport",
     "createSection": "Create Section",
     "custom": "Custom",
+    "customCount_one": "{{count}} custom section",
+    "customCount_other": "{{count}} custom sections",
     "dataRangeHint": "Based on {{duration}} of activity data",
     "duplicateNameMessage": "Please choose a different name. Each route must have a unique name.",
     "duplicateNameTitle": "Name Already Exists",
@@ -1284,7 +1285,6 @@
     "standingBest": "Your fastest of {{total}}",
     "standingRank": "Ranked {{rank}} of {{total}}, {{gap}} off your best",
     "standingRankPercentile": "Ranked {{rank}} of {{total}}, faster than {{percent}}% of them, {{gap}} off your best",
-    "visits": "visits",
     "largeSectionPerformanceWarning": "Large sections may take longer to process."
   },
   "routesScreen": {
@@ -1317,6 +1317,8 @@
     "removeSection": "Remove Section",
     "removeSectionConfirm": "This section won't appear in activity details or insights. You can restore it from the sections list.",
     "removed": "Removed",
+    "removedCount_one": "{{count}} removed section",
+    "removedCount_other": "{{count}} removed sections",
     "restoreSection": "Restore Section",
     "partial": "Partial",
     "placeSecond": "2nd fastest",
@@ -1382,13 +1384,13 @@
     "setAsReferenceConfirm": "Use this activity as the reference?\n\nThe section will be re-matched against all your activities. This may add or remove activities from this section.",
     "setReferenceError": "Failed to set reference. The section or activity may have changed. Please try again.",
     "editBounds": "Edit Bounds",
-    "points": "points",
+    "pointsCount_one": "{{count}} point",
+    "pointsCount_other": "{{count}} points",
     "resetBounds": "Reset to Original",
     "trimPrecisionHint": "Drag handle up or down for finer control",
     "trimMode": "Trim",
     "expandMode": "Expand",
     "resetBoundsConfirm": "Reset to the original auto-detected bounds?\n\nThe section will be re-matched against all your activities.",
-    "traversals": "traversals",
     "liftGround": "Lift",
     "notLift": "Not a lift",
     "trimFailed": "Failed to trim section bounds",
@@ -1458,6 +1460,7 @@
     "nameTaken": "Another section already has this name. Choose a different name."
   },
   "settings": {
+    "developerDashboard": "Developer Dashboard",
     "account": "Account",
     "activities": "Activities",
     "appearance": "Appearance",
@@ -1724,7 +1727,6 @@
     "completeActivitiesYearComparison": "Complete activities to see year-over-year comparison",
     "completeDecouplingHint": "Complete a sustained effort with power and heart rate data to see decoupling analysis",
     "completePowerActivities": "Complete power-based activities to see your FTP trend",
-    "current": "Current",
     "decouplingExplanation": "Decoupling measures cardiac drift - how much your heart rate rises relative to power output during sustained efforts.",
     "decouplingProvenance": "Computed by intervals.icu",
     "estimatedFtp": "Estimated FTP",
@@ -1750,7 +1752,6 @@
     "paceCurve": "Pace Curve",
     "powerCurve": "Power Curve",
     "powerZones": "Power Zones",
-    "previous": "Previous",
     "rangeNotDownloaded": "Not downloaded yet",
     "rangePartlyDownloaded": "Part of this range is not downloaded yet",
     "calendarRange": "{{start}} to {{end}}",
@@ -1789,6 +1790,13 @@
     "seasonBests": "Season Bests",
     "swimPaceCurve": "Swim Pace Curve",
     "trainingZones": "Training Zones"
+  },
+  "refresh": {
+    "busy": "Refreshes after the current sync.",
+    "notReady": "Sync is still opening. Try again shortly.",
+    "offline": "Refreshes when connected.",
+    "notConfigured": "Sign in to sync.",
+    "failed": "The sync could not start."
   },
   "sync": {
     "ridesDownloaded": "{{completed}} of {{total}} rides downloaded",
@@ -1940,9 +1948,13 @@
     "downloading": "Downloading strength workouts",
     "downloadingHint": "Your set data arrives with the workout files. This updates when they land.",
     "sets": "sets",
+    "setsCount_one": "{{count}} set",
+    "setsCount_other": "{{count}} sets",
     "muscleGroupVolume": "Muscle Group Volume",
     "relativeWeightedSets": "Relative weighted sets across the selected period",
     "reps": "reps",
+    "repsCount_one": "{{count}} rep",
+    "repsCount_other": "{{count}} reps",
     "tapMuscleGroup": "Tap a muscle group for details",
     "relativeVolume": "Relative volume",
     "balanceObservedPairs": "Observed across tracked antagonist pairs in the current {{period}}",

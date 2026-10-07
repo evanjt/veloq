@@ -1,6 +1,6 @@
 /**
  * Scenario: the review save or Upload now hands a recording to the write seam
- * above the engine, and an effort update goes the same way.
+ * above the engine.
  *
  * Expected behaviour: the recording goes to the engine's one upload command by
  * id, as the athlete's own request, and the screen gets the engine's answer
@@ -9,12 +9,8 @@
  * request, is asserted in Rust, where it runs.
  */
 
-import { CallKind, UploadOutcome, engine } from 'veloqrs';
-import {
-  uploadRecordingNow,
-  updateActivityRpe,
-  UploadFailure,
-} from '@/features/recording/lib/upload/intervalsUploads';
+import { UploadOutcome, engine } from 'veloqrs';
+import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
 import {
   recordingInstall,
   transitionRecording,
@@ -24,7 +20,6 @@ jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
     engine: {
       uploadRecording: jest.fn(),
-      updateActivityRpe: jest.fn(),
     },
   })
 );
@@ -42,7 +37,6 @@ jest.mock('@/shared/app/AuthStore', () => ({
 }));
 
 const mockUploadRecording = engine.uploadRecording as jest.Mock;
-const mockUpdateRpe = engine.updateActivityRpe as jest.Mock;
 const mockTransition = transitionRecording as jest.Mock;
 
 beforeEach(() => {
@@ -50,7 +44,6 @@ beforeEach(() => {
   mockAuthState.isDemoMode = false;
   mockAuthState.athleteId = 'i12345';
   mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
-  mockUpdateRpe.mockResolvedValue({ kind: CallKind.Ok, id: 'i999', message: 'ok' });
   mockTransition.mockResolvedValue({ applied: true, retryCount: 0, install: 4 });
 });
 
@@ -93,31 +86,5 @@ describe('uploadRecordingNow', () => {
     mockTransition.mockResolvedValue({ applied: false, retryCount: 0, install: 4 });
 
     expect(await uploadRecordingNow('rec-1')).toEqual({ outcome: UploadOutcome.NotStarted });
-  });
-});
-
-describe('updateActivityRpe', () => {
-  it('sets the effort on the activity by its intervals.icu id', async () => {
-    await updateActivityRpe('i999', 7);
-
-    expect(mockUpdateRpe).toHaveBeenCalledWith('i999', 7);
-  });
-
-  it('throws with the outcome attached when the server refuses it', async () => {
-    const refused = { kind: CallKind.Http, status: 400, detail: 'Bad', message: 'HTTP 400: Bad' };
-    mockUpdateRpe.mockResolvedValue(refused);
-
-    const thrown = await updateActivityRpe('i999', 7).catch((err: unknown) => err);
-
-    expect(thrown).toBeInstanceOf(UploadFailure);
-    expect((thrown as UploadFailure).outcome).toEqual(refused);
-  });
-
-  it('sends nothing in demo mode', async () => {
-    mockAuthState.isDemoMode = true;
-
-    await updateActivityRpe('i999', 7);
-
-    expect(mockUpdateRpe).not.toHaveBeenCalled();
   });
 });

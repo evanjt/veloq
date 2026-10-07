@@ -5,7 +5,7 @@ import { TimelineSlider } from '@/features/maps';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
-import { useActivityYearCounts } from '@/shared/app/useActivityYearCounts';
+import { useActivityYearCounts } from '@/features/settings/hooks/useActivityYearCounts';
 import { formatLocalDate } from '@/shared/format/format';
 import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';

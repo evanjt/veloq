@@ -31,6 +31,13 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('@/features/activity/components/ActivityDetailSkeleton', () => ({
+  ActivityDetailSkeleton: ({ onPosterSettled }: { onPosterSettled?: () => void }) => {
+    const React = require('react');
+    React.useEffect(() => onPosterSettled?.(), [onPosterSettled]);
+    return null;
+  },
+}));
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -243,6 +250,10 @@ jest.mock('@/features/activity/components/ActivitySectionsSection', () => ({
 
 describe('activity detail screen', () => {
   beforeEach(() => {
+    jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
     jest.clearAllMocks();
     capturedSectionEncounters = [];
     capturedTabs.current = [];
@@ -253,6 +264,7 @@ describe('activity detail screen', () => {
     mockUseSectionOverlays.mockImplementation(() => ({ sectionOverlays: [] }));
     mockDetail.encounters = [];
   });
+  afterEach(() => jest.restoreAllMocks());
 
   it('keeps the pre-computed bundles it hands its hooks stable across a scrub', async () => {
     render(<ActivityDetailScreen />);

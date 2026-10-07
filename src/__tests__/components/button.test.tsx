@@ -4,10 +4,10 @@
  * variant list nobody had written down.
  *
  * Expected behaviour: one `Button` with four variants and two sizes, drawn
- * from tokens only, that refuses a press while disabled or loading and never
- * renders smaller than the platform's own tap-target minimum. `ToggleButton`
- * carries a selected state that is readable without colour, because colour
- * alone is not a state.
+ * from tokens only, that refuses a press while disabled or loading and whose
+ * drawn height plus hit slop reaches the platform's own tap-target minimum.
+ * `ToggleButton` carries a selected state that is readable without colour,
+ * because colour alone is not a state.
  */
 
 import React from 'react';
@@ -15,7 +15,7 @@ import { Platform } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { Button, ToggleButton } from '@/shared/ui/Button';
-import { colors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { MIN_TAP_TARGET } from '@/theme/spacing';
 
 let mockIsDark = false;
@@ -77,6 +77,29 @@ function styleOf(node: { props: { style?: unknown } }) {
   return flatten(node.props.style);
 }
 
+function reachHeight(node: {
+  props: { style?: unknown; hitSlop?: { top?: number; bottom?: number } };
+}): number {
+  const { hitSlop } = node.props;
+  return Number(styleOf(node).minHeight ?? 0) + (hitSlop?.top ?? 0) + (hitSlop?.bottom ?? 0);
+}
+
+/** A colour, `#rrggbb` or `rgba(...)`, laid over an opaque `#rrggbb` ground. */
+function over(color: string, ground: string): string {
+  const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const rgba = color.match(/rgba?\(([^)]+)\)/);
+  if (!rgba) return color;
+  const [r, g, b, a = 1] = rgba[1].split(',').map(Number);
+  const base = hex(ground);
+  return (
+    '#' +
+    [r, g, b]
+      .map((c, i) => Math.round(c * a + base[i] * (1 - a)))
+      .map((c) => c.toString(16).padStart(2, '0'))
+      .join('')
+  );
+}
+
 describe('Button', () => {
   it('draws the primary variant from tokens, with no literal of its own', () => {
     const { getByTestId } = render(<Button label="Save" onPress={() => {}} testID="b" />);
@@ -115,12 +138,12 @@ describe('Button', () => {
     expect(styleOf(md('b-label')).fontSize).toBe(typography.body.fontSize);
   });
 
-  it('never renders under the platform tap-target minimum, at either size', () => {
+  it('reaches the platform tap-target minimum through hit slop, at either size', () => {
     for (const size of ['sm', 'md'] as const) {
       const { getByTestId } = render(
         <Button label="x" size={size} onPress={() => {}} testID="b" />
       );
-      expect(styleOf(getByTestId('b')).minHeight).toBe(layout.minTapTarget);
+      expect(reachHeight(getByTestId('b'))).toBeGreaterThanOrEqual(layout.minTapTarget);
     }
   });
 
@@ -179,19 +202,26 @@ describe('ToggleButton', () => {
     expect(getByTestId('t').props.accessibilityState.selected).toBe(true);
   });
 
-  it('carries a border weight as well as a colour, so the state survives greyscale', () => {
-    const { getByTestId: on } = render(
-      <ToggleButton label="x" selected onPress={() => {}} testID="t" />
-    );
-    const { getByTestId: off } = render(<ToggleButton label="x" onPress={() => {}} testID="t" />);
+  for (const isDark of [false, true]) {
+    it(`steps in lightness when selected, so the state survives greyscale, in the ${isDark ? 'dark' : 'light'} theme`, () => {
+      mockIsDark = isDark;
+      const surface = (isDark ? darkColors : colors).surface;
+      const { getByTestId: on } = render(
+        <ToggleButton label="x" selected onPress={() => {}} testID="t" />
+      );
+      const { getByTestId: off } = render(<ToggleButton label="x" onPress={() => {}} testID="t" />);
+      mockIsDark = false;
 
-    expect(styleOf(on('t')).borderWidth).toBeGreaterThan(styleOf(off('t')).borderWidth as number);
-  });
+      const selected = over(styleOf(on('t')).backgroundColor as string, surface);
+      const unselected = over(styleOf(off('t')).backgroundColor as string, surface);
+      expect(contrastRatio(selected, unselected)).toBeGreaterThanOrEqual(3);
+    });
+  }
 
-  it('floors at the tap target like every other button', () => {
+  it('reaches the tap target through hit slop like every other button', () => {
     const { getByTestId } = render(<ToggleButton label="x" onPress={() => {}} testID="t" />);
 
-    expect(styleOf(getByTestId('t')).minHeight).toBe(layout.minTapTarget);
+    expect(reachHeight(getByTestId('t'))).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 
   it('does not fire while disabled', () => {

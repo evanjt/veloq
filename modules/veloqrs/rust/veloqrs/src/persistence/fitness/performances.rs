@@ -527,7 +527,7 @@ pub(crate) mod pooled {
             Some(sport) => format!("{section_id}:{sport}"),
             None => section_id.to_string(),
         };
-        crate::persistence::read_cache::performances(&key, || {
+        crate::persistence::read_cache::performances(conn, &key, || {
             section_performances(conn, section_id, sport_type_filter)
         })
     }

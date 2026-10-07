@@ -5,10 +5,12 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 
 import { RouteOverlayPicker } from '@/features/recording/components/RouteOverlayPicker';
 import { useGroupSummaries } from '@/features/routes/hooks/useEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({
@@ -71,4 +73,34 @@ it('shows the distance in miles for an imperial athlete', () => {
   const screen = renderPicker();
 
   expect(screen.getByText(/^2\.6 mi · /)).toBeTruthy();
+});
+
+it('shows live percentages and orders routes by overlap after the recorded track grows', async () => {
+  const streams = useRecordingStore.getState().streams;
+  act(() => {
+    useRecordingStore.setState({
+      streams: {
+        ...streams,
+        latlng: [
+          [47, 7],
+          [47.001, 7],
+        ],
+        distance: [0, 350],
+      },
+    });
+  });
+  (getEngine as jest.Mock).mockReturnValue({
+    liveRouteOverlaps: jest.fn().mockResolvedValue([
+      { groupId: 'short', percentage: 10 },
+      { groupId: 'long', percentage: 75 },
+      { groupId: 'unknown', percentage: 0 },
+    ]),
+  });
+
+  const screen = renderPicker();
+  await waitFor(() => expect(screen.getByText(/75%/)).toBeTruthy());
+  expect(
+    screen.getByTestId('route-overlay-list').props.data.map((group: { id: string }) => group.id)
+  ).toEqual(['long', 'short', 'unknown']);
+  act(() => useRecordingStore.setState({ streams }));
 });

@@ -216,6 +216,8 @@ export function WhatsNewModal() {
       exiting={FadeOut.duration(200)}
     >
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('common.close')}
         style={pressable(styles.backdrop)}
         android_ripple={pressRipple}
         onPress={dismiss}
@@ -244,6 +246,12 @@ export function WhatsNewModal() {
         <View style={styles.indicators}>
           {canToggleMode && (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                tourState?.mode === 'tutorial'
+                  ? t('whatsNew.justWhatsNew')
+                  : t('whatsNew.seeAllFeatures')
+              }
               onPress={handleModeToggle}
               hitSlop={8}
               style={pressable([styles.modeTogglePill, { borderColor: primaryColor }])}
@@ -354,7 +362,14 @@ function NavigationButtons({
       {/* Left: Skip (hidden on last slide) */}
       <View style={styles.navLeft}>
         <Animated.View style={isLast}>
-          <Pressable onPress={onSkip} hitSlop={12} style={pressable()} android_ripple={pressRipple}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={skipLabel}
+            onPress={onSkip}
+            hitSlop={12}
+            style={pressable()}
+            android_ripple={pressRipple}
+          >
             <Text style={[styles.navText, { color: mutedColor }]}>{skipLabel}</Text>
           </Pressable>
         </Animated.View>
@@ -362,7 +377,14 @@ function NavigationButtons({
 
       {/* Center: Show Me */}
       <Animated.View style={showMeStyle}>
-        <Pressable onPress={onShowMe} hitSlop={12} style={pressable()} android_ripple={pressRipple}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={showMeLabel}
+          onPress={onShowMe}
+          hitSlop={12}
+          style={pressable()}
+          android_ripple={pressRipple}
+        >
           <Text style={[styles.navText, styles.navTextBold, { color: primaryColor }]}>
             {showMeLabel} →
           </Text>
@@ -373,6 +395,8 @@ function NavigationButtons({
       <View style={styles.navRight}>
         <Animated.View style={doneStyle}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={doneLabel}
             onPress={onSkip}
             hitSlop={12}
             style={pressable([styles.doneButton, { backgroundColor: primaryColor }])}
@@ -382,7 +406,14 @@ function NavigationButtons({
           </Pressable>
         </Animated.View>
         <Animated.View style={[styles.nextOverlay, isLast]}>
-          <Pressable onPress={onNext} hitSlop={12} style={pressable()} android_ripple={pressRipple}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={nextLabel}
+            onPress={onNext}
+            hitSlop={12}
+            style={pressable()}
+            android_ripple={pressRipple}
+          >
             <Text style={[styles.navText, styles.navTextBold, { color: primaryColor }]}>
               {nextLabel}
             </Text>

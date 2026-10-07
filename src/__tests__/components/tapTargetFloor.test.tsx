@@ -12,7 +12,7 @@ import { render, screen } from '@testing-library/react-native';
 
 import { initializeI18n } from '@/i18n';
 import { HeroNameRow } from '@/shared/ui/DetailHero';
-import { FeedFilterChips, FEED_CHIP_HEIGHT } from '@/features/activity/components/FeedFilterChips';
+import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips';
 import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { layout } from '@/theme/layout';
@@ -98,11 +98,10 @@ describe('tap-target floor', () => {
         onSelect={jest.fn()}
         selectedRange={null}
         onSelectRange={jest.fn()}
-        isDark={false}
       />
     );
 
     const chip = screen.getByTestId('home-filter-cycling');
-    expect(FEED_CHIP_HEIGHT + reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);
+    expect(reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 });

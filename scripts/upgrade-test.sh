@@ -22,7 +22,7 @@
 #   match:
 #     git worktree add ../v038 v0.3.8
 #     (cd ../v038 && npx expo run:android --variant debug --no-install)
-#     (npx expo run:android --variant debug --no-install)
+#     npm run android:debug
 #     APP_ID=com.veloq.app.dev \
 #     FROM_APK=../v038/android/app/build/outputs/apk/debug/app-debug.apk \
 #     NEW_APK=android/app/build/outputs/apk/debug/app-debug.apk \

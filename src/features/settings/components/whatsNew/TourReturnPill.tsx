@@ -52,6 +52,8 @@ export function TourReturnPill() {
         )}
         <View style={styles.buttonRow}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('whatsNew.backToTour')}
             style={pressable(styles.returnButton)}
             android_ripple={pressRipple}
             onPress={resumeTour}
@@ -71,6 +73,8 @@ export function TourReturnPill() {
           />
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('whatsNew.closeTour')}
             style={pressable(styles.closeButton)}
             android_ripple={pressRipple}
             onPress={handleClose}

@@ -62,6 +62,10 @@ function SectionRetiredScreenContent() {
                 <TouchableOpacity
                   testID={`section-retired-${r.sectionId}-into`}
                   onPress={() => router.push(`/section/${r.into}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('sectionHistory.retiredInto', {
+                    name: names[r.into] ?? r.into,
+                  })}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.link, isDark && { color: darkColors.linkTeal }]}>

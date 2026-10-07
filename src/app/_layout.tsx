@@ -50,7 +50,7 @@ import {
   resumeHeldRecordingForAthlete,
   RecordingReturnPill,
   installRecordingSession,
-  useUploadQueueProcessor,
+  startUploadQueue,
 } from '@/features/recording';
 import { formatLocalDate } from '@/shared/format/format';
 import { seedSyncRange } from '@/shared/app/syncRangeSeed';
@@ -162,9 +162,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Process queued uploads on network restore / app foreground
-  useUploadQueueProcessor();
-
   // Trigger route re-detection when sync date range expands
   useRouteReoptimization();
 
@@ -255,6 +252,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           // AuthStore.initialize() usually runs before the engine exists, so
           // its credential push was a no-op. Repeat it now the engine is up.
           pushCredentialsToEngine();
+          // The engine uploads and sweeps the recording queue itself; it is
+          // started behind the credential so its first sweep can read back.
+          void startUploadQueue();
           // Demo mode reads the same tables as live mode, so the fixtures
           // have to be in SQLite before any screen queries the engine.
           if (useAuthStore.getState().isDemoMode) {

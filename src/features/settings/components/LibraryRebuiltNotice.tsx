@@ -74,6 +74,8 @@ export function LibraryRebuiltNotice() {
           {keptLine}
           <Text style={styles.body}>{t('engine.quarantine.resyncing')}</Text>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('engine.quarantine.dismiss')}
             testID="library-rebuilt-dismiss"
             style={pressable(styles.dismiss)}
             android_ripple={pressRipple}

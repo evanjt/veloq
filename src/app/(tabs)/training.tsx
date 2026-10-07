@@ -38,7 +38,7 @@ import {
 import { logScreenRender } from '@/shared/debug/renderTimer';
 
 import { queryKeys } from '@/shared/query/queryKeys';
-import { requestSyncRefresh } from '@/shared/native/syncRefresh';
+import { SyncRefreshNotice, useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { TIME_RANGES } from '@/shared/app/constants';
 import { DEFAULT_PERIOD } from '@/shared/app/period';
 import { useLocalSearchParams } from 'expo-router';
@@ -57,6 +57,7 @@ function HealthScreenContent() {
   const perfEnd = logScreenRender('HealthScreen');
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { notice, requestRefresh } = useSyncRefreshNotice();
   const { isDark, colors: themeColors } = useTheme();
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
@@ -127,14 +128,14 @@ function HealthScreenContent() {
   // Handle pull-to-refresh - invalidate all training-related queries
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    requestSyncRefresh();
+    requestRefresh();
     await Promise.all([
       refetchWellness(),
       queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
       queryClient.invalidateQueries({ queryKey: queryKeys.stats.all }),
     ]);
     setIsRefreshing(false);
-  }, [refetchWellness, queryClient]);
+  }, [refetchWellness, queryClient, requestRefresh]);
 
   // Wellness is the one read that replaces the tab. The engine aggregates name
   // their own failure inside the card that reads them.
@@ -148,6 +149,7 @@ function HealthScreenContent() {
 
   return (
     <ScreenSafeAreaView style={shared.container} testID="training-screen">
+      <SyncRefreshNotice message={notice} />
       <View style={styles.header} testID="training-header">
         <Text style={shared.screenTitle}>{t('healthScreen.title')}</Text>
         {isFetching && !isRefreshing && (

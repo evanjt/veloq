@@ -52,7 +52,7 @@ function fixture(): Fixture {
   );
   fs.writeFileSync(
     path.join(cwd, 'android/gradlew'),
-    `#!/bin/sh\necho "gradlew $*" >> "${log}"\n`,
+    `#!/bin/sh\necho "gradlew $*" >> "${log}"\nexit 23\n`,
     {
       mode: 0o755,
     }
@@ -62,7 +62,12 @@ function fixture(): Fixture {
     cwd,
     log,
     lock,
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, VELOQ_ANDROID_BUILD_LOCK: lock },
+    env: {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH}`,
+      ANDROID_SERIAL: 'emulator-5554',
+      VELOQ_ANDROID_BUILD_LOCK: lock,
+    },
   };
 }
 
@@ -106,14 +111,14 @@ async function runWhileHeld(script: string) {
 
 describe('Android artifact recipes wait for the build lock', () => {
   it.each([
-    ['android', 0, ['node scripts/check-toolchain.mjs', 'npx expo run:android']],
+    ['android', 23, ['node scripts/check-toolchain.mjs', 'node scripts/bundle-android.mjs']],
     [
       'android:prod',
-      0,
+      23,
       [
+        'node scripts/check-toolchain.mjs',
         'node scripts/build-record.js snapshot android release',
-        'npx expo run:android --variant release',
-        'node scripts/build-record.js write release',
+        'gradlew assembleRelease',
       ],
     ],
     ['bundle:android', 23, ['node scripts/bundle-android.mjs']],

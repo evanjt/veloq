@@ -22,6 +22,18 @@ describe('ringsLeavingView', () => {
     ).toEqual([]);
   });
 
+  it('dismisses a card that entered before its new ID arrived', () => {
+    const seen = new Set<string>();
+
+    expect(ringsLeavingView([{ key: 'late-card', isViewable: true }], seen, new Set())).toEqual([]);
+    expect(
+      ringsLeavingView([{ key: 'late-card', isViewable: false }], seen, new Set(['late-card']))
+    ).toEqual(['late-card']);
+    expect(
+      ringsLeavingView([{ key: 'late-card', isViewable: false }], seen, new Set(['late-card']))
+    ).toEqual([]);
+  });
+
   it('never dismisses a card outside the new set', () => {
     const seen = new Set<string>();
     const newIds = new Set(['other-card']);

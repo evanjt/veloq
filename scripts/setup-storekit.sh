@@ -1,7 +1,7 @@
 #!/bin/bash
 # Sets up StoreKit Configuration for local IAP testing on iOS simulator.
 #
-# Run after `npx expo run:ios` generates the ios/ directory:
+# Run after the native iOS project exists and `npm run ios` has built it:
 #   bash scripts/setup-storekit.sh
 #
 # This copies the StoreKit config into the Xcode project and patches the
@@ -16,7 +16,7 @@ APP_DIR="$ROOT_DIR/ios/VeloqDev"
 SCHEME="$ROOT_DIR/ios/VeloqDev.xcodeproj/xcshareddata/xcschemes/VeloqDev.xcscheme"
 
 if [ ! -d "$APP_DIR" ]; then
-  echo "Error: ios/VeloqDev/ not found. Run 'npx expo run:ios' first."
+  echo "Error: ios/VeloqDev/ not found. Set up the native iOS project, then run 'npm run ios'."
   exit 1
 fi
 

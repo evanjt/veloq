@@ -223,7 +223,10 @@ describe('generateInsights', () => {
         mockT
       );
       const hrv = result.find((i) => i.id === 'hrv_trend');
-      expect(hrv!.supportingData?.sparklineData).toEqual([50, 52, 55, 58, 60]);
+      expect(hrv!.supportingData?.history).toMatchObject({
+        kind: 'sparkline',
+        series: [{ points: datedSeries([50, 52, 55, 58, 60]) }],
+      });
     });
 
     it('includes methodology with Kiviniemi reference in APA format', () => {
@@ -1108,7 +1111,10 @@ describe('generateInsights - boundary conditions', () => {
       mockT
     );
     const hrv = result.find((i) => i.id === 'hrv_trend');
-    expect(hrv!.supportingData?.sparklineData).toEqual([45, 48, 52, 49, 51]);
+    expect(hrv!.supportingData?.history).toMatchObject({
+      kind: 'sparkline',
+      series: [{ points: datedSeries([45, 48, 52, 49, 51]) }],
+    });
     mockGetEngine.mockReturnValue(null);
   });
 

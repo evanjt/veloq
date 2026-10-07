@@ -1,8 +1,8 @@
 /**
  * Scenario: icon-only actions were hand-rolled with a glyph-sized press target and no name.
  *
- * Expected behaviour: `IconButton` is never smaller than the platform tap-target minimum
- * whatever the glyph size, carries its label to the accessibility tree, and refuses a press
+ * Expected behaviour: `IconButton` reaches the platform tap-target minimum, its drawn square
+ * plus hit slop, whatever the glyph size, carries its label to the accessibility tree, and refuses a press
  * while disabled.
  */
 
@@ -25,15 +25,21 @@ function flatten(style: unknown): Record<string, number | string> {
 }
 
 describe('IconButton', () => {
-  it('is at least the tap-target minimum square around a small glyph', () => {
+  it('reaches the tap-target minimum square around a small glyph', () => {
     const { getByTestId } = render(
       <IconButton accessibilityLabel="Rename" onPress={() => {}} testID="i">
         <Text>x</Text>
       </IconButton>
     );
-    const style = flatten(getByTestId('i').props.style);
-    expect(style.minWidth).toBeGreaterThanOrEqual(layout.minTapTarget);
-    expect(style.minHeight).toBeGreaterThanOrEqual(layout.minTapTarget);
+    const node = getByTestId('i');
+    const style = flatten(node.props.style);
+    const slop = node.props.hitSlop;
+    expect(Number(style.minWidth) + slop.left + slop.right).toBeGreaterThanOrEqual(
+      layout.minTapTarget
+    );
+    expect(Number(style.minHeight) + slop.top + slop.bottom).toBeGreaterThanOrEqual(
+      layout.minTapTarget
+    );
   });
 
   it('reaches the accessibility tree as a named button', () => {

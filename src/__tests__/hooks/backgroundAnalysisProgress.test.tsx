@@ -25,7 +25,7 @@ jest.mock('@/features/activity', () => ({
 jest.mock('@/shared/app/useOldestActivityDate', () => ({
   useOldestActivityDate: () => ({ data: null }),
 }));
-jest.mock('@/shared/app/useActivityYearCounts', () => ({
+jest.mock('@/features/settings/hooks/useActivityYearCounts', () => ({
   useActivityYearCounts: () => ({ data: [] }),
 }));
 

@@ -12,6 +12,8 @@ export interface MuscleVolume {
 
 /** Summary of strength training volume over a time period. */
 export interface StrengthSummary {
+  /** Start of this summary's range in epoch seconds. */
+  startTs?: number;
   muscleVolumes: MuscleVolume[];
   activityCount: number;
   totalSets: number;

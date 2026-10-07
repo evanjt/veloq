@@ -77,6 +77,7 @@ export function batchFetchExerciseSets(host: DelegateHost, activityIds: string[]
 }
 
 const EMPTY_SUMMARY: FfiStrengthSummary = {
+  startTs: 0,
   muscleVolumes: [],
   activityCount: 0,
   totalSets: 0,

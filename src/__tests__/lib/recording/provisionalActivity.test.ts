@@ -13,7 +13,6 @@
 import {
   writeProvisionalActivity,
   recordProvisionalUpload,
-  reconcileProvisionalUploads,
   replayProvisionalWrites,
 } from '@/features/recording/lib/storage/provisionalActivity';
 import {
@@ -298,76 +297,6 @@ describe('recordProvisionalUpload', () => {
       recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
     ).resolves.toBe(true);
     expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
-  });
-});
-
-describe('reconcileProvisionalUploads', () => {
-  const UPLOADED = {
-    ...ENTRY,
-    uploadStatus: 'uploaded' as const,
-    engineActivityId: 'local-deadbeef',
-    intervalsActivityId: 'i4242',
-  };
-
-  it('replays the write for an upload that landed but never reached the row', async () => {
-    mockList.mockResolvedValue([UPLOADED]);
-
-    await expect(reconcileProvisionalUploads()).resolves.toBe(1);
-    expect(recordUpload).toHaveBeenCalledWith('local-deadbeef', 'i4242');
-  });
-
-  it('skips an entry already reconciled, so an old library costs nothing', async () => {
-    mockList.mockResolvedValue([{ ...UPLOADED, engineReconciled: true }]);
-
-    await expect(reconcileProvisionalUploads()).resolves.toBe(0);
-    expect(recordUpload).not.toHaveBeenCalled();
-  });
-
-  it('skips an entry with only one of the two ids', async () => {
-    mockList.mockResolvedValue([
-      { ...UPLOADED, intervalsActivityId: undefined },
-      { ...UPLOADED, id: 'rec-2', engineActivityId: undefined },
-    ]);
-
-    await expect(reconcileProvisionalUploads()).resolves.toBe(0);
-    expect(recordUpload).not.toHaveBeenCalled();
-  });
-
-  it('carries on past an entry the engine refuses', async () => {
-    recordUpload.mockImplementationOnce(() => {
-      throw new Error('engine closed');
-    });
-    mockList.mockResolvedValue([UPLOADED, { ...UPLOADED, id: 'rec-2' }]);
-
-    await expect(reconcileProvisionalUploads()).resolves.toBe(1);
-    expect(recordUpload).toHaveBeenCalledTimes(2);
-  });
-
-  it('answers zero on an empty library', async () => {
-    mockList.mockResolvedValue([]);
-
-    await expect(reconcileProvisionalUploads()).resolves.toBe(0);
-  });
-});
-
-describe('an unreconciled entry survives a closed engine', () => {
-  it('is retried by the next pass once the engine is ready', async () => {
-    const owed = {
-      ...ENTRY,
-      engineActivityId: 'local-deadbeef',
-      intervalsActivityId: 'i4242',
-      engineReconciled: false,
-    };
-    mockList.mockResolvedValue([owed]);
-    setReady(false);
-
-    await expect(reconcileProvisionalUploads()).resolves.toBe(0);
-    expect(mockMarkReconciled).not.toHaveBeenCalled();
-
-    setReady(true);
-    recordUpload.mockReturnValueOnce(true);
-    await expect(reconcileProvisionalUploads()).resolves.toBe(1);
-    expect(mockMarkReconciled).toHaveBeenCalledWith(owed.id);
   });
 });
 

@@ -1,0 +1,76 @@
+# A row detached by Android clipping must still open its swipe action after
+# scrolling back into view. The second row must close the first action.
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+- tapOn:
+    text: "Sections"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "sections-list"
+    timeout: 15000
+
+- assertVisible:
+    id: "section-row-0"
+
+- repeat:
+    times: 4
+    commands:
+      - swipe:
+          start: 50%, 80%
+          end: 50%, 20%
+          duration: 500
+
+- assertNotVisible:
+    id: "section-row-0"
+
+- repeat:
+    times: 20
+    commands:
+      - swipe:
+          start: 50%, 55%
+          end: 50%, 85%
+          duration: 500
+
+- assertVisible:
+    id: "section-row-0"
+
+- swipe:
+    start: 90%, 50%
+    end: 20%, 50%
+    duration: 800
+
+- assertVisible:
+    text: "Remove"
+
+- swipe:
+    start: 90%, 56%
+    end: 20%, 56%
+    duration: 800
+
+- assertVisible:
+    text: "Remove"
+- assertNotVisible:
+    text: "Remove"
+    index: 1
+
+- tapOn:
+    text: "Remove"
+- assertVisible:
+    text: "Remove Section"
+- tapOn:
+    text: "REMOVE"
+- assertNotVisible:
+    text: "Remove Section"
+- assertVisible:
+    id: "sections-list"

@@ -137,7 +137,7 @@ describe('SectionMapView fullscreen specs while the modal is shut', () => {
     renderSection('a2');
     expect(fullscreenCalls(mockBuildSources)).toHaveLength(0);
 
-    fireEvent(screen.getByTestId('section-map-fullscreen'), 'pressIn');
+    fireEvent.press(screen.getByTestId('section-map-fullscreen'));
 
     const sources = fullscreenCalls(mockBuildSources);
     const layers = fullscreenCalls(mockBuildLayers);
@@ -148,7 +148,7 @@ describe('SectionMapView fullscreen specs while the modal is shut', () => {
 
   it('stops building fullscreen specs again once it is closed', () => {
     renderSection('a1');
-    fireEvent(screen.getByTestId('section-map-fullscreen'), 'pressIn');
+    fireEvent.press(screen.getByTestId('section-map-fullscreen'));
     fireEvent.press(screen.getByTestId('map-fullscreen-close'));
 
     mockBuildSources.mockClear();

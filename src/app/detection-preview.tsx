@@ -31,7 +31,16 @@ import {
   pressable,
   pressRipple,
 } from '@/shared/ui';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import {
+  colors,
+  controlHeight,
+  darkColors,
+  brand,
+  spacing,
+  layout,
+  slopToMinTapTarget,
+  typography,
+} from '@/theme';
 import {
   usePreviewDetect,
   useCutoverHeld,
@@ -302,7 +311,10 @@ function DetectionPreviewScreenContent() {
                   { backgroundColor: surface, borderColor: border },
                 ])}
                 android_ripple={pressRipple}
+                hitSlop={ACTION_SLOP}
                 onPress={handleDiscard}
+                accessibilityRole="button"
+                accessibilityLabel={t('settings.previewDiscard')}
                 testID="preview-discard-button"
               >
                 <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
@@ -318,7 +330,11 @@ function DetectionPreviewScreenContent() {
                   : { backgroundColor: surface, borderColor: border },
               ])}
               android_ripple={pressRipple}
+              hitSlop={ACTION_SLOP}
               onPress={handlePreview}
+              accessibilityRole="button"
+              accessibilityLabel={t('settings.previewRun')}
+              accessibilityState={{ disabled: !selectedCentre }}
               disabled={!selectedCentre}
               testID="preview-run-button"
             >
@@ -341,7 +357,11 @@ function DetectionPreviewScreenContent() {
               <Pressable
                 style={pressable([styles.actionBtn, styles.keepBtn])}
                 android_ripple={pressRipple}
+                hitSlop={ACTION_SLOP}
                 onPress={handleKeep}
+                accessibilityRole="button"
+                accessibilityLabel={t('settings.previewKeep')}
+                accessibilityState={{ disabled: !keepEnabled }}
                 disabled={!keepEnabled}
                 testID="preview-keep-button"
               >
@@ -394,6 +414,8 @@ function DetectionPreviewScreenContent() {
   );
 }
 
+const ACTION_SLOP = slopToMinTapTarget(controlHeight.button);
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: {
@@ -442,7 +464,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    minHeight: layout.minTapTarget,
+    minHeight: controlHeight.button,
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadius,
     borderWidth: StyleSheet.hairlineWidth,

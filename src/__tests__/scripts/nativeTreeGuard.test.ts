@@ -182,7 +182,7 @@ describe('the native build tree check', () => {
   });
 
   it('runs before every command that builds the app natively', () => {
-    const builds = /with-android-build-lock|expo run:|clean:rust/;
+    const builds = /run-android\.sh|with-android-build-lock|expo run:|clean:rust/;
     for (const name of [
       'android',
       'android:prod',

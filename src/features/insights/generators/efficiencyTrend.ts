@@ -2,6 +2,7 @@ import { EfficiencyDirection, type EfficiencyTrend } from 'veloqrs';
 
 import type { Insight } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
+import { sparkline } from '../lib/sparkline';
 
 /**
  * Aerobic Efficiency Trend Insights
@@ -59,6 +60,8 @@ export function generateEfficiencyTrendInsights(
     if (trend.direction === EfficiencyDirection.Flat || trend.effortCount < floor) continue;
 
     const hrChange = Math.abs(Math.round(trend.hrChangeBpm));
+    const firstEffort = trend.points[0];
+    const lastEffort = trend.points[trend.points.length - 1];
 
     insights.push({
       id: `efficiency_trend-${trend.sectionId}-${trend.sportType}`,
@@ -100,15 +103,13 @@ export function generateEfficiencyTrendInsights(
         signalDelta: trend.signalDelta,
       },
       supportingData: {
-        // The engine already ships one efficiency ratio per matched effort, so
-        // the sheet plots the efforts the claim rests on. Two is the least
-        // that draws a line.
-        ...(trend.points.length >= 2
-          ? {
-              sparklineData: trend.points.map((p) => p.hrPaceRatio),
-              sparklineLabel: t('insights.efficiencyTrend.seriesLabel'),
-            }
-          : {}),
+        ...sparkline(
+          trend.points.map((point) => ({ date: point.date, value: point.hrPaceRatio })),
+          t('insights.efficiencyTrend.seriesLabel'),
+          `/section/${trend.sectionId}`,
+          'sparkline',
+          firstEffort && lastEffort ? { from: firstEffort.date, to: lastEffort.date } : undefined
+        ),
         // The ratio is heart rate times pace, so its slope and the engine's
         // direction describe the same movement.
         trend: {

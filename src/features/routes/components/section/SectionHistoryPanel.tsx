@@ -10,7 +10,7 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { formatDuration, getIntlLocale } from '@/shared/format/format';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, controlHeight, darkColors, spacing, typography, layout } from '@/theme';
 import { Button, Card } from '@/shared/ui';
 import type {
   SectionGeometryVersion,
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceElevated,
   },
   splitTarget: {
-    minHeight: layout.minTapTarget,
+    minHeight: controlHeight.buttonSm,
     maxWidth: '100%',
     justifyContent: 'center',
   },

@@ -310,6 +310,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       >
         <Image
           source={{ uri: terrainImageUri }}
+          fadeDuration={0}
           style={styles.terrainImage}
           resizeMode="cover"
           onLoad={() => freshLoginTimeline.mark('firstMap')}

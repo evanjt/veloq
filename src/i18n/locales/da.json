@@ -368,7 +368,6 @@
     "wbal": "W'bal"
   },
   "common": {
-    "activities": "aktiviteter",
     "back": "Tilbage",
     "close": "Luk",
     "cancel": "Annuller",
@@ -1250,6 +1249,8 @@
     "sportFilterTitle": "Sport",
     "createSection": "Opret sektion",
     "custom": "Brugerdefineret",
+    "customCount_one": "{{count}} brugerdefineret sektion",
+    "customCount_other": "{{count}} brugerdefinerede sektioner",
     "dataRangeHint": "Baseret på {{duration}} aktivitetsdata",
     "duplicateNameMessage": "Vælg venligst et andet navn. Hver rute skal have et unikt navn.",
     "duplicateNameTitle": "Navn findes allerede",
@@ -1284,7 +1285,6 @@
     "standingBest": "Din hurtigste af {{total}}",
     "standingRank": "Nr. {{rank}} af {{total}}, {{gap}} fra din bedste",
     "standingRankPercentile": "Nr. {{rank}} af {{total}}, hurtigere end {{percent}} % af dem, {{gap}} fra din bedste",
-    "visits": "besøg",
     "largeSectionPerformanceWarning": "Store sektioner kan tage længere tid at behandle."
   },
   "routesScreen": {
@@ -1308,6 +1308,8 @@
     "removeSection": "Fjern sektion",
     "removeSectionConfirm": "Denne sektion vises ikke i aktivitetsdetaljer eller indsigter. Du kan gendanne den fra sektionslisten.",
     "removed": "Fjernet",
+    "removedCount_one": "{{count}} fjernet sektion",
+    "removedCount_other": "{{count}} fjernede sektioner",
     "restoreSection": "Gendan sektion",
     "partial": "Delvis",
     "placeSecond": "2. hurtigste",
@@ -1373,13 +1375,13 @@
     "setAsReferenceConfirm": "Brug denne aktivitet som reference?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
     "setReferenceError": "Kunne ikke angive reference. Afsnittet eller aktiviteten kan have ændret sig. Prøv igen.",
     "editBounds": "Rediger grænser",
-    "points": "punkter",
+    "pointsCount_one": "{{count}} punkt",
+    "pointsCount_other": "{{count}} punkter",
     "resetBounds": "Nulstil til original",
     "trimPrecisionHint": "Træk håndtaget op eller ned for finere kontrol",
     "trimMode": "Beskær",
     "expandMode": "Udvid",
     "resetBoundsConfirm": "Nulstil til de originale automatisk registrerede grænser?\n\nSektionen vil blive genmatchet mod alle dine aktiviteter.",
-    "traversals": "gennemkørsler",
     "liftGround": "Lift",
     "notLift": "Ikke en lift",
     "trimFailed": "Kunne ikke trimme sektionsgrænserne",
@@ -1458,6 +1460,7 @@
     "nameTaken": "En anden sektion har allerede dette navn. Vælg et andet navn."
   },
   "settings": {
+    "developerDashboard": "Udvikleroversigt",
     "account": "Konto",
     "activities": "Aktiviteter",
     "appearance": "Udseende",
@@ -1724,7 +1727,6 @@
     "completeActivitiesYearComparison": "Gennemfør aktiviteter for at se år-til-år-sammenligning",
     "completeDecouplingHint": "Gennemfør en vedvarende indsats med kraft- og pulsdata for at se afkoblingsanalyse",
     "completePowerActivities": "Gennemfør kraftbaserede aktiviteter for at se din FTP-tendens",
-    "current": "Nuværende",
     "decouplingExplanation": "Afkobling måler hjertedrift - hvor meget din puls stiger i forhold til kraftudvikling under vedvarende indsatser.",
     "decouplingProvenance": "Beregnet af intervals.icu",
     "estimatedFtp": "Estimeret FTP",
@@ -1750,7 +1752,6 @@
     "paceCurve": "Tempokurve",
     "powerCurve": "Kraftkurve",
     "powerZones": "Kraftzoner",
-    "previous": "Forrige",
     "rangeNotDownloaded": "Ikke hentet endnu",
     "rangePartlyDownloaded": "En del af perioden er ikke hentet endnu",
     "calendarRange": "{{start}} til {{end}}",
@@ -1789,6 +1790,13 @@
     "seasonBests": "Sæsonbedste",
     "swimPaceCurve": "Svømmetempokurve",
     "trainingZones": "Træningszoner"
+  },
+  "refresh": {
+    "busy": "Opdateres efter den igangværende synkronisering.",
+    "notReady": "Synkronisering gøres klar. Prøv igen om lidt.",
+    "offline": "Opdateres, når forbindelsen er tilbage.",
+    "notConfigured": "Log ind for at synkronisere.",
+    "failed": "Synkroniseringen kunne ikke starte."
   },
   "sync": {
     "ridesDownloaded": "{{completed}} af {{total}} ture hentet",
@@ -1940,9 +1948,13 @@
     "downloading": "Henter styrketræning",
     "downloadingHint": "Sætdata følger med træningsfilerne. Visningen opdateres, når de er hentet.",
     "sets": "sæt",
+    "setsCount_one": "{{count}} sæt",
+    "setsCount_other": "{{count}} sæt",
     "muscleGroupVolume": "Muskelgruppevolumen",
     "relativeWeightedSets": "Relative vægtede sæt i den valgte periode",
     "reps": "gentagelser",
+    "repsCount_one": "{{count}} gentagelse",
+    "repsCount_other": "{{count}} gentagelser",
     "tapMuscleGroup": "Tryk på en muskelgruppe for detaljer",
     "relativeVolume": "Relativ volumen",
     "balanceObservedPairs": "Observeret på tværs af registrerede antagonistpar i den aktuelle {{period}}",

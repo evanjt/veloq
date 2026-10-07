@@ -14,7 +14,7 @@ import type { FrequentSection } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
 jest.mock('@/features/routes/components/SectionMapView', () => ({
   SectionMapView: () => null,
@@ -67,6 +67,6 @@ describe('the section header stats', () => {
 
     expect(tree.queryByText(/163/)).toBeNull();
     expect(tree.queryByText(/sections\.avgHr/)).toBeNull();
-    expect(tree.getByText(/8 sections\.traversals/)).toBeTruthy();
+    expect(tree.getByText(/sections\.traversalsCount.*"count":8/)).toBeTruthy();
   });
 });

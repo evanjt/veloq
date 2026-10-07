@@ -66,9 +66,15 @@ See [Development](#development) below.
 ```bash
 npm install
 
-npx expo run:android    # Build and run on Android
-npx expo run:ios        # Build and run on iOS
+npm run android         # Build, install and run the Android Dev app; then start Metro
+npm run ios             # Build and run the iOS Dev app
 ```
+
+Set `ANDROID_SERIAL` when more than one Android device is attached. `npm run android`
+builds first, then installs and launches on that device before starting Metro. For a
+build without an install, use `npm run android:debug`; install that verified APK
+later with `npm run install:android debug`. Regenerate bindings after changing a
+Rust export with `npm run ffi:generate`.
 
 ### E2E Tests (Maestro)
 

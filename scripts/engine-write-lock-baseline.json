@@ -10,7 +10,7 @@
   "modules/veloqrs/rust/veloqrs/src/objects/error.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/objects/fitness.rs": 4,
   "modules/veloqrs/rust/veloqrs/src/objects/preview.rs": 4,
-  "modules/veloqrs/rust/veloqrs/src/objects/recordings.rs": 11,
+  "modules/veloqrs/rust/veloqrs/src/objects/recordings.rs": 10,
   "modules/veloqrs/rust/veloqrs/src/objects/routes.rs": 5,
   "modules/veloqrs/rust/veloqrs/src/objects/sections.rs": 23,
   "modules/veloqrs/rust/veloqrs/src/objects/settings.rs": 7,

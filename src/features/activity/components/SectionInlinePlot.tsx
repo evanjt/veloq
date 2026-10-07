@@ -258,7 +258,7 @@ export const SectionInlinePlot = memo(
                       <RNText style={[styles.meta, isDark && styles.textMuted]}>
                         {formatDistance(encounter.distanceMeters, isMetric)}
                         {encounter.historyTimes.length > 0 &&
-                          ` · ${encounter.visitCount} ${t('routes.visits')}`}
+                          ` · ${t('sections.visitsCount', { count: encounter.visitCount })}`}
                         {encounter.lapTime > 0 && (
                           <>
                             <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>

@@ -50,7 +50,6 @@ export { useRecordingScreenState } from './hooks/useRecordingScreenState';
 export { useReviewSave } from './hooks/useReviewSave';
 export { useStatusPulseAnimation } from './hooks/useStatusPulseAnimation';
 export { useTimer } from './hooks/useTimer';
-export { useUploadQueueProcessor } from './hooks/useUploadQueueProcessor';
 export { armSystemRecordingPath, canStartAfterScopeWarning } from './lib/armCountdown';
 export {
   holdRecordingOnSignOut,
@@ -70,9 +69,11 @@ export {
 export {
   adoptOwnerlessRecordings,
   getVisibleRecording,
+  holdRecordingsOfOtherAthletes,
   recordingFitExists,
 } from './lib/storage/recordingLibrary';
 export { readRecordingTrack } from './lib/storage/recordingTrack';
+export { startUploadQueue } from './lib/upload/startUploadQueue';
 export { useRecordingLiveStore } from './stores/RecordingLiveStore';
 export {
   initializeRecordingPreferences,

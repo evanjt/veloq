@@ -288,7 +288,6 @@ const ROUTES_NAMES = [
   'useRouteSettings',
   'useRoutesScreenData',
   'useSectionActions',
-  'useSectionActivityData',
   'useSectionChartData',
   'useSectionChartDataEnriched',
   'useSectionDataRefresh',

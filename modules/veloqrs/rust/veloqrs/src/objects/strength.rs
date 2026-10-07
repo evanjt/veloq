@@ -377,7 +377,11 @@ impl StrengthManager {
                 .into_iter()
                 .map(|range| {
                     pooled::exercise_sets_in_range(conn, range.start_ts as i64, range.end_ts as i64)
-                        .map(|sets| aggregate_strength_sets(&sets))
+                        .map(|sets| {
+                            let mut summary = aggregate_strength_sets(&sets);
+                            summary.start_ts = range.start_ts;
+                            summary
+                        })
                         .map_err(|err| VeloqError::Database {
                             msg: format!("{}", err),
                         })
@@ -758,6 +762,7 @@ pub fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStr
     let balance = balance_pairs(&muscle_volumes);
 
     FfiStrengthSummary {
+        start_ts: 0.0,
         muscle_volumes,
         activity_count: activity_ids.len() as u32,
         total_sets: total_active_sets,
@@ -1554,6 +1559,7 @@ mod tests {
 
     fn summary(volumes: Vec<FfiMuscleVolume>) -> FfiStrengthSummary {
         FfiStrengthSummary {
+            start_ts: 0.0,
             balance: balance_pairs(&volumes),
             muscle_volumes: volumes,
             activity_count: 1,

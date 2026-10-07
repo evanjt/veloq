@@ -20,7 +20,6 @@ import type {
   FfiActivityDetailData,
   FfiActivityMetrics,
   FfiActivityNotification,
-  FfiCallOutcome,
   FfiUploadResult,
   FfiExerciseActivities,
   FfiExerciseSession,
@@ -757,12 +756,6 @@ class EngineClient implements DelegateHost {
   syncTimeStreams = (activityIds: string[]): FfiStartResult =>
     syncDelegates.syncTimeStreams(this, activityIds);
 
-  updateActivityRpe = (intervalsId: string, rpe: number): Promise<FfiCallOutcome> =>
-    syncDelegates.updateActivityRpe(this, intervalsId, rpe);
-
-  confirmActivityUploaded = (intervalsId: string): Promise<FfiCallOutcome> =>
-    syncDelegates.confirmActivityUploaded(this, intervalsId);
-
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
   getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
@@ -869,6 +862,9 @@ class EngineClient implements DelegateHost {
   /** Coordinate-encoded; put it through `decodeCoords`. */
   getRepresentativeRoute = (groupId: string): ArrayBuffer =>
     routeDelegates.getRepresentativeRoute(this, groupId);
+
+  liveRouteOverlaps = (groupIds: string[], coordinates: number[]) =>
+    routeDelegates.liveRouteOverlaps(this, groupIds, coordinates);
 
   getRoutePerformances = (
     routeGroupId: string,
@@ -1152,9 +1148,6 @@ class EngineClient implements DelegateHost {
   /** The engine row has taken the id intervals.icu gave the upload. */
   markRecordingReconciled = (id: string): void =>
     recordingDelegates.markRecordingReconciled(this, id);
-
-  /** intervals.icu has the effort the athlete set. */
-  markRecordingRpeSent = (id: string): void => recordingDelegates.markRecordingRpeSent(this, id);
 
   /** Move one recording's upload by a named transition. */
   transitionRecording = (

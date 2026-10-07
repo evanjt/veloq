@@ -27,7 +27,6 @@ function renderChips() {
       onSelect={jest.fn()}
       selectedRange={null}
       onSelectRange={jest.fn()}
-      isDark={false}
     />
   );
 }
@@ -66,7 +65,6 @@ describe('feed filter chips', () => {
         onSelect={onSelect}
         selectedRange={null}
         onSelectRange={jest.fn()}
-        isDark={false}
       />
     );
     expect(screen.getByTestId('home-filter-cycling').props.accessibilityState.selected).toBe(true);

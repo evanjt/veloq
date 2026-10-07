@@ -15,12 +15,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   colors,
   colorWithOpacity,
+  controlHeight,
   opacity,
   spacing,
   typography,
   layout,
   darkColors,
   mapTextShadow,
+  slopToMinTapTarget,
 } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
@@ -162,6 +164,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
             accessibilityRole="button"
             accessibilityLabel={t('common.save')}
             onPress={editable.onSave}
+            hitSlop={EDIT_NAME_SLOP}
             style={pressable(styles.editNameButton)}
             android_ripple={pressRipple}
           >
@@ -173,6 +176,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
             onPress={editable.onCancel}
+            hitSlop={EDIT_NAME_SLOP}
             style={pressable(styles.editNameButton)}
             android_ripple={pressRipple}
           >
@@ -237,6 +241,8 @@ export function HeroStatsRow({ stats, testID, statTestIDs }: HeroStatsRowProps) 
     </View>
   );
 }
+
+const EDIT_NAME_SLOP = slopToMinTapTarget(controlHeight.button, controlHeight.button);
 
 const styles = StyleSheet.create({
   heroSection: {
@@ -305,8 +311,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   editNameButton: {
-    minWidth: layout.minTapTarget,
-    minHeight: layout.minTapTarget,
+    minWidth: controlHeight.button,
+    minHeight: controlHeight.button,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: layout.borderRadiusSm,

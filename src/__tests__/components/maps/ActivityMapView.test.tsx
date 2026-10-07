@@ -76,7 +76,7 @@ describe('ActivityMapView', () => {
 
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
 
-    fireEvent(screen.getByTestId('activity-map-fullscreen'), 'pressIn');
+    fireEvent.press(screen.getByTestId('activity-map-fullscreen'));
     expect(screen.getByTestId('map-fullscreen-close')).toBeTruthy();
 
     fireEvent.press(screen.getByTestId('map-fullscreen-close'));
@@ -87,7 +87,7 @@ describe('ActivityMapView', () => {
     renderActivityMap({ enableFullscreen: true });
     expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
 
-    fireEvent(screen.getByTestId('activity-map-fullscreen'), 'pressIn');
+    fireEvent.press(screen.getByTestId('activity-map-fullscreen'));
     expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
 
     fireEvent.press(screen.getByTestId('map-fullscreen-close'));
@@ -98,7 +98,7 @@ describe('ActivityMapView', () => {
     const onStyleChange = jest.fn();
     renderActivityMap({ onStyleChange });
 
-    fireEvent(screen.getByTestId('activity-map-style-toggle'), 'pressIn');
+    fireEvent.press(screen.getByTestId('activity-map-style-toggle'));
 
     expect(onStyleChange).toHaveBeenCalled();
   });
@@ -216,6 +216,21 @@ describe('ActivityMapView', () => {
       expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
     });
 
+    it('restores the 2D surface while a crashed terrain page reloads', () => {
+      renderActivityMap({ initial3DCamera: CAMERA_3D });
+      post({ type: 'mapReady' });
+      expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
+
+      fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
+      expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
+
+      post({ type: 'mapReady' });
+      expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
+
+      fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
+      expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
+    });
+
     it('falls back to the 2D map when the terrain page reports failure', () => {
       renderActivityMap({ initial3DCamera: CAMERA_3D });
 
@@ -265,10 +280,10 @@ describe('ActivityMapView', () => {
       const on3DModeChange = jest.fn();
       renderActivityMap({ on3DModeChange });
 
-      fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+      fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
       expect(on3DModeChange).toHaveBeenLastCalledWith(true);
 
-      fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+      fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
       expect(on3DModeChange).toHaveBeenLastCalledWith(false);
     });
 
@@ -277,7 +292,7 @@ describe('ActivityMapView', () => {
       renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
 
       post({ type: 'mapFailed', reason: 'load timeout' });
-      fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+      fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
       expect(on3DModeChange).toHaveBeenCalledWith(true);
     });
@@ -325,8 +340,8 @@ describe('ActivityMapView', () => {
 
       it('stays flat when the athlete has already used the toggle', () => {
         const view = renderActivityMap();
-        fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
-        fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+        fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+        fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
         rerenderWith(view, CAMERA_3D);
 
@@ -347,7 +362,7 @@ describe('ActivityMapView', () => {
       renderActivityMap({ initial3DCamera: CAMERA_3D });
 
       post({ type: 'mapFailed', reason: 'load timeout' });
-      fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+      fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
       expect(screen.getByTestId('webview')).toBeTruthy();
       expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();

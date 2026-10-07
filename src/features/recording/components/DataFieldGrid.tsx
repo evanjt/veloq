@@ -21,6 +21,7 @@ import { isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { pressable, pressRipple } from '@/shared/ui';
 import type { SensorKind } from '@/features/sensors';
 import { hrZoneTextColor } from '../lib/hrZoneTextColor';
+import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
 
 export interface HrZoneInfo {
   color: string;
@@ -154,7 +155,7 @@ function DataFieldGridInner({
             testID={`data-field-${field}`}
             onPress={emptyKind ? () => onEmptySensorTap?.(emptyKind) : undefined}
             onLongPress={onLongPressField ? () => onLongPressField(index, field) : undefined}
-            delayLongPress={350}
+            delayLongPress={DELIBERATE_HOLD_MS}
             style={pressable([
               styles.cell,
               {

@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import ActivityDetailScreen from '@/app/activity/[id]';
 import { ACTIVITY_MAP_POSTER_TEST_ID } from '@/features/maps';
@@ -30,8 +30,14 @@ jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefin
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
 jest.mock('@/shared/ui', () => {
   const { View } = require('react-native');
+  const React = require('react');
   return {
-    ScreenSafeAreaView: View,
+    ScreenSafeAreaView: ({ children, ...props }: { children: React.ReactNode }) => {
+      React.useLayoutEffect(() => {
+        mockFirstFrameCommitted = true;
+      }, []);
+      return <View {...props}>{children}</View>;
+    },
     ChartSkeleton: () => <View testID="chart-skeleton" />,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     ErrorStatePreset: () => null,
@@ -43,7 +49,10 @@ jest.mock('@/shared/ui', () => {
 });
 
 jest.mock('@/features/activity/hooks', () => ({
-  useActivity: () => ({ data: undefined, isLoading: true, bodyStatus: 'pending' }),
+  useActivity: () => {
+    mockActivityReadCommits.push(mockFirstFrameCommitted);
+    return { data: undefined, isLoading: true, bodyStatus: 'pending' };
+  },
   useActivityDetailStreams: () => ({ data: undefined, isLoading: true, coordinates: [] }),
   useActivityStreams: () => ({ data: undefined, isLoading: true }),
   useActivityIntervals: (...args: unknown[]) => {
@@ -87,8 +96,18 @@ jest.mock('@/features/strength', () => ({
   MuscleGroupView: () => null,
 }));
 const mockCached = new Set<string>();
+let mockFirstFrameCommitted = false;
+const mockActivityReadCommits: boolean[] = [];
 const mockIntervalsIds: unknown[] = [];
 const mockDetailEnabled: unknown[] = [];
+const mockFrames: FrameRequestCallback[] = [];
+
+function flushFrame() {
+  act(() => {
+    const callbacks = mockFrames.splice(0);
+    callbacks.forEach((callback) => callback(0));
+  });
+}
 jest.mock('@/features/maps', () => ({
   ACTIVITY_MAP_POSTER_TEST_ID: 'activity-map-poster',
   calculateTerrainCamera: jest.fn(),
@@ -108,8 +127,20 @@ jest.mock('@/features/maps', () => ({
 
 beforeEach(() => {
   mockCached.clear();
+  mockFirstFrameCommitted = false;
+  mockActivityReadCommits.length = 0;
   mockIntervalsIds.length = 0;
   mockDetailEnabled.length = 0;
+  mockFrames.length = 0;
+  jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
+    mockFrames.push(callback);
+    return mockFrames.length;
+  });
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 
 describe('activity detail first paint', () => {
@@ -121,6 +152,7 @@ describe('activity detail first paint', () => {
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.source).toEqual({
       uri: 'file:///previews/act-1-light-false.jpg',
     });
+    expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.fadeDuration).toBe(0);
     expect(screen.getByTestId('activity-detail-skeleton-hero')).toBeTruthy();
     expect(screen.getAllByTestId('chart-skeleton').length).toBeGreaterThan(0);
   });
@@ -132,12 +164,48 @@ describe('activity detail first paint', () => {
     expect(screen.queryByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeNull();
   });
 
-  it('starts the reads the first frame does not show only after it has committed', () => {
+  it('starts detail reads after the poster loads and a frame has passed', () => {
+    mockCached.add('act-1-light-false');
     render(<ActivityDetailScreen />);
 
-    expect(mockIntervalsIds[0]).toBe('');
-    expect(mockDetailEnabled[0]).toBe(false);
-    expect(mockIntervalsIds[mockIntervalsIds.length - 1]).toBe('act-1');
-    expect(mockDetailEnabled[mockDetailEnabled.length - 1]).toBe(true);
+    expect(mockActivityReadCommits).toEqual([]);
+    fireEvent(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID), 'load');
+    flushFrame();
+    expect(mockActivityReadCommits).toEqual([]);
+    flushFrame();
+
+    expect(mockIntervalsIds).toEqual(['act-1']);
+    expect(mockDetailEnabled).toEqual([undefined]);
+    expect(mockActivityReadCommits).toEqual([true]);
+  });
+
+  it('continues after an empty poster slot commits', () => {
+    render(<ActivityDetailScreen />);
+    flushFrame();
+    flushFrame();
+
+    expect(mockActivityReadCommits).toEqual([true]);
+  });
+
+  it('continues when a cached poster fails to load', () => {
+    mockCached.add('act-1-light-false');
+    render(<ActivityDetailScreen />);
+    fireEvent(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID), 'error');
+    flushFrame();
+    flushFrame();
+
+    expect(mockActivityReadCommits).toEqual([true]);
+  });
+
+  it('continues when a cached poster sends no load event', () => {
+    jest.useFakeTimers({ doNotFake: ['requestAnimationFrame'] });
+    mockCached.add('act-1-light-false');
+    render(<ActivityDetailScreen />);
+
+    act(() => jest.advanceTimersByTime(250));
+    flushFrame();
+    flushFrame();
+
+    expect(mockActivityReadCommits).toEqual([true]);
   });
 });

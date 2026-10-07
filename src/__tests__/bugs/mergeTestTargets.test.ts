@@ -232,9 +232,55 @@ describe('which suites a merge runs', () => {
 });
 
 describe('the commands a merge runs', () => {
+  it('runs the CI lint and isolated Rust test process for crate changes', () => {
+    const commands = mergeTestCommands(mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]));
+
+    expect(commands).toContain(
+      'cargo clippy --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --all-targets --all-features -- -D warnings'
+    );
+    expect(commands).toContain(
+      'cargo nextest run --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --features synthetic --lib --profile ci'
+    );
+  });
+
+  it('runs Rust tests when workspace dependencies change', () => {
+    const commands = mergeTestCommands(
+      mergeTestTargets(['modules/veloqrs/rust/Cargo.lock']),
+      NO_CORPORA
+    );
+
+    expect(commands.some((command) => command.includes('cargo nextest run'))).toBe(true);
+  });
+
+  it('runs JVM tests when Android module sources change', () => {
+    const commands = mergeTestCommands(
+      mergeTestTargets(['modules/veloqrs/android/src/main/java/example/Widget.kt'])
+    );
+
+    expect(commands).toContain('./scripts/check-android-jvm.sh');
+  });
+
+  it('checks the iOS project when iOS or plugin sources change', () => {
+    for (const changed of ['ios/ExampleApp/Info.plist', 'src/plugins/with-ios-widget.js']) {
+      expect(mergeTestCommands(mergeTestTargets([changed]))).toContain(
+        'node scripts/check-ios-project.mjs'
+      );
+    }
+  });
+
+  it('runs the detector ordering lint when its pointer moves', () => {
+    expect(mergeTestCommands(mergeTestTargets(['modules/veloqrs/rust/tracematch']))).toContain(
+      'cargo clippy --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -- -D clippy::iter_over_hash_type'
+    );
+  });
+
   // A test source edited alone plans the layout guards and nothing it cannot run.
+  const RUST_LINT =
+    'cargo clippy --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --all-targets --all-features -- -D warnings';
+  const DETECTOR_LINT =
+    'cargo clippy --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -- -D clippy::iter_over_hash_type';
   const LAYOUT_ONLY =
-    'cargo test --manifest-path modules/veloqrs/rust/veloqrs/Cargo.toml -p veloqrs --features synthetic --test feature_gates';
+    'cargo nextest run --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --features synthetic --test feature_gates --profile ci';
 
   // tracematch gates `fold_resume` and its other synthetic suites on the
   // feature, and cargo skips an unnamed suite whose features are absent
@@ -246,7 +292,9 @@ describe('the commands a merge runs', () => {
     );
 
     expect(commands).toEqual([
-      'cargo test --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch --features synthetic',
+      RUST_LINT,
+      DETECTOR_LINT,
+      'cargo nextest run --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch --features synthetic --profile ci',
       expect.stringMatching(/^echo .*LAB_GEOLIFE_DIR/),
       expect.stringMatching(/^echo .*TRACEMATCH_CORPUS/),
     ]);
@@ -254,7 +302,7 @@ describe('the commands a merge runs', () => {
 
   describe('the bitwise gates on a pointer bump', () => {
     const TM = 'modules/veloqrs/rust/tracematch';
-    const SYNTHETIC = `cargo test --manifest-path ${TM}/Cargo.toml -p tracematch --features synthetic`;
+    const SYNTHETIC = `cargo nextest run --manifest-path ${TM}/Cargo.toml -p tracematch --features synthetic --profile ci`;
     const GEOLIFE = `LAB_GEOLIFE_DIR='/data/geolife' cargo test --release --manifest-path ${TM}/Cargo.toml --features public-corpus --test geolife_bitwise`;
     const PRIVATE = `TRACEMATCH_CORPUS='/data/private' cargo test --release --manifest-path ${TM}/Cargo.toml --features real-corpus --test full_corpus_bitwise`;
 
@@ -264,13 +312,15 @@ describe('the commands a merge runs', () => {
         private: '/data/private',
       });
 
-      expect(commands).toEqual([SYNTHETIC, GEOLIFE, PRIVATE]);
+      expect(commands).toEqual([RUST_LINT, DETECTOR_LINT, SYNTHETIC, GEOLIFE, PRIVATE]);
     });
 
     it('prints one skip line per absent corpus and never a failing command', () => {
       const commands = mergeTestCommands(mergeTestTargets([TM]), NO_CORPORA);
 
       expect(commands).toEqual([
+        RUST_LINT,
+        DETECTOR_LINT,
         SYNTHETIC,
         expect.stringMatching(/^echo .*LAB_GEOLIFE_DIR/),
         expect.stringMatching(/^echo .*TRACEMATCH_CORPUS/),
@@ -283,6 +333,8 @@ describe('the commands a merge runs', () => {
       const commands = mergeTestCommands(mergeTestTargets([TM]), { geolife: '/data/geolife' });
 
       expect(commands).toEqual([
+        RUST_LINT,
+        DETECTOR_LINT,
         SYNTHETIC,
         GEOLIFE,
         expect.stringMatching(/^echo .*TRACEMATCH_CORPUS/),
@@ -309,8 +361,10 @@ describe('the commands a merge runs', () => {
     );
 
     expect(commands).toEqual([
-      'cargo test --manifest-path modules/veloqrs/rust/veloqrs/Cargo.toml -p veloqrs --features synthetic --lib',
-      'cargo test --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch --features synthetic',
+      RUST_LINT,
+      DETECTOR_LINT,
+      'cargo nextest run --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --features synthetic --lib --profile ci',
+      'cargo nextest run --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch --features synthetic --profile ci',
       expect.stringMatching(/^echo .*LAB_GEOLIFE_DIR/),
       expect.stringMatching(/^echo .*TRACEMATCH_CORPUS/),
     ]);
@@ -322,17 +376,19 @@ describe('the commands a merge runs', () => {
 
   // Cargo refuses a gated suite named without its required feature.
   it('runs the crate with the feature its gated suites require', () => {
-    const [command] = mergeTestCommands(
+    const commands = mergeTestCommands(
       mergeTestTargets([`${CRATE}/tests/suite2_cache_coherence.rs`])
     );
 
-    expect(command).toBe(
-      'cargo test --manifest-path modules/veloqrs/rust/veloqrs/Cargo.toml -p veloqrs --features synthetic --test feature_gates --test suite2'
+    expect(commands).toContain(
+      'cargo nextest run --manifest-path modules/veloqrs/rust/Cargo.toml -p veloqrs --features synthetic --test feature_gates --test suite2 --profile ci'
     );
   });
 
   it('carries the feature for the unit tests too, so one lane serves both', () => {
-    const [command] = mergeTestCommands(mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]));
+    const command = mergeTestCommands(
+      mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`])
+    )[1];
 
     expect(command).toContain('--features synthetic');
   });
@@ -347,16 +403,16 @@ describe('the commands a merge runs', () => {
         mergeTestTargets([`${CRATE}/tests/corpus_preview_identity.rs`])
       );
 
-      expect(commands).toEqual([LAYOUT_ONLY]);
+      expect(commands).toEqual([RUST_LINT, LAYOUT_ONLY]);
     });
 
     it('does not take the suites beside it down with it', () => {
-      const [command] = mergeTestCommands(
+      const command = mergeTestCommands(
         mergeTestTargets([
           `${CRATE}/tests/corpus_migration.rs`,
           `${CRATE}/tests/suite2_cache_coherence.rs`,
         ])
-      );
+      )[1];
 
       expect(command).toContain('--test suite2');
       expect(command).not.toContain('corpus_migration');
@@ -373,7 +429,7 @@ describe('the commands a merge runs', () => {
       expect(gated.length).toBeGreaterThan(0);
       for (const [, name] of gated) {
         const commands = mergeTestCommands(mergeTestTargets([`${CRATE}/tests/${name}.rs`]));
-        expect(commands).toEqual([LAYOUT_ONLY]);
+        expect(commands).toEqual([RUST_LINT, LAYOUT_ONLY]);
       }
     });
   });
@@ -396,6 +452,53 @@ describe('the commands a merge runs', () => {
       .split('\n')
       .filter(Boolean);
     expect(words).toEqual([path]);
+  });
+});
+
+describe('the iOS project check', () => {
+  it('rejects a shortcuts catalogue below the configured deployment target', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ios-project-check-'));
+    try {
+      mkdirSync(join(root, 'ios', 'ExampleApp'), { recursive: true });
+      writeFileSync(
+        join(root, 'app.json'),
+        JSON.stringify({
+          expo: { plugins: [['expo-build-properties', { ios: { deploymentTarget: '16.4' } }]] },
+        })
+      );
+      writeFileSync(join(root, 'ios', 'ExampleApp', 'AppShortcuts.xcstrings'), '{}');
+      const result = spawnSync('node', [join(ROOT, 'scripts/check-ios-project.mjs'), root], {
+        encoding: 'utf8',
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('AppShortcuts.xcstrings');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a generated project target below the app target', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ios-project-check-'));
+    try {
+      mkdirSync(join(root, 'ios', 'ExampleApp.xcodeproj'), { recursive: true });
+      writeFileSync(
+        join(root, 'app.json'),
+        JSON.stringify({
+          expo: { plugins: [['expo-build-properties', { ios: { deploymentTarget: '16.4' } }]] },
+        })
+      );
+      writeFileSync(
+        join(root, 'ios', 'ExampleApp.xcodeproj', 'project.pbxproj'),
+        'IPHONEOS_DEPLOYMENT_TARGET = 16.0;'
+      );
+      const result = spawnSync('node', [join(ROOT, 'scripts/check-ios-project.mjs'), root], {
+        encoding: 'utf8',
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('deployment target 16');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

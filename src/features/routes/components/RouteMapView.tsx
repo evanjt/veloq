@@ -7,6 +7,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { colors, mapLayerColors, spacing, layout, colorWithOpacity, ink } from '@/theme';
 import {
@@ -61,6 +62,7 @@ export function RouteMapView({
   onPress,
   activitySignatures = {},
 }: RouteMapViewProps) {
+  const { t } = useTranslation();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { getStyleForActivity, preferences } = useMapPreferences();
   const chosenStyle = selectedSportType
@@ -202,6 +204,9 @@ export function RouteMapView({
         testID="route-map-container"
         style={[styles.container, { height }]}
         onPress={handleMapPress}
+        accessibilityRole="button"
+        accessibilityLabel={t('maps.openFullscreen')}
+        accessibilityState={{ disabled: !enableFullscreen && !onPress }}
         activeOpacity={enableFullscreen || onPress ? 0.9 : 1}
         disabled={!enableFullscreen && !onPress}
       >

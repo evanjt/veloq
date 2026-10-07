@@ -123,8 +123,14 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   const { t } = useTranslation();
 
   const dataPoints = data.dataPoints?.length ? data.dataPoints : null;
+  const history = data.history?.kind === 'line' ? null : data.history;
+  const points = history?.series[0]?.points;
   const sparkline =
-    data.sparklineData && data.sparklineData.length >= 2 ? data.sparklineData : null;
+    points && points.length >= 3
+      ? points.map((point) => point.value)
+      : data.sparklineData && data.sparklineData.length >= 3
+        ? data.sparklineData
+        : null;
   const comparison = data.comparisonData ?? null;
   const sections = data.sections?.length ? data.sections : null;
 
@@ -147,9 +153,9 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
       {sparkline ? (
         <View style={[styles.sparklineCard, isDark && styles.sparklineCardDark]}>
           <View style={styles.sparklineHeader}>
-            {data.sparklineLabel ? (
+            {history?.series[0]?.label || data.sparklineLabel ? (
               <Text style={[styles.sparklineLabel, isDark && styles.sparklineLabelDark]}>
-                {data.sparklineLabel}
+                {history?.series[0]?.label ?? data.sparklineLabel}
               </Text>
             ) : null}
             {trendGlyph && trendGlyph !== 'minus' ? (

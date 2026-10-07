@@ -85,6 +85,7 @@ describe('the hero paints the snapshot the feed already drew', () => {
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.source).toEqual({
       uri: 'file:///previews/a1-light-false.jpg',
     });
+    expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.fadeDuration).toBe(0);
   });
 
   it('shows nothing of the sort when no snapshot was ever written', () => {

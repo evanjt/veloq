@@ -319,6 +319,7 @@ pub(crate) mod test_globals {
         fn drop(&mut self) {
             PAUSES_RECORDED.store(false, Ordering::SeqCst);
             wait_for_detection_workers();
+            crate::persistence::tiles::finish_test_tile_pass();
             crate::http::reset_download_queue();
             crate::net::connectivity::reset();
             crate::net::elevation_backfill::reset_pause();
@@ -339,6 +340,7 @@ pub(crate) mod test_globals {
         PAUSES_RECORDED.store(true, Ordering::SeqCst);
         drain_backfill();
         wait_for_detection_workers();
+        crate::persistence::tiles::finish_test_tile_pass();
         clear_detection_handle();
         crate::http::reset_download_queue();
         crate::net::connectivity::reset();

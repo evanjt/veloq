@@ -99,6 +99,45 @@ fn children_of_a_named_parent_are_numbered_along_its_line() {
     );
 }
 
+/// Scenario: the read pool is bound to the athlete's library, whose own split
+/// child has filled the pooled reads' cache, and a pooled read runs on an
+/// engine opened apart from it, in memory or on another file.
+///
+/// Expected behaviour: the read answers from its own database's rows, so its
+/// split children are named after their own parent.
+#[test]
+fn a_pooled_read_on_another_database_is_not_served_the_bound_librarys_lineage() {
+    let _serial = crate::test_globals::serial_global_state();
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let bound_path = dir.path().join("bound.db");
+    let bound_path = bound_path.to_str().expect("utf-8");
+    let bound = PersistentEngine::new(bound_path).expect("bound library");
+    insert_row(&bound, "ridge", "custom", Some("Ridge Road"));
+    insert_row(&bound, "spur", "auto", None);
+    birth(&bound, "spur", "ridge", 1);
+    crate::persistence::read_pool::bind(bound_path);
+    let filled = crate::persistence::sections::named::pooled::overlay_names(&bound.db);
+    assert_eq!(filled["spur"], "Ridge Road / 1");
+
+    let other_path = dir.path().join("other.db");
+    let others = [
+        PersistentEngine::in_memory().expect("in memory"),
+        PersistentEngine::new(other_path.to_str().expect("utf-8")).expect("other file"),
+    ];
+    for other in &others {
+        insert_row(other, "summit", "custom", Some("Harbour Climb"));
+        insert_row(other, "lower", "auto", None);
+        birth(other, "lower", "summit", 1);
+        let names = crate::persistence::sections::named::pooled::overlay_names(&other.db);
+        assert_eq!(
+            names.get("lower").map(String::as_str),
+            Some("Harbour Climb / 1"),
+            "the read was served the bound library's lineage"
+        );
+    }
+    crate::persistence::read_pool::close();
+}
+
 #[test]
 fn a_child_split_again_nests_its_part_under_its_own() {
     let engine = named_parent_split_in_two();

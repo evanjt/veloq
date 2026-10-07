@@ -71,9 +71,21 @@ function DisplaySettingsComponent({
           value={themePreference}
           onValueChange={onThemeChange}
           options={[
-            { value: 'system', label: t('settings.system'), testID: 'theme-button-system' },
-            { value: 'light', label: t('settings.light'), testID: 'theme-button-light' },
-            { value: 'dark', label: t('settings.dark'), testID: 'theme-button-dark' },
+            {
+              value: 'system',
+              label: t('settings.system'),
+              testID: 'theme-button-system',
+            },
+            {
+              value: 'light',
+              label: t('settings.light'),
+              testID: 'theme-button-light',
+            },
+            {
+              value: 'dark',
+              label: t('settings.dark'),
+              testID: 'theme-button-dark',
+            },
           ]}
         />
       </View>
@@ -164,6 +176,11 @@ function DisplaySettingsComponent({
                 ]}
               >
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={lang.label}
+                  accessibilityState={{
+                    selected: isSelected || isVariantOfThisLanguage,
+                  }}
                   onPress={() => {
                     // For languages with variants, use the defaultVariant (or first variant)
                     const valueToUse =
@@ -187,6 +204,9 @@ function DisplaySettingsComponent({
                           getEnglishVariantValue(language) === variant.value);
                       return (
                         <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={variant.label}
+                          accessibilityState={{ selected: isVariantSelected }}
                           key={variant.value}
                           style={pressable([
                             styles.variantChip,

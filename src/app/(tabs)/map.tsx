@@ -339,7 +339,6 @@ function MapScreenContent() {
           }))}
           selected={selectedCategories}
           onToggle={toggleCategory}
-          isDark={isDark}
         />
 
         {/* Activity count and date range */}

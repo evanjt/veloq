@@ -33,7 +33,6 @@ import {
   colorWithOpacity,
   mapTextShadow,
 } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
 import { type TerrainSnapshotWebViewRef, useMapPreferences } from '@/features/maps';
 import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/features/home';
@@ -51,6 +50,7 @@ import { Card } from '@/shared/ui/Card';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
 import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 const log = debug.create('ActivityCard');
 
@@ -394,7 +394,7 @@ export const ActivityCard = React.memo(
             testID={`activity-card-${activity.id}`}
             onPress={handlePress}
             onLongPress={handleLongPress}
-            delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+            delayLongPress={PREVIEW_HOLD_MS}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             accessibilityRole="button"
@@ -504,7 +504,7 @@ export const ActivityCard = React.memo(
                 testID={`activity-card-${activity.id}`}
                 onPress={handlePress}
                 onLongPress={handleLongPress}
-                delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+                delayLongPress={PREVIEW_HOLD_MS}
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
                 style={pressable(styles.pressableOverlay)}

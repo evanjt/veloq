@@ -9,7 +9,7 @@ import {
 import type { StalePrOpportunity as EngineStalePrOpportunity } from 'veloqrs';
 import { confidenceFrom } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
-import { sparkline } from '../lib/sparkline';
+import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
 
 /**
@@ -47,6 +47,7 @@ export interface StalePROpportunity {
   sportType?: string;
   /** The last efforts on the section, oldest first, for the card's graphic. */
   recentEfforts?: SeriesPoint[];
+  bestActivityId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -65,6 +66,18 @@ function supportingSection(opportunity: StalePROpportunity): SupportingSection {
     bestTime: opportunity.bestTimeSecs,
     sportType: opportunity.sportType,
   };
+}
+
+function opportunityHistory(opportunity: StalePROpportunity, t: TFunc) {
+  const activity = opportunity.bestActivityId;
+  const target = `/section/${opportunity.sectionId}${activity ? `?activityId=${encodeURIComponent(activity)}` : ''}`;
+  return sparkline(
+    opportunity.recentEfforts,
+    t('insights.data.recentEfforts'),
+    target,
+    'timeline',
+    markedActivity(opportunity.recentEfforts, activity)
+  );
 }
 
 /**
@@ -169,7 +182,7 @@ export function stalePROpportunityToInsight(
       sectionId: opportunity.sectionId,
     },
     supportingData: {
-      ...sparkline(opportunity.recentEfforts, t('insights.data.recentEfforts')),
+      ...opportunityHistory(opportunity, t),
       sections: [supportingSection(opportunity)],
       dataPoints: [
         {
@@ -232,8 +245,10 @@ export function generateStalePRInsights(
     fitnessMetric: r.fitnessMetric === 'power' ? 'power' : 'pace',
   }));
 
-  if (filtered.length === 0) return [];
-  if (filtered.length === 1) return [stalePROpportunityToInsight(filtered[0], t, now, isMetric)];
+  const firstOpportunity = filtered[0];
+  if (!firstOpportunity) return [];
+  if (filtered.length === 1)
+    return [stalePROpportunityToInsight(firstOpportunity, t, now, isMetric)];
 
   const powerOpps = filtered.filter((o) => o.fitnessMetric === 'power');
   const runPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/km');
@@ -279,7 +294,7 @@ export function generateStalePRInsights(
         (filtered.length > MAX_STALE_PR_SECTIONS_IN_BODY
           ? ` ${t('insights.stalePr.groupMore', { n: filtered.length - MAX_STALE_PR_SECTIONS_IN_BODY })}`
           : ''),
-      navigationTarget: `/section/${filtered[0].sectionId}`,
+      navigationTarget: `/section/${firstOpportunity.sectionId}`,
       timestamp: now,
       isNew: false,
       meta: {
@@ -291,6 +306,7 @@ export function generateStalePRInsights(
         repetitionCount: Math.min(...filtered.map((o) => o.traversalCount)),
       },
       supportingData: {
+        ...opportunityHistory(firstOpportunity, t),
         sections: filtered.map(supportingSection),
         formula: subtitleParts.join('; '),
         algorithmDescription: t('insights.stalePr.methodology'),

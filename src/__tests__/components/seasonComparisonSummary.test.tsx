@@ -118,10 +118,14 @@ describe('SeasonComparison series', () => {
     renderCard();
 
     await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
-    expect(screen.getAllByText('stats.previous')).toHaveLength(1);
-    expect(screen.getAllByText('stats.current')).toHaveLength(1);
-    expect(screen.getByTestId('season-summary-dot-previous')).toBeTruthy();
-    expect(screen.getByTestId('season-summary-dot-current')).toBeTruthy();
+    const previousDot = screen.getByTestId('season-summary-dot-previous');
+    const currentDot = screen.getByTestId('season-summary-dot-current');
+    expect(screen.getAllByText('2025')).toHaveLength(1);
+    expect(screen.getAllByText('2026')).toHaveLength(1);
+    expect(previousDot).toBeTruthy();
+    expect(currentDot).toBeTruthy();
+    expect(screen.queryByText('stats.previous')).toBeNull();
+    expect(screen.queryByText('stats.current')).toBeNull();
   });
 });
 

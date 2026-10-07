@@ -1540,13 +1540,14 @@ fn startup_matches_the_calls_it_replaces() {
     let p = insights_params();
     let ids = vec!["a1".to_string(), "a2".to_string()];
 
-    // Destructured exhaustively: the bundle carries these three fields and
-    // nothing the feed does not paint.
+    // Destructured exhaustively: the bundle carries the feed's first paint.
     let veloqrs::FfiStartupData {
         summary_card,
         preview_tracks,
         sparklines,
         new_activity_ids,
+        next_ring_expiry_at: _,
+        ring_stamp_required: _,
     } = s.engine.startup_data(
         p.current_start as i64,
         p.current_end as i64,
@@ -1761,12 +1762,28 @@ fn section_detail_matches_the_calls_it_replaces() {
         bundle.map_signatures.len(),
         s.engine.get_map_signatures_for_ids(&activity_ids).len()
     );
-    let bundled_metric_ids: Vec<String> = bundle
-        .activity_metrics
+    let bundled_activity_ids: Vec<String> = bundle
+        .activity_rows
         .iter()
-        .map(|m| m.activity_id.clone())
+        .map(|row| row.activity_id.clone())
         .collect();
-    assert_eq!(bundled_metric_ids, activity_ids);
+    assert_eq!(bundled_activity_ids, activity_ids);
+}
+
+#[test]
+fn section_detail_activity_rows_carry_engine_speed_and_start_time() {
+    let _serial_state = crate::serial_state();
+    let s = populated();
+    let detail = s.engine.section_detail_data("auto1");
+
+    let first = detail
+        .activity_rows
+        .iter()
+        .find(|row| row.activity_id == "a1")
+        .expect("activity row");
+    assert_eq!(first.start_time, 1_700_000_000.0);
+    assert_eq!(first.average_speed, 1000.0 / 300.0);
+    assert_eq!(first.sport_type, "Ride");
 }
 
 #[test]
@@ -2296,7 +2313,7 @@ fn section_detail_is_empty_for_an_unknown_section() {
     let bundle = s.engine.section_detail_data("nope");
 
     assert!(bundle.section.is_none());
-    assert!(bundle.activity_metrics.is_empty());
+    assert!(bundle.activity_rows.is_empty());
     assert!(bundle.map_signatures.is_empty());
     assert!(bundle.missing_time_stream_ids.is_empty());
     assert!(bundle.excluded_activity_ids.is_empty());

@@ -54,10 +54,6 @@ describe('useExcludedActivities', () => {
 
 describe('useSectionChartData', () => {
   const params = {
-    section: { id: 'sec-1', activityPortions: [] } as never,
-    performanceRecords: undefined,
-    sectionActivitiesUnsorted: [],
-    sectionWithTraces: null,
     sectionTimeRange: '3m' as never,
     preComputedChart: null,
   };

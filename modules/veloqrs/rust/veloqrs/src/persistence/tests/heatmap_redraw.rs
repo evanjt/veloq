@@ -49,7 +49,7 @@ fn settle() -> usize {
             passes += 1;
             continue;
         }
-        if tile_pass_slot().is_some() {
+        if tile_pass_slot().is_some() || tile_pass_retry().is_some() {
             std::thread::sleep(Duration::from_millis(2));
             continue;
         }
@@ -217,6 +217,30 @@ fn a_batch_stored_after_the_path_was_set_is_drawn() {
         png(&tiles, tile_at(46.23, 7.37, 14)).exists(),
         "the stored ride is not on the heatmap"
     );
+}
+
+#[test]
+fn test_tile_pass_retries_after_the_attempt_store_is_unlocked() {
+    let _serial = serial_global_state();
+    settle();
+    let tmp = init_global_engine("locked-attempt.db");
+    let tiles = tmp.path().join("tiles");
+    with_persistent_engine(|engine| {
+        engine
+            .add_activity("east".into(), sion_east(), "Ride".into())
+            .expect("ride stored");
+        engine.db.busy_timeout(Duration::ZERO).expect("timeout set");
+    });
+    let lock = rusqlite::Connection::open(tmp.path().join("locked-attempt.db"))
+        .expect("second connection");
+    lock.execute_batch("BEGIN IMMEDIATE").expect("writer held");
+    set_tiles_path(&tiles);
+    lock.execute_batch("COMMIT").expect("writer released");
+
+    let passes = settle();
+    turn_the_heatmap_off();
+    assert!(passes > 0, "the locked lease dropped the tile pass request");
+    assert!(png(&tiles, tile_at(46.23, 7.37, 14)).exists());
 }
 
 /// An L: east along 46.20 from 7.30 to 7.40, then north along 7.40 to 46.30.

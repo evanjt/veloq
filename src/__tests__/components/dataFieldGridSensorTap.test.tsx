@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { act, render, fireEvent } from '@testing-library/react-native';
 
 import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
 
@@ -71,4 +71,21 @@ it('keeps the long press on an empty sensor tile for the field picker', () => {
   fireEvent(tree.getByTestId('data-field-power'), 'longPress');
   expect(onLongPressField).toHaveBeenCalledWith(1, 'power');
   expect(onEmptySensorTap).not.toHaveBeenCalled();
+});
+
+it('waits through a riding bump before opening the field picker', () => {
+  jest.useFakeTimers();
+  try {
+    const { tree, onLongPressField } = renderGrid();
+    fireEvent(tree.getByTestId('data-field-power'), 'onResponderGrant', {
+      persist: jest.fn(),
+      nativeEvent: { pageX: 0, pageY: 0, locationX: 0, locationY: 0, timestamp: 0 },
+    });
+    act(() => jest.advanceTimersByTime(400));
+    expect(onLongPressField).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(100));
+    expect(onLongPressField).toHaveBeenCalledWith(1, 'power');
+  } finally {
+    jest.useRealTimers();
+  }
 });

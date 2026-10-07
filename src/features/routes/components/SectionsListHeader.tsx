@@ -98,6 +98,8 @@ export function SectionsListHeader({
           {unacceptedAutoCount > 0 && (
             <TouchableOpacity
               onPress={onAcceptAll}
+              accessibilityRole="button"
+              accessibilityLabel={t('sections.acceptAllSections')}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
@@ -125,6 +127,9 @@ export function SectionsListHeader({
           )}
           <TouchableOpacity
             onPress={onRescan}
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.reanalyzeSections')}
+            accessibilityState={{ disabled: isScanning || detectionHold !== null }}
             disabled={isScanning || detectionHold !== null}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

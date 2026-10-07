@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View, StyleSheet, TouchableOpacity, FlatList, Modal } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { useRouteGroups } from '@/features/routes';
 import { colors, darkColors, brand, spacing, layout, typography, opacity } from '@/theme';
 import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { pressable, pressRipple } from '@/shared/ui';
 
 interface RouteOverlayPickerProps {
@@ -36,11 +37,57 @@ export function RouteOverlayPicker({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const { groups, error: groupsError } = useRouteGroups({
+  const {
+    groups,
+    error: groupsError,
+    measureLiveOverlap,
+  } = useRouteGroups({
     type: activityType,
     minActivities: 2,
     sortBy: 'count',
   });
+  const distanceBucket = useRecordingStore((state) =>
+    Math.floor((state.streams.distance.at(-1) ?? 0) / 300)
+  );
+  const [result, setResult] = useState<{ bucket: number; scores: Record<string, number> }>({
+    bucket: -1,
+    scores: {},
+  });
+  const requestId = useRef(0);
+  const groupIds = useMemo(() => groups.map((group) => group.id), [groups]);
+
+  useEffect(() => {
+    const id = ++requestId.current;
+    if (visible && distanceBucket > 0 && groupIds.length > 0) {
+      const coordinates = useRecordingStore.getState().streams.latlng.flat();
+      measureLiveOverlap(groupIds, coordinates).then(
+        (results) => {
+          if (id === requestId.current) {
+            setResult({
+              bucket: distanceBucket,
+              scores: Object.fromEntries(results.map((row) => [row.groupId, row.percentage])),
+            });
+          }
+        },
+        () => {
+          if (id === requestId.current) setResult({ bucket: distanceBucket, scores: {} });
+        }
+      );
+    }
+    return () => {
+      requestId.current += 1;
+    };
+  }, [visible, distanceBucket, groupIds, measureLiveOverlap]);
+
+  const overlaps = visible && result.bucket === distanceBucket ? result.scores : {};
+
+  const sortedGroups = useMemo(() => {
+    const scores = visible && result.bucket === distanceBucket ? result.scores : {};
+    if (distanceBucket === 0 || Object.keys(scores).length === 0) return groups;
+    return [...groups].sort(
+      (a, b) => (scores[b.id] ?? 0) - (scores[a.id] ?? 0) || b.activityCount - a.activityCount
+    );
+  }, [groups, distanceBucket, result, visible]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -108,7 +155,7 @@ export function RouteOverlayPicker({
           ) : (
             <FlatList
               testID="route-overlay-list"
-              data={groups}
+              data={sortedGroups}
               keyExtractor={(g) => g.id}
               style={styles.list}
               renderItem={({ item }) => {
@@ -140,6 +187,8 @@ export function RouteOverlayPicker({
                           ? `${formatDistance(item.distance, isMetric)} · `
                           : ''}
                         {t('recording.routeOverlay.activities', { count: item.activityCount })}
+                        {' · '}
+                        {`${Math.round(overlaps[item.id] ?? 0)}%`}
                       </Text>
                     </View>
                     {isSelected && (

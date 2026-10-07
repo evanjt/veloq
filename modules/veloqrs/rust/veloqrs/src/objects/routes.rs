@@ -7,6 +7,12 @@ pub struct RouteManager {
     pub(crate) _private: (),
 }
 
+#[derive(uniffi::Record)]
+pub struct LiveRouteOverlap {
+    pub group_id: String,
+    pub percentage: f64,
+}
+
 #[uniffi::export]
 impl RouteManager {
     #[uniffi::constructor]
@@ -70,6 +76,54 @@ impl RouteManager {
                 .map(|points| crate::persistence::codec::encode_polyline(&points))
                 .unwrap_or_default()
         })
+    }
+
+    /// Measure the recorded line against the listed groups off the JS thread.
+    pub async fn live_overlaps(
+        &self,
+        group_ids: Vec<String>,
+        coordinates: Vec<f64>,
+    ) -> Result<Vec<LiveRouteOverlap>, VeloqError> {
+        crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || {
+                with_reader(|conn| {
+                    let config =
+                        crate::persistence::settings::match_config_from(conn).unwrap_or_default();
+                    let track: Vec<crate::GpsPoint> = coordinates
+                        .chunks_exact(2)
+                        .filter(|pair| {
+                            pair[0].is_finite()
+                                && pair[1].is_finite()
+                                && pair[0].abs() <= 90.0
+                                && pair[1].abs() <= 180.0
+                                && (pair[0] != 0.0 || pair[1] != 0.0)
+                        })
+                        .map(|pair| crate::GpsPoint::new(pair[0], pair[1]))
+                        .collect();
+                    group_ids
+                        .into_iter()
+                        .map(|group_id| {
+                            let percentage =
+                                crate::persistence::routes::pooled::representative_route(
+                                    conn, &group_id,
+                                )
+                                .map_or(0.0, |route| {
+                                    crate::persistence::routes::live_overlap_percentage(
+                                        &track, &route, &config,
+                                    )
+                                });
+                            LiveRouteOverlap {
+                                group_id,
+                                percentage,
+                            }
+                        })
+                        .collect()
+                })
+            })
+            .await
+            .map_err(|error| VeloqError::Database {
+                msg: error.to_string(),
+            })?
     }
 
     fn get_performances(

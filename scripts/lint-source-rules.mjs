@@ -208,6 +208,37 @@ function leafKeys(obj, prefix = '') {
 }
 
 const RULES = {
+  'counted-translation': {
+    pathspec: ['src/features', 'src/app'],
+    check(sources) {
+      const out = [];
+      const adjacentLabels = new Set([
+        'units.bpm',
+        'units.watts',
+        'units.kcal',
+        'stats.tss',
+        'metrics.fatigue',
+        'sections.avg',
+        'sections.best',
+        'sectionHistory.unavailable',
+        'backgroundJobs.progressPercent',
+      ]);
+      for (const [file, source] of sources) {
+        if (!/\.tsx$/.test(file) || TESTS.test(file)) continue;
+        source.split('\n').forEach((line, index) => {
+          const joins = [
+            ...line.matchAll(/\$\{[^}]+\}[\s·]*\$\{t\('([^']+)'/g),
+            ...line.matchAll(/\{[^{}]+\}\s+\{t\('([^']+)'/g),
+          ];
+          if (joins.some((join) => !adjacentLabels.has(join[1]))) {
+            out.push(`${file}:${index + 1}  ${line.trim()}`);
+          }
+        });
+      }
+      return out;
+    },
+    fix: 'interpolate the count inside one plural translation',
+  },
   // A wait shows motion. The `loading` and `progress-download` glyphs are
   // still, and screens used them as though they turned.
   'static-loading-glyph': {

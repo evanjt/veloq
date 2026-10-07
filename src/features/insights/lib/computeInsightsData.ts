@@ -43,10 +43,8 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
 /**
  * Visible changes the ledger recorded, named.
  *
- * The rows ride the insights bundle, which is one engine call for the whole
- * screen: reading them here cost a second call on top of the heaviest read in
- * the tree. Only the naming stays, because the display names are a memo this
- * side and not a column.
+ * The rows ride the insights bundle. Names come from the display-name memo,
+ * and the encoded line is decoded for the card's graphic.
  */
 function namedSectionChanges(changes: readonly SectionChange[]): SectionChangeInput[] {
   if (changes.length === 0) return [];
@@ -58,12 +56,24 @@ function namedSectionChanges(changes: readonly SectionChange[]): SectionChangeIn
     // under their ids, never a feed that drops them.
     names = {};
   }
-  return changes.map((c) => ({
-    sectionId: c.sectionId,
-    sectionName: names[c.sectionId] ?? c.sectionId,
-    kind: c.kind,
-    at: ledgerDate(c.at).getTime(),
-  }));
+  return changes.map((c) => {
+    let points: SectionChangeInput['points'];
+    try {
+      points = decodeCoords(c.encodedPolyline).map((point) => ({
+        lat: point.latitude,
+        lng: point.longitude,
+      }));
+    } catch {
+      points = undefined;
+    }
+    return {
+      sectionId: c.sectionId,
+      sectionName: names[c.sectionId] ?? c.sectionId,
+      kind: c.kind,
+      at: ledgerDate(c.at).getTime(),
+      points,
+    };
+  });
 }
 
 interface InsightsEnginePayload {
@@ -292,6 +302,7 @@ export function computeInsightsFromData(
                 sportType: pr.sportType,
                 traversalCount: pr.traversalCount,
                 recentEfforts: pr.recentEfforts,
+                bestActivityId: pr.bestActivityId,
                 // Thinned by the engine to what a thumbnail draws, so this decodes
                 // tens of points per card rather than a consensus line.
                 previewPoints: decodeCoords(pr.encodedPolyline).map((p) => ({
@@ -325,9 +336,10 @@ export function computeInsightsFromData(
           ? { faster: ffiData.trendFasterCount, slower: ffiData.trendSlowerCount }
           : undefined,
         chronicPeriod,
-        // The weekly rows end on the compared week, which the chronic strip
-        // does not draw.
-        chronicWeeks: (ffiData.weeklyTotals ?? []).slice(0, -1).map((week) => toPeriod(week.stats)),
+        chronicWeeks: (ffiData.weeklyTotals ?? []).map((week) => ({
+          start: week.start,
+          stats: toPeriod(week.stats),
+        })),
         weekOverWeek: toComparison(ffiData.weekOverWeek),
         weekAgainstChronic: toComparison(ffiData.weekAgainstChronic),
         efficiencyTrends,

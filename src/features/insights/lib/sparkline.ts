@@ -1,20 +1,23 @@
-import type { SeriesPoint } from '../types';
+import type { HistoryMark, InsightHistory, SeriesPoint } from '../types';
 
-/**
- * The sparkline fields a card carries, or nothing when there is no line.
- *
- * Every insight card draws a graphic of its own history, and the points come
- * from the engine read that already holds them. Spread into `supportingData`
- * so a card with too short a series carries neither the data nor a label for
- * it, rather than a label over an empty strip.
- *
- * Three points, because that is what `InsightListCard` requires before it
- * draws a path: two are a line segment and say nothing about a direction.
- */
+/** A dated graphic from the engine series, when at least three points exist. */
 export function sparkline(
   points: SeriesPoint[] | undefined,
-  label: string
-): { sparklineData?: number[]; sparklineLabel?: string } {
+  label: string,
+  target: string,
+  kind: 'timeline' | 'sparkline' | 'bars' = 'sparkline',
+  mark?: HistoryMark
+): { history?: InsightHistory } {
   if (!points || points.length < 3) return {};
-  return { sparklineData: points.map((p) => p.value), sparklineLabel: label };
+  return { history: { kind, series: [{ label, points }], ...(mark ? { mark } : {}), target } };
+}
+
+/** The record's date only when its activity survives in the visible tail. */
+export function markedActivity(
+  points: SeriesPoint[] | undefined,
+  activityId?: string
+): HistoryMark | undefined {
+  if (!activityId) return undefined;
+  const best = points?.find((point) => point.activityId === activityId);
+  return best ? { date: best.date } : undefined;
 }

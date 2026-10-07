@@ -193,6 +193,8 @@ const SectionHighlights = React.memo(function SectionHighlights({
             style={pressable(styles.sectionRow)}
             android_ripple={pressRipple}
             onPress={() => router.push(`/section/${section.id}`)}
+            accessibilityRole="button"
+            accessibilityLabel={section.name}
           >
             <Text
               style={[

@@ -4,14 +4,15 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
+import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { TodayBanner } from '@/features/routes';
 import { InsightListCard } from './InsightListCard';
-import { InsightDetailSheet } from './InsightDetailSheet';
 import { InsightDebugPanel } from './InsightDebugPanel';
 import { ErrorStatePreset, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
 import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
+import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
 
 interface InsightsPanelProps {
   insights: Insight[];
@@ -48,10 +49,14 @@ export const InsightsPanel = React.memo(function InsightsPanel({
 }: InsightsPanelProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null);
   const [debugOpen, setDebugOpen] = useState(false);
-  const handleInsightPress = useCallback((i: Insight) => setSelectedInsight(i), []);
-  const handleCloseSheet = useCallback(() => setSelectedInsight(null), []);
+  const openSheet = useSheetOpener();
+  const handleInsightPress = useCallback(
+    (insight: Insight) => {
+      void openSheet<Insight, never>('sheets/insight', insight);
+    },
+    [openSheet]
+  );
   const handleLongPress = useCallback(() => {
     if (__DEV__) setDebugOpen(true);
   }, []);
@@ -61,10 +66,10 @@ export const InsightsPanel = React.memo(function InsightsPanel({
     if (!initialInsightId) return;
     const match = insights.find((i) => i.id === initialInsightId);
     if (match) {
-      setSelectedInsight(match);
+      handleInsightPress(match);
       onInsightOpened?.();
     }
-  }, [initialInsightId, insights, onInsightOpened]);
+  }, [initialInsightId, insights, onInsightOpened, handleInsightPress]);
 
   return (
     <View style={styles.container} testID="insights-panel">
@@ -72,7 +77,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
         {__DEV__ ? (
           <Pressable
             onLongPress={handleLongPress}
-            delayLongPress={800}
+            delayLongPress={CONFIRM_HOLD_MS}
             style={pressable()}
             android_ripple={pressRipple}
           >
@@ -123,11 +128,6 @@ export const InsightsPanel = React.memo(function InsightsPanel({
           </Text>
         ) : null}
       </ScrollView>
-      <InsightDetailSheet
-        insight={selectedInsight}
-        visible={!!selectedInsight}
-        onClose={handleCloseSheet}
-      />
       <InsightDebugPanel visible={debugOpen} onClose={() => setDebugOpen(false)} />
     </View>
   );

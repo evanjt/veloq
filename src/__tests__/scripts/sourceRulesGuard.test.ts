@@ -56,6 +56,29 @@ function runRule(rule: string, root: string): { status: number; output: string }
 
 const real = (path: string) => readFileSync(join(ROOT, path), 'utf8');
 
+describe('counted-translation', () => {
+  it('fails a count joined to a bare translated noun', () => {
+    const root = fixture({
+      'src/features/routes/Count.tsx': "const label = `${n} ${t('routes.visits')}`;\n",
+    });
+    expect(runRule('counted-translation', root).status).toBe(1);
+  });
+
+  it('passes a count interpolated inside the translation', () => {
+    const root = fixture({
+      'src/features/routes/Count.tsx': "const label = t('routes.visitsCount', { count: n });\n",
+    });
+    expect(runRule('counted-translation', root).status).toBe(0);
+  });
+
+  it('fails adjacent JSX expressions', () => {
+    const root = fixture({
+      'src/app/Count.tsx': "<Text>{total} {t('routes.visits')}</Text>\n",
+    });
+    expect(runRule('counted-translation', root).status).toBe(1);
+  });
+});
+
 it('refuses a rule it does not know', () => {
   expect(runRule('everything', fixture({ 'src/a.ts': 'export {};\n' })).status).toBe(2);
 });

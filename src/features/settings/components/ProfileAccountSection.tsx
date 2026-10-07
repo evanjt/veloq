@@ -82,7 +82,9 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   // account, freeing storage, or starting clean.
   const handleLogoutAndClearData = () => {
     Alert.alert(
-      t('alerts.disconnectAndClearTitle', { defaultValue: 'Sign out and delete data?' }),
+      t('alerts.disconnectAndClearTitle', {
+        defaultValue: 'Sign out and delete data?',
+      }),
       signOutMessage(
         t('alerts.disconnectAndClearMessage', {
           defaultValue:
@@ -94,7 +96,9 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: t('alerts.disconnectAndClearConfirm', { defaultValue: 'Delete and sign out' }),
+          text: t('alerts.disconnectAndClearConfirm', {
+            defaultValue: 'Delete and sign out',
+          }),
           style: 'destructive',
           onPress: () => finishLogout(true),
         },
@@ -166,6 +170,8 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
     >
       {/* Profile row */}
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={athlete?.name || t('settings.athleteFallback', 'Athlete')}
         style={styles.profileRow}
         onPress={
           isDemo

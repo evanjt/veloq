@@ -17,12 +17,10 @@
  */
 
 import {
-  FfiCallKind,
   FfiStartOutcome,
   type FfiStartResult,
   RangeCoverage,
   type LibraryCoverage,
-  type FfiCallOutcome,
   type FfiOfflineEstimate,
   type FfiSyncStatus,
 } from '../generated/veloqrs';
@@ -198,46 +196,6 @@ export function syncTimeStreams(host: DelegateHost, activityIds: string[]): FfiS
   // Nothing asked for is no work, not a refusal to do it.
   if (activityIds.length === 0) return startResult(FfiStartOutcome.NotOwed);
   return host.timed('syncTimeStreams', () => host.engine.sync().syncTimeStreams(activityIds));
-}
-
-/**
- * What to report when a write is asked for before the engine exists.
- *
- * `internal` rather than `network`: a cold start is not a connectivity problem,
- * and calling it one would have the upload queue wait for a network change that
- * has already happened.
- */
-function engineUnavailable(action: string): FfiCallOutcome {
-  return { kind: FfiCallKind.Internal, message: `the engine is not ready to ${action}` };
-}
-
-/**
- * Set the effort the athlete gave an uploaded ride, as its `icu_rpe`. It names
- * the activity the upload created, so a failure never sends the file again.
- */
-export function updateActivityRpe(
-  host: DelegateHost,
-  intervalsId: string,
-  rpe: number
-): Promise<FfiCallOutcome> {
-  if (!host.ready) return Promise.resolve(engineUnavailable('set the effort'));
-  return host.engine.sync().updateActivityRpe(intervalsId, rpe);
-}
-
-/**
- * Read an uploaded activity back from intervals.icu, to confirm it is there.
- *
- * `Ok` means present, an `Http` outcome carrying 404 means gone, and every
- * other outcome means the question was not answered. Only the first is a
- * confirmation: deleting the device's copy on anything else throws the ride
- * away on a network the caller could simply have asked again.
- */
-export function confirmActivityUploaded(
-  host: DelegateHost,
-  intervalsId: string
-): Promise<FfiCallOutcome> {
-  if (!host.ready) return Promise.resolve(engineUnavailable('confirm the upload'));
-  return host.engine.sync().confirmActivityUploaded(intervalsId);
 }
 
 /**

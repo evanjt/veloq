@@ -176,11 +176,6 @@ export function markRecordingReconciled(host: DelegateHost, id: string): void {
   host.write('markRecordingReconciled', () => host.engine.recordings().markReconciled(id));
 }
 
-/** intervals.icu has the effort the athlete set. */
-export function markRecordingRpeSent(host: DelegateHost, id: string): void {
-  host.write('markRecordingRpeSent', () => host.engine.recordings().markRpeSent(id));
-}
-
 /**
  * An athlete signed in: stop auto-uploading every ride that is not theirs, an
  * unstamped one included.

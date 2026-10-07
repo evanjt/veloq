@@ -128,15 +128,15 @@ class ActivityPushWorker(context: Context, params: WorkerParameters) : Worker(co
         .enqueueUniqueWork("activity-push-$athleteId-$activityId", ExistingWorkPolicy.KEEP, request.build())
     }
 
-    /**
-     * Cancel every push still queued, whoever it was for. WorkManager tags
-     * each request with its worker's class name, so this reaches the jobs an
-     * older build queued as well.
-     */
+    /** Cancel queued pushes and remove finished work records carrying athlete ids. */
     @JvmStatic
     fun cancelAll(context: Context) {
-      WorkManager.getInstance(context.applicationContext)
-        .cancelAllWorkByTag(ActivityPushWorker::class.java.name)
+      val manager = WorkManager.getInstance(context.applicationContext)
+      try {
+        manager.cancelAllWorkByTag(ActivityPushWorker::class.java.name).result.get()
+      } finally {
+        manager.pruneWork().result.get()
+      }
     }
   }
 }

@@ -27,6 +27,7 @@ import type {
   SectionRankingScores,
   SectionTrendData,
   TFunc,
+  WeeklyTotal,
 } from '../types';
 import { INSIGHTS_CONFIG } from './config';
 import {
@@ -69,11 +70,9 @@ export interface InsightInputData {
   stalePrOpportunities?: StalePrOpportunity[];
   chronicPeriod?: PeriodStats | null;
   /**
-   * The chronic window one week at a time, oldest first, as the engine cut it.
-   * The comparison card's claim is about the last four weeks, and a total plus
-   * an average cannot draw it.
+   * The weekly totals, oldest first, as the engine cut them.
    */
-  chronicWeeks?: PeriodStats[];
+  chronicWeeks?: WeeklyTotal[];
   /** This week against last, as the engine took it. */
   weekOverWeek?: PeriodComparison | null;
   /** Last week against the chronic weekly average, as the engine took it. */

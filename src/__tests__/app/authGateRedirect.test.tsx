@@ -71,12 +71,9 @@ jest.mock('@/features/recording', () =>
     settleOwnerlessAdoptions: jest.fn(async () => undefined),
     RecordingTitle: () => null,
     resumeHeldRecordingForAthlete: jest.fn(async () => null),
-    useUploadQueueProcessor: () => undefined,
+    startUploadQueue: jest.fn(async () => undefined),
   })
 );
-jest.mock('@/features/recording/hooks/useUploadQueueProcessor', () => ({
-  useUploadQueueProcessor: () => undefined,
-}));
 jest.mock('@/features/routes/hooks/useRouteReoptimization', () => ({
   useRouteReoptimization: () => undefined,
 }));

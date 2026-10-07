@@ -110,6 +110,8 @@ export interface Map3DWebViewRef {
 interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   /** Called when the map has finished loading */
   onMapReady?: (() => void) | undefined;
+  /** Called when the page must reload after its renderer stops */
+  onMapReloading?: (() => void) | undefined;
   /** Called when the page or the WebView failed and no map will appear */
   onMapFailed?: ((reason: string) => void) | undefined;
   /** Called when the page drew, but had no DEM tiles, so the terrain is flat */
@@ -184,6 +186,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       highlightedSectionId,
       showHeatmap = false,
       onMapReady,
+      onMapReloading,
       onMapFailed,
       onTerrainUnavailable,
       onBearingChange,
@@ -739,8 +742,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const handleWebViewCrash = useCallback(() => {
       mapReadyRef.current = false;
       forgetLayers();
+      onMapReloading?.();
       webViewRef.current?.reload();
-    }, [forgetLayers]);
+    }, [forgetLayers, onMapReloading]);
 
     // A released page holds no map until the reload, so the layer updates are
     // silenced the same way a crash silences them.

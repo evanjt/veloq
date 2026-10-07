@@ -5,7 +5,7 @@ import {
   paceUnitLabel,
   swimPaceUnitLabel,
 } from '@/shared/format/format';
-import type { Insight, FtpTrend, PaceTrend, TFunc } from '../types';
+import type { HistoryMark, Insight, FtpTrend, PaceTrend, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
 import type { InsightTone } from '@/theme';
@@ -37,6 +37,15 @@ function dateToMs(d: bigint | number | undefined): number | undefined {
   // becomes 1970-01-01 and fails the recency gate.
   if (ms < YEAR_2000_MS) return undefined;
   return ms;
+}
+
+function historySpan(
+  previousDate: bigint | number | undefined,
+  latestDate: bigint | number | undefined
+): HistoryMark | undefined {
+  const from = dateToMs(previousDate);
+  const to = dateToMs(latestDate);
+  return from && to ? { from: from / 1000, to: to / 1000 } : undefined;
 }
 
 function addPaceMilestoneInsight(
@@ -107,7 +116,13 @@ function addPaceMilestoneInsight(
         comparisonKind: 'self',
       },
       supportingData: {
-        ...sparkline(pace.history, t('insights.data.paceHistory')),
+        ...sparkline(
+          pace.history,
+          t('insights.data.paceHistory'),
+          fitnessTarget({ date: dayOf(pace.latestDate) }),
+          'sparkline',
+          historySpan(pace.previousDate, pace.latestDate)
+        ),
         trend: {
           direction: declining ? 'down' : 'up',
           verdict: declining ? 'declined' : 'improved',
@@ -185,7 +200,13 @@ export function generateFitnessMilestoneInsights(
             comparisonKind: 'self',
           },
           supportingData: {
-            ...sparkline(ftp.history, t('insights.data.ftpHistory')),
+            ...sparkline(
+              ftp.history,
+              t('insights.data.ftpHistory'),
+              fitnessTarget({ date: dayOf(ftp.latestDate) }),
+              'sparkline',
+              historySpan(ftp.previousDate, ftp.latestDate)
+            ),
             trend: {
               direction: declining ? 'down' : 'up',
               verdict: declining ? 'declined' : 'improved',

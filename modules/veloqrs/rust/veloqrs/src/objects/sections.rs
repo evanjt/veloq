@@ -103,24 +103,14 @@ impl SectionManager {
 
         with_reader(|conn| {
             let names = named::pooled::overlay_names(conn);
-            let (stored, stored_ids) =
-                queries::pooled::sections_by_type_with_ids(conn, None, &names);
-            let mut stored = stored
-                .into_iter()
-                .map(|section| (section.id.clone(), section))
-                .collect::<std::collections::HashMap<_, _>>();
-            let mut sections: Vec<crate::FfiSection> =
-                pooled::catalogue_sections(conn, filter.sport_type.as_deref(), filter.min_visits)
-                    .into_iter()
-                    .filter_map(|catalogue| match stored.remove(&catalogue.id) {
-                        Some(section) => Some(
-                            crate::FfiSection::from(section)
-                                .with_portions(catalogue.activity_portions.clone()),
-                        ),
-                        None if stored_ids.contains(&catalogue.id) => None,
-                        None => Some(crate::FfiSection::from(&catalogue)),
-                    })
-                    .collect();
+            let mut sections: Vec<crate::FfiSection> = pooled::catalogue_section_rows(
+                conn,
+                filter.sport_type.as_deref(),
+                filter.min_visits,
+            )
+            .into_iter()
+            .map(|(section, portions)| crate::FfiSection::from(section).with_portions(portions))
+            .collect();
             for section in &mut sections {
                 if section.is_user_defined && section.name.is_some() {
                     continue;

@@ -379,6 +379,7 @@ impl FitnessManager {
         // does not hold the first screen the athlete sees.
         let now = unix_now();
         with_reader(|conn| {
+            let snapshot = crate::persistence::feed_rings::feed_ring_snapshot(conn, now);
             crate::persistence::screens::pooled::startup_data(
                 conn,
                 params.current_start as i64,
@@ -386,7 +387,7 @@ impl FitnessManager {
                 params.prev_start as i64,
                 params.prev_end as i64,
                 &preview_activity_ids,
-                now,
+                snapshot,
             )
         })
     }

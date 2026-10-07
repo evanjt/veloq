@@ -373,7 +373,6 @@
     "wbal": "W'bal"
   },
   "common": {
-    "activities": "attività",
     "back": "Indietro",
     "close": "Chiudi",
     "cancel": "Annulla",
@@ -1271,6 +1270,8 @@
     "sportFilterTitle": "Sport",
     "createSection": "Crea sezione",
     "custom": "Personalizzato",
+    "customCount_one": "{{count}} sezione personalizzata",
+    "customCount_other": "{{count}} sezioni personalizzate",
     "dataRangeHint": "Basato su {{duration}} di dati delle attività",
     "duplicateNameMessage": "Per favore scegli un nome diverso. Ogni percorso deve avere un nome unico.",
     "duplicateNameTitle": "Nome già esistente",
@@ -1306,7 +1307,6 @@
     "standingBest": "Il tuo più veloce su {{total}}",
     "standingRank": "{{rank}}º su {{total}}, {{gap}} dal tuo migliore",
     "standingRankPercentile": "{{rank}}º su {{total}}, più veloce del {{percent}}% di essi, {{gap}} dal tuo migliore",
-    "visits": "visite",
     "largeSectionPerformanceWarning": "Le sezioni grandi possono richiedere più tempo per essere elaborate."
   },
   "routesScreen": {
@@ -1331,6 +1331,8 @@
     "removeSection": "Rimuovi sezione",
     "removeSectionConfirm": "Questa sezione non apparirà nei dettagli dell'attività o negli insights. Puoi ripristinarla dall'elenco delle sezioni.",
     "removed": "Rimossa",
+    "removedCount_one": "{{count}} sezione rimossa",
+    "removedCount_other": "{{count}} sezioni rimosse",
     "restoreSection": "Ripristina sezione",
     "partial": "Parziale",
     "placeSecond": "2ª più veloce",
@@ -1397,13 +1399,13 @@
     "setAsReferenceConfirm": "Usare questa attività come riferimento?\n\nLa sezione verrà riconfrontata con tutte le tue attività. Questo potrebbe aggiungere o rimuovere attività da questa sezione.",
     "setReferenceError": "Impossibile impostare il riferimento. La sezione o l'attività potrebbe essere cambiata. Per favore riprova.",
     "editBounds": "Modifica limiti",
-    "points": "punti",
+    "pointsCount_one": "{{count}} punto",
+    "pointsCount_other": "{{count}} punti",
     "resetBounds": "Ripristina originale",
     "trimPrecisionHint": "Trascina il cursore su o giù per un controllo più preciso",
     "trimMode": "Ritaglia",
     "expandMode": "Espandi",
     "resetBoundsConfirm": "Ripristinare i limiti originali rilevati automaticamente?\n\nLa sezione verrà riconfrontata con tutte le tue attività.",
-    "traversals": "attraversamenti",
     "liftGround": "Impianto",
     "notLift": "Non è un impianto",
     "trimFailed": "Impossibile ritagliare i limiti della sezione",
@@ -1492,6 +1494,7 @@
     "nameTaken": "Un’altra sezione ha già questo nome. Scegli un nome diverso."
   },
   "settings": {
+    "developerDashboard": "Pannello sviluppatore",
     "account": "Account",
     "activities": "Attività",
     "appearance": "Aspetto",
@@ -1775,7 +1778,6 @@
     "completeActivitiesYearComparison": "Completa attività per vedere il confronto anno per anno",
     "completeDecouplingHint": "Completa uno sforzo prolungato con dati di potenza e frequenza cardiaca per vedere l'analisi del disaccoppiamento",
     "completePowerActivities": "Completa attività con potenza per vedere il trend FTP",
-    "current": "Attuale",
     "daysCount_many": "{{count}} di giorni",
     "decouplingExplanation": "Il disaccoppiamento misura la deriva cardiaca - quanto la frequenza cardiaca aumenta rispetto alla potenza erogata durante sforzi prolungati.",
     "decouplingProvenance": "Calcolato da intervals.icu",
@@ -1802,7 +1804,6 @@
     "paceCurve": "Curva del passo",
     "powerCurve": "Curva di potenza",
     "powerZones": "Zone di potenza",
-    "previous": "Precedente",
     "rangeNotDownloaded": "Non ancora scaricato",
     "rangePartlyDownloaded": "Una parte di questo periodo non è ancora scaricata",
     "calendarRange": "Dal {{start}} al {{end}}",
@@ -1841,6 +1842,13 @@
     "seasonBests": "Migliori prestazioni",
     "swimPaceCurve": "Curva passo nuoto",
     "trainingZones": "Zone di allenamento"
+  },
+  "refresh": {
+    "busy": "Si aggiornerà dopo la sincronizzazione in corso.",
+    "notReady": "La sincronizzazione è in preparazione. Riprova tra poco.",
+    "offline": "Si aggiornerà quando tornerà la connessione.",
+    "notConfigured": "Accedi per sincronizzare.",
+    "failed": "Impossibile avviare la sincronizzazione."
   },
   "sync": {
     "ridesDownloaded": "{{completed}} di {{total}} uscite scaricate",
@@ -1994,9 +2002,13 @@
     "downloading": "Download degli allenamenti di forza in corso",
     "downloadingHint": "I dati delle serie arrivano con i file degli allenamenti. La schermata si aggiorna quando arrivano.",
     "sets": "serie",
+    "setsCount_one": "{{count}} serie",
+    "setsCount_other": "{{count}} serie",
     "muscleGroupVolume": "Volume per gruppo muscolare",
     "relativeWeightedSets": "Serie ponderate relative nel periodo selezionato",
     "reps": "ripetizioni",
+    "repsCount_one": "{{count}} ripetizione",
+    "repsCount_other": "{{count}} ripetizioni",
     "tapMuscleGroup": "Tocca un gruppo muscolare per i dettagli",
     "relativeVolume": "Volume relativo",
     "balanceObservedPairs": "Osservato tra le coppie antagoniste monitorate nel {{period}} corrente",

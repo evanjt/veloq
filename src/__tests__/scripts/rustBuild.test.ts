@@ -18,6 +18,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
   copyFileSync,
 } from 'node:fs';
@@ -64,6 +65,7 @@ if (flags.FAKE_CARGO_DELAY_MS) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(flags.FAKE_CARGO_DELAY_MS));
 }
 if (flags.FAKE_CARGO_FAIL) process.exit(101);
+if (flags.FAKE_CARGO_SIGNAL) process.kill(process.pid, 'SIGKILL');
 if (flags.FAKE_EDIT) fs.appendFileSync(flags.FAKE_EDIT, '\\n// edited while compiling\\n');
 const value = (flag) => { const i = args.indexOf(flag); return i < 0 ? '' : args[i + 1]; };
 const features = value('--features');
@@ -139,6 +141,13 @@ function ndk(revision: string) {
   const dir = join(root, `ndk-${revision}`);
   write(join(dir, 'source.properties'), `Pkg.Desc = Android NDK\nPkg.Revision = ${revision}\n`);
   return dir;
+}
+
+function withoutCargo() {
+  const bin = join(root, 'bin');
+  rmSync(join(bin, 'cargo'));
+  symlinkSync(process.execPath, join(bin, 'node'));
+  return bin;
 }
 
 function build(argv: string[], extraEnv: Record<string, string | undefined> = {}) {
@@ -321,6 +330,21 @@ describe('the Android build', () => {
       /cargo ndk .* exited with status 101/
     );
     expect(existsSync(out)).toBe(false);
+    expect(readdirSync(join(moduleDir, 'build/rust/android'))).toEqual([]);
+  });
+
+  it('removes an earlier output when Cargo cannot start', () => {
+    const out = build(ARM);
+    write(join(moduleDir, 'rust/veloqrs/src/lib.rs'), 'pub fn changed() {}\n');
+    const path = withoutCargo();
+
+    expect(() => build(ARM, { PATH: path })).toThrow(/cargo could not start/);
+    expect(existsSync(out)).toBe(false);
+    expect(readdirSync(join(moduleDir, 'build/rust/android'))).toEqual([]);
+  });
+
+  it('publishes nothing when Cargo dies from a signal', () => {
+    expect(() => build(ARM, { FAKE_CARGO_SIGNAL: '1' })).toThrow(/exited with signal SIGKILL/);
     expect(readdirSync(join(moduleDir, 'build/rust/android'))).toEqual([]);
   });
 
@@ -566,6 +590,23 @@ describe('the iOS build', () => {
     expect(existsSync(join(moduleDir, 'build/rust/ios/release-iphonesimulator-arm64'))).toBe(false);
   });
 
+  it('removes an earlier archive and linked manifest when Cargo cannot start', () => {
+    const linked = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
+    build(phase(linked), SIM_PHASE);
+    write(join(moduleDir, 'rust/veloqrs/src/lib.rs'), 'pub fn changed() {}\n');
+    const path = withoutCargo();
+
+    expect(() =>
+      build(phase(linked), {
+        ...SIM_PHASE,
+        PATH: path,
+      })
+    ).toThrow(/cargo could not start/);
+    expect(existsSync(join(linked, 'libveloqrs_ffi.a'))).toBe(false);
+    expect(existsSync(join(linked, 'libveloqrs_ffi.manifest.json'))).toBe(false);
+    expect(readdirSync(join(moduleDir, 'build/rust/ios'))).toEqual([]);
+  });
+
   it('compiles only the SDK whose published library went missing', () => {
     build(BOTH);
     rmSync(join(moduleDir, 'build/rust/ios/release-iphoneos-arm64'), { recursive: true });
@@ -664,6 +705,20 @@ describe('the command line', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/\[veloqrs\] cargo ndk .* exited with status 101/);
+    expect(existsSync(androidOut('release-arm64-v8a'))).toBe(false);
+  });
+
+  it('exits nonzero naming Cargo when it cannot start', () => {
+    const builder = installBuilder();
+    const path = withoutCargo();
+
+    const result = spawnSync(process.execPath, [builder, 'android', '--abi', 'arm64-v8a'], {
+      env: { ...env, PATH: path },
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/\[veloqrs\] cargo could not start/);
     expect(existsSync(androidOut('release-arm64-v8a'))).toBe(false);
   });
 

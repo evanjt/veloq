@@ -8,6 +8,8 @@
  */
 
 import React from 'react';
+import { Animated } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
@@ -107,6 +109,9 @@ describe('SectionMapView', () => {
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
 
     fireEvent(screen.getByTestId('section-map-fullscreen'), 'pressIn');
+    expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('section-map-fullscreen'));
     expect(screen.getByTestId('map-fullscreen-close')).toBeTruthy();
 
     fireEvent.press(screen.getByTestId('map-fullscreen-close'));
@@ -126,22 +131,42 @@ describe('SectionMapView', () => {
     expect(screen.queryByTestId('webview')).toBeNull();
 
     fireEvent(screen.getByTestId('section-map-3d-toggle'), 'pressIn');
+    expect(screen.queryByTestId('webview')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
     expect(screen.getByTestId('webview')).toBeTruthy();
 
-    fireEvent(screen.getByTestId('section-map-3d-toggle'), 'pressIn');
+    fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
     expect(screen.queryByTestId('webview')).toBeNull();
   });
 
-  it('keeps the style toggle pressable', () => {
+  it('changes style on release', () => {
     renderSection();
 
     const toggle = screen.getByTestId('section-map-style-toggle');
-    expect(() => {
-      fireEvent(toggle, 'pressIn');
-      fireEvent(toggle, 'pressIn');
-      fireEvent(toggle, 'pressIn');
-    }).not.toThrow();
-    expect(screen.getByTestId('section-map-container')).toBeTruthy();
+    const icon = toggle.findByType(MaterialCommunityIcons).props.name;
+    fireEvent(toggle, 'pressIn');
+    expect(
+      screen.getByTestId('section-map-style-toggle').findByType(MaterialCommunityIcons).props.name
+    ).toBe(icon);
+
+    fireEvent.press(toggle);
+    expect(
+      screen.getByTestId('section-map-style-toggle').findByType(MaterialCommunityIcons).props.name
+    ).not.toBe(icon);
+  });
+
+  it('resets orientation on release', () => {
+    const timing = jest.spyOn(Animated, 'timing');
+    renderSection();
+    timing.mockClear();
+
+    fireEvent(screen.getByTestId('section-map-compass'), 'pressIn');
+    expect(timing).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByTestId('section-map-compass'));
+    expect(timing).toHaveBeenCalledTimes(1);
+    timing.mockRestore();
   });
 
   it('renders pre-loaded traces for every activity', () => {
@@ -248,7 +273,7 @@ describe('SectionMapView', () => {
   it('falls back to the 2D map when the terrain page reports failure', () => {
     renderSection();
 
-    fireEvent(screen.getByTestId('section-map-3d-toggle'), 'pressIn');
+    fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
     expect(screen.getByTestId('section-map-3d-loading')).toBeTruthy();
 
     fireEvent(screen.getByTestId('webview'), 'message', {

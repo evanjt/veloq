@@ -43,6 +43,7 @@ import {
 } from '@/shared/app/fitnessEntry';
 import { useRevealChart } from '@/shared/app/useRevealChart';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { SyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 
 const NO_ACTIVITIES: NonNullable<ReturnType<typeof useFitnessScreenData>['activities']> = [];
 
@@ -169,7 +170,7 @@ function FitnessScreenContent() {
     if (wellness) logMemory('FitnessScreen:wellnessLoaded');
   }, [wellness]);
   // Handle pull-to-refresh - invalidate all fitness-related queries
-  const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
+  const { isRefreshing, onRefresh, notice } = useFitnessRefresh(refetch);
 
   // Memoized derivations (FTP trend, dominant zone, form zone, display values)
   const { ftpTrend, dominantZone, displayValues, displayDate, formZone, rampRate } =
@@ -218,6 +219,7 @@ function FitnessScreenContent() {
 
   return (
     <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
+      <SyncRefreshNotice message={notice} />
       {/* Header */}
       <View style={styles.header}>
         <Text style={shared.screenTitle}>{t('fitnessScreen.title')}</Text>

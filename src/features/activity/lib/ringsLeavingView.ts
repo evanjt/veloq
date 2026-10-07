@@ -7,10 +7,9 @@ export function ringsLeavingView(
 ): string[] {
   const leaving: string[] = [];
   for (const item of changed) {
-    if (!newIds.has(item.key)) continue;
     if (item.isViewable) {
       seen.add(item.key);
-    } else if (seen.delete(item.key)) {
+    } else if (seen.delete(item.key) && newIds.has(item.key)) {
       leaving.push(item.key);
     }
   }

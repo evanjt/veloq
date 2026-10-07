@@ -3,6 +3,7 @@ import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom } from '../lib/config';
 import type { InsightTone } from '@/theme';
 import { fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
+import { sparkline } from '../lib/sparkline';
 
 interface TrendShape {
   label: string; // "trendingUp" | "stable" | "trendingDown"
@@ -11,7 +12,8 @@ interface TrendShape {
   avg: number;
   latest: number;
   dataPoints: number;
-  sparkline: { value: number }[];
+  sparkline: { value: number; date: number }[];
+  windowSplit?: number;
   signalDelta?: number;
 }
 
@@ -49,6 +51,7 @@ export function generateHrvTrendInsight(
   }
 
   const confidence = confidenceFrom('hrv_trend', trend.dataPoints);
+  const lastReading = trend.sparkline[trend.sparkline.length - 1];
 
   return [
     makeInsight({
@@ -110,8 +113,15 @@ export function generateHrvTrendInsight(
             unit: t('insights.data.days'),
           },
         ],
-        sparklineData: trend.sparkline.map((point) => point.value),
-        sparklineLabel: t('insights.data.hrvSevenDay'),
+        ...sparkline(
+          trend.sparkline,
+          t('insights.data.hrvSevenDay'),
+          fitnessTarget({ range: rangeCovering(trend.dataPoints) }),
+          'sparkline',
+          trend.windowSplit !== undefined && lastReading
+            ? { from: trend.windowSplit, to: lastReading.date }
+            : undefined
+        ),
       },
       methodology: {
         name: t('insights.methodology.hrvName'),

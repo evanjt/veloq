@@ -47,7 +47,7 @@ export {
   sectionPaletteIndex,
   sectionPaletteExpression,
 } from './colors';
-export { spacing, MIN_TAP_TARGET } from './spacing';
+export { spacing, controlHeight, MIN_TAP_TARGET } from './spacing';
 export { layout } from './layout';
 export { slopToMinTapTarget } from './tapTarget';
 export { typography } from './typography';

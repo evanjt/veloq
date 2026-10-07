@@ -6,11 +6,11 @@ import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, typography, layout, spacing } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
 import { DenseText } from '@/shared/ui/DenseText';
 import { pressable, pressRipple } from '@/shared/ui';
 
 import type { StatDetail } from './types';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 interface StatCardProps {
   stat: StatDetail;
@@ -23,7 +23,7 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
     <Pressable
       onLongPress={() => onPress(stat)}
       onPress={() => onPress(stat)}
-      delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
+      delayLongPress={PREVIEW_HOLD_MS}
       style={pressable([styles.statCard, isDark && styles.statCardDark])}
       android_ripple={pressRipple}
     >

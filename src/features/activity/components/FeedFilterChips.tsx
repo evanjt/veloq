@@ -1,6 +1,5 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { spacing, typography } from '@/theme';
 import { SportChipRow } from '@/shared/ui/SportChipRow';
 import { ToggleButton } from '@/shared/ui';
 import { FEED_GROUPS, type FeedGroup } from '../lib/feedActivityGroups';
@@ -11,8 +10,6 @@ const RANGE_LABELS = {
   thisYear: 'feed.range.thisYear',
   lastYear: 'feed.range.lastYear',
 } as const satisfies Record<FeedRangePreset, string>;
-
-export const FEED_CHIP_HEIGHT = typography.bodySmall.lineHeight + spacing.xs * 2;
 
 const FEED_TEST_IDS: Record<FeedGroup, { testID: string }> = {
   Cycling: { testID: 'home-filter-cycling' },
@@ -26,7 +23,6 @@ interface FeedFilterChipsProps {
   onSelect: (group: FeedGroup) => void;
   selectedRange: FeedRangePreset | null;
   onSelectRange: (preset: FeedRangePreset) => void;
-  isDark: boolean;
 }
 
 export function FeedFilterChips({
@@ -34,7 +30,6 @@ export function FeedFilterChips({
   onSelect,
   selectedRange,
   onSelectRange,
-  isDark,
 }: FeedFilterChipsProps) {
   const { t } = useTranslation();
   return (
@@ -46,7 +41,6 @@ export function FeedFilterChips({
       }))}
       selected={selected}
       onToggle={(key) => onSelect(key as FeedGroup)}
-      isDark={isDark}
     >
       {FEED_RANGE_PRESETS.map((preset) => (
         <ToggleButton
