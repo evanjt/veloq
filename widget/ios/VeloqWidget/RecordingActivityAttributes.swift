@@ -37,6 +37,8 @@ struct VeloqRecordingAttributes: ActivityAttributes {
 
   /// intervals.icu activity type, e.g. "Ride". Fixed for the life of the card.
   let activityType: String
+  /// The translated name the card shows. Nil on a card started by an older build.
+  let activityLabel: String?
   /// "cycling", "running" or "walking", so the card can pick a glyph without a table.
   let sportCategory: String
 }

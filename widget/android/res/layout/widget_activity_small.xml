@@ -45,7 +45,7 @@
     android:id="@+id/act_sub"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:maxLines="1"
+    android:maxLines="2"
     android:ellipsize="end"
     android:textSize="@dimen/widget_text_caption"
     android:textColor="@color/widget_text_secondary" />

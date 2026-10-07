@@ -41,6 +41,21 @@ object SecureStoreReader {
   private fun keychainAwareKey(key: String, keychainService: String) = "$keychainService-$key"
 
   /**
+   * Whether an envelope is stored under `key`, readable or not. Tells a signed-out
+   * device from one whose entry will not decrypt, which `read` answers alike.
+   */
+  @JvmStatic
+  @JvmOverloads
+  fun isStored(
+    context: Context,
+    key: String,
+    keychainService: String = SecureStoreModule.DEFAULT_KEYSTORE_ALIAS
+  ): Boolean {
+    val prefs = context.getSharedPreferences(SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE)
+    return prefs.contains(keychainAwareKey(key, keychainService)) || prefs.contains(key)
+  }
+
+  /**
    * The value stored under `key`, or null when there is none, when the keystore
    * has no matching entry, or when the envelope will not decrypt.
    *

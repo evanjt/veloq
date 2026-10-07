@@ -13,10 +13,14 @@ import UserNotifications
 /// The whole of the work is the crate's: open the database in the App Group
 /// container, fetch and index the ride, ask for the sentence. Every refusal
 /// on the way ends the same, with the notification the server wrote delivered
-/// unchanged. There is no error to show and nowhere to show it.
+/// unchanged. Every exit that has a database path also records a failed run
+/// with its reason, where the Developer Dashboard lists the runs. With no
+/// library in the container there is nowhere to write, so no row then means
+/// the extension was not invoked or there was no library.
 final class NotificationService: UNNotificationServiceExtension {
   private var deliver: ((UNNotificationContent) -> Void)?
   private var original: UNNotificationContent?
+  private var activityId: String?
   private let once = NSLock()
 
   override func didReceive(
@@ -28,8 +32,19 @@ final class NotificationService: UNNotificationServiceExtension {
 
     guard let push = VeloqPushPayload(userInfo: request.content.userInfo) else {
       post(request.content)
+      if let database = VeloqPaths.routeDatabase() {
+        let userInfo = request.content.userInfo
+        let body = userInfo["body"] as? [String: Any]
+        let reason = VeloqPushEngine.payloadReason(
+          topLevelKeys: userInfo.keys.compactMap { $0 as? String },
+          bodyKeys: body.map { Array($0.keys) }
+        )
+        VeloqPushEngine.recordRefusal(databasePath: database, activityId: nil, reason: reason)
+      }
       return
     }
+
+    activityId = push.activityId
 
     // Off the main thread, because every engine call blocks for its whole
     // duration and a fetch is a network round trip. The system calls
@@ -41,9 +56,14 @@ final class NotificationService: UNNotificationServiceExtension {
   }
 
   /// The last thirty seconds are up. Post the best content in hand, which is
-  /// the server's: anything better would already have been posted.
+  /// the server's: anything better would already have been posted. The run is
+  /// recorded after, best effort, since the budget is spent.
   override func serviceExtensionTimeWillExpire() {
     post(original ?? UNMutableNotificationContent())
+    if let database = VeloqPaths.routeDatabase() {
+      VeloqPushEngine.recordRefusal(
+        databasePath: database, activityId: activityId, reason: "time ran out")
+    }
   }
 
   /// Answer APNs exactly once. Both the work and the expiry warning can
@@ -59,19 +79,35 @@ final class NotificationService: UNNotificationServiceExtension {
   /// The ride as Veloq knows it, or nil for every case that leaves the
   /// server's line standing: no library in the container yet, a keychain that
   /// would not answer, an engine that would not open, notifications switched
-  /// off, a fetch that brought nothing back, or a ride with nothing in it
-  /// worth a sentence.
+  /// off or an athlete who differs. A ride with nothing in it worth
+  /// a sentence is posted as the stored title over the ride's name. Each
+  /// refusal that has a database path is recorded with its reason.
   private static func enrich(
     _ content: UNNotificationContent,
     with push: VeloqPushPayload
   ) -> UNNotificationContent? {
-    guard
-      let database = VeloqPaths.routeDatabase(),
-      let credentials = VeloqCredentials.read(),
-      VeloqPushEngine.prepare(databasePath: database, credentials: credentials),
-      let sentence = VeloqPushEngine.sentence(activityId: push.activityId),
-      let enriched = content.mutableCopy() as? UNMutableNotificationContent
+    guard let database = VeloqPaths.routeDatabase() else { return nil }
+    func refuse(_ reason: String) -> UNNotificationContent? {
+      VeloqPushEngine.recordRefusal(
+        databasePath: database, activityId: push.activityId, reason: reason)
+      return nil
+    }
+
+    guard let credentials = VeloqCredentials.read() else {
+      return refuse("the keychain answered nothing")
+    }
+    let prepared = VeloqPushEngine.prepare(databasePath: database, credentials: credentials)
+    guard prepared.ready else {
+      return refuse(prepared.refusal ?? "prepare refused")
+    }
+    // A nil answer is the engine's own: notifications off or another athlete,
+    // which it records itself as a run.
+    guard let answer = VeloqPushEngine.sentence(activityId: push.activityId, athleteId: push.athleteId)
     else { return nil }
+    guard
+      let sentence = VeloqSentence(json: answer),
+      let enriched = content.mutableCopy() as? UNMutableNotificationContent
+    else { return refuse("the answer would not parse") }
 
     enriched.title = sentence.title
     enriched.body = sentence.body

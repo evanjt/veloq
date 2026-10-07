@@ -72,19 +72,6 @@ struct WidgetPalette {
     return fallback
   }
 
-  /// Fill for a form zone enum from the snapshot; unknown or missing zones read
-  /// as plain primary text (older snapshots carry no zone).
-  func formColor(_ zone: String?) -> Color {
-    switch zone {
-    case "highRisk": return formHighRisk
-    case "optimal": return formOptimal
-    case "greyZone": return formGreyZone
-    case "fresh": return formFresh
-    case "transition": return formTransition
-    default: return textPrimary
-    }
-  }
-
   /// Text for a form zone: the form value, which the fills reach 2.1:1 to 2.7:1
   /// on the light widget ground and 4.5:1 is the bar for text.
   func formTextColor(_ zone: String?) -> Color {
@@ -167,10 +154,12 @@ func trendSymbol(_ dir: String) -> String {
   }
 }
 
-func trendColor(_ dir: String, _ p: WidgetPalette) -> Color {
-  switch dir {
-  case "up": return p.trendUp
-  case "down": return p.trendDown
+/// Coloured by the judgement the app made, never by the direction the number went. A
+/// snapshot written before verdicts existed carries none and draws flat.
+func trendColor(_ verdict: String?, _ p: WidgetPalette) -> Color {
+  switch verdict {
+  case "improved": return p.trendUp
+  case "declined": return p.trendDown
   default: return p.trendFlat
   }
 }
@@ -231,13 +220,13 @@ struct MetricColumn: View {
         .font(.system(size: WidgetTheme.TypeScale.caption))
         .foregroundColor(palette.textSecondary)
       HStack(spacing: 4) {
-        Text(metricValue(metric.value))
+        Text(metric.text ?? metricValue(metric.value))
           .font(.system(size: WidgetTheme.TypeScale.metric, weight: .bold))
           .foregroundColor(valueColor ?? palette.textPrimary)
         if showTrend {
           Image(systemName: trendSymbol(metric.trendDir))
             .font(.system(size: WidgetTheme.TypeScale.caption, weight: .bold))
-            .foregroundColor(trendColor(metric.trendDir, palette))
+            .foregroundColor(trendColor(metric.verdict, palette))
         }
       }
     }
@@ -256,14 +245,12 @@ private struct ChartPlot {
   let bottom: CGFloat
   let domainMin: Double
   let domainMax: Double
-  let barTop: CGFloat
   let rawMin: Double
   let rawMax: Double
 
   static let axisFontSize: CGFloat = 8
-  static let formBarHeight: CGFloat = 4
 
-  init(size: CGSize, rawMin: Double, rawMax: Double, hasFormBar: Bool) {
+  init(size: CGSize, rawMin: Double, rawMax: Double) {
     self.rawMin = rawMin
     self.rawMax = rawMax
     let minLabel = String(Int(rawMin.rounded()))
@@ -272,8 +259,7 @@ private struct ChartPlot {
     left = chars * (ChartPlot.axisFontSize * 0.62) + 4
     top = 2
     right = size.width - 2
-    bottom = hasFormBar ? size.height - ChartPlot.formBarHeight - 2 : size.height - 2
-    barTop = size.height - ChartPlot.formBarHeight
+    bottom = size.height - 2
     let range = rawMax - rawMin > 0 ? rawMax - rawMin : 1
     domainMin = rawMin - range * 0.06
     domainMax = rawMax + range * 0.04
@@ -371,7 +357,7 @@ private struct ChartAxis: View {
 }
 
 // Feed-style chart: monotone fitness + fatigue lines over a shared domain, a
-// per-day form zone bar underneath, and the axis rail. Display-only (no link).
+// the axis rail. Display-only (no link).
 struct FitnessChartView: View {
   let snapshot: WidgetSnapshot?
   let palette: WidgetPalette
@@ -380,13 +366,10 @@ struct FitnessChartView: View {
     GeometryReader { geo in
       let fitness = snapshot?.sparklines.fitness ?? []
       let fatigue = snapshot?.sparklines.fatigue ?? []
-      let zones = snapshot?.sparklines.formZones ?? []
       let all = fitness + fatigue
       if fitness.count >= 2, let rawMin = all.min(), let rawMax = all.max() {
-        let plot = ChartPlot(
-          size: geo.size, rawMin: rawMin, rawMax: rawMax, hasFormBar: zones.count >= 2)
+        let plot = ChartPlot(size: geo.size, rawMin: rawMin, rawMax: rawMax)
         ChartAxis(plot: plot, palette: palette)
-        FormZoneBar(zones: zones, plot: plot, palette: palette)
         if fatigue.count >= 2 {
           CasedLine(
             values: fatigue, plot: plot, color: palette.chartFatigue,
@@ -400,46 +383,6 @@ struct FitnessChartView: View {
   }
 }
 
-// Contiguous same-zone runs as coloured rects, edges at the midpoints between
-// chart x positions (same geometry as the feed's form bar).
-private struct FormZoneBar: View {
-  let zones: [String]
-  let plot: ChartPlot
-  let palette: WidgetPalette
-
-  var body: some View {
-    let n = zones.count
-    if n >= 2 {
-      let step = (plot.right - plot.left) / CGFloat(n - 1)
-      let runs = zoneRuns()
-      ForEach(0..<runs.count, id: \.self) { r in
-        let run = runs[r]
-        let left = run.start == 0 ? plot.left : plot.left + (CGFloat(run.start) - 0.5) * step
-        let right = run.end == n ? plot.right : plot.left + (CGFloat(run.end) - 0.5) * step
-        Path { p in
-          p.addRect(
-            CGRect(
-              x: left, y: plot.barTop, width: max(0, right - left - 0.5),
-              height: ChartPlot.formBarHeight))
-        }
-        .fill(palette.formColor(run.zone))
-      }
-    }
-  }
-
-  private func zoneRuns() -> [(start: Int, end: Int, zone: String)] {
-    var runs: [(Int, Int, String)] = []
-    var start = 0
-    for i in 1...zones.count {
-      if i == zones.count || zones[i] != zones[start] {
-        runs.append((start, i, zones[start]))
-        start = i
-      }
-    }
-    return runs
-  }
-}
-
 // Single-series variant (HRV): one cased line with a faint fill, same axis rail.
 struct SingleTrendChart: View {
   let values: [Double]
@@ -449,7 +392,7 @@ struct SingleTrendChart: View {
   var body: some View {
     GeometryReader { geo in
       if values.count >= 2, let rawMin = values.min(), let rawMax = values.max() {
-        let plot = ChartPlot(size: geo.size, rawMin: rawMin, rawMax: rawMax, hasFormBar: false)
+        let plot = ChartPlot(size: geo.size, rawMin: rawMin, rawMax: rawMax)
         ChartAxis(plot: plot, palette: palette)
         FillPath(values: values, plot: plot, color: color)
         CasedLine(
@@ -510,13 +453,13 @@ struct ImpactView: View {
   var body: some View {
     if let i = impact {
       HStack(spacing: 3) {
-        Text(metricValue(i.formBefore))
+        Text(i.formBeforeText ?? metricValue(i.formBefore))
           .fontWeight(.semibold)
           .foregroundColor(palette.formTextColor(i.formBeforeZone))
         Image(systemName: "arrow.right")
           .font(.system(size: WidgetTheme.TypeScale.caption))
           .foregroundColor(palette.textSecondary)
-        Text(metricValue(i.formAfter))
+        Text(i.formAfterText ?? metricValue(i.formAfter))
           .fontWeight(.semibold)
           .foregroundColor(palette.formTextColor(i.formAfterZone))
         if let tss = i.tssAdded {
@@ -572,6 +515,7 @@ struct CompactMetricRow: View {
   let value: String
   let valueColor: Color
   let trendDir: String
+  let verdict: String?
   let palette: WidgetPalette
 
   var body: some View {
@@ -585,7 +529,7 @@ struct CompactMetricRow: View {
         .foregroundColor(valueColor)
       Image(systemName: trendSymbol(trendDir))
         .font(.system(size: WidgetTheme.TypeScale.caption))
-        .foregroundColor(trendColor(trendDir, palette))
+        .foregroundColor(trendColor(verdict, palette))
     }
   }
 }
@@ -626,20 +570,24 @@ struct SmallWidgetView: View {
   var heroKey: String = "form"
 
   var body: some View {
-    ZStack(alignment: .topTrailing) {
-      if heroKey == "summary", let card = snapshot?.summaryCard {
-        summaryContent(card)
-      } else {
-        metricContent
+    if WidgetSnapshot.isEmpty(snapshot) {
+      EmptyWidgetView(palette: palette)
+    } else {
+      ZStack(alignment: .topTrailing) {
+        if heroKey == "summary", let card = snapshot?.summaryCard {
+          summaryContent(card)
+        } else {
+          metricContent
+        }
+        if snapshot?.latest?.isPr == true {
+          // rosette: award glyph available since iOS 13 (trophy needs iOS 16).
+          Image(systemName: "rosette")
+            .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+            .foregroundColor(palette.gold)
+        }
       }
-      if snapshot?.latest?.isPr == true {
-        // rosette: award glyph available since iOS 13 (trophy needs iOS 16).
-        Image(systemName: "rosette")
-          .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
-          .foregroundColor(palette.gold)
-      }
+      .padding(WidgetTheme.Layout.padding)
     }
-    .padding(WidgetTheme.Layout.padding)
   }
 
   private var metricContent: some View {
@@ -648,7 +596,7 @@ struct SmallWidgetView: View {
       Text(spec.label.uppercased())
         .font(.system(size: WidgetTheme.TypeScale.label))
         .foregroundColor(palette.textSecondary)
-      Text(spec.metric.map { metricValue($0.value) } ?? "-")
+      Text(spec.metric.map { $0.text ?? metricValue($0.value) } ?? "-")
         .font(.system(size: WidgetTheme.TypeScale.hero, weight: .bold))
         .foregroundColor(spec.valueColor)
       HStack(spacing: 4) {
@@ -660,7 +608,7 @@ struct SmallWidgetView: View {
         }
         if let m = spec.metric {
           Image(systemName: trendSymbol(m.trendDir))
-            .foregroundColor(trendColor(m.trendDir, palette))
+            .foregroundColor(trendColor(m.verdict, palette))
           if let d = m.deltaVsYesterday {
             Text(signedInt(d)).foregroundColor(palette.textSecondary)
           }
@@ -670,6 +618,7 @@ struct SmallWidgetView: View {
       Spacer(minLength: 2)
       HeroSparkline(snapshot: snapshot, heroKey: heroKey, palette: palette)
         .frame(height: 40)
+      SnapshotAgeLine(generatedAt: snapshot?.generatedAt, palette: palette)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }
@@ -686,11 +635,12 @@ struct SmallWidgetView: View {
           .foregroundColor(palette.summaryColor(card.hero.colorKey, formZone: formZone))
         Image(systemName: trendSymbol(card.hero.trendDir))
           .font(.system(size: WidgetTheme.TypeScale.label, weight: .bold))
-          .foregroundColor(trendColor(card.hero.trendDir, palette))
+          .foregroundColor(trendColor(card.hero.verdict, palette))
       }
       Spacer(minLength: 2)
       HeroSparkline(snapshot: snapshot, heroKey: "summary", palette: palette)
         .frame(height: 40)
+      SnapshotAgeLine(generatedAt: snapshot?.generatedAt, palette: palette)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }
@@ -730,7 +680,7 @@ struct MediumWidgetView: View {
   var heroKey: String = "form"
 
   var body: some View {
-    if snapshot == nil {
+    if WidgetSnapshot.isEmpty(snapshot) {
       EmptyWidgetView(palette: palette)
     } else if heroKey == "summary", let card = snapshot?.summaryCard {
       summaryContent(card)
@@ -759,13 +709,13 @@ struct MediumWidgetView: View {
         }
         if heroKey != "fitness", let fit = snapshot?.metrics.fitness {
           CompactMetricRow(
-            label: labels?.fitness ?? "Fitness", value: metricValue(fit.value),
-            valueColor: palette.blue, trendDir: fit.trendDir, palette: palette)
+            label: labels?.fitness ?? "Fitness", value: fit.text ?? metricValue(fit.value),
+            valueColor: palette.blue, trendDir: fit.trendDir, verdict: fit.verdict, palette: palette)
         }
         if heroKey != "fatigue", let fat = snapshot?.metrics.fatigue {
           CompactMetricRow(
-            label: labels?.fatigue ?? "Fatigue", value: metricValue(fat.value),
-            valueColor: palette.fatigue, trendDir: fat.trendDir, palette: palette)
+            label: labels?.fatigue ?? "Fatigue", value: fat.text ?? metricValue(fat.value),
+            valueColor: palette.fatigue, trendDir: fat.trendDir, verdict: fat.verdict, palette: palette)
         }
         Spacer(minLength: 0)
       }
@@ -802,14 +752,14 @@ struct MediumWidgetView: View {
               .foregroundColor(palette.summaryColor(card.hero.colorKey, formZone: formZone))
             Image(systemName: trendSymbol(card.hero.trendDir))
               .font(.system(size: WidgetTheme.TypeScale.caption, weight: .bold))
-              .foregroundColor(trendColor(card.hero.trendDir, palette))
+              .foregroundColor(trendColor(card.hero.verdict, palette))
           }
         }
         ForEach(Array(card.entries.prefix(2).enumerated()), id: \.offset) { _, entry in
           CompactMetricRow(
             label: entry.label, value: entry.value,
             valueColor: palette.summaryColor(entry.colorKey, formZone: formZone),
-            trendDir: entry.trendDir, palette: palette)
+            trendDir: entry.trendDir, verdict: entry.verdict, palette: palette)
         }
         Spacer(minLength: 0)
       }
@@ -822,7 +772,7 @@ struct MediumWidgetView: View {
           CompactMetricRow(
             label: entry.label, value: entry.value,
             valueColor: palette.summaryColor(entry.colorKey, formZone: formZone),
-            trendDir: entry.trendDir, palette: palette)
+            trendDir: entry.trendDir, verdict: entry.verdict, palette: palette)
         }
         Spacer(minLength: 0)
       }
@@ -840,7 +790,7 @@ struct LargeWidgetView: View {
   let palette: WidgetPalette
 
   var body: some View {
-    if snapshot == nil {
+    if WidgetSnapshot.isEmpty(snapshot) {
       EmptyWidgetView(palette: palette)
     } else {
       content
@@ -872,7 +822,7 @@ struct LargeWidgetView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         if let ramp = m?.rampRate {
-          Text("\(labels?.ramp ?? "Ramp") \(signedTenths(ramp.value))/wk")
+          Text("\(labels?.ramp ?? "Ramp") \(signedTenths(ramp.value))\(snapshot?.display.perWeekSuffix ?? "/wk")")
             .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
             .foregroundColor(palette.textSecondary)
             .padding(.horizontal, 6)
@@ -939,20 +889,31 @@ struct LargeWidgetView: View {
         Image(systemName: "record.circle")
           .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
           .foregroundColor(palette.primary)
+          .frame(minWidth: 44, minHeight: 44)
+          .contentShape(Rectangle())
       }
+      .accessibilityLabel(recordLabel)
     }
+  }
+
+  /// The snapshot's word, or the catalogue's when a snapshot predates it. A
+  /// `String` passed to `accessibilityLabel` is shown verbatim, so the fallback
+  /// goes through `Text` to be looked up.
+  private var recordLabel: Text {
+    if let label = snapshot?.display.recordLabel { return Text(label) }
+    return Text("Record")
   }
 
   private func footerMetric(_ label: String, _ m: SnapshotMetric) -> some View {
     HStack(spacing: 3) {
       Text(label)
         .foregroundColor(palette.textSecondary)
-      Text(metricValue(m.value))
+      Text(m.text ?? metricValue(m.value))
         .fontWeight(.semibold)
         .foregroundColor(palette.textPrimary)
       Image(systemName: trendSymbol(m.trendDir))
         .font(.system(size: WidgetTheme.TypeScale.caption))
-        .foregroundColor(trendColor(m.trendDir, palette))
+        .foregroundColor(trendColor(m.verdict, palette))
     }
     .font(.system(size: WidgetTheme.TypeScale.label))
   }

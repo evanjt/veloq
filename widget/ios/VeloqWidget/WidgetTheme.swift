@@ -27,8 +27,8 @@ enum WidgetTheme {
     static let formGreyZoneText = Color(hex: "#616161")
     static let formFreshText = Color(hex: "#2E7D32")
     static let formTransitionText = Color(hex: "#1565C0")
-    static let trendUp = Color(hex: "#22C55E")
-    static let trendDown = Color(hex: "#52525B")
+    static let trendUp = Color(hex: "#15803D")
+    static let trendDown = Color(hex: "#7F1D1D")
     static let trendFlat = Color(hex: "#A1A1AA")
     static let border = Color(hex: "#E4E4E7")
   }
@@ -56,8 +56,8 @@ enum WidgetTheme {
     static let formGreyZoneText = Color(hex: "#9E9E9E")
     static let formFreshText = Color(hex: "#81C784")
     static let formTransitionText = Color(hex: "#64B5F6")
-    static let trendUp = Color(hex: "#4ADE80")
-    static let trendDown = Color(hex: "#A1A1AA")
+    static let trendUp = Color(hex: "#86EFAC")
+    static let trendDown = Color(hex: "#F25C5C")
     static let trendFlat = Color(hex: "#52525B")
     static let border = Color(hex: "#27272A")
   }

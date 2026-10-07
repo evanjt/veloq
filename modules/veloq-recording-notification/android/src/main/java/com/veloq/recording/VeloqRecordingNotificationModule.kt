@@ -38,7 +38,7 @@ private const val MAX_RETRIES = 6
  * Nothing here owns the service. Android identifies a notification by its id and
  * channel, so posting the same pair replaces the content of the one
  * `startForeground` put up while leaving the service's lifecycle to
- * expo-location, which is what `B205`'s kill-and-restore path depends on.
+ * expo-location, which is what the recording's kill-and-restore path depends on.
  */
 class VeloqRecordingNotificationModule : Module() {
   private val context: Context
@@ -169,7 +169,7 @@ class VeloqRecordingNotificationModule : Module() {
   }
 
   private fun build(payload: JSONObject, channelId: String): android.app.Notification {
-    val accent = parseColor(payload.optString("traceColor"))
+    val accent = parseColor(payload.optString("accentColor"))
     val builder = NotificationCompat.Builder(context, channelId)
       .setSmallIcon(smallIcon())
       .setContentTitle(payload.optString("title"))

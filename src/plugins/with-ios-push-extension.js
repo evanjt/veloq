@@ -23,10 +23,10 @@ const { ensureTargetDependencySections } = require("./xcodeTargetDependency");
  * path rather than the silent data push the JavaScript task runs on, which iOS
  * throttles and never delivers after a force-quit.
  *
- * Both capabilities are already on the app: `with-app-groups.js` declares the
- * App Group and `with-keychain-access-group.js` the shared keychain group. The
- * extension declares the same two in its own entitlements, which is tracked
- * beside its sources rather than written here.
+ * The capability is already on the app: `with-app-groups.js` declares the App
+ * Group, which is also the shared keychain group. The extension declares the
+ * same group in its own entitlements, which is tracked beside its sources
+ * rather than written here.
  */
 
 const TARGET = "VeloqPushExtension";
@@ -38,26 +38,17 @@ const BRIDGING_HEADER = `${TARGET}-Bridging-Header.h`;
  * through the `Veloqrs` pod: that pod depends on React, and an extension has
  * neither React nor a JavaScript runtime. Only the four C symbols in
  * `push/c.rs` are called, and the linker keeps what they reach.
+ *
+ * Its own phase builds it, for the SDK and architectures of this build, into
+ * the target's temporary directory. The pod's phase builds the same library
+ * for the app, but nothing orders this target after the pod, and the builder
+ * serialises the two and compiles once.
  */
-const XCFRAMEWORK = path.join(
-  "modules",
-  "veloqrs",
-  "ios",
-  "Frameworks",
-  "VeloqrsFFI.xcframework"
-);
 const LIBRARY = "veloqrs_ffi";
-
-/**
- * The slices an xcframework built elsewhere would carry, for the case where
- * this runs before one exists. `with-veloqrs.js` builds only the simulator
- * slice locally and CI delivers the device one, so neither is guaranteed to be
- * on disk when the project is written.
- */
-const DEFAULT_SLICES = {
-  "iphonesimulator*": "ios-arm64_x86_64-simulator",
-  "iphoneos*": "ios-arm64",
-};
+const RUST_PHASE = "Build Rust library";
+const RUST_DIR = "$(TARGET_TEMP_DIR)/VeloqrsFFI";
+const RUST_SCRIPT =
+  '"$SRCROOT/../modules/veloqrs/scripts/xcode-build-rust.sh" "$SRCROOT" "$TARGET_TEMP_DIR/VeloqrsFFI"';
 
 /** Every Swift file the extension compiles, read from the tracked tree. */
 function pushSwiftFiles(projectRoot) {
@@ -65,34 +56,6 @@ function pushSwiftFiles(projectRoot) {
     .readdirSync(path.join(projectRoot, SOURCE_DIR))
     .filter((f) => f.endsWith(".swift"))
     .sort();
-}
-
-/**
- * Which directory inside the xcframework holds the library for each SDK.
- *
- * Read from the bundle's own `Info.plist` when there is one, because the
- * identifiers are the builder's and a guess that is wrong fails at link time
- * with "library not found", naming neither the bundle nor this file.
- *
- * Both SDKs always get a path, whatever the bundle declares.
- * `with-veloqrs.js`'s XCFramework step builds and declares the simulator slice alone on
- * this machine and CI delivers the device one, so a project written here and
- * built for a device would otherwise carry no device path at all.
- */
-function xcframeworkSlices(projectRoot) {
-  const slices = { ...DEFAULT_SLICES };
-  const plist = path.join(projectRoot, XCFRAMEWORK, "Info.plist");
-  if (!fs.existsSync(plist)) return slices;
-  const text = fs.readFileSync(plist, "utf8");
-  for (const entry of text.split("<dict>")) {
-    const identifier = /<key>LibraryIdentifier<\/key>\s*<string>([^<]+)<\/string>/.exec(entry);
-    if (!identifier) continue;
-    const simulator = /<key>SupportedPlatformVariant<\/key>\s*<string>simulator<\/string>/.test(
-      entry
-    );
-    slices[simulator ? "iphonesimulator*" : "iphoneos*"] = identifier[1];
-  }
-  return slices;
 }
 
 function copyDir(src, dest) {
@@ -123,7 +86,7 @@ function withPushExtensionFiles(config) {
  * from the project, which is where the pod install writes settings meant for
  * the app.
  */
-function applyPushExtensionBuildSettings(settings, { version, buildNumber, slices }) {
+function applyPushExtensionBuildSettings(settings, { version, buildNumber }) {
   settings.INFOPLIST_FILE = `"${TARGET}/Info.plist"`;
   settings.CODE_SIGN_ENTITLEMENTS = `"${TARGET}/${TARGET}.entitlements"`;
   settings.CODE_SIGN_STYLE = "Automatic";
@@ -138,19 +101,17 @@ function applyPushExtensionBuildSettings(settings, { version, buildNumber, slice
   // the build says nothing about a missing header.
   settings.SWIFT_OBJC_BRIDGING_HEADER = `"${TARGET}/${BRIDGING_HEADER}"`;
   settings.OTHER_LDFLAGS = `"$(inherited) -l${LIBRARY}"`;
-  // One search path per SDK rather than both at once: the two slices hold a
-  // library of the same name for different architectures, and a linker handed
-  // both takes the first and fails on the architecture rather than on the
-  // path.
-  //
-  // The key carries its own quotes because the writer emits a setting name
-  // verbatim, and `LIBRARY_SEARCH_PATHS[sdk=iphoneos*]` unquoted is not a
-  // token Xcode's parser will take: it refuses the whole project file, naming
-  // a line rather than a setting. Xcode writes the quotes itself, which is why
-  // `CODE_SIGN_IDENTITY[sdk=iphoneos*]` comes back out of a parse with them.
-  for (const [sdk, slice] of Object.entries(slices)) {
-    settings[`"LIBRARY_SEARCH_PATHS[sdk=${sdk}]"`] =
-      `"$(SRCROOT)/../${XCFRAMEWORK}/${slice}"`;
+  // A list, because React Native's pod install puts the Swift library path
+  // in front of this setting with a string insert, which glues it onto a
+  // single path rather than adding one.
+  settings.LIBRARY_SEARCH_PATHS = ['"$(inherited)"', `"${RUST_DIR}"`];
+  // The phase writes into the Rust tree and the build directory, which a
+  // sandboxed script may not touch.
+  settings.ENABLE_USER_SCRIPT_SANDBOXING = "NO";
+  // A target written before the phase existed linked one slice of a bundle
+  // per SDK. Those paths would now name a library nothing rebuilds.
+  for (const key of Object.keys(settings)) {
+    if (key.startsWith('"LIBRARY_SEARCH_PATHS[sdk=')) delete settings[key];
   }
   // `apple.ccacheEnabled` has the pod install write CC, LD, CXX and LDPLUSPLUS
   // across the whole project as `$(REACT_NATIVE_PATH)/scripts/xcode/...`, and
@@ -160,8 +121,54 @@ function applyPushExtensionBuildSettings(settings, { version, buildNumber, slice
   settings.REACT_NATIVE_PATH = '"$(SRCROOT)/../node_modules/react-native"';
 }
 
-/** Create the extension target, its phases, its group and its build settings. */
-function createPushExtensionTarget(proj, { bundleId, version, buildNumber, slices }) {
+/** A project value with the quotes the writer may or may not have kept. */
+function unquoted(value) {
+  return String(value ?? "").replace(/^"(.*)"$/, "$1");
+}
+
+/**
+ * The target's own build configurations, the ones carrying its settings.
+ * Matched on the bare name: the pod install saves the project again and
+ * drops the quotes this plugin wrote around it.
+ */
+function pushExtensionSettings(proj) {
+  const configurations = proj.pbxXCBuildConfigurationSection();
+  return Object.values(configurations)
+    .map((entry) => entry && entry.buildSettings)
+    .filter((settings) => settings && unquoted(settings.PRODUCT_NAME) === TARGET);
+}
+
+/**
+ * The phase that builds the Rust library, first in the target so it runs
+ * before the link. Added to a target an earlier prebuild wrote without it.
+ */
+function ensureRustPhase(proj, targetUuid) {
+  const target = proj.pbxNativeTargetSection()[targetUuid];
+  const scripts = proj.hash.project.objects.PBXShellScriptBuildPhase ?? {};
+  const present = target.buildPhases.some(
+    (phase) => scripts[phase.value] && unquoted(scripts[phase.value].name) === RUST_PHASE
+  );
+  if (present) return;
+  const { uuid, buildPhase } = proj.addBuildPhase(
+    [],
+    "PBXShellScriptBuildPhase",
+    RUST_PHASE,
+    targetUuid,
+    {
+      shellPath: "/bin/sh",
+      shellScript: RUST_SCRIPT,
+      outputPaths: [`"${RUST_DIR}/lib${LIBRARY}.a"`],
+    }
+  );
+  // The builder decides whether anything changed, from every input of the
+  // library, so Xcode runs the phase on every build rather than guessing.
+  buildPhase.alwaysOutOfDate = 1;
+  const added = target.buildPhases.findIndex((phase) => phase.value === uuid);
+  target.buildPhases.unshift(...target.buildPhases.splice(added, 1));
+}
+
+/** Create the extension target, its phases and its group. */
+function createPushExtensionTarget(proj, bundleId) {
   // `addTarget` makes the app target depend on this one itself, but only writes
   // it when both dependency sections already exist, and a generated project has
   // neither. Without this the extension is built by the scheme's implicit
@@ -176,27 +183,23 @@ function createPushExtensionTarget(proj, { bundleId, version, buildNumber, slice
   const group = proj.addPbxGroup([], TARGET, TARGET);
   proj.addToPbxGroup(group.uuid, proj.getFirstProject().firstProject.mainGroup);
 
-  const configurations = proj.pbxXCBuildConfigurationSection();
-  for (const key in configurations) {
-    const settings = configurations[key].buildSettings;
-    if (!settings || settings.PRODUCT_NAME !== `"${TARGET}"`) continue;
-    applyPushExtensionBuildSettings(settings, { version, buildNumber, slices });
-  }
-
   return target.uuid;
 }
 
 /**
  * Wire the extension target to the sources it compiles, creating it when the
- * project has none. The target survives every prebuild after the first, so the
- * source list is reconciled either way: a file added to `push/ios` is
- * otherwise copied into `ios/` and then never compiled.
+ * project has none. The target survives every prebuild after the first, so
+ * its sources, its Rust phase and its settings are reconciled either way: a
+ * file added to `push/ios` is otherwise copied into `ios/` and then never
+ * compiled, and a setting changed here never reaches the target.
  */
-function configurePushExtensionProject(proj, { swiftFiles, bundleId, version, buildNumber, slices }) {
-  const targetUuid =
-    targetUuidByName(proj, TARGET) ??
-    createPushExtensionTarget(proj, { bundleId, version, buildNumber, slices });
+function configurePushExtensionProject(proj, { swiftFiles, bundleId, version, buildNumber }) {
+  const targetUuid = targetUuidByName(proj, TARGET) ?? createPushExtensionTarget(proj, bundleId);
   addMissingSourceFiles(proj, targetUuid, swiftFiles, TARGET);
+  ensureRustPhase(proj, targetUuid);
+  for (const settings of pushExtensionSettings(proj)) {
+    applyPushExtensionBuildSettings(settings, { version, buildNumber });
+  }
 }
 
 function withPushExtensionTarget(config) {
@@ -206,7 +209,6 @@ function withPushExtensionTarget(config) {
       bundleId: cfg.ios?.bundleIdentifier || "com.veloq.app",
       version: cfg.version || "1.0.0",
       buildNumber: cfg.ios?.buildNumber || "1",
-      slices: xcframeworkSlices(cfg.modRequest.projectRoot),
     });
     return cfg;
   });
@@ -223,4 +225,3 @@ module.exports.SOURCE_DIR = SOURCE_DIR;
 module.exports.applyPushExtensionBuildSettings = applyPushExtensionBuildSettings;
 module.exports.configurePushExtensionProject = configurePushExtensionProject;
 module.exports.pushSwiftFiles = pushSwiftFiles;
-module.exports.xcframeworkSlices = xcframeworkSlices;

@@ -31,23 +31,45 @@ public final class PushBridge {
   }
 
   /**
-   * Fetch one activity's track, store it and index it against the catalogue.
-   * Returns the summary as JSON, or null when nothing was indexed, with the
-   * reason in the log.
+   * Open the engine with no credential, so a failed run can still be recorded
+   * and the plain entry can read the stored title. Nothing is replaced if the
+   * app already has the engine open.
    */
-  public static String fetchAndIndex(String activityId, String sportType) {
+  public static boolean open(String dbPath) {
     load();
-    return nativeFetchAndIndex(activityId, sportType);
+    return nativeOpen(dbPath);
   }
 
   /**
    * One activity push end to end: the gate, the detail body, the track and
    * its index, then the sentence. Returns {@code {"title","body"}} as JSON, or
-   * null when there is nothing to post, with the reason in the log.
+   * {@code {"skip":true}} when the gate says to post nothing or the push is
+   * for a different athlete. Null means the call failed, and the worker
+   * answers it with the plain fallback entry.
    */
-  public static String activityPush(String activityId) {
+  public static String activityPush(String activityId, String athleteId) {
     load();
-    return nativeActivityPush(activityId);
+    return nativeActivityPush(activityId, athleteId);
+  }
+
+  public static String fallbackNotification() {
+    load();
+    return nativeFallbackNotification();
+  }
+
+  public static void recordFailure(String activityId, String reason) {
+    load();
+    nativeRecordFailure(activityId, reason);
+  }
+
+  /**
+   * The home-screen widget snapshot, composed by the same Rust the app
+   * composes it with, from the context the app last stored. Null when there
+   * is nothing to compose from, and the widgets keep the file they have.
+   */
+  public static String widgetSnapshot() {
+    load();
+    return nativeWidgetSnapshot();
   }
 
   private static void load() {
@@ -67,7 +89,13 @@ public final class PushBridge {
   private static native boolean nativePrepare(
       String dbPath, String authMethod, String secret, String athleteId);
 
-  private static native String nativeFetchAndIndex(String activityId, String sportType);
+  private static native boolean nativeOpen(String dbPath);
 
-  private static native String nativeActivityPush(String activityId);
+  private static native String nativeActivityPush(String activityId, String athleteId);
+
+  private static native String nativeFallbackNotification();
+
+  private static native void nativeRecordFailure(String activityId, String reason);
+
+  private static native String nativeWidgetSnapshot();
 }

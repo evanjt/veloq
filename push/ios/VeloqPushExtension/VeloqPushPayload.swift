@@ -30,7 +30,7 @@ enum VeloqPaths {
 ///
 /// The developer data rides in the top-level `body` key of the APNs payload,
 /// which is where `expo-notifications` reads it from on this platform
-/// (`NotificationRecords.swift:331`), so the extension reads it from the same
+/// (its `NotificationRecords.swift`), so the extension reads it from the same
 /// place rather than inventing a second shape. A payload that names it at the
 /// root is read too, since that is what `xcrun simctl push` hands over when a
 /// fixture is written by hand.
@@ -40,6 +40,7 @@ struct VeloqPushPayload {
   private static let enrichable: Set<String> = ["ACTIVITY_UPLOADED", "ACTIVITY_ANALYZED"]
 
   let activityId: String
+  let athleteId: String
 
   /// Nil when this push is not one to enrich, which the caller delivers
   /// unchanged. That is a wellness event, a payload with no activity id, or
@@ -52,9 +53,14 @@ struct VeloqPushPayload {
       let activityId = (data["activity_id"] as? String)?.trimmingCharacters(
         in: .whitespacesAndNewlines
       ),
-      !activityId.isEmpty
+      !activityId.isEmpty,
+      let athleteId = (data["athlete_id"] as? String)?.trimmingCharacters(
+        in: .whitespacesAndNewlines
+      ),
+      !athleteId.isEmpty
     else { return nil }
     self.activityId = activityId
+    self.athleteId = athleteId
   }
 
   private static func rootFields(_ userInfo: [AnyHashable: Any]) -> [String: Any] {

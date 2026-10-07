@@ -64,7 +64,6 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
         "ACCESS_NETWORK_STATE",
@@ -72,6 +71,10 @@
         "INTERNET",
         "POST_NOTIFICATIONS",
         "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -88,17 +91,9 @@
       "./src/plugins/with-gradle-repositories",
       "./src/plugins/with-release-signing",
       "./src/plugins/with-packaging-options",
-      "./src/plugins/with-veloqrs",
       "./src/plugins/with-r8-config",
       "./src/plugins/with-android-backup",
-      [
-        "react-native-cloud-storage",
-        {
-          "iCloudContainerIdentifier": "iCloud.com.veloq.app"
-        }
-      ],
       "./src/plugins/with-app-groups",
-      "./src/plugins/with-keychain-access-group",
       "./src/plugins/with-android-widget",
       "./src/plugins/with-ios-widget",
       "./src/plugins/with-ios-push-extension",
@@ -113,7 +108,7 @@
       [
       "expo-location",
         {
-          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": false,
           "isAndroidForegroundServiceEnabled": true
         }
       ],

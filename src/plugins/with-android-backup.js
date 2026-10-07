@@ -7,15 +7,14 @@ const path = require("path");
 
 /**
  * Expo config plugin that configures Android Auto Backup to include
- * the Veloq SQLite database while excluding sensitive data.
+ * the latest record zip while excluding sensitive data.
  *
  * Two files, because the platform changed which one it reads.
  * `android:fullBackupContent` applies to Android 11 and lower;
  * `android:dataExtractionRules` applies from Android 12, and covers the
  * cloud backup and the device-to-device transfer separately. Both name:
  * - shared preferences (settings)
- * - the routes.db SQLite database
- * - the backups/ directory (local backup copies)
+ * - the latest versioned record zip
  * and both exclude SecureStore (API keys, OAuth tokens).
  *
  * Only listed paths are backed up; all others (gps_tracks, terrain_previews,
@@ -29,10 +28,8 @@ const BACKUP_RULES = `<?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
   <!-- Include shared preferences (app settings) -->
   <include domain="sharedpref" path="." />
-  <!-- Include SQLite database (activities, sections, settings) -->
-  <include domain="file" path="routes.db" />
-  <!-- Include local backup copies -->
-  <include domain="file" path="backups/" />
+  <!-- Include the latest record zip -->
+  <include domain="file" path="veloq-decisions.zip" />
   <!-- Exclude sensitive credential storage -->
   <exclude domain="sharedpref" path="SecureStore" />
 </full-backup-content>
@@ -43,14 +40,12 @@ const DATA_EXTRACTION_RULES = `<?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
   <cloud-backup>
     <include domain="sharedpref" path="." />
-    <include domain="file" path="routes.db" />
-    <include domain="file" path="backups/" />
+    <include domain="file" path="veloq-decisions.zip" />
     <exclude domain="sharedpref" path="SecureStore" />
   </cloud-backup>
   <device-transfer>
     <include domain="sharedpref" path="." />
-    <include domain="file" path="routes.db" />
-    <include domain="file" path="backups/" />
+    <include domain="file" path="veloq-decisions.zip" />
     <exclude domain="sharedpref" path="SecureStore" />
   </device-transfer>
 </data-extraction-rules>
@@ -60,7 +55,7 @@ const DATA_EXTRACTION_RULES = `<?xml version="1.0" encoding="utf-8"?>
  * Point both attributes at this app's rules. `dataExtractionRules` is
  * overwritten rather than left alone: expo-secure-store's plugin sets it to
  * its own file, which carries shared preferences and nothing else, so leaving
- * it is how the database stopped being backed up from Android 12 onwards.
+ * it is how the record zip would be omitted from Android 12 backups.
  */
 function configureManifest(mainApplication) {
   mainApplication.$["android:fullBackupContent"] = "@xml/veloq_backup_rules";

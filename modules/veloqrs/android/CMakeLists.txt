@@ -73,12 +73,15 @@ target_link_libraries(
   ReactAndroid::jsi
   ${LOGCAT}
 )
-# Link against libveloqrs.so from jniLibs
-# Use IMPORTED SHARED to tell CMake about the library without copying it
-# The library is in jniLibs and will be packaged by AGP - we just need CMake to know about it for linking
+# Link against libveloqrs.so from the Rust build's output for this selection,
+# which Gradle passes in and also packages as jniLibs. IMPORTED SHARED tells
+# CMake about the library without copying it.
+if(NOT DEFINED VELOQRS_RUST_LIB_DIR)
+  message(FATAL_ERROR "VELOQRS_RUST_LIB_DIR is unset: build through Gradle, which runs the Rust build first")
+endif()
 add_library(veloqrs SHARED IMPORTED)
 set_target_properties(veloqrs PROPERTIES
-  IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libveloqrs.so
+  IMPORTED_LOCATION ${VELOQRS_RUST_LIB_DIR}/${ANDROID_ABI}/libveloqrs.so
   IMPORTED_NO_SONAME TRUE
 )
 target_link_libraries(veloqrs_jni veloqrs)

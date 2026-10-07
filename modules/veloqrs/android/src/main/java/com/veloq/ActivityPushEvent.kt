@@ -14,17 +14,20 @@ import org.json.JSONObject
 object ActivityPushEvent {
   private val ACTIVITY_EVENTS = setOf("ACTIVITY_UPLOADED", "ACTIVITY_ANALYZED")
 
+  data class Activity(val activityId: String, val athleteId: String)
+
   /**
-   * The activity id when this push is an activity event, or null when it is
-   * not: a wellness or fitness event, a wake with no event type, or a body
-   * that will not parse.
+   * The activity and athlete ids for an activity event, or null when either
+   * is absent, the event is another type, or the body will not parse.
    */
   @JvmStatic
-  fun activityIdOf(data: Map<String, String>): String? {
+  fun activityOf(data: Map<String, String>): Activity? {
     val fields = data["body"]?.let(::parse) ?: data
     val event = fields["event_type"] ?: return null
     if (event !in ACTIVITY_EVENTS) return null
-    return fields["activity_id"]?.takeIf { it.isNotEmpty() }
+    val activityId = fields["activity_id"]?.takeIf { it.isNotEmpty() } ?: return null
+    val athleteId = fields["athlete_id"]?.takeIf { it.isNotEmpty() } ?: return null
+    return Activity(activityId, athleteId)
   }
 
   private fun parse(body: String): Map<String, String>? {

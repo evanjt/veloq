@@ -2,9 +2,9 @@
  * Scenario: an Android 12 or later device backs the app up to the cloud, or
  * transfers it to a new phone.
  *
- * Expected behaviour: the athlete's database travels with it. `fullBackupContent`
+ * Expected behaviour: the latest record zip and settings travel with it. `fullBackupContent`
  * has applied to Android 11 and lower since Android 12, which reads
- * `dataExtractionRules` instead, so both files have to name the database and
+ * `dataExtractionRules` instead, so both files have to name the record zip and
  * both have to keep expo-secure-store's credential exclusion.
  */
 
@@ -24,19 +24,21 @@ function mainApplication(): { $: Record<string, string> } {
 }
 
 describe('with-android-backup rules', () => {
-  it('names the database and the local backups in the Android 11 rules', () => {
+  it('carries the record zip without the live library in the Android 11 rules', () => {
     expect(BACKUP_RULES).toContain('<full-backup-content>');
-    expect(BACKUP_RULES).toContain('domain="file" path="routes.db"');
-    expect(BACKUP_RULES).toContain('domain="file" path="backups/"');
+    expect(BACKUP_RULES).toContain('domain="file" path="veloq-decisions.zip"');
+    expect(BACKUP_RULES).not.toContain('path="routes.db"');
+    expect(BACKUP_RULES).not.toContain('path="backups/"');
     expect(BACKUP_RULES).toContain('<exclude domain="sharedpref" path="SecureStore" />');
   });
 
-  it('names the database in both Android 12 blocks', () => {
+  it('carries the record zip in both Android 12 blocks', () => {
     for (const block of ['cloud-backup', 'device-transfer']) {
       const body = DATA_EXTRACTION_RULES.split(`<${block}>`)[1]?.split(`</${block}>`)[0];
       expect(body).toBeDefined();
-      expect(body).toContain('domain="file" path="routes.db"');
-      expect(body).toContain('domain="file" path="backups/"');
+      expect(body).toContain('domain="file" path="veloq-decisions.zip"');
+      expect(body).not.toContain('path="routes.db"');
+      expect(body).not.toContain('path="backups/"');
       expect(body).toContain('domain="sharedpref" path="."');
     }
   });
@@ -93,7 +95,7 @@ describe('with-android-backup prebuild output', () => {
       'veloq_data_extraction_rules.xml',
     ]);
     expect(readFileSync(join(resDir, 'veloq_data_extraction_rules.xml'), 'utf8')).toContain(
-      'routes.db'
+      'veloq-decisions.zip'
     );
   });
 

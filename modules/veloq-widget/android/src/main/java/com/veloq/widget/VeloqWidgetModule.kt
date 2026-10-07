@@ -45,6 +45,14 @@ class VeloqWidgetModule : Module() {
       }
     }
 
+    // The wipe deletes the file and any half-written copy, so the provider
+    // draws its placeholder rather than the previous athlete's last ride.
+    Function("clearSnapshot") {
+      val dir = context.filesDir
+      File(dir, SNAPSHOT_FILE).delete()
+      File(dir, "$SNAPSHOT_FILE.tmp").delete()
+    }
+
     /**
      * The recent sports as launcher shortcuts, most recent first, taken from the
      * same pre-localised list the snapshot carries. Each fires the deep link that

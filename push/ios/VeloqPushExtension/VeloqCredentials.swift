@@ -4,7 +4,8 @@ import Security
 /// The credential the app wrote, read out of the shared keychain group.
 ///
 /// The extension is a different bundle id, so it sees the item only through
-/// the `keychain-access-groups` entitlement both targets declare, and only
+/// the App Group both targets declare, which iOS also counts as a keychain
+/// access group, and only
 /// from the first unlock after boot, which is what
 /// `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY` buys. Before that first unlock every
 /// read comes back empty and the extension posts what the server wrote, which

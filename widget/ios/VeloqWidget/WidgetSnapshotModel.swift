@@ -1,6 +1,6 @@
 import Foundation
 
-// Decodable mirror of src/features/home/lib/widgetSnapshot.ts (schema version 4). The
+// Decodable mirror of src/features/home/lib/widgetSnapshot.ts (schema version 7). The
 // widget only renders this, it never computes. Optional fields decode to nil when the
 // key is missing, so a partial or older-schema snapshot degrades gracefully instead of
 // failing to decode. Version skew happens in both directions: keep every field added
@@ -9,10 +9,14 @@ import Foundation
 struct SnapshotMetric: Codable {
   let value: Double
   let trendDir: String
+  /// "improved", "declined", "moved" or "flat": what the app judged the move to be.
+  let verdict: String?
   let deltaVsYesterday: Double?
   /// Form only: TSB zone enum ("highRisk"..."transition"). The widget never derives
   /// zone boundaries itself.
   let zone: String?
+  /// Form only: the pre-formatted readout, so a percentage setting needs no maths here.
+  let text: String?
 }
 
 struct WidgetRamp: Codable {
@@ -33,8 +37,6 @@ struct WidgetSparklines: Codable {
   let fitness: [Double]
   let fatigue: [Double]?
   let hrv: [Double]
-  /// TSB zone enum per form point (oldest-first); nil on schema-3 snapshots.
-  let formZones: [String]?
 }
 
 struct WidgetWeekly: Codable {
@@ -69,6 +71,8 @@ struct WidgetLatest: Codable {
 struct WidgetImpact: Codable {
   let formBefore: Double
   let formAfter: Double
+  let formBeforeText: String?
+  let formAfterText: String?
   let formBeforeZone: String?
   let formAfterZone: String?
   let ctlDelta: Double
@@ -83,6 +87,7 @@ struct WidgetSummaryEntry: Codable {
   let label: String
   let value: String
   let trendDir: String
+  let verdict: String?
   let colorKey: String
 }
 
@@ -106,6 +111,10 @@ struct WidgetMetricLabels: Codable {
 struct WidgetDisplay: Codable {
   let metricLabels: WidgetMetricLabels
   let weekLabel: String
+  /// Nil in a snapshot written by an older build.
+  let recordLabel: String?
+  /// Nil in a snapshot written by an older build.
+  let perWeekSuffix: String?
   let formZone: String?
   let impactLine: String?
 }
@@ -145,9 +154,17 @@ struct WidgetThemeData: Codable {
 }
 
 struct WidgetSnapshot: Codable {
+  /// A snapshot that is absent, or that marks an empty library, has nothing to show.
+  static func isEmpty(_ snapshot: WidgetSnapshot?) -> Bool {
+    snapshot == nil || snapshot?.emptyLibrary == true
+  }
+
   let schemaVersion: Int
   let generatedAt: Double
   let locale: String
+  /// True when the library has no activity and no wellness, so the metrics are
+  /// zeros and not measurements. Nil on a snapshot written before schema 8.
+  let emptyLibrary: Bool?
   let metrics: WidgetMetrics
   let sparklines: WidgetSparklines
   let weekly: WidgetWeekly
