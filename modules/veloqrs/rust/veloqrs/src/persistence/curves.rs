@@ -307,6 +307,38 @@ pub fn parse_pace_curve(body: &str, sport: &str, fetched_at: i64) -> Option<FfiP
     })
 }
 
+pub(crate) mod pooled {
+    use rusqlite::{Connection, Result};
+
+    use super::{FfiPaceCurve, FfiPowerCurve, parse_pace_curve, parse_power_curve};
+    use crate::persistence::bodies::{CurveKind, pooled::stored_curve};
+
+    pub(crate) fn power_curve(
+        conn: &Connection,
+        sport: &str,
+        days: i64,
+    ) -> Result<(bool, Option<FfiPowerCurve>)> {
+        let stored = stored_curve(conn, CurveKind::Power, sport, days, false)?;
+        let fetched = stored.is_some();
+        let curve =
+            stored.and_then(|body| parse_power_curve(&body.raw, sport, body.fetched_at as i64));
+        Ok((fetched, curve))
+    }
+
+    pub(crate) fn pace_curve(
+        conn: &Connection,
+        sport: &str,
+        days: i64,
+        gap: bool,
+    ) -> Result<(bool, Option<FfiPaceCurve>)> {
+        let stored = stored_curve(conn, CurveKind::Pace, sport, days, gap)?;
+        let fetched = stored.is_some();
+        let curve =
+            stored.and_then(|body| parse_pace_curve(&body.raw, sport, body.fetched_at as i64));
+        Ok((fetched, curve))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! The bodies here are cut down from what intervals.icu sent on

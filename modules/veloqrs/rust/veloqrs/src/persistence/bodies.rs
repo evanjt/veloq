@@ -6,9 +6,212 @@
 //! means anything alongside the sport, window and gap flag it was computed
 //! for, so a typed row would be both lossy and ambiguous.
 
-use rusqlite::{Result as SqlResult, params};
+use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::PersistentEngine;
+use super::fitness::derivations::pooled::SYNC_PACE_WINDOW_DAYS;
+use super::streams::FROM_THE_TRACK;
+
+pub(crate) mod pooled {
+    use super::*;
+
+    pub(crate) fn stream_body(
+        conn: &Connection,
+        activity_id: &str,
+        types: &str,
+    ) -> SqlResult<(Option<String>, bool)> {
+        let cached: Option<(String, Option<i64>)> = conn
+            .query_row(
+                "SELECT raw, updated_at FROM stream_bodies WHERE activity_id = ? AND types = ?",
+                params![activity_id, types],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        if let Some((raw, stamped)) = cached {
+            let stale = stamped
+                .is_none_or(|at| chrono::Utc::now().timestamp() - at >= STREAM_BODY_TOUCH_SECS);
+            return Ok((Some(raw), stale));
+        }
+        Ok((reconstruct_stream_body(conn, activity_id, types), false))
+    }
+
+    pub(crate) fn reconstruct_stream_body(
+        conn: &Connection,
+        activity_id: &str,
+        types: &str,
+    ) -> Option<String> {
+        let wanted: Vec<&str> = types.split(',').filter(|kind| !kind.is_empty()).collect();
+        if wanted.is_empty() {
+            return None;
+        }
+        let stored = crate::persistence::streams::pooled::activity_streams(conn, activity_id)
+            .unwrap_or_default();
+        let available = |kind: &&str| {
+            FROM_THE_TRACK.contains(kind) || stored.iter().any(|item| &item.kind.as_str() == kind)
+        };
+        if !wanted.iter().all(available) {
+            return None;
+        }
+        let items = if wanted.iter().any(|kind| FROM_THE_TRACK.contains(kind)) {
+            let points = crate::persistence::activities::pooled::gps_track(conn, activity_id)?;
+            if points.is_empty() {
+                return None;
+            }
+            let mut items = track_series(&points, &wanted);
+            append_time_series(conn, activity_id, points.len(), &wanted, &mut items);
+            append_stored_series(activity_id, points.len(), &wanted, &stored, &mut items)?;
+            items
+        } else {
+            wanted
+                .iter()
+                .filter_map(|kind| {
+                    stored
+                        .iter()
+                        .find(|item| &item.kind.as_str() == kind)
+                        .cloned()
+                })
+                .collect()
+        };
+        serde_json::to_string(&items).ok()
+    }
+
+    fn track_series(
+        points: &[crate::GpsPoint],
+        wanted: &[&str],
+    ) -> Vec<crate::net::types::StreamDto> {
+        let mut items = Vec::new();
+        if wanted.contains(&"latlng") {
+            items.push(crate::net::types::StreamDto {
+                kind: "latlng".to_string(),
+                data: points.iter().map(|point| Some(point.latitude)).collect(),
+                data2: Some(points.iter().map(|point| Some(point.longitude)).collect()),
+            });
+        }
+        // A point does not record which altitude form the ingest preferred.
+        if (wanted.contains(&"altitude") || wanted.contains(&"fixed_altitude"))
+            && points.iter().any(|point| point.elevation.is_some())
+        {
+            items.push(crate::net::types::StreamDto {
+                kind: "altitude".to_string(),
+                data: points.iter().map(|point| point.elevation).collect(),
+                data2: None,
+            });
+        }
+        items
+    }
+
+    fn append_time_series(
+        conn: &Connection,
+        activity_id: &str,
+        point_count: usize,
+        wanted: &[&str],
+        items: &mut Vec<crate::net::types::StreamDto>,
+    ) {
+        if !wanted.contains(&"time") {
+            return;
+        }
+        let Some(times) = crate::persistence::activities::pooled::time_stream(conn, activity_id)
+        else {
+            return;
+        };
+        if times.len() != point_count {
+            log::warn!(
+                "[Streams] {} series time carries {} samples against {} track points, no scrubber",
+                activity_id,
+                times.len(),
+                point_count
+            );
+            return;
+        }
+        items.push(crate::net::types::StreamDto {
+            kind: "time".to_string(),
+            data: times.iter().map(|time| Some(f64::from(*time))).collect(),
+            data2: None,
+        });
+    }
+
+    fn append_stored_series(
+        activity_id: &str,
+        point_count: usize,
+        wanted: &[&str],
+        stored: &[crate::net::types::StreamDto],
+        items: &mut Vec<crate::net::types::StreamDto>,
+    ) -> Option<()> {
+        for kind in wanted {
+            if FROM_THE_TRACK.contains(kind) {
+                continue;
+            }
+            let item = stored.iter().find(|item| &item.kind.as_str() == kind)?;
+            if item.data.len() != point_count {
+                log::warn!(
+                    "[Streams] {} series {} carries {} samples against {} track points, selection not served",
+                    activity_id,
+                    kind,
+                    item.data.len(),
+                    point_count
+                );
+                return None;
+            }
+            items.push(item.clone());
+        }
+        Some(())
+    }
+
+    pub(crate) fn interval_body(conn: &Connection, activity_id: &str) -> SqlResult<Option<String>> {
+        conn.query_row(
+            "SELECT raw FROM interval_bodies WHERE activity_id = ?",
+            params![activity_id],
+            |row| row.get(0),
+        )
+        .optional()
+    }
+
+    /// The stored curve with the time it was fetched, or `None` when that
+    /// combination has never been fetched.
+    pub(crate) fn stored_curve(
+        conn: &Connection,
+        kind: CurveKind,
+        sport: &str,
+        days: i64,
+        gap: bool,
+    ) -> SqlResult<Option<FfiStoredCurve>> {
+        conn.query_row(
+            "SELECT raw, updated_at FROM curve_bodies
+                 WHERE kind = ? AND sport = ? AND days = ? AND gap = ?",
+            params![kind.as_str(), sport, days, gap as i64],
+            |row| {
+                Ok(FfiStoredCurve {
+                    raw: row.get(0)?,
+                    fetched_at: row.get(1)?,
+                })
+            },
+        )
+        .map(Some)
+        .or_else(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => Ok(None),
+            other => Err(other),
+        })
+    }
+
+    /// Calendar event bodies over an inclusive window, oldest first.
+    pub(crate) fn calendar_event_bodies(
+        conn: &Connection,
+        oldest_ts: i64,
+        newest_ts: i64,
+    ) -> SqlResult<Vec<String>> {
+        let mut stmt = conn.prepare(
+            "SELECT raw FROM calendar_event_bodies
+             WHERE date >= ? AND date <= ?
+             ORDER BY date ASC",
+        )?;
+        let rows = stmt.query_map(params![oldest_ts, newest_ts], |r| r.get::<_, String>(0))?;
+        rows.collect()
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/bodies_pooled.rs"]
+mod pooled_tests;
 
 /// Which curve a body belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +242,21 @@ pub struct FfiStoredCurve {
     pub fetched_at: f64,
 }
 
+/// The bodies an activity still lacks, as `newest_activities_owing_bodies`
+/// reports them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BodiesOwed {
+    pub activity_id: String,
+    pub detail: bool,
+    pub streams: bool,
+    pub intervals: bool,
+    /// A cached full stream body carries GPS but no durable track is stored,
+    /// so the body is held and still has to be ingested.
+    pub track: bool,
+    /// The activity's sport, which the track stored with its streams is filed under.
+    pub sport_type: String,
+}
+
 impl PersistentEngine {
     /// Store a curve body under the parameters that produced it.
     pub fn set_curve_body(
@@ -49,7 +267,8 @@ impl PersistentEngine {
         gap: bool,
         raw: &str,
     ) -> SqlResult<()> {
-        self.db.execute(
+        let transaction = self.db.unchecked_transaction()?;
+        transaction.execute(
             "INSERT INTO curve_bodies (kind, sport, days, gap, raw, updated_at)
              VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'))
              ON CONFLICT(kind, sport, days, gap) DO UPDATE SET
@@ -57,38 +276,29 @@ impl PersistentEngine {
                 updated_at = excluded.updated_at",
             params![kind.as_str(), sport, days, gap as i64, raw],
         )?;
+        if kind == CurveKind::Pace
+            && days == SYNC_PACE_WINDOW_DAYS
+            && !gap
+            && matches!(sport, "Run" | "Swim")
+            && let Some((date, speed, d_prime, r2)) = pace_snapshot(raw, sport)
+        {
+            transaction.execute(
+                "INSERT OR REPLACE INTO pace_history
+                 (date, sport_type, critical_speed, d_prime, r2, window_days)
+                 VALUES (?, ?, ?, ?, ?, ?)",
+                params![date, sport, speed, d_prime, r2, days],
+            )?;
+        }
+        transaction.commit()?;
         Ok(())
     }
 
-    /// The stored curve body, or `None` when that combination has never been
-    /// fetched. Callers treat `None` as "ask for it", not as "no data".
-    pub fn get_curve_body(
-        &self,
-        kind: CurveKind,
-        sport: &str,
-        days: i64,
-        gap: bool,
-    ) -> SqlResult<Option<String>> {
-        self.db
-            .query_row(
-                "SELECT raw FROM curve_bodies
-                 WHERE kind = ? AND sport = ? AND days = ? AND gap = ?",
-                params![kind.as_str(), sport, days, gap as i64],
-                |row| row.get(0),
-            )
-            .map(Some)
-            .or_else(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                other => Err(other),
-            })
-    }
-
     /// The stored curve with the time it was fetched, or `None` when that
-    /// combination has never been fetched.
+    /// combination has never been fetched. Callers treat `None` as "ask for
+    /// it", not as "no data".
     ///
-    /// Keyed exactly as `get_curve_body` is: a curve only means anything
-    /// alongside the sport, window and gap flag it was computed for, and so
-    /// does its age.
+    /// Keyed by kind, sport, window and gap flag: a curve only means anything
+    /// alongside the ones it was computed for, and so does its age.
     pub fn get_stored_curve(
         &self,
         kind: CurveKind,
@@ -96,23 +306,7 @@ impl PersistentEngine {
         days: i64,
         gap: bool,
     ) -> SqlResult<Option<FfiStoredCurve>> {
-        self.db
-            .query_row(
-                "SELECT raw, updated_at FROM curve_bodies
-                 WHERE kind = ? AND sport = ? AND days = ? AND gap = ?",
-                params![kind.as_str(), sport, days, gap as i64],
-                |row| {
-                    Ok(FfiStoredCurve {
-                        raw: row.get(0)?,
-                        fetched_at: row.get(1)?,
-                    })
-                },
-            )
-            .map(Some)
-            .or_else(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                other => Err(other),
-            })
+        pooled::stored_curve(&self.db, kind, sport, days, gap)
     }
 
     /// Store an activity's interval body.
@@ -130,20 +324,12 @@ impl PersistentEngine {
 
     /// An activity's stored interval body, or `None` if never fetched.
     pub fn get_interval_body(&self, activity_id: &str) -> SqlResult<Option<String>> {
-        self.db
-            .query_row(
-                "SELECT raw FROM interval_bodies WHERE activity_id = ?",
-                params![activity_id],
-                |row| row.get(0),
-            )
-            .map(Some)
-            .or_else(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                other => Err(other),
-            })
+        pooled::interval_body(&self.db, activity_id)
     }
 
-    /// Every activity in the library with no interval body, newest first.
+    /// Every activity in the library with no interval body, newest first, except a
+    /// device-minted key no upload has given a server id: upstream has no such
+    /// activity to ask for.
     ///
     /// The sync's prefetch queue, derived rather than stored: an id that was
     /// fetched has a row and leaves the queue, so a killed pass resumes by
@@ -153,10 +339,81 @@ impl PersistentEngine {
             "SELECT m.activity_id FROM activity_metrics m
              LEFT JOIN interval_bodies b ON b.activity_id = m.activity_id
              WHERE b.activity_id IS NULL
+               AND (m.activity_id NOT LIKE 'local-%'
+                    OR EXISTS (SELECT 1 FROM activities a
+                               WHERE a.id = m.activity_id AND a.intervals_id IS NOT NULL)
+                    OR EXISTS (SELECT 1 FROM activity_bodies ab
+                               WHERE ab.activity_id = m.activity_id
+                                 AND ab.intervals_id IS NOT NULL))
              ORDER BY m.date DESC",
         )?;
         let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
         rows.collect()
+    }
+
+    /// What each of the newest `limit` activities still lacks for a screen that
+    /// opens with no network: the detail body, the detail stream set and the
+    /// interval body. Newest first, and an activity with nothing owed is left
+    /// out.
+    ///
+    /// The detail form is told from the list form by `icu_athlete_id`, the key
+    /// only `GET /activity/{id}` carries. The stream set is answered by
+    /// [`Self::read_stream_body`], so one the track and series stores can
+    /// rebuild whole is not fetched again. A cached stream body that carries a
+    /// `latlng` series while `gps_tracks` has no row for the activity is owed
+    /// its ingestion, since the raw body cache evicts and the track must not
+    /// depend on it.
+    pub fn newest_activities_owing_bodies(
+        &self,
+        limit: usize,
+        stream_types: &str,
+    ) -> SqlResult<Vec<BodiesOwed>> {
+        let mut stmt = self.db.prepare(
+            "SELECT m.activity_id,
+                    NOT EXISTS (SELECT 1 FROM activity_bodies b
+                                 WHERE b.activity_id = m.activity_id
+                                   AND json_valid(b.raw)
+                                   AND COALESCE(json_extract(b.raw, '$.icu_athlete_id'), '') != ''),
+                    NOT EXISTS (SELECT 1 FROM interval_bodies i
+                                 WHERE i.activity_id = m.activity_id),
+                    m.sport_type,
+                    EXISTS (SELECT 1 FROM stream_bodies s
+                             WHERE s.activity_id = m.activity_id
+                               AND s.types = ?1
+                               AND instr(s.raw, '\"latlng\"') > 0)
+                    AND NOT EXISTS (SELECT 1 FROM gps_tracks g
+                                     WHERE g.activity_id = m.activity_id)
+               FROM activity_metrics m
+              ORDER BY m.date DESC, m.activity_id
+              LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![stream_types, limit as i64], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, bool>(1)?,
+                    r.get::<_, bool>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, bool>(4)?,
+                ))
+            })?
+            .collect::<SqlResult<Vec<_>>>()?;
+        let mut owed = Vec::new();
+        for (activity_id, detail, intervals, sport_type, cached_gps) in rows {
+            let streams = self.read_stream_body(&activity_id, stream_types)?.is_none();
+            let track = cached_gps && !streams;
+            if detail || streams || intervals || track {
+                owed.push(BodiesOwed {
+                    activity_id,
+                    detail,
+                    streams,
+                    intervals,
+                    track,
+                    sport_type,
+                });
+            }
+        }
+        Ok(owed)
     }
 
     /// Replace the calendar events in a window. Events are deleted upstream as
@@ -195,19 +452,21 @@ impl PersistentEngine {
         oldest_ts: i64,
         newest_ts: i64,
     ) -> SqlResult<Vec<String>> {
-        let mut stmt = self.db.prepare(
-            "SELECT raw FROM calendar_event_bodies
-             WHERE date >= ? AND date <= ?
-             ORDER BY date ASC",
-        )?;
-        let rows = stmt.query_map(params![oldest_ts, newest_ts], |r| r.get::<_, String>(0))?;
-        rows.collect()
+        pooled::calendar_event_bodies(&self.db, oldest_ts, newest_ts)
     }
 }
 
-/// Series a stored track and time stream can serve without a fetch. Anything
-/// outside this set only ever arrives as a body from intervals.icu.
-const RECONSTRUCTABLE: [&str; 4] = ["altitude", "fixed_altitude", "latlng", "time"];
+fn pace_snapshot(raw: &str, sport: &str) -> Option<(i64, f64, Option<f64>, Option<f64>)> {
+    let curve = super::curves::parse_pace_curve(raw, sport, 0)?;
+    let speed = curve.critical_speed.filter(|speed| *speed > 0.0)?;
+    let end = curve.end_date.as_deref()?.get(..10)?;
+    let date = chrono::NaiveDate::parse_from_str(end, "%Y-%m-%d")
+        .ok()?
+        .and_hms_opt(0, 0, 0)?
+        .and_utc()
+        .timestamp();
+    Some((date, speed, curve.d_prime, curve.r2))
+}
 
 /// How much raw payload to keep, in bytes rather than rows: fifty rows is
 /// 5 MB of one athlete's streams and 25 MB of another's, so a row count is not
@@ -241,7 +500,7 @@ impl PersistentEngine {
         // streams cost six fsyncs under the engine lock.
         self.db.execute_batch("BEGIN IMMEDIATE")?;
         match self.write_stream_body(activity_id, types, raw) {
-            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Ok(()) => super::commit_write_txn(&self.db)?,
             Err(e) => {
                 let _ = self.db.execute_batch("ROLLBACK");
                 return Err(e);
@@ -333,125 +592,7 @@ impl PersistentEngine {
     /// reconstruction that never had them. A selection is served whole or not
     /// at all.
     fn reconstruct_stream_body(&self, activity_id: &str, types: &str) -> Option<String> {
-        let wanted: Vec<&str> = types.split(',').filter(|t| !t.is_empty()).collect();
-        if wanted.is_empty() {
-            return None;
-        }
-
-        // The durable store answers the series a track cannot hold. Loaded
-        // first, because whether the selection is servable at all depends on
-        // what it has, not only on what the track has.
-        let stored = self.load_activity_streams(activity_id).unwrap_or_default();
-        let servable =
-            |t: &&str| RECONSTRUCTABLE.contains(t) || stored.iter().any(|s| &s.kind.as_str() == t);
-        if !wanted.iter().all(servable) {
-            return None;
-        }
-
-        let from_track: Vec<&&str> = wanted
-            .iter()
-            .filter(|t| RECONSTRUCTABLE.contains(*t))
-            .collect();
-
-        let mut items: Vec<crate::net::types::StreamDto> = Vec::with_capacity(wanted.len());
-
-        // A selection asking only for stored series needs no track, and an
-        // activity may hold power without ever holding coordinates.
-        if from_track.is_empty() {
-            for kind in &wanted {
-                if let Some(s) = stored.iter().find(|s| &s.kind.as_str() == kind) {
-                    items.push(s.clone());
-                }
-            }
-            return serde_json::to_string(&items).ok();
-        }
-
-        // Both series ride the `latlng` mask the ingest applied, so the stored
-        // points are the index space every other series is addressed in.
-        let points = match self.track(activity_id) {
-            crate::persistence::codec::TrackRead::Present(points) if !points.is_empty() => points,
-            _ => return None,
-        };
-
-        if wanted.contains(&"latlng") {
-            items.push(crate::net::types::StreamDto {
-                kind: "latlng".to_string(),
-                data: points.iter().map(|p| Some(p.latitude)).collect(),
-                data2: Some(points.iter().map(|p| Some(p.longitude)).collect()),
-            });
-        }
-
-        // The ingest asked for both altitude forms and stored whichever
-        // `parse_streams` preferred, so a point carries one elevation and no
-        // record of which form it came from. It goes back as `altitude`:
-        // naming it `fixed_altitude` would claim a correction the stored point
-        // cannot evidence, and nothing downstream reads the distinction.
-        //
-        // An ingest that could not trust the altitude kept the track and
-        // dropped it, so a track with no elevation anywhere has no profile to
-        // serve. Emitting zeroes would draw a ride at sea level.
-        if (wanted.contains(&"altitude") || wanted.contains(&"fixed_altitude"))
-            && points.iter().any(|p| p.elevation.is_some())
-        {
-            items.push(crate::net::types::StreamDto {
-                kind: "altitude".to_string(),
-                data: points.iter().map(|p| p.elevation).collect(),
-                data2: None,
-            });
-        }
-
-        // A time stream is fetched separately, so its length is evidence
-        // rather than a guarantee. One that disagrees with the points is not
-        // in this index space, and a scrubber on the wrong index space moves
-        // the cursor to the wrong place on the map.
-        if wanted.contains(&"time")
-            && let Some(times) = self.load_time_stream(activity_id)
-        {
-            if times.len() == points.len() {
-                items.push(crate::net::types::StreamDto {
-                    kind: "time".to_string(),
-                    data: times.iter().map(|t| Some(f64::from(*t))).collect(),
-                    data2: None,
-                });
-            } else {
-                log::warn!(
-                    "[Streams] {} series time carries {} samples against {} track points, no scrubber",
-                    activity_id,
-                    times.len(),
-                    points.len()
-                );
-            }
-        }
-
-        // A stored series is only in the track's index space if it has the same
-        // sample count. One that disagrees is not addressable positionally
-        // against the points, and a chart drawn on the wrong index space puts
-        // the power spike on the wrong hill.
-        for kind in &wanted {
-            if RECONSTRUCTABLE.contains(kind) {
-                continue;
-            }
-            match stored.iter().find(|s| &s.kind.as_str() == kind) {
-                Some(s) if s.data.len() == points.len() => items.push(s.clone()),
-                // The whole selection goes, not just this series, so the one
-                // misaligned row costs the athlete the coordinates too. That is
-                // the whole-or-nothing rule above, and the reason the drop is
-                // worth saying out loud.
-                Some(s) => {
-                    log::warn!(
-                        "[Streams] {} series {} carries {} samples against {} track points, selection not served",
-                        activity_id,
-                        kind,
-                        s.data.len(),
-                        points.len()
-                    );
-                    return None;
-                }
-                None => return None,
-            }
-        }
-
-        serde_json::to_string(&items).ok()
+        pooled::reconstruct_stream_body(&self.db, activity_id, types)
     }
 
     /// A stored stream payload, or `None` when this activity and series
@@ -497,6 +638,18 @@ impl PersistentEngine {
             )?;
         }
         Ok(Some(raw))
+    }
+
+    pub(crate) fn try_touch_stream_body(&self, activity_id: &str, types: &str) -> SqlResult<()> {
+        self.db.busy_timeout(std::time::Duration::ZERO)?;
+        let touched = self.db.execute(
+            "UPDATE stream_bodies SET updated_at = strftime('%s', 'now')
+             WHERE activity_id = ? AND types = ?
+               AND (updated_at IS NULL OR updated_at <= strftime('%s', 'now') - ?)",
+            params![activity_id, types, STREAM_BODY_TOUCH_SECS],
+        );
+        self.db.busy_timeout(std::time::Duration::from_secs(5))?;
+        touched.map(|_| ())
     }
 }
 
@@ -638,7 +791,7 @@ mod tests {
     ///
     /// Expected behaviour: a read of a body already stamped inside the touch
     /// interval writes nothing. Stamping on every hit turns a read that could
-    /// run on the read lock into an autocommit write that serialises with the
+    /// run on a pooled reader into an autocommit write that serialises with the
     /// sync, and rewrites `idx_stream_bodies_updated` with it.
     #[test]
     fn a_freshly_stamped_body_is_not_restamped_on_every_read() {
@@ -696,6 +849,46 @@ mod tests {
     }
 
     #[test]
+    fn a_stored_42_day_pace_body_records_the_curve_end_date() {
+        let (_dir, engine) = engine();
+        let body = r#"{"list":[{"end_date_local":"2026-08-20T18:30:00",
+            "paceModels":[{"type":"CS","criticalSpeed":4.2,"dPrime":180,"r2":0.97}]}]}"#;
+
+        for sport in ["Run", "Swim"] {
+            engine
+                .set_curve_body(CurveKind::Pace, sport, 42, false, body)
+                .expect("store curve");
+        }
+        engine
+            .set_curve_body(CurveKind::Pace, "Run", 42, false, body)
+            .expect("store same curve again");
+
+        for sport in ["Run", "Swim"] {
+            let (count, date, speed, d_prime, r2): (i64, i64, f64, f64, f64) = engine
+                .db
+                .query_row(
+                    "SELECT COUNT(*), date, critical_speed, d_prime, r2 FROM pace_history
+                     WHERE sport_type = ? AND window_days = 42",
+                    [sport],
+                    |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                        ))
+                    },
+                )
+                .expect("snapshot");
+            assert_eq!(count, 1);
+            assert_eq!(date, 1_787_184_000);
+            assert_eq!((speed, d_prime, r2), (4.2, 180.0, 0.97));
+            assert_eq!(engine.get_pace_trend(sport).latest_pace, Some(4.2));
+        }
+    }
+
+    #[test]
     fn curve_bodies_are_keyed_by_every_parameter() {
         let (_dir, engine) = engine();
 
@@ -713,29 +906,32 @@ mod tests {
         // toggling GAP never reads the plain curve.
         assert_eq!(
             engine
-                .get_curve_body(CurveKind::Pace, "Run", 42, false)
+                .get_stored_curve(CurveKind::Pace, "Run", 42, false)
                 .unwrap()
+                .map(|curve| curve.raw)
                 .as_deref(),
             Some("plain")
         );
         assert_eq!(
             engine
-                .get_curve_body(CurveKind::Pace, "Run", 42, true)
+                .get_stored_curve(CurveKind::Pace, "Run", 42, true)
                 .unwrap()
+                .map(|curve| curve.raw)
                 .as_deref(),
             Some("gap-adjusted")
         );
         assert_eq!(
             engine
-                .get_curve_body(CurveKind::Power, "Ride", 42, false)
+                .get_stored_curve(CurveKind::Power, "Ride", 42, false)
                 .unwrap()
+                .map(|curve| curve.raw)
                 .as_deref(),
             Some("watts")
         );
         // A window that was never fetched reads as absent, not as empty data.
         assert!(
             engine
-                .get_curve_body(CurveKind::Pace, "Run", 90, false)
+                .get_stored_curve(CurveKind::Pace, "Run", 90, false)
                 .unwrap()
                 .is_none()
         );
@@ -752,8 +948,9 @@ mod tests {
             .unwrap();
         assert_eq!(
             engine
-                .get_curve_body(CurveKind::Power, "Ride", 90, false)
+                .get_stored_curve(CurveKind::Power, "Ride", 90, false)
                 .unwrap()
+                .map(|curve| curve.raw)
                 .as_deref(),
             Some("new")
         );
@@ -1162,6 +1359,34 @@ mod tests {
         );
     }
 
+    /// A time stream whose blob will not decode leaves the clock out of the
+    /// body on both read paths, and both say why.
+    #[test]
+    fn an_undecodable_time_stream_is_dropped_out_loud() {
+        crate::test_log::capturing();
+        let (_dir, engine) = engine();
+        seed_two_point_track(&engine, "garbled-time");
+        engine
+            .db
+            .execute(
+                "INSERT INTO time_streams (activity_id, times, point_count) VALUES ('garbled-time', x'ff', 2)",
+                [],
+            )
+            .unwrap();
+
+        let pooled =
+            crate::persistence::activities::pooled::time_stream(&engine.db, "garbled-time");
+        assert!(pooled.is_none());
+        let locked = engine.load_time_stream("garbled-time");
+        assert!(locked.is_none());
+        let said = crate::test_log::errors_with("time_streams garbled-time");
+        assert_eq!(
+            said.len(),
+            2,
+            "both paths log, naming the table and id: {said:?}"
+        );
+    }
+
     /// A two-point track under `id`, the shortest thing both reader guards
     /// measure a series against.
     fn seed_two_point_track(engine: &PersistentEngine, id: &str) {
@@ -1250,6 +1475,50 @@ mod tests {
             engine.activities_missing_interval_bodies().unwrap(),
             vec!["newer".to_string(), "older".to_string()],
             "a body already stored leaves the queue, and the newest ride is asked for first"
+        );
+    }
+
+    /// Scenario: a recording the device saved has a `local-` key and a
+    /// metrics row, and no server has named it.
+    ///
+    /// Expected behaviour: the interval queue leaves it out until an upload
+    /// records the server's id, tracked or trackless, and keeps every server
+    /// row.
+    #[test]
+    fn the_interval_queue_leaves_out_a_local_recording_no_server_has_named() {
+        let (_dir, mut engine) = engine();
+        engine
+            .set_activity_metrics(vec![
+                metric("i100", 1_700_000_000),
+                metric("local-unsent", 1_700_100_000),
+                metric("local-tracked", 1_700_200_000),
+                metric("local-trackless", 1_700_300_000),
+            ])
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, intervals_id)
+                 VALUES ('local-tracked', 'Ride', 0, 0, 0, 0, 'i200')",
+                [],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_bodies (activity_id, date, raw, updated_at, intervals_id)
+                 VALUES ('local-trackless', 1700300000, '{}', 0, 'i300')",
+                [],
+            )
+            .unwrap();
+
+        assert_eq!(
+            engine.activities_missing_interval_bodies().unwrap(),
+            vec![
+                "local-trackless".to_string(),
+                "local-tracked".to_string(),
+                "i100".to_string()
+            ]
         );
     }
 
