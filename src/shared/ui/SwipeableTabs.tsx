@@ -1,5 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -8,12 +15,14 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   interpolate,
+  Extrapolation,
   runOnJS,
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
+import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
 
 // Gesture thresholds
 const SWIPE_THRESHOLD_RATIO = 0.2; // 20% of screen width
@@ -25,6 +34,9 @@ const TIMING_CONFIG = {
   duration: ANIMATION_DURATION_MS,
   easing: Easing.out(Easing.cubic),
 };
+
+// Horizontal padding inside each tab, either side of its content
+const TAB_PADDING = spacing.sm;
 
 // Gesture activation offset (prevents accidental swipes)
 const GESTURE_ACTIVATION_OFFSET = 10;
@@ -80,6 +92,31 @@ export function SwipeableTabs({
   // Track active tab index in shared value for worklet access
   const activeTabIndex = useSharedValue(initialIndex);
 
+  // Width each tab needs for its icon, label and badge, reported by the
+  // content row of each tab, which never shrinks below its natural size.
+  const [contentWidths, setContentWidths] = useState<number[]>([]);
+  const available = screenWidth - spacing.md * 2;
+  const stripLayout = useMemo(
+    () =>
+      layoutTabStrip(
+        tabs.map((_, i) => (contentWidths[i] ?? 0) + TAB_PADDING * 2),
+        available
+      ),
+    [tabs, contentWidths, available]
+  );
+  const { scrolls, widths: tabWidths, offsets: tabOffsets, contentWidth } = stripLayout;
+  const scrollRef = useRef<ScrollView>(null);
+
+  const handleContentLayout = useCallback((index: number, event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    setContentWidths((prev) => {
+      if (prev[index] === width) return prev;
+      const next = prev.slice();
+      next[index] = width;
+      return next;
+    });
+  }, []);
+
   const triggerHaptic = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});
   }, []);
@@ -108,6 +145,23 @@ export function SwipeableTabs({
     translateX.value = withTiming(targetX, TIMING_CONFIG);
     indicatorProgress.value = withTiming(targetIndex, TIMING_CONFIG);
   }, [activeTab, getTabIndex, screenWidth, translateX, indicatorProgress, activeTabIndex]);
+
+  // In the scrolling strip, bring the active tab into view when it changes or
+  // when measuring moves it.
+  useEffect(() => {
+    if (!scrolls) return;
+    const index = getTabIndex(activeTab);
+    const offset = tabOffsets[index];
+    const width = tabWidths[index];
+    if (offset === undefined || width === undefined) return;
+    const x = scrollOffsetToShow(
+      spacing.md + offset,
+      width,
+      screenWidth,
+      contentWidth + spacing.md * 2
+    );
+    scrollRef.current?.scrollTo({ x, animated: true });
+  }, [scrolls, activeTab, getTabIndex, tabOffsets, tabWidths, contentWidth, screenWidth]);
 
   // Memoize pan gesture to prevent recreation on every render
   const panGesture = useMemo(
@@ -172,14 +226,25 @@ export function SwipeableTabs({
     transform: [{ translateX: translateX.value }],
   }));
 
-  // Animated underline indicator - works with N tabs
+  // Animated underline indicator: follows the measured left edge and width of
+  // the tab under it, equal shares or content widths alike.
   const indicatorStyle = useAnimatedStyle(() => {
-    const tabWidth = (screenWidth - spacing.md * 2) / tabCount;
+    if (tabCount < 2) return { width: tabWidths[0] ?? 0 };
+    const indexes = tabWidths.map((_, i) => i);
     return {
-      transform: [{ translateX: indicatorProgress.value * tabWidth }],
-      width: tabWidth,
+      transform: [
+        {
+          translateX: interpolate(
+            indicatorProgress.value,
+            indexes,
+            tabOffsets,
+            Extrapolation.CLAMP
+          ),
+        },
+      ],
+      width: interpolate(indicatorProgress.value, indexes, tabWidths, Extrapolation.CLAMP),
     };
-  });
+  }, [tabCount, tabWidths, tabOffsets]);
 
   const handleTabPress = useCallback(
     (key: string) => {
@@ -193,88 +258,208 @@ export function SwipeableTabs({
 
   return (
     <View style={styles.container}>
-      {/* Material-style Tab Bar - dynamically rendered */}
-      <View accessibilityRole="tablist" style={[styles.tabBar, isDark && styles.tabBarDark]}>
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              style={pressable(styles.tab)}
-              android_ripple={pressRipple}
-              onPress={() => handleTabPress(tab.key)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              accessibilityLabel={tab.label}
-            >
-              <MaterialCommunityIcons
-                name={tab.icon}
-                size={18}
-                color={
-                  isActive ? colors.primary : isDark ? darkColors.textMuted : colors.textSecondary
-                }
-              />
-              <Text
-                // The tabs share the width with `flex: 1`, so a label wider
-                // than its share used to wrap mid-word and the icon ended up
-                // between the halves: five tabs at 1080 wide gave "Insight"
-                // over "s". Truncating says the same thing and stays a row.
-                numberOfLines={1}
-                style={[
-                  styles.tabText,
-                  isActive && styles.tabTextActive,
-                  isDark && isActive && styles.tabTextActiveDark,
-                  isDark && !isActive && styles.tabTextDark,
-                ]}
-              >
-                {tab.label}
-              </Text>
-              {tab.badgeText !== undefined ? (
-                <View
-                  style={[
-                    styles.tabBadge,
-                    tab.badgeTone === 'pr'
-                      ? styles.tabBadgePr
-                      : tab.badgeTone === 'positive'
-                        ? styles.tabBadgePositive
-                        : tab.badgeTone === 'negative'
-                          ? styles.tabBadgeNegative
-                          : isDark
-                            ? styles.tabBadgeDark
-                            : null,
-                  ]}
+      {/* Material-style Tab Bar - equal tabs while every label fits, else a scrolling strip of content-sized tabs */}
+      <View
+        accessibilityRole="tablist"
+        style={[styles.tabBar, scrolls && styles.tabBarScrolling, isDark && styles.tabBarDark]}
+      >
+        {scrolls ? (
+          <ScrollView
+            ref={scrollRef}
+            testID="tab-strip-scroll"
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabScrollContent}
+          >
+            {tabs.map((tab, index) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <Pressable
+                  key={tab.key}
+                  testID={`tab-${tab.key}`}
+                  style={pressable(
+                    scrolls ? { ...styles.tab, flex: 0, width: tabWidths[index] } : styles.tab
+                  )}
+                  android_ripple={pressRipple}
+                  onPress={() => handleTabPress(tab.key)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
+                  accessibilityLabel={tab.label}
                 >
-                  <Text
-                    style={[
-                      styles.tabBadgeText,
-                      tab.badgeTone === 'pr' ||
-                      tab.badgeTone === 'positive' ||
-                      tab.badgeTone === 'negative'
-                        ? styles.tabBadgeTextActive
-                        : null,
-                    ]}
+                  <View
+                    testID={`tab-content-${tab.key}`}
+                    style={styles.tabContent}
+                    onLayout={(event) => handleContentLayout(index, event)}
                   >
-                    {tab.badgeText}
-                  </Text>
-                </View>
-              ) : tab.count !== undefined ? (
-                <View
-                  style={[
-                    styles.tabBadge,
-                    isActive ? styles.tabBadgeActive : isDark && styles.tabBadgeDark,
-                  ]}
+                    <MaterialCommunityIcons
+                      name={tab.icon}
+                      size={18}
+                      color={
+                        isActive
+                          ? colors.primary
+                          : isDark
+                            ? darkColors.textMuted
+                            : colors.textSecondary
+                      }
+                    />
+                    <Text
+                      // The tabs share the width with `flex: 1`, so a label wider
+                      // than its share used to wrap mid-word and the icon ended up
+                      // between the halves: five tabs at 1080 wide gave "Insight"
+                      // over "s". Truncating says the same thing and stays a row.
+                      numberOfLines={1}
+                      style={[
+                        styles.tabText,
+                        isActive && styles.tabTextActive,
+                        isDark && isActive && styles.tabTextActiveDark,
+                        isDark && !isActive && styles.tabTextDark,
+                      ]}
+                    >
+                      {tab.label}
+                    </Text>
+                    {tab.badgeText !== undefined ? (
+                      <View
+                        style={[
+                          styles.tabBadge,
+                          tab.badgeTone === 'pr'
+                            ? styles.tabBadgePr
+                            : tab.badgeTone === 'positive'
+                              ? styles.tabBadgePositive
+                              : tab.badgeTone === 'negative'
+                                ? styles.tabBadgeNegative
+                                : isDark
+                                  ? styles.tabBadgeDark
+                                  : null,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.tabBadgeText,
+                            tab.badgeTone === 'pr' ||
+                            tab.badgeTone === 'positive' ||
+                            tab.badgeTone === 'negative'
+                              ? styles.tabBadgeTextActive
+                              : null,
+                          ]}
+                        >
+                          {tab.badgeText}
+                        </Text>
+                      </View>
+                    ) : tab.count !== undefined ? (
+                      <View
+                        style={[
+                          styles.tabBadge,
+                          isActive ? styles.tabBadgeActive : isDark && styles.tabBadgeDark,
+                        ]}
+                      >
+                        <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                          {tab.count}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+            {/* Animated underline indicator */}
+            <Animated.View testID="tab-indicator" style={[styles.indicator, indicatorStyle]} />
+          </ScrollView>
+        ) : (
+          <>
+            {tabs.map((tab, index) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <Pressable
+                  key={tab.key}
+                  testID={`tab-${tab.key}`}
+                  style={pressable(
+                    scrolls ? { ...styles.tab, flex: 0, width: tabWidths[index] } : styles.tab
+                  )}
+                  android_ripple={pressRipple}
+                  onPress={() => handleTabPress(tab.key)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
+                  accessibilityLabel={tab.label}
                 >
-                  <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
-                    {tab.count}
-                  </Text>
-                </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
-
-        {/* Animated underline indicator */}
-        <Animated.View style={[styles.indicator, indicatorStyle]} />
+                  <View
+                    testID={`tab-content-${tab.key}`}
+                    style={styles.tabContent}
+                    onLayout={(event) => handleContentLayout(index, event)}
+                  >
+                    <MaterialCommunityIcons
+                      name={tab.icon}
+                      size={18}
+                      color={
+                        isActive
+                          ? colors.primary
+                          : isDark
+                            ? darkColors.textMuted
+                            : colors.textSecondary
+                      }
+                    />
+                    <Text
+                      // The tabs share the width with `flex: 1`, so a label wider
+                      // than its share used to wrap mid-word and the icon ended up
+                      // between the halves: five tabs at 1080 wide gave "Insight"
+                      // over "s". Truncating says the same thing and stays a row.
+                      numberOfLines={1}
+                      style={[
+                        styles.tabText,
+                        isActive && styles.tabTextActive,
+                        isDark && isActive && styles.tabTextActiveDark,
+                        isDark && !isActive && styles.tabTextDark,
+                      ]}
+                    >
+                      {tab.label}
+                    </Text>
+                    {tab.badgeText !== undefined ? (
+                      <View
+                        style={[
+                          styles.tabBadge,
+                          tab.badgeTone === 'pr'
+                            ? styles.tabBadgePr
+                            : tab.badgeTone === 'positive'
+                              ? styles.tabBadgePositive
+                              : tab.badgeTone === 'negative'
+                                ? styles.tabBadgeNegative
+                                : isDark
+                                  ? styles.tabBadgeDark
+                                  : null,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.tabBadgeText,
+                            tab.badgeTone === 'pr' ||
+                            tab.badgeTone === 'positive' ||
+                            tab.badgeTone === 'negative'
+                              ? styles.tabBadgeTextActive
+                              : null,
+                          ]}
+                        >
+                          {tab.badgeText}
+                        </Text>
+                      </View>
+                    ) : tab.count !== undefined ? (
+                      <View
+                        style={[
+                          styles.tabBadge,
+                          isActive ? styles.tabBadgeActive : isDark && styles.tabBadgeDark,
+                        ]}
+                      >
+                        <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                          {tab.count}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+            {/* Animated underline indicator */}
+            <Animated.View testID="tab-indicator" style={[styles.indicator, indicatorStyle]} />
+          </>
+        )}
       </View>
 
       {/* Swipeable Content - N pages */}
@@ -305,6 +490,12 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     position: 'relative',
   },
+  tabBarScrolling: {
+    paddingHorizontal: 0,
+  },
+  tabScrollContent: {
+    paddingHorizontal: spacing.md,
+  },
   tabBarDark: {
     backgroundColor: darkColors.background,
     borderBottomColor: darkColors.border,
@@ -314,16 +505,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
     paddingVertical: spacing.smPlus,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: TAB_PADDING,
+  },
+  tabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 0,
   },
   tabText: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
-    // Let the label give way rather than push the row wider than the tab.
-    flexShrink: 1,
   },
   tabTextActive: {
     color: colors.linkTeal,

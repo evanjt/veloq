@@ -179,10 +179,6 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
  * Form rides the bundle, so neither caller reads a month of wellness rows to
  * hand back three numbers: the window it is read from is a parameter of the
  * bundle (`buildInsightsParams`).
- *
- * @param ffiData - Pre-computed FFI data from engine.getInsightsData() or getStartupData()
- * @param t - Translation function (from useTranslation() or i18n.t directly)
- * @returns Ranked array of insights
  */
 /** `failed` tells a pipeline that threw from a library with nothing to say. */
 export interface InsightsComputation {

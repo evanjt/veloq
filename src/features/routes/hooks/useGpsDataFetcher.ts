@@ -1,5 +1,5 @@
 /**
- * @fileoverview useGpsDataFetcher - GPS data fetching logic
+ * useGpsDataFetcher - GPS data fetching logic
  *
  * Handles fetching GPS data for activities in both demo and real API modes.
  * Manages progress tracking and coordinates building for the Rust engine.
@@ -98,7 +98,6 @@ async function waitForTilePass(
  * - Demo mode: Updates once at start, once at end
  * - Real mode: Updates during HTTP fetch via progress listener
  *
- * @example
  * ```tsx
  * const { fetchDemoGps, fetchApiGps } = useGpsDataFetcher();
  *
@@ -116,10 +115,6 @@ export function useGpsDataFetcher() {
    *
    * Loads pre-defined GPS tracks from @/data/demo/fixtures.ts.
    * Useful for testing and offline development.
-   *
-   * @param activities - Activities to load GPS for
-   * @param deps - Dependencies for progress updates and abort checking
-   * @returns Sync result with synced IDs and message
    */
   const fetchDemoGps = useCallback(
     async (activities: Activity[], deps: FetchDeps): Promise<GpsFetchResult> => {
@@ -168,9 +163,6 @@ export function useGpsDataFetcher() {
 
       /**
        * Validates GPS coordinates are within valid bounds.
-       * @param lat - Latitude (-90 to 90)
-       * @param lng - Longitude (-180 to 180)
-       * @returns true if coordinates are valid
        */
       const isValidCoordinate = (lat: number, lng: number): boolean => {
         return (
@@ -369,10 +361,6 @@ export function useGpsDataFetcher() {
    *
    * Uses Rust HTTP client for efficient parallel fetching.
    * Shows progress updates during fetch.
-   *
-   * @param activities - Activities to fetch GPS for
-   * @param deps - Dependencies for progress updates and abort checking
-   * @returns Sync result with synced IDs and message
    */
   const fetchApiGps = useCallback(
     async (activities: Activity[], deps: FetchDeps): Promise<GpsFetchResult> => {

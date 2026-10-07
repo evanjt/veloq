@@ -10,9 +10,6 @@
 
 /**
  * Creates a color with opacity from a hex color
- * @param hex - The hex color (e.g., '#D4AF37' or 'D4AF37')
- * @param opacity - The opacity value (0-1)
- * @returns rgba string
  */
 export function colorWithOpacity(hex: string, opacity: number): string {
   const cleanHex = hex.replace('#', '');

@@ -179,6 +179,11 @@ static TABLES: &[Table] = &[
         "the activities the server says moved the accepted eFTP",
     ),
     t(
+        "geocoded_places",
+        Derived,
+        "the place name the geocoder answered for a cell; losing it costs one request per cell again",
+    ),
+    t(
         "gps_tracks",
         Mirror,
         "the track intervals.icu holds, re-downloadable",

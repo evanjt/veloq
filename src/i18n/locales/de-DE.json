@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "Erhöhen",
-    "decrease": "Verringern",
-    "repositoryFor": "Repository für {{name}}"
-  },
   "about": {
     "dataAttribution": "Datenherkunft",
     "description": "Ein schneller Mobile-Client für intervals.icu mit Fokus auf Karten und visuelle Analyse.",
@@ -730,10 +725,10 @@
       "trendingDown": "HRV: neuere Hälfte niedriger",
       "stable": "HRV: Hälften innerhalb von 2 %",
       "lastTwoDays": "HRV: letzte zwei Messungen unter dem Mittelwert",
-      "trendingUpBody": "Die neuere Hälfte Ihrer letzten 7 HRV-Tage liegt im Mittel über der älteren Hälfte, um mehr als 2 %. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
-      "trendingDownBody": "Die neuere Hälfte Ihrer letzten 7 HRV-Tage liegt im Mittel unter der älteren Hälfte, um mehr als 2 %. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
-      "stableBody": "Die beiden Hälften Ihrer letzten 7 HRV-Tage liegen weniger als 2 % auseinander. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
-      "lastTwoDaysBody": "Das Fenster selbst blieb stabil, aber Ihre letzten beiden Messungen fielen an aufeinanderfolgenden Tagen, und die letzte, {{latest}} ms, liegt unter dem Fenstermittel von {{avg}} ms über {{days}} Messungen."
+      "trendingUpBody": "Die neuere Hälfte deiner letzten 7 HRV-Tage liegt im Mittel über der älteren Hälfte, um mehr als 2 %. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
+      "trendingDownBody": "Die neuere Hälfte deiner letzten 7 HRV-Tage liegt im Mittel unter der älteren Hälfte, um mehr als 2 %. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
+      "stableBody": "Die beiden Hälften deiner letzten 7 HRV-Tage liegen weniger als 2 % auseinander. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
+      "lastTwoDaysBody": "Das Fenster selbst blieb stabil, aber deine letzten beiden Messungen fielen an aufeinanderfolgenden Tagen, und die letzte, {{latest}} ms, liegt unter dem Fenstermittel von {{avg}} ms über {{days}} Messungen."
     },
     "weeklyLoad": {
       "title": "Trainingsbelastung {{percent}}% {{direction}} Durchschnitt",
@@ -1009,7 +1004,7 @@
       "title": "Datenschutzhinweis",
       "brief": "Deine Athleten-ID und ein Push-Token werden auf unserem Server gespeichert (30 Tage Ablauf). Benachrichtigungen werden über Apple oder Google geleitet, aber alle Einblicke werden auf deinem Gerät erzeugt. Keine persönlichen Daten werden gespeichert. Du kannst jederzeit deaktivieren.",
       "accept": "Verstanden",
-      "briefEnabled": "Sie erhalten diese Benachrichtigungen. Ihre Athleten-ID und ein Push-Token sind auf unserem Server gespeichert (30 Tage Ablauf), und Benachrichtigungen werden über Expo, dann Apple oder Google, an Ihr Gerät geleitet. Alle Insight-Inhalte werden auf Ihrem Gerät erzeugt. Sie können sie jederzeit ausschalten.",
+      "briefEnabled": "Du erhältst diese Benachrichtigungen. Deine Athleten-ID und ein Push-Token sind auf unserem Server gespeichert (30 Tage Ablauf), und Benachrichtigungen werden über Expo, dann Apple oder Google, an dein Gerät geleitet. Alle Insight-Inhalte werden auf deinem Gerät erzeugt. Du kannst sie jederzeit ausschalten.",
       "turnOff": "Ausschalten"
     },
     "settings": {
@@ -1475,7 +1470,9 @@
     "trendingSlower": "Trend zu langsameren Zeiten",
     "renameFailedTitle": "Name konnte nicht gespeichert werden",
     "renameFailedMessage": "Der Abschnittsname wurde nicht gespeichert. Versuche es erneut.",
-    "nameTaken": "Ein anderer Abschnitt trägt diesen Namen bereits. Wähle einen anderen Namen."
+    "nameTaken": "Ein anderer Abschnitt trägt diesen Namen bereits. Wähle einen anderen Namen.",
+    "undoExcludeLap": "Rückgängig Runde {{n}}",
+    "excludeLapNumber": "Ausschließen Runde {{n}}"
   },
   "settings": {
     "developerDashboard": "Entwicklerübersicht",
@@ -1995,7 +1992,7 @@
     "recentAvg": "Aktueller Ø",
     "earlierAvg": "Früherer Ø",
     "peakWeek": "Spitzenwoche",
-    "disclaimer": "Volumenberechnungen sind Näherungswerte basierend auf Übungsdaten Ihres verbundenen Geräts.",
+    "disclaimer": "Volumenberechnungen sind Näherungswerte basierend auf Übungsdaten deines verbundenen Geräts.",
     "exercise": "Übung",
     "exercises": "Übungen",
     "exerciseActivitiesFailed": "Die Workouts für diese Übung konnten nicht geladen werden.",
@@ -2117,7 +2114,8 @@
     "kind_absorbed": "Ein anderer Abschnitt wurde hier zusammengeführt",
     "splitFrom": "Abgetrennt von",
     "splitInto": "Aufgeteilt in",
-    "unavailable": "Abschnitt nicht verfügbar"
+    "unavailable": "Abschnitt nicht verfügbar",
+    "revertVersion": "Zurücksetzen Version {{version}}"
   },
   "namedCorridors": {
     "title": "Von dir vergebene Namen",

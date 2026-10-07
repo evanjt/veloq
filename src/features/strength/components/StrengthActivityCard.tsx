@@ -33,7 +33,6 @@ import {
 import { formatWeightRounded } from '@/shared/format/weight';
 import { pressable, pressRipple } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
-import { engineErrorKey } from '@/shared/native/engineError';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 /** Aggregated muscle/exercise data for a strength activity */
@@ -43,8 +42,6 @@ export interface StrengthCardData {
   setCount: number;
   /** Total weight lifted (kg). 0 if no weight data. */
   totalWeight: number;
-  /** What the engine threw reading the muscles. Empty muscles with no error is none worked. */
-  musclesError?: unknown;
 }
 
 interface StrengthActivityCardProps {
@@ -231,14 +228,6 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
 
             {/* Center: body diagrams + stats */}
             <View style={styles.strengthCenter}>
-              {strengthData.musclesError !== undefined ? (
-                <RNText
-                  testID="muscle-groups-failure"
-                  style={[styles.secondaryStatValue, { color: compactMutedColor }]}
-                >
-                  {t(engineErrorKey(strengthData.musclesError, 'engine.failure.database'))}
-                </RNText>
-              ) : null}
               <View style={styles.strengthBodies}>
                 <Body
                   data={strengthData.muscles}

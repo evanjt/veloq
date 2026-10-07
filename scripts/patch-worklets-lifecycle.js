@@ -66,7 +66,8 @@ function applyPatch(root, check = false, expected = EXPECTED) {
   const entry = path.join(modules, 'react-native-worklets');
   if (!fs.existsSync(entry)) throw new Error('react-native-worklets is missing');
   const version = JSON.parse(fs.readFileSync(path.join(entry, 'package.json'), 'utf8')).version;
-  if (version !== VERSION) throw new Error(`Worklets repair requires version ${VERSION}, found ${version}`);
+  if (version !== VERSION)
+    throw new Error(`Worklets repair requires version ${VERSION}, found ${version}`);
   const changes = FILES.map((file) => {
     const original = fs.readFileSync(path.join(entry, file), 'utf8');
     return { file, original, patched: patchSource(original, expected[file]) };

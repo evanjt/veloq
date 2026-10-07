@@ -2,12 +2,12 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import {
   startOAuthFlow,
   handleOAuthCallback,
   isOAuthConfigured,
   getAppRedirectUri,
+  recordGrantedScope,
   OAUTH,
 } from '@/features/auth';
 import { clearPermissionBlocked } from '@/features/recording/lib/storage/recordingLibrary';
@@ -62,8 +62,7 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
 
         // Trust only the scope the server actually returned - a missing scope
         // string means write was NOT confirmed, regardless of what we asked for.
-        useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope ?? '');
-        const granted = useUploadPermissionStore.getState().hasWritePermission === true;
+        const granted = recordGrantedScope(tokenResponse.scope);
 
         if (granted) {
           // Requeue this athlete's permission-blocked entries, and nobody

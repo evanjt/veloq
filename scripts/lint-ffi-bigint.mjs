@@ -43,7 +43,9 @@ const COMMENT = /^\s*(\/\/|\*|\/\*)/;
 
 const generated = treeSources(ROOT, [GENERATED]).get(GENERATED);
 if (generated === undefined) {
-  console.error('lint-ffi-bigint: the generated bindings are not in the tree, so nothing was checked.');
+  console.error(
+    'lint-ffi-bigint: the generated bindings are not in the tree, so nothing was checked.'
+  );
   process.exit(1);
 }
 const source = generated.toString('utf8');

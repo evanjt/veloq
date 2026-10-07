@@ -10,7 +10,9 @@ const module = version('modules/veloqrs/package.json');
 const lock = JSON.parse(trackedText(root, 'package-lock.json'));
 const lockedModule = lock.packages?.['modules/veloqrs']?.version;
 if (module !== app || lockedModule !== app) {
-  console.error(`check-module-version: veloqrs version ${module}, lock version ${lockedModule}, app version ${app} differ`);
+  console.error(
+    `check-module-version: veloqrs version ${module}, lock version ${lockedModule}, app version ${app} differ`
+  );
   process.exit(1);
 }
 console.log(`check-module-version: ${app}`);

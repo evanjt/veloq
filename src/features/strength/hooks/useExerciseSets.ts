@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
-import type { ExerciseSession, MuscleGroup } from 'veloqrs';
+import type { ExtendedBodyPart } from 'react-native-body-highlighter';
+import type { ActivityHighlightsBundle, ExerciseSession, MuscleGroup } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -9,6 +10,7 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 
 import { demoStrengthSets } from '../demo';
+import type { StrengthCardData } from '../components/StrengthActivityCard';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ExerciseSets');
@@ -170,4 +172,86 @@ export function useMuscleGroups(activityId: string, hasExercises: boolean) {
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 2,
   });
+}
+
+const NO_CARDS = new Map<string, StrengthCardData>();
+
+/**
+ * What the strength cards of a feed paint, from the rows the feed's one
+ * highlights read already carries.
+ *
+ * A row with no sets and no recorded FIT outcome is a download still owed: it
+ * is asked for here, once per activity, and the parse announces `fitParsed`,
+ * which reads the feed's highlights again. The reconnect edge clears what was
+ * asked, because a download a dead connection refused records nothing and
+ * announces nothing.
+ *
+ * Only an activity with active sets gets an entry, so a card without one draws
+ * as an ordinary card. An entry keeps its identity while its content holds, so
+ * a re-read after another activity's parse does not redraw the rest.
+ */
+export function useStrengthCardData(
+  rows: ActivityHighlightsBundle['strengthCards']
+): Map<string, StrengthCardData> {
+  const [retry, setRetry] = useState(0);
+  const asked = useRef(new Set<string>());
+  const identity = useRef(new Map<string, { key: string; value: StrengthCardData }>());
+
+  useReconnect(() => {
+    asked.current.clear();
+    setRetry((n) => n + 1);
+  });
+
+  const cards = useMemo(() => {
+    if (rows.length === 0) return NO_CARDS;
+    const next = new Map<string, StrengthCardData>();
+    for (const row of rows) {
+      if (row.activeSetCount === 0) continue;
+      const data: StrengthCardData = {
+        muscles: row.muscles.map(
+          (g): ExtendedBodyPart => ({
+            slug: g.slug as NonNullable<ExtendedBodyPart['slug']>,
+            intensity: g.intensity,
+          })
+        ),
+        exerciseCount: row.exerciseCount,
+        setCount: row.activeSetCount,
+        totalWeight: row.totalVolumeKg,
+      };
+      const key = JSON.stringify(data);
+      // This hook's own cache of what it last handed out, never anything drawn from it.
+      // eslint-disable-next-line react-hooks/refs
+      const held = identity.current.get(row.activityId);
+      if (held && held.key === key) {
+        next.set(row.activityId, held.value);
+      } else {
+        // eslint-disable-next-line react-hooks/refs
+        identity.current.set(row.activityId, { key, value: data });
+        next.set(row.activityId, data);
+      }
+    }
+    return next;
+  }, [rows]);
+
+  useEffect(() => {
+    const engine = getEngine();
+    if (!engine) return;
+    for (const row of rows) {
+      if (row.settled || asked.current.has(row.activityId)) continue;
+      asked.current.add(row.activityId);
+      // Demo mode has no FIT file: the seed lands the sets and announces them.
+      const seed = isDemo() ? demoStrengthSets[row.activityId] : undefined;
+      try {
+        if (seed) {
+          engine.bulkInsertExerciseSets(row.activityId, seed);
+        } else {
+          engine.fetchAndParseExerciseSets(row.activityId);
+        }
+      } catch (err) {
+        console.error('[StrengthCards] Error:', err);
+      }
+    }
+  }, [rows, retry]);
+
+  return cards;
 }

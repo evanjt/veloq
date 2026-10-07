@@ -36,7 +36,11 @@ function codeOnly(source) {
       const stop = end === -1 ? source.length : end + 2;
       out += source.slice(i, stop).replace(/[^\n]/g, ' ');
       i = stop;
-    } else if (c === 'r' && /^r#*"/.test(source.slice(i, i + 8)) && !/\w/.test(source[i - 1] ?? '')) {
+    } else if (
+      c === 'r' &&
+      /^r#*"/.test(source.slice(i, i + 8)) &&
+      !/\w/.test(source[i - 1] ?? '')
+    ) {
       const hashes = /^r(#*)"/.exec(source.slice(i))[1];
       const close = `"${hashes}`;
       const end = source.indexOf(close, i + 2 + hashes.length);
@@ -75,7 +79,9 @@ for (const [file, bytes] of treeSources(ROOT, [SRC])) {
   const names = new Set(['serial_global_state']);
   for (const m of code.matchAll(/\bserial_global_state\s+as\s+(\w+)/g)) names.add(m[1]);
   const takes = new RegExp(`\\b(?:${[...names].join('|')})\\s*\\(`);
-  for (const m of code.matchAll(/#\[(?:\w+::)?test\b[^\]]*\]\s*(?:#\[[^\]]*\]\s*)*(?:async\s+)?fn\s+(\w+)[^{]*\{/g)) {
+  for (const m of code.matchAll(
+    /#\[(?:\w+::)?test\b[^\]]*\]\s*(?:#\[[^\]]*\]\s*)*(?:async\s+)?fn\s+(\w+)[^{]*\{/g
+  )) {
     const open = m.index + m[0].length - 1;
     const body = code.slice(open, bodyEnd(code, open));
     if (/\bengine_install\s*\(/.test(body) && !takes.test(body)) {
@@ -86,9 +92,13 @@ for (const [file, bytes] of treeSources(ROOT, [SRC])) {
 }
 
 if (offenders.length > 0) {
-  console.error('lint-rust-test-serial: a test reads engine_install() without serial_global_state():');
+  console.error(
+    'lint-rust-test-serial: a test reads engine_install() without serial_global_state():'
+  );
   for (const o of offenders) console.error(`  ${o}`);
-  console.error('Take `let _serial = crate::test_globals::serial_global_state();` before reading the install.');
+  console.error(
+    'Take `let _serial = crate::test_globals::serial_global_state();` before reading the install.'
+  );
   process.exit(1);
 }
 console.log('lint-rust-test-serial: every test that reads engine_install() holds the serial lock');

@@ -23,7 +23,7 @@ import {
   SearchBar,
 } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
-import { StreamConsentCard } from '@/features/settings';
+import { StreamConsentCard, useDashboardPreferences } from '@/features/settings';
 import { navigateTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { SyncRefreshNotice, useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
@@ -39,6 +39,7 @@ import {
   ringsLeavingView,
   setVisibleRange,
 } from '@/features/activity';
+import { useStrengthCardData } from '@/features/strength';
 import { reportFeedDismissed } from '@/shared/native/feedSeen';
 import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { useTheme, useStableBy } from '@/shared/app';
@@ -49,14 +50,12 @@ import {
   SupportCard,
   FeedFirstSyncStandby,
   useSummaryCardData,
-  useDashboardPreferences,
   useStartupData,
   feedEmptyState,
   summaryCardTarget,
 } from '@/features/home';
 import { RecordFAB, PendingUploadsCard } from '@/features/recording';
 import {
-  consumePendingSnapshots,
   initCameraOverrides,
   initTerrainPreviewCache,
   TerrainSnapshotWebView,
@@ -154,11 +153,6 @@ function FeedScreenContent() {
   useEffect(() => {
     initTerrainPreviewCache();
     initCameraOverrides();
-    // Check for activities ingested by background notification task -
-    // mount WebView workers immediately instead of waiting 500ms
-    consumePendingSnapshots().then((pending) => {
-      if (pending.length > 0) setSnapshotWebViewReady(true);
-    });
   }, []);
 
   // Dashboard preferences for navigation
@@ -282,8 +276,12 @@ function FeedScreenContent() {
     const reached = searchActivities.filter((a) => !held.has(a.id)).map((a) => a.id);
     return reached.length === 0 ? loaded : [...loaded, ...reached];
   }, [allActivities, filtering, searchActivities]);
-  const { sections: sectionHighlightsMap, routes: routeHighlightsMap } =
-    useActivitySectionHighlights(highlightIds);
+  const {
+    sections: sectionHighlightsMap,
+    routes: routeHighlightsMap,
+    strengthCards: strengthCardRows,
+  } = useActivitySectionHighlights(highlightIds);
+  const strengthCards = useStrengthCardData(strengthCardRows);
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
@@ -418,6 +416,7 @@ function FeedScreenContent() {
         colorScheme={isDark}
         sectionHighlights={sectionHighlightsMap.get(item.id)}
         routeHighlight={routeHighlightsMap.get(item.id)}
+        strengthData={strengthCards.get(item.id)}
         isNew={newActivityIds?.has(item.id) ?? false}
         onNewDismissed={refreshStartupData}
       />
@@ -427,6 +426,7 @@ function FeedScreenContent() {
       isDark,
       sectionHighlightsMap,
       routeHighlightsMap,
+      strengthCards,
       previewTracks,
       newActivityIds,
       refreshStartupData,

@@ -454,8 +454,9 @@ impl ActivityManager {
     }
 
     /// Combined activity-list highlight bundle: section indicators (PRs +
-    /// trends) and route highlights for the same batch of activity IDs in a
-    /// single FFI round-trip. Consumed by `useActivitySectionHighlights`.
+    /// trends), route highlights and the strength cards for the same batch of
+    /// activity IDs in a single FFI round-trip. Consumed by
+    /// `useActivitySectionHighlights`.
     fn get_highlights_bundle(
         &self,
         activity_ids: Vec<String>,
@@ -469,6 +470,7 @@ impl ActivityManager {
                 conn,
                 &activity_ids,
             ),
+            strength_cards: super::strength::strength_cards(conn, &activity_ids),
         })
     }
 

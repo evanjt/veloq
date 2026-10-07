@@ -15,7 +15,8 @@ const SLASH = /\.(tsx?|[cm]?js|rs|kts?|swift|java|gradle|[ch]|mm?|cpp|hpp)$/;
 const HASH = /\.(sh|ya?ml|toml|pro|podspec|rb)$/;
 
 /** Hash-commented files known by their name rather than an extension. */
-const HASH_NAMED = /(^|\/)(\.gitignore|\.prettierignore|\.gitmodules|\.npmrc|justfile|Fastfile|Gemfile|Appfile|Matchfile|Podfile)$/;
+const HASH_NAMED =
+  /(^|\/)(\.gitignore|\.prettierignore|\.gitmodules|\.npmrc|justfile|Fastfile|Gemfile|Appfile|Matchfile|Podfile)$/;
 
 /**
  * A generated directory or a `.generated.` file, not any path holding the word.

@@ -4,12 +4,8 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import {
-  ACTIVITY_CATEGORIES,
-  clearTerrainPreviews,
-  type MapStyleType,
-  useMapPreferences,
-} from '@/features/maps';
+import { useMapPreferences } from '../stores/MapPreferencesContext';
+import { ACTIVITY_CATEGORIES, clearTerrainPreviews, type MapStyleType } from '@/features/maps';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { Row } from '@/shared/ui/Row';

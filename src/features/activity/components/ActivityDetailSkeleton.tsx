@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { ChartSkeleton, Shimmer, useHeroMapHeight } from '@/shared/ui';
+import { useMapPreferences } from '@/features/settings';
 import {
   ACTIVITY_MAP_POSTER_TEST_ID,
   getTerrainPreviewUri,
   hasTerrainPreview,
-  useMapPreferences,
 } from '@/features/maps';
 import { layout, spacing } from '@/theme';
 

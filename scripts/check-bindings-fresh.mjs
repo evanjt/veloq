@@ -33,7 +33,10 @@ function generate(root, output) {
 }
 
 function check(root) {
-  const committed = indexedSources(root, DIRECTORIES.map((dir) => `${MODULE}/${dir}`));
+  const committed = indexedSources(
+    root,
+    DIRECTORIES.map((dir) => `${MODULE}/${dir}`)
+  );
   if (committed.size === 0) throw new Error('read nothing from the indexed bindings');
   const output = mkdtempSync(join(tmpdir(), 'bindings-fresh-'));
   try {
@@ -46,7 +49,9 @@ function check(root) {
       return !before || !after || !before.equals(after);
     });
     if (changed.length > 0) {
-      throw new Error(`stale bindings:\n${changed.sort().join('\n')}\nRun npm run ffi:generate and stage the result.`);
+      throw new Error(
+        `stale bindings:\n${changed.sort().join('\n')}\nRun npm run ffi:generate and stage the result.`
+      );
     }
   } finally {
     rmSync(output, { recursive: true, force: true });

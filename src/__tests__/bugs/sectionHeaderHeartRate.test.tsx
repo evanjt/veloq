@@ -10,6 +10,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
+import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { FrequentSection } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -56,7 +57,7 @@ describe('the section header stats', () => {
         editName=""
         customName={null}
         nameInputRef={React.createRef()}
-        highlightedActivityId={null}
+        highlight={createMapHighlightStore()}
         onStartEditing={jest.fn()}
         onSaveName={jest.fn()}
         onCancelEdit={jest.fn()}

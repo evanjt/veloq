@@ -40,6 +40,8 @@ import {
   SectionTrimOverlay,
   SportTypeSelector,
   useRevealMapOnDraw,
+  useRevealMapOnHighlight,
+  createMapHighlightStore,
   SectionHeader,
   SectionActionRow,
   SectionContentArea,
@@ -136,10 +138,6 @@ function SectionDetailScreenContent() {
   const { merge: mergeSections, previewDropped } = useMergeSections();
 
   const {
-    highlightedActivityId,
-    setHighlightedActivityId,
-    highlightedActivityPoints,
-    setHighlightedActivityPoints,
     mapReady,
     setMapReady,
     mergeTarget,
@@ -246,16 +244,11 @@ function SectionDetailScreenContent() {
   const refusalKey = rescanRefusalKey(rescanRefusal);
 
   const scrollRef = useRef<ScrollView>(null);
-  useRevealMapOnDraw(scrollRef, highlightedActivityId);
+  // The chart's scrub lives outside this component, so a new index renders the
+  // map and not the screen. Nothing here reads it.
+  const [highlight] = useState(createMapHighlightStore);
+  useRevealMapOnHighlight(scrollRef, highlight);
   useRevealMapOnDraw(scrollRef, shownVersion);
-
-  const handleActivitySelect = useCallback(
-    (activityId: string | null, activityPoints?: RoutePoint[]) => {
-      setHighlightedActivityId(activityId);
-      setHighlightedActivityPoints(activityPoints);
-    },
-    [setHighlightedActivityId, setHighlightedActivityPoints]
-  );
 
   // Section times come from activity streams, so wait for the gap the bundle
   // reported to close before reading the records.
@@ -399,8 +392,7 @@ function SectionDetailScreenContent() {
             customName={customName}
             nameInputRef={nameInputRef}
             shadowTrack={shadowTrack}
-            highlightedActivityId={highlightedActivityId}
-            highlightedLapPoints={highlightedActivityPoints}
+            highlight={highlight}
             deltaLine={deltaLine}
             allActivityTraces={allActivityTraces}
             onUnflagLift={isTrimming ? undefined : handleUnflagLift}
@@ -506,7 +498,7 @@ function SectionDetailScreenContent() {
               showExcluded={showExcluded}
               hasExcluded={excludedPoints.length > 0}
               sectionTimeRange={sectionTimeRange}
-              onActivitySelect={handleActivitySelect}
+              onActivitySelect={highlight.set}
               onExcludeActivity={handleExcludeActivity}
               onIncludeActivity={handleIncludeActivity}
               onSetAsReference={handleSetAsReference}

@@ -15,6 +15,7 @@ import { render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
+import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import { HERO_HEADER_HEIGHT } from '@/shared/ui';
 import type { FrequentSection, RoutePoint } from '@/types';
 
@@ -22,7 +23,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     preferences: { defaultStyle: 'light' },
     getStyleForActivity: () => 'light',
@@ -67,6 +68,8 @@ const SECTION: FrequentSection = {
 };
 
 function renderHeader(insetTop: number) {
+  const highlight = createMapHighlightStore();
+  highlight.set(null, POLYLINE);
   return render(
     <SafeAreaProvider initialMetrics={METRICS}>
       <SectionHeader
@@ -84,8 +87,7 @@ function renderHeader(insetTop: number) {
         editName=""
         customName={null}
         nameInputRef={React.createRef()}
-        highlightedActivityId={null}
-        highlightedLapPoints={POLYLINE}
+        highlight={highlight}
         onStartEditing={jest.fn()}
         onSaveName={jest.fn()}
         onCancelEdit={jest.fn()}

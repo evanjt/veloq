@@ -98,7 +98,6 @@ function stripNoise(src) {
   return out.join('');
 }
 
-
 // Per-line brace depth, computed on noise-stripped source.
 function braceDepths(clean) {
   const lines = clean.split('\n');
@@ -262,7 +261,11 @@ function resolveTargets(args) {
   const rust = [];
   if (args.length === 0) {
     for (const f of walk(SRC_DIR, ['.ts', '.tsx'])) {
-      if (f.includes(`${path.sep}__tests__${path.sep}`) || f.endsWith('.test.ts') || f.endsWith('.test.tsx')) {
+      if (
+        f.includes(`${path.sep}__tests__${path.sep}`) ||
+        f.endsWith('.test.ts') ||
+        f.endsWith('.test.tsx')
+      ) {
         continue;
       }
       ts.push(f);
@@ -275,8 +278,16 @@ function resolveTargets(args) {
     const abs = path.resolve(ROOT, a);
     if (!fs.existsSync(abs)) continue;
     const within = (dir) => abs.startsWith(dir + path.sep);
-    if ((abs.endsWith('.ts') || abs.endsWith('.tsx')) && within(SRC_DIR) && !isGenerated(path.basename(abs))) {
-      if (abs.includes(`${path.sep}__tests__${path.sep}`) || abs.endsWith('.test.ts') || abs.endsWith('.test.tsx')) {
+    if (
+      (abs.endsWith('.ts') || abs.endsWith('.tsx')) &&
+      within(SRC_DIR) &&
+      !isGenerated(path.basename(abs))
+    ) {
+      if (
+        abs.includes(`${path.sep}__tests__${path.sep}`) ||
+        abs.endsWith('.test.ts') ||
+        abs.endsWith('.test.tsx')
+      ) {
         continue;
       }
       ts.push(abs);
@@ -306,10 +317,14 @@ function main() {
   };
 
   for (const f of blocking) {
-    console.error(`error [${f.kind}] ${f.file}:${f.line}  ${labels[f.kind]}\n    ${f.msg}\n    ${f.text}`);
+    console.error(
+      `error [${f.kind}] ${f.file}:${f.line}  ${labels[f.kind]}\n    ${f.msg}\n    ${f.text}`
+    );
   }
   for (const f of advisory) {
-    console.warn(`warning [${f.kind}] ${f.file}:${f.line}  ${labels[f.kind]}\n    ${f.msg}\n    ${f.text}`);
+    console.warn(
+      `warning [${f.kind}] ${f.file}:${f.line}  ${labels[f.kind]}\n    ${f.msg}\n    ${f.text}`
+    );
   }
 
   const counts = { a: 0, b: 0, c: 0 };

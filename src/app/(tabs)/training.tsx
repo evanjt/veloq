@@ -19,7 +19,7 @@ import { WellnessTrendsChart } from '@/features/wellness';
 import { useAthleteSummary } from '@/features/fitness';
 import { useWellness, type TimeRange } from '@/features/wellness';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { getSmoothingDescription, type SmoothingWindow } from '@/shared/math/smoothing';
 import { logScreenRender } from '@/shared/debug/renderTimer';
@@ -312,43 +312,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: spacing.xs,
-  },
-  timeRangeButton: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-  },
-  timeRangeButtonDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  timeRangeButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  timeRangeText: {
-    ...typography.caption,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  timeRangeTextDark: {
-    color: darkColors.textSecondary,
-  },
-  timeRangeTextActive: {
-    color: colors.textOnPrimary,
-  },
-  smoothingButton: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  smoothingButtonDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  smoothingButtonActive: {
-    backgroundColor: colors.primary,
   },
 });
 

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Formatting utilities for activity data and dates
+ * Formatting utilities for activity data and dates
  *
  * Provides consistent formatting for distances, durations, speeds, and dates
  * across the application. Handles localization and unit conversion.
@@ -33,9 +33,6 @@ const MAX_DURATION_SECONDS = 1e9; // ~31 years
  * Some locales have custom codes that don't match standard BCP 47 format.
  * This function maps them to valid locale codes for use with Intl.DateTimeFormat.
  *
- * @returns Valid BCP 47 locale code
- *
- * @example
  * ```ts
  * getIntlLocale(); // "zh-CN" for "zh-Hans"
  * ```
@@ -58,11 +55,6 @@ export function getIntlLocale(): string {
  * In imperial mode, shows feet for < 0.25 miles, miles with 1 decimal otherwise.
  * Handles invalid values gracefully.
  *
- * @param meters - Distance in meters
- * @param isMetric - Whether to use metric units (default: true)
- * @returns Formatted distance string (e.g., "500 m", "5.2 km", "0.8 mi")
- *
- * @example
  * ```ts
  * formatDistance(500);          // "500 m"
  * formatDistance(1500);         // "1.5 km"
@@ -98,10 +90,6 @@ export function formatDistance(meters: number, isMetric = true): string {
  * Shows HH:MM:SS format for durations >= 1 hour, MM:SS for shorter durations.
  * Handles invalid values gracefully.
  *
- * @param seconds - Duration in seconds
- * @returns Formatted duration string (e.g., "1:23:45", "45:30")
- *
- * @example
  * ```ts
  * formatDuration(90);     // "1:30"
  * formatDuration(3665);   // "1:01:05"
@@ -222,11 +210,6 @@ export function formatPrImprovement(seconds: number | null | undefined): string 
  * Shows running/cycling pace in MM:SS /km or /mi format.
  * Returns "--:--" for invalid or non-positive values.
  *
- * @param metersPerSecond - Speed in meters per second
- * @param isMetric - Whether to use metric units
- * @returns Formatted pace string (e.g., "5:30 /km", "8:51 /mi", "--:--")
- *
- * @example
  * ```ts
  * formatPace(3.0);          // "5:33 /km" (≈ 10.8 km/h)
  * formatPace(3.0, false);   // "8:56 /mi"
@@ -254,10 +237,6 @@ export function formatPace(metersPerSecond: number, isMetric: boolean): string {
  *
  * Single source for pace formatting from a seconds-per-km scalar, so callers
  * that already hold pace in that unit don't re-roll the min/sec math.
- *
- * @param secondsPerKm - Pace in seconds per kilometer
- * @param isMetric - Whether to use metric units
- * @returns Formatted pace string (e.g., "5:30", "--:--")
  */
 export function formatPaceFromSecsPerKm(secondsPerKm: number, isMetric: boolean): string {
   if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0) return '--:--';
@@ -306,10 +285,6 @@ export function paceSecondsForUnit(
  * Compact pace format for UI pills (no units).
  *
  * Same as formatPace but without the "/km" or "/mi" suffix for compact display.
- *
- * @param metersPerSecond - Speed in meters per second
- * @param isMetric - Whether to use metric units
- * @returns Formatted pace string (e.g., "5:30", "--:--")
  */
 export function formatPaceCompact(metersPerSecond: number, isMetric: boolean): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
@@ -325,10 +300,6 @@ export function formatPaceCompact(metersPerSecond: number, isMetric: boolean): s
  * Format swim pace in minutes per 100 meters (metric) or per 100 yards (imperial).
  *
  * Swimming uses per-100m or per-100yd pace instead of per-km.
- *
- * @param metersPerSecond - Speed in meters per second
- * @param isMetric - Whether to use metric units
- * @returns Formatted swim pace string (e.g., "2:30", "--:--")
  */
 export function formatSwimPace(metersPerSecond: number, isMetric: boolean): string {
   if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
@@ -363,11 +334,6 @@ export function formatSportSpeed(
  *
  * Converts meters per second to km/h or mph with 1 decimal precision.
  *
- * @param metersPerSecond - Speed in meters per second
- * @param isMetric - Whether to use metric units
- * @returns Formatted speed string (e.g., "25.5 km/h", "15.8 mph")
- *
- * @example
  * ```ts
  * formatSpeed(10);          // "36.0 km/h"
  * formatSpeed(10, false);   // "22.4 mph"
@@ -387,10 +353,6 @@ export function formatSpeed(metersPerSecond: number, isMetric: boolean): string 
 
 /**
  * Format elevation in meters (metric) or feet (imperial).
- *
- * @param meters - Elevation in meters
- * @param isMetric - Whether to use metric units (default: true)
- * @returns Formatted elevation string (e.g., "150 m", "492 ft")
  */
 export function formatElevation(meters: number | undefined | null, isMetric = true): string {
   if (meters == null || !Number.isFinite(meters)) return isMetric ? '0 m' : '0 ft';
@@ -408,10 +370,6 @@ export function celsiusToFahrenheit(celsius: number): number {
 
 /**
  * Format temperature in Celsius (metric) or Fahrenheit (imperial).
- *
- * @param celsius - Temperature in Celsius
- * @param isMetric - Whether to use metric units (default: true)
- * @returns Formatted temperature string (e.g., "20°C", "68°F")
  */
 export function formatTemperature(celsius: number | undefined | null, isMetric = true): string {
   if (celsius == null || !Number.isFinite(celsius)) return isMetric ? '--°C' : '--°F';
@@ -449,10 +407,6 @@ export function formatPower(watts: number): string {
  *
  * Uses localized date formats based on app language setting.
  *
- * @param dateString - ISO date string to format
- * @returns Localized relative date string
- *
- * @example
  * ```ts
  * formatRelativeDate("2024-01-15"); // "Jan 15" (if same year)
  * formatRelativeDate("2023-06-15"); // "Jun 15, 2023" (if different year)
@@ -705,7 +659,6 @@ export interface PerformanceDelta {
  *
  * Left-to-right output is returned untouched, so nothing that ships today moves.
  *
- * @example
  * ```ts
  * isolateNumeric('-0.2'); // "-0.2" left to right, "\u2068-0.2\u2069" right to left
  * ```
@@ -735,13 +688,7 @@ export function formatTimeDelta(deltaSeconds: number): string | null {
  *
  * For running activities (showPace=true): compares pace (seconds/km, or seconds/mi when imperial).
  * For other activities: compares elapsed time.
- *
- * @param options.isMetric - Whether the pace delta is per kilometre (true) or per mile
- * @param options.isBest - Whether this is the best performance (skip delta)
- * @param options.showPace - Whether to use pace comparison (running)
- * @param options.currentSpeed - Current speed in m/s
- * @param options.bestSpeed - Best speed in m/s
- * @param options.timeDelta - Pre-computed time delta in seconds (positive = slower)
+ * `isBest` skips the delta, speeds are in m/s, and `timeDelta` is in seconds, positive when slower.
  */
 export function formatPerformanceDelta(options: {
   isBest: boolean;

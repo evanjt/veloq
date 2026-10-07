@@ -46,10 +46,6 @@ export function getEffectiveWindow(preference: SmoothingWindow, timeRange: TimeR
  * The window spans exactly `windowSize` rows: centred for an odd size, and one row further
  * forward than back for an even one, so 7 means ±3 and 14 means 6 back and 7 forward.
  * At edges, averages only the rows that exist.
- *
- * @param data Array of data points with x (index) and value
- * @param windowSize Total window size in rows
- * @returns New array with smoothed values (original rawValue preserved)
  */
 export function smoothDataPoints<T extends { x: number; value: number; rawValue: number }>(
   data: T[],

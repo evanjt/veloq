@@ -396,6 +396,13 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     'reached through a dynamic property off the native module, so no static call exists to find',
   // The engine can answer what shape a week's load had; no screen asks yet,
   // and the surface that would draw it is its own item.
+
+  // The place names switch lives in the engine before the settings row that
+  // offers it behind its consent dialog exists.
+  'SettingsManager.geocodingEnabled':
+    'the place names switch, read by the settings row that offers it once that row exists',
+  'SettingsManager.setGeocodingEnabled':
+    'the place names switch, written by the consent dialog once that dialog exists',
 };
 
 /**

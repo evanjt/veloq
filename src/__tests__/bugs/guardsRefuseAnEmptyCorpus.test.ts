@@ -62,6 +62,7 @@ const LISTING_GUARDS = [
   'lint-au-spelling.mjs',
   'lint-comment-line-refs.mjs',
   'lint-em-dashes.mjs',
+  'lint-jsdoc-tags.mjs',
 ];
 
 describe.each(LISTING_GUARDS)('%s', (script) => {

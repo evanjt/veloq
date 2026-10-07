@@ -1,5 +1,5 @@
 import { initializeSportPreference } from '@/features/fitness/stores';
-import { initializeDashboardPreferences } from '@/features/home/store';
+import { initializeDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
 import { initializeInsightsStore } from '@/features/insights/store';
 import {
   handOverGroundTemplates,

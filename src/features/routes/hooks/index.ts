@@ -4,7 +4,6 @@ export { useRouteGroupingPreview, type RouteGroupingPreviewState } from './useRo
 export { useRouteMatch } from './useRouteMatch';
 export { useRoutePerformances } from './useRoutePerformances';
 export { pointCount, type RouteSignature } from './routeSignature';
-export { useEngineSectionCount, useMapSections, type MapSection } from './useEngine';
 export { useSectionMatches } from './useSectionMatches';
 export {
   useSectionPerformances,
@@ -20,7 +19,7 @@ export { useSectionChartData } from './useSectionChartData';
 export { useSectionActions, type UseSectionActionsResult } from './useSectionActions';
 export { useSectionDataRefresh } from './useSectionDataRefresh';
 export { useSectionUIState } from './useSectionUIState';
-export { useRevealMapOnDraw } from './useRevealMapOnDraw';
+export { useRevealMapOnDraw, useRevealMapOnHighlight } from './useRevealMapOnDraw';
 export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';
 export { useSectionMapData } from './useSectionMapData';
 export { useRouteHighlight } from './useRouteHighlight';

@@ -22,7 +22,8 @@ const SHARED_IMPORT = '@/shared/format/trend';
 // A call whose last argument is a numeric literal. `trendOfMetric` takes no
 // threshold, so only the two that do are matched. One level of nested
 // parentheses is allowed in the arguments, for `trendOf(num(x), y, 0.5)`.
-const BARE_THRESHOLD = /\btrend(?:Of|Direction)\((?:[^()]|\([^()]*\))*,\s*-?(?:\d+\.?\d*|\.\d+)\s*\)/g;
+const BARE_THRESHOLD =
+  /\btrend(?:Of|Direction)\((?:[^()]|\([^()]*\))*,\s*-?(?:\d+\.?\d*|\.\d+)\s*\)/g;
 
 // The shared functions a surface calls. A definition is not a call.
 const SHARED_CALLS = ['trendDirection', 'trendOfMetric'];
@@ -40,7 +41,10 @@ function importedFromShared(text) {
   for (const [, list, from] of text.matchAll(pattern)) {
     if (from !== SHARED_IMPORT) continue;
     for (const item of list.split(',')) {
-      const name = item.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0];
+      const name = item
+        .trim()
+        .replace(/^type\s+/, '')
+        .split(/\s+as\s+/)[0];
       if (name) names.add(name);
     }
   }

@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "Zwiększ",
-    "decrease": "Zmniejsz",
-    "repositoryFor": "Repozytorium {{name}}"
-  },
   "about": {
     "dataAttribution": "Atrybucja danych",
     "description": "Szybki, offline-first mobilny klient intervals.icu z naciskiem na mapy i analizę wizualną.",
@@ -1585,7 +1580,9 @@
     "trendingSlower": "Trend wolniejszych czasów",
     "renameFailedTitle": "Nie udało się zapisać nazwy",
     "renameFailedMessage": "Nazwa odcinka nie została zapisana. Spróbuj ponownie.",
-    "nameTaken": "Inny odcinek ma już tę nazwę. Wybierz inną nazwę."
+    "nameTaken": "Inny odcinek ma już tę nazwę. Wybierz inną nazwę.",
+    "undoExcludeLap": "Cofnij Okrążenie {{n}}",
+    "excludeLapNumber": "Wyklucz Okrążenie {{n}}"
   },
   "settings": {
     "developerDashboard": "Panel dewelopera",
@@ -1899,8 +1896,6 @@
     "completeActivitiesYearComparison": "Wykonaj aktywności, aby zobaczyć porównanie rok do roku",
     "completeDecouplingHint": "Wykonaj długi wysiłek z danymi mocy i tętna, aby zobaczyć analizę rozsprzężenia",
     "completePowerActivities": "Wykonaj aktywności z miernikiem mocy, aby zobaczyć trend FTP",
-    "daysCount_few": "{{count}} dni",
-    "daysCount_many": "{{count}} dni",
     "decouplingExplanation": "Rozsprzężenie mierzy dryf sercowy - jak bardzo tętno wzrasta względem mocy podczas długotrwałych wysiłków.",
     "decouplingProvenance": "Obliczone przez intervals.icu",
     "estimatedFtp": "Szacowane FTP",
@@ -2297,7 +2292,8 @@
     "kind_absorbed": "Inny odcinek został połączony z tym",
     "splitFrom": "Wydzielony z",
     "splitInto": "Podzielony na",
-    "unavailable": "Odcinek niedostępny"
+    "unavailable": "Odcinek niedostępny",
+    "revertVersion": "Przywróć Wersja {{version}}"
   },
   "namedCorridors": {
     "title": "Nadane nazwy",

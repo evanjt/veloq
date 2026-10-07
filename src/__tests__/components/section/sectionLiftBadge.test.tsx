@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
+import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { FrequentSection } from '@/types';
 
 // The binding registers a TurboModule at import time. A hook on this screen's
@@ -58,7 +59,7 @@ function renderHeader(section: FrequentSection, onUnflagLift?: () => void) {
       editName=""
       customName={null}
       nameInputRef={React.createRef()}
-      highlightedActivityId={null}
+      highlight={createMapHighlightStore()}
       onStartEditing={jest.fn()}
       onSaveName={jest.fn()}
       onCancelEdit={jest.fn()}
@@ -131,7 +132,7 @@ describe('section traversal count scope', () => {
         editName=""
         customName={null}
         nameInputRef={React.createRef()}
-        highlightedActivityId={null}
+        highlight={createMapHighlightStore()}
         onStartEditing={jest.fn()}
         onSaveName={jest.fn()}
         onCancelEdit={jest.fn()}

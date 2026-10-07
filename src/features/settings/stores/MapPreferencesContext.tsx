@@ -8,7 +8,7 @@ import React, {
   ReactNode,
 } from 'react';
 import { getSetting, removeSetting, setSetting } from '@/shared/storage';
-import type { MapStyleType } from '@/features/maps/components/mapStyles';
+import type { MapStyleType } from '@/features/maps';
 import type { ActivityType, Terrain3DMode } from '@/types';
 import { isActivityType } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';

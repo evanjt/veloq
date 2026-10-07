@@ -1803,6 +1803,7 @@ pub mod pooled {
             highlights: crate::FfiActivityHighlightsBundle {
                 indicators: indicators::activity_indicators(conn, &ids),
                 route_highlights: derivations::route_highlights(conn, &ids),
+                strength_cards: crate::objects::strength::strength_cards(conn, &ids),
             },
             section_traces,
             pr_section_ids,

@@ -36,6 +36,8 @@ export {
   type AccountChangeKind,
 } from './lib/accountChange';
 
+export { recordGrantedScope } from './lib/grantedScope';
+
 export { demoEntryAction, resolveStoredActivityCount } from './lib/storedActivityCount';
 
 export {

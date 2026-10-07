@@ -23,10 +23,10 @@ repo=${VELOQ_MERGE_FORMAT_REPO:-.}
 # over the target the candidate was built on, and the range between is judged,
 # read out of HEAD.
 if [ -n "${VELOQ_MERGE_BASE:-}" ]; then
-  staged=$(git -c core.quotePath=off diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" HEAD -- 'src/*.ts' 'src/*.tsx')
+  staged=$(git -c core.quotePath=off diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" HEAD -- 'src/*.ts' 'src/*.tsx' 'scripts/*.mjs' 'scripts/*.cjs' 'scripts/*.js' 'scripts/*.ts')
   source=HEAD
 else
-  staged=$(git -c core.quotePath=off diff --cached --name-only --diff-filter=d HEAD -- 'src/*.ts' 'src/*.tsx')
+  staged=$(git -c core.quotePath=off diff --cached --name-only --diff-filter=d HEAD -- 'src/*.ts' 'src/*.tsx' 'scripts/*.mjs' 'scripts/*.cjs' 'scripts/*.js' 'scripts/*.ts')
   source=''
 fi
 [ -n "$staged" ] || exit 0

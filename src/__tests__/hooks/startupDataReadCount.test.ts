@@ -8,6 +8,14 @@
  * Expected behaviour: the bundle is read once while a sync is in flight, and
  * again when that sync settles. Announcements outside a sync still refresh it,
  * because then they are the only signal there is.
+ *
+ * Scenario: the sync writes the athlete profile and wellness before any
+ * activity, so the read at mount, and the one the wellness announcement
+ * spends, see an empty library.
+ *
+ * Expected behaviour: a read that saw no activity does not spend the sync's one
+ * read, so the first announcement of stored rows reads again and the card's
+ * week and the feed's previews do not wait for the settle.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -33,6 +41,7 @@ const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const listeners = new Map<string, Set<() => void>>();
 let syncState: SyncState = SyncState.Syncing;
 let reads = 0;
+let storedActivities = 1;
 const mockEncodedCoords = new Map<string, { latitude: number; longitude: number }[]>();
 let mockPreviewRecords: { activityId: string; encodedCoords: string }[] = [];
 
@@ -41,7 +50,10 @@ function engine() {
     getSyncStatus: () => ({ state: syncState }),
     getStartupData: () => {
       reads += 1;
-      return { summaryCard: {}, previewTracks: mockPreviewRecords };
+      return {
+        summaryCard: { currentWeek: { count: storedActivities } },
+        previewTracks: mockPreviewRecords,
+      };
     },
     subscribe: (event: string, cb: () => void) => {
       const forEvent = listeners.get(event) ?? new Set<() => void>();
@@ -74,6 +86,7 @@ describe('useStartupData read count', () => {
     jest.useFakeTimers();
     listeners.clear();
     reads = 0;
+    storedActivities = 1;
     mockEncodedCoords.clear();
     mockPreviewRecords = [];
     syncState = SyncState.Syncing;
@@ -108,6 +121,20 @@ describe('useStartupData read count', () => {
     for (let i = 0; i < 5; i += 1) announce('activities');
 
     expect(reads).toBe(1);
+  });
+
+  it('reads again for the first stored rows when the read at mount saw an empty library', () => {
+    storedActivities = 0;
+    mount();
+    expect(reads).toBe(1);
+
+    storedActivities = 3;
+    announce('activities');
+    expect(reads).toBe(2);
+
+    announce('activities');
+    announce('activities');
+    expect(reads).toBe(2);
   });
 
   it('reads again when the sync settles, so the feed is not left stale', () => {

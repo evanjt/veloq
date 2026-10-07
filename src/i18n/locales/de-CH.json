@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "Erhöhen",
-    "decrease": "Verringern",
-    "repositoryFor": "Repository für {{name}}"
-  },
   "about": {
     "dataAttribution": "Dateherkunft",
     "description": "En schnälli App für intervals.icu - mit Fokus uf Charte und Analyse. Cheibe lässig!",
@@ -1468,7 +1463,9 @@
     "trendingSlower": "Trend zu langsameren Zeiten",
     "renameFailedTitle": "Name konnte nicht gespeichert werden",
     "renameFailedMessage": "Der Abschnittsname wurde nicht gespeichert. Versuch es erneut.",
-    "nameTaken": "Ein anderer Abschnitt trägt diesen Namen bereits. Wähle einen anderen Namen."
+    "nameTaken": "Ein anderer Abschnitt trägt diesen Namen bereits. Wähle einen anderen Namen.",
+    "undoExcludeLap": "Rückgängig Runde {{n}}",
+    "excludeLapNumber": "Ausschließen Runde {{n}}"
   },
   "settings": {
     "developerDashboard": "Entwicklerübersicht",
@@ -2103,7 +2100,8 @@
     "kind_absorbed": "Ein anderer Abschnitt wurde hier zusammengeführt",
     "splitFrom": "Abgetrennt von",
     "splitInto": "Aufgeteilt in",
-    "unavailable": "Abschnitt nicht verfügbar"
+    "unavailable": "Abschnitt nicht verfügbar",
+    "revertVersion": "Zurücksetzen Version {{version}}"
   },
   "namedCorridors": {
     "title": "Von dir vergebene Namen",

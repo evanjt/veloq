@@ -49,7 +49,9 @@ const main = flag('--main') ? resolve(flag('--main')) : mainCheckout(root);
 const OWN = 'veloqrs';
 
 if (!main || realpathSafe(main) === realpathSafe(root)) {
-  execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], { cwd: root });
+  execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], {
+    cwd: root,
+  });
   console.log('Worktree modules: this is the main checkout, nothing to link.');
   process.exit(0);
 }
@@ -71,7 +73,9 @@ if (!lstatSafe(here)?.isDirectory() || lstatSafe(here)?.isSymbolicLink()) {
 // checkout's packages into it would put another checkout's native outputs back
 // under its build.
 if (lstatSafe(join(here, '.package-lock.json'))?.isFile()) {
-  execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], { cwd: root });
+  execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], {
+    cwd: root,
+  });
   console.log('Worktree modules: an installation of its own here, nothing to link.');
   process.exit(0);
 }
@@ -99,7 +103,9 @@ console.log(
 );
 
 // This native dependency must be copied before applying the altitude fix.
-execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], { cwd: root });
+execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], {
+  cwd: root,
+});
 
 function flag(name) {
   const at = argv.indexOf(name);

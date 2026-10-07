@@ -20,22 +20,27 @@ const rule = /(?:^|[\s,])react-hooks\/exhaustive-deps(?:$|[\s,])/;
 const failures = [];
 for (const [file, bytes] of tracked) {
   if (!/\.tsx?$/.test(file) || /(^|\/)(?:generated|__tests__)\//.test(file)) continue;
-  bytes.toString('utf8').split('\n').forEach((line, index) => {
-    const markers = [line.indexOf('//'), line.indexOf('/*')].filter((position) => position !== -1);
-    if (markers.length === 0) return;
-    const text = line.slice(Math.min(...markers)).replace(/\*\/\s*$/, '');
-    const match = disable.exec(text);
-    if (!match) return;
-    const directive = text.slice(match.index + match[0].length);
-    const separator = directive.indexOf('--');
-    const rules = separator === -1 ? directive : directive.slice(0, separator);
-    if (!rule.test(rules)) return;
-    if (file in NONE_ALLOWED) {
-      failures.push(`${file}:${index + 1}  allows no disable: ${NONE_ALLOWED[file]}`);
-    } else if (separator === -1 || !directive.slice(separator + 2).trim()) {
-      failures.push(`${file}:${index + 1}  ${line.trim()}`);
-    }
-  });
+  bytes
+    .toString('utf8')
+    .split('\n')
+    .forEach((line, index) => {
+      const markers = [line.indexOf('//'), line.indexOf('/*')].filter(
+        (position) => position !== -1
+      );
+      if (markers.length === 0) return;
+      const text = line.slice(Math.min(...markers)).replace(/\*\/\s*$/, '');
+      const match = disable.exec(text);
+      if (!match) return;
+      const directive = text.slice(match.index + match[0].length);
+      const separator = directive.indexOf('--');
+      const rules = separator === -1 ? directive : directive.slice(0, separator);
+      if (!rule.test(rules)) return;
+      if (file in NONE_ALLOWED) {
+        failures.push(`${file}:${index + 1}  allows no disable: ${NONE_ALLOWED[file]}`);
+      } else if (separator === -1 || !directive.slice(separator + 2).trim()) {
+        failures.push(`${file}:${index + 1}  ${line.trim()}`);
+      }
+    });
 }
 
 if (failures.length > 0) {

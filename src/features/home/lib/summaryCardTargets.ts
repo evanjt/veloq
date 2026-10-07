@@ -4,7 +4,7 @@
  * and a `MetricId` added without a row here fails to compile.
  */
 
-import type { MetricId } from '@/features/home/store';
+import type { MetricId } from '@/features/settings';
 import { fitnessTarget } from '@/shared/app/fitnessEntry';
 import { trainingTarget } from '@/shared/app/trainingEntry';
 

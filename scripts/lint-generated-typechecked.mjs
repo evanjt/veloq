@@ -19,6 +19,8 @@ const offenders = [...treeSources(root, [dir])]
 if (offenders.length > 0) {
   console.error('generated bindings opt out of the typecheck with @ts-nocheck:');
   for (const name of offenders) console.error(`  modules/veloqrs/src/generated/${name}`);
-  console.error('set strictTypeChecking = true in modules/veloqrs/rust/veloqrs/uniffi.toml and regenerate.');
+  console.error(
+    'set strictTypeChecking = true in modules/veloqrs/rust/veloqrs/uniffi.toml and regenerate.'
+  );
   process.exit(1);
 }

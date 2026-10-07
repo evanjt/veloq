@@ -15,8 +15,6 @@ import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated'
  *
  * `preComputedActivityCount` lets a caller that already read the count as part
  * of a screen bundle skip this hook's own FFI call.
- *
- * @returns Number of days, or the default activity window when no data
  */
 export function useCacheDays(preComputedActivityCount?: number): number {
   const oldest = useSyncDateRange((s) => s.oldest);

@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 import {
   colors,
   darkColors,
@@ -69,6 +69,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
       </View>
       {selectedVolume ? (
         <Pressable
+          android_ripple={pressRipple}
           accessibilityRole="button"
           style={pressable(styles.subtitleRow)}
           onPress={onClearSelection}

@@ -43,7 +43,7 @@ jest.mock('@/features/routes/components/DateRangeSummary', () => ({
 }));
 jest.mock('@/features/routes/components/SyncDebugTab', () => ({ SyncDebugTab: () => null }));
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
-  useCustomSections: () => ({ count: 0 }),
+  useSectionCommands: () => ({ removeSection: jest.fn() }),
 }));
 jest.mock('@/features/routes/hooks/useRoutesScreenData', () => ({
   useRoutesScreenData: () => ({ data: { groups: [], activityCount: 0 } }),

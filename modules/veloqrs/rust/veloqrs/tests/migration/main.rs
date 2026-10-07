@@ -33,6 +33,9 @@ mod migration_section_numbers;
 #[path = "../migration_hr_zone_backfill.rs"]
 mod migration_hr_zone_backfill;
 
+#[path = "../migration_geocoded_places.rs"]
+mod migration_geocoded_places;
+
 #[path = "../migration_job_runs.rs"]
 mod migration_job_runs;
 

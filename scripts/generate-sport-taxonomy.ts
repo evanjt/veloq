@@ -11,7 +11,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { trackedText } from './lib/indexedSources.mjs';
-import { readRustSportDisplayGroups, readRustSportFamilies, renderSportTaxonomy } from './lib/sportTaxonomy';
+import {
+  readRustSportDisplayGroups,
+  readRustSportFamilies,
+  renderSportTaxonomy,
+} from './lib/sportTaxonomy';
 
 const REPO = path.resolve(__dirname, '..');
 const RUST = 'modules/veloqrs/rust/veloqrs/src/sport.rs';
@@ -19,8 +23,13 @@ const OUT_REL = 'src/shared/native/sportTaxonomy.generated.ts';
 const OUT = path.join(REPO, OUT_REL);
 
 const CHECK = process.argv.includes('--check');
-const source = CHECK ? (trackedText(REPO, RUST) ?? '') : fs.readFileSync(path.join(REPO, RUST), 'utf-8');
-const rendered = renderSportTaxonomy(readRustSportFamilies(source), readRustSportDisplayGroups(source));
+const source = CHECK
+  ? (trackedText(REPO, RUST) ?? '')
+  : fs.readFileSync(path.join(REPO, RUST), 'utf-8');
+const rendered = renderSportTaxonomy(
+  readRustSportFamilies(source),
+  readRustSportDisplayGroups(source)
+);
 
 if (CHECK) {
   const current = trackedText(REPO, OUT_REL) ?? '';

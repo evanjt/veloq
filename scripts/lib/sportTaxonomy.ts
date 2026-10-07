@@ -31,7 +31,16 @@ export type SportDisplayGroups = Record<
 >;
 
 const DISPLAY_NAMES = [
-  'Ride', 'Run', 'Swim', 'Walk', 'Hike', 'Snow', 'Water', 'Gym', 'Racket', 'Other',
+  'Ride',
+  'Run',
+  'Swim',
+  'Walk',
+  'Hike',
+  'Snow',
+  'Water',
+  'Gym',
+  'Racket',
+  'Other',
 ] as const;
 
 /** Read each display group from the same Rust constants used by map counts. */
@@ -44,7 +53,11 @@ export function readRustSportDisplayGroups(source: string): SportDisplayGroups {
   };
   const groups: Partial<SportDisplayGroups> = {};
   for (const name of DISPLAY_NAMES) {
-    const match = source.match(new RegExp(`pub const DISPLAY_${name.toUpperCase()}: &\\[&str\\] = (?:&\\[([\\s\\S]*?)\\]|([A-Z]+));`));
+    const match = source.match(
+      new RegExp(
+        `pub const DISPLAY_${name.toUpperCase()}: &\\[&str\\] = (?:&\\[([\\s\\S]*?)\\]|([A-Z]+));`
+      )
+    );
     if (!match) throw new Error(`sport.rs declares no display group ${name}`);
     const sports = match[2]
       ? aliases[match[2]]
@@ -81,7 +94,10 @@ function renderList(name: string, sports: readonly string[]): string[] {
 }
 
 /** The generated module, byte for byte. */
-export function renderSportTaxonomy(taxonomy: SportTaxonomy, displayGroups: SportDisplayGroups): string {
+export function renderSportTaxonomy(
+  taxonomy: SportTaxonomy,
+  displayGroups: SportDisplayGroups
+): string {
   const lines = (Object.keys(taxonomy) as (keyof SportTaxonomy)[]).flatMap((name) =>
     renderList(name, taxonomy[name])
   );

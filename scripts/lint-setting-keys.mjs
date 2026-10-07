@@ -65,12 +65,7 @@ function stripCasts(node) {
 }
 
 function preferenceKeys(file) {
-  const source = ts.createSourceFile(
-    file,
-    tree.text(file),
-    ts.ScriptTarget.Latest,
-    true
-  );
+  const source = ts.createSourceFile(file, tree.text(file), ts.ScriptTarget.Latest, true);
   const arrays = new Map();
   for (const statement of source.statements) {
     if (!ts.isVariableStatement(statement)) continue;

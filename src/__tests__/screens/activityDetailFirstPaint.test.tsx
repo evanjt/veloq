@@ -119,6 +119,8 @@ jest.mock('@/features/maps', () => ({
     mockCached.has(`${id}-${style}-${is3D}`),
   getTerrainPreviewUri: (id: string, style: string, is3D: boolean) =>
     `file:///previews/${id}-${style}-${is3D}.jpg`,
+}));
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'light',
     getTerrain3DMode: () => 'off',

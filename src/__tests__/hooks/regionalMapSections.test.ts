@@ -12,7 +12,7 @@
 
 import { renderHook } from '@testing-library/react-native';
 import { useMapGeoJSON } from '@/features/maps/components/regional/useMapGeoJSON';
-import type { MapSection } from '@/features/routes/hooks';
+import type { MapSection } from '@/features/maps/hooks/useEngineMapActivities';
 
 /**
  * The overlay's own record: six fields and a line. It used to be built from the

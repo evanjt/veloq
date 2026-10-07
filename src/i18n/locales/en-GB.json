@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "Increase",
-    "decrease": "Decrease",
-    "repositoryFor": "Repository for {{name}}"
-  },
   "about": {
     "dataAttribution": "Data Attribution",
     "description": "A fast mobile client for intervals.icu with a focus on maps and visual analytics.",
@@ -1475,7 +1470,9 @@
     "trendingSlower": "Trending slower",
     "renameFailedTitle": "Name could not be saved",
     "renameFailedMessage": "The section name was not saved. Please try again.",
-    "nameTaken": "Another section already has this name. Choose a different name."
+    "nameTaken": "Another section already has this name. Choose a different name.",
+    "undoExcludeLap": "Undo Lap {{n}}",
+    "excludeLapNumber": "Exclude Lap {{n}}"
   },
   "settings": {
     "developerDashboard": "Developer Dashboard",
@@ -2117,7 +2114,8 @@
     "kind_absorbed": "Another section merged into this one",
     "splitFrom": "Split from",
     "splitInto": "Split into",
-    "unavailable": "Section unavailable"
+    "unavailable": "Section unavailable",
+    "revertVersion": "Revert Version {{version}}"
   },
   "namedCorridors": {
     "title": "Names you gave",

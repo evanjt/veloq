@@ -1,3 +1,21 @@
+export {
+  MapPreferencesProvider,
+  useMapPreferences,
+  useMapPreferenceActions,
+  forgetActivityMapOverrides,
+} from './stores/MapPreferencesContext';
+export {
+  useDashboardPreferences,
+  initializeDashboardPreferences,
+  getMetricDefinition,
+  AVAILABLE_METRICS,
+  HERO_METRICS,
+  isHeroMetricId,
+  type HeroMetricId,
+  type MetricId,
+  type MetricDefinition,
+  type SummaryCardPreferences,
+} from './stores/summaryCardPreferences';
 export { useBackgroundJobs } from './hooks/useBackgroundJobs';
 export type { BackgroundJob, BackgroundJobId, BackgroundJobState } from './hooks/useBackgroundJobs';
 export { useNotificationPreferences } from './stores/NotificationPreferencesStore';

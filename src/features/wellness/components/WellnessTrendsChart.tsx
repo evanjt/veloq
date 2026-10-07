@@ -1,10 +1,9 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useSharedValue, runOnJS } from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useTheme } from '@/shared/app';
 import {
@@ -17,7 +16,7 @@ import {
   colorWithOpacity,
   ink,
 } from '@/theme';
-import { useChartColors } from '@/shared/charts';
+import { useChartColors, useChartGestures } from '@/shared/charts';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { toDisplayWeight, weightUnitLabel } from '@/shared/format/weight';
@@ -30,7 +29,6 @@ import {
 import type { WellnessData } from '@/types';
 
 import type { TimeRange } from '../hooks';
-import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 interface WellnessTrendsChartProps {
   data?: WellnessData[] | undefined;
@@ -131,12 +129,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   const { isDark } = useTheme();
   const chartColors = useChartColors();
   const isMetric = useMetricSystem();
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
-
-  // Shared values for gesture
-  const activeX = useSharedValue(0);
-  const isActive = useSharedValue(false);
 
   // Calculate effective smoothing window
   const effectiveWindow = useMemo(
@@ -288,6 +281,50 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
   const sparklineHeight = 50;
 
+  // Where each day sits across the whole row, so the shared scrub snaps to the
+  // day under the finger and the hold gives the same tick as every other chart.
+  const dayXCoords = useMemo(() => {
+    if (chartWidth <= 0 || totalDays <= 0) return [];
+    const xRange = Math.max(totalDays - 1, 1);
+    const plotWidth = chartWidth - SPARKLINE_PADDING.left - SPARKLINE_PADDING.right;
+    return sortedData.map(
+      (_, idx) => leftPadding + SPARKLINE_PADDING.left + (idx / xRange) * plotWidth
+    );
+  }, [chartWidth, totalDays, leftPadding, sortedData]);
+
+  const handleSelect = useCallback(
+    (day: WellnessData) => {
+      onDateSelect?.(day.id);
+    },
+    [onDateSelect]
+  );
+
+  const handleInteractionChange = useCallback(
+    (active: boolean) => {
+      if (!active) onDateSelect?.(null);
+    },
+    [onDateSelect]
+  );
+
+  const {
+    gesture,
+    selectedPoint: selectedDay,
+    syncXCoords,
+  } = useChartGestures<WellnessData>({
+    data: sortedData,
+    onSelect: handleSelect,
+    onInteractionChange: handleInteractionChange,
+  });
+
+  useEffect(() => {
+    syncXCoords(dayXCoords, (x) => x);
+  }, [syncXCoords, dayXCoords]);
+
+  const selectedIdx = useMemo(
+    () => (selectedDay ? sortedData.indexOf(selectedDay) : null),
+    [selectedDay, sortedData]
+  );
+
   // Geometry is what the scrub does not move, so it is built once per data or
   // layout change and both pictures below read it.
   const metricGeometry = useMemo(() => {
@@ -411,57 +448,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     [activeMetrics]
   );
 
-  const updateSelectedIdx = useCallback(
-    (x: number) => {
-      if (chartWidth <= 0 || totalDays <= 0) return;
-      const relativeX = x - leftPadding;
-      const ratio = Math.max(0, Math.min(1, relativeX / chartWidth));
-      const idx = Math.round(ratio * (totalDays - 1));
-      setSelectedIdx(idx);
-      if (onDateSelect && sortedData[idx]) {
-        onDateSelect(sortedData[idx].id);
-      }
-    },
-    [chartWidth, totalDays, leftPadding, onDateSelect, sortedData]
-  );
-
-  const clearSelection = useCallback(() => {
-    setSelectedIdx(null);
-    onDateSelect?.(null);
-  }, [onDateSelect]);
-
-  // Rebuilding the gesture each render hands the detector a new handler on
-  // every scrub tick, so it is built once per callback change.
-  const gesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .onStart((e) => {
-          isActive.value = true;
-          activeX.value = e.x;
-          runOnJS(updateSelectedIdx)(e.x);
-        })
-        .onUpdate((e) => {
-          activeX.value = e.x;
-          runOnJS(updateSelectedIdx)(e.x);
-        })
-        .onEnd(() => {
-          isActive.value = false;
-          runOnJS(clearSelection)();
-        })
-        .minDistance(0)
-        .activateAfterLongPress(PREVIEW_HOLD_MS),
-    [updateSelectedIdx, clearSelection, isActive, activeX]
-  );
-
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setContainerWidth(e.nativeEvent.layout.width);
   }, []);
 
-  // Selected date for header
-  const selectedDate = useMemo(() => {
-    if (selectedIdx === null || !sortedData[selectedIdx]) return null;
-    return sortedData[selectedIdx].id;
-  }, [selectedIdx, sortedData]);
+  const selectedDate = selectedDay?.id ?? null;
 
   if (!data || data.length === 0 || !hasAnyData) {
     return (

@@ -10,6 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { colors, mapLayerColors, spacing, layout, colorWithOpacity, ink } from '@/theme';
+import { useMapPreferences } from '@/features/settings';
 import {
   BaseMapView,
   boundsOfLngLat,
@@ -22,7 +23,6 @@ import {
   MapSurface,
   pointFeature,
   useDrawnMapStyle,
-  useMapPreferences,
 } from '@/features/maps';
 import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
 

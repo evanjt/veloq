@@ -5,12 +5,15 @@ import { join, resolve } from 'node:path';
 const root = resolve(process.argv[2] ?? process.cwd());
 const ios = join(root, 'ios');
 const config = JSON.parse(readFileSync(join(root, 'app.json'), 'utf8'));
-const build = config.expo.plugins.find((plugin) =>
-  Array.isArray(plugin) && plugin[0] === 'expo-build-properties'
+const build = config.expo.plugins.find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-build-properties'
 );
 const configured = build?.[1]?.ios?.deploymentTarget;
 function version(value) {
-  const match = String(value).replaceAll('"', '').trim().match(/^(\d+)(?:\.(\d+))?$/);
+  const match = String(value)
+    .replaceAll('"', '')
+    .trim()
+    .match(/^(\d+)(?:\.(\d+))?$/);
   return match ? Number(match[1]) * 100 + Number(match[2] ?? 0) : NaN;
 }
 

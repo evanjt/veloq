@@ -10,7 +10,7 @@ import type { Activity, ActivityDetail } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'satellite',
     getTerrain3DMode: () => 'smart',
@@ -27,8 +27,6 @@ jest.mock('@/features/maps/components/ActivityMapView', () => {
 });
 jest.mock('@/features/strength', () => ({
   StrengthActivityCard: () => null,
-  useExerciseSets: () => ({ data: [] }),
-  useMuscleGroups: () => ({ data: [] }),
 }));
 
 const activity = {

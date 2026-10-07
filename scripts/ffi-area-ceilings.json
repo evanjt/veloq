@@ -137,7 +137,6 @@
     "SectionManager.getGeometryVersionCoords",
     "SectionManager.getGeometryVersions",
     "SectionManager.getHistory",
-    "SectionManager.getMapSections",
     "SectionManager.getNamedCorridors",
     "SectionManager.getPinnedVersion",
     "SectionManager.getReferenceInfo",

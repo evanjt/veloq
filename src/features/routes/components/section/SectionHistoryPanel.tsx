@@ -240,7 +240,7 @@ export function SectionHistoryPanel({
                     testID={`section-version-${v.version}-revert`}
                     style={[styles.pill, isDark && styles.pillDark]}
                     accessibilityRole="button"
-                    accessibilityLabel={`${t('sectionHistory.revert')} ${t('sectionHistory.version', { version: v.version })}`}
+                    accessibilityLabel={t('sectionHistory.revertVersion', { version: v.version })}
                     onPress={() => onRevert(v.version)}
                     activeOpacity={0.7}
                   >

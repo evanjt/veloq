@@ -9,7 +9,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
 import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 import { muscleName } from '../lib/muscleNames';
 
@@ -36,6 +36,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
       </Text>
       {exerciseSummary.exercises.map((exercise, index) => (
         <Pressable
+          android_ripple={pressRipple}
           key={exercise.exerciseCategory}
           style={pressable([
             styles.item,

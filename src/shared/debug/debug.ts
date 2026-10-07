@@ -39,8 +39,7 @@ export const debug = {
   error: createLogger('error'),
 
   /**
-   * Create a namespaced logger for a specific module
-   * @example
+   * Create a namespaced logger for a specific module, used as:
    * const log = debug.create('RouteMatching');
    * log.log('Processing activity'); // [RouteMatching] Processing activity
    */

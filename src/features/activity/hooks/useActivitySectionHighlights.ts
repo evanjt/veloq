@@ -2,6 +2,9 @@
  * Batch-fetches section indicators (from materialized table) and route highlights
  * (computed inline) for a list of activity IDs.
  *
+ * The same read carries the strength cards of the feed, which draw whether or not route
+ * matching is on; the switch only withholds the section and route highlights.
+ *
  * Section indicators: read from the `activity_indicators` table through
  * `getActivityHighlightsBundle`.
  * Route highlights: computed inline from groups + activity_metrics via getActivityRouteHighlights().
@@ -21,6 +24,8 @@ import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ActivitySectionHighlights');
+
+const NO_STRENGTH_CARDS: ActivityHighlightsBundle['strengthCards'] = [];
 
 export interface ActivitySectionHighlight {
   sectionId: string;
@@ -99,8 +104,10 @@ export function useActivitySectionHighlights(
 ): {
   sections: Map<string, ActivitySectionHighlight[]>;
   routes: Map<string, ActivityRouteHighlight>;
+  strengthCards: ActivityHighlightsBundle['strengthCards'];
 } {
-  const readHighlights = useEngineRead(['sections', 'groups', 'activities']);
+  // `fitParsed` because a FIT landing turns an owed strength card into a drawn one.
+  const readHighlights = useEngineRead(['sections', 'groups', 'activities', 'fitParsed']);
   const sectionIdentity = useRef(
     new Map<string, { key: string; value: ActivitySectionHighlight[] }>()
   );
@@ -115,9 +122,11 @@ export function useActivitySectionHighlights(
     const empty = {
       sections: new Map<string, ActivitySectionHighlight[]>(),
       routes: new Map<string, ActivityRouteHighlight>(),
+      strengthCards: NO_STRENGTH_CARDS,
     };
 
-    if (!isRouteMatchingEnabled() || ids.length === 0) return empty;
+    if (ids.length === 0) return empty;
+    const matching = isRouteMatchingEnabled();
 
     try {
       // Single FFI call returns both section indicators and route highlights,
@@ -127,8 +136,8 @@ export function useActivitySectionHighlights(
         bundle = readHighlights((engine) => engine.getActivityHighlightsBundle(ids));
         if (!bundle) return empty;
       }
-      const indicators = bundle.indicators;
-      const rawRoutes = bundle.routeHighlights;
+      const indicators = matching ? bundle.indicators : [];
+      const rawRoutes = matching ? bundle.routeHighlights : [];
       const sectionMap = new Map<string, ActivitySectionHighlight[]>();
 
       for (const ind of indicators) {
@@ -206,7 +215,7 @@ export function useActivitySectionHighlights(
         // eslint-disable-next-line react-hooks/refs
         routeMap.set(id, carry(routeIdentity.current, id, highlight, routeKey(highlight)));
       }
-      return { sections: sectionMap, routes: routeMap };
+      return { sections: sectionMap, routes: routeMap, strengthCards: bundle.strengthCards };
     } catch (e) {
       if (__DEV__) {
         console.warn('[Indicators] Failed:', e);

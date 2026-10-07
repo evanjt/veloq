@@ -17,7 +17,9 @@ const GUARDED = /\$\{(\w+)\[[@*]\]\+"\$\{\1\[[@*]\]\}"\}/g;
 const BARE = /\$\{(\w+)\[[@*]\]\}/;
 
 // No Maestro directory is an empty listing, and nothing to check.
-const files = [...treeSources(root, ['.maestro'])].filter(([name]) => /^\.maestro\/[^/]+\.sh$/.test(name));
+const files = [...treeSources(root, ['.maestro'])].filter(([name]) =>
+  /^\.maestro\/[^/]+\.sh$/.test(name)
+);
 
 const failures = [];
 for (const [path, bytes] of files) {

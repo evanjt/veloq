@@ -12,7 +12,7 @@ import type { SummaryCardData as EngineSummaryCardData } from 'veloqrs';
 import { renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
-import { useDashboardPreferences } from '@/features/home/store';
+import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
 import { formZoneTextColor } from '@/features/fitness/lib/fitness';
 import { getEngine } from '@/shared/native/engine';
 

@@ -18,7 +18,10 @@ import { activityTypeColors } from '@/theme/colors';
 import { widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
-import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
+import {
+  useDashboardPreferences,
+  type SummaryCardPreferences,
+} from '@/features/settings/stores/summaryCardPreferences';
 
 /**
  * One recent sport: the id, the name a surface shows, and the deep link that

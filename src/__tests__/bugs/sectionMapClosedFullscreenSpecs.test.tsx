@@ -34,7 +34,7 @@ jest.mock('@/features/routes/components/sectionMapLayerSpecs', () => {
   };
 });
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     preferences: { defaultStyle: 'light' },
     getStyleForActivity: () => 'light',

@@ -15,7 +15,7 @@ jest.mock('expo-router', () => ({
   useFocusEffect: () => {},
 }));
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
-  useCustomSections: () => ({ removeSection: jest.fn(), renameSection: jest.fn() }),
+  useSectionCommands: () => ({ removeSection: jest.fn(), renameSection: jest.fn() }),
 }));
 
 let mockHold: string | null = null;

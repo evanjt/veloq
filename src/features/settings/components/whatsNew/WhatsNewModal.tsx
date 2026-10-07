@@ -17,7 +17,7 @@ import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, ink, colorWithOpacity } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useMapPreferenceActions } from '@/features/maps';
+import { useMapPreferenceActions } from '../../stores/MapPreferencesContext';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { useCutoverSummary } from '@/features/routes';
 import { cutoverHasChangesToShow } from '@/features/settings/lib/cutoverShowMe';

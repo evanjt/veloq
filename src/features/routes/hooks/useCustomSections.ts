@@ -71,74 +71,18 @@ function toAppSections(sections: NativeSection[]): Section[] {
   })) as Section[];
 }
 
+export type SectionCommands = Pick<
+  UseCustomSectionsResult,
+  'createSection' | 'removeSection' | 'renameSection'
+>;
+
 /**
- * Hook for managing custom sections with React Query caching.
- * Uses Rust engine unified sections table.
+ * The custom section commands without the list read. A caller that only
+ * creates, deletes or renames takes no engine read on mount, so a screen whose
+ * own read already carries its sections stays one read.
  */
-export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
-  const { sportType, enabled = true, preComputedSections } = options;
+export function useSectionCommands(): SectionCommands {
   const queryClient = useQueryClient();
-
-  // A caller that already read the sections owns the answer. Seeding the query
-  // was not enough: a cache another screen primed wins over `initialData`, so
-  // the bundle's list was dropped and the engine read anyway.
-  const skipOwnFfiCall = preComputedSections !== undefined;
-
-  // Load custom sections from unified sections table
-  const {
-    data: rawSections,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery<Section[]>({
-    ...LOCAL_READ_QUERY,
-    queryKey: queryKeys.sections.custom,
-    enabled: enabled && !skipOwnFfiCall,
-    queryFn: async () => {
-      const engine = getEngine();
-      if (!engine) {
-        return [];
-      }
-
-      // Get custom sections from unified table
-      return toAppSections(engine.getSectionsByType('custom'));
-    },
-    // SQLite is the source and the engine says when it moved, so the clock
-    // only bounds how long a read that missed the announcement can be wrong.
-    // An edit used to sit unread for the whole five minutes.
-    staleTime: 1000 * 60 * 5,
-  });
-
-  // The engine's own announcement, which a rename, a trim or a detection apply
-  // all raise. Without it this read was refreshed by nothing at all.
-  const sectionsTrigger = useEngineSubscription(['sections']);
-  const firstTrigger = useRef(sectionsTrigger);
-  useEffect(() => {
-    if (sectionsTrigger === firstTrigger.current) return;
-    void queryClient.invalidateQueries({ queryKey: queryKeys.sections.custom });
-  }, [queryClient, sectionsTrigger]);
-
-  const preComputed = useMemo(
-    () => (preComputedSections ? toAppSections(preComputedSections) : undefined),
-    [preComputedSections]
-  );
-
-  // Filter and sort sections
-  const sections = useMemo(() => {
-    let filtered = preComputed ?? rawSections ?? [];
-
-    // A sport keeps the sections it has taken, whichever sport took them most.
-    if (sportType) {
-      filtered = filtered.filter((s) => s.sportTypes.includes(sportType));
-    }
-
-    // Sort by creation date (newest first)
-    filtered = [...filtered].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-    return filtered;
-  }, [preComputed, rawSections, sportType]);
 
   // Invalidate queries after mutations
   const invalidate = useCallback(async () => {
@@ -243,6 +187,82 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     [invalidate]
   );
 
+  return useMemo(
+    () => ({ createSection, removeSection, renameSection }),
+    [createSection, removeSection, renameSection]
+  );
+}
+
+/**
+ * Hook for managing custom sections with React Query caching.
+ * Uses Rust engine unified sections table.
+ */
+export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
+  const { sportType, enabled = true, preComputedSections } = options;
+  const queryClient = useQueryClient();
+  const commands = useSectionCommands();
+
+  // A caller that already read the sections owns the answer. Seeding the query
+  // was not enough: a cache another screen primed wins over `initialData`, so
+  // the bundle's list was dropped and the engine read anyway.
+  const skipOwnFfiCall = preComputedSections !== undefined;
+
+  // Load custom sections from unified sections table
+  const {
+    data: rawSections,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery<Section[]>({
+    ...LOCAL_READ_QUERY,
+    queryKey: queryKeys.sections.custom,
+    enabled: enabled && !skipOwnFfiCall,
+    queryFn: async () => {
+      const engine = getEngine();
+      if (!engine) {
+        return [];
+      }
+
+      // Get custom sections from unified table
+      return toAppSections(engine.getSectionsByType('custom'));
+    },
+    // SQLite is the source and the engine says when it moved, so the clock
+    // only bounds how long a read that missed the announcement can be wrong.
+    // An edit used to sit unread for the whole five minutes.
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // The engine's own announcement, which a rename, a trim or a detection apply
+  // all raise. Without it this read was refreshed by nothing at all.
+  const sectionsTrigger = useEngineSubscription(['sections']);
+  const firstTrigger = useRef(sectionsTrigger);
+  useEffect(() => {
+    if (sectionsTrigger === firstTrigger.current) return;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.sections.custom });
+  }, [queryClient, sectionsTrigger]);
+
+  const preComputed = useMemo(
+    () => (preComputedSections ? toAppSections(preComputedSections) : undefined),
+    [preComputedSections]
+  );
+
+  // Filter and sort sections
+  const sections = useMemo(() => {
+    let filtered = preComputed ?? rawSections ?? [];
+
+    // A sport keeps the sections it has taken, whichever sport took them most.
+    if (sportType) {
+      filtered = filtered.filter((s) => s.sportTypes.includes(sportType));
+    }
+
+    // Sort by creation date (newest first)
+    filtered = [...filtered].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return filtered;
+  }, [preComputed, rawSections, sportType]);
+
   // Refresh
   const refresh = useCallback(async () => {
     await refetch();
@@ -253,9 +273,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     count: sections.length,
     isLoading,
     error: error as Error | null,
-    createSection,
-    removeSection,
-    renameSection,
+    ...commands,
     refresh,
   };
 }

@@ -33,14 +33,13 @@ import {
   colorWithOpacity,
   mapTextShadow,
 } from '@/theme';
-import { type TerrainSnapshotWebViewRef, useMapPreferences } from '@/features/maps';
+import { useMapPreferences } from '@/features/settings';
+import { type TerrainSnapshotWebViewRef } from '@/features/maps';
 import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/features/home';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
 import { StrengthActivityCard, type StrengthCardData } from '@/features/strength';
-import type { ExtendedBodyPart } from 'react-native-body-highlighter';
-import { useExerciseSets, useMuscleGroups } from '@/features/strength';
 import { debug } from '@/shared/debug/debug';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 import { reportFeedDismissed } from '@/shared/native/feedSeen';
@@ -63,6 +62,8 @@ interface ActivityCardProps {
   startupTrack?: PreviewTrack | undefined;
   /** Whether snapshot WebView workers are ready */
   snapshotReady?: boolean | undefined;
+  /** What a strength card paints, from the feed's one batched read. Absent draws an ordinary card. */
+  strengthData?: StrengthCardData | undefined;
   /** The activity arrived since the athlete last looked: draws the gold ring */
   isNew?: boolean | undefined;
   /** Called after a tap has told the engine to drop this card's ring */
@@ -186,6 +187,7 @@ export const ActivityCard = React.memo(
     snapshotReady,
     sectionHighlights,
     routeHighlight,
+    strengthData,
     isNew,
     onNewDismissed,
   }: ActivityCardProps) {
@@ -361,28 +363,9 @@ export const ActivityCard = React.memo(
       />
     );
 
-    // Strength card: auto-fetch exercise data (like map previews for GPS activities)
+    // The feed reads every strength card's summary in one engine call and hands
+    // each card its own.
     const isStrength = activity.type === 'WeightTraining';
-    const { data: exerciseSets, session } = useExerciseSets(activity.id, activity.type);
-    const hasExercises = (exerciseSets?.length ?? 0) > 0;
-    const { data: muscleGroups, error: musclesError } = useMuscleGroups(activity.id, hasExercises);
-
-    const strengthData = React.useMemo<StrengthCardData | null>(() => {
-      if (!isStrength || !exerciseSets || exerciseSets.length === 0) return null;
-      if (session.activeSetCount === 0) return null;
-      return {
-        muscles: (muscleGroups ?? []).map(
-          (g): ExtendedBodyPart => ({
-            slug: g.slug as NonNullable<ExtendedBodyPart['slug']>,
-            intensity: g.intensity,
-          })
-        ),
-        ...(musclesError ? { musclesError } : {}),
-        exerciseCount: session.exerciseCount,
-        setCount: session.activeSetCount,
-        totalWeight: session.totalVolumeKg,
-      };
-    }, [isStrength, exerciseSets, session, muscleGroups, musclesError]);
 
     if (isStrength && strengthData) {
       return <StrengthActivityCard activity={activity} strengthData={strengthData} />;
@@ -752,6 +735,7 @@ export const ActivityCard = React.memo(
           prev.snapshotReady,
           prev.sectionHighlights,
           prev.routeHighlight,
+          prev.strengthData,
           prev.isNew,
         ],
       },
@@ -764,6 +748,7 @@ export const ActivityCard = React.memo(
           next.snapshotReady,
           next.sectionHighlights,
           next.routeHighlight,
+          next.strengthData,
           next.isNew,
         ],
       }

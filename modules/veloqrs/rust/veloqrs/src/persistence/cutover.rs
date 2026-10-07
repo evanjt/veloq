@@ -1238,6 +1238,20 @@ pub fn run_cutover_with(
     run_cutover_claimed(engine_install(), should_stop)
 }
 
+/// Put the engine on the groups the cutover's detect committed, if it
+/// committed any. The detect writes groups on its own connection and leaves the
+/// adopt to the caller it hands its result to, which a wait that gave up never
+/// reaches.
+///
+/// Every group write advances the stored generation, so a commit is the only
+/// thing a reload could pick up. The lock take follows a commit it was told of
+/// before this runs, and following again here reads the generation once and
+/// reloads only when it still differs, rather than loading the groups and the
+/// registry a second time under the same hold.
+pub(crate) fn adopt_detect_groups(install: u64) {
+    with_persistent_engine_for(install, |e| e.follow_committed_groups());
+}
+
 /// The run itself, with [`CUTOVER_RUNNING`] already claimed by the caller.
 fn run_cutover_claimed(
     install: u64,
@@ -1400,7 +1414,7 @@ fn run_cutover_claimed_with(
     // to. Adopted here, whatever the wait answered, so a run that stops or
     // fails from here on does not leave the engine regrouping over the
     // catalogue the detect replaced.
-    with_persistent_engine_for(install, |e| e.adopt_committed_groups());
+    adopt_detect_groups(install);
     let ((sections, processed_ids), cache_update) = match waited {
         Ok(answer) => answer,
         Err(e) if e == DETECT_CANCELLED => {

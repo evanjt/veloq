@@ -32,8 +32,21 @@ const TOLERANCE = 0.0015;
 // Muscles the app can attribute work to. The package also ships head, hair, hands,
 // feet, ankles, knees, neck and tibialis, which are drawn but never tappable.
 const MUSCLE_SLUGS = new Set([
-  'abs', 'adductors', 'biceps', 'calves', 'chest', 'deltoids', 'forearm', 'gluteal',
-  'hamstring', 'lower-back', 'obliques', 'quadriceps', 'trapezius', 'triceps', 'upper-back',
+  'abs',
+  'adductors',
+  'biceps',
+  'calves',
+  'chest',
+  'deltoids',
+  'forearm',
+  'gluteal',
+  'hamstring',
+  'lower-back',
+  'obliques',
+  'quadriceps',
+  'trapezius',
+  'triceps',
+  'upper-back',
 ]);
 
 // ---------------------------------------------------------------- path parsing
@@ -53,7 +66,11 @@ function tokenise(d) {
   const sep = /[\s,]*/y;
   let i = 0;
   let cmd = null;
-  const eatSep = () => { sep.lastIndex = i; sep.exec(d); i = sep.lastIndex; };
+  const eatSep = () => {
+    sep.lastIndex = i;
+    sep.exec(d);
+    i = sep.lastIndex;
+  };
   const eatNum = () => {
     eatSep();
     num.lastIndex = i;
@@ -70,7 +87,10 @@ function tokenise(d) {
       cmd = d[i];
       i += 1;
       out.push(cmd);
-      if (cmd === 'Z' || cmd === 'z') { cmd = null; continue; }
+      if (cmd === 'Z' || cmd === 'z') {
+        cmd = null;
+        continue;
+      }
     } else if (cmd === null) {
       i += 1;
       continue;
@@ -102,8 +122,12 @@ function parsePath(d) {
   const subpaths = [];
   let cur = null;
   let cmd = null;
-  let x = 0, y = 0, sx = 0, sy = 0;
-  let px = 0, py = 0; // previous control point, for S/T
+  let x = 0,
+    y = 0,
+    sx = 0,
+    sy = 0;
+  let px = 0,
+    py = 0; // previous control point, for S/T
   let i = 0;
 
   const push = (c) => {
@@ -116,8 +140,13 @@ function parsePath(d) {
       cmd = t[i];
       i += 1;
       if (cmd === 'Z' || cmd === 'z') {
-        if (cur) { cur.closed = true; subpaths.push(cur); cur = null; }
-        x = sx; y = sy;
+        if (cur) {
+          cur.closed = true;
+          subpaths.push(cur);
+          cur = null;
+        }
+        x = sx;
+        y = sy;
         continue;
       }
     }
@@ -128,14 +157,19 @@ function parsePath(d) {
     i += n;
 
     if (up === 'M') {
-      if (cur) { subpaths.push(cur); cur = null; }
+      if (cur) {
+        subpaths.push(cur);
+        cur = null;
+      }
       x = rel ? x + a[0] : a[0];
       y = rel ? y + a[1] : a[1];
-      sx = x; sy = y;
+      sx = x;
+      sy = y;
       cur = { start: [x, y], cmds: [] };
       // A repeated M parameter pair is an implicit L.
       cmd = rel ? 'l' : 'L';
-      px = x; py = y;
+      px = x;
+      py = y;
       continue;
     }
 
@@ -143,7 +177,10 @@ function parsePath(d) {
       const nx = up === 'V' ? x : rel ? x + a[0] : a[0];
       const ny = up === 'H' ? y : rel ? y + (up === 'V' ? a[0] : a[1]) : up === 'V' ? a[0] : a[1];
       push({ t: 'L', p: [nx, ny] });
-      x = nx; y = ny; px = x; py = y;
+      x = nx;
+      y = ny;
+      px = x;
+      py = y;
       continue;
     }
 
@@ -154,11 +191,15 @@ function parsePath(d) {
           ? [x + a[0], y + a[1], x + a[2], y + a[3], x + a[4], y + a[5]]
           : a;
       } else {
-        c1x = 2 * x - px; c1y = 2 * y - py;
+        c1x = 2 * x - px;
+        c1y = 2 * y - py;
         [c2x, c2y, nx, ny] = rel ? [x + a[0], y + a[1], x + a[2], y + a[3]] : a;
       }
       push({ t: 'C', p: [c1x, c1y, c2x, c2y, nx, ny] });
-      px = c2x; py = c2y; x = nx; y = ny;
+      px = c2x;
+      py = c2y;
+      x = nx;
+      y = ny;
       continue;
     }
 
@@ -167,11 +208,15 @@ function parsePath(d) {
       if (up === 'Q') {
         [cx, cy, nx, ny] = rel ? [x + a[0], y + a[1], x + a[2], y + a[3]] : a;
       } else {
-        cx = 2 * x - px; cy = 2 * y - py;
+        cx = 2 * x - px;
+        cy = 2 * y - py;
         [nx, ny] = rel ? [x + a[0], y + a[1]] : a;
       }
       push({ t: 'Q', p: [cx, cy, nx, ny] });
-      px = cx; py = cy; x = nx; y = ny;
+      px = cx;
+      py = cy;
+      x = nx;
+      y = ny;
       continue;
     }
 
@@ -180,7 +225,10 @@ function parsePath(d) {
       const nx = rel ? x + a[5] : a[5];
       const ny = rel ? y + a[6] : a[6];
       push({ t: 'A', p: [rx, ry, rot, laf, sf, nx, ny], from: [x, y] });
-      x = nx; y = ny; px = x; py = y;
+      x = nx;
+      y = ny;
+      px = x;
+      py = y;
       continue;
     }
   }
@@ -195,7 +243,10 @@ const lerp = (a, b, t) => a + (b - a) * t;
 function cubicAt(x0, y0, p, t) {
   const [c1x, c1y, c2x, c2y, x1, y1] = p;
   const u = 1 - t;
-  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+  const a = u * u * u,
+    b = 3 * u * u * t,
+    c = 3 * u * t * t,
+    d = t * t * t;
   return [a * x0 + b * c1x + c * c2x + d * x1, a * y0 + b * c1y + c * c2y + d * y1];
 }
 
@@ -209,16 +260,23 @@ function quadAt(x0, y0, p, t) {
 function arcAt(x0, y0, p, t) {
   let [rx, ry, rotDeg, laf, sf, x1, y1] = p;
   if (rx === 0 || ry === 0) return [lerp(x0, x1, t), lerp(y0, y1, t)];
-  rx = Math.abs(rx); ry = Math.abs(ry);
+  rx = Math.abs(rx);
+  ry = Math.abs(ry);
   const rot = (rotDeg * Math.PI) / 180;
-  const cos = Math.cos(rot), sin = Math.sin(rot);
-  const dx2 = (x0 - x1) / 2, dy2 = (y0 - y1) / 2;
+  const cos = Math.cos(rot),
+    sin = Math.sin(rot);
+  const dx2 = (x0 - x1) / 2,
+    dy2 = (y0 - y1) / 2;
   const x1p = cos * dx2 + sin * dy2;
   const y1p = -sin * dx2 + cos * dy2;
 
   // Scale radii up if they cannot span the endpoints.
   const lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
-  if (lambda > 1) { const s = Math.sqrt(lambda); rx *= s; ry *= s; }
+  if (lambda > 1) {
+    const s = Math.sqrt(lambda);
+    rx *= s;
+    ry *= s;
+  }
 
   const sign = laf === sf ? -1 : 1;
   const num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p;
@@ -262,9 +320,13 @@ function flattenCommand(c, x0, y0, tolView) {
   const rec = (t0, t1, p0, p1, depth) => {
     const tm = (t0 + t1) / 2;
     const pm = f(tm);
-    const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
+    const mx = (p0[0] + p1[0]) / 2,
+      my = (p0[1] + p1[1]) / 2;
     const err = Math.hypot(pm[0] - mx, pm[1] - my);
-    if (depth >= 10 || err <= tolView) { pts.push(p1); return; }
+    if (depth >= 10 || err <= tolView) {
+      pts.push(p1);
+      return;
+    }
     rec(t0, tm, p0, pm, depth + 1);
     rec(tm, t1, pm, p1, depth + 1);
   };
@@ -278,7 +340,8 @@ function flattenSubpath(sp, tolView) {
   for (const c of sp.cmds) {
     for (const p of flattenCommand(c, x, y, tolView)) ring.push(p);
     const last = ring[ring.length - 1];
-    x = last[0]; y = last[1];
+    x = last[0];
+    y = last[1];
   }
   return ring;
 }
@@ -334,7 +397,11 @@ const check = process.argv.includes('--check');
 // Format exactly as the pre-commit hook would, so --check never trips on whitespace.
 const prettier = require('prettier');
 const prettierConfig = {
-  ...JSON.parse(check ? trackedText(ROOT, 'config/.prettierrc') : readFileSync(join(ROOT, 'config/.prettierrc'), 'utf8')),
+  ...JSON.parse(
+    check
+      ? trackedText(ROOT, 'config/.prettierrc')
+      : readFileSync(join(ROOT, 'config/.prettierrc'), 'utf8')
+  ),
   parser: 'typescript',
 };
 const format = (text) => prettier.format(text, prettierConfig);
@@ -343,12 +410,17 @@ let failed = false;
 let totalPts = 0;
 
 for (const gender of ['male', 'female']) {
-  const f = require(`react-native-body-highlighter/dist/assets/${gender === 'male' ? 'bodyFront' : 'bodyFemaleFront'}.js`);
-  const b = require(`react-native-body-highlighter/dist/assets/${gender === 'male' ? 'bodyBack' : 'bodyFemaleBack'}.js`);
+  const f = require(
+    `react-native-body-highlighter/dist/assets/${gender === 'male' ? 'bodyFront' : 'bodyFemaleFront'}.js`
+  );
+  const b = require(
+    `react-native-body-highlighter/dist/assets/${gender === 'male' ? 'bodyBack' : 'bodyFemaleBack'}.js`
+  );
   const front = buildSide(Object.values(f)[0], 'front');
   const back = buildSide(Object.values(b)[0], 'back');
 
-  for (const d of [front, back]) for (const r of Object.values(d)) for (const p of r) totalPts += p.length;
+  for (const d of [front, back])
+    for (const r of Object.values(d)) for (const p of r) totalPts += p.length;
 
   const text = await format(emit(gender, front, back));
   const path = join(OUT_DIR, `${gender}.generated.ts`);
@@ -356,7 +428,9 @@ for (const gender of ['male', 'female']) {
     let existing = '';
     existing = trackedText(ROOT, relative(ROOT, path)) ?? ''; // missing counts as drift
     if (existing !== text) {
-      console.error(`muscle polygons: ${gender}.generated.ts is stale, re-run scripts/generate-muscle-polygons.mjs`);
+      console.error(
+        `muscle polygons: ${gender}.generated.ts is stale, re-run scripts/generate-muscle-polygons.mjs`
+      );
       failed = true;
     }
   } else {

@@ -199,10 +199,6 @@ async function fetchAndIngestActivity(
       // Attach the new activity to existing sections and route groups so its
       // PRs are present when the notification body queries the engine below.
       await indexActivity(engine, activityId);
-
-      // Only mounts the snapshot pool early on next open; it changes no order
-      const { addPendingSnapshot } = require('@/features/maps') as typeof import('@/features/maps');
-      addPendingSnapshot(activityId).catch(() => {});
     }
 
     return activityInfo;

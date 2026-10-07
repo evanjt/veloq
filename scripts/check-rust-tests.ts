@@ -21,9 +21,13 @@ import { dirname, join, resolve } from 'path';
 import { parseStagedList, stagedRustFiles } from './lib/rustFmtGate';
 
 function staged(): string[] {
-  const raw = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMRD', '-z'], {
-    encoding: 'utf-8',
-  });
+  const raw = execFileSync(
+    'git',
+    ['diff', '--cached', '--name-only', '--diff-filter=ACMRD', '-z'],
+    {
+      encoding: 'utf-8',
+    }
+  );
   return stagedRustFiles(parseStagedList(raw));
 }
 
@@ -58,7 +62,9 @@ if (!existsSync(submodule) || !existsSync(join(submodule, '.git'))) {
   console.error(`  git -C ${SUBMODULE} checkout "$sha"`);
   console.error('');
   console.error('Never cd into the empty directory to run git: it runs against this tree.');
-  console.error('Or drop this one gate and keep the rest: VELOQ_SKIP_GATES=rusttests git commit ...');
+  console.error(
+    'Or drop this one gate and keep the rest: VELOQ_SKIP_GATES=rusttests git commit ...'
+  );
   process.exit(1);
 }
 

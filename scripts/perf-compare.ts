@@ -91,12 +91,18 @@ function compare(current: BaselineEntry[], baseline: BaselineEntry[]): boolean {
     const arrow = change > 0 ? '\u2191' : change < 0 ? '\u2193' : '=';
 
     if (change > REGRESSION_THRESHOLD) {
-      console.log(`  FAIL ${entry.name}: ${baseMs}ms -> ${entry.durationMs}ms (${arrow}${changePercent}%)`);
+      console.log(
+        `  FAIL ${entry.name}: ${baseMs}ms -> ${entry.durationMs}ms (${arrow}${changePercent}%)`
+      );
       hasRegression = true;
     } else if (change < -REGRESSION_THRESHOLD) {
-      console.log(`  GOOD ${entry.name}: ${baseMs}ms -> ${entry.durationMs}ms (${arrow}${changePercent}%)`);
+      console.log(
+        `  GOOD ${entry.name}: ${baseMs}ms -> ${entry.durationMs}ms (${arrow}${changePercent}%)`
+      );
     } else {
-      console.log(`  OK   ${entry.name}: ${baseMs}ms -> ${entry.durationMs}ms (${arrow}${changePercent}%)`);
+      console.log(
+        `  OK   ${entry.name}: ${baseMs}ms -> ${entry.durationMs}ms (${arrow}${changePercent}%)`
+      );
     }
   }
 

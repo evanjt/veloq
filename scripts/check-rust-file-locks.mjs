@@ -13,7 +13,8 @@ const sourceRoot = process.argv.includes('--root')
   ? process.argv[process.argv.indexOf('--root') + 1]
   : 'modules/veloqrs/rust/veloqrs/src';
 const owner = /(^|\/)persistence\/file_lock\.rs$/;
-const fileReceiver = /\b\w*file\w*\s*\.\s*(?:try_lock|lock_shared|try_lock_shared|lock|unlock)\s*\(/gi;
+const fileReceiver =
+  /\b\w*file\w*\s*\.\s*(?:try_lock|lock_shared|try_lock_shared|lock|unlock)\s*\(/gi;
 const pathCall = /\bFile::(?:try_lock|lock_shared|try_lock_shared|lock|unlock)\b/g;
 
 function rustSources(dir) {

@@ -324,3 +324,103 @@ fn secondary_exercise_activity_uses_the_muscle_share() {
     assert_eq!(first.reps, 8.0);
     assert_eq!(first.volume_kg, 330.0);
 }
+
+#[test]
+fn test_card_summary_counts_active_sets_only_and_aggregates_muscles_once() {
+    let mut warmup = a_set(0, 20.0);
+    warmup.set_type = 2;
+    let sets = vec![warmup, a_set(1, 40.0), a_set(2, 42.5)];
+
+    let card = strength_card_summary("s1", &sets, false);
+
+    assert_eq!(card.activity_id, "s1");
+    assert!(card.settled, "stored sets settle the activity");
+    assert_eq!(card.active_set_count, 2);
+    assert_eq!(card.exercise_count, 1);
+    assert_eq!(card.total_volume_kg, 40.0 * 8.0 + 42.5 * 8.0);
+    let expected: Vec<(String, u8)> = fit::aggregate_muscle_groups(&sets)
+        .into_iter()
+        .map(|g| (g.slug, g.intensity))
+        .collect();
+    let muscles: Vec<(String, u8)> = card
+        .muscles
+        .into_iter()
+        .map(|g| (g.slug, g.intensity))
+        .collect();
+    assert_eq!(muscles, expected);
+    assert!(!muscles.is_empty());
+}
+
+#[test]
+fn test_card_summary_without_sets_is_settled_only_by_the_fit_outcome() {
+    let owed = strength_card_summary("s3", &[], false);
+    assert!(!owed.settled);
+    assert_eq!(owed.active_set_count, 0);
+    assert!(owed.muscles.is_empty());
+
+    let parsed_empty = strength_card_summary("s3", &[], true);
+    assert!(parsed_empty.settled);
+    assert_eq!(parsed_empty.active_set_count, 0);
+}
+
+#[test]
+fn test_strength_cards_carry_a_card_per_strength_activity_in_request_order() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("strength_bundle_cards.db");
+    seed_strength();
+    crate::with_persistent_engine(|e| e.mark_fit_outcome("s3", FitOutcome::Empty).unwrap())
+        .unwrap();
+    let strength = StrengthManager::new();
+
+    let ids: Vec<String> = ["s2", "r1", "s1", "s3", "gone"]
+        .into_iter()
+        .map(String::from)
+        .collect();
+    let cards = with_reader(|conn| strength_cards(conn, &ids)).unwrap();
+
+    let ids: Vec<&str> = cards.iter().map(|c| c.activity_id.as_str()).collect();
+    assert_eq!(
+        ids,
+        ["s2", "s1", "s3"],
+        "the ride and the unknown id have no card"
+    );
+    assert_eq!(
+        cards.iter().map(|c| c.settled).collect::<Vec<_>>(),
+        [true, true, true]
+    );
+    assert_eq!(
+        cards.iter().map(|c| c.active_set_count).collect::<Vec<_>>(),
+        [1, 2, 0]
+    );
+    let own_muscles = strength.get_muscle_groups("s1".into()).unwrap();
+    assert_eq!(
+        format!("{:?}", cards[1].muscles),
+        format!("{own_muscles:?}")
+    );
+}
+
+#[test]
+fn test_strength_cards_mark_a_strength_activity_owed_its_file_unsettled() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("strength_bundle_owed.db");
+    seed_strength();
+
+    let cards = with_reader(|conn| strength_cards(conn, &["s3".to_string()])).unwrap();
+
+    assert_eq!(cards.len(), 1);
+    assert!(!cards[0].settled);
+    assert_eq!(cards[0].active_set_count, 0);
+}
+
+#[test]
+fn test_strength_cards_are_empty_for_an_empty_request() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("strength_bundle_empty.db");
+    seed_strength();
+
+    assert!(
+        with_reader(|conn| strength_cards(conn, &[]))
+            .unwrap()
+            .is_empty()
+    );
+}

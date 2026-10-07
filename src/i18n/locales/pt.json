@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "Aumentar",
-    "decrease": "Diminuir",
-    "repositoryFor": "Repositório de {{name}}"
-  },
   "about": {
     "dataAttribution": "Atribuição de dados",
     "description": "Um cliente móvel rápido para intervals.icu com foco em mapas e análise visual.",
@@ -1509,7 +1504,9 @@
     "trendingSlower": "Tendência para tempos mais lentos",
     "renameFailedTitle": "Não foi possível guardar o nome",
     "renameFailedMessage": "O nome da secção não foi guardado. Tenta novamente.",
-    "nameTaken": "Outra secção já tem este nome. Escolha um nome diferente."
+    "nameTaken": "Outra secção já tem este nome. Escolha um nome diferente.",
+    "undoExcludeLap": "Anular Volta {{n}}",
+    "excludeLapNumber": "Excluir Volta {{n}}"
   },
   "settings": {
     "developerDashboard": "Painel de programador",
@@ -1796,7 +1793,6 @@
     "completeActivitiesYearComparison": "Complete atividades para ver a comparação ano a ano",
     "completeDecouplingHint": "Complete um esforço prolongado com dados de potência e frequência cardíaca para ver a análise de desacoplamento",
     "completePowerActivities": "Complete atividades com potência para ver a tendência do FTP",
-    "daysCount_many": "{{count}} de dias",
     "decouplingExplanation": "O desacoplamento mede a deriva cardíaca - quanto a frequência cardíaca aumenta em relação à potência durante esforços prolongados.",
     "decouplingProvenance": "Calculado pelo intervals.icu",
     "estimatedFtp": "FTP estimado",
@@ -2173,7 +2169,8 @@
     "kind_absorbed": "Outro troço foi fundido neste",
     "splitFrom": "Dividida de",
     "splitInto": "Dividida em",
-    "unavailable": "Secção indisponível"
+    "unavailable": "Secção indisponível",
+    "revertVersion": "Repor Versão {{version}}"
   },
   "namedCorridors": {
     "title": "Nomes que deu",

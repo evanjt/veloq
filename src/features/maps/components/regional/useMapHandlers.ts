@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Location from 'expo-location'; // 30 seconds
+import { useLocateUser } from '@/features/maps/hooks/useLocateUser';
 import { normalizeBounds } from '@/shared/geo/polyline';
 import { planClusterZoom, stackedOn } from '@/features/maps/lib/clusterZoom';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
@@ -30,8 +30,6 @@ import {
 } from './regionalMapLayerSpecs';
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
 import { REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
-// Cache for last known location (avoid slow GPS re-acquisition)
-const LOCATION_CACHE_MAX_AGE_MS = 30000;
 
 /** The ease onto a cluster whose leaves never arrived. */
 const CLUSTER_EXPAND_DURATION_MS = 400;
@@ -55,9 +53,6 @@ interface UseMapHandlersOptions {
   showRoutes: boolean;
   setShowRoutes: (value: boolean | ((prev: boolean) => boolean)) => void;
   setSelectedRoute: (value: null) => void;
-  userLocation: [number, number] | null;
-  setUserLocation: (value: [number, number] | null) => void;
-  setLocationLoading: (value: boolean) => void;
   currentZoomRef: React.MutableRefObject<number>;
   currentCenterRef: React.MutableRefObject<[number, number] | null>;
   onCameraSettled?: (center: [number, number], zoom: number, bounds?: LngLatBounds) => void;
@@ -84,6 +79,8 @@ interface UseMapHandlersResult {
   handleRegionIsChanging: (state: MapCameraState) => void;
   handleRegionDidChange: (state: MapCameraState) => void;
   handleGetLocation: () => Promise<void>;
+  userLocation: [number, number] | null;
+  locationLoading: boolean;
   toggleActivities: () => void;
   toggleSections: () => void;
   toggleRoutes: () => void;
@@ -109,8 +106,6 @@ export function useMapHandlers({
   setShowSections,
   setShowRoutes,
   setSelectedRoute,
-  setUserLocation,
-  setLocationLoading,
   currentZoomRef,
   currentCenterRef,
   onCameraSettled,
@@ -456,47 +451,9 @@ export function useMapHandlers({
     [currentZoomLevel, currentZoomRef, currentCenterRef, onCameraSettled, markUserInteracted]
   );
 
-  // Cache last location to avoid slow GPS re-acquisition
-  const lastLocationRef = useRef<{
-    coords: [number, number];
-    timestamp: number;
-  } | null>(null);
-
   // One-time jump to user location (shows dot, no tracking)
-  const handleGetLocation = useCallback(async () => {
-    try {
-      setLocationLoading(true);
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLocationLoading(false);
-        return;
-      }
-
-      let coords: [number, number];
-
-      // Use cached location if recent
-      const cached = lastLocationRef.current;
-      const now = Date.now();
-      if (cached && now - cached.timestamp < LOCATION_CACHE_MAX_AGE_MS) {
-        coords = cached.coords;
-      } else {
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        coords = [location.coords.longitude, location.coords.latitude];
-        lastLocationRef.current = { coords, timestamp: now };
-      }
-
-      setUserLocation(coords);
-      setLocationLoading(false);
-
-      cameraTarget()?.setCamera({ center: coords, zoom: 13 }, 500);
-    } catch {
-      setLocationLoading(false);
-      // Silently fail - location is optional
-    }
-  }, [cameraTarget, setUserLocation, setLocationLoading]);
+  const { userLocation, locationLoading, locate } = useLocateUser();
+  const handleGetLocation = useCallback(() => locate(cameraTarget()), [locate, cameraTarget]);
 
   // Toggle activities visibility - clear selection when hiding
   const toggleActivities = useCallback(() => {
@@ -591,6 +548,8 @@ export function useMapHandlers({
     handleRegionIsChanging,
     handleRegionDidChange,
     handleGetLocation,
+    userLocation,
+    locationLoading,
     toggleActivities,
     toggleSections,
     toggleRoutes,

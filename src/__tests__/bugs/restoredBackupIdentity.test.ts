@@ -64,7 +64,7 @@ jest.mock('@/shared/app/UnitPreferenceStore', () => ({
 jest.mock('@/features/fitness/stores', () => ({
   initializeSportPreference: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/features/home/store', () => ({
+jest.mock('@/features/settings/stores/summaryCardPreferences', () => ({
   initializeDashboardPreferences: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/insights/store', () => ({

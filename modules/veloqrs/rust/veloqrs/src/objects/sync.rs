@@ -1589,8 +1589,8 @@ const WELLNESS_DAYS: i64 = 365;
 pub(crate) const ACTIVITY_DAYS: i64 = 90;
 
 /// The steps `perform_sync` runs, for the progress counters TypeScript polls.
-/// The activity pull is two of them: the newest owed window ahead of the
-/// profile slice, the rest of the library behind it.
+/// The activity pull is two of them: the newest owed window ahead of the rest
+/// of the library, and the rest of the library behind the calendar.
 const SYNC_STEPS: u32 = 11;
 
 /// The sync job: fetch the profile slice and write it into SQLite. Every step
@@ -1660,18 +1660,36 @@ pub(crate) async fn perform_sync(
         }};
     }
 
-    // The census first, because it is the input to everything behind it: the
-    // windows ask it what is still owed. A census step that fails leaves them
-    // on their fixed range, which is what ran before the census existed, so
-    // the activities still land.
+    // The profile slice first. Each of the three is one small request, and
+    // together they fill the feed's summary card: the athlete's name, the
+    // FTP and the fitness figure. Behind the activity windows they took
+    // minutes to arrive on a first launch, and the card sat on its
+    // placeholders beside a feed already full of cards. A step that fails
+    // costs the others nothing.
+    step!(
+        FfiSyncStep::Athlete,
+        sync_athlete(install, &transport, &athlete_id).await
+    );
+    step!(
+        FfiSyncStep::SportSettings,
+        sync_sport_settings(install, &transport, &athlete_id).await
+    );
+    step!(
+        FfiSyncStep::Wellness,
+        sync_wellness(install, &transport, &athlete_id).await
+    );
+    // Then the census, because it is the input to every window: they ask it
+    // what is still owed. A census step that fails leaves them on their fixed
+    // range, which is what ran before the census existed, so the activities
+    // still land.
     let census_succeeded = step!(
         FfiSyncStep::Census,
         sync_activity_history_summary(install, &transport, &athlete_id).await
     );
-    // Then the newest owed window on its own, ahead of the profile slice. The
-    // first-launch standby lifts on the first stored activity
-    // (`src/features/home/lib/feedEmptyState.ts`), so an endpoint asked for
-    // before this one is a round trip the athlete spends on a spinner.
+    // Then the newest owed window on its own, ahead of the rest of the
+    // library. The first-launch standby lifts on the first stored activity
+    // (`src/features/home/lib/feedEmptyState.ts`), so the profile slice above
+    // is the whole of what this window waits on.
     let plan = owed_activity_windows(&athlete_id, census_succeeded).await;
     let windows = &plan.windows;
     // The newest few by count before any window, because the newest window is
@@ -1697,25 +1715,14 @@ pub(crate) async fn perform_sync(
         }
         .await
     );
-    step!(
-        FfiSyncStep::Athlete,
-        sync_athlete(install, &transport, &athlete_id).await
-    );
-    step!(
-        FfiSyncStep::SportSettings,
-        sync_sport_settings(install, &transport, &athlete_id).await
-    );
-    step!(
-        FfiSyncStep::Wellness,
-        sync_wellness(install, &transport, &athlete_id).await
-    );
     let (oldest, newest) = calendar_window();
     step!(
         FfiSyncStep::Calendar,
         fetch_and_store_calendar(install, &transport, &athlete_id, &oldest, &newest).await
     );
-    // The rest of the library behind the profile slice, so a ninety-day
-    // backfill does not hold the fitness and health screens on nothing.
+    // The rest of the library behind the head window and the calendar, so a
+    // ninety-day backfill does not hold the fitness and health screens on
+    // nothing.
     let rest_landed = step!(
         FfiSyncStep::RemainingActivities,
         sync_activity_windows(install, &transport, &athlete_id, rest, &cancelled).await
@@ -2078,8 +2085,8 @@ async fn sync_activity_windows(
         repair_missing_activity_metrics(install).await;
         // Here rather than at the settle, because the head window is the whole
         // point of running first: its rows are in SQLite and nothing else in
-        // the job will write an activity for as long as the profile slice, the
-        // curves and the owed interval bodies take. Announced once per step
+        // the job will write an activity for as long as the rest of the
+        // library, the curves and the owed interval bodies take. Announced once per step
         // rather than once per window, since every reader on the `activities`
         // channel re-reads its whole range on one.
         observer::notify(Announcement::ActivitiesStored);
@@ -2187,7 +2194,7 @@ fn note_known_absent(install: u64, activity_id: &str, kind: &'static str) {
 /// detail body, the detail streams (which carry the track) and the intervals.
 ///
 /// Runs inside the first-use step, once the rows have landed and before the
-/// window behind them, the profile slice or any bulk request, so an athlete
+/// window behind them or any bulk request, so an athlete
 /// who loses the connection right after the first screen can open any of the
 /// five. What each activity lacks is derived from SQLite, so a pass cut short
 /// resumes on what is still owed. A successful empty body is stored and counts
@@ -4549,24 +4556,24 @@ mod tests {
 
         let names = taken_request_order();
         assert_eq!(
-            names.first().map(String::as_str),
+            names.get(3).map(String::as_str),
             Some("census"),
-            "the census still goes first: {names:?}"
+            "the census follows the three profile endpoints: {names:?}"
         );
         assert_eq!(
-            names.get(1),
+            names.get(4),
             Some(&format!("activities {oldest} limit {FIRST_USE_ACTIVITIES}")),
-            "the newest few come before anything else: {names:?}"
+            "the newest few come before any window: {names:?}"
         );
         assert_eq!(
-            names.get(2),
+            names.get(5),
             Some(&format!("activities {oldest}")),
             "and the span behind them is unchanged: {names:?}"
         );
     }
 
-    /// The five's bodies come before the window behind them, the profile
-    /// slice and every bulk request, and the run still completes.
+    /// The five's bodies come before the window behind them and every bulk
+    /// request, and the run still completes.
     #[test]
     fn a_first_launch_readies_the_five_before_any_bulk_request() {
         let _guard = crate::test_globals::serial_global_state();
@@ -4650,7 +4657,7 @@ mod tests {
             .collect();
         assert_eq!(bodies.len(), 6, "three bodies for each of two: {names:?}");
         assert!(
-            bodies.iter().all(|i| *i < first_bulk && *i > 1),
+            bodies.iter().all(|i| *i < first_bulk && *i > 4),
             "after the newest rows, before the bulk window: {names:?}"
         );
         for id in ["r0", "r1"] {
@@ -4974,17 +4981,17 @@ mod tests {
         );
     }
 
-    /// Scenario: a first launch on a slow connection. The standby lifts on the
-    /// first stored activity, so every endpoint asked for ahead of the
-    /// activities is a round trip the athlete spends watching a spinner, and
-    /// the profile, sport settings and wellness went first.
+    /// Scenario: a first launch. The feed's summary card draws the athlete's
+    /// name, fitness and FTP from the profile, sport settings and wellness,
+    /// and it stayed on its placeholders for the minutes the activity windows
+    /// took because those three were fetched behind them.
     ///
-    /// Expected behaviour: the census, then the newest owed window on its own,
-    /// then the three profile endpoints, then the rest of the library. The
-    /// census stays ahead of the windows because it is what says which days
-    /// are owed.
+    /// Expected behaviour: the three profile endpoints go first, each one
+    /// small request, then the census, the newest owed window and the rest of
+    /// the library. The census stays ahead of the windows because it is what
+    /// says which days are owed.
     #[test]
-    fn the_newest_activities_are_asked_for_before_the_profile_slice() {
+    fn the_profile_slice_is_asked_for_before_any_activity() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_order.db");
         let today = chrono::Local::now().date_naive();
@@ -5027,11 +5034,11 @@ mod tests {
         assert_eq!(
             taken_request_order(),
             vec![
-                "census".to_string(),
-                format!("activities {newest}"),
                 "athlete".to_string(),
                 "sport-settings".to_string(),
                 "wellness".to_string(),
+                "census".to_string(),
+                format!("activities {newest}"),
                 format!("activities {older}"),
             ]
         );
@@ -5090,17 +5097,17 @@ mod tests {
         assert_eq!(
             taken_requests(),
             vec![
-                ("census".to_string(), Some(FfiSyncStep::Census)),
-                (
-                    format!("activities {newest}"),
-                    Some(FfiSyncStep::Activities)
-                ),
                 ("athlete".to_string(), Some(FfiSyncStep::Athlete)),
                 (
                     "sport-settings".to_string(),
                     Some(FfiSyncStep::SportSettings)
                 ),
                 ("wellness".to_string(), Some(FfiSyncStep::Wellness)),
+                ("census".to_string(), Some(FfiSyncStep::Census)),
+                (
+                    format!("activities {newest}"),
+                    Some(FfiSyncStep::Activities)
+                ),
                 (
                     format!("activities {older}"),
                     Some(FfiSyncStep::RemainingActivities)

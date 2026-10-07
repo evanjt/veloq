@@ -501,9 +501,11 @@ impl PersistentEngine {
             "section_pins" => self.place_pin(row),
             "section_forced_matches" => self.place_forced_match(row),
             "section_history" => self.place_history(row),
-            super::record_backup::LEGACY_SECTION_NAME => {
+            super::record_backup::LEGACY_SECTION_NAME
+            | super::record_backup::LEGACY_SECTION_DISABLED
+            | super::record_backup::LEGACY_SECTION_SUPERSEDED => {
                 // The legacy file carries only an old section ID. Keep its name
-                // pending until a recovery route can identify the ground.
+                // or state pending until a recovery route can identify the ground.
                 Ok(false)
             }
             "sections" => self.place_section(row),
@@ -2955,6 +2957,50 @@ mod tests {
             })
             .unwrap();
         assert_eq!(local_name, None);
+    }
+
+    #[test]
+    fn legacy_disabled_and_superseded_ids_stay_unplaced_and_listed() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("legacy-state.db").to_str().unwrap()).unwrap();
+        let line = serde_json::to_string(&ride()[10..40]).unwrap();
+        engine.db.execute(
+            "INSERT INTO sections (id, section_type, sport_type, polyline_json, distance_meters)
+             VALUES ('old-id', 'auto', 'Ride', ?1, 1000)",
+            [line],
+        ).unwrap();
+        let payload = json!({"version": 1, "entries": [
+            {"table": "legacy_section_disabled", "values": {"section_id": "old-id"}, "ground": null},
+            {"table": "legacy_section_disabled", "values": {"section_id": "absent-id"}, "ground": null},
+            {"table": "legacy_section_superseded", "values": {"section_id": "old-id"}, "ground": null}
+        ]});
+        let result = engine.restore_record_json(&payload.to_string()).unwrap();
+        assert_eq!((result.placed, result.unplaced), (0, 3));
+        let intents: i64 = engine
+            .db
+            .query_row("SELECT COUNT(*) FROM section_intents", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            intents, 0,
+            "an id from another library disabled local ground"
+        );
+        let mut kinds: Vec<String> = engine
+            .unplaced_records()
+            .unwrap()
+            .into_iter()
+            .map(|record| record.kind)
+            .collect();
+        kinds.sort();
+        assert_eq!(
+            kinds,
+            [
+                "legacy_section_disabled",
+                "legacy_section_disabled",
+                "legacy_section_superseded"
+            ]
+        );
+        assert_eq!(engine.retry_record_restore().unwrap().unplaced, 3);
     }
 
     /// Storage refuses the restore's progress write, the write after a

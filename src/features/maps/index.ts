@@ -92,9 +92,7 @@ export {
   setCameraOverride,
 } from './lib/storage/terrainCameraOverrides';
 export {
-  addPendingSnapshot,
   clearTerrainPreviews,
-  consumePendingSnapshots,
   deleteSupersededTerrainPreviews,
   deleteTerrainPreview,
   deleteTerrainPreviewsForActivity,
@@ -130,9 +128,4 @@ export {
   isHeatmapEnabled,
   useHeatmapPreference,
 } from './stores/HeatmapPreferenceStore';
-export {
-  MapPreferencesProvider,
-  useMapPreferences,
-  useMapPreferenceActions,
-} from './stores/MapPreferencesContext';
 export { buildDeltaLineStops, deltaToColor } from './lib/deltaLineColor';

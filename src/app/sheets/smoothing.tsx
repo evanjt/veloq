@@ -9,7 +9,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { ToggleButton } from '@/shared/ui';
 import { SMOOTHING_PRESETS, getSmoothingPresetLabel } from '@/shared/math/smoothing';
 import type { SmoothingWindow } from '@/shared/math/smoothing';
-import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 /** The wellness smoothing picker, a sheet route opened with `openSheet` and answered with the chosen window. */
 
@@ -79,25 +79,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xs,
     marginBottom: spacing.md,
-  },
-  option: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xsPlus,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-  },
-  optionDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  optionActive: {
-    backgroundColor: colors.primary,
-  },
-  optionText: {
-    ...typography.caption,
-    fontWeight: '500',
-  },
-  optionTextActive: {
-    color: colors.textOnPrimary,
   },
   hint: {
     ...typography.caption,

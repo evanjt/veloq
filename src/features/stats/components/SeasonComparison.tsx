@@ -1,7 +1,6 @@
-import React, { useMemo, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, LayoutChangeEvent, StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,7 +35,7 @@ import {
   metersToLongDistance,
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import { useChartGestures } from '@/shared/charts';
 
 interface SeasonComparisonProps {
   /** Height of the chart */
@@ -103,6 +102,12 @@ const BAR_WIDTH = 8;
 const BAR_GAP = 2;
 const BAR_RADIUS = 4; // spacing.xs
 
+/** Where the bar pair for a month is centred, in a chart `width` wide. */
+function monthCentreX(width: number, monthIndex: number): number {
+  const groupWidth = width / 12;
+  return groupWidth * monthIndex + groupWidth / 2;
+}
+
 export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -131,58 +136,10 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const coverage = useWindowCoverage(firstDay, lastDay);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [measuredWidth, setMeasuredWidth] = useState(0);
-  const chartWidthRef = useRef(0);
 
-  // Handle chart layout to get width
   const onChartLayout = useCallback((event: LayoutChangeEvent) => {
-    const w = event.nativeEvent.layout.width;
-    chartWidthRef.current = w;
-    setMeasuredWidth(w);
+    setMeasuredWidth(event.nativeEvent.layout.width);
   }, []);
-
-  // Calculate month index from x position relative to chart
-  const getMonthFromX = useCallback((x: number) => {
-    if (chartWidthRef.current === 0) return 0;
-    const monthIndex = Math.floor((x / chartWidthRef.current) * 12);
-    return Math.max(0, Math.min(11, monthIndex));
-  }, []);
-
-  // Select month from x position (called from UI thread via runOnJS)
-  const selectMonthFromX = useCallback(
-    (x: number) => {
-      setSelectedMonth(getMonthFromX(x));
-    },
-    [getMonthFromX]
-  );
-
-  const clearSelection = useCallback(() => {
-    setSelectedMonth(null);
-  }, []);
-
-  // Gesture.Pan for scrubbing (replaces PanResponder - requires long press to activate)
-  const panGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .activateAfterLongPress(PREVIEW_HOLD_MS)
-        .minDistance(0)
-        .onStart((e) => {
-          'worklet';
-          runOnJS(selectMonthFromX)(e.x);
-        })
-        .onUpdate((e) => {
-          'worklet';
-          runOnJS(selectMonthFromX)(e.x);
-        })
-        .onEnd(() => {
-          'worklet';
-          runOnJS(clearSelection)();
-        })
-        .onFinalize(() => {
-          'worklet';
-          runOnJS(clearSelection)();
-        }),
-    [selectMonthFromX, clearSelection]
-  );
 
   // Show empty state when neither year has an activity in it.
   const hasData = months.length > 0;
@@ -204,6 +161,26 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       };
     });
   }, [months, currentYear, metric, isMetric, locale]);
+
+  // Each month's bar pair is one scrub stop, centred in its twelfth of the width,
+  // so the shared scrub snaps to the month under the finger.
+  const handleSelect = useCallback((_month: unknown, idx: number) => setSelectedMonth(idx), []);
+  const handleInteractionChange = useCallback((active: boolean) => {
+    if (!active) setSelectedMonth(null);
+  }, []);
+  const { gesture: panGesture, syncXCoords } = useChartGestures({
+    data,
+    onSelect: handleSelect,
+    onInteractionChange: handleInteractionChange,
+  });
+  const monthCentres = useMemo(
+    () =>
+      measuredWidth > 0 ? Array.from({ length: 12 }, (_, i) => monthCentreX(measuredWidth, i)) : [],
+    [measuredWidth]
+  );
+  useEffect(() => {
+    syncXCoords(monthCentres, (x) => x);
+  }, [monthCentres, syncXCoords]);
 
   const maxValue = useMemo(() => {
     return Math.max(...data.flatMap((d) => [d.current, d.previous]));
@@ -247,7 +224,6 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
     const chartHeight = height;
     const labelSpace = 20; // space for month labels below bars
     const barAreaHeight = chartHeight - labelSpace;
-    const groupWidth = w / 12;
 
     const recorder = Skia.PictureRecorder();
     const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, w, chartHeight));
@@ -267,7 +243,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
 
     for (let idx = 0; idx < 12; idx++) {
       const d = data[idx];
-      const groupCenterX = groupWidth * idx + groupWidth / 2;
+      const groupCenterX = monthCentreX(w, idx);
       const isCurrentMonth = idx === currentMonth;
       const isSelected = idx === selectedMonth;
 

@@ -589,6 +589,21 @@ describe('legacy migration', () => {
     expect(rows.has('gone')).toBe(false);
     expect(mockStorage.has('veloq-upload-queue')).toBe(false);
     expect(mockDirStore.has('/mock/docs/pending_uploads/')).toBe(false);
+    expect(
+      JSON.parse(mockStorage.get('veloq-upload-queue-unadoptable')!).map(
+        (e: { id: string }) => e.id
+      )
+    ).toEqual(['gone']);
+  });
+
+  it('archives a queue that does not parse and retires the key', async () => {
+    const truncated = '[{"id":"a","filePath":"/mock/docs/pending_up';
+    mockStorage.set('veloq-upload-queue', truncated);
+
+    await migrateLegacyUploadQueue();
+
+    expect(mockStorage.has('veloq-upload-queue')).toBe(false);
+    expect(mockStorage.get('veloq-upload-queue-unadoptable')).toBe(truncated);
   });
 
   it('keeps the queue and the source when the copy fails', async () => {
@@ -692,12 +707,76 @@ describe('adopting the AsyncStorage index', () => {
     expect(await listRecordings()).toHaveLength(3);
   });
 
-  it('skips an entry with no id or no FIT path rather than writing a row nothing can find', async () => {
-    stored([legacyEntry('a'), { name: 'nameless' }, legacyEntry('b', { fitPath: undefined })]);
+  it('archives an entry with no id or no FIT path and retires the key', async () => {
+    const nameless = { name: 'nameless' };
+    const noFit = legacyEntry('b', { fitPath: undefined });
+    stored([legacyEntry('a'), nameless, noFit]);
 
     expect(await adoptAsyncStorageIndex()).toBe(1);
     expect((await listRecordings()).map((e) => e.id)).toEqual(['a']);
+    expect(mockStorage.has('veloq-recording-library')).toBe(false);
+    expect(JSON.parse(mockStorage.get('veloq-recording-library-unadoptable')!)).toEqual([
+      nameless,
+      JSON.parse(JSON.stringify(noFit)),
+    ]);
+  });
+
+  it('archives an entry missing a field the engine row requires, before the insert', async () => {
+    const noName = legacyEntry('b', { name: undefined });
+    const noCount = legacyEntry('c', { retryCount: 'two' });
+    stored([legacyEntry('a'), noName, noCount]);
+    const insert = jest.spyOn(mockEngine, 'addRecording');
+
+    expect(await adoptAsyncStorageIndex()).toBe(1);
+
+    expect(insert).toHaveBeenCalledTimes(1);
+    expect(mockStorage.has('veloq-recording-library')).toBe(false);
+    const archived = JSON.parse(mockStorage.get('veloq-recording-library-unadoptable')!);
+    expect(archived.map((e: { id: string }) => e.id)).toEqual(['b', 'c']);
+    insert.mockRestore();
+  });
+
+  it('archives the whole value when the index does not parse, and retires the key', async () => {
+    const truncated = '[{"id":"a","fitPath":"/mock/docs/recordings/a.fit","na';
+    mockStorage.set('veloq-recording-library', truncated);
+
+    expect(await adoptAsyncStorageIndex()).toBe(0);
+
+    expect(mockStorage.has('veloq-recording-library')).toBe(false);
+    expect(mockStorage.get('veloq-recording-library-unadoptable')).toBe(truncated);
+  });
+
+  it('writes the archive before the key goes, so a failed archive keeps the key', async () => {
+    stored([legacyEntry('a'), { name: 'nameless' }]);
+    const AsyncStorage = jest.requireMock('@react-native-async-storage/async-storage').default;
+    AsyncStorage.setItem.mockRejectedValueOnce(new Error('quota'));
+
+    expect(await adoptAsyncStorageIndex()).toBe(0);
+    expect(rows.has('a')).toBe(true);
     expect(mockStorage.has('veloq-recording-library')).toBe(true);
+    expect(mockStorage.has('veloq-recording-library-unadoptable')).toBe(false);
+
+    expect(await adoptAsyncStorageIndex()).toBe(0);
+    expect(mockStorage.has('veloq-recording-library')).toBe(false);
+    expect(mockStorage.has('veloq-recording-library-unadoptable')).toBe(true);
+  });
+
+  it('keeps the key and writes no archive while a good entry is still transient', async () => {
+    stored([legacyEntry('a'), { name: 'nameless' }]);
+    const insert = jest.spyOn(mockEngine, 'addRecording').mockImplementationOnce(() => {
+      throw new Error('write failed');
+    });
+
+    expect(await adoptAsyncStorageIndex()).toBe(0);
+    expect(mockStorage.has('veloq-recording-library')).toBe(true);
+    expect(mockStorage.has('veloq-recording-library-unadoptable')).toBe(false);
+    insert.mockRestore();
+
+    expect(await adoptAsyncStorageIndex()).toBe(1);
+    expect(mockStorage.has('veloq-recording-library')).toBe(false);
+    expect(JSON.parse(mockStorage.get('veloq-recording-library-unadoptable')!)).toEqual([
+      { name: 'nameless' },
+    ]);
   });
 
   it('continues after a failed row and retires the key only after a successful retry', async () => {

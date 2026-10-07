@@ -29,10 +29,7 @@ const rootFlag = process.argv.indexOf('--root');
 const ROOT = rootFlag === -1 ? join(HERE, '..') : resolve(process.argv[rootFlag + 1]);
 const SRC = join(ROOT, 'src');
 
-const EXEMPT = [
-  'src/theme/colors.ts',
-  'src/theme/index.ts',
-];
+const EXEMPT = ['src/theme/colors.ts', 'src/theme/index.ts'];
 
 /** The property this line is setting, for the message. */
 const PROP = /\b(color|borderColor|tintColor)\b/;

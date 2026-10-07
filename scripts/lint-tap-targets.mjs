@@ -21,7 +21,8 @@ function objectFor(source, name) {
   let object;
   function visit(node) {
     if (ts.isVariableDeclaration(node) && node.name.getText(file) === name) {
-      if (node.initializer && ts.isAsExpression(node.initializer)) object = node.initializer.expression;
+      if (node.initializer && ts.isAsExpression(node.initializer))
+        object = node.initializer.expression;
       else object = node.initializer;
     }
     ts.forEachChild(node, visit);
@@ -40,7 +41,10 @@ function numberIn(object, key) {
 }
 
 const platformTargets = objectFor(spacingSource, 'MIN_TAP_TARGET');
-const floor = Math.max(numberIn(platformTargets, 'ios') ?? 0, numberIn(platformTargets, 'android') ?? 0);
+const floor = Math.max(
+  numberIn(platformTargets, 'ios') ?? 0,
+  numberIn(platformTargets, 'android') ?? 0
+);
 if (!floor) throw new Error('Tap target guard could not read the platform minimum');
 
 function numeric(node, constants) {
@@ -123,7 +127,12 @@ for (const file of files) {
       const style = props.find((part) => ts.isJsxAttribute(part) && part.name.text === 'style');
       const value = style?.initializer;
       const call = value && ts.isJsxExpression(value) ? value.expression : undefined;
-      if (call && ts.isCallExpression(call) && call.expression.getText(parsed) === 'pressable' && !slop) {
+      if (
+        call &&
+        ts.isCallExpression(call) &&
+        call.expression.getText(parsed) === 'pressable' &&
+        !slop
+      ) {
         const sizes = call.arguments.flatMap((arg) => dimensions(arg, objects, constants));
         const small = sizes.filter(({ axis, value }) => {
           if (value >= floor) return false;
@@ -134,7 +143,9 @@ for (const file of files) {
         });
         if (small.length) {
           const line = parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1;
-          failures.push(`${relative(root, file)}:${line}: ${small.map(({ axis }) => axis).join(', ')}`);
+          failures.push(
+            `${relative(root, file)}:${line}: ${small.map(({ axis }) => axis).join(', ')}`
+          );
         }
       }
     }

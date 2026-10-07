@@ -58,7 +58,7 @@ jest.mock('@/features/activity/hooks', () => ({
 }));
 jest.mock('@/features/insights', () => ({ useInsights: () => ({ insights: [] }) }));
 jest.mock('@/features/home', () => ({
-  ...jest.requireActual('@/features/home/store'),
+  ...jest.requireActual('@/features/settings/stores/summaryCardPreferences'),
   feedEmptyState: jest.requireActual('@/features/home/lib/feedEmptyState').feedEmptyState,
   summaryCardTarget: jest.requireActual('@/features/home/lib/summaryCardTargets').summaryCardTarget,
   useSummaryCardData: () => ({ showSparkline: false, refetch: jest.fn() }),
@@ -76,7 +76,6 @@ jest.mock('@/features/maps/components/TerrainSnapshotWebView', () => ({
 }));
 jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
   initTerrainPreviewCache: jest.fn(),
-  consumePendingSnapshots: jest.fn().mockResolvedValue([]),
 }));
 jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
   initCameraOverrides: jest.fn(),

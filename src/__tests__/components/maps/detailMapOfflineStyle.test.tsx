@@ -30,7 +30,7 @@ jest.mock('@/features/maps/components/MapSurface', () => {
   };
 });
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     preferences: { defaultStyle: 'satellite' },
     getStyleForActivity: () => 'satellite',

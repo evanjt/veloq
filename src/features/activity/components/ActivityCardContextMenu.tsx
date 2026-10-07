@@ -6,12 +6,8 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useTheme } from '@/shared/app';
-import {
-  getCameraOverride,
-  type MapStyleType,
-  resolveTerrain3D,
-  useMapPreferences,
-} from '@/features/maps';
+import { useMapPreferences } from '@/features/settings';
+import { getCameraOverride, type MapStyleType, resolveTerrain3D } from '@/features/maps';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import {

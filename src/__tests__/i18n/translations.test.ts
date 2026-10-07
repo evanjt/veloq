@@ -72,6 +72,13 @@ function loadLocale(locale: string): Record<string, unknown> | null {
 }
 
 /**
+ * The bundle as the file holds it, before any fallback chain fills a key in.
+ */
+function rawLocale(locale: string): Record<string, unknown> {
+  return JSON.parse(fs.readFileSync(path.join(LOCALES_DIR, `${locale}.json`), 'utf-8'));
+}
+
+/**
  * Get all available locale files
  */
 function getAvailableLocales(): string[] {
@@ -202,6 +209,19 @@ describe('Translation Completeness', () => {
       const localeKeys = getAllKeys(localeData as Record<string, unknown>);
       const missingKeys = referenceKeys.filter((key) => !localeKeys.includes(key));
       expect(missingKeys).toEqual([]);
+    }
+  );
+
+  // A key deleted from the reference bundle stays in a locale's own file unless something names it.
+  // A plural form a language selects (`_few`, `_many`) counts as its base key, which the reference
+  // bundle holds under the forms English uses.
+  test.each(availableLocales.filter((l) => l !== REFERENCE_LOCALE))(
+    '%s has no key the reference locale lacks',
+    (locale) => {
+      const stripPlural = (key: string) => key.replace(PLURAL_SUFFIX, '');
+      const referenceBases = new Set(referenceKeys.map(stripPlural));
+      const ownKeys = getAllKeys(rawLocale(locale));
+      expect(ownKeys.filter((key) => !referenceBases.has(stripPlural(key)))).toEqual([]);
     }
   );
 

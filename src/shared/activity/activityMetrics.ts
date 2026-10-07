@@ -1,5 +1,5 @@
 /**
- * @fileoverview Activity metrics utilities for route engine
+ * Activity metrics utilities for route engine
  *
  * Helper functions for converting Activity objects to the format
  * expected by the Rust route engine.
@@ -26,9 +26,6 @@ function wholeNumber(value: number): number {
  *
  * Used by the route engine to calculate performance metrics
  * and power curves for route comparisons.
- *
- * @param activity - Activity to convert
- * @returns ActivityMetrics object for Rust engine
  */
 export function toActivityMetrics(activity: Activity): ActivityMetrics {
   const powerZoneTimes = activity.icu_zone_times

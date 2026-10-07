@@ -37,14 +37,22 @@ const firstParty = new Set(['veloqrs', 'tracematch']);
 
 function licenceEntries() {
   const file = read('src/app/licenses.tsx');
-  const ast = ts.createSourceFile('licenses.tsx', file, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const ast = ts.createSourceFile(
+    'licenses.tsx',
+    file,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
   const entries = new Map();
   function visit(node) {
     if (ts.isObjectLiteralExpression(node)) {
       const fields = Object.fromEntries(
         node.properties
           .filter(ts.isPropertyAssignment)
-          .filter((property) => ts.isIdentifier(property.name) && ts.isStringLiteral(property.initializer))
+          .filter(
+            (property) => ts.isIdentifier(property.name) && ts.isStringLiteral(property.initializer)
+          )
           .map((property) => [property.name.text, property.initializer.text])
       );
       if (fields.name) entries.set(fields.name, fields);
@@ -87,7 +95,8 @@ if (process.argv.includes('--print-register')) {
     for (const name of names) {
       if (firstParty.has(name)) continue;
       const entry = entries.get(aliases[name] ?? name);
-      if (!entry?.license || !entry?.repository) throw new Error(`Missing licence entry for ${name}`);
+      if (!entry?.license || !entry?.repository)
+        throw new Error(`Missing licence entry for ${name}`);
       console.log(`| ${name} | ${entry.license} | ${entry.repository} |`);
     }
     console.log();

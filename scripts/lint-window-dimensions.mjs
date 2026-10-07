@@ -27,7 +27,8 @@ function walk(dir) {
   return tree.files(dir, (rel) => {
     const parts = rel.split('/');
     const name = parts[parts.length - 1];
-    if (parts.slice(0, -1).some((part) => part === '__tests__' || part === '__mocks__')) return false;
+    if (parts.slice(0, -1).some((part) => part === '__tests__' || part === '__mocks__'))
+      return false;
     return /\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name) && !/\.d\.ts$/.test(name);
   });
 }

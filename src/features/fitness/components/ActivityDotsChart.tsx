@@ -15,7 +15,7 @@ import type { Activity, ActivityType, WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
 import { formFromLoads } from '@/shared/math';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { DayActivitiesInput } from '@/app/sheets/day-activities';
@@ -310,6 +310,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       <View style={styles.labelContainer}>
         {displayActivities.length > 0 ? (
           <Pressable
+            android_ripple={pressRipple}
             accessibilityRole="button"
             accessibilityLabel={
               getActivitySummary(displayActivities) ?? t('fitness.selectActivity')

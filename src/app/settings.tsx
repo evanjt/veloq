@@ -7,8 +7,6 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useDashboardPreferences } from '@/features/home';
-import { useMapPreferences } from '@/features/maps';
 import { useRouteSettings } from '@/features/routes';
 import { useRecordingPreferences } from '@/features/recording';
 import { useSensorStore } from '@/features/sensors';
@@ -16,6 +14,8 @@ import {
   useLastBackupTimestamp,
   useAutoBackupEnabled,
   useNotificationPreferences,
+  useMapPreferences,
+  useDashboardPreferences,
 } from '@/features/settings';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';

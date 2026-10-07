@@ -11,9 +11,8 @@ import {
   isHeroMetricId,
   type HeroMetricId,
   type MetricId,
-  useSummaryCardData,
-  SummaryCard,
-} from '@/features/home';
+} from '../stores/summaryCardPreferences';
+import { useSummaryCardData, SummaryCard } from '@/features/home';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { Row, ToggleButtonRow } from '@/shared/ui';
 import { settingsStyles } from './settingsStyles';

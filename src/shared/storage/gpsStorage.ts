@@ -19,7 +19,6 @@ import {
 } from '@/features/maps/lib/heatmapTiles';
 import {
   clearTerrainPreviews,
-  forgetPendingSnapshots,
   getTerrainPreviewCacheSize,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { clearCrashLog } from '@/shared/debug/crashLog';
@@ -401,7 +400,9 @@ export async function wipeLibrary(): Promise<void> {
   const { forgetTrackFetchDismissal } = require('@/features/routes/lib/trackFetchNotice');
   const { clearTaskRuns } = require('@/features/insights/lib/taskRunLog');
   const { cancelQueuedActivityPushes } = require('@/features/insights/lib/activityPushJobs');
-  const { forgetActivityMapOverrides } = require('@/features/maps/stores/MapPreferencesContext');
+  const {
+    forgetActivityMapOverrides,
+  } = require('@/features/settings/stores/MapPreferencesContext');
   const { useNotificationPrompt } = require('@/features/settings/stores/NotificationPromptStore');
   const { useUploadPermissionStore } =
     require('@/features/recording') as typeof import('@/features/recording');
@@ -423,7 +424,6 @@ export async function wipeLibrary(): Promise<void> {
     FileSystem.deleteAsync(LEGACY_HEATMAP_TILES_DIR, { idempotent: true }),
     clearTerrainPreviews(),
     clearBasemapTiles(),
-    forgetPendingSnapshots(),
     forgetCameraOverrides(),
     forgetMapCameraState(),
     Promise.resolve(disconnectAllSensors())

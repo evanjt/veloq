@@ -37,7 +37,7 @@ jest.mock('@/features/maps', () => {
 const mockGetGlobalMapStyle = jest.fn(() => 'satellite');
 const mockSetGlobalMapStyle = jest.fn();
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getGlobalMapStyle: () => mockGetGlobalMapStyle(),
     setGlobalMapStyle: mockSetGlobalMapStyle,

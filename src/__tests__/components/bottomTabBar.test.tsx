@@ -14,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
 
 jest.mock('expo-haptics', () => ({
+  ...jest.requireActual('expo-haptics'),
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },

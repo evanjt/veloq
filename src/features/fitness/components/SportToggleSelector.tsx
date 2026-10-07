@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -31,6 +31,7 @@ export const SportToggleSelector = React.memo(function SportToggleSelector({
     <View style={styles.sportToggleContainer}>
       {SPORTS.map((sport) => (
         <Pressable
+          android_ripple={pressRipple}
           accessibilityRole="button"
           accessibilityLabel={t(`filters.${sport.toLowerCase()}` as never)}
           accessibilityState={{ selected: sportMode === sport }}

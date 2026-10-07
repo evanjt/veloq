@@ -13,7 +13,7 @@
 import { renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
-import { useDashboardPreferences } from '@/features/home/store';
+import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));

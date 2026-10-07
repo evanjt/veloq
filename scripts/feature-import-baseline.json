@@ -1,5 +1,6 @@
 {
   "~app -> settings": 17,
-  "home -> settings": 1,
-  "insights -> settings": 2
+  "home -> settings": 2,
+  "insights -> settings": 2,
+  "maps -> settings": 2
 }

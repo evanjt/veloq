@@ -99,9 +99,7 @@ function setsTouchableOpacity(node) {
   return node.attributes.properties.some(
     (prop) =>
       ts.isJsxSpreadAttribute(prop) ||
-      (ts.isJsxAttribute(prop) &&
-        ts.isIdentifier(prop.name) &&
-        prop.name.text === 'activeOpacity')
+      (ts.isJsxAttribute(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'activeOpacity')
   );
 }
 

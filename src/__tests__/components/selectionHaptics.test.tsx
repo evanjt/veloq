@@ -17,6 +17,7 @@ import { ChartDistanceIndicator } from '@/features/activity/components/ChartDist
 import type { Activity } from '@/types';
 
 jest.mock('expo-haptics', () => ({
+  ...jest.requireActual('expo-haptics'),
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },
@@ -28,6 +29,9 @@ const mockClearActivityOverride = jest.fn();
 jest.mock('@/features/maps', () => ({
   getCameraOverride: () => undefined,
   resolveTerrain3D: () => ({ show3D: false }),
+}));
+
+jest.mock('@/features/settings', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'light',
     getTerrain3DMode: () => 'auto',

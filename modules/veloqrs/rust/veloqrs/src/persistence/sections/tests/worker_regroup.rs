@@ -470,6 +470,69 @@ fn commit_nobody_adopts(dir: &tempfile::TempDir, t_track: f64) -> std::path::Pat
     path
 }
 
+/// The cutover's adopt after its detect: a commit nobody adopted is taken.
+#[test]
+fn test_cutover_adopt_takes_a_commit_nobody_adopted() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("regroup.db");
+    commit_nobody_adopts(&dir, 44.0);
+    let install = crate::persistence::engine_install();
+
+    crate::persistence::cutover::adopt_detect_groups(install);
+
+    let groups = with_persistent_engine(|engine| {
+        engine.groups_dirty = false;
+        engine.groups.clone()
+    })
+    .expect("engine");
+    assert_eq!(member_ids(&groups, "t"), "r_2");
+
+    crate::persistence::clear_persistent_engine();
+}
+
+/// The cutover's adopt when the detect committed nothing: the engine already
+/// holds what the database does, so the groups are not read again. A row
+/// changed behind the generation shows whether they were.
+#[test]
+fn test_cutover_adopt_leaves_groups_alone_when_nothing_committed() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("regroup.db");
+    let path = dir.path().join("regroup.db");
+    let install = with_persistent_engine(|engine| {
+        engine
+            .add_activity("m".into(), coords(40.0), "Ride".into())
+            .unwrap();
+        engine
+            .add_activity("t".into(), coords(40.0), "Ride".into())
+            .unwrap();
+        engine.get_groups();
+        crate::persistence::engine_install()
+    })
+    .expect("engine");
+    let conn = Connection::open(&path).unwrap();
+    conn.execute(
+        "UPDATE route_groups SET representative_id = 't' WHERE id = 'r_1'",
+        [],
+    )
+    .unwrap();
+
+    crate::persistence::cutover::adopt_detect_groups(install);
+
+    let representative = with_persistent_engine(|engine| {
+        engine.groups_dirty = false;
+        engine
+            .groups
+            .iter()
+            .find(|group| group.group_id == "r_1")
+            .map(|group| group.representative_id.clone())
+    })
+    .expect("engine");
+    assert_eq!(representative.as_deref(), Some("m"));
+
+    drop(conn);
+    crate::persistence::clear_persistent_engine();
+}
+
 #[test]
 fn test_representative_choice_reaches_a_route_committed_behind_the_engine() {
     let _serial = serial_global_state();

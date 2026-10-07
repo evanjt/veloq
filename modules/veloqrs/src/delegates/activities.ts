@@ -17,6 +17,7 @@ import type {
   FfiActivityBodiesPage,
   FfiActivityBodiesQuery,
   FfiPreviewTrack,
+  FfiStrengthCardSummary,
 } from '../generated/veloqrs';
 import { validateId } from '../conversions';
 import type { DelegateHost } from './host';
@@ -200,11 +201,13 @@ export function debugCloneActivity(host: DelegateHost, sourceId: string, count: 
 export interface ActivityHighlightsBundle {
   indicators: FfiActivityIndicator[];
   routeHighlights: FfiActivityRouteHighlight[];
+  /** One row per strength activity among the ids, with what its feed card paints. */
+  strengthCards: FfiStrengthCardSummary[];
 }
 
 /**
- * Single-call bundle of section indicators + route highlights for a batch
- * of activity IDs. Replaces the two-FFI sequence in
+ * Single-call bundle of section indicators, route highlights and strength
+ * cards for a batch of activity IDs. Replaces the two-FFI sequence in
  * `useActivitySectionHighlights`.
  */
 export function getActivityHighlightsBundle(
@@ -212,7 +215,7 @@ export function getActivityHighlightsBundle(
   activityIds: string[]
 ): ActivityHighlightsBundle {
   if (!host.ready || activityIds.length === 0) {
-    return { indicators: [], routeHighlights: [] };
+    return { indicators: [], routeHighlights: [], strengthCards: [] };
   }
   return host.timed('getActivityHighlightsBundle', () =>
     host.engine.activities().getHighlightsBundle(activityIds)

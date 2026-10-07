@@ -2051,6 +2051,7 @@ impl PersistentEngine {
              DELETE FROM athlete_profile;
              DELETE FROM job_attempts;
              DELETE FROM job_runs;
+             DELETE FROM geocoded_places;
              DELETE FROM push_runs;
              DELETE FROM sport_settings;
              DELETE FROM section_rank_inputs;

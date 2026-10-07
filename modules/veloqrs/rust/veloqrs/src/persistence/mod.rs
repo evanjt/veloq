@@ -76,6 +76,7 @@ pub mod feed_rings;
 pub(crate) mod file_lock;
 pub use export::{ExportPrivacyPreview, SuggestedHome};
 pub(crate) mod fitness;
+pub mod geocoded_places;
 pub(crate) mod indicators;
 pub mod job_runs;
 #[cfg(feature = "lock-trace")]

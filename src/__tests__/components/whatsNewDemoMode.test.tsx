@@ -8,7 +8,7 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
+import { MapPreferencesProvider } from '@/features/settings/stores/MapPreferencesContext';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 jest.mock('@/shared/storage', () => ({

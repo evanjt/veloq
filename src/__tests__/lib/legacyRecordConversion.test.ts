@@ -115,4 +115,37 @@ describe('legacy record conversion', () => {
 
     expect(keys).toEqual(['veloq-theme-preference']);
   });
+
+  it('carries each disabled and superseded id as its own unplaced record', () => {
+    const record = convertLegacyBackupToRecord(
+      JSON.stringify({
+        ...legacy,
+        preferences: {
+          'veloq-disabled-sections': '["d1","d2"]',
+          'veloq-superseded-sections': ['s1'],
+        },
+      })
+    );
+    const carried = record.entries
+      .filter((entry) => entry.table.startsWith('legacy_section_'))
+      .filter((entry) => entry.table !== 'legacy_section_name')
+      .map((entry) => [entry.table, entry.values, entry.ground]);
+
+    expect(carried).toEqual([
+      ['legacy_section_disabled', { section_id: 'd1' }, null],
+      ['legacy_section_disabled', { section_id: 'd2' }, null],
+      ['legacy_section_superseded', { section_id: 's1' }, null],
+    ]);
+    expect(record.entries.some((entry) => entry.table === 'settings')).toBe(false);
+  });
+
+  it.each(['not json', '{"a":1}', '[1,""]', 'null'])(
+    'ignores an unreadable disabled list %p without failing the import',
+    (raw) => {
+      const record = convertLegacyBackupToRecord(
+        JSON.stringify({ ...legacy, preferences: { 'veloq-disabled-sections': raw } })
+      );
+      expect(record.entries.some((entry) => entry.table === 'legacy_section_disabled')).toBe(false);
+    }
+  );
 });

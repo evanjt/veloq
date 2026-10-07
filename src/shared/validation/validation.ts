@@ -24,10 +24,6 @@ export type SchemaValidator<T> = (value: unknown) => value is T;
 /**
  * Safely parse JSON with schema validation.
  * Returns the fallback if parsing fails or the parsed value doesn't match the schema.
- *
- * @param json - JSON string to parse
- * @param validator - Function that validates the parsed value matches expected schema
- * @param fallback - Default value if parsing/validation fails
  */
 export function safeJsonParseWithSchema<T>(
   json: string | null | undefined,

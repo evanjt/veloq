@@ -22,8 +22,10 @@ const log = debug.create('RecordingLibrary');
 
 const RECORDINGS_DIR = `${FileSystem.documentDirectory}recordings/`;
 /**
- * The index lived under this key until it became a table. It is read once
- * more, to adopt whatever a released install still holds, and then removed.
+ * The index lived under this key until it became a table. Only development
+ * builds wrote it, between 2026-07-18 and 2026-09-06: the last release, 0.3.8,
+ * predates it. It is read once more, to adopt what such an install still
+ * holds, and then removed.
  */
 const LEGACY_INDEX_KEY = 'veloq-recording-library';
 const LEGACY_QUEUE_KEY = 'veloq-upload-queue';
@@ -67,6 +69,43 @@ function toLibraryEntry(row: EngineEntry): RecordingLibraryEntry {
     // this build does not know about and a FIT is the safe reading.
     kind: row.kind === 'manual' ? 'manual' : 'fit',
   };
+}
+
+/** The fields the engine row cannot be built without, by the type each must hold. */
+const REQUIRED_STRING_FIELDS = ['id', 'fitPath', 'activityType', 'name', 'uploadStatus'] as const;
+const REQUIRED_NUMBER_FIELDS = [
+  'startTime',
+  'durationSeconds',
+  'distanceMeters',
+  'createdAt',
+  'retryCount',
+] as const;
+
+/**
+ * Whether an index entry can become an engine row. One that cannot never will
+ * on a later pass, so adopting it again is wasted work and holding the legacy
+ * key for it keeps the pass running at every engine ready.
+ */
+function isAdoptable(entry: unknown): entry is RecordingLibraryEntry {
+  if (typeof entry !== 'object' || entry === null) return false;
+  const fields = entry as Record<string, unknown>;
+  return (
+    REQUIRED_STRING_FIELDS.every((key) => typeof fields[key] === 'string' && fields[key] !== '') &&
+    REQUIRED_NUMBER_FIELDS.every((key) => Number.isFinite(fields[key]))
+  );
+}
+
+/**
+ * Copies what a legacy key holds that no retry can adopt to a sibling key, so
+ * the key can be retired without destroying it. The app never reads the
+ * archive. It is written before the source key goes: a failed write throws and
+ * the source stays.
+ */
+async function archiveUnadoptable(sourceKey: string, value: unknown): Promise<void> {
+  await AsyncStorage.setItem(
+    `${sourceKey}-unadoptable`,
+    typeof value === 'string' ? value : JSON.stringify(value)
+  );
 }
 
 /**
@@ -408,7 +447,10 @@ export async function getVisibleUnuploadedCount(): Promise<number> {
  * Adopt the AsyncStorage index into the table, once.
  *
  * Runs after `migrateLegacyUploadQueue`, which writes directly to the table.
- * Insert-if-absent lets a partial pass retry without duplicating rows.
+ * Insert-if-absent lets a partial pass retry without duplicating rows. An
+ * entry no retry can adopt (a value that does not parse, an entry the engine
+ * row cannot be built from) is archived and counts as settled; a failed or
+ * declined insert keeps the key, because a retry can still succeed.
  */
 export async function adoptAsyncStorageIndex(): Promise<number> {
   try {
@@ -416,7 +458,15 @@ export async function adoptAsyncStorageIndex(): Promise<number> {
     const stored = await AsyncStorage.getItem(LEGACY_INDEX_KEY);
     if (!stored) return 0;
 
-    const parsed: unknown = JSON.parse(stored);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(stored);
+    } catch {
+      await archiveUnadoptable(LEGACY_INDEX_KEY, stored);
+      await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
+      log.warn('Archived an AsyncStorage recording index that does not parse');
+      return 0;
+    }
     if (!Array.isArray(parsed)) {
       await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
       return 0;
@@ -424,9 +474,10 @@ export async function adoptAsyncStorageIndex(): Promise<number> {
 
     let adopted = 0;
     let complete = true;
-    for (const entry of parsed as RecordingLibraryEntry[]) {
-      if (!entry?.id || !entry.fitPath) {
-        complete = false;
+    const unadoptable: unknown[] = [];
+    for (const entry of parsed as unknown[]) {
+      if (!isAdoptable(entry)) {
+        unadoptable.push(entry);
         continue;
       }
       try {
@@ -443,6 +494,12 @@ export async function adoptAsyncStorageIndex(): Promise<number> {
     }
 
     if (!complete) return adopted;
+    if (unadoptable.length > 0) {
+      await archiveUnadoptable(LEGACY_INDEX_KEY, unadoptable);
+      log.warn(
+        `Archived ${unadoptable.length} AsyncStorage index entr(ies) that cannot be adopted`
+      );
+    }
     await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
     log.log(`Adopted ${adopted} recording(s) from the AsyncStorage index`);
     return adopted;
@@ -510,10 +567,21 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
     const stored = await AsyncStorage.getItem(LEGACY_QUEUE_KEY);
     if (!stored) return;
 
-    const legacy = JSON.parse(stored) as LegacyQueueEntry[];
+    let legacy: LegacyQueueEntry[];
+    try {
+      const parsed: unknown = JSON.parse(stored);
+      if (!Array.isArray(parsed)) throw new Error('not a list');
+      legacy = parsed;
+    } catch {
+      await archiveUnadoptable(LEGACY_QUEUE_KEY, stored);
+      await AsyncStorage.removeItem(LEGACY_QUEUE_KEY);
+      log.warn('Archived an upload queue that does not parse');
+      return;
+    }
     await ensureRecordingsDir();
 
     let complete = true;
+    const unadoptable: LegacyQueueEntry[] = [];
     for (const old of legacy) {
       try {
         const engine = library(true);
@@ -526,6 +594,7 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
           // would repeat this pass on every engine ready for ever.
           if (!source.exists) {
             log.warn(`Legacy upload ${old.id} has no FIT on disk, skipping it`);
+            unadoptable.push(old);
             continue;
           }
           await FileSystem.copyAsync({ from: old.filePath, to: fitPath });
@@ -560,6 +629,7 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
     }
 
     if (!complete) return;
+    if (unadoptable.length > 0) await archiveUnadoptable(LEGACY_QUEUE_KEY, unadoptable);
     await AsyncStorage.removeItem(LEGACY_QUEUE_KEY);
     try {
       const dirInfo = await FileSystem.getInfoAsync(LEGACY_UPLOADS_DIR);

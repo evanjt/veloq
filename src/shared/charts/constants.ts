@@ -1,5 +1,5 @@
 /**
- * @fileoverview Chart-related constants
+ * Chart-related constants
  *
  * Centralized configuration for chart performance, gesture handling,
  * and visualization parameters.

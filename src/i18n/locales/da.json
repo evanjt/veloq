@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "Forøg",
-    "decrease": "Formindsk",
-    "repositoryFor": "Kodelager for {{name}}"
-  },
   "about": {
     "dataAttribution": "Datakilder",
     "description": "En hurtig, offline-først mobilklient til intervals.icu med fokus på kort og visuel analyse.",
@@ -1475,7 +1470,9 @@
     "trendingSlower": "Tendens til langsommere tider",
     "renameFailedTitle": "Navnet kunne ikke gemmes",
     "renameFailedMessage": "Sektionens navn blev ikke gemt. Prøv igen.",
-    "nameTaken": "En anden sektion har allerede dette navn. Vælg et andet navn."
+    "nameTaken": "En anden sektion har allerede dette navn. Vælg et andet navn.",
+    "undoExcludeLap": "Fortryd Omgang {{n}}",
+    "excludeLapNumber": "Udeluk Omgang {{n}}"
   },
   "settings": {
     "developerDashboard": "Udvikleroversigt",
@@ -2117,7 +2114,8 @@
     "kind_absorbed": "En anden strækning blev slået sammen med denne",
     "splitFrom": "Opdelt fra",
     "splitInto": "Opdelt i",
-    "unavailable": "Sektionen er ikke tilgængelig"
+    "unavailable": "Sektionen er ikke tilgængelig",
+    "revertVersion": "Gendan Version {{version}}"
   },
   "namedCorridors": {
     "title": "Navne du har givet",

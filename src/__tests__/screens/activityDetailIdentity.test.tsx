@@ -216,7 +216,7 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
   getCameraOverride: jest.fn(),
   deleteCameraOverride: jest.fn(),
 }));
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({ getTerrain3DMode: () => false, setActivityOverride: jest.fn() }),
 }));
 

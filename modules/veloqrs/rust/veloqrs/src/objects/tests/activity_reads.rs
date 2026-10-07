@@ -73,6 +73,7 @@ fn test_feed_highlights_return_while_engine_writer_holds() {
         crate::FfiActivityHighlightsBundle {
             indicators: engine.get_activity_indicators(&["a1".into()]),
             route_highlights: engine.get_activity_route_highlights(&["a1".into()]),
+            strength_cards: Vec::new(),
         }
     })
     .unwrap();
@@ -84,6 +85,37 @@ fn test_feed_highlights_return_while_engine_writer_holds() {
             .unwrap();
         assert_eq!(format!("{bundle:?}"), format!("{expected:?}"));
     });
+}
+
+#[test]
+fn test_feed_highlights_carry_the_strength_cards_of_the_batch() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("feed_highlights_strength_cards.db");
+    crate::with_persistent_engine(|engine| {
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                     elapsed_time, elevation_gain, sport_type)
+                 VALUES ('lift', 'Push day', 1700000000, 0, 0, 0, 0, 'WeightTraining'),
+                        ('ride', 'Lake loop', 1700000000, 0, 0, 0, 0, 'Ride')",
+                [],
+            )
+            .unwrap();
+    })
+    .unwrap();
+
+    let bundle = ActivityManager::new()
+        .get_highlights_bundle(vec!["ride".into(), "lift".into()])
+        .unwrap();
+
+    let ids: Vec<&str> = bundle
+        .strength_cards
+        .iter()
+        .map(|card| card.activity_id.as_str())
+        .collect();
+    assert_eq!(ids, ["lift"]);
+    assert!(!bundle.strength_cards[0].settled);
 }
 
 #[test]

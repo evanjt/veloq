@@ -235,7 +235,8 @@ function parseReExports(src, file) {
       }
     }
   }
-  const star = /(?:^|[\s;}])export\s+(?:type\s+)?\*(?:\s+as\s+([\w$]+))?\s*from\s*['"]([^'"]+)['"]/g;
+  const star =
+    /(?:^|[\s;}])export\s+(?:type\s+)?\*(?:\s+as\s+([\w$]+))?\s*from\s*['"]([^'"]+)['"]/g;
   while ((m = star.exec(src))) {
     const target = resolveSpecifier(m[2], file);
     if (target) stars.push({ file: target, namespaced: Boolean(m[1]), ns: m[1] || null });

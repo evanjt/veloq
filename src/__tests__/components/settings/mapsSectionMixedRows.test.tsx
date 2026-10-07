@@ -11,7 +11,7 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import { MapPreferencesProvider, useMapPreferences } from '@/features/maps';
+import { MapPreferencesProvider, useMapPreferences } from '@/features/settings';
 import { MapsSection } from '@/features/settings/components/MapsSection';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));

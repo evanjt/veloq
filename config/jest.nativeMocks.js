@@ -146,6 +146,7 @@ jest.mock("@shopify/react-native-skia", () => {
         setColor: jest.fn(),
         setAntiAlias: jest.fn(),
         setStrokeWidth: jest.fn(),
+        setAlphaf: jest.fn(),
         setStyle: jest.fn(),
       }),
     },
