@@ -10,14 +10,13 @@
 //! migration `020`'s own comment records what a stored failure row cost the
 //! last time one existed.
 
-mod migration_support;
-
-use migration_support::*;
 use rusqlite::Connection;
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
 use veloqrs::objects::start::FfiStartOutcome;
 use veloqrs::persistence::attempts::{Claim, JobKey, Release, attempt_backoff_ms};
+
+use crate::migration_support::*;
 
 fn engine(dir: &TempDir) -> PersistentEngine {
     let path = dir.path().join("attempts.db");
@@ -385,10 +384,9 @@ fn the_store_is_declared_derived() {
     assert_eq!(class_of("job_attempts"), Some(TableClass::Derived));
 }
 
-/// The live upgrade path is 12 to 28, not a fresh install. Every 0.3.x build
-/// shipped 12, so this is the migration a real device takes.
+/// Every 0.3.x build shipped schema 12, so this is the upgrade a real device takes.
 #[test]
-fn the_twelve_to_twenty_eight_upgrade_keeps_every_other_table() {
+fn test_schema_twelve_upgrade_keeps_every_live_table() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("v12.db");
     let seeded = seed_at_version(&path, 12);
@@ -407,6 +405,13 @@ fn the_twelve_to_twenty_eight_upgrade_keeps_every_other_table() {
     let conn = Connection::open(&path).expect("open");
     let after = tables_at(&conn);
     for table in &before {
+        if table == "ftp_history" {
+            assert!(
+                !after.contains(table),
+                "the unused FTP copy was not dropped"
+            );
+            continue;
+        }
         assert!(
             after.contains(table),
             "the upgrade dropped {table}, which held one athlete's data"

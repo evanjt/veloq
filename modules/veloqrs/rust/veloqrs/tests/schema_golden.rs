@@ -11,9 +11,9 @@
 //! would fail on a reindented migration while missing a renamed column.
 //!
 //! Regenerate after an intended schema change:
-//!   UPDATE_GOLDEN=1 cargo test -p veloqrs --test schema_golden
+//!   UPDATE_GOLDEN=1 cargo test -p veloqrs --test migration
 
-mod migration_support;
+use super::migration_support;
 
 use migration_support::*;
 use rusqlite::Connection;
@@ -452,6 +452,7 @@ fn fresh_golden_name() -> String {
 /// one, dropping one or adding one moves the golden and has to be looked at.
 #[test]
 fn the_golden_records_the_check_constraints_a_table_carries() {
+    let _serial_state = super::serial_state();
     let conn = Connection::open_in_memory().expect("in-memory");
     conn.execute_batch(
         "CREATE TABLE intents (
@@ -480,6 +481,7 @@ fn the_golden_records_the_check_constraints_a_table_carries() {
 /// and a byte comparison would report every reflow as drift.
 #[test]
 fn a_check_reads_the_same_however_the_migration_formatted_it() {
+    let _serial_state = super::serial_state();
     let tight = Connection::open_in_memory().expect("in-memory");
     tight
         .execute_batch("CREATE TABLE t (k TEXT CHECK(k IN ('a','b')));")
@@ -498,6 +500,7 @@ fn a_check_reads_the_same_however_the_migration_formatted_it() {
 /// case the golden was blind to.
 #[test]
 fn widening_a_check_moves_the_golden() {
+    let _serial_state = super::serial_state();
     let before = Connection::open_in_memory().expect("in-memory");
     before
         .execute_batch("CREATE TABLE t (k TEXT CHECK(k IN ('a','b')));")
@@ -511,13 +514,48 @@ fn widening_a_check_moves_the_golden() {
 }
 
 #[test]
+fn fresh_install_stamps_the_migration_count() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("fresh.db");
+    {
+        let _engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    }
+    let conn = Connection::open(&path).expect("reopen");
+
+    let expected = PersistentEngine::migration_scripts().len() as i64;
+
+    let user_version: i64 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .expect("user_version");
+    assert_eq!(
+        user_version, expected,
+        "every migration in the chain is applied"
+    );
+
+    let schema_version: String = conn
+        .query_row(
+            "SELECT value FROM schema_info WHERE key = 'schema_version'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("schema_version");
+    assert_eq!(
+        schema_version,
+        expected.to_string(),
+        "the stamped version and the applied version agree"
+    );
+}
+
+#[test]
 fn fresh_install_matches_its_golden() {
+    let _serial_state = super::serial_state();
     let (_dir, dump) = fresh_engine_schema();
     compare_to_golden(&fresh_golden_name(), &dump);
 }
 
 #[test]
 fn seed_at_v7_matches_golden() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let conn = seed_at_version(&dir.path().join("v7.db"), 7);
     compare_to_golden("v07", &canonical_schema(&conn));
@@ -525,6 +563,7 @@ fn seed_at_v7_matches_golden() {
 
 #[test]
 fn seed_at_v12_matches_golden() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let conn = seed_at_version(&dir.path().join("v12.db"), 12);
     compare_to_golden("v12", &canonical_schema(&conn));
@@ -535,6 +574,7 @@ fn seed_at_v12_matches_golden() {
 /// version number.
 #[test]
 fn upgrade_from_v12_lands_on_the_fresh_schema() {
+    let _serial_state = super::serial_state();
     let (_a, upgraded) = upgraded_from_schema(12);
     compare_to_golden(&fresh_golden_name(), &upgraded);
 
@@ -546,10 +586,49 @@ fn upgrade_from_v12_lands_on_the_fresh_schema() {
     );
 }
 
+/// Scenario: a library stored before the climb bests table, holding an activity
+/// with its track and time stream, opens on this build.
+///
+/// Expected behaviour: the table is there and empty, since the upgrade measures
+/// nothing, and the activity it would measure is untouched.
+#[test]
+fn upgrade_from_v57_opens_with_the_climb_bests_table_empty() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("v57.db");
+    let conn = seed_at_version(&path, 57);
+    conn.execute_batch(
+        "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+             VALUES ('hill', 'Run', 46.0, 46.1, 7.0, 7.1);
+         INSERT INTO gps_tracks (activity_id, track_data, point_count)
+             VALUES ('hill', X'00', 3);
+         INSERT INTO time_streams (activity_id, times, point_count)
+             VALUES ('hill', X'00', 3);",
+    )
+    .expect("seed an activity");
+    drop(conn);
+    {
+        let _engine = PersistentEngine::new(path.to_str().unwrap()).expect("upgraded engine");
+    }
+    let conn = Connection::open(&path).expect("reopen");
+
+    assert_eq!(row_count(&conn, "activity_climb_bests"), Some(0));
+    assert_eq!(row_count(&conn, "activities"), Some(1));
+    assert_eq!(row_count(&conn, "time_streams"), Some(1));
+    let (_b, fresh) = fresh_engine_schema();
+    let upgraded = canonical_schema(&conn);
+    assert!(
+        upgraded == fresh,
+        "upgrading a v57 database gives a different schema than a fresh install\n\n{}",
+        diff(&fresh, &upgraded)
+    );
+}
+
 /// 0.2.2 stamped `schema_version = 7` while sitting on `user_version = 11`, so
 /// the oldest supported upgrade needs its own run.
 #[test]
 fn upgrade_from_v11_stamped_seven_lands_on_the_fresh_schema() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("v11.db");
     let conn = seed_at_version(&path, 11);
@@ -573,6 +652,7 @@ fn upgrade_from_v11_stamped_seven_lands_on_the_fresh_schema() {
 /// silently ignored everything 013 to 017 add, `section_pins` among them.
 #[test]
 fn fresh_install_carries_every_table_including_the_post_012_ones() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("fresh.db");
     {
@@ -595,7 +675,6 @@ fn fresh_install_carries_every_table_including_the_post_012_ones() {
         "curve_bodies",
         "exercise_sets",
         "fit_file_status",
-        "ftp_history",
         "gps_tracks",
         "identity_state",
         "interval_bodies",

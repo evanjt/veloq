@@ -133,6 +133,7 @@ fn detected(engine: &mut PersistentEngine) -> usize {
 #[test]
 #[should_panic(expected = "the detect ran")]
 fn a_refused_detect_is_not_a_detect_that_cut_nothing() {
+    let _serial_state = super::serial_state();
     let dir = tempfile::TempDir::new().unwrap();
     let mut engine = engine_with_corpus(&dir.path().join("refused.db"), true);
     engine
@@ -144,6 +145,7 @@ fn a_refused_detect_is_not_a_detect_that_cut_nothing() {
 
 #[test]
 fn an_untimed_pool_cuts_nothing_over_ground_the_lift_veto_marks() {
+    let _serial_state = super::serial_state();
     let dir = tempfile::TempDir::new().unwrap();
     let mut engine = engine_with_corpus(&dir.path().join("untimed.db"), false);
 
@@ -156,6 +158,7 @@ fn an_untimed_pool_cuts_nothing_over_ground_the_lift_veto_marks() {
 
 #[test]
 fn a_stored_stream_reaches_the_detector_and_frees_the_ground_it_clears() {
+    let _serial_state = super::serial_state();
     let dir = tempfile::TempDir::new().unwrap();
     let mut engine = engine_with_corpus(&dir.path().join("timed.db"), true);
 
@@ -170,6 +173,7 @@ fn a_stored_stream_reaches_the_detector_and_frees_the_ground_it_clears() {
 /// would offer sections the detect then refuses, or drop the ones it cut.
 #[test]
 fn the_preview_sees_the_same_ground_as_the_detect() {
+    let _serial_state = super::serial_state();
     let dir = tempfile::TempDir::new().unwrap();
     let path = dir.path().join("preview.db");
     assert!(persistent_engine_init(path.to_str().unwrap().to_string()));

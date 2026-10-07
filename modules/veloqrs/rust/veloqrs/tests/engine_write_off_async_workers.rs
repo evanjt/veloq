@@ -51,6 +51,7 @@ fn within<F: FnOnce() + Send + 'static>(deadline: Duration, what: &str, body: F)
 #[allow(clippy::await_holding_lock)]
 #[test]
 fn unrelated_async_work_still_runs_while_engine_writes_are_queued() {
+    let _serial_state = crate::serial_state();
     let _guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let _dir = init_engine();
 
@@ -99,6 +100,7 @@ fn unrelated_async_work_still_runs_while_engine_writes_are_queued() {
 
 #[test]
 fn every_queued_engine_write_lands() {
+    let _serial_state = crate::serial_state();
     let _guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let _dir = init_engine();
 

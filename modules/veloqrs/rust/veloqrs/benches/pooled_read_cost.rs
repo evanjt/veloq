@@ -49,7 +49,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use rusqlite::{Connection, OpenFlags};
-use veloqrs::PersistentEngine;
+use veloqrs::{MapDistanceBand, PersistentEngine};
 
 /// Samples per figure, the handset budget table's method, so the numbers compare.
 const SAMPLES: usize = 7;
@@ -176,7 +176,7 @@ fn replacements(conn: &Connection, newest_id: &str) -> Vec<(&'static str, Durati
         time(|| {
             let mut stmt = conn
                 .prepare(
-                    "SELECT a.id, m.name, a.sport_type, m.date, m.distance, m.moving_time,
+                    "SELECT a.id, m.name, m.sport_type, m.date, m.distance, m.moving_time,
                             a.min_lat, a.max_lat, a.min_lng, a.max_lng,
                             s.start_point_lat, s.start_point_lng
                      FROM activities a
@@ -296,7 +296,18 @@ fn main() {
         ("activity_count", time(|| engine.activity_count())),
         (
             "map_screen_data",
-            time(|| engine.map_screen_data(i64::MIN, i64::MAX, Vec::new())),
+            time(|| {
+                engine.map_screen_data(
+                    i64::MIN,
+                    i64::MAX,
+                    Vec::new(),
+                    MapDistanceBand::All,
+                    true,
+                    false,
+                    false,
+                    String::new(),
+                )
+            }),
         ),
     ];
     let newest_id = ids.first().cloned().unwrap_or_default();

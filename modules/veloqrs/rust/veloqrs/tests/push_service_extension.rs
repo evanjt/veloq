@@ -2,7 +2,7 @@
 //! the symbols it links.
 //!
 //! iOS has no JNI, so the extension is a second process reaching the crate
-//! through plain C symbols in the xcframework: the twin of `push/jni.rs` and
+//! through plain C symbols in the static library: the twin of `push/jni.rs` and
 //! the same shape as `basemap/c.rs`. These tests call them by that name, the
 //! way `NotificationService.swift` does, so a rename on either side fails here
 //! rather than at link time on a Mac nobody is watching.
@@ -18,7 +18,7 @@
 //! are covered on the host in `push::tests`; what is covered here is the
 //! marshalling and the contracts either side of it.
 //!
-//! Run: `cargo test --test push_service_extension -p veloqrs`
+//! Run: `cargo test -p veloqrs --test push_service_extension`
 
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
@@ -35,13 +35,14 @@ unsafe extern "C" {
         access_token: *const c_char,
         api_key: *const c_char,
         athlete_id: *const c_char,
+        refusal: *mut *mut c_char,
     ) -> bool;
-    fn veloq_push_fetch_and_index(
-        activity_id: *const c_char,
-        sport_type: *const c_char,
-    ) -> *mut c_char;
-    fn veloq_push_activity(activity_id: *const c_char) -> *mut c_char;
+    fn veloq_push_activity(activity_id: *const c_char, athlete_id: *const c_char) -> *mut c_char;
     fn veloq_push_string_free(text: *mut c_char);
+    fn veloq_push_payload_reason(
+        top_level_keys: *const c_char,
+        body_keys: *const c_char,
+    ) -> *mut c_char;
 }
 
 /// Hold the `CString`s alive for the length of the call, the way the Swift
@@ -57,7 +58,32 @@ fn prepare(
     let key = api_key.map(|s| CString::new(s).unwrap());
     let athlete = athlete.map(|s| CString::new(s).unwrap());
     let ptr = |s: &Option<CString>| s.as_ref().map_or(std::ptr::null(), |s| s.as_ptr());
-    unsafe { veloq_push_prepare(db.as_ptr(), ptr(&token), ptr(&key), ptr(&athlete)) }
+    unsafe {
+        veloq_push_prepare(
+            db.as_ptr(),
+            ptr(&token),
+            ptr(&key),
+            ptr(&athlete),
+            std::ptr::null_mut(),
+        )
+    }
+}
+
+/// `prepare` with the refusal's sentence taken back, as the extension does.
+fn prepare_refusal(db_path: &str) -> Option<String> {
+    let db = CString::new(db_path).unwrap();
+    let mut refusal: *mut c_char = std::ptr::null_mut();
+    let ok = unsafe {
+        veloq_push_prepare(
+            db.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            std::ptr::null(),
+            &mut refusal,
+        )
+    };
+    assert!(!ok);
+    take(refusal)
 }
 
 /// Take a string the crate handed out and give it straight back, which is
@@ -75,7 +101,8 @@ fn take(answer: *mut c_char) -> Option<String> {
 
 fn activity_push(activity_id: &str) -> Option<String> {
     let id = CString::new(activity_id).unwrap();
-    take(unsafe { veloq_push_activity(id.as_ptr()) })
+    let athlete = CString::new("i1").unwrap();
+    take(unsafe { veloq_push_activity(id.as_ptr(), athlete.as_ptr()) })
 }
 
 /// Scenario: a ride is uploaded and the extension asks for the push, on an
@@ -110,7 +137,10 @@ fn a_push_for_an_athlete_with_notifications_off_answers_nothing() {
 /// answer is the same nothing rather than a panic across the boundary.
 #[test]
 fn an_activity_push_with_no_id_is_null() {
-    assert_eq!(take(unsafe { veloq_push_activity(std::ptr::null()) }), None);
+    assert_eq!(
+        take(unsafe { veloq_push_activity(std::ptr::null(), std::ptr::null()) }),
+        None
+    );
 }
 
 /// Scenario: the phone has been rebooted and not unlocked, so
@@ -158,16 +188,6 @@ fn the_handler_picks_the_credential_the_auth_store_would() {
     );
     assert_eq!(native_auth_choice(Some("token"), None, None), None);
     assert_eq!(native_auth_choice(None, None, Some("i1")), None);
-}
-
-/// A null id is a push whose payload the extension could not read. It answers
-/// null rather than reaching the network, so a malformed push costs nothing.
-#[test]
-fn a_fetch_with_no_activity_id_never_leaves_the_device() {
-    assert_eq!(
-        take(unsafe { veloq_push_fetch_and_index(std::ptr::null(), std::ptr::null()) }),
-        None
-    );
 }
 
 /// Every string that crosses the boundary comes back, and the case the
@@ -244,6 +264,8 @@ fn seed_a_section_pr(db_path: &str, preferences: &str) {
                 distance_meters: 400.0,
                 direction: Direction::Same,
             },
+            None,
+            None,
         )
         .expect("the lap");
 }
@@ -279,6 +301,10 @@ fn bundle() -> Vec<(String, String)> {
             "PR on {{name}} and {{count}} more",
         ),
         (
+            "notifications.activityBody.sectionPrManyOne",
+            "PR on {{name}} and one more",
+        ),
+        (
             "notifications.activityBody.fasterOnRoute",
             "Faster than usual on {{name}}",
         ),
@@ -286,9 +312,50 @@ fn bundle() -> Vec<(String, String)> {
             "notifications.activityBody.fasterOnRouteDelta",
             "Faster than usual on {{name}} ({{delta}} off PR)",
         ),
-        ("notifications.activityBody.onRoute", "On {{name}}"),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v.to_string()))
     .collect()
+}
+
+fn payload_reason(top: &str, body: Option<&str>) -> String {
+    let top = CString::new(top).unwrap();
+    let body = body.map(|b| CString::new(b).unwrap());
+    take(unsafe {
+        veloq_push_payload_reason(
+            top.as_ptr(),
+            body.as_ref().map_or(std::ptr::null(), |b| b.as_ptr()),
+        )
+    })
+    .expect("a reason")
+}
+
+/// The reason for an unrecognised payload names its shape from key names and
+/// carries no value: the reason is stored and shown, and a payload can hold a
+/// credential.
+#[test]
+fn the_payload_reason_keeps_key_names_and_no_values() {
+    assert_eq!(
+        payload_reason("body\naps", Some("event_type\nactivity_id")),
+        "payload not recognised: keys=[aps,body] body=[activity_id,event_type]"
+    );
+    assert_eq!(
+        payload_reason("aps", None),
+        "payload not recognised: keys=[aps]"
+    );
+    // A secret sits in a value, which never crosses; a key that is itself long
+    // is cut rather than stored whole.
+    let long = "k".repeat(100);
+    let reason = payload_reason(&long, Some(""));
+    assert!(reason.contains(&"k".repeat(32)) && !reason.contains(&"k".repeat(33)));
+}
+
+/// A refused prepare hands its sentence across, so the run it is recorded
+/// under says why rather than only that.
+#[test]
+fn a_refused_prepare_hands_its_reason_across() {
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("routes.db");
+    let reason = prepare_refusal(db.to_str().unwrap()).expect("a reason");
+    assert!(reason.contains("keychain held no credential"), "{reason}");
 }

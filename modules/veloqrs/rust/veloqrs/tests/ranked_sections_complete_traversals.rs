@@ -7,7 +7,7 @@
 //! and a lap that spans too little of the section, so a section screen showing
 //! a 380 s best cannot sit beside an insight card claiming 40 s.
 //!
-//! Run: `cargo test --test ranked_sections_complete_traversals -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- ranked_sections_complete_traversals::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;

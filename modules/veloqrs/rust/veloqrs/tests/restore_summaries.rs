@@ -3,7 +3,7 @@
 //! a field it derives differently is a field the hidden-sections sheet lies
 //! about.
 //!
-//! Run: `cargo test --test restore_summaries -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- restore_summaries::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;

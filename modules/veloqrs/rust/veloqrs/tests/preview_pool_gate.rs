@@ -7,7 +7,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test preview_pool_gate -p veloqrs`
+//! Run: `cargo test --test preview -p veloqrs -- preview_pool_gate::`
 
 use std::time::{Duration, Instant};
 
@@ -76,6 +76,7 @@ fn corrupt_tracks(path: &std::path::Path) {
 
 #[test]
 fn a_preview_over_an_unusable_pool_refuses() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     assert!(persistent_engine_init(

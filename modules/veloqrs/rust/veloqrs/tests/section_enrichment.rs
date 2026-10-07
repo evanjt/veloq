@@ -3,13 +3,12 @@
 //! the summaries agree with the catalogue, and two engines over the same
 //! corpus rank identically.
 
-mod lifecycle_support;
-
 use std::collections::BTreeMap;
 
-use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::persistence::PersistentEngine;
+
+use crate::lifecycle_support::*;
 
 fn ranked(engine: &PersistentEngine) -> BTreeMap<String, (f64, f64, Option<String>)> {
     engine

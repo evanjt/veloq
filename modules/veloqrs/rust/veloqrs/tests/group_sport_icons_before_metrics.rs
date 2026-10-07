@@ -6,7 +6,7 @@
 //! from the same authority a section does, `activity_metadata`, so the two
 //! lists cannot disagree about a library they are reading at the same instant.
 //!
-//! Run: `cargo test --test group_sport_icons_before_metrics -p veloqrs --features synthetic`
+//! Run: `cargo test --test app_synthetic -p veloqrs --features synthetic -- group_sport_icons_before_metrics::`
 
 #![cfg(feature = "synthetic")]
 

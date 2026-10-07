@@ -84,6 +84,19 @@ fn excluded(engine: &PersistentEngine, section_id: &str) -> Vec<String> {
 /// on one section, plus that section's id and the excluded lap's index.
 fn engine_with_lapped_member(dir: &TempDir) -> (PersistentEngine, String, u32) {
     let corpus = corpus();
+    let track = corpus.bucket_c_single.lapped(3);
+    let (engine, section_id, starts) = engine_with_member_track(dir, &corpus, track);
+    (engine, section_id, starts[1])
+}
+
+/// An engine whose detected catalogue holds `act_lapped` with the given
+/// track, plus a section that gives it several rows and those rows'
+/// `start_index` values in ascending order.
+fn engine_with_member_track(
+    dir: &TempDir,
+    corpus: &LifecycleCorpus,
+    track: Vec<tracematch::GpsPoint>,
+) -> (PersistentEngine, String, Vec<u32>) {
     let path = dir.path().join("exclusion_laps.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
     for a in corpus.through_a() {
@@ -96,11 +109,7 @@ fn engine_with_lapped_member(dir: &TempDir) -> (PersistentEngine, String, u32) {
     }
     let base = &corpus.bucket_c_single;
     engine
-        .add_activity(
-            "act_lapped".to_string(),
-            base.lapped(3),
-            base.sport_type.clone(),
-        )
+        .add_activity("act_lapped".to_string(), track, base.sport_type.clone())
         .unwrap();
     engine
         .update_activity_metadata("act_lapped", Some(base.start_date_unix), None, None, None)
@@ -133,7 +142,7 @@ fn engine_with_lapped_member(dir: &TempDir) -> (PersistentEngine, String, u32) {
         .map(|p| p.start_index)
         .collect();
     starts.sort_unstable();
-    (engine, section.id.clone(), starts[1])
+    (engine, section.id.clone(), starts)
 }
 
 fn lapped_exclusions(engine: &PersistentEngine, section_id: &str) -> Vec<(String, u32)> {
@@ -271,6 +280,55 @@ fn a_per_lap_exclusion_survives_a_recut_that_changes_the_lap_count() {
     );
 }
 
+/// A member rides out along the ground and comes back over only the first
+/// part of it, and the user excludes the return lap. A trim that keeps only
+/// ground the outward lap alone covers rebuilds the member as one row, a
+/// whole lap away from the excluded one:
+/// the exclusion must not land on it, and the activity stays in the
+/// section's times.
+#[test]
+fn a_lap_exclusion_does_not_move_onto_a_lone_traversal_far_from_it_after_a_trim() {
+    let dir = TempDir::new().unwrap();
+    let corpus = corpus();
+    let ground = &corpus.bucket_c_single.gps_points;
+    let mut track = ground[..200].to_vec();
+    let mut back = ground[..90].to_vec();
+    back.reverse();
+    track.extend(back);
+    let (mut engine, sid, starts) = engine_with_member_track(&dir, &corpus, track);
+    assert_eq!(
+        starts,
+        vec![5, 192],
+        "the member must hold two laps to start"
+    );
+    engine.exclude_section_lap(&sid, "act_lapped", 192).unwrap();
+    assert_eq!(lapped_exclusions(&engine, &sid).len(), 1);
+
+    engine.trim_section(&sid, 0, 5).unwrap();
+
+    let rows: Vec<u32> = engine
+        .get_section_by_id(&sid)
+        .unwrap()
+        .activity_portions
+        .iter()
+        .filter(|p| p.activity_id == "act_lapped")
+        .map(|p| p.start_index)
+        .collect();
+    assert_eq!(rows, vec![98], "the trim must leave one traversal");
+    assert!(
+        lapped_exclusions(&engine, &sid).is_empty(),
+        "the exclusion moved onto a traversal far from the lap it named"
+    );
+    assert!(
+        engine
+            .get_section_by_id(&sid)
+            .unwrap()
+            .activity_ids
+            .contains(&"act_lapped".to_string()),
+        "the activity dropped out of the section's times"
+    );
+}
+
 /// Re-attaching an activity (sync re-index) rewrites its junction rows;
 /// the exclusion is a user decision and must ride across.
 #[test]
@@ -343,6 +401,59 @@ fn a_per_lap_exclusion_survives_a_redetect() {
         lapped_exclusions(&engine, &sid).len(),
         1,
         "the excluded lap must survive the re-detect"
+    );
+    assert!(
+        !excluded(&engine, &sid).contains(&"act_lapped".to_string()),
+        "a per-lap exclusion must not widen to the whole activity"
+    );
+}
+
+/// A detection save over a member that gained a pass rebuilds its rows
+/// through the capture and reapply carry, not the attach path. The excluded
+/// lap lands on one rebuilt row and does not widen to the whole activity.
+#[test]
+fn a_lap_exclusion_survives_a_detection_save_that_changes_the_row_count() {
+    let dir = TempDir::new().unwrap();
+    let (mut engine, sid, lap) = engine_with_lapped_member(&dir);
+    engine.exclude_section_lap(&sid, "act_lapped", lap).unwrap();
+    let rows = |dir: &TempDir| -> i64 {
+        rusqlite::Connection::open(dir.path().join("exclusion_laps.db"))
+            .and_then(|db| {
+                db.query_row(
+                    "SELECT COUNT(*) FROM section_activities WHERE activity_id = 'act_lapped'",
+                    [],
+                    |r| r.get(0),
+                )
+            })
+            .expect("row count")
+    };
+    let before = rows(&dir);
+
+    let corpus = corpus();
+    let base = &corpus.bucket_c_single;
+    let mut four_passes = base.lapped(3);
+    let mut back = base.gps_points.clone();
+    back.reverse();
+    four_passes.extend(back);
+    engine
+        .add_activity(
+            "act_lapped".to_string(),
+            four_passes,
+            base.sport_type.clone(),
+        )
+        .unwrap();
+    let handle = engine.detect_sections_background();
+    let (sections, _) = handle.recv().expect("the detect ran");
+    engine.apply_sections(sections).unwrap();
+
+    assert!(
+        rows(&dir) != before,
+        "the extra pass left the row count unchanged, so this proves nothing"
+    );
+    assert_eq!(
+        lapped_exclusions(&engine, &sid).len(),
+        1,
+        "exactly one rebuilt lap carries the exclusion"
     );
     assert!(
         !excluded(&engine, &sid).contains(&"act_lapped".to_string()),

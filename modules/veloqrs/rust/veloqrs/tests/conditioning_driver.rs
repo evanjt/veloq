@@ -1,13 +1,11 @@
 //! Mid-backfill conditioning drives itself to a durable catalogue.
 //!
 //! Scenario: a long first sync stores activities one by one through the
-//! ingest hooks. At the conditioning cadence a detection run fires, and the
-//! Rust driver thread applies its result with no TS poll anywhere.
+//! ingest hooks. At the conditioning cadence a detection run fires, and its
+//! worker applies the result with no TS poll anywhere.
 //!
-//! Runs as a single sequential test because the conditioning driver applies
-//! through the process-global `PERSISTENT_ENGINE`, exactly like production.
-
-#![cfg(feature = "synthetic")]
+//! Runs as a single sequential test because the worker applies through the
+//! process-global `PERSISTENT_ENGINE`, exactly like production.
 
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
@@ -18,21 +16,27 @@ use veloqrs::persistence::with_persistent_engine;
 
 #[test]
 fn backfill_cadence_conditions_without_any_ts_poll() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("conditioning.db");
     assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+    // Stores are counted against the install that committed them, the way
+    // the sync loop captures its install before it stores.
+    let install = veloqrs::persistence::engine_install();
 
     with_persistent_engine(|engine| {
-        engine.set_section_config(tracematch::sections::SectionConfig {
-            ..Default::default()
-        });
+        engine
+            .set_section_config(tracematch::sections::SectionConfig {
+                ..Default::default()
+            })
+            .expect("config accepted");
     })
     .unwrap();
 
     let corpus = LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: conditioning::CONDITIONING_BATCH_ADDS as usize,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 0,
         ..LifecycleConfig::default()
@@ -60,14 +64,14 @@ fn backfill_cadence_conditions_without_any_ts_poll() {
             engine.attach_stored_activity(&activity.id);
         })
         .unwrap();
-        conditioning::note_stored(1);
+        conditioning::note_stored_for(install, 1);
         if conditioning::maybe_condition_backfill() {
             fired += 1;
         }
     }
     assert_eq!(fired, 1, "the cadence fires exactly once at the threshold");
 
-    // The driver thread owns poll + apply from here. Wait for the durable
+    // The worker applies and settles the run from here. Wait for the durable
     // catalogue with no TS-side poll call anywhere in this test.
     let deadline = Instant::now() + Duration::from_secs(120);
     let sections = loop {

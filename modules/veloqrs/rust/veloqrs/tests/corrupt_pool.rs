@@ -5,7 +5,7 @@
 //! redraws the tiles an unreadable activity reaches without paying a full pass
 //! per launch, and both exports name every omission.
 //!
-//! Run: `cargo test --test corrupt_pool -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- corrupt_pool::`
 
 use rusqlite::{Connection, OptionalExtension, params};
 use std::io::Read;
@@ -158,6 +158,7 @@ impl Setup {
 /// durable record naming the activity, not an anonymous empty track.
 #[test]
 fn one_unreadable_track_is_named_in_the_pool_record() {
+    let _serial_state = crate::serial_state();
     let mut s = setup(12);
     s.corrupt("a3");
 
@@ -181,12 +182,120 @@ fn one_unreadable_track_is_named_in_the_pool_record() {
     );
 }
 
+#[test]
+fn warm_detect_uses_the_whole_library_for_corrupt_pool_integrity() {
+    let _serial_state = crate::serial_state();
+    let mut s = setup(100);
+    for i in 0..100 {
+        let mut points = track(i % 10, 80);
+        let place = (i / 10) as f64 * 10.0;
+        for point in &mut points {
+            point.latitude -= place;
+        }
+        s.engine
+            .add_activity(format!("a{i}"), points, "Ride".to_string())
+            .expect("move activity to its cluster");
+    }
+    for i in 0..8 {
+        s.corrupt(&format!("a{i}"));
+    }
+
+    let cold = s.engine.detect_sections_background();
+    let (result, cache) = cold.recv_with_cache();
+    let (sections, processed_ids) = result.expect("cold detect must accept eight bad rows in 100");
+    s.engine
+        .apply_sections_with_cache(sections, cache)
+        .expect("apply cold detect");
+    s.engine
+        .save_processed_activity_ids(&processed_ids)
+        .expect("save cold detect ids");
+
+    let mut points = track(2, 80);
+    for point in &mut points {
+        point.latitude -= 10.0;
+    }
+    s.engine
+        .add_activity("new".to_string(), points, "Ride".to_string())
+        .expect("add nearby ride");
+    let warm = s.engine.detect_sections_background();
+    let (result, cache) = warm.recv_with_cache();
+    let (sections, processed_ids) =
+        result.expect("warm detect must accept the same eight bad rows");
+    s.engine
+        .apply_sections_with_cache(sections, cache)
+        .expect("apply warm detect");
+    s.engine
+        .save_processed_activity_ids(&processed_ids)
+        .expect("save warm detect ids");
+
+    let record = s.integrity_record().expect("bad rows stay recorded");
+    assert_eq!(record["corrupt"], 8);
+    assert_eq!(record["readable"], 93);
+    assert_eq!(record["abandoned"], false);
+}
+
+#[test]
+fn a_narrowed_unreadable_track_uses_the_whole_library_for_integrity() {
+    let _serial_state = crate::serial_state();
+    let mut s = setup(20);
+    let cold = s.engine.detect_sections_background();
+    let (result, cache) = cold.recv_with_cache();
+    let (sections, ids) = result.expect("cold detect");
+    s.engine
+        .apply_sections_with_cache(sections, cache)
+        .expect("apply cold detect");
+    s.engine
+        .save_processed_activity_ids(&ids)
+        .expect("save ids");
+    let mut before = serde_json::to_value(s.engine.get_sections()).expect("cold catalogue");
+    for section in before.as_array_mut().expect("cold sections") {
+        section
+            .as_object_mut()
+            .expect("cold section")
+            .remove("rank");
+    }
+
+    let mut far = track(0, 80);
+    for point in &mut far {
+        point.latitude -= 30.0;
+    }
+    s.engine
+        .add_activity("new".to_string(), far, "Ride".to_string())
+        .expect("new ride");
+    s.corrupt("new");
+
+    let warm = s.engine.detect_sections_background();
+    let (result, cache) = warm.recv_with_cache();
+    let (sections, ids) = result.expect("one corrupt row in 21 must not abandon detection");
+    s.engine
+        .apply_sections_with_cache(sections, cache)
+        .expect("apply warm detect");
+    s.engine
+        .save_processed_activity_ids(&ids)
+        .expect("save ids");
+
+    let mut after = serde_json::to_value(s.engine.get_sections()).expect("warm catalogue");
+    for section in after.as_array_mut().expect("warm sections") {
+        section
+            .as_object_mut()
+            .expect("warm section")
+            .remove("rank");
+    }
+    assert_eq!(after, before, "the catalogue is retained");
+    assert!(!s.engine.detection_owed(), "the new id is processed");
+    let record = s.integrity_record().expect("corrupt row recorded");
+    assert_eq!(record["corrupt"], 1);
+    assert_eq!(record["readable"], 20);
+    assert_eq!(record["abandoned"], false);
+}
+
 /// Scenario: one unreadable track in a library of nine, which is 11% of the
 /// pool and so past the fraction on its own.
 /// Expected behaviour: detection runs. One bad row is isolated rot, and a
 /// small library must not lose its catalogue to it.
 #[test]
 fn a_single_bad_row_on_a_small_library_still_detects() {
+    let _serial_state = crate::serial_state();
     let mut s = setup(9);
     s.corrupt("a3");
 
@@ -208,6 +317,7 @@ fn a_single_bad_row_on_a_small_library_still_detects() {
 /// poll reports a dead worker and the stored catalogue stands.
 #[test]
 fn an_unreadable_pool_abandons_the_detect() {
+    let _serial_state = crate::serial_state();
     let mut s = setup(12);
     for i in 0..12 {
         s.corrupt(&format!("a{i}"));
@@ -238,6 +348,7 @@ fn an_unreadable_pool_abandons_the_detect() {
 /// loading, stays absent.
 #[test]
 fn an_abandoned_pool_is_not_reloaded_until_it_changes() {
+    let _serial_state = crate::serial_state();
     let mut s = setup(12);
     for i in 0..12 {
         s.corrupt(&format!("a{i}"));
@@ -269,6 +380,7 @@ fn an_abandoned_pool_is_not_reloaded_until_it_changes() {
 /// pool clears it rather than leaving a stale warning behind.
 #[test]
 fn a_clean_pool_clears_the_record() {
+    let _serial_state = crate::serial_state();
     let mut s = setup(4);
     s.raw
         .execute(
@@ -277,8 +389,10 @@ fn a_clean_pool_clears_the_record() {
         )
         .expect("seed record");
 
+    let install = veloqrs::persistence::engine_install();
     let handle = s.engine.detect_sections_background();
-    let _ = handle.recv();
+    handle.recv().expect("clean detection must complete");
+    assert_eq!(veloqrs::persistence::engine_install(), install);
 
     assert!(
         s.integrity_record().is_none(),
@@ -294,6 +408,7 @@ fn a_clean_pool_clears_the_record() {
 /// activity is named on disk instead, which is what buys the redraw.
 #[test]
 fn an_incomplete_tile_set_names_the_activity_and_clears_the_marker() {
+    let _serial_state = crate::serial_state();
     let _serialise = TILE_TEST.lock().unwrap_or_else(|e| e.into_inner());
     let mut s = setup(4);
     s.corrupt("a1");
@@ -319,6 +434,7 @@ fn an_incomplete_tile_set_names_the_activity_and_clears_the_marker() {
 /// would be served forever and the repaired ride would never reach the map.
 #[test]
 fn a_repaired_track_redraws_the_tiles_it_reaches() {
+    let _serial_state = crate::serial_state();
     let _serialise = TILE_TEST.lock().unwrap_or_else(|e| e.into_inner());
     let mut s = setup(4);
     let original = s.blob("a1");
@@ -345,6 +461,7 @@ fn a_repaired_track_redraws_the_tiles_it_reaches() {
 /// unchanged library draws nothing.
 #[test]
 fn a_readable_library_redraws_nothing() {
+    let _serial_state = crate::serial_state();
     let _serialise = TILE_TEST.lock().unwrap_or_else(|e| e.into_inner());
     let mut s = setup(4);
 
@@ -364,6 +481,7 @@ fn a_readable_library_redraws_nothing() {
 
 #[test]
 fn the_gpx_archive_names_the_activity_it_could_not_read() {
+    let _serial_state = crate::serial_state();
     let s = setup(4);
     s.corrupt("a2");
 
@@ -373,7 +491,7 @@ fn the_gpx_archive_names_the_activity_it_could_not_read() {
         .bulk_export_gpx(dest.to_str().unwrap())
         .expect("gpx export");
     assert_eq!(result.exported, 3);
-    assert_eq!(result.skipped, 1);
+    assert_eq!(result.failed, 1);
 
     let file = std::fs::File::open(&dest).expect("open zip");
     let mut archive = zip::ZipArchive::new(file).expect("read zip");
@@ -398,6 +516,7 @@ fn the_gpx_archive_names_the_activity_it_could_not_read() {
 
 #[test]
 fn the_geojson_export_carries_its_omissions() {
+    let _serial_state = crate::serial_state();
     let s = setup(4);
     s.corrupt("a2");
 
@@ -407,7 +526,7 @@ fn the_geojson_export_carries_its_omissions() {
         .bulk_export_geojson(dest.to_str().unwrap())
         .expect("geojson export");
     assert_eq!(result.exported, 3);
-    assert_eq!(result.skipped, 1);
+    assert_eq!(result.failed, 1);
 
     let body = std::fs::read_to_string(&dest).expect("read geojson");
     let doc: serde_json::Value = serde_json::from_str(&body).expect("geojson parses");

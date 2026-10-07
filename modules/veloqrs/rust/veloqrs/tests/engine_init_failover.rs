@@ -15,7 +15,9 @@ use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
 use tempfile::TempDir;
+use veloqrs::objects::quarantine::take_quarantine_report;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
+use veloqrs::persistence::with_persistent_engine;
 use veloqrs::sections::CreateSectionParams;
 use veloqrs::{GpsPoint, PersistentEngine};
 
@@ -81,6 +83,7 @@ fn activity_count(db_path: &Path) -> i64 {
 /// every user whose launch races a background write.
 #[test]
 fn transient_lock_does_not_quarantine() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
@@ -133,6 +136,92 @@ fn transient_lock_does_not_quarantine() {
     assert_eq!(activity_count(&db_path), 1);
 }
 
+#[test]
+fn migration_busy_keeps_the_released_library_in_place() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("v12.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    let mut blocker = rusqlite::Connection::open(&db_path).unwrap();
+    blocker
+        .execute_batch(include_str!("fixtures/v12_demo.sql"))
+        .unwrap();
+    blocker.pragma_update(None, "journal_mode", "WAL").unwrap();
+    let held = blocker
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .unwrap();
+
+    assert!(!persistent_engine_init(db_str.clone()));
+    assert!(
+        quarantine_files(tmp.path()).is_empty(),
+        "a busy migration must not quarantine"
+    );
+    drop(held);
+    drop(blocker);
+    assert!(persistent_engine_init(db_str.clone()));
+    assert_eq!(activity_count(&db_path), 75);
+}
+
+#[test]
+fn pre_v4_migration_busy_keeps_the_library_in_place() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("v3.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    let mut blocker = rusqlite::Connection::open(&db_path).unwrap();
+    blocker
+        .execute_batch(
+            "CREATE TABLE schema_info (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             INSERT INTO schema_info VALUES ('schema_version', '3');",
+        )
+        .unwrap();
+    blocker.pragma_update(None, "journal_mode", "WAL").unwrap();
+    let held = blocker
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .unwrap();
+
+    assert!(!persistent_engine_init(db_str.clone()));
+    assert!(
+        quarantine_files(tmp.path()).is_empty(),
+        "a busy pre-v4 migration must not quarantine"
+    );
+    drop(held);
+    drop(blocker);
+    assert!(persistent_engine_init(db_str.clone()));
+}
+
+#[test]
+fn two_openers_upgrade_one_released_library_without_quarantine() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("v12.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    conn.execute_batch(include_str!("fixtures/v12_demo.sql"))
+        .unwrap();
+    drop(conn);
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(3));
+    let handles: Vec<_> = (0..2)
+        .map(|_| {
+            let barrier = barrier.clone();
+            let path = db_str.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                persistent_engine_init(path)
+            })
+        })
+        .collect();
+    barrier.wait();
+    for handle in handles {
+        assert!(handle.join().unwrap());
+    }
+    assert!(quarantine_files(tmp.path()).is_empty());
+    assert_eq!(activity_count(&db_path), 75);
+}
+
 /// A ruined main file beside an intact log. Under WAL SQLite rebuilds the
 /// schema out of the log, so the open succeeds, `load()` returns cleanly and
 /// the library reads as zero activities: the quarantine never runs and nothing
@@ -146,6 +235,7 @@ fn transient_lock_does_not_quarantine() {
 /// is the test that would otherwise have gone red then.
 #[test]
 fn init_quarantines_a_ruined_main_file_beside_an_intact_log() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
@@ -162,6 +252,11 @@ fn init_quarantines_a_ruined_main_file_beside_an_intact_log() {
         .unwrap();
     live.execute_batch("INSERT INTO wal_probe (id) VALUES (1)")
         .unwrap();
+    live.execute(
+        "INSERT INTO sections (id, section_type, name, sport_type, polyline_json, distance_meters, is_user_defined)
+         VALUES ('wal-custom', 'custom', 'Kept climb', 'Ride', '[]', 1, 1)",
+        [],
+    ).unwrap();
     assert!(
         Path::new(&format!("{}-wal", db_str)).exists(),
         "the fixture needs a log beside the file"
@@ -194,6 +289,11 @@ fn init_quarantines_a_ruined_main_file_beside_an_intact_log() {
         "the old log must be renamed aside with the file, got {:?}",
         quarantined
     );
+    assert_eq!(
+        with_persistent_engine(|engine| engine.stats().section_count),
+        Some(1),
+        "the installed engine must load sections salvaged from the log"
+    );
     let fresh = rusqlite::Connection::open(&db_path).unwrap();
     let probe: i64 = fresh
         .query_row(
@@ -214,6 +314,7 @@ fn init_quarantines_a_ruined_main_file_beside_an_intact_log() {
 /// writes the header on the first write, so a fresh install passes through.
 #[test]
 fn an_empty_file_is_a_fresh_install_and_not_a_corrupt_one() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
@@ -228,7 +329,42 @@ fn an_empty_file_is_a_fresh_install_and_not_a_corrupt_one() {
 }
 
 #[test]
+fn an_empty_main_file_with_a_populated_log_is_quarantined() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    drop(PersistentEngine::new(&db_str).unwrap());
+
+    let live = rusqlite::Connection::open(&db_path).unwrap();
+    live.pragma_update(None, "journal_mode", "WAL").unwrap();
+    live.execute_batch(
+        "CREATE TABLE wal_probe (id INTEGER PRIMARY KEY); INSERT INTO wal_probe VALUES (1)",
+    )
+    .unwrap();
+    assert!(fs::metadata(format!("{}-wal", db_str)).unwrap().len() > 0);
+    fs::write(&db_path, b"").unwrap();
+    assert!(fs::metadata(format!("{}-wal", db_str)).unwrap().len() > 0);
+
+    assert!(persistent_engine_init(db_str.clone()));
+    let quarantined = quarantine_files(tmp.path());
+    assert!(
+        quarantined
+            .iter()
+            .any(|n| n.starts_with("routes.db.corrupt-"))
+    );
+    assert!(
+        quarantined.iter().any(|n| n.ends_with("-wal")),
+        "{quarantined:?}"
+    );
+    assert!(take_quarantine_report().is_some());
+    drop(live);
+}
+
+#[test]
 fn init_survives_corrupt_database() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
@@ -325,6 +461,7 @@ fn init_survives_corrupt_database() {
 /// the fresh database before the catalogue is rebuilt from scratch.
 #[test]
 fn quarantine_salvages_readable_history_rows() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("ledger.db");
@@ -390,11 +527,60 @@ fn quarantine_salvages_readable_history_rows() {
     );
 }
 
+#[test]
+fn quarantine_keeps_recordings_and_route_names() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("records.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    drop(PersistentEngine::new(&db_str).unwrap());
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    conn.execute(
+        "INSERT INTO recordings (id, fit_path, activity_type, name, start_time,
+         duration_seconds, distance_meters, created_at, upload_status)
+         VALUES ('offline', 'offline.fit', 'Ride', 'Morning', 1, 60, 1000, 1, 'pending')",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO route_names (route_id, custom_name) VALUES ('route-1', 'Home climb')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+    corrupt_activities_pages(&db_path, &db_str);
+    let damaged = rusqlite::Connection::open(&db_path).unwrap();
+    assert_eq!(
+        damaged
+            .query_row("SELECT COUNT(*) FROM route_names", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    drop(damaged);
+
+    assert!(persistent_engine_init(db_str.clone()));
+    let report = take_quarantine_report().expect("quarantine report");
+    let fresh = rusqlite::Connection::open(&db_path).unwrap();
+    for table in ["recordings", "route_names"] {
+        let count: i64 = fresh
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 1, "{table} must survive quarantine");
+    }
+    assert_eq!(report.recordings, 1);
+    assert_eq!(report.route_names, 1);
+}
+
 /// Detector output is a re-derivable cache; the user's own rows are not. A
 /// quarantine brings the custom, accepted and renamed sections across, and the
 /// suppression intents with them, so a removed corridor stays removed.
 #[test]
 fn quarantine_salvages_user_sections_and_intents() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("intent.db");
@@ -450,6 +636,11 @@ fn quarantine_salvages_user_sections_and_intents() {
         .expect("the custom section came across");
     assert_eq!(kept.name.as_deref(), Some("Col du Test"));
     assert_eq!(kept.polyline.len(), line.len());
+    assert_eq!(
+        with_persistent_engine(|engine| engine.stats().section_count),
+        Some(1),
+        "the installed engine must load the salvaged section into memory"
+    );
 
     let conn = rusqlite::Connection::open(&db_path).unwrap();
     let intents: Vec<String> = conn
@@ -471,6 +662,61 @@ fn quarantine_salvages_user_sections_and_intents() {
     );
 }
 
+#[test]
+fn quarantine_promotes_a_v12_auto_name_before_recut() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("v12-named.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    conn.execute_batch(include_str!("fixtures/v12_demo.sql"))
+        .unwrap();
+    conn.execute(
+        "UPDATE sections SET name = 'Col des Planches' WHERE id = 'sec_hike_38'",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO sections
+         (id, section_type, name, sport_type, polyline_json, distance_meters,
+          source_activity_id, is_user_defined, polyline_blob)
+         SELECT 'custom_kept', 'custom', 'Drawn', sport_type, polyline_json,
+                distance_meters, representative_activity_id, 1, polyline_blob
+         FROM sections WHERE id = 'sec_hike_38'",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    corrupt_activities_pages(&db_path, &db_str);
+    assert!(persistent_engine_init(db_str.clone()));
+
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    let names: Vec<String> = conn
+        .prepare("SELECT name FROM section_intents WHERE kind = 'named'")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .flatten()
+        .collect();
+    assert!(
+        names.contains(&"Col des Planches".to_string()),
+        "the typed name must survive quarantine as a durable intent"
+    );
+    let baseline: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM section_geometry WHERE section_id = 'custom_kept' AND version = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        baseline, 1,
+        "the salvaged custom section needs its birth geometry"
+    );
+}
+
 /// Scenario: a backup or a synced file written by a later build carries a
 /// schema this build has never seen. Migrations only run upward, so the extra
 /// columns are simply missing and every query that names one fails.
@@ -480,6 +726,7 @@ fn quarantine_salvages_user_sections_and_intents() {
 /// aside for the crime of being newer than the app.
 #[test]
 fn a_forward_schema_is_refused_and_left_in_place() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
@@ -551,6 +798,7 @@ fn a_forward_schema_is_refused_and_left_in_place() {
 /// or the restore guard compares a backup against a number that means nothing.
 #[test]
 fn the_probe_reports_the_version_a_fresh_database_gets() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
@@ -585,6 +833,7 @@ fn the_probe_reports_the_version_a_fresh_database_gets() {
 /// is not this test's business.
 #[test]
 fn a_quarantine_is_readable_once_with_what_it_salvaged() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("told.db");
@@ -631,6 +880,7 @@ fn a_quarantine_is_readable_once_with_what_it_salvaged() {
 /// on a healthy library never shows the notice.
 #[test]
 fn a_clean_open_reports_no_quarantine() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_str = tmp.path().join("healthy.db").to_string_lossy().into_owned();

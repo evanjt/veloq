@@ -11,11 +11,17 @@
 
 use log::{Level, Log, Metadata, Record};
 use std::sync::{Mutex, OnceLock};
+use std::thread::ThreadId;
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::{ActivityMetrics, PersistentEngine};
 
 static LINES: OnceLock<Mutex<Vec<(Level, String)>>> = OnceLock::new();
+static SERIAL: Mutex<()> = Mutex::new(());
+/// The thread whose lines are captured. The logger is process-wide, so a
+/// worker of an earlier engine finishing inside the window would otherwise be
+/// charged to the call under test.
+static OWNER: Mutex<Option<ThreadId>> = Mutex::new(None);
 
 fn lines() -> &'static Mutex<Vec<(Level, String)>> {
     LINES.get_or_init(|| Mutex::new(Vec::new()))
@@ -28,6 +34,10 @@ impl Log for Capture {
         true
     }
     fn log(&self, record: &Record) {
+        let owner = *OWNER.lock().unwrap_or_else(|e| e.into_inner());
+        if owner != Some(std::thread::current().id()) {
+            return;
+        }
         lines()
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -39,6 +49,7 @@ impl Log for Capture {
 fn start_capturing() {
     let _ = log::set_boxed_logger(Box::new(Capture));
     log::set_max_level(log::LevelFilter::Trace);
+    *OWNER.lock().unwrap_or_else(|e| e.into_inner()) = Some(std::thread::current().id());
     lines().lock().unwrap_or_else(|e| e.into_inner()).clear();
 }
 
@@ -124,6 +135,7 @@ fn engine_with_sections(dir: &TempDir) -> (PersistentEngine, String) {
 
 #[test]
 fn the_performance_read_is_silent_at_info_on_both_the_cold_and_the_cached_call() {
+    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
     let dir = TempDir::new().unwrap();
     let (mut engine, section_id) = engine_with_sections(&dir);
 
@@ -158,6 +170,7 @@ fn the_performance_read_is_silent_at_info_on_both_the_cold_and_the_cached_call()
 
 #[test]
 fn the_summaries_read_is_silent_at_info() {
+    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
     let dir = TempDir::new().unwrap();
     let (engine, _) = engine_with_sections(&dir);
 
@@ -172,4 +185,15 @@ fn the_summaries_read_is_silent_at_info() {
         loud.len(),
         loud
     );
+}
+
+#[test]
+fn a_line_logged_by_another_thread_is_not_charged_to_the_call_under_test() {
+    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    start_capturing();
+    std::thread::spawn(|| log::info!("a worker finishing elsewhere"))
+        .join()
+        .unwrap();
+    log::info!("the call under test");
+    assert_eq!(loud(), vec!["the call under test".to_string()]);
 }

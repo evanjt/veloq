@@ -11,7 +11,7 @@
 //!
 //! These share the process-global engine, so they take `SERIAL`.
 //!
-//! Run: `cargo test --test engine_init_outcome -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- engine_init_outcome::`
 
 use std::fs;
 use std::sync::Mutex;
@@ -39,6 +39,7 @@ fn seeded(db_str: &str) {
 
 #[test]
 fn a_database_that_opens_records_opened() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_str = tmp.path().join("routes.db").to_string_lossy().into_owned();
@@ -53,6 +54,7 @@ fn a_database_that_opens_records_opened() {
 /// athlete for.
 #[test]
 fn a_locked_database_records_busy_and_opens_on_the_retry() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
@@ -79,6 +81,7 @@ fn a_locked_database_records_busy_and_opens_on_the_retry() {
 /// corruption: the file is healthy and this build is behind it.
 #[test]
 fn a_forward_schema_records_its_own_reason() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
@@ -104,6 +107,7 @@ fn a_forward_schema_records_its_own_reason() {
 /// gives: nothing can be written where the database belongs.
 #[test]
 fn a_directory_that_cannot_be_created_records_storage_unavailable() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let blocking_file = tmp.path().join("not-a-dir");
@@ -123,6 +127,7 @@ fn a_directory_that_cannot_be_created_records_storage_unavailable() {
 /// failure or the banner would appear over a working engine.
 #[test]
 fn a_corrupt_database_still_records_opened() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
@@ -139,4 +144,77 @@ fn a_corrupt_database_still_records_opened() {
 
     assert!(persistent_engine_init(db_str));
     assert_eq!(last_init_outcome(), FfiInitOutcome::Opened);
+}
+
+fn quarantined_files(dir: &std::path::Path) -> Vec<String> {
+    fs::read_dir(dir)
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.contains(".corrupt-"))
+        .collect()
+}
+
+/// A newer build that ran its migrations and was killed before it stamped
+/// `schema_info` leaves the pragma ahead and the app record at this build's
+/// version. The file is healthy and ahead of this build, so it is the same
+/// refusal as an app record that is ahead, never a quarantine.
+#[test]
+fn a_pragma_ahead_of_this_build_records_forward_schema_and_keeps_the_file() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    seeded(&db_str);
+
+    let migrations = PersistentEngine::migration_scripts().len() as u32;
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    conn.pragma_update(None, "user_version", migrations + 1)
+        .unwrap();
+    drop(conn);
+
+    assert!(!persistent_engine_init(db_str));
+    assert_eq!(last_init_outcome(), FfiInitOutcome::ForwardSchema);
+    assert!(quarantined_files(tmp.path()).is_empty());
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    let activities: i64 = conn
+        .query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(activities, 1, "the library is left as it was");
+}
+
+/// A pragma that claims tables the file does not hold is diagnosed, and the
+/// diagnosis is the outcome: the file stays where it is, no `.corrupt-`
+/// generation appears, and the athlete is told the library is still there.
+/// Before this the refusal fell through to the quarantine, which moved the
+/// library aside and opened an empty one in its place.
+#[test]
+fn an_overstated_version_records_its_own_reason_and_keeps_the_file() {
+    let _serial_state = crate::serial_state();
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    seeded(&db_str);
+
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    conn.execute("DROP TABLE push_runs", []).unwrap();
+    drop(conn);
+
+    assert!(!persistent_engine_init(db_str.clone()));
+    assert_eq!(last_init_outcome(), FfiInitOutcome::VersionMismatch);
+    assert!(!last_init_outcome().is_retryable());
+    assert!(quarantined_files(tmp.path()).is_empty());
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    let activities: i64 = conn
+        .query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(activities, 1, "the library is left as it was");
+    drop(conn);
+
+    // The second launch gives the same answer rather than a fresh library.
+    assert!(!persistent_engine_init(db_str));
+    assert_eq!(last_init_outcome(), FfiInitOutcome::VersionMismatch);
+    assert!(quarantined_files(tmp.path()).is_empty());
 }

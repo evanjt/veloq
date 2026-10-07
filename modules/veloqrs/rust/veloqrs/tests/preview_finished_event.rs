@@ -8,7 +8,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test preview_finished_event -p veloqrs`
+//! Run: `cargo test --test preview -p veloqrs -- preview_finished_event::`
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -67,6 +67,7 @@ impl EngineObserver for Counter {
     fn detection_applied(&self) {}
     fn tiles_generated(&self) {}
     fn backfill_phase(&self, _phase: String) {}
+    fn stream_backfill_phase(&self, _phase: String) {}
     fn preview_phase(&self, phase: String) {
         self.phases
             .lock()
@@ -77,6 +78,8 @@ impl EngineObserver for Counter {
     fn preview_finished(&self) {
         self.finished.fetch_add(1, Ordering::SeqCst);
     }
+    fn recordings_changed(&self) {}
+    fn upload_permission_refused(&self) {}
 }
 
 /// A ~2.2 km line: 200 points ~11 m apart, laterally jittered per activity
@@ -95,7 +98,9 @@ fn seed_engine() {
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
         cfg.min_activities = 3;
-        engine.set_section_config(cfg);
+        engine
+            .set_section_config(cfg)
+            .expect("set the section config");
         for i in 0..4 {
             let id = format!("ride_{i}");
             engine
@@ -158,6 +163,7 @@ fn wait_for_terminal(preview: &SectionPreview) -> String {
 
 #[test]
 fn a_completed_preview_announces_once_and_the_outcome_is_readable() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, cfg) = seeded_engine();
     let counter = Counter::new();
@@ -178,11 +184,13 @@ fn a_completed_preview_announces_once_and_the_outcome_is_readable() {
     assert!(preview.take_result().expect("take").is_some());
     assert_eq!(counter.finished(), 1, "one run, one notice");
 
+    veloqrs::objects::observer::flush();
     set_observer(None);
 }
 
 #[test]
 fn a_cancelled_preview_still_announces() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, cfg) = seeded_engine();
     let counter = Counter::new();
@@ -200,11 +208,13 @@ fn a_cancelled_preview_still_announces() {
     );
     assert_eq!(counter.finished(), 1, "one run, one notice");
 
+    veloqrs::objects::observer::flush();
     set_observer(None);
 }
 
 #[test]
 fn a_second_run_announces_again() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, cfg) = seeded_engine();
     let counter = Counter::new();
@@ -231,13 +241,16 @@ fn a_second_run_announces_again() {
     );
     assert!(preview.take_result().expect("take").is_some());
 
+    veloqrs::objects::observer::flush();
     set_observer(None);
 }
 
 #[test]
 fn a_run_with_no_observer_registered_still_finishes() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, cfg) = seeded_engine();
+    veloqrs::objects::observer::flush();
     set_observer(None);
 
     let preview = SectionPreview::new();
@@ -248,6 +261,7 @@ fn a_run_with_no_observer_registered_still_finishes() {
 
 #[test]
 fn a_completed_preview_announces_every_phase_it_enters() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, cfg) = seeded_engine();
     let counter = Counter::new();
@@ -263,6 +277,7 @@ fn a_completed_preview_announces_every_phase_it_enters() {
         "the run has to announce each transition, in order, or the button freezes"
     );
 
+    veloqrs::objects::observer::flush();
     set_observer(None);
 }
 
@@ -270,6 +285,7 @@ fn a_completed_preview_announces_every_phase_it_enters() {
 /// event is worse than the timer it replaced.
 #[test]
 fn every_announced_phase_is_readable_when_it_is_announced() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, cfg) = seeded_engine();
     let counter = Counter::new();
@@ -287,5 +303,6 @@ fn every_announced_phase_is_readable_when_it_is_announced() {
         "the last announcement names the phase get_progress reads"
     );
 
+    veloqrs::objects::observer::flush();
     set_observer(None);
 }

@@ -10,7 +10,7 @@
 //! collision does not overwrite quietly: the second draw fails and the athlete
 //! loses the line they just drew.
 //!
-//! Run: `cargo test --test section_id_collision -p veloqrs`
+//! Run: `cargo test --test section -p veloqrs -- section_id_collision::`
 
 use std::collections::BTreeSet;
 

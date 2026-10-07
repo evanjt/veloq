@@ -5,11 +5,10 @@
 //! milestones, the pinned version, and the newest three. The lifecycle emitter
 //! is the writer; these contracts pin the storage semantics it will lean on.
 
-mod lifecycle_support;
-
-use lifecycle_support::fresh_engine;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
+
+use crate::lifecycle_support::fresh_engine;
 
 const SID: &str = "s_1700000000000__ab12cd34";
 

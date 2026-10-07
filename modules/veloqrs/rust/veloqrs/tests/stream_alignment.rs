@@ -28,10 +28,7 @@ fn null_coordinates_drop_from_every_series() {
         {"type": "latlng",
          "data": [10.0, null, 10.2, null, 10.4],
          "data2": [20.0, 20.1, null, 20.3, 20.4]},
-        {"type": "altitude", "data": [500.0, 501.0, 502.0, 503.0, 504.0]},
-        {"type": "heartrate", "data": [120, 121, 122, 123, 124]},
-        {"type": "watts", "data": [200, 201, 202, 203, 204]},
-        {"type": "ga_velocity", "data": [5.0, 5.0, 5.0, 5.0, 5.0]}
+        {"type": "altitude", "data": [500.0, 501.0, 502.0, 503.0, 504.0]}
     ]));
 
     let s = parse_streams(raw);
@@ -39,18 +36,9 @@ fn null_coordinates_drop_from_every_series() {
     assert_eq!(s.latlng, vec![[10.0, 20.0], [10.4, 20.4]]);
     assert_eq!(s.time, vec![0, 4]);
     assert_eq!(s.altitude, vec![500.0, 504.0]);
-    assert_eq!(s.heartrate, vec![120.0, 124.0]);
-    assert_eq!(s.watts, vec![200.0, 204.0]);
-    assert_eq!(s.gap.len(), 2);
 
     let n = s.latlng.len();
-    for len in [
-        s.time.len(),
-        s.altitude.len(),
-        s.heartrate.len(),
-        s.watts.len(),
-        s.gap.len(),
-    ] {
+    for len in [s.time.len(), s.altitude.len()] {
         assert_eq!(len, n);
     }
 }
@@ -60,8 +48,7 @@ fn clean_coordinates_leave_every_series_untouched() {
     let raw = dtos(json!([
         {"type": "time", "data": [0, 1, 2]},
         {"type": "latlng", "data": [10.0, 10.1, 10.2], "data2": [20.0, 20.1, 20.2]},
-        {"type": "fixed_altitude", "data": [500.0, 501.0, 502.0]},
-        {"type": "distance", "data": [0.0, 9.0, 18.0]}
+        {"type": "fixed_altitude", "data": [500.0, 501.0, 502.0]}
     ]));
 
     let s = parse_streams(raw);
@@ -69,16 +56,15 @@ fn clean_coordinates_leave_every_series_untouched() {
     assert_eq!(s.latlng, vec![[10.0, 20.0], [10.1, 20.1], [10.2, 20.2]]);
     assert_eq!(s.time, vec![0, 1, 2]);
     assert_eq!(s.altitude, vec![500.0, 501.0, 502.0]);
-    assert_eq!(s.distance, vec![0.0, 9.0, 18.0]);
     assert!(s.altitude_is_fixed);
 }
 
 #[test]
 fn mask_comes_from_latlng_not_the_first_series() {
-    // `heartrate` leads and carries its own nulls; only the `latlng` gap at
-    // index 1 may remove a sample, and a heartrate gap becomes NaN in place.
+    // `altitude` leads and carries its own nulls; only the `latlng` gap at
+    // index 1 may remove a sample, and an altitude gap becomes NaN in place.
     let raw = dtos(json!([
-        {"type": "heartrate", "data": [null, 121, null, 123]},
+        {"type": "altitude", "data": [null, 121.0, null, 123.0]},
         {"type": "latlng",
          "data": [10.0, null, 10.2, 10.3],
          "data2": [20.0, 20.1, 20.2, 20.3]},
@@ -89,17 +75,17 @@ fn mask_comes_from_latlng_not_the_first_series() {
 
     assert_eq!(s.latlng, vec![[10.0, 20.0], [10.2, 20.2], [10.3, 20.3]]);
     assert_eq!(s.time, vec![0, 2, 3]);
-    assert_eq!(s.heartrate.len(), 3);
-    assert!(s.heartrate[0].is_nan());
-    assert!(s.heartrate[1].is_nan());
-    assert_eq!(s.heartrate[2], 123.0);
+    assert_eq!(s.altitude.len(), 3);
+    assert!(s.altitude[0].is_nan());
+    assert!(s.altitude[1].is_nan());
+    assert_eq!(s.altitude[2], 123.0);
 }
 
 #[test]
 fn a_short_series_is_reported_rather_than_padded_in_silence() {
     let raw = dtos(json!([
         {"type": "latlng", "data": [10.0, 10.1, 10.2], "data2": [20.0, 20.1, 20.2]},
-        {"type": "temp", "data": [7.0]}
+        {"type": "altitude", "data": [7.0]}
     ]));
 
     let s = parse_streams(raw);
@@ -107,21 +93,21 @@ fn a_short_series_is_reported_rather_than_padded_in_silence() {
     assert_eq!(
         s.misaligned,
         vec![SeriesLengthMismatch {
-            series: "temp",
+            series: "altitude",
             len: 1,
             expected: 3
         }]
     );
-    assert_eq!(s.temp.len(), 3);
-    assert_eq!(s.temp[0], 7.0);
-    assert!(s.temp[1].is_nan() && s.temp[2].is_nan());
+    assert_eq!(s.altitude.len(), 3);
+    assert_eq!(s.altitude[0], 7.0);
+    assert!(s.altitude[1].is_nan() && s.altitude[2].is_nan());
 }
 
 #[test]
 fn a_long_series_reports_the_tail_it_drops() {
     let raw = dtos(json!([
         {"type": "latlng", "data": [10.0, 10.1], "data2": [20.0, 20.1]},
-        {"type": "watts", "data": [200, 201, 202, 203]}
+        {"type": "time", "data": [200, 201, 202, 203]}
     ]));
 
     let s = parse_streams(raw);
@@ -129,12 +115,12 @@ fn a_long_series_reports_the_tail_it_drops() {
     assert_eq!(
         s.misaligned,
         vec![SeriesLengthMismatch {
-            series: "watts",
+            series: "time",
             len: 4,
             expected: 2
         }]
     );
-    assert_eq!(s.watts, vec![200.0, 201.0]);
+    assert_eq!(s.time, vec![200, 201]);
 }
 
 #[test]
@@ -161,7 +147,7 @@ fn aligned_series_report_nothing() {
     let raw = dtos(json!([
         {"type": "time", "data": [0, 1, 2]},
         {"type": "latlng", "data": [10.0, null, 10.2], "data2": [20.0, 20.1, 20.2]},
-        {"type": "heartrate", "data": [120, null, 122]}
+        {"type": "altitude", "data": [120.0, null, 122.0]}
     ]));
 
     assert!(parse_streams(raw).misaligned.is_empty());
@@ -233,18 +219,23 @@ fn a_ragged_series_is_padded_into_the_index_space_not_shifted() {
         &server,
         json!([
             {"type": "latlng", "data": [10.0, 10.1, 10.2], "data2": [20.0, 20.1, 20.2]},
-            {"type": "temp", "data": [7.0]}
+            {"type": "altitude", "data": [7.0]}
         ]),
     );
 
     let t = fast_transport(server.base_url());
-    let s = veloqrs::runtime::block_on(endpoints::fetch_streams(&t, "77", None, Lane::Interactive))
-        .unwrap();
+    let s = veloqrs::runtime::block_on(endpoints::fetch_streams(
+        &t,
+        "77",
+        endpoints::DEFAULT_STREAM_TYPES,
+        Lane::Interactive,
+    ))
+    .unwrap();
 
     assert_eq!(s.latlng.len(), 3);
-    assert_eq!(s.temp.len(), 3);
-    assert_eq!(s.temp[0], 7.0);
-    assert!(s.temp[1].is_nan() && s.temp[2].is_nan());
+    assert_eq!(s.altitude.len(), 3);
+    assert_eq!(s.altitude[0], 7.0);
+    assert!(s.altitude[1].is_nan() && s.altitude[2].is_nan());
 }
 
 #[test]
@@ -254,14 +245,18 @@ fn a_broken_latlng_series_is_refused_not_returned() {
         &server,
         json!([
             {"type": "latlng", "data": [10.0, 10.1, 10.2], "data2": [20.0]},
-            {"type": "temp", "data": [7.0, 7.1, 7.2]}
+            {"type": "altitude", "data": [7.0, 7.1, 7.2]}
         ]),
     );
 
     let t = fast_transport(server.base_url());
-    let err =
-        veloqrs::runtime::block_on(endpoints::fetch_streams(&t, "77", None, Lane::Interactive))
-            .unwrap_err();
+    let err = veloqrs::runtime::block_on(endpoints::fetch_streams(
+        &t,
+        "77",
+        endpoints::DEFAULT_STREAM_TYPES,
+        Lane::Interactive,
+    ))
+    .unwrap_err();
 
     match err {
         NetError::Decode(m) => {

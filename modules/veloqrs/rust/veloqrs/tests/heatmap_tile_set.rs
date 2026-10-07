@@ -111,11 +111,12 @@ fn compare_or_write(fixture: &str, set: &BTreeSet<String>) {
 
 #[test]
 fn scenario_a_tile_set_snapshot() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let cfg = LifecycleConfig {
         bucket_a_count: 30,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 2,
         ..LifecycleConfig::default()
@@ -134,6 +135,7 @@ fn scenario_a_tile_set_snapshot() {
 
 #[test]
 fn scenario_e_tile_set_snapshot() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     // Keep E small enough for CI: 60+90+350 = 500 full-year state
     // matches the bench, but we trim it here since we only need a
@@ -141,7 +143,7 @@ fn scenario_e_tile_set_snapshot() {
     let cfg = LifecycleConfig {
         bucket_a_count: 40,
         bucket_b_delta_count: 60,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 50,
         parallel_street_count: 4,
         ..LifecycleConfig::default()

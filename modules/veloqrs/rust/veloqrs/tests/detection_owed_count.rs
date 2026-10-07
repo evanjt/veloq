@@ -11,7 +11,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test detection_owed_count -p veloqrs`
+//! Run: `cargo test --test detection -p veloqrs -- detection_owed_count::`
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;

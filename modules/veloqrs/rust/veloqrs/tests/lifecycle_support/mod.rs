@@ -1,18 +1,9 @@
 //! Shared harness for the section-detection E2E suites.
 //!
-//! Two arms over one scenario catalogue, both driving the identical
-//! full-stack path (SQLite ingest -> `detect_sections_background` ->
-//! `apply_sections` -> snapshot):
-//!
-//! - `Arm::Battery` drives `DetectionMethod::Corridor` by name, the frozen
-//!   baseline (Suite #1).
-//! - `Arm::Battery` drives `DetectionMethod::Unified`, the new base
-//!   (Suite #2).
-//!
-//! The two arms differ by exactly one engine setting, so any difference in
-//! output is attributable to the detector, not the harness. Identity,
+//! One scenario catalogue driving the full-stack path (SQLite ingest ->
+//! `detect_sections_background` -> `apply_sections` -> snapshot). Identity,
 //! incremental persistence, hysteresis, and concurrency assertions live as
-//! target gates in the Battery suite; this module carries the fingerprint and
+//! gates in the battery suite; this module carries the fingerprint and
 //! survival machinery they assert against.
 
 #![allow(dead_code)] // shared across test binaries; not every suite uses every helper
@@ -27,18 +18,6 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::scenarios::LifecycleActivity;
 use veloqrs::PersistentEngine;
-
-/// The one engine the suites drive.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Arm {
-    Battery,
-}
-
-impl Arm {
-    pub fn label(self) -> &'static str {
-        "battery"
-    }
-}
 
 // ============================================================================
 // A bound on a test, so a runaway is a failure rather than a wait
@@ -340,7 +319,7 @@ pub fn raw_snapshot(engine: &PersistentEngine) -> SectionSnapshot {
 }
 
 // ============================================================================
-// Engine construction per arm
+// Engine construction
 // ============================================================================
 
 /// A fresh temp-DB engine.
@@ -350,11 +329,6 @@ pub fn fresh_engine() -> (PersistentEngine, TempDir) {
     let path = dir.path().join("lifecycle.db");
     let engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     (engine, dir)
-}
-
-/// A fresh temp-DB engine on the given arm.
-pub fn fresh_engine_for(_arm: Arm) -> (PersistentEngine, TempDir) {
-    fresh_engine()
 }
 
 // ============================================================================
@@ -375,10 +349,9 @@ pub struct StepMeasurement {
 }
 
 impl StepMeasurement {
-    pub fn print(&self, arm: Arm) {
+    pub fn print(&self) {
         println!(
-            "[{}/{}] activities={:>4} (+{:<3}) sections={:>3} | ingest={:>5}ms detect={:>6}ms apply={:>5}ms total={:>6}ms",
-            arm.label(),
+            "[{}] activities={:>4} (+{:<3}) sections={:>3} | ingest={:>5}ms detect={:>6}ms apply={:>5}ms total={:>6}ms",
             self.label,
             self.activity_count,
             self.new_activities_in_step,
@@ -417,9 +390,7 @@ pub fn try_ingest_step(
 
     let detect_start = Instant::now();
     let handle = engine.detect_sections_background();
-    // Cache-aware recv so a Unified drip actually folds through the evidence
-    // cache; Control produces no cache update, so this is identical to the plain
-    // path for the Control arm.
+    // Cache-aware recv so a drip folds through the evidence cache.
     let (main, cache_update) = handle.recv_state_with_cache();
     // Not `unwrap_or_default`: a worker that panics inside the fold drops its
     // sender, the apply then writes an empty catalogue over nothing and leaves
@@ -460,6 +431,67 @@ pub fn try_ingest_step(
         total_ms,
         snapshot: snap,
     })
+}
+
+/// The ground of a catalogue: one sorted activity-id set per section, sorted.
+///
+/// Ids are minted per engine and share nothing between the two paths, so the
+/// activities that traverse a section are the only thing the two catalogues can
+/// be compared on. Equality here is the convergence gate stated exactly: the same
+/// rides played one at a time and played in one batch draw the same library.
+pub fn ground(snapshot: &SectionSnapshot) -> Vec<Vec<String>> {
+    let mut all: Vec<Vec<String>> = snapshot
+        .sections
+        .values()
+        .map(|s| s.activity_ids.iter().cloned().collect())
+        .collect();
+    all.sort();
+    all
+}
+
+/// Re-detect with no new activities until the view stops moving, or `limit`
+/// rounds have passed. Each round is one decisive step for the debounce, so a
+/// dissolve armed on the last ingest needs `k` of them before the view can
+/// agree with the detector. Returns the rounds actually run.
+pub fn settle(engine: &mut PersistentEngine, limit: usize) -> usize {
+    let mut previous = snapshot(engine);
+    for round in 1..=limit {
+        let handle = engine.detect_sections_background();
+        let (sections, processed_ids) = handle.recv().expect("the detect ran");
+        engine.apply_sections(sections).expect("apply_sections");
+        engine
+            .save_processed_activity_ids(&processed_ids)
+            .expect("save_processed_activity_ids");
+        let now = snapshot(engine);
+        if now == previous {
+            return round;
+        }
+        previous = now;
+    }
+    limit
+}
+
+/// Re-detect with no new activities until the damped view carries the ground
+/// the detector emits, or `limit` rounds have passed. `settle` stops at the
+/// first round that leaves the view unchanged, which is too early while a
+/// debounced dissolve is still counting toward its threshold and moves nothing
+/// in between. Returns the rounds run, `limit + 1` when the view never caught up.
+pub fn settle_to_detector(engine: &mut PersistentEngine, limit: usize) -> usize {
+    for round in 0..=limit {
+        if ground(&snapshot(engine)) == ground(&raw_snapshot(engine)) {
+            return round;
+        }
+        if round == limit {
+            break;
+        }
+        let handle = engine.detect_sections_background();
+        let (sections, processed_ids) = handle.recv().expect("the detect ran");
+        engine.apply_sections(sections).expect("apply_sections");
+        engine
+            .save_processed_activity_ids(&processed_ids)
+            .expect("save_processed_activity_ids");
+    }
+    limit + 1
 }
 
 /// One user-visible step. Panics on any engine error (the common case for the
@@ -616,7 +648,6 @@ pub struct BehaviourDelta {
     pub sections_appeared: usize,
     pub sections_with_lost_activities: usize,
     pub total_activities_lost: usize,
-    pub sections_with_sport_type_change: usize,
 }
 
 pub fn measure_delta(before: &SectionSnapshot, after: &SectionSnapshot) -> BehaviourDelta {
@@ -629,9 +660,6 @@ pub fn measure_delta(before: &SectionSnapshot, after: &SectionSnapshot) -> Behav
 
     for (id, prev) in &before.sections {
         if let Some(now) = after.sections.get(id) {
-            if now.sport_type != prev.sport_type {
-                d.sections_with_sport_type_change += 1;
-            }
             let lost: BTreeSet<&String> = prev.activity_ids.difference(&now.activity_ids).collect();
             if !lost.is_empty() {
                 d.sections_with_lost_activities += 1;
@@ -642,16 +670,14 @@ pub fn measure_delta(before: &SectionSnapshot, after: &SectionSnapshot) -> Behav
     d
 }
 
-pub fn print_delta(arm: Arm, label: &str, delta: &BehaviourDelta) {
+pub fn print_delta(label: &str, delta: &BehaviourDelta) {
     println!(
-        "[{}/{}] delta: disappeared={} appeared={} sections_with_lost_activities={} total_activities_lost={} sport_type_changes={}",
-        arm.label(),
+        "[{}] delta: disappeared={} appeared={} sections_with_lost_activities={} total_activities_lost={}",
         label,
         delta.sections_disappeared,
         delta.sections_appeared,
         delta.sections_with_lost_activities,
         delta.total_activities_lost,
-        delta.sections_with_sport_type_change,
     );
 }
 
@@ -669,10 +695,6 @@ pub fn assert_single_add_stability(
             .sections
             .get(id)
             .unwrap_or_else(|| panic!("section {id} disappeared after a single add"));
-        assert_eq!(
-            now.sport_type, prev.sport_type,
-            "section {id} sport_type changed across a single add"
-        );
 
         let new_ids: BTreeSet<&String> = now.activity_ids.difference(&prev.activity_ids).collect();
         let removed_ids: BTreeSet<&String> =
@@ -704,18 +726,6 @@ pub fn assert_no_activity_removed(before: &SectionSnapshot, after: &SectionSnaps
             assert!(
                 removed.is_empty(),
                 "section {id} lost activities {removed:?}"
-            );
-        }
-    }
-}
-
-pub fn assert_sport_types_stable(before: &SectionSnapshot, after: &SectionSnapshot) {
-    for (id, prev) in &before.sections {
-        if let Some(now) = after.sections.get(id) {
-            assert_eq!(
-                now.sport_type, prev.sport_type,
-                "section {id} sport_type changed: {} -> {}",
-                prev.sport_type, now.sport_type
             );
         }
     }

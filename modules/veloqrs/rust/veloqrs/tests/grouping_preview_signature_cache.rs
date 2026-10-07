@@ -9,7 +9,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test grouping_preview_signature_cache -p veloqrs`
+//! Run: `cargo test -p veloqrs --test preview -- grouping_preview_signature_cache::`
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
@@ -55,6 +55,7 @@ fn seed_engine() {
 
 #[test]
 fn a_preview_start_leaves_the_signature_cache_alone() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     assert!(persistent_engine_init(

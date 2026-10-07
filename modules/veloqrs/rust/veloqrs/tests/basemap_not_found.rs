@@ -15,6 +15,7 @@ use veloqrs::basemap::{get_or_fetch, set_path, set_template};
 /// would race each other's `set_path`.
 #[test]
 fn a_refused_tile_is_asked_for_once_and_its_children_never() {
+    let _serial = super::serial_state();
     let host = MockServer::start();
     let refused = host.mock(|when, then| {
         when.method(GET)

@@ -26,7 +26,7 @@ fn corpus(bucket_a: usize) -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: bucket_a,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 0,
         ..LifecycleConfig::default()
@@ -46,7 +46,9 @@ fn what_an_apply_pays_to_write_the_evidence_cache() {
         let path = dir.path().join("evidence.db");
         let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
         engine.load().expect("load");
-        engine.set_section_config(SectionConfig::default());
+        engine
+            .set_section_config(SectionConfig::default())
+            .expect("config accepted");
 
         let pool = corpus(bucket_a);
         let count = pool.len();

@@ -6,19 +6,18 @@
 //! where no triple can undo it.
 //!
 //! `section_blob_is_droppable.rs` covers the read paths a screen takes. These
-//! are the five that run inside a transaction or a migration instead.
+//! run inside a transaction or a migration instead.
 //!
 //! Coordinates here are synthetic.
 
-mod migration_support;
-
-use migration_support::{latest_version, seed_at_version};
 use rusqlite::{Connection, params};
 use std::path::Path;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 use veloqrs::persistence::codec;
+
+use crate::migration_support::{latest_version, seed_at_version};
 
 const RIDE: i64 = 1_600_000_000;
 const POINTS: u32 = 40;
@@ -119,17 +118,9 @@ fn the_baseline_seed_rebuilds_a_cleared_line() {
 
     reopen(&path);
 
-    let conn = open(&path);
-    let blob: Option<Vec<u8>> = conn
-        .query_row(
-            "SELECT blob FROM section_geometry WHERE section_id = 's_baseline' AND version = 1",
-            [],
-            |row| row.get(0),
-        )
-        .ok();
-    let points = blob
-        .as_deref()
-        .and_then(codec::decode_polyline)
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let points = engine
+        .section_geometry_polyline("s_baseline", 1)
         .unwrap_or_default();
     assert_eq!(
         points.len(),

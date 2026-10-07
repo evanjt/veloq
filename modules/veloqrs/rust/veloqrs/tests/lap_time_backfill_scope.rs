@@ -2,7 +2,7 @@
 //! A portion whose activity has no stream cannot be filled by it, and asking
 //! again on every launch is work the answer never changes.
 //!
-//! Run: `cargo test --test lap_time_backfill_scope -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- lap_time_backfill_scope::`
 
 use std::path::{Path, PathBuf};
 

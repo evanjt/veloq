@@ -6,13 +6,12 @@
 //! its earliest member ride, recorded as a consensus line with no
 //! representative triple because the detector that cut it never stored one.
 
-mod migration_support;
-
-use migration_support::seed_at_version;
 use rusqlite::Connection;
 use std::path::Path;
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
+
+use crate::migration_support::seed_at_version;
 
 /// Epoch seconds, well before any plausible upgrade day.
 const RIDE_ONE: i64 = 1_600_000_000;
@@ -364,4 +363,105 @@ fn a_section_with_no_member_rides_falls_back_to_now() {
     let rows = baseline_rows(&conn);
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].1, 1);
+}
+
+fn track_point(index: u32) -> veloqrs::GpsPoint {
+    veloqrs::GpsPoint {
+        latitude: 40.5 + f64::from(index) * 0.000_2,
+        longitude: 5.5 + f64::from(index) * 0.000_15,
+        elevation: None,
+    }
+}
+
+fn line_json(points: &[veloqrs::GpsPoint]) -> String {
+    serde_json::to_string(points).expect("encode line")
+}
+
+/// Scenario: a 0.3.x section whose stored line is a contiguous slice of its
+/// representative ride's stream, beside one that was averaged across rides and
+/// sits on no stream.
+/// Expected behaviour: the first baseline names the ride and the half-open
+/// range it was cut from and is exact; the second stays a consensus line with
+/// no triple.
+#[test]
+fn a_line_that_is_a_slice_of_its_representative_ride_is_seeded_exact() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+    {
+        let conn = seed_at_version(&path, 12);
+        conn.execute(
+            "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+             VALUES ('ride', 'Ride', 40.0, 41.0, 5.0, 6.0, ?)",
+            [RIDE_ONE],
+        )
+        .expect("insert activity");
+        let track: Vec<_> = (0..40).map(track_point).collect();
+        conn.execute(
+            "INSERT INTO gps_tracks (activity_id, track_data, point_count) VALUES ('ride', ?, 40)",
+            [veloqrs::persistence::codec::serialize_track_points(&track)],
+        )
+        .expect("insert track");
+
+        let averaged: Vec<_> = track[10..20]
+            .iter()
+            .map(|p| veloqrs::GpsPoint {
+                latitude: p.latitude + 0.000_05,
+                ..*p
+            })
+            .collect();
+        for (id, line) in [
+            ("s_sliced", line_json(&track[10..20])),
+            ("s_averaged", line_json(&averaged)),
+        ] {
+            conn.execute(
+                "INSERT INTO sections
+                     (id, section_type, sport_type, polyline_json, distance_meters,
+                      representative_activity_id)
+                 VALUES (?, 'auto', 'Ride', ?, 300.0, 'ride')",
+                rusqlite::params![id, line],
+            )
+            .expect("insert section");
+        }
+    }
+    upgrade(&path);
+
+    let conn = Connection::open(&path).expect("reopen");
+    let read = |id: &str| -> (
+        String,
+        Option<String>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+    ) {
+        conn.query_row(
+            "SELECT source, rep_activity_id, rep_start_index, rep_end_index, point_count
+             FROM section_geometry WHERE section_id = ? AND version = 1",
+            [id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .expect("baseline row")
+    };
+
+    assert_eq!(
+        read("s_sliced"),
+        (
+            "exact".to_string(),
+            Some("ride".to_string()),
+            Some(10),
+            Some(20),
+            Some(40)
+        ),
+    );
+    assert_eq!(
+        read("s_averaged"),
+        ("consensus".to_string(), None, None, None, None)
+    );
 }

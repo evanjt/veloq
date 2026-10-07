@@ -89,7 +89,9 @@ fn splice_hold(engine: &PersistentEngine, batch: &[(String, Vec<GpsPoint>, Strin
             .enumerate()
             .map(|(i, _)| 400.0 + (i % 50) as f64)
             .collect();
-        engine.splice_track_elevation(id, &alts).expect("splice");
+        engine
+            .splice_track_elevation(id, &alts, veloqrs::persistence::ElevationSeries::Corrected)
+            .expect("splice");
     }
     t0.elapsed().as_secs_f64() * 1000.0
 }

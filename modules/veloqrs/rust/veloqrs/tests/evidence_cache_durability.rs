@@ -20,7 +20,7 @@ fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 24,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 0,
         ..LifecycleConfig::default()
@@ -41,7 +41,9 @@ fn open(dir: &TempDir) -> PersistentEngine {
     let path = dir.path().join("evidence.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.load().expect("load");
-    engine.set_section_config(unified_config());
+    engine
+        .set_section_config(unified_config())
+        .expect("config accepted");
     engine
 }
 
@@ -150,10 +152,12 @@ fn a_restart_under_another_config_starts_cold() {
 
     let path = dir.path().join("evidence.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
-    engine.set_section_config(SectionConfig {
-        min_activities: unified_config().min_activities + 1,
-        ..unified_config()
-    });
+    engine
+        .set_section_config(SectionConfig {
+            min_activities: unified_config().min_activities + 1,
+            ..unified_config()
+        })
+        .expect("config accepted");
     engine.load().expect("load");
 
     assert_eq!(
@@ -254,10 +258,12 @@ fn a_config_change_drops_the_evidence_it_invalidates() {
     detect(&mut changed);
     assert!(changed.evidence_cache_folded_count() > 0);
 
-    changed.set_section_config(SectionConfig {
-        min_activities: unified_config().min_activities + 3,
-        ..unified_config()
-    });
+    changed
+        .set_section_config(SectionConfig {
+            min_activities: unified_config().min_activities + 3,
+            ..unified_config()
+        })
+        .expect("config accepted");
     assert_eq!(
         changed.evidence_cache_folded_count(),
         0,
@@ -273,10 +279,12 @@ fn a_config_change_drops_the_evidence_it_invalidates() {
     let path = fresh_dir.path().join("evidence.db");
     let mut fresh = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     fresh.load().expect("load");
-    fresh.set_section_config(SectionConfig {
-        min_activities: unified_config().min_activities + 3,
-        ..unified_config()
-    });
+    fresh
+        .set_section_config(SectionConfig {
+            min_activities: unified_config().min_activities + 3,
+            ..unified_config()
+        })
+        .expect("config accepted");
     ingest(&mut fresh, &pool);
     detect(&mut fresh);
 
@@ -362,4 +370,28 @@ fn a_stream_batch_with_nothing_in_it_keeps_the_evidence() {
 
     assert_eq!(engine.evidence_cache_folded_count(), folded);
     assert!(cache_row(&dir).is_some());
+}
+
+#[test]
+fn test_failed_removal_keeps_warm_evidence_cache() {
+    let dir = TempDir::new().unwrap();
+    let mut engine = seeded(&dir);
+    let folded = engine.evidence_cache_folded_count();
+    assert!(folded > 0);
+    let row = cache_row(&dir);
+    let activity_id = corpus()[0].id.clone();
+    let conn = Connection::open(dir.path().join("evidence.db")).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE removal_parent (id INTEGER PRIMARY KEY);
+         CREATE TABLE removal_child (parent_id INTEGER REFERENCES removal_parent(id)
+             DEFERRABLE INITIALLY DEFERRED);
+         CREATE TRIGGER removal_fail AFTER DELETE ON activities
+         BEGIN INSERT INTO removal_child VALUES (1); END;",
+    )
+    .unwrap();
+
+    assert!(engine.remove_activity(&activity_id).is_err());
+    assert!(engine.has_activity(&activity_id));
+    assert_eq!(engine.evidence_cache_folded_count(), folded);
+    assert_eq!(cache_row(&dir), row);
 }

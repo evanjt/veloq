@@ -7,7 +7,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test section_avg_hr -p veloqrs`
+//! Run: `cargo test --test section -p veloqrs -- section_avg_hr::`
 
 use rusqlite::Connection;
 use tempfile::TempDir;
@@ -193,7 +193,7 @@ fn the_efficiency_trend_reads_the_laps_it_could_never_see() {
         .expect("store streams");
     seed_section(&dir);
 
-    let before = engine.get_section_efficiency_trend("s1");
+    let before = engine.get_section_efficiency_trend("s1", "Ride");
     assert!(before.is_none(), "nothing recorded yet");
 
     engine
@@ -216,6 +216,7 @@ fn the_efficiency_trend_reads_the_laps_it_could_never_see() {
 /// redoes the whole library after each one.
 #[test]
 fn the_apply_records_the_effort_and_a_redetect_keeps_it() {
+    let _serial_state = crate::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     let mut engine = PersistentEngine::new(path.to_str().expect("utf-8")).expect("open");

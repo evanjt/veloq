@@ -7,7 +7,7 @@
 //! nothing to say so. These tests drive two engines over one file, which is
 //! that shape exactly.
 //!
-//! Run: `cargo test --test external_write_reload -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- external_write_reload::`
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
@@ -111,7 +111,9 @@ fn a_reload_leaves_the_config_the_athlete_set() {
     let mut config = foreground.get_section_config();
     config.min_activities += 3;
     let expected = config.min_activities;
-    foreground.set_section_config(config);
+    foreground
+        .set_section_config(config)
+        .expect("set the section config");
 
     foreground.reload_external_writes().expect("the reload");
 
@@ -128,4 +130,52 @@ fn a_reload_with_nothing_to_take_is_not_an_error() {
     foreground.reload_external_writes().expect("the reload");
 
     assert_eq!(foreground.get_activity_ids().len(), 0);
+}
+
+#[test]
+fn an_external_reload_replaces_warmed_section_and_group_reads() {
+    let dir = TempDir::new().unwrap();
+    let (mut foreground, mut handler) = two_engines(&dir);
+    let path = dir.path().join("routes.db");
+    let writer = rusqlite::Connection::open(path).unwrap();
+    writer
+        .execute_batch(
+            "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+            distance_meters, is_user_defined, version, created_at, visit_count)
+         VALUES ('s1', 'auto', 'Section 1', 'Ride', '[]', 400.0, 0, 1,
+            '2026-01-01T00:00:00Z', 1);
+         INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+         VALUES ('r1', 'a1', '[\"a1\"]', 'Ride')",
+        )
+        .unwrap();
+    foreground.reload_external_writes().unwrap();
+    assert_eq!(foreground.get_section_by_id("s1").unwrap().visit_count, 1);
+    assert_eq!(
+        foreground
+            .route_detail_data("r1", None, 1)
+            .group
+            .unwrap()
+            .activity_ids,
+        vec!["a1"]
+    );
+
+    writer
+        .execute_batch(
+            "UPDATE sections SET visit_count = 2 WHERE id = 's1';
+         UPDATE route_groups SET activity_ids = '[\"a1\",\"a2\"]' WHERE id = 'r1'",
+        )
+        .unwrap();
+    handler.note_external_write().unwrap();
+    assert!(foreground.take_external_writes());
+
+    assert_eq!(foreground.get_section_by_id("s1").unwrap().visit_count, 2);
+    assert_eq!(
+        foreground
+            .route_detail_data("r1", None, 1)
+            .group
+            .unwrap()
+            .activity_ids,
+        vec!["a1", "a2"]
+    );
+    assert!(!foreground.take_external_writes());
 }

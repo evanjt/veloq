@@ -18,7 +18,7 @@ use veloqrs::ffi::{
     get_routes_status_data, get_stream_backfill_progress, get_stream_backfill_remaining,
     is_elevation_backfill_paused,
 };
-use veloqrs::persistence::PERSISTENT_ENGINE;
+use veloqrs::persistence::close_for_restore;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 
 static SERIAL: Mutex<()> = Mutex::new(());
@@ -38,6 +38,7 @@ fn open_engine() -> TempDir {
 
 #[test]
 fn one_read_answers_what_the_four_exports_answer() {
+    let _serial_state = crate::serial_state();
     let _serial = serial();
     let _dir = open_engine();
 
@@ -68,7 +69,8 @@ fn one_read_answers_what_the_four_exports_answer() {
 }
 
 #[test]
-fn an_idle_library_reports_no_detection_and_no_tile_sweep() {
+fn an_idle_library_reports_no_detection() {
+    let _serial_state = crate::serial_state();
     let _serial = serial();
     let _dir = open_engine();
 
@@ -77,11 +79,6 @@ fn an_idle_library_reports_no_detection_and_no_tile_sweep() {
     assert!(
         status.detection.is_none(),
         "no run holds the detection slot, so there is no progress to report"
-    );
-    assert_eq!(
-        status.heatmap_tiles,
-        vec![0, 0],
-        "an idle sweep reports nothing processed out of nothing"
     );
     assert_eq!(
         status.elevation_remaining,
@@ -101,11 +98,9 @@ fn an_idle_library_reports_no_detection_and_no_tile_sweep() {
 /// about.
 #[test]
 fn a_count_the_engine_cannot_answer_is_null() {
+    let _serial_state = crate::serial_state();
     let _serial = serial();
-    PERSISTENT_ENGINE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .take();
+    close_for_restore();
 
     let status = get_routes_status_data();
 

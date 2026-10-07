@@ -4,7 +4,8 @@
 //! waiting screen hears it instead of draining the worker's receiver on a
 //! timer.
 
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::time::Duration;
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
@@ -22,13 +23,29 @@ fn serial() -> MutexGuard<'static, ()> {
 /// Counts the announcements it hears, in order.
 struct Recorder {
     events: Mutex<Vec<String>>,
+    heard: Condvar,
 }
 
 impl Recorder {
     fn new() -> Arc<Self> {
         Arc::new(Self {
             events: Mutex::new(Vec::new()),
+            heard: Condvar::new(),
         })
+    }
+
+    /// Block until `count` announcements have arrived. The pass hands back its
+    /// count before it announces, so the receiver returning says nothing about
+    /// whether the announcement is queued yet, and a flush on an empty queue
+    /// returns at once. The bound only stops a missing announcement hanging the
+    /// run.
+    fn wait_for(&self, count: usize) {
+        let events = self.events.lock().unwrap_or_else(|e| e.into_inner());
+        let (_events, timeout) = self
+            .heard
+            .wait_timeout_while(events, Duration::from_secs(30), |e| e.len() < count)
+            .unwrap_or_else(|e| e.into_inner());
+        assert!(!timeout.timed_out(), "the pass never announced itself");
     }
 
     fn events(&self) -> Vec<String> {
@@ -54,11 +71,15 @@ impl EngineObserver for Recorder {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .push("tiles_generated".to_string());
+        self.heard.notify_all();
     }
     fn backfill_phase(&self, _phase: String) {}
+    fn stream_backfill_phase(&self, _phase: String) {}
     fn preview_phase(&self, _phase: String) {}
     fn cutover_settled(&self) {}
     fn preview_finished(&self) {}
+    fn recordings_changed(&self) {}
+    fn upload_permission_refused(&self) {}
 }
 
 /// One short ride, enough that the pass has a tile to draw.
@@ -91,6 +112,7 @@ fn drain_pass() {
 
 #[test]
 fn a_finished_tile_pass_announces_itself() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (mut engine, tmp) = seeded_engine();
     let tiles = tmp.path().join("tiles");
@@ -100,6 +122,8 @@ fn a_finished_tile_pass_announces_itself() {
 
     engine.set_heatmap_tiles_path(tiles.to_str().unwrap().to_string());
     drain_pass();
+    recorder.wait_for(1);
+    veloqrs::objects::observer::flush();
     set_observer(None);
 
     assert_eq!(recorder.events(), vec!["tiles_generated"]);
@@ -107,10 +131,12 @@ fn a_finished_tile_pass_announces_itself() {
 
 #[test]
 fn a_pass_run_with_nobody_listening_is_not_an_error() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (mut engine, tmp) = seeded_engine();
     let tiles = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles).expect("create tiles dir");
+    veloqrs::objects::observer::flush();
     set_observer(None);
 
     engine.set_heatmap_tiles_path(tiles.to_str().unwrap().to_string());
@@ -118,6 +144,7 @@ fn a_pass_run_with_nobody_listening_is_not_an_error() {
 
     let recorder = Recorder::new();
     set_observer(Some(recorder.clone()));
+    veloqrs::objects::observer::flush();
     set_observer(None);
     assert!(recorder.events().is_empty());
 }

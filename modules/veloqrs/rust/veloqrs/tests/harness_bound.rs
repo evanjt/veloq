@@ -9,13 +9,11 @@
 
 #![cfg(feature = "synthetic")]
 
-mod lifecycle_support;
-
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::thread;
 use std::time::Duration;
 
-use lifecycle_support::within;
+use crate::lifecycle_support::within;
 
 fn panic_message(outcome: Result<(), Box<dyn std::any::Any + Send>>) -> String {
     let payload = outcome.expect_err("expected a panic");

@@ -4,7 +4,7 @@
 //! hand-cut, trimmed or disabled section and the stream its geometry is cut
 //! from survive by construction.
 //!
-//! Run: `cargo test --test derived_data_clear -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- derived_data_clear::`
 
 use std::path::{Path, PathBuf};
 
@@ -111,8 +111,6 @@ fn seed(dir: &TempDir) -> PathBuf {
                  VALUES ('s_gone', 'deleted', '[]');
              INSERT INTO identity_state (key, blob) VALUES ('registry', x'00');
              INSERT INTO route_names (route_id, custom_name) VALUES ('r1', 'Loop');
-             INSERT INTO section_catalogue_archive (token, section_id, sport_type)
-                 VALUES ('unified-1', 'archived', 'Ride');
              INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
                  VALUES ('r1', 'plain', 'plain', 'Ride');
              INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
@@ -204,6 +202,49 @@ fn a_clear_keeps_every_activity_a_section_references() {
 }
 
 #[test]
+fn a_clear_keeps_an_activity_named_by_a_dormant_record() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let mut engine = open(&path);
+    let pending = serde_json::json!([{
+        "table": "section_pins",
+        "values": {"section_id": "foreign-id", "version": 7},
+        "ground": {"rep_activity_id": "plain", "rep_start_index": 0,
+            "rep_end_index": 12, "point_count": 60, "polyline_json": null}
+    }]);
+    engine
+        .set_setting("__record_restore_pending", &pending.to_string())
+        .unwrap();
+
+    let first = engine.clear_derived().expect("first clear");
+    let second = engine.clear_derived().expect("second clear");
+
+    assert_eq!(first.activities_removed, 0);
+    assert_eq!(first.activities_kept, 3);
+    assert_eq!(second.activities_removed, 0);
+    assert!(engine.get_activity_ids().contains(&"plain".to_string()));
+}
+
+#[test]
+fn a_clear_refuses_unreadable_dormant_references_without_deleting_activities() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let mut engine = open(&path);
+    engine
+        .set_setting("__record_restore_pending", "unreadable")
+        .unwrap();
+
+    assert!(engine.clear_derived().is_err());
+    assert_eq!(
+        count(
+            &Connection::open(&path).unwrap(),
+            "SELECT COUNT(*) FROM activities"
+        ),
+        3
+    );
+}
+
+#[test]
 fn a_clear_leaves_the_record_tables_alone() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -219,7 +260,6 @@ fn a_clear_leaves_the_record_tables_alone() {
         "section_intents",
         "identity_state",
         "route_names",
-        "section_catalogue_archive",
     ] {
         assert_eq!(
             count(&db, &format!("SELECT COUNT(*) FROM {table}")),
@@ -461,31 +501,41 @@ fn activity_keyed_seeds() -> Vec<(&'static str, &'static str)> {
             "INSERT INTO fit_file_status (activity_id, processed_at) VALUES (?1, 0)",
         ),
         (
-            "ftp_history",
-            "INSERT INTO ftp_history (date, ftp, activity_id)
-             VALUES ((SELECT COUNT(*) FROM ftp_history), 250, ?1)",
-        ),
-        (
             "eftp_changes",
             "INSERT INTO eftp_changes (activity_id, date, eftp, delta, activity_name)
              VALUES (?1, 0, 250.0, 0.0, 'n')",
+        ),
+        (
+            "section_forced_matches",
+            "INSERT INTO section_forced_matches (section_id, activity_id, forced_at)
+             VALUES ('s_trimmed', ?1, 0)",
+        ),
+        (
+            "section_rank_dirty_activity",
+            "INSERT OR REPLACE INTO section_rank_dirty_activity (activity_id) VALUES (?1)",
         ),
     ]
 }
 
 /// The tables holding an activity id that a removal reaches some other way,
-/// or that are not the activity's to lose: the four the foreign key cascade
-/// empties, the processed list the clear empties whole, the frozen cutover
-/// archive, and the push worker's run log.
+/// or that are not the activity's to lose: the ones the foreign key cascade
+/// empties, the processed list the clear empties whole, and the push worker's
+/// run log.
 const REACHED_OTHERWISE: &[&str] = &[
+    "activity_climb_bests",
     "gps_tracks",
     "signatures",
     "time_streams",
     "section_activities",
     "processed_activities",
-    "section_catalogue_archive_members",
     "push_runs",
 ];
+
+/// The seeded tables whose row for a removed activity is the athlete's own
+/// decision: a ride attached to a section by hand, and an attempt taken out of
+/// a route. The activity returns when the range widens, and the decision must
+/// still be there.
+const ATHLETE_DECISIONS: &[&str] = &["activity_matches", "section_forced_matches"];
 
 fn keyed_rows(db: &Connection, table: &str, id: &str) -> i64 {
     db.query_row(
@@ -526,8 +576,8 @@ fn the_seeds_cover_every_table_keyed_on_an_activity() {
 
 /// Scenario: a library whose oldest rides no section references, cleared.
 ///
-/// Expected behaviour: every row keyed on a removed activity goes with it, in
-/// every table, and the activity the clear keeps keeps all of its own. The
+/// Expected behaviour: every row keyed on a removed activity goes with it,
+/// except the athlete's own decisions about it, and the activity the clear keeps keeps all of its own. The
 /// cascade reaches four tables, so a bare activity delete stranded the feed
 /// body, the metrics every aggregate counts and the stream bytes the clear
 /// exists to free.
@@ -550,10 +600,16 @@ fn a_clear_takes_every_row_keyed_on_a_removed_activity() {
     drop(engine);
 
     for (table, _) in activity_keyed_seeds() {
+        let athlete_decision = ATHLETE_DECISIONS.contains(&table);
         assert_eq!(
             keyed_rows(&db, table, "plain"),
-            0,
-            "{table} still holds the removed activity"
+            i64::from(athlete_decision),
+            "{table} {}",
+            if athlete_decision {
+                "lost a decision of the athlete's"
+            } else {
+                "still holds the removed activity"
+            }
         );
         assert_eq!(
             keyed_rows(&db, table, "rep"),
@@ -1016,4 +1072,52 @@ mod through_the_redetect {
             0
         );
     }
+}
+
+fn heatmap(db: &Connection) -> Vec<(String, i64, i64, i64)> {
+    db.prepare(
+        "SELECT date, intensity, max_duration, activity_count FROM activity_heatmap ORDER BY date",
+    )
+    .and_then(|mut s| {
+        s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .map(|rows| rows.filter_map(Result::ok).collect())
+    })
+    .expect("heatmap")
+}
+
+/// Scenario: the training calendar is read from `activity_heatmap`, and a
+/// clear removes the metrics rows of every activity no section references.
+///
+/// Expected behaviour: afterwards the calendar matches the metrics that are
+/// left. A day that held only removed activities has no row, and a day that
+/// also held a kept reference activity counts that one alone.
+#[test]
+fn a_clear_leaves_the_heatmap_matching_the_metrics_it_kept() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let mut engine = open(&path);
+    engine
+        .add_activity("solo".into(), track(), "Ride".into())
+        .expect("add activity");
+    let metric = |id: &str, date: i64, moving_time: u32| ActivityMetrics {
+        activity_id: id.into(),
+        name: "Ride".into(),
+        date,
+        moving_time,
+        sport_type: "Ride".into(),
+        ..ActivityMetrics::default()
+    };
+    engine
+        .set_activity_metrics(vec![
+            metric("rep", 1_704_067_200, 3_500),
+            metric("plain", 1_704_070_800, 7_300),
+            metric("solo", 1_704_240_000, 5_500),
+        ])
+        .expect("metrics");
+    let db = Connection::open(&path).expect("raw open");
+    assert_eq!(heatmap(&db).len(), 2, "the seed fills two days");
+
+    engine.clear_derived().expect("clear");
+
+    assert_eq!(heatmap(&db), vec![("2024-01-01".into(), 1, 3_500, 1)]);
 }

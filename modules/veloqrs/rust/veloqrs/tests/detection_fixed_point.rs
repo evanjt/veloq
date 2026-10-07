@@ -19,20 +19,19 @@
 //! and the processed activity ids are saved, so every round after the first
 //! enters the no-new-activities short-circuit rather than a cold re-detect.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test detection_fixed_point`
+//! Run: `cargo test -p veloqrs --features synthetic --test detection_synthetic -- detection_fixed_point::`
 
 #![cfg(feature = "synthetic")]
 
-mod lifecycle_support;
-
 use std::collections::BTreeSet;
 
-use lifecycle_support::*;
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::PersistentEngine;
+
+use crate::lifecycle_support::*;
 
 /// Rounds of detect over the unchanged pool.
 const ROUNDS: usize = 12;
@@ -44,10 +43,10 @@ const SETTLE_BUDGET: usize = 6;
 /// Rounds the save-versus-tail boundary is compared over.
 const BOUNDARY_ROUNDS: usize = 6;
 
-/// Rounds run before the names are read, so the catalogue has stopped moving.
+/// Rounds run before the numbers are read, so the catalogue has stopped moving.
 const NAME_WARMUP_ROUNDS: usize = 6;
 
-/// Rounds the minted names are held against after that warm-up.
+/// Rounds the section numbers are held against after that warm-up.
 const NAME_ROUNDS: usize = 4;
 
 /// Enough overlapping traffic for several corridors in both sports, small
@@ -56,7 +55,7 @@ fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 30,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 2,
         ..LifecycleConfig::default()
@@ -68,9 +67,11 @@ fn corpus() -> LifecycleCorpus {
 /// view never settles.
 fn loaded_engine(path: &std::path::Path, corpus: &LifecycleCorpus) -> PersistentEngine {
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
-    engine.set_section_config(SectionConfig {
-        ..SectionConfig::default()
-    });
+    engine
+        .set_section_config(SectionConfig {
+            ..SectionConfig::default()
+        })
+        .expect("config accepted");
     for a in corpus.through_a() {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -150,10 +151,13 @@ fn fusable_pair(engine: &mut PersistentEngine) -> Option<(String, String)> {
 
 /// Names as the rows carry them. The in-memory catalogue the identity apply
 /// installs has no name on it; the save mints them straight onto the row.
-fn stored_names(db_path: &std::path::Path) -> Vec<(String, String)> {
+fn stored_numbers(db_path: &std::path::Path) -> Vec<(String, u32)> {
     let conn = Connection::open(db_path).unwrap();
     let mut stmt = conn
-        .prepare("SELECT id, name FROM sections WHERE name IS NOT NULL ORDER BY id")
+        .prepare(
+            "SELECT s.id, n.number FROM sections s
+             JOIN section_numbers n ON n.section_id = s.id ORDER BY s.id",
+        )
         .unwrap();
     stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
         .unwrap()
@@ -182,6 +186,7 @@ fn fuse_behind_the_registry(db_path: &std::path::Path, primary: &str, secondary:
 
 #[test]
 fn repeated_detection_converges_and_holds_on_a_mixed_sport_pool() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let corpus = corpus();
     let mut engine = loaded_engine(&dir.path().join("fixed_point.db"), &corpus);
@@ -230,6 +235,7 @@ fn repeated_detection_converges_and_holds_on_a_mixed_sport_pool() {
 /// next detect re-derives the pre-tail shape from unchanged ground.
 #[test]
 fn the_deferred_apply_tail_leaves_the_saved_catalogue_alone() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let corpus = corpus();
     let mut engine = loaded_engine(&dir.path().join("apply_tail.db"), &corpus);
@@ -260,6 +266,7 @@ fn the_deferred_apply_tail_leaves_the_saved_catalogue_alone() {
 /// on a pipeline where the two boundaries are the same call.
 #[test]
 fn a_tail_that_fuses_behind_the_registry_is_caught_every_round() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("fused_tail.db");
     let corpus = corpus();
@@ -282,7 +289,8 @@ fn a_tail_that_fuses_behind_the_registry_is_caught_every_round() {
 }
 
 #[test]
-fn settled_section_names_do_not_move() {
+fn settled_section_numbers_do_not_move() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("names.db");
     let corpus = corpus();
@@ -291,18 +299,18 @@ fn settled_section_names_do_not_move() {
     for _ in 0..NAME_WARMUP_ROUNDS {
         redetect(&mut engine);
     }
-    // Names are minted inside the save from a per-sport counter over the rows
-    // the wipe spared, so they can move while the catalogue itself holds still.
-    // The signature does not carry them.
-    let settled = stored_names(&db_path);
-    assert!(!settled.is_empty(), "expected named sections");
+    // An unnamed section is shown under its number, which the save's wipe and
+    // re-insert must leave where it was while the catalogue holds still. The
+    // signature does not carry it.
+    let settled = stored_numbers(&db_path);
+    assert!(!settled.is_empty(), "expected numbered sections");
 
     for round in 0..NAME_ROUNDS {
         redetect(&mut engine);
         assert_eq!(
-            stored_names(&db_path),
+            stored_numbers(&db_path),
             settled,
-            "section names moved on round {round} with no activity added"
+            "section numbers moved on round {round} with no activity added"
         );
     }
 }
@@ -312,6 +320,7 @@ fn settled_section_names_do_not_move() {
 /// contract above unfalsifiable.
 #[test]
 fn settle_round_rejects_cycles() {
+    let _serial_state = super::serial_state();
     let seq = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
 
     assert_eq!(settle_round(&seq(&["a", "a", "a"])), Some(0));

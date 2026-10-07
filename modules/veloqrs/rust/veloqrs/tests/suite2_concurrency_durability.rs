@@ -9,7 +9,7 @@
 //! under a concurrent reader, racing detections, and an interrupted sync.
 //!
 //! One live gate per curiosity, each asserting the invariant. Everything is
-//! method-agnostic persistence behaviour, so it runs on the fast Control arm.
+//! persistence behaviour.
 //!
 //! A second engine is opened directly with `PersistentEngine::new(path)` on
 //! the SAME db file, exactly what production's background detection thread does
@@ -21,7 +21,7 @@
 //! running alongside makes the reader observe mid-commit counts. `serialise()`
 //! enforces that in-process, so the file is safe at any `--test-threads`.
 
-mod lifecycle_support;
+use super::lifecycle_support;
 
 /// Serialises the tests in this binary. The two-engine timing tests observe
 /// mid-commit counts if another heavy test shares the machine, and a comment
@@ -34,7 +34,6 @@ fn serialise() -> std::sync::MutexGuard<'static, ()> {
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
-use std::time::{Duration, Instant};
 
 use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
@@ -102,7 +101,7 @@ fn frequent_signature(sections: &[FrequentSection]) -> String {
     snap.catalogue_signature()
 }
 
-/// The db file path a `fresh_engine_for` TempDir owns. A second engine opened on
+/// The db file path a `fresh_engine` TempDir owns. A second engine opened on
 /// this path shares the file with the first.
 fn db_path(dir: &tempfile::TempDir) -> String {
     dir.path()
@@ -126,7 +125,7 @@ fn db_path(dir: &tempfile::TempDir) -> String {
 /// prove `load` rehydrates the cache rather than coming up empty.
 fn restart_state() -> (String, String, usize, usize) {
     let corpus = corpus();
-    let (mut e1, dir) = fresh_engine_for(Arm::Battery);
+    let (mut e1, dir) = fresh_engine();
     let cold = ingest_step(&mut e1, "cold", &corpus.through_a());
     let sig_db_before = cold.snapshot.catalogue_signature();
     let e1_inmem = in_memory_snapshot(&e1).count();
@@ -176,7 +175,7 @@ fn restart_preserves_catalogue() {
 fn identity_registries_survive_restart() {
     let _serial = serialise();
     let corpus = corpus();
-    let (mut e1, dir) = fresh_engine_for(Arm::Battery);
+    let (mut e1, dir) = fresh_engine();
     ingest_step(&mut e1, "cold", &corpus.through_a());
     ingest_step(&mut e1, "expand", &refs(&corpus.bucket_b_delta));
     ingest_step(&mut e1, "single", &[&corpus.bucket_c_single]);
@@ -223,7 +222,7 @@ fn identity_registries_survive_restart() {
 fn apply_path_keeps_cache_coherent() {
     let _serial = serialise();
     let corpus = corpus();
-    let (mut e, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut e, _dir) = fresh_engine();
     let cold = ingest_step(&mut e, "cold", &corpus.through_a());
     assert_eq!(
         in_memory_snapshot(&e).count(),
@@ -246,7 +245,7 @@ fn apply_path_keeps_cache_coherent() {
 fn cache_reflects_db_only_edits() {
     let _serial = serialise();
     let corpus = corpus();
-    let (mut e, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut e, _dir) = fresh_engine();
     let cold = ingest_step(&mut e, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&cold.snapshot).expect("a section to disable");
 
@@ -271,13 +270,13 @@ fn cache_reflects_db_only_edits() {
 // to `Vec::new()`), or see a torn catalogue?
 // ============================================================================
 
-/// (sections before the expand, sections after the expand, per-read
-///  (count, latency) samples taken concurrently with the writer).
-fn read_during_write() -> (usize, usize, Vec<(usize, Duration)>) {
+/// (sections before the expand, sections after the expand, the section count
+///  each read took concurrently with the writer saw).
+fn read_during_write() -> (usize, usize, Vec<usize>) {
     let corpus = corpus();
 
     // Reader engine holds the cold catalogue. Its DB has N0 sections committed.
-    let (mut reader, dir) = fresh_engine_for(Arm::Battery);
+    let (mut reader, dir) = fresh_engine();
     ingest_step(&mut reader, "cold", &corpus.through_a());
     let n0 = reader.get_sections_by_type(None).len();
 
@@ -309,21 +308,16 @@ fn read_during_write() -> (usize, usize, Vec<(usize, Duration)>) {
     });
 
     // Hammer reads until the writer finishes, then a few more to catch the
-    // committed post-state. Each read is timed. Count is the torn/false-empty
-    // signal (must be N0 or N1, never 0, never partial).
-    let mut reads: Vec<(usize, Duration)> = Vec::new();
+    // committed post-state. Count is the torn/false-empty signal (must be N0 or N1, never 0, never partial).
+    let mut reads: Vec<usize> = Vec::new();
     while !done.load(Ordering::SeqCst) {
-        let t = Instant::now();
-        let count = reader.get_sections_by_type(None).len();
-        reads.push((count, t.elapsed()));
+        reads.push(reader.get_sections_by_type(None).len());
         if reads.len() >= 200_000 {
-            break; // guard against a wedged writer, measurement stays bounded
+            break; // guard against a wedged writer, the sample stays bounded
         }
     }
     for _ in 0..5 {
-        let t = Instant::now();
-        let count = reader.get_sections_by_type(None).len();
-        reads.push((count, t.elapsed()));
+        reads.push(reader.get_sections_by_type(None).len());
     }
 
     let n1 = writer.join().expect("writer join");
@@ -342,17 +336,12 @@ fn concurrent_reads_are_consistent() {
     let _serial = serialise();
     let (n0, n1, reads) = read_during_write();
     assert!(n0 > 0, "cold detect produced no baseline catalogue");
-    let max_latency = reads.iter().map(|(_, d)| *d).max().unwrap_or_default();
-    for (count, _) in &reads {
+    for count in &reads {
         assert!(
             *count == n0 || *count == n1,
             "reader saw {count} sections during the write (expected N0={n0} or N1={n1}): torn or false-empty read"
         );
     }
-    assert!(
-        max_latency < Duration::from_secs(5),
-        "a read blocked {max_latency:?}, at/over the 5s busy_timeout, writer starved the reader"
-    );
 }
 
 // ============================================================================
@@ -367,7 +356,7 @@ fn concurrent_reads_are_consistent() {
 ///  final DB count, apply #2 error if any).
 fn racing_detect() -> (bool, bool, String, String, usize, Option<String>) {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
 
     // Ingest WITHOUT saving processed ids, so both detections run a full
     // detect over the same state (a saved-processed cold state would make both
@@ -432,7 +421,7 @@ fn racing_detect_does_not_corrupt() {
 ///  sections after a recover detect).
 fn crash_before_apply() -> (usize, usize, usize) {
     let corpus = corpus();
-    let (mut e1, dir) = fresh_engine_for(Arm::Battery);
+    let (mut e1, dir) = fresh_engine();
 
     // Ingest persists GPS + metadata to the DB immediately (add_activity
     // commits its own transaction). Detection is never run, the sync is

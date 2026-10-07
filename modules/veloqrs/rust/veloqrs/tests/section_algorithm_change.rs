@@ -10,15 +10,14 @@
 //! the outgoing geometry as a milestone. Without that there is no "before" to
 //! put beside the "after".
 
-mod migration_support;
-
-use migration_support::seed_at_version;
 use rusqlite::Connection;
 use std::path::Path;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 use veloqrs::persistence::sections::DetectorGeneration;
+
+use crate::migration_support::seed_at_version;
 
 const SID: &str = "s_1700000000000__ab12cd34";
 
@@ -100,7 +99,9 @@ fn kinds_of(engine: &PersistentEngine, sid: &str) -> Vec<String> {
 #[test]
 fn an_unsaved_catalogue_reports_no_generation_change() {
     let (mut engine, dir) = fresh();
-    engine.set_section_config(engine.get_section_config());
+    engine
+        .set_section_config(engine.get_section_config())
+        .expect("set the section config");
 
     let conn = Connection::open(dir.path().join("routes.db")).expect("open second connection");
     let marked: i64 = conn
@@ -127,7 +128,9 @@ fn a_migrated_catalogue_explains_its_first_detect() {
     insert_auto_section(&path, "s_legacy");
 
     let mut engine = engine_at(&path);
-    engine.set_section_config(engine.get_section_config());
+    engine
+        .set_section_config(engine.get_section_config())
+        .expect("set the section config");
     engine.apply_sections_save(Vec::new()).expect("flip save");
 
     let changed = engine
@@ -207,7 +210,9 @@ fn a_save_between_the_change_and_the_detect_keeps_the_capture() {
 
     let mut engine = engine_at(&path);
     engine.load().expect("load catalogue");
-    engine.set_section_config(engine.get_section_config());
+    engine
+        .set_section_config(engine.get_section_config())
+        .expect("set the section config");
     assert!(
         engine.recalculate_section_polyline("s_legacy").is_some(),
         "the mutation must actually reach a save, or this test proves nothing"
@@ -227,10 +232,183 @@ fn a_save_between_the_change_and_the_detect_keeps_the_capture() {
     );
 }
 
+/// Scenario: an upgraded auto section with no reference triple, travelled by
+/// two rides that run a few metres apart.
+/// Expected behaviour: recalculate cuts the line from one ride's own track
+/// and records which, rather than averaging the two into a line nobody rode.
+#[test]
+fn recalculating_a_tripleless_section_slices_a_member_track() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+    seed_traversed_legacy_section(&path);
+
+    let mut engine = engine_at(&path);
+    let shifted: Vec<GpsPoint> = ride_track()
+        .into_iter()
+        .map(|p| GpsPoint {
+            latitude: p.latitude + 0.000_03,
+            ..p
+        })
+        .collect();
+    engine
+        .add_activity("a2".to_string(), shifted.clone(), "Ride".to_string())
+        .expect("store second ride");
+    drop(engine);
+    let conn = Connection::open(&path).expect("open second connection");
+    conn.execute(
+        "INSERT INTO section_activities (section_id, activity_id, start_index, end_index)
+         VALUES ('s_legacy', 'a2', 20, 39)",
+        [],
+    )
+    .expect("insert second junction row");
+    drop(conn);
+
+    let mut engine = engine_at(&path);
+    engine.load().expect("load catalogue");
+    engine
+        .recalculate_section_polyline("s_legacy")
+        .expect("recalculate");
+
+    let line = engine.get_section("s_legacy").expect("section").polyline;
+    let is_slice_of = |track: &[GpsPoint]| {
+        track
+            .windows(line.len())
+            .any(|w| w.iter().zip(&line).all(|(a, b)| a == b))
+    };
+    assert!(
+        is_slice_of(&ride_track()) || is_slice_of(&shifted),
+        "the recalculated line is not a slice of any member's track"
+    );
+
+    let again = engine
+        .recalculate_section_polyline("s_legacy")
+        .expect("second recalculate");
+    let after = engine.get_section("s_legacy").expect("section").polyline;
+    assert_eq!(after, line, "a second recalculate moved the line");
+    assert!(again.distance_meters > 0.0);
+
+    let source: String = Connection::open(&path)
+        .expect("open second connection")
+        .query_row(
+            "SELECT geometry_source FROM sections WHERE id = 's_legacy'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("geometry source");
+    assert_eq!(source, "exact");
+}
+
+fn handed_over(id: &str, line: Vec<GpsPoint>, rides: &[&str]) -> tracematch::FrequentSection {
+    tracematch::FrequentSection {
+        id: id.to_string(),
+        name: None,
+        sport_type: "Ride".to_string(),
+        distance_meters: 250.0,
+        point_density: vec![2; line.len()],
+        polyline: line,
+        representative_activity_id: rides.first().copied().unwrap_or_default().to_string(),
+        representative_range: None,
+        activity_ids: rides.iter().map(|r| r.to_string()).collect(),
+        activity_portions: rides
+            .iter()
+            .map(|r| tracematch::SectionPortion {
+                activity_id: r.to_string(),
+                start_index: 20,
+                end_index: 39,
+                distance_meters: 250.0,
+                direction: tracematch::Direction::Same,
+            })
+            .collect(),
+        visit_count: rides.len() as u32,
+        activity_traces: Default::default(),
+        confidence: 0.9,
+        observation_count: 3,
+        average_spread: 4.0,
+        scale: None,
+        is_user_defined: false,
+        stability: 1.0,
+        elevation_gain_m: None,
+        avg_grade_percent: None,
+        version: 1,
+        updated_at: None,
+        created_at: None,
+        enrichment: Default::default(),
+        rank: None,
+        consensus_state: None,
+    }
+}
+
+/// Scenario: the detector hands over a section with no reference range and a
+/// line that is an average of two rides.
+/// Expected behaviour: the write stores a slice of one ride's track with its
+/// range, and refuses a section no ride's track covers.
+#[test]
+fn a_detect_write_anchors_a_rangeless_section_or_refuses_it() {
+    let (mut engine, dir) = fresh();
+    let track = ride_track();
+    let shifted: Vec<GpsPoint> = track
+        .iter()
+        .map(|p| GpsPoint {
+            latitude: p.latitude + 0.000_03,
+            ..*p
+        })
+        .collect();
+    for (id, t) in [("a1", track.clone()), ("a2", shifted.clone())] {
+        engine
+            .add_activity(id.to_string(), t, "Ride".to_string())
+            .expect("store ride");
+    }
+    let average: Vec<GpsPoint> = track[20..40]
+        .iter()
+        .map(|p| GpsPoint {
+            latitude: p.latitude + 0.000_015,
+            ..*p
+        })
+        .collect();
+    let elsewhere: Vec<GpsPoint> = average
+        .iter()
+        .map(|p| GpsPoint {
+            latitude: p.latitude + 1.0,
+            ..*p
+        })
+        .collect();
+
+    engine
+        .apply_sections_save(vec![
+            handed_over("s_covered", average, &["a1", "a2"]),
+            handed_over("s_nowhere", elsewhere, &["a1", "a2"]),
+        ])
+        .expect("apply");
+
+    let conn = Connection::open(dir.path().join("routes.db")).expect("open second connection");
+    let ids: Vec<String> = conn
+        .prepare("SELECT id FROM sections WHERE section_type = 'auto'")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(ids.len(), 1, "the uncovered section was written: {ids:?}");
+    let id = &ids[0];
+    let (source, start, end): (String, Option<u32>, Option<u32>) = conn
+        .query_row(
+            "SELECT geometry_source, rep_start_index, rep_end_index FROM sections WHERE id = ?",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(source, "exact");
+    let (start, end) = (start.unwrap() as usize, end.unwrap() as usize);
+    let line = engine.get_section(id).expect("section").polyline;
+    assert!(line == track[start..end] || line == shifted[start..end]);
+}
+
 #[test]
 fn a_matching_marker_reports_no_generation_change() {
     let (mut engine, dir) = fresh();
-    engine.set_section_config(engine.get_section_config());
+    engine
+        .set_section_config(engine.get_section_config())
+        .expect("set the section config");
     let live = engine.get_section_config();
     stamp_generation(
         &dir,
@@ -244,7 +422,9 @@ fn a_matching_marker_reports_no_generation_change() {
 fn a_different_method_in_the_marker_is_a_generation_change() {
     let (mut engine, dir) = fresh();
     let cfg = engine.get_section_config();
-    engine.set_section_config(cfg.clone());
+    engine
+        .set_section_config(cfg.clone())
+        .expect("set the section config");
     stamp_generation(&dir, "corridor", "0000000000000000");
 
     let (from, to) = engine

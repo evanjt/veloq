@@ -7,7 +7,7 @@
 //! irrelevant to it: WHERE else in the world the user rides, and WHICH sport
 //! happens to travel a shared corridor most.
 //!
-//! The Battery arm (`DetectionMethod::Unified`) is the probe here because the
+//! The detector is the probe here because the
 //! behaviour under test lives in the detector: it cuts one pool and emits
 //! sections ordered by each cluster's south-west corner. Identity is layered on
 //! top, so an id must stay on its ground while that emission order moves
@@ -20,14 +20,13 @@
 //! geography is a corpus at a shifted origin with namespaced activity ids so
 //! the two never collide in the engine.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_multigeo_sport`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2 -- suite2_multigeo_sport::`
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use std::collections::BTreeSet;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
+
+use crate::lifecycle_support::*;
 
 // ============================================================================
 // Inlined helpers (the harness is read-only; these are private to this suite)
@@ -263,7 +262,7 @@ fn geo_scenario(
     });
     let geo2_ns = namespaced(prefix, &geo2.through_a());
 
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let g1a = ingest_step(&mut engine, "geo1/cold", &geo1.through_a()).snapshot;
     let g1b = ingest_step(&mut engine, "geo2/add", &refs(&geo2_ns)).snapshot;
     (g1a, g1b)
@@ -322,7 +321,7 @@ fn cross_order_snapshot(
         &format!("{prefix}run_"),
         "Run",
     );
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let (first, second) = if runs_first {
         (("cross/run", &runs), ("cross/ride", &rides))
     } else {
@@ -394,7 +393,7 @@ fn section_id_survives_sport_addition() {
     let (src, ground) = corridor_source(2, 11);
     let g = ground_fp(ground);
 
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(
         &mut engine,
         "ride-cold",
@@ -404,13 +403,13 @@ fn section_id_survives_sport_addition() {
     let (cold_id, _) =
         busiest_on_ground(&cold, &g).expect("cold detect produced a Ride section on the corridor");
 
-    let after = try_ingest_step(
-        &mut engine,
-        "run-add",
-        &refs(&labelled(&src, 5..11, "c3g_run_", "Run")),
-    )
-    .expect("adding a second sport must not crash")
-    .snapshot;
+    let runs_all = labelled(&src, 5..11, "c3g_run_", "Run");
+    let mut after = cold;
+    for (i, batch) in runs_all.chunks(2).enumerate() {
+        after = try_ingest_step(&mut engine, &format!("run-add-{i}"), &refs(&batch.to_vec()))
+            .expect("adding a second sport must not crash")
+            .snapshot;
+    }
 
     let on = sections_on_ground(&after, &g);
     assert!(
@@ -420,6 +419,31 @@ fn section_id_survives_sport_addition() {
         on.iter()
             .map(|(id, f)| (id.clone(), f.sport_type.clone()))
             .collect::<Vec<_>>(),
+    );
+
+    let carried = &on
+        .iter()
+        .find(|(id, _)| id == &cold_id)
+        .expect("checked above")
+        .1;
+    let runs = carried
+        .activity_ids
+        .iter()
+        .filter(|a| a.starts_with("c3g_run_"))
+        .count();
+    let rides = carried
+        .activity_ids
+        .iter()
+        .filter(|a| a.starts_with("c3g_ride_"))
+        .count();
+    assert!(
+        runs > rides,
+        "the carried section must have Run-majority members after the add: {runs} runs, {rides} rides"
+    );
+    assert_eq!(
+        carried.sport_type, "Run",
+        "the carried id keeps its identity but is relabelled with its members' dominant sport \
+         ({runs} runs vs {rides} rides)"
     );
 }
 
@@ -432,27 +456,27 @@ fn section_id_survives_sport_addition() {
 // the forward section rather than spawning a mirror on the same ground.
 
 /// Ingest forward + reversed passes of the same `n` corridor-0 traversals as one
-/// sport on `arm`, and return the snapshot plus the corridor ground.
-fn reverse_mix_snapshot(arm: Arm, n: usize, prefix: &str) -> (SectionSnapshot, Vec<GpsPoint>) {
+/// sport, and return the snapshot plus the corridor ground.
+fn reverse_mix_snapshot(n: usize, prefix: &str) -> (SectionSnapshot, Vec<GpsPoint>) {
     let (src, ground) = corridor_source(0, n);
     let mut batch: Vec<LifecycleActivity> = Vec::new();
     for (i, a) in src.iter().take(n).enumerate() {
         batch.push(relabel(a, format!("{prefix}fwd_{i:03}"), "Ride"));
         batch.push(reversed_clone(a, format!("{prefix}rev_{i:03}")));
     }
-    let (mut engine, _dir) = fresh_engine_for(arm);
+    let (mut engine, _dir) = fresh_engine();
     let snap = ingest_step(&mut engine, "reverse-mix", &refs(&batch)).snapshot;
     (snap, ground)
 }
 
 /// Gate (invariant 2, one corridor, both directions): a reverse pass reuses the
-/// forward section, never spawning a mirror on the same ground. Battery arm. The
-/// unified detector rasters into a direction-blind coverage grid, so both
+/// forward section, never spawning a mirror on the same ground. The
+/// detector rasters into a direction-blind coverage grid, so both
 /// directions land in one section. A red is a direction-sensitive change
 /// reintroducing mirror duplicates.
 #[test]
 fn reverse_pass_reuses_forward_section() {
-    let (snap, ground) = reverse_mix_snapshot(Arm::Battery, 6, "c4g_");
+    let (snap, ground) = reverse_mix_snapshot(6, "c4g_");
     let g = ground_fp(ground);
     let on = sections_on_ground(&snap, &g);
     assert!(

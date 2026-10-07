@@ -3,7 +3,7 @@
 //! catalogue gains a "0 visits" card over an empty detail screen. The apply
 //! must drop such a section instead of persisting it.
 //!
-//! Run: `cargo test --test section_zero_visit_guard -p veloqrs --features synthetic`
+//! Run: `cargo test --test section_synthetic -p veloqrs --features synthetic -- section_zero_visit_guard::`
 
 #![cfg(feature = "synthetic")]
 

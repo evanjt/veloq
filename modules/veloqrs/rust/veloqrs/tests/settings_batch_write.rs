@@ -3,7 +3,7 @@
 //! write already skips it, and a batch that cannot be written leaves the
 //! stored values as they were.
 //!
-//! Run: `cargo test --test settings_batch_write -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- settings_batch_write::`
 
 use std::path::PathBuf;
 

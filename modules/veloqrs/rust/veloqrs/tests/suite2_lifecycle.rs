@@ -2,15 +2,14 @@
 //!
 //! Changing detection config re-analyses the existing library, and removing an
 //! activity purges its contribution. Method-agnostic persistence behaviour, run
-//! on the fast Control arm. Snapshots read the user-visible DB view.
+//! as a persistence check. Snapshots read the user-visible DB view.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_lifecycle`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2 -- suite2_lifecycle::`
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use tracematch::sections::SectionConfig;
+
+use crate::lifecycle_support::*;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -25,14 +24,14 @@ fn corpus() -> LifecycleCorpus {
 #[test]
 fn config_change_reanalyses() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
 
     let strict = SectionConfig {
         min_activities: 50,
         ..SectionConfig::default()
     };
-    engine.set_section_config(strict);
+    engine.set_section_config(strict).expect("config accepted");
     let after = ingest_step(&mut engine, "trigger", &[&corpus.bucket_c_single]).snapshot;
 
     assert_eq!(
@@ -51,7 +50,7 @@ fn config_change_reanalyses() {
 #[test]
 fn remove_activity_purges_evidence() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     let victim = cold

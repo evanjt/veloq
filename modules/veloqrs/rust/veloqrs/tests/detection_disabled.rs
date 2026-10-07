@@ -48,7 +48,9 @@ fn seeded_engine() -> TempDir {
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
         cfg.min_activities = 3;
-        engine.set_section_config(cfg);
+        engine
+            .set_section_config(cfg)
+            .expect("set the section config");
         for i in 0..4 {
             let id = format!("a{}", i);
             engine
@@ -102,6 +104,7 @@ fn detect_and_apply() -> usize {
 
 #[test]
 fn a_detect_is_refused_while_detection_is_disabled() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let _dir = seeded_engine();
 
@@ -120,6 +123,7 @@ fn a_detect_is_refused_while_detection_is_disabled() {
 
 #[test]
 fn conditioning_will_not_start_while_detection_is_disabled() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let _dir = seeded_engine();
 
@@ -138,6 +142,7 @@ fn conditioning_will_not_start_while_detection_is_disabled() {
 
 #[test]
 fn re_enabling_detects_again() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let _dir = seeded_engine();
 
@@ -155,6 +160,7 @@ fn re_enabling_detects_again() {
 
 #[test]
 fn detection_is_enabled_on_a_fresh_install() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let _dir = seeded_engine();
 
@@ -164,6 +170,7 @@ fn detection_is_enabled_on_a_fresh_install() {
 
 #[test]
 fn the_setting_survives_a_reopen() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = seeded_engine();
     let path = dir.path().join("routes.db");
@@ -181,6 +188,7 @@ fn the_setting_survives_a_reopen() {
 /// install that turned detection off from one that is waiting on the migration.
 #[test]
 fn the_disabled_refusal_is_distinct_from_the_others() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let _dir = seeded_engine();
 
@@ -192,4 +200,59 @@ fn the_disabled_refusal_is_distinct_from_the_others() {
     assert!(detection_was_refused(&handle));
     assert!(!veloqrs::ffi::is_cutover_pending());
     assert!(!veloqrs::persistence::detection_suspended());
+}
+
+fn group_count() -> usize {
+    with_persistent_engine(|e| e.get_groups().len()).expect("engine")
+}
+
+fn stored_group_rows(dir: &TempDir) -> i64 {
+    let conn = rusqlite::Connection::open(dir.path().join("routes.db")).expect("open");
+    conn.query_row("SELECT COUNT(*) FROM route_groups", [], |r| r.get(0))
+        .expect("count")
+}
+
+fn add_ride(id: &str) {
+    with_persistent_engine(|engine| {
+        engine
+            .add_activity(id.to_string(), track(0.00001), "Ride".into())
+            .expect("add activity");
+    })
+    .expect("engine");
+}
+
+#[test]
+fn a_sync_while_disabled_leaves_route_groups_unbuilt() {
+    let _serial_state = super::serial_state();
+    let _serial = serial();
+    let dir = seeded_engine();
+    assert!(group_count() > 0, "the seeded library groups while on");
+
+    with_persistent_engine(|e| {
+        e.set_detection_enabled(false).expect("write setting");
+        e.clear_derived().expect("the off wipe");
+    })
+    .expect("engine");
+    assert_eq!(
+        stored_group_rows(&dir),
+        0,
+        "the off wipe empties the groups"
+    );
+
+    add_ride("synced");
+    let summary = with_persistent_engine(|e| e.attach_new_activities(&["synced".to_string()]))
+        .expect("engine");
+    assert!(!summary.regrouped);
+    assert_eq!(stored_group_rows(&dir), 0, "a sync must not rebuild groups");
+    assert!(with_persistent_engine(|e| e.groups_are_dirty()).expect("engine"));
+
+    add_ride("pushed");
+    let pushed = with_persistent_engine(|e| e.index_new_activity("pushed")).expect("engine");
+    assert!(!pushed.expect("index").regrouped);
+    assert_eq!(stored_group_rows(&dir), 0, "a push must not rebuild groups");
+
+    with_persistent_engine(|e| e.set_detection_enabled(true).expect("write setting"))
+        .expect("engine");
+    assert!(group_count() > 0, "switching back on regroups");
+    assert!(stored_group_rows(&dir) > 0);
 }

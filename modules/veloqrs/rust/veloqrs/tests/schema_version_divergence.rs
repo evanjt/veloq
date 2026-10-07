@@ -11,7 +11,7 @@
 //! assertions are where it becomes visible: a test that only said "it fails"
 //! would pass just as well after a fix that failed differently.
 
-mod migration_support;
+use super::migration_support;
 
 use migration_support::*;
 use rusqlite::Connection;
@@ -33,6 +33,7 @@ fn stamp_pragma(conn: &Connection, version: u32) {
 /// every live install takes, and it opens.
 #[test]
 fn the_agreeing_case_opens() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
     {
@@ -50,6 +51,7 @@ fn the_agreeing_case_opens() {
 /// private corpus carries.
 #[test]
 fn a_pragma_ahead_of_the_tables_is_refused_before_the_pass() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
     {
@@ -69,12 +71,43 @@ fn a_pragma_ahead_of_the_tables_is_refused_before_the_pass() {
     );
 }
 
+/// Ahead of this build: the pragma names a migration this build does not
+/// carry while `schema_info` is at this build's version, which is what a newer
+/// build leaves when it is killed between its pass and its stamp. The forward
+/// refusal reads the pragma as well as the app record, so this is refused as
+/// a newer file, naming both, rather than failing inside the migration library
+/// with neither.
+#[test]
+fn a_pragma_ahead_of_this_build_is_refused_as_forward() {
+    let _serial_state = super::serial_state();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    let latest = latest_version();
+    {
+        let conn = seed_at_version(&path, latest);
+        stamp_app_schema_version(&conn, latest);
+        stamp_pragma(&conn, latest + 1);
+    }
+
+    let message = open(&path).expect_err("a pragma ahead of this build must not open");
+    assert!(
+        message.contains("database schema is newer than this build"),
+        "refused as a newer file: {message}"
+    );
+    assert!(
+        message.contains(&format!("user_version {}", latest + 1))
+            && message.contains(&format!("schema_info {latest}")),
+        "names both version records: {message}"
+    );
+}
+
 /// Behind: the pragma claims fewer migrations ran than did, so the pass
 /// re-applies files that have already run. `ADD COLUMN` has no `IF NOT EXISTS`
 /// in SQLite, which `src/migrations/017_b4_core.sql` says outright, so the
 /// first re-applied file carrying one fails on a duplicate column.
 #[test]
 fn a_pragma_behind_the_tables_fails_on_a_duplicate_column() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
     let latest = latest_version();
@@ -96,6 +129,7 @@ fn a_pragma_behind_the_tables_fails_on_a_duplicate_column() {
 /// on the way out. One open repairs it.
 #[test]
 fn a_stale_schema_info_repairs_itself_in_one_open() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
     let latest = latest_version();
@@ -126,6 +160,7 @@ fn a_stale_schema_info_repairs_itself_in_one_open() {
 /// fire and the open must succeed.
 #[test]
 fn an_absent_schema_info_row_reads_as_zero_and_opens() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
     {

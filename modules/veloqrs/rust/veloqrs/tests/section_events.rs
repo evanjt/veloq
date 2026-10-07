@@ -13,13 +13,12 @@
 //! metric never bridges them.
 //!
 //! Run:
-//!   cargo test -p veloqrs --features synthetic --test section_events
+//!   cargo test -p veloqrs --features synthetic --test section_synthetic -- section_events::
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tracematch::scenarios::LifecycleActivity;
 use tracematch::{GpsPoint, shares_ground};
+
+use crate::lifecycle_support::*;
 
 const DAY: i64 = 86_400;
 const T0: i64 = 1_700_000_000;
@@ -110,7 +109,7 @@ fn kinds(engine: &veloqrs::PersistentEngine, id: &str) -> Vec<String> {
 
 #[test]
 fn cold_ingest_writes_one_formed_event_with_birth_geometry() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let rides = corridor_rides("ca", 0.0, 9, 0);
     let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
     let (id, fp) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
@@ -129,7 +128,7 @@ fn cold_ingest_writes_one_formed_event_with_birth_geometry() {
 
 #[test]
 fn unchanged_pool_applies_write_no_events() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let rides = corridor_rides("ca", 0.0, 9, 0);
     let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
     let (id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
@@ -152,7 +151,7 @@ fn unchanged_pool_applies_write_no_events() {
 
 #[test]
 fn sustained_dissolve_writes_one_event_with_an_era_snapshot() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let rides_a = corridor_rides("ca", 0.0, 9, 0);
     let rides_b = corridor_rides("cb", 1_500.0, 9, 10);
     let mut pool = refs(&rides_a);
@@ -181,14 +180,19 @@ fn sustained_dissolve_writes_one_event_with_an_era_snapshot() {
             .expect("a dissolve carries its era snapshot"),
     )
     .expect("snapshot is JSON");
-    for key in ["pr_activity_id", "pr_time", "avg_time", "visits_per_month"] {
-        assert!(details.get(key).is_some(), "snapshot must carry {key}");
+    assert!(details.get("prs").is_some(), "snapshot must carry prs");
+    for key in ["avg_time", "visits_per_month"] {
+        assert!(details.get(key).is_none(), "snapshot must not carry {key}");
     }
+    assert!(
+        details["prs"].is_object(),
+        "the era's records are keyed by sport"
+    );
 }
 
 #[test]
 fn re_emerged_ground_writes_a_restored_event_on_the_same_id() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let rides_a = corridor_rides("ca", 0.0, 9, 0);
     let rides_b = corridor_rides("cb", 1_500.0, 9, 10);
     let mut pool = refs(&rides_a);
@@ -221,53 +225,6 @@ fn re_emerged_ground_writes_a_restored_event_on_the_same_id() {
         .expect("a restore records the re-emerged geometry");
     assert!(version > 1, "the restore geometry is a fresh version");
     assert!(engine.section_geometry_polyline(&id_a, version).is_some());
-}
-
-/// An era snapshot narrates what the athlete sees, and the athlete's view
-/// filters excluded traversals. Two member rows at fire time with one
-/// excluded must snapshot as one visit, not two.
-#[test]
-fn era_snapshot_counts_only_included_traversals() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
-    let rides_a = corridor_rides("ca", 0.0, 9, 0);
-    let rides_b = corridor_rides("cb", 1_500.0, 9, 10);
-    let mut pool = refs(&rides_a);
-    pool.extend(refs(&rides_b));
-    let snap = ingest_step(&mut engine, "cold", &pool).snapshot;
-    let (id_a, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: corridor A");
-
-    // Drain corridor A below its support floor while two members survive,
-    // one of them excluded. The dissolve then fires with rows present.
-    for aid in rides_a
-        .iter()
-        .skip(2)
-        .map(|r| r.id.clone())
-        .collect::<Vec<_>>()
-    {
-        engine.remove_activity(&aid).expect("remove_activity");
-    }
-    engine
-        .exclude_activity_from_section(&id_a, &rides_a[0].id)
-        .expect("exclude one survivor");
-    for i in 0..3 {
-        let filler = filler_act("vpm", 60 + i);
-        ingest_step(&mut engine, "vpm", &[&filler]);
-    }
-
-    let history = engine.section_history(&id_a);
-    let dissolve = history
-        .iter()
-        .find(|e| e.kind == "dissolved")
-        .expect("the drain must dissolve corridor A");
-    let details: serde_json::Value =
-        serde_json::from_str(dissolve.details.as_deref().expect("era snapshot"))
-            .expect("snapshot is JSON");
-    assert_eq!(
-        details.get("visits_per_month").and_then(|v| v.as_f64()),
-        Some(1.0),
-        "one included row over a zero-day span is one visit per month; \
-         counting the excluded row too would read 2.0"
-    );
 }
 
 // ---------------------------------------------------------------- lineage
@@ -318,7 +275,7 @@ fn details_of(event: &veloqrs::persistence::sections::SectionHistoryEvent) -> se
 /// discriminator a read side can render in-locale.
 #[test]
 fn a_late_fork_splits_the_trunk_and_records_lineage() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let straight = corridor_rides("ca", 0.0, 9, 0);
     let snap = ingest_step(&mut engine, "cold", &refs(&straight)).snapshot;
     let (trunk, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no trunk");
@@ -344,7 +301,22 @@ fn a_late_fork_splits_the_trunk_and_records_lineage() {
         !births.is_empty(),
         "a sibling carved from the trunk must record it as its parent"
     );
-    for (_, d) in &births {
+    let lineages = engine.section_lineages();
+    for (id, d) in &births {
+        assert!(
+            d.get("line_order")
+                .and_then(|v| v.as_u64())
+                .is_some_and(|n| n > 0),
+            "a split birth keeps its position along the parent line"
+        );
+        assert_eq!(
+            lineages
+                .iter()
+                .find(|lineage| lineage.section_id == *id)
+                .and_then(|lineage| lineage.line_order)
+                .map(u64::from),
+            d.get("line_order").and_then(|value| value.as_u64())
+        );
         let disc = d
             .get("discriminator")
             .and_then(|v| v.as_str())
@@ -371,24 +343,52 @@ fn a_late_fork_splits_the_trunk_and_records_lineage() {
     }
 }
 
+/// A ride over the trunk between two distances north of its start.
+fn stretch_rides(
+    prefix: &str,
+    from_m: f64,
+    to_m: f64,
+    count: usize,
+    day0: i64,
+) -> Vec<LifecycleActivity> {
+    (0..count)
+        .map(|i| {
+            let jitter = (i as f64 - (count as f64 - 1.0) / 2.0) * 1.5;
+            let mut pts = Vec::new();
+            let mut d = from_m;
+            while d <= to_m {
+                pts.push(pt(d, jitter));
+                d += STEP_M;
+            }
+            act(format!("{prefix}_{i:02}"), day0 + i as i64, pts)
+        })
+        .collect()
+}
+
 /// A sustained merge retires the junior into the senior and says which.
+///
+/// Scenario: two separate stretches of one road, then rides over all of it,
+/// so one candidate covers both existing sections. The whole road stays under
+/// the detector's section length cap, or it would be cut into two again.
 #[test]
 fn a_merge_names_the_survivor() {
-    use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-    let corpus = LifecycleCorpus::generate(&LifecycleConfig {
-        bucket_a_count: 60,
-        bucket_b_delta_count: 90,
-        bucket_d_delta_count: 3,
-        bucket_e_delta_count: 0,
-        parallel_street_count: 4,
-        ..LifecycleConfig::default()
-    });
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
-    ingest_step(&mut engine, "a", &corpus.through_a());
-    ingest_step(&mut engine, "b", &refs(&corpus.bucket_b_delta));
-    let before = snapshot(&mut engine);
-    ingest_step(&mut engine, "c", &[&corpus.bucket_c_single]);
-    ingest_step(&mut engine, "d", &refs(&corpus.bucket_d_delta));
+    let (mut engine, _dir) = fresh_engine();
+    let near = stretch_rides("near", 0.0, 350.0, 9, 0);
+    let far = stretch_rides("far", 450.0, 800.0, 9, 10);
+    let mut pool = refs(&near);
+    pool.extend(refs(&far));
+    let before = ingest_step(&mut engine, "cold", &pool).snapshot;
+    assert!(
+        before.sections.len() >= 2,
+        "corpus fault: the two stretches must start as separate sections"
+    );
+
+    let whole = stretch_rides("whole", 0.0, 800.0, 12, 30);
+    ingest_step(&mut engine, "join", &refs(&whole));
+    for i in 0..3 {
+        let filler = filler_act("settle", 60 + i);
+        ingest_step(&mut engine, "settle", &[&filler]);
+    }
 
     let live: Vec<String> = engine.get_sections().iter().map(|s| s.id.clone()).collect();
     let merges: Vec<(String, String)> = before
@@ -414,7 +414,7 @@ fn a_merge_names_the_survivor() {
         .collect();
     assert!(
         !merges.is_empty(),
-        "the small batch fires at least one merge"
+        "a stretch joined by rides over the gap merges into its senior"
     );
     for (junior, senior) in &merges {
         assert!(!senior.is_empty(), "a merge names the survivor");
@@ -433,7 +433,7 @@ fn a_merge_names_the_survivor() {
 /// it, so the next re-cut holds the line the user chose.
 #[test]
 fn revert_swaps_the_stored_version_into_the_section_row() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let rides = corridor_rides("ca", 0.0, 9, 0);
     let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
     let (id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
@@ -485,7 +485,7 @@ fn revert_swaps_the_stored_version_into_the_section_row() {
 
 #[test]
 fn a_revert_to_a_missing_version_is_refused() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let rides = corridor_rides("ca", 0.0, 9, 0);
     let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
     let (id, fp) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
@@ -514,7 +514,7 @@ fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
         parallel_street_count: 4,
         ..LifecycleConfig::default()
     });
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     // One second per point on every stream, so junction rows carry lap times.
     let timed = |engine: &mut veloqrs::PersistentEngine, acts: &[&LifecycleActivity]| {
         let mut ids = Vec::new();
@@ -565,6 +565,10 @@ fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
                 d.get("basis").and_then(|v| v.as_str()),
                 Some("current_extent")
             );
+            assert!(
+                d.get("sport").and_then(|v| v.as_str()).is_some(),
+                "a record moves within one sport"
+            );
             let from = d.get("from_time").and_then(|v| v.as_f64());
             let to = d.get("to_time").and_then(|v| v.as_f64());
             assert!(from != to || d.get("from_activity_id") != d.get("to_activity_id"));
@@ -580,7 +584,7 @@ fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
 /// it left and the versions that still draw it.
 #[test]
 fn a_dissolved_section_is_listed_as_retired() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let rides_a = corridor_rides("ca", 0.0, 9, 0);
     let rides_b = corridor_rides("cb", 1_500.0, 9, 10);
     let mut pool = refs(&rides_a);
@@ -615,11 +619,11 @@ fn a_dissolved_section_is_listed_as_retired() {
 }
 
 /// A pin holds a stored line against the detector. A user who accepts,
-/// renames, trims, re-references or re-matches the section has taken it
+/// trims, re-references or re-matches the section has taken it
 /// over, and the pin goes with the edit rather than fighting it.
 #[test]
 fn a_promotion_mutation_drops_the_pin() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let rides = corridor_rides("ca", 0.0, 9, 0);
     let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
     let (id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
@@ -630,16 +634,6 @@ fn a_promotion_mutation_drops_the_pin() {
             .expect("revert pins");
         assert_eq!(engine.pinned_section_version(&id), Some(1));
     };
-
-    pin(&mut engine);
-    engine
-        .set_section_name(&id, Some("Morning Berg"))
-        .expect("rename");
-    assert_eq!(
-        engine.pinned_section_version(&id),
-        None,
-        "a rename drops the pin"
-    );
 
     pin(&mut engine);
     let len = engine.get_section_by_id(&id).unwrap().polyline.len() as u32;
@@ -673,5 +667,112 @@ fn a_promotion_mutation_drops_the_pin() {
         engine.pinned_section_version(&id),
         None,
         "an accept drops the pin"
+    );
+
+    pin(&mut engine);
+    let aid = rides[0].id.clone();
+    let last = engine.get_gps_track(&aid).expect("a stored track").len() as u32 - 1;
+    engine
+        .expand_section_bounds(&id, &aid, 0, last)
+        .expect("expand");
+    assert_eq!(
+        engine.pinned_section_version(&id),
+        None,
+        "an expand drops the pin"
+    );
+
+    pin(&mut engine);
+    engine.reset_section_bounds(&id).expect("reset");
+    assert_eq!(
+        engine.pinned_section_version(&id),
+        None,
+        "a reset drops the pin"
+    );
+}
+
+/// Accept all promotes every auto row, so a pinned one is taken over too.
+#[test]
+fn accept_all_drops_the_pin() {
+    let (mut engine, _dir) = fresh_engine();
+    let rides = corridor_rides("cb", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
+    let (id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
+    engine
+        .revert_section_to_version(&id, 1)
+        .expect("revert pins");
+    assert_eq!(engine.pinned_section_version(&id), Some(1));
+
+    engine.accept_all_sections().expect("accept all");
+    assert_eq!(
+        engine.pinned_section_version(&id),
+        None,
+        "accept all drops the pin"
+    );
+}
+
+/// The merged-away secondary leaves no pin row for an id that is gone, and
+/// the primary's pin goes with the promotion.
+#[test]
+fn merge_drops_both_pins() {
+    let (mut engine, _dir) = fresh_engine();
+    let rides_a = corridor_rides("ma", 0.0, 9, 0);
+    let rides_b = corridor_rides("mb", 1_500.0, 9, 10);
+    let mut pool = refs(&rides_a);
+    pool.extend(refs(&rides_b));
+    let snap = ingest_step(&mut engine, "cold", &pool).snapshot;
+    let (id_a, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: A");
+    let (id_b, _) = section_on(&snap, &corridor_ground(1_500.0)).expect("corpus fault: B");
+    for id in [&id_a, &id_b] {
+        engine
+            .revert_section_to_version(id, 1)
+            .expect("revert pins");
+        assert_eq!(engine.pinned_section_version(id), Some(1));
+    }
+
+    engine.merge_user_sections(&id_a, &id_b).expect("merge");
+    assert_eq!(engine.pinned_section_version(&id_a), None, "primary pin");
+    assert_eq!(engine.pinned_section_version(&id_b), None, "secondary pin");
+}
+
+/// Naming an auto section makes its line the athlete's: the next detection
+/// that would re-cut its ground leaves it whole, under its id and name.
+#[test]
+fn a_named_section_survives_a_recut_of_its_ground() {
+    let (mut engine, _dir) = fresh_engine();
+    let straight = corridor_rides("ca", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&straight)).snapshot;
+    let (trunk, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no trunk");
+    let line_before = engine.get_section_by_id(&trunk).unwrap().polyline;
+
+    engine
+        .set_section_name(&trunk, Some("Morning Berg"))
+        .expect("name");
+    assert_eq!(engine.pinned_section_version(&trunk), Some(1));
+    engine
+        .set_section_name(&trunk, Some("Berg Loop"))
+        .expect("rename");
+    assert_eq!(engine.pinned_section_version(&trunk), Some(1));
+
+    let forked = fork_rides("cf", 9, 20);
+    ingest_step(&mut engine, "fork", &refs(&forked));
+
+    let kept = engine
+        .get_section_by_id(&trunk)
+        .expect("the named section survives the fork");
+    assert_eq!(kept.polyline, line_before);
+    assert_eq!(
+        engine
+            .get_all_section_names()
+            .get(&trunk)
+            .map(String::as_str),
+        Some("Berg Loop")
+    );
+    assert_eq!(engine.pinned_section_version(&trunk), Some(1));
+    assert!(
+        engine
+            .section_history(&trunk)
+            .iter()
+            .all(|e| e.kind != "split"),
+        "a pinned section is not split"
     );
 }

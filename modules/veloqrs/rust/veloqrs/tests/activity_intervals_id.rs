@@ -6,7 +6,7 @@
 //! column, and the sync matches a server record against it, so a row the
 //! device minted and later uploaded is found rather than stored twice.
 //!
-//! Run: `cargo test --test activity_intervals_id -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- activity_intervals_id::`
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
@@ -214,4 +214,332 @@ fn an_answer_for_a_row_that_is_gone_writes_nothing() {
         "there is nothing to record the answer on"
     );
     assert_eq!(engine.activity_id_for_intervals_id("i5"), None);
+}
+
+fn insert_uploaded_recording(conn: &Connection) {
+    conn.execute("INSERT INTO recordings (
+        id, fit_path, activity_type, name, start_time, duration_seconds, distance_meters,
+        created_at, upload_status, intervals_activity_id, engine_activity_id
+    ) VALUES ('r1', 'ride.fit', 'Ride', 'Ride', 1, 20, 100, 1, 'uploaded', 'i4242', 'local-recording')", []).unwrap();
+}
+
+fn upload_race() -> (TempDir, PersistentEngine, Connection) {
+    let (dir, mut engine) = engine_with(&["local-recording", "i4242"]);
+    engine
+        .upsert_activity_bodies(&[
+            (
+                "local-recording".to_string(),
+                1,
+                r#"{"id":"local-recording"}"#.to_string(),
+            ),
+            ("i4242".to_string(), 1, r#"{"id":"i4242"}"#.to_string()),
+        ])
+        .unwrap();
+    let conn = Connection::open(dir.path().join("routes.db")).unwrap();
+    for id in ["local-recording", "i4242"] {
+        conn.execute("INSERT INTO activity_streams (activity_id, kind, data, sample_count) VALUES (?1, 'power', X'00', 1)", [id]).unwrap();
+    }
+    insert_uploaded_recording(&conn);
+    (dir, engine, conn)
+}
+
+#[test]
+fn an_upload_answer_after_sync_removes_the_provisional_copy_and_its_dependants() {
+    let (dir, mut engine, conn) = upload_race();
+    let server_track = engine.get_gps_track("i4242").unwrap();
+    assert!(
+        engine
+            .record_upload("local-recording", "i4242")
+            .expect("reconcile server copy")
+    );
+    assert!(!engine.has_activity("local-recording"));
+    assert_eq!(engine.activity_count(), 1);
+    assert_eq!(
+        engine.activity_id_for_intervals_id("i4242").as_deref(),
+        Some("i4242")
+    );
+    assert_eq!(
+        engine.get_gps_track("i4242").unwrap().len(),
+        server_track.len()
+    );
+    for table in [
+        "activities",
+        "gps_tracks",
+        "signatures",
+        "activity_bodies",
+        "activity_streams",
+    ] {
+        let column = if table == "activities" {
+            "id"
+        } else {
+            "activity_id"
+        };
+        let ids: Vec<String> = conn
+            .prepare(&format!("SELECT {column} FROM {table}"))
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(ids, vec!["i4242"], "{table} retains only the server copy");
+    }
+    assert!(!engine.record_upload("local-recording", "i4242").unwrap());
+    drop(engine);
+    let mut engine = PersistentEngine::new(dir.path().join("routes.db").to_str().unwrap()).unwrap();
+    engine.load().unwrap();
+    assert_eq!(engine.get_activity_ids(), vec!["i4242"]);
+}
+
+#[test]
+fn a_failed_upload_reconciliation_rolls_back_the_provisional_track_and_body() {
+    let (_dir, mut engine, conn) = upload_race();
+    conn.execute_batch("CREATE TRIGGER refuse_stream_delete BEFORE DELETE ON activity_streams
+        WHEN OLD.activity_id = 'local-recording' BEGIN SELECT RAISE(ABORT, 'stream retained'); END;").unwrap();
+    let error = engine
+        .record_upload("local-recording", "i4242")
+        .unwrap_err();
+    assert!(error.to_string().contains("stream retained"), "{error}");
+    assert!(engine.has_activity("local-recording"));
+    assert!(engine.get_gps_track("local-recording").is_some());
+    assert!(engine.get_activity_body("local-recording").is_some());
+    assert_eq!(engine.intervals_id("local-recording"), None);
+    assert_eq!(engine.activity_count(), 2);
+    let recording_id: String = conn
+        .query_row(
+            "SELECT engine_activity_id FROM recordings WHERE id = 'r1'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(recording_id, "local-recording");
+    conn.execute_batch("DROP TRIGGER refuse_stream_delete")
+        .unwrap();
+    assert!(engine.record_upload("local-recording", "i4242").unwrap());
+    assert_eq!(engine.activity_count(), 1);
+}
+
+#[test]
+fn a_second_upload_answer_cannot_remove_a_recording_that_already_claims_an_id() {
+    let (_dir, mut engine) = engine_with(&["local-recording", "i4242"]);
+    assert!(engine.record_upload("local-recording", "i11").unwrap());
+    assert!(!engine.record_upload("local-recording", "i4242").unwrap());
+    assert_eq!(engine.activity_count(), 2);
+    assert_eq!(
+        engine.intervals_id("local-recording").as_deref(),
+        Some("i11")
+    );
+}
+
+#[test]
+fn a_failed_upload_reconciliation_commit_can_be_retried() {
+    let (_dir, mut engine, conn) = upload_race();
+    engine
+        .save_processed_activity_ids(&["local-recording".to_string(), "i4242".to_string()])
+        .unwrap();
+    conn.execute_batch(
+        "CREATE TABLE deferred_activity (
+        activity_id TEXT REFERENCES activities(id) DEFERRABLE INITIALLY DEFERRED);
+        CREATE TRIGGER refuse_reconciliation AFTER DELETE ON activity_streams
+        WHEN OLD.activity_id = 'local-recording' BEGIN
+        INSERT INTO deferred_activity VALUES ('local-recording'); END;",
+    )
+    .unwrap();
+    assert!(engine.record_upload("local-recording", "i4242").is_err());
+    assert!(engine.has_activity("local-recording"));
+    assert!(engine.get_activity_body("local-recording").is_some());
+    assert_eq!(
+        conn.query_row("SELECT COUNT(*) FROM processed_activities", [], |row| row
+            .get::<_, i64>(
+            0
+        ))
+        .unwrap(),
+        2
+    );
+    conn.execute_batch("DROP TRIGGER refuse_reconciliation")
+        .unwrap();
+    assert!(engine.record_upload("local-recording", "i4242").unwrap());
+    assert_eq!(engine.activity_count(), 1);
+}
+
+#[test]
+fn an_upload_reconciliation_retargets_the_recording_to_the_canonical_row() {
+    let (dir, mut engine) = engine_with(&["local-recording", "local-canonical"]);
+    engine.record_upload("local-canonical", "i4242").unwrap();
+    let conn = Connection::open(dir.path().join("routes.db")).unwrap();
+    insert_uploaded_recording(&conn);
+    engine.record_upload("local-recording", "i4242").unwrap();
+    let retained_id: String = conn
+        .query_row(
+            "SELECT engine_activity_id FROM recordings WHERE id = 'r1'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(retained_id, "local-canonical");
+    assert!(engine.has_activity(&retained_id));
+    assert_eq!(engine.intervals_id(&retained_id).as_deref(), Some("i4242"));
+}
+
+/// Scenario: a strength session or a trainer ride with no GPS is saved. Its
+/// provisional row is a body and metrics with no `activities` row, so the id
+/// the upload gains had nowhere to live, and the next sync stored the server
+/// copy beside it and counted the session twice.
+///
+/// Expected behaviour: the trackless row takes the server's id, every
+/// identity read answers it, the sync's page lands on the device's key, and
+/// it all survives a reopen.
+mod trackless_provisional {
+    use super::*;
+
+    const LOCAL: &str = "local-recording-r1";
+    const DATE: i64 = 1_788_000_000;
+
+    fn body(id: &str) -> String {
+        format!(
+            r#"{{"id":"{id}","name":"Gym","type":"WeightTraining","start_date_local":"2026-08-29T07:00:00","moving_time":3600,"elapsed_time":3600,"distance":0}}"#
+        )
+    }
+
+    fn engine_with_trackless() -> (TempDir, PersistentEngine) {
+        let (dir, mut engine) = engine_with(&[]);
+        engine
+            .save_provisional_activity(
+                LOCAL,
+                Vec::new(),
+                &veloqrs::FfiActivityBody {
+                    activity_id: LOCAL.to_string(),
+                    date: DATE as f64,
+                    raw: body(LOCAL),
+                },
+            )
+            .expect("trackless provisional row");
+        (dir, engine)
+    }
+
+    fn count(dir: &TempDir, table: &str) -> i64 {
+        Connection::open(dir.path().join("routes.db"))
+            .unwrap()
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+            .unwrap()
+    }
+
+    /// The list sync's own step: a server id a row claims is written under
+    /// that row's key, any other under the server's id.
+    fn sync_page(engine: &mut PersistentEngine, server_id: &str) {
+        let local = engine
+            .local_ids_for_intervals_ids(&[server_id.to_string()])
+            .expect("lookup");
+        let key = local
+            .get(server_id)
+            .cloned()
+            .unwrap_or_else(|| server_id.to_string());
+        engine
+            .upsert_activity_bodies_with_metrics(&[(key, DATE, body(server_id))])
+            .expect("store the page");
+    }
+
+    #[test]
+    fn an_uploaded_trackless_ride_syncs_back_as_one_activity() {
+        let (dir, mut engine) = engine_with_trackless();
+
+        assert!(
+            engine.record_upload(LOCAL, "i123").expect("record"),
+            "a trackless row waiting for its id took it"
+        );
+        assert_eq!(engine.intervals_id(LOCAL).as_deref(), Some("i123"));
+        assert_eq!(
+            engine.activity_id_for_intervals_id("i123").as_deref(),
+            Some(LOCAL)
+        );
+        assert_eq!(
+            engine
+                .intervals_ids(&[LOCAL.to_string()])
+                .get(LOCAL)
+                .map(String::as_str),
+            Some("i123")
+        );
+
+        sync_page(&mut engine, "i123");
+        assert_eq!(count(&dir, "activity_bodies"), 1);
+        assert_eq!(count(&dir, "activity_metrics"), 1);
+        assert!(
+            engine
+                .census_candidates("2100-01-01")
+                .contains(&(LOCAL.to_string(), "i123".to_string())),
+            "a server deletion reaches the uploaded trackless row"
+        );
+
+        drop(engine);
+        let mut engine =
+            PersistentEngine::new(dir.path().join("routes.db").to_str().unwrap()).expect("reopen");
+        sync_page(&mut engine, "i123");
+        assert_eq!(count(&dir, "activity_bodies"), 1);
+        assert_eq!(count(&dir, "activity_metrics"), 1);
+        assert!(
+            !engine.record_upload(LOCAL, "i999").unwrap(),
+            "a second answer leaves the first standing"
+        );
+        assert_eq!(engine.intervals_id(LOCAL).as_deref(), Some("i123"));
+    }
+
+    /// The sync can land the server copy before the upload's answer is
+    /// recorded. The device's copy goes and the recording follows the
+    /// server's, as it does for a ride with a track.
+    #[test]
+    fn an_answer_after_the_sync_stored_the_server_copy_keeps_one() {
+        let (dir, mut engine) = engine_with_trackless();
+        sync_page(&mut engine, "i123");
+        assert_eq!(count(&dir, "activity_bodies"), 2);
+        let conn = Connection::open(dir.path().join("routes.db")).unwrap();
+        conn.execute(
+            "INSERT INTO recordings (id, fit_path, activity_type, name, start_time, \
+             duration_seconds, distance_meters, created_at, upload_status, \
+             intervals_activity_id, engine_activity_id) \
+             VALUES ('r1', '', 'WeightTraining', 'Gym', 1, 3600, 0, 1, 'uploaded', 'i123', ?1)",
+            params![LOCAL],
+        )
+        .unwrap();
+
+        assert!(engine.record_upload(LOCAL, "i123").expect("reconcile"));
+
+        assert_eq!(count(&dir, "activity_bodies"), 1);
+        assert_eq!(count(&dir, "activity_metrics"), 1);
+        assert!(engine.get_activity_body(LOCAL).is_none());
+        let retained: String = conn
+            .query_row(
+                "SELECT engine_activity_id FROM recordings WHERE id = 'r1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(retained, "i123");
+    }
+
+    /// A rejected upload frees the id, so a manual retry under a new one
+    /// lands on the same row.
+    #[test]
+    fn a_rejected_upload_frees_the_trackless_rows_id() {
+        let (dir, mut engine) = engine_with_trackless();
+        engine.record_upload(LOCAL, "i123").unwrap();
+        let conn = Connection::open(dir.path().join("routes.db")).unwrap();
+        conn.execute(
+            "INSERT INTO recordings (id, fit_path, activity_type, name, start_time, \
+             duration_seconds, distance_meters, created_at, upload_status, \
+             intervals_activity_id, engine_activity_id) \
+             VALUES ('r1', '', 'WeightTraining', 'Gym', 1, 3600, 0, 1, 'uploaded', 'i123', ?1)",
+            params![LOCAL],
+        )
+        .unwrap();
+
+        engine
+            .set_recording_rejected("r1", "intervals.icu no longer has it", 2)
+            .unwrap();
+        assert_eq!(engine.intervals_id(LOCAL), None);
+        assert_eq!(engine.activity_id_for_intervals_id("i123"), None);
+        assert!(engine.record_upload(LOCAL, "i456").unwrap());
+        assert_eq!(
+            engine.activity_id_for_intervals_id("i456").as_deref(),
+            Some(LOCAL)
+        );
+    }
 }

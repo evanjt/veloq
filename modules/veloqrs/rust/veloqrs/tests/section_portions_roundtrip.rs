@@ -41,7 +41,7 @@ fn detection_save_reload_preserves_activity_portions() {
         let corpus = LifecycleCorpus::generate(&LifecycleConfig {
             bucket_a_count: 40,
             bucket_b_delta_count: 0,
-            bucket_d_delta_count: 0,
+            bucket_d_delta_count: 3,
             bucket_e_delta_count: 0,
             parallel_street_count: 3,
             ..LifecycleConfig::default()

@@ -15,7 +15,7 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
     let cfg = LifecycleConfig {
         bucket_a_count: 25,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 2,
         ..LifecycleConfig::default()
@@ -35,6 +35,7 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
 
 #[test]
 fn second_pass_generates_nothing_new() {
+    let _serial_state = super::serial_state();
     let (mut engine, tmp) = seed_engine();
     let tiles_dir = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles_dir).expect("create tiles dir");

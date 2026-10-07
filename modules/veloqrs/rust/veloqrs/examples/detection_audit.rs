@@ -1,12 +1,9 @@
 //! Detection and route-grouping diagnostics over a Veloq database export.
 //!
-//! Reads a `.veloqdb` export, re-runs grouping and section detection from
-//! scratch, and prints the resulting distributions. It needs a private
-//! database that is not in the repo, so it is a diagnostic binary rather than
-//! a test: nothing here asserts detector behaviour on a fixture CI can build.
+//! Reads a Veloq database export, re-runs grouping and section detection from
+//! scratch, and prints the resulting distributions.
 //!
 //! Usage:
-//!   cargo run -p veloqrs --example detection_audit
 //!   VELOQ_DB=/path/to/export.veloqdb cargo run -p veloqrs --example detection_audit
 //!
 //! An optional argument selects one report instead of all of them:
@@ -18,17 +15,23 @@ use std::path::Path;
 use tracematch::{GpsPoint, MatchConfig, RouteSignature, SectionConfig};
 use veloqrs::persistence::codec;
 
-const DEFAULT_DB_PATH: &str = "tests/fixtures/private/routes.db";
+#[cfg(test)]
+#[path = "tests/detection_audit.rs"]
+mod tests;
 
-fn db_path() -> String {
-    std::env::var("VELOQ_DB").unwrap_or_else(|_| DEFAULT_DB_PATH.to_string())
+fn db_path(value: Option<String>) -> Result<String, &'static str> {
+    value
+        .filter(|path| !path.is_empty())
+        .ok_or("set VELOQ_DB to a Veloq database export")
 }
 
 fn open_db() -> Option<Connection> {
-    let path_str = db_path();
+    let path_str = db_path(std::env::var("VELOQ_DB").ok())
+        .map_err(|error| eprintln!("{error}"))
+        .ok()?;
     let path = Path::new(&path_str);
     if !path.exists() {
-        eprintln!("{} not found (set VELOQ_DB to override)", path_str);
+        eprintln!("{} not found", path_str);
         return None;
     }
     Some(Connection::open(path).expect("open DB"))

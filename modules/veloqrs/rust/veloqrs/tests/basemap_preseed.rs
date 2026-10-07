@@ -13,8 +13,8 @@ use httpmock::prelude::*;
 use tempfile::TempDir;
 use veloqrs::Bounds;
 use veloqrs::basemap::{
-    GROUND_BUDGET_BYTES, GROUND_ZOOMS, PreseedSource, TileFetcher, TileStore, plan_preseed,
-    seed_preseed,
+    GROUND_BUDGET_BYTES, GROUND_ZOOMS, PreseedSource, TileFetcher, TileStore, plan_area_preseed,
+    plan_preseed, seed_preseed, seed_ranked_preseed,
 };
 
 const VECTOR: &str = "openmaptiles";
@@ -90,6 +90,128 @@ fn sources(base: &str) -> Vec<PreseedSource> {
 
 fn fetcher() -> TileFetcher {
     TileFetcher::new(Duration::ZERO).expect("fetcher")
+}
+
+#[test]
+fn terrain_areas_keep_rank_order_and_stop_at_the_live_pool_share() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET);
+        then.status(200).body(bytes(100, 9));
+    });
+    let (store, _tmp) = store();
+    let terrain = PreseedSource {
+        name: "terrain".into(),
+        template: format!("{}/terrarium/{{z}}/{{x}}/{{y}}.png", server.base_url()),
+        ext: "png".into(),
+        zooms: 8..=12,
+    };
+    let planned = plan_area_preseed(&[(46.6, 7.6), (-33.8, 151.2)], &terrain);
+    assert!(planned.iter().any(|tile| tile.z == 8));
+    assert!(planned.iter().any(|tile| tile.z == 12));
+    assert!(planned.iter().all(|tile| (8..=12).contains(&tile.z)));
+    let first_area_end = planned
+        .iter()
+        .position(|tile| tile.y > (1 << (tile.z - 1)))
+        .unwrap();
+    assert!(
+        planned[..first_area_end]
+            .iter()
+            .all(|tile| tile.y < (1 << (tile.z - 1)))
+    );
+
+    store.set_budget(1_000).unwrap();
+    let small = veloqrs::runtime::block_on(seed_ranked_preseed(
+        &store,
+        &fetcher(),
+        &planned,
+        store.budget().unwrap() * 2 / 5,
+        "terrain",
+    ));
+    assert!(small.stopped_at_budget);
+    assert!(small.bytes <= 400);
+    store.set_budget(2_000).unwrap();
+    let large = veloqrs::runtime::block_on(seed_ranked_preseed(
+        &store,
+        &fetcher(),
+        &planned,
+        store.budget().unwrap() * 2 / 5,
+        "terrain",
+    ));
+    assert!(large.bytes <= 800);
+    assert!(large.fetched + large.kept > small.fetched + small.kept);
+    assert_eq!(
+        store.get("terrain", planned[0].z, planned[0].x, planned[0].y),
+        Some(bytes(100, 9))
+    );
+    store
+        .put("terrain", 13, 0, 0, "png", &bytes(100, 1), false)
+        .unwrap();
+    store.evict_to(store.size() - 100).unwrap();
+    assert!(store.get("terrain", 13, 0, 0).is_none());
+    assert!(
+        store
+            .get("terrain", planned[0].z, planned[0].x, planned[0].y)
+            .is_some()
+    );
+
+    // A later pass at a lower limit must leave the old tail evictable.
+    store.set_budget(500).unwrap();
+    let reduced = veloqrs::runtime::block_on(seed_ranked_preseed(
+        &store,
+        &fetcher(),
+        &planned,
+        store.budget().unwrap() * 2 / 5,
+        "terrain",
+    ));
+    assert_eq!(reduced.bytes, 200);
+    store.evict_to(200).unwrap();
+    assert!(
+        store
+            .get("terrain", planned[0].z, planned[0].x, planned[0].y)
+            .is_some()
+    );
+    assert!(
+        store
+            .get("terrain", planned[4].z, planned[4].x, planned[4].y)
+            .is_none()
+    );
+}
+
+#[test]
+fn a_failed_ranked_refresh_keeps_the_previous_offline_pins() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET);
+        then.status(503);
+    });
+    let (store, _tmp) = store();
+    store
+        .put("terrain", 8, 2, 3, "png", &bytes(100, 9), true)
+        .unwrap();
+    let plan = vec![veloqrs::basemap::PlannedTile {
+        source: "terrain".into(),
+        z: 8,
+        x: 4,
+        y: 5,
+        url: format!("{}/missing", server.base_url()),
+        ext: "png".into(),
+    }];
+
+    let outcome = veloqrs::runtime::block_on(seed_ranked_preseed(
+        &store,
+        &fetcher(),
+        &plan,
+        200,
+        "terrain",
+    ));
+
+    assert_eq!(outcome.failed, 1);
+    store
+        .put("terrain", 9, 6, 7, "png", &bytes(100, 1), false)
+        .unwrap();
+    store.evict_to(100).unwrap();
+    assert_eq!(store.get("terrain", 8, 2, 3), Some(bytes(100, 9)));
 }
 
 // ============================================================================
@@ -354,6 +476,197 @@ fn a_tile_the_host_refuses_costs_the_rest_of_the_plan_nothing() {
 
     assert_eq!(outcome.failed as usize, refused);
     assert_eq!(outcome.fetched as usize, planned.len() - refused);
+}
+
+// ============================================================================
+// A segment change
+// ============================================================================
+
+#[test]
+fn a_superseded_pinned_tile_is_served_but_the_next_seed_fetches_a_fresh_one() {
+    let server = MockServer::start();
+    let host = server.mock(|when, then| {
+        when.method(GET);
+        then.status(200).body(bytes(128, 9));
+    });
+    let (store, _tmp) = store();
+    let planned = plan_preseed(&[home()], &sources(&server.base_url()));
+    let held = &planned[0];
+    store
+        .put(
+            &held.source,
+            held.z,
+            held.x,
+            held.y,
+            &held.ext,
+            &bytes(64, 3),
+            true,
+        )
+        .expect("put");
+
+    store.supersede(&held.source).expect("supersede");
+    assert_eq!(
+        store.get(&held.source, held.z, held.x, held.y),
+        Some(bytes(64, 3)),
+        "the old tile stopped being served before its replacement arrived"
+    );
+    assert_eq!(store.pin(&held.source, held.z, held.x, held.y), None);
+
+    let outcome = veloqrs::runtime::block_on(seed_preseed(
+        &store,
+        &fetcher(),
+        &planned,
+        GROUND_BUDGET_BYTES,
+    ));
+
+    assert_eq!(outcome.kept, 0, "the old tile was re-pinned");
+    assert_eq!(outcome.fetched as usize, planned.len());
+    assert_eq!(host.hits(), planned.len());
+    assert_eq!(
+        store.get(&held.source, held.z, held.x, held.y),
+        Some(bytes(128, 9)),
+        "the fresh tile did not replace the old one"
+    );
+    assert_eq!(
+        store.pin(&held.source, held.z, held.x, held.y),
+        Some(128),
+        "the fresh tile is not pinned"
+    );
+}
+
+#[test]
+fn a_superseded_tile_keeps_serving_when_the_fresh_fetch_fails() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET);
+        then.status(500).body("no tile");
+    });
+    let (store, _tmp) = store();
+    let planned = plan_preseed(&[home()], &sources(&server.base_url()));
+    let held = &planned[0];
+    store
+        .put(
+            &held.source,
+            held.z,
+            held.x,
+            held.y,
+            &held.ext,
+            &bytes(64, 3),
+            true,
+        )
+        .expect("put");
+    store.supersede(&held.source).expect("supersede");
+
+    let outcome = veloqrs::runtime::block_on(seed_preseed(
+        &store,
+        &fetcher(),
+        &planned,
+        GROUND_BUDGET_BYTES,
+    ));
+
+    assert_eq!(outcome.failed as usize, planned.len());
+    assert_eq!(
+        store.get(&held.source, held.z, held.x, held.y),
+        Some(bytes(64, 3)),
+        "a failed fetch cost the athlete the tile they had"
+    );
+}
+
+#[test]
+fn supersede_drops_unpinned_tiles_and_leaves_other_sources_pinned() {
+    let (store, _tmp) = store();
+    store
+        .put(VECTOR, 2, 1, 1, "pbf", &bytes(64, 1), true)
+        .unwrap();
+    store
+        .put(VECTOR, 2, 1, 2, "pbf", &bytes(64, 2), false)
+        .unwrap();
+    store
+        .put(GROUND, 2, 1, 1, "png", &bytes(64, 3), true)
+        .unwrap();
+
+    store.supersede(VECTOR).expect("supersede");
+
+    assert_eq!(
+        store.get(VECTOR, 2, 1, 2),
+        None,
+        "an unpinned tile survived"
+    );
+    assert!(store.get(VECTOR, 2, 1, 1).is_some());
+    assert_eq!(
+        store.pin(GROUND, 2, 1, 1),
+        Some(64),
+        "another source was demoted"
+    );
+}
+
+#[test]
+fn a_superseded_tile_is_evicted_before_a_pinned_tile_of_another_source() {
+    let (store, _tmp) = store();
+    store
+        .put(GROUND, 2, 1, 1, "png", &bytes(64, 3), true)
+        .unwrap();
+    store
+        .put(VECTOR, 2, 1, 1, "pbf", &bytes(64, 1), true)
+        .unwrap();
+    // Read last, so only its demotion can put it ahead of the pinned tile.
+    store.get(VECTOR, 2, 1, 1);
+    store.supersede(VECTOR).expect("supersede");
+
+    store.evict_to(64).expect("evict");
+
+    assert_eq!(store.get(VECTOR, 2, 1, 1), None);
+    assert!(store.get(GROUND, 2, 1, 1).is_some());
+}
+
+#[test]
+fn a_second_supersede_drops_the_tile_the_first_demoted() {
+    let (store, _tmp) = store();
+    store
+        .put(VECTOR, 2, 1, 1, "pbf", &bytes(64, 1), true)
+        .unwrap();
+    store.supersede(VECTOR).unwrap();
+    store.supersede(VECTOR).unwrap();
+    assert_eq!(store.get(VECTOR, 2, 1, 1), None);
+}
+
+#[test]
+fn a_write_of_a_superseded_key_makes_it_current_again() {
+    let (store, _tmp) = store();
+    store
+        .put(VECTOR, 2, 1, 1, "pbf", &bytes(64, 1), true)
+        .unwrap();
+    store.supersede(VECTOR).unwrap();
+    store
+        .put(VECTOR, 2, 1, 1, "pbf", &bytes(32, 2), false)
+        .unwrap();
+    assert_eq!(store.pin(VECTOR, 2, 1, 1), Some(32));
+}
+
+#[test]
+fn a_sidecar_written_before_supersession_loads_with_its_pins_intact() {
+    let (store, tmp) = store();
+    store
+        .put(VECTOR, 2, 1, 1, "pbf", &bytes(64, 1), true)
+        .unwrap();
+    store.flush().unwrap();
+    let sidecar = tmp
+        .path()
+        .join("basemap-tiles")
+        .join(VECTOR)
+        .join("index.json");
+    let body = std::fs::read_to_string(&sidecar).unwrap();
+    let mut json: serde_json::Value = serde_json::from_str(&body).unwrap();
+    for entry in json["entries"].as_object_mut().unwrap().values_mut() {
+        entry.as_object_mut().unwrap().remove("superseded");
+    }
+    std::fs::write(&sidecar, serde_json::to_vec(&json).unwrap()).unwrap();
+
+    let reopened = TileStore::new(tmp.path().join("basemap-tiles"));
+    assert_eq!(reopened.pin(VECTOR, 2, 1, 1), Some(64));
+    assert_eq!(reopened.size_of(VECTOR), 64);
+    reopened.supersede(VECTOR).unwrap();
+    assert_eq!(reopened.pin(VECTOR, 2, 1, 1), None);
 }
 
 // ============================================================================

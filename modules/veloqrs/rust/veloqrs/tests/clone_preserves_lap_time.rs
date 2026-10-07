@@ -6,7 +6,7 @@
 //! empty data. Clones don't have their own time_streams, so the backfill
 //! pass couldn't recover them either.
 //!
-//! Run: `cargo test --test clone_preserves_lap_time -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- clone_preserves_lap_time::`
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;

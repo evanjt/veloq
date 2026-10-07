@@ -16,7 +16,7 @@ fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 40,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 2,
         ..LifecycleConfig::default()
@@ -87,10 +87,12 @@ fn covered_sports(engine: &PersistentEngine, activities: &[LifecycleActivity]) -
 }
 
 fn pooled_unified(engine: &mut PersistentEngine) {
-    engine.set_section_config(SectionConfig {
-        pool_sports: true,
-        ..SectionConfig::default()
-    });
+    engine
+        .set_section_config(SectionConfig {
+            pool_sports: true,
+            ..SectionConfig::default()
+        })
+        .expect("config accepted");
 }
 
 /// Scenario: one engine detects the pooled-sport pool cold; another grows it
@@ -98,6 +100,7 @@ fn pooled_unified(engine: &mut PersistentEngine) {
 /// Expected behaviour: the two engines hold the same section membership.
 #[test]
 fn test_pooled_cold_and_warm_detections_agree() {
+    let _serial_state = super::serial_state();
     let activities = corpus();
     let dir = TempDir::new().unwrap();
 
@@ -156,6 +159,7 @@ fn test_pooled_cold_and_warm_detections_agree() {
 
 #[test]
 fn test_detection_catalogue_stable_across_invocations() {
+    let _serial_state = super::serial_state();
     let activities = corpus();
 
     let dir = TempDir::new().unwrap();

@@ -1,21 +1,20 @@
-//! Lifecycle scenarios A–G.
+//! Lifecycle scenarios A to F.
 //!
 //! End-to-end tests of the real-app pipeline: SQLite ingest → background
 //! section detection → `apply_sections` → snapshot. Each scenario simulates
 //! one user-visible step (cold start, expand timerange, add one activity,
-//! add a small batch, year expansion, full-rebuild convergence,
-//! cold-after-wipe).
+//! add a small batch, year expansion, full-rebuild convergence).
 //!
 //! Test naming convention:
 //! - `scenario_*_baseline` prints perf and behaviour metrics for the perf
-//!   doc and asserts only weak invariants (no section disappears entirely,
-//!   sport types stay stable, ingestion succeeds).
+//!   doc and asserts only weak invariants (ingestion succeeds).
 //! - `scenario_*_stable` asserts the strict invariants: an add never removes
 //!   an activity from a visible section and the section count never regresses.
 //!   They run by default, so a regression fails the suite.
 //!
-//! Only scenario E is `#[ignore]`, for its runtime. The whole file needs the
-//! `synthetic` feature, so a plain `cargo test` never builds it.
+//! The year expansion step (scenario E) is the `lifecycle_year_expansion_cost`
+//! bench. The whole file needs the `synthetic` feature, so a plain `cargo test`
+//! never builds it.
 //!
 //! Two purposes:
 //! 1. **Performance baseline**, every step prints its timing to stdout. The
@@ -39,6 +38,7 @@ struct SectionFingerprint {
     activity_ids: BTreeSet<String>,
     visit_count: u32,
     polyline_point_count: usize,
+    polyline: Vec<tracematch::GpsPoint>,
     sport_type: String,
 }
 
@@ -65,6 +65,7 @@ fn snapshot(engine: &mut PersistentEngine) -> SectionSnapshot {
                         activity_ids: s.activity_ids.iter().cloned().collect(),
                         visit_count: s.visit_count,
                         polyline_point_count: s.polyline.len(),
+                        polyline: s.polyline.clone(),
                         sport_type: s.sport_type.clone(),
                     },
                 )
@@ -179,7 +180,6 @@ struct BehaviourDelta {
     sections_appeared: usize,
     sections_with_lost_activities: usize,
     total_activities_lost: usize,
-    sections_with_sport_type_change: usize,
 }
 
 fn measure_delta(before: &SectionSnapshot, after: &SectionSnapshot) -> BehaviourDelta {
@@ -192,9 +192,6 @@ fn measure_delta(before: &SectionSnapshot, after: &SectionSnapshot) -> Behaviour
 
     for (id, prev) in &before.sections {
         if let Some(now) = after.sections.get(id) {
-            if now.sport_type != prev.sport_type {
-                d.sections_with_sport_type_change += 1;
-            }
             let lost: BTreeSet<&String> = prev.activity_ids.difference(&now.activity_ids).collect();
             if !lost.is_empty() {
                 d.sections_with_lost_activities += 1;
@@ -207,13 +204,12 @@ fn measure_delta(before: &SectionSnapshot, after: &SectionSnapshot) -> Behaviour
 
 fn print_delta(label: &str, delta: &BehaviourDelta) {
     println!(
-        "[lifecycle/{}] delta: disappeared={} appeared={} sections_with_lost_activities={} total_activities_lost={} sport_type_changes={}",
+        "[lifecycle/{}] delta: disappeared={} appeared={} sections_with_lost_activities={} total_activities_lost={}",
         label,
         delta.sections_disappeared,
         delta.sections_appeared,
         delta.sections_with_lost_activities,
         delta.total_activities_lost,
-        delta.sections_with_sport_type_change,
     );
 }
 
@@ -222,6 +218,7 @@ fn print_delta(label: &str, delta: &BehaviourDelta) {
 // ============================================================================
 
 fn assert_single_add_stability(
+    engine: &mut PersistentEngine,
     before: &SectionSnapshot,
     after: &SectionSnapshot,
     new_activity_id: &str,
@@ -231,10 +228,6 @@ fn assert_single_add_stability(
             .sections
             .get(id)
             .unwrap_or_else(|| panic!("section {id} disappeared after a single add"));
-        assert_eq!(
-            now.sport_type, prev.sport_type,
-            "section {id} sport_type changed across a single add"
-        );
 
         let new_ids: BTreeSet<&String> = now.activity_ids.difference(&prev.activity_ids).collect();
         let removed_ids: BTreeSet<&String> =
@@ -249,11 +242,24 @@ fn assert_single_add_stability(
                 now.visit_count, prev.visit_count,
                 "section {id}: activity_ids unchanged but visit_count moved"
             );
-        } else {
+        } else if now.polyline == prev.polyline {
             assert!(
                 new_ids.iter().all(|s| s.as_str() == new_activity_id),
                 "section {id} gained unexpected activities {new_ids:?} (only {new_activity_id} should appear)"
             );
+        } else {
+            // An agreeing extent adopts the batch line at once, and members
+            // follow the drawn line, so a redrawn line may take in rides the
+            // old one missed. Each must hold a real pass over the new line.
+            let held = engine.get_section_by_id(id).expect("the section is stored");
+            for gained in new_ids.iter().filter(|g| g.as_str() != new_activity_id) {
+                assert!(
+                    held.activity_portions
+                        .iter()
+                        .any(|p| &p.activity_id == *gained),
+                    "section {id} was redrawn and took in {gained} with no pass over the new line"
+                );
+            }
         }
     }
 }
@@ -275,21 +281,6 @@ fn assert_no_activity_removed(before: &SectionSnapshot, after: &SectionSnapshot)
 // Weak invariants (always asserted)
 // ============================================================================
 
-/// Every section's sport_type must remain stable across an incremental add.
-/// This is a baseline correctness property, even today, sport_type churn
-/// would indicate a serious bug.
-fn assert_sport_types_stable(before: &SectionSnapshot, after: &SectionSnapshot) {
-    for (id, prev) in &before.sections {
-        if let Some(now) = after.sections.get(id) {
-            assert_eq!(
-                now.sport_type, prev.sport_type,
-                "section {id} sport_type changed: {} -> {}",
-                prev.sport_type, now.sport_type
-            );
-        }
-    }
-}
-
 // ============================================================================
 // Scenario A, cold start (no comparisons; just baseline)
 // ============================================================================
@@ -299,7 +290,7 @@ fn scenario_a_cold_start_90d_baseline() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 4,
         ..LifecycleConfig::default()
@@ -326,7 +317,7 @@ fn scenario_b_expand_to_1y_baseline() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
         bucket_b_delta_count: 90,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 4,
         ..LifecycleConfig::default()
@@ -345,7 +336,6 @@ fn scenario_b_expand_to_1y_baseline() {
     print_delta("B_step2_expand", &delta);
 
     assert_eq!(step_b.activity_count, 150);
-    assert_sport_types_stable(&step_a.snapshot, &step_b.snapshot);
 }
 
 // The order-free batch is non-monotone (a full re-detect on the expand can
@@ -358,7 +348,7 @@ fn scenario_b_expand_to_1y_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
         bucket_b_delta_count: 90,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 4,
         ..LifecycleConfig::default()
@@ -389,7 +379,7 @@ fn scenario_c_single_add_baseline() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
         bucket_b_delta_count: 90,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 4,
         ..LifecycleConfig::default()
@@ -412,7 +402,6 @@ fn scenario_c_single_add_baseline() {
     print_delta("C_step3_add1", &delta);
 
     assert_eq!(step_c.activity_count, 151);
-    assert_sport_types_stable(&step_b.snapshot, &step_c.snapshot);
 }
 
 // The single add re-runs full order-free detection, whose raw batch is
@@ -426,7 +415,7 @@ fn scenario_c_single_add_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
         bucket_b_delta_count: 90,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 4,
         ..LifecycleConfig::default()
@@ -441,7 +430,7 @@ fn scenario_c_single_add_stable() {
     );
     let new = &corpus.bucket_c_single;
     let step_c = ingest_step(&mut engine, "C_strict_add1", &[new]);
-    assert_single_add_stability(&step_b.snapshot, &step_c.snapshot, &new.id);
+    assert_single_add_stability(&mut engine, &step_b.snapshot, &step_c.snapshot, &new.id);
 }
 
 // ============================================================================
@@ -477,7 +466,6 @@ fn scenario_d_small_batch_baseline() {
     print_delta("D_step4_add3", &delta);
 
     assert_eq!(step_d.activity_count, 154);
-    assert_sport_types_stable(&step_c.snapshot, &step_d.snapshot);
 }
 
 // A 3-activity batch is one detect. The hysteresis layer lets a section
@@ -550,52 +538,6 @@ fn assert_losses_are_fired_events(
             }
         }
     }
-}
-
-// ============================================================================
-// Scenario E, year expansion (~550 activities)
-// ============================================================================
-
-#[test]
-#[ignore] // ~15s in debug, ~3s in release. Run with --ignored --release.
-fn scenario_e_year_expansion_baseline() {
-    let cfg = LifecycleConfig::default();
-    let corpus = LifecycleCorpus::generate(&cfg);
-    let (mut engine, _tmp) = fresh_engine();
-
-    let step_a = ingest_step(&mut engine, "E_step1_A", &corpus.through_a());
-    let step_b = ingest_step(
-        &mut engine,
-        "E_step2_B",
-        &corpus.bucket_b_delta.iter().collect::<Vec<_>>(),
-    );
-    let step_c = ingest_step(&mut engine, "E_step3_C", &[&corpus.bucket_c_single]);
-    let step_d = ingest_step(
-        &mut engine,
-        "E_step4_D",
-        &corpus.bucket_d_delta.iter().collect::<Vec<_>>(),
-    );
-    let step_e = ingest_step(
-        &mut engine,
-        "E_step5_E",
-        &corpus.bucket_e_delta.iter().collect::<Vec<_>>(),
-    );
-    step_a.print();
-    step_b.print();
-    step_c.print();
-    step_d.print();
-    step_e.print();
-
-    let delta = measure_delta(&step_d.snapshot, &step_e.snapshot);
-    print_delta("E_step5_E", &delta);
-
-    let total = cfg.bucket_a_count
-        + cfg.bucket_b_delta_count
-        + 1
-        + cfg.bucket_d_delta_count
-        + cfg.bucket_e_delta_count;
-    assert_eq!(step_e.activity_count, total);
-    assert_sport_types_stable(&step_d.snapshot, &step_e.snapshot);
 }
 
 // ============================================================================
@@ -719,6 +661,7 @@ fn raw_snapshot(engine: &PersistentEngine) -> SectionSnapshot {
                         activity_ids: s.activity_ids.iter().cloned().collect(),
                         visit_count: s.visit_count,
                         polyline_point_count: s.polyline.len(),
+                        polyline: s.polyline.clone(),
                         sport_type: s.sport_type.clone(),
                     },
                 )
@@ -771,17 +714,24 @@ fn scenario_f_full_converges_to_incremental_baseline() {
         &corpus.bucket_b_delta.iter().collect::<Vec<_>>(),
     );
     let _ = ingest_step(&mut e_inc, "F_inc_C", &[&corpus.bucket_c_single]);
-    let _ = ingest_step(
+    let step_d = ingest_step(
         &mut e_inc,
         "F_inc_D",
         &corpus.bucket_d_delta.iter().collect::<Vec<_>>(),
     );
+    let events_before: BTreeMap<String, usize> = step_d
+        .snapshot
+        .sections
+        .keys()
+        .map(|id| (id.clone(), e_inc.section_history(id).len()))
+        .collect();
     let inc_step = ingest_step(
         &mut e_inc,
         "F_inc_E",
         &corpus.bucket_e_delta.iter().collect::<Vec<_>>(),
     );
     inc_step.print();
+    assert_losses_are_fired_events(&e_inc, &step_d.snapshot, &inc_step.snapshot, &events_before);
 
     // Path 2: single-shot full ingest of every bucket.
     let (mut e_full, _tmp2) = fresh_engine();

@@ -16,14 +16,13 @@
 //! Synthetic geometry only.
 //!
 //! Run:
-//!   cargo test -p veloqrs --features synthetic --test identity_reseed
+//!   cargo test -p veloqrs --features synthetic --test app_synthetic -- identity_reseed::
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::LifecycleActivity;
 use veloqrs::PersistentEngine;
+
+use crate::lifecycle_support::*;
 
 const DAY: i64 = 86_400;
 const T0: i64 = 1_700_000_000;
@@ -182,13 +181,13 @@ fn redetect(engine: &mut PersistentEngine) -> SectionSnapshot {
 /// the debounce, never the identities.
 #[test]
 fn a_config_change_keeps_every_section_id() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "trunk", &refs(&trunk_outings(12)));
     assert_catalogue_populated("cold", &cold.snapshot);
 
     let mut cfg = engine.get_section_config();
     cfg.max_section_length += 1.0;
-    engine.set_section_config(cfg);
+    engine.set_section_config(cfg).expect("config accepted");
 
     assert_eq!(
         engine.section_identity_visible_len(),
@@ -210,13 +209,13 @@ fn a_config_change_keeps_every_section_id() {
 /// still owns the catalogue's ids.
 #[test]
 fn a_reseeded_registry_survives_a_restart() {
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "trunk", &refs(&trunk_outings(12)));
     assert_catalogue_populated("cold", &cold.snapshot);
 
     let mut cfg = engine.get_section_config();
     cfg.max_section_length += 1.0;
-    engine.set_section_config(cfg);
+    engine.set_section_config(cfg).expect("config accepted");
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
@@ -242,7 +241,7 @@ fn a_reseeded_registry_survives_a_restart() {
 /// next time a detect saves.
 #[test]
 fn a_relinquish_is_durable_without_a_save() {
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "trunk", &refs(&trunk_outings(12)));
     let (id, _) = busiest_section(&cold.snapshot).expect("trunk section detected");
     assert!(
@@ -268,7 +267,7 @@ fn a_relinquish_is_durable_without_a_save() {
 /// The trunk section, its stored geometry version, and the branch traffic that
 /// re-cuts it.
 fn pinned_run(pin: bool) -> (PersistentEngine, tempfile::TempDir, String, Vec<GpsPoint>) {
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "trunk", &refs(&trunk_outings(21)));
     let (id, fp) = busiest_section(&cold.snapshot).expect("trunk section detected");
 
@@ -339,27 +338,25 @@ fn a_pinned_section_holds_its_geometry_through_a_recut() {
 /// visible view retires it in the SAME apply. Reseeding keeps the identities,
 /// not the sections: a carried id is still subject to every retirement rule, and
 /// a config change is decisive enough to skip the dissolve debounce.
-fn disqualified_ground_retires(arm: Arm) {
-    let (mut engine, _dir) = fresh_engine_for(arm);
+fn disqualified_ground_retires() {
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "trunk", &refs(&trunk_outings(12)));
     assert_catalogue_populated("cold", &cold.snapshot);
 
     let mut cfg = engine.get_section_config();
     cfg.min_activities = 50;
-    engine.set_section_config(cfg);
+    engine.set_section_config(cfg).expect("config accepted");
 
     let after = redetect(&mut engine);
     assert_eq!(
         raw_snapshot(&engine).count(),
         0,
-        "{}: the re-analysis still qualified ground under min_activities = 50",
-        arm.label()
+        "the re-analysis still qualified ground under min_activities = 50"
     );
     assert_eq!(
         after.count(),
         0,
-        "{}: the disqualified sections were still visible one apply after the config change",
-        arm.label()
+        "the disqualified sections were still visible one apply after the config change"
     );
 }
 
@@ -369,30 +366,28 @@ fn disqualified_ground_retires(arm: Arm) {
 /// Expected behaviour: one apply settles both halves. The busy corridor keeps
 /// its id, and the quiet one is gone from the visible catalogue rather than
 /// debounce-held for another `k` detects.
-fn config_change_settles_in_one_apply(arm: Arm) {
-    let (mut engine, _dir) = fresh_engine_for(arm);
+fn config_change_settles_in_one_apply() {
+    let (mut engine, _dir) = fresh_engine();
     let mut library = corridor_outings("busy", 0.0, 12, 0);
     library.extend(corridor_outings("quiet", 5_000.0, 9, 40));
     let cold = ingest_step(&mut engine, "cold", &refs(&library)).snapshot;
     assert_eq!(
         cold.count(),
         2,
-        "{}: the cold detect did not find both corridors: {:?}",
-        arm.label(),
+        "the cold detect did not find both corridors: {:?}",
         cold.ids()
     );
     let (busy_id, _) = busiest_section(&cold).expect("a busiest corridor");
 
     let mut cfg = engine.get_section_config();
     cfg.min_activities = 11;
-    engine.set_section_config(cfg);
+    engine.set_section_config(cfg).expect("config accepted");
 
     let after = redetect(&mut engine);
     assert_eq!(
         after.ids().into_iter().cloned().collect::<Vec<_>>(),
         vec![busy_id],
-        "{}: one apply after the config change the catalogue is not the busy corridor alone",
-        arm.label()
+        "one apply after the config change the catalogue is not the busy corridor alone"
     );
 }
 
@@ -407,7 +402,7 @@ fn config_change_settles_in_one_apply(arm: Arm) {
 /// as a run, not as the sport the grave remembers.
 #[test]
 fn a_restored_section_comes_back_under_its_old_id_and_its_members_sport() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let rides = trunk_outings(12);
     let cold = ingest_step(&mut engine, "rides", &refs(&rides)).snapshot;
     let (id, fp) = busiest_section(&cold).expect("trunk section detected");
@@ -450,20 +445,10 @@ fn a_restored_section_comes_back_under_its_old_id_and_its_members_sport() {
 
 #[test]
 fn a_config_change_settles_in_one_apply() {
-    config_change_settles_in_one_apply(Arm::Battery);
-}
-
-#[test]
-fn a_config_change_settles_in_one_apply_on_corridor() {
-    config_change_settles_in_one_apply(Arm::Battery);
+    config_change_settles_in_one_apply();
 }
 
 #[test]
 fn a_config_change_that_disqualifies_ground_still_retires_it() {
-    disqualified_ground_retires(Arm::Battery);
-}
-
-#[test]
-fn a_config_change_that_disqualifies_ground_still_retires_it_on_corridor() {
-    disqualified_ground_retires(Arm::Battery);
+    disqualified_ground_retires();
 }

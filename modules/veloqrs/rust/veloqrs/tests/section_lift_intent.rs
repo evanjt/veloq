@@ -4,16 +4,15 @@
 //! back at the next detect. The durable record is an intent, which is the table
 //! that outlives a catalogue rebuild.
 //!
-//! Run: `cargo test --test section_lift_intent -p veloqrs`
+//! Run: `cargo test --test section -p veloqrs -- section_lift_intent::`
 
-mod migration_support;
-
-use migration_support::seed_at_version;
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
+
+use crate::migration_support::seed_at_version;
 
 struct Setup {
     engine: PersistentEngine,

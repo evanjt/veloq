@@ -7,7 +7,7 @@
 //! athlete gave a corridor showed on the sections list and not on the
 //! activity screen.
 //!
-//! Run: `cargo test --test section_filter_one_call -p veloqrs`
+//! Run: `cargo test --test section -p veloqrs -- section_filter_one_call::`
 
 use std::sync::{Mutex, MutexGuard};
 
@@ -35,8 +35,8 @@ fn track() -> Vec<GpsPoint> {
         .collect()
 }
 
-/// One auto section over `a1`, one custom section the athlete drew over `a2`,
-/// and the auto one named.
+/// One auto section ridden by `a1` and `a2`, one custom section the athlete
+/// drew over the run `a3`, and the auto one named.
 /// The section's own ground, in the shape `polyline_json` is read as.
 fn polyline_json(points: &[GpsPoint]) -> String {
     let values: Vec<serde_json::Value> = points
@@ -64,9 +64,9 @@ fn seed(dir: &TempDir) {
     {
         let mut engine =
             veloqrs::PersistentEngine::new(path.to_str().unwrap()).expect("seed engine");
-        for id in ["a1", "a2"] {
+        for (id, sport) in [("a1", "Ride"), ("a2", "Ride"), ("a3", "Run")] {
             engine
-                .add_activity(id.to_string(), track(), "Ride".into())
+                .add_activity(id.to_string(), track(), sport.into())
                 .expect("add activity");
         }
     }
@@ -87,14 +87,14 @@ fn seed(dir: &TempDir) {
              (id, section_type, name, sport_type, polyline_json, distance_meters,
               representative_activity_id, created_at, is_user_defined, visit_count,
               bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-         VALUES ('s_custom', 'custom', 'Home climb', 'Run', ?, 400.0, 'a2',
+         VALUES ('s_custom', 'custom', 'Home climb', 'Run', ?, 400.0, 'a3',
                  '2026-01-01T00:00:00Z', 1, 1, 46.0, 46.1, 7.0, 7.1)",
         rusqlite::params![custom_line],
     )
     .expect("insert the custom section");
     raw.execute(
         "INSERT INTO section_activities (section_id, activity_id, start_index, end_index)
-         VALUES ('s_auto', 'a1', 0, 30), ('s_auto', 'a2', 0, 30), ('s_custom', 'a2', 0, 20)",
+         VALUES ('s_auto', 'a1', 0, 30), ('s_auto', 'a2', 0, 30), ('s_custom', 'a3', 0, 20)",
         [],
     )
     .expect("insert the members");
@@ -131,6 +131,7 @@ fn name_of(filter: FfiSectionFilter, id: &str) -> Option<String> {
 
 #[test]
 fn an_empty_filter_returns_every_visible_section() {
+    let _serial_state = crate::serial_state();
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
@@ -140,6 +141,7 @@ fn an_empty_filter_returns_every_visible_section() {
 
 #[test]
 fn a_sport_narrows_the_list() {
+    let _serial_state = crate::serial_state();
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
@@ -155,6 +157,7 @@ fn a_sport_narrows_the_list() {
 
 #[test]
 fn a_visit_floor_narrows_the_list() {
+    let _serial_state = crate::serial_state();
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
@@ -170,6 +173,7 @@ fn a_visit_floor_narrows_the_list() {
 
 #[test]
 fn a_type_narrows_the_list() {
+    let _serial_state = crate::serial_state();
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
@@ -185,6 +189,7 @@ fn a_type_narrows_the_list() {
 
 #[test]
 fn an_activity_narrows_the_list() {
+    let _serial_state = crate::serial_state();
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
@@ -200,6 +205,7 @@ fn an_activity_narrows_the_list() {
 
 #[test]
 fn the_corridor_name_shows_under_every_filter() {
+    let _serial_state = crate::serial_state();
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
@@ -229,6 +235,7 @@ fn the_corridor_name_shows_under_every_filter() {
 
 #[test]
 fn a_section_the_athlete_drew_keeps_its_own_name() {
+    let _serial_state = crate::serial_state();
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);

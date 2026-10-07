@@ -9,9 +9,9 @@
 //!
 //! reset_section_bounds is the known-good template: it restores geometry, clears
 //! the backup, keeps the seam consistent, and (being deletable again) survives
-//! resync. Method-agnostic persistence, so the fast Control arm.
+//! resync. Persistence behaviour.
 //!
-//! What these gates lock (Control, default corpus):
+//! What these gates lock (default corpus):
 //!   - remove_activity purges membership: the junction cascades on the
 //!     activity_id foreign key, so no section keeps a phantom member and no
 //!     performance record survives for a track that is gone.
@@ -25,15 +25,14 @@
 //!
 //! Geometry edits invalidating PERF is covered by `suite2_edits_geometry`.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_cache_coherence`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2 -- suite2_cache_coherence::`
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 use veloqrs::sections::CreateSectionParams;
 use veloqrs::{ActivityMetrics, PersistentEngine};
+
+use crate::lifecycle_support::*;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -42,7 +41,7 @@ fn corpus() -> LifecycleCorpus {
 /// A fresh engine cold-detected over bucket A, plus the busiest section id.
 fn cold() -> (PersistentEngine, tempfile::TempDir, String) {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let step = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&step.snapshot).expect("cold detect produced a section");
     (engine, dir, id)
@@ -58,6 +57,27 @@ fn poly_len_m(line: &[GpsPoint]) -> f64 {
             (dlat * dlat + dlng * dlng).sqrt()
         })
         .sum()
+}
+
+/// Creates a custom section over the same ground as `section_id`, which
+/// supersedes it inside the create.
+fn cover_with_custom(engine: &mut PersistentEngine, section_id: &str) {
+    let section = engine.get_section(section_id).expect("section to cover");
+    let src = section.activity_ids[0].clone();
+    let poly = section.polyline.clone();
+    let dist = poly_len_m(&poly);
+    let end = poly.len() as u32 - 1;
+    engine
+        .create_section(CreateSectionParams {
+            sport_type: section.sport_type.clone(),
+            polyline: poly,
+            distance_meters: dist,
+            name: Some("Cover".to_string()),
+            source_activity_id: Some(src),
+            start_index: Some(0),
+            end_index: Some(end),
+        })
+        .expect("create covering section");
 }
 
 /// Seed metrics + a 1 s-per-point time stream for every activity so
@@ -154,7 +174,7 @@ fn create_custom(engine: &mut PersistentEngine, corpus: &LifecycleCorpus) -> Str
 #[test]
 fn custom_section_survives_resync_intact() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let cid = create_custom(&mut engine, &corpus);
     let before = engine.get_section(&cid).expect("custom present");
@@ -222,9 +242,7 @@ fn gate_remove_activity_purges_section_membership() {
 #[test]
 fn gate_supersede_section_stays_consistent_across_caches() {
     let (mut engine, _dir, id) = cold();
-    engine
-        .set_superseded(&id, "custom-replacement")
-        .expect("set_superseded");
+    cover_with_custom(&mut engine, &id);
     let in_mem = engine.get_visible_sections().iter().any(|s| s.id == id);
     let visible = engine.get_sections_by_type(None).iter().any(|s| s.id == id);
     assert_eq!(
@@ -235,6 +253,19 @@ fn gate_supersede_section_stays_consistent_across_caches() {
         engine.get_sections().iter().any(|s| s.id == id),
         "the raw catalogue must keep {id} as a detection prior, or the next detect re-mints its ground"
     );
+}
+
+#[test]
+fn restoring_a_superseded_section_makes_it_visible_again() {
+    let (mut engine, _dir, id) = cold();
+    cover_with_custom(&mut engine, &id);
+    assert!(!engine.get_section_summaries().iter().any(|s| s.id == id));
+
+    engine.enable_section(&id).expect("restore");
+
+    assert!(engine.get_section_summaries().iter().any(|s| s.id == id));
+    assert!(engine.get_visible_sections().iter().any(|s| s.id == id));
+    assert_eq!(engine.get_section(&id).unwrap().superseded_by, None);
 }
 
 /// A disabled section must be consistently hidden across caches: in-memory
@@ -259,7 +290,7 @@ fn gate_disable_section_stays_consistent_across_caches() {
 #[test]
 fn gate_remove_activity_drops_performance_record() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let step = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&step.snapshot).expect("cold detect produced a section");
     seed_perf(&mut engine, &corpus.through_a());
@@ -288,7 +319,7 @@ fn gate_remove_activity_drops_performance_record() {
 #[test]
 fn gate_custom_section_reaches_in_memory_matcher() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let cid = create_custom(&mut engine, &corpus);
     assert!(

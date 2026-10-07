@@ -75,10 +75,21 @@ fn fired_since(
             if !FIRED.contains(&e.kind.as_str()) {
                 continue;
             }
-            let around: Vec<String> = e
+            let details = e
                 .details
                 .as_deref()
-                .and_then(|d| serde_json::from_str::<serde_json::Value>(d).ok())
+                .and_then(|d| serde_json::from_str::<serde_json::Value>(d).ok());
+            // An adoption swaps the line outright and was never pending, so it
+            // has no arrivals to name.
+            if details
+                .as_ref()
+                .and_then(|v| v.get("reason"))
+                .and_then(|r| r.as_str())
+                == Some("adopted")
+            {
+                continue;
+            }
+            let around: Vec<String> = details
                 .and_then(|v| v.get("around").cloned())
                 .and_then(|v| serde_json::from_value(v).ok())
                 .unwrap_or_default();

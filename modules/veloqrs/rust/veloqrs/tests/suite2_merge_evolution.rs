@@ -4,22 +4,21 @@
 //! merge, a near-duplicate corridor, a cross-sport shared corridor, an
 //! evolving unpinned section, and a hard delete each probe whether the engine
 //! keeps a stable, honest catalogue across resyncs. Persistence-layer
-//! behaviour, method-agnostic, so it runs on the fast Control arm. Snapshots
+//! behaviour. Snapshots
 //! read the user-visible DB view (`get_sections_by_type(None)`).
 //!
 //! Cross-sport merge is not a separate call here: `apply_sections` runs it in
 //! its finalize tail, so every `ingest_step` already exercises it.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_merge_evolution`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2 -- suite2_merge_evolution::`
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use rusqlite::Connection;
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
+
+use crate::lifecycle_support::*;
 
 /// Corpus generator constant, mirrored so the parallel-street ground can be
 /// reconstructed exactly (the generator offsets in latitude only).
@@ -131,7 +130,7 @@ fn sport_map(corpus: &LifecycleCorpus) -> HashMap<String, String> {
 #[test]
 fn merge_leaves_no_orphaned_junction_rows() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     let (primary_id, primary) = busiest_section(&cold).expect("a primary section");
@@ -157,13 +156,13 @@ fn merge_leaves_no_orphaned_junction_rows() {
 /// A user merge survives a later resync as the merge, a durable user-defined
 /// fact, not as a coincidence. A naive id-present check would pass even if the
 /// id merely reappeared as a fresh auto section, so this asserts the honest
-/// signal: the surviving section must be user-defined and still hold the union
-/// of both members. That is the merge being recorded as durable user intent and
+/// signal: the surviving section must be user-defined and still hold the
+/// primary's rides, with no ride from outside the two members. That is the merge being recorded as durable user intent and
 /// stable identity stopping the wipe from undoing it.
 #[test]
 fn merge_survives_resync() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     let (primary_id, primary) = busiest_section(&cold).expect("a primary section");
@@ -174,7 +173,7 @@ fn merge_survives_resync() {
         .max_by_key(|(_, f)| f.visit_count)
         .map(|(id, f)| (id.clone(), f.clone()))
         .expect("a distinct section to merge");
-    let want_union: BTreeSet<String> = primary
+    let union: BTreeSet<String> = primary
         .activity_ids
         .union(&secondary.activity_ids)
         .cloned()
@@ -191,11 +190,14 @@ fn merge_survives_resync() {
     match after.sections.get(&merged_id) {
         None => panic!("merged section {merged_id} was wiped by the resync (merge undone)"),
         Some(kept) => assert!(
-            kept.is_user_defined && want_union.is_subset(&kept.activity_ids),
+            kept.is_user_defined
+                && primary.activity_ids.is_subset(&kept.activity_ids)
+                && kept.activity_ids.is_subset(&union),
             "merge not durable: id {merged_id} reappeared as a fresh auto section \
-             (is_user_defined={}, union_preserved={}). The merge was undone, not honoured",
+             (is_user_defined={}, primary_rides_kept={}, only_merged_rides={}). The merge was undone, not honoured",
             kept.is_user_defined,
-            want_union.is_subset(&kept.activity_ids),
+            primary.activity_ids.is_subset(&kept.activity_ids),
+            kept.activity_ids.is_subset(&union),
         ),
     }
 }
@@ -208,7 +210,7 @@ fn merge_survives_resync() {
 /// (invariant 8, under-represent never merge). Red if the consensus method
 /// welds the ride corridor and its 60 m parallel into one midline blob; green
 /// if it keeps them disjoint or drops the thinner one. The ignore reason is the
-/// v1 failure the redesign targets; flip to a live guard if Control already
+/// v1 failure the redesign targets; flip to a live guard if the detector already
 /// holds.
 #[test]
 fn near_duplicate_corridors_stay_disjoint() {
@@ -216,7 +218,7 @@ fn near_duplicate_corridors_stay_disjoint() {
     let ride_main = ground_fp(corpus.corridors[0].polyline.clone());
     let parallel = ground_fp(parallel_ground(&corpus.corridors[0].polyline, 60.0));
 
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     // The parallel street is a latitude shift of a winding corridor, so on
@@ -237,7 +239,7 @@ fn near_duplicate_corridors_stay_disjoint() {
     );
 }
 
-/// Gate (invariant 2): Unified pools sports, so a corridor two sports share is
+/// Gate (invariant 2): the detector pools sports, so a corridor two sports share is
 /// ONE section carrying the traversals of both, headed by a sport its own
 /// traffic does. A red is a heading nobody rode: a placeholder label, or a
 /// sport a minority of the members do, either of which puts a running effort
@@ -248,7 +250,7 @@ fn a_cross_sport_corridor_is_one_section_headed_by_its_own_traffic() {
     let corpus = corpus();
     let smap = sport_map(&corpus);
 
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     let mixed: Vec<(&String, &SectionFingerprint, BTreeSet<String>)> = cold
@@ -314,7 +316,7 @@ fn track(snap: &SectionSnapshot, corridor: &SectionFingerprint) -> Option<(Strin
 #[test]
 fn unpinned_corridor_never_loses_visits_as_it_grows() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
 
     let s_a = ingest_step(&mut engine, "a/cold", &corpus.through_a()).snapshot;
     let (busy_id, busy) = busiest_section(&s_a).expect("a busy corridor to follow");
@@ -345,7 +347,7 @@ fn unpinned_corridor_never_loses_visits_as_it_grows() {
 #[test]
 fn unpinned_evolution_keeps_identity() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
 
     let s_a = ingest_step(&mut engine, "a/cold", &corpus.through_a()).snapshot;
     let s_b = ingest_step(&mut engine, "b/expand", &refs(&corpus.bucket_b_delta)).snapshot;
@@ -372,7 +374,7 @@ fn unpinned_evolution_keeps_identity() {
 #[test]
 fn deleted_corridor_stays_deleted() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
     let (id, deleted_ground) = busiest_section(&cold).expect("a busy corridor to delete");
 

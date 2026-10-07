@@ -20,7 +20,7 @@ fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 24,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 0,
         ..LifecycleConfig::default()
@@ -35,7 +35,9 @@ fn seeded(dir: &TempDir) -> PersistentEngine {
     let path = dir.path().join("final_cache.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.load().expect("load");
-    engine.set_section_config(SectionConfig::default());
+    engine
+        .set_section_config(SectionConfig::default())
+        .expect("config accepted");
     for a in corpus() {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -53,6 +55,7 @@ fn seeded(dir: &TempDir) -> PersistentEngine {
 /// would pass vacuously.
 #[test]
 fn a_fold_always_checkpoints_before_the_final_update() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let mut engine = seeded(&tmp);
 
@@ -75,6 +78,7 @@ fn a_fold_always_checkpoints_before_the_final_update() {
 /// update. A single `try_recv` could only ever see the first one.
 #[test]
 fn recv_with_cache_returns_the_final_update_not_a_checkpoint() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let mut engine = seeded(&tmp);
 

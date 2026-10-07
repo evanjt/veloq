@@ -109,6 +109,8 @@ fn params(now: i64) -> veloqrs::FfiInsightsParams {
         efficiency_per_sport: EFFICIENCY_PER_SPORT,
         efficiency_limit: 2,
         efficiency_min_efforts: 3,
+        efficiency_declining_min_efforts: 5,
+        efficiency_min_hr_change_bpm: 1,
         strength_month: veloqrs::FfiTimestampRange {
             start_ts: (now - 28 * day) as f64,
             end_ts: now as f64,
@@ -126,6 +128,9 @@ fn params(now: i64) -> veloqrs::FfiInsightsParams {
         stale_threshold_days: 30,
         stale_min_gain_percent: 3.0,
         stale_max_opportunities: 3,
+        stale_min_traversals: 1,
+        recent_pr_window_days: 7,
+        recent_pr_min_outings: 3,
     }
 }
 

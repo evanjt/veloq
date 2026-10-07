@@ -3,7 +3,7 @@
 //! traversal from counts and the performance panel, and the whole-activity
 //! excluded list only names activities with no included rows left.
 //!
-//! Run: `cargo test --test per_lap_exclude -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- per_lap_exclude::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;

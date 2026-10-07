@@ -283,3 +283,115 @@ fn a_refused_write_leaves_the_representative_where_it_was() {
         "the row is unchanged, which is the point"
     );
 }
+
+#[test]
+fn test_failed_match_write_keeps_representative_and_matches() {
+    let (mut engine, dir) = setup_engine(5);
+    let group = engine.get_groups()[0].clone();
+    let chosen = group
+        .activity_ids
+        .iter()
+        .find(|id| **id != group.representative_id)
+        .unwrap()
+        .clone();
+    let conn = rusqlite::Connection::open(dir.path().join("test.db")).unwrap();
+    let before: Vec<(String, f64)> = conn
+        .prepare("SELECT activity_id, match_percentage FROM activity_matches WHERE route_id = ? ORDER BY activity_id")
+        .unwrap()
+        .query_map([&group.group_id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert!(!before.is_empty());
+    conn.execute_batch(
+        "CREATE TRIGGER fail_match_write BEFORE UPDATE OF match_percentage ON activity_matches
+         BEGIN SELECT RAISE(ABORT, 'match write refused'); END;",
+    )
+    .unwrap();
+
+    assert!(
+        engine
+            .set_route_representative(&group.group_id, &chosen)
+            .is_err()
+    );
+    let after_group = engine
+        .get_groups()
+        .iter()
+        .find(|item| item.group_id == group.group_id)
+        .unwrap();
+    assert_eq!(after_group.representative_id, group.representative_id);
+    let stored_rep: String = conn
+        .query_row(
+            "SELECT representative_id FROM route_groups WHERE id = ?",
+            [&group.group_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored_rep, group.representative_id);
+    let after: Vec<(String, f64)> = conn
+        .prepare("SELECT activity_id, match_percentage FROM activity_matches WHERE route_id = ? ORDER BY activity_id")
+        .unwrap()
+        .query_map([&group.group_id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(after, before);
+}
+
+#[test]
+fn test_representative_recreates_missing_match_rows() {
+    let (mut engine, dir) = setup_engine(5);
+    let group = engine.get_groups()[0].clone();
+    let chosen = group
+        .activity_ids
+        .iter()
+        .find(|id| **id != group.representative_id)
+        .unwrap()
+        .clone();
+    let conn = rusqlite::Connection::open(dir.path().join("test.db")).unwrap();
+    conn.execute(
+        "DELETE FROM activity_matches WHERE route_id = ?",
+        [&group.group_id],
+    )
+    .unwrap();
+
+    engine
+        .set_route_representative(&group.group_id, &chosen)
+        .unwrap();
+
+    let rows: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM activity_matches WHERE route_id = ?",
+            [&group.group_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(rows as usize, group.activity_ids.len());
+}
+
+#[test]
+fn test_missing_route_row_does_not_publish_representative() {
+    let (mut engine, dir) = setup_engine(5);
+    let group = engine.get_groups()[0].clone();
+    let chosen = group
+        .activity_ids
+        .iter()
+        .find(|id| **id != group.representative_id)
+        .unwrap()
+        .clone();
+    let conn = rusqlite::Connection::open(dir.path().join("test.db")).unwrap();
+    conn.execute("DELETE FROM route_groups WHERE id = ?", [&group.group_id])
+        .unwrap();
+
+    assert!(
+        engine
+            .set_route_representative(&group.group_id, &chosen)
+            .is_err()
+    );
+    let after = engine
+        .get_groups()
+        .iter()
+        .find(|item| item.group_id == group.group_id)
+        .unwrap();
+    assert_eq!(after.representative_id, group.representative_id);
+}

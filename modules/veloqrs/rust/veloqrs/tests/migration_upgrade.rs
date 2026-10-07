@@ -263,6 +263,7 @@ fn quarantine_files(dir: &Path) -> Vec<String> {
 
 #[test]
 fn upgrade_from_previous_version_keeps_the_data() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_previous_version_db(&db_path).expect("seed");
@@ -330,6 +331,7 @@ fn upgrade_from_previous_version_keeps_the_data() {
 
 #[test]
 fn upgrade_from_previous_version_lands_on_the_current_schema() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_previous_version_db(&db_path).expect("seed");
@@ -409,6 +411,7 @@ fn upgrade_from_previous_version_lands_on_the_current_schema() {
 
 #[test]
 fn reopening_an_already_current_database_is_a_no_op() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_previous_version_db(&db_path).expect("seed");
@@ -475,6 +478,7 @@ fn seed_one_version_behind_db(path: &Path) -> rusqlite::Result<()> {
 
 #[test]
 fn upgrade_to_the_stream_cache_keeps_existing_bodies() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
@@ -504,6 +508,7 @@ fn upgrade_to_the_stream_cache_keeps_existing_bodies() {
 
 #[test]
 fn upgrade_to_the_on_demand_body_tables_keeps_existing_data() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
@@ -536,6 +541,7 @@ fn upgrade_to_the_on_demand_body_tables_keeps_existing_data() {
 
 #[test]
 fn upgrade_to_the_activity_bodies_table_keeps_existing_data() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
@@ -582,6 +588,7 @@ fn upgrade_to_the_activity_bodies_table_keeps_existing_data() {
 
 #[test]
 fn activity_bodies_round_trip_within_a_date_window() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("open");
@@ -626,6 +633,7 @@ fn activity_bodies_round_trip_within_a_date_window() {
 /// failure.
 #[test]
 fn one_activity_body_is_read_by_its_own_id() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("open");
@@ -659,6 +667,7 @@ fn one_activity_body_is_read_by_its_own_id() {
 
 #[test]
 fn upgrading_keeps_wellness_days_written_before_the_body_column() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
@@ -694,6 +703,7 @@ fn upgrading_keeps_wellness_days_written_before_the_body_column() {
 
 #[test]
 fn the_wellness_body_column_survives_a_typed_only_rewrite() {
+    let _serial_state = super::serial_state();
     // The write-through path still upserts typed values without a body. That
     // must not erase a body an earlier sync stored: the day's per-sport loads
     // are lifted out of it, and the eFTP derivation reads it too.
@@ -767,6 +777,7 @@ fn the_wellness_body_column_survives_a_typed_only_rewrite() {
 /// breakdown, which only the body carries.
 #[test]
 fn rows_without_a_body_still_read_as_a_whole_day() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
@@ -841,6 +852,7 @@ fn seed_interrupted_beta_db(path: &Path) -> rusqlite::Result<()> {
 
 #[test]
 fn interrupted_beta_database_is_quarantined_rather_than_upgraded() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     let db_str = db_path.to_string_lossy().into_owned();

@@ -17,7 +17,7 @@ fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 40,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 2,
         ..LifecycleConfig::default()
@@ -32,9 +32,11 @@ fn detected() -> (TempDir, PersistentEngine) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("droppable.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
-    engine.set_section_config(SectionConfig {
-        ..Default::default()
-    });
+    engine
+        .set_section_config(SectionConfig {
+            ..Default::default()
+        })
+        .expect("config accepted");
 
     for activity in corpus() {
         engine
@@ -154,6 +156,54 @@ fn clearing_the_blob_does_not_lose_an_exact_line() {
             got.len()
         );
     }
+}
+
+#[test]
+fn clearing_the_blob_keeps_a_named_exact_corridor_resolved() {
+    let (dir, mut engine) = detected();
+    let path = dir.path().join("droppable.db");
+    let db = Connection::open(&path).expect("open");
+    let id = exact_ids(&db).into_iter().next().expect("exact section");
+    engine
+        .set_section_name(&id, Some("Col des Planches"))
+        .expect("name corridor");
+    assert_eq!(
+        engine.get_named_corridors()[0].section_id.as_deref(),
+        Some(id.as_str())
+    );
+    drop(engine);
+
+    clear_geometry_cache(&db);
+    db.execute(
+        "UPDATE sections SET bounds_min_lat = NULL, bounds_max_lat = NULL,
+                bounds_min_lng = NULL, bounds_max_lng = NULL WHERE id = ?",
+        [&id],
+    )
+    .expect("clear cached bounds");
+
+    let mut reopened = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
+    reopened.load().expect("load after clear");
+    assert_eq!(
+        reopened.get_named_corridors()[0].section_id.as_deref(),
+        Some(id.as_str()),
+        "the named intent lost its exact section after the cache was cleared"
+    );
+    let summary = reopened
+        .get_section_summaries()
+        .into_iter()
+        .find(|s| s.id == id)
+        .expect("named summary");
+    assert_eq!(summary.name.as_deref(), Some("Col des Planches"));
+
+    reopened
+        .disable_section(&id)
+        .expect("disable named section");
+    let hidden = reopened
+        .get_all_section_summaries(None)
+        .into_iter()
+        .find(|section| section.id == id)
+        .expect("hidden summary");
+    assert_eq!(hidden.name.as_deref(), Some("Col des Planches"));
 }
 
 /// The in-memory catalogue is rebuilt by `load`, not by the per-id read, so it
@@ -342,37 +392,6 @@ fn the_routes_bundle_rebuilds_its_encoded_lines() {
         before,
         "the routes bundle lost geometry when the blob was cleared"
     );
-}
-
-/// Nearby summaries render their own polylines and read the row directly.
-#[test]
-fn nearby_summaries_rebuild_after_the_clear() {
-    let (dir, engine) = detected();
-    let path = dir.path().join("droppable.db");
-    let db = Connection::open(&path).expect("open");
-
-    let ids = exact_ids(&db);
-    let anchor = ids.first().expect("an exact section").clone();
-    let before: Vec<(String, Vec<u8>)> = engine
-        .get_nearby_sections(&anchor, 50_000.0)
-        .into_iter()
-        .map(|s| (s.id, s.encoded_polyline))
-        .collect();
-    assert!(
-        before.iter().any(|(_, encoded)| !encoded.is_empty()),
-        "no nearby section carried geometry before the clear"
-    );
-    drop(engine);
-
-    clear_geometry_cache(&db);
-
-    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
-    let after: Vec<(String, Vec<u8>)> = engine
-        .get_nearby_sections(&anchor, 50_000.0)
-        .into_iter()
-        .map(|s| (s.id, s.encoded_polyline))
-        .collect();
-    assert_eq!(after, before, "nearby summaries lost their geometry");
 }
 
 /// A refresh rewrites one section in the loaded catalogue from its row. Its

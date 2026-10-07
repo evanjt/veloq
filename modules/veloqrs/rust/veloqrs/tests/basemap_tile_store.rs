@@ -138,36 +138,55 @@ fn size_of_a_source_that_holds_nothing_is_zero_not_an_error() {
 }
 
 // ============================================================================
-// Satellite imagery is never kept
+// Satellite imagery is held in memory only
 // ============================================================================
 
 #[test]
-fn a_satellite_tile_is_served_but_never_written_to_the_tree() {
-    let (store, _tmp) = store();
+fn a_satellite_tile_is_served_again_from_memory_and_never_written_to_the_tree() {
+    let (store, tmp) = store();
+    let tile = bytes(4096, 9);
 
     store
-        .put(
-            "satellite-eox",
-            12,
-            2048,
-            1362,
-            "jpg",
-            &bytes(4096, 9),
-            false,
-        )
+        .put("satellite-eox", 12, 2048, 1362, "jpg", &tile, false)
         .expect("put reports success so a draw is never failed for it");
 
-    assert_eq!(store.get("satellite-eox", 12, 2048, 1362), None);
+    assert_eq!(store.get("satellite-eox", 12, 2048, 1362), Some(tile));
     assert_eq!(
         store.size(),
         0,
         "the pool the vector basemap needs is untouched"
     );
     assert_eq!(store.size_of("satellite-eox"), 0);
+    assert!(
+        !tmp.path()
+            .join("basemap-tiles")
+            .join("satellite-eox")
+            .exists(),
+        "imagery never reaches the disk tree"
+    );
 }
 
 #[test]
-fn every_regional_satellite_source_is_refused_not_only_the_bare_name() {
+fn a_satellite_tile_never_put_is_a_miss() {
+    let (store, _tmp) = store();
+
+    assert_eq!(store.get("satellite-eox", 12, 1, 1), None);
+}
+
+#[test]
+fn the_same_tile_in_another_satellite_region_is_a_different_key() {
+    let (store, _tmp) = store();
+
+    store
+        .put("satellite-eox", 9, 1, 1, "jpg", &bytes(64, 1), false)
+        .expect("put");
+
+    assert_eq!(store.get("satellite-swisstopo", 9, 1, 1), None);
+    assert_eq!(store.get("satellite-eox", 9, 1, 1), Some(bytes(64, 1)));
+}
+
+#[test]
+fn every_regional_satellite_source_is_held_in_memory_not_on_disk() {
     let (store, _tmp) = store();
 
     for source in [
@@ -181,7 +200,7 @@ fn every_regional_satellite_source_is_refused_not_only_the_bare_name() {
         store
             .put(source, 9, 1, 1, "jpg", &bytes(64, 1), false)
             .expect("put");
-        assert_eq!(store.get(source, 9, 1, 1), None, "{} was kept", source);
+        assert_eq!(store.get(source, 9, 1, 1), Some(bytes(64, 1)), "{}", source);
     }
 
     assert_eq!(store.size(), 0);
@@ -200,6 +219,112 @@ fn a_refused_satellite_put_leaves_no_file_and_no_directory_behind() {
         !root.join("satellite-eox").exists(),
         "a refused source must not leave a tree to enumerate"
     );
+}
+
+#[test]
+fn the_satellite_cache_evicts_the_least_recently_read_tile_at_its_cap() {
+    let tmp = TempDir::new().expect("tempdir");
+    let store = TileStore::new(tmp.path().join("basemap-tiles")).with_satellite_cache_cap(300);
+    let src = "satellite-eox";
+
+    for y in 0..3 {
+        store
+            .put(src, 5, 0, y, "jpg", &bytes(100, y as u8), false)
+            .expect("put");
+    }
+    assert!(
+        store.get(src, 5, 0, 0).is_some(),
+        "reading y=0 refreshes it"
+    );
+    store
+        .put(src, 5, 0, 3, "jpg", &bytes(100, 3), false)
+        .expect("put");
+
+    assert_eq!(store.get(src, 5, 0, 1), None, "least recently used went");
+    assert!(store.get(src, 5, 0, 0).is_some());
+    assert!(store.get(src, 5, 0, 2).is_some());
+    assert!(store.get(src, 5, 0, 3).is_some());
+}
+
+#[test]
+fn a_satellite_tile_larger_than_the_cap_is_not_kept_and_evicts_nothing() {
+    let tmp = TempDir::new().expect("tempdir");
+    let store = TileStore::new(tmp.path().join("basemap-tiles")).with_satellite_cache_cap(100);
+    let src = "satellite-eox";
+
+    store
+        .put(src, 5, 0, 0, "jpg", &bytes(60, 1), false)
+        .expect("put");
+    store
+        .put(src, 5, 0, 1, "jpg", &bytes(500, 2), false)
+        .expect("put");
+
+    assert_eq!(store.get(src, 5, 0, 1), None);
+    assert!(store.get(src, 5, 0, 0).is_some());
+}
+
+#[test]
+fn putting_a_satellite_key_again_replaces_it_without_double_counting_bytes() {
+    let tmp = TempDir::new().expect("tempdir");
+    let store = TileStore::new(tmp.path().join("basemap-tiles")).with_satellite_cache_cap(200);
+    let src = "satellite-eox";
+
+    for _ in 0..5 {
+        store
+            .put(src, 5, 0, 0, "jpg", &bytes(100, 1), false)
+            .expect("put");
+    }
+    store
+        .put(src, 5, 0, 1, "jpg", &bytes(100, 2), false)
+        .expect("put");
+
+    assert!(store.get(src, 5, 0, 0).is_some());
+    assert!(store.get(src, 5, 0, 1).is_some());
+}
+
+#[test]
+fn clearing_the_store_empties_the_satellite_cache() {
+    let (store, _tmp) = store();
+    store
+        .put("satellite-eox", 5, 0, 0, "jpg", &bytes(64, 1), false)
+        .expect("put");
+    store
+        .put("satellite-ign", 5, 0, 0, "jpg", &bytes(64, 1), false)
+        .expect("put");
+
+    store.clear().expect("clear");
+
+    assert_eq!(store.get("satellite-eox", 5, 0, 0), None);
+    assert_eq!(store.get("satellite-ign", 5, 0, 0), None);
+}
+
+#[test]
+fn clearing_one_satellite_source_leaves_the_other_regions_cached() {
+    let (store, _tmp) = store();
+    store
+        .put("satellite-eox", 5, 0, 0, "jpg", &bytes(64, 1), false)
+        .expect("put");
+    store
+        .put("satellite-ign", 5, 0, 0, "jpg", &bytes(64, 1), false)
+        .expect("put");
+
+    store.clear_source("satellite-eox").expect("clear");
+
+    assert_eq!(store.get("satellite-eox", 5, 0, 0), None);
+    assert!(store.get("satellite-ign", 5, 0, 0).is_some());
+}
+
+#[test]
+fn a_satellite_put_from_before_a_clear_is_not_kept() {
+    let (store, _tmp) = store();
+    let began = store.generation();
+    store.clear().expect("clear");
+
+    store
+        .put_in_generation(began, "satellite-eox", 5, 0, 0, "jpg", &bytes(64, 1), false)
+        .expect("put");
+
+    assert_eq!(store.get("satellite-eox", 5, 0, 0), None);
 }
 
 #[test]
@@ -443,6 +568,71 @@ fn clear_empties_every_source_including_the_pinned_pre_seed() {
 }
 
 #[test]
+fn clear_leaves_the_root_standing_and_the_store_writable() {
+    let (store, _tmp) = store();
+    store
+        .put(VECTOR, 2, 0, 0, "pbf", &bytes(100, 1), true)
+        .expect("put");
+    store
+        .put(VECTOR, 9, 3, 4, "pbf", &bytes(100, 2), false)
+        .expect("put");
+    store
+        .put(GROUND, 5, 0, 0, "jpg", &bytes(100, 3), false)
+        .expect("put");
+
+    store.clear().expect("clear");
+
+    assert!(store.root().is_dir());
+    assert_eq!(
+        std::fs::read_dir(store.root()).expect("read root").count(),
+        0
+    );
+    let reopened = TileStore::new(store.root());
+    assert_eq!(reopened.size(), 0);
+    assert!(reopened.get(VECTOR, 2, 0, 0).is_none());
+    store
+        .put(VECTOR, 2, 0, 0, "pbf", &bytes(100, 1), false)
+        .expect("put after clear");
+    assert_eq!(store.size(), 100);
+}
+
+#[test]
+fn a_pre_seed_that_began_before_a_clear_writes_nothing_after_it() {
+    let (store, _tmp) = store();
+    store
+        .put(GROUND, 5, 0, 0, "jpg", &bytes(100, 3), false)
+        .expect("put");
+    let began = store.generation();
+    store.clear().expect("clear");
+
+    let stored = store
+        .put_in_generation(began, VECTOR, 2, 0, 0, "pbf", &bytes(100, 1), true)
+        .expect("put");
+
+    assert!(!stored);
+    assert_eq!(store.size(), 0);
+    assert!(store.get(VECTOR, 2, 0, 0).is_none());
+    assert_eq!(
+        std::fs::read_dir(store.root()).expect("read root").count(),
+        0
+    );
+}
+
+#[test]
+fn a_pre_seed_in_the_current_generation_stores_its_tile() {
+    let (store, _tmp) = store();
+    store.clear().expect("clear");
+    let began = store.generation();
+
+    let stored = store
+        .put_in_generation(began, VECTOR, 2, 0, 0, "pbf", &bytes(100, 1), true)
+        .expect("put");
+
+    assert!(stored);
+    assert_eq!(store.size(), 100);
+}
+
+#[test]
 fn clearing_one_source_leaves_the_others_standing() {
     let (store, _tmp) = store();
     store
@@ -456,6 +646,48 @@ fn clearing_one_source_leaves_the_others_standing() {
 
     assert_eq!(store.size_of(VECTOR), 0);
     assert_eq!(store.size_of(GROUND), 100);
+}
+
+#[test]
+fn clearing_every_unpinned_tile_keeps_the_pre_seed_across_sources_and_a_reopen() {
+    let (store, tmp) = store();
+    store
+        .put(VECTOR, 5, 0, 0, "pbf", &bytes(100, 1), false)
+        .expect("put");
+    store
+        .put(VECTOR, 5, 0, 1, "pbf", &bytes(40, 2), true)
+        .expect("put");
+    store
+        .put(GROUND, 5, 0, 0, "jpg", &bytes(200, 3), false)
+        .expect("put");
+    store
+        .put(GROUND, 5, 0, 1, "jpg", &bytes(60, 4), true)
+        .expect("put");
+    store
+        .put(DEM, 5, 0, 0, "png", &bytes(30, 5), false)
+        .expect("put");
+
+    assert_eq!(store.clear_all_opportunistic().expect("clear"), 3);
+
+    assert_eq!(store.size(), 100);
+    assert!(store.get(VECTOR, 5, 0, 0).is_none());
+    assert!(store.get(VECTOR, 5, 0, 1).is_some());
+    assert!(store.get(GROUND, 5, 0, 0).is_none());
+    assert!(store.get(GROUND, 5, 0, 1).is_some());
+    assert!(store.get(DEM, 5, 0, 0).is_none());
+
+    store.flush().expect("flush");
+    let reopened = TileStore::new(tmp.path().join("basemap-tiles"));
+    assert_eq!(reopened.size(), 100);
+    assert!(reopened.get(GROUND, 5, 0, 1).is_some());
+    assert!(reopened.get(GROUND, 5, 0, 0).is_none());
+}
+
+#[test]
+fn clearing_every_unpinned_tile_of_an_empty_store_is_not_an_error() {
+    let (store, _tmp) = store();
+
+    assert_eq!(store.clear_all_opportunistic().expect("clear"), 0);
 }
 
 #[test]
@@ -759,8 +991,11 @@ fn walk(dir: &std::path::Path) -> Vec<String> {
 /// every one of those threads queued behind whichever read held it.
 ///
 /// Expected behaviour: a read that cannot finish blocks nobody else. The
-/// blocked read here is a FIFO with no writer, which `std::fs::read` waits on
-/// at open, so this is deterministic rather than a timing margin.
+/// blocked read here is a FIFO that is open for writing and never written to,
+/// which `std::fs::read` waits on, so this is deterministic rather than a
+/// timing margin. The test knows the blocked read is under way because a
+/// non-blocking open for writing is refused until a reader is waiting at the
+/// other end.
 #[cfg(unix)]
 #[test]
 fn a_read_that_blocks_forever_does_not_block_another_source() {
@@ -795,18 +1030,44 @@ fn a_read_that_blocks_forever_does_not_block_another_source() {
     let blocked = Arc::clone(&store);
     let blocker = std::thread::spawn(move || blocked.get(VECTOR, 1, 1, 1));
 
-    // The blocked read has to be in the open before the second one starts, or
-    // this passes without proving anything. A fifo with no writer never
-    // reports readiness, so the wait is on the file existing as one.
+    // The blocked read has to be under way before the second one starts, or
+    // this passes without proving anything. A non-blocking open for writing
+    // fails with ENXIO until a reader is waiting at the other end, and once
+    // it succeeds it holds the fifo open with nothing written, so the reader
+    // goes on waiting for data.
+    #[cfg(target_os = "linux")]
+    const O_NONBLOCK: i32 = 0o4000;
+    #[cfg(not(target_os = "linux"))]
+    const O_NONBLOCK: i32 = 0x4;
+    const ENXIO: i32 = 6;
+    let hang_guard = std::time::Instant::now() + Duration::from_secs(30);
+    let writer = loop {
+        match std::os::unix::fs::OpenOptionsExt::custom_flags(
+            std::fs::OpenOptions::new().write(true),
+            O_NONBLOCK,
+        )
+        .open(&fifo)
+        {
+            Ok(file) => break file,
+            Err(e) if e.raw_os_error() == Some(ENXIO) => {
+                assert!(
+                    std::time::Instant::now() < hang_guard,
+                    "the blocked read never reached the fifo"
+                );
+                std::thread::yield_now();
+            }
+            Err(e) => panic!("open the fifo for writing: {e}"),
+        }
+    };
+
     let (tx, rx) = mpsc::channel();
     let reader = Arc::clone(&store);
     std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(200));
         let _ = tx.send(reader.get(GROUND, 1, 1, 1));
     });
 
     let answered = rx
-        .recv_timeout(Duration::from_secs(5))
+        .recv_timeout(Duration::from_secs(30))
         .expect("a read of another source waited on the blocked one");
     assert_eq!(
         answered,
@@ -814,11 +1075,8 @@ fn a_read_that_blocks_forever_does_not_block_another_source() {
         "and it answered with its own tile"
     );
 
-    // Let the blocked thread go, so the test does not leak it.
-    std::fs::OpenOptions::new()
-        .write(true)
-        .open(&fifo)
-        .expect("open the fifo for writing");
+    // Closing the writer ends the blocked read, so the test does not leak it.
+    drop(writer);
     let _ = blocker.join();
 }
 
@@ -875,4 +1133,285 @@ fn a_read_of_a_file_that_vanished_forgets_the_entry() {
 
     assert_eq!(store.get(GROUND, 3, 0, 0), None);
     assert_eq!(store.size_of(GROUND), 0, "and stops counting its bytes");
+}
+
+// ============================================================================
+// The read clock across a restart
+// ============================================================================
+
+/// The clock a source's sidecar carries on disk.
+fn sidecar_clock(root: &std::path::Path, source: &str) -> u64 {
+    let body = std::fs::read(root.join(source).join("index.json")).expect("sidecar");
+    let sidecar: serde_json::Value = serde_json::from_slice(&body).expect("sidecar parses");
+    sidecar["clock"].as_u64().expect("clock")
+}
+
+/// Scenario: the last session read ground tiles last, so the ground sidecar's
+/// clock is well past the vector sidecar's. After a restart the athlete pans the
+/// vector map before anything has loaded the ground source.
+///
+/// Expected behaviour: those vector reads are the newest in the tree, so an
+/// eviction takes the ground tiles last read in the previous session.
+#[test]
+fn a_read_after_a_restart_is_newer_than_every_source_on_disk() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = tmp.path().join("basemap-tiles");
+    {
+        let store = TileStore::new(&root);
+        store
+            .put(VECTOR, 5, 0, 0, "pbf", &bytes(100, 1), false)
+            .expect("put vector");
+        store
+            .put(GROUND, 5, 0, 0, "jpg", &bytes(100, 2), false)
+            .expect("put ground a");
+        store
+            .put(GROUND, 5, 0, 1, "jpg", &bytes(100, 3), false)
+            .expect("put ground b");
+        for _ in 0..5 {
+            assert!(store.get(GROUND, 5, 0, 0).is_some());
+            assert!(store.get(GROUND, 5, 0, 1).is_some());
+        }
+        store.flush().expect("flush");
+    }
+    assert!(sidecar_clock(&root, GROUND) > sidecar_clock(&root, VECTOR));
+
+    let reopened = TileStore::new(&root);
+    assert!(
+        reopened.get(VECTOR, 5, 0, 0).is_some(),
+        "the vector map is panned first"
+    );
+    reopened.evict_to(200).expect("evict");
+
+    assert!(
+        reopened.get(VECTOR, 5, 0, 0).is_some(),
+        "the tile read in this session went ahead of one read in the last"
+    );
+    assert_eq!(reopened.size_of(GROUND), 100);
+}
+
+/// Scenario: the first tile stored after a restart, in a source that already
+/// holds tiles read in the previous session.
+///
+/// Expected behaviour: the new tile is the newest in the source, an eviction
+/// takes an old one, and the sidecar's clock does not go backwards.
+#[test]
+fn the_first_tile_stored_after_a_restart_is_the_newest() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = tmp.path().join("basemap-tiles");
+    {
+        let store = TileStore::new(&root);
+        store
+            .put(VECTOR, 5, 0, 0, "pbf", &bytes(100, 1), false)
+            .expect("put a");
+        store
+            .put(VECTOR, 5, 0, 1, "pbf", &bytes(100, 2), false)
+            .expect("put b");
+        assert!(store.get(VECTOR, 5, 0, 0).is_some());
+        assert!(store.get(VECTOR, 5, 0, 1).is_some());
+        store.flush().expect("flush");
+    }
+    let before = sidecar_clock(&root, VECTOR);
+
+    let reopened = TileStore::new(&root);
+    reopened
+        .put(VECTOR, 5, 0, 2, "pbf", &bytes(100, 3), false)
+        .expect("put c");
+    reopened.flush().expect("flush");
+    assert!(
+        sidecar_clock(&root, VECTOR) > before,
+        "the sidecar was written back with a clock older than its own tiles"
+    );
+
+    assert_eq!(reopened.evict_to(200).expect("evict"), 1);
+    assert!(
+        reopened.get(VECTOR, 5, 0, 2).is_some(),
+        "the tile just stored was evicted as the oldest"
+    );
+    assert!(reopened.get(VECTOR, 5, 0, 0).is_none());
+}
+
+// ============================================================================
+// The budget the athlete set
+// ============================================================================
+
+/// Scenario: the athlete's ceiling is set and the map is panned well past it.
+///
+/// Expected behaviour: no `put` leaves the tree over the ceiling, and the
+/// pinned pre-seed survives for as long as an opportunistic tile is left.
+#[test]
+fn a_store_filled_past_its_budget_through_put_stays_inside_it() {
+    let (store, _tmp) = store();
+    let budget = 5_000;
+    store.set_budget(budget).expect("budget");
+
+    for y in 0..10u32 {
+        store
+            .put(GROUND, 3, 0, y, "jpg", &bytes(100, 1), true)
+            .expect("pinned put");
+    }
+    for y in 0..50u32 {
+        store
+            .put(VECTOR, 12, 0, y, "pbf", &bytes(100, 2), false)
+            .expect("put");
+        assert!(
+            store.size() <= budget,
+            "put {y} left the tree at {} bytes against {budget}",
+            store.size()
+        );
+    }
+
+    assert_eq!(store.size_of(GROUND), 1_000, "a pinned tile went first");
+    assert!(
+        store.get(VECTOR, 12, 0, 0).is_none(),
+        "the oldest opportunistic tile is the one to go"
+    );
+    assert!(store.get(VECTOR, 12, 0, 49).is_some());
+}
+
+/// Scenario: the athlete lowers the ceiling below what the pre-seed alone holds.
+///
+/// Expected behaviour: the store is brought under it at once, every
+/// opportunistic tile going before the oldest pinned ones.
+#[test]
+fn lowering_the_budget_evicts_at_once_and_takes_the_pre_seed_last() {
+    let (store, _tmp) = store();
+    for y in 0..4u32 {
+        store
+            .put(GROUND, 3, 0, y, "jpg", &bytes(100, 1), true)
+            .expect("pinned put");
+    }
+    for y in 0..4u32 {
+        store
+            .put(VECTOR, 12, 0, y, "pbf", &bytes(100, 2), false)
+            .expect("put");
+    }
+    assert_eq!(store.size(), 800, "no budget set, nothing evicted");
+
+    let removed = store.set_budget(300).expect("budget");
+
+    assert_eq!(removed, 5);
+    assert_eq!(store.size(), 300);
+    assert_eq!(store.size_of(VECTOR), 0, "every opportunistic tile went");
+    assert!(
+        store.get(GROUND, 3, 0, 0).is_none(),
+        "the oldest pinned tile"
+    );
+    assert!(
+        store.get(GROUND, 3, 0, 3).is_some(),
+        "the newest pinned tile"
+    );
+}
+
+/// Raising the ceiling keeps everything, and so does a store with no ceiling.
+#[test]
+fn raising_the_budget_evicts_nothing() {
+    let (store, _tmp) = store();
+    for y in 0..4u32 {
+        store
+            .put(VECTOR, 12, 0, y, "pbf", &bytes(100, 2), false)
+            .expect("put");
+    }
+    assert_eq!(store.set_budget(400).expect("budget"), 0);
+    assert_eq!(store.set_budget(10_000).expect("budget"), 0);
+    assert_eq!(store.size(), 400);
+    assert_eq!(store.budget(), Some(10_000));
+}
+
+/// A clear empties the tree and leaves the ceiling where the athlete set it.
+#[test]
+fn a_clear_keeps_the_budget() {
+    let (store, _tmp) = store();
+    store.set_budget(200).expect("budget");
+    store
+        .put(VECTOR, 12, 0, 0, "pbf", &bytes(100, 2), false)
+        .expect("put");
+    store.clear().expect("clear");
+    for y in 0..4u32 {
+        store
+            .put(VECTOR, 12, 0, y, "pbf", &bytes(100, 2), false)
+            .expect("put");
+    }
+    assert_eq!(store.size(), 200);
+}
+
+// ============================================================================
+// Counters
+// ============================================================================
+
+#[test]
+fn a_read_counts_a_hit_when_the_tile_is_held_and_a_miss_when_it_is_not() {
+    let (store, _tmp) = store();
+    store
+        .put(VECTOR, 3, 1, 2, "pbf", &bytes(8, 1), false)
+        .expect("put");
+
+    store.get(VECTOR, 3, 1, 2);
+    store.get(VECTOR, 3, 1, 2);
+    store.get(VECTOR, 3, 9, 9);
+
+    let counts = store.tile_counts(VECTOR);
+    assert_eq!((counts.hits, counts.misses, counts.fetches), (2, 1, 0));
+    assert_eq!(store.tile_counts(GROUND).hits, 0, "counts are per source");
+}
+
+#[test]
+fn a_fetch_through_counts_a_fetch_and_a_satellite_read_counts_no_miss() {
+    let (store, _tmp) = store();
+
+    store.get(GROUND, 1, 0, 0);
+    store.record_fetch(GROUND);
+    store.get("satellite-eox", 1, 0, 0);
+    store.record_fetch("satellite-eox");
+
+    let ground = store.tile_counts(GROUND);
+    assert_eq!((ground.misses, ground.fetches), (1, 1));
+    let satellite = store.tile_counts("satellite-eox");
+    assert_eq!(
+        (satellite.hits, satellite.misses, satellite.fetches),
+        (0, 0, 1)
+    );
+}
+
+#[test]
+fn the_counters_read_zero_after_a_reset_and_count_again_after() {
+    let (store, _tmp) = store();
+    store.get(VECTOR, 1, 0, 0);
+    store.record_fetch(VECTOR);
+
+    store.reset_tile_counts();
+    let zeroed = store.tile_counts(VECTOR);
+    assert_eq!((zeroed.hits, zeroed.misses, zeroed.fetches), (0, 0, 0));
+
+    store.get(VECTOR, 1, 0, 0);
+    assert_eq!(store.tile_counts(VECTOR).misses, 1);
+}
+
+#[test]
+fn the_screen_read_carries_each_sources_counts_after_a_hit_a_miss_and_a_fetch() {
+    let (store, _tmp) = store();
+    store
+        .put(VECTOR, 3, 1, 2, "pbf", &bytes(8, 1), false)
+        .expect("put");
+
+    store.get(VECTOR, 3, 1, 2);
+    store.get(VECTOR, 3, 9, 9);
+    store.record_fetch(VECTOR);
+    store.record_fetch("satellite-eox");
+
+    let rows = store.source_tile_counts();
+    let names: Vec<&str> = rows.iter().map(|r| r.source.as_str()).collect();
+    assert_eq!(names, vec!["satellite-eox", VECTOR]);
+    let vector = rows.iter().find(|r| r.source == VECTOR).unwrap();
+    assert_eq!(
+        (vector.hits, vector.misses, vector.fetches),
+        (1.0, 1.0, 1.0)
+    );
+    let satellite = &rows[0];
+    assert_eq!(
+        (satellite.hits, satellite.misses, satellite.fetches),
+        (0.0, 0.0, 1.0)
+    );
+
+    store.reset_tile_counts();
+    assert!(store.source_tile_counts().is_empty());
 }

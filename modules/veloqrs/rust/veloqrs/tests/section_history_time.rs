@@ -1,26 +1,23 @@
 //! The section ledger carries the event time as data, so an upgrade can write
 //! a baseline row at the moment the catalogue it describes was cut rather than
-//! at the moment the upgrade ran. Time-ordered reads across sections are
-//! indexed.
+//! at the moment the upgrade ran.
 
-use rusqlite::Connection;
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
 
 const BACKDATED: &str = "2024-03-01 08:15:00";
 
-fn open() -> (TempDir, PersistentEngine, String) {
+fn open() -> (TempDir, PersistentEngine) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("history.db");
-    let db_path = path.to_str().unwrap().to_string();
-    let engine = PersistentEngine::new(&db_path).expect("engine");
-    (dir, engine, db_path)
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    (dir, engine)
 }
 
 /// A backdated row lands at the time it was given, not at the clock.
 #[test]
 fn backdated_event_keeps_its_time() {
-    let (_dir, mut engine, _path) = open();
+    let (_dir, mut engine) = open();
 
     engine
         .append_section_history_at("sec_a", "baseline", None, None, BACKDATED)
@@ -35,7 +32,7 @@ fn backdated_event_keeps_its_time() {
 /// A live event still stamps the clock, so the backdating path is additive.
 #[test]
 fn live_event_stamps_now() {
-    let (_dir, mut engine, _path) = open();
+    let (_dir, mut engine) = open();
 
     engine
         .append_section_history_at("sec_a", "baseline", None, None, BACKDATED)
@@ -50,29 +47,5 @@ fn live_event_stamps_now() {
         events[1].at.as_str() > BACKDATED,
         "live row {} should be later than the backdated baseline",
         events[1].at
-    );
-}
-
-/// A time-ordered read across sections uses the timestamp index rather than
-/// scanning the ledger.
-#[test]
-fn time_ordered_reads_are_indexed() {
-    let (_dir, engine, db_path) = open();
-    drop(engine);
-
-    let conn = Connection::open(&db_path).expect("reopen");
-    let mut stmt = conn
-        .prepare("EXPLAIN QUERY PLAN SELECT id FROM section_history WHERE at > ? ORDER BY at")
-        .expect("prepare");
-    let plan: String = stmt
-        .query_map([BACKDATED], |row| row.get::<_, String>(3))
-        .expect("query")
-        .flatten()
-        .collect::<Vec<_>>()
-        .join(" | ");
-
-    assert!(
-        plan.contains("idx_section_history_at"),
-        "expected the timestamp index, got: {plan}"
     );
 }

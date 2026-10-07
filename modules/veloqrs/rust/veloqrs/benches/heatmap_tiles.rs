@@ -2,19 +2,26 @@
 //!
 //! Run with: `cargo bench --bench heatmap_tiles --features synthetic`
 //!
-//! Two bench groups:
+//! Three bench groups:
 //! - `tile/*`, pure `generate_heatmap_tile` cost for representative zoom +
 //!   density shapes (sparse low-zoom, medium medium-zoom, dense high-zoom).
 //! - `full_cycle/*`, end-to-end `generate_tiles_background` against a seeded
 //!   in-memory SQLite with 100 or 500 activities. These are the numbers the
 //!   user feels, "finalizing heatmap" banner duration.
+//! - `one_added/*`, the pass a sync's single new activity starts over a
+//!   library whose tiles are already drawn: the activity is stored through the
+//!   engine, its invalidation sweep runs to its end, and only the pass that
+//!   sweep requests is timed.
 
 use criterion::{BenchmarkId, Criterion, SamplingMode, criterion_group, criterion_main};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
+use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
+use veloqrs::persistence::TileGenerationHandle;
+use veloqrs::persistence::persistent_engine_ffi::{TILE_GENERATION_HANDLE, persistent_engine_init};
+use veloqrs::persistence::with_persistent_engine;
 use veloqrs::{PersistentEngine, tiles};
 
 // ============================================================================
@@ -126,26 +133,41 @@ fn bench_single_tile(c: &mut Criterion) {
 // Full-cycle bench fixtures, seeded SQLite + background generation
 // ============================================================================
 
-/// Seed a tempdir-backed engine with `target_count` activities from the
-/// lifecycle corpus, returning (engine, tmp, tiles_dir). Tiles dir is empty,
-/// the first `generate_tiles_background` will cold-generate everything.
-fn seed_engine(target_count: usize) -> (PersistentEngine, TempDir, PathBuf) {
-    // Pick counts that stack up to ~target_count.
+/// Activities the lifecycle corpus emits whatever the delta counts are: the
+/// one bucket C overlap activity and the three bucket D activities.
+const FIXED_LIFECYCLE_ACTIVITIES: usize = 4;
+
+/// The lifecycle corpus holding exactly `target_count` activities.
+fn lifecycle_corpus(target_count: usize) -> LifecycleCorpus {
+    // The delta counts fill what the fixed activities leave.
     let (a, b, e) = match target_count {
-        100 => (60, 40, 0),
-        500 => (60, 90, 350),
-        _ => (60, 90, 350),
+        100 => (60, 36, 0),
+        500 => (60, 90, 346),
+        other => panic!("no corpus shape for {other} activities"),
     };
+    assert_eq!(a + b + e + FIXED_LIFECYCLE_ACTIVITIES, target_count);
     let cfg = LifecycleConfig {
         bucket_a_count: a,
         bucket_b_delta_count: b,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: e,
         parallel_street_count: 4,
         ..LifecycleConfig::default()
     };
-    let corpus = LifecycleCorpus::generate(&cfg);
+    LifecycleCorpus::generate(&cfg)
+}
+
+/// Seed a tempdir-backed engine with `target_count` activities from the
+/// lifecycle corpus, returning (engine, tmp, tiles_dir). Tiles dir is empty,
+/// the first `generate_tiles_background` will cold-generate everything.
+fn seed_engine(target_count: usize) -> (PersistentEngine, TempDir, PathBuf) {
+    let corpus = lifecycle_corpus(target_count);
     let activities: Vec<_> = corpus.through_e().into_iter().cloned().collect();
+    assert_eq!(
+        activities.len(),
+        target_count,
+        "the seeded library must hold the count its label claims"
+    );
 
     let tmp = TempDir::new().expect("tempdir");
     let db = tmp.path().join("bench.db");
@@ -226,5 +248,129 @@ fn bench_full_cycle(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_single_tile, bench_full_cycle);
+/// Take the pass a sweep requested, waiting for the sweep to end and ask.
+///
+/// A sweep deletes tiles on its own thread and starts the pass as its last
+/// step, so the handle appearing marks the sweep's end.
+fn await_requested_pass() -> TileGenerationHandle {
+    let deadline = Instant::now() + Duration::from_secs(120);
+    loop {
+        if let Some(handle) = TILE_GENERATION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take()
+        {
+            return handle;
+        }
+        assert!(Instant::now() < deadline, "no tile pass was requested");
+        std::thread::sleep(Duration::from_micros(200));
+    }
+}
+
+/// Run the requested pass to its end, answering how many tiles it drew.
+fn finish_requested_pass() -> u32 {
+    await_requested_pass()
+        .recv_blocking()
+        .expect("the pass reported its outcome")
+}
+
+/// An activity that overlaps ground the library already draws: the bucket C
+/// track, shifted a few metres and stored under a new id.
+fn added_activity(corpus: &LifecycleCorpus) -> LifecycleActivity {
+    let mut added = corpus.bucket_c_single.clone();
+    added.id = "bench-added".to_string();
+    for point in &mut added.gps_points {
+        point.latitude += 0.000_05;
+    }
+    added
+}
+
+fn bench_one_added(c: &mut Criterion) {
+    let mut group = c.benchmark_group("one_added");
+    group.sampling_mode(SamplingMode::Flat);
+    group.warm_up_time(Duration::from_secs(2));
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(120));
+
+    let target = 500usize;
+    let corpus = lifecycle_corpus(target);
+    let baseline: Vec<_> = corpus.through_e().into_iter().cloned().collect();
+    assert_eq!(
+        baseline.len(),
+        target,
+        "the baseline must hold the count its label claims"
+    );
+    let added = added_activity(&corpus);
+
+    // Through the process-wide engine, which is the one a sweep's pass request
+    // reaches.
+    let setup_started = Instant::now();
+    let tmp = TempDir::new().expect("tempdir");
+    let db = tmp.path().join("bench.db");
+    let tiles_dir = tmp.path().join("tiles");
+    std::fs::create_dir_all(&tiles_dir).expect("tiles dir");
+    assert!(persistent_engine_init(db.to_str().unwrap().to_string()));
+    with_persistent_engine(|engine| {
+        for chunk in baseline.chunks(50) {
+            let rows = chunk
+                .iter()
+                .map(|a| (a.id.clone(), a.gps_points.clone(), a.sport_type.clone()))
+                .collect();
+            engine.add_activities_batch(rows).expect("baseline stored");
+        }
+        engine.set_heatmap_tiles_path(tiles_dir.to_str().unwrap().to_string());
+    })
+    .expect("engine installed");
+    let drawn = finish_requested_pass();
+    assert!(drawn > 0, "the baseline pass drew no tiles");
+    eprintln!(
+        "one_added setup: {} activities, {} tiles drawn, {:?}",
+        baseline.len(),
+        drawn,
+        setup_started.elapsed()
+    );
+
+    group.bench_with_input(BenchmarkId::from_parameter(target), &target, |b, _| {
+        b.iter_custom(|iters| {
+            let mut total = Duration::ZERO;
+            for _ in 0..iters {
+                with_persistent_engine(|engine| {
+                    engine
+                        .add_activity(
+                            added.id.clone(),
+                            added.gps_points.clone(),
+                            added.sport_type.clone(),
+                        )
+                        .expect("added activity stored")
+                })
+                .expect("engine installed");
+                // The sweep has ended once it has asked for its pass.
+                let pass = await_requested_pass();
+                let start = Instant::now();
+                let redrawn = pass.recv_blocking().expect("the pass reported its outcome");
+                total += start.elapsed();
+                assert!(redrawn > 0, "the added activity's tiles were not redrawn");
+
+                // Back to the baseline, tiles drawn, outside the timing.
+                with_persistent_engine(|engine| {
+                    engine
+                        .remove_activity(&added.id)
+                        .expect("added activity removed")
+                })
+                .expect("engine installed");
+                finish_requested_pass();
+            }
+            total
+        });
+    });
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_single_tile,
+    bench_full_cycle,
+    bench_one_added
+);
 criterion_main!(benches);

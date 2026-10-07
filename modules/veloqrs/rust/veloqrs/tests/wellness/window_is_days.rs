@@ -7,7 +7,7 @@
 //! HRV flag called two adjacent rows a consecutive-day decline. On an athlete
 //! with a three-day gap all three were reading across the gap.
 //!
-//! Run: `cargo test --test wellness_window_is_days -p veloqrs`
+//! Run: `cargo test --test wellness -p veloqrs -- window_is_days::`
 
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
@@ -216,8 +216,9 @@ fn the_hrv_trend_carries_the_latest_day_against_its_own_window() {
     let delta = trend
         .signal_delta
         .expect("a window with spread reads a distance");
-    let expected = veloqrs::signal::signal_delta(trend.latest, trend.avg, &trend.sparkline)
-        .expect("the same window");
+    let window: Vec<f64> = trend.sparkline.iter().map(|p| p.value).collect();
+    let expected =
+        veloqrs::signal::signal_delta(trend.latest, trend.avg, &window).expect("the same window");
     assert_eq!(delta, expected);
     assert!(delta > 0.0, "the last day is not the window average");
 }

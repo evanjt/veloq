@@ -7,16 +7,15 @@
 //! fourteen times and discards thirteen of the results, which was measured at
 //! a third of the bundle.
 //!
-//! Run: `cargo test --test insights_summary_fanout -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- insights_summary_fanout::`
 
 use veloqrs::persistence::sections::summaries_by_sport;
 use veloqrs::{PersistentEngine, SectionSummary};
 
-fn summary(id: &str, sport: &str, also: &[&str], outings: u32, visits: u32) -> SectionSummary {
+fn summary(id: &str, sports: &[&str], outings: u32, visits: u32) -> SectionSummary {
     SectionSummary {
         id: id.to_string(),
-        sport_type: sport.to_string(),
-        sport_types: also.iter().map(|t| t.to_string()).collect(),
+        sport_types: sports.iter().map(|t| t.to_string()).collect(),
         activity_count: outings,
         visit_count: visits,
         ..SectionSummary::default()
@@ -35,7 +34,7 @@ fn pairs(got: &[(String, SectionSummary)]) -> Vec<(&str, &str)> {
 
 #[test]
 fn a_section_is_paired_with_every_sport_that_travels_it() {
-    let summaries = vec![summary("shared", "Run", &["Run", "Ride"], 5, 9)];
+    let summaries = vec![summary("shared", &["Run", "Ride"], 5, 9)];
 
     let got = summaries_by_sport(&summaries, &sports(&["Run", "Ride", "Swim"]), 3);
 
@@ -45,8 +44,8 @@ fn a_section_is_paired_with_every_sport_that_travels_it() {
 #[test]
 fn a_section_below_the_outing_floor_earns_no_pair() {
     let summaries = vec![
-        summary("returned", "Run", &["Run"], 3, 3),
-        summary("once", "Run", &["Run"], 2, 2),
+        summary("returned", &["Run"], 3, 3),
+        summary("once", &["Run"], 2, 2),
     ];
 
     let got = summaries_by_sport(&summaries, &sports(&["Run"]), 3);
@@ -57,9 +56,9 @@ fn a_section_below_the_outing_floor_earns_no_pair() {
 #[test]
 fn the_most_travelled_section_comes_first() {
     let summaries = vec![
-        summary("quiet", "Run", &["Run"], 3, 4),
-        summary("busy", "Run", &["Run"], 3, 40),
-        summary("middling", "Run", &["Run"], 3, 12),
+        summary("quiet", &["Run"], 3, 4),
+        summary("busy", &["Run"], 3, 40),
+        summary("middling", &["Run"], 3, 12),
     ];
 
     let got = summaries_by_sport(&summaries, &sports(&["Run"]), 3);
@@ -72,7 +71,7 @@ fn the_most_travelled_section_comes_first() {
 
 #[test]
 fn a_sport_nothing_travels_contributes_nothing() {
-    let summaries = vec![summary("hill", "Ride", &["Ride"], 4, 6)];
+    let summaries = vec![summary("hill", &["Ride"], 4, 6)];
 
     let got = summaries_by_sport(&summaries, &sports(&["Run", "Swim"]), 3);
 

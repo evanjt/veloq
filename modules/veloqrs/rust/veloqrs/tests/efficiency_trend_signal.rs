@@ -8,7 +8,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test efficiency_trend_signal -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- efficiency_trend_signal::`
 
 use rusqlite::Connection;
 use tempfile::TempDir;
@@ -73,7 +73,7 @@ fn engine_with_efforts(dir: &TempDir, heart_rates: &[f64]) -> PersistentEngine {
         conn.execute(
             "INSERT INTO section_activities (section_id, activity_id, direction,
                      start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr, excluded)
-                 VALUES ('auto1', ?1, 'same', 0, 40, 800.0, 200.0, 4.0, ?2, 0)",
+                 VALUES ('auto1', ?1, 'same', 0, 60, 800.0, 200.0, 4.0, ?2, 0)",
             rusqlite::params![format!("a{i}"), hr],
         )
         .expect("traversal");
@@ -94,7 +94,7 @@ fn the_trend_carries_the_newest_effort_against_its_own_series() {
     let mut engine = engine_with_efforts(&dir, &[150.0, 148.0, 146.0, 144.0, 132.0]);
 
     let trend = engine
-        .get_section_efficiency_trend("auto1")
+        .get_section_efficiency_trend("auto1", "Ride")
         .expect("five efforts are a trend");
 
     let ratios: Vec<f64> = trend.points.iter().map(|p| p.hr_pace_ratio).collect();
@@ -116,7 +116,7 @@ fn a_series_with_no_spread_carries_no_distance() {
     let mut engine = engine_with_efforts(&dir, &[145.0, 145.0, 145.0, 145.0, 145.0]);
 
     let trend = engine
-        .get_section_efficiency_trend("auto1")
+        .get_section_efficiency_trend("auto1", "Ride")
         .expect("five efforts are a trend");
 
     assert!(
