@@ -7,8 +7,8 @@
 # index. Three lint-guard tests did exactly that, and the commit that came out
 # held one file and deleted 2,023 others.
 #
-#   record            print the tree the index currently holds
-#   verify <tree>     compare against it and refuse if it moved
+#   record                 print the tree the index holds and the commit HEAD is at
+#   verify <tree> <head>   compare against both and refuse if either moved
 #
 # `git write-tree` is the comparison rather than the index file's bytes,
 # because the formatter legitimately rewrites entries whose content is unchanged.
@@ -19,11 +19,24 @@ mode="${1:-}"
 
 case "$mode" in
   record)
-    git write-tree
+    echo "$(git write-tree) $(git rev-parse --verify -q HEAD || echo none)"
     ;;
   verify)
     before="${2:-}"
     [ -n "$before" ] || exit 0
+    before_head="${3:-}"
+    if [ -n "$before_head" ]; then
+      after_head="$(git rev-parse --verify -q HEAD || echo none)"
+      if [ "$before_head" != "$after_head" ]; then
+        # A merge or landing in this checkout moves HEAD and checks its files
+        # into the shared index, so the tree differs for a reason no gate owns.
+        echo "Refusing to commit: HEAD moved from $before_head to $after_head while the gates ran." >&2
+        echo >&2
+        echo "A merge or landing in this checkout moved it. Your staged work is" >&2
+        echo "intact and nothing was committed. Check 'git status', then run the commit again." >&2
+        exit 1
+      fi
+    fi
     after="$(git write-tree)" || exit 0
     [ "$before" = "$after" ] && exit 0
     echo "Refusing to commit: the staged tree changed while the gates ran." >&2
@@ -39,7 +52,7 @@ case "$mode" in
     exit 1
     ;;
   *)
-    echo "usage: check-staged-tree.sh record | verify <tree>" >&2
+    echo "usage: check-staged-tree.sh record | verify <tree> <head>" >&2
     exit 2
     ;;
 esac

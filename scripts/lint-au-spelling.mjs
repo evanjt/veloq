@@ -50,6 +50,12 @@ const EXEMPT = [
   // A phase token that crosses the FFI as data and is keyed on in
   // TypeScript at features/routes/lib/detectionProgress.ts.
   '"analyzing"',
+  // A key of the local heart rate zones setting, which an older build wrote
+  // and the activity max HR resolver in persistence/screens.rs reads back.
+  '"color"',
+  // A key of the widget snapshot JSON, which the Kotlin and Swift widgets
+  // already shipped read by that name, so a rename strands every placed widget.
+  '"colorkey"',
 ];
 
 // The crate's allowlist is not this one. `"analyzing"` is a phase token that

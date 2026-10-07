@@ -10,10 +10,13 @@ root=$(git rev-parse --show-toplevel)
 prettier="$root/node_modules/.bin/prettier"
 
 # Unquoted, or a non-ASCII path arrives as an escaped string no file matches.
-mapfile -t staged < <(git -c core.quotePath=off diff --cached --name-only --diff-filter=ACMR -- 'src/*.ts' 'src/*.tsx')
+# A read loop rather than mapfile, which bash 3.2 does not have.
+staged=()
+while IFS= read -r f; do staged+=("$f"); done < <(git -c core.quotePath=off diff --cached --name-only --diff-filter=ACMR -- 'src/*.ts' 'src/*.tsx')
 [ "${#staged[@]}" -eq 0 ] && exit 0
 
-mapfile -t partial < <(git -c core.quotePath=off diff --name-only -- "${staged[@]}")
+partial=()
+while IFS= read -r f; do partial+=("$f"); done < <(git -c core.quotePath=off diff --name-only -- "${staged[@]}")
 whole=()
 for f in "${staged[@]}"; do
   case " ${partial[*]-} " in

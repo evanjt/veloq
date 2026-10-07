@@ -4,9 +4,6 @@ set -e
 # First, because a hook running against the wrong index rewrites the commit
 # rather than checking it. See scripts/check-commit-index.sh.
 ./scripts/check-commit-index.sh "$0"
-# Before anything reads the index: in the main checkout it may hold a merge's
-# tree while that merge's gates are still running.
-./scripts/check-commit-lock.sh
 ./scripts/check-no-private-data.sh
 ./scripts/format-staged.sh
 
@@ -18,13 +15,13 @@ staged_tree=$(./scripts/check-staged-tree.sh record)
 # A conflicted merge is concluded by `git commit`, and git runs this hook for
 # it, not `pre-merge-commit`, so without this a resolved conflict landed with
 # no merged-tree lint count and none of the suites the merge touched. After
-# lint-staged, so the battery sees the tree being committed, and after the lock
-# check, which only probes, so `merge-gates.sh` can take the lock itself. Its
+# lint-staged, so the battery sees the tree being committed. Its
 # `check-merge-lint.sh` counts the merged tree, so the working-tree count below
 # is dropped for this commit: that count is the one that failed merges on
 # another session's unsaved warning.
 lint_gate="npm run lint"
 if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+  ./scripts/check-retired-history.sh HEAD MERGE_HEAD
   ./scripts/merge-gates.sh
   lint_gate="echo counted on the merged tree by merge-gates.sh"
 fi
@@ -88,6 +85,6 @@ gates_rc=0
   "rustfmt:npm run lint:rust-fmt" \
   "rusttests:npm run lint:rust-tests" || gates_rc=$?
 
-./scripts/check-staged-tree.sh verify "$staged_tree"
+./scripts/check-staged-tree.sh verify $staged_tree
 
 exit $gates_rc

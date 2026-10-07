@@ -8,6 +8,24 @@ if git rev-list --objects --all | grep -q '^1c8f0e9a567179c76ac0bae7b9dfeff563b0
   exit 1
 fi
 
+refs=$(cat)
+
+# The last point before personal data is unrecoverable. Every path any pushed
+# commit added counts, not only the tip's tree, because a file added and deleted
+# again inside the range is still in the history being published.
+zero=0000000000000000000000000000000000000000
+while read local_ref local_sha remote_ref remote_sha
+do
+  [ -n "$local_sha" ] && [ "$local_sha" != "$zero" ] || continue
+  if [ "$remote_sha" = "$zero" ]; then
+    ./scripts/check-no-private-data.sh --range "$local_sha" --not --remotes || exit 1
+  else
+    ./scripts/check-no-private-data.sh --range "$remote_sha..$local_sha" || exit 1
+  fi
+done <<EOF
+$refs
+EOF
+
 # Check if we're pushing a tag (version release)
 # Tags look like: refs/tags/v0.0.5
 while read local_ref local_sha remote_ref remote_sha
@@ -26,6 +44,8 @@ do
       exit 1
     fi
   fi
-done
+done <<EOF
+$refs
+EOF
 
 exit 0

@@ -13,3 +13,4 @@ rust/
 *.log
 basemap*.generated.ts
 maplibreRenderer.generated.ts
+.tsbuild/

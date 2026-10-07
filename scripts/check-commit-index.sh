@@ -5,7 +5,7 @@
 # `core.hooksPath` was once an absolute path into the main checkout, so every
 # commit made inside a worktree ran the main checkout's `.husky/pre-commit`.
 # What came out held only the staged files and deleted every other tracked
-# file: 2,003 files and 420,935 lines, four times in one session. The same
+# file: 2,003 of them, four times in one session. The same
 # shape reaches the hook from `git commit <path>`, which builds its tree in a
 # temporary index and points GIT_INDEX_FILE at it.
 #

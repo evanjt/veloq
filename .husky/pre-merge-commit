@@ -7,7 +7,9 @@ set -e
 # hand afterwards.
 #
 # What it runs, and why only that, is in scripts/merge-gates.sh. A merge that
-# fast-forwards creates no commit, so git runs this hook not at all and
-# post-merge instead: both call the same battery.
+# fast-forwards creates no commit, so git runs this hook not at all: a landing
+# goes through scripts/land-branch.sh, which runs the same battery on its
+# candidate before it moves the ref, and post-merge warns about any other.
 ./scripts/check-commit-index.sh "$0"
+./scripts/check-retired-history.sh HEAD MERGE_HEAD
 ./scripts/merge-gates.sh

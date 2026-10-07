@@ -14,8 +14,8 @@
 // should point at is the caller's business and `scripts/lint-module-link.mjs`
 // is what holds that.
 //
-// In the main checkout, where `node_modules` is the real install, there is
-// nothing to do and it says so.
+// In the main checkout, where `node_modules` is the real install, and in a
+// worktree installed for native builds, there is nothing to do and it says so.
 
 import { execFileSync } from 'node:child_process';
 import { lstatSync, readdirSync, symlinkSync, realpathSync } from 'node:fs';
@@ -62,6 +62,17 @@ if (!lstatSafe(here)?.isDirectory() || lstatSafe(here)?.isSymbolicLink()) {
   // the main checkout by construction. An absent one is an install that has not
   // been run, which fails loudly on its own.
   console.log('Worktree modules: no per-entry set here, nothing to link.');
+  process.exit(0);
+}
+
+// npm writes `.package-lock.json` into an installation it made, and the
+// per-entry set links it like every other entry. A real one is a worktree
+// installed by `npm run setup:native` for native builds, and linking the main
+// checkout's packages into it would put another checkout's native outputs back
+// under its build.
+if (lstatSafe(join(here, '.package-lock.json'))?.isFile()) {
+  execFileSync(process.execPath, [new URL('./patch-expo-location.js', import.meta.url).pathname], { cwd: root });
+  console.log('Worktree modules: an installation of its own here, nothing to link.');
   process.exit(0);
 }
 

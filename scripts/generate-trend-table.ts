@@ -10,16 +10,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { trackedText } from './lib/indexedSources.mjs';
 import { readRustTrendMetrics, renderTrendTable } from './lib/trendTable';
 
 const REPO = path.resolve(__dirname, '..');
-const RUST = path.join(REPO, 'modules/veloqrs/rust/veloqrs/src/trend_table.rs');
-const OUT = path.join(REPO, 'src/shared/format/trendTable.generated.ts');
+const RUST = 'modules/veloqrs/rust/veloqrs/src/trend_table.rs';
+const OUT_REL = 'src/shared/format/trendTable.generated.ts';
+const OUT = path.join(REPO, OUT_REL);
 
-const rendered = renderTrendTable(readRustTrendMetrics(fs.readFileSync(RUST, 'utf-8')));
-const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf-8') : '';
+const CHECK = process.argv.includes('--check');
+const source = CHECK ? (trackedText(REPO, RUST) ?? '') : fs.readFileSync(path.join(REPO, RUST), 'utf-8');
+const rendered = renderTrendTable(readRustTrendMetrics(source));
 
-if (process.argv.includes('--check')) {
+if (CHECK) {
+  const current = trackedText(REPO, OUT_REL) ?? '';
   if (current === rendered) {
     console.log('Trend thresholds are up to date with the Rust table.');
     process.exit(0);

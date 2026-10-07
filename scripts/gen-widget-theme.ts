@@ -10,8 +10,10 @@
  * Run: `npm run gen:widget-theme`. The emitted files carry a GENERATED header and must
  * never be hand-edited; change `colors.ts`/`widgetTheme.ts` and regenerate instead.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { trackedText } from './lib/indexedSources.mjs';
 
 import {
   widgetLayout,
@@ -147,13 +149,7 @@ const stale: string[] = [];
 function emit(rel: string, contents: string): void {
   const abs = join(ROOT, rel);
   if (CHECK) {
-    let committed: string | null = null;
-    try {
-      committed = readFileSync(abs, 'utf8');
-    } catch {
-      committed = null;
-    }
-    if (committed !== contents) stale.push(rel);
+    if (trackedText(ROOT, rel) !== contents) stale.push(rel);
     return;
   }
   mkdirSync(join(abs, '..'), { recursive: true });

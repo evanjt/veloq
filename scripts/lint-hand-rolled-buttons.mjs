@@ -19,14 +19,20 @@
 // built; tests; and `src/features/maps/` overlays, whose press targets sit on a
 // map surface rather than in the layout and belong to the press-feedback sweep.
 //
+// Also refused, with no baseline: `Button` or `SegmentedButtons` imported from
+// `react-native-paper` anywhere under `src/`, `src/shared/ui/` included. The
+// ratchet above sees only the press primitives, so a Paper control draws a
+// second button style that no count reaches. `IconButton` is not covered.
+//
 // A press target that is not a button, a card or a row stays on `Pressable`.
 // The ratchet does not know the difference, which is why it is a ceiling that
 // falls rather than a rule that refuses: a sweep lowers the number for the
 // controls it converted and leaves the rest standing.
 
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { treeView } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -44,30 +50,28 @@ const EXEMPT = ['src/shared/ui/', 'src/__tests__/', 'src/features/maps/'];
 /** A rendered press primitive, opening tag only. */
 const RENDERED = /<(?:TouchableOpacity|Pressable)[\s/>]/g;
 
-function walk(dir, out = []) {
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-  for (const entry of entries) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name === 'node_modules') continue;
-      walk(full, out);
-    } else if (/\.tsx?$/.test(entry.name)) {
-      out.push(full);
+const tree = treeView(ROOT, [relative(ROOT, SRC)]);
+
+/** An import from Paper naming `Button` or `SegmentedButtons`, aliased or not. */
+const PAPER_IMPORT = /import\s*\{([^}]*)\}\s*from\s*['"]react-native-paper['"]/g;
+const PAPER_BUTTONS = new Set(['Button', 'SegmentedButtons']);
+
+const paperButtons = [];
+const counts = {};
+for (const file of tree.files(
+  SRC,
+  (rel) => /\.tsx?$/.test(rel) && !rel.split('/').includes('node_modules')
+)) {
+  const rel = relative(ROOT, file).split('\\').join('/');
+  if (!rel.startsWith('src/__tests__/')) {
+    for (const [, names] of tree.text(file).matchAll(PAPER_IMPORT)) {
+      for (const name of names.split(',').map((n) => n.trim().split(/\s+as\s+/)[0])) {
+        if (PAPER_BUTTONS.has(name)) paperButtons.push([rel, name]);
+      }
     }
   }
-  return out;
-}
-
-const counts = {};
-for (const file of walk(SRC)) {
-  const rel = relative(ROOT, file).split('\\').join('/');
   if (EXEMPT.some((prefix) => rel.startsWith(prefix))) continue;
-  const hits = (readFileSync(file, 'utf8').match(RENDERED) || []).length;
+  const hits = (tree.text(file).match(RENDERED) || []).length;
   if (hits > 0) counts[rel] = hits;
 }
 
@@ -79,6 +83,15 @@ if (WRITE) {
     `hand-rolled button baseline written: ${total()} across ${Object.keys(counts).length} files`
   );
   process.exit(0);
+}
+
+if (paperButtons.length > 0) {
+  console.error('Paper draws a second button style. Use Button or ToggleButton from');
+  console.error('src/shared/ui, one ToggleButton per option in place of SegmentedButtons.\n');
+  for (const [file, name] of paperButtons) {
+    console.error(`  ${file}  imports ${name} from react-native-paper`);
+  }
+  process.exit(1);
 }
 
 const baseline = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));

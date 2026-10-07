@@ -23,9 +23,9 @@
 //   - .d.ts declarations, which are not modules.
 // Modules reached only from a test are reported separately as test-only. That is a different judgement and does not fail the audit.
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { treeView } from './lib/indexedSources.mjs';
 
 // `--root` points the audit at another tree, so the rules themselves can be
 // exercised against a fixture. Nothing but the tests passes it.
@@ -62,32 +62,26 @@ const SKIP_DIRS = new Set([
   'target',
 ]);
 
-// The entry type comes from the listing rather than from a second syscall, so
-// a file that disappears underneath the walk cannot take it down. A symlink
-// still needs the stat, and is dropped when it no longer resolves.
-function walk(dir, out = []) {
-  if (!existsSync(dir)) return out;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP_DIRS.has(entry.name)) continue;
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) walk(full, out);
-    else if (entry.isFile()) out.push(full);
-    else if (entry.isSymbolicLink()) {
-      const st = statSafe(full);
-      if (st === null) continue;
-      if (st.isDirectory()) walk(full, out);
-      else out.push(full);
-    }
-  }
-  return out;
-}
+// The tree this commit or merge records. Walking the disk read whichever
+// session had a file open here, and raced cargo's temporaries under `target`.
+const ROOT_FILES = [
+  'app.json',
+  'app.config.js',
+  'babel.config.js',
+  'react-native.config.js',
+  'metro.config.js',
+];
+const tree = treeView(ROOT, [
+  'src',
+  'config',
+  'scripts',
+  'modules',
+  ':(exclude)modules/*/rust',
+  ...ROOT_FILES,
+]);
 
-function statSafe(path) {
-  try {
-    return statSync(path);
-  } catch {
-    return null;
-  }
+function walk(dir) {
+  return tree.files(dir, (rel) => !rel.split('/').some((part) => SKIP_DIRS.has(part)));
 }
 
 // Both shapes the repo uses: the central src/__tests__ tree and a __tests__
@@ -123,7 +117,7 @@ function resolveSpecifier(spec, fromFile) {
       ]
     : RESOLVE_EXT.map((e) => base + e);
   for (const c of candidates) {
-    if (existsSync(c) && statSync(c).isFile()) return c;
+    if (tree.has(c)) return c;
   }
   return null;
 }
@@ -255,7 +249,7 @@ const files = new Map(); // abs path -> { src, imports, ownExports, reExports }
 
 function load(file) {
   if (files.has(file)) return files.get(file);
-  const src = readFileSync(file, 'utf8');
+  const src = tree.text(file);
   const entry = {
     src,
     imports: parseImports(src),
@@ -353,17 +347,11 @@ function main() {
 
   // Config and native-plugin files can name a src path without importing it.
   const configFiles = [
-    ...[
-      'app.json',
-      'app.config.js',
-      'babel.config.js',
-      'react-native.config.js',
-      'metro.config.js',
-    ].map((f) => join(ROOT, f)),
+    ...ROOT_FILES.map((f) => join(ROOT, f)),
     ...walk(join(ROOT, 'config')).filter((f) => /\.(?:js|json|ts)$/.test(f)),
     ...walk(join(ROOT, 'modules')).filter((f) => CODE_EXT.test(f) && !f.includes('/rust/')),
     ...walk(join(ROOT, 'scripts')).filter((f) => /\.(?:js|mjs|cjs|ts)$/.test(f)),
-  ].filter((f) => existsSync(f));
+  ].filter((f) => tree.has(f));
 
   // Real code: everything under src/ that is not a test, plus routes, plus the
   // config surface. Barrels are included as consumers only through the demand
@@ -390,7 +378,7 @@ function main() {
   const staleAllowed = [];
   for (const path of ALLOWLIST.keys()) {
     const full = join(ROOT, path);
-    if (!existsSync(full)) staleAllowed.push(`${path} does not exist`);
+    if (!tree.has(full)) staleAllowed.push(`${path} does not exist`);
     else if (reachedReal.has(full)) staleAllowed.push(`${path} is reachable from real code`);
   }
   if (staleAllowed.length > 0) {

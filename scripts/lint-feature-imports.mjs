@@ -16,10 +16,11 @@
 // which is the barrel and the point; a feature reaching into itself; and tests,
 // which reach wherever the thing they test lives.
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { treeSources } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -40,20 +41,26 @@ const VERBOSE = process.argv.includes('--verbose');
 
 const APP_OWNER = '~app';
 
+// The tree this commit or merge records, not the disk another session is editing.
+const TREE = treeSources(ROOT, [relative(ROOT, FEATURES), relative(ROOT, APP)]);
+const relOf = (file) => relative(ROOT, file).split(sep).join('/');
+const hasTracked = (dir) => {
+  const prefix = `${relOf(dir)}/`;
+  for (const rel of TREE.keys()) if (rel.startsWith(prefix)) return true;
+  return false;
+};
+
 function walk(dir) {
+  const prefix = `${relOf(dir)}/`;
   const out = [];
-  if (!existsSync(dir)) return out;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const { name } = entry;
-    const full = join(dir, name);
-    if (entry.isDirectory()) {
-      if (name === '__tests__' || name === '__mocks__') continue;
-      out.push(...walk(full));
-      continue;
-    }
+  for (const rel of TREE.keys()) {
+    if (!rel.startsWith(prefix)) continue;
+    const parts = rel.slice(prefix.length).split('/');
+    const name = parts[parts.length - 1];
+    if (parts.slice(0, -1).some((part) => part === '__tests__' || part === '__mocks__')) continue;
     if (!/\.tsx?$/.test(name)) continue;
     if (/\.(test|spec)\.tsx?$/.test(name) || /\.d\.ts$/.test(name)) continue;
-    out.push(full);
+    out.push(join(ROOT, rel));
   }
   return out;
 }
@@ -87,7 +94,7 @@ function targetOf(file, spec) {
 // imports and re-exports, `import()` and `require()`. Read from the syntax tree
 // so a path quoted in a comment or a string is not one of them.
 function specifiersIn(file) {
-  const src = readFileSync(file, 'utf8');
+  const src = TREE.get(relOf(file)).toString('utf8');
   const sf = ts.createSourceFile(
     file,
     src,
@@ -147,12 +154,12 @@ function scan() {
 function edgePresent(edge) {
   const [owner, target] = edge.split(' -> ');
   const ownerDir = owner === APP_OWNER ? APP : join(FEATURES, owner);
-  return existsSync(ownerDir) && existsSync(join(FEATURES, target));
+  return hasTracked(ownerDir) && hasTracked(join(FEATURES, target));
 }
 
 const hasBarrel = (feature) =>
-  existsSync(join(FEATURES, feature, 'index.ts')) ||
-  existsSync(join(FEATURES, feature, 'index.tsx'));
+  TREE.has(relOf(join(FEATURES, feature, 'index.ts'))) ||
+  TREE.has(relOf(join(FEATURES, feature, 'index.tsx')));
 
 function main() {
   const { deep, barrel } = scan();

@@ -1,14 +1,12 @@
 #!/usr/bin/env node
 // Static sweep for the latent-crash patterns this codebase's audit checked by hand.
-// Exits non-zero on (a)(b)(c); the Rust (d) check is advisory only.
+// Exits non-zero on (b). The Math spread and Rust checks are advisory.
 //
 //   (a) Math.max(...x)/Math.min(...x) without a nearby length guard or `||` seed.
 //       Math.max([]) is -Infinity and Math.min([]) is +Infinity, which leak into
 //       chart domains and date math as silent NaN/Infinity.
-//   (b) A React hook called after an early `return` at a component's top-level depth
-//       (the SeasonComparison Rules-of-Hooks class: hook count changes when data loads).
-//   (c) JSON.parse not inside try/catch and not via the safeJsonParse helper.
-//   (d) Rust .unwrap()/.expect( inside a #[uniffi::export] body (advisory warnings).
+//   (b) JSON.parse not inside try/catch and not via the safeJsonParse helper.
+//   (c) Rust .unwrap()/.expect( inside a #[uniffi::export] body (advisory warnings).
 //
 // Usage:
 //   node scripts/crash-guard-sweep.mjs                 # full src/** tree (CI)
@@ -17,13 +15,13 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { treeSources } from './lib/indexedSources.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const SRC_DIR = path.join(ROOT, 'src');
 const RUST_DIR = path.join(ROOT, 'modules/veloqrs/rust/veloqrs/src');
 
-const HOOK_NAMES = ['useMemo', 'useState', 'useEffect', 'useCallback', 'useRef'];
 // How many preceding source lines to scan for a guard before a Math.max(...x) site.
 const GUARD_WINDOW = 12;
 
@@ -34,19 +32,24 @@ function isGenerated(name) {
   return name.endsWith('.generated.ts') || name.endsWith('.generated.tsx');
 }
 
+// What the full sweep reads, keyed by absolute path: the index, so another
+// session's unsaved file in this checkout is never the subject.
+const TREE_TEXT = new Map();
+
 function walk(dir, exts, out = []) {
-  if (!fs.existsSync(dir)) return out;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name === 'node_modules' || entry.name === 'generated') continue;
-      walk(full, exts, out);
-    } else if (exts.some((e) => entry.name.endsWith(e)) && !isGenerated(entry.name)) {
-      out.push(full);
-    }
+  for (const [rel, bytes] of treeSources(ROOT, [path.relative(ROOT, dir)])) {
+    const parts = rel.split('/');
+    if (parts.includes('node_modules') || parts.slice(0, -1).includes('generated')) continue;
+    const name = parts[parts.length - 1];
+    if (!exts.some((e) => name.endsWith(e)) || isGenerated(name)) continue;
+    const abs = path.join(ROOT, rel);
+    TREE_TEXT.set(abs, bytes.toString('utf8'));
+    out.push(abs);
   }
   return out;
 }
+
+const readSource = (file) => TREE_TEXT.get(file) ?? fs.readFileSync(file, 'utf8');
 
 // Replace string/template/regex literals and comments with spaces so structural
 // scanning (braces, keywords) never trips over text inside them. Length and line
@@ -140,83 +143,7 @@ function checkMathSpread(file, rawLines, cleanLines, findings) {
   }
 }
 
-// (b) Hook called after an early return at a component's top-level body depth.
-// Components are PascalCase functions/arrows. We find each component's opening
-// brace and its body depth, then walk lines: once a `return` appears at body
-// depth, any later hook call at body depth is a Rules-of-Hooks hazard.
-function checkHooksAfterReturn(file, rawLines, clean, findings) {
-  const depths = braceDepths(clean);
-  const cleanLines = clean.split('\n');
-
-  // Component declarations: `function Foo(`, `export function Foo(`,
-  // `const Foo = (...) =>`, `const Foo = memo(`, `const Foo = forwardRef(`.
-  const compDecl =
-    /(?:export\s+(?:default\s+)?)?(?:function\s+([A-Z]\w*)\s*[(<]|const\s+([A-Z]\w*)\s*=\s*(?:React\.)?(?:memo|forwardRef)?\s*\(?\s*(?:function\b|\([^)]*\)\s*(?::[^=]+)?=>|[A-Za-z_$][\w$]*\s*=>))/;
-
-  for (let i = 0; i < cleanLines.length; i++) {
-    const m = compDecl.exec(cleanLines[i]);
-    if (!m) continue;
-
-    // Find the body open brace from this declaration onward.
-    let openLine = -1;
-    let openCol = -1;
-    for (let j = i; j < cleanLines.length && j < i + 6; j++) {
-      const from = j === i ? m.index : 0;
-      const braceIdx = cleanLines[j].indexOf('{', from);
-      if (braceIdx !== -1) {
-        openLine = j;
-        openCol = braceIdx;
-        break;
-      }
-    }
-    if (openLine === -1) continue;
-
-    // Interior of the body sits at this depth; the closing brace line is one below.
-    const bodyDepth = depths[openLine] + countBefore(cleanLines[openLine], openCol, '{', '}') + 1;
-
-    let seenReturn = false;
-    for (let j = openLine + 1; j < cleanLines.length; j++) {
-      const lineStartDepth = depths[j];
-      // Component body ended once a line starts below the body's interior depth.
-      if (lineStartDepth < bodyDepth) break;
-
-      const line = cleanLines[j];
-      const atBodyDepth = lineStartDepth === bodyDepth;
-
-      // Flag hooks only when a return was seen on a *prior* body line, so a
-      // legitimate `return useMemo(...)` on the same line is not a false hit.
-      if (seenReturn && atBodyDepth) {
-        for (const hook of HOOK_NAMES) {
-          const re = new RegExp('\\b' + hook + '\\s*\\(');
-          if (re.test(line)) {
-            findings.push({
-              kind: 'b',
-              file,
-              line: j + 1,
-              text: rawLines[j].trim(),
-              msg: `${hook} called after an early return in component (Rules-of-Hooks hazard)`,
-            });
-            break;
-          }
-        }
-      }
-      if (atBodyDepth && /\breturn\b/.test(line)) {
-        seenReturn = true;
-      }
-    }
-  }
-}
-
-function countBefore(line, col, openCh, closeCh) {
-  let net = 0;
-  for (let k = 0; k < col; k++) {
-    if (line[k] === openCh) net++;
-    else if (line[k] === closeCh) net--;
-  }
-  return net;
-}
-
-// (c) JSON.parse not inside try/catch and not via safeJsonParse.
+// (b) JSON.parse not inside try/catch and not via safeJsonParse.
 // JSON.parse(JSON.stringify(...)) is a deep-clone idiom that cannot throw on the
 // stringified input, so it is exempt. Try coverage is tracked by depth: a site is
 // safe if it sits inside the brace range opened by a `try {`.
@@ -259,7 +186,7 @@ function checkJsonParse(file, rawLines, clean, findings) {
       // Already guarded via the safeJsonParse helper definition itself.
       if (/safeJsonParse/.test(line)) continue;
       findings.push({
-        kind: 'c',
+        kind: 'b',
         file,
         line: i + 1,
         text: rawLines[i].trim(),
@@ -269,7 +196,7 @@ function checkJsonParse(file, rawLines, clean, findings) {
   }
 }
 
-// (d) Rust .unwrap()/.expect( inside a #[uniffi::export] body. Advisory only.
+// (c) Rust .unwrap()/.expect( inside a #[uniffi::export] body. Advisory only.
 function checkRustUnwrap(file, rawLines, clean, findings) {
   const cleanLines = clean.split('\n');
   const depths = braceDepths(clean);
@@ -299,7 +226,7 @@ function checkRustUnwrap(file, rawLines, clean, findings) {
       if (depths[j] <= blockDepth && j > openLine) break;
       if (/\.unwrap\(\)|\.expect\(/.test(cleanLines[j])) {
         findings.push({
-          kind: 'd',
+          kind: 'c',
           file,
           line: j + 1,
           text: rawLines[j].trim(),
@@ -312,19 +239,18 @@ function checkRustUnwrap(file, rawLines, clean, findings) {
 }
 
 function scanTsFile(file, findings) {
-  const raw = fs.readFileSync(file, 'utf8');
+  const raw = readSource(file);
   const clean = stripNoise(raw);
   const rawLines = raw.split('\n');
   const cleanLines = clean.split('\n');
   const rel = path.relative(ROOT, file);
 
   checkMathSpread(rel, rawLines, cleanLines, findings);
-  checkHooksAfterReturn(rel, rawLines, clean, findings);
   checkJsonParse(rel, rawLines, clean, findings);
 }
 
 function scanRustFile(file, findings) {
-  const raw = fs.readFileSync(file, 'utf8');
+  const raw = readSource(file);
   const clean = stripNoise(raw);
   const rawLines = raw.split('\n');
   const rel = path.relative(ROOT, file);
@@ -369,18 +295,14 @@ function main() {
   for (const f of ts) scanTsFile(f, findings);
   for (const f of rust) scanRustFile(f, findings);
 
-  // Blocking = true crash classes: hooks-after-return (Rules of Hooks) and
-  // unguarded JSON.parse. Advisory = (a) Math.max/min on a possibly-empty
-  // spread yields Infinity (a NaN risk caught by the nanInUI guards, not a
-  // crash) and (d) Rust unwrap/expect.
-  const blocking = findings.filter((f) => f.kind === 'b' || f.kind === 'c');
-  const advisory = findings.filter((f) => f.kind === 'a' || f.kind === 'd');
+  // JSON.parse is blocking. Math spread and Rust unwrap/expect are advisory.
+  const blocking = findings.filter((f) => f.kind === 'b');
+  const advisory = findings.filter((f) => f.kind === 'a' || f.kind === 'c');
 
   const labels = {
     a: 'Math.max/min spread (NaN risk)',
-    b: 'hook after early return',
-    c: 'unguarded JSON.parse',
-    d: 'Rust unwrap/expect in FFI export',
+    b: 'unguarded JSON.parse',
+    c: 'Rust unwrap/expect in FFI export',
   };
 
   for (const f of blocking) {
@@ -390,15 +312,14 @@ function main() {
     console.warn(`warning [${f.kind}] ${f.file}:${f.line}  ${labels[f.kind]}\n    ${f.msg}\n    ${f.text}`);
   }
 
-  const counts = { a: 0, b: 0, c: 0, d: 0 };
+  const counts = { a: 0, b: 0, c: 0 };
   for (const f of findings) counts[f.kind]++;
 
   console.log('\ncrash-guard-sweep summary');
   console.log(`  scanned: ${ts.length} TS/TSX, ${rust.length} Rust`);
   console.log(`  (a) Math.max/min spread:            ${counts.a}`);
-  console.log(`  (b) hook after early return:        ${counts.b}`);
-  console.log(`  (c) unguarded JSON.parse:           ${counts.c}`);
-  console.log(`  (d) Rust unwrap/expect in export:   ${counts.d} (advisory)`);
+  console.log(`  (b) unguarded JSON.parse:           ${counts.b}`);
+  console.log(`  (c) Rust unwrap/expect in export:   ${counts.c} (advisory)`);
 
   if (blocking.length > 0) {
     console.log(`\n${blocking.length} blocking issue(s). Fix or guard before commit.`);

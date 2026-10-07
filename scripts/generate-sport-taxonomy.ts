@@ -10,16 +10,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { readRustSportFamilies, renderSportTaxonomy } from './lib/sportTaxonomy';
+import { trackedText } from './lib/indexedSources.mjs';
+import { readRustSportDisplayGroups, readRustSportFamilies, renderSportTaxonomy } from './lib/sportTaxonomy';
 
 const REPO = path.resolve(__dirname, '..');
-const RUST = path.join(REPO, 'modules/veloqrs/rust/veloqrs/src/sport.rs');
-const OUT = path.join(REPO, 'src/shared/native/sportTaxonomy.generated.ts');
+const RUST = 'modules/veloqrs/rust/veloqrs/src/sport.rs';
+const OUT_REL = 'src/shared/native/sportTaxonomy.generated.ts';
+const OUT = path.join(REPO, OUT_REL);
 
-const rendered = renderSportTaxonomy(readRustSportFamilies(fs.readFileSync(RUST, 'utf-8')));
-const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf-8') : '';
+const CHECK = process.argv.includes('--check');
+const source = CHECK ? (trackedText(REPO, RUST) ?? '') : fs.readFileSync(path.join(REPO, RUST), 'utf-8');
+const rendered = renderSportTaxonomy(readRustSportFamilies(source), readRustSportDisplayGroups(source));
 
-if (process.argv.includes('--check')) {
+if (CHECK) {
+  const current = trackedText(REPO, OUT_REL) ?? '';
   if (current === rendered) {
     console.log('Sport taxonomy is up to date with the Rust source.');
     process.exit(0);

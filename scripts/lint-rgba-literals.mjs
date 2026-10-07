@@ -28,9 +28,10 @@
 // up in a page string: a builder that already interpolates `jsLiteral(token)`
 // has access to the theme and is not exempt.
 
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { treeSources } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -54,25 +55,11 @@ const EXEMPT = [
 // channel is still a colour nobody named.
 const LITERAL = /['"`]rgba?\(/g;
 
-function walk(dir, out = []) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const { name } = entry;
-    const full = join(dir, name);
-    if (entry.isDirectory()) {
-      if (name === 'node_modules') continue;
-      walk(full, out);
-    } else if (/\.tsx?$/.test(name)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
 const counts = {};
-for (const file of walk(SRC)) {
-  const rel = relative(ROOT, file).split('\\').join('/');
+for (const [rel, bytes] of treeSources(ROOT, [relative(ROOT, SRC) || '.'])) {
+  if (!/\.tsx?$/.test(rel)) continue;
   if (EXEMPT.some((prefix) => rel.startsWith(prefix))) continue;
-  const hits = (readFileSync(file, 'utf8').match(LITERAL) || []).length;
+  const hits = (bytes.toString('utf8').match(LITERAL) || []).length;
   if (hits > 0) counts[rel] = hits;
 }
 

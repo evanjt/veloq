@@ -2,18 +2,16 @@
 
 // Regenerates the bundled MapLibre GL JS renderer. Every map in the app is a
 // WebView, and the page used to pull the renderer off unpkg at open time, so a
-// device with no radio and a cold WebView HTTP cache drew no map at all (B131,
-// decided in Q28).
+// device with no radio and a cold WebView HTTP cache drew no map at all.
 //
 // The renderer has to be defined before the first line that touches
-// `maplibregl`, which is before the `bundledAssetRequest` postMessage channel
-// exists, so it cannot come through that channel like the sprite and the
-// glyphs do. It is inlined into the HTML string instead, in `mapLibreHead`,
-// the one place all three page builders share.
+// `maplibregl`, so it cannot be requested by the page. It is inlined into the
+// HTML string instead, in `mapLibreHead`, the one place all three page builders
+// share.
 //
-// The bytes are written as a TypeScript module rather than a binary asset for
-// the same reason the basemap assets are: a required module works the same in
-// dev, release and Jest, with no expo-asset and no metro assetExts entry.
+// The bytes are written as a TypeScript module rather than a binary asset: a
+// required module works the same in dev, release and Jest, with no expo-asset
+// and no metro assetExts entry.
 //
 // The version is pinned here and asserted by the tests, so a renderer bump is
 // a deliberate commit rather than whatever unpkg served that day.

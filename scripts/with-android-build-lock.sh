@@ -21,6 +21,13 @@
 
 set -eu
 
+# Already inside a lock this script took, so take nothing: a flock is held per
+# open file description, and a second take blocks the child on its own parent.
+# `android:debug` runs `bundle:android` inside the lock and relies on this.
+if [ -n "${VELOQ_ANDROID_BUILD_LOCK_HELD:-}" ]; then
+  exec "$@"
+fi
+
 # A fixed path, never one the environment chooses: a session with its own temp
 # directory would take a lock nobody else can see, which is the same as no lock
 # at all. `/tmp/claude-<uid>` is where the agent sessions already put it; plain
@@ -40,4 +47,5 @@ if ! flock -n "$lock" true 2>/dev/null; then
   echo "with-android-build-lock: another build holds $lock, waiting" >&2
 fi
 
+export VELOQ_ANDROID_BUILD_LOCK_HELD=1
 exec flock "$lock" "$@"

@@ -41,7 +41,8 @@
 //
 // An engine read is a call through getEngine(), getNativeModule(), a binding
 // initialised from one of those or from useEngineReady(), which returns the
-// same handle, or a parameter named engine. Reads inside a boundary are not
+// same handle, one of those held in a useMemo, useRef or useState, the `engine`
+// veloqrs exports, or a parameter named engine. Reads inside a boundary are not
 // reported.
 //
 // `direct` and `helper` reads fail the run unless the file is in ALLOWLIST with
@@ -49,10 +50,16 @@
 // MEMO_ALLOWLIST. A bare-trigger `memo` read always fails. Keyed `memo` and
 // `init` reads are printed under --verbose and never fail.
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { treeView } from './lib/indexedSources.mjs';
+import {
+  HANDLE_CALLS,
+  isEngineHandleExpression,
+  isHandleCall,
+  isVeloqrsEngineName,
+} from './lib/engineReach.mjs';
 
 // `--root` points the lint at another tree, so the rule itself can be tested.
 const rootArg = process.argv.indexOf('--root');
@@ -127,14 +134,6 @@ const MEMO_ALLOWLIST = new Map([
   // Feeds a useState initialiser and is named for it: one read per mount, with
   // its own refresh path for everything after.
   ['src/features/activity/hooks/useActivityBoundsCache.ts', 'initial value, refreshed elsewhere'],
-  // Keyed on the handle useEngineReady returns, which changes when the engine
-  // opens, clears or is quarantined. No event announces a settings change, and
-  // the row's own writes land in local state, so the handle is the only other
-  // thing that moves these. The settings screen read takes them over.
-  [
-    'src/features/settings/components/ExportPrivacyRow.tsx',
-    'keyed on the engine handle, and the row writes the settings itself',
-  ],
 ]);
 
 // Hooks whose callback React runs during render. useMemo runs it whenever the
@@ -144,23 +143,16 @@ const MEMO_ALLOWLIST = new Map([
 // between and is caught as direct.
 const LAZY_INIT = new Set(['useState', 'useReducer']);
 
+const tree = treeView(ROOT, ['src']);
+
 function walk(dir) {
-  const out = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const { name } = entry;
-    const full = join(dir, name);
-    if (entry.isDirectory()) {
-      if (name === '__tests__' || name === '__mocks__') continue;
-      out.push(...walk(full));
-    } else if (
-      /\.tsx?$/.test(name) &&
-      !/\.(test|spec)\.tsx?$/.test(name) &&
-      !/\.d\.ts$/.test(name)
-    ) {
-      out.push(full);
-    }
-  }
-  return out;
+  return tree.files(dir, (rel) => {
+    const parts = rel.split('/');
+    const name = parts[parts.length - 1];
+    if (parts.slice(0, -1).some((part) => part === '__tests__' || part === '__mocks__'))
+      return false;
+    return /\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name) && !/\.d\.ts$/.test(name);
+  });
 }
 
 const rel = (p) => relative(ROOT, p);
@@ -200,13 +192,20 @@ function engineReadName(call) {
   if (!ts.isPropertyAccessExpression(callee) && !ts.isElementAccessExpression(callee)) return null;
   const member = ts.isPropertyAccessExpression(callee) ? callee.name.text : '[]';
   let root = callee.expression;
-  // Strip one level of nested member access: engine.sections.list() style.
-  while (
-    ts.isPropertyAccessExpression(root) ||
-    ts.isNonNullExpression(root) ||
-    ts.isParenthesizedExpression(root)
-  ) {
-    root = root.expression;
+  // Strip nested member access: engine.sections.list() style. Each level is
+  // also asked whether it is itself the engine, which is how `V.engine.x()`
+  // and `require('veloqrs').engine.x()` are met before the walk loses them.
+  for (;;) {
+    if (isEngineHandleExpression(root)) return member;
+    if (
+      ts.isPropertyAccessExpression(root) ||
+      ts.isNonNullExpression(root) ||
+      ts.isParenthesizedExpression(root)
+    ) {
+      root = root.expression;
+    } else {
+      break;
+    }
   }
   if (ts.isCallExpression(root) && ts.isIdentifier(root.expression)) {
     if (root.expression.text === 'getEngine' || root.expression.text === 'getNativeModule')
@@ -245,6 +244,11 @@ function nearestBinding(id) {
       if (!ts.isVariableStatement(st)) continue;
       for (const d of st.declarationList.declarations) {
         if (ts.isIdentifier(d.name) && d.name.text === name) return { decl: d };
+        // `const [client] = useState(() => getEngine())`: the state is the
+        // first element, and it is what the initialiser returned.
+        const first = ts.isArrayBindingPattern(d.name) ? d.name.elements[0] : null;
+        const firstName = first && ts.isBindingElement(first) ? first.name : null;
+        if (firstName && ts.isIdentifier(firstName) && firstName.text === name) return { decl: d };
       }
     }
   }
@@ -260,14 +264,66 @@ function initialiserCalls(id, ...callees) {
   return new RegExp(`^\\(*(?:${callees.join('|')})\\s*\\(`).test(init.getText());
 }
 
+// Hooks that hold whatever their argument or callback gives them. A handle kept
+// in one is still the handle: a memo with no deps computes it once, which is
+// exactly the `getEngine()` it wraps.
+const HOLDS_VALUE = new Set(['useMemo', 'useRef', 'useState']);
+
+const unwrap = (node) => {
+  let n = node;
+  while (
+    ts.isParenthesizedExpression(n) ||
+    ts.isNonNullExpression(n) ||
+    ts.isAsExpression(n) ||
+    ts.isSatisfiesExpression(n)
+  ) {
+    n = n.expression;
+  }
+  return n;
+};
+
+const calleeName = (call) => {
+  const callee = call.expression;
+  if (ts.isIdentifier(callee)) return callee.text;
+  if (ts.isPropertyAccessExpression(callee)) return callee.name.text;
+  return null;
+};
+
+// What a callback hands back: its expression body, or every top-level return.
+function returnedExpressions(fn) {
+  if (!ts.isBlock(fn.body)) return [fn.body];
+  return fn.body.statements
+    .filter(ts.isReturnStatement)
+    .flatMap((r) => (r.expression ? [r.expression] : []));
+}
+
+// `useMemo(() => getEngine(), [])`, `useRef(getEngine())` or its `.current`,
+// `useState(() => getEngine())`: a handle held in a hook.
+function holdsHandle(init) {
+  let n = unwrap(init);
+  if (ts.isPropertyAccessExpression(n) && n.name.text === 'current') n = unwrap(n.expression);
+  if (!ts.isCallExpression(n) || !HOLDS_VALUE.has(calleeName(n))) return false;
+  const arg = n.arguments[0];
+  if (!arg) return false;
+  if (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) {
+    const returned = returnedExpressions(arg);
+    return returned.length > 0 && returned.every(isHandleCall);
+  }
+  return isHandleCall(arg);
+}
+
 // Is this identifier bound to an engine handle? A `const engine = getEngine()`
-// is a handle, and so is `useEngineReady()`, which returns the same one, and a
-// parameter called engine. A loop variable or a destructured field is not,
-// whatever it is called.
+// is a handle, and so is `useEngineReady()`, which returns the same one, the
+// same call held in a useMemo, a useRef or a useState, the `engine` `veloqrs`
+// exports, and a parameter called engine. A loop variable or a destructured
+// field is not, whatever it is called.
 function bindsEngine(id) {
   const binding = nearestBinding(id);
   if (binding?.param) return /engine$/i.test(id.text);
-  return initialiserCalls(id, 'getEngine', 'getNativeModule', 'useEngineReady');
+  if (!binding) return isVeloqrsEngineName(id);
+  if (initialiserCalls(id, ...HANDLE_CALLS)) return true;
+  const init = binding.decl?.initializer;
+  return init ? holdsHandle(init) || isEngineHandleExpression(init) : false;
 }
 
 // Where does a callback passed as an argument run? Returns 'render' when React
@@ -352,7 +408,7 @@ function isModuleLevelFunction(fn) {
 }
 
 function parseFile(file) {
-  const src = readFileSync(file, 'utf8');
+  const src = tree.text(file);
   const sf = ts.createSourceFile(
     file,
     src,
@@ -445,7 +501,7 @@ function resolveImport(fromFile, spec) {
     join(base, 'index.ts'),
     join(base, 'index.tsx'),
   ]) {
-    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+    if (tree.has(candidate)) return candidate;
   }
   return null;
 }
@@ -547,10 +603,10 @@ function main() {
   // An allowlist entry whose file exists but no longer holds a read is stale.
   const stale = [
     ...[...ALLOWLIST.keys()].filter(
-      (k) => existsSync(join(ROOT, k)) && !failing.some((f) => f.file === k)
+      (k) => tree.has(join(ROOT, k)) && !failing.some((f) => f.file === k)
     ),
     ...[...MEMO_ALLOWLIST.keys()].filter(
-      (k) => existsSync(join(ROOT, k)) && !unkeyedMemo.some((f) => f.file === k)
+      (k) => tree.has(join(ROOT, k)) && !unkeyedMemo.some((f) => f.file === k)
     ),
   ];
   if (stale.length > 0) {

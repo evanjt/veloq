@@ -1,21 +1,31 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const appGradlePath = join(root, 'android', 'app', 'build.gradle');
-const rootGradlePath = join(root, 'android', 'build.gradle');
+import { trackedText } from './lib/indexedSources.mjs';
+
+const rootFlag = process.argv.indexOf('--root');
+const root =
+  rootFlag === -1
+    ? join(dirname(fileURLToPath(import.meta.url)), '..')
+    : process.argv[rootFlag + 1];
+const appGradlePath = 'android/app/build.gradle';
+const rootGradlePath = 'android/build.gradle';
 
 function read(path) {
-  try {
-    return readFileSync(path, 'utf8');
-  } catch {
+  const text = trackedText(root, path);
+  if (text === undefined) {
     console.error(`check-android-prebuild: could not read ${path}`);
     process.exit(1);
   }
+  return text;
 }
+
+const appJson = JSON.parse(read('app.json'));
+const version = String(appJson.expo?.version);
+const versionCode = String(appJson.expo?.android?.versionCode);
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const appGradle = read(appGradlePath);
 const rootGradle = read(rootGradlePath);
@@ -23,14 +33,22 @@ const rootGradle = read(rootGradlePath);
 const checks = [
   ['namespace', appGradle, /namespace\s+['"]com\.veloq\.app\.dev['"]/],
   ['applicationId', appGradle, /applicationId\s+['"]com\.veloq\.app\.dev['"]/],
-  ['versionCode', appGradle, /versionCode\s+29\b/],
-  ['versionName', appGradle, /versionName\s+["']0\.4\.0["']/],
+  ['versionCode', appGradle, new RegExp(`versionCode\\s+${escapeRegExp(versionCode)}\\b`)],
+  ['versionName', appGradle, new RegExp(`versionName\\s+["']${escapeRegExp(version)}["']`)],
   ['release signing config', appGradle, /release\s*\{[\s\S]*?keystorePropertiesFile\.exists\(\)/],
-  ['Google services application plugin', appGradle, /apply plugin:\s*['"]com\.google\.gms\.google-services['"]/],
+  [
+    'Google services application plugin',
+    appGradle,
+    /apply plugin:\s*['"]com\.google\.gms\.google-services['"]/,
+  ],
   ['Google services build plugin', rootGradle, /com\.google\.gms:google-services:4\.4\.4/],
   ['OpenIAP Android dependency', appGradle, /openiap-google:2\.1\.0/],
   ['libfbjni packaging fix', appGradle, /pickFirsts\s*\+=\s*\[['"]\*\*\/libfbjni\.so['"]\]/],
-  ['annotation duplicate fix', appGradle, /force\s+['"]androidx\.annotation:annotation-experimental:1\.4\.1['"]/],
+  [
+    'annotation duplicate fix',
+    appGradle,
+    /force\s+['"]androidx\.annotation:annotation-experimental:1\.4\.1['"]/,
+  ],
 ];
 
 const failures = [];

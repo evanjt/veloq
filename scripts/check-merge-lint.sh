@@ -9,10 +9,17 @@
 # cannot be scoped that way, so the whole tree is taken out of the index
 # instead.
 #
-# `git checkout-index` writes the index to a scratch directory, measured at
-# 0.13 s over 2,515 files. eslint resolves `eslint.config.js` from the copy
-# unchanged, because the config is not type-aware and so needs no tsconfig
-# project graph, and it reports what the working tree does.
+# `git checkout-index` writes the index to a copy, measured at 0.13 s over
+# 2,515 files. eslint resolves `eslint.config.js` from the copy unchanged,
+# because the config is not type-aware and so needs no tsconfig project graph,
+# and it reports what the working tree does.
+#
+# The copy sits at one fixed path in the repository's git directory, and eslint
+# keeps a content cache beside it, so a landing re-lints only the files whose
+# contents changed. A fresh temp copy with no cache lints every file cold, 28 s
+# of each landing. A cached file keeps its warnings in the cache, so one that
+# has a warning still fails. The cross-file rules left are `import/*`, and
+# `tsc --noEmit` in the same battery covers a broken named import.
 #
 # The tree holds no warnings, so the merged `lint` script has to say so. A
 # ceiling above zero is how warnings landed for months: raised in the same
@@ -25,18 +32,22 @@ set -e
 # this against a scratch repository. The merge hook wants this one.
 repo=${VELOQ_MERGE_LINT_REPO:-$(pwd)}
 
-tmp=$(mktemp -d "${TMPDIR:-/tmp}/veloq-merge-lint.XXXXXX")
-# Every exit path, including the failing one, or a leaked copy of the tree sits
-# in the system temp for the rest of the day.
-trap 'rm -rf "$tmp"' EXIT INT TERM
+git_dir=$(git rev-parse --absolute-git-dir)
+copy="$git_dir/veloq-merge-lint"
+cache="$git_dir/veloq-merge-lint.cache"
 
-git checkout-index -a --prefix="$tmp/"
+# Emptied first, so a file the candidate deleted is not linted from a past run.
+rm -rf "$copy"
+mkdir -p "$copy"
+
+git checkout-index -a --prefix="$copy/"
 
 # Exactly one flag and it is zero, read from the merged copy.
-node "$repo/scripts/lint-zero-warnings.mjs" "$tmp/package.json" || exit 1
+node "$repo/scripts/lint-zero-warnings.mjs" "$copy/package.json" || exit 1
 
 # eslint resolves its plugins through node_modules, which is not in the index.
-ln -s "$repo/node_modules" "$tmp/node_modules"
+ln -s "$repo/node_modules" "$copy/node_modules"
 
-cd "$tmp"
-"$repo/node_modules/.bin/eslint" . --no-warn-ignored --max-warnings 0
+cd "$copy"
+"$repo/node_modules/.bin/eslint" . --no-warn-ignored --max-warnings 0 \
+  --cache --cache-strategy content --cache-location "$cache"
