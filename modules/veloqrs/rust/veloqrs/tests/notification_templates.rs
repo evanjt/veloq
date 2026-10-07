@@ -6,7 +6,7 @@
 //! killed reads nothing. These fifteen go to the settings table, which is why
 //! the durability case below is the one that matters.
 //!
-//! Run: `cargo test --test notification_templates -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- notification_templates::`
 
 use std::path::PathBuf;
 
@@ -61,6 +61,10 @@ fn japanese() -> Vec<(String, String)> {
             "{{name}}ほか{{count}}個で自己ベスト",
         ),
         (
+            "notifications.activityBody.sectionPrManyOne",
+            "{{name}}ほか1個で自己ベスト",
+        ),
+        (
             "notifications.activityBody.fasterOnRoute",
             "{{name}}でいつもより速い",
         ),
@@ -68,7 +72,6 @@ fn japanese() -> Vec<(String, String)> {
             "notifications.activityBody.fasterOnRouteDelta",
             "{{name}}でいつもより速い（自己ベストまで{{delta}}）",
         ),
-        ("notifications.activityBody.onRoute", "{{name}}を走行"),
         ("notifications.activityPr.title", "自己ベスト"),
         ("notifications.activityFaster.title", "好調"),
         (
@@ -106,7 +109,7 @@ fn every_template_pushed_comes_back_under_its_locale() {
         .expect("read")
         .expect("held");
     assert_eq!(held.locale, "ja");
-    assert_eq!(held.templates.len(), 15);
+    assert_eq!(held.templates.len(), japanese().len());
     assert_eq!(
         held.templates
             .get("notifications.activityBody.routePrDelta")
@@ -148,7 +151,10 @@ fn a_locale_change_leaves_none_of_the_previous_bundle() {
     engine
         .set_notification_templates(
             "en-AU",
-            &pairs(&[("notifications.activityBody.onRoute", "On {{name}}")]),
+            &pairs(&[(
+                "notifications.activityBody.fasterOnRoute",
+                "Faster on {{name}}",
+            )]),
         )
         .expect("push");
 
@@ -164,9 +170,9 @@ fn a_locale_change_leaves_none_of_the_previous_bundle() {
     );
     assert_eq!(
         held.templates
-            .get("notifications.activityBody.onRoute")
+            .get("notifications.activityBody.fasterOnRoute")
             .map(String::as_str),
-        Some("On {{name}}")
+        Some("Faster on {{name}}")
     );
 }
 
@@ -189,7 +195,7 @@ fn a_fresh_engine_on_the_same_file_reads_the_last_push() {
         .expect("held");
 
     assert_eq!(held.locale, "ja");
-    assert_eq!(held.templates.len(), 15);
+    assert_eq!(held.templates.len(), japanese().len());
 }
 
 #[test]

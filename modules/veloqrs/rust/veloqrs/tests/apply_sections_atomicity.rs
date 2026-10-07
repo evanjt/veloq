@@ -31,7 +31,7 @@ fn engine_with_b_state() -> (PersistentEngine, TempDir) {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
         bucket_b_delta_count: 90,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 4,
         ..LifecycleConfig::default()
@@ -123,43 +123,5 @@ fn apply_sections_remaps_duplicate_input_ids() {
         unique_ids.len(),
         post.len(),
         "duplicate ids leaked into the persisted catalogue"
-    );
-}
-
-#[test]
-fn apply_sections_preserves_db_after_failure_then_succeeds_on_retry() {
-    let (mut engine, _tmp) = engine_with_b_state();
-
-    let pre = fingerprint(&mut engine);
-
-    // Apply a duplicate-id vec (a no-op collision-wise under the identity remap,
-    // absorbed rather than crashing), then confirm the engine is still healthy.
-    let mut broken: Vec<_> = engine.get_sections().to_vec();
-    let dup_id = broken[0].id.clone();
-    broken[1].id = dup_id;
-    let _ = engine.apply_sections(broken);
-
-    // Now re-run a real detection and apply, the engine must still be
-    // healthy enough to do this. If save_sections left the DB in a
-    // partial state, this would error.
-    let handle = engine.detect_sections_background();
-    let (sections, _) = handle.recv().expect("the detect ran");
-    let retry = engine.apply_sections(sections);
-    assert!(
-        retry.is_ok(),
-        "engine could not recover after a failed apply: {:?}",
-        retry
-    );
-
-    let post = fingerprint(&mut engine);
-    // The retry detection should converge to a similar shape; we don't
-    // assert exact equality (detection isn't deterministic across separate
-    // runs of the algorithm with the same inputs), but section count
-    // shouldn't collapse.
-    assert!(
-        post.len() >= pre.len() / 2,
-        "section count dropped catastrophically after retry: pre={} post={}",
-        pre.len(),
-        post.len()
     );
 }

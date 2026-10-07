@@ -7,15 +7,14 @@
 //!
 //! Coordinates here are synthetic.
 
-mod migration_support;
-
-use migration_support::{latest_version, seed_at_version};
 use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 use veloqrs::persistence::codec;
+
+use crate::migration_support::{latest_version, seed_at_version};
 
 const SID: &str = "s_versioned";
 const POINTS: u32 = 40;

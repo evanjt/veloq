@@ -14,15 +14,18 @@
 //! place before the first tile whatever the machine's load. The pass slot, the
 //! handle slot and the hold are process-global, so these take `SERIAL`.
 //!
-//! Run: `cargo test --features synthetic --test heatmap_work_is_cancellable -p veloqrs`
+//! Run: `cargo test --features synthetic --test heatmap_synthetic -p veloqrs -- heatmap_work_is_cancellable::`
 
 use std::sync::{Mutex, MutexGuard};
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::PersistentEngine;
-use veloqrs::persistence::tiles::hold_next_tile_pass;
-use veloqrs::persistence::{CancelToken, TileGenerationHandle};
+use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
+use veloqrs::persistence::tiles::{
+    clear_tile_set, hold_next_tile_pass, hold_next_tile_pass_inside_a_tile,
+};
+use veloqrs::persistence::{CancelToken, TileGenerationHandle, WorkerPoll, clear_all_background};
 
 static SERIAL: Mutex<()> = Mutex::new(());
 
@@ -49,7 +52,7 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
     let cfg = LifecycleConfig {
         bucket_a_count: 12,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 0,
         ..LifecycleConfig::default()
@@ -92,6 +95,7 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
 /// the same tiles and the counts are comparable.
 #[test]
 fn a_cancelled_pass_draws_less_than_a_pass_left_alone() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
 
     let (finished, _finished_tmp) = seed_engine();
@@ -125,6 +129,7 @@ fn a_cancelled_pass_draws_less_than_a_pass_left_alone() {
 /// Clearing the marker would leave the heatmap permanently half-drawn.
 #[test]
 fn a_cancelled_pass_leaves_the_set_dirty() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (engine, _tmp) = seed_engine();
     engine.mark_heatmap_dirty();
@@ -142,6 +147,7 @@ fn a_cancelled_pass_leaves_the_set_dirty() {
 /// does and the next pass is not refused by the one the athlete stopped.
 #[test]
 fn the_slot_comes_back_after_a_cancel() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (engine, _tmp) = seed_engine();
     engine.mark_heatmap_dirty();
@@ -159,6 +165,7 @@ fn the_slot_comes_back_after_a_cancel() {
 /// outcomes distinguishable.
 #[test]
 fn an_uncancelled_pass_reports_a_clean_finish() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (engine, _tmp) = seed_engine();
     engine.mark_heatmap_dirty();
@@ -173,10 +180,125 @@ fn an_uncancelled_pass_reports_a_clean_finish() {
     );
 }
 
+/// Every tile file under `tiles`, the no-coverage markers included.
+fn tiles_on_disk(tiles: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut found = Vec::new();
+    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(tiles)
+        .map(|entries| entries.flatten().map(|e| e.path()).collect())
+        .unwrap_or_default();
+    while let Some(path) = dirs.pop() {
+        if path.is_dir() {
+            dirs.extend(
+                std::fs::read_dir(&path)
+                    .expect("read")
+                    .flatten()
+                    .map(|e| e.path()),
+            );
+        } else if path.parent() != Some(tiles) {
+            found.push(path);
+        }
+    }
+    found
+}
+
+/// Scenario: athlete A's tile pass is drawing when B's sign-in wipe lands.
+/// The wipe deleted the set and the pass, still running, wrote more of A's
+/// tiles into it. The next pass skips a tile that exists, so those stayed on
+/// disk for B's map to serve.
+///
+/// Expected behaviour: the wipe stops the pass and waits for it to end before
+/// it deletes, so nothing of A's is on disk once the wipe has answered.
+///
+/// The pass is held inside a tile, past its cancel check, and let go only once
+/// the wipe has either answered or asked it to stop. That tile is saved after
+/// the cancel whatever happens, so a wipe that cancels without waiting deletes
+/// before it and leaves it on disk.
+#[test]
+fn a_wipe_stops_a_running_pass_before_it_deletes() {
+    let _serial_state = super::serial_state();
+    let _serial = serial();
+    let (engine, tmp) = seed_engine();
+    engine.mark_heatmap_dirty();
+    let tiles = tmp.path().join("tiles");
+    // The login screen's wipe: the global engine names no tiles path, so the
+    // directory it is handed is the one it wipes.
+    let db = tmp.path().join("global.db");
+    assert!(persistent_engine_init(
+        db.to_str().expect("utf-8").to_string()
+    ));
+
+    let hold = hold_next_tile_pass_inside_a_tile();
+    let pass = engine.generate_tiles_background().expect("the pass starts");
+    hold.wait_until_reached();
+    let wipe = clear_all_background(Some(tiles.to_string_lossy().into_owned()));
+
+    let outcome = loop {
+        match wipe.poll_state() {
+            WorkerPoll::Ready(outcome) => break Some(outcome),
+            WorkerPoll::Died => panic!("the wipe thread died"),
+            WorkerPoll::Running if pass.was_cancelled() => break None,
+            WorkerPoll::Running => std::thread::yield_now(),
+        }
+    };
+    hold.release();
+    let outcome = outcome.unwrap_or_else(|| wipe.wait());
+    pass.recv_blocking().expect("the pass answers");
+
+    outcome.expect("the wipe");
+    let left = tiles_on_disk(&tiles);
+    assert!(
+        left.is_empty(),
+        "{} of A's tiles were written after the wipe, first {:?}",
+        left.len(),
+        left.first()
+    );
+    assert!(pass.was_cancelled(), "the wipe left A's pass running");
+}
+
+/// Scenario: a tile pass is drawing when the athlete taps Clear cache or turns
+/// the heatmap off. The set was emptied and the pass, still running, saved the
+/// tile it had in flight. The next pass skips a tile that exists, so the heat
+/// it drew stayed on disk however the library changed.
+///
+/// Expected behaviour: the clear stops the pass and waits for it to end before
+/// it deletes, so nothing is on disk once the clear has answered.
+#[test]
+fn a_clear_stops_a_running_pass_before_it_deletes() {
+    let _serial_state = super::serial_state();
+    let _serial = serial();
+    let (engine, tmp) = seed_engine();
+    engine.mark_heatmap_dirty();
+    let tiles = tmp.path().join("tiles");
+
+    let hold = hold_next_tile_pass_inside_a_tile();
+    let pass = engine.generate_tiles_background().expect("the pass starts");
+    hold.wait_until_reached();
+    let clearing = tiles.clone();
+    let clear = std::thread::spawn(move || clear_tile_set(&clearing));
+
+    while !clear.is_finished() && !pass.was_cancelled() {
+        std::thread::yield_now();
+    }
+    hold.release();
+    let outcome = clear.join().expect("the clear thread");
+    pass.recv_blocking().expect("the pass answers");
+
+    outcome.expect("the clear");
+    let left = tiles_on_disk(&tiles);
+    assert!(
+        left.is_empty(),
+        "{} tiles were written after the clear, first {:?}",
+        left.len(),
+        left.first()
+    );
+    assert!(pass.was_cancelled(), "the clear left the pass running");
+}
+
 /// The token is the house shape, so its own contract is pinned here rather
 /// than only through a pass that happens to use it.
 #[test]
 fn the_token_is_shared_and_latches() {
+    let _serial_state = super::serial_state();
     let token = CancelToken::new();
     let copy = token.clone();
 

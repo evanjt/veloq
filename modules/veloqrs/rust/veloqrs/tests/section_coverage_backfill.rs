@@ -2,7 +2,7 @@
 //! record rule reads. The lap's own track length is not: GPS wobble makes that
 //! longer than the section on laps that only cover part of it.
 //!
-//! Run: `cargo test --test section_coverage_backfill -p veloqrs`
+//! Run: `cargo test --test section -p veloqrs -- section_coverage_backfill::`
 
 use std::path::{Path, PathBuf};
 
@@ -164,7 +164,7 @@ fn a_partial_lap_is_not_the_record_once_coverage_is_measured() {
     engine.backfill_section_coverage();
 
     let perf = engine.get_section_performances("s1");
-    let best = perf.best_record.expect("a best record");
+    let best = perf.best_forward_record.expect("a best record");
     assert_eq!(
         best.activity_id, "full",
         "the fragment is quicker over its own ground, so it must not hold the record"

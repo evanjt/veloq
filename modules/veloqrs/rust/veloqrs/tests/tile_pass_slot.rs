@@ -28,7 +28,7 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
     let cfg = LifecycleConfig {
         bucket_a_count: 120,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 4,
         ..LifecycleConfig::default()
@@ -59,6 +59,7 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
 
 #[test]
 fn a_second_pass_is_refused_while_one_is_in_flight() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (engine, _tmp) = seed_engine();
     engine.mark_heatmap_dirty();
@@ -81,6 +82,7 @@ fn a_second_pass_is_refused_while_one_is_in_flight() {
 
 #[test]
 fn the_slot_comes_back_when_the_pass_ends() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (engine, _tmp) = seed_engine();
     engine.mark_heatmap_dirty();

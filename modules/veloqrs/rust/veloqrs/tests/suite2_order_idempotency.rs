@@ -16,19 +16,16 @@
 //! set outright. These tests pin both halves, inert when nothing changed,
 //! re-derived when something did.
 //!
-//! Idempotency is a method-agnostic persistence behaviour, so the re-ingest
-//! tests run the fast Control arm. The two gates asserting exact catalogue
-//! EQUALITY run the Battery arm, because Control is run-to-run
-//! non-deterministic.
+//! Idempotency is a persistence behaviour. The two gates asserting exact
+//! catalogue EQUALITY rely on the detector being deterministic.
 //!
 //! Run:
-//!   cargo test -p veloqrs --features synthetic --test suite2_order_idempotency
+//!   cargo test -p veloqrs --features synthetic --test suite2 -- suite2_order_idempotency::
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
+
+use crate::lifecycle_support::*;
 
 /// Drip is O(N) detections in debug, so keep the one-at-a-time corpus small.
 /// 20 still forms real corridors under the 0.7 ride overlap and min_activities=2.
@@ -43,7 +40,7 @@ fn cold_only_corpus(bucket_a_count: usize) -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         ..LifecycleConfig::default()
     })
@@ -74,8 +71,8 @@ fn deterministic_shuffle(n: usize) -> Vec<usize> {
 /// depends on the arrival order, so its final catalogue can differ fwd-vs-rev even
 /// though detection converged to the same set. Comparing the damped view here
 /// would gate that intentional path-dependence as an order violation.
-fn drip(arm: Arm, pool: &[&LifecycleActivity], order: &[usize]) -> SectionSnapshot {
-    let (mut engine, _dir) = fresh_engine_for(arm);
+fn drip(pool: &[&LifecycleActivity], order: &[usize]) -> SectionSnapshot {
+    let (mut engine, _dir) = fresh_engine();
     for &i in order {
         try_ingest_step(&mut engine, "drip", &[pool[i]]).expect("drip step must not crash");
     }
@@ -116,19 +113,18 @@ fn with_shifted_track(a: &LifecycleActivity, dlat_deg: f64) -> LifecycleActivity
 // ============================================================================
 
 /// Invariant 4 (order-free incremental): the one-at-a-time drip lands on the
-/// same catalogue regardless of arrival order. The Unified incremental
-/// re-batches the full accumulated pool on every add, so the final catalogue is
-/// a pure function of the activity SET. Battery is the gated arm (mirrors
-/// `order_free_cold_batch`); Control is order-sensitive by construction.
+/// same catalogue regardless of arrival order. The incremental
+/// detect re-batches the full accumulated pool on every add, so the final catalogue is
+/// a pure function of the activity SET (mirrors `order_free_cold_batch`).
 #[test]
 fn drip_order_is_set_invariant() {
     let corpus = cold_only_corpus(DRIP_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
     let n = pool.len();
 
-    let fwd = drip(Arm::Battery, &pool, &(0..n).collect::<Vec<_>>());
-    let rev = drip(Arm::Battery, &pool, &(0..n).rev().collect::<Vec<_>>());
-    let shuf = drip(Arm::Battery, &pool, &deterministic_shuffle(n));
+    let fwd = drip(&pool, &(0..n).collect::<Vec<_>>());
+    let rev = drip(&pool, &(0..n).rev().collect::<Vec<_>>());
+    let shuf = drip(&pool, &deterministic_shuffle(n));
 
     let sig_f = fwd.catalogue_signature();
     let sig_r = rev.catalogue_signature();
@@ -156,7 +152,7 @@ fn drip_order_is_set_invariant() {
 fn reingest_same_id_is_idempotent() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &pool).snapshot;
     let victim = activity_by_id(
         &pool,
@@ -193,7 +189,7 @@ fn reingest_same_id_is_idempotent() {
 fn reingest_different_track_updates_catalogue() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &pool);
     // Freshness is a DETECTION property, so compare the RAW catalogue: an
     // append-only damped fold never drops the moved contributor from the section
@@ -232,17 +228,14 @@ fn reingest_different_track_updates_catalogue() {
 /// re-add restores S0. `remove_activity` clears the processed set, so the
 /// after-remove detect re-derives the catalogue without the victim instead of
 /// short-circuiting on a stale processed mark. The S2 == S0 half asserts
-/// catalogue-signature EQUALITY, so it runs on the Battery (Unified) arm,
-/// mirroring `drip_order_is_set_invariant`, because the Control/Corridor
-/// detector is run-to-run non-deterministic, which would make an exact-catalogue
-/// round-trip flaky for reasons orthogonal to removal freshness. (The
+/// catalogue-signature EQUALITY, mirroring `drip_order_is_set_invariant`. (The
 /// evidence-purge view of the same rows is `remove_activity_purges_evidence` in
 /// suite2_lifecycle.)
 #[test]
 fn remove_readd_roundtrips_through_effective_removal() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &pool);
     // Detection-freshness gate, so read the RAW catalogue: the damped fold is
     // append-only and would keep the removed victim as a phantom member of a
@@ -290,21 +283,20 @@ fn remove_readd_roundtrips_through_effective_removal() {
 
 /// Guard: a duplicate id inside one batch collapses to a single stored activity
 /// (INSERT OR REPLACE) and never crashes, the direct, unconfounded effect of the
-/// duplicate. Catalogue equality is deliberately NOT asserted here: two fresh
-/// Control engines iterate a differently-seeded `activity_metadata` HashMap, so
-/// their catalogues can differ with no duplicate involved (the known Control
-/// batch order-sensitivity, see `order_free_cold_batch`).
+/// duplicate. Catalogue equality is deliberately NOT asserted here: the
+/// guard is about storage, and catalogue equality is gated by
+/// `order_free_cold_batch`.
 #[test]
 fn duplicate_in_batch_collapses_storage() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
 
-    let (mut e_single, _d1) = fresh_engine_for(Arm::Battery);
+    let (mut e_single, _d1) = fresh_engine();
     let single = ingest_step(&mut e_single, "single", &pool);
 
     let mut doubled: Vec<&LifecycleActivity> = pool.clone();
     doubled.insert(0, pool[0]);
-    let (mut e_dup, _d2) = fresh_engine_for(Arm::Battery);
+    let (mut e_dup, _d2) = fresh_engine();
     let dup = try_ingest_step(&mut e_dup, "dup", &doubled).expect("dup batch must not crash");
 
     assert_eq!(

@@ -5,7 +5,7 @@
 //! make and nothing to make it on. `LazyLock` has been stable since 1.80 and
 //! this crate is edition 2024, so the external one buys nothing.
 //!
-//! Run: `cargo test --test lazy_statics_are_std -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- lazy_statics_are_std::`
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -12,7 +12,7 @@
 //!
 //! Driven through the real full-stack path (`ingest_step`: SQLite ingest ->
 //! `detect_sections_background` -> cache-aware `apply_sections` -> DB snapshot),
-//! on the Battery arm (`DetectionMethod::Unified`) because only Unified uses the
+//! because the detector uses the
 //! cache. Two corpora: a SINGLE home cluster (every add recomputes the one
 //! cluster) and a MULTI-cluster two-geography drip (each add bounces between
 //! disjoint clusters, so the cache must recompute only the touched one and reuse
@@ -22,18 +22,12 @@
 //! pool, and an apply failure must drop the cache so the next detect rebuilds
 //! from the real DB state.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_engine_cache`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2 -- suite2_engine_cache::`
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 
-/// Bidirectional ground overlap bar: the cached-drip catalogue and the batch
-/// catalogue must each cover >= 95% of the other's ground. tracematch's own
-/// convergence gate scores at this bar; the engine must not do worse.
-const GROUND_BAR: f64 = 0.95;
+use crate::lifecycle_support::*;
 
 /// A cold-only corpus at a chosen origin/seed. The default deltas are huge
 /// (bucket_e = 396), so zero them, every drip here uses bucket A only.
@@ -43,7 +37,7 @@ fn cold_corpus(origin_lat: f64, seed: u64, n: usize) -> LifecycleCorpus {
         seed,
         bucket_a_count: n,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         ..LifecycleConfig::default()
     })
@@ -78,28 +72,23 @@ fn namespaced(prefix: &str, acts: &[&LifecycleActivity]) -> Vec<LifecycleActivit
 /// on the visible view). A one-step batch from empty has no lag, so its raw and
 /// damped views are identical anyway.
 fn batch_snapshot(activities: &[&LifecycleActivity]) -> SectionSnapshot {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "batch", activities);
     raw_snapshot(&engine)
 }
 
-/// Assert the cached-drip catalogue and the batch catalogue describe the same
-/// ground in BOTH directions (neither invents nor drops a section's ground).
-/// Both catalogues must be populated: `ground_survival` scores an empty `before`
-/// 0.0, so this never reads as a pass on nothing. Callers skip the
-/// pre-formation prefix explicitly and latch once a section has formed.
+/// Assert the cached-drip catalogue and the batch catalogue hold exactly the
+/// same ground: the same activity set under every section, no section on
+/// either side that the other lacks. Both catalogues must be populated, so this
+/// never reads as a pass on nothing. Callers skip the pre-formation prefix
+/// explicitly and latch once a section has formed.
 fn assert_ground_match(step: usize, batch: &SectionSnapshot, drip: &SectionSnapshot) {
-    let batch_in_drip = ground_survival(batch, drip);
-    let drip_in_batch = ground_survival(drip, batch);
-    assert!(
-        batch_in_drip >= GROUND_BAR && drip_in_batch >= GROUND_BAR,
-        "step {step}: engine-cached drip desynced from batch, batch ground in drip {:.0}%, \
-         drip ground in batch {:.0}% (want >= {:.0}% both ways); {} batch sections vs {} drip sections",
-        batch_in_drip * 100.0,
-        drip_in_batch * 100.0,
-        GROUND_BAR * 100.0,
-        batch.count(),
+    assert_eq!(
+        ground(drip),
+        ground(batch),
+        "step {step}: engine-cached drip desynced from batch, {} drip sections vs {} batch sections",
         drip.count(),
+        batch.count(),
     );
 }
 
@@ -117,7 +106,7 @@ fn single_cluster_drip_matches_batch_every_step() {
     let corpus = cold_corpus(47.37, 0xC0FFEE, 14);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
 
-    let (mut drip_engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut drip_engine, _dir) = fresh_engine();
     let mut seen: Vec<&LifecycleActivity> = Vec::new();
 
     // Support floors mean no section can form over the first few adds. Skip
@@ -162,7 +151,7 @@ fn multi_cluster_interleaved_drip_matches_batch_every_step() {
     // corpus is not a prefix of a larger one. The per-geography preconditions
     // below are what keeps that from silently emptying the gate.
     let geo1 = cold_corpus(47.37, 0xC0FFEE, 12);
-    let geo2_raw = cold_corpus(45.30, 0xBEEF, 12); // ~2 deg south => a distinct cluster
+    let geo2_raw = cold_corpus(45.30, 0xBEEE, 12); // ~2 deg south => a distinct cluster
     let geo1_acts: Vec<&LifecycleActivity> = geo1.bucket_a.iter().collect();
     let geo2_acts_owned = namespaced("g2_", &geo2_raw.bucket_a.iter().collect::<Vec<_>>());
     let geo2_acts: Vec<&LifecycleActivity> = geo2_acts_owned.iter().collect();
@@ -184,7 +173,7 @@ fn multi_cluster_interleaved_drip_matches_batch_every_step() {
     assert_catalogue_populated("geo1 batch", &batch_snapshot(&geo1_acts));
     assert_catalogue_populated("geo2 batch", &batch_snapshot(&geo2_acts));
 
-    let (mut drip_engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut drip_engine, _dir) = fresh_engine();
     let mut seen: Vec<&LifecycleActivity> = Vec::new();
 
     let mut formed = false;
@@ -225,7 +214,7 @@ fn restart_then_add_cold_rebatches_to_batch() {
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
     let (first, rest) = pool.split_at(10);
 
-    let (mut e1, dir) = fresh_engine_for(Arm::Battery);
+    let (mut e1, dir) = fresh_engine();
     ingest_step(&mut e1, "cold", first);
     let db_before = snapshot(&mut e1).catalogue_signature();
     drop(e1);
@@ -273,7 +262,7 @@ fn apply_failure_drops_cache_then_recovers() {
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
     let (warm, rest) = pool.split_at(10);
 
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     ingest_step(&mut engine, "warm", warm); // cache now warm over `warm`
 
     // A genuinely new activity so the next detect does real work (no
@@ -295,7 +284,7 @@ fn apply_failure_drops_cache_then_recovers() {
     let (sections, _processed) = main.unwrap_or_default();
     assert!(
         cache_update.is_some(),
-        "Unified detect produced no cache update to apply"
+        "detect produced no cache update to apply"
     );
 
     // Force the save to fail: make the DB file read-only.

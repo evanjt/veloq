@@ -2,7 +2,7 @@
 //! read. Without a total order the pick follows SQLite's scan order, so
 //! the same database answers the same question two ways.
 //!
-//! Run: `cargo test --test tied_row_ordering -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- tied_row_ordering::`
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
@@ -79,24 +79,46 @@ fn merge_candidates_tied_on_overlap_come_back_in_id_order() {
     assert_eq!(first, sorted, "tied candidates must come out in id order");
 }
 
+/// Scenario: three sections in one bin, inserted in reverse id order, whose
+/// centres differ in the low bits.
+///
+/// Expected behaviour: the bin centre is the id-ordered sum over the count,
+/// because float addition of three terms depends on the order of the terms.
 #[test]
-fn preview_centres_are_the_same_on_every_read() {
+fn preview_centre_sums_members_in_id_order() {
     let s = setup("preview.db");
-    insert_twin_sections(&s.raw);
-
-    let first = s.engine.preview_centres(10);
-    for _ in 0..10 {
-        let again = s.engine.preview_centres(10);
-        assert_eq!(
-            again.len(),
-            first.len(),
-            "the centre count changed between reads"
-        );
-        for (a, b) in again.iter().zip(first.iter()) {
-            assert_eq!(
-                (a.bin_key.clone(), a.lat, a.lng, a.section_count),
-                (b.bin_key.clone(), b.lat, b.lng, b.section_count)
-            );
-        }
+    let lats = [
+        ("sec_c", 46.002816_f64),
+        ("sec_b", 46.023662),
+        ("sec_a", 46.019548),
+    ];
+    for (id, lat) in lats {
+        s.raw
+            .execute(
+                "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                                       distance_meters, disabled, version, visit_count,
+                                       bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                                       created_at, updated_at)
+                 VALUES (?1, 'auto', ?1, 'Run', '[]', 500.0, 0, 1, 3,
+                         ?2, ?2, 7.0, 7.0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+                params![id, lat],
+            )
+            .expect("insert section");
     }
+
+    let mut ordered: Vec<f64> = lats.iter().map(|(_, lat)| *lat).collect();
+    ordered.reverse();
+    let by_id = ordered.iter().fold(0.0, |acc, lat| acc + (lat + lat) * 0.5);
+    let by_scan = lats
+        .iter()
+        .fold(0.0, |acc, (_, lat)| acc + (lat + lat) * 0.5);
+    assert_ne!(
+        by_id, by_scan,
+        "the fixture must make summation order matter"
+    );
+
+    let centres = s.engine.preview_centres(10);
+    assert_eq!(centres.len(), 1);
+    assert_eq!(centres[0].section_count, 3);
+    assert_eq!(centres[0].lat, by_id / 3.0);
 }

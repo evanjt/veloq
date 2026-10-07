@@ -13,7 +13,7 @@
 //! the production `migration_scripts()` list. There is no hand-copied migration
 //! list in this file, so a new migration cannot leave the fixtures behind.
 
-mod migration_support;
+use super::migration_support;
 
 use migration_support::*;
 use rusqlite::types::Value;
@@ -241,9 +241,7 @@ fn seed_probe_rows(conn: &Connection) -> Vec<Probe> {
     probes
 }
 
-/// Two tables are cleared on purpose, so a probe row in either is expected to
-/// be gone. Nothing else may lose a row, and the emptiness is asserted rather
-/// than skipped.
+/// Two derived tables are cleared on purpose, so their probes must be empty.
 ///
 /// Migration 012 clears the detection bookkeeping cache, so a row seeded below
 /// v12 goes with it. And `activity_indicators` is materialised from
@@ -256,10 +254,18 @@ fn cleared_on_purpose(table: &str, seeded_at: u32) -> bool {
 }
 
 fn assert_probe_survived(conn: &Connection, probe: &Probe, seeded_at: u32) {
-    let quoted = probe
+    let retained: Vec<(&String, &Value)> = probe
         .columns
         .iter()
-        .map(|c| format!("\"{c}\""))
+        .zip(&probe.values)
+        .filter(|(column, _)| {
+            probe.table != "activity_metrics"
+                || !matches!(column.as_str(), "power_zone_times" | "hr_zone_times")
+        })
+        .collect();
+    let quoted = retained
+        .iter()
+        .map(|(column, _)| format!("\"{column}\""))
         .collect::<Vec<_>>()
         .join(",");
     let sql = format!("SELECT {quoted} FROM \"{}\"", probe.table);
@@ -268,7 +274,7 @@ fn assert_probe_survived(conn: &Connection, probe: &Probe, seeded_at: u32) {
         .unwrap_or_else(|e| panic!("table {} unreadable after upgrade: {e}", probe.table));
     let rows: Vec<Vec<Value>> = stmt
         .query_map([], |row| {
-            (0..probe.columns.len())
+            (0..retained.len())
                 .map(|i| row.get::<_, Value>(i))
                 .collect::<Result<Vec<_>, _>>()
         })
@@ -277,7 +283,7 @@ fn assert_probe_survived(conn: &Connection, probe: &Probe, seeded_at: u32) {
         .expect("read probe rows");
 
     assert!(
-        rows.contains(&probe.values),
+        rows.contains(&retained.iter().map(|(_, value)| (*value).clone()).collect()),
         "v{seeded_at} row in {} did not survive the upgrade with its original values.\n\
          wrote: {:?}\nfound: {:?}",
         probe.table,
@@ -288,6 +294,7 @@ fn assert_probe_survived(conn: &Connection, probe: &Probe, seeded_at: u32) {
 
 #[test]
 fn every_released_version_upgrades_without_losing_a_row() {
+    let _serial_state = super::serial_state();
     for seeded_at in 11..=16u32 {
         let dir = TempDir::new().expect("tempdir");
         let path = dir.path().join(format!("v{seeded_at}.db"));
@@ -313,6 +320,21 @@ fn every_released_version_upgrades_without_losing_a_row() {
         );
 
         for probe in &probes {
+            if probe.table == "ftp_history" {
+                assert_eq!(row_count(&conn, &probe.table), None);
+                continue;
+            }
+            if probe.table == "activity_heatmap" {
+                let heatmap: (String, i64, i64, i64) = conn
+                    .query_row(
+                        "SELECT date, intensity, max_duration, activity_count FROM activity_heatmap",
+                        [],
+                        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                    )
+                    .expect("derived heatmap");
+                assert_eq!(heatmap, ("1970-01-01".into(), 1, 7, 1));
+                continue;
+            }
             if cleared_on_purpose(&probe.table, seeded_at) {
                 assert_eq!(
                     row_count(&conn, &probe.table),
@@ -477,6 +499,7 @@ fn seed_v12_library(path: &Path) {
 
 #[test]
 fn a_v12_release_database_survives_the_upgrade_to_current() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("v12_release.db");
     seed_v12_library(&path);
@@ -846,6 +869,7 @@ fn seed_standard_scenario(path: &Path) {
 
 #[test]
 fn sql_level_custom_section_survives_forward_migration() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("v02x.db");
     seed_standard_scenario(&path);
@@ -940,6 +964,7 @@ fn sql_level_custom_section_survives_forward_migration() {
 
 #[test]
 fn ffi_custom_section_readable_after_migration() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("v02x.db");
     seed_standard_scenario(&path);
@@ -951,7 +976,9 @@ fn ffi_custom_section_readable_after_migration() {
         .expect("custom section must be readable by id after migration");
     assert_eq!(section.id, SECTION_ID);
     assert_eq!(section.name.as_deref(), Some(SECTION_NAME));
-    assert_eq!(section.sport_type, SOURCE_SPORT);
+    // The sports are the stored row's, from the outings the upgrade kept.
+    let row = engine.get_section(SECTION_ID).expect("the stored row");
+    assert_eq!(FfiSection::from(row).sport_types, vec![SOURCE_SPORT]);
     assert!(!section.encoded_polyline.is_empty());
     assert!(section.is_user_defined);
     assert_eq!(section.activity_portions.len(), 1);
@@ -999,7 +1026,9 @@ fn ffi_custom_section_readable_after_migration() {
         .get_section_performances_filtered(SECTION_ID, None)
         .into();
     assert!(!perf.records.is_empty());
-    let best = perf.best_record.expect("best record must be present");
+    let best = perf
+        .best_forward_record
+        .expect("best record must be present");
     assert!(
         (best.best_time - PORTION_LAP_TIME).abs() < 5.0,
         "best_time must come from the preserved lap_time cache (got {}, seeded {})",
@@ -1011,6 +1040,7 @@ fn ffi_custom_section_readable_after_migration() {
 
 #[test]
 fn ffi_methods_for_new_columns_work_on_pre_migration_data() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("v02x.db");
     seed_standard_scenario(&path);
@@ -1052,24 +1082,6 @@ fn ffi_methods_for_new_columns_work_on_pre_migration_data() {
         .expect("include_activity_in_section");
     assert!(engine.get_excluded_activity_ids(SECTION_ID).is_empty());
 
-    {
-        let conn = Connection::open(&path).expect("reopen for superseded seed");
-        conn.execute(
-            "INSERT INTO sections(id, section_type, sport_type, polyline_json, distance_meters, version)
-             VALUES ('auto_dummy_1', 'auto', ?1, '[]', 0, 1)",
-            params![SOURCE_SPORT],
-        )
-        .expect("insert auto placeholder");
-    }
-    engine.load().expect("reload after auto seed");
-
-    engine
-        .set_superseded("auto_dummy_1", SECTION_ID)
-        .expect("set_superseded");
-    engine
-        .clear_superseded(SECTION_ID)
-        .expect("clear_superseded");
-
     assert!(!engine.has_original_bounds(SECTION_ID));
     engine
         .trim_section(SECTION_ID, 5, 30)
@@ -1088,6 +1100,7 @@ fn ffi_methods_for_new_columns_work_on_pre_migration_data() {
 
 #[test]
 fn ffi_survives_orphan_and_null_edge_cases() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("v02x.db");
     seed_standard_scenario(&path);
@@ -1149,13 +1162,25 @@ fn ffi_survives_orphan_and_null_edge_cases() {
         .get_section_by_id("custom_1700000000001__nullnm")
         .map(FfiSection::from)
         .expect("null-name section retrievable");
-    assert!(null_name_section.name.is_none());
+    let number: u32 = rusqlite::Connection::open(&path)
+        .unwrap()
+        .query_row(
+            "SELECT number FROM section_numbers WHERE section_id = 'custom_1700000000001__nullnm'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("an unnamed section holds a number");
+    assert_eq!(null_name_section.name, Some(format!("Section {number}")));
 
     let empty_poly = engine
         .get_section_by_id("custom_1700000000002__empty")
         .map(FfiSection::from)
         .expect("empty-polyline section retrievable");
-    assert!(veloqrs::coords::decode(&empty_poly.encoded_polyline).is_empty());
+    assert!(
+        veloqrs::persistence::codec::decode_polyline(&empty_poly.encoded_polyline)
+            .unwrap()
+            .is_empty()
+    );
     assert!(
         engine
             .get_section_polyline("custom_1700000000002__empty")
@@ -1192,6 +1217,7 @@ fn migration_017_script() -> &'static str {
 
 #[test]
 fn migration_017_preserves_user_sections_and_adds_identity_state() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("v_pre017.db");
 
@@ -1260,6 +1286,7 @@ fn migration_017_preserves_user_sections_and_adds_identity_state() {
 /// because `user_version` would otherwise gate a second application.
 #[test]
 fn migration_017_is_rerunnable() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("v17_rerun.db");
 
@@ -1340,6 +1367,7 @@ fn seed_db_stranded_at_old_013(path: &Path) {
 
 #[test]
 fn a_database_stranded_at_the_old_013_gains_the_wellness_body_column() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("stranded.db");
     seed_db_stranded_at_old_013(&path);
@@ -1360,6 +1388,7 @@ fn a_database_stranded_at_the_old_013_gains_the_wellness_body_column() {
 
 #[test]
 fn a_database_stranded_at_the_old_013_still_reaches_the_current_version() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("stranded_version.db");
     seed_db_stranded_at_old_013(&path);
@@ -1389,6 +1418,7 @@ fn a_database_stranded_at_the_old_013_still_reaches_the_current_version() {
 /// those rows so a poisoned install re-queues its strength activities.
 #[test]
 fn migration_020_requeues_poisoned_fit_rows() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("fit_poison.db");
 

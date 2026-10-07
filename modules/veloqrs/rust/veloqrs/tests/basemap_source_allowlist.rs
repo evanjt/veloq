@@ -19,6 +19,7 @@ const SECRET: &[u8] = b"not a tile";
 /// so two tests would race each other's `set_path`.
 #[test]
 fn only_a_source_with_a_registered_template_reaches_the_store() {
+    let _serial = super::serial_state();
     let tmp = TempDir::new().expect("tempdir");
     let root = tmp.path().join("basemap-tiles");
     fs::create_dir_all(&root).expect("root");

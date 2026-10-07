@@ -12,7 +12,7 @@
 //! A window is never called covered on no evidence: an athlete whose census has
 //! never been pulled knows nothing, so every window owes.
 //!
-//! Run: `cargo test --test activity_window_coverage -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- activity_window_coverage::`
 
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
@@ -22,7 +22,16 @@ use veloqrs::net::types::ActivityCensusEntry;
 /// was written under, with the raw payload beside it.
 fn store_body(engine: &mut PersistentEngine, id: &str, date: i64) {
     engine
-        .upsert_activity_bodies(&[(id.to_string(), date, format!("{{\"id\":\"{id}\"}}"))])
+        .store_synced_activity_bodies(
+            "i1",
+            &[(id.to_string(), date, format!("{{\"id\":\"{id}\"}}"))],
+            &[id.to_string()],
+            vec![veloqrs::ActivityMetrics {
+                activity_id: id.to_string(),
+                date,
+                ..Default::default()
+            }],
+        )
         .expect("body");
 }
 
@@ -51,11 +60,12 @@ fn covered_library() -> (TempDir, PersistentEngine) {
         entry("a2", "2026-03-09", "2026-03-09T00:10:00Z"),
         entry("a3", "2026-06-01", "2026-06-01T00:10:00Z"),
     ];
-    engine.record_activity_census("i1", &census);
+    engine
+        .record_activity_census("i1", &census)
+        .expect("census");
     for (i, e) in census.iter().enumerate() {
         store_body(&mut engine, &e.id, 1_770_000_000 + i as i64);
     }
-    engine.mark_census_fetched("i1", &["a1".into(), "a2".into(), "a3".into()]);
     (dir, engine)
 }
 
@@ -70,15 +80,16 @@ fn a_window_whose_ids_are_all_local_and_current_owes_nothing() {
 fn one_id_the_device_never_stored_owes_the_window() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
-    engine.record_activity_census(
-        "i1",
-        &[
-            entry("a1", "2026-03-02", "2026-03-02T00:10:00Z"),
-            entry("a2", "2026-03-09", "2026-03-09T00:10:00Z"),
-        ],
-    );
+    engine
+        .record_activity_census(
+            "i1",
+            &[
+                entry("a1", "2026-03-02", "2026-03-02T00:10:00Z"),
+                entry("a2", "2026-03-09", "2026-03-09T00:10:00Z"),
+            ],
+        )
+        .expect("census");
     store_body(&mut engine, "a1", 1_770_000_000);
-    engine.mark_census_fetched("i1", &["a1".into()]);
 
     assert!(!engine.window_is_covered("i1", "2026-03-01", "2026-03-31"));
 }
@@ -90,15 +101,16 @@ fn an_activity_that_moved_upstream_since_it_was_fetched_owes_the_window() {
 
     // The next census carries a later change date for a1 and nothing has
     // fetched that version.
-    engine.record_activity_census(
-        "i1",
-        &[
-            entry("a1", "2026-03-02", "2026-03-20T11:00:00Z"),
-            entry("a2", "2026-03-09", "2026-03-09T00:10:00Z"),
-            entry("a3", "2026-06-01", "2026-06-01T00:10:00Z"),
-        ],
-    );
-    engine.mark_census_fetched("i1", &["a2".into(), "a3".into()]);
+    engine
+        .record_activity_census(
+            "i1",
+            &[
+                entry("a1", "2026-03-02", "2026-03-20T11:00:00Z"),
+                entry("a2", "2026-03-09", "2026-03-09T00:10:00Z"),
+                entry("a3", "2026-06-01", "2026-06-01T00:10:00Z"),
+            ],
+        )
+        .expect("census");
 
     assert!(!engine.window_is_covered("i1", "2026-03-01", "2026-03-31"));
 }
@@ -125,7 +137,9 @@ fn an_athlete_with_no_census_at_all_owes_every_window() {
 #[test]
 fn one_athletes_coverage_never_answers_for_another() {
     let (_dir, mut engine) = covered_library();
-    engine.record_activity_census("i2", &[entry("b1", "2026-03-04", "2026-03-04T00:10:00Z")]);
+    engine
+        .record_activity_census("i2", &[entry("b1", "2026-03-04", "2026-03-04T00:10:00Z")])
+        .expect("census");
 
     // i2 has a census now and one row in the window, and the device does not
     // have that activity.
@@ -139,11 +153,69 @@ fn a_fetch_mark_names_the_version_it_fetched_rather_than_the_time_it_ran() {
 
     // Marking an id the census does not carry writes nothing, so a stale mark
     // cannot make a later census row read as fetched.
-    engine.mark_census_fetched("i1", &["not-in-census".into()]);
-    engine.record_activity_census(
-        "i1",
-        &[entry("not-in-census", "2026-03-05", "2026-03-05T00:10:00Z")],
-    );
+    engine
+        .store_synced_activity_bodies(
+            "i1",
+            &[("not-in-census".into(), 0, "{}".into())],
+            &["not-in-census".into()],
+            vec![veloqrs::ActivityMetrics {
+                activity_id: "not-in-census".into(),
+                ..Default::default()
+            }],
+        )
+        .unwrap();
+    engine
+        .record_activity_census(
+            "i1",
+            &[entry("not-in-census", "2026-03-05", "2026-03-05T00:10:00Z")],
+        )
+        .expect("census");
 
     assert!(!engine.window_is_covered("i1", "2026-03-01", "2026-03-31"));
+}
+
+#[test]
+fn an_uploaded_trackless_ride_stored_under_its_local_key_is_not_owed() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = engine(&dir);
+    let date = 1_772_000_000;
+    let body = |id: &str| {
+        format!(
+            r#"{{"id":"{id}","name":"Gym","type":"WeightTraining","start_date_local":"2026-03-02T07:00:00","moving_time":3600,"elapsed_time":3600,"distance":0}}"#
+        )
+    };
+    engine
+        .save_provisional_activity(
+            "local-abc",
+            Vec::new(),
+            &veloqrs::FfiActivityBody {
+                activity_id: "local-abc".to_string(),
+                date: date as f64,
+                raw: body("local-abc"),
+            },
+        )
+        .expect("trackless provisional row");
+    assert!(engine.record_upload("local-abc", "i77").expect("upload"));
+    engine
+        .record_activity_census("i1", &[entry("i77", "2026-03-02", "2026-03-02T00:10:00Z")])
+        .expect("census");
+    engine
+        .store_synced_activity_bodies(
+            "i1",
+            &[("local-abc".to_string(), date, body("i77"))],
+            &["i77".to_string()],
+            vec![veloqrs::ActivityMetrics {
+                activity_id: "local-abc".to_string(),
+                date,
+                ..Default::default()
+            }],
+        )
+        .expect("sync page");
+
+    assert_eq!(
+        engine.owed_dates_in_window("i1", "2026-03-01", "2026-03-31"),
+        Some(vec![])
+    );
+    assert!(engine.window_is_covered("i1", "2026-03-01", "2026-03-31"));
+    assert_eq!(engine.library_coverage("i1").fetched, 1);
 }

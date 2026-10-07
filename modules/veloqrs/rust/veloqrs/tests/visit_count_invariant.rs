@@ -5,7 +5,7 @@
 //! path that moves or removes junction rows without recomputing shows
 //! the user a stale visit count until some unrelated write repairs it.
 //!
-//! Run: `cargo test --test visit_count_invariant -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- visit_count_invariant::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
@@ -39,6 +39,30 @@ fn insert_activity(db: &Connection, id: &str, start_unix: i64) {
         params![id, start_unix, format!("Activity {}", id)],
     )
     .expect("insert activity");
+}
+
+fn ground() -> Vec<tracematch::GpsPoint> {
+    (0..=60)
+        .map(|i| tracematch::GpsPoint::new(46.0 + f64::from(i) * 0.0001, 7.0))
+        .collect()
+}
+
+/// The stored line and a stored track over it, which is what a merge matches
+/// rides against.
+fn give_ground(engine: &mut PersistentEngine, db: &Connection, sections: &[&str], rides: &[&str]) {
+    let line = serde_json::to_string(&ground()).expect("line JSON");
+    for id in sections {
+        db.execute(
+            "UPDATE sections SET polyline_json = ?1 WHERE id = ?2",
+            params![line, id],
+        )
+        .expect("section line");
+    }
+    for id in rides {
+        engine
+            .add_activity((*id).to_string(), ground(), "Ride".to_string())
+            .expect("add ride");
+    }
 }
 
 fn insert_section(db: &Connection, id: &str, sport: &str) {
@@ -150,6 +174,12 @@ fn merging_two_sections_keeps_the_count_true() {
     insert_traversal(&s.raw, "primary", "a1");
     insert_traversal(&s.raw, "donor", "a2");
     insert_traversal(&s.raw, "donor", "a3");
+    give_ground(
+        &mut s.engine,
+        &s.raw,
+        &["primary", "donor"],
+        &["a1", "a2", "a3"],
+    );
 
     s.engine
         .merge_user_sections("primary", "donor")
@@ -170,6 +200,7 @@ fn merging_across_sports_keeps_the_count_true() {
     insert_traversal(&s.raw, "ride", "a1");
     insert_traversal(&s.raw, "ride", "a2");
     insert_traversal(&s.raw, "run", "a3");
+    give_ground(&mut s.engine, &s.raw, &["ride", "run"], &["a1", "a2", "a3"]);
 
     s.engine
         .merge_user_sections("ride", "run")
@@ -198,40 +229,29 @@ fn removing_an_activity_keeps_the_count_true() {
 }
 
 /// A database written by a build whose triggers missed row moves carries counts
-/// a merge left stale. Opening it again repairs them.
+/// that disagree with the junction. Opening it again repairs them.
 #[test]
 fn a_database_left_stale_by_an_older_build_repairs_on_open() {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("test.db");
     let path_str = path.to_str().unwrap().to_string();
     let raw = {
-        let mut engine = PersistentEngine::new(&path_str).expect("engine new");
+        let _engine = PersistentEngine::new(&path_str).expect("engine new");
         let raw = Connection::open(&path).expect("raw open");
         insert_activity(&raw, "a1", 1_700_000_000);
         insert_activity(&raw, "a2", 1_700_086_400);
         insert_section(&raw, "primary", "Ride");
-        insert_section(&raw, "donor", "Ride");
         insert_traversal(&raw, "primary", "a1");
-        insert_traversal(&raw, "donor", "a2");
-
+        insert_traversal(&raw, "primary", "a2");
         raw.execute("DROP TRIGGER section_activities_visit_count_amove", [])
             .expect("drop move trigger");
-        engine
-            .merge_user_sections("primary", "donor")
-            .expect("merge");
+        raw.execute(
+            "UPDATE sections SET visit_count = 1 WHERE id = 'primary'",
+            [],
+        )
+        .expect("write stale count");
         raw
     };
-    let stale: i64 = raw
-        .query_row(
-            "SELECT visit_count FROM sections WHERE id = 'primary'",
-            [],
-            |r| r.get(0),
-        )
-        .expect("read stale count");
-    assert_eq!(
-        stale, 1,
-        "the older build's merge must leave the count stale"
-    );
 
     let _engine = PersistentEngine::new(&path_str).expect("reopen");
     assert_counts_true(&raw, "a reopen");
@@ -493,8 +513,8 @@ fn a_restart_keeps_the_visit_count_at_the_column() {
     let mut engine = PersistentEngine::new(&path_str).expect("reopen");
     engine.load().expect("load");
     let in_memory = engine
-        .get_sections_filtered(None, None)
-        .into_iter()
+        .get_sections()
+        .iter()
         .find(|s| s.id == "sec_col")
         .map(|s| s.visit_count)
         .unwrap_or(0);

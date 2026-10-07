@@ -4,7 +4,7 @@
 //! for every activity the athlete owns. The bounds are already in memory and
 //! already indexed, so the same refusal can happen before the read.
 //!
-//! Run: `cargo test --test section_match_candidates -p veloqrs`
+//! Run: `cargo test --test section -p veloqrs -- section_match_candidates::`
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;

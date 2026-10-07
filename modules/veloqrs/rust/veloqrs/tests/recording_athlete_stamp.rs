@@ -53,6 +53,9 @@ fn entry(id: &str) -> FfiRecordingEntry {
         engine_activity_id: None,
         engine_reconciled: false,
         athlete_id: Some(ATHLETE.to_string()),
+        notes: None,
+        rpe: None,
+        rpe_sent: false,
     }
 }
 

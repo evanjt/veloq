@@ -17,7 +17,7 @@
 //! account, and calling it empty is what would tell a fresh sign-in they had
 //! never trained.
 //!
-//! Run: `cargo test --test activity_range_coverage -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- activity_range_coverage::`
 
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
@@ -41,7 +41,16 @@ fn entry(id: &str, day: &str, synced: &str) -> ActivityCensusEntry {
 
 fn store_body(engine: &mut PersistentEngine, id: &str, date: i64) {
     engine
-        .upsert_activity_bodies(&[(id.to_string(), date, format!("{{\"id\":\"{id}\"}}"))])
+        .store_synced_activity_bodies(
+            "i1",
+            &[(id.to_string(), date, format!("{{\"id\":\"{id}\"}}"))],
+            &[id.to_string()],
+            vec![veloqrs::ActivityMetrics {
+                activity_id: id.to_string(),
+                date,
+                ..Default::default()
+            }],
+        )
         .expect("body");
 }
 
@@ -53,11 +62,12 @@ fn fetched_march(dir: &TempDir) -> PersistentEngine {
         entry("a1", "2026-03-02", "2026-03-02T00:10:00Z"),
         entry("a2", "2026-03-09", "2026-03-09T00:10:00Z"),
     ];
-    engine.record_activity_census("i1", &census);
+    engine
+        .record_activity_census("i1", &census)
+        .expect("census");
     for (i, e) in census.iter().enumerate() {
         store_body(&mut engine, &e.id, 1_770_000_000 + i as i64);
     }
-    engine.mark_census_fetched("i1", &["a1".into(), "a2".into()]);
     engine
 }
 
@@ -87,7 +97,9 @@ fn a_range_the_census_names_nothing_in_is_empty() {
 fn a_census_row_never_fetched_owes_the_range() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
-    engine.record_activity_census("i1", &[entry("a1", "2026-03-02", "2026-03-02T00:10:00Z")]);
+    engine
+        .record_activity_census("i1", &[entry("a1", "2026-03-02", "2026-03-02T00:10:00Z")])
+        .expect("census");
 
     assert_eq!(
         engine.range_coverage("i1", "2026-03-01", "2026-03-31"),
@@ -101,13 +113,15 @@ fn a_census_row_never_fetched_owes_the_range() {
 fn a_row_that_moved_upstream_since_the_fetch_owes_the_range() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = fetched_march(&dir);
-    engine.record_activity_census(
-        "i1",
-        &[
-            entry("a1", "2026-03-02", "2026-03-02T00:10:00Z"),
-            entry("a2", "2026-03-09", "2026-03-11T08:00:00Z"),
-        ],
-    );
+    engine
+        .record_activity_census(
+            "i1",
+            &[
+                entry("a1", "2026-03-02", "2026-03-02T00:10:00Z"),
+                entry("a2", "2026-03-09", "2026-03-11T08:00:00Z"),
+            ],
+        )
+        .expect("census");
 
     assert_eq!(
         engine.range_coverage("i1", "2026-03-01", "2026-03-31"),

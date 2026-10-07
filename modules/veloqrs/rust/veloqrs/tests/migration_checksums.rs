@@ -132,6 +132,7 @@ fn released_note(index: usize, name: &str) -> String {
 
 #[test]
 fn released_migrations_are_immutable() {
+    let _serial_state = super::serial_state();
     let current = current_checksums();
     let updating = std::env::var("UPDATE_GOLDEN").is_ok_and(|v| v == "1");
 
@@ -225,6 +226,7 @@ fn released_migrations_are_immutable() {
 /// `migration_scripts()` never runs, and one wired in twice runs twice.
 #[test]
 fn golden_covers_every_compiled_migration() {
+    let _serial_state = super::serial_state();
     let scripts = veloqrs::PersistentEngine::migration_scripts();
     let current = current_checksums();
 
@@ -253,6 +255,7 @@ fn golden_covers_every_compiled_migration() {
 /// moves, this test tells you to move it deliberately.
 #[test]
 fn released_prefix_matches_the_shipped_user_version() {
+    let _serial_state = super::serial_state();
     let names: Vec<String> = current_checksums().into_iter().map(|(n, _)| n).collect();
     assert!(
         names.len() >= RELEASED_THROUGH,

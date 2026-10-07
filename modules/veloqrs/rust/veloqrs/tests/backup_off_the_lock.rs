@@ -1,10 +1,11 @@
 //! A database backup must not hold the engine lock.
 //!
 //! Scenario: the user taps "Export backup", or the daily auto-backup fires,
-//! while the app is drawing. Expected behaviour: starting the copy returns
-//! immediately and every engine read taken while it runs is served within a
-//! frame budget, because the copy runs on its own thread and its own
-//! connection.
+//! while the app is drawing. Expected behaviour: the copy runs on its own
+//! thread and its own connection, so it finishes while another connection
+//! holds an open write transaction on the same file, and every engine read
+//! taken while it runs is served. Nothing is timed: a copy that needed the
+//! writer to let go would stay unfinished until the hang guard ran out.
 
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
@@ -14,12 +15,12 @@ use tempfile::TempDir;
 use veloqrs::PersistentEngine;
 use veloqrs::persistence::WorkerPoll;
 
-/// One 60 Hz frame. A read that waits longer than this drops a frame.
-const FRAME_BUDGET: Duration = Duration::from_millis(16);
+/// How long a backup may take before the test calls it hung. It is the only
+/// deadline and is never a bound on how fast the copy should be.
+const HANG_GUARD: Duration = Duration::from_secs(60);
 
 /// Enough pages that the paced copy (100 pages per step, 10 ms between
-/// steps) runs for a few hundred milliseconds, so a reader has time to
-/// contend with it.
+/// steps) takes several steps, so a reader has something to contend with.
 const BULK_ROWS: usize = 1_500;
 const BULK_ROW_BYTES: usize = 4_096;
 
@@ -55,63 +56,62 @@ fn bulk_count(path: &str) -> i64 {
         .expect("count copy")
 }
 
-/// Drive a running backup to its result, timing an engine write-lock
-/// acquisition on every poll. Returns the waits and the outcome.
+/// Drive a running backup to its result, taking the engine write lock and
+/// reading through it on every poll. Returns how many reads were served and
+/// the outcome, and fails if the backup is still running after `HANG_GUARD`.
 fn poll_to_completion(
     engine: &RwLock<PersistentEngine>,
     handle: &veloqrs::persistence::BackupHandle,
-) -> (Vec<Duration>, Result<(), String>) {
-    let mut waits = Vec::new();
+) -> (usize, Result<(), String>) {
+    let deadline = Instant::now() + HANG_GUARD;
+    let mut reads = 0;
     loop {
-        let before = Instant::now();
         {
             let guard = engine.write().expect("engine lock");
             let _ = guard.activity_count();
         }
-        waits.push(before.elapsed());
+        reads += 1;
 
         match handle.poll_state() {
             WorkerPoll::Running => std::thread::sleep(Duration::from_millis(5)),
-            WorkerPoll::Ready(result) => return (waits, result),
-            WorkerPoll::Died => return (waits, Err("backup thread died".to_string())),
+            WorkerPoll::Ready(result) => return (reads, result),
+            WorkerPoll::Died => return (reads, Err("backup thread died".to_string())),
         }
+        assert!(
+            Instant::now() < deadline,
+            "the backup was still running after {HANG_GUARD:?}"
+        );
     }
 }
 
 #[test]
-fn engine_stays_readable_while_the_backup_copies() {
+fn the_backup_finishes_while_another_connection_holds_a_write() {
     let (dir, engine) = engine_with_bulk_bytes("live.db");
+    let live = dir.path().join("live.db");
     let dest = dir.path().join("copy.veloqdb");
     let dest_str = dest.to_str().unwrap().to_string();
 
-    let started = Instant::now();
+    let writer = Connection::open(&live).expect("writer connection");
+    writer
+        .execute_batch("BEGIN IMMEDIATE; INSERT INTO bulk (blob) VALUES (x'00');")
+        .expect("open a write transaction");
+
     let handle = engine
         .write()
         .expect("engine lock")
-        .backup_database_background(&dest_str);
-    let start_cost = started.elapsed();
+        .clear_snapshot_background(&dest_str);
+    let (reads, result) = poll_to_completion(&engine, &handle);
+    result.expect("backup succeeds while a write is open");
+    assert!(reads >= 1, "no engine read was served during the copy");
 
-    let (waits, result) = poll_to_completion(&engine, &handle);
-    result.expect("backup succeeds");
-
-    assert!(
-        start_cost < FRAME_BUDGET,
-        "starting the backup cost {:?}, over one frame",
-        start_cost
+    writer
+        .execute_batch("COMMIT")
+        .expect("commit the held write");
+    assert_eq!(
+        bulk_count(&dest_str),
+        BULK_ROWS as i64,
+        "the copy held the committed rows and not the open write"
     );
-    assert!(
-        waits.len() >= 5,
-        "the copy finished in {} polls, too fast to prove anything about contention",
-        waits.len()
-    );
-    let worst = waits.iter().max().copied().unwrap_or_default();
-    assert!(
-        worst < FRAME_BUDGET,
-        "a read waited {:?} behind the backup, over one frame",
-        worst
-    );
-
-    assert_eq!(bulk_count(&dest_str), BULK_ROWS as i64);
 }
 
 #[test]
@@ -123,7 +123,7 @@ fn a_failed_backup_reports_its_error_and_leaves_the_engine_usable() {
     let handle = engine
         .write()
         .expect("engine lock")
-        .backup_database_background(&dest_str);
+        .clear_snapshot_background(&dest_str);
     let (_, result) = poll_to_completion(&engine, &handle);
 
     let message = result.expect_err("a backup to a missing directory must fail");
@@ -134,7 +134,7 @@ fn a_failed_backup_reports_its_error_and_leaves_the_engine_usable() {
     let handle = engine
         .write()
         .expect("engine lock")
-        .backup_database_background(&good_str);
+        .clear_snapshot_background(&good_str);
     let (_, result) = poll_to_completion(&engine, &handle);
     result.expect("a backup after a failed one still succeeds");
     assert_eq!(bulk_count(&good_str), BULK_ROWS as i64);
@@ -149,7 +149,7 @@ fn a_second_backup_copies_writes_made_since_the_first() {
     let handle = engine
         .write()
         .expect("engine lock")
-        .backup_database_background(&first_str);
+        .clear_snapshot_background(&first_str);
     poll_to_completion(&engine, &handle)
         .1
         .expect("first backup");
@@ -172,7 +172,7 @@ fn a_second_backup_copies_writes_made_since_the_first() {
     let handle = engine
         .write()
         .expect("engine lock")
-        .backup_database_background(&second_str);
+        .clear_snapshot_background(&second_str);
     poll_to_completion(&engine, &handle)
         .1
         .expect("second backup");

@@ -5,7 +5,7 @@
 //! triple reads as having no provenance and degrades to an empty line once
 //! its blob is gone.
 //!
-//! Run: `cargo test --test custom_section_provenance -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- custom_section_provenance::`
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;

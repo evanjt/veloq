@@ -3,7 +3,7 @@
 //! Two figures for this read were in the tree and they disagreed by 300x.
 //! `useRoutesScreenData.ts` carried a comment putting `get_section_summaries`
 //! at 277-325 ms with real data, which is why the read sat behind
-//! `InteractionManager`. The whole read timed 1.1 ms on the S22, and the first
+//! an idle deferral. The whole read timed 1.1 ms on the S22, and the first
 //! page moved into the state initialiser on that figure. The
 //! read is a render-phase read now, so its budget is the 100 ms tap-or-mount
 //! ceiling.

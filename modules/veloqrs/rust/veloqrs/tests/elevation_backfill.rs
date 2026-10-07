@@ -13,10 +13,13 @@
 //!
 //! Runs against the process-global engine, exactly like production, so the
 //! tests take a file-local lock and run one at a time.
+//!
+//! Built only with `--features synthetic`: standing a worker-applied run in
+//! the detection slot takes a constructor that exists only in that lane.
 
 use httpmock::prelude::*;
 use serde_json::json;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
@@ -25,8 +28,8 @@ use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
     BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL,
     BACKFILL_PHASE_PAUSED, BackfillRun, ELEVATION_ATTEMPT_LIMIT, MAX_CONSECUTIVE_FAILURES,
-    backfill_progress, backfill_retry_delays, detect_runs_started, elevation_backfill_paused,
-    pause_elevation_backfill, reset_elevation_backfill_pause, run_elevation_backfill,
+    backfill_progress, detect_runs_started, elevation_backfill_paused, pause_elevation_backfill,
+    reset_elevation_backfill_pause, run_elevation_backfill,
 };
 use veloqrs::objects::{SYNC_SERVICE, SyncState};
 use veloqrs::persistence::persistent_engine_ffi::{
@@ -38,12 +41,6 @@ const UNKNOWN: u8 = 0;
 const FETCHED: u8 = 1;
 const UNAVAILABLE: u8 = 2;
 const UNREACHABLE: u8 = 3;
-
-static SERIAL: Mutex<()> = Mutex::new(());
-
-fn serial() -> MutexGuard<'static, ()> {
-    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
-}
 
 /// A flat eight-point line, distinct per seed so the pool holds real ground.
 fn flat_track(seed: f64) -> Vec<GpsPoint> {
@@ -125,6 +122,7 @@ fn sync_state() -> SyncState {
 /// unknown. Returns the temp dir so the database outlives the test body.
 fn seeded_engine(ids: &[&str]) -> (TempDir, std::path::PathBuf) {
     drain_detection();
+    live_session();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     assert!(persistent_engine_init(
@@ -227,7 +225,7 @@ fn outstanding() -> u64 {
 /// The queue is the not-yet-fetched set, and completed work leaves it.
 #[test]
 fn the_queue_is_the_not_yet_fetched_set_and_shrinks_as_work_lands() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2", "a3"]);
 
     let mut before = queue_ids();
@@ -260,7 +258,7 @@ fn the_queue_is_the_not_yet_fetched_set_and_shrinks_as_work_lands() {
 /// what already landed.
 #[test]
 fn an_interrupted_pass_resumes_and_does_not_redo_completed_work() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2", "a3"]);
 
     let server = MockServer::start();
@@ -327,7 +325,7 @@ fn an_interrupted_pass_resumes_and_does_not_redo_completed_work() {
 /// handle while tracks are landing, and it resumes when the pass ends.
 #[test]
 fn detection_is_suspended_for_the_whole_pass_and_released_at_the_end() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let ids: Vec<String> = (0..12).map(|i| format!("a{}", i)).collect();
     let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
     let (_dir, _path) = seeded_engine(&refs);
@@ -375,7 +373,7 @@ fn detection_is_suspended_for_the_whole_pass_and_released_at_the_end() {
 /// working rather than wedged off.
 #[test]
 fn detection_is_released_when_the_pass_fails() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2"]);
 
     let server = MockServer::start();
@@ -405,7 +403,7 @@ fn detection_is_released_when_the_pass_fails() {
 /// activity.
 #[test]
 fn exactly_one_detect_fires_and_it_fires_at_the_end() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     // More activities than one batch, so the conditioning cadence would have
     // had several chances to fire had the suspension not held.
     let ids: Vec<String> = (0..25).map(|i| format!("a{}", i)).collect();
@@ -459,7 +457,7 @@ fn exactly_one_detect_fires_and_it_fires_at_the_end() {
 /// library containing one still terminates.
 #[test]
 fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "bare"]);
 
     let server = MockServer::start();
@@ -506,7 +504,7 @@ fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
 /// activity exactly as it was.
 #[test]
 fn a_single_network_failure_does_not_sink_the_pass() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2", "a3"]);
 
     let server = MockServer::start();
@@ -548,7 +546,7 @@ fn a_single_network_failure_does_not_sink_the_pass() {
 /// altitude": the row keeps its unknown state so the next pass asks again.
 #[test]
 fn an_empty_response_is_retried_rather_than_recorded_unavailable() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
 
     let server = MockServer::start();
@@ -582,7 +580,7 @@ fn an_empty_response_is_retried_rather_than_recorded_unavailable() {
 /// upsert updates the row in place, so nothing cascades.
 #[test]
 fn section_links_survive_the_reingest() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, path) = seeded_engine(&["a1"]);
 
     let conn = rusqlite::Connection::open(&path).expect("open database");
@@ -630,17 +628,18 @@ fn section_links_survive_the_reingest() {
 /// and the re-cut still fires, rather than being silently cancelled behind it.
 #[test]
 fn a_standing_detection_run_does_not_cancel_the_recut() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2"]);
     let before = detect_runs_started();
 
-    // A pre-backfill run holding the process-wide slot, exactly as a launch
-    // rescan would leave it.
-    let handle =
-        with_persistent_engine(|engine| engine.detect_sections_background()).expect("engine");
+    // A pre-backfill run holding the process-wide slot, installed the way a
+    // launch rescan installs one: applied on its worker, its end not yet read.
+    let handle = veloqrs::persistence::SectionDetectionHandle::finished_after_worker_apply();
+    let slot = handle.checkpoint_slot();
     *SECTION_DETECTION_HANDLE
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+    slot.mark_installed(veloqrs::persistence::engine_install());
 
     let server = MockServer::start();
     for (i, id) in ["a1", "a2"].iter().enumerate() {
@@ -668,7 +667,7 @@ fn a_standing_detection_run_does_not_cancel_the_recut() {
 /// first: it is refused outright and touches nothing.
 #[test]
 fn a_second_start_while_one_runs_is_refused() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let ids: Vec<String> = (0..6).map(|i| format!("a{}", i)).collect();
     let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
     let (_dir, _path) = seeded_engine(&refs);
@@ -704,7 +703,7 @@ fn a_second_start_while_one_runs_is_refused() {
 /// altitude for everything reads as uniformly elevated.
 #[test]
 fn a_finished_pass_leaves_nothing_not_fetched() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let ids: Vec<String> = (0..12).map(|i| format!("a{}", i)).collect();
     let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
     let (_dir, path) = seeded_engine(&refs);
@@ -771,6 +770,7 @@ fn overlapping_elevated_streams(jitter: f64) -> serde_json::Value {
 /// detects.
 fn seeded_older_build_engine(ids: &[&str]) -> (TempDir, std::path::PathBuf) {
     drain_detection();
+    live_session();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     assert!(persistent_engine_init(
@@ -779,7 +779,7 @@ fn seeded_older_build_engine(ids: &[&str]) -> (TempDir, std::path::PathBuf) {
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
         cfg.min_activities = 3;
-        engine.set_section_config(cfg);
+        engine.set_section_config(cfg).expect("config accepted");
         for (i, id) in ids.iter().enumerate() {
             engine
                 .add_activity(
@@ -833,22 +833,24 @@ fn seeded_older_build_engine(ids: &[&str]) -> (TempDir, std::path::PathBuf) {
 
 fn archived_rows(path: &std::path::Path) -> i64 {
     let conn = rusqlite::Connection::open(path).expect("reopen database");
-    conn.query_row("SELECT COUNT(*) FROM section_catalogue_archive", [], |r| {
-        r.get(0)
-    })
+    conn.query_row(
+        "SELECT COUNT(*) FROM section_history WHERE kind = 'archived'",
+        [],
+        |r| r.get(0),
+    )
     .expect("count the archive")
 }
 
 /// Scenario: a 0.3.x install upgrades. The launch fires the backfill and the
-/// cutover trigger together, and the trigger declines while the queue is
-/// non-empty, so the pass that drains the queue is the only thing that can
-/// hand the catalogue over.
+/// cutover trigger together, and the cutover start answers held while the
+/// queue is non-empty, so the pass that drains the queue is the only thing
+/// that can hand the catalogue over.
 ///
 /// Expected behaviour: that pass runs the migration rather than a bare re-cut,
 /// so the archive, the diff and the rollback all exist afterwards.
 #[test]
 fn a_drained_pass_hands_an_owed_catalogue_to_the_cutover() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let ids: Vec<String> = (0..4).map(|i| format!("ride_{i}")).collect();
     let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
     let (_dir, path) = seeded_older_build_engine(&refs);
@@ -901,7 +903,7 @@ fn a_drained_pass_hands_an_owed_catalogue_to_the_cutover() {
 /// and burning the one-shot token on it would make that permanent.
 #[test]
 fn a_partial_pass_leaves_the_cutover_owed() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let ids: Vec<String> = (0..4).map(|i| format!("ride_{i}")).collect();
     let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
     let (_dir, path) = seeded_older_build_engine(&refs);
@@ -945,7 +947,7 @@ fn a_partial_pass_leaves_the_cutover_owed() {
 /// completed must not archive over the snapshot the restore reads from.
 #[test]
 fn a_second_drained_pass_does_not_re_archive_over_the_first_snapshot() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let ids: Vec<String> = (0..4).map(|i| format!("ride_{i}")).collect();
     let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
     let (_dir, path) = seeded_older_build_engine(&refs);
@@ -1034,7 +1036,7 @@ fn answer_all(server: &MockServer, ids: &[String], status: u16, retry_after: boo
 
 #[test]
 fn a_connection_that_is_gone_stops_the_pass_at_the_threshold_not_at_the_queue() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
 
     let server = MockServer::start();
@@ -1065,7 +1067,7 @@ fn a_connection_that_is_gone_stops_the_pass_at_the_threshold_not_at_the_queue() 
 
 #[test]
 fn an_exhausted_budget_stops_the_pass_the_same_way() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
 
     let server = MockServer::start();
@@ -1086,7 +1088,7 @@ fn an_exhausted_budget_stops_the_pass_the_same_way() {
 /// re-derives the same order and would stop at the same place forever.
 #[test]
 fn an_answer_about_one_activity_does_not_stop_the_pass() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
 
     let server = MockServer::start();
@@ -1108,7 +1110,7 @@ fn an_answer_about_one_activity_does_not_stop_the_pass() {
 /// connection landing work between the failures must run the queue out.
 #[test]
 fn work_landing_between_the_failures_keeps_the_pass_going() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
 
     let server = MockServer::start();
@@ -1181,7 +1183,7 @@ fn refused_once_then_elevated(server: &MockServer, id: &str, seed: f64) {
 
 #[test]
 fn a_transient_failure_is_re_asked_inside_the_pass_rather_than_next_launch() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a", "b"]);
 
     let server = MockServer::start();
@@ -1214,7 +1216,7 @@ fn a_transient_failure_is_re_asked_inside_the_pass_rather_than_next_launch() {
 /// shape that costs the whole ladder in real time, so it is not asserted here.
 #[test]
 fn an_answer_about_one_activity_is_asked_once_and_not_re_asked() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a"]);
 
     let server = MockServer::start();
@@ -1238,15 +1240,23 @@ fn an_answer_about_one_activity_is_asked_once_and_not_re_asked() {
 
 #[test]
 fn a_connection_that_is_gone_is_not_re_asked_at_all() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
 
     let server = MockServer::start();
-    answer_all(&server, &ids, 429, true);
+    let asked: Vec<_> = ids
+        .iter()
+        .map(|id| {
+            server.mock(|when, then| {
+                when.path(format!("/activity/{id}/streams.json"));
+                then.status(429)
+                    .body("nothing to give")
+                    .header("Retry-After", "0");
+            })
+        })
+        .collect();
 
-    let started = Instant::now();
     let run = run_backfill(&fast_transport(server.base_url()));
-    let elapsed = started.elapsed();
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {run:?}");
     };
@@ -1255,16 +1265,23 @@ fn a_connection_that_is_gone_is_not_re_asked_at_all() {
         outcome.failed, MAX_CONSECUTIVE_FAILURES as u32,
         "the stop threshold already decided nothing is coming back"
     );
-    let ladder: Duration = backfill_retry_delays().iter().sum();
+    let hits: Vec<usize> = asked.iter().map(|mock| mock.hits()).collect();
+    let one_ask = hits[0];
+    assert!(one_ask > 0, "the first track was never asked");
     assert!(
-        elapsed < ladder,
-        "a pass stopped for a dead connection spent the backoff anyway: {elapsed:?}"
+        hits.iter().all(|&h| h == 0 || h == one_ask),
+        "a track was asked more than once in a pass stopped for a dead connection: {hits:?}"
+    );
+    assert_eq!(
+        hits.iter().filter(|&&h| h > 0).count(),
+        MAX_CONSECUTIVE_FAILURES,
+        "the pass asked past the stop threshold: {hits:?}"
     );
 }
 
 #[test]
 fn re_asking_never_reports_more_progress_than_the_queue_held() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a", "b"]);
 
     let server = MockServer::start();
@@ -1293,7 +1310,7 @@ fn re_asking_never_reports_more_progress_than_the_queue_held() {
 /// could not run, and the dead session stands until something else asks.
 #[test]
 fn a_rejected_credential_parks_the_sync_service() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2"]);
     live_session();
 
@@ -1324,7 +1341,7 @@ fn a_rejected_credential_parks_the_sync_service() {
 /// does with it is a separate question, not this test's.
 #[test]
 fn an_api_key_401_parks_the_service_too() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
     live_session();
 
@@ -1347,7 +1364,7 @@ fn an_api_key_401_parks_the_service_too() {
 /// wanted was refused, but nobody is signed out over it.
 #[test]
 fn a_single_401_does_not_sign_the_athlete_out() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
     live_session();
 
@@ -1378,7 +1395,7 @@ fn a_single_401_does_not_sign_the_athlete_out() {
 /// A confirmation the server cannot answer confirms nothing either.
 #[test]
 fn a_confirmation_that_errors_leaves_the_session_alone() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
     live_session();
 
@@ -1405,7 +1422,7 @@ fn a_confirmation_that_errors_leaves_the_session_alone() {
 /// gives up without signing anybody out.
 #[test]
 fn a_connectivity_failure_leaves_the_session_alone() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2"]);
     live_session();
 
@@ -1427,7 +1444,7 @@ fn a_connectivity_failure_leaves_the_session_alone() {
 /// Neither does a pass that works.
 #[test]
 fn a_clean_pass_leaves_the_session_alone() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
     live_session();
 
@@ -1455,7 +1472,7 @@ fn a_clean_pass_leaves_the_session_alone() {
 /// one is the only thing that releases a park.
 #[test]
 fn live_session_clears_a_park_the_last_test_left() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     SYNC_SERVICE.park_auth_expired_now();
 
     live_session();
@@ -1472,7 +1489,7 @@ fn live_session_clears_a_park_the_last_test_left() {
 /// silent.
 #[test]
 fn a_second_rejected_pass_parks_again() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
     live_session();
 
@@ -1530,7 +1547,7 @@ fn stored_track(id: &str) -> Vec<GpsPoint> {
 /// track moves, so the catalogue derived from it is not invalidated.
 #[test]
 fn elevation_is_spliced_onto_the_stored_track_and_the_coordinates_do_not_move() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
     let before = stored_track("a1");
 
@@ -1583,7 +1600,7 @@ fn elevation_is_spliced_onto_the_stored_track_and_the_coordinates_do_not_move() 
 /// fetched again and replaced, and the catalogue has to be re-derived from it.
 #[test]
 fn a_track_whose_sample_count_moved_upstream_is_fetched_whole() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
     let before = stored_track("a1");
     let moved = before.len() + 2;
@@ -1623,7 +1640,7 @@ fn a_track_whose_sample_count_moved_upstream_is_fetched_whole() {
 /// answer, not a transient one. The track is left exactly as it is.
 #[test]
 fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
     let before = stored_track("a1");
 
@@ -1667,7 +1684,7 @@ fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
 /// The whole track settles it, and only for those activities.
 #[test]
 fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["bare", "gone"]);
 
     let server = MockServer::start();
@@ -1712,7 +1729,7 @@ fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
 /// session.
 #[test]
 fn a_pass_whose_library_has_no_altitude_upstream_still_cuts() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2"]);
 
     let server = MockServer::start();
@@ -1752,7 +1769,7 @@ fn a_pass_whose_library_has_no_altitude_upstream_still_cuts() {
 /// finishes the queue makes good on it.
 #[test]
 fn a_pass_finishing_an_earlier_pass_still_cuts() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2"]);
 
     let server = MockServer::start();
@@ -1798,7 +1815,7 @@ fn a_pass_finishing_an_earlier_pass_still_cuts() {
 /// converted library, must not fire, and detection must come back on.
 #[test]
 fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     reset_elevation_backfill_pause();
     let ids: Vec<String> = (0..2 * MAX_CONSECUTIVE_FAILURES)
         .map(|i| format!("a{}", i))
@@ -1860,7 +1877,7 @@ fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
 /// still counts as not elevated, because nothing was ever fetched for it.
 #[test]
 fn a_track_upstream_will_not_answer_for_is_retired_and_leaves_the_queue() {
-    let _serial = serial();
+    let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
 
     let server = MockServer::start();

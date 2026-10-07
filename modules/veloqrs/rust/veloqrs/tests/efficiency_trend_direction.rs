@@ -10,13 +10,13 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test efficiency_trend_direction -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- efficiency_trend_direction::`
 
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentEngine;
 use veloqrs::types::ActivityMetrics;
+use veloqrs::{EfficiencyDirection, PersistentEngine};
 
 /// The section is 800 m, so a lap time is four fifths of its pace per km.
 const SECTION_METRES: f64 = 800.0;
@@ -77,7 +77,7 @@ fn engine_with_efforts(dir: &TempDir, efforts: &[(f64, f64)]) -> PersistentEngin
         conn.execute(
             "INSERT INTO section_activities (section_id, activity_id, direction,
                  start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr, excluded)
-             VALUES ('auto1', ?1, 'same', 0, 40, ?2, ?3, ?4, ?5, 0)",
+             VALUES ('auto1', ?1, 'same', 0, 60, ?2, ?3, ?4, ?5, 0)",
             rusqlite::params![format!("a{i}"), SECTION_METRES, lap_time, pace / 60.0, hr],
         )
         .expect("traversal");
@@ -105,7 +105,7 @@ fn slowing_down_at_the_same_heart_rate_is_not_an_improvement() {
     );
 
     let trend = engine
-        .get_section_efficiency_trend("auto1")
+        .get_section_efficiency_trend("auto1", "Ride")
         .expect("five efforts are a trend");
 
     assert!(
@@ -113,10 +113,7 @@ fn slowing_down_at_the_same_heart_rate_is_not_an_improvement() {
         "the cost of the same speed went up, so the ratio rises: {}",
         trend.trend_slope
     );
-    assert!(
-        !trend.is_improving,
-        "the athlete got slower at the same cost"
-    );
+    assert_eq!(trend.direction, EfficiencyDirection::Worsening);
     // `hr_change_bpm` is the ratio's own change restated at the mean pace, so
     // a pace-only change still moves it. What matters is the sign: positive is
     // a cost that went up, and the card's "dropped by" sentence can never be
@@ -143,14 +140,11 @@ fn a_falling_heart_rate_at_the_same_pace_is_an_improvement() {
     );
 
     let trend = engine
-        .get_section_efficiency_trend("auto1")
+        .get_section_efficiency_trend("auto1", "Ride")
         .expect("five efforts are a trend");
 
     assert!(trend.trend_slope < 0.0, "the cost of the same speed fell");
-    assert!(
-        trend.is_improving,
-        "eight beats over four days is an adaptation"
-    );
+    assert_eq!(trend.direction, EfficiencyDirection::Improving);
     assert!(
         (trend.hr_change_bpm + 8.0).abs() < 0.5,
         "150 to 142 at one pace is eight beats: {}",
@@ -173,13 +167,10 @@ fn speeding_up_at_the_same_heart_rate_is_an_improvement() {
     );
 
     let trend = engine
-        .get_section_efficiency_trend("auto1")
+        .get_section_efficiency_trend("auto1", "Ride")
         .expect("five efforts are a trend");
 
-    assert!(
-        trend.is_improving,
-        "more speed for the same heart rate is the mirror of fewer beats"
-    );
+    assert_eq!(trend.direction, EfficiencyDirection::Improving);
 }
 
 #[test]
@@ -200,7 +191,7 @@ fn the_count_is_the_efforts_the_regression_used() {
     );
 
     let trend = engine
-        .get_section_efficiency_trend("auto1")
+        .get_section_efficiency_trend("auto1", "Ride")
         .expect("five surviving efforts are a trend");
 
     assert_eq!(
@@ -212,4 +203,21 @@ fn the_count_is_the_efforts_the_regression_used() {
         trend.effort_count, 5,
         "the count is the points regressed, not the rows read"
     );
+}
+
+/// The athlete named the section, and the name lives on the named overlay
+/// rather than on the detected row. The card titles the trend with it.
+#[test]
+fn the_trend_carries_the_name_the_athlete_gave_the_section() {
+    let dir = TempDir::new().expect("tmp");
+    let mut engine = engine_with_efforts(&dir, &[(300.0, 150.0), (300.0, 148.0), (300.0, 146.0)]);
+    engine
+        .set_section_name("auto1", Some("Col du Test"))
+        .expect("name the section");
+
+    let trend = engine
+        .get_section_efficiency_trend("auto1", "Ride")
+        .expect("three efforts are a trend");
+
+    assert_eq!(trend.section_name, "Col du Test");
 }

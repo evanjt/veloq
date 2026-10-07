@@ -7,17 +7,16 @@
 //! and never flip-flop. A catalogue that kept moving would rewrite the user's
 //! section list, and their history timeline, on every sync forever.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test detection_settles`
+//! Run: `cargo test -p veloqrs --features synthetic --test detection_synthetic -- detection_settles::`
 
 #![cfg(feature = "synthetic")]
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tempfile::TempDir;
 use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::PersistentEngine;
+
+use crate::lifecycle_support::*;
 
 /// Enough overlapping traffic to form several corridors, small enough to
 /// re-detect many times in a debug build.
@@ -40,7 +39,7 @@ fn detected_engine(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentEngine 
     let cfg = SectionConfig {
         ..SectionConfig::default()
     };
-    engine.set_section_config(cfg);
+    engine.set_section_config(cfg).expect("config accepted");
 
     for a in corpus.through_a() {
         engine
@@ -62,6 +61,7 @@ fn redetect(engine: &mut PersistentEngine) {
 
 #[test]
 fn repeated_detection_over_one_set_reaches_a_fixed_point() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let corpus = corpus();
     let mut engine = detected_engine(&dir, &corpus);
@@ -87,6 +87,7 @@ fn repeated_detection_over_one_set_reaches_a_fixed_point() {
 
 #[test]
 fn the_visible_catalogue_settles_onto_what_detection_found() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let corpus = corpus();
     let mut engine = detected_engine(&dir, &corpus);
@@ -106,6 +107,7 @@ fn the_visible_catalogue_settles_onto_what_detection_found() {
 
 #[test]
 fn both_read_paths_floor_on_the_same_population() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
     let corpus = corpus();
     let mut engine = detected_engine(&dir, &corpus);

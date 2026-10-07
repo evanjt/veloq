@@ -13,12 +13,11 @@
 //! unit tests; this suite tests only the registry mirroring and its
 //! persistence.
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::LifecycleActivity;
 use veloqrs::PersistentEngine;
+
+use crate::lifecycle_support::*;
 
 const DAY: i64 = 86_400;
 const T0: i64 = 1_700_000_000;
@@ -257,7 +256,7 @@ struct JunctionRun {
 
 fn run_junction() -> JunctionRun {
     let jc = junction_corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "trunk", &refs(&jc.trunk_outings));
     let (_, cold_fp) =
         busiest_section(&cold.snapshot).expect("cold detect produced a trunk section");
@@ -353,7 +352,7 @@ fn recut_debounce_keeps_prior_geometry() {
 #[test]
 fn accepted_section_never_adopts() {
     let jc = junction_corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "trunk", &refs(&jc.trunk_outings));
     let (id, fp) = busiest_section(&cold.snapshot).expect("trunk section detected");
     engine.accept_section(&id).expect("accept_section");
@@ -410,7 +409,7 @@ fn accepted_section_never_adopts() {
 #[test]
 fn agreement_carry_adopts_batch_geometry_immediately() {
     let c = agreement_corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &refs(&c.cold));
     let (id, cold_fp) = busiest_section(&cold.snapshot).expect("cold trunk section");
 
@@ -592,7 +591,7 @@ fn adoption_recomputes_portions_against_new_geometry() {
 #[test]
 fn created_at_is_stable_across_applies() {
     let c = agreement_corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &refs(&c.cold));
     let (id, _fp) = busiest_section(&cold.snapshot).expect("cold trunk section");
     let born = created_at_of(&mut engine, &id).expect("created_at stamped on first save");
@@ -624,7 +623,7 @@ fn created_at_is_stable_across_applies() {
 #[test]
 fn restored_section_keeps_created_at() {
     let c = agreement_corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &refs(&c.cold));
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold trunk section");
     let born = created_at_of(&mut engine, &id).expect("created_at stamped on first save");

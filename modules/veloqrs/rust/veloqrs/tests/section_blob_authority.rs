@@ -5,7 +5,7 @@
 //! JSON-only rows must still decode through the read fallback with no row
 //! migration.
 //!
-//! Run: `cargo test --test section_blob_authority -p veloqrs`
+//! Run: `cargo test --test section -p veloqrs -- section_blob_authority::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
@@ -270,6 +270,48 @@ fn unreadable_row_does_not_abort_the_catalogue_load() {
     }
 }
 
+/// The line a trim backs up and the footprint an intent keeps, read straight
+/// from the row: the quantised blob, and the JSON column beside it.
+fn stored_line(db: &Connection, sql: &str, id: &str) -> (Option<Vec<GpsPoint>>, Option<String>) {
+    let (blob, json): (Option<Vec<u8>>, Option<String>) = db
+        .query_row(sql, params![id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .expect("stored line row");
+    let points = blob.map(|bytes| {
+        veloqrs::persistence::codec::deserialize_points(&bytes).expect("a decodable line blob")
+    });
+    (points, json)
+}
+
+fn original_line(db: &Connection, id: &str) -> (Option<Vec<GpsPoint>>, Option<String>) {
+    stored_line(
+        db,
+        "SELECT original_polyline_blob, original_polyline_json FROM sections WHERE id = ?",
+        id,
+    )
+}
+
+fn intent_line(db: &Connection, id: &str) -> (Option<Vec<GpsPoint>>, Option<String>) {
+    stored_line(
+        db,
+        "SELECT polyline_blob, polyline_json FROM section_intents WHERE id = ?",
+        id,
+    )
+}
+
+fn create(engine: &mut PersistentEngine, polyline: &[GpsPoint]) -> String {
+    engine
+        .create_section(CreateSectionParams {
+            sport_type: "Ride".to_string(),
+            polyline: polyline.to_vec(),
+            distance_meters: tracematch::matching::calculate_route_distance(polyline),
+            name: None,
+            source_activity_id: None,
+            start_index: None,
+            end_index: None,
+        })
+        .expect("create_section")
+}
+
 #[test]
 fn trim_of_legacy_row_backs_up_geometry_and_reset_restores_it() {
     let mut s = setup();
@@ -282,17 +324,16 @@ fn trim_of_legacy_row_backs_up_geometry_and_reset_restores_it() {
     assert!(has_blob, "trim must write the polyline blob");
     assert!(json.is_none(), "trim must not duplicate geometry as JSON");
 
-    let backup: Option<String> = s
-        .raw
-        .query_row(
-            "SELECT original_polyline_json FROM sections WHERE id = ?",
-            params!["legacy_2"],
-            |row| row.get(0),
-        )
-        .unwrap();
-    let backup_points: Vec<GpsPoint> =
-        serde_json::from_str(&backup.expect("original polyline backed up")).unwrap();
-    assert_close(&backup_points, &polyline);
+    let (backup, backup_json) = original_line(&s.raw, "legacy_2");
+    assert_close(
+        &backup.expect("original line backed up as a blob"),
+        &polyline,
+    );
+    assert!(
+        backup_json.is_none(),
+        "the backed-up line must not be stored again as JSON, got {backup_json:?}"
+    );
+    assert!(s.engine.has_original_bounds("legacy_2"));
 
     let trimmed = s.engine.get_section("legacy_2").expect("get_section");
     assert_close(&trimmed.polyline, &polyline[0..=4]);
@@ -303,39 +344,140 @@ fn trim_of_legacy_row_backs_up_geometry_and_reset_restores_it() {
     let (json, has_blob) = row_shape(&s.raw, "legacy_2");
     assert!(has_blob, "reset must write the polyline blob");
     assert!(json.is_none(), "reset must not duplicate geometry as JSON");
+    assert_eq!(original_line(&s.raw, "legacy_2"), (None, None));
+    assert!(!s.engine.has_original_bounds("legacy_2"));
+}
+
+/// A second edit keeps the first backup: the line a reset restores is the one
+/// the section had before any edit, not the one before the latest.
+#[test]
+fn a_second_trim_keeps_the_first_backed_up_line() {
+    let mut s = setup();
+    let polyline: Vec<GpsPoint> = (0..8)
+        .map(|i| GpsPoint::new(46.0 + i as f64 * 0.0005, 7.0))
+        .collect();
+    insert_legacy_json_row(&s.raw, "twice", &polyline);
+
+    s.engine.trim_section("twice", 0, 6).expect("first trim");
+    s.engine.trim_section("twice", 0, 5).expect("second trim");
+
+    let (backup, _) = original_line(&s.raw, "twice");
+    assert_close(&backup.expect("original line backed up"), &polyline);
+
+    s.engine.reset_section_bounds("twice").expect("reset");
+    let restored = s.engine.get_section("twice").expect("get_section");
+    assert_close(&restored.polyline, &polyline);
+}
+
+/// Scenario: a section trimmed by an older build carries its original line
+/// as JSON and no blob.
+///
+/// Expected behaviour: it still counts as edited, so the detection wipe spares
+/// it and the reset control shows, and a reset puts the JSON line back.
+#[test]
+fn a_legacy_json_backup_still_resets() {
+    let mut s = setup();
+    let polyline = sample_polyline();
+    insert_legacy_json_row(&s.raw, "legacy_trim", &polyline[0..=4]);
+    s.raw
+        .execute(
+            "UPDATE sections SET is_user_defined = 1, original_polyline_json = ?
+             WHERE id = 'legacy_trim'",
+            params![serde_json::to_string(&polyline).unwrap()],
+        )
+        .expect("give the row a legacy backup");
+
+    assert!(s.engine.has_original_bounds("legacy_trim"));
+    s.engine.reset_section_bounds("legacy_trim").expect("reset");
+
+    let restored = s.engine.get_section("legacy_trim").expect("get_section");
+    assert_close(&restored.polyline, &polyline);
+    assert_eq!(original_line(&s.raw, "legacy_trim"), (None, None));
+    assert!(!s.engine.has_original_bounds("legacy_trim"));
 }
 
 /// Disabling a blob-only section must capture a real footprint in the
-/// suppression intent, which keeps its own JSON copy of the hidden ground.
-/// An empty footprint would let the corridor re-emerge on the next detect.
+/// suppression intent. An empty footprint would let the corridor re-emerge on
+/// the next detect.
 #[test]
 fn suppression_intent_captures_geometry_from_the_blob() {
     let mut s = setup();
     let polyline = sample_polyline();
-
-    let id = s
-        .engine
-        .create_section(CreateSectionParams {
-            sport_type: "Ride".to_string(),
-            polyline: polyline.clone(),
-            distance_meters: tracematch::matching::calculate_route_distance(&polyline),
-            name: None,
-            source_activity_id: None,
-            start_index: None,
-            end_index: None,
-        })
-        .expect("create_section");
+    let id = create(&mut s.engine, &polyline);
 
     s.engine.disable_section(&id).expect("disable_section");
 
-    let footprint_json: String = s
+    let (footprint, json) = intent_line(&s.raw, &id);
+    assert_close(&footprint.expect("intent footprint as a blob"), &polyline);
+    assert!(json.is_none(), "the footprint must not be stored as JSON");
+}
+
+#[test]
+fn naming_a_detected_section_keeps_its_footprint_as_a_blob() {
+    let mut s = setup();
+    let polyline = sample_polyline();
+    insert_legacy_json_row(&s.raw, "auto_named", &polyline);
+    s.raw
+        .execute(
+            "UPDATE sections SET name = NULL WHERE id = 'auto_named'",
+            [],
+        )
+        .unwrap();
+
+    s.engine
+        .set_section_name("auto_named", Some("Riverside climb"))
+        .expect("name the section");
+
+    let intent_id: String = s
         .raw
         .query_row(
-            "SELECT polyline_json FROM section_intents WHERE id = ?",
-            params![id],
+            "SELECT id FROM section_intents WHERE kind = 'named'",
+            [],
             |row| row.get(0),
         )
-        .expect("intent row");
-    let footprint: Vec<GpsPoint> = serde_json::from_str(&footprint_json).expect("intent footprint");
-    assert_close(&footprint, &polyline);
+        .expect("a named intent");
+    let (footprint, json) = intent_line(&s.raw, &intent_id);
+    assert_close(&footprint.expect("intent footprint as a blob"), &polyline);
+    assert!(json.is_none(), "the footprint must not be stored as JSON");
+
+    let corridor = s
+        .engine
+        .get_named_corridors()
+        .into_iter()
+        .find(|c| c.intent_id == intent_id)
+        .expect("the corridor resolves");
+    assert_close(&corridor.footprint, &polyline);
+    assert_eq!(corridor.section_id.as_deref(), Some("auto_named"));
+}
+
+/// Scenario: a named intent an older build wrote, its footprint as JSON.
+///
+/// Expected behaviour: the name still resolves onto the section under it.
+#[test]
+fn a_legacy_json_named_intent_still_resolves() {
+    let s = setup();
+    let polyline = sample_polyline();
+    insert_legacy_json_row(&s.raw, "auto_legacy", &polyline);
+    s.raw
+        .execute(
+            "UPDATE sections SET name = NULL WHERE id = 'auto_legacy'",
+            [],
+        )
+        .unwrap();
+    s.raw
+        .execute(
+            "INSERT INTO section_intents (id, kind, polyline_json, created_at, name, sport_type)
+             VALUES ('ni_old', 'named', ?, '2026-01-01T00:00:00Z', 'Lakeside', 'Ride')",
+            params![serde_json::to_string(&polyline).unwrap()],
+        )
+        .unwrap();
+
+    let corridor = s
+        .engine
+        .get_named_corridors()
+        .into_iter()
+        .find(|c| c.intent_id == "ni_old")
+        .expect("the legacy corridor resolves");
+    assert_close(&corridor.footprint, &polyline);
+    assert_eq!(corridor.section_id.as_deref(), Some("auto_legacy"));
 }

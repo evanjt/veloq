@@ -3,7 +3,7 @@
 //! Verifies the FFI merge flow moves activities from the secondary into the
 //! primary, preserves user-set names, and deletes the donor section cleanly.
 //!
-//! Run: `cargo test --test merge_sections -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- merge_sections::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
@@ -29,16 +29,6 @@ fn setup() -> Setup {
         raw,
         _tmp: tmp,
     }
-}
-
-fn insert_activity(db: &Connection, id: &str, start_unix: i64) {
-    db.execute(
-        "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng,
-                                  start_date, name, distance_meters, duration_secs)
-         VALUES (?1, 'Ride', 46.0, 46.1, 7.0, 7.1, ?2, ?3, 1000.0, 300)",
-        params![id, start_unix, format!("Activity {}", id)],
-    )
-    .expect("insert activity");
 }
 
 fn insert_section(db: &Connection, id: &str, name: Option<&str>) {
@@ -83,15 +73,111 @@ fn section_exists(db: &Connection, section_id: &str) -> bool {
     .unwrap_or(false)
 }
 
+fn section_name(db: &Connection, section_id: &str) -> Option<String> {
+    db.query_row(
+        "SELECT name FROM sections WHERE id = ?",
+        params![section_id],
+        |row| row.get(0),
+    )
+    .expect("section name")
+}
+
+#[test]
+fn merge_inherits_a_user_name_over_a_generated_primary_name() {
+    let mut s = setup();
+    insert_section(&s.raw, "primary", Some("Section 3"));
+    insert_section(&s.raw, "donor", Some("Col du Pillon"));
+
+    s.engine
+        .merge_user_sections("primary", "donor")
+        .expect("merge");
+
+    assert_eq!(
+        section_name(&s.raw, "primary").as_deref(),
+        Some("Col du Pillon")
+    );
+    assert!(!section_exists(&s.raw, "donor"));
+}
+
+#[test]
+fn merge_does_not_inherit_a_generated_donor_name() {
+    let mut s = setup();
+    insert_section(&s.raw, "primary", Some("Section 3"));
+    insert_section(&s.raw, "donor", Some("Section 4"));
+
+    s.engine
+        .merge_user_sections("primary", "donor")
+        .expect("merge");
+
+    assert_eq!(
+        section_name(&s.raw, "primary").as_deref(),
+        Some("Section 3")
+    );
+}
+
+fn name_auto_donor(s: &mut Setup) {
+    let line: Vec<tracematch::GpsPoint> = (0..40)
+        .map(|i| tracematch::GpsPoint::new(46.0 + f64::from(i) * 0.0001, 7.0))
+        .collect();
+    s.raw
+        .execute(
+            "UPDATE sections SET polyline_json = ?, bounds_min_lat = 46.0,
+                    bounds_max_lat = 46.004, bounds_min_lng = 7.0, bounds_max_lng = 7.0
+             WHERE id = 'donor'",
+            params![serde_json::to_string(&line).expect("line JSON")],
+        )
+        .expect("donor line");
+    s.engine
+        .set_section_name("donor", Some("Col du Pillon"))
+        .expect("name donor");
+    assert_eq!(s.engine.get_named_corridors().len(), 1);
+}
+
+#[test]
+fn merge_keeps_the_name_from_an_auto_donor_intent() {
+    let mut s = setup();
+    insert_section(&s.raw, "primary", Some("Section 3"));
+    insert_section(&s.raw, "donor", Some("Section 4"));
+    name_auto_donor(&mut s);
+
+    s.engine
+        .merge_user_sections("primary", "donor")
+        .expect("merge");
+
+    assert_eq!(
+        section_name(&s.raw, "primary").as_deref(),
+        Some("Col du Pillon")
+    );
+    assert!(!section_exists(&s.raw, "donor"));
+}
+
+#[test]
+fn refused_merge_keeps_the_auto_donor_intent() {
+    let mut s = setup();
+    insert_section(&s.raw, "donor", Some("Section 4"));
+    name_auto_donor(&mut s);
+    let intent_id = s.engine.get_named_corridors()[0].intent_id.clone();
+
+    assert!(s.engine.merge_user_sections("missing", "donor").is_err());
+
+    assert!(section_exists(&s.raw, "donor"));
+    let corridors = s.engine.get_named_corridors();
+    assert_eq!(corridors.len(), 1);
+    assert_eq!(corridors[0].intent_id, intent_id);
+    assert_eq!(corridors[0].name, "Col du Pillon");
+}
+
 #[test]
 fn merge_moves_activities_to_primary_and_deletes_secondary() {
     let mut s = setup();
-    insert_activity(&s.raw, "a1", 1_700_000_000);
-    insert_activity(&s.raw, "a2", 1_700_086_400);
-    insert_activity(&s.raw, "a3", 1_700_172_800);
+    for id in ["a1", "a2", "a3"] {
+        add_ride(&mut s, id, straight_track(46.000, 46.006));
+    }
 
     insert_section(&s.raw, "primary", Some("Main Climb"));
     insert_section(&s.raw, "donor", Some("Other Climb"));
+    give_line(&s, "primary", &straight_track(46.000, 46.006));
+    give_line(&s, "donor", &straight_track(46.000, 46.006));
 
     insert_traversal(&s.raw, "primary", "a1");
     insert_traversal(&s.raw, "donor", "a2");
@@ -144,11 +230,14 @@ fn merge_preserves_unique_activity_mappings() {
     // Both sections already contain a1, merging should not blow up and
     // the primary should end up with a single row for a1.
     let mut s = setup();
-    insert_activity(&s.raw, "a1", 1_700_000_000);
-    insert_activity(&s.raw, "a2", 1_700_086_400);
+    for id in ["a1", "a2"] {
+        add_ride(&mut s, id, straight_track(46.000, 46.006));
+    }
 
     insert_section(&s.raw, "primary", None);
     insert_section(&s.raw, "donor", None);
+    give_line(&s, "primary", &straight_track(46.000, 46.006));
+    give_line(&s, "donor", &straight_track(46.000, 46.006));
 
     insert_traversal(&s.raw, "primary", "a1");
     insert_traversal(&s.raw, "donor", "a1");
@@ -162,4 +251,127 @@ fn merge_preserves_unique_activity_mappings() {
 
     assert_eq!(count_activities(&s.raw, "primary"), 2);
     assert!(!section_exists(&s.raw, "donor"));
+}
+
+fn straight_track(from_lat: f64, to_lat: f64) -> Vec<tracematch::GpsPoint> {
+    let steps = ((to_lat - from_lat) / 0.0001).round() as i32;
+    (0..=steps)
+        .map(|i| tracematch::GpsPoint::new(from_lat + f64::from(i) * 0.0001, 7.0))
+        .collect()
+}
+
+fn give_line(s: &Setup, section_id: &str, line: &[tracematch::GpsPoint]) {
+    s.raw
+        .execute(
+            "UPDATE sections SET polyline_json = ?, bounds_min_lat = ?,
+                    bounds_max_lat = ?, bounds_min_lng = 7.0, bounds_max_lng = 7.0
+             WHERE id = ?",
+            params![
+                serde_json::to_string(line).expect("line JSON"),
+                line.first().unwrap().latitude,
+                line.last().unwrap().latitude,
+                section_id
+            ],
+        )
+        .expect("section line");
+}
+
+fn add_ride(s: &mut Setup, id: &str, track: Vec<tracematch::GpsPoint>) {
+    s.engine
+        .add_activity(id.to_string(), track, "Ride".to_string())
+        .expect("add activity");
+}
+
+fn insert_traversal_at(db: &Connection, section_id: &str, activity_id: &str, start: i64) {
+    db.execute(
+        "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
+                                         end_index, distance_meters, excluded)
+         VALUES (?1, ?2, 'same', ?3, ?4, 300.0, 0)",
+        params![section_id, activity_id, start, start + 30],
+    )
+    .expect("insert traversal");
+}
+
+fn rows_for(db: &Connection, section_id: &str, activity_id: &str) -> u32 {
+    db.query_row(
+        "SELECT COUNT(*) FROM section_activities WHERE section_id = ? AND activity_id = ?",
+        params![section_id, activity_id],
+        |row| row.get(0),
+    )
+    .expect("count rows")
+}
+
+/// A ride crossing both sections is held by each at its own start index.
+/// Expected behaviour: after the merge the primary holds one row for that
+/// pass, matched against the primary's own line, and a ride confined to the
+/// donor's ground leaves the section but stays in the library.
+fn overlapping_pair() -> Setup {
+    let mut s = setup();
+    insert_section(&s.raw, "primary", Some("Main Climb"));
+    insert_section(&s.raw, "donor", Some("Other Climb"));
+    give_line(&s, "primary", &straight_track(46.000, 46.006));
+    give_line(&s, "donor", &straight_track(46.003, 46.009));
+    add_ride(&mut s, "both", straight_track(46.000, 46.009));
+    add_ride(&mut s, "donor_only", straight_track(46.0075, 46.0095));
+    insert_traversal_at(&s.raw, "primary", "both", 0);
+    insert_traversal_at(&s.raw, "donor", "both", 30);
+    insert_traversal_at(&s.raw, "donor", "donor_only", 0);
+    s
+}
+
+#[test]
+fn merge_keeps_one_row_per_pass_for_a_ride_on_both_sections() {
+    let mut s = overlapping_pair();
+
+    s.engine
+        .merge_user_sections("primary", "donor")
+        .expect("merge");
+
+    assert_eq!(rows_for(&s.raw, "primary", "both"), 1);
+    let visits: i64 = s
+        .raw
+        .query_row(
+            "SELECT visit_count FROM sections WHERE id = 'primary'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("visit count");
+    assert_eq!(visits, 1);
+}
+
+#[test]
+fn merge_drops_a_donor_ride_that_never_touches_the_primary_line() {
+    let mut s = overlapping_pair();
+
+    s.engine
+        .merge_user_sections("primary", "donor")
+        .expect("merge");
+
+    assert_eq!(rows_for(&s.raw, "primary", "donor_only"), 0);
+    let kept: i64 = s
+        .raw
+        .query_row(
+            "SELECT COUNT(*) FROM activities WHERE id = 'donor_only'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("activity row");
+    assert_eq!(kept, 1, "the ride stays in the library");
+}
+
+#[test]
+fn merge_preview_lists_the_donor_rides_the_merge_would_drop() {
+    let s = overlapping_pair();
+
+    let dropped = s.engine.merge_preview("primary", "donor").expect("preview");
+
+    let ids: Vec<&str> = dropped.iter().map(|d| d.activity_id.as_str()).collect();
+    assert_eq!(ids, vec!["donor_only"]);
+    assert_eq!(
+        count_activities(&s.raw, "donor"),
+        2,
+        "preview writes nothing"
+    );
+    let reverse = s.engine.merge_preview("donor", "primary").expect("preview");
+    assert!(reverse.iter().all(|d| d.activity_id != "both"));
 }

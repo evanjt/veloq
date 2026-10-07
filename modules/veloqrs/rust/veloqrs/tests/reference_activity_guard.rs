@@ -2,7 +2,7 @@
 //! so that activity is not the user's to delete and not retention's to
 //! prune. The refusal is typed, because the UI names the sections.
 //!
-//! Run: `cargo test --test reference_activity_guard -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- reference_activity_guard::`
 
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
@@ -67,6 +67,7 @@ fn seed(path: &Path) -> String {
 
 #[test]
 fn a_reference_activity_refuses_deletion() {
+    let _serial_state = crate::serial_state();
     let _g = serial();
     let dir = TempDir::new().unwrap();
     let section_id = seed(&dir.path().join("guard.db"));
@@ -87,6 +88,7 @@ fn a_reference_activity_refuses_deletion() {
 
 #[test]
 fn the_derived_clear_keeps_reference_activities() {
+    let _serial_state = crate::serial_state();
     let _g = serial();
     let dir = TempDir::new().unwrap();
     let section_id = seed(&dir.path().join("prune.db"));

@@ -83,3 +83,45 @@ fn unparseable_persisted_values_keep_existing_match_config() {
         "garbage strictness value must not corrupt the in-memory match_config"
     );
 }
+
+#[test]
+fn clear_resets_match_strictness_in_memory_and_on_disk() {
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("strictness_clear.db");
+    let db_path_str = db_path.to_str().unwrap();
+    let default = tracematch::MatchConfig::default();
+
+    {
+        let mut engine = PersistentEngine::new(db_path_str).unwrap();
+        engine
+            .set_setting(settings_keys::MATCH_MIN_MATCH_PCT, "55.0")
+            .unwrap();
+        engine
+            .set_setting(settings_keys::MATCH_ENDPOINT_THRESHOLD, "270.0")
+            .unwrap();
+        engine.load().unwrap();
+        assert_eq!(engine.match_config_min_match_percentage(), 55.0);
+
+        engine.clear().unwrap();
+
+        assert_eq!(
+            engine.match_config_min_match_percentage(),
+            default.min_match_percentage
+        );
+        assert_eq!(
+            engine.match_config_endpoint_threshold(),
+            default.endpoint_threshold
+        );
+    }
+
+    let mut reopened = PersistentEngine::new(db_path_str).unwrap();
+    reopened.load().unwrap();
+    assert_eq!(
+        reopened.match_config_min_match_percentage(),
+        default.min_match_percentage
+    );
+    assert_eq!(
+        reopened.match_config_endpoint_threshold(),
+        default.endpoint_threshold
+    );
+}

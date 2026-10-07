@@ -5,7 +5,7 @@
 //! answer is: the fraction of the *auto* section lying within the custom one,
 //! strictly above the threshold.
 //!
-//! Run: `cargo test --test superseded_lookup_is_one_call -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- superseded_lookup_is_one_call::`
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
@@ -107,9 +107,8 @@ fn a_section_id_that_resolves_to_no_line_returns_nothing() {
 #[test]
 fn an_already_superseded_auto_section_is_not_returned_again() {
     let mut s = setup();
-    let auto = create(&mut s.engine, line(46.0, 7.0, 20), false);
-    let first = create(&mut s.engine, line(46.0, 7.0, 20), true);
-    s.engine.set_superseded(&auto, &first).expect("supersede");
+    create(&mut s.engine, line(46.0, 7.0, 20), false);
+    create(&mut s.engine, line(46.0, 7.0, 20), true);
 
     let second = create(&mut s.engine, line(46.0, 7.0, 20), true);
     let found = s

@@ -4,7 +4,7 @@
 //! sparkline point, which rounded the difference. A half-unit day then put two
 //! answers on one card.
 //!
-//! Run: `cargo test --test wellness_form_rounding -p veloqrs`
+//! Run: `cargo test --test wellness -p veloqrs -- form_rounding::`
 
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;

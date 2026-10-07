@@ -100,6 +100,8 @@ fn checked_values(conn: &Connection, table: &str) -> HashMap<String, String> {
 }
 
 /// One row in `table`, satisfying whatever CHECK constraints it carries.
+/// A replace, because seeding another table may already have fired a trigger
+/// that wrote this one a row.
 fn seed(conn: &Connection, table: &str) {
     let checks = checked_values(conn, table);
     let mut stmt = conn
@@ -130,7 +132,7 @@ fn seed(conn: &Connection, table: &str) {
     // or the wipe assertion below proves nothing about it.
     conn.execute(
         &format!(
-            "INSERT INTO \"{table}\" ({}) VALUES ({})",
+            "INSERT OR REPLACE INTO \"{table}\" ({}) VALUES ({})",
             names.join(", "),
             values.join(", ")
         ),
@@ -190,5 +192,139 @@ fn a_logout_keeps_the_recordings_whose_fit_files_stay_on_disk() {
     assert!(
         count(&conn, "recordings") > 0,
         "clear() destroyed a recording the athlete still has the FIT file for"
+    );
+}
+
+/// Scenario: the athlete signs out and deletes their data, then taps Try Demo
+/// without a restart. The open engine still answered the previous athlete's
+/// id, so the demo was offered as another account's library.
+///
+/// Expected behaviour: a clear takes the athlete's id with the library it
+/// names, a second clear finds nothing to trip on, and every other setting
+/// survives.
+#[test]
+fn clear_forgets_whose_library_it_was() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("clear.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    engine.set_setting("__athlete_id", "i1").expect("athlete");
+    engine
+        .set_setting("unit_system", "metric")
+        .expect("preference");
+
+    engine.clear().expect("clear");
+
+    assert_eq!(
+        engine.get_setting("__athlete_id").expect("read"),
+        None,
+        "the previous athlete's id outlived the library it names"
+    );
+    assert_eq!(
+        engine.get_setting("unit_system").expect("read").as_deref(),
+        Some("metric"),
+        "a device setting went with the athlete's id"
+    );
+
+    engine.clear().expect("a second clear");
+
+    assert_eq!(engine.get_setting("__athlete_id").expect("read"), None);
+    assert_eq!(
+        engine.get_setting("unit_system").expect("read").as_deref(),
+        Some("metric")
+    );
+}
+
+/// Scenario: athlete A restores a record that owes activities and still holds
+/// records waiting for their ground, then signs out and deletes their data.
+///
+/// Expected behaviour: every setting that describes A's library goes with it.
+/// The pending records carry A's section names and ground, the owed ids would
+/// spend B's credential on A's activities, and the answered mark would stop B
+/// being offered a record their own device backup brings back.
+#[test]
+fn clear_forgets_the_record_restore_state() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("clear.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let library_keys = [
+        "__record_restore_pending",
+        "__record_activities_owed",
+        "__record_activities_unavailable",
+        "__platform_record_answered",
+    ];
+    for key in library_keys {
+        engine.set_setting(key, "[\"a1\"]").expect("seed");
+    }
+
+    engine.clear().expect("clear");
+
+    let survived: Vec<&str> = library_keys
+        .into_iter()
+        .filter(|key| engine.get_setting(key).expect("read").is_some())
+        .collect();
+    assert!(
+        survived.is_empty(),
+        "clear() left the previous library's record state: {survived:?}"
+    );
+}
+
+/// Scenario: athlete A sets a home for exports and syncs their history, then
+/// signs out and deletes their data, and athlete B signs in.
+///
+/// Expected behaviour: A's home, privacy radius, history span, yearly counts
+/// and last sync go with A's library. Left behind, B's export privacy row
+/// shows A's home, and B's next record zip carries A's coordinates under B's
+/// athlete id.
+#[test]
+fn clear_forgets_the_athletes_home_and_sync_history() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("clear.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let athlete_keys = [
+        "__export_home_lat",
+        "__export_home_lng",
+        "__export_privacy_radius_m",
+        "oldest_activity_date",
+        "activity_year_counts",
+        "sync.last_success_at",
+    ];
+    for key in athlete_keys {
+        engine.set_setting(key, "athlete-a").expect("seed");
+    }
+
+    engine.clear().expect("clear");
+
+    let survived: Vec<&str> = athlete_keys
+        .into_iter()
+        .filter(|key| engine.get_setting(key).expect("read").is_some())
+        .collect();
+    assert!(
+        survived.is_empty(),
+        "clear() left the previous athlete's home and history: {survived:?}"
+    );
+}
+
+/// Scenario: athlete A's library has spent its one-shot section redetect,
+/// then A signs out and deletes their data, and athlete B signs in.
+///
+/// Expected behaviour: the stamp goes with A's library, so B's library is
+/// owed the check again.
+#[test]
+fn clear_forgets_the_section_health_check_stamp() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("clear.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    engine
+        .set_setting("__section_health_check_done", "1")
+        .expect("seed");
+
+    engine.clear().expect("clear");
+
+    assert_eq!(
+        engine
+            .get_setting("__section_health_check_done")
+            .expect("read"),
+        None,
+        "the previous library's health check stamp outlived it"
     );
 }

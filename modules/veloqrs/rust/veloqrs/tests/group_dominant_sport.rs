@@ -1,13 +1,6 @@
-//! Scenario: one loop ridden four times and walked once. The group's scalar
-//! sport was taken from whichever activity happened to represent the group, so
-//! a route the athlete rides could be labelled `Walk` on the strength of a
-//! single stroll, and the sort that numbers the routes used that label.
+//! A route's members retain their sports, while its retired scalar stays empty.
 //!
-//! Expected behaviour: the scalar is the sport most of the group's members
-//! carry. The set is still the answer to "which sports have been here"; this is
-//! only the one label anything left reading a scalar gets.
-//!
-//! Run: `cargo test --test group_dominant_sport -p veloqrs --features synthetic`
+//! Run: `cargo test --test app_synthetic -p veloqrs --features synthetic -- group_dominant_sport::`
 
 #![cfg(feature = "synthetic")]
 
@@ -52,49 +45,31 @@ fn only_group_sport(engine: &mut PersistentEngine) -> String {
     groups[0].sport_type.clone()
 }
 
-/// The odd one out is first in both fixtures, and both directions are covered,
-/// so a scalar taken from whichever member represents the group is wrong about
-/// at least one of them however that member is chosen.
 #[test]
-fn the_label_is_the_sport_most_of_the_group_carries() {
-    for (members, expected) in [
-        (
-            [
-                ("a", "Walk"),
-                ("b", "Ride"),
-                ("c", "Ride"),
-                ("d", "Ride"),
-                ("e", "Ride"),
-            ],
-            "Ride",
-        ),
-        (
-            [
-                ("a", "Ride"),
-                ("b", "Walk"),
-                ("c", "Walk"),
-                ("d", "Walk"),
-                ("e", "Walk"),
-            ],
-            "Walk",
-        ),
+fn test_route_scalar_empty_for_mixed_sports() {
+    for members in [
+        [
+            ("a", "Walk"),
+            ("b", "Ride"),
+            ("c", "Ride"),
+            ("d", "Ride"),
+            ("e", "Ride"),
+        ],
+        [
+            ("a", "Ride"),
+            ("b", "Walk"),
+            ("c", "Walk"),
+            ("d", "Walk"),
+            ("e", "Walk"),
+        ],
     ] {
         let (mut engine, _dir) = engine_over(&members);
-        assert_eq!(
-            only_group_sport(&mut engine),
-            expected,
-            "four of one sport and one of another is a route of the four"
-        );
+        assert_eq!(only_group_sport(&mut engine), "");
     }
 }
 
 #[test]
-fn a_tie_settles_the_same_way_every_run() {
+fn test_route_scalar_empty_for_tied_sports() {
     let (mut engine, _dir) = engine_over(&[("a", "Walk"), ("b", "Ride")]);
-
-    assert_eq!(
-        only_group_sport(&mut engine),
-        "Ride",
-        "one each settles alphabetically, so two runs number the routes the same way"
-    );
+    assert_eq!(only_group_sport(&mut engine), "");
 }

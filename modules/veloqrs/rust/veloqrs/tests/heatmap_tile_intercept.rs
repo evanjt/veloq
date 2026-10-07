@@ -7,7 +7,7 @@
 //! itself. It runs on a background thread with no JavaScript context, and it
 //! must not take the engine lock to do it.
 //!
-//! Run: `cargo test --test heatmap_tile_intercept -p veloqrs`
+//! Run: `cargo test --test heatmap -p veloqrs -- heatmap_tile_intercept::`
 
 use std::fs;
 use std::sync::{Mutex, MutexGuard};
@@ -35,6 +35,7 @@ fn write_tile(base: &std::path::Path, z: u8, x: u32, y: u32, bytes: &[u8]) {
 
 #[test]
 fn a_drawn_tile_is_read_straight_off_disk() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let mut e = engine(&dir);
@@ -52,6 +53,7 @@ fn a_drawn_tile_is_read_straight_off_disk() {
 
 #[test]
 fn a_tile_the_pass_has_not_drawn_yet_reads_as_nothing() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let mut e = engine(&dir);
@@ -68,6 +70,7 @@ fn a_tile_the_pass_has_not_drawn_yet_reads_as_nothing() {
 /// An empty file is the marker the pass writes for a tile with no track on it.
 #[test]
 fn an_empty_tile_marker_reads_as_nothing() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let mut e = engine(&dir);
@@ -82,6 +85,7 @@ fn an_empty_tile_marker_reads_as_nothing() {
 
 #[test]
 fn the_heatmap_switched_off_serves_nothing_even_where_tiles_remain() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let mut e = engine(&dir);

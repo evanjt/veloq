@@ -9,7 +9,7 @@
 //! counts; the assertion is the part that must not drift.
 //!
 //!     TRACEMATCH_CORPUS=<dir> cargo test -p veloqrs --features real-corpus \
-//!         --test corpus_preview_identity -- --nocapture
+//!         --test corpus -- --nocapture
 //!
 //! The corpora are personal activity history and never enter the repository.
 //! Nothing here prints a coordinate, an activity id, a section name or a corpus
@@ -112,6 +112,7 @@ fn load_gpx(path: &Path) -> (Vec<GpsPoint>, Option<i64>) {
 
 #[test]
 fn a_preview_on_the_live_config_proposes_the_catalogue_it_already_holds() {
+    let _serial = crate::serial_state();
     let Some((dir, gpx_count)) = largest_corpus() else {
         eprintln!("no corpus under {ENV}; nothing measured");
         return;

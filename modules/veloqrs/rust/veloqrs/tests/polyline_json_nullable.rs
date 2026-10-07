@@ -8,15 +8,14 @@
 //! is nullable, foreign keys are back on, and a torn rebuild leaves the old
 //! table exactly as it was.
 
-mod migration_support;
-
-use migration_support::*;
 use rusqlite::{Connection, params};
 use std::path::Path;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
+
+use crate::migration_support::*;
 
 const PREVIOUS: u32 = 18;
 

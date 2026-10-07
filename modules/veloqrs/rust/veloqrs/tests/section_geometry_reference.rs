@@ -16,7 +16,7 @@ fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 40,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 2,
         ..LifecycleConfig::default()
@@ -31,9 +31,11 @@ fn detected() -> (TempDir, PersistentEngine) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("geometry.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
-    engine.set_section_config(SectionConfig {
-        ..Default::default()
-    });
+    engine
+        .set_section_config(SectionConfig {
+            ..Default::default()
+        })
+        .expect("config accepted");
 
     for activity in corpus() {
         engine

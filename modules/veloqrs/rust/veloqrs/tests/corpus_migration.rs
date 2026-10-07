@@ -8,7 +8,7 @@
 //! to read the report; the assertions below are the parts that must not drift.
 //!
 //!     TRACEMATCH_CORPUS=<dir> cargo test -p veloqrs --features real-corpus \
-//!         --test corpus_migration -- --nocapture
+//!         --test corpus -- --nocapture
 //!
 //! What the seed reproduces is the state a 0.3.x install upgrades in, not the
 //! bytes its detector produced. `DetectionMethod`, `detect_sections_multiscale`
@@ -27,21 +27,12 @@
 #![cfg(feature = "real-corpus")]
 
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
 
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::persistence::cutover::CutoverOutcome;
 use veloqrs::persistence::with_persistent_engine;
-
-// Both tests drive the one process-wide engine and each runs a cutover, so a
-// concurrent pair sees the other's switched config and reports no migration
-// owed.
-static SERIAL: Mutex<()> = Mutex::new(());
-fn serial() -> MutexGuard<'static, ()> {
-    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
-}
 
 const ENV: &str = "TRACEMATCH_CORPUS";
 
@@ -290,7 +281,7 @@ fn released_era_catalogue(dir: &Path, db_path: &Path) -> usize {
 /// point of running this.
 #[test]
 fn a_released_catalogue_migrates_onto_references() {
-    let _serial = serial();
+    let _serial = crate::serial_state();
     let corpora = corpora();
     assert!(
         !corpora.is_empty(),
@@ -386,7 +377,7 @@ fn a_released_catalogue_migrates_onto_references() {
 /// because the cut is re-derived from the activity pool.
 #[test]
 fn the_migration_is_reproducible() {
-    let _serial = serial();
+    let _serial = crate::serial_state();
     let corpora = corpora();
     let (dir, _) = corpora
         .first()

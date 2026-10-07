@@ -8,7 +8,7 @@
 //! that order, not the first page of the catalogue re-ordered afterwards, and
 //! the two review counters are taken over the unfiltered catalogue.
 //!
-//! Run: `cargo test --test routes_screen_query -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- routes_screen_query::`
 
 use tempfile::TempDir;
 use tracematch::{Direction, FrequentSection, GpsPoint, SectionPortion};
@@ -53,7 +53,7 @@ fn auto_section(id: &str, seed: usize) -> FrequentSection {
         // as dominated by one of them and the catalogue has no auto at all.
         polyline: track(seed + 1_000),
         representative_activity_id: format!("a{seed}"),
-        representative_range: None,
+        representative_range: Some((0, POINTS_PER_TRACK as u32)),
         activity_ids: vec![format!("a{seed}")],
         activity_portions: vec![SectionPortion {
             activity_id: format!("a{seed}"),
@@ -150,6 +150,7 @@ fn query() -> FfiRoutesScreenQuery {
             hide_disabled: false,
             hide_unaccepted: false,
         },
+        group_sport_type: None,
         section_sport_type: None,
         user_lat: f64::NAN,
         user_lng: f64::NAN,
@@ -159,7 +160,7 @@ fn query() -> FfiRoutesScreenQuery {
 #[test]
 fn name_order_takes_the_first_page_of_the_library_not_of_a_page() {
     let dir = TempDir::new().expect("tempdir");
-    let mut engine = seeded(&dir);
+    let engine = seeded(&dir);
 
     let all = engine.get_routes_screen_data(FfiRoutesScreenQuery {
         section_limit: 1_000,
@@ -195,9 +196,86 @@ fn name_order_takes_the_first_page_of_the_library_not_of_a_page() {
 }
 
 #[test]
-fn a_search_reaches_past_the_first_page() {
+fn test_route_screen_name_sort_uses_displayed_name_and_id_fallback() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = seeded(&dir);
+    let conn = rusqlite::Connection::open(dir.path().join("routes.db")).unwrap();
+    conn.execute_batch(
+        "DELETE FROM route_groups;
+         DELETE FROM route_names;
+         INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+           VALUES ('r_1', 'a1', '[]', ''), ('r_2', 'a2', '[]', ''), ('r_3', 'a3', '[]', '');
+         INSERT INTO route_names (route_id, custom_name)
+           VALUES ('r_1', 'Zulu'), ('r_2', 'alpha');",
+    )
+    .unwrap();
+
+    let page = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        group_sort: FfiGroupSort::Name,
+        group_limit: 1_000,
+        ..query()
+    });
+    assert_eq!(
+        page.groups.first().map(|group| group.group_id.as_str()),
+        Some("r_2")
+    );
+    let unnamed = page
+        .groups
+        .iter()
+        .position(|group| group.group_id == "r_3")
+        .unwrap();
+    let zulu = page
+        .groups
+        .iter()
+        .position(|group| group.group_id == "r_1")
+        .unwrap();
+    assert!(unnamed < zulu);
+}
+
+#[test]
+fn test_section_screen_name_sort_uses_displayed_name_and_id_fallback() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = seeded(&dir);
+    let mut ids: Vec<_> = engine
+        .get_section_summaries()
+        .into_iter()
+        .filter(|section| section.section_type == "custom")
+        .map(|section| section.id)
+        .collect();
+    ids.sort();
+    assert!(ids.len() > 2);
+    engine.set_section_name(&ids[0], Some("Zulu")).unwrap();
+    engine.set_section_name(&ids[1], Some("alpha")).unwrap();
+    engine.set_section_name(&ids[2], None).unwrap();
+
+    let page = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        section_sort: FfiSectionSort::Name,
+        section_limit: 1_000,
+        ..query()
+    });
+    let alpha = page
+        .sections
+        .iter()
+        .position(|section| section.id == ids[1])
+        .unwrap();
+    let unnamed = page
+        .sections
+        .iter()
+        .position(|section| section.id == ids[2])
+        .unwrap();
+    let zulu = page
+        .sections
+        .iter()
+        .position(|section| section.id == ids[0])
+        .unwrap();
+    assert!(alpha < unnamed);
+    assert!(unnamed < zulu);
+}
+
+#[test]
+fn a_search_reaches_past_the_first_page() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = seeded(&dir);
 
     // The name the default order puts last, so a page-sized search finds it
     // only if the search ran before the paging.
@@ -283,9 +361,100 @@ fn the_custom_and_retired_counters_cover_the_catalogue_not_the_page() {
 }
 
 #[test]
-fn the_review_counters_cover_the_catalogue_not_the_page() {
+fn retired_auto_sections_follow_the_removed_filter_and_sort_after_visible_rows() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = seeded(&dir);
+    let before = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        section_limit: 1_000,
+        ..query()
+    });
+    let retired = engine
+        .get_section_summaries()
+        .iter()
+        .find(|s| s.section_type == "auto" && !s.is_user_defined)
+        .expect("auto section")
+        .id
+        .clone();
+    engine.disable_section(&retired).expect("disable section");
+
+    for section_sort in [FfiSectionSort::Visits, FfiSectionSort::Name] {
+        let shown = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+            section_limit: 1_000,
+            section_sort,
+            ..query()
+        });
+        let hidden = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+            section_limit: 1_000,
+            section_sort,
+            section_filters: FfiSectionFilters {
+                hide_disabled: true,
+                ..query().section_filters
+            },
+            ..query()
+        });
+
+        assert_eq!(shown.section_count, before.section_count - 1);
+        assert_eq!(hidden.section_count, shown.section_count);
+        assert_eq!(shown.accepted_auto_count, before.accepted_auto_count);
+        assert_eq!(
+            shown.unaccepted_auto_count,
+            before.unaccepted_auto_count - 1
+        );
+        assert_eq!(shown.retired_count, 1);
+        assert_eq!(shown.sections.last().map(|s| &s.id), Some(&retired));
+        assert!(shown.sections.last().expect("last").disabled);
+        assert!(!hidden.sections.iter().any(|s| s.id == retired));
+        assert_eq!(
+            hidden.filtered_section_count + 1,
+            shown.filtered_section_count
+        );
+    }
+}
+
+#[test]
+fn disabled_custom_sections_follow_the_removed_filter_too() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = seeded(&dir);
+    let custom = engine
+        .get_section_summaries()
+        .iter()
+        .find(|s| s.section_type == "custom")
+        .expect("custom section")
+        .id
+        .clone();
+    let before = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        section_limit: 1_000,
+        ..query()
+    });
+    engine.disable_section(&custom).expect("disable section");
+
+    let shown = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        section_limit: 1_000,
+        ..query()
+    });
+    let hidden = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        section_limit: 1_000,
+        section_filters: FfiSectionFilters {
+            hide_disabled: true,
+            ..query().section_filters
+        },
+        ..query()
+    });
+
+    assert_eq!(shown.sections.last().map(|s| &s.id), Some(&custom));
+    assert!(!hidden.sections.iter().any(|s| s.id == custom));
+    assert_eq!(
+        shown.filtered_section_count,
+        hidden.filtered_section_count + 1
+    );
+    assert_eq!(shown.section_count, before.section_count - 1);
+    assert_eq!(hidden.section_count, shown.section_count);
+}
+
+#[test]
+fn the_review_counters_cover_the_catalogue_not_the_page() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = seeded(&dir);
 
     let page = engine.get_routes_screen_data(query());
     let whole = engine.get_routes_screen_data(FfiRoutesScreenQuery {
@@ -317,7 +486,7 @@ fn the_review_counters_cover_the_catalogue_not_the_page() {
 #[test]
 fn a_hidden_filter_narrows_the_page_and_its_total() {
     let dir = TempDir::new().expect("tempdir");
-    let mut engine = seeded(&dir);
+    let engine = seeded(&dir);
 
     let shown = engine.get_routes_screen_data(FfiRoutesScreenQuery {
         section_limit: 1_000,
@@ -389,7 +558,7 @@ fn set_record(db: &rusqlite::Connection, section_id: &str, activity_id: &str) {
     .expect("insert indicator");
 }
 
-fn row_flag(engine: &mut PersistentEngine, section_id: &str) -> bool {
+fn row_flag(engine: &PersistentEngine, section_id: &str) -> bool {
     let page = engine.get_routes_screen_data(FfiRoutesScreenQuery {
         section_limit: 1_000,
         ..query()
@@ -404,7 +573,7 @@ fn row_flag(engine: &mut PersistentEngine, section_id: &str) -> bool {
 #[test]
 fn a_section_whose_latest_outing_holds_its_record_is_flagged() {
     let dir = TempDir::new().expect("tempdir");
-    let mut engine = seeded(&dir);
+    let engine = seeded(&dir);
     let db = raw(&dir);
 
     // `a0` is the newest activity in the fixture: the dates run backwards from
@@ -413,7 +582,7 @@ fn a_section_whose_latest_outing_holds_its_record_is_flagged() {
     set_record(&db, &newest, "a0");
 
     assert!(
-        row_flag(&mut engine, &newest),
+        row_flag(&engine, &newest),
         "the record is held by the section's most recent outing"
     );
 }
@@ -421,7 +590,7 @@ fn a_section_whose_latest_outing_holds_its_record_is_flagged() {
 #[test]
 fn a_record_set_on_an_older_outing_is_not_flagged() {
     let dir = TempDir::new().expect("tempdir");
-    let mut engine = seeded(&dir);
+    let engine = seeded(&dir);
     let db = raw(&dir);
 
     // A section both `a0` and an older activity travel, with the record on the
@@ -438,7 +607,7 @@ fn a_record_set_on_an_older_outing_is_not_flagged() {
     set_record(&db, &shared, "a5");
 
     assert!(
-        !row_flag(&mut engine, &shared),
+        !row_flag(&engine, &shared),
         "the record is older than the latest outing, so the row claims nothing"
     );
 }
@@ -446,7 +615,7 @@ fn a_record_set_on_an_older_outing_is_not_flagged() {
 #[test]
 fn a_section_with_no_record_row_is_not_flagged() {
     let dir = TempDir::new().expect("tempdir");
-    let mut engine = seeded(&dir);
+    let engine = seeded(&dir);
 
     let page = engine.get_routes_screen_data(FfiRoutesScreenQuery {
         section_limit: 1_000,
@@ -457,4 +626,276 @@ fn a_section_with_no_record_row_is_not_flagged() {
         page.sections.iter().all(|s| !s.latest_is_record),
         "nothing holds a record until the indicator pass writes one"
     );
+}
+
+#[test]
+fn a_page_shows_the_same_names_as_a_read_that_names_the_whole_catalogue() {
+    let dir = TempDir::new().expect("temp dir");
+    let path = dir.path().join("routes.db");
+    let mut engine = PersistentEngine::new(path.to_str().expect("utf-8 path")).expect("engine");
+    for i in 0..ACTIVITIES {
+        let id = format!("a{i}");
+        engine
+            .add_activity(id.clone(), track(i), "Ride".into())
+            .expect("add activity");
+        engine
+            .update_activity_metadata(
+                &id,
+                Some(NOW - (i as i64) * DAY),
+                Some("ride"),
+                Some(1_000.0),
+                Some(3_600),
+            )
+            .expect("metadata");
+    }
+    let detected: Vec<FrequentSection> = (0..ACTIVITIES)
+        .map(|i| FrequentSection {
+            name: None,
+            ..auto_section(&format!("auto_{i}"), i)
+        })
+        .collect();
+    engine.apply_sections(detected).expect("apply sections");
+    // Grouping is lazy, and `load` reads back only what was stored.
+    assert!(
+        !engine.get_groups().is_empty(),
+        "the seed has no route groups"
+    );
+    engine.load().expect("load");
+
+    let names_under = |sort: FfiSectionSort, group_sort: FfiGroupSort| {
+        let screen = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+            group_limit: 100,
+            section_limit: 100,
+            section_sort: sort,
+            group_sort,
+            ..query()
+        });
+        let mut sections: Vec<_> = screen
+            .sections
+            .into_iter()
+            .map(|s| (s.id, s.name))
+            .collect();
+        let mut groups: Vec<_> = screen
+            .groups
+            .into_iter()
+            .map(|g| (g.group_id, g.custom_name))
+            .collect();
+        sections.sort();
+        groups.sort();
+        (sections, groups)
+    };
+    let paged = names_under(FfiSectionSort::Visits, FfiGroupSort::Activities);
+    let whole = names_under(FfiSectionSort::Name, FfiGroupSort::Name);
+
+    assert!(!paged.0.is_empty() && !paged.1.is_empty());
+    assert!(
+        paged.0.iter().all(|(_, name)| name.is_some()),
+        "{:?}",
+        paged.0
+    );
+    assert!(
+        paged.1.iter().all(|(_, name)| name.is_some()),
+        "{:?}",
+        paged.1
+    );
+    assert_eq!(paged, whole);
+}
+
+fn relevance_order(engine: &PersistentEngine, sport: Option<&str>) -> Vec<String> {
+    engine
+        .get_routes_screen_data(FfiRoutesScreenQuery {
+            section_sort: FfiSectionSort::Signature,
+            section_limit: 1_000,
+            section_sport_type: sport.map(String::from),
+            ..query()
+        })
+        .sections
+        .into_iter()
+        .map(|s| s.id)
+        .collect()
+}
+
+fn seed_scores(dir: &TempDir, scores: &[(&str, Option<f64>, Option<f64>)]) {
+    let conn = rusqlite::Connection::open(dir.path().join("routes.db")).unwrap();
+    conn.execute(
+        "UPDATE sections SET rank_score = NULL, sport_rank_score = NULL",
+        [],
+    )
+    .unwrap();
+    for (id, pooled, sport) in scores {
+        conn.execute(
+            "UPDATE sections SET rank_score = ?1, sport_rank_score = ?2 WHERE id = ?3",
+            rusqlite::params![pooled, sport, id],
+        )
+        .unwrap();
+    }
+}
+
+#[test]
+fn relevance_order_ranks_high_first_ties_by_id_and_unranked_last() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = seeded(&dir);
+    let mut ids: Vec<String> = engine
+        .get_section_summaries()
+        .into_iter()
+        .map(|s| s.id)
+        .collect();
+    ids.sort();
+    assert!(ids.len() >= 4);
+    // Ids in sorted order: the unranked one is first by id, so only the
+    // unranked-last rule can move it to the end.
+    seed_scores(
+        &dir,
+        &[
+            (&ids[1], Some(0.4), None),
+            (&ids[2], Some(0.4), None),
+            (&ids[3], Some(0.9), None),
+        ],
+    );
+    drop(engine);
+    let mut engine = PersistentEngine::new(dir.path().join("routes.db").to_str().unwrap()).unwrap();
+    engine.load().unwrap();
+
+    let order = relevance_order(&engine, None);
+    assert_eq!(order[0], ids[3]);
+    assert_eq!(order[1], ids[1]);
+    assert_eq!(order[2], ids[2]);
+    assert_eq!(order[3..].len(), order.len() - 3);
+    assert!(order[3..].contains(&ids[0]));
+}
+
+#[test]
+fn relevance_order_within_a_sport_follows_the_sport_score() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = seeded(&dir);
+    let mut ids: Vec<String> = engine
+        .get_section_summaries()
+        .into_iter()
+        .map(|s| s.id)
+        .collect();
+    ids.sort();
+    // Pooled and sport scores disagree, and one section has only a pooled score.
+    seed_scores(
+        &dir,
+        &[
+            (&ids[0], Some(0.9), Some(0.1)),
+            (&ids[1], Some(0.1), Some(0.8)),
+            (&ids[2], Some(0.5), None),
+        ],
+    );
+    drop(engine);
+    let mut engine = PersistentEngine::new(dir.path().join("routes.db").to_str().unwrap()).unwrap();
+    engine.load().unwrap();
+
+    let order = relevance_order(&engine, Some("Ride"));
+    assert_eq!(order[..3], [ids[1].clone(), ids[2].clone(), ids[0].clone()]);
+}
+
+fn reopened(dir: &TempDir) -> PersistentEngine {
+    let mut engine = PersistentEngine::new(dir.path().join("routes.db").to_str().unwrap()).unwrap();
+    engine.load().unwrap();
+    engine
+}
+
+#[test]
+fn a_sport_filter_narrows_sections_before_the_page_and_the_counts() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = seeded(&dir);
+    let mut ids: Vec<String> = engine
+        .get_section_summaries()
+        .into_iter()
+        .map(|s| s.id)
+        .collect();
+    ids.sort();
+    drop(engine);
+    let conn = rusqlite::Connection::open(dir.path().join("routes.db")).unwrap();
+    conn.execute("UPDATE sections SET sport_types = 'Ride'", [])
+        .unwrap();
+    for id in &ids[..4] {
+        conn.execute(
+            "UPDATE sections SET sport_types = 'Ride,Run' WHERE id = ?1",
+            [id],
+        )
+        .unwrap();
+    }
+    conn.execute(
+        "UPDATE sections SET sport_types = 'Run' WHERE id = ?1",
+        [&ids[0]],
+    )
+    .unwrap();
+    drop(conn);
+    let engine = reopened(&dir);
+
+    let runs = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        section_sport_type: Some("Run".into()),
+        section_limit: 2,
+        ..query()
+    });
+    assert_eq!(runs.section_count, 4, "the total is the sport's own");
+    assert_eq!(runs.filtered_section_count, 4);
+    assert_eq!(runs.sections.len(), 2);
+    assert!(runs.has_more_sections);
+    assert!(
+        runs.sections
+            .iter()
+            .all(|s| s.sport_types.iter().any(|t| t == "Run"))
+    );
+
+    let walks = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        section_sport_type: Some("Walk".into()),
+        ..query()
+    });
+    assert_eq!(walks.section_count, 0);
+    assert!(walks.sections.is_empty());
+
+    let everything = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        section_limit: 1_000,
+        ..query()
+    });
+    assert_eq!(everything.section_count as usize, ids.len());
+}
+
+#[test]
+fn a_sport_filter_keeps_the_groups_any_member_was_recorded_in() {
+    let dir = TempDir::new().expect("tempdir");
+    drop(seeded(&dir));
+    let conn = rusqlite::Connection::open(dir.path().join("routes.db")).unwrap();
+    for (group, members) in [("g_solo", r#"["a0"]"#), ("g_pair", r#"["a1","a2"]"#)] {
+        conn.execute(
+            "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+             VALUES (?1, ?2, ?3, 'Ride')",
+            rusqlite::params![group, if group == "g_solo" { "a0" } else { "a1" }, members],
+        )
+        .unwrap();
+    }
+    conn.execute(
+        "UPDATE activities SET sport_type = 'Run' WHERE id IN ('a0', 'a2')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+    let engine = reopened(&dir);
+    let ids = |sport: &str| -> Vec<String> {
+        let mut ids: Vec<String> = engine
+            .get_routes_screen_data(FfiRoutesScreenQuery {
+                group_sport_type: Some(sport.into()),
+                group_limit: 1_000,
+                ..query()
+            })
+            .groups
+            .into_iter()
+            .map(|g| g.group_id)
+            .collect();
+        ids.sort();
+        ids
+    };
+
+    assert_eq!(ids("Run"), ["g_pair", "g_solo"]);
+    assert_eq!(ids("Ride"), ["g_pair"]);
+    assert!(ids("Walk").is_empty());
+    let narrowed = engine.get_routes_screen_data(FfiRoutesScreenQuery {
+        group_sport_type: Some("Ride".into()),
+        ..query()
+    });
+    assert_eq!(narrowed.group_count, 1);
 }

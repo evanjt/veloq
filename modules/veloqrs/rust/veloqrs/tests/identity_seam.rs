@@ -18,19 +18,18 @@
 //! ground metric never bridges them.
 //!
 //! Run:
-//!   cargo test -p veloqrs --features synthetic --test identity_seam
-
-mod lifecycle_support;
+//!   cargo test -p veloqrs --features synthetic --test app_synthetic -- identity_seam::
 
 use std::collections::BTreeSet;
 
-use lifecycle_support::*;
 use rusqlite::types::ValueRef;
 use tracematch::matching::calculate_route_distance;
 use tracematch::scenarios::LifecycleActivity;
 use tracematch::{GpsPoint, shares_ground};
 use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
+
+use crate::lifecycle_support::*;
 
 const DAY: i64 = 86_400;
 const T0: i64 = 1_700_000_000;
@@ -239,7 +238,7 @@ fn assert_registry_mirrors_pure(engine: &PersistentEngine, ctx: &str) {
 /// serialised registry state are all identical after each pass.
 #[test]
 fn double_apply_is_a_no_op() {
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let rides = corridor_rides("cold", 0.0, 9, 0);
     let cold = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
     assert!(
@@ -297,7 +296,7 @@ struct GravesRun {
 }
 
 fn run_graves_scenario(check_each_apply: bool) -> GravesRun {
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let ground_a = corridor_ground(0.0);
     let ground_b = corridor_ground(1_500.0);
     let rides_a = corridor_rides("a", 0.0, 9, 0);
@@ -466,7 +465,7 @@ fn grave_restore_survives_restart() {
 /// the corridor suppressed no restore could ever have drained the pair.
 #[test]
 fn durable_claim_mid_tombstone_clears_the_grave() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let ground_a = corridor_ground(0.0);
     let rides_a = corridor_rides("ca", 0.0, 9, 0);
     let rides_b = corridor_rides("cb", 1_500.0, 9, 10);
@@ -521,7 +520,7 @@ fn run_promotion_case<M>(label: &str, visible_after: bool, mutate: M)
 where
     M: FnOnce(&mut PersistentEngine, &str, &SectionFingerprint) -> Result<(), String>,
 {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let ground = corridor_ground(0.0);
     let rides = corridor_rides(label, 0.0, 9, 0);
     let cold = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
@@ -593,7 +592,7 @@ fn accept_relinquishes_and_survives_resync() {
 fn trim_relinquishes_and_survives_resync() {
     run_promotion_case("trim", true, |e, id, fp| {
         let len = fp.polyline_point_count as u32;
-        e.trim_section(id, len / 4, len * 3 / 4)
+        e.trim_section(id, len / 4, len * 3 / 4).map(|_departed| ())
     });
 }
 
@@ -606,7 +605,22 @@ fn set_reference_relinquishes_and_survives_resync() {
             .next()
             .expect("a contributing activity")
             .clone();
-        e.set_section_reference(id, &aid)
+        e.set_section_reference(id, &aid).map(|_departed| ())
+    });
+}
+
+#[test]
+fn expand_relinquishes_and_survives_resync() {
+    run_promotion_case("expand", true, |e, id, fp| {
+        let aid = fp
+            .activity_ids
+            .iter()
+            .next()
+            .expect("a contributing activity")
+            .clone();
+        let last = e.get_gps_track(&aid).expect("a stored track").len() as u32 - 1;
+        e.expand_section_bounds(id, &aid, 0, last)
+            .map(|_departed| ())
     });
 }
 
@@ -627,7 +641,7 @@ fn delete_relinquishes_and_survives_resync() {
 /// section on its ground.
 #[test]
 fn merge_relinquishes_both_identities() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let ground_a = corridor_ground(0.0);
     let ground_b = corridor_ground(1_500.0);
     let rides_a = corridor_rides("ma", 0.0, 9, 0);
@@ -707,7 +721,7 @@ fn trunk_then_spur(to_m: f64, spur_m: f64) -> Vec<GpsPoint> {
 /// promises, checked at every step rather than scenario endpoints.
 #[test]
 fn mirror_rows_equal_pure_grounds() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = corridor_rides("agree_cold", 0.0, 9, 0);
     ingest_step(&mut engine, "cold", &refs(&cold));
     assert_registry_mirrors_pure(&engine, "agreement cold");
@@ -725,7 +739,7 @@ fn mirror_rows_equal_pure_grounds() {
     ingest_step(&mut engine, "wave", &refs(&wave));
     assert_registry_mirrors_pure(&engine, "agreement wave");
 
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let trunk: Vec<LifecycleActivity> = (0..21)
         .map(|i| {
             act(
@@ -787,7 +801,7 @@ fn mirror_rows_equal_pure_grounds() {
 /// disabled corridor absent, and the live corridor keeping its id.
 #[test]
 fn durable_rows_never_collide() {
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let east = [0.0, 1_500.0, 3_000.0, 4_500.0, 6_000.0];
     let rides: Vec<Vec<LifecycleActivity>> = east
         .iter()

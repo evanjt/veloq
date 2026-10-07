@@ -1,27 +1,24 @@
 //! A screen read must not wait behind a write.
 //!
 //! Scenario: a sync page commits while the athlete drags the feed. Expected
-//! behaviour: a read that only needs SQLite is served inside a frame, because
-//! it comes through the read pool and takes no engine lock at all. The same
-//! read through the engine's read lock waits for the whole write, which is
-//! asserted here too, so the pool is compared against the wait it exists to
-//! remove rather than against nothing.
+//! behaviour: a read that only needs SQLite is served while the writer still
+//! holds the engine, because it comes through the read pool and takes no
+//! engine lock at all. The writer lets go only when the read has returned, so
+//! a read that waited for it would never finish before the writer's hang
+//! guard ran out, whatever the load on the machine.
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::Mutex;
+use std::sync::mpsc;
+use std::time::Duration;
 
 use tempfile::TempDir;
 use veloqrs::objects::error::with_reader;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
-/// One 60 Hz frame. A read that takes longer than this drops one.
-const FRAME_BUDGET: Duration = Duration::from_millis(16);
-
-/// How long the synthetic writer holds the engine. Long enough that a wait on
-/// it cannot be read as scheduling noise.
-const WRITE_HOLD: Duration = Duration::from_millis(200);
+/// How long the writer holds the engine when nothing releases it. It is a hang
+/// guard and the only deadline: the read is never timed.
+const WRITER_HOLD_LIMIT: Duration = Duration::from_secs(30);
 
 const ROUTE_ID: &str = "r1";
 const ROUTE_NAME: &str = "Col du Sanetsch";
@@ -39,24 +36,22 @@ fn init_global_engine(name: &str) -> TempDir {
     tmp
 }
 
-/// Write one row and hold the engine write lock for `WRITE_HOLD` afterwards,
-/// which is a sync page as a reader experiences it. Returns once the lock is
-/// held and the row is committed.
-fn writer_holding_the_engine() -> std::thread::JoinHandle<()> {
-    let holding = Arc::new(AtomicBool::new(false));
-    let signal = Arc::clone(&holding);
+/// Write one row, then hold the engine write lock until `release` is sent or
+/// `WRITER_HOLD_LIMIT` runs out, which is a sync page as a reader experiences
+/// it. Returns once the lock is held and the row is committed, with the
+/// writer's handle, which yields whether it was released.
+fn writer_holding_the_engine(release: mpsc::Receiver<()>) -> std::thread::JoinHandle<Option<bool>> {
+    let (held_tx, held_rx) = mpsc::channel();
     let handle = std::thread::spawn(move || {
         with_persistent_engine(|engine| {
             engine
                 .set_route_name(ROUTE_ID, Some(ROUTE_NAME))
                 .expect("write");
-            signal.store(true, Ordering::SeqCst);
-            std::thread::sleep(WRITE_HOLD);
-        });
+            held_tx.send(()).expect("signal the hold");
+            release.recv_timeout(WRITER_HOLD_LIMIT).is_ok()
+        })
     });
-    while !holding.load(Ordering::SeqCst) {
-        std::thread::yield_now();
-    }
+    held_rx.recv().expect("the writer took the engine");
     handle
 }
 
@@ -70,53 +65,29 @@ fn route_names_through_the_pool() -> i64 {
 
 #[test]
 fn a_pooled_read_is_served_while_a_writer_holds_the_engine() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let _tmp = init_global_engine("pooled_read.db");
-    let writer = writer_holding_the_engine();
+    let (release, released) = mpsc::channel();
+    let writer = writer_holding_the_engine(released);
 
-    let started = Instant::now();
     let names = route_names_through_the_pool();
-    let waited = started.elapsed();
+    release.send(()).expect("release the writer");
 
     assert_eq!(
+        writer.join().expect("writer"),
+        Some(true),
+        "the pooled read waited for the writer, which held the engine until it gave up after {WRITER_HOLD_LIMIT:?}"
+    );
+    assert_eq!(
         names, 1,
-        "the reader must see the row the writer committed before it went to sleep"
+        "the reader must see the row the writer committed before it went on holding"
     );
-    assert!(
-        waited < FRAME_BUDGET,
-        "a pooled read waited {waited:?}, which is over a frame"
-    );
-
-    writer.join().expect("writer");
-}
-
-/// The wait the pool removes, measured on the only lock the engine has left.
-///
-/// This stood on `with_engine_read` until the read lock went: nothing holds a
-/// shared `&PersistentEngine` any more, so the comparison the test above makes
-/// is against the write lock, which is what every remaining engine caller
-/// takes.
-#[test]
-fn the_engine_lock_is_the_wait_the_pool_removes() {
-    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    let _tmp = init_global_engine("read_lock_wait.db");
-    let writer = writer_holding_the_engine();
-
-    let started = Instant::now();
-    with_persistent_engine(|_| ()).expect("engine");
-    let waited = started.elapsed();
-
-    assert!(
-        waited > WRITE_HOLD / 2,
-        "the engine lock was served in {waited:?}, so this test no longer measures a \
-         reader waiting on a writer and the comparison it stands beside means nothing"
-    );
-
-    writer.join().expect("writer");
 }
 
 #[test]
 fn a_pooled_connection_cannot_write() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let _tmp = init_global_engine("pooled_readonly.db");
 

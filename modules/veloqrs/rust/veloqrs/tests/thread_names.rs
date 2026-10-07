@@ -56,3 +56,12 @@ fn naming_the_pool_twice_is_harmless() {
 
     assert!(named, "a pool worker lost its name");
 }
+
+/// A name the kernel would truncate is refused at the spawn, so the sampler
+/// never sees one that matches nothing in the source.
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic(expected = "truncates thread names")]
+fn a_name_longer_than_the_kernel_keeps_is_refused() {
+    let _ = veloqrs::threads::spawn_named("veloq-sixteen-char", || ());
+}

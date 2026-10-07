@@ -7,7 +7,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test section_elevation -p veloqrs`
+//! Run: `cargo test --test section -p veloqrs -- section_elevation::`
 
 use rusqlite::Connection;
 use tempfile::TempDir;
@@ -30,7 +30,9 @@ fn unified_engine(path: &std::path::Path) -> PersistentEngine {
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     let mut cfg = engine.get_section_config();
     cfg.min_activities = 3;
-    engine.set_section_config(cfg);
+    engine
+        .set_section_config(cfg)
+        .expect("set the section config");
     engine
 }
 
@@ -72,6 +74,7 @@ fn detect_and_apply(engine: &mut PersistentEngine) {
 
 #[test]
 fn a_detect_over_elevated_tracks_fills_the_columns_and_they_survive_reopen() {
+    let _serial_state = crate::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
 
@@ -141,7 +144,9 @@ fn rows_written_before_the_columns_existed_read_null() {
         .expect("insert legacy row");
     }
 
-    let engine = unified_engine(&path);
+    // The planted row leaves the cutover owed, which refuses a config write, so
+    // the reopen takes the persisted config as it is.
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen engine");
     let summaries = engine.get_section_summaries();
     let legacy = summaries
         .iter()

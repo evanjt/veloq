@@ -37,7 +37,7 @@ fn build_engine(scale: usize) -> (PersistentEngine, TempDir) {
     let cfg = LifecycleConfig {
         bucket_a_count: 60 * scale,
         bucket_b_delta_count: 90 * scale,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 4,
         ..LifecycleConfig::default()

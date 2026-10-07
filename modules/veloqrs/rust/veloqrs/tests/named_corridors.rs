@@ -9,15 +9,15 @@
 //! The no-freeze gate was written here as D1's forward contract and stayed
 //! red until D2 landed geometry adoption in the registry; it is live now.
 
-mod lifecycle_support;
-
 use std::time::Duration;
 
-use lifecycle_support::*;
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 use veloqrs::PersistentEngine;
+use veloqrs::persistence::SectionNameError;
+
+use crate::lifecycle_support::*;
 
 /// Distinctive name that can never collide with the generated
 /// "<section_word> N" pattern.
@@ -231,19 +231,26 @@ fn junction_corpus() -> JunctionCorpus {
 
 /// Cold-ingest the trunk, name its section, then feed the branch chunks.
 /// Returns the engine and the final snapshot.
-fn run_junction_scenario() -> (
+/// `keep_pin` leaves the pin that naming writes; without it the athlete has
+/// unpinned the section, so detection may re-cut its ground.
+fn run_junction_scenario(
+    keep_pin: bool,
+) -> (
     PersistentEngine,
     tempfile::TempDir,
     SectionSnapshot,
     Vec<GpsPoint>,
 ) {
     let jc = junction_corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "trunk", &refs(&jc.trunk_outings));
     let (id, _fp) = busiest_section(&cold.snapshot).expect("trunk section detected");
     engine
         .set_section_name(&id, Some(NAME))
         .expect("set_section_name");
+    if !keep_pin {
+        engine.unpin_section_geometry(&id).expect("unpin");
+    }
     let mut snap = cold.snapshot;
     for (i, chunk) in jc.branch_chunks.iter().enumerate() {
         snap = ingest_step(&mut engine, &format!("branch_{i}"), &refs(chunk)).snapshot;
@@ -282,7 +289,7 @@ fn trunk_pieces(snap: &SectionSnapshot, trunk: &[GpsPoint]) -> Vec<(String, f64)
 #[test]
 fn naming_roundtrip_and_unname() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
@@ -307,7 +314,7 @@ fn naming_roundtrip_and_unname() {
 #[test]
 fn restore_list_shows_the_corridor_name() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
@@ -343,7 +350,7 @@ fn restore_list_shows_the_corridor_name() {
 #[test]
 fn restore_list_names_a_disabled_corridor() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
@@ -370,7 +377,7 @@ fn restore_list_names_a_disabled_corridor() {
 #[test]
 fn naming_never_suppresses_corridor() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     engine.set_section_name(&id, Some(NAME)).expect("set name");
@@ -393,7 +400,7 @@ fn naming_never_suppresses_corridor() {
 #[test]
 fn disable_still_suppresses_a_named_corridor() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
@@ -415,7 +422,7 @@ fn disable_still_suppresses_a_named_corridor() {
 #[test]
 fn accepted_section_name_stays_row_local_across_restart() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
@@ -442,7 +449,7 @@ fn accepted_section_name_stays_row_local_across_restart() {
 #[test]
 fn row_name_beats_corridor_name_on_same_section() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
@@ -472,7 +479,7 @@ fn row_name_beats_corridor_name_on_same_section() {
 #[test]
 fn name_readable_after_restart_without_sync() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
     engine.set_section_name(&id, Some(NAME)).expect("set name");
@@ -496,10 +503,13 @@ fn name_readable_after_restart_without_sync() {
 #[test]
 fn dissolved_named_corridor_leaves_other_ground_unnamed() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     engine.set_section_name(&id, Some(NAME)).expect("set name");
+    // Naming pins the section, and a pinned section is never dissolved: the
+    // intent only goes dormant once the athlete has unpinned the line.
+    engine.unpin_section_geometry(&id).expect("unpin");
 
     // Deleting evidence is the one legitimate way a corridor dies, and
     // ALL of it must go: partial traversers outside the section's visit
@@ -553,7 +563,7 @@ fn dissolved_named_corridor_leaves_other_ground_unnamed() {
 #[test]
 fn name_survives_cache_clear_and_redetect() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     engine.set_section_name(&id, Some(NAME)).expect("set name");
@@ -570,7 +580,7 @@ fn name_survives_cache_clear_and_redetect() {
 #[test]
 fn name_survives_resync() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     engine.set_section_name(&id, Some(NAME)).expect("set name");
@@ -585,7 +595,7 @@ fn name_survives_resync() {
 #[test]
 fn name_survives_restart_and_resync() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     engine.set_section_name(&id, Some(NAME)).expect("set name");
@@ -609,7 +619,7 @@ fn name_survives_restart_and_resync() {
 fn name_follows_ground_through_recut() {
     within(RECUT_BOUND, "name_follows_ground_through_recut", || {
         let corpus = corpus();
-        let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+        let (mut engine, _dir) = fresh_engine();
         let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
         let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
         engine.set_section_name(&id, Some(NAME)).expect("set name");
@@ -633,7 +643,7 @@ fn name_follows_ground_through_recut() {
 /// midpoint inside the smallest piece, so a midpoint rule fails here.
 #[test]
 fn split_gives_name_to_largest_share_piece() {
-    let (engine, _dir, snap, trunk) = run_junction_scenario();
+    let (engine, _dir, snap, trunk) = run_junction_scenario(false);
 
     let pieces = trunk_pieces(&snap, &trunk);
     assert!(
@@ -657,13 +667,28 @@ fn split_gives_name_to_largest_share_piece() {
     );
 }
 
-/// Naming must not freeze geometry: after the junction re-cut settles, the
+/// Naming pins the section: the junction that would split an unpinned trunk
+/// leaves the named one whole, under its own id and name.
+#[test]
+fn a_named_trunk_is_not_split_by_a_junction() {
+    let (engine, _dir, snap, trunk) = run_junction_scenario(true);
+
+    let pieces = trunk_pieces(&snap, &trunk);
+    assert_eq!(pieces.len(), 1, "the pinned trunk was re-cut: {pieces:?}");
+    assert_eq!(
+        sections_named(&engine, &snap, NAME),
+        vec![pieces[0].0.clone()]
+    );
+    assert!(engine.pinned_section_version(&pieces[0].0).is_some());
+}
+
+/// Once unpinned, naming does not freeze geometry: after the junction re-cut settles, the
 /// visible pieces on the named ground must match the raw catalogue's pieces.
 /// Frozen for every section on current main because the registry keeps its
 /// prior polyline on every carry and never adopts the re-cut.
 #[test]
 fn naming_does_not_freeze_geometry() {
-    let (engine, _dir, snap, trunk) = run_junction_scenario();
+    let (engine, _dir, snap, trunk) = run_junction_scenario(false);
 
     let raw = raw_snapshot(&engine);
     let raw_pieces = trunk_pieces(&raw, &trunk);
@@ -699,10 +724,13 @@ fn naming_does_not_freeze_geometry() {
 #[test]
 fn dormancy_roundtrip_resurfaces_name() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     engine.set_section_name(&id, Some(NAME)).expect("set name");
+    // Naming pins the section, and a pinned section is never dissolved: the
+    // intent only goes dormant once the athlete has unpinned the line.
+    engine.unpin_section_geometry(&id).expect("unpin");
 
     let listed = engine.get_named_corridors();
     assert_eq!(listed.len(), 1);
@@ -785,7 +813,7 @@ fn dormancy_roundtrip_resurfaces_name() {
 #[test]
 fn unname_and_remove_delete_the_intent() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
@@ -809,7 +837,7 @@ fn unname_and_remove_delete_the_intent() {
 #[test]
 fn renaming_updates_the_existing_intent() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
@@ -826,13 +854,11 @@ fn renaming_updates_the_existing_intent() {
     assert_eq!(listed[0].name, ROW_NAME);
 }
 
-/// The migration hook rebuilds an old-CHECK section_intents table in place,
-/// preserving disabled/deleted rows, promoting legacy user names on auto rows
-/// to named intents exactly once, and staying idempotent across reopens.
+/// A legacy row name is promoted once, without disturbing existing intents.
 #[test]
-fn migration_hook_rebuilds_old_intents_table_and_backfills() {
+fn legacy_named_row_promotes_once_with_current_intent_schema() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
     drop(engine);
@@ -841,18 +867,11 @@ fn migration_hook_rebuilds_old_intents_table_and_backfills() {
     {
         let db = rusqlite::Connection::open(&path).expect("raw open");
         db.execute_batch(
-            "DROP TABLE section_intents;
-             CREATE TABLE section_intents (
-                 id TEXT PRIMARY KEY,
-                 kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted')),
-                 polyline_json TEXT NOT NULL,
-                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
-             );
-             INSERT INTO section_intents (id, kind, polyline_json)
+            "INSERT INTO section_intents (id, kind, polyline_json)
                  VALUES ('legacy_disabled', 'disabled', '[]');
              DELETE FROM schema_info WHERE key = 'named_backfill_done';",
         )
-        .expect("downgrade to the old shape");
+        .expect("reset the backfill marker");
         db.execute(
             "UPDATE sections SET name = 'Morning Berg', is_user_defined = 0 WHERE id = ?",
             params![id],
@@ -871,7 +890,7 @@ fn migration_hook_rebuilds_old_intents_table_and_backfills() {
     assert_eq!(section_name(&engine, &id).as_deref(), Some("Morning Berg"));
     engine
         .set_section_name(&id, Some(NAME))
-        .expect("a kind='named' write must pass the rebuilt CHECK");
+        .expect("rename promoted intent");
     drop(engine);
 
     let engine = {
@@ -889,7 +908,7 @@ fn migration_hook_rebuilds_old_intents_table_and_backfills() {
         .expect("count");
     assert_eq!(
         disabled, 1,
-        "disabled rows must survive the rebuild and reopens"
+        "disabled rows must survive the backfill and reopens"
     );
     let named: i64 = db
         .query_row(
@@ -908,7 +927,7 @@ fn migration_hook_rebuilds_old_intents_table_and_backfills() {
 #[test]
 fn raw_named_row_never_suppresses_but_disabled_does() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (_, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     drop(engine);
@@ -983,7 +1002,7 @@ fn raw_named_row_never_suppresses_but_disabled_does() {
 #[test]
 fn two_names_one_section_keeps_both() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
     engine
@@ -1035,7 +1054,7 @@ fn two_names_one_section_keeps_both() {
 #[test]
 fn set_name_routes_by_the_db_row_not_memory() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
@@ -1071,7 +1090,7 @@ fn set_name_routes_by_the_db_row_not_memory() {
 #[test]
 fn accepting_a_named_section_keeps_the_name() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
@@ -1092,25 +1111,26 @@ fn accepting_a_named_section_keeps_the_name() {
     let _ = snapshot(&mut engine);
 }
 
-/// Generated-shaped names ("Section 7") are the engine's own labels, not
-/// user data: writing one to an auto section stays row-local and must never
-/// mint a durable intent, a backup restore replays every generated name
-/// through this path.
+/// Generated-shaped names ("Section 7") are the engine's own handles, not
+/// user data: typing one for a number the section does not hold is refused as
+/// taken, mints no durable intent and leaves the name as it was.
 #[test]
-fn generated_shaped_names_stay_row_local() {
+fn generated_shaped_names_are_refused_and_change_nothing() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
+    let before = section_name(&engine, &id);
 
-    engine
-        .set_section_name(&id, Some("Section 7"))
-        .expect("set name");
+    assert_eq!(
+        engine.set_section_name(&id, Some("Section 9999")),
+        Err(SectionNameError::Taken("Section 9999".into()))
+    );
     assert!(
         engine.get_named_corridors().is_empty(),
         "a generated-shaped name must not become a durable intent"
     );
-    assert_eq!(section_name(&engine, &id).as_deref(), Some("Section 7"));
+    assert_eq!(section_name(&engine, &id), before);
 }
 
 /// The rename originator's own detail screen must show the new name even
@@ -1119,7 +1139,7 @@ fn generated_shaped_names_stay_row_local() {
 #[test]
 fn rename_shows_fresh_name_after_list_and_detail_reads() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 

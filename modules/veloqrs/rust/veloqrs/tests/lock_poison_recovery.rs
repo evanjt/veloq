@@ -52,7 +52,7 @@ fn assert_all_accessors_serve(context: &str) {
     );
     assert!(
         with_engine(|engine| engine.activity_count()).is_ok(),
-        "with_engine answered LockFailed after {}",
+        "with_engine failed after {}",
         context
     );
 }

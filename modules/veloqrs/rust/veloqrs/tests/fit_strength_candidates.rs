@@ -8,8 +8,9 @@
 //!
 //! The fixture is the athlete's own fenix 7 file for `i183105434`, pulled from
 //! `/activity/{id}/file` on intervals.icu. It holds training data and stays
-//! under the gitignored `tests/fixtures/private/`, so the test is skipped
-//! wherever the file is absent.
+//! under the gitignored `tests/fixtures/private/`, so the tests are
+//! `#[ignore]`d and the runner reports them skipped rather than passed. Run them
+//! with `--ignored` where the file is present.
 
 use std::path::PathBuf;
 
@@ -31,6 +32,7 @@ fn fixture() -> Option<Vec<u8>> {
 }
 
 #[test]
+#[ignore = "needs the private fenix fixture in tests/fixtures/private"]
 fn the_top_candidate_names_each_set_and_unknown_stays_unknown() {
     let Some(data) = fixture() else { return };
     let sets = parse_fit_sets(&data);
@@ -47,6 +49,7 @@ fn the_top_candidate_names_each_set_and_unknown_stays_unknown() {
 }
 
 #[test]
+#[ignore = "needs the private fenix fixture in tests/fixtures/private"]
 fn a_rest_set_carries_no_category() {
     let Some(data) = fixture() else { return };
     let sets = parse_fit_sets(&data);
@@ -62,6 +65,7 @@ fn a_rest_set_carries_no_category() {
 }
 
 #[test]
+#[ignore = "needs the private fenix fixture in tests/fixtures/private"]
 fn the_unnamed_set_keeps_its_work() {
     let Some(data) = fixture() else { return };
     let sets = parse_fit_sets(&data);

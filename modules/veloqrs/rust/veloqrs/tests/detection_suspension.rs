@@ -7,7 +7,7 @@
 //! So a backfill holds a suspension guard and no detection arm may start
 //! while it does.
 //!
-//! Run: `cargo test --test detection_suspension -p veloqrs`
+//! Run: `cargo test --test detection_global -p veloqrs -- detection_suspension::`
 
 use std::sync::Mutex;
 use tempfile::TempDir;
@@ -50,6 +50,7 @@ fn engine_with(ids: &[&str]) -> (TempDir, PersistentEngine) {
 /// persisted, so a crash mid-backfill comes back able to detect.
 #[test]
 fn a_fresh_engine_is_never_suspended() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, mut engine) = engine_with(&["a1", "a2"]);
 
@@ -66,6 +67,7 @@ fn a_fresh_engine_is_never_suspended() {
 /// conditioning driver alike.
 #[test]
 fn the_background_detect_arm_refuses_while_suspended() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, mut engine) = engine_with(&["b1", "b2"]);
 
@@ -86,10 +88,14 @@ fn the_background_detect_arm_refuses_while_suspended() {
 /// round trip, so it needs the same gate.
 #[test]
 fn the_conditioning_arm_refuses_while_suspended() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
 
     let guard = suspend_detection();
-    conditioning::note_stored(conditioning::CONDITIONING_BATCH_ADDS);
+    conditioning::note_stored_for(
+        veloqrs::persistence::engine_install(),
+        conditioning::CONDITIONING_BATCH_ADDS,
+    );
     assert!(
         !conditioning::maybe_condition_backfill(),
         "a due batch must not start a run while suspended"
@@ -102,6 +108,7 @@ fn the_conditioning_arm_refuses_while_suspended() {
 /// "complete", so the caller can tell the two apart.
 #[test]
 fn a_refusal_is_distinguishable_from_a_run_that_changed_nothing() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, mut engine) = engine_with(&["c1", "c2"]);
 
@@ -123,6 +130,7 @@ fn a_refusal_is_distinguishable_from_a_run_that_changed_nothing() {
 /// backfill early still resumes detection.
 #[test]
 fn the_guard_releases_on_an_early_return() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
 
     fn backfill_bails_out() -> Option<()> {
@@ -138,6 +146,7 @@ fn the_guard_releases_on_an_early_return() {
 
 #[test]
 fn detection_works_normally_again_after_release() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, mut engine) = engine_with(&["d1", "d2"]);
 
@@ -160,6 +169,7 @@ fn detection_works_normally_again_after_release() {
 /// has never been backfilled still detects.
 #[test]
 fn an_unbackfilled_library_still_detects() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let (_dir, mut engine) = engine_with(&["e1", "e2"]);
 

@@ -139,7 +139,7 @@ fn an_export_with_no_home_set_is_exactly_what_it_was() {
         .expect("gpx export");
 
     assert_eq!(result.exported, 2);
-    assert_eq!(result.skipped, 0);
+    assert_eq!((result.no_track, result.trimmed, result.failed), (0, 0, 0));
     assert_eq!(exported_track(&dest, "door").len(), 7);
 }
 
@@ -176,7 +176,10 @@ fn a_ride_entirely_inside_the_radius_is_named_in_the_ledger() {
         .expect("gpx export");
 
     assert_eq!(result.exported, 0);
-    assert_eq!(result.skipped, 1);
+    assert_eq!(
+        result.trimmed, 1,
+        "the trim, not a missing track, left it out"
+    );
 
     let file = std::fs::File::open(&dest).expect("open zip");
     let mut archive = zip::ZipArchive::new(file).expect("read zip");
@@ -273,7 +276,7 @@ fn a_geojson_export_with_no_home_set_is_exactly_what_it_was() {
         .expect("geojson export");
 
     assert_eq!(result.exported, 2);
-    assert_eq!(result.skipped, 0);
+    assert_eq!((result.no_track, result.trimmed, result.failed), (0, 0, 0));
     assert_eq!(exported_geojson_track(&dest, "door").len(), 7);
 }
 
@@ -310,7 +313,10 @@ fn a_geojson_ride_entirely_inside_the_radius_is_named_in_the_ledger() {
         .expect("geojson export");
 
     assert_eq!(result.exported, 0);
-    assert_eq!(result.skipped, 1);
+    assert_eq!(
+        result.trimmed, 1,
+        "the trim, not a missing track, left it out"
+    );
 
     let body = std::fs::read_to_string(&dest).expect("read geojson");
     assert!(body.contains("doorstep"), "the ledger names it: {body}");

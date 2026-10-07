@@ -20,7 +20,7 @@ fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 24,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 0,
         ..LifecycleConfig::default()
@@ -35,7 +35,9 @@ fn open(dir: &TempDir) -> PersistentEngine {
     let path = dir.path().join("evidence.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.load().expect("load");
-    engine.set_section_config(SectionConfig::default());
+    engine
+        .set_section_config(SectionConfig::default())
+        .expect("config accepted");
     engine
 }
 
@@ -158,27 +160,34 @@ fn a_restart_resumes_warm_on_a_row_the_worker_encoded() {
 /// takes its lock. Read from the source, because a test cannot observe a lock
 /// it does not hold, and the runtime enforcement is a deadlock rather than an
 /// assertion.
+///
+/// The worker is the one apply site. The poll's caller-apply arm in
+/// `objects/detection.rs` is gone, so an apply that comes back there is a
+/// second site and has to be read too.
 #[test]
-fn both_apply_sites_encode_before_they_take_the_lock() {
-    for path in [
-        "src/persistence/sections/detection.rs",
-        "src/objects/detection.rs",
-    ] {
-        let source = std::fs::read_to_string(path).expect(path);
-        let encode = source
-            .find("let encoded = ")
-            .unwrap_or_else(|| panic!("{path} does not encode the cache for its apply"));
-        let apply = source
-            .find("apply_sections_save_with_cache_row")
-            .unwrap_or_else(|| panic!("{path} does not hand a row to its apply"));
+fn the_apply_site_encodes_before_it_takes_the_lock() {
+    let poll = "src/objects/detection.rs";
+    assert!(
+        !std::fs::read_to_string(poll)
+            .expect(poll)
+            .contains("apply_sections_save_with_cache"),
+        "{poll} applies again, so it belongs in the check below"
+    );
+    let path = "src/persistence/sections/detection.rs";
+    let source = std::fs::read_to_string(path).expect(path);
+    let encode = source
+        .find("let encoded = ")
+        .unwrap_or_else(|| panic!("{path} does not encode the cache for its apply"));
+    let apply = source
+        .find("apply_sections_save_with_cache_row")
+        .unwrap_or_else(|| panic!("{path} does not hand a row to its apply"));
 
-        assert!(
-            encode < apply,
-            "{path} encodes the cache after taking the lock, which is what this fixed"
-        );
-        assert!(
-            !source.contains("e.apply_sections_save_with_cache("),
-            "{path} still calls the apply that encodes under the lock"
-        );
-    }
+    assert!(
+        encode < apply,
+        "{path} encodes the cache after taking the lock, which is what this fixed"
+    );
+    assert!(
+        !source.contains("e.apply_sections_save_with_cache("),
+        "{path} still calls the apply that encodes under the lock"
+    );
 }

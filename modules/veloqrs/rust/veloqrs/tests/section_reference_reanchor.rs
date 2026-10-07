@@ -9,7 +9,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test section_reference_reanchor -p veloqrs`
+//! Run: `cargo test --test section -p veloqrs -- section_reference_reanchor::`
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
@@ -65,10 +65,21 @@ fn engine_with_section(
             "INSERT INTO sections
                  (id, name, sport_type, section_type, polyline_blob, distance_meters,
                   visit_count, created_at, source_activity_id, start_index, end_index,
-                  bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                  bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                  representative_activity_id, rep_start_index, rep_end_index, geometry_source)
              VALUES ('s1', 'Section 1', 'Ride', 'auto', ?, ?, ?, datetime('now'),
-                     ?, ?, ?, 0, 0, 0, 0)",
-            params![blob, distance, members.len() as u32, anchor, a_start, a_end],
+                     ?, ?, ?, 0, 0, 0, 0, ?, ?, ?, 'exact')",
+            params![
+                blob,
+                distance,
+                members.len() as u32,
+                anchor,
+                a_start,
+                a_end,
+                anchor,
+                a_start,
+                a_end + 1
+            ],
         )
         .expect("seed the section");
     let seed = conn(dir);
@@ -220,6 +231,85 @@ fn the_line_becomes_the_new_members_own_slice_and_the_old_one_is_kept() {
         versions >= 1,
         "the move is a stored version, so the prior line is recoverable"
     );
+}
+
+fn reference_of(conn: &Connection) -> (Option<String>, Option<u32>, Option<u32>, Option<String>) {
+    conn.query_row(
+        "SELECT representative_activity_id, rep_start_index, rep_end_index, geometry_source
+         FROM sections WHERE id = 's1'",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )
+    .expect("read the reference triple")
+}
+
+/// The reference triple is what the line rebuilds from, so it moves with the
+/// anchor, and its end is half-open where the anchor's is inclusive.
+#[test]
+fn the_reference_triple_follows_the_new_anchor_half_open() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = engine_with_section(
+        &dir,
+        "gone",
+        &[("gone", 10, 40, 1000.0), ("close", 12, 42, 1000.0)],
+    );
+
+    engine
+        .reanchor_section_reference("s1", "gone")
+        .expect("re-anchor");
+
+    assert_eq!(
+        reference_of(&conn(&dir)),
+        (
+            Some("close".to_string()),
+            Some(12),
+            Some(43),
+            Some("exact".to_string())
+        )
+    );
+}
+
+/// The outgoing line names a stream the census deletes straight after, so it
+/// has to survive as stored points, and the new version has to revert cleanly.
+#[test]
+fn the_outgoing_line_survives_the_delete_and_the_new_version_reverts_whole() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = engine_with_section(
+        &dir,
+        "gone",
+        &[("gone", 10, 40, 1000.0), ("close", 12, 42, 1000.0)],
+    );
+    let old_line = engine.get_gps_track("gone").expect("track")[10..=40].to_vec();
+    let new_line = engine.get_gps_track("close").expect("track")[12..=42].to_vec();
+
+    engine
+        .reanchor_section_reference("s1", "gone")
+        .expect("re-anchor");
+    engine.remove_activity("gone").expect("delete");
+
+    let versions = engine.section_geometry_versions("s1");
+    let recovered = versions
+        .iter()
+        .filter_map(|v| engine.section_geometry_polyline("s1", v.version))
+        .any(|line| line == old_line);
+    assert!(recovered, "no stored version holds the outgoing line");
+
+    let newest = versions.iter().map(|v| v.version).max().expect("a version");
+    engine
+        .revert_section_to_version("s1", newest)
+        .expect("revert to the re-anchor version");
+    assert_eq!(reference_of(&conn(&dir)).2, Some(43));
+    let reverted = engine.get_section("s1").expect("section").polyline;
+    assert_eq!(reverted, new_line);
+
+    conn(&dir)
+        .execute(
+            "UPDATE sections SET polyline_blob = NULL WHERE id = 's1'",
+            [],
+        )
+        .expect("clear the cache");
+    let rebuilt = engine.get_section("s1").expect("section").polyline;
+    assert_eq!(rebuilt, new_line, "the triple rebuilds the whole line");
 }
 
 /// The athlete can read why the line moved: which activity was the reference,

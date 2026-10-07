@@ -10,7 +10,7 @@
 //! Expected behaviour: the distance lands whichever order the two arrive in,
 //! and an import that updates no activity row says so.
 //!
-//! Run: `cargo test --test activity_distance_from_metrics -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- activity_distance_from_metrics::`
 
 use rusqlite::Connection;
 use std::path::PathBuf;

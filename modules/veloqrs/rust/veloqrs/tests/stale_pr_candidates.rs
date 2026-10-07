@@ -7,7 +7,7 @@
 //! staleness selects for the opposite, so any truncation of the ranked list
 //! removes precisely the candidates the feature exists to find.
 //!
-//! Run: `cargo test --test stale_pr_candidates -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- stale_pr_candidates::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
@@ -238,13 +238,12 @@ fn the_stale_query_answers_nothing_for_a_sport_with_no_sections() {
     assert!(engine.get_stale_ranked_sections("Swim", 30).is_empty());
 }
 
-/// Scenario: the stale-PR card says what the athlete's fitness was when the
-/// record was set, so the record's own date has to reach it.
+/// Scenario: the stale-PR card names the activity that set the record.
 ///
-/// Expected behaviour: the ranked section carries the date of its fastest
-/// traversal, not of its newest.
+/// Expected behaviour: the ranked section names the fastest traversal,
+/// even when a newer traversal is slower.
 #[test]
-fn the_ranked_section_carries_the_date_of_its_fastest_lap() {
+fn the_ranked_section_names_the_activity_of_its_fastest_lap() {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("best-date.db");
     let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
@@ -264,9 +263,5 @@ fn the_ranked_section_carries_the_date_of_its_fastest_lap() {
         .expect("the section is stale");
 
     assert!((section.best_time_secs - 205.0).abs() < 1e-9);
-    assert_eq!(
-        section.best_date.map(|d| d as i64),
-        Some(record_day),
-        "the fastest lap's date, not the newest lap's"
-    );
+    assert_eq!(section.best_activity_id.as_deref(), Some("act_record"));
 }

@@ -8,7 +8,7 @@
 //! the log, not about their size: a budget here would be a desktop number
 //! standing in for a phone.
 
-mod migration_support;
+use super::migration_support;
 
 use log::{Level, Log, Metadata, Record};
 use migration_support::seed_at_version;
@@ -96,6 +96,7 @@ fn number_after(line: &str, label: &str) -> u64 {
 
 #[test]
 fn the_upgrade_every_live_user_takes_logs_how_long_its_migrations_ran() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     start_capturing();
 
@@ -118,6 +119,7 @@ fn the_upgrade_every_live_user_takes_logs_how_long_its_migrations_ran() {
 /// not do, or every ordinary launch logs a timing that reads as an upgrade.
 #[test]
 fn a_launch_with_no_migration_owed_logs_no_migration_duration() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
 
     let dir = TempDir::new().unwrap();
@@ -156,7 +158,9 @@ fn seed_older_build_engine(path: &std::path::Path) {
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
         cfg.min_activities = 3;
-        engine.set_section_config(cfg);
+        engine
+            .set_section_config(cfg)
+            .expect("set the section config");
         for i in 0..4 {
             let id = format!("ride_{i}");
             engine
@@ -198,6 +202,11 @@ fn seed_older_build_engine(path: &std::path::Path) {
         [],
     )
     .expect("strip the detector marker");
+    db.execute(
+        "UPDATE gps_tracks SET elevation_state = ?",
+        [i64::from(veloqrs::persistence::ELEVATION_STATE_FETCHED)],
+    )
+    .expect("finish elevation before timing the cutover");
 
     let sections = with_persistent_engine(|e| e.get_sections().len()).unwrap();
     assert!(
@@ -208,6 +217,7 @@ fn seed_older_build_engine(path: &std::path::Path) {
 
 #[test]
 fn the_cutover_logs_a_duration_for_every_phase_and_for_the_run() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
 
     let dir = TempDir::new().unwrap();
@@ -219,7 +229,11 @@ fn the_cutover_logs_a_duration_for_every_phase_and_for_the_run() {
     );
 
     start_capturing();
-    assert!(veloqrs::ffi::start_detector_cutover(), "cutover refused");
+    assert_eq!(
+        veloqrs::ffi::start_detector_cutover(),
+        veloqrs::objects::FfiStartOutcome::Started,
+        "cutover refused"
+    );
     while veloqrs::ffi::get_cutover_progress().running {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
@@ -241,6 +255,7 @@ fn the_cutover_logs_a_duration_for_every_phase_and_for_the_run() {
 /// drain never clears and the run gives up inside the draining phase.
 #[test]
 fn a_cutover_that_fails_still_logs_the_phases_it_reached() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
 
     let dir = TempDir::new().unwrap();
@@ -251,7 +266,11 @@ fn a_cutover_that_fails_still_logs_the_phases_it_reached() {
     with_persistent_engine(|e| e.set_setting("__section_config_json", "{"))
         .expect("engine")
         .expect("setting");
-    assert!(veloqrs::ffi::start_detector_cutover(), "cutover refused");
+    assert_eq!(
+        veloqrs::ffi::start_detector_cutover(),
+        veloqrs::objects::FfiStartOutcome::Started,
+        "cutover refused"
+    );
     while veloqrs::ffi::get_cutover_progress().running {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }

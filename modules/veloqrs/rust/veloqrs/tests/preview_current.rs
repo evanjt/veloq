@@ -7,7 +7,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test preview_current -p veloqrs`
+//! Run: `cargo test --test preview -p veloqrs -- preview_current::`
 
 use std::collections::BTreeSet;
 use std::sync::{Mutex, MutexGuard};
@@ -44,7 +44,9 @@ fn seed_engine() {
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
         cfg.min_activities = 3;
-        engine.set_section_config(cfg);
+        engine
+            .set_section_config(cfg)
+            .expect("set the section config");
         for i in 0..4 {
             let id = format!("ride_{i}");
             engine
@@ -98,6 +100,7 @@ fn db_sha256(path: &std::path::Path) -> [u8; 32] {
 
 #[test]
 fn the_current_catalogue_is_what_the_engine_holds_for_the_area() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -133,7 +136,63 @@ fn the_current_catalogue_is_what_the_engine_holds_for_the_area() {
 }
 
 #[test]
+fn a_named_corridor_reads_its_name_on_the_preview_and_diff() {
+    let _serial_state = super::serial_state();
+    let _serial = serial();
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+    init_engine(&path);
+    seed_engine();
+    detect_and_apply();
+
+    let id = with_persistent_engine(|engine| {
+        let id = engine
+            .get_sections()
+            .first()
+            .expect("detected section")
+            .id
+            .clone();
+        engine
+            .set_section_name(&id, Some("Col de la Croix"))
+            .expect("name section");
+        id
+    })
+    .expect("engine installed");
+
+    let preview = SectionPreview::new();
+    let current = preview.current(46.01, 7.0).unwrap().unwrap();
+    assert_eq!(
+        current
+            .iter()
+            .find(|s| s.id == id)
+            .and_then(|s| s.name.as_deref()),
+        Some("Col de la Croix")
+    );
+
+    let cfg = with_persistent_engine(|engine| engine.get_section_config()).expect("config");
+    let mut ffi_cfg = FfiSectionConfig::from(&cfg);
+    ffi_cfg.min_activities = 2;
+    assert_eq!(preview.start(46.01, 7.0, ffi_cfg).unwrap(), Started);
+    let deadline = Instant::now() + Duration::from_secs(120);
+    loop {
+        let status = preview.poll().unwrap();
+        if status == "complete" {
+            break;
+        }
+        assert_eq!(status, "running");
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let diff = preview.take_result().unwrap().unwrap();
+    assert!(diff.sections.iter().any(|s| {
+        (s.id == id || s.live_id.as_deref() == Some(id.as_str()))
+            && s.name.as_deref() == Some("Col de la Croix")
+    }));
+}
+
+#[test]
 fn the_current_catalogue_is_the_one_a_run_diffs_against() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -183,6 +242,7 @@ fn the_current_catalogue_is_the_one_a_run_diffs_against() {
 
 #[test]
 fn an_area_with_no_catalogue_yet_reads_empty_not_missing() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -200,6 +260,7 @@ fn an_area_with_no_catalogue_yet_reads_empty_not_missing() {
 
 #[test]
 fn a_point_no_activity_covers_reports_nothing() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -218,6 +279,7 @@ fn a_point_no_activity_covers_reports_nothing() {
 
 #[test]
 fn reading_the_current_catalogue_writes_nothing() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");

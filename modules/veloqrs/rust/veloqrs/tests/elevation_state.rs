@@ -6,17 +6,16 @@
 //! keeps a durable ledger id afterwards. `elevation_state` is how the rest of
 //! the system knows whether the all-or-nothing condition holds.
 //!
-//! Run: `cargo test --test elevation_state -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- elevation_state::`
 
-mod migration_support;
-
-use migration_support::*;
 use rusqlite::{Connection, params};
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 use veloqrs::net::elevation_backfill::ELEVATION_ATTEMPT_LIMIT;
+
+use crate::migration_support::*;
 
 const UNKNOWN: u8 = 0;
 const FETCHED: u8 = 1;
@@ -466,4 +465,140 @@ fn the_counts_keep_retired_apart_from_unavailable() {
     assert_eq!(counts.unreachable, 1);
     assert_eq!(counts.unknown, 1);
     assert_eq!(counts.not_fetched(), 3);
+}
+
+/// Scenario: a ride keyed locally was retired as unreachable while nothing
+/// upstream knew it, and is uploaded later.
+///
+/// Expected behaviour: the id the upload records makes the ride askable, so it
+/// returns to the queue with a fresh count. A track retired for another reason
+/// keeps its state when the upload's answer arrives twice.
+#[test]
+fn an_upload_returns_a_retired_local_ride_to_the_queue() {
+    let key = veloqrs::mint_local_activity_id();
+    let (_dir, path, mut engine) = seeded_engine(&[key.as_str(), "i7"]);
+    for id in [key.as_str(), "i7"] {
+        for _ in 0..ELEVATION_ATTEMPT_LIMIT {
+            engine
+                .record_elevation_attempts(&[id.to_string()], ELEVATION_ATTEMPT_LIMIT)
+                .expect("count the ask");
+        }
+    }
+    assert!(!queue_ids(&engine).contains(&key), "retired before upload");
+
+    assert!(engine.record_upload(&key, "i4242").expect("record"));
+
+    assert!(queue_ids(&engine).contains(&key), "now askable upstream");
+    assert_eq!(stored_attempts(&path, &key), 0);
+    assert_eq!(
+        stored_states(&path),
+        {
+            let mut expected = vec![
+                (key.clone(), i64::from(UNKNOWN)),
+                ("i7".to_string(), i64::from(UNREACHABLE)),
+            ];
+            expected.sort();
+            expected
+        },
+        "an unrelated retired track is untouched"
+    );
+}
+
+fn stored_source(path: &Path, id: &str) -> i64 {
+    let conn = Connection::open(path).expect("reopen database");
+    conn.query_row(
+        "SELECT elevation_source FROM gps_tracks WHERE activity_id = ?",
+        params![id],
+        |row| row.get(0),
+    )
+    .expect("read source")
+}
+
+/// Scenario: a library from the oldest supported release holds a stored track
+/// and opens on this build. Nothing it holds says which altitude series its
+/// points carry.
+///
+/// Expected behaviour: the column is added with the row at unknown, and the
+/// stored track is untouched.
+#[test]
+fn upgrading_from_v12_reaches_the_source_column_at_unknown() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+
+    let conn = seed_at_version(&path, 12);
+    assert!(
+        !columns_of(&conn, "gps_tracks").contains(&"elevation_source".to_string()),
+        "the seed must predate the column, or the test proves nothing"
+    );
+    conn.execute(
+        "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+         VALUES ('legacy', 'Ride', 46.2, 46.3, 7.3, 7.4)",
+        [],
+    )
+    .expect("insert legacy activity");
+    let blob: Vec<u8> = (0..2000u32).map(|i| (i % 251) as u8).collect();
+    conn.execute(
+        "INSERT INTO gps_tracks (activity_id, track_data, point_count)
+         VALUES ('legacy', ?1, 500)",
+        params![blob],
+    )
+    .expect("insert legacy track");
+    drop(conn);
+
+    drop(engine_at(&path));
+
+    let conn = Connection::open(&path).expect("reopen upgraded");
+    assert!(
+        columns_of(&conn, "gps_tracks").contains(&"elevation_source".to_string()),
+        "the upgrade must add the column"
+    );
+    assert_eq!(stored_source(&path, "legacy"), 0);
+    assert_eq!(
+        conn.query_row(
+            "SELECT track_data FROM gps_tracks WHERE activity_id = 'legacy'",
+            [],
+            |r| r.get::<_, Vec<u8>>(0)
+        )
+        .expect("read legacy track_data"),
+        blob,
+        "the upgrade must not rewrite or truncate a stored track"
+    );
+}
+
+/// Scenario: a library from the release before the column holds tracks whose
+/// elevation was fetched, one of them from the device series. Nothing recorded
+/// which.
+///
+/// Expected behaviour: every fetched row reads unknown, never corrected, and
+/// keeps its fetched state, so the climb read cannot rank it as corrected
+/// before the backfill has asked.
+#[test]
+fn upgrading_a_fetched_library_leaves_every_source_unknown() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+
+    let conn = seed_at_version(&path, 60);
+    // The provenance columns the hooks of that release had already added.
+    conn.execute_batch(
+        "ALTER TABLE gps_tracks ADD COLUMN elevation_state INTEGER NOT NULL DEFAULT 0;
+         ALTER TABLE gps_tracks ADD COLUMN elevation_attempts INTEGER NOT NULL DEFAULT 0;
+         INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+             VALUES ('ridge', 'Ride', 46.2, 46.3, 7.3, 7.4),
+                    ('valley', 'Ride', 46.2, 46.3, 7.3, 7.4);
+         INSERT INTO gps_tracks (activity_id, track_data, point_count, elevation_state)
+             VALUES ('ridge', X'00', 3, 1), ('valley', X'00', 3, 2);",
+    )
+    .expect("seed fetched rows");
+    assert!(!columns_of(&conn, "gps_tracks").contains(&"elevation_source".to_string()));
+    drop(conn);
+
+    drop(engine_at(&path));
+
+    assert_eq!(stored_source(&path, "ridge"), 0);
+    assert_eq!(stored_source(&path, "valley"), 0);
+    assert_eq!(
+        stored_states(&path),
+        vec![("ridge".to_string(), 1), ("valley".to_string(), 2)],
+        "the upgrade keeps each row's state"
+    );
 }

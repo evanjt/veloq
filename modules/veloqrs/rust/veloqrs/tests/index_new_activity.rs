@@ -21,7 +21,7 @@ fn indexes_new_activity_against_existing_sections() {
     let corpus = LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 30,
         bucket_b_delta_count: 1,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 0,
         ..LifecycleConfig::default()

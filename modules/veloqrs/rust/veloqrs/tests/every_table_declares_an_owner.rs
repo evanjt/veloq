@@ -116,14 +116,13 @@ fn every_class_is_used_and_the_record_set_is_named() {
     assert_eq!(
         record,
         vec![
-            "identity_state",
             "route_names",
-            "section_catalogue_archive",
-            "section_catalogue_archive_members",
+            "route_numbers",
+            "section_forced_matches",
             "section_history",
             "section_intents",
+            "section_numbers",
             "section_pins",
-            "sport_settings",
         ],
         "the record set changed, which changes what a backup has to carry"
     );
@@ -131,6 +130,7 @@ fn every_class_is_used_and_the_record_set_is_named() {
     for class in [
         TableClass::Mirror,
         TableClass::Record,
+        TableClass::Identity,
         TableClass::Derived,
         TableClass::Meta,
         TableClass::Device,
@@ -164,7 +164,7 @@ fn a_derived_table_holding_an_athlete_decision_says_so() {
     }
 }
 
-/// The tables `classify` calls `Record` or `Device` that name `activities` in
+/// The tables `classify` calls `Record`, `Identity` or `Device` that name `activities` in
 /// an `ON DELETE CASCADE` foreign key.
 fn kept_tables_cascading_from_activities(
     conn: &Connection,
@@ -185,7 +185,7 @@ fn kept_tables_cascading_from_activities(
         .filter(|name| {
             matches!(
                 classify(name),
-                Some(TableClass::Record | TableClass::Device)
+                Some(TableClass::Record | TableClass::Identity | TableClass::Device)
             )
         })
         .filter(|name| {

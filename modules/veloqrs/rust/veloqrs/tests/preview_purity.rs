@@ -19,7 +19,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test preview_purity -p veloqrs`
+//! Run: `cargo test --test preview -p veloqrs -- preview_purity::`
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -58,7 +58,9 @@ fn seed_engine() {
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
         cfg.min_activities = 3;
-        engine.set_section_config(cfg);
+        engine
+            .set_section_config(cfg)
+            .expect("set the section config");
         for i in 0..4 {
             let id = format!("ride_{i}");
             engine
@@ -194,6 +196,7 @@ fn catalogue_snapshot(path: &std::path::Path) -> Vec<(String, String, Option<Str
 /// the next start reaps the terminal run instead of refusing.
 #[test]
 fn an_abandoned_preview_does_not_wedge_the_slot() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -252,6 +255,7 @@ fn an_abandoned_preview_does_not_wedge_the_slot() {
 /// bookkeeping is excused by name.
 #[test]
 fn a_full_preview_run_leaves_everything_the_athlete_saved_alone() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -364,6 +368,7 @@ fn a_full_preview_run_leaves_everything_the_athlete_saved_alone() {
 /// reaching that table.
 #[test]
 fn the_check_names_a_write_the_athlete_would_see_and_excuses_the_previews_own() {
+    let _serial_state = super::serial_state();
     let _serial = serial();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");

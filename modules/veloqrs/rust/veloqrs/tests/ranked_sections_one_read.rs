@@ -8,7 +8,7 @@
 //! efforts, so the batch must produce exactly what asking sport by sport
 //! produced, and one sport's traversals must never score another's.
 //!
-//! Run: `cargo test --test ranked_sections_one_read -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- ranked_sections_one_read::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;

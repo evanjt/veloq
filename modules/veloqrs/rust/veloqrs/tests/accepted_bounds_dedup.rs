@@ -1,9 +1,11 @@
-//! An auto section whose bounding box sits inside an accepted section's is
+//! An auto section that is a coarse redraw of an accepted section's ground is
 //! dropped before the identity registry sees it, so the skip leaves nothing
-//! behind: no catalogue row, no registry row, and no burnt name number.
+//! behind: no catalogue row, no registry row, and no burnt name number. A line
+//! that only lies inside the accepted section's bounding box, without coming
+//! near its ground, is a different road and is kept.
 //!
 //! Run:
-//!   cargo test -p veloqrs --features synthetic --test accepted_bounds_dedup
+//!   cargo test -p veloqrs --features synthetic --test app_synthetic -- accepted_bounds_dedup::
 
 #![cfg(feature = "synthetic")]
 
@@ -31,33 +33,37 @@ fn pt(north_m: f64, east_m: f64) -> GpsPoint {
     }
 }
 
-/// A 1 km square loop. Its bounding box is wide in both axes, so a line drawn
-/// well inside it is dominated without ever coming within ground distance of
-/// an edge.
-fn ring() -> Vec<GpsPoint> {
+/// A square loop `lo`..`hi` metres on a side, sampled every 25 m. At 0..1000
+/// its bounding box is wide in both axes, so a line drawn well inside it lies
+/// in the box without ever coming within ground distance of an edge.
+fn square(lo: f64, hi: f64) -> Vec<GpsPoint> {
     let step = 25.0;
     let mut pts = Vec::new();
-    let mut d = 0.0;
-    while d <= 1_000.0 {
-        pts.push(pt(d, 0.0));
+    let mut d = lo;
+    while d <= hi {
+        pts.push(pt(d, lo));
         d += step;
     }
-    d = 0.0;
-    while d <= 1_000.0 {
-        pts.push(pt(1_000.0, d));
+    d = lo;
+    while d <= hi {
+        pts.push(pt(hi, d));
         d += step;
     }
-    d = 1_000.0;
-    while d >= 0.0 {
-        pts.push(pt(d, 1_000.0));
+    d = hi;
+    while d >= lo {
+        pts.push(pt(d, hi));
         d -= step;
     }
-    d = 1_000.0;
-    while d >= 0.0 {
-        pts.push(pt(0.0, d));
+    d = hi;
+    while d >= lo {
+        pts.push(pt(lo, d));
         d -= step;
     }
     pts
+}
+
+fn ring() -> Vec<GpsPoint> {
+    square(0.0, 1_000.0)
 }
 
 /// A diagonal line, so its bounding box has extent in both axes.
@@ -134,9 +140,9 @@ fn engine_with_activities(tracks: &[(&str, Vec<GpsPoint>)]) -> (PersistentEngine
 }
 
 #[test]
-fn dominated_auto_section_leaves_no_orphan_row_and_burns_no_name() {
+fn coarse_redraw_of_accepted_ground_leaves_no_orphan_row_and_burns_no_name() {
     let accepted_ground = ring();
-    let inside = diagonal(400.0, 400.0);
+    let inside = square(100.0, 900.0);
     let elsewhere = diagonal(300_000.0, 0.0);
 
     let (mut engine, _dir) = engine_with_activities(&[
@@ -158,7 +164,7 @@ fn dominated_auto_section_leaves_no_orphan_row_and_burns_no_name() {
         .expect("create_section");
 
     // Two members against one, so the dominated candidate sorts first and would
-    // take "Section 1" if the skip still happened at save time.
+    // take the next number if the skip still happened at save time.
     let dominated = auto_section("pos_dominated", inside, &["act_inside", "act_ring"]);
     let survivor = auto_section("pos_survivor", elsewhere, &["act_far"]);
     engine
@@ -174,17 +180,18 @@ fn dominated_auto_section_leaves_no_orphan_row_and_burns_no_name() {
     assert_eq!(
         visible.len(),
         1,
-        "the dominated candidate should not reach the catalogue: {:?}",
+        "the coarse redraw should not reach the catalogue: {:?}",
         visible.iter().map(|s| s.id.clone()).collect::<Vec<_>>()
     );
 
     let kept = &visible[0];
-    // Names are minted into the row, not the in-memory payload.
-    let persisted_name = engine.get_section(&kept.id).and_then(|s| s.name);
+    // The accepted section holds number 1, so a skipped candidate that took a
+    // number would leave the survivor on 3.
+    let shown_name = engine.get_section(&kept.id).and_then(|s| s.name);
     assert_eq!(
-        persisted_name.as_deref(),
-        Some("Section 1"),
-        "the skipped candidate must not consume a name number"
+        shown_name.as_deref(),
+        Some("Section 2"),
+        "the skipped candidate must not consume a number"
     );
 
     let registry_ids: Vec<String> = engine
@@ -196,5 +203,43 @@ fn dominated_auto_section_leaves_no_orphan_row_and_burns_no_name() {
         registry_ids,
         vec![kept.id.clone()],
         "the registry must hold no row the catalogue does not"
+    );
+}
+
+#[test]
+fn road_inside_accepted_loop_bounds_is_kept() {
+    let accepted_ground = ring();
+    let interior = diagonal(400.0, 400.0);
+
+    let (mut engine, _dir) = engine_with_activities(&[
+        ("act_ring", accepted_ground.clone()),
+        ("act_interior", interior.clone()),
+    ]);
+
+    let accepted_id = engine
+        .create_section(CreateSectionParams {
+            sport_type: "Ride".to_string(),
+            polyline: accepted_ground,
+            distance_meters: 4_000.0,
+            name: Some("Accepted loop".to_string()),
+            source_activity_id: Some("act_ring".to_string()),
+            start_index: Some(0),
+            end_index: Some(160),
+        })
+        .expect("create_section");
+
+    let road = auto_section("pos_road", interior, &["act_interior"]);
+    engine.apply_sections(vec![road]).expect("apply_sections");
+
+    let others: Vec<_> = engine
+        .get_sections()
+        .iter()
+        .filter(|s| s.id != accepted_id)
+        .cloned()
+        .collect();
+    assert_eq!(
+        others.len(),
+        1,
+        "a road 400 m from the loop's ground must reach the catalogue"
     );
 }

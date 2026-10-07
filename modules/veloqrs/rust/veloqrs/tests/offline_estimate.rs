@@ -46,7 +46,7 @@ fn an_empty_range_costs_only_the_per_athlete_constants() {
 
     assert_eq!(estimate.activities, 0);
     assert_eq!(estimate.moving_seconds, 0);
-    assert_eq!(estimate.requests, 47);
+    assert_eq!(estimate.requests, 33);
     assert_eq!(estimate.bytes, 600_000);
 }
 
@@ -60,7 +60,7 @@ fn every_activity_in_the_range_costs_three_requests() {
     let estimate = engine.estimate_offline_range(0, 1_000).expect("estimate");
 
     assert_eq!(estimate.activities, 2);
-    assert_eq!(estimate.requests, 47 + 6);
+    assert_eq!(estimate.requests, 33 + 6);
 }
 
 #[test]
@@ -109,12 +109,12 @@ fn the_range_bounds_are_inclusive() {
 
 /// The measured figure for a year of the sampled library, reproduced from the
 /// components rather than from its rounded total: 318 activities and about 520
-/// hours moving came to 1,001 requests and about 115 MB.
+/// hours moving costs 987 requests and about 115 MB with the screen-read curves.
 #[test]
 fn a_year_of_the_measured_library_reproduces_the_figure() {
     let estimate = estimate_range(318, 520 * 3_600);
 
-    assert_eq!(estimate.requests, 1_001);
+    assert_eq!(estimate.requests, 987);
     let megabytes = estimate.bytes / 1_000_000;
     assert!((110..=120).contains(&megabytes), "{megabytes} MB");
 }

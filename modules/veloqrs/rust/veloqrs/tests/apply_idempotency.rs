@@ -6,13 +6,12 @@
 //! timeline with events the user never caused. Detection re-runs on every sync,
 //! so "same input, no writes" is the property that keeps the timeline honest.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test apply_idempotency`
+//! Run: `cargo test -p veloqrs --features synthetic --test app_synthetic -- apply_idempotency::`
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::PersistentEngine;
+
+use crate::lifecycle_support::*;
 
 /// Small enough to detect quickly in debug, large enough to form corridors.
 const COLD_N: usize = 24;
@@ -21,7 +20,7 @@ fn cold_corpus(bucket_a_count: usize) -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         ..LifecycleConfig::default()
     })
@@ -66,7 +65,7 @@ fn storage_fingerprint(engine: &mut PersistentEngine) -> String {
 #[test]
 fn reapplying_the_same_catalogue_writes_nothing() {
     let corpus = cold_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
 
     for a in corpus.through_a() {
         engine

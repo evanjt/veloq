@@ -9,14 +9,14 @@
 //! The guarantee is unchanged either way: nothing ever reads indicators
 //! computed by a superseded algorithm. Only the moment moved.
 //!
-//! Run: `cargo test --test indicators -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- indicators::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
 
-const CURRENT_VERSION: i32 = 5;
+const CURRENT_VERSION: i32 = 6;
 
 struct Setup {
     engine: PersistentEngine,
@@ -517,14 +517,13 @@ fn a_bounds_reset_clears_the_badges_the_trimmed_line_earned() {
 
 // --- The estimate's denominator ---
 //
-// Scenario: `activities.distance_meters` is NULL on every row a real install
-// holds. Its only non-test writer is the fitness path, so the estimate the
-// indicator pass falls back on when `lap_time` is NULL divided by NULL and
-// produced nothing. `activity_metrics.distance` carries the figure the feed
-// already draws.
+// Scenario: a pass whose lap time has not been measured yet, on an activity
+// whose duration and distance would let a time be estimated from its average
+// pace.
 //
-// Expected behaviour: the estimate reads the metrics row when the activities
-// column is missing, so a library with no lap times still earns badges.
+// Expected behaviour: only measured lap times take part. An untimed pass is
+// neither a record nor a rival, so a badge never rests on a time the section
+// chart would not list.
 
 /// An activity with no `distance_meters`, as every synced row has.
 fn insert_activity_without_distance(db: &Connection, id: &str, start_unix: i64) {
@@ -559,66 +558,64 @@ fn insert_untimed_pass(db: &Connection, activity_id: &str, distance: f64) {
     .expect("insert pass");
 }
 
-fn setup_untimed_passes() -> Setup {
+#[test]
+fn an_untimed_pass_that_an_estimate_would_rank_fastest_takes_no_record() {
+    let s = setup();
+    insert_oval(&s.raw);
+    insert_dated_activity(&s.raw, "act_slow", 1_700_000_000);
+    insert_dated_activity(&s.raw, "act_fast", 1_700_500_000);
+    insert_dated_activity(&s.raw, "act_untimed", 1_701_000_000);
+    // 300 s over 400 m of a 4000 m outing is an estimated 30 s, ahead of both.
+    insert_metrics(&s.raw, "act_untimed", 4000.0, 1_701_000_000);
+    s.raw
+        .execute(
+            "UPDATE activities SET distance_meters = 4000.0 WHERE id = 'act_untimed'",
+            [],
+        )
+        .expect("set distance");
+    insert_timed_pass(&s.raw, "act_slow", 0, 100.0);
+    insert_timed_pass(&s.raw, "act_fast", 0, 80.0);
+    insert_untimed_pass(&s.raw, "act_untimed", 400.0);
+    s.engine.recompute_activity_indicators().expect("recompute");
+
+    let fast = indicator_rows(&s.raw, "act_fast");
+    assert!(
+        fast.iter()
+            .any(|(kind, time)| kind == "section_pr" && *time == 80.0),
+        "the faster measured pass holds the record: {fast:?}"
+    );
+    assert!(
+        indicator_rows(&s.raw, "act_untimed").is_empty(),
+        "an untimed pass earns no row"
+    );
+}
+
+#[test]
+fn one_timed_and_one_untimed_pass_form_no_pair() {
+    let s = setup();
+    insert_oval(&s.raw);
+    insert_dated_activity(&s.raw, "act_timed", 1_700_000_000);
+    insert_dated_activity(&s.raw, "act_untimed", 1_700_500_000);
+    insert_timed_pass(&s.raw, "act_timed", 0, 100.0);
+    insert_untimed_pass(&s.raw, "act_untimed", 400.0);
+    s.engine.recompute_activity_indicators().expect("recompute");
+
+    assert_eq!(count_indicators(&s.raw), 0);
+}
+
+#[test]
+fn passes_with_no_lap_time_on_any_activity_write_nothing() {
     let s = setup();
     insert_oval(&s.raw);
     insert_activity_without_distance(&s.raw, "act_slow", 1_700_000_000);
     insert_activity_without_distance(&s.raw, "act_fast", 1_700_500_000);
-    // Same section length, different whole-activity distance, so the estimated
-    // times differ: 300 * (400 / 4000) = 30 s against 300 * (400 / 2000) = 60 s.
     insert_metrics(&s.raw, "act_slow", 2000.0, 1_700_000_000);
     insert_metrics(&s.raw, "act_fast", 4000.0, 1_700_500_000);
     insert_untimed_pass(&s.raw, "act_slow", 400.0);
     insert_untimed_pass(&s.raw, "act_fast", 400.0);
     s.engine.recompute_activity_indicators().expect("recompute");
-    s
-}
 
-#[test]
-fn a_pass_with_no_lap_time_is_estimated_from_the_metrics_distance() {
-    let s = setup_untimed_passes();
-
-    assert!(
-        count_indicators(&s.raw) > 0,
-        "an install whose activities carry no distance_meters earns no badges at all"
-    );
-}
-
-#[test]
-fn the_estimate_ranks_the_passes_the_way_their_metrics_do() {
-    let s = setup_untimed_passes();
-
-    let fast = indicator_rows(&s.raw, "act_fast");
-    assert!(!fast.is_empty(), "the faster pass earns a row");
-    assert_eq!(fast[0].1, 30.0, "300 s over 400 m of a 4000 m outing");
-}
-
-#[test]
-fn the_activities_column_still_wins_where_it_is_written() {
-    let s = setup();
-    insert_oval(&s.raw);
-    // Written by the fitness path, and not the metrics figure, so the estimate
-    // that follows says which of the two the query took.
-    insert_dated_activity(&s.raw, "act_first", 1_700_000_000);
-    insert_dated_activity(&s.raw, "act_second", 1_700_500_000);
-    s.raw
-        .execute(
-            "UPDATE activities SET distance_meters = 2000.0 WHERE id = 'act_second'",
-            [],
-        )
-        .expect("set distance");
-    insert_metrics(&s.raw, "act_first", 4000.0, 1_700_000_000);
-    insert_metrics(&s.raw, "act_second", 4000.0, 1_700_500_000);
-    // Both cover the whole section: a pass over too little of it is dropped
-    // by the completeness rule before any of this is reached.
-    insert_untimed_pass(&s.raw, "act_first", 400.0);
-    insert_untimed_pass(&s.raw, "act_second", 400.0);
-    s.engine.recompute_activity_indicators().expect("recompute");
-
-    let rows = indicator_rows(&s.raw, "act_second");
-    assert!(!rows.is_empty(), "both passes are estimated");
-    // 300 * (400 / 2000) from the activities column, not 300 * (400 / 4000).
-    assert_eq!(rows[0].1, 60.0);
+    assert_eq!(count_indicators(&s.raw), 0);
 }
 
 // ============================================================================

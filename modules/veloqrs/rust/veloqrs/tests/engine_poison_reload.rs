@@ -5,13 +5,11 @@
 //! rest do not go with it, and `with_persistent_engine` recovers the poisoned
 //! lock and hands the next caller the engine exactly as the panic left it.
 //!
-//! Expected behaviour: the first caller after the poison reloads the tiers from
-//! SQLite, and only the first. A `std::sync::Mutex` stays poisoned after
-//! `into_inner`, so every later take also answers `Err`, and reloading on each
-//! would put a 130 ms pass on every engine call for the rest of the session.
+//! Expected behaviour: the first caller after each panic reloads the tiers
+//! from SQLite. Clearing the poison after recovery keeps later healthy calls
+//! from paying for that reload.
 //!
-//! One test, not two: `PERSISTENT_ENGINE` and the recovery flag are
-//! process-wide, and the poison cannot be undone.
+//! One test covers both panics because `PERSISTENT_ENGINE` is process-wide.
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -39,6 +37,7 @@ fn activity_count() -> usize {
 
 #[test]
 fn the_first_caller_after_a_poison_reloads_the_tiers_and_no_later_one_does() {
+    let _serial_state = crate::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let db_path = dir.path().join("poison.db");
     let db_path = db_path.to_str().unwrap().to_string();
@@ -66,6 +65,16 @@ fn the_first_caller_after_a_poison_reloads_the_tiers_and_no_later_one_does() {
     assert_eq!(
         activity_count(),
         1,
-        "the lock is still poisoned, but the reload is paid once, not per call"
+        "the recovery cleared the poison, so a healthy call does not reload"
+    );
+
+    let panicked_again = catch_unwind(AssertUnwindSafe(|| {
+        with_persistent_engine(|_| panic!("a second mutation panics under the write lock"));
+    }));
+    assert!(panicked_again.is_err());
+    assert_eq!(
+        activity_count(),
+        2,
+        "a second panic in the same install earns another reload"
     );
 }

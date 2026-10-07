@@ -7,7 +7,7 @@
 //! reads it as a key hides a section from a sport that genuinely traverses it,
 //! and a ranking that reads it compares a run's lap against a ride's.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test section_sport_membership`
+//! Run: `cargo test -p veloqrs --features synthetic --test section_synthetic -- section_sport_membership::`
 
 #![cfg(feature = "synthetic")]
 
@@ -85,10 +85,12 @@ fn pooled_engine() -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("sport.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
-    engine.set_section_config(SectionConfig {
-        pool_sports: true,
-        ..SectionConfig::default()
-    });
+    engine
+        .set_section_config(SectionConfig {
+            pool_sports: true,
+            ..SectionConfig::default()
+        })
+        .expect("config accepted");
     (engine, dir)
 }
 

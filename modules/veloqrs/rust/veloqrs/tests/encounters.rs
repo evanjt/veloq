@@ -5,7 +5,7 @@
 //! avoids the slow GPS-detection pipeline while exercising the actual SQL
 //! that the production query runs.
 //!
-//! Run: `cargo test --test encounters -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- encounters::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
@@ -128,6 +128,25 @@ fn one_section_one_traversal_yields_one_encounter() {
     assert_eq!(e.history_times.len(), 1);
     assert_eq!(e.history_activity_ids.len(), 1);
     assert_eq!(e.history_activity_ids[0], "a1");
+}
+
+#[test]
+fn encounter_carries_custom_type_without_an_id_prefix() {
+    let setup = setup();
+    insert_activity(&setup.raw, "a1", 1_700_000_000, 1000.0, 300);
+    insert_section(&setup.raw, "foreign-id", "Hand drawn", 800.0);
+    setup
+        .raw
+        .execute(
+            "UPDATE sections SET section_type = 'custom' WHERE id = 'foreign-id'",
+            [],
+        )
+        .expect("mark custom");
+    insert_traversal(&setup.raw, "foreign-id", "a1", "same", 0, 800.0, 240.0);
+
+    let encounters = setup.engine.get_activity_section_encounters("a1");
+    assert_eq!(encounters.len(), 1);
+    assert_eq!(encounters[0].section_type, "custom");
 }
 
 #[test]
@@ -419,5 +438,268 @@ fn an_untimed_lap_never_displaces_a_timed_one() {
     assert_eq!(
         encounters[0].lap_time, 95.0,
         "the timed lap must represent the encounter"
+    );
+}
+
+fn insert_traversal_with_null_pace(
+    db: &Connection,
+    section_id: &str,
+    activity_id: &str,
+    distance_m: f64,
+    lap_time_s: Option<f64>,
+) {
+    db.execute(
+        "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
+                                         end_index, distance_meters, lap_time, lap_pace, excluded)
+         VALUES (?1, ?2, 'same', 0, 0, ?3, ?4, NULL, 0)",
+        params![section_id, activity_id, distance_m, lap_time_s],
+    )
+    .expect("insert traversal");
+}
+
+#[test]
+fn a_timed_lap_without_a_stored_pace_reads_distance_over_time() {
+    let s = setup();
+    insert_activity(&s.raw, "act_nopace", 1_700_000_000, 5_000.0, 1_500);
+    insert_section(&s.raw, "sec_flat", "Flat", 1_000.0);
+    insert_traversal_with_null_pace(&s.raw, "sec_flat", "act_nopace", 1_000.0, Some(200.0));
+
+    let encounters = s.engine.get_activity_section_encounters("act_nopace");
+
+    assert_eq!(encounters.len(), 1);
+    assert_eq!(encounters[0].lap_time, 200.0);
+    assert_eq!(encounters[0].lap_pace, 5.0);
+}
+
+#[test]
+fn an_untimed_lap_without_a_stored_pace_reads_zero_for_both() {
+    let s = setup();
+    insert_activity(&s.raw, "act_untimed", 1_700_000_000, 5_000.0, 1_500);
+    insert_section(&s.raw, "sec_flat", "Flat", 1_000.0);
+    insert_traversal_with_null_pace(&s.raw, "sec_flat", "act_untimed", 1_000.0, None);
+
+    let encounters = s.engine.get_activity_section_encounters("act_untimed");
+
+    assert_eq!(encounters.len(), 1);
+    assert_eq!(encounters[0].lap_time, 0.0);
+    assert_eq!(encounters[0].lap_pace, 0.0);
+}
+
+// ============================================================================
+// Complete traversals: the record rule the section screen applies
+// ============================================================================
+
+fn insert_measured_traversal(
+    db: &Connection,
+    section_id: &str,
+    activity_id: &str,
+    direction: &str,
+    start_index: i64,
+    lap_time_s: f64,
+    coverage: f64,
+) {
+    insert_traversal(
+        db,
+        section_id,
+        activity_id,
+        direction,
+        start_index,
+        2_000.0,
+        lap_time_s,
+    );
+    db.execute(
+        "UPDATE section_activities SET coverage = ?1
+         WHERE section_id = ?2 AND activity_id = ?3 AND start_index = ?4",
+        params![coverage, section_id, activity_id, start_index],
+    )
+    .expect("set coverage");
+}
+
+/// Scenario: a 2 km section with a full lap of 380 s from another ride, and
+/// one activity whose `same` row covers 60 per cent of the section at 230 s.
+///
+/// Expected behaviour: the fragment is no record, as the section screen and
+/// the feed say, and it is no rival either, so a later full lap of 370 s
+/// that beats only full laps keeps its trophy.
+#[test]
+fn a_fragment_neither_takes_a_trophy_nor_denies_one() {
+    let s = setup();
+    insert_activity(&s.raw, "full_a", 1_700_000_000, 10_000.0, 3_000);
+    insert_activity(&s.raw, "frag", 1_700_100_000, 10_000.0, 3_000);
+    insert_activity(&s.raw, "full_b", 1_700_200_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_long", "Long Climb", 2_000.0);
+    insert_measured_traversal(&s.raw, "sec_long", "full_a", "same", 0, 380.0, 1.0);
+    insert_measured_traversal(&s.raw, "sec_long", "frag", "same", 0, 230.0, 0.6);
+    insert_measured_traversal(&s.raw, "sec_long", "full_b", "same", 0, 370.0, 1.0);
+
+    let frag = s.engine.get_activity_section_encounters("frag");
+    assert_eq!(frag.len(), 1);
+    assert!(!frag[0].is_complete);
+    assert!(
+        frag.iter().all(|e| !e.is_pr),
+        "a fragment takes no trophy: {frag:?}"
+    );
+
+    let full_b = s.engine.get_activity_section_encounters("full_b");
+    assert_eq!(full_b.len(), 1);
+    assert!(full_b[0].is_complete);
+    assert!(full_b[0].is_pr, "370 s beats the only other full lap");
+    assert_eq!(
+        full_b[0].history_times,
+        vec![380.0, 370.0],
+        "the fragment is not in the history"
+    );
+}
+
+/// Two `partial` rows from different activities are fragments of different
+/// ground, and the faster one is no record of the section.
+#[test]
+fn a_partial_row_takes_no_trophy() {
+    let s = setup();
+    insert_activity(&s.raw, "p1", 1_700_000_000, 10_000.0, 3_000);
+    insert_activity(&s.raw, "p2", 1_700_100_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_long", "Long Climb", 2_000.0);
+    insert_traversal(&s.raw, "sec_long", "p1", "partial", 0, 400.0, 60.0);
+    insert_traversal(&s.raw, "sec_long", "p2", "partial", 0, 300.0, 40.0);
+
+    let p2 = s.engine.get_activity_section_encounters("p2");
+    assert_eq!(p2.len(), 1);
+    assert!(!p2[0].is_complete);
+    assert!(p2[0].history_times.is_empty());
+    assert_eq!(p2[0].visit_count, 0);
+    assert!(p2.iter().all(|e| !e.is_pr), "{p2:?}");
+}
+
+/// An activity that crossed the full section and also left a faster
+/// fragment row in the same direction is represented by its full lap.
+#[test]
+fn a_full_lap_represents_an_activity_over_its_own_fragment() {
+    let s = setup();
+    insert_activity(&s.raw, "rival", 1_700_000_000, 10_000.0, 3_000);
+    insert_activity(&s.raw, "both", 1_700_100_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_long", "Long Climb", 2_000.0);
+    insert_measured_traversal(&s.raw, "sec_long", "rival", "same", 0, 400.0, 1.0);
+    insert_measured_traversal(&s.raw, "sec_long", "both", "same", 0, 230.0, 0.6);
+    insert_measured_traversal(&s.raw, "sec_long", "both", "same", 100, 390.0, 1.0);
+
+    let both = s.engine.get_activity_section_encounters("both");
+    assert_eq!(both.len(), 1);
+    assert_eq!(both[0].lap_time, 390.0, "the full lap, not the fragment");
+    assert!(both[0].is_pr, "390 s beats the rival's full 400 s");
+}
+
+#[test]
+fn a_full_lap_represents_an_activity_over_a_partial_direction_row() {
+    let s = setup();
+    insert_activity(&s.raw, "both", 1_700_100_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_long", "Long Climb", 2_000.0);
+    insert_traversal(&s.raw, "sec_long", "both", "partial", 0, 700.0, 200.0);
+    insert_measured_traversal(&s.raw, "sec_long", "both", "same", 100, 390.0, 1.0);
+
+    let both = s.engine.get_activity_section_encounters("both");
+    assert_eq!(both.len(), 1);
+    assert_eq!(both[0].direction, "same");
+    assert!(both[0].is_complete);
+}
+
+// ============================================================================
+// Order along the track
+// ============================================================================
+
+#[test]
+fn encounters_come_back_in_start_index_order_not_id_order() {
+    let setup = setup();
+    insert_activity(&setup.raw, "a1", 1_700_000_000, 5000.0, 1200);
+    insert_section(&setup.raw, "s_a", "Late", 800.0);
+    insert_section(&setup.raw, "s_b", "Early", 800.0);
+    insert_traversal(&setup.raw, "s_a", "a1", "same", 300, 800.0, 240.0);
+    insert_traversal(&setup.raw, "s_b", "a1", "same", 50, 800.0, 240.0);
+
+    let result = setup.engine.get_activity_section_encounters("a1");
+    let ids: Vec<&str> = result.iter().map(|e| e.section_id.as_str()).collect();
+    assert_eq!(ids, ["s_b", "s_a"]);
+    assert_eq!(result[0].start_index, 50);
+    assert_eq!(result[1].start_index, 300);
+}
+
+#[test]
+fn out_and_back_orders_by_first_crossing_not_the_longer_pass() {
+    let setup = setup();
+    insert_activity(&setup.raw, "a1", 1_700_000_000, 9000.0, 2400);
+    insert_section(&setup.raw, "s_out", "Out and back", 1200.0);
+    insert_section(&setup.raw, "s_mid", "Middle", 800.0);
+    // The return leg is the longer pass, and it starts later than s_mid.
+    insert_traversal(&setup.raw, "s_out", "a1", "same", 100, 900.0, 300.0);
+    insert_traversal(&setup.raw, "s_out", "a1", "reverse", 700, 1200.0, 360.0);
+    insert_traversal(&setup.raw, "s_mid", "a1", "same", 400, 800.0, 240.0);
+
+    let result = setup.engine.get_activity_section_encounters("a1");
+    let order: Vec<(&str, &str)> = result
+        .iter()
+        .map(|e| (e.section_id.as_str(), e.direction.as_str()))
+        .collect();
+    assert_eq!(
+        order,
+        [("s_out", "same"), ("s_mid", "same"), ("s_out", "reverse")]
+    );
+}
+
+#[test]
+fn a_lapped_pair_is_placed_at_its_first_lap() {
+    let setup = setup();
+    insert_activity(&setup.raw, "a1", 1_700_000_000, 9000.0, 2400);
+    insert_section(&setup.raw, "s_lap", "Lapped", 800.0);
+    insert_section(&setup.raw, "s_one", "Once", 800.0);
+    // The faster lap is the second one, but the pair is first crossed at 100.
+    insert_traversal(&setup.raw, "s_lap", "a1", "same", 100, 800.0, 300.0);
+    insert_traversal(&setup.raw, "s_lap", "a1", "same", 900, 800.0, 240.0);
+    insert_traversal(&setup.raw, "s_one", "a1", "same", 500, 800.0, 240.0);
+
+    let result = setup.engine.get_activity_section_encounters("a1");
+    let ids: Vec<&str> = result.iter().map(|e| e.section_id.as_str()).collect();
+    assert_eq!(ids, ["s_lap", "s_one"]);
+    assert_eq!(result[0].start_index, 100);
+}
+
+/// Scenario: five rides over one section at 100, 110, 110, 120 and 130 s.
+///
+/// Expected behaviour: places follow one plus the number strictly faster, a
+/// tie for second is second for both, fourth and a lone outing take none, and
+/// the trophy is exactly first place.
+#[test]
+fn encounters_carry_the_podium_place_and_the_trophy_is_first() {
+    let s = setup();
+    insert_section(&s.raw, "sec", "Ridge", 800.0);
+    for (i, (id, t)) in [
+        ("r1", 100.0),
+        ("r2", 110.0),
+        ("r3", 110.0),
+        ("r4", 120.0),
+        ("r5", 130.0),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        insert_activity(&s.raw, id, 1_700_000_000 + i as i64 * 86_400, 5_000.0, 900);
+        insert_traversal(&s.raw, "sec", id, "same", 0, 800.0, t);
+    }
+    let rank = |id: &str| {
+        let r = s.engine.get_activity_section_encounters(id);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].is_pr, r[0].rank == Some(1), "{id}");
+        r[0].rank
+    };
+    assert_eq!(rank("r1"), Some(1));
+    assert_eq!(rank("r2"), Some(2));
+    assert_eq!(rank("r3"), Some(2));
+    assert_eq!(rank("r4"), None);
+    assert_eq!(rank("r5"), None);
+
+    insert_section(&s.raw, "solo", "Lone", 800.0);
+    insert_activity(&s.raw, "lone", 1_700_900_000, 5_000.0, 900);
+    insert_traversal(&s.raw, "solo", "lone", "same", 0, 800.0, 90.0);
+    assert_eq!(
+        s.engine.get_activity_section_encounters("lone")[0].rank,
+        None
     );
 }

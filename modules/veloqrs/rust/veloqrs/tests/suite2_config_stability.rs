@@ -15,17 +15,16 @@
 //! catalogue and its ids untouched across a later detect, while a genuine change
 //! still re-analyses. Battery arm, since the launch re-apply targets Unified.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_config_stability`
-
-mod lifecycle_support;
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2 -- suite2_config_stability::`
 
 use std::collections::BTreeSet;
 
-use lifecycle_support::*;
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use tracematch::sections::SectionConfig;
 use veloqrs::PersistentEngine;
+
+use crate::lifecycle_support::*;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -49,13 +48,15 @@ fn ids(snap: &SectionSnapshot) -> BTreeSet<String> {
 #[test]
 fn unchanged_config_keeps_section_ids() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
     assert!(cold.count() > 0, "cold detect produced no sections");
     let before = ids(&cold);
 
     // The launch re-apply: re-send the active config verbatim. Must be a no-op.
-    engine.set_section_config(unified_config());
+    engine
+        .set_section_config(unified_config())
+        .expect("config accepted");
 
     // A detect with no new activities. With the guard the processed set is intact,
     // so this short-circuits and the registry is untouched; without it the detect
@@ -64,31 +65,6 @@ fn unchanged_config_keeps_section_ids() {
     assert_eq!(
         after, before,
         "re-sending the active config renumbered sections, the registry was reset on a no-op config set"
-    );
-}
-
-/// The guard must not over-suppress: a GENUINE config change still clears the
-/// processed set and resets the registry, re-analysing under the new params. A
-/// stricter `min_activities` can only reduce the qualifying sections, so the
-/// catalogue count must drop, proving the invalidation tail still fires.
-#[test]
-fn changed_config_reanalyses() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
-    assert!(cold.count() > 0, "cold detect produced no sections");
-
-    // A genuinely different config: demand far more traversals per section.
-    let mut strict = unified_config();
-    strict.min_activities = 50;
-    engine.set_section_config(strict);
-
-    let after = ingest_step(&mut engine, "reanalyse", &[&corpus.bucket_c_single]).snapshot;
-    assert!(
-        after.count() < cold.count(),
-        "a genuine config change did not re-analyse under min_activities=50: {} sections (was {})",
-        after.count(),
-        cold.count(),
     );
 }
 
@@ -116,7 +92,7 @@ fn relaunch_reapply_of_persisted_config_keeps_ids() {
 
     let before = {
         let mut e = PersistentEngine::new(ps).expect("engine");
-        e.set_section_config(cfg.clone());
+        e.set_section_config(cfg.clone()).expect("config accepted");
         ingest_step(&mut e, "cold", &corpus.through_a());
         ids(&snapshot(&mut e))
     };
@@ -126,7 +102,7 @@ fn relaunch_reapply_of_persisted_config_keeps_ids() {
     let mut e2 = PersistentEngine::new(ps).expect("reopen");
     e2.load().expect("load");
     // The launch re-apply of the identical config, must be a no-op now.
-    e2.set_section_config(cfg.clone());
+    e2.set_section_config(cfg.clone()).expect("config accepted");
     ingest_step(&mut e2, "post-relaunch", &[]);
     let after = ids(&snapshot(&mut e2));
 

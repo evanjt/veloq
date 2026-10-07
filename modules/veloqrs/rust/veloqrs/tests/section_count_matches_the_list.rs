@@ -61,18 +61,22 @@ fn a_superseded_section_leaves_the_count() {
     let auto = summaries[0].id.clone();
 
     let polyline = engine.get_section_by_id(&auto).unwrap().polyline;
-    let custom = engine
+    let last = polyline.len() as u32 - 1;
+    engine
         .create_section(CreateSectionParams {
             sport_type: "Ride".to_string(),
             polyline,
             distance_meters: 500.0,
             name: Some("Drawn".to_string()),
-            source_activity_id: None,
-            start_index: None,
-            end_index: None,
+            source_activity_id: Some("drawn-source".to_string()),
+            start_index: Some(0),
+            end_index: Some(last),
         })
         .unwrap();
-    engine.set_superseded(&auto, &custom).unwrap();
+    assert!(
+        !engine.get_section_summaries().iter().any(|s| s.id == auto),
+        "creating the custom section must hide the auto one it covers"
+    );
 
     assert_eq!(
         engine.get_section_count() as usize,

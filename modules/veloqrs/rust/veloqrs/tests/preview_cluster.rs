@@ -9,7 +9,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test preview_cluster -p veloqrs`
+//! Run: `cargo test --test preview -p veloqrs -- preview_cluster::`
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -75,6 +75,7 @@ fn in_chain_region(polyline: &[GpsPoint]) -> bool {
 
 #[test]
 fn a_preview_over_a_component_matches_the_cold_batch_over_its_activities() {
+    let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     assert!(persistent_engine_init(
@@ -85,7 +86,9 @@ fn a_preview_over_a_component_matches_the_cold_batch_over_its_activities() {
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
         cfg.min_activities = 3;
-        engine.set_section_config(cfg);
+        engine
+            .set_section_config(cfg)
+            .expect("set the section config");
         for (id, track, epoch) in &pool {
             engine
                 .add_activity(id.clone(), track.clone(), "Ride".into())

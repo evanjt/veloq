@@ -25,7 +25,7 @@ fn seed_engine(tmp: &TempDir) -> PersistentEngine {
     let cfg = LifecycleConfig {
         bucket_a_count: 15,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 1,
         ..LifecycleConfig::default()
@@ -100,6 +100,7 @@ fn compute_digest(tiles_dir: &Path) -> String {
 
 #[test]
 fn tile_pixels_match_fixture() {
+    let _serial_state = super::serial_state();
     let tmp = TempDir::new().expect("tempdir");
     let mut engine = seed_engine(&tmp);
     let tiles_dir = tmp.path().join("tiles");

@@ -9,6 +9,7 @@
 //! candidate needs point elevation to be raised.
 
 use tempfile::TempDir;
+use veloqrs::persistence::ElevationSeries;
 use veloqrs::{GpsPoint, PersistentEngine};
 
 const METRES_PER_DEGREE_LAT: f64 = 111_132.0;
@@ -130,7 +131,7 @@ fn a_splice_is_not_a_mutation_and_a_re_ingest_is() {
 
     assert!(
         engine
-            .splice_track_elevation("spliced", &elevations)
+            .splice_track_elevation("spliced", &elevations, ElevationSeries::Corrected)
             .unwrap()
     );
     engine
@@ -158,6 +159,56 @@ fn a_splice_is_not_a_mutation_and_a_re_ingest_is() {
     assert_eq!(loaded[0].elevation, Some(1000.0));
 }
 
+/// Scenario: the elevation backfill splices whichever series upstream chose
+/// onto a stored flat track, and a later splice can bring the other one.
+///
+/// Expected behaviour: each splice records the series it wrote, in the same
+/// write as the points, and a splice that leaves no point elevated claims no
+/// series.
+#[test]
+fn a_splice_records_the_series_it_wrote() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("engine.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+    let flat = climbing_line(false);
+    engine
+        .add_activity("hill".to_string(), flat.clone(), "Ride".to_string())
+        .unwrap();
+    assert_eq!(engine.elevation_source_of_track("hill"), Some(0));
+
+    let device: Vec<f64> = (0..flat.len()).map(|i| 900.0 + i as f64).collect();
+    assert!(
+        engine
+            .splice_track_elevation("hill", &device, ElevationSeries::Device)
+            .unwrap()
+    );
+    assert_eq!(engine.elevation_source_of_track("hill"), Some(2));
+
+    let corrected: Vec<f64> = (0..flat.len()).map(|i| 1000.0 + i as f64).collect();
+    assert!(
+        engine
+            .splice_track_elevation("hill", &corrected, ElevationSeries::Corrected)
+            .unwrap()
+    );
+    assert_eq!(engine.elevation_source_of_track("hill"), Some(1));
+
+    drop(engine);
+    let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+    assert_eq!(
+        engine.elevation_source_of_track("hill"),
+        Some(1),
+        "the series survives a reopen"
+    );
+
+    let unfillable = vec![f64::NAN; flat.len()];
+    assert!(
+        engine
+            .splice_track_elevation("hill", &unfillable, ElevationSeries::Corrected)
+            .unwrap()
+    );
+    assert_eq!(engine.elevation_source_of_track("hill"), Some(0));
+}
+
 /// A series that is not the length of the stored track is upstream having
 /// re-processed the activity. Nothing is written: the caller fetches the whole
 /// track instead.
@@ -173,10 +224,14 @@ fn a_series_of_the_wrong_length_writes_nothing() {
 
     let stored = engine.get_gps_track("moved").unwrap();
     let short: Vec<f64> = (0..flat.len() - 1).map(|i| 1000.0 + i as f64).collect();
-    assert!(!engine.splice_track_elevation("moved", &short).unwrap());
     assert!(
         !engine
-            .splice_track_elevation("never-stored", &[1.0, 2.0])
+            .splice_track_elevation("moved", &short, ElevationSeries::Corrected)
+            .unwrap()
+    );
+    assert!(
+        !engine
+            .splice_track_elevation("never-stored", &[1.0, 2.0], ElevationSeries::Corrected)
             .unwrap()
     );
 
@@ -201,7 +256,11 @@ fn an_unfillable_sample_is_left_without_an_elevation() {
 
     let mut elevations: Vec<f64> = (0..flat.len()).map(|i| 1000.0 + i as f64).collect();
     elevations[7] = f64::NAN;
-    assert!(engine.splice_track_elevation("gappy", &elevations).unwrap());
+    assert!(
+        engine
+            .splice_track_elevation("gappy", &elevations, ElevationSeries::Corrected)
+            .unwrap()
+    );
 
     let loaded = engine.get_gps_track("gappy").unwrap();
     assert_eq!(loaded[6].elevation, Some(1006.0));
@@ -211,6 +270,48 @@ fn an_unfillable_sample_is_left_without_an_elevation() {
 
 /// The processed set on a second connection, so an assertion cannot be
 /// satisfied by an in-memory value the database never received.
+/// Scenario: a library upgraded from 0.3.x holds a track as full-precision
+/// rmp, and the elevation backfill splices elevation onto it.
+///
+/// Expected behaviour: the coordinates read the same before and after the
+/// splice, to the bit.
+#[test]
+fn splicing_a_legacy_track_moves_no_coordinate() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("engine.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+
+    let legacy: Vec<GpsPoint> = (0..20)
+        .map(|i| GpsPoint::new(46.123_456_78 + i as f64 * 0.000_123_456_7, 7.123_456_78))
+        .collect();
+    engine
+        .add_activity("legacy".to_string(), legacy.clone(), "Ride".to_string())
+        .unwrap();
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute(
+            "UPDATE gps_tracks SET track_data = ?1 WHERE activity_id = 'legacy'",
+            rusqlite::params![rmp_serde::to_vec(&legacy).unwrap()],
+        )
+        .unwrap();
+
+    let before = engine.get_gps_track("legacy").unwrap();
+    let elevations: Vec<f64> = (0..legacy.len()).map(|i| 500.0 + i as f64).collect();
+    assert!(
+        engine
+            .splice_track_elevation("legacy", &elevations, ElevationSeries::Corrected)
+            .unwrap()
+    );
+    let after = engine.get_gps_track("legacy").unwrap();
+
+    assert_eq!(before.len(), after.len());
+    for (was, now) in before.iter().zip(&after) {
+        assert_eq!(was.latitude.to_bits(), now.latitude.to_bits());
+        assert_eq!(was.longitude.to_bits(), now.longitude.to_bits());
+    }
+    assert_eq!(after[0].elevation, Some(500.0));
+}
+
 fn processed(path: &std::path::Path, id: &str) -> bool {
     let conn = rusqlite::Connection::open(path).expect("reopen database");
     conn.query_row(

@@ -3,8 +3,7 @@
 //! Scenario: "Clear cache" and "Clear & Sync" both take the engine write lock
 //! over every table. Measured at 734 ms and 401 ms on a 750-activity library,
 //! and on the JavaScript thread that is a button that freezes the
-//! app for as long as the wipe runs. The catalogue wipe was moved off it
-//! already; these two were not.
+//! app for as long as the wipe runs.
 //!
 //! Expected behaviour: start returns at once, the poll reports the wipe while
 //! it runs and its result when it lands, and the slot is free for the next
@@ -12,7 +11,7 @@
 //!
 //! These share the process-global engine, so they take `SERIAL`.
 //!
-//! Run: `cargo test --test clear_runs_off_the_calling_thread -p veloqrs`
+//! Run: `cargo test --test persistence -p veloqrs -- clear_runs_off_the_calling_thread::`
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -74,6 +73,7 @@ fn settle<T>(poll: impl Fn() -> veloqrs::persistence::WorkerPoll<Result<T, Strin
 
 #[test]
 fn the_derived_clear_runs_on_its_own_thread_and_reports_what_went() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let _tmp = seeded_engine();
     assert_eq!(activity_count(), 8, "seed must land");
@@ -88,6 +88,7 @@ fn the_derived_clear_runs_on_its_own_thread_and_reports_what_went() {
 
 #[test]
 fn the_whole_wipe_runs_on_its_own_thread() {
+    let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let _tmp = seeded_engine();
     assert_eq!(activity_count(), 8, "seed must land");

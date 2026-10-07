@@ -1,12 +1,11 @@
 //! Suite #2, geometry & metadata edit survival + side effects.
 //!
-//! The believability core beyond accept/hide (`suite2_edits.rs`): when a user
+//! The believability core beyond accept/hide (the accept and hide tests): when a user
 //! renames, re-references, trims, resets, or recalculates a section, the edit
 //! must survive later resyncs and must not corrupt geometry or the performance
-//! view. These behaviours live in the persistence layer and are method-agnostic,
-//! so they run on the fast Control arm.
+//! view. These behaviours live in the persistence layer.
 //!
-//! What this suite pins down (all on the Control arm, default corpus):
+//! What this suite pins down (default corpus):
 //! - A bare rename stays metadata only, and an edited (trimmed) section survives
 //!   the next resync with its edited extent intact.
 //! - set_section_reference honours the real-trace invariant: the new polyline is
@@ -23,14 +22,13 @@
 //!
 //! Every gate runs in the default lane.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_edits_geometry`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2 -- suite2_edits_geometry::`
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 use veloqrs::{ActivityMetrics, PersistentEngine};
+
+use crate::lifecycle_support::*;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -126,7 +124,7 @@ fn seed_metrics_and_streams(engine: &mut PersistentEngine, activities: &[&Lifecy
 #[test]
 fn rename_stays_metadata_only_and_resync_survives() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
@@ -155,7 +153,7 @@ fn rename_stays_metadata_only_and_resync_survives() {
 #[test]
 fn reset_bounds_restores_the_original_geometry() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let (start, end) = middle_trim(before.polyline_point_count);
@@ -185,15 +183,14 @@ fn reset_bounds_restores_the_original_geometry() {
     );
 }
 
-/// recalculate_section_polyline rebuilds a section's consensus from its traces.
-/// It is a weighted average, so the extent can move, but whatever survives must
-/// still lie on real corridor:
+/// recalculate_section_polyline re-cuts a section's line from one member's own
+/// track, so whatever survives must lie on real corridor:
 /// nearly every point within tolerance of ONE contributing activity's track. A
 /// red here is a recalculated section drawn across ground nobody travelled.
 #[test]
 fn recalculate_polyline_stays_on_real_corridor() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let one_act = engine
@@ -248,7 +245,7 @@ fn force_perf_invalidation(engine: &mut PersistentEngine, activity_id: &str) {
 #[test]
 fn set_reference_polyline_stays_within_one_source_activity() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let new_ref = before.activity_ids.iter().next().unwrap().clone();
@@ -280,7 +277,7 @@ fn set_reference_polyline_stays_within_one_source_activity() {
 #[test]
 fn reset_bounds_disarms_the_resync_crash() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let (start, end) = middle_trim(before.polyline_point_count);
@@ -306,7 +303,7 @@ fn reset_bounds_disarms_the_resync_crash() {
 #[test]
 fn gate_edited_section_survives_resync() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let (start, end) = middle_trim(before.polyline_point_count);
@@ -336,7 +333,7 @@ fn gate_edited_section_survives_resync() {
 #[test]
 fn gate_reset_reference_fully_resets_like_reset_bounds() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let new_ref = before.activity_ids.iter().next().unwrap().clone();
@@ -378,7 +375,7 @@ fn gate_reset_reference_fully_resets_like_reset_bounds() {
 #[test]
 fn gate_recalculate_polyline_is_idempotent() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
@@ -402,7 +399,7 @@ fn gate_recalculate_polyline_is_idempotent() {
 #[test]
 fn gate_geometry_edit_invalidates_perf_cache() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     seed_metrics_and_streams(&mut engine, &corpus.through_a());
@@ -422,4 +419,71 @@ fn gate_geometry_edit_invalidates_perf_cache() {
         stale.records.len(),
         fresh.records.len(),
     );
+}
+
+/// Scenario: an auto section with one excluded activity is handed back to
+/// detection by a reset or an enable. Expected behaviour: the next detect keeps
+/// its id and the exclusion, because the registry still owns that ground.
+fn assert_handback_keeps_id_and_exclusion(
+    hand_back: impl FnOnce(&mut PersistentEngine, &str, u32),
+) {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine();
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
+    let excluded = engine
+        .get_section(&id)
+        .expect("get_section")
+        .activity_ids
+        .first()
+        .expect("section has a member")
+        .clone();
+    engine
+        .exclude_activity_from_section(&id, &excluded)
+        .expect("exclude_activity_from_section");
+
+    hand_back(&mut engine, &id, before.polyline_point_count as u32);
+
+    let after = try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta))
+        .expect("resync after handing the section back must not crash")
+        .snapshot;
+    assert!(
+        after.sections.contains_key(&id),
+        "section {id} came back under a new id: {:?}",
+        after.sections.keys().collect::<Vec<_>>()
+    );
+    assert!(
+        engine.get_excluded_activity_ids(&id).contains(&excluded),
+        "the exclusion on {id} did not survive the detect"
+    );
+}
+
+#[test]
+fn trim_then_reset_keeps_the_section_id_and_its_exclusion_through_a_detect() {
+    assert_handback_keeps_id_and_exclusion(|engine, id, points| {
+        let (start, end) = middle_trim(points as usize);
+        engine.trim_section(id, start, end).expect("trim_section");
+        engine
+            .reset_section_bounds(id)
+            .expect("reset_section_bounds");
+    });
+}
+
+#[test]
+fn disable_then_enable_keeps_the_section_id_and_its_exclusion_through_a_detect() {
+    assert_handback_keeps_id_and_exclusion(|engine, id, _| {
+        engine.disable_section(id).expect("disable_section");
+        engine.enable_section(id).expect("enable_section");
+    });
+}
+
+#[test]
+fn trim_then_reset_reference_keeps_the_section_id_and_its_exclusion_through_a_detect() {
+    assert_handback_keeps_id_and_exclusion(|engine, id, points| {
+        let (start, end) = middle_trim(points as usize);
+        engine.trim_section(id, start, end).expect("trim_section");
+        engine
+            .reset_section_reference(id)
+            .expect("reset_section_reference");
+    });
 }

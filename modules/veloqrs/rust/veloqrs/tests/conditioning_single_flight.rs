@@ -72,6 +72,7 @@ fn drain_detection() {
 
 #[test]
 fn concurrent_conditioning_starts_spawn_exactly_one_worker() {
+    let _serial_state = crate::serial_state();
     let _dir = seeded_engine();
     let before = detection_workers_started();
 

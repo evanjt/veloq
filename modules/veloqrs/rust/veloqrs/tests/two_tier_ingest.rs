@@ -121,7 +121,7 @@ fn attach_ignores_unknown_and_tiny_activities() {
     let corpus = LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 30,
         bucket_b_delta_count: 0,
-        bucket_d_delta_count: 0,
+        bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,
         parallel_street_count: 0,
         ..LifecycleConfig::default()
@@ -150,22 +150,30 @@ fn lapped_corpus() -> LifecycleCorpus {
     })
 }
 
-/// A line whose ends sit apart: one lap of the corpus ride crosses it once.
-/// The synthetic corridor coils in places, and a section drawn on one
-/// revolution of a coil is crossed once per revolution, so those lines
-/// count more passes per lap than the lap count.
-fn is_open_line(polyline: &[tracematch::GpsPoint]) -> bool {
-    match (polyline.first(), polyline.last()) {
-        (Some(a), Some(b)) => tracematch::geo_utils::haversine_distance(a, b) > 100.0,
-        _ => false,
-    }
+/// Whether one lap of the corpus ride, walked either way, crosses the line
+/// exactly once. The synthetic corridor coils in places, and the detector
+/// cuts a run that doubles back over its own ground into several simple
+/// passes at a point that depends on the direction of travel, so a lap over
+/// a coiled line counts a direction-dependent number of passes.
+fn crossed_once_each_way(
+    lap: &[tracematch::GpsPoint],
+    polyline: &[tracematch::GpsPoint],
+    config: &tracematch::SectionConfig,
+) -> bool {
+    let mut back = lap.to_vec();
+    back.reverse();
+    [lap, back.as_slice()]
+        .iter()
+        .all(|walk| tracematch::track_portions("lap", walk, polyline, config).len() == 1)
 }
 
 /// Per section `activity_id` appears in: (stored rows, the detector's own
-/// pass count over the stored line, whether the line is open).
+/// pass count over the stored line, whether `lap` crosses the line once
+/// each way).
 fn passes_per_section(
     engine: &mut PersistentEngine,
     activity_id: &str,
+    lap: &[tracematch::GpsPoint],
 ) -> Vec<(usize, usize, bool)> {
     let config = engine.get_section_config();
     let track = engine.get_gps_track(activity_id).expect("stored track");
@@ -184,7 +192,11 @@ fn passes_per_section(
                 .count();
             let detector =
                 tracematch::track_portions(activity_id, &track, &s.polyline, &config).len();
-            (rows, detector, is_open_line(&s.polyline))
+            (
+                rows,
+                detector,
+                crossed_once_each_way(lap, &s.polyline, &config),
+            )
         })
         .collect()
 }
@@ -206,18 +218,18 @@ fn store(
 fn assert_rows_are_the_detectors(per_section: &[(usize, usize, bool)], laps: usize) {
     assert!(!per_section.is_empty(), "the corridor must be sectioned");
     assert!(
-        per_section.iter().any(|(_, _, open)| *open),
-        "the corridor must hold at least one open line"
+        per_section.iter().any(|(_, _, once)| *once),
+        "the corridor must hold at least one line a lap crosses once"
     );
-    for (rows, detector, open) in per_section {
+    for (rows, detector, once) in per_section {
         assert_eq!(
             rows, detector,
             "a section's rows must be the detector's passes, got {per_section:?}"
         );
-        if *open {
+        if *once {
             assert_eq!(
                 *rows, laps,
-                "an open line is crossed once per lap, got {per_section:?}"
+                "a line a lap crosses once is crossed once per lap, got {per_section:?}"
             );
         }
     }
@@ -236,7 +248,7 @@ fn attach_inserts_a_junction_row_for_every_lap() {
 
     assert_eq!(summary.attached_activities, 1);
 
-    let per_section = passes_per_section(&mut engine, "act_lapped");
+    let per_section = passes_per_section(&mut engine, "act_lapped", &base.gps_points);
     assert_rows_are_the_detectors(&per_section, 3);
     assert_eq!(
         summary.inserted_portions as usize,
@@ -275,8 +287,14 @@ fn a_lapped_attach_matches_what_batch_detection_assigns() {
     // How many sections the corridor is cut into is a detection decision and
     // varies between the two engines. What must not vary is that every
     // section's rows are the detector's passes over its line.
-    assert_rows_are_the_detectors(&passes_per_section(&mut incremental, "act_lapped"), 3);
-    assert_rows_are_the_detectors(&passes_per_section(&mut batch, "act_lapped"), 3);
+    assert_rows_are_the_detectors(
+        &passes_per_section(&mut incremental, "act_lapped", &base.gps_points),
+        3,
+    );
+    assert_rows_are_the_detectors(
+        &passes_per_section(&mut batch, "act_lapped", &base.gps_points),
+        3,
+    );
 }
 
 #[test]
@@ -288,7 +306,7 @@ fn re_attaching_a_lapped_activity_does_not_stack_rows() {
     let base = &corpus.bucket_c_single;
     store(&mut engine, "act_lapped", base.lapped(3), base);
     let first = engine.attach_new_activities(&["act_lapped".to_string()]);
-    let once = passes_per_section(&mut engine, "act_lapped");
+    let once = passes_per_section(&mut engine, "act_lapped", &base.gps_points);
     let again = engine.attach_new_activities(&["act_lapped".to_string()]);
 
     assert_eq!(
@@ -296,7 +314,7 @@ fn re_attaching_a_lapped_activity_does_not_stack_rows() {
         "re-attach replaces the lap rows, never stacks them"
     );
     assert_eq!(
-        passes_per_section(&mut engine, "act_lapped"),
+        passes_per_section(&mut engine, "act_lapped", &base.gps_points),
         once,
         "the rows after a repeated attach are the rows after the first"
     );
@@ -358,7 +376,9 @@ fn the_attach_bar_is_the_detectors_cell() {
             proximity_threshold: proximity,
             ..tracematch::SectionConfig::default()
         };
-        engine.set_section_config(cfg.clone());
+        engine
+            .set_section_config(cfg.clone())
+            .expect("config accepted");
         let cell = tracematch::line_match_cell_m(&cfg);
         let (sid, line) = straight_section(&mut engine);
         let sport = engine.get_section_by_id(&sid).unwrap().sport_type;
@@ -386,7 +406,7 @@ fn the_attach_bar_is_the_detectors_cell() {
                 .any(|s| s.id == sid),
             "a track a fifth of a cell beside the line did not attach at {proximity} m"
         );
-        let per_section = passes_per_section(&mut engine, "near");
+        let per_section = passes_per_section(&mut engine, "near", &[]);
         for (rows, detector, _) in &per_section {
             assert_eq!(
                 rows, detector,

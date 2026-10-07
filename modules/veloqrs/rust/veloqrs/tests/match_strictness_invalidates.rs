@@ -8,7 +8,7 @@
 //!
 //! Coordinates here are synthetic.
 //!
-//! Run: `cargo test --test match_strictness_invalidates -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- match_strictness_invalidates::`
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
@@ -100,17 +100,68 @@ fn a_changed_strictness_marks_the_grouping_for_recompute() {
     );
 }
 
+fn together(grouping: &[Vec<String>], a: &str, b: &str) -> bool {
+    grouping
+        .iter()
+        .any(|ids| ids.iter().any(|i| i == a) && ids.iter().any(|i| i == b))
+}
+
 #[test]
-fn the_values_survive_a_reload() {
+fn tightening_with_an_unrelated_activity_pending_still_splits_existing_groups() {
     let dir = TempDir::new().expect("tempdir");
-    let path = dir.path().join("routes.db");
+    let mut engine = engine(&dir);
+
+    engine.set_match_strictness(50.0, 300.0);
+    assert!(together(&grouping(&mut engine), "a1", "a2"));
+
+    engine
+        .add_activity("a4".to_string(), line(0.05), "Ride".to_string())
+        .expect("store");
+    engine.set_match_strictness(90.0, 5.0);
+
+    let strict = grouping(&mut engine);
+    assert!(
+        !together(&strict, "a1", "a2"),
+        "a pending activity must not limit the regroup to itself: {strict:?}"
+    );
+}
+
+#[test]
+fn a_strictness_change_survives_a_restart_before_any_regroup() {
+    let dir = TempDir::new().expect("tempdir");
     {
         let mut engine = engine(&dir);
-        engine.set_match_strictness(65.0, 180.0);
+        engine.set_match_strictness(50.0, 300.0);
+        assert!(together(&grouping(&mut engine), "a1", "a2"));
+        engine.set_match_strictness(90.0, 5.0);
     }
 
-    let mut engine = PersistentEngine::new(path.to_str().expect("utf-8")).expect("reopen");
-    engine.load().expect("load");
-    let (pct, endpoint) = engine.match_strictness();
-    assert_eq!((pct, endpoint), (65.0, 180.0));
+    let path = dir.path().join("routes.db");
+    let mut reopened = PersistentEngine::new(path.to_str().expect("utf-8")).expect("reopen");
+    reopened.load().expect("load");
+
+    let strict = grouping(&mut reopened);
+    assert!(
+        !together(&strict, "a1", "a2"),
+        "the groups made under the old rule must not outlive it: {strict:?}"
+    );
+}
+
+#[test]
+fn a_restart_under_an_unchanged_rule_leaves_the_grouping_settled() {
+    let dir = TempDir::new().expect("tempdir");
+    {
+        let mut engine = engine(&dir);
+        engine.set_match_strictness(50.0, 300.0);
+        let _ = grouping(&mut engine);
+    }
+
+    let path = dir.path().join("routes.db");
+    let mut reopened = PersistentEngine::new(path.to_str().expect("utf-8")).expect("reopen");
+    reopened.load().expect("load");
+
+    assert!(
+        !reopened.groups_are_dirty(),
+        "an unchanged rule is not a reason to regroup a library at launch"
+    );
 }

@@ -5,12 +5,11 @@
 //! default, so every real write is a journal write, an fsync, a database write
 //! and a second fsync, about 20 ms on the device this was measured on.
 
-mod migration_support;
-
-use migration_support::{latest_version, seed_at_version};
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
+
+use crate::migration_support::{latest_version, seed_at_version};
 
 const KEY: &str = "veloq-insights-fingerprint";
 

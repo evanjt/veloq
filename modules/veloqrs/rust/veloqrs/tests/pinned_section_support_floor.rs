@@ -7,7 +7,7 @@
 //! The exemption is the pin and nothing else, because a section with no
 //! traversals and no pin is what the floor exists to keep out of the catalogue.
 //!
-//! Run: `cargo test --test pinned_section_support_floor -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- pinned_section_support_floor::`
 
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
@@ -104,14 +104,38 @@ fn an_unpinned_section_with_no_traversals_is_still_dropped() {
     );
 }
 
+/// Both sections ridden once, under a floor of two outings: the pin still
+/// exempts the floor once a sport filter narrows the list to the sport that
+/// took the ground.
 #[test]
-fn the_exemption_survives_a_sport_filter_on_the_pinned_sections_own_sport() {
+fn the_exemption_survives_a_sport_filter_on_a_sport_that_took_the_section() {
+    let (engine, tmp) = reopened_with_two_unsupported_sections();
+    let raw = Connection::open(tmp.path().join("test.db")).expect("raw open");
+    for section in ["sec_pinned", "sec_loose"] {
+        raw.execute(
+            "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
+                                             end_index, distance_meters, excluded)
+             VALUES (?1, 'act_1', 'same', 0, 10, 500.0, 0)",
+            params![section],
+        )
+        .expect("insert outing");
+    }
+
+    let listed = ids(&engine, Some("Ride"), Some(2));
+
+    assert!(listed.contains(&"sec_pinned".to_string()), "{:?}", listed);
+    assert!(!listed.contains(&"sec_loose".to_string()), "{:?}", listed);
+}
+
+/// A section no outing has taken has no sport, whatever detection labelled
+/// it, so a sport filter lists it under none, pinned or not.
+#[test]
+fn a_section_no_outing_took_is_under_no_sport_filter() {
     let (engine, _tmp) = reopened_with_two_unsupported_sections();
 
     let listed = ids(&engine, Some("Ride"), Some(1));
 
-    assert!(listed.contains(&"sec_pinned".to_string()), "{:?}", listed);
-    assert!(!listed.contains(&"sec_loose".to_string()), "{:?}", listed);
+    assert!(listed.is_empty(), "{:?}", listed);
 }
 
 /// A pin is not a claim that another sport travelled the ground. The sport

@@ -9,7 +9,7 @@
 //! Two pairs, because they converge at different times: the activity pages
 //! arrive with the window syncs and the tracks with the GPS pass.
 //!
-//! Run: `cargo test --test library_coverage -p veloqrs`
+//! Run: `cargo test --test app -p veloqrs -- library_coverage::`
 
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
@@ -33,7 +33,16 @@ fn entry(id: &str, day: &str, has_latlng: bool) -> ActivityCensusEntry {
 
 fn store_body(engine: &mut PersistentEngine, id: &str, date: i64) {
     engine
-        .upsert_activity_bodies(&[(id.to_string(), date, format!("{{\"id\":\"{id}\"}}"))])
+        .store_synced_activity_bodies(
+            "i1",
+            &[(id.to_string(), date, format!("{{\"id\":\"{id}\"}}"))],
+            &[id.to_string()],
+            vec![veloqrs::ActivityMetrics {
+                activity_id: id.to_string(),
+                date,
+                ..Default::default()
+            }],
+        )
         .expect("body");
 }
 
@@ -64,11 +73,12 @@ fn partly_downloaded(dir: &TempDir) -> PersistentEngine {
         entry("a2", "2026-03-09", true),
         entry("a3", "2026-03-16", false),
     ];
-    engine.record_activity_census("i1", &census);
+    engine
+        .record_activity_census("i1", &census)
+        .expect("census");
     for (i, e) in census.iter().enumerate() {
         store_body(&mut engine, &e.id, 1_770_000_000 + i as i64);
     }
-    engine.mark_census_fetched("i1", &["a1".into(), "a2".into(), "a3".into()]);
     store_track(&mut engine, "a1");
     engine
 }
@@ -109,9 +119,10 @@ fn a_row_never_stored_is_short_of_fetched() {
         entry("a1", "2026-03-02", true),
         entry("a2", "2026-03-09", true),
     ];
-    engine.record_activity_census("i1", &census);
+    engine
+        .record_activity_census("i1", &census)
+        .expect("census");
     store_body(&mut engine, "a1", 1_770_000_000);
-    engine.mark_census_fetched("i1", &["a1".into()]);
 
     let coverage = engine.library_coverage("i1");
 
@@ -127,17 +138,19 @@ fn a_row_never_stored_is_short_of_fetched() {
 fn a_row_that_moved_upstream_since_the_fetch_is_short_of_fetched() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = partly_downloaded(&dir);
-    engine.record_activity_census(
-        "i1",
-        &[
-            entry("a1", "2026-03-02", true),
-            ActivityCensusEntry {
-                icu_sync_date: Some("2026-03-11T08:00:00Z".to_string()),
-                ..entry("a2", "2026-03-09", true)
-            },
-            entry("a3", "2026-03-16", false),
-        ],
-    );
+    engine
+        .record_activity_census(
+            "i1",
+            &[
+                entry("a1", "2026-03-02", true),
+                ActivityCensusEntry {
+                    icu_sync_date: Some("2026-03-11T08:00:00Z".to_string()),
+                    ..entry("a2", "2026-03-09", true)
+                },
+                entry("a3", "2026-03-16", false),
+            ],
+        )
+        .expect("census");
 
     let coverage = engine.library_coverage("i1");
 
@@ -151,9 +164,10 @@ fn a_row_that_moved_upstream_since_the_fetch_is_short_of_fetched() {
 fn an_activity_with_no_track_upstream_is_outside_the_track_pair() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
-    engine.record_activity_census("i1", &[entry("a1", "2026-03-02", false)]);
+    engine
+        .record_activity_census("i1", &[entry("a1", "2026-03-02", false)])
+        .expect("census");
     store_body(&mut engine, "a1", 1_770_000_000);
-    engine.mark_census_fetched("i1", &["a1".into()]);
 
     let coverage = engine.library_coverage("i1");
 
@@ -171,4 +185,107 @@ fn a_second_athlete_reads_none_of_the_first_ones_library() {
     let engine = partly_downloaded(&dir);
 
     assert_eq!(engine.library_coverage("i2"), LibraryCoverage::default());
+}
+
+fn days_ago(days: i64) -> String {
+    (chrono::Local::now().date_naive() - chrono::Duration::days(days)).to_string()
+}
+
+/// Ten rides inside the default window, all fetched, and fifty dated two
+/// years back that no download has reached.
+fn recent_and_old(dir: &TempDir) -> PersistentEngine {
+    let mut engine = engine(dir);
+    let recent: Vec<_> = (0..10)
+        .map(|i| entry(&format!("r{i}"), &days_ago(5 + i), true))
+        .collect();
+    let old: Vec<_> = (0..50)
+        .map(|i| entry(&format!("o{i}"), &days_ago(730 + i), true))
+        .collect();
+    engine
+        .record_activity_census("i1", &[recent.clone(), old].concat())
+        .expect("census");
+    for (i, e) in recent.iter().enumerate() {
+        store_body(&mut engine, &e.id, 1_770_000_000 + i as i64);
+    }
+    engine
+}
+
+fn pair(coverage: LibraryCoverage) -> (i64, i64) {
+    (coverage.upstream as i64, coverage.fetched as i64)
+}
+
+#[test]
+fn rows_older_than_the_default_window_are_outside_the_count() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = recent_and_old(&dir);
+
+    assert_eq!(pair(engine.library_coverage("i1")), (10, 10));
+}
+
+#[test]
+fn an_ask_reaching_back_brings_its_rows_into_the_count() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = recent_and_old(&dir);
+
+    engine
+        .record_activity_window("i1", &days_ago(3 * 365))
+        .expect("record");
+
+    assert_eq!(pair(engine.library_coverage("i1")), (60, 10));
+}
+
+#[test]
+fn a_shorter_later_ask_never_narrows_the_window() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = recent_and_old(&dir);
+    engine
+        .record_activity_window("i1", &days_ago(3 * 365))
+        .expect("record");
+
+    engine
+        .record_activity_window("i1", &days_ago(365))
+        .expect("record");
+
+    assert_eq!(pair(engine.library_coverage("i1")), (60, 10));
+}
+
+#[test]
+fn another_athletes_window_does_not_move_this_ones_count() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = recent_and_old(&dir);
+    engine
+        .record_activity_window("i2", &days_ago(3 * 365))
+        .expect("record");
+
+    assert_eq!(pair(engine.library_coverage("i1")), (10, 10));
+}
+
+#[test]
+fn an_empty_athlete_records_nothing_and_reads_zeros() {
+    let dir = TempDir::new().expect("tempdir");
+    let engine = engine(&dir);
+
+    engine
+        .record_activity_window("", &days_ago(3 * 365))
+        .expect("record");
+
+    assert_eq!(engine.library_coverage(""), LibraryCoverage::default());
+    assert_eq!(
+        engine.get_setting("__activity_window_oldest:").unwrap(),
+        None
+    );
+}
+
+/// An install upgrading with no stored window keeps a library it had already
+/// widened: the oldest stored activity says how far back the athlete went.
+#[test]
+fn an_upgraded_library_seeds_its_window_from_its_oldest_stored_activity() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = recent_and_old(&dir);
+    let two_years = chrono::Local::now().timestamp() - 730 * 86_400;
+    for i in 0..50 {
+        store_body(&mut engine, &format!("o{i}"), two_years - i * 86_400);
+    }
+
+    assert_eq!(pair(engine.library_coverage("i1")), (60, 60));
 }

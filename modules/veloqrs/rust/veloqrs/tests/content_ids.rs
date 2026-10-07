@@ -1,23 +1,24 @@
-//! Section ids come from the ground. A mint names the sport and the global
-//! cell of the section's heart, so two devices cutting the same library
+//! Section ids come from the ground. A mint names the global cell of the
+//! section's heart and no sport, so two devices cutting the same library
 //! agree on ids, not only on lines. An older database's clock-minted ids
 //! are re-keyed once, across every table that holds them.
 //!
 //! Scenario: a populated catalogue whose ids were written by the clock.
 //! Expected behaviour: the open re-keys the section and everything keyed
 //! on it (junction rows, history, geometry, pin, name intent, exclusions,
-//! indicators) in one transaction, and mints the id a fresh cut would.
+//! the superseded pointer, the catalogue archive and its members, and the
+//! section PR and trend indicators) in one transaction, and mints the id a
+//! fresh cut would. An indicator of another type is left alone.
 
 #![cfg(feature = "synthetic")]
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use rusqlite::{Connection, params};
 use std::collections::BTreeSet;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::PersistentEngine;
 use veloqrs::persistence::sections::content_id_for;
+
+use crate::lifecycle_support::*;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig {
@@ -36,18 +37,34 @@ fn count(conn: &Connection, sql: &str, id: &str) -> i64 {
 #[test]
 fn a_mint_names_the_ground() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, _dir) = fresh_engine();
     let snap = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
     let (id, fp) = busiest_section(&snap).expect("a section");
-    let expected = content_id_for(&fp.polyline, &fp.sport_type, &BTreeSet::new()).unwrap();
-    assert_eq!(id, expected, "the id is the sport and the heart's cell");
-    assert!(id.starts_with("s_ride_"), "got {id}");
+    let expected = content_id_for(&fp.polyline, &BTreeSet::new()).unwrap();
+    assert_eq!(id, expected, "the id is the heart's cell");
+    let cell: Vec<&str> = id
+        .strip_prefix("s_")
+        .expect("the section prefix")
+        .split('_')
+        .collect();
+    assert_eq!(
+        cell.len(),
+        2,
+        "a latitude and a longitude and no sport, got {id}"
+    );
+    assert!(
+        cell.iter().all(|part| part
+            .trim_start_matches('-')
+            .chars()
+            .all(|c| c.is_ascii_digit())),
+        "got {id}"
+    );
 }
 
 #[test]
 fn an_id_remint_carries_history_pins_intents_and_exclusions() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let (mut engine, dir) = fresh_engine();
     let snap = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
     let (id, fp) = busiest_section(&snap).expect("a section");
     let member = fp.activity_ids.iter().next().cloned().unwrap();
@@ -71,6 +88,18 @@ fn an_id_remint_carries_history_pins_intents_and_exclusions() {
         let conn = Connection::open(&path).unwrap();
         conn.execute("PRAGMA defer_foreign_keys = ON", []).unwrap();
         let tx = conn.unchecked_transaction().unwrap();
+        tx.execute_batch(&format!(
+            "CREATE TEMP TABLE successor AS SELECT * FROM sections WHERE id = '{id}';
+             UPDATE successor SET id = 's_ride_successor', superseded_by = '{old}';
+             INSERT INTO section_history (section_id, kind, details)
+                 VALUES ('{old}', 'archived', '{{\"token\":\"t1\"}}');
+             INSERT INTO activity_indicators
+                 (activity_id, indicator_type, target_id, computed_at)
+                 VALUES ('a1', 'section_pr', '{old}', 0),
+                        ('a1', 'section_trend', '{old}', 0),
+                        ('a1', 'route_pr', '{old}', 0);"
+        ))
+        .unwrap();
         for sql in [
             "UPDATE sections SET id = ?2 WHERE id = ?1",
             "UPDATE section_activities SET section_id = ?2 WHERE section_id = ?1",
@@ -81,6 +110,8 @@ fn an_id_remint_carries_history_pins_intents_and_exclusions() {
         ] {
             tx.execute(sql, params![id, old]).unwrap();
         }
+        tx.execute("INSERT INTO sections SELECT * FROM successor", [])
+            .unwrap();
         tx.execute("DELETE FROM schema_info WHERE key = 'content_ids_v1'", [])
             .unwrap();
         tx.execute("DELETE FROM identity_state", []).unwrap();
@@ -109,6 +140,35 @@ fn an_id_remint_carries_history_pins_intents_and_exclusions() {
             "{table} still holds the clock id"
         );
     }
+    for (sql, want) in [
+        ("SELECT COUNT(*) FROM sections WHERE superseded_by = ?", 0),
+        (
+            "SELECT COUNT(*) FROM activity_indicators
+             WHERE target_id = ? AND indicator_type IN ('section_pr', 'section_trend')",
+            0,
+        ),
+        (
+            "SELECT COUNT(*) FROM activity_indicators
+             WHERE target_id = ? AND indicator_type = 'route_pr'",
+            1,
+        ),
+    ] {
+        assert_eq!(count(&conn, sql, &old), want, "clock id left behind: {sql}");
+    }
+    for (sql, want) in [
+        (
+            "SELECT COUNT(*) FROM section_history WHERE section_id = ? AND kind = 'archived'",
+            1,
+        ),
+        ("SELECT COUNT(*) FROM sections WHERE superseded_by = ?", 1),
+        (
+            "SELECT COUNT(*) FROM activity_indicators
+             WHERE target_id = ? AND indicator_type IN ('section_pr', 'section_trend')",
+            2,
+        ),
+    ] {
+        assert_eq!(count(&conn, sql, &id), want, "content id missing: {sql}");
+    }
     let new_id = engine
         .get_sections()
         .iter()
@@ -122,8 +182,8 @@ fn an_id_remint_carries_history_pins_intents_and_exclusions() {
     );
     assert_eq!(
         engine.section_history(&new_id).len(),
-        history_before,
-        "the history moved"
+        history_before + 1,
+        "the history moved, the archived state written under the clock id with it"
     );
     assert!(
         engine.get_excluded_activity_ids(&new_id).contains(&member),
