@@ -773,7 +773,12 @@ async function handleIntervalsWebhook(
       // tag of its own and the native worker's entry stands beside it rather
       // than replacing it. The data payload wakes the handler on both, which
       // posts the enriched notification itself.
-      const pushData = pushDataFor(event);
+      // The guard above narrows the fields, not the payload object itself.
+      const pushData = pushDataFor({
+        type: event.type,
+        athlete_id: event.athlete_id,
+        activity: event.activity,
+      });
       const visible = visibleContentForEvent(event.type, event.activity?.id);
       const perDeviceResults = tokens.map((device) =>
         sendExpoPush(device.token, pushData, visible, device.platform)
