@@ -17,7 +17,12 @@ import androidx.core.app.NotificationManagerCompat
  * used, so an athlete sees one kind of entry whichever path posted it: the
  * `veloq-insights` channel the app creates at launch, `activity-<id>` as the
  * tag so a second post for the same ride replaces the first, and a tap that
- * opens the activity's summary through the app's own deep link.
+ * opens the activity through the app's own deep link.
+ *
+ * The link names the athlete the push was for. It bypasses the tap handler's
+ * athlete check, so the app makes the same check on the link
+ * (`src/app/+native-intent.ts`), and an entry that outlived its library opens
+ * nothing in the next athlete's.
  *
  * The icon and colour are the app's notification resources, which
  * `expo-notifications` writes at prebuild. This module cannot name them at
@@ -28,9 +33,9 @@ object ActivityNotificationPoster {
   const val CHANNEL_ID = "veloq-insights"
 
   @JvmStatic
-  fun post(context: Context, activityId: String, title: String, body: String) {
+  fun post(context: Context, activityId: String, athleteId: String, title: String, body: String) {
     ensureChannel(context)
-    val tap = Intent(Intent.ACTION_VIEW, Uri.parse("veloq://summary/$activityId"))
+    val tap = Intent(Intent.ACTION_VIEW, activityLink(activityId, athleteId))
       .setPackage(context.packageName)
       .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     val pending = PendingIntent.getActivity(
@@ -57,18 +62,37 @@ object ActivityNotificationPoster {
     }
   }
 
+  @JvmStatic
+  fun activityLink(activityId: String, athleteId: String): Uri =
+    Uri.parse("veloq://activity/${Uri.encode(activityId)}?athlete=${Uri.encode(athleteId)}")
+
   /**
-   * The app creates this channel with the same name and importance on every
-   * launch. Creating it again changes nothing the athlete set, and a push that
-   * somehow beats the first launch still has somewhere to land.
+   * The app creates this channel with the same importance on every launch,
+   * named in the app's language. Creating it again changes nothing the athlete
+   * set, and a push that somehow beats the first launch still has somewhere to
+   * land, named in the device's language from the strings the app's prebuild
+   * generates.
    */
   private fun ensureChannel(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     val manager = context.getSystemService(NotificationManager::class.java)
     if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-    manager.createNotificationChannel(
-      NotificationChannel(CHANNEL_ID, "Activity Insights", NotificationManager.IMPORTANCE_HIGH)
+    val channel = NotificationChannel(
+      CHANNEL_ID,
+      appString(context, "notification_channel_insights_name") ?: CHANNEL_ID,
+      NotificationManager.IMPORTANCE_HIGH
     )
+    appString(context, "notification_channel_insights_description")?.let { channel.description = it }
+    manager.createNotificationChannel(channel)
+  }
+
+  /**
+   * A string the app's prebuild generates. This module cannot name the app's
+   * resources at compile time, so they are looked up, the way the icon is.
+   */
+  private fun appString(context: Context, name: String): String? {
+    val id = context.resources.getIdentifier(name, "string", context.packageName)
+    return if (id != 0) context.getString(id) else null
   }
 
   private fun smallIcon(context: Context): Int {

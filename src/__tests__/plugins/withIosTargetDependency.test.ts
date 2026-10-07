@@ -89,7 +89,6 @@ function configurePushExtension(proj: Project) {
     bundleId: 'com.veloq.app',
     version: '0.4.0',
     buildNumber: '29',
-    slices: { 'iphonesimulator*': 'ios-arm64_x86_64-simulator', 'iphoneos*': 'ios-arm64' },
   });
 }
 

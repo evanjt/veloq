@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import kotlin.math.roundToInt
 
 /**
  * The pre-computed, pre-formatted snapshot the JS side writes to filesDir. The widget
@@ -12,16 +13,23 @@ import java.io.File
  * Version skew happens in both directions, so every field added after schema 2 is
  * nullable with a hide/neutral default.
  *
- * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 6).
+ * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 9).
  */
 private const val SNAPSHOT_FILE = "widget-snapshot.json"
 
 data class Metric(
   val value: Double,
   val trendDir: String,
+  /** improved, declined, moved or flat: what the app judged the move to be. */
+  val verdict: String = "flat",
   val zone: String? = null,
   val delta: Double? = null,
-)
+  /** Form only: the pre-formatted readout, so a percentage setting needs no maths here. */
+  val text: String? = null,
+) {
+  /** What a value slot prints: the engine's text where it sent one, else the rounded number. */
+  fun display(): String = text ?: value.roundToInt().toString()
+}
 
 /** Normalised 0..1 route outline (y grows downward) of the latest GPS activity. */
 data class RoutePreview(val points: List<Pair<Float, Float>>, val aspect: Float)
@@ -36,11 +44,22 @@ data class Latest(
   val isPr: Boolean,
   val trainingLoad: Int?,
   val routePreview: RoutePreview?,
-)
+) {
+  /**
+   * The line under the name: distance and time, then the date on its own line so a long
+   * relative date is not cut to fit what the figures leave.
+   */
+  fun subtitle(): String {
+    val figures = listOf(distanceLabel, durationLabel).filter { it.isNotEmpty() }.joinToString(" · ")
+    return listOf(figures, dateLabel).filter { it.isNotEmpty() }.joinToString("\n")
+  }
+}
 
 data class Impact(
   val formBefore: Double,
   val formAfter: Double,
+  val beforeText: String?,
+  val afterText: String?,
   val beforeZone: String?,
   val afterZone: String?,
   val tssAdded: Int?,
@@ -60,6 +79,7 @@ data class SummaryEntry(
   val label: String,
   val value: String,
   val trendDir: String,
+  val verdict: String = "flat",
   val colorKey: String,
 )
 
@@ -88,13 +108,13 @@ data class WidgetSnapshot(
   val impactLine: String?,
   val metricLabels: Map<String, String>,
   val weekLabel: String,
+  val recordLabel: String,
+  val perWeekSuffix: String,
   val formZoneLabel: String?,
   val formSparkline: List<Float>,
   val fitnessSparkline: List<Float>,
   val fatigueSparkline: List<Float>,
   val hrvSparkline: List<Float>,
-  /** TSB zone enum per form point (oldest-first); empty on older snapshots. */
-  val formZones: List<String>,
   /**
    * Seconds since the epoch, when the app wrote this snapshot. Zero on a
    * snapshot written before the field, which reads as "no age to show" rather
@@ -102,17 +122,30 @@ data class WidgetSnapshot(
    */
   val generatedAt: Long,
   /**
-   * Recent sports, most recent first, pre-localised. Empty on a snapshot written
-   * before schema 6, or before anything was recorded, which sends every record
-   * surface to the picker instead.
+   * True when the library has no activity and no wellness, so the metrics are zeros and not
+   * measurements. False on a snapshot written before schema 8.
+   */
+  val emptyLibrary: Boolean,
+  /**
+   * Every recent sport, most recent first, pre-localised. The widget picker lists
+   * all of them. Empty on a snapshot written before schema 6, or before anything
+   * was recorded.
    */
   val recordShortcuts: List<RecordShortcut>,
+  /**
+   * The head of `recordShortcuts`, capped at what a launcher shows. Single-sport
+   * surfaces start its first entry; empty sends them to the picker instead.
+   */
+  val launcherShortcuts: List<RecordShortcut>,
 ) {
   /** The one a single-sport surface starts. */
   val lastRecordingType: String?
-    get() = recordShortcuts.firstOrNull()?.type
+    get() = launcherShortcuts.firstOrNull()?.type
 
   companion object {
+    /** A widget with no snapshot yet, or over an empty library, shows the prompt and no metric. */
+    fun showsEmptyPrompt(snap: WidgetSnapshot?): Boolean = snap == null || snap.emptyLibrary
+
     fun read(context: Context): WidgetSnapshot? {
       return try {
         val file = File(context.filesDir, SNAPSHOT_FILE)
@@ -123,7 +156,7 @@ data class WidgetSnapshot(
       }
     }
 
-    private fun parse(root: JSONObject): WidgetSnapshot {
+    internal fun parse(root: JSONObject): WidgetSnapshot {
       val metrics = root.optJSONObject("metrics") ?: JSONObject()
       val weeklyObj = root.optJSONObject("weekly") ?: JSONObject()
       val display = root.optJSONObject("display") ?: JSONObject()
@@ -132,6 +165,7 @@ data class WidgetSnapshot(
 
       return WidgetSnapshot(
         generatedAt = root.optLong("generatedAt", 0L),
+        emptyLibrary = root.optBoolean("emptyLibrary", false),
         form = metric(metrics, "form"),
         fitness = metric(metrics, "fitness"),
         fatigue = metric(metrics, "fatigue"),
@@ -160,20 +194,20 @@ data class WidgetSnapshot(
             "ramp" to labels.optString("ramp", "Ramp"),
           ),
         weekLabel = display.optString("weekLabel", "Week"),
+        recordLabel = display.optString("recordLabel", "Record"),
+        perWeekSuffix = display.optString("perWeekSuffix", "/wk"),
         formZoneLabel = display.optString("formZone", "").takeIf { it.isNotEmpty() },
         formSparkline = floatArray(sparklines?.optJSONArray("form")),
         fitnessSparkline = floatArray(sparklines?.optJSONArray("fitness")),
         fatigueSparkline = floatArray(sparklines?.optJSONArray("fatigue")),
         hrvSparkline = floatArray(sparklines?.optJSONArray("hrv")),
-        formZones = stringArray(sparklines?.optJSONArray("formZones")),
-        recordShortcuts = parseRecordShortcuts(root),
+        recordShortcuts = parseShortcuts(root, "recordShortcuts"),
+        launcherShortcuts = parseShortcuts(root, "launcherShortcuts"),
       )
     }
 
-    private fun parseRecordShortcuts(root: JSONObject): List<RecordShortcut> {
-      // The launcher list, not the full one: a long press shows three and the
-      // widgets take the head of the same order.
-      val arr = root.optJSONArray("launcherShortcuts") ?: return emptyList()
+    private fun parseShortcuts(root: JSONObject, key: String): List<RecordShortcut> {
+      val arr = root.optJSONArray(key) ?: return emptyList()
       val out = ArrayList<RecordShortcut>(arr.length())
       for (i in 0 until arr.length()) {
         val o = arr.optJSONObject(i) ?: continue
@@ -190,8 +224,10 @@ data class WidgetSnapshot(
       return Metric(
         value = o.optDouble("value", 0.0),
         trendDir = o.optString("trendDir", "flat"),
+        verdict = o.optString("verdict", "flat"),
         zone = o.optString("zone", "").takeIf { it.isNotEmpty() },
         delta = o.optDouble("deltaVsYesterday").takeIf { !it.isNaN() },
+        text = o.optString("text", "").takeIf { it.isNotEmpty() },
       )
     }
 
@@ -235,6 +271,8 @@ data class WidgetSnapshot(
       return Impact(
         formBefore = before,
         formAfter = after,
+        beforeText = i.optString("formBeforeText", "").takeIf { it.isNotEmpty() },
+        afterText = i.optString("formAfterText", "").takeIf { it.isNotEmpty() },
         beforeZone = i.optString("formBeforeZone", "").takeIf { it.isNotEmpty() },
         afterZone = i.optString("formAfterZone", "").takeIf { it.isNotEmpty() },
         tssAdded = if (i.isNull("tssAdded")) null else i.optInt("tssAdded"),
@@ -268,6 +306,7 @@ data class WidgetSnapshot(
         label = label,
         value = o.optString("value", "-"),
         trendDir = o.optString("trendDir", "flat"),
+        verdict = o.optString("verdict", "flat"),
         colorKey = o.optString("colorKey", "default"),
       )
     }

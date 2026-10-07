@@ -29,9 +29,36 @@ Pod::Spec.new do |s|
   # libraries with custom module maps. The TurboModule is ObjC++ so doesn't need it.
   # If Swift imports are needed later, build as dynamic framework instead.
 
-  # Rust XCFramework - built by uniffi-bindgen-react-native
-  # Downloaded during CI to Frameworks/ in same directory as podspec
-  s.vendored_frameworks = "Frameworks/VeloqrsFFI.xcframework"
+  # The Rust library is built by a phase of this target, for the SDK and
+  # architectures Xcode is building, into the target's own build directory,
+  # which the app's library search paths already name. A prebuilt bundle would
+  # have its slice names fixed at `pod install` and be linked whatever it held.
+  # The phase runs on every build and the builder compiles only when an input
+  # changed. The C++ bridge it compiles is copied here first, because
+  # `source_files` is matched now and can only name files under this directory.
+  builder = File.join(__dir__, "..", "scripts", "build-rust.js")
+  unless system("node", builder, "ios", "--sources-only")
+    raise "Veloqrs: #{builder} ios --sources-only failed"
+  end
+  s.script_phase = {
+    :name => "Build Rust library",
+    :script => '"${PODS_TARGET_SRCROOT}/../scripts/xcode-build-rust.sh" "${PODS_ROOT}/.." "${CONFIGURATION_BUILD_DIR}"',
+    :execution_position => :before_compile,
+    :output_files => ["${CONFIGURATION_BUILD_DIR}/libveloqrs_ffi.a"],
+    :always_out_of_date => "1"
+  }
+
+  # The sprite and glyphs the tile scheme handler serves as `veloq-asset/`.
+  # `BasemapAssets` is a copy of `../assets/basemap`, which Android packages as
+  # its assets, so one set of files feeds both platforms. It is a copy because
+  # CocoaPods does not follow a symlink when it lists a bundle's files. The
+  # directory is added as a folder, which keeps the `BasemapAssets` prefix
+  # inside the bundle; a `**/*` pattern flattens the files into its root.
+  syncer = File.join(__dir__, "..", "scripts", "sync-basemap-assets.js")
+  unless system("node", syncer)
+    raise "Veloqrs: #{syncer} failed"
+  end
+  s.resource_bundles = { "VeloqBasemap" => ["BasemapAssets"] }
 
   s.dependency "uniffi-bindgen-react-native"
   # The map's tile scheme handler extends the library's own web view and
@@ -48,7 +75,8 @@ Pod::Spec.new do |s|
     # For RN 0.71+, set header search paths
     s.pod_target_xcconfig = {
       "HEADER_SEARCH_PATHS" => base_header_paths,
-      "SWIFT_INCLUDE_PATHS" => "\"${PODS_TARGET_SRCROOT}/Generated\""
+      "SWIFT_INCLUDE_PATHS" => "\"${PODS_TARGET_SRCROOT}/Generated\"",
+      "ENABLE_USER_SCRIPT_SANDBOXING" => "NO"
     }
     # -ObjC ensures the linker loads all ObjC classes, preventing Veloq from being stripped
     # as "unused" (the TurboModule is only accessed via NSClassFromString at runtime)
@@ -65,7 +93,8 @@ Pod::Spec.new do |s|
           "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\" " + base_header_paths,
           "SWIFT_INCLUDE_PATHS" => "\"${PODS_TARGET_SRCROOT}/Generated\"",
           "OTHER_CPLUSPLUSFLAGS" => "-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1",
-          "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
+          "CLANG_CXX_LANGUAGE_STANDARD" => "c++17",
+          "ENABLE_USER_SCRIPT_SANDBOXING" => "NO"
       }
       s.dependency "React-Codegen"
       s.dependency "RCT-Folly"
@@ -76,7 +105,8 @@ Pod::Spec.new do |s|
       # Old architecture
       s.pod_target_xcconfig = {
         "HEADER_SEARCH_PATHS" => base_header_paths,
-        "SWIFT_INCLUDE_PATHS" => "\"${PODS_TARGET_SRCROOT}/Generated\""
+        "SWIFT_INCLUDE_PATHS" => "\"${PODS_TARGET_SRCROOT}/Generated\"",
+        "ENABLE_USER_SCRIPT_SANDBOXING" => "NO"
       }
     end
   end

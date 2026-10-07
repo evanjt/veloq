@@ -1,6 +1,6 @@
-const { withDangerousMod, withInfoPlist, withXcodeProject } = require("expo/config-plugins");
-const fs = require("fs");
-const path = require("path");
+const { withDangerousMod, withInfoPlist, withXcodeProject } = require('expo/config-plugins');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Injects the iOS WidgetKit extension during prebuild. The native dirs are gitignored
@@ -20,10 +20,17 @@ const path = require("path");
  * build time, the same way the existing iCloud capability is.
  */
 
-const { INCLUDE_RECORD_WIDGET } = require("./widgetFlags");
-const { ensureTargetDependencySections } = require("./xcodeTargetDependency");
+const { INCLUDE_RECORD_WIDGET } = require('./widgetFlags');
+const { ensureTargetDependencySections } = require('./xcodeTargetDependency');
+const {
+  APP_SHORTCUTS_FILE,
+  LOCALIZABLE_FILE,
+  appleLanguages,
+  writeIosCatalogues,
+} = require('./nativeStrings');
+const PbxFile = require('xcode/lib/pbxFile');
 
-const TARGET = "VeloqWidget";
+const TARGET = 'VeloqWidget';
 
 /**
  * The Live Activity contract. ActivityKit matches a card to its attributes by type
@@ -33,11 +40,11 @@ const TARGET = "VeloqWidget";
  * WidgetKit and would not build in the app.
  */
 const LIVE_ACTIVITY_SHARED_FILES = [
-  "RecordingActivityAttributes.swift",
-  "RecordingActivityIntents.swift",
+  'RecordingActivityAttributes.swift',
+  'RecordingActivityIntents.swift',
 ];
 
-const LIVE_ACTIVITY_MODULE_DIR = path.join("modules", "veloq-live-activity", "ios");
+const LIVE_ACTIVITY_MODULE_DIR = path.join('modules', 'veloq-live-activity', 'ios');
 
 /**
  * Swift compiled by BOTH the app and the widget extension, from
@@ -45,8 +52,15 @@ const LIVE_ACTIVITY_MODULE_DIR = path.join("modules", "veloq-live-activity", "io
  * Siri and Shortcuts to surface the phrase, and the deep-link rule it uses is
  * the extension's too, so one file goes to both rather than two files drifting.
  */
-const SHARED_DIR = path.join("widget", "ios", "shared");
-const SHARED_APP_FILES = ["RecordDeepLink.swift", "VeloqAppShortcuts.swift"];
+const SHARED_DIR = path.join('widget', 'ios', 'shared');
+const SHARED_APP_FILES = [
+  'RecordDeepLink.swift',
+  'RecordSportEntity.swift',
+  'VeloqAppShortcuts.swift',
+];
+
+/** The shared files the extension compiles too; the provider counts in the app only. */
+const SHARED_WIDGET_FILES = ['RecordDeepLink.swift', 'RecordSportEntity.swift'];
 
 function copySharedLiveActivitySources(srcDir, destDir) {
   fs.mkdirSync(destDir, { recursive: true });
@@ -63,7 +77,7 @@ function copySharedLiveActivitySources(srcDir, destDir) {
  * result builder that cannot branch on one. Android drops the receiver from the
  * manifest for the same reason; this is that mechanism on iOS.
  */
-const BUNDLES_FILE = "WidgetBundles.swift";
+const BUNDLES_FILE = 'WidgetBundles.swift';
 
 /**
  * Every Swift file the extension compiles: the tracked sources, plus the
@@ -73,12 +87,12 @@ const BUNDLES_FILE = "WidgetBundles.swift";
  */
 function widgetSwiftFiles(projectRoot) {
   const tracked = fs
-    .readdirSync(path.join(projectRoot, "widget", "ios", TARGET))
-    .filter((f) => f.endsWith(".swift"));
+    .readdirSync(path.join(projectRoot, 'widget', 'ios', TARGET))
+    .filter((f) => f.endsWith('.swift'));
   const withBundles = tracked.includes(BUNDLES_FILE) ? tracked : [...tracked, BUNDLES_FILE];
   // The extension needs the shared link rule; it does not need the App Shortcut,
   // whose provider only counts in the app target.
-  return [...withBundles, "RecordDeepLink.swift"];
+  return [...withBundles, ...SHARED_WIDGET_FILES];
 }
 
 function writeWidgetBundles(destDir, includeRecord = INCLUDE_RECORD_WIDGET) {
@@ -92,13 +106,13 @@ function writeWidgetBundles(destDir, includeRecord = INCLUDE_RECORD_WIDGET) {
   const record = includeRecord
     ? `
     VeloqRecordWidget()${control}`
-    : "";
+    : '';
   // iOS 17 takes the configurable one, at the same kind, so a widget placed
   // before the upgrade keeps its place and gains the sport picker.
   const configurableRecord = includeRecord
     ? `
     VeloqConfigurableRecordWidget()${control}`
-    : "";
+    : '';
   const liveActivity = `
     if #available(iOS 16.2, *) {
       VeloqRecordingLiveActivity()
@@ -155,36 +169,49 @@ function pruneRemoved(src, dest) {
     if (entry.isDirectory()) {
       if (fs.existsSync(from)) pruneRemoved(from, to);
       else fs.rmSync(to, { recursive: true, force: true });
-    } else if (!fs.existsSync(from) && !entry.name.endsWith(".swift")) {
+    } else if (!fs.existsSync(from) && !entry.name.endsWith('.swift')) {
       fs.rmSync(to, { force: true });
     }
   }
 }
 
+/**
+ * Everything the prebuild writes under `ios/`: the extension's sources, its
+ * generated bundles, the shared sources in both target directories and the
+ * string catalogues each target reads.
+ */
+function writeWidgetFiles(projectRoot, platformProjectRoot, projectName) {
+  const src = path.join(projectRoot, 'widget', 'ios', TARGET);
+  const dest = path.join(platformProjectRoot, TARGET);
+  copyDir(src, dest);
+  pruneRemoved(src, dest);
+  writeWidgetBundles(dest);
+
+  // The shared files land in both target directories: the extension reads
+  // its copy beside the widget sources, the app reads its own.
+  const shared = path.join(projectRoot, SHARED_DIR);
+  const appDir = path.join(platformProjectRoot, projectName);
+  fs.mkdirSync(appDir, { recursive: true });
+  for (const name of SHARED_APP_FILES) {
+    fs.copyFileSync(path.join(shared, name), path.join(appDir, name));
+  }
+  for (const name of SHARED_WIDGET_FILES) {
+    fs.copyFileSync(path.join(shared, name), path.join(dest, name));
+  }
+  writeIosCatalogues({ widgetDir: dest, appDir });
+}
+
 function withWidgetFiles(config) {
   return withDangerousMod(config, [
-    "ios",
+    'ios',
     (cfg) => {
-      const src = path.join(cfg.modRequest.projectRoot, "widget", "ios", TARGET);
-      const dest = path.join(cfg.modRequest.platformProjectRoot, TARGET);
-      copyDir(src, dest);
-      pruneRemoved(src, dest);
-      writeWidgetBundles(dest);
-
-      // The shared files land in both target directories: the extension reads
-      // its copy beside the widget sources, the app reads its own.
-      const shared = path.join(cfg.modRequest.projectRoot, SHARED_DIR);
-      const appDir = path.join(cfg.modRequest.platformProjectRoot, cfg.modRequest.projectName);
-      fs.mkdirSync(appDir, { recursive: true });
-      for (const name of SHARED_APP_FILES) {
-        fs.copyFileSync(path.join(shared, name), path.join(appDir, name));
-      }
-      fs.copyFileSync(
-        path.join(shared, "RecordDeepLink.swift"),
-        path.join(dest, "RecordDeepLink.swift")
+      writeWidgetFiles(
+        cfg.modRequest.projectRoot,
+        cfg.modRequest.platformProjectRoot,
+        cfg.modRequest.projectName
       );
       copySharedLiveActivitySources(
-        src,
+        path.join(cfg.modRequest.projectRoot, 'widget', 'ios', TARGET),
         path.join(cfg.modRequest.projectRoot, LIVE_ACTIVITY_MODULE_DIR)
       );
       return cfg;
@@ -192,7 +219,7 @@ function withWidgetFiles(config) {
   ]);
 }
 
-const unquote = (v) => String(v ?? "").replace(/^"|"$/g, "");
+const unquote = (v) => String(v ?? '').replace(/^"|"$/g, '');
 
 /**
  * The uuid of a native target by name.
@@ -206,8 +233,8 @@ const unquote = (v) => String(v ?? "").replace(/^"|"$/g, "");
 function targetUuidByName(proj, name) {
   const section = proj.pbxNativeTargetSection();
   for (const key of Object.keys(section)) {
-    if (!key.endsWith("_comment")) continue;
-    if (unquote(section[key]) === name) return key.replace(/_comment$/, "");
+    if (!key.endsWith('_comment')) continue;
+    if (unquote(section[key]) === name) return key.replace(/_comment$/, '');
   }
   return null;
 }
@@ -217,10 +244,33 @@ function compiledSourceNames(proj, targetUuid) {
   const phase = proj.pbxSourcesBuildPhaseObj(targetUuid);
   const names = new Set();
   for (const entry of phase?.files ?? []) {
-    const name = unquote(String(entry.comment || "").replace(/ in Sources$/, ""));
+    const name = unquote(String(entry.comment || '').replace(/ in Sources$/, ''));
     if (name) names.add(name);
   }
   return names;
+}
+
+/**
+ * The group a target's files are listed under, created when the project has
+ * none by that name.
+ */
+function targetGroup(proj, groupName) {
+  let groupUuid = proj.findPBXGroupKey({ name: groupName });
+  if (!groupUuid) {
+    const group = proj.addPbxGroup([], groupName, groupName);
+    proj.addToPbxGroup(group.uuid, proj.getFirstProject().firstProject.mainGroup);
+    groupUuid = group.uuid;
+  }
+  return { groupUuid, group: proj.getPBXGroupByKey(groupUuid) };
+}
+
+/**
+ * A file's path as its group resolves it. Expo's app group is virtual (no
+ * path), so its references include the app directory; the widget group
+ * already resolves relative to its directory.
+ */
+function pathInGroup(group, groupName, file) {
+  return unquote(group.path) === groupName ? file : `${groupName}/${file}`;
 }
 
 /**
@@ -233,17 +283,9 @@ function addMissingSourceFiles(proj, targetUuid, swiftFiles, groupName = TARGET)
   const missing = swiftFiles.filter((f) => !compiled.has(f));
   if (missing.length === 0) return;
 
-  let groupUuid = proj.findPBXGroupKey({ name: groupName });
-  if (!groupUuid) {
-    const group = proj.addPbxGroup([], groupName, groupName);
-    proj.addToPbxGroup(group.uuid, proj.getFirstProject().firstProject.mainGroup);
-    groupUuid = group.uuid;
-  }
-  const group = proj.getPBXGroupByKey(groupUuid);
+  const { groupUuid, group } = targetGroup(proj, groupName);
   for (const file of missing) {
-    // Expo's app group is virtual (no path); its references include the app
-    // directory. The widget group already resolves relative to its directory.
-    const sourcePath = unquote(group.path) === groupName ? file : `${groupName}/${file}`;
+    const sourcePath = pathInGroup(group, groupName, file);
     if (proj.addSourceFile(sourcePath, { target: targetUuid }, groupUuid)) continue;
     // `addFile` refuses a path the project already references, and `hasFile`
     // looks project-wide rather than at this target (`xcode/lib/pbxProject.js`,
@@ -259,6 +301,63 @@ function addMissingSourceFiles(proj, targetUuid, swiftFiles, groupName = TARGET)
   }
 }
 
+/** File names a target already copies as resources, without the phase suffix. */
+function copiedResourceNames(proj, targetUuid) {
+  const phase = proj.pbxResourcesBuildPhaseObj(targetUuid);
+  const names = new Set();
+  for (const entry of phase?.files ?? []) {
+    const name = unquote(String(entry.comment || '').replace(/ in Resources$/, ''));
+    if (name) names.add(name);
+  }
+  return names;
+}
+
+/** The file type Xcode gives a string catalogue, which is what makes it compile one. */
+const STRING_CATALOGUE_TYPE = 'text.json.xcstrings';
+
+/**
+ * Add string catalogues the target does not copy yet.
+ *
+ * Built by hand rather than through `addResourceFile`: that helper types the
+ * file from a table with no `.xcstrings` entry, so the reference would be
+ * `unknown` and Xcode would copy the JSON instead of compiling it, and it
+ * assumes a `Resources` group the Expo project does not have.
+ */
+function addMissingStringCatalogues(proj, targetUuid, files, groupName) {
+  const copied = copiedResourceNames(proj, targetUuid);
+  const missing = files.filter((f) => !copied.has(f));
+  if (missing.length === 0) return;
+
+  // A target with nothing to copy may have no Resources phase at all, and the
+  // add below would then have nowhere to write.
+  if (!proj.pbxResourcesBuildPhaseObj(targetUuid)) {
+    proj.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', targetUuid);
+  }
+  const { group } = targetGroup(proj, groupName);
+  for (const name of missing) {
+    const file = new PbxFile(pathInGroup(group, groupName, name), {
+      lastKnownFileType: STRING_CATALOGUE_TYPE,
+      defaultEncoding: 4,
+    });
+    file.uuid = proj.generateUuid();
+    file.fileRef = proj.generateUuid();
+    file.target = targetUuid;
+    file.group = 'Resources';
+    proj.addToPbxBuildFileSection(file);
+    proj.addToPbxResourcesBuildPhase(file);
+    proj.addToPbxFileReferenceSection(file);
+    group.children.push({ value: file.fileRef, comment: file.basename });
+  }
+}
+
+/**
+ * Every catalogue language as a region the project knows, which is what Xcode
+ * records when a language is added in its own editor.
+ */
+function addCatalogueRegions(proj) {
+  for (const language of appleLanguages()) proj.addKnownRegion(language);
+}
+
 /**
  * Compile a file the project already references in one more target.
  *
@@ -268,7 +367,8 @@ function addMissingSourceFiles(proj, targetUuid, swiftFiles, groupName = TARGET)
 function compileExistingSource(proj, name, targetUuid) {
   const references = proj.pbxFileReferenceSection();
   const fileRef = Object.keys(references).find(
-    (key) => !key.endsWith("_comment") && path.basename(unquote(String(references[key].path))) === name
+    (key) =>
+      !key.endsWith('_comment') && path.basename(unquote(String(references[key].path))) === name
   );
   if (!fileRef) return;
 
@@ -276,7 +376,7 @@ function compileExistingSource(proj, name, targetUuid) {
     uuid: proj.generateUuid(),
     fileRef,
     basename: name,
-    group: "Sources",
+    group: 'Sources',
     target: targetUuid,
   };
   proj.addToPbxBuildFileSection(build);
@@ -288,11 +388,11 @@ function createWidgetTarget(proj, { bundleId, version, buildNumber }) {
   // Before the target, not after: `addTarget` makes the app depend on it, and
   // that write is dropped when the two sections are absent.
   ensureTargetDependencySections(proj);
-  const target = proj.addTarget(TARGET, "app_extension", TARGET, `${bundleId}.${TARGET}`);
+  const target = proj.addTarget(TARGET, 'app_extension', TARGET, `${bundleId}.${TARGET}`);
 
-  proj.addBuildPhase([], "PBXSourcesBuildPhase", "Sources", target.uuid);
-  proj.addBuildPhase([], "PBXResourcesBuildPhase", "Resources", target.uuid);
-  proj.addBuildPhase([], "PBXFrameworksBuildPhase", "Frameworks", target.uuid);
+  proj.addBuildPhase([], 'PBXSourcesBuildPhase', 'Sources', target.uuid);
+  proj.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', target.uuid);
+  proj.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', target.uuid);
 
   const group = proj.addPbxGroup([], TARGET, TARGET);
   proj.addToPbxGroup(group.uuid, proj.getFirstProject().firstProject.mainGroup);
@@ -320,6 +420,12 @@ function configureWidgetProject(proj, { projectName, swiftFiles, bundleId, versi
   const appTargetUuid = targetUuidByName(proj, projectName);
   if (appTargetUuid) {
     addMissingSourceFiles(proj, appTargetUuid, SHARED_APP_FILES, projectName);
+    addMissingStringCatalogues(
+      proj,
+      appTargetUuid,
+      [LOCALIZABLE_FILE, APP_SHORTCUTS_FILE],
+      projectName
+    );
   }
 
   const targetUuid =
@@ -330,6 +436,8 @@ function configureWidgetProject(proj, { projectName, swiftFiles, bundleId, versi
   // own shared-source fallback, and a source the app claimed first is dropped
   // without it.
   addMissingSourceFiles(proj, targetUuid, swiftFiles);
+  addMissingStringCatalogues(proj, targetUuid, [LOCALIZABLE_FILE], TARGET);
+  addCatalogueRegions(proj);
 }
 
 function withWidgetTarget(config) {
@@ -337,9 +445,9 @@ function withWidgetTarget(config) {
     configureWidgetProject(cfg.modResults, {
       projectName: cfg.modRequest.projectName,
       swiftFiles: widgetSwiftFiles(cfg.modRequest.projectRoot),
-      bundleId: cfg.ios?.bundleIdentifier || "com.veloq.app",
-      version: cfg.version || "1.0.0",
-      buildNumber: cfg.ios?.buildNumber || "1",
+      bundleId: cfg.ios?.bundleIdentifier || 'com.veloq.app',
+      version: cfg.version || '1.0.0',
+      buildNumber: cfg.ios?.buildNumber || '1',
     });
     return cfg;
   });
@@ -360,13 +468,13 @@ function withLiveActivitySupport(config) {
 function applyWidgetBuildSettings(settings, version, buildNumber) {
   settings.INFOPLIST_FILE = `"${TARGET}/Info.plist"`;
   settings.CODE_SIGN_ENTITLEMENTS = `"${TARGET}/${TARGET}.entitlements"`;
-  settings.CODE_SIGN_STYLE = "Automatic";
+  settings.CODE_SIGN_STYLE = 'Automatic';
   // ActivityKit is 16.1 and the app's own deployment target is already 16.4
   // (expo-build-properties), so nothing could install against 15.1 anyway.
   settings.IPHONEOS_DEPLOYMENT_TARGET = '"16.4"';
   settings.SWIFT_VERSION = '"5.9"';
   settings.TARGETED_DEVICE_FAMILY = '"1,2"';
-  settings.GENERATE_INFOPLIST_FILE = "NO";
+  settings.GENERATE_INFOPLIST_FILE = 'NO';
   settings.CURRENT_PROJECT_VERSION = `"${buildNumber}"`;
   settings.MARKETING_VERSION = `"${version}"`;
   // `apple.ccacheEnabled` has the pod install write CC, LD, CXX and LDPLUSPLUS
@@ -389,6 +497,7 @@ module.exports = function withIosWidget(config) {
 module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
 module.exports.applyWidgetBuildSettings = applyWidgetBuildSettings;
 module.exports.writeWidgetBundles = writeWidgetBundles;
+module.exports.writeWidgetFiles = writeWidgetFiles;
 module.exports.copySharedLiveActivitySources = copySharedLiveActivitySources;
 module.exports.LIVE_ACTIVITY_SHARED_FILES = LIVE_ACTIVITY_SHARED_FILES;
 module.exports.widgetSwiftFiles = widgetSwiftFiles;

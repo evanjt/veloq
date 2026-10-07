@@ -22,7 +22,8 @@ import org.junit.runner.RunWith
  * Expected behaviour: the entry is on the tray under the tag the JavaScript
  * task used, on the channel the app creates, carrying the title and the body,
  * and a second post for the same ride replaces the first rather than standing
- * beside it.
+ * beside it. The tap's link names the athlete, which the app checks before it
+ * opens anything.
  *
  * Runs on a device: the tray is the notification manager's, which has no JVM
  * stand-in.
@@ -78,7 +79,13 @@ class ActivityNotificationPosterTest {
 
   @Test
   fun the_entry_lands_under_the_activity_tag_on_the_insights_channel() {
-    ActivityNotificationPoster.post(context, "i77", "New PR", "PR on Church Hill (12s faster)")
+    ActivityNotificationPoster.post(
+      context,
+      "i77",
+      ATHLETE,
+      "New PR",
+      "PR on Church Hill (12s faster)"
+    )
 
     val entries = awaitEntry("activity-i77", "New PR")
     assertEquals(1, entries.size)
@@ -97,8 +104,8 @@ class ActivityNotificationPosterTest {
 
   @Test
   fun a_second_post_for_the_same_ride_replaces_the_first() {
-    ActivityNotificationPoster.post(context, "i78", "Activity Recorded", "On Church Hill")
-    ActivityNotificationPoster.post(context, "i78", "New PR", "PR on Church Hill")
+    ActivityNotificationPoster.post(context, "i78", ATHLETE, "Activity Recorded", "On Church Hill")
+    ActivityNotificationPoster.post(context, "i78", ATHLETE, "New PR", "PR on Church Hill")
 
     val entries = awaitEntry("activity-i78", "New PR")
     assertEquals(1, entries.size)
@@ -107,14 +114,25 @@ class ActivityNotificationPosterTest {
 
   @Test
   fun two_rides_are_two_entries() {
-    ActivityNotificationPoster.post(context, "i79", "New PR", "PR on Church Hill")
-    ActivityNotificationPoster.post(context, "i80", "New PR", "PR on Mill Road")
+    ActivityNotificationPoster.post(context, "i79", ATHLETE, "New PR", "PR on Church Hill")
+    ActivityNotificationPoster.post(context, "i80", ATHLETE, "New PR", "PR on Mill Road")
 
     assertEquals(1, awaitEntry("activity-i79", "New PR").size)
     assertEquals(1, awaitEntry("activity-i80", "New PR").size)
   }
 
+  @Test
+  fun the_tap_opens_the_activity_naming_the_athlete_the_push_was_for() {
+    val link = ActivityNotificationPoster.activityLink("i81", ATHLETE)
+
+    assertEquals("veloq", link.scheme)
+    assertEquals("activity", link.host)
+    assertEquals(listOf("i81"), link.pathSegments)
+    assertEquals(ATHLETE, link.getQueryParameter("athlete"))
+  }
+
   private companion object {
+    const val ATHLETE = "i12345"
     const val SETTLE_MS = 5_000L
     const val POLL_MS = 50L
   }

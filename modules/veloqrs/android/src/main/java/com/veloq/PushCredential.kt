@@ -10,18 +10,42 @@ import android.content.Context
  * wins over an API key, and either without an athlete id is nothing.
  */
 data class PushCredential(val method: String, val secret: String, val athleteId: String) {
+  sealed class Stored {
+    object SignedOut : Stored()
+    object Unreadable : Stored()
+    data class Ready(val credential: PushCredential) : Stored()
+  }
+
   companion object {
     private const val API_KEY = "intervals_api_key"
     private const val ACCESS_TOKEN = "intervals_access_token"
     private const val ATHLETE_ID = "intervals_athlete_id"
 
-    /** The credential the store holds, or null when the athlete is signed out. */
+    /**
+     * What the store holds: the credential, nothing because the athlete signed
+     * out (sign-out deletes the athlete id entry), or an entry that is there
+     * and gave no credential.
+     */
     @JvmStatic
-    fun read(context: Context): PushCredential? = choose(
+    fun read(context: Context): Stored = classify(
       accessToken = SecureStoreReader.read(context, ACCESS_TOKEN),
       apiKey = SecureStoreReader.read(context, API_KEY),
-      athleteId = SecureStoreReader.read(context, ATHLETE_ID)
+      athleteId = SecureStoreReader.read(context, ATHLETE_ID),
+      athleteStored = SecureStoreReader.isStored(context, ATHLETE_ID)
     )
+
+    /** `choose` told apart by whether an athlete id envelope exists at all. */
+    @JvmStatic
+    fun classify(
+      accessToken: String?,
+      apiKey: String?,
+      athleteId: String?,
+      athleteStored: Boolean
+    ): Stored {
+      if (!athleteStored) return Stored.SignedOut
+      val credential = choose(accessToken, apiKey, athleteId) ?: return Stored.Unreadable
+      return Stored.Ready(credential)
+    }
 
     /** `AuthStore.initialize`'s choice, as a function of the three values. */
     @JvmStatic

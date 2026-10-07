@@ -1,6 +1,9 @@
 {
-  "platforms": ["apple"],
+  "platforms": ["apple", "android"],
   "apple": {
     "modules": ["VeloqBackupExclusionModule"]
+  },
+  "android": {
+    "modules": ["com.veloq.backupexclusion.VeloqBackupExclusionModule"]
   }
 }

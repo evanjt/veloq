@@ -7,8 +7,8 @@
  * Expected behaviour: the target is created once and never twice, every Swift
  * file in the tracked tree ends up in its Sources phase, and the settings that
  * decide whether it builds at all are on it: the bridging header that declares
- * the crate's C entries, the link flags for the Rust static library, and a
- * library search path per SDK.
+ * the crate's C entries, the link flags for the Rust static library, and the
+ * phase that builds that library for the SDK being built, ahead of the link.
  */
 import fs from 'fs';
 import os from 'os';
@@ -21,7 +21,6 @@ import {
   applyPushExtensionBuildSettings,
   configurePushExtensionProject,
   pushSwiftFiles,
-  xcframeworkSlices,
 } from '@/../src/plugins/with-ios-push-extension';
 import { compiledSourceNames, targetUuidByName } from '@/../src/plugins/with-ios-widget';
 
@@ -50,14 +49,13 @@ const options = {
   bundleId: 'com.veloq.app.dev',
   version: '0.4.0',
   buildNumber: '7',
-  slices: { 'iphonesimulator*': 'ios-arm64_x86_64-simulator', 'iphoneos*': 'ios-arm64' },
 };
 
 /** Every build configuration the plugin wrote settings onto. */
 function settingsFor(proj: ReturnType<typeof openFixture>) {
   return Object.values(proj.pbxXCBuildConfigurationSection())
     .map((entry) => (typeof entry === 'string' ? undefined : entry.buildSettings))
-    .filter((settings) => settings?.PRODUCT_NAME === `"${TARGET}"`)
+    .filter((settings) => settings?.PRODUCT_NAME?.replace(/"/g, '') === TARGET)
     .map((settings) => settings as Record<string, string>);
 }
 
@@ -129,31 +127,29 @@ describe('the settings that decide whether it builds', () => {
     expect(settings.OTHER_LDFLAGS).toContain('-lveloqrs_ffi');
   });
 
-  it('gives each SDK its own slice, so the linker never meets the other architecture', () => {
+  it('links the archive its own phase writes for the SDK being built', () => {
     const settings: Record<string, string> = {};
 
     applyPushExtensionBuildSettings(settings, options);
 
-    expect(settings['"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]"']).toContain(
-      'VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator'
-    );
-    expect(settings['"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]"']).toContain(
-      'VeloqrsFFI.xcframework/ios-arm64'
-    );
+    expect(settings.LIBRARY_SEARCH_PATHS).toEqual([
+      '"$(inherited)"',
+      '"$(TARGET_TEMP_DIR)/VeloqrsFFI"',
+    ]);
+    expect(settings.ENABLE_USER_SCRIPT_SANDBOXING).toBe('NO');
   });
 
-  it('quotes the conditional key, which is the form Xcode will parse back', () => {
-    const settings: Record<string, string> = {};
+  it('drops the per-SDK bundle paths a target from an earlier prebuild carries', () => {
+    const settings: Record<string, string> = {
+      '"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]"':
+        '"$(SRCROOT)/../modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64"',
+      '"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]"':
+        '"$(SRCROOT)/../modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64-simulator"',
+    };
 
     applyPushExtensionBuildSettings(settings, options);
 
-    // The writer emits a setting name verbatim. Unquoted, the brackets and the
-    // `=` are not a token, and Xcode refuses the project file rather than the
-    // setting. A parse of a stock project hands `CODE_SIGN_IDENTITY` back with
-    // the quotes for the same reason.
-    const conditional = Object.keys(settings).filter((key) => key.includes('[sdk='));
-    expect(conditional).toHaveLength(2);
-    for (const key of conditional) expect(key.startsWith('"') && key.endsWith('"')).toBe(true);
+    expect(Object.keys(settings).filter((key) => key.includes('[sdk='))).toEqual([]);
   });
 
   it('carries its own REACT_NATIVE_PATH, which the ccache wrapper resolves through', () => {
@@ -183,51 +179,85 @@ describe('the settings that decide whether it builds', () => {
     expect(written.length).toBeGreaterThan(0);
     for (const settings of written) {
       expect(settings.SWIFT_OBJC_BRIDGING_HEADER).toBeDefined();
-      expect(settings['"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]"']).toBeDefined();
+      expect(settings.LIBRARY_SEARCH_PATHS).toEqual([
+        '"$(inherited)"',
+        '"$(TARGET_TEMP_DIR)/VeloqrsFFI"',
+      ]);
     }
   });
 });
 
-describe('where the library lives inside the xcframework', () => {
-  it('is read from the bundle, because the identifiers are the builder s', () => {
-    const root = tempDir('veloq-xcf-');
-    const bundle = path.join(root, 'modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework');
-    fs.mkdirSync(bundle, { recursive: true });
-    fs.writeFileSync(
-      path.join(bundle, 'Info.plist'),
-      `<plist version="1.0"><dict><key>AvailableLibraries</key><array>
-         <dict><key>LibraryIdentifier</key><string>ios-arm64_x86_64-maccatalyst</string>
-         <key>SupportedPlatformVariant</key><string>simulator</string></dict>
-         <dict><key>LibraryIdentifier</key><string>ios-arm64e</string></dict>
-       </array></dict></plist>`
-    );
+type Phase = { value: string };
+type ShellPhase = {
+  name: string;
+  shellScript: string;
+  outputPaths: string[];
+  alwaysOutOfDate?: number;
+};
 
-    expect(xcframeworkSlices(root)).toEqual({
-      'iphonesimulator*': 'ios-arm64_x86_64-maccatalyst',
-      'iphoneos*': 'ios-arm64e',
-    });
+/** The target's phases in order, as `isa:name`, and its shell phases by id. */
+function phasesOf(proj: ReturnType<typeof openFixture>) {
+  const uuid = targetUuidByName(proj, TARGET) as string;
+  const target = proj.pbxNativeTargetSection()[uuid] as unknown as { buildPhases: Phase[] };
+  const objects = proj.hash.project.objects as Record<string, Record<string, unknown>>;
+  const scripts = (objects.PBXShellScriptBuildPhase ?? {}) as Record<string, ShellPhase>;
+  const order = target.buildPhases.map((phase) => {
+    const isa = Object.keys(objects).find((key) => objects[key][phase.value] !== undefined);
+    const named = scripts[phase.value]?.name?.replace(/"/g, '');
+    return named ? `${isa}:${named}` : String(isa);
+  });
+  return { target, scripts, order };
+}
+
+describe('the phase that builds the Rust library', () => {
+  it('runs before the link, for the SDK and architectures of the build', () => {
+    const proj = openFixture();
+
+    configurePushExtensionProject(proj, options);
+
+    const { target, scripts, order } = phasesOf(proj);
+    expect(order[0]).toBe('PBXShellScriptBuildPhase:Build Rust library');
+    expect(order.indexOf('PBXFrameworksBuildPhase')).toBeGreaterThan(0);
+    const phase = scripts[target.buildPhases[0].value];
+    expect(phase.shellScript).toContain('modules/veloqrs/scripts/xcode-build-rust.sh');
+    expect(phase.shellScript).toContain('$TARGET_TEMP_DIR/VeloqrsFFI');
+    expect(phase.outputPaths).toEqual(['"$(TARGET_TEMP_DIR)/VeloqrsFFI/libveloqrs_ffi.a"']);
+    expect(phase.alwaysOutOfDate).toBe(1);
   });
 
-  it('still names a device path when only the simulator slice has been built here', () => {
-    const root = tempDir('veloq-xcf-sim-');
-    const bundle = path.join(root, 'modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework');
-    fs.mkdirSync(bundle, { recursive: true });
-    fs.writeFileSync(
-      path.join(bundle, 'Info.plist'),
-      `<plist version="1.0"><dict><key>AvailableLibraries</key><array>
-         <dict><key>LibraryIdentifier</key><string>ios-arm64_x86_64-simulator</string>
-         <key>SupportedPlatformVariant</key><string>simulator</string></dict>
-       </array></dict></plist>`
-    );
+  it('is added once, however many prebuilds run', () => {
+    const proj = openFixture();
 
-    expect(xcframeworkSlices(root)['iphoneos*']).toBe('ios-arm64');
+    configurePushExtensionProject(proj, options);
+    configurePushExtensionProject(proj, options);
+
+    const { order } = phasesOf(proj);
+    expect(order.filter((name) => name.endsWith(':Build Rust library'))).toHaveLength(1);
   });
 
-  it('falls back to the conventional names when no bundle has been built yet', () => {
-    expect(xcframeworkSlices(tempDir('veloq-xcf-none-'))).toEqual({
-      'iphonesimulator*': 'ios-arm64_x86_64-simulator',
-      'iphoneos*': 'ios-arm64',
-    });
+  it('reaches a target an earlier prebuild wrote without it, along with the settings', () => {
+    const proj = openFixture();
+    configurePushExtensionProject(proj, options);
+    const { target } = phasesOf(proj);
+    target.buildPhases.shift();
+    // The pod install saves the project again, without the quotes around the
+    // name, and glues the Swift path onto a single search path.
+    for (const settings of settingsFor(proj)) {
+      settings.PRODUCT_NAME = TARGET;
+      settings.LIBRARY_SEARCH_PATHS = '"$(SDKROOT)/usr/lib/swift$(TARGET_TEMP_DIR)/VeloqrsFFI"';
+      settings['"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]"'] = '"$(SRCROOT)/../old/ios-arm64"';
+    }
+
+    configurePushExtensionProject(proj, options);
+
+    expect(phasesOf(proj).order[0]).toBe('PBXShellScriptBuildPhase:Build Rust library');
+    for (const settings of settingsFor(proj)) {
+      expect(settings.LIBRARY_SEARCH_PATHS).toEqual([
+        '"$(inherited)"',
+        '"$(TARGET_TEMP_DIR)/VeloqrsFFI"',
+      ]);
+      expect(settings['"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]"']).toBeUndefined();
+    }
   });
 });
 

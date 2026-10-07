@@ -22,14 +22,12 @@ object FitnessChart {
     val casing: Int,
     val axisText: Int,
     val grid: Int,
-    val divider: Int,
   )
 
-  /** Feed-style chart: fitness + fatigue lines, form zone bar, axis rail. */
+  /** Feed-style chart: fitness + fatigue lines, axis rail. */
   fun fitnessBitmap(
     fitness: List<Float>,
     fatigue: List<Float>,
-    zoneColors: List<Int>,
     widthPx: Int,
     heightPx: Int,
     density: Float,
@@ -44,9 +42,8 @@ object FitnessChart {
     val all = fitness + fatigue
     val rawMin = all.min()
     val rawMax = all.max()
-    val plot = layoutPlot(canvas, w, h, density, colors, rawMin, rawMax, zoneColors.isNotEmpty())
+    val plot = layoutPlot(canvas, w, h, density, colors, rawMin, rawMax)
 
-    drawFormBar(canvas, plot, zoneColors, density, colors.divider)
     if (fatigue.size >= 2) {
       drawLine(canvas, plot, fatigue, colors.casing, 2f * density)
       drawLine(canvas, plot, fatigue, colors.fatigue, 1f * density)
@@ -90,7 +87,6 @@ object FitnessChart {
     val bottom: Float,
     val domainMin: Float,
     val domainMax: Float,
-    val barTop: Float,
   ) {
     fun yOf(v: Float): Float = top + (1f - (v - domainMin) / (domainMax - domainMin)) * (bottom - top)
   }
@@ -105,7 +101,6 @@ object FitnessChart {
     colors: ChartColors,
     rawMin: Float,
     rawMax: Float,
-    hasFormBar: Boolean,
   ): Plot {
     val text =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -123,9 +118,7 @@ object FitnessChart {
     val gutter = max(text.measureText(minLabel), text.measureText(maxLabel)) + 4f * density
 
     val pad = 2f * density
-    val barH = 4f * density
-    val barGap = 2f * density
-    val bottom = if (hasFormBar) h - barH - barGap else h - pad
+    val bottom = h - pad
     val range = (rawMax - rawMin).takeIf { it > 0f } ?: 1f
     val plot =
       Plot(
@@ -135,7 +128,6 @@ object FitnessChart {
         bottom = bottom,
         domainMin = rawMin - range * 0.06f,
         domainMax = rawMax + range * 0.04f,
-        barTop = h - barH,
       )
 
     val textH = text.fontMetrics.let { it.descent - it.ascent }
@@ -182,35 +174,6 @@ object FitnessChart {
       }
     paint.alpha = alpha
     canvas.drawPath(path, paint)
-  }
-
-  // Per-day zone rectangles merged into contiguous runs, split by 1dp dividers, with
-  // run edges at the midpoints between chart x positions (same geometry as the feed).
-  private fun drawFormBar(
-    canvas: Canvas,
-    plot: Plot,
-    zoneColors: List<Int>,
-    density: Float,
-    dividerColor: Int,
-  ) {
-    val n = zoneColors.size
-    if (n == 0) return
-    val step = if (n > 1) (plot.right - plot.left) / (n - 1) else plot.right - plot.left
-    val paint = Paint()
-    val divider = Paint().apply { color = dividerColor }
-    val bottom = plot.barTop + 4f * density
-
-    var runStart = 0
-    for (i in 1..n) {
-      if (i == n || zoneColors[i] != zoneColors[runStart]) {
-        val left = if (runStart == 0) plot.left else plot.left + (runStart - 0.5f) * step
-        val right = if (i == n) plot.right else plot.left + (i - 0.5f) * step
-        paint.color = zoneColors[runStart]
-        canvas.drawRect(left, plot.barTop, right, bottom, paint)
-        if (i < n) canvas.drawRect(right - density / 2f, plot.barTop, right + density / 2f, bottom, divider)
-        runStart = i
-      }
-    }
   }
 
   // d3-shape curveMonotoneX port, so the widget curve matches the in-app chart.

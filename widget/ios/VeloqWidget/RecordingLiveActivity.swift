@@ -67,7 +67,7 @@ private struct RecordingLockScreenView: View {
   var body: some View {
     HStack(alignment: .center, spacing: WidgetTheme.Layout.padding) {
       VStack(alignment: .leading, spacing: 2) {
-        Text(attributes.activityType.uppercased())
+        Text((attributes.activityLabel ?? attributes.activityType).uppercased())
           .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
           .foregroundStyle(.secondary)
         RecordingClock(state: state, size: WidgetTheme.TypeScale.hero)
@@ -120,33 +120,20 @@ private struct RecordingClock: View {
   }
 }
 
-/// The ride so far as a `Path` over the normalised points. Never a polyline of
-/// arbitrary size: the payload is capped at 4 KB and the JS side decimates to fit.
+/// The ride so far, letterboxed into its frame at the aspect the payload carries so a
+/// narrow or flat track is not stretched. Never a polyline of arbitrary size: the payload
+/// is capped at 4 KB and the JS side decimates to fit.
 @available(iOS 16.2, *)
 private struct RecordingTrace: View {
   let trace: VeloqRecordingAttributes.ContentState.Trace
 
   var body: some View {
-    GeometryReader { geo in
-      let points = trace.points
-      if points.count >= 2 {
-        Path { path in
-          for (index, point) in points.enumerated() {
-            guard point.count >= 2 else { continue }
-            let x = point[0] * geo.size.width
-            let y = point[1] * geo.size.height
-            if index == 0 {
-              path.move(to: CGPoint(x: x, y: y))
-            } else {
-              path.addLine(to: CGPoint(x: x, y: y))
-            }
-          }
-        }
+    if trace.points.count >= 2 {
+      RoutePreviewShape(points: trace.points, aspect: trace.aspect)
         .stroke(
           WidgetTheme.Record.gradientStart,
           style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
         )
-      }
     }
   }
 }

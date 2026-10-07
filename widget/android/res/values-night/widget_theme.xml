@@ -23,8 +23,8 @@
   <color name="widget_form_grey_zone_text">#9E9E9E</color>
   <color name="widget_form_fresh_text">#81C784</color>
   <color name="widget_form_transition_text">#64B5F6</color>
-  <color name="widget_trend_up">#4ADE80</color>
-  <color name="widget_trend_down">#A1A1AA</color>
+  <color name="widget_trend_up">#86EFAC</color>
+  <color name="widget_trend_down">#F25C5C</color>
   <color name="widget_trend_flat">#52525B</color>
   <color name="widget_border">#27272A</color>
 </resources>

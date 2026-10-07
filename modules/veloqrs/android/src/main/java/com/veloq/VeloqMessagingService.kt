@@ -15,11 +15,11 @@ import expo.modules.notifications.service.ExpoFirebaseMessagingService
  */
 class VeloqMessagingService : ExpoFirebaseMessagingService() {
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
-    val activityId = ActivityPushEvent.activityIdOf(remoteMessage.data)
-    if (activityId == null) {
+    val activity = ActivityPushEvent.activityOf(remoteMessage.data)
+    if (activity == null) {
       super.onMessageReceived(remoteMessage)
       return
     }
-    ActivityPushWorker.enqueue(applicationContext, activityId)
+    ActivityPushWorker.enqueue(applicationContext, activity.activityId, activity.athleteId)
   }
 }

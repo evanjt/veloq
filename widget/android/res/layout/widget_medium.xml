@@ -2,9 +2,15 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
-  android:orientation="horizontal"
+  android:orientation="vertical"
   android:padding="@dimen/widget_padding"
   android:background="@drawable/widget_background">
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:orientation="horizontal">
 
   <LinearLayout
     android:layout_width="0dp"
@@ -296,6 +302,7 @@
         android:textSize="@dimen/widget_text_caption"
         android:textColor="@color/widget_trend_flat" />
     </LinearLayout>
+  </LinearLayout>
   </LinearLayout>
   <TextView
     android:id="@+id/med_updated"

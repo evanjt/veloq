@@ -30,6 +30,12 @@ class VeloqMemoryModule : Module() {
       if (Fresco.hasBeenInitialized()) Fresco.getImagePipeline().clearMemoryCaches()
     }
 
+    // The core Image component caches fetched photos, the athlete's profile photo
+    // among them, in Fresco's disk caches.
+    Function("clearImageDiskCache") {
+      if (Fresco.hasBeenInitialized()) Fresco.getImagePipeline().clearDiskCaches()
+    }
+
     OnStartObserving("onTrimMemory") {
       if (callbacks != null) return@OnStartObserving
       val registered =

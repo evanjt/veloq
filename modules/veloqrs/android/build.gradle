@@ -25,6 +25,19 @@ def isNewArchitectureEnabled() {
   return rootProject.hasProperty("newArchEnabled") && rootProject.getProperty("newArchEnabled") == "true"
 }
 
+// What the Rust build is asked for. The profile defaults to release, which is
+// what every build has shipped; features come from -PveloqrsCargoFeatures or
+// VELOQRS_CARGO_FEATURES, so an instrumented build needs no edit here. Each
+// selection has its own output directory, outside Gradle's build directory so
+// a CI cache restore is not taken for a stale output and deleted.
+def rustAbis = reactNativeArchitectures().collect { it.trim() }.findAll { it }.unique().sort()
+def rustProfile = (rootProject.findProperty("veloqrsRustProfile") ?: "release").toString()
+def rustFeatures = (rootProject.findProperty("veloqrsCargoFeatures") ?: System.getenv("VELOQRS_CARGO_FEATURES") ?: "")
+  .toString().split(/[\s,]+/).findAll { it }.unique().sort()
+def rustApiLevel = 24
+def rustOutDir = file("${projectDir}/../build/rust/android/" +
+  ([rustProfile, rustAbis.join("_")] + (rustFeatures ? [rustFeatures.join("_")] : [])).join("-"))
+
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
@@ -66,7 +79,7 @@ android {
 
     externalNativeBuild {
       cmake {
-        arguments '-DANDROID_STL=c++_shared'
+        arguments '-DANDROID_STL=c++_shared', "-DVELOQRS_RUST_LIB_DIR=${rustOutDir}/jniLibs"
         abiFilters (*reactNativeArchitectures())
       }
     }
@@ -93,7 +106,7 @@ android {
   }
 
   // Handle duplicate libveloqrs.so from jniLibs and CMake IMPORTED target
-  // The Rust library is in jniLibs, CMake imports it for linking - both get picked up
+  // The Rust library is in jniLibs, CMake imports it for linking, both get picked up
   // Using new packaging DSL (AGP 8.0+) for library module native lib merging
   packaging {
     jniLibs {
@@ -113,6 +126,9 @@ android {
 
   sourceSets {
     main {
+      // The sprite and glyphs the tile interceptor serves as `veloq-asset/`.
+      assets.srcDirs += ["../assets"]
+      jniLibs.srcDirs = ["${rustOutDir}/jniLibs"]
       if (isNewArchitectureEnabled()) {
           java.srcDirs += [
             "generated/java",
@@ -200,93 +216,69 @@ if (isNewArchitectureEnabled()) {
   }
 }
 
-// Build Rust library for each requested architecture (local development)
-// In CI, the library is pre-built by a separate workflow step.
-// Locally, rebuild architectures whose .so is missing OR older than any
-// `.rs` source under rust/. Previously the task short-circuited as long as
-// the .so existed at all, so a submodule bump silently kept the stale
-// binary in the APK, and the user saw "old algorithm" behavior after
-// `npx expo run:android` reported success.
-task buildRustLibrary {
-  def jniLibsDir = file("${projectDir}/src/main/jniLibs")
-  def rustDir = file("${projectDir}/../rust/veloqrs")
-  def rustRoot = file("${projectDir}/../rust")
-  def architectures = reactNativeArchitectures()
-  def hashFile = file("${jniLibsDir}/.rust-source-hash")
-
-  architectures.each { arch ->
-    outputs.file(file("${jniLibsDir}/${arch}/libveloqrs.so"))
-  }
-  // The .so depends on Rust *content*, not file mtime. A git checkout, branch
-  // switch, or submodule update changes content while leaving mtimes that fool
-  // both Cargo and Gradle's timestamp checks, the cause of stale .so shipping
-  // in the APK. So always run the action and gate on a content hash of the
-  // Rust tree; Cargo's own incremental cache makes a no-op invocation fast.
-  outputs.upToDateWhen { false }
+// The Rust library comes from modules/veloqrs/scripts/build-rust.js, the one
+// builder Gradle, the iOS scripts and CI share. This task declares what the
+// library is compiled from, so Gradle skips it while nothing changed, and the
+// builder fingerprints the same inputs, so a run with no Gradle history (a
+// fresh checkout, a CI cache restore) still compiles only what changed. A
+// failed compile fails the task and leaves no library behind.
+def rustTreeDir = file("${projectDir}/../rust")
+def rustBuilder = file("${projectDir}/../scripts/build-rust.js")
+def rustTask = tasks.register("buildRustLibrary") {
+  group = "build"
+  description = "Builds the Rust library for ${rustAbis.join(', ')} (${rustProfile}) through build-rust.js"
+  inputs.files(fileTree(rustTreeDir) {
+    exclude "target/**", "**/target/**"
+  }).withPropertyName("rustTree").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.files(rustBuilder, file("${projectDir}/../scripts/rust-inputs.js"), file("${projectDir}/../../../rust-toolchain.toml"))
+    .withPropertyName("builder").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.property("abis", rustAbis)
+  inputs.property("profile", rustProfile)
+  inputs.property("features", rustFeatures)
+  inputs.property("api", rustApiLevel)
+  inputs.property("ndkVersion", android.ndkVersion ?: "")
+  // The builder judges which of these change the compiled output; declaring
+  // the family here only decides when Gradle hands it the question.
+  inputs.property("environment", System.getenv().findAll { name, value ->
+    name ==~ /(RUSTC?|RUSTFLAGS|CARGO_(ENCODED_RUSTFLAGS|BUILD_.*|PROFILE_.*|TARGET_.*)|(CC|CXX|AR|CFLAGS|CXXFLAGS|TARGET_CC|TARGET_CFLAGS|TARGET_CXXFLAGS)(_.*)?|LIBSQLITE3_FLAGS)/
+  }.sort())
+  outputs.dir(rustOutDir)
 
   doLast {
-    def md = java.security.MessageDigest.getInstance("SHA-256")
-    fileTree(dir: rustRoot,
-             includes: ["**/*.rs", "**/Cargo.toml", "**/Cargo.lock", "**/.cargo/config.toml"],
-             excludes: ["**/target/**"])
-      .files.toSorted { a, b -> a.path <=> b.path }.each { f ->
-        md.update(f.path.bytes)
-        md.update(f.bytes)
-      }
-    def currentHash = md.digest().encodeHex().toString()
-    def storedHash = hashFile.exists() ? hashFile.text.trim() : null
-    def missing = architectures.findAll { !file("${jniLibsDir}/${it}/libveloqrs.so").exists() }
-    def ci = System.getenv("CI") || System.getenv("GITHUB_ACTIONS")
-
-    if (missing.isEmpty() && storedHash == currentHash) {
-      println "[veloqrs] Rust libraries up to date (source hash unchanged)"
-      return
+    def command = ["node", rustBuilder.absolutePath, "android", "--out", rustOutDir.absolutePath,
+                   "--profile", rustProfile, "--api", rustApiLevel.toString(),
+                   "--features", rustFeatures.join(",")]
+    rustAbis.each { command += ["--abi", it] }
+    def ndk = android.ndkDirectory
+    if (ndk != null && ndk.exists()) {
+      command += ["--ndk", ndk.absolutePath]
     }
-    if (missing.isEmpty() && storedHash == null && ci) {
-      // CI pre-builds the .so in a separate workflow step. Adopt it and record
-      // the hash so Gradle doesn't recompile (which would defeat the CI cache).
-      jniLibsDir.mkdirs()
-      hashFile.text = currentHash
-      println "[veloqrs] Adopting CI-prebuilt Rust library (source hash recorded)"
-      return
-    }
-
-    println "[veloqrs] Building Rust library (source changed or .so missing) for: ${architectures.join(', ')}..."
-    def args = []
-    architectures.each { arch -> args.addAll(["-t", arch]) }
-    // ProcessBuilder rather than Gradle's exec {}: Gradle 9 (Expo SDK 56)
-    // removed Project.exec from the task-action context.
-    def cmd = ["cargo", "ndk"] + args + ["--platform", "24",
-               "-o", jniLibsDir.absolutePath, "build", "--release", "-p", "veloqrs"]
-    // Measurement features such as lock-trace ride in by environment, so a
-    // one-off instrumented build needs no edit to Cargo.toml.
-    def features = System.getenv("VELOQRS_CARGO_FEATURES")
-    if (features) {
-      cmd += ["--features", features]
-      println "[veloqrs] Cargo features: ${features}"
-    }
-    def proc = new ProcessBuilder(cmd).directory(rustDir).inheritIO().start()
-    def code = proc.waitFor()
+    // ProcessBuilder rather than Gradle's exec {}: Gradle 9 removed
+    // Project.exec from the task-action context. A Gradle daemon's own output
+    // goes to /dev/null, so the builder's and Cargo's lines, a compile error
+    // among them, are passed through Gradle's logger to the console.
+    def process = new ProcessBuilder(command).redirectErrorStream(true).start()
+    process.outputStream.close()
+    process.inputStream.eachLine { line -> logger.lifecycle(line) }
+    def code = process.waitFor()
     if (code != 0) {
-      throw new GradleException("cargo ndk failed with exit code ${code}")
+      throw new GradleException("The Rust build failed with exit code ${code}; nothing was packaged from it")
     }
-    jniLibsDir.mkdirs()
-    hashFile.text = currentHash
-    println "[veloqrs] Rust libraries built for: ${architectures.join(', ')}"
   }
 }
 
-// Make CMake and JniLibs tasks depend on Rust library
-tasks.matching { it.name.startsWith("buildCMake") }.configureEach {
-  dependsOn buildRustLibrary
+// The library must exist before CMake links against it and before the
+// native libraries are merged into the package.
+tasks.matching { it.name.startsWith("buildCMake") || it.name.startsWith("configureCMake") }.configureEach {
+  dependsOn rustTask
 }
-tasks.matching { it.name.matches("merge.*JniLibFolders") }.configureEach {
-  dependsOn buildRustLibrary
+tasks.matching { it.name.matches("merge.*JniLibFolders") || it.name.matches("merge.*NativeLibs") }.configureEach {
+  dependsOn rustTask
 }
 
 // Fix duplicate libveloqrs.so: AGP copies jniLibs into CMake output directory,
 // causing conflict with the original in jniLibs. Remove the CMake copy before merging.
-// The Rust library should only come from jniLibs (pre-built by cargo-ndk).
+// The Rust library should only come from jniLibs, which the Rust build fills.
 tasks.configureEach { task ->
   if (task.name == "mergeReleaseNativeLibs" || task.name == "mergeDebugNativeLibs") {
     task.doFirst {

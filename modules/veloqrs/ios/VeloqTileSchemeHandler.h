@@ -9,7 +9,8 @@ extern NSString *const VeloqTileScheme;
 
 /**
  * Serves basemap tiles straight out of the Rust-owned store, and lets Rust
- * fetch and keep the tile when the store does not have it.
+ * fetch and keep the tile when the store does not have it. Serves the sprite
+ * and glyphs out of the app bundle.
  *
  * `WKURLSchemeHandler` will not claim https, so the page itself loads on this
  * scheme and every tile it asks for is same-origin, which is the property the

@@ -18,7 +18,7 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_marginTop="@dimen/widget_gap"
-    android:text="Record"
+    android:text="@string/widget_record"
     android:textSize="@dimen/widget_text_value"
     android:textStyle="bold"
     android:textColor="@color/widget_record_foreground" />

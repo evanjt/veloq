@@ -8,13 +8,16 @@ import android.webkit.WebView;
 import com.reactnativecommunity.webview.RNCWebViewClient;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
 /**
  * Serves basemap tiles straight out of the Rust-owned store, and lets Rust
- * fetch and keep the tile when the store does not have it.
+ * fetch and keep the tile when the store does not have it. Serves the sprite
+ * and glyphs out of the app's assets.
  *
  * <p>Android calls this on a background thread with no JavaScript context, so
  * the only route into Rust is {@link TileBridge}, which this module owns.
@@ -24,6 +27,7 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
 
   private static final String TAG = "VeloqTile";
   private static final String TILE_PATH = "/veloq-tile/";
+  private static final String ASSET_PATH = "/veloq-asset/";
 
   /**
    * What the bytes are, from the extension the page asked for.
@@ -55,14 +59,68 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
     }
   }
 
+  /** The reason phrase for a status the store can answer without a tile. */
+  private static String reasonFor(int status) {
+    switch (status) {
+      case 404:
+        return "No Tile";
+      case 429:
+        return "Too Many Requests";
+      case 503:
+        return "Service Unavailable";
+      default:
+        return "Bad Gateway";
+    }
+  }
+
   private static WebResourceResponse empty(int status, String reason, Map<String, String> headers) {
     return new WebResourceResponse("image/jpeg", null, status, reason, headers,
         new ByteArrayInputStream(new byte[0]));
   }
 
+  /**
+   * A file the app carries. A glyph range outside the bundle is Rust's to
+   * fetch and keep, and any other path the app does not carry is a 404.
+   */
+  private static WebResourceResponse asset(WebView view, String url, int at) {
+    Map<String, String> headers = new HashMap<>();
+    headers.put("Access-Control-Allow-Origin", "*");
+    headers.put("Cache-Control", "no-store");
+
+    String path = BasemapAssetPath.resolve(url.substring(at + ASSET_PATH.length()));
+    if (path == null) return empty(404, "No Asset", headers);
+    try {
+      InputStream stream = view.getContext().getAssets().open(path);
+      return new WebResourceResponse(BasemapAssetPath.mimeFor(path), null, 200, "OK", headers, stream);
+    } catch (FileNotFoundException e) {
+      return glyph(path, headers);
+    } catch (Throwable t) {
+      Log.w(TAG, "asset intercept failed for " + url, t);
+      return empty(500, "Asset Error", headers);
+    }
+  }
+
+  /** A glyph range the bundle lacks, from Rust's store or the glyph host. */
+  private static WebResourceResponse glyph(String path, Map<String, String> headers) {
+    String[] request = BasemapAssetPath.glyphRequest(path);
+    if (request == null) return empty(404, "No Asset", headers);
+    int[] status = {502};
+    byte[] bytes = TileBridge.getGlyph(request[0], request[1], status);
+    if (bytes == null || bytes.length == 0) {
+      int code = status[0] == 200 ? 404 : status[0];
+      return empty(code, reasonFor(code), headers);
+    }
+    return new WebResourceResponse("application/x-protobuf", null, 200, "OK", headers,
+        new ByteArrayInputStream(bytes));
+  }
+
   @Override
   public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
     String url = request.getUrl().toString();
+    int assetAt = url.indexOf(ASSET_PATH);
+    if (assetAt >= 0) {
+      return asset(view, url, assetAt);
+    }
     int at = url.indexOf(TILE_PATH);
     if (at < 0) {
       return super.shouldInterceptRequest(view, request);
@@ -92,8 +150,16 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
       int x = Integer.parseInt(parts[2]);
       int y = Integer.parseInt(parts[3]);
 
-      byte[] bytes = TileBridge.getOrFetch(source, z, x, y);
-      if (bytes == null || bytes.length == 0) return empty(404, "No Tile", headers);
+      // What Rust says the page is to be told. A 429 or a 503 is the tile host
+      // asking to be left alone, and the page's throttle backoff counts only
+      // those, so they cross as themselves. It starts at 502 so a native call
+      // that returns without writing it reads as a failure, not a refusal.
+      int[] status = {502};
+      byte[] bytes = TileBridge.getOrFetch(source, z, x, y, status);
+      if (bytes == null || bytes.length == 0) {
+        int code = status[0] == 200 ? 404 : status[0];
+        return empty(code, reasonFor(code), headers);
+      }
       return new WebResourceResponse(mimeFor(extension), null, 200, "OK", headers,
           new ByteArrayInputStream(bytes));
     } catch (Throwable t) {

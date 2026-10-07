@@ -1,7 +1,9 @@
 package __PKG__.widget
 
+import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import __PKG__.R
@@ -16,7 +18,7 @@ class RecordTileService : TileService() {
   override fun onStartListening() {
     val snap = WidgetSnapshot.read(this)
     qsTile?.apply {
-      label = snap?.recordShortcuts?.firstOrNull()?.label ?: getString(R.string.app_name)
+      label = snap?.launcherShortcuts?.firstOrNull()?.label ?: getString(R.string.app_name)
       state = Tile.STATE_INACTIVE
       updateTile()
     }
@@ -30,9 +32,18 @@ class RecordTileService : TileService() {
           `package` = packageName
           addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-    // Deprecated on 34 in favour of the PendingIntent overload, which is 34-only,
-    // and minSdk here is below that. Both unlock first, which is the point.
-    @Suppress("DEPRECATION")
-    startActivityAndCollapse(intent)
+    if (TileLaunch.takesPendingIntent(Build.VERSION.SDK_INT)) {
+      val pending =
+        PendingIntent.getActivity(
+          this,
+          0,
+          intent,
+          PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+      startActivityAndCollapse(pending)
+    } else {
+      @Suppress("DEPRECATION")
+      startActivityAndCollapse(intent)
+    }
   }
 }

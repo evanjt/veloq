@@ -13,67 +13,8 @@ import WidgetKit
 // whatever this athlete has recorded. An enum case also carries a display name,
 // and those names would be English in all seventeen locales unless the
 // extension shipped a strings catalogue for them, where the snapshot already
-// names each sport in the athlete's own language. That is the reasoning
-// `VeloqAppShortcuts` follows for the phrase's parameter.
-
-/// One sport the athlete records, as the configure sheet offers it.
-///
-/// The identifier is the deep link rather than the sport's type, because
-/// AppIntents keeps a configured entity by its identifier alone and re-resolves
-/// it through the query on every timeline. Recents are capped at four, so a
-/// sport a widget was configured with drops out of the snapshot's list, and an
-/// identifier that only named the type would come back as nothing: that widget
-/// would quietly start whatever was recorded last. The link carries both the
-/// identity and the destination, and the app composed it, so nothing here
-/// builds one.
-@available(iOS 17.0, *)
-struct RecordSportEntity: AppEntity {
-  let id: String
-  let label: String
-
-  static var typeDisplayRepresentation: TypeDisplayRepresentation {
-    TypeDisplayRepresentation(name: "Sport")
-  }
-
-  var displayRepresentation: DisplayRepresentation {
-    DisplayRepresentation(title: "\(label)")
-  }
-
-  static var defaultQuery = RecordSportQuery()
-}
-
-@available(iOS 17.0, *)
-struct RecordSportQuery: EntityQuery {
-  /// What the configure sheet lists: the sports this athlete records, named in
-  /// the athlete's own language by the snapshot.
-  func suggestedEntities() async throws -> [RecordSportEntity] {
-    RecordSportQuery.recorded()
-  }
-
-  /// What a placed widget's configuration resolves back to. An identifier the
-  /// snapshot no longer lists is answered rather than dropped, so the widget
-  /// keeps its sport.
-  func entities(for identifiers: [String]) async throws -> [RecordSportEntity] {
-    let known = RecordSportQuery.recorded()
-    return identifiers.map { id in
-      known.first { $0.id == id }
-        ?? RecordSportEntity(id: id, label: RecordSportQuery.sportName(from: id))
-    }
-  }
-
-  static func recorded() -> [RecordSportEntity] {
-    (WidgetSnapshotStore.load()?.recordShortcuts ?? []).map {
-      RecordSportEntity(id: $0.url, label: $0.label)
-    }
-  }
-
-  /// The name for a sport the snapshot has forgotten, read back out of the link
-  /// rather than composed. Untranslated, which is the honest answer once the
-  /// translated one is gone, and it shows only in the configure sheet.
-  static func sportName(from url: String) -> String {
-    URL(string: url)?.lastPathComponent ?? url
-  }
-}
+// names each sport in the athlete's own language. The entity and its query are
+// shared with the Siri phrase in `RecordSportEntity.swift`.
 
 @available(iOS 17.0, *)
 struct SelectRecordSportIntent: WidgetConfigurationIntent {

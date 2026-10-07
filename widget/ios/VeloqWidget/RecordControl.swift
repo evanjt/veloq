@@ -9,7 +9,7 @@ import WidgetKit
 @available(iOS 18.0, *)
 struct StartRecordingIntent: AppIntent {
   static var title: LocalizedStringResource = "Start recording"
-  static var description = IntentDescription("Opens Veloq with the ride already running.")
+  static var description = IntentDescription("Opens Veloq ready to record.")
   static var openAppWhenRun: Bool = true
 
   func perform() async throws -> some IntentResult & OpensIntent {

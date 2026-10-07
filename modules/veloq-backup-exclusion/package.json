@@ -1,7 +1,7 @@
 {
   "name": "veloq-backup-exclusion",
   "version": "0.1.0",
-  "description": "Marks a path excluded from the iOS device backup, so fetched map tiles stay out of iCloud",
+  "description": "Marks a path excluded from the iOS device backup, so duplicated and refetchable data stays out of iCloud",
   "main": "index.ts",
   "author": "Evan Thomas <evan@evanjt.com>",
   "homepage": "https://github.com/evanjt/veloq",

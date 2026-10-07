@@ -39,3 +39,33 @@ class PushCredentialTest {
     assertNull(PushCredential.choose(accessToken = null, apiKey = null, athleteId = "i1"))
   }
 }
+
+class PushCredentialStoredTest {
+  @Test
+  fun no_athlete_envelope_is_signed_out() {
+    assertEquals(
+      PushCredential.Stored.SignedOut,
+      PushCredential.classify(accessToken = "tok", apiKey = null, athleteId = null, athleteStored = false)
+    )
+  }
+
+  @Test
+  fun an_envelope_that_gives_no_credential_is_unreadable() {
+    assertEquals(
+      PushCredential.Stored.Unreadable,
+      PushCredential.classify(accessToken = null, apiKey = null, athleteId = null, athleteStored = true)
+    )
+    assertEquals(
+      PushCredential.Stored.Unreadable,
+      PushCredential.classify(accessToken = null, apiKey = null, athleteId = "i1", athleteStored = true)
+    )
+  }
+
+  @Test
+  fun a_readable_store_is_the_credential() {
+    assertEquals(
+      PushCredential.Stored.Ready(PushCredential("api_key", "key", "i1")),
+      PushCredential.classify(accessToken = null, apiKey = "key", athleteId = "i1", athleteStored = true)
+    )
+  }
+}
