@@ -163,6 +163,9 @@ fn tile_pass_key() -> JobKey {
 /// outlives the engine install its lease was written under.
 struct TilePassGuard {
     install: u64,
+    /// The database the lease was written to, which is the claiming engine's
+    /// and not always the installed one's.
+    db_path: String,
 }
 
 impl Drop for TilePassGuard {
@@ -177,11 +180,30 @@ impl Drop for TilePassGuard {
         };
         // Before the slot empties, so a wipe that sees it empty finds the key
         // free too.
-        super::with_persistent_engine_for(self.install, |engine| {
-            if let Err(e) = engine.release_job(&tile_pass_key(), release, now_ms()) {
+        let at = now_ms();
+        let in_installed = super::with_persistent_engine_for(self.install, |engine| {
+            if engine.db_path != self.db_path {
+                return false;
+            }
+            if let Err(e) = engine.release_job(&tile_pass_key(), release.clone(), at) {
                 log::warn!("[heatmap] Could not release the tile pass: {e}");
             }
-        });
+            true
+        })
+        .unwrap_or(false);
+        // A pass started on an engine that is not the installed one holds its
+        // lease in that engine's database, and left there the key reads as in
+        // flight for good. An install that moved means the library was wiped
+        // or replaced, and the lease went with it.
+        if !in_installed && super::engine_install() == self.install {
+            let released = Connection::open(&self.db_path).and_then(|db| {
+                db.busy_timeout(Duration::from_secs(5))?;
+                super::attempts::release_job_in(&db, &tile_pass_key(), release, at)
+            });
+            if let Err(e) = released {
+                log::warn!("[heatmap] Could not release the tile pass: {e}");
+            }
+        }
         *tile_pass_slot() = None;
         TILE_PASS_ENDED.notify_all();
     }
@@ -216,6 +238,7 @@ impl TilePassGuard {
         *slot = Some(cancel.clone());
         Some(TilePassGuard {
             install: super::engine_install(),
+            db_path: engine.db_path.clone(),
         })
     }
 }
@@ -2043,6 +2066,8 @@ mod tests {
             let second = crate::persistence::CancelToken::new();
             let worker_first = first.clone();
             let worker_second = second.clone();
+            let db_path =
+                crate::persistence::with_persistent_engine(|e| e.db_path.clone()).expect("engine");
             let worker = std::thread::spawn(move || {
                 while !worker_first.is_cancelled() {
                     std::thread::yield_now();
@@ -2057,6 +2082,7 @@ mod tests {
                 TILE_PASS_ENDED.notify_all();
                 let _second = TilePassGuard {
                     install: crate::persistence::engine_install(),
+                    db_path,
                 };
                 while !worker_second.is_cancelled() {
                     std::thread::yield_now();
