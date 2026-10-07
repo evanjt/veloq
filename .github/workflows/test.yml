@@ -22,7 +22,15 @@ jobs:
   jest:
     name: Jest (${{ matrix.tz }})
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Measured on GitHub runners on 2026-10-07 with a cold Jest cache, 1,115
+    # suites: `npm test` took 6m16s on one runner and 9m07s on another, and a
+    # third was still finishing suites steadily at 9m34s when the old
+    # ten-minute cap cancelled it. Neither zone hangs, the runners differ. At
+    # 742 suites in late September a cold run was 4m20s. The cap leaves about
+    # five minutes over the slowest figure. A run past it needs its logs read
+    # to tell a slow runner from a stuck suite. A cancelled run saves no Jest
+    # cache, so a cap under the cold figure keeps every later run cold too.
+    timeout-minutes: 15
     # The app project runs under the zones furthest east and west of UTC, so a
     # formatter that mixes UTC and local fields fails here and not only for
     # athletes at those offsets.
