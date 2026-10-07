@@ -32,9 +32,13 @@ function freshClone(): string {
 }
 
 function check(root: string, env: Record<string, string>) {
+  // The runner sets CI, and the check stands down under it, so a case that
+  // means a developer's machine must not inherit it.
+  const developer = { ...process.env };
+  delete developer.CI;
   return spawnSync(process.execPath, [script, '--root', root], {
     encoding: 'utf8',
-    env: { ...gitFreeEnv(), PATH: path.join(root, 'bin'), HOME: root, ...env },
+    env: { ...gitFreeEnv(developer), PATH: path.join(root, 'bin'), HOME: root, ...env },
   });
 }
 
