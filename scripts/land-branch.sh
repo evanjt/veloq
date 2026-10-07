@@ -1,26 +1,21 @@
 #!/bin/bash
-# Land a branch on the current branch without losing the ref race to the gates.
+# Land a branch on the current branch, gated, without losing the ref race.
 #
-# Every worktree merges back through the one checkout, and `git merge` there
-# holds `.husky/pre-merge-commit` for five to eight minutes while
-# `scripts/merge-gates.sh` runs. Another session's merge lands inside that
-# window, `update_ref` fails, and the loser leaves its merged tree staged
-# against a `HEAD` that has moved: no `MERGE_HEAD`, so `git merge --abort`
-# refuses, and every other session's merge is then refused for a path neither
-# side of it touched. One lost race stops the fleet, which is what it did for
-# about ninety minutes on 2026-09-15.
+# Every worktree merges back through the one checkout, and a `git merge` there
+# holds its gates for minutes. Another session's merge lands inside that window,
+# `update_ref` fails, and the loser leaves its merged tree staged against a
+# `HEAD` that has moved, which refused every other session's merge for about
+# ninety minutes on 2026-09-15. Building the merge elsewhere and fast-forwarding
+# fixed that, but the gates then ran after the ref moved, so a candidate with a
+# failing suite reached the target before anything could refuse it.
 #
-# So the merge is built somewhere nothing else can move, and the checkout is
-# fast-forwarded onto it. The only step that races is a ref move plus a
-# checkout of the files the merge changed, which is a second rather than
-# minutes, and it is a fast-forward, so it lands over an index another session
-# has staged as long as the two do not touch the same file. A fast-forward
-# runs `post-merge`, which runs the same battery and reports after the ref has
-# moved, so nothing is skipped.
-#
-# Never wrap this in the commit lock. `merge-gates.sh` takes that lock itself
-# and a flock is held per open file description, so the gates would block on
-# the lock their own caller holds (B1057, and B624 one level down).
+# So the candidate is built and gated in one persistent landing tree beside the
+# main checkout, provisioned as a real tree: the engine submodule at the
+# candidate's pin, its own `veloqrs` link and a warm `target/`. Only a candidate
+# that passed is fast-forwarded onto, and a target that moved meanwhile is
+# merged in and the new candidate gated again. The checkout's only racing step
+# is a ref move, and it lands over another session's staged and unsaved files
+# as long as the two do not touch the same path.
 set -euo pipefail
 
 BRANCH=${1:-}
@@ -29,6 +24,7 @@ if [ -z "$BRANCH" ]; then
   exit 2
 fi
 
+SCRIPTS=$(cd "$(dirname "$0")" && pwd)
 CHECKOUT=$(git rev-parse --show-toplevel)
 TARGET=$(git rev-parse --abbrev-ref HEAD)
 if ! git rev-parse --verify --quiet "$BRANCH" >/dev/null; then
@@ -65,7 +61,7 @@ refuse_merge_in_progress
 # A worktree's hooks live in `.husky/_`, which is git-ignored and made only by
 # `npm run prepare`, so a tree where that never ran commits with no gates at
 # all. Landing is the one step every branch passes, so the lander hears it here.
-# A warning, not a refusal: the merge battery still runs on the landed tree.
+# A warning, not a refusal: the candidate is gated below either way.
 branch_tree=$(git -C "$CHECKOUT" worktree list --porcelain |
   awk -v ref="branch refs/heads/$BRANCH" '/^worktree /{tree = substr($0, 10)} $0 == ref {print tree}')
 if [ -n "$branch_tree" ] && [ ! -d "$branch_tree/.husky/_" ]; then
@@ -77,32 +73,141 @@ fi
 # Overridable so a test does not sleep and a quiet machine does not wait.
 ATTEMPTS=${VELOQ_LAND_ATTEMPTS:-40}
 SLEEP=${VELOQ_LAND_SLEEP:-25}
+# What makes the tree able to judge its candidate. Overridable so a test can
+# hold a landing mid-provisioning, or make provisioning fail.
+PROVISION=${VELOQ_LAND_PROVISION:-$SCRIPTS/provision-landing-tree.sh}
 
-# Under the checkout rather than beside it: cargo resolves `.cargo/config.toml`
-# from the working directory's ancestors, so a staging tree outside this one
-# builds with a different job count and no `TRACEMATCH_CORPUS`.
-STAGING="$CHECKOUT/../$(basename "$CHECKOUT")-landing-$$"
-cleanup() {
-  git -C "$CHECKOUT" worktree remove --force "$STAGING" >/dev/null 2>&1 || true
-  git -C "$CHECKOUT" worktree prune >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
+# One tree per repository, beside the main checkout whichever worktree lands:
+# under the directory that holds it, because cargo resolves `.cargo/config.toml`
+# from the working directory's ancestors, so a tree outside builds with a
+# different job count, no compiler cache and no `TRACEMATCH_CORPUS`.
+MAIN=$(dirname "$(git -C "$CHECKOUT" rev-parse --path-format=absolute --git-common-dir)")
+LANDING="$(dirname "$MAIN")/$(basename "$MAIN")-landing"
+RESERVATION="$LANDING.owner"
 
-git -C "$CHECKOUT" worktree add --detach "$STAGING" "$(git -C "$CHECKOUT" rev-parse HEAD)" >/dev/null
-# The staging tree's own node_modules, so a hook that needs one finds it. One
-# symlink, not a copy: nothing is installed or patched here.
-if [ -e "$CHECKOUT/node_modules" ] && [ ! -e "$STAGING/node_modules" ]; then
-  ln -s "$CHECKOUT/node_modules" "$STAGING/node_modules"
-fi
-
-# The gates run on the landed tree through `post-merge`, so running them again
-# here would pay for them twice and widen the window this exists to close.
-if ! git -C "$STAGING" -c core.hooksPath=/dev/null merge --no-ff "$BRANCH" \
-     -m "Merge branch '$BRANCH'"; then
-  echo "land-branch: $BRANCH conflicts with $TARGET, resolve it on the branch" >&2
+# The tree is reset, provisioned, merged into and gated, and two landings doing
+# that at once would gate one candidate and land the other. So the reservation
+# is taken before anything touches the tree and held to the last ref move.
+# `mkdir` is the atomic step: exactly one of two contenders creates it. A held
+# one is refused at once, never waited on, and never taken over on the strength
+# of a dead pid or an age: whether a child still works in the tree cannot be
+# read off either, so a person checks and removes it.
+refuse_reserved() {
+  echo "land-branch: the landing tree $LANDING is held by another landing, so nothing was done." >&2
+  echo "land-branch: its reservation is $RESERVATION" >&2
+  if [ -s "$RESERVATION/owner" ]; then
+    sed 's/^/land-branch:   /' "$RESERVATION/owner" >&2
+  else
+    echo "land-branch: it has no owner record, so its landing died before writing one or is writing it now." >&2
+  fi
+  echo "land-branch: land again once that landing ends. If nothing is landing, and no gate or build" >&2
+  echo "land-branch: it started still runs in $LANDING, remove it by hand: rm -r $RESERVATION" >&2
   exit 1
-fi
-MERGE=$(git -C "$STAGING" rev-parse --short HEAD)
+}
+
+reserved=0
+release() {
+  [ "$reserved" = 1 ] || return 0
+  rm -rf "$RESERVATION"
+}
+trap release EXIT
+# A signal ends the landing through the EXIT trap, which bash runs once the
+# command in the foreground has stopped, so the reservation outlives every gate
+# and build this landing started. Only SIGKILL leaves it behind.
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+mkdir "$RESERVATION" 2>/dev/null || refuse_reserved
+reserved=1
+{
+  echo "pid=$$"
+  echo "host=$(hostname)"
+  echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "branch=$BRANCH"
+  echo "target=$TARGET"
+  echo "checkout=$CHECKOUT"
+} >"$RESERVATION/owner.partial"
+mv "$RESERVATION/owner.partial" "$RESERVATION/owner"
+
+# A landing tree whose `.git` is gone would hand every `git -C` below to the
+# repository above it, and a hard reset there is somebody's documents.
+landing_is_ours() {
+  local top
+  top=$(git -C "$LANDING" rev-parse --show-toplevel 2>/dev/null) || return 1
+  [ "$(cd "$top" && pwd -P)" = "$(cd "$LANDING" && pwd -P)" ]
+}
+
+# The tree on the target as it stands, whatever the last landing left in it.
+# Untracked files go, ignored ones stay: those are `target/`, `node_modules`
+# and the hooks, which are what keeping one tree is for.
+reset_landing() {
+  local base=$1
+  if [ ! -e "$LANDING" ]; then
+    git -C "$MAIN" worktree prune
+    git -C "$MAIN" worktree add -q --detach "$LANDING" "$base"
+    return
+  fi
+  if ! landing_is_ours; then
+    echo "land-branch: $LANDING exists and is not a worktree of $MAIN, so it was left alone." >&2
+    echo "land-branch: move it aside, and the next landing makes the tree afresh." >&2
+    exit 1
+  fi
+  git -C "$LANDING" merge --abort >/dev/null 2>&1 || true
+  git -C "$LANDING" reset -q --hard "$base"
+  git -C "$LANDING" clean -fdq
+}
+
+# The merges are made with the hooks off, since the battery is run below,
+# explicitly, against the base the candidate was built on.
+merge_into_landing() {
+  if ! git -C "$LANDING" -c core.hooksPath=/dev/null merge -q --no-ff "$1" -m "$2"; then
+    git -C "$LANDING" merge --abort >/dev/null 2>&1 || true
+    return 1
+  fi
+}
+
+provision() {
+  if ! "$PROVISION" "$LANDING" "$MAIN" "$branch_tree"; then
+    echo "land-branch: the landing tree could not be provisioned, so no gate ran and $TARGET was not moved." >&2
+    exit 1
+  fi
+}
+
+# The battery, from the candidate itself, with the target it was built on as the
+# base the suite, format and bindings planners diff from. The name of a failing
+# gate comes back through a file, not the output.
+gate() {
+  local base=$1 report=$2 test_revision=${3:-HEAD}
+  : >"$report"
+  (cd "$LANDING" && VELOQ_MERGE_BASE=$base VELOQ_MERGE_TEST_REVISION=$test_revision VELOQ_GATE_REPORT=$report ./scripts/merge-gates.sh)
+}
+
+# A failure the target already carries is not the branch's to fix, and a lander
+# told otherwise goes hunting through a branch that is fine. So the target's own
+# battery runs in the same tree, and its exit code is the verdict.
+judge_against_target() {
+  local base=$1 failed=$2 revision=$3 short ours theirs target_report code=0
+  short=$(git -C "$CHECKOUT" rev-parse --short "$base")
+  ours=$(cat "$failed")
+  target_report=$(mktemp)
+  echo "land-branch: the gates fail on the candidate, so $TARGET was not moved." >&2
+  echo "land-branch: running $TARGET's own gates at $short to see whether it fails them too." >&2
+  reset_landing "$base"
+  provision
+  gate "$base" "$target_report" "$revision" >/dev/null 2>&1 || code=$?
+  theirs=$(cat "$target_report")
+  rm -f "$target_report"
+  if [ "$code" -eq 0 ]; then
+    echo "land-branch: the gates pass on $TARGET at $short, so this branch brings the failure." >&2
+  elif [ -n "$ours" ] && [ "$ours" = "$theirs" ]; then
+    echo "land-branch: the $ours gate fails already on $TARGET at $short, not this branch's." >&2
+  elif [ -n "$theirs" ]; then
+    echo "land-branch: $TARGET at $short fails its own $theirs gate, not the ${ours:-same} one." >&2
+  else
+    echo "land-branch: the gates fail already on $TARGET at $short, not this branch's." >&2
+  fi
+}
 
 # A refused fast-forward that is not the ref moving is usually the wreckage of
 # somebody's lost race: their merged tree staged against a `HEAD` that moved,
@@ -119,23 +224,93 @@ report_stranded_index() {
   echo "land-branch: their branch carries the commits. Do not clear another session's." >&2
 }
 
+# A landed branch carries no work of its own, so its ref goes with the landing.
+# Lower-case `-d`, so git itself refuses a branch that is not merged. A branch a
+# worktree still holds cannot be deleted, so the commands that finish with it are
+# printed instead. Runs only after the fast-forward succeeded.
+delete_landed_branch() {
+  local tree
+  tree=$(git -C "$CHECKOUT" worktree list --porcelain |
+    awk -v ref="branch refs/heads/$BRANCH" '/^worktree /{tree = substr($0, 10)} $0 == ref {print tree}')
+  if [ -n "$tree" ]; then
+    echo "land-branch: $BRANCH is checked out in $tree, so its ref is kept. Once that worktree is done:"
+    echo "land-branch:   git worktree remove $tree"
+    echo "land-branch:   git branch -d $BRANCH"
+    return 0
+  fi
+  git -C "$CHECKOUT" branch -d "$BRANCH" >/dev/null ||
+    echo "land-branch: git refused to delete $BRANCH, so its ref is kept" >&2
+}
+
+# A fast-forward moves the engine pointer and leaves the submodule's working copy where it
+# was, so a build from the checkout compiles the superseded engine. Bring a clean one to the
+# pin; a dirty one is somebody's work and is named, not touched. An uninitialised directory
+# has no `.git`, and git run inside it would answer for the superproject.
+sync_engine_submodule() {
+  local path=modules/veloqrs/rust/tracematch pinned head
+  [ -e "$CHECKOUT/$path/.git" ] || return 0
+  pinned=$(git -C "$CHECKOUT" ls-tree HEAD "$path" | awk '{print $3}')
+  [ -n "$pinned" ] || return 0
+  head=$(git -C "$CHECKOUT/$path" rev-parse HEAD)
+  [ "$head" != "$pinned" ] || return 0
+  if [ -n "$(git -C "$CHECKOUT/$path" status --porcelain)" ]; then
+    echo "land-branch: $path holds uncommitted changes and sits at ${head:0:9}, not the pin ${pinned:0:9}; a build there compiles the wrong engine until it is cleaned and checked out at the pin." >&2
+    return 0
+  fi
+  git -C "$CHECKOUT/$path" -c advice.detachedHead=false checkout -q "$pinned" ||
+    echo "land-branch: could not check $path out at the pin ${pinned:0:9}; run git submodule update --checkout $path" >&2
+}
+
+base=$(git -C "$CHECKOUT" rev-parse HEAD)
+"$SCRIPTS/check-retired-history.sh" "$base" "$BRANCH" || {
+  echo "land-branch: $BRANCH was not landed" >&2
+  exit 1
+}
+reset_landing "$base"
+if ! merge_into_landing "$BRANCH" "Merge branch '$BRANCH'"; then
+  echo "land-branch: $BRANCH conflicts with $TARGET, resolve it on the branch" >&2
+  exit 1
+fi
+MERGE=$(git -C "$LANDING" rev-parse --short HEAD)
+
+report=$(mktemp)
+trap 'rm -f "$report"; release' EXIT
+needs_gate=1
 attempt=1
 while [ "$attempt" -le "$ATTEMPTS" ]; do
-  head=$(git -C "$CHECKOUT" rev-parse HEAD)
-  if ! git -C "$STAGING" merge-base --is-ancestor "$head" HEAD; then
-    if ! git -C "$STAGING" -c core.hooksPath=/dev/null merge "$head" \
-         -m "Merge $TARGET into the landing tree"; then
-      echo "land-branch: $TARGET has moved into conflict with $BRANCH, resolve it on the branch" >&2
+  candidate=$(git -C "$LANDING" rev-parse HEAD)
+  if [ "$needs_gate" = 1 ]; then
+    provision
+    if ! gate "$base" "$report"; then
+      judge_against_target "$base" "$report" "$candidate"
       exit 1
     fi
+    needs_gate=0
   fi
-  if git -C "$CHECKOUT" merge --ff-only "$(git -C "$STAGING" rev-parse HEAD)"; then
+
+  # `post-merge` reads this to tell a gated landing from a bare fast-forward.
+  if VELOQ_LANDING_GATED=$candidate git -C "$CHECKOUT" merge --ff-only "$candidate"; then
     echo "landed $BRANCH at $MERGE, $TARGET now $(git -C "$CHECKOUT" rev-parse --short HEAD)"
+    sync_engine_submodule
+    delete_landed_branch
     exit 0
   fi
   refuse_merge_in_progress
   report_stranded_index
+
+  # The target moved under the gate. What lands has to be what was gated, so
+  # the new head is merged in and that candidate gated from it in turn.
   attempt=$((attempt + 1))
+  head=$(git -C "$CHECKOUT" rev-parse HEAD)
+  if ! git -C "$LANDING" merge-base --is-ancestor "$head" HEAD; then
+    if ! merge_into_landing "$head" "Merge $TARGET into the landing tree"; then
+      echo "land-branch: $TARGET has moved into conflict with $BRANCH, resolve it on the branch" >&2
+      exit 1
+    fi
+    base=$head
+    needs_gate=1
+    continue
+  fi
   [ "$SLEEP" = "0" ] || sleep "$SLEEP"
 done
 

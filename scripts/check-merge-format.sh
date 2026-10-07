@@ -18,9 +18,10 @@ set -e
 # against a scratch directory. The merge hook wants this repository.
 repo=${VELOQ_MERGE_FORMAT_REPO:-.}
 
-# After a fast-forward the index matches the moved HEAD, so the staged diff is
-# empty and the landing goes unread. `post-merge` hands over the head it moved
-# from, and then the range between is judged, read out of HEAD.
+# In the landing tree the candidate is committed and the index matches it, so
+# the staged diff is empty and the landing goes unread. `land-branch.sh` hands
+# over the target the candidate was built on, and the range between is judged,
+# read out of HEAD.
 if [ -n "${VELOQ_MERGE_BASE:-}" ]; then
   staged=$(git -c core.quotePath=off diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" HEAD -- 'src/*.ts' 'src/*.tsx')
   source=HEAD
@@ -32,12 +33,24 @@ fi
 
 # One path per line, read whole: a word-split loop turned `src/a b.ts` into two
 # paths that did not exist and passed them both.
+#
+# The bytes go through a file rather than a pipe. A pipeline's status is its
+# last command's, so a blob `git show` could not read handed prettier empty
+# input, which is formatted, and the file passed unread.
+blob=$(mktemp)
+trap 'rm -f "$blob"' EXIT
 unformatted=''
+unreadable=''
 while IFS= read -r path; do
-  if ! git show "$source:$path" | npx --prefix "$repo" prettier \
+  if ! git show "$source:$path" >"$blob"; then
+    unreadable="$unreadable  $path
+"
+    continue
+  fi
+  if ! npx --prefix "$repo" prettier \
       --config "$repo/config/.prettierrc" \
       --ignore-path "$repo/config/.prettierignore" \
-      --stdin-filepath "$path" --check >/dev/null 2>&1; then
+      --stdin-filepath "$path" --check <"$blob" >/dev/null 2>&1; then
     unformatted="$unformatted  $path
 "
   fi
@@ -45,6 +58,11 @@ done <<EOF_PATHS
 $staged
 EOF_PATHS
 
+if [ -n "$unreadable" ]; then
+  echo "The merge names files git could not read, so they were not checked:"
+  printf '%s' "$unreadable"
+  exit 1
+fi
 [ -n "$unformatted" ] || exit 0
 
 echo "The merge carries files prettier would rewrite. Run npm run format on them."

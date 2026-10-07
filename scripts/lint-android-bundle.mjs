@@ -13,10 +13,12 @@
 // the right screen, and the only signal is the feature not being there. That
 // is what this refuses.
 
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const BUNDLE = 'android/app/src/main/assets/index.android.bundle';
+const APK_ENTRY = 'assets/index.android.bundle';
 const SOURCE = 'src';
 const LOCALE = 'src/i18n/locales/en-AU.json';
 
@@ -32,6 +34,31 @@ const SKIP = new Set(['__tests__', '__mocks__', '__snapshots__']);
 const argv = process.argv.slice(2);
 const rootFlag = argv.indexOf('--root');
 const root = rootFlag === -1 ? process.cwd() : resolve(argv[rootFlag + 1]);
+
+const apkFlag = argv.indexOf('--apk');
+const apk = apkFlag === -1 ? null : resolve(argv[apkFlag + 1]);
+
+// The APK is what gets installed, so its own bundle is judged and the working
+// tree's age is not: an installed build is old by design once `src/` moves on.
+if (apk) {
+  let text;
+  try {
+    text = execFileSync('unzip', ['-p', apk, APK_ENTRY], {
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    text = '';
+  }
+  if (text === '') {
+    console.error(`${apk} has no ${APK_ENTRY}.`);
+    console.error('Build it again with `npm run android:debug`.');
+    process.exit(1);
+  }
+  refuseStub(apk, text, Buffer.byteLength(text));
+  process.exit(0);
+}
 
 const bundle = statSafe(join(root, BUNDLE));
 
@@ -49,27 +76,12 @@ if (newest === null) {
   process.exit(0);
 }
 
-// A bundle built from a worktree comes out as a 2.5 MB stub carrying no screen
-// at all, because metro reuses the transform it cached against the main
-// checkout's copy of the shared `node_modules` and the router's app root then
-// matches nothing. It is newer than every source file, so the staleness check
-// above cannot see it.
-const probes = probePhrases(join(root, LOCALE));
-if (probes.length === PROBES && !carriesTheApp(join(root, BUNDLE), probes)) {
-  console.error(`${BUNDLE} carries none of the app.`);
-  console.error(`  none of ${PROBES} phrases from ${LOCALE} appear in it`);
-  console.error(`  bundle  ${(bundle.size / 1e6).toFixed(1)} MB`);
-  console.error('');
-  console.error('Metro caches its transforms against the shared node_modules, so a');
-  console.error('bundle built from a worktree resolves the router app root to nothing');
-  console.error('and Gradle packages a stub that installs, launches and renders blank.');
-  console.error('Build it again with the cache reset:');
-  console.error('');
-  console.error('  npx expo export:embed --platform android --dev false --reset-cache \\');
-  console.error(`    --bundle-output ${BUNDLE} \\`);
-  console.error('    --assets-dest android/app/src/main/res');
-  process.exit(1);
-}
+// A bundle built through another checkout's `node_modules`, or with a Metro
+// cache not keyed per checkout, comes out as a stub carrying no screen at all:
+// metro reuses the router entry it transformed for the other checkout, and the
+// app root baked into it matches nothing here. It is newer than every source
+// file, so the staleness check above cannot see it.
+refuseStub(BUNDLE, readSafe(join(root, BUNDLE)), bundle.size);
 
 if (bundle.mtimeMs < newest.at) {
   console.error(`${BUNDLE} is older than the code it is meant to carry.`);
@@ -111,15 +123,34 @@ function probePhrases(path) {
   return found;
 }
 
-/** Whether the bundle carries every probe. */
-function carriesTheApp(path, probes) {
-  let text;
+/** The bundle's text, or null when it cannot be read. */
+function readSafe(path) {
   try {
-    text = readFileSync(path, 'utf8');
+    return readFileSync(path, 'utf8');
   } catch {
-    return true;
+    return null;
   }
-  return probes.every((phrase) => text.includes(phrase));
+}
+
+/** Exits 1 naming the phrases a bundle lacks, unless it carries the app. */
+function refuseStub(label, text, size) {
+  const probes = probePhrases(join(root, LOCALE));
+  if (probes.length !== PROBES || text === null) return;
+  const missing = probes.filter((phrase) => !text.includes(phrase));
+  if (missing.length === 0) return;
+  console.error(`${label} does not carry the app.`);
+  console.error(`  ${missing.length} of ${PROBES} phrases from ${LOCALE} are missing from it:`);
+  for (const phrase of missing) console.error(`    ${phrase}`);
+  console.error(`  bundle  ${(size / 1e6).toFixed(1)} MB`);
+  console.error('');
+  console.error("A bundle built through another checkout's node_modules resolves the");
+  console.error('router app root to nothing, and Gradle packages a stub that installs,');
+  console.error('launches and renders blank. Build it again from this checkout:');
+  console.error('');
+  console.error('  npm run bundle:android');
+  console.error('');
+  console.error('which refuses a tree whose installation is not its own.');
+  process.exit(1);
 }
 
 /** The newest file under `dir`, or null when there is nothing to read. */

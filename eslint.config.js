@@ -4,6 +4,77 @@ const jest = require('eslint-plugin-jest');
 const tseslint = require('typescript-eslint');
 const globals = require('globals');
 
+const hexSelector = {
+  selector: 'Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]',
+  message: 'Raw hex colour. Use a token from src/theme, or add one there.',
+};
+const templateHexSelector = {
+  selector: 'TemplateElement[value.raw=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b/]',
+  message: hexSelector.message,
+};
+const radiusKey = 'key.name=/^border(Top|Bottom)?(Left|Right|Start|End)?Radius$/';
+const spacingKey =
+  'key.name=/^((padding|margin)(Top|Bottom|Left|Right|Horizontal|Vertical|Start|End)?|gap|rowGap|columnGap)$/';
+const radiusSelector = {
+  selector: `Property[${radiusKey}] > Literal[raw=/^[0-9.]+$/]`,
+  message:
+    'Raw border radius. Use a layout.borderRadius* token from src/theme. A radius that is half the element is layout.borderRadiusFull.',
+};
+const conditionalRadiusSelector = {
+  selector: `Property[${radiusKey}] > ConditionalExpression > Literal[raw=/^(?!0$)[0-9.]+$/]`,
+  message: radiusSelector.message,
+};
+const spacingRadiusSelector = {
+  selector: `Property[${radiusKey}] MemberExpression[object.name="spacing"]`,
+  message:
+    'Raw border radius, set from a spacing token. Use a layout.borderRadius* token from src/theme.',
+};
+const fontSizeSelector = {
+  selector: 'Property[key.name="fontSize"] > Literal[raw=/^[0-9.]+$/]',
+  message: 'Raw font size. Use typography.<role>.fontSize from src/theme, or add a role there.',
+};
+const textShadowRadiusSelector = {
+  selector: 'Property[key.name="textShadowRadius"] > Literal[raw=/^[0-9.]+$/]',
+  message: 'Raw text shadow radius. Use mapTextShadow from src/theme.',
+};
+const textShadowOffsetSelector = {
+  selector: 'Property[key.name="textShadowOffset"] > ObjectExpression',
+  message: 'Raw text shadow offset. Use mapTextShadow from src/theme.',
+};
+const conditionalFontSizeSelector = {
+  selector: 'Property[key.name="fontSize"] > ConditionalExpression > Literal[raw=/^[0-9.]+$/]',
+  message: fontSizeSelector.message,
+};
+const spacingSelector = {
+  selector: `Property[${spacingKey}] > Literal[raw=/^(?!0$)[0-9.]+$/]`,
+  message: 'Raw spacing. Use a spacing.* token from src/theme: 2, 4, 6, 8, 12, 16, 24, 32 or 48.',
+};
+const conditionalSpacingSelector = {
+  selector: `Property[${spacingKey}] > ConditionalExpression > Literal[raw=/^(?!0$)[0-9.]+$/]`,
+  message: spacingSelector.message,
+};
+const negativeSpacingSelector = {
+  selector: `Property[${spacingKey}] > UnaryExpression[operator="-"] > Literal[raw=/^[0-9.]+$/]`,
+  message: 'Raw negative spacing. Use the negative of a spacing.* token from src/theme.',
+};
+const arithmeticSpacingSelector = {
+  selector: `Property[${spacingKey}] BinaryExpression:matches([left.object.name="spacing"], [right.object.name="spacing"]):matches([left.type="Literal"], [right.type="Literal"], [left.object.name="spacing"][right.object.name="spacing"])`,
+  message: 'Spacing arithmetic. Use a spacing.* token or a named layout constant.',
+};
+const scaleSelectors = [
+  textShadowRadiusSelector,
+  textShadowOffsetSelector,
+  radiusSelector,
+  conditionalRadiusSelector,
+  spacingRadiusSelector,
+  fontSizeSelector,
+  conditionalFontSizeSelector,
+  spacingSelector,
+  conditionalSpacingSelector,
+  negativeSpacingSelector,
+  arithmeticSpacingSelector,
+];
+
 // Type-aware rules (@typescript-eslint/no-unsafe-*) are deliberately absent: they
 // need full project type information, which costs minutes on this tree. `tsc
 // --noEmit` already runs in pre-commit and in CI.
@@ -14,6 +85,7 @@ module.exports = [
       'ios/**',
       'node_modules/**',
       'modules/veloqrs/src/generated/**',
+      '.tsbuild/**',
       'modules/veloqrs/rust/**',
       // Gradle's own output, including the HTML test report's bundled script,
       // which `npm run test:android` writes here.
@@ -56,6 +128,7 @@ module.exports = [
       // React Compiler readiness rules, on by default in the SDK 56 config.
       // Real signal, but a separate workstream from dead code: warn, do not block.
       'react-hooks/refs': 'warn',
+      'react-hooks/rules-of-hooks': 'error',
       'react-hooks/immutability': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/preserve-manual-memoization': 'warn',
@@ -72,57 +145,57 @@ module.exports = [
     },
   },
   {
-    // Colour lives in src/theme. A raw hex in a component is a token that was
-    // never named, and it is invisible to a theme change.
-    files: ['src/**/*.tsx'],
-    ignores: ['src/__tests__/**', 'src/features/maps/styles/**'],
+    // Token definitions declare the scale. Consumers in src/theme are linted.
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: [
+      'src/__tests__/**',
+      'src/theme/spacing.ts',
+      'src/theme/layout.ts',
+      'src/theme/typography.ts',
+      'src/theme/colors.ts',
+      'src/theme/shadows.ts',
+    ],
     rules: {
-      'no-restricted-syntax': [
+      'no-restricted-syntax': ['error', hexSelector, templateHexSelector, ...scaleSelectors],
+    },
+  },
+  {
+    // The engine module is imported by its package name. A relative path into
+    // its source resolves to a different tree than 'veloqrs' in a worktree.
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: ['src/__tests__/**', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
+    rules: {
+      'no-restricted-imports': [
         'error',
         {
-          selector: 'Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]',
-          message: 'Raw hex colour. Use a token from src/theme, or add one there.',
+          patterns: [
+            {
+              group: ['**/modules/veloqrs/src/**'],
+              message: "Import from 'veloqrs', not a relative path into its source.",
+            },
+          ],
         },
       ],
     },
   },
   {
-    // The type and radius scales live in src/theme too, and unlike colour they
-    // are drawn from stylesheets in plain .ts files as often as from
-    // components. A raw radius or a raw font size is a rung nobody named, and
-    // both scales are what the app already draws, so this is what keeps a new
-    // literal off them. The selectors match on `raw` rather than `value`:
-    // esquery compares the attribute as a string and a numeric literal's
-    // `value` is a number, so a regex on `value` matches nothing and the rule
-    // is silently inert.
-    files: ['src/**/*.ts', 'src/**/*.tsx'],
-    ignores: ['src/__tests__/**', 'src/theme/**'],
+    // These palettes serve external images or seeded data, outside the app theme.
+    files: [
+      // Map style assets are authored as a self-contained basemap.
+      'src/features/maps/styles/**',
+      // Basemap JSON uses source colour values.
+      'src/features/maps/components/darkMatterStyle.ts',
+      // Basemap JSON uses source colour values.
+      'src/features/maps/components/mapStyles.ts',
+      // Imagery line ramps are measured against aerial tiles.
+      'src/features/maps/lib/gradientLineColor.ts',
+      // Demo curves are seeded source data.
+      'src/shared/demo/fitness/**',
+      // Default heart-rate zones await the C108 token decision.
+      'src/features/fitness/stores/HRZonesStore.ts',
+    ],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'Property[key.name="borderRadius"] > Literal[raw=/^[0-9.]+$/]',
-          message:
-            'Raw border radius. Use a layout.borderRadius* token from src/theme. A radius that is half the element is layout.borderRadiusFull.',
-        },
-        {
-          selector: 'Property[key.name="fontSize"] > Literal[raw=/^[0-9.]+$/]',
-          message:
-            'Raw font size. Use typography.<role>.fontSize from src/theme, or add a role there.',
-        },
-        {
-          // Zero is exempt: it is not a rung and never will be.
-          selector:
-            'Property[key.name=/^((padding|margin)(Top|Bottom|Left|Right|Horizontal|Vertical|Start|End)?|gap|rowGap|columnGap)$/] > Literal[raw=/^(?!0$)[0-9.]+$/]',
-          message:
-            'Raw spacing. Use a spacing.* token from src/theme: 2, 4, 6, 8, 12, 16, 24, 32 or 48.',
-        },
-        {
-          selector:
-            'Property[key.name=/^((padding|margin)(Top|Bottom|Left|Right|Horizontal|Vertical|Start|End)?|gap|rowGap|columnGap)$/] > UnaryExpression[operator="-"] > Literal[raw=/^[0-9.]+$/]',
-          message: 'Raw negative spacing. Use the negative of a spacing.* token from src/theme.',
-        },
-      ],
+      'no-restricted-syntax': ['error', ...scaleSelectors],
     },
   },
   {
@@ -130,6 +203,7 @@ module.exports = [
     files: [
       'config/**/*.js',
       'scripts/**',
+      'modules/veloqrs/scripts/**',
       'src/plugins/**',
       '*.config.js',
       'react-native.config.js',
@@ -190,6 +264,7 @@ module.exports = [
       'src/features/sensors/lib/sensorManager.ts',
       'src/features/settings/components/DetectionIllustration.tsx',
       'src/features/settings/lib/autobackup/backends/icloudBackend.ts',
+      'src/features/settings/lib/shareFile.ts',
       'src/features/settings/stores/DebugStore.ts',
     ],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
@@ -214,6 +289,7 @@ module.exports = [
     files: [
       'src/shared/app/seedDemoEngine.ts',
       'src/features/activity/lib/engineStreams.ts',
+      'src/features/maps/stores/MapPreferencesContext.tsx',
       'src/features/routes/hooks/useGpsDataFetcher.ts',
     ],
     rules: { '@typescript-eslint/no-require-imports': 'off' },

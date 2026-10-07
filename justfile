@@ -10,21 +10,13 @@ default:
 
 # Build and run on Android (Rust rebuilds automatically on source change)
 android:
-    npx expo run:android
+    npm run android
 
 # Build and run on iOS
 ios:
-    npx expo run:ios
+    npm run ios
 
-# Clear native caches then rebuild+run Android (rarely needed now)
-rebuild-android:
-    npm run clean:rust && npx expo run:android
-
-# Clear native caches then rebuild+run iOS
-rebuild-ios:
-    npm run clean:rust && npx expo run:ios
-
-# Clear native build caches (Rust .so/.a, hash markers, iOS DerivedData)
+# Clear native build caches (Rust library outputs, iOS DerivedData)
 clean:
     npm run clean:rust
 
@@ -38,9 +30,9 @@ clean-full:
 audit:
     npm run audit
 
-# Type-check + tests (what the pre-commit hook runs)
+# The pre-commit gates, run on the working tree
 check:
-    npx tsc --noEmit && npm test
+    ./scripts/run-gates.sh "audit:node scripts/run-guards.mjs --set commit" "tsc:npx tsc -b" "lint:npm run lint" "test:npm run test:changed" "rustfmt:npm run lint:rust-fmt" "rusttests:npm run lint:rust-tests"
 
 # Format all source with Prettier
 format:

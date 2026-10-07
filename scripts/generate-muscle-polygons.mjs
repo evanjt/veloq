@@ -12,8 +12,10 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { createRequire } from 'node:module';
+
+import { trackedText } from './lib/indexedSources.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -327,15 +329,16 @@ ${body(`FRONT_${gender.toUpperCase()}`, front)}
 ${body(`BACK_${gender.toUpperCase()}`, back)}`;
 }
 
+const check = process.argv.includes('--check');
+
 // Format exactly as the pre-commit hook would, so --check never trips on whitespace.
 const prettier = require('prettier');
 const prettierConfig = {
-  ...JSON.parse(readFileSync(join(ROOT, 'config/.prettierrc'), 'utf8')),
+  ...JSON.parse(check ? trackedText(ROOT, 'config/.prettierrc') : readFileSync(join(ROOT, 'config/.prettierrc'), 'utf8')),
   parser: 'typescript',
 };
 const format = (text) => prettier.format(text, prettierConfig);
 
-const check = process.argv.includes('--check');
 let failed = false;
 let totalPts = 0;
 
@@ -351,7 +354,7 @@ for (const gender of ['male', 'female']) {
   const path = join(OUT_DIR, `${gender}.generated.ts`);
   if (check) {
     let existing = '';
-    try { existing = readFileSync(path, 'utf8'); } catch { /* missing counts as drift */ }
+    existing = trackedText(ROOT, relative(ROOT, path)) ?? ''; // missing counts as drift
     if (existing !== text) {
       console.error(`muscle polygons: ${gender}.generated.ts is stale, re-run scripts/generate-muscle-polygons.mjs`);
       failed = true;

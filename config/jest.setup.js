@@ -9,6 +9,14 @@ const { configure: configureTestingLibrary } = require("@testing-library/react-n
 
 configureTestingLibrary({ asyncUtilTimeout: 4000 });
 
+// The device runtime has `requestIdleCallback`; the Jest environment does not.
+// Looking `setTimeout` up at call time keeps a suite's fake timers in charge.
+if (typeof global.requestIdleCallback !== "function") {
+  global.requestIdleCallback = (cb) =>
+    setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 }), 0);
+  global.cancelIdleCallback = (id) => clearTimeout(id);
+}
+
 // Every test starts on a known day. Only `Date` is faked, and it advances
 // with real time, so a timer, a poll deadline or an elapsed-time measure
 // behaves as it did. A suite that fakes timers itself replaces this, and its
@@ -88,3 +96,15 @@ global.console = {
   warn: jest.fn(),
   error: jest.fn(),
 };
+
+// A Jest case may not run a guard the runner lists over the whole repository:
+// `npm run audit` is that check. See jest.guardRuns.js.
+require("./jest.guardRuns").installGuardRunTrap();
+
+// Temp directories a test file creates are removed when it ends.
+const { installTempDirTracker } = require("./jest.tempDirs");
+
+const tempDirs = installTempDirTracker(require("node:fs"));
+afterAll(() => {
+  tempDirs.removeAll();
+});

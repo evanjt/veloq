@@ -29,11 +29,14 @@ function emptySuites(list) {
   if (ids.length === 0) {
     throw new Error('the list names no test targets at all, so nothing can be checked');
   }
-  return ids
-    .filter((id) => suites[id].kind !== 'bin')
-    // Keyed by test name, so this is a key count and not a length.
-    .filter((id) => Object.keys(suites[id].testcases || {}).length === 0)
-    .sort();
+  return (
+    ids
+      .filter((id) => suites[id].kind !== 'bin')
+      // Keyed by test name, so this is a map to walk and not an array. A target
+      // whose tests are all ignored runs nothing, so it counts as empty.
+      .filter((id) => !Object.values(suites[id].testcases || {}).some((t) => !t.ignored))
+      .sort()
+  );
 }
 
 function listTargets(cwd, args) {
@@ -51,17 +54,23 @@ module.exports = { emptySuites, listTargets };
 if (require.main === module) {
   const rust = path.join(__dirname, '..', 'modules', 'veloqrs', 'rust');
   const args = process.argv.slice(2);
-  const list = listTargets(rust, args.length > 0 ? args : ['-p', 'veloqrs', '--features', 'synthetic']);
+  const list = listTargets(
+    rust,
+    args.length > 0 ? args : ['-p', 'veloqrs', '--features', 'synthetic']
+  );
   const empty = emptySuites(list);
   if (empty.length > 0) {
     console.error(`Empty test binary guard: ${empty.length} target(s) execute nothing.`);
     for (const id of empty) console.error(`  ${id}`);
     console.error(
       'A target with no tests reports `ok` in every gate. Give it a [[test]] stanza\n' +
-        'naming its required-features, or delete it.'
+        'naming its required-features, or delete it. A target whose tests are all\n' +
+        '#[ignore]d belongs under benches/.'
     );
     process.exit(1);
   }
   const count = Object.keys(list['rust-suites']).length;
-  console.log(`Empty test binary guard: ${count} targets, ${list['test-count']} tests, none empty.`);
+  console.log(
+    `Empty test binary guard: ${count} targets, ${list['test-count']} tests, none empty.`
+  );
 }

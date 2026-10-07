@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // Embed the JavaScript bundle the Android build packages.
 //
-// A linked worktree shares the main checkout's `node_modules`, and metro keys
-// its transform cache on the path it resolves through. So the worktree's
-// expo-router entry comes back from the cache with the main checkout's app
-// root baked in, matches nothing, and the bundle lands at 2.5 MB carrying no
-// screen. `--reset-cache` is the only thing that separates the two, and it
-// costs about a minute, so it is passed where it is needed and nowhere else.
+// The bundle is built from this checkout or not at all. A tree whose
+// `node_modules` links into another checkout is refused before Metro starts,
+// naming the setup command that gives it an installation of its own
+// (`scripts/check-native-tree.mjs`). Metro's cache is kept: `metro.config.js`
+// keys it per checkout, so a rebuild reuses this checkout's transforms and
+// never another's.
 //
 // `scripts/lint-android-bundle.mjs` is the other half: it refuses a bundle
-// that carries none of the app, whichever tree wrote it.
+// that carries none of the app, whichever tree wrote it, and runs here once the
+// export has written one.
 //
 // The export also regenerates the UniFFI bindings, through the bindgen's own
 // hook, and that generator writes em dashes into its comments. `npm run audit`
@@ -17,26 +18,27 @@
 // files dirty and every session's commit and merge failed on a file nobody had
 // touched. `modules/veloqrs/scripts/fix-generated.sh` is what strips them, and
 // it runs here so no path can produce unfixed bindings.
+//
+// Once the fixer has run, the bundle is recorded with the hash of the build
+// inputs it was made from (`scripts/lib/build-record.js`), which the APK build
+// record reads. A bundle whose inputs moved during the export is refused.
 
 import { spawnSync } from 'node:child_process';
-import { statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
+
+import { requireNativeTree } from './check-native-tree.mjs';
+
+const require = createRequire(import.meta.url);
+const { sourceIdentity } = require('./lib/build-stamp.js');
+const { recordBundle } = require('./lib/build-record.js');
 
 const BUNDLE = 'android/app/src/main/assets/index.android.bundle';
 
 /** The fixups every regeneration owes, whichever command regenerated. */
 export const FIXER = 'modules/veloqrs/scripts/fix-generated.sh';
 
-/** A linked worktree carries `.git` as a file pointing at the common directory. */
-export function isLinkedWorktree(root) {
-  try {
-    return statSync(join(root, '.git')).isFile();
-  } catch {
-    return false;
-  }
-}
-
-export function bundleArgs(root) {
+export function bundleArgs() {
   return [
     'expo',
     'export:embed',
@@ -44,7 +46,6 @@ export function bundleArgs(root) {
     'android',
     '--dev',
     'false',
-    ...(isLinkedWorktree(root) ? ['--reset-cache'] : []),
     '--bundle-output',
     BUNDLE,
     '--assets-dest',
@@ -65,7 +66,16 @@ export function fixerSpawn(root) {
   return { command: join(root, FIXER), cwd: join(root, 'modules', 'veloqrs') };
 }
 
-const args = bundleArgs(process.cwd());
+const args = bundleArgs();
+
+if (
+  !process.argv.includes('--print-fixer') &&
+  process.env.NODE_ENV &&
+  process.env.NODE_ENV !== 'production'
+) {
+  console.error('bundle-android: release bundles require NODE_ENV=production');
+  process.exit(1);
+}
 
 if (process.argv.includes('--print-args')) {
   console.log(args.join(' '));
@@ -73,6 +83,10 @@ if (process.argv.includes('--print-args')) {
   const { command, cwd } = fixerSpawn(process.cwd());
   console.log(`${command}\n${cwd}`);
 } else {
+  requireNativeTree(process.cwd());
+  // The inputs before Metro reads them, compared once the fixer has run, so a
+  // bundle built while the tree moved is never recorded as built from either.
+  const before = sourceIdentity(process.cwd());
   const run = spawnSync('npx', args, { stdio: 'inherit' });
   // A spawn that never starts answers a null status with the reason in
   // `error`, and `stdio: 'inherit'` prints nothing because there was no child
@@ -82,7 +96,20 @@ if (process.argv.includes('--print-args')) {
     console.error(`bundle-android: could not run npx: ${run.error.message}`);
     process.exit(1);
   }
-  if (run.status !== 0) process.exit(run.status);
+  // A child ended by a signal has a null status and no `error`.
+  if (run.status !== 0) {
+    if (run.signal) console.error(`bundle-android: npx was killed by ${run.signal}`);
+    process.exit(run.status ?? 1);
+  }
+
+  const lint = spawnSync('node', [join(process.cwd(), 'scripts/lint-android-bundle.mjs')], {
+    stdio: 'inherit',
+  });
+  if (lint.error) {
+    console.error(`bundle-android: could not run node: ${lint.error.message}`);
+    process.exit(1);
+  }
+  if (lint.status !== 0) process.exit(lint.status ?? 1);
 
   const { command, cwd } = fixerSpawn(process.cwd());
   const fix = spawnSync(command, [], { cwd, stdio: 'inherit' });
@@ -90,5 +117,14 @@ if (process.argv.includes('--print-args')) {
     console.error(`bundle-android: could not run ${command}: ${fix.error.message}`);
     process.exit(1);
   }
-  process.exit(fix.status ?? 1);
+  if (fix.signal) console.error(`bundle-android: ${command} was killed by ${fix.signal}`);
+  if (fix.status !== 0) process.exit(fix.status ?? 1);
+
+  try {
+    const entry = recordBundle(process.cwd(), before);
+    console.log(`bundle-android: recorded the bundle as built from ${entry.stamp}`);
+  } catch (error) {
+    console.error(`bundle-android: ${error.message}`);
+    process.exit(1);
+  }
 }

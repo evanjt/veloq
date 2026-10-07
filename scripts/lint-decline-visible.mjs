@@ -16,10 +16,11 @@
 // deliberately explicit rather than a pattern over every `deferred`, because a
 // guard that promotes every log in the crate would bury the ones that matter.
 
-import { readFileSync } from 'node:fs';
+import { treeSources } from './lib/indexedSources.mjs';
 
 /** Every site that answers "why did this not run", by the text it logs. */
 const ELEVATION = 'modules/veloqrs/rust/veloqrs/src/net/elevation_backfill.rs';
+const DETECTION = 'modules/veloqrs/rust/veloqrs/src/objects/detection.rs';
 
 // The native push worker's silent outcomes. Each one is the whole answer to
 // "why does the tray hold only the placeholder", and the worker runs in a
@@ -28,6 +29,8 @@ const PUSH = 'modules/veloqrs/rust/veloqrs/src/push/mod.rs';
 const PUSH_JNI = 'modules/veloqrs/rust/veloqrs/src/push/jni.rs';
 
 const DECLINES = [
+  { file: DETECTION, text: 'Start refused:' },
+  { file: DETECTION, text: 'Force redetect refused:' },
   { file: ELEVATION, text: 'backfill deferred: queue unreadable' },
   { file: ELEVATION, text: 'backfill deferred: a pass already holds the slot' },
   { file: ELEVATION, text: 'backfill deferred: paused' },
@@ -59,7 +62,8 @@ const offenders = [];
 const missing = [];
 
 for (const { file, text } of [...DECLINES, ...MEASUREMENTS]) {
-  const source = readFileSync(file, 'utf8');
+  const bytes = treeSources(process.cwd(), [file]).get(file);
+  const source = bytes === undefined ? '' : bytes.toString('utf8');
   const lines = source.split('\n');
   const at = lines.findIndex((line) => line.includes(text));
   if (at === -1) {

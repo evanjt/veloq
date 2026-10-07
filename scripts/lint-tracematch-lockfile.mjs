@@ -14,6 +14,8 @@
 // A submodule that is not checked out is not wrong: a fresh worktree has an
 // empty directory until the clone recipe runs.
 
+// Read off the disk on purpose: both files sit inside the tracematch submodule,
+// whose files the superproject's index does not hold.
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 

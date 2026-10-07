@@ -1,124 +1,35 @@
 #!/bin/sh
-set -e
 
 # git runs `pre-merge-commit` only for a merge that creates a commit. A branch
 # that merged the integration branch into itself first, which is how a branch
 # stays current, merges back as a fast-forward and git runs nothing at all: not
 # `pre-commit`, not `pre-merge-commit`, not `pre-push`, since nothing here is
-# pushed. Every whole-tree guard in that hook, the lint ceiling, the crate's
-# rustfmt check and the rest, is skipped for the whole class, and it is the
-# class worked in a worktree, whose own commits ran no hooks either.
+# pushed. `scripts/land-branch.sh` gates its candidate before it fast-forwards,
+# so a landing is covered. A plain fast-forward made by hand is not, and this
+# runs after the ref has moved, so it cannot refuse. Saying so is the whole job.
 #
-# This runs after the ref has moved, so it cannot refuse, and saying so is the
-# whole job. `reference-transaction` is the only hook that could refuse and
-# husky does not generate one, so a hand-written one is deleted by the next
-# `npm run prepare` and absent from a fresh worktree, which is the same hole.
-#
-# The question is whether *this* move was a fast-forward, not what shape the
-# commit it landed on happens to be. `HEAD^2` was the proxy for that, and
-# `scripts/land-branch.sh` broke it: that builds the merge in a staging
-# worktree with the hooks switched off and moves the checkout onto it with
-# `--ff-only`, so nothing gates the ref move and the commit it lands on is a
-# merge commit. The guard read the two parents as "already gated", and every
-# landing ran no gate at all.
-#
+# The battery does not run here. It used to, and a failure reported after the
+# move could only ask for a revert, while the shared checkout's index and disk
+# put other sessions' files in front of the gates.
+
+# Moved onto the candidate `land-branch.sh` gated, which it names.
+if [ -n "${VELOQ_LANDING_GATED:-}" ] &&
+  [ "$(git rev-parse HEAD 2>/dev/null)" = "$VELOQ_LANDING_GATED" ]; then
+  exit 0
+fi
+
 # Git writes the reflog before running this and it says which of the two
-# happened. Skip only on the case that was gated, a merge that made a commit,
-# so an unreadable reflog runs the battery rather than quietly skipping it.
+# happened. Stay quiet only on the case that was gated, a merge that made a
+# commit, so an unreadable reflog warns rather than quietly passing.
 case "$(git reflog -1 --format=%gs HEAD 2>/dev/null)" in
   *"Merge made by"*) exit 0 ;;
 esac
 
-echo "post-merge: that merge was a fast-forward, so no gate ran before it."
-
-# The suite plan and the format check list the merge's paths by diffing the
-# index against HEAD, which holds the merge before the ref moves and nothing
-# after it. Hand them the head this move started from, so they judge the range
-# it landed. `git merge` writes ORIG_HEAD, and the reflog is the fallback.
-base=$(git rev-parse -q --verify ORIG_HEAD 2>/dev/null ||
-  git rev-parse -q --verify 'HEAD@{1}' 2>/dev/null || true)
-range="${base:-ORIG_HEAD}..HEAD"
+base=$(git rev-parse -q --verify --short ORIG_HEAD 2>/dev/null ||
+  git rev-parse -q --verify --short 'HEAD@{1}' 2>/dev/null || true)
+echo "post-merge: warning: that merge was a fast-forward, so no gate ran before it." >&2
+echo "post-merge: land with scripts/land-branch.sh <branch>, which gates the candidate first." >&2
 if [ -n "$base" ]; then
-  range="$(git rev-parse --short "$base")..HEAD"
-  VELOQ_MERGE_BASE=$base
-  export VELOQ_MERGE_BASE
-else
-  echo "post-merge: cannot read where HEAD moved from, so the suites and format check see no paths." >&2
+  echo "post-merge: to judge what this move landed: VELOQ_MERGE_BASE=$base ./scripts/merge-gates.sh" >&2
 fi
-
-# Kept as well as shown, so a failure can be traced back to the paths it names.
-log=$(mktemp)
-status=$(mktemp)
-trap 'rm -f "$log" "$status"' EXIT
-{
-  code=0
-  ./scripts/merge-gates.sh 2>&1 || code=$?
-  echo "$code" >"$status"
-} | tee "$log"
-code=$(cat "$status")
-if [ "$code" -eq 0 ]; then
-  echo "post-merge: the gates pass on the merged tree."
-  exit 0
-fi
-
-# 66 is `merge-gates.sh` saying it could not take the commit lock, which means
-# the gates did not run at all. That is another session merging beside you, not
-# a verdict on this tree. When the two shared an exit code, the
-# alarm below sent an agent to `git reset --hard` over a tree that went on to
-# pass tsc, lint, audit, Jest and rustfmt, which would have discarded its own
-# landed work and the two merges that landed with it.
-if [ "$code" -eq 66 ]; then
-  echo "post-merge: the gates did not run, another merge holds the commit lock." >&2
-  echo "post-merge: nothing is wrong with the tree. Run ./scripts/merge-gates.sh" >&2
-  echo "post-merge: again once that merge is done. Do not reset anything." >&2
-  exit 1
-fi
-
-echo "post-merge: THE GATES FAIL ON THE MERGED TREE, and the ref has already moved." >&2
-
-# The checkout is shared, and the whole-tree gates read its index, so a failure
-# can be a neighbour's staged file rather than anything this landing carried.
-# Each path the failure names is placed, so the lander can tell the two apart.
-# The suite plan's own `merge gate:` lines list every landed file, failing or
-# not, so they are left out of the search.
-landed=$(mktemp)
-staged=$(mktemp)
-edited=$(mktemp)
-placed=$(mktemp)
-trap 'rm -f "$log" "$status" "$landed" "$staged" "$edited" "$placed"' EXIT
-[ -z "$base" ] || git -c core.quotePath=off diff --name-only "$base" HEAD >"$landed"
-git -c core.quotePath=off diff --cached --name-only HEAD >"$staged"
-git -c core.quotePath=off diff --name-only >"$edited"
-# The plan lists every landed file, and Jest names every suite it passed, so
-# neither line says a path failed.
-grep -v -e '^merge gate: ' -e '^ *PASS ' "$log" >"$placed.said" || true
-mv "$placed.said" "$log"
-sort -u "$landed" "$staged" "$edited" | while IFS= read -r path; do
-  # Whole path only: `src/a.ts` is not named by a line about `src/a.tsx`.
-  pattern=$(printf '%s' "$path" | sed 's/[][\\.*^$+?(){}|]/\\&/g')
-  grep -qE -- "(^|[^[:alnum:]_./-])$pattern(\$|[^[:alnum:]_./-])" "$log" || continue
-  if grep -qxF -- "$path" "$landed"; then
-    where="landed by this merge, in $range"
-  elif grep -qxF -- "$path" "$staged"; then
-    where="only staged in the index, another session's, not this landing"
-  else
-    where="only edited in the working tree, another session's, not this landing"
-  fi
-  echo "post-merge: failing: $path, $where"
-done >"$placed"
-if [ -s "$placed" ]; then
-  cat "$placed" >&2
-else
-  echo "post-merge: the failure names no path this checkout changed; read the output above." >&2
-fi
-
-if git rev-parse -q --verify HEAD^2 >/dev/null 2>&1; then
-  revert="git revert -m 1 $(git rev-parse --short HEAD)"
-else
-  revert="git revert --no-edit $range"
-fi
-echo "post-merge: leave a path that is not this landing's to the session it belongs to." >&2
-echo "post-merge: for this landing's own, land a fix-forward commit on the branch," >&2
-echo "post-merge: or take the landing off with $revert." >&2
-echo "post-merge: neither discards the staged or unstaged work other sessions keep here." >&2
-exit 1
+exit 0

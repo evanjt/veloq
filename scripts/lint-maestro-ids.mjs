@@ -21,9 +21,10 @@
 // beaten fails with the line to delete, so ground a sweep takes is not given
 // back.
 
-import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { treeView } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -35,14 +36,10 @@ const BASELINE_FILE = flagValue('--baseline', join(HERE, 'maestro-id-baseline.js
 const SRC = join(ROOT, 'src');
 const FLOWS = join(ROOT, '.maestro');
 
-function walk(dir, test, out = []) {
-  if (!existsSync(dir)) return out;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) walk(full, test, out);
-    else if (test(entry.name)) out.push(full);
-  }
-  return out;
+const tree = treeView(ROOT, [relative(ROOT, SRC), relative(ROOT, FLOWS)]);
+
+function walk(dir, test) {
+  return tree.files(dir, (rel) => test(rel.slice(rel.lastIndexOf('/') + 1)));
 }
 
 /** Every `testID` the tree renders, as literals and as patterns. */
@@ -52,7 +49,7 @@ export function collectTestIds(files) {
   const unreadable = [];
 
   for (const file of files) {
-    const source = readFileSync(file, 'utf8');
+    const source = tree.text(file);
 
     // `testID="a-literal"`, and the props that carry one down to it:
     // `containerTestID`, `rowTestID` and the rest all end in the same word.
@@ -143,7 +140,7 @@ export function templateToPattern(template) {
 export function collectFlowIds(files) {
   const byId = new Map();
   for (const file of files) {
-    for (const m of readFileSync(file, 'utf8').matchAll(/^\s*id:\s*"([^"]+)"/gm)) {
+    for (const m of tree.text(file).matchAll(/^\s*id:\s*"([^"]+)"/gm)) {
       if (!byId.has(m[1])) byId.set(m[1], new Set());
       byId.get(m[1]).add(file);
     }

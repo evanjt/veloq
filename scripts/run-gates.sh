@@ -38,7 +38,18 @@ SKIPPABLE="tsc test rustfmt rusttests audit"
 # the missing link: `@ubjs/core` read as the branch having broken the generated
 # bindings. Levelling costs a directory listing and does nothing in the main
 # checkout, so it runs before the gates rather than being remembered.
-node "$(dirname "$0")/link-worktree-modules.mjs" || true
+#
+# It also applies the expo-location altitude patch, and a `|| true` here once
+# swallowed that patch throwing: a build then recorded 0 m for a fix with no
+# altitude with every gate green. So a failure stops the run.
+if ! node "$(dirname "$0")/link-worktree-modules.mjs"; then
+  echo "--- Worktree module levelling or the expo-location altitude patch failed ---" >&2
+  exit 1
+fi
+
+# The tracematch submodule is often cloned after the worktree was made, and its
+# guard against committing GPS traces runs only once its hooks are linked.
+node "$(dirname "$0")/link-tracematch-hooks.mjs" || echo "--- tracematch hooks not linked ---" >&2
 
 logs=$(mktemp -d)
 trap 'rm -rf "$logs"' EXIT

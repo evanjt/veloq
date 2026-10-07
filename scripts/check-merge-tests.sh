@@ -3,9 +3,8 @@
 #
 # Git runs `pre-merge-commit` for a merge that does not conflict, which is
 # exactly the case that has twice produced a tree neither branch wrote. Running
-# everything is not the answer: every worktree merges into one checkout and this
-# runs inside the merge, holding the merge lock, so a full suite serialises
-# every other session's merge behind it.
+# everything is not the answer: every landing runs this in the one landing tree,
+# so a full suite serialises every other session's landing behind it.
 set -e
 
 # `--diff-filter=d` drops what the merge removed: a deleted suite names a
@@ -14,13 +13,14 @@ set -e
 # A deletion is still gated, by `cargo check --tests` in `merge-gates.sh`,
 # which is what catches a caller left behind.
 #
-# Before the ref moves, from `pre-merge-commit`, the merged tree is staged over
-# the old head, so the index holds the merge. After a fast-forward, from
-# `post-merge`, HEAD has moved and the index matches it, so the same diff is
-# empty or holds only another session's staged files. There the hook hands over
-# the head it moved from, and the range between is what landed.
+# From `pre-merge-commit` the merged tree is staged over the old head, so the
+# index holds the merge. In the landing tree the candidate is already committed
+# and the index matches it, so the same diff is empty. There `land-branch.sh`
+# hands over the target the candidate was built on, and the range between is
+# what would land. When the lander checks whether the target fails the same
+# gate, it selects suites from that same range while running the target's code.
 if [ -n "${VELOQ_MERGE_BASE:-}" ]; then
-  changed=$(git diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" HEAD)
+  changed=$(git diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" "${VELOQ_MERGE_TEST_REVISION:-HEAD}")
 else
   changed=$(git diff --cached --name-only --diff-filter=d HEAD)
 fi

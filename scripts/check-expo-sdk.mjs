@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 
-// Guards against the dependabot-induced half-migration that skews Expo SDK
-// versions: a single expo-* package bumped to the wrong major leaves the app
-// on a broken mix of SDK 55/56 native modules. bundledNativeModules.json is
-// the authoritative per-SDK version map shipped inside the installed expo
-// package, so we treat it as the source of truth and flag any declared range
-// whose major diverges, plus any lockfile drift away from package.json.
+// Guard the SDK's native dependency versions in both package files.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+
+import { trackedText } from './lib/indexedSources.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -17,15 +14,42 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-// Pull the leading numeric major out of a semver range like "~56.0.3",
-// "^56", "56.0.14" or "0.85.3". Returns null when no major is parseable
-// (e.g. "./modules/veloqrs", "*", git/file specifiers).
-function majorOf(range) {
-  if (typeof range !== 'string') return null;
-  const match = range.match(/(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
-  if (!match) return null;
-  return Number(match[1]);
+// The two package files are judged as the tree records them. The bundled
+// versions come out of node_modules, which is never tracked.
+function readTrackedJson(file) {
+  const text = trackedText(root, file);
+  if (text === undefined) throw new Error(`${file} is not in the tree`);
+  return JSON.parse(text);
 }
+
+function versionOf(range) {
+  if (typeof range !== 'string') return null;
+  const match = range.match(/^[~^]?(\d+)(?:\.(\d+))?(?:\.(\d+))?$/);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2] ?? 0), Number(match[3] ?? 0)];
+}
+
+function matchesSdk(candidate, expected) {
+  const actual = versionOf(candidate);
+  const target = versionOf(expected);
+  if (!actual || !target) return false;
+  if (expected.startsWith('^')) return actual[0] === target[0];
+  if (expected.startsWith('~')) {
+    return actual[0] === target[0] && actual[1] === target[1] && !candidate.startsWith('^');
+  }
+  return candidate === expected;
+}
+
+function sharesMajorMinor(candidate, reference) {
+  const actual = versionOf(candidate);
+  const target = versionOf(reference);
+  return actual && target && actual[0] === target[0] && actual[1] === target[1];
+}
+
+// SDK 56 bundles 4.25.2. The 4.28.0 repair must be checked as an exact pin.
+const SDK_EXCEPTIONS = {
+  'react-native-screens': { bundled: '4.25.2', allowed: '4.28.0' },
+};
 
 let bundled;
 let pkg;
@@ -39,13 +63,13 @@ try {
   process.exit(1);
 }
 try {
-  pkg = readJson(join(root, 'package.json'));
+  pkg = readTrackedJson('package.json');
 } catch {
   console.error('check-expo-sdk: could not read package.json.');
   process.exit(1);
 }
 try {
-  lock = readJson(join(root, 'package-lock.json'));
+  lock = readTrackedJson('package-lock.json');
 } catch {
   lock = null;
 }
@@ -65,23 +89,29 @@ for (const [name, expectedRange] of Object.entries(bundled)) {
   if (!(name in declared)) continue;
 
   const declaredRange = declared[name];
-  const expectedMajor = majorOf(expectedRange);
-  const declaredMajor = majorOf(declaredRange);
+  const exception = SDK_EXCEPTIONS[name];
+  const expected = exception?.bundled === expectedRange ? exception.allowed : expectedRange;
 
-  if (expectedMajor !== null && declaredMajor !== null && expectedMajor !== declaredMajor) {
-    mismatches.push({ name, declared: declaredRange, expected: expectedRange });
+  if (!matchesSdk(declaredRange, expected)) {
+    mismatches.push({ name, declared: declaredRange, expected });
   }
 
   const resolved = lockVersion(name);
-  if (resolved !== null) {
-    const resolvedMajor = majorOf(resolved);
-    const declaredMajorForLock = majorOf(declaredRange);
-    if (
-      resolvedMajor !== null &&
-      declaredMajorForLock !== null &&
-      resolvedMajor !== declaredMajorForLock
-    ) {
-      drift.push({ name, declared: declaredRange, resolved });
+  if (resolved === null || !matchesSdk(resolved, expected)) {
+    drift.push({ name, declared: declaredRange, resolved: resolved ?? 'missing' });
+  }
+}
+
+const nativeVersion = declared['react-native'];
+if (nativeVersion) {
+  for (const [name, range] of Object.entries(declared)) {
+    if (!name.startsWith('@react-native/')) continue;
+    if (!sharesMajorMinor(range, nativeVersion)) {
+      mismatches.push({ name, declared: range, expected: `${versionOf(nativeVersion)?.slice(0, 2).join('.')}.x` });
+    }
+    const resolved = lockVersion(name);
+    if (!resolved || !sharesMajorMinor(resolved, nativeVersion)) {
+      drift.push({ name, declared: range, resolved: resolved ?? 'missing' });
     }
   }
 }
@@ -102,7 +132,7 @@ let failed = false;
 
 if (mismatches.length > 0) {
   failed = true;
-  console.error('\nExpo SDK major mismatch (package.json vs bundledNativeModules.json):');
+  console.error('\nExpo SDK mismatch (package.json vs bundledNativeModules.json):');
   printTable(mismatches, [
     { key: 'name', header: 'package' },
     { key: 'declared', header: 'declared' },
@@ -122,7 +152,7 @@ if (drift.length > 0) {
 
 if (failed) {
   console.error(
-    '\nFix: align the flagged expo-* packages to the SDK bundled major, then run npm install.',
+    '\nFix: align the flagged packages with the SDK and update the lockfile.',
   );
   process.exit(1);
 }

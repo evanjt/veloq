@@ -10,10 +10,10 @@
 // component. A read inside a function body is left alone: an event handler
 // measuring on demand is correct, and the hook cannot be called there anyway.
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { treeView } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -21,22 +21,15 @@ const rootFlag = process.argv.indexOf('--root');
 const ROOT = rootFlag === -1 ? join(HERE, '..') : resolve(process.argv[rootFlag + 1]);
 const SRC = join(ROOT, 'src');
 
+const tree = treeView(ROOT, ['src']);
+
 function walk(dir) {
-  const out = [];
-  if (!existsSync(dir)) return out;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const { name } = entry;
-    const full = join(dir, name);
-    if (entry.isDirectory()) {
-      if (name === '__tests__' || name === '__mocks__') continue;
-      out.push(...walk(full));
-      continue;
-    }
-    if (!/\.tsx?$/.test(name)) continue;
-    if (/\.(test|spec)\.tsx?$/.test(name) || /\.d\.ts$/.test(name)) continue;
-    out.push(full);
-  }
-  return out;
+  return tree.files(dir, (rel) => {
+    const parts = rel.split('/');
+    const name = parts[parts.length - 1];
+    if (parts.slice(0, -1).some((part) => part === '__tests__' || part === '__mocks__')) return false;
+    return /\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name) && !/\.d\.ts$/.test(name);
+  });
 }
 
 function isDimensionsGet(node) {
@@ -63,7 +56,7 @@ function isFunctionLike(node) {
 }
 
 function moduleScopeReads(file) {
-  const src = readFileSync(file, 'utf8');
+  const src = tree.text(file);
   const sf = ts.createSourceFile(
     file,
     src,

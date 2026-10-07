@@ -43,7 +43,7 @@ const IOS_REQUIRED_FILES = [
   'release_notes.txt',
 ];
 
-// Locale mapping (same as store-metadata.ts)
+// Locale mapping from app locale files to store locale codes
 interface LocaleMapping {
   app: string;
   android: string;
@@ -58,8 +58,6 @@ const LOCALE_MAPPINGS: LocaleMapping[] = [
   // Swiss German variants: de-CH is NOT a valid store locale for either platform
   // Use de-DE for both Android and iOS
   { app: 'de-CH', android: 'de-DE', ios: 'de-DE' },
-  { app: 'de-CHB', android: 'de-DE', ios: 'de-DE' },
-  { app: 'de-CHZ', android: 'de-DE', ios: 'de-DE' },
   { app: 'es', android: 'es-ES', ios: 'es-ES' },
   { app: 'es-ES', android: 'es-ES', ios: 'es-ES' },
   { app: 'es-419', android: 'es-419', ios: 'es-MX' },
