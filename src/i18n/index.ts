@@ -7,6 +7,11 @@ import { SUPPORTED_LOCALES, LOCALE_FALLBACKS, type SupportedLocale } from './typ
 
 import { localesToLoad, loadLocale } from './localeBundles';
 
+// Neutral 'es' has no picker entry, so a Spanish match with no table row takes the Español default variant.
+function pickerSelectable(locale: SupportedLocale): SupportedLocale {
+  return locale === 'es' ? 'es-419' : locale;
+}
+
 /**
  * Get the best matching locale from device settings
  */
@@ -19,17 +24,17 @@ export function getDeviceLocale(): SupportedLocale {
 
     // Check for exact match first
     if (SUPPORTED_LOCALES.includes(tag as SupportedLocale)) {
-      return tag as SupportedLocale;
+      return pickerSelectable(tag as SupportedLocale);
     }
 
     // Check fallback chain
     if (tag in LOCALE_FALLBACKS) {
-      return LOCALE_FALLBACKS[tag][0];
+      return pickerSelectable(LOCALE_FALLBACKS[tag][0]);
     }
 
     // Check language-only fallback
     if (lang && lang in LOCALE_FALLBACKS) {
-      return LOCALE_FALLBACKS[lang][0];
+      return pickerSelectable(LOCALE_FALLBACKS[lang][0]);
     }
   }
 
