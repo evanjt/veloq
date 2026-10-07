@@ -20,7 +20,7 @@ import { secretsMatch } from "./secrets";
 import { dedupeKey, exchangeKey, rateKey, stateKey } from "./keys";
 import { authoriseDevice, intervalsAthleteResolver } from "./deviceAuth";
 import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
-import { buildPushMessages } from "./pushMessages";
+import { buildPushMessages, pushDataFor } from "./pushMessages";
 
 interface Env {
   INTERVALS_CLIENT_ID: string;
@@ -77,34 +77,34 @@ export default {
 
       // Register OAuth state (app calls this before starting OAuth flow)
       if (path === "/oauth/state" && request.method === "POST") {
-        return handleRegisterState(request, env);
+        return await handleRegisterState(request, env);
       }
 
       // OAuth callback
       if (path === "/oauth/callback" && request.method === "GET") {
-        return handleOAuthCallback(url, env);
+        return await handleOAuthCallback(url, env);
       }
 
       // Redeem the one-time code the callback redirected with
       if (path === "/oauth/token" && request.method === "POST") {
-        return handleTokenExchange(request, env);
+        return await handleTokenExchange(request, env);
       }
 
       // --- Push notification endpoints (additive, backwards-compatible) ---
 
       // Register device push token
       if (path === "/devices/register" && request.method === "POST") {
-        return handleDeviceRegister(request, env);
+        return await handleDeviceRegister(request, env);
       }
 
       // Unregister device push token
       if (path === "/devices/unregister" && request.method === "DELETE") {
-        return handleDeviceUnregister(request, env);
+        return await handleDeviceUnregister(request, env);
       }
 
       // Webhook receiver for intervals.icu events
       if (path === "/webhook/intervals" && request.method === "POST") {
-        return handleIntervalsWebhook(request, env);
+        return await handleIntervalsWebhook(request, env);
       }
 
       return new Response("Not Found", { status: 404 });
@@ -157,22 +157,20 @@ async function handleRegisterState(
     request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
     "unknown";
 
-  // Check rate limit
-  const allowed = await checkRateLimit(ip, env);
-  if (!allowed) {
-    return new Response(
-      JSON.stringify({ error: "Too many requests. Please try again later." }),
-      {
-        status: 429,
-        headers: {
-          "Content-Type": "application/json",
-          "Retry-After": String(RATE_LIMIT_WINDOW_SECONDS),
-        },
-      }
-    );
-  }
-
   try {
+    const allowed = await checkRateLimit(ip, env);
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: "Too many requests. Please try again later." }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(RATE_LIMIT_WINDOW_SECONDS),
+          },
+        }
+      );
+    }
     const body = (await request.json()) as {
       state?: string;
       code_challenge?: string;
@@ -220,7 +218,7 @@ async function handleRegisterState(
 
 /**
  * Handle OAuth callback from intervals.icu
- * Exchanges authorization code for access token, then redirects to app
+ * Parks intervals.icu's code for the app to redeem, then redirects to it
  */
 async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
   const code = url.searchParams.get("code");
@@ -243,7 +241,20 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
     return redirectToAppWithError("missing_state");
   }
 
-  const storedState = await env.OAUTH_STATES.get(stateKey(state));
+  // A KV error here is answered in the app like any other failure. Thrown
+  // past this handler it reached the outer catch, whose plain 500 leaves the
+  // auth browser with no way back to the app.
+  let storedState: string | null;
+  try {
+    storedState = await env.OAUTH_STATES.get(stateKey(state));
+    if (storedState) {
+      // Delete state after validation (single use)
+      await env.OAUTH_STATES.delete(stateKey(state));
+    }
+  } catch (error) {
+    console.error("OAuth state lookup failed:", error);
+    return redirectToAppWithError("server_error");
+  }
   if (!storedState) {
     console.error(
       "OAuth state not found or expired:",
@@ -252,16 +263,50 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
     return redirectToAppWithError("invalid_state");
   }
 
-  // Delete state after validation (single use)
-  await env.OAUTH_STATES.delete(stateKey(state));
-
   const challenge = challengeFromStoredState(storedState);
 
-  // Exchange code for token
+  // A client that registered a challenge gets the token at redemption, so only
+  // intervals.icu's own code waits here, and the worker holds no bearer token.
+  if (challenge) {
+    try {
+      const exchangeCode = newOpaqueToken();
+      await env.OAUTH_STATES.put(
+        exchangeKey(exchangeCode),
+        JSON.stringify({ challenge, code }),
+        { expirationTtl: EXCHANGE_CODE_TTL_SECONDS }
+      );
+      return redirectToAppWithCode(exchangeCode, state);
+    } catch (error) {
+      console.error("Parking the code failed:", error);
+      return redirectToAppWithError("server_error");
+    }
+  }
+
+  // An older build registered no challenge and cannot redeem a code, so it
+  // still gets the token in the URL.
+  try {
+    const tokenData = await exchangeCodeForToken(code, env);
+    if (!tokenData) return redirectToAppWithError("token_exchange_failed");
+    return redirectToAppWithLegacyToken(tokenData, state);
+  } catch (error) {
+    console.error("Token exchange failed:", error);
+    return redirectToAppWithError("token_exchange_failed");
+  }
+}
+
+/**
+ * Post intervals.icu's code with the client credentials. Null when the answer
+ * is not ok or lacks the token or athlete id. Only the shape of a bad answer
+ * is logged, since it may still carry the access token.
+ */
+async function exchangeCodeForToken(
+  code: string,
+  env: Env
+): Promise<IntervalsTokenResponse | null> {
   const formData = new URLSearchParams({
     client_id: env.INTERVALS_CLIENT_ID,
     client_secret: env.INTERVALS_CLIENT_SECRET,
-    code: code,
+    code,
   });
 
   const tokenResponse = await fetch(INTERVALS_TOKEN_URL, {
@@ -275,33 +320,15 @@ async function handleOAuthCallback(url: URL, env: Env): Promise<Response> {
   if (!tokenResponse.ok) {
     const errorText = await tokenResponse.text();
     console.error("Token exchange failed:", tokenResponse.status, errorText);
-    return redirectToAppWithError("token_exchange_failed");
+    return null;
   }
 
   const tokenData: IntervalsTokenResponse = await tokenResponse.json();
-
-  // Validate response
   if (!tokenData.access_token || !tokenData.athlete?.id) {
-    // The shape, never the contents: a response missing `athlete.id` still
-    // carries the access token, and this used to write it to the logs.
     console.error("Invalid token response, keys:", Object.keys(tokenData));
-    return redirectToAppWithError("invalid_response");
+    return null;
   }
-
-  // Redirect to app with the one-time code (include state for client-side CSRF
-  // validation). An older build registered no challenge and cannot redeem a
-  // code, so it still gets the token in the URL.
-  if (!challenge) {
-    return redirectToAppWithLegacyToken(tokenData, state);
-  }
-
-  const exchangeCode = newOpaqueToken();
-  await env.OAUTH_STATES.put(
-    exchangeKey(exchangeCode),
-    JSON.stringify({ challenge, token: tokenData }),
-    { expirationTtl: EXCHANGE_CODE_TTL_SECONDS }
-  );
-  return redirectToAppWithCode(exchangeCode, state);
+  return tokenData;
 }
 
 /**
@@ -322,7 +349,9 @@ function challengeFromStoredState(storedState: string): string | null {
 
 /** Where a pending exchange lives. Namespaced so it cannot be read as a state. */
 /**
- * Redeem a one-time code for the token it stands for.
+ * Redeem a one-time code for the token it stands for. The worker exchanges
+ * intervals.icu's parked code only once the verifier has matched, so it never
+ * holds the token between requests.
  *
  * The code alone is not enough and that is the whole point: whoever presents it
  * has to produce the verifier the challenge was made from, and only the app that
@@ -361,7 +390,7 @@ async function handleTokenExchange(request: Request, env: Env): Promise<Response
     return exchangeRefused("invalid_grant");
   }
 
-  let parsed: { challenge?: unknown; token?: IntervalsTokenResponse };
+  let parsed: { challenge?: unknown; code?: unknown };
   try {
     parsed = JSON.parse(pending) as typeof parsed;
   } catch {
@@ -378,9 +407,26 @@ async function handleTokenExchange(request: Request, env: Env): Promise<Response
     return exchangeRefused("invalid_grant");
   }
 
-  const token = parsed.token;
-  if (!token?.access_token || !token.athlete?.id) {
+  // An entry parked before the token moved to redemption has no code.
+  if (typeof parsed.code !== "string" || parsed.code.length === 0) {
     return exchangeRefused("invalid_grant");
+  }
+
+  let token: IntervalsTokenResponse | null;
+  try {
+    token = await exchangeCodeForToken(parsed.code, env);
+  } catch (error) {
+    console.error("Token exchange failed:", error);
+    token = null;
+  }
+  if (!token) {
+    return new Response(JSON.stringify({ error: "token_exchange_failed" }), {
+      status: 502,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    });
   }
 
   return new Response(
@@ -727,12 +773,7 @@ async function handleIntervalsWebhook(
       // tag of its own and the native worker's entry stands beside it rather
       // than replacing it. The data payload wakes the handler on both, which
       // posts the enriched notification itself.
-      const pushData = {
-        event_type: event.type,
-        athlete_id: event.athlete_id,
-        activity_id: event.activity?.id ?? null,
-        sent_at: Date.now(),
-      };
+      const pushData = pushDataFor(event);
       const visible = visibleContentForEvent(event.type, event.activity?.id);
       const perDeviceResults = tokens.map((device) =>
         sendExpoPush(device.token, pushData, visible, device.platform)
@@ -751,7 +792,8 @@ async function handleIntervalsWebhook(
           const results = await Promise.all(perDeviceResults);
           const dead = results.filter((r) => !r.alive).map((r) => r.token);
           if (dead.length === 0) return;
-          const surviving = tokens.filter((t) => !dead.includes(t.token));
+          const latest = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
+          const surviving = (latest ?? []).filter((t) => !dead.includes(t.token));
           if (surviving.length === 0) {
             await env.DEVICE_TOKENS.delete(key);
           } else {

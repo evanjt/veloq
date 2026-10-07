@@ -84,7 +84,6 @@ jobs:
       contents: write
     outputs:
       version: ${{ steps.version.outputs.version }}
-      version_code: ${{ steps.version.outputs.version_code }}
       aab_path: ${{ steps.prepare.outputs.aab_path }}
       ipa_path: ${{ steps.prepare.outputs.ipa_path }}
     steps:
@@ -96,13 +95,6 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-          # Calculate version code
-          MAJOR=$(echo $VERSION | cut -d. -f1)
-          MINOR=$(echo $VERSION | cut -d. -f2)
-          PATCH=$(echo $VERSION | cut -d. -f3)
-          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
-          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
 
       - name: Download artifacts from the tag's build
         uses: actions/download-artifact@v8
@@ -168,13 +160,13 @@ jobs:
       - name: Read changelog
         id: changelog
         run: |
-          VERSION_CODE="${{ steps.version.outputs.version_code }}"
+          VERSION_CODE=$(node -e 'const code = require("./app.json").expo?.android?.versionCode; if (!Number.isInteger(code) || code <= 0) { console.error("app.json has no valid expo.android.versionCode"); process.exit(1); } process.stdout.write(String(code));')
           CHANGELOG_FILE="config/fastlane/metadata/android/en-US/changelogs/${VERSION_CODE}.txt"
-          if [ -f "$CHANGELOG_FILE" ]; then
-            CHANGELOG=$(cat "$CHANGELOG_FILE")
-          else
-            CHANGELOG="See commit history for changes."
+          if [ ! -s "$CHANGELOG_FILE" ]; then
+            echo "::error::Missing changelog for Android versionCode $VERSION_CODE" >&2
+            exit 1
           fi
+          CHANGELOG=$(cat "$CHANGELOG_FILE")
           echo "content<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -244,13 +236,9 @@ jobs:
         if: steps.check_creds.outputs.skip != 'true'
         uses: actions/checkout@v4
 
-      - name: Setup Ruby
+      - name: Setup fastlane
         if: steps.check_creds.outputs.skip != 'true'
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.4"
-          working-directory: config/fastlane
-          bundler-cache: true
+        uses: ./.github/actions/setup-fastlane
 
       - name: Download AAB
         if: steps.check_creds.outputs.skip != 'true'
@@ -324,13 +312,9 @@ jobs:
         if: steps.check_creds.outputs.skip != 'true'
         uses: actions/checkout@v4
 
-      - name: Setup Ruby
+      - name: Setup fastlane
         if: steps.check_creds.outputs.skip != 'true'
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.4"
-          working-directory: config/fastlane
-          bundler-cache: true
+        uses: ./.github/actions/setup-fastlane
 
       - name: Download IPA
         if: steps.check_creds.outputs.skip != 'true'

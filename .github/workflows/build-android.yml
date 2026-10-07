@@ -1,0 +1,502 @@
+name: Build Android
+
+# The one Android build. Pull requests, main, release tags and the E2E
+# workflows call it and choose the identity, the architectures and whether the
+# store artifacts are made, so every entrypoint builds the same way.
+
+on:
+  workflow_call:
+    inputs:
+      variant:
+        description: "App identity: production or dev"
+        required: true
+        type: string
+      release:
+        description: "Build the store artifacts: the App Bundle and a phone-only APK"
+        required: false
+        type: boolean
+        default: false
+      abis:
+        description: "Architectures of a non-release APK"
+        required: false
+        type: string
+        default: "arm64-v8a,x86_64"
+      allow-stub:
+        description: "Build with a placeholder google-services.json when the secret is absent"
+        required: false
+        type: boolean
+        default: false
+      build-type:
+        description: "Build type override (auto, preview or production)"
+        required: false
+        type: string
+        default: "auto"
+      retention-days:
+        description: "Days the APK artifact is kept"
+        required: false
+        type: number
+        default: 30
+    secrets:
+      GOOGLE_SERVICES_JSON:
+        required: false
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+    outputs:
+      version:
+        value: ${{ jobs.build.outputs.version }}
+      short_sha:
+        value: ${{ jobs.build.outputs.short_sha }}
+      filename:
+        value: ${{ jobs.build.outputs.filename }}
+      is_signed:
+        value: ${{ jobs.build.outputs.is_signed }}
+      source_hash:
+        description: "Hash of the inputs the APK was built from"
+        value: ${{ jobs.build.outputs.source_hash }}
+      apk-artifact:
+        description: "Name of the uploaded APK artifact"
+        value: ${{ jobs.build.outputs.apk-artifact }}
+      producer_commit:
+        description: "Commit that built the app, which differs from the checked-out commit when the app came from the cache"
+        value: ${{ jobs.build.outputs.producer_commit }}
+
+env:
+  NODE_VERSION: "22"
+  RELEASE_BUILD: ${{ inputs.release }}
+
+jobs:
+  build:
+    name: Android ${{ inputs.variant }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Expo configuration is read again by Gradle and the bundler, so the
+      # identity holds for every step rather than for prebuild alone.
+      APP_VARIANT: ${{ inputs.variant }}
+      JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+      GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
+      filename: ${{ steps.version.outputs.filename }}
+      source_hash: ${{ steps.version.outputs.source_hash }}
+      is_signed: ${{ steps.signing.outputs.is_signed }}
+      apk-artifact: ${{ steps.apk.outputs.name }}
+      producer_commit: ${{ steps.producer.outputs.commit }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Hashed before anything is installed, restored or built, so a compiled
+      # library or node_modules never lands in a key.
+      - name: Hash native inputs
+        id: native
+        run: |
+          echo "ndk=${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/android/**', 'modules/**/android/**', 'modules/**/cpp/**') }}" >> "$GITHUB_OUTPUT"
+          echo "lockfile=${{ hashFiles('package-lock.json') }}" >> "$GITHUB_OUTPUT"
+          # The compiler pin, the setup action that installs the targets and cargo-ndk,
+          # and the runner image that carries SDK and NDK. The builder
+          # fingerprints the resolved versions too and rebuilds a restored
+          # library that disagrees.
+          echo "toolchain=${{ hashFiles('rust-toolchain.toml', '.github/actions/setup-rust-android/action.yml') }}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Select architectures
+        id: targets
+        env:
+          ABIS: ${{ inputs.abis }}
+        run: |
+          # The App Bundle takes the default list, every architecture, and Play
+          # splits it per device. A release APK carries the phone ones only.
+          if [ "$RELEASE_BUILD" = true ]; then
+            abis="armeabi-v7a,arm64-v8a,x86,x86_64"
+          else
+            abis="$ABIS"
+          fi
+          rust=""
+          for abi in ${abis//,/ }; do
+            case "$abi" in
+              arm64-v8a) target=aarch64-linux-android ;;
+              armeabi-v7a) target=armv7-linux-androideabi ;;
+              x86_64) target=x86_64-linux-android ;;
+              x86) target=i686-linux-android ;;
+              *) echo "::error::Unknown Android architecture: $abi"; exit 1 ;;
+            esac
+            rust="${rust:+$rust,}$target"
+          done
+          echo "rust=$rust" >> "$GITHUB_OUTPUT"
+          echo "selection=${abis//,/-}" >> "$GITHUB_OUTPUT"
+
+      - name: Get version info
+        id: version
+        uses: ./.github/actions/compute-version-info
+        with:
+          build-type-override: ${{ inputs.build-type }}
+          source-profile: android
+
+      - name: Write google-services.json
+        uses: ./.github/actions/write-google-services-stub
+        with:
+          secret-contents: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          package-name: ${{ inputs.variant == 'production' && 'com.veloq.app' || 'com.veloq.app.dev' }}
+          allow-stub: ${{ inputs.allow-stub }}
+
+      # Keyed by identity and artifact kind as well as source, so an APK-only
+      # entry cannot satisfy a release that also needs the bundle, and a Dev
+      # build cannot stand in for a production one.
+      - name: Restore built APK/AAB
+        id: apk-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/producer-commit
+          key: android-app-v6-${{ inputs.variant }}-${{ inputs.release && 'with-aab' || 'apk-only' }}-${{ steps.targets.outputs.selection }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
+
+      - name: Skip build (cache hit)
+        if: steps.apk-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached APK (hash ${{ steps.version.outputs.source_hash }})"
+
+      - name: Install dependencies
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/npm-ci
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+
+      - name: Setup Java
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Android SDK
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          # Pull requests read main's Gradle home and write none, so they cannot
+          # evict it from the 10 GB budget.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-cleanup: on-success
+          gradle-home-cache-includes: |
+            caches
+            notifications
+            wrapper
+
+      - name: Restore Metro bundler
+        id: metro-cache
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            /tmp/metro-*
+            node_modules/.cache
+          key: metro-${{ runner.os }}-${{ steps.native.outputs.lockfile }}
+          restore-keys: |
+            metro-${{ runner.os }}-
+
+      # The key is the hash of every file the library is compiled from,
+      # embedded migration SQL included, from the script the local builds use.
+      - name: Hash Rust inputs
+        id: rust-inputs
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          hash=$(node modules/veloqrs/scripts/rust-inputs.js modules/veloqrs/rust)
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
+      # Rust library cache, skip toolchain install + compilation if Rust unchanged
+      - name: Restore Rust Android libraries
+        id: rust-android-cache
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: modules/veloqrs/build/rust/android
+          key: rust-android-v5-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.toolchain }}-${{ steps.targets.outputs.selection }}
+
+      - name: Setup Rust for Android
+        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-rust-android
+        with:
+          targets: ${{ steps.targets.outputs.rust }}
+
+      # Prebuild takes seconds; caching android/ retained hundreds of MB after
+      # Gradle ran. Keep dependencies and compiled libraries cached instead.
+      - name: Generate Android native project
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android
+
+      - name: Install Gradle init script
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.gradle
+          cp .github/ci-init.gradle ~/.gradle/init.gradle
+
+      - name: Free disk space
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android/sdk/build-tools/3[0-3]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-[1-2]*
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-3[0-2]
+          sudo docker image prune --all --force || true
+          df -h
+
+      # The Rust library is built by its own Gradle task, ahead of packaging and
+      # through the same builder Gradle calls later, so the cache below saves as
+      # soon as the library is compiled and validated. A failure in a later
+      # packaging step then discards nothing, and a failure in this one leaves
+      # nothing to save. On a restore the builder finds its manifest current and
+      # compiles nothing. A release builds both selections it packages: the APK's
+      # phone architectures and the App Bundle's full list.
+      - name: Build Rust Android libraries
+        id: build-rust
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        env:
+          ABIS: ${{ inputs.abis }}
+        run: |
+          cd android
+          if [ "$RELEASE_BUILD" = true ]; then
+            ./gradlew :veloqrs:buildRustLibrary \
+              -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
+            ./gradlew :veloqrs:buildRustLibrary \
+              -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64 --no-daemon
+          else
+            ./gradlew :veloqrs:buildRustLibrary \
+              -PreactNativeArchitectures="$ABIS" --no-daemon
+          fi
+
+      # The module's JVM tests cover the Kotlin push worker's decisions and
+      # run nowhere else. The Rust library is built above, so this compiles
+      # only the Kotlin.
+      - name: Save Rust Android libraries
+        if: github.ref == 'refs/heads/main' && steps.rust-android-cache.outputs.cache-hit != 'true' && steps.build-rust.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: modules/veloqrs/build/rust/android
+          key: ${{ steps.rust-android-cache.outputs.cache-primary-key }}
+
+      # A production build signs with the release key when the secrets are
+      # there, and Gradle falls back to debug signing otherwise. A Dev build is
+      # never signed with the release key.
+      - name: Run Android JVM unit tests
+        if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD != 'true'
+        env:
+          ABIS: ${{ inputs.abis }}
+        run: |
+          cd android && ./gradlew :veloqrs:testDebugUnitTest \
+            -PreactNativeArchitectures="$ABIS" \
+            --no-daemon
+
+      # Saved directly after the build that produced it, not in a post step,
+      # which runs only when every later step succeeds. The key names the Rust
+      # inputs, the toolchain and the architecture selection.
+      - name: Setup signing
+        id: signing
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        env:
+          VARIANT: ${{ inputs.variant }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ "$VARIANT" = production ] && [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            mkdir -p android/app
+            echo "$ANDROID_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > android/app/release.keystore
+
+            printf '%s\n' \
+              "storeFile=release.keystore" \
+              "storePassword=$ANDROID_KEYSTORE_PASSWORD" \
+              "keyAlias=$ANDROID_KEY_ALIAS" \
+              "keyPassword=$ANDROID_KEY_PASSWORD" \
+              > android/keystore.properties
+
+            echo "is_signed=true" >> $GITHUB_OUTPUT
+            echo "Signing configured (release key)"
+          else
+            echo "is_signed=false" >> $GITHUB_OUTPUT
+            if [ "$VARIANT" = production ]; then
+              echo "::notice::Android signing secrets not available. APK will use debug signing"
+            fi
+          fi
+
+      # The Gradle time is CMake C++ for every React Native library. CMake reads
+      # the launcher variables from the environment at configure time, so ccache
+      # needs no Gradle change. Either identity compiles the same sources, so
+      # the other's store is a valid warm start.
+      - name: Setup ccache
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: android-ndk-v3-${{ inputs.variant }}-${{ runner.os }}-${{ steps.native.outputs.ndk }}
+          restore-keys: |
+            android-ndk-v3-${{ inputs.variant }}-${{ runner.os }}-
+            android-ndk-v3-
+          append-timestamp: false
+          max-size: 1G
+          save: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Clean stale dex archives
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          rm -rf android/app/build/intermediates/project_dex_archive
+          rm -rf android/app/build/intermediates/dex
+
+      - name: Build Android APK
+        if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD != 'true'
+        env:
+          ABIS: ${{ inputs.abis }}
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        run: |
+          cd android && ./gradlew assembleRelease \
+            -PreactNativeArchitectures="$ABIS" \
+            --no-daemon
+
+      - name: Build Android APK
+        if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD == 'true'
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        run: |
+          cd android && ./gradlew assembleRelease \
+            -PreactNativeArchitectures=armeabi-v7a,arm64-v8a \
+            --no-daemon
+
+      - name: Build Android App Bundle
+        if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD == 'true'
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        run: cd android && ./gradlew bundleRelease --no-daemon
+
+      # Every save in this job runs on main only: main's entries are the ones
+      # worth the space, and a pull request's, a branch's or a tag's are
+      # unreadable from main anyway.
+      - name: Save Metro bundler
+        if: github.ref == 'refs/heads/main' && steps.apk-cache.outputs.cache-hit != 'true' && steps.metro-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            /tmp/metro-*
+            node_modules/.cache
+          key: ${{ steps.metro-cache.outputs.cache-primary-key }}
+
+      # Stored in the cache entry beside the app, so a later build that reuses
+      # the app can say which commit produced it.
+      - name: Record producing commit
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: git rev-parse HEAD > android/app/build/outputs/producer-commit
+
+      - name: Read producing commit
+        id: producer
+        run: echo "commit=$(cat android/app/build/outputs/producer-commit)" >> "$GITHUB_OUTPUT"
+
+      - name: Copy APK
+        id: apk
+        env:
+          VARIANT: ${{ inputs.variant }}
+          FILENAME: ${{ steps.version.outputs.filename }}
+        run: |
+          mkdir -p artifacts
+          # Only warn when signing actually ran this build but didn't find secrets.
+          # On cache hits the signing step is skipped, but the cached APK was signed
+          # correctly when it was first built, so the warning would be misleading.
+          if [ "$VARIANT" = production ] && [ "${{ steps.signing.outputs.is_signed }}" = "false" ]; then
+            echo "::warning::keystore.properties not found. APK uses debug signing"
+          fi
+          cp android/app/build/outputs/apk/release/app-release.apk "artifacts/$FILENAME.apk"
+          if [ "$VARIANT" = production ]; then
+            echo "name=android-apk-$FILENAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=android-apk-$VARIANT-$FILENAME" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: artifacts/*.apk
+          retention-days: ${{ inputs.retention-days }}
+
+      - name: Copy AAB to artifacts
+        if: env.RELEASE_BUILD == 'true'
+        run: |
+          mkdir -p artifacts
+          AAB_FILE="artifacts/${{ steps.version.outputs.filename }}.aab"
+          AAB_SRC=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
+          if [ -n "$AAB_SRC" ]; then
+            cp "$AAB_SRC" "$AAB_FILE"
+            echo "Copied AAB: $AAB_FILE"
+          else
+            echo "::error::AAB file not found at android/app/build/outputs/bundle/**/*.aab"
+            exit 1
+          fi
+
+      - name: Verify AAB signing
+        if: env.RELEASE_BUILD == 'true'
+        env:
+          EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
+        run: |
+          echo "=== Verifying AAB was signed with correct key ==="
+          AAB_FILE="artifacts/${{ steps.version.outputs.filename }}.aab"
+
+          ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "META-INF/BNDLTOOL.RSA" 2>/dev/null | \
+            keytool -printcert 2>/dev/null | \
+            grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+
+          if [ -z "$ACTUAL_SHA1" ]; then
+            RSA_FILE=$(unzip -l "$AAB_FILE" 2>/dev/null | grep "META-INF/.*\.RSA" | awk '{print $4}' | head -1)
+            if [ -n "$RSA_FILE" ]; then
+              ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "$RSA_FILE" 2>/dev/null | \
+                keytool -printcert 2>/dev/null | \
+                grep "SHA1:" | head -1 | sed 's/.*SHA1: *//' | tr -d ' ')
+            fi
+          fi
+
+          echo "Expected SHA1: $EXPECTED_SHA1"
+          echo "Actual SHA1:   $ACTUAL_SHA1"
+
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "::error::Could not extract signing certificate from AAB"
+            exit 1
+          fi
+
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "::error::AAB signed with wrong key!"
+            exit 1
+          fi
+
+          echo "AAB signed with correct release key"
+
+      - name: Upload AAB artifact
+        if: env.RELEASE_BUILD == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-${{ steps.version.outputs.filename }}
+          path: artifacts/*.aab
+          retention-days: ${{ inputs.retention-days }}
+
+      # Last, after the AAB signing check: a build that fails it must not be
+      # cached, or the next build of the same source restores it and fails again.
+      - name: Save built APK/AAB
+        if: success() && github.ref == 'refs/heads/main' && steps.apk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/producer-commit
+          key: ${{ steps.apk-cache.outputs.cache-primary-key }}

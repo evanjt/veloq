@@ -1,6 +1,13 @@
 name: E2E
 
 on:
+  # Daily, on the default branch head the run starts on. github.sha is fixed for
+  # the run, so every build and test job checks out the same commit. A build
+  # restores the Dev app finished from the same input hash, and compiles only
+  # when no such app exists, so unchanged inputs run the suite with no native
+  # build. The cache is exact-key: nothing stands in for a changed app.
+  schedule:
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       tier:
@@ -8,263 +15,30 @@ on:
         required: false
         default: "tier0,tier1,tier2,tier3"
         type: string
-  schedule:
-    # Weekly full tier0-3 drift sweep on Android. Schedule passes no inputs, so
-    # the jobs fall back to the default tier0,tier1,tier2,tier3. iOS runs only
-    # by hand: its scheduled sweep timed out eleven weeks of eleven.
-    - cron: '0 3 * * 0'
 
 permissions:
   contents: read
   checks: write
 
-env:
-  NODE_VERSION: "22"
-
 jobs:
   # ============================================
-  # Build Dev Variant for E2E (Android)
+  # Build the Dev variant through the shared definitions
   # ============================================
   build-android-dev:
     name: Build Android Dev
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
-      GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+    uses: ./.github/workflows/build-android.yml
+    with:
+      variant: dev
+      abis: arm64-v8a,x86_64
+      allow-stub: true
+      retention-days: 7
 
-      - name: Compute source hash
-        id: hash
-        uses: ./.github/actions/compute-version-info
-        with:
-          source-profile: android
-
-      - name: Cache dev APK
-        id: apk-cache
-        uses: actions/cache@v4
-        with:
-          path: android/app/build/outputs/apk/release/app-release.apk
-          key: android-dev-apk-v1-${{ steps.hash.outputs.source_hash }}
-
-      - name: Skip build (cache hit)
-        if: steps.apk-cache.outputs.cache-hit == 'true'
-        run: echo "Using cached dev APK (hash ${{ steps.hash.outputs.source_hash }})"
-
-      - uses: actions/setup-node@v6
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - if: steps.apk-cache.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - uses: actions/setup-java@v5
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - uses: android-actions/setup-android@v4
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-
-      - uses: gradle/actions/setup-gradle@v6
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-
-      # Same key as build.yml's 2arch cache: a Rust change is rebuilt once and
-      # every other pull request restores the libraries in seconds.
-      - name: Cache Rust Android libraries
-        id: rust-android-cache
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
-        with:
-          path: modules/veloqrs/android/src/main/jniLibs
-          key: rust-android-2arch-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml', 'rust-toolchain.toml') }}
-
-      - name: Setup Rust for Android
-        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
-        uses: ./.github/actions/setup-rust-android
-        with:
-          targets: aarch64-linux-android,x86_64-linux-android
-
-      - name: Build Rust libraries
-        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
-        working-directory: modules/veloqrs/rust
-        run: |
-          mkdir -p ../android/src/main/jniLibs
-          cargo ndk -t aarch64-linux-android -t x86_64-linux-android \
-            --platform 24 -o ../android/src/main/jniLibs \
-            build --release -p veloqrs
-
-      # The Gradle time is CMake C++ for every React Native library, twice
-      # over for two architectures. CMake reads the launcher variables from
-      # the environment at configure time, so ccache needs no Gradle change.
-      - name: Setup ccache
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          # Reuse one bounded snapshot until native inputs change.
-          key: android-ndk-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/android/**', 'modules/**/android/**', 'modules/**/cpp/**') }}
-          restore-keys: android-ndk-v2-${{ runner.os }}-
-          append-timestamp: false
-          max-size: 1G
-
-      - name: Write google-services.json stub
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: ./.github/actions/write-google-services-stub
-        with:
-          package-name: com.veloq.app.dev
-
-      - name: Generate native project (dev variant)
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        env:
-          APP_VARIANT: dev
-        run: npx expo prebuild --platform android
-
-      - name: Build release APK
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        env:
-          APP_VARIANT: dev
-          CMAKE_C_COMPILER_LAUNCHER: ccache
-          CMAKE_CXX_COMPILER_LAUNCHER: ccache
-        run: |
-          cd android && ./gradlew assembleRelease \
-            -PreactNativeArchitectures=arm64-v8a,x86_64 \
-            --no-daemon
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android-dev-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
-          retention-days: 7
-
-  # ============================================
-  # Build Dev Variant for E2E (iOS)
-  # ============================================
   build-ios-dev:
     name: Build iOS Dev
-    if: github.event_name != 'schedule'
-
-    runs-on: macos-26
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Compute source hash
-        id: hash
-        uses: ./.github/actions/compute-version-info
-        with:
-          source-profile: ios
-
-      - name: Cache dev simulator app
-        id: app-cache
-        uses: actions/cache@v4
-        with:
-          path: artifacts/ios-dev-simulator.zip
-          key: ios-dev-sim-v1-${{ steps.hash.outputs.source_hash }}
-
-      - name: Skip build (cache hit)
-        if: steps.app-cache.outputs.cache-hit == 'true'
-        run: echo "Using cached dev simulator app (hash ${{ steps.hash.outputs.source_hash }})"
-
-      - uses: maxim-lobanov/setup-xcode@v1
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        with:
-          xcode-version: '26.2'
-
-      - uses: actions/setup-node@v6
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - if: steps.app-cache.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Setup Rust for iOS
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: ./.github/actions/setup-rust-ios
-        with:
-          targets: aarch64-apple-ios-sim
-
-      - name: Build Rust for iOS simulator
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        working-directory: modules/veloqrs/rust
-        run: |
-          cargo build --release --target aarch64-apple-ios-sim -p veloqrs
-          mkdir -p target/sim
-          cp target/aarch64-apple-ios-sim/release/libveloqrs.a target/sim/libveloqrs_ffi.a
-          mkdir -p ../ios/Frameworks
-          rm -rf ../ios/Frameworks/VeloqrsFFI.xcframework
-          xcodebuild -create-xcframework \
-            -library target/sim/libveloqrs_ffi.a \
-            -output ../ios/Frameworks/VeloqrsFFI.xcframework
-
-      # The bridge pod compiles the Live Activity contract, which the plugin copies
-      # out of widget/ios during prebuild. A restored native project skips prebuild,
-      # and the copy lands outside ios/, so nothing else puts those files on disk.
-      - name: Sync Live Activity sources
-        run: npm run sync:live-activity
-
-      - name: Generate native project (dev variant)
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        env:
-          APP_VARIANT: dev
-        run: npx expo prebuild --platform ios
-
-      - name: Install Pods
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        working-directory: ios
-        run: pod install
-
-      - name: Find simulator
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        id: simulator
-        run: |
-          UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
-          if [ -z "$UDID" ]; then
-            UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
-          fi
-          echo "udid=$UDID" >> $GITHUB_OUTPUT
-
-      - name: Build simulator app
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        run: |
-          xcodebuild -workspace ios/VeloqDev.xcworkspace \
-            -scheme VeloqDev \
-            -configuration Release \
-            -sdk iphonesimulator \
-            -destination "id=${{ steps.simulator.outputs.udid }}" \
-            -derivedDataPath ios/build \
-            ARCHS=arm64 \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Package simulator app
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        run: |
-          APP_PATH="ios/build/Build/Products/Release-iphonesimulator/VeloqDev.app"
-          if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: VeloqDev.app not found"
-            ls -la ios/build/Build/Products/Release-iphonesimulator/ || true
-            exit 1
-          fi
-          mkdir -p artifacts
-          cd "$(dirname "$APP_PATH")"
-          zip -yr "$OLDPWD/artifacts/ios-dev-simulator.zip" VeloqDev.app
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ios-dev-simulator
-          path: artifacts/ios-dev-simulator.zip
-          retention-days: 7
+    uses: ./.github/workflows/build-ios.yml
+    with:
+      variant: dev
+      retention-days: 7
 
   # ============================================
   # E2E Tests - Android with Maestro
@@ -289,7 +63,7 @@ jobs:
       - name: Download APK
         uses: actions/download-artifact@v8
         with:
-          name: android-dev-apk
+          name: ${{ needs.build-android-dev.outputs.apk-artifact }}
           path: /tmp/android-artifact
 
       - uses: actions/setup-java@v5
@@ -311,6 +85,11 @@ jobs:
           # Real phone profile (1080x2400). The default AVD skin is 320x640,
           # which pushes below-the-fold controls off-screen and breaks flows.
           profile: pixel_6
+          # The profile's own 2 GB is shared with system_server, Play services,
+          # the launcher and Maestro's driver app, and under software GL the
+          # driver is what gets squeezed out. Losing it reads as a dozen failed
+          # flows rather than one dead device.
+          ram-size: 6144
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
           disable-animations: true
@@ -343,7 +122,9 @@ jobs:
         if: always()
         run: |
           mkdir -p screenshots-flat
-          find ~/.maestro /tmp/maestro-debug -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          # The flows capture to screenshots/, which Maestro resolves against the
+          # workspace, and its own failure dumps go under ~/.maestro.
+          find "$GITHUB_WORKSPACE"/screenshots ~/.maestro /tmp/maestro-debug -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
           for f in screenshots-flat/*.png; do
             [ -f "$f" ] && mv "$f" "${f%.png}-android.png" 2>/dev/null || true
           done
@@ -407,7 +188,7 @@ jobs:
       - name: Download iOS app
         uses: actions/download-artifact@v8
         with:
-          name: ios-dev-simulator
+          name: ${{ needs.build-ios-dev.outputs.simulator-artifact }}
           path: /tmp/ios-artifact
 
       - name: Extract iOS app
@@ -466,7 +247,7 @@ jobs:
         if: always()
         run: |
           mkdir -p screenshots-flat
-          find ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          find "$GITHUB_WORKSPACE"/screenshots ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
           for f in screenshots-flat/*.png; do
             [ -f "$f" ] && mv "$f" "${f%.png}-ios.png" 2>/dev/null || true
           done
@@ -513,7 +294,7 @@ jobs:
   # E2E Summary
   # ============================================
   e2e-summary:
-    needs: [e2e-ios, e2e-android]
+    needs: [build-android-dev, build-ios-dev, e2e-ios, e2e-android]
     if: ${{ always() && (needs.e2e-ios.result != 'skipped' || needs.e2e-android.result != 'skipped') }}
     name: E2E Summary
     runs-on: ubuntu-latest
@@ -538,19 +319,24 @@ jobs:
 
       - name: Generate summary
         env:
-          EVENT: ${{ github.event_name }}
           IOS_RESULT: ${{ needs.e2e-ios.result }}
+          TESTED_SHA: ${{ github.sha }}
+          ANDROID_SOURCE_HASH: ${{ needs.build-android-dev.outputs.source_hash }}
+          IOS_SOURCE_HASH: ${{ needs.build-ios-dev.outputs.source_hash }}
+          TESTED_COMMIT: ${{ github.sha }}
+          ANDROID_PRODUCER: ${{ needs.build-android-dev.outputs.producer_commit }}
+          IOS_PRODUCER: ${{ needs.build-ios-dev.outputs.producer_commit }}
         run: |
           {
             echo "## E2E Test Results"
+            echo ""
+            echo "Tested commit: $TESTED_SHA. Dev app input hash: Android $ANDROID_SOURCE_HASH, iOS $IOS_SOURCE_HASH."
             echo ""
             echo "| Platform | Result | Status |"
             echo "|----------|--------|--------|"
             for platform in ios android; do
               report="/tmp/reports/$platform/maestro-report.xml"
-              if [ "$platform" = ios ] && [ "$IOS_RESULT" = skipped ] && [ "$EVENT" = schedule ]; then
-                echo "| $platform | Not run on the weekly schedule | :heavy_minus_sign: |"
-              elif [ -f "$report" ]; then
+              if [ -f "$report" ]; then
                 tests=$(grep -oP 'tests="\K[0-9]+' "$report" | head -1 || echo "0")
                 failures=$(grep -oP 'failures="\K[0-9]+' "$report" | head -1 || echo "0")
                 if [ "$failures" = "0" ] || [ -z "$failures" ]; then
@@ -561,6 +347,16 @@ jobs:
                 fi
               else
                 echo "| $platform | Report missing: platform job failed or did not upload | :x: |"
+              fi
+            done
+            for platform in ios android; do
+              case "$platform" in
+                ios) producer="$IOS_PRODUCER" ;;
+                android) producer="$ANDROID_PRODUCER" ;;
+              esac
+              if [ -n "$producer" ] && [ "$producer" != "$TESTED_COMMIT" ]; then
+                echo ""
+                echo "The $platform app under test was reused from a build of ${producer:0:9}, not the tested commit ${TESTED_COMMIT:0:9}."
               fi
             done
             echo ""

@@ -1,5 +1,5 @@
 name: Setup Rust for iOS
-description: Install the Rust toolchain for iOS targets, restore rust-cache, and copy C++ files required by the iOS build
+description: Install the Rust toolchain for iOS targets and restore rust-cache
 
 inputs:
   targets:
@@ -10,10 +10,6 @@ inputs:
     description: 'Extra cache-key suffix passed to Swatinem/rust-cache'
     required: false
     default: ''
-  copy-cpp-files:
-    description: 'Copy UniFFI C++ files into modules/veloqrs/ios/cpp (true/false)'
-    required: false
-    default: 'true'
 
 runs:
   using: composite
@@ -32,13 +28,3 @@ runs:
         key: ${{ inputs.cache-key }}
         # Pull requests read main's cache and write none, so they cannot evict it.
         save-if: ${{ github.ref == 'refs/heads/main' }}
-
-    - name: Copy C++ files for iOS build
-      if: ${{ inputs.copy-cpp-files == 'true' }}
-      shell: bash
-      run: |
-        mkdir -p modules/veloqrs/ios/cpp/generated
-        cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
-        cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
-        cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
-        cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/

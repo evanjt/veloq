@@ -1,5 +1,5 @@
 name: Compute Version Info
-description: Derive version, version_code, short_sha, build_type, filename, is_release, and source_hash from package.json and git
+description: Derive version, short_sha, build_type, filename, and source_hash from package.json and git
 
 inputs:
   build-type-override:
@@ -15,18 +15,12 @@ outputs:
   version:
     description: 'Semantic version from package.json'
     value: ${{ steps.compute.outputs.version }}
-  version_code:
-    description: 'Integer version code (MAJOR*10000 + MINOR*100 + PATCH)'
-    value: ${{ steps.compute.outputs.version_code }}
   short_sha:
     description: 'Short commit SHA'
     value: ${{ steps.compute.outputs.short_sha }}
   build_type:
     description: 'Resolved build type (preview or production)'
     value: ${{ steps.compute.outputs.build_type }}
-  is_release:
-    description: 'true if building from a tag ref'
-    value: ${{ steps.compute.outputs.is_release }}
   filename:
     description: 'Artifact filename base (veloq-<version> or veloq-<version>-<sha>)'
     value: ${{ steps.compute.outputs.filename }}
@@ -47,27 +41,18 @@ runs:
         VERSION=$(node -p "require('./package.json').version")
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-        MAJOR=$(echo $VERSION | cut -d. -f1)
-        MINOR=$(echo $VERSION | cut -d. -f2)
-        PATCH=$(echo $VERSION | cut -d. -f3)
-        VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
-        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-
         SHORT_SHA=$(git rev-parse --short HEAD)
         echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
 
         BUILD_TYPE="preview"
-        IS_RELEASE="false"
 
         if [[ -n "$BUILD_TYPE_OVERRIDE" && "$BUILD_TYPE_OVERRIDE" != "auto" ]]; then
           BUILD_TYPE="$BUILD_TYPE_OVERRIDE"
         elif [[ "${{ github.ref_type }}" == "tag" ]]; then
           BUILD_TYPE="production"
-          IS_RELEASE="true"
         fi
 
         echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
-        echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
 
         if [[ "$BUILD_TYPE" == "production" ]]; then
           echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
@@ -80,4 +65,4 @@ runs:
         SOURCE_HASH=$(node scripts/compute-source-hash.js "$SOURCE_PROFILE")
         echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
 
-        echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE) | Hash: $SOURCE_HASH"
+        echo "Build type: $BUILD_TYPE | Version: $VERSION | Hash: $SOURCE_HASH"

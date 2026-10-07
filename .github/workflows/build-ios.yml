@@ -1,0 +1,583 @@
+name: Build iOS
+
+# The one iOS build. Pull requests, main, release tags and the E2E workflow call
+# it and choose the identity, whether App Store signing is checked and whether
+# the signed IPA is made, so every entrypoint builds the same way.
+
+on:
+  workflow_call:
+    inputs:
+      variant:
+        description: "App identity: production or dev"
+        required: true
+        type: string
+      release:
+        description: "Build the device slice and the signed IPA"
+        required: false
+        type: boolean
+        default: false
+      check-signing:
+        description: "Check the App Store profiles against the generated project"
+        required: false
+        type: boolean
+        default: false
+      build-type:
+        description: "Build type override (auto, preview or production)"
+        required: false
+        type: string
+        default: "auto"
+      retention-days:
+        description: "Days the simulator and IPA artifacts are kept"
+        required: false
+        type: number
+        default: 30
+    secrets:
+      MATCH_GIT_URL:
+        required: false
+      MATCH_PASSWORD:
+        required: false
+      MATCH_SSH_PRIVATE_KEY:
+        required: false
+      ASC_KEY_ID:
+        required: false
+      IOS_DISTRIBUTION_CERT_P12:
+        required: false
+      IOS_DISTRIBUTION_CERT_PASSWORD:
+        required: false
+      FASTLANE_TEAM_ID:
+        required: false
+    outputs:
+      version:
+        value: ${{ jobs.build.outputs.version }}
+      short_sha:
+        value: ${{ jobs.build.outputs.short_sha }}
+      filename:
+        value: ${{ jobs.build.outputs.filename }}
+      source_hash:
+        description: "Hash of the inputs the app was built from"
+        value: ${{ jobs.build.outputs.source_hash }}
+      simulator-artifact:
+        description: "Name of the uploaded simulator app artifact"
+        value: ${{ jobs.build.outputs.simulator-artifact }}
+      producer_commit:
+        description: "Commit that built the app, which differs from the checked-out commit when the app came from the cache"
+        value: ${{ jobs.build.outputs.producer_commit }}
+
+env:
+  NODE_VERSION: "22"
+  RELEASE_BUILD: ${{ inputs.release }}
+  # A finished simulator app stands in for a build only when nothing else the
+  # build does is asked for: no signing check and no IPA.
+  REUSE_APP: ${{ !inputs.release && !inputs.check-signing }}
+
+jobs:
+  build:
+    name: iOS ${{ inputs.variant }}
+    runs-on: macos-26
+    timeout-minutes: 120
+    env:
+      # Expo configuration is read again by the Xcode bundling phase and by
+      # fastlane, so the identity holds for every step rather than for prebuild.
+      APP_VARIANT: ${{ inputs.variant }}
+      SCHEME: ${{ inputs.variant == 'production' && 'Veloq' || 'VeloqDev' }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
+      filename: ${{ steps.version.outputs.filename }}
+      source_hash: ${{ steps.version.outputs.source_hash }}
+      simulator-artifact: ${{ steps.simulator-artifact.outputs.name }}
+      producer_commit: ${{ steps.producer.outputs.commit }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Hashed before anything is installed, built or generated. The Rust
+      # builder writes the XCFramework and the C++ bridge under modules/*/ios,
+      # and a key taken after it would change with every compiled binary.
+      - name: Hash native inputs
+        id: native
+        run: |
+          echo "ccache=${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/ios/**', 'modules/**/ios/**', 'modules/**/cpp/**', '.github/workflows/build-ios.yml') }}" >> "$GITHUB_OUTPUT"
+          echo "pods=${{ hashFiles('package-lock.json', 'patches/**', 'app.json', 'app.config.js', 'src/plugins/**', 'modules/**/*.podspec', 'expo-modules/**') }}" >> "$GITHUB_OUTPUT"
+          # The compiler pin, the setup action that installs the targets,
+          # and the runner image that carries Xcode and SDK. The builder
+          # fingerprints the resolved versions too and rebuilds a restored
+          # library that disagrees.
+          echo "toolchain=${{ hashFiles('rust-toolchain.toml', '.github/actions/setup-rust-ios/action.yml') }}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Get version info
+        id: version
+        uses: ./.github/actions/compute-version-info
+        with:
+          build-type-override: ${{ inputs.build-type }}
+          source-profile: ios
+
+      - name: Restore finished simulator app
+        id: app-cache
+        if: env.REUSE_APP == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            artifacts/simulator-app.zip
+            artifacts/producer-commit
+          key: ios-sim-app-v4-${{ inputs.variant }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
+
+      - name: Skip build (cache hit)
+        if: steps.app-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached simulator app (hash ${{ steps.version.outputs.source_hash }})"
+
+      - name: Setup Xcode
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+
+      # `apple.ccacheEnabled` in app.json routes every clang call through
+      # ccache, so a second build of the same pods is a cache read. The store
+      # is capped and keyed by native inputs, avoiding a snapshot per JS commit.
+      # A native change can still warm-start from the previous store.
+      - name: Setup ccache
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          brew install ccache
+          # React Native's clang wrapper runs plain clang unless CCACHE_BINARY is in its
+          # environment, and Xcode does not pass the build setting of that name to compiles.
+          echo "CCACHE_BINARY=$(command -v ccache)" >> "$GITHUB_ENV"
+          # Set in the environment because the same wrapper swaps in its own config file.
+          echo "CCACHE_DIR=$HOME/Library/Caches/ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=1G" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/Library/Caches/ccache"
+
+      - name: Restore ccache store
+        id: ccache
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-ios-v3-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.native.outputs.ccache }}
+          restore-keys: |
+            ccache-ios-v3-${{ inputs.variant }}-${{ runner.arch }}-
+            ccache-ios-v3-
+
+      - name: Install dependencies
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/npm-ci
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+
+      # The device slice only feeds the signed IPA.
+      - name: Select slices
+        id: targets
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          if [ "$RELEASE_BUILD" = true ]; then
+            echo "slices=--slice iphoneos:arm64 --slice iphonesimulator:arm64" >> "$GITHUB_OUTPUT"
+            echo "rust=aarch64-apple-ios,aarch64-apple-ios-sim" >> "$GITHUB_OUTPUT"
+            echo "selection=full" >> "$GITHUB_OUTPUT"
+          else
+            echo "slices=--slice iphonesimulator:arm64" >> "$GITHUB_OUTPUT"
+            echo "rust=aarch64-apple-ios-sim" >> "$GITHUB_OUTPUT"
+            echo "selection=sim" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The key is the hash of every file the library is compiled from,
+      # embedded migration SQL included, from the script the local builds use.
+      - name: Hash Rust inputs
+        id: rust-inputs
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          hash=$(node modules/veloqrs/scripts/rust-inputs.js modules/veloqrs/rust)
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
+      # Rust library cache, skip toolchain install + compilation if Rust unchanged
+      - name: Restore Rust iOS libraries
+        id: rust-ios-cache
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: modules/veloqrs/build/rust/ios
+          key: rust-ios-v5-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.toolchain }}-${{ steps.targets.outputs.selection }}
+
+      - name: Setup Rust for iOS
+        if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-rust-ios
+        with:
+          targets: ${{ steps.targets.outputs.rust }}
+
+      # The shared builder syncs the C++ bridge into the pod and builds each
+      # SDK's archive into modules/veloqrs/build/rust/ios, so a compile failure
+      # fails here and the cache below saves the result. The pod's build phase
+      # then finds its SDK current and only copies the archive. On a restore
+      # every manifest is current and nothing compiles.
+      - name: Build Rust for iOS
+        id: build-rust
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: node modules/veloqrs/scripts/build-rust.js ios ${{ steps.targets.outputs.slices }}
+
+      # The caches in this job save as soon as their contents exist rather than in the
+      # post step, which runs only when the whole job succeeds.
+      - name: Save Rust iOS libraries
+        if: github.ref == 'refs/heads/main' && steps.rust-ios-cache.outputs.cache-hit != 'true' && steps.build-rust.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: modules/veloqrs/build/rust/ios
+          key: ${{ steps.rust-ios-cache.outputs.cache-primary-key }}
+
+      # The native project is generated every time. Restoring a cached one
+      # replaced reproducible generation with a mutable tree, and its key moved
+      # with the compiled framework.
+      - name: Generate native project
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform ios
+
+      # No restore-keys: a prefix-restored Pods/ from other pod versions conflicts
+      # with the new Podfile ("could not find compatible versions").
+      - name: Restore CocoaPods
+        id: pods-cache
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: cocoapods-v3-${{ inputs.variant }}-${{ runner.os }}-${{ steps.native.outputs.pods }}
+
+      - name: Setup fastlane
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-fastlane
+
+      - name: Install Pods
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        working-directory: ios
+        run: |
+          gem install cocoapods 2>/dev/null || true
+          pod install
+
+      - name: Save CocoaPods
+        if: github.ref == 'refs/heads/main' && steps.app-cache.outputs.cache-hit != 'true' && steps.pods-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: ${{ steps.pods-cache.outputs.cache-primary-key }}
+
+      # ---- Simulator Build (always) ----
+      - name: Initialize simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          xcrun simctl list > /dev/null 2>&1 || true
+          if ! xcrun simctl list devices available | grep -q "iPhone"; then
+            xcodebuild -downloadPlatform iOS || exit 1
+          fi
+
+      - name: Find simulator
+        id: simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 \(" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$DEVICE_UDID" ]; then
+            DEVICE_UDID=$(xcrun simctl list devices available | grep -E "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          echo "Found simulator UDID: $DEVICE_UDID"
+          xcrun simctl boot "$DEVICE_UDID" || true
+          echo "udid=$DEVICE_UDID" >> $GITHUB_OUTPUT
+
+      - name: Build simulator app
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          set -o pipefail
+          xcodebuild -workspace "ios/$SCHEME.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath ios/build \
+            ARCHS=arm64 \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM= \
+            2>&1 | tee ios-build.log || {
+              tail -100 ios-build.log
+              exit 1
+            }
+
+      - name: Show ccache stats
+        if: ${{ !cancelled() && steps.app-cache.outputs.cache-hit != 'true' }}
+        run: |
+          ccache --show-stats --verbose
+          du -sh "$CCACHE_DIR"
+
+      - name: Verify and package simulator app
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          APP_PATH="ios/build/Build/Products/Release-iphonesimulator/$SCHEME.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: $SCHEME.app not found"
+            ls -la ios/build/Build/Products/Release-iphonesimulator/ || true
+            exit 1
+          fi
+          if [ ! -f "$APP_PATH/$SCHEME" ]; then
+            echo "ERROR: Missing executable at $APP_PATH/$SCHEME"
+            ls -la "$APP_PATH/"
+            exit 1
+          fi
+          for bin in "$APP_PATH/$SCHEME" "$APP_PATH"/PlugIns/*.appex/*; do
+            [ -f "$bin" ] && [ -x "$bin" ] || continue
+            if ! otool -l "$bin" | grep -q 'sectname __entitlements'; then
+              echo "ERROR: $bin has no __entitlements section"
+              exit 1
+            fi
+          done
+          if ! strings -a "$APP_PATH/$SCHEME" | grep -q 'group.com.veloq.app'; then
+            echo "ERROR: $SCHEME carries no group.com.veloq.app entitlement"
+            exit 1
+          fi
+          echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
+          mkdir -p artifacts
+          cd "$(dirname "$APP_PATH")"
+          zip -yr "$OLDPWD/artifacts/simulator-app.zip" "$SCHEME.app"
+
+      # Stored in the cache entry beside the app, so a later build that reuses
+      # the app can say which commit produced it.
+      - name: Record producing commit
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: git rev-parse HEAD > artifacts/producer-commit
+
+      - name: Save finished simulator app
+        if: success() && github.ref == 'refs/heads/main' && env.RELEASE_BUILD != 'true' && steps.app-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            artifacts/simulator-app.zip
+            artifacts/producer-commit
+          key: ios-sim-app-v4-${{ inputs.variant }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
+
+      - name: Read producing commit
+        id: producer
+        run: echo "commit=$(cat artifacts/producer-commit)" >> "$GITHUB_OUTPUT"
+
+      - name: Name simulator artifact
+        id: simulator-artifact
+        env:
+          VARIANT: ${{ inputs.variant }}
+          FILENAME: ${{ steps.version.outputs.filename }}
+        run: |
+          mkdir -p upload
+          cp artifacts/simulator-app.zip "upload/$FILENAME-ios-simulator.zip"
+          if [ "$VARIANT" = production ]; then
+            echo "name=ios-simulator-$FILENAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=ios-$VARIANT-simulator-$FILENAME" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload simulator artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.simulator-artifact.outputs.name }}
+          path: upload/*-ios-simulator.zip
+          retention-days: ${{ inputs.retention-days }}
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: ios-build.log
+          retention-days: 3
+
+      # ---- Signing: checked when asked, IPA built for a release ----
+      - name: Check for iOS signing credentials
+        id: check_ios_signing
+        if: inputs.check-signing || inputs.release
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          IOS_DISTRIBUTION_CERT_P12: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
+        run: |
+          if [ -n "$MATCH_GIT_URL" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$IOS_DISTRIBUTION_CERT_P12" ]; then
+            echo "has_signing=true" >> $GITHUB_OUTPUT
+            echo "iOS signing credentials found"
+          else
+            echo "has_signing=false" >> $GITHUB_OUTPUT
+            echo "::notice::iOS signing not configured, skipping signing check and IPA build"
+          fi
+
+      - name: Import code signing certificate
+        if: steps.check_ios_signing.outputs.has_signing == 'true'
+        uses: apple-actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
+          p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
+
+      - name: Setup SSH for Match
+        if: steps.check_ios_signing.outputs.has_signing == 'true'
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      # Reads the profiles against the generated project, so a capability the portal
+      # lacks fails here in a minute rather than at the end of a release build.
+      - name: Check App Store signing
+        if: steps.check_ios_signing.outputs.has_signing == 'true'
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+        working-directory: config/fastlane
+        run: bundle exec fastlane ios check_signing
+
+      - name: Pre-build diagnostics
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
+        run: |
+          echo "=== Pre-build Diagnostics ==="
+          sw_vers
+          xcodebuild -version
+          df -h /
+          curl -sI --connect-timeout 5 https://timestamp.apple.com/ts01 && echo "timestamp.apple.com reachable" || echo "timestamp.apple.com NOT reachable"
+          security find-identity -v -p codesigning | head -10
+          echo "=== End Diagnostics ==="
+
+      - name: Start build watchdog
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
+        run: |
+          (
+            sleep 60
+            while true; do
+              echo ""
+              echo "========== WATCHDOG: $(date) =========="
+              ps aux | grep -E 'xcodebuild|codesign|security' | grep -v grep || echo "No relevant processes"
+              pgrep -fl codesign 2>/dev/null || echo "No codesign running"
+              uptime
+              df -h / | tail -1
+              tail -20 config/fastlane/artifacts/Veloq-Veloq.log 2>/dev/null || echo "No log yet"
+              echo "========================================"
+              sleep 60
+            done
+          ) &
+          echo $! > /tmp/watchdog.pid
+          echo "Watchdog started with PID $(cat /tmp/watchdog.pid)"
+
+      - name: Build signed IPA
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
+        timeout-minutes: 45
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+        working-directory: config/fastlane
+        run: |
+          echo "=== Starting IPA build at $(date) ==="
+          bundle exec fastlane ios build_release
+          echo "=== Build completed at $(date) ==="
+
+      - name: Stop watchdog
+        if: always() && steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
+        run: |
+          if [ -f /tmp/watchdog.pid ]; then
+            kill $(cat /tmp/watchdog.pid) 2>/dev/null || true
+          fi
+
+      # After both xcodebuild runs, and whether or not the signed build passed.
+      - name: Save ccache store
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.ccache.outcome == 'success' && steps.ccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
+
+      - name: Capture diagnostic info on failure
+        if: failure() && steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
+        run: |
+          mkdir -p config/fastlane/artifacts/diagnostics
+          ps aux > config/fastlane/artifacts/diagnostics/processes.txt 2>&1
+          pgrep -fl codesign > config/fastlane/artifacts/diagnostics/codesign.txt 2>&1 || echo "No codesign" > config/fastlane/artifacts/diagnostics/codesign.txt
+          lsof -i -n -P > config/fastlane/artifacts/diagnostics/network.txt 2>&1 || true
+          log show --last 5m --predicate 'process == "codesign" OR process == "xcodebuild"' > config/fastlane/artifacts/diagnostics/system.log 2>&1 || true
+          security list-keychains > config/fastlane/artifacts/diagnostics/keychain.txt 2>&1
+          security find-identity -v -p codesigning >> config/fastlane/artifacts/diagnostics/keychain.txt 2>&1
+          vm_stat > config/fastlane/artifacts/diagnostics/memory.txt 2>&1
+
+      - name: Upload build logs on failure
+        if: failure() && steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs-${{ steps.version.outputs.filename }}
+          path: |
+            config/fastlane/artifacts/*.log
+            config/fastlane/artifacts/diagnostics/*
+            ~/Library/Logs/gym/*.log
+          retention-days: 7
+
+      - name: Rename IPA
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
+        run: |
+          mkdir -p artifacts
+          IPA_PATH=$(find . -name "*.ipa" -type f | head -1)
+          if [ -n "$IPA_PATH" ]; then
+            cp "$IPA_PATH" "artifacts/${{ steps.version.outputs.filename }}.ipa"
+            echo "IPA: ${{ steps.version.outputs.filename }}.ipa"
+          fi
+
+      - name: Verify IPA code signature
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
+        env:
+          EXPECTED_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+          EXPECTED_BUNDLE_ID: "com.veloq.app"
+        run: |
+          echo "=== Verifying IPA code signature ==="
+          IPA_FILE="artifacts/${{ steps.version.outputs.filename }}.ipa"
+
+          if [ ! -f "$IPA_FILE" ]; then
+            echo "::error::IPA file not found at $IPA_FILE"
+            exit 1
+          fi
+
+          rm -rf /tmp/ipa_verify
+          mkdir -p /tmp/ipa_verify
+          unzip -q "$IPA_FILE" -d /tmp/ipa_verify
+
+          APP_PATH=$(find /tmp/ipa_verify -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::No .app bundle found in IPA"
+            exit 1
+          fi
+
+          codesign -dv --verbose=2 "$APP_PATH" 2>&1 | tee /tmp/codesign.txt || {
+            echo "::error::IPA is not properly signed"
+            exit 1
+          }
+
+          ACTUAL_TEAM=$(grep "TeamIdentifier=" /tmp/codesign.txt | cut -d= -f2)
+          echo "Expected Team ID: $EXPECTED_TEAM_ID"
+          echo "Actual Team ID:   $ACTUAL_TEAM"
+
+          if [ "$ACTUAL_TEAM" != "$EXPECTED_TEAM_ID" ]; then
+            echo "::error::Team ID mismatch!"
+            exit 1
+          fi
+
+          ACTUAL_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$APP_PATH/Info.plist" 2>/dev/null)
+          if [ "$ACTUAL_BUNDLE_ID" != "$EXPECTED_BUNDLE_ID" ]; then
+            echo "::error::Bundle ID mismatch!"
+            exit 1
+          fi
+
+          codesign --verify --deep --strict "$APP_PATH" 2>&1 || {
+            echo "::error::Code signature verification failed"
+            exit 1
+          }
+
+          rm -rf /tmp/ipa_verify
+          echo "IPA signed correctly by team $ACTUAL_TEAM with bundle ID $ACTUAL_BUNDLE_ID"
+
+      - name: Upload IPA artifact
+        if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-${{ steps.version.outputs.filename }}
+          path: artifacts/*.ipa
+          retention-days: ${{ inputs.retention-days }}

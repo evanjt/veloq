@@ -5,7 +5,7 @@ v0.2.2 (Mar 2026)
 • Sparkline: ATL line, tighter y-axis
 • 3D maps: MapLibre v5, terrain fixes, circle markers
 • Maps: flag markers, cyan scrub highlight, tile caching
-• Settings reorganised with cache details
+• Settings reorganized with cache details
 • Offline mode: improved reliability
 • Error boundaries on all screens
 • Rust engine: domain object architecture

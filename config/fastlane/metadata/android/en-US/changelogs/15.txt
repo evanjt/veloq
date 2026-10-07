@@ -1,4 +1,4 @@
-• Activity cards: +/− change indicators, auto-minimise cards without maps
+• Activity cards: +/− change indicators, auto-minimize cards without maps
 • Fitness chart: CTL/ATL with form as horizontal line and zone markers
 • Activity feed: unnested filters, collapsible search bar, longer sparklines
 • Maps: contrasting trace border, map expands into card
