@@ -136,6 +136,24 @@ android {
           ]
       }
     }
+    // The widget sources the app ships, with the package placeholder filled, so a
+    // JVM test runs the production decisions rather than a copy of them.
+    test {
+      java.srcDirs += [layout.buildDirectory.dir("generated/widgetTestSources")]
+    }
+  }
+}
+
+def widgetTestSources = tasks.register("generateWidgetTestSources", Copy) {
+  from("../../../widget/android/java") {
+    include "TileLaunch.kt", "WidgetSnapshot.kt"
+    filter { line -> line.replace("__PKG__", "com.veloq") }
+  }
+  into(layout.buildDirectory.dir("generated/widgetTestSources/com/veloq/widget"))
+}
+tasks.configureEach { task ->
+  if (task.name.startsWith("compile") && task.name.contains("UnitTestKotlin")) {
+    task.dependsOn(widgetTestSources)
   }
 }
 
