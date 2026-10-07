@@ -91,7 +91,7 @@ jobs:
       producer_commit: ${{ steps.producer.outputs.commit }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -153,7 +153,7 @@ jobs:
       # build cannot stand in for a production one.
       - name: Restore built APK/AAB
         id: apk-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             android/app/build/outputs/apk/release/app-release.apk
@@ -173,7 +173,7 @@ jobs:
 
       - name: Setup Java
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: "temurin"
           java-version: "17"
@@ -198,7 +198,7 @@ jobs:
       - name: Restore Metro bundler
         id: metro-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             /tmp/metro-*
@@ -220,7 +220,7 @@ jobs:
       - name: Restore Rust Android libraries
         id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: modules/veloqrs/build/rust/android
           key: rust-android-v5-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.toolchain }}-${{ steps.targets.outputs.selection }}
@@ -282,7 +282,7 @@ jobs:
       # only the Kotlin.
       - name: Save Rust Android libraries
         if: github.ref == 'refs/heads/main' && steps.rust-android-cache.outputs.cache-hit != 'true' && steps.build-rust.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: modules/veloqrs/build/rust/android
           key: ${{ steps.rust-android-cache.outputs.cache-primary-key }}
@@ -387,7 +387,7 @@ jobs:
       # unreadable from main anyway.
       - name: Save Metro bundler
         if: github.ref == 'refs/heads/main' && steps.apk-cache.outputs.cache-hit != 'true' && steps.metro-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             /tmp/metro-*
@@ -425,7 +425,7 @@ jobs:
           fi
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.apk.outputs.name }}
           path: artifacts/*.apk
@@ -483,7 +483,7 @@ jobs:
 
       - name: Upload AAB artifact
         if: env.RELEASE_BUILD == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: android-aab-${{ steps.version.outputs.filename }}
           path: artifacts/*.aab
@@ -493,7 +493,7 @@ jobs:
       # cached, or the next build of the same source restores it and fails again.
       - name: Save built APK/AAB
         if: success() && github.ref == 'refs/heads/main' && steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             android/app/build/outputs/apk/release/app-release.apk

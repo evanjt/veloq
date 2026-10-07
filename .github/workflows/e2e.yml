@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Enable KVM
         run: |
@@ -66,7 +66,7 @@ jobs:
           name: ${{ needs.build-android-dev.outputs.apk-artifact }}
           path: /tmp/android-artifact
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
@@ -131,7 +131,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: screenshots-android
           path: screenshots-flat/
@@ -139,7 +139,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: maestro-android-report
           path: |
@@ -149,7 +149,7 @@ jobs:
 
       - name: Upload diagnostic logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: android-logcat
           path: |
@@ -183,7 +183,7 @@ jobs:
     # 60 and 59 flows, so no complete iOS result had ever been seen.
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download iOS app
         uses: actions/download-artifact@v8
@@ -254,7 +254,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: screenshots-ios
           path: screenshots-flat/
@@ -262,7 +262,7 @@ jobs:
 
       - name: Upload diagnostic logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ios-sim-logs
           path: |
@@ -272,7 +272,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: maestro-ios-report
           path: maestro-report.xml

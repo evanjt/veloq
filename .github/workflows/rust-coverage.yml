@@ -24,7 +24,7 @@ jobs:
       - name: Look for a run on this sha
         id: measured
         if: github.event_name == 'schedule'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .coverage-measured
           key: rust-coverage-outcome-${{ github.sha }}-${{ github.run_id }}
@@ -44,7 +44,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.measured.outputs.cache-matched-key == ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -75,7 +75,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.measured.outputs.cache-matched-key == ''
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           package-manager-cache: false
@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload report
         if: ${{ !cancelled() && steps.measured.outputs.cache-matched-key == '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rust-coverage
           path: modules/veloqrs/rust/coverage.json
@@ -121,7 +121,7 @@ jobs:
 
       - name: Save the record
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (steps.measure.outcome == 'success' || steps.measure.outcome == 'failure') }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .coverage-measured
           key: rust-coverage-outcome-${{ github.sha }}-${{ github.run_id }}
