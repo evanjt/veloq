@@ -1,14 +1,12 @@
-import { Animated, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Animated, View, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { colors } from '@/theme';
-import { CompassArrow } from '@/shared/ui';
+import { CompassArrow, IconButton } from '@/shared/ui';
 import { getStyleIcon, type MapStyleType } from './mapStyles';
 import { useMapControlColumn } from '../lib/mapControlColumnLayout';
 import { styles } from './ActivityMapView.styles';
-
-const HIT_SLOP = { top: 8, right: 8, bottom: 8, left: 8 };
 
 interface ActivityMapControlsProps {
   isDark: boolean;
@@ -54,79 +52,69 @@ export function ActivityMapControls({
   return (
     <View testID="activity-map-controls" style={[styles.controlsContainer, { top, maxHeight }]}>
       {/* Style toggle */}
-      <TouchableOpacity
+      <IconButton
         testID="activity-map-style-toggle"
-        accessibilityRole="button"
         accessibilityLabel={t('maps.toggleStyle')}
         style={[styles.controlButton, isDark && styles.controlButtonDark]}
+        variant="secondary"
         onPress={onToggleStyle}
-        activeOpacity={0.6}
-        hitSlop={HIT_SLOP}
       >
         <MaterialCommunityIcons
           name={getStyleIcon(mapStyle)}
           size={22}
           color={isDark ? colors.textOnDark : colors.textSecondary}
         />
-      </TouchableOpacity>
+      </IconButton>
 
       {/* Gradient coloring toggle - only shown when gradient data is available */}
       {hasGradientData && (
-        <TouchableOpacity
+        <IconButton
           testID="activity-map-gradient-toggle"
-          accessibilityRole="button"
           accessibilityState={{ selected: gradientActive }}
           accessibilityLabel={t('maps.colorByGradient')}
-          style={[
-            styles.controlButton,
-            isDark && styles.controlButtonDark,
-            gradientActive && styles.controlButtonActive,
-          ]}
+          style={[styles.controlButton, isDark && !gradientActive && styles.controlButtonDark]}
+          variant={gradientActive ? 'primary' : 'secondary'}
           onPress={onToggleGradient}
-          activeOpacity={0.6}
-          hitSlop={HIT_SLOP}
         >
           <MaterialCommunityIcons
             name="slope-uphill"
             size={22}
             color={
-              gradientActive ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+              gradientActive
+                ? colors.textOnPrimary
+                : isDark
+                  ? colors.textOnDark
+                  : colors.textSecondary
             }
           />
-        </TouchableOpacity>
+        </IconButton>
       )}
 
       {/* 3D toggle */}
       {hasRoute && (
-        <TouchableOpacity
+        <IconButton
           testID="activity-map-3d-toggle"
-          accessibilityRole="button"
           accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
-          style={[
-            styles.controlButton,
-            isDark && styles.controlButtonDark,
-            is3DMode && styles.controlButtonActive,
-          ]}
+          style={[styles.controlButton, isDark && !is3DMode && styles.controlButtonDark]}
+          variant={is3DMode ? 'primary' : 'secondary'}
           onPress={onToggle3D}
-          activeOpacity={0.6}
-          hitSlop={HIT_SLOP}
         >
           <MaterialCommunityIcons
             name="terrain"
             size={22}
-            color={is3DMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary}
+            color={
+              is3DMode ? colors.textOnPrimary : isDark ? colors.textOnDark : colors.textSecondary
+            }
           />
-        </TouchableOpacity>
+        </IconButton>
       )}
 
       {/* Compass */}
-      <TouchableOpacity
-        accessibilityRole="button"
+      <IconButton
         accessibilityLabel={t('maps.resetOrientation')}
         style={[styles.controlButton, isDark && styles.controlButtonDark]}
+        variant="secondary"
         onPress={onResetOrientation}
-        activeOpacity={0.6}
-        hitSlop={HIT_SLOP}
       >
         <CompassArrow
           size={22}
@@ -134,18 +122,16 @@ export function ActivityMapControls({
           northColor={colors.error}
           southColor={isDark ? colors.textOnDark : colors.textSecondary}
         />
-      </TouchableOpacity>
+      </IconButton>
 
       {/* GPS location */}
-      <TouchableOpacity
-        accessibilityRole="button"
+      <IconButton
         accessibilityLabel={t('maps.goToLocation')}
         accessibilityState={{ disabled: locationLoading, busy: locationLoading }}
         style={[styles.controlButton, isDark && styles.controlButtonDark]}
-        onPress={locationLoading ? undefined : onGetLocation}
-        activeOpacity={locationLoading ? 1 : 0.6}
+        variant="secondary"
+        onPress={onGetLocation}
         disabled={locationLoading}
-        hitSlop={HIT_SLOP}
       >
         {locationLoading ? (
           <ActivityIndicator
@@ -159,25 +145,23 @@ export function ActivityMapControls({
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
         )}
-      </TouchableOpacity>
+      </IconButton>
 
       {/* Fullscreen expand */}
       {enableFullscreen && (
-        <TouchableOpacity
+        <IconButton
           testID="activity-map-fullscreen"
-          accessibilityRole="button"
           accessibilityLabel={t('maps.openFullscreen')}
           style={[styles.controlButton, isDark && styles.controlButtonDark]}
+          variant="secondary"
           onPress={onOpenFullscreen}
-          activeOpacity={0.6}
-          hitSlop={HIT_SLOP}
         >
           <MaterialCommunityIcons
             name="fullscreen"
             size={22}
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </IconButton>
       )}
     </View>
   );

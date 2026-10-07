@@ -119,9 +119,6 @@ pub struct PreviewOverlay {
     pub divergence_threshold: f64,
 }
 
-/// Announces the end of a preview run to the observer, whatever the run's
-/// outcome. Dropped last on the worker thread, so the sender is already gone
-/// and a dead worker reads as disconnected rather than as still running.
 /// Holds the attempt-store lease a preview run was started under, and frees it
 /// however the run ends.
 ///
@@ -177,6 +174,9 @@ impl Drop for PreviewLease {
     }
 }
 
+/// Announces the end of a preview run to the observer, whatever the run's
+/// outcome. Dropped last on the worker thread, so the sender is already gone
+/// and a dead worker reads as disconnected rather than as still running.
 struct PreviewFinished;
 
 impl Drop for PreviewFinished {
@@ -549,14 +549,6 @@ impl PersistentEngine {
         pooled::preview_current(&self.db, lat, lng)
     }
 
-    /// Start a preview run over the component containing (lat, lng).
-    ///
-    /// Snapshots everything the worker needs from memory under the engine `Mutex`,
-    /// then spawns. The worker opens its own read-only connection, loads the
-    /// component's pool, runs the pure batch detector and diffs against the
-    /// live catalogue scoped to the component. A detection-suspension guard
-    /// rides with the worker so no real detect can overlap the run.
-    ///
     /// The activities in the geo component containing (lat, lng): the pool a
     /// preview would run over, and so the identity of the job.
     ///
@@ -575,6 +567,14 @@ impl PersistentEngine {
         pooled::preview_component(&self.db, lat, lng)
     }
 
+    /// Start a preview run over the component containing (lat, lng).
+    ///
+    /// Snapshots everything the worker needs from memory under the engine `Mutex`,
+    /// then spawns. The worker opens its own read-only connection, loads the
+    /// component's pool, runs the pure batch detector and diffs against the
+    /// live catalogue scoped to the component. A detection-suspension guard
+    /// rides with the worker so no real detect can overlap the run.
+    ///
     /// Returns None when no activity's padded box contains the point.
     ///
     /// `key` is the attempt-store lease the caller already took. It is released

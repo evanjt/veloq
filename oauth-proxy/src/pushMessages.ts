@@ -11,8 +11,8 @@
  * `activity-<id>`, so the two stand side by side and nothing can take the
  * placeholder down: one ride, two tray entries, the second of them generic. The
  * cost is a force-stopped package, which receives no data push at all and so
- * now sees nothing until it is next opened. Evan weighed that against the
- * double entry on 2026-09-20 and chose this.
+ * sees nothing until it is next opened. That was weighed against the double
+ * entry and accepted.
  *
  * iOS keeps both. Its notification service extension rewrites the visible push
  * in place rather than posting beside it, and a force-quit app there is woken
@@ -58,10 +58,10 @@ export function buildPushMessages(
   const messages: Record<string, unknown>[] = [];
 
   if (visible && platform === "ios") {
-    // The deep-link data rides on the visible push too. Expo forwards it as FCM
-    // notification extras, which the device reads out of
+    // The deep-link data rides on the visible push too. Expo forwards it in the
+    // APNs payload, which the device reads out of
     // `response.notification.request.content.data` on a tap. Without it a tap
-    // opens MainActivity with no context and the athlete lands on Home.
+    // opens the app with no context and the athlete lands on Home.
     const tapData = activityId ? { activityId, route: `/activity/${activityId}`, ...data } : data;
 
     messages.push({

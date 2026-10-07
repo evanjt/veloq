@@ -8,7 +8,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { initFixtureRepo, gitFreeEnv } from '../__shared__/gitFixture';
+import { initFixtureRepo, gitFreeEnv, runGit } from '../__shared__/gitFixture';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -120,4 +120,56 @@ it('passes an en dash and a hyphen through', () => {
   const root = fixture({ 'docs/dashes.md': 'a – b, and c-d\n' });
 
   expect(runGuard(root).status).toBe(0);
+});
+
+describe('the tracematch submodule, which has an index of its own', () => {
+  const SUBMODULE = 'modules/veloqrs/rust/tracematch';
+
+  function fixtureWithSubmodule(files: Record<string, string>): string {
+    const root = mkdtempSync(join(tmpdir(), 'em-dash-sub-'));
+    roots.push(root);
+    const inner = join(root, SUBMODULE);
+    for (const [path, contents] of Object.entries(files)) {
+      const full = join(inner, path);
+      mkdirSync(join(full, '..'), { recursive: true });
+      writeFileSync(full, contents);
+    }
+    // The outer index holds only a gitlink for this path, so the inner repo
+    // needs a commit before the outer one can add it.
+    runGit(['init', '-q'], inner);
+    runGit(['add', '-A'], inner);
+    runGit(['commit', '-q', '-m', 'inner'], inner);
+    writeFileSync(join(root, 'README.md'), 'clean\n');
+    initFixtureRepo(root);
+    return root;
+  }
+
+  it('fails on a dash in a file only the submodule tracks', () => {
+    const root = fixtureWithSubmodule({ 'tests/fold.rs': '// one — two\n' });
+
+    const { status, output } = runGuard(root);
+
+    expect(status).toBe(1);
+    expect(output).toContain(`${SUBMODULE}/tests/fold.rs:1`);
+  });
+
+  it('passes when the submodule is clean', () => {
+    const root = fixtureWithSubmodule({ 'tests/fold.rs': '// one, two\n' });
+
+    expect(runGuard(root).status).toBe(0);
+  });
+
+  it('ignores an untracked file in the submodule', () => {
+    const root = fixtureWithSubmodule({ 'tests/fold.rs': '// plain\n' });
+    writeFileSync(join(root, SUBMODULE, 'scratch.md'), 'loose — dash\n');
+
+    expect(runGuard(root).status).toBe(0);
+  });
+
+  it('passes when the submodule directory is not checked out', () => {
+    const root = fixture({ 'README.md': 'clean\n' });
+    mkdirSync(join(root, SUBMODULE), { recursive: true });
+
+    expect(runGuard(root).status).toBe(0);
+  });
 });

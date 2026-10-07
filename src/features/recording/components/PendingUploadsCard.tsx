@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { navigateTo } from '@/shared/app/navigation';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, colorWithOpacity, typography } from '@/theme';
 import { getVisibleUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
@@ -33,11 +34,11 @@ function PendingUploadsCardInner() {
   const tint = isDark ? darkColors.secondary : colors.secondary;
 
   return (
-    <TouchableOpacity
+    <Pressable
       testID="pending-uploads-card"
-      style={[styles.card, { backgroundColor: colorWithOpacity(tint, 0.1) }]}
+      style={pressable([styles.card, { backgroundColor: colorWithOpacity(tint, 0.1) }])}
+      android_ripple={pressRipple}
       onPress={() => navigateTo('/recordings')}
-      activeOpacity={0.7}
       accessibilityRole="button"
     >
       <MaterialCommunityIcons name="cloud-upload-outline" size={18} color={tint} />
@@ -47,7 +48,7 @@ function PendingUploadsCardInner() {
         })}
       </Text>
       <MaterialCommunityIcons name="chevron-right" size={18} color={tint} />
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

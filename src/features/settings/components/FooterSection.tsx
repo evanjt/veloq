@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { View, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
@@ -43,12 +43,12 @@ export function FooterSection() {
   return (
     <>
       {getAllSlides().length > 0 && (
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('settings.appTour')}
-          style={styles.toggleRow}
+          style={pressable(styles.toggleRow)}
           onPress={() => useWhatsNewStore.getState().startTour('tutorial')}
-          activeOpacity={0.7}
+          android_ripple={pressRipple}
         >
           <View style={styles.toggleInfo}>
             <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
@@ -59,15 +59,15 @@ export function FooterSection() {
             </Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
-        </TouchableOpacity>
+        </Pressable>
       )}
 
-      <TouchableOpacity
+      <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('about.title')}
-        style={styles.toggleRow}
+        style={pressable(styles.toggleRow)}
         onPress={() => navigateTo('/about')}
-        activeOpacity={0.7}
+        android_ripple={pressRipple}
       >
         <View style={styles.toggleInfo}>
           <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
@@ -75,7 +75,7 @@ export function FooterSection() {
           </Text>
         </View>
         <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
-      </TouchableOpacity>
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"
@@ -110,13 +110,13 @@ export function FooterSection() {
         </View>
       )}
       {debugEnabled && (
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('settings.developerDashboard')}
           testID="settings-developer-dashboard-link"
-          style={styles.toggleRow}
+          style={pressable(styles.toggleRow)}
           onPress={() => navigateTo('/debug')}
-          activeOpacity={0.7}
+          android_ripple={pressRipple}
         >
           <View style={styles.toggleInfo}>
             <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
@@ -127,7 +127,7 @@ export function FooterSection() {
             </Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
-        </TouchableOpacity>
+        </Pressable>
       )}
     </>
   );

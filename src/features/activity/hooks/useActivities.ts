@@ -51,9 +51,10 @@ function parseBodies(bodies: readonly string[]): Activity[] {
 /**
  * Ask Rust to fill a window the default sync may not cover.
  *
- * The sync pulls a year on launch. The timeline slider and the infinite feed
- * both reach further back than that, so a window they open is asked for and
- * the engine event wakes the read when it lands.
+ * The launch sync fetches the runs its census says are owed inside the last 90
+ * days, and nothing when none are owed. The timeline slider and the infinite
+ * feed both reach further back than that, so a window they open is asked for
+ * and the engine event wakes the read when it lands.
  *
  * The ask carries no memory of its own. The engine answers `NotOwed` for a
  * window its census says is already local and current, which survives a
@@ -145,8 +146,7 @@ const PAGE_SIZE_DAYS = 30;
  * Infinite scroll for activity feed.
  *
  * Stale-while-revalidate: cached activities show instantly on app open,
- * background refetch picks up new activities. Persisted to AsyncStorage
- * so the feed renders immediately on subsequent opens.
+ * background refetch picks up new activities.
  */
 export function useInfiniteActivities() {
   const athleteId = useAuthStore((s) => s.athleteId);

@@ -53,9 +53,6 @@ export function clearSyncCredentials(host: DelegateHost): void {
   host.write('clearSyncCredentials', () => host.engine.sync().clearCredentials());
 }
 
-/** Start a sync. Returns instantly, naming why when it refuses so a caller can
- *  tell a held slot from a missing credential. Progress surfaces through
- *  `getSyncStatus`. */
 /**
  * What making an inclusive date range available offline will cost, in requests
  * and bytes, so the athlete is told before they spend it.
@@ -74,6 +71,9 @@ export function offlineEstimate(
   );
 }
 
+/** Start a sync. Returns instantly, naming why when it refuses so a caller can
+ *  tell a held slot from a missing credential. Progress surfaces through
+ *  `getSyncStatus`. */
 export function syncNow(host: DelegateHost): FfiStartOutcome {
   if (!host.ready) return FfiStartOutcome.NotReady;
   const outcome = host.timed('syncNow', () => host.engine.sync().syncNow()) as FfiStartOutcome;

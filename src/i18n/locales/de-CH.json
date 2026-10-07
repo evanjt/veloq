@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "Erhöhen",
+    "decrease": "Verringern",
+    "repositoryFor": "Repository für {{name}}"
+  },
   "about": {
     "dataAttribution": "Dateherkunft",
     "description": "En schnälli App für intervals.icu - mit Fokus uf Charte und Analyse. Cheibe lässig!",
@@ -227,7 +232,6 @@
     "lastBackup": "Letschts Backup: {{date}}",
     "lastBackupNever": "No nie gsicheret",
     "backupNow": "Jetzt sichere",
-    "backingUp": "Am Sichere...",
     "backendWebdav": "WebDAV oder Nextcloud",
     "carrierDeviceIos": "iCloud-Sicherung",
     "carrierDeviceAndroid": "Google-Sicherung",
@@ -862,6 +866,7 @@
     "recentPersonalRecord": "Aktuelle Bestwert"
   },
   "licenses": {
+    "openRepository": "Repository öffnen",
     "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
     "intro": "Veloq isch mit Open-Source-Software baut. Die Siite zeigt d Drittabieter-Bibliotheke und ihri Lizenze.",
     "sectionCoreFramework": "Kern-Framework",
@@ -1204,6 +1209,12 @@
     "accuracyFilter": "Genauigkeitsfilter",
     "accuracyFilterDescription": "GPS-Punkte verwerfen, die ungenauer sind als dieser Wert.",
     "autoPauseDelay": "Auto-Pause-Verzögerung",
+    "accuracyFilterDecrease": "Genauigkeitsfilter senken",
+    "accuracyFilterIncrease": "Genauigkeitsfilter erhöhen",
+    "autoPauseDelayDecrease": "Auto-Pause-Verzögerung verkürzen",
+    "autoPauseDelayIncrease": "Auto-Pause-Verzögerung verlängern",
+    "speedThresholdDecrease": "Geschwindigkeitsschwelle für {{sport}} senken",
+    "speedThresholdIncrease": "Geschwindigkeitsschwelle für {{sport}} erhöhen",
     "keepAwake": "Bildschirm aktiv halten",
     "keepAwakeDescription": "Verhindert, dass der Bildschirm während der Aufzeichnung ausgeht.",
     "routeOverlay": {

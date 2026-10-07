@@ -74,6 +74,9 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
   const renderOption = (section: SectionInfo, isSelected: boolean) => (
     <TouchableOpacity
       style={[styles.option, isSelected && styles.optionSelected]}
+      accessibilityRole="button"
+      accessibilityLabel={section.name}
+      accessibilityState={{ selected: isSelected }}
       onPress={() => setSelectedPrimary(section.id)}
       activeOpacity={0.7}
     >
@@ -141,13 +144,22 @@ export const MergeConfirmDialog = memo(function MergeConfirmDialog({
           )}
 
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.cancel')}
+              onPress={onCancel}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.cancelText, { color: textSecondary }]}>
                 {t('common.cancel')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.mergeBtn, loading && styles.mergeBtnDisabled]}
+              accessibilityRole="button"
+              accessibilityLabel={t('sections.merge')}
+              accessibilityState={{ disabled: loading }}
               onPress={() => onConfirm(actualPrimary.id, actualSecondary.id)}
               disabled={loading}
               activeOpacity={0.7}

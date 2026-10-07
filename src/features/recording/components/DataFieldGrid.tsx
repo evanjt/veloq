@@ -123,6 +123,81 @@ function formatFieldValue(
   }
 }
 
+interface DataFieldTileProps {
+  field: DataFieldType;
+  index: number;
+  value: string;
+  label: string;
+  zone: number | undefined;
+  zoneColor: string | undefined;
+  emptyKind: SensorKind | undefined;
+  isDark: boolean;
+  textColor: string;
+  mutedColor: string;
+  onLongPressField?: ((index: number, field: DataFieldType) => void) | undefined;
+  onEmptySensorTap?: ((kind: SensorKind) => void) | undefined;
+}
+
+const DataFieldTile = React.memo(function DataFieldTile({
+  field,
+  index,
+  value,
+  label,
+  zone,
+  zoneColor,
+  emptyKind,
+  isDark,
+  textColor,
+  mutedColor,
+  onLongPressField,
+  onEmptySensorTap,
+}: DataFieldTileProps) {
+  const handleLongPress = React.useCallback(() => {
+    onLongPressField?.(index, field);
+  }, [onLongPressField, index, field]);
+  const handleEmptyTap = React.useCallback(() => {
+    if (emptyKind) onEmptySensorTap?.(emptyKind);
+  }, [emptyKind, onEmptySensorTap]);
+  const zoned = zone != null && zoneColor != null;
+
+  return (
+    <Pressable
+      testID={`data-field-${field}`}
+      onPress={emptyKind ? handleEmptyTap : undefined}
+      onLongPress={onLongPressField ? handleLongPress : undefined}
+      delayLongPress={DELIBERATE_HOLD_MS}
+      accessibilityRole="button"
+      style={pressable([
+        styles.cell,
+        {
+          backgroundColor: zoned
+            ? colorWithOpacity(zoneColor, isDark ? 0.28 : 0.18)
+            : isDark
+              ? darkColors.surfaceElevated
+              : colors.surface,
+          borderColor: isDark ? darkColors.border : colors.border,
+        },
+      ])}
+      android_ripple={pressRipple}
+    >
+      <Text
+        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+        style={[styles.value, { color: zoned ? hrZoneTextColor(zone, isDark) : textColor }]}
+        numberOfLines={1}
+      >
+        {value}
+      </Text>
+      <Text
+        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+        style={[styles.label, { color: mutedColor }]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+});
+
 function DataFieldGridInner({
   fields,
   metrics,
@@ -148,47 +223,27 @@ function DataFieldGridInner({
               : metrics.cadence;
         const emptyKind =
           onEmptySensorTap && sensorKind && !(Math.round(metricValue) > 0) ? sensorKind : undefined;
-        const zoned = field === 'heartrate' && hrZone != null;
+        const zone = field === 'heartrate' ? hrZone?.zone : undefined;
         return (
-          <Pressable
+          <DataFieldTile
             key={field}
-            testID={`data-field-${field}`}
-            onPress={emptyKind ? () => onEmptySensorTap?.(emptyKind) : undefined}
-            onLongPress={onLongPressField ? () => onLongPressField(index, field) : undefined}
-            delayLongPress={DELIBERATE_HOLD_MS}
-            style={pressable([
-              styles.cell,
-              {
-                backgroundColor: zoned
-                  ? colorWithOpacity(hrZone.color, isDark ? 0.28 : 0.18)
-                  : isDark
-                    ? darkColors.surfaceElevated
-                    : colors.surface,
-                borderColor: isDark ? darkColors.border : colors.border,
-              },
-            ])}
-            android_ripple={pressRipple}
-          >
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[
-                styles.value,
-                { color: zoned ? hrZoneTextColor(hrZone.zone, isDark) : themeColors.text },
-              ]}
-              numberOfLines={1}
-            >
-              {formatFieldValue(field, metrics, isMetric, activityType)}
-            </Text>
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[styles.label, { color: themeColors.textMuted }]}
-              numberOfLines={1}
-            >
-              {zoned
-                ? `${t(`recording.fields.${field}`)} · Z${hrZone.zone}`
-                : t(`recording.fields.${field}`)}
-            </Text>
-          </Pressable>
+            field={field}
+            index={index}
+            value={formatFieldValue(field, metrics, isMetric, activityType)}
+            label={
+              zone != null
+                ? `${t(`recording.fields.${field}`)} · Z${zone}`
+                : t(`recording.fields.${field}`)
+            }
+            zone={zone}
+            zoneColor={zone != null ? hrZone?.color : undefined}
+            emptyKind={emptyKind}
+            isDark={isDark}
+            textColor={themeColors.text}
+            mutedColor={themeColors.textMuted}
+            onLongPressField={onLongPressField}
+            onEmptySensorTap={onEmptySensorTap}
+          />
         );
       })}
     </View>

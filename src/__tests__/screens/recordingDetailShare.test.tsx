@@ -9,6 +9,7 @@ import {
   recordingFitExists,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import type { RecordingLibraryEntry } from '@/types';
+import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => ({
@@ -32,8 +33,12 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => true,
 }));
-jest.mock('@/shared/ui', () => ({ ScreenSafeAreaView: require('react-native').View }));
-jest.mock('@/features/recording/components/RecordingMap', () => ({ RecordingMap: () => null }));
+jest.mock('@/shared/ui', () => ({
+  ScreenSafeAreaView: require('react-native').View,
+}));
+jest.mock('@/features/recording/components/RecordingMap', () => ({
+  RecordingMap: () => null,
+}));
 jest.mock('@/features/recording', () =>
   require('../__shared__/recordingBarrelStub').withRecordingOverrides({
     readRecordingTrack: jest.fn(async () => []),
@@ -44,7 +49,7 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   recordingFitExists: jest.fn(),
 }));
 jest.mock('@/features/recording/hooks/useRecordingLibrary', () => ({
-  useRecordingLibrary: () => ({ uploadNow: jest.fn(), remove: jest.fn(), uploadingId: null }),
+  useRecordingLibrary: jest.fn(),
 }));
 
 const ENTRY: RecordingLibraryEntry = {
@@ -63,12 +68,37 @@ const ENTRY: RecordingLibraryEntry = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (useRecordingLibrary as jest.Mock).mockReturnValue({
+    uploadNow: jest.fn(),
+    remove: jest.fn(),
+    uploadingId: null,
+  });
   (getVisibleRecording as jest.Mock).mockResolvedValue(ENTRY);
   (recordingFitExists as jest.Mock).mockResolvedValue(true);
 });
 
+it('keeps the named upload control busy while the recording uploads', async () => {
+  const view = render(<RecordingDetailScreen />);
+  const upload = await screen.findByRole('button', { name: 'Upload now' });
+  expect(upload).toBe(screen.getByTestId('recording-upload-button'));
+
+  (useRecordingLibrary as jest.Mock).mockReturnValue({
+    uploadNow: jest.fn(),
+    remove: jest.fn(),
+    uploadingId: ENTRY.id,
+  });
+  view.rerender(<RecordingDetailScreen />);
+  expect(screen.getByRole('button', { name: 'Upload now' }).props.accessibilityState.busy).toBe(
+    true
+  );
+  expect(screen.getByTestId('recording-upload-button')).toBeTruthy();
+});
+
 it.each(['pending', 'uploaded'] as const)('shares a retained %s FIT', async (uploadStatus) => {
-  (getVisibleRecording as jest.Mock).mockResolvedValue({ ...ENTRY, uploadStatus });
+  (getVisibleRecording as jest.Mock).mockResolvedValue({
+    ...ENTRY,
+    uploadStatus,
+  });
   render(<RecordingDetailScreen />);
   fireEvent.press(await screen.findByText('Share FIT file'));
   await waitFor(() =>

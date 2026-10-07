@@ -10,20 +10,13 @@ import { Text } from 'react-native-paper';
 import { Card, Shimmer } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
-import { getIntlLocale, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
+import { formatAxisDate, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { PerformanceDataPoint, DirectionStats, ActivityType } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 const INFO_CARD_PLACEHOLDER_HEIGHT = 96;
 const REVERSE_COLOR = colors.reverseDirection;
-
-/** Format date as "Jan '24" */
-function formatShortYearDate(date: Date): string {
-  const month = date.toLocaleDateString(getIntlLocale(), { month: 'short' });
-  const year = date.getFullYear().toString().slice(-2);
-  return `${month} '${year}`;
-}
 
 export interface SectionInfoCardProps {
   chartData: (PerformanceDataPoint & { x: number })[];
@@ -112,12 +105,12 @@ export function SectionInfoCard({
   const columns: { label: string; value: string; testID?: string; dotColor?: string }[] = [
     {
       label: t('sections.firstVisited', 'First'),
-      value: formatShortYearDate(firstDate),
+      value: formatAxisDate(firstDate, false),
       testID: 'section-first',
     },
     {
       label: t('sections.lastVisited', 'Last'),
-      value: formatShortYearDate(lastDate),
+      value: formatAxisDate(lastDate, false),
       testID: 'section-last',
     },
   ];

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
-import { View, LayoutChangeEvent, Pressable, StyleSheet } from 'react-native';
+import { View, LayoutChangeEvent, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
@@ -25,7 +25,7 @@ import {
   type MonthTotals,
   type PeriodTotals,
 } from '@/features/stats/hooks/useEngineStats';
-import { EngineReadFailureRetry, pressable, pressRipple } from '@/shared/ui';
+import { EngineReadFailureRetry, ToggleButton } from '@/shared/ui';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { seasonMonthChange } from '@/features/stats/lib/periodWindows';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
@@ -410,22 +410,12 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
         </Text>
         <View style={styles.metricSelector}>
           {(['hours', 'distance', 'tss'] as const).map((m) => (
-            <Pressable
+            <ToggleButton
               key={m}
+              label={metricLabels[m].label}
+              selected={metric === m}
               onPress={() => setMetric(m)}
-              style={pressable([styles.metricButton, metric === m && styles.metricButtonActive])}
-              android_ripple={pressRipple}
-            >
-              <Text
-                style={[
-                  styles.metricButtonText,
-                  isDark && chartStyles.textDark,
-                  metric === m && styles.metricButtonTextActive,
-                ]}
-              >
-                {metricLabels[m].label}
-              </Text>
-            </Pressable>
+            />
           ))}
         </View>
       </View>
@@ -578,21 +568,6 @@ const styles = StyleSheet.create({
   metricSelector: {
     flexDirection: 'row',
     gap: spacing.xs,
-  },
-  metricButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusSm,
-  },
-  metricButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  metricButtonText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  metricButtonTextActive: {
-    color: colors.textOnPrimary,
   },
   summary: {
     flexDirection: 'row',

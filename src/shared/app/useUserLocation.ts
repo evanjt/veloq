@@ -37,15 +37,28 @@ export function forgetCachedLocation(): void {
   cachedFix = null;
 }
 
-async function fetchLocation(): Promise<LatLngShort | null> {
-  const last = await Location.getLastKnownPositionAsync();
+/**
+ * The OS keeps its last position for as long as it likes, so the cache is only
+ * trusted when it was itself taken inside the window, and the fix keeps the
+ * time the OS took it rather than the time it was read.
+ */
+async function fetchFix(): Promise<Fix> {
+  const last = await Location.getLastKnownPositionAsync({ maxAge: LOCATION_TTL_MS });
   if (last) {
-    return { lat: last.coords.latitude, lng: last.coords.longitude };
+    const now = Date.now();
+    const held: Fix = {
+      value: { lat: last.coords.latitude, lng: last.coords.longitude },
+      at: Math.min(last.timestamp, now),
+    };
+    if (!fixIsStale(held, now)) return held;
   }
   const current = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.Balanced,
   });
-  return { lat: current.coords.latitude, lng: current.coords.longitude };
+  return {
+    value: { lat: current.coords.latitude, lng: current.coords.longitude },
+    at: Date.now(),
+  };
 }
 
 export function useUserLocation(): {
@@ -73,10 +86,10 @@ export function useUserLocation(): {
         return;
       }
 
-      const loc = await fetchLocation();
-      if (loc && !isCancelled()) {
-        cachedFix = { value: loc, at: Date.now() };
-        setLocation(loc);
+      const fix = await fetchFix();
+      if (!isCancelled()) {
+        cachedFix = fix;
+        setLocation(fix.value);
         setIsLoading(false);
       }
     } catch {
@@ -113,15 +126,13 @@ export function useUserLocation(): {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return null;
 
-      const loc = await fetchLocation();
-      if (loc) {
-        cachedFix = { value: loc, at: Date.now() };
-        if (mountedRef.current) {
-          setLocation(loc);
-          setIsLoading(false);
-        }
+      const fix = await fetchFix();
+      cachedFix = fix;
+      if (mountedRef.current) {
+        setLocation(fix.value);
+        setIsLoading(false);
       }
-      return loc;
+      return fix.value;
     } catch {
       return null;
     } finally {

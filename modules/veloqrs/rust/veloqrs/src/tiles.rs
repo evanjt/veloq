@@ -121,7 +121,8 @@ static IDX_LUT_Z17P: std::sync::LazyLock<Box<[u8; 65536]>> =
     std::sync::LazyLock::new(|| build_intensity_idx_lut(18.0));
 
 /// Resolve the `u16 → u8 lut_idx` table for a given zoom level.
-/// Mirrors the exposure bands in `intensity_exposure_for_zoom`.
+/// The exposure per zoom band is the argument each table is built with in
+/// `build_intensity_idx_lut`; this selects the table for the band.
 fn intensity_idx_lut_for_zoom(zoom: u8) -> &'static [u8; 65536] {
     match zoom {
         0..=8 => &IDX_LUT_Z0_8,
@@ -161,8 +162,8 @@ fn line_intensity_for_zoom(zoom: u8) -> f32 {
     }
 }
 
-// Note: the raw exposure curve is baked into `intensity_idx_lut_for_zoom` at
-// module init. The legacy float function is no longer on the hot path.
+// Note: the exposure curve is baked into the tables `intensity_idx_lut_for_zoom`
+// selects, each built once with `build_intensity_idx_lut`.
 
 // ============================================================================
 // Web Mercator Math
@@ -592,7 +593,6 @@ fn draw_disc_intensity(buf: &mut IntensityBuffer, cx: f32, cy: f32, radius: f32,
     }
 }
 
-/// Draw a line as a filled, antialiased stroke with round caps.
 /// How far the stroke's ink can land either side of the line's centre.
 /// `draw_line_intensity` derives the same figure; this is the version the
 /// caller needs before deciding whether to call it at all.
@@ -629,6 +629,7 @@ fn segment_reaches_tile(x0: f32, y0: f32, x1: f32, y1: f32, reach: f32) -> bool 
         && y0.min(y1) - reach < edge
 }
 
+/// Draw a line as a filled, antialiased stroke with round caps.
 fn draw_line_intensity(
     buf: &mut IntensityBuffer,
     x0: f32,

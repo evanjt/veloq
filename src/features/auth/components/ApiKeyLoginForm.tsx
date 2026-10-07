@@ -62,6 +62,8 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
 
         <Pressable
           onPress={onOpenDeveloperSettings}
+          accessibilityRole="link"
+          accessibilityLabel={t('login.getApiKey')}
           style={pressable(styles.getApiKeyLink)}
           android_ripple={pressRipple}
         >

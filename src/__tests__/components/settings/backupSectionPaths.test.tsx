@@ -168,6 +168,7 @@ beforeEach(() => {
   mockDownload.mockClear();
   mockImportBackup.mockClear();
   mockListBackups.mockClear();
+  (performBackup as jest.Mock).mockClear();
   (restoreRecordBackup as jest.Mock).mockClear();
   (restoreDatabaseBackup as jest.Mock).mockReset();
   (resumeRecordImport as jest.Mock).mockClear();
@@ -176,6 +177,32 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.restoreAllMocks();
+});
+
+it('keeps the backup action busy until its run finishes', async () => {
+  let finishBackup:
+    | ((result: { wroteZip: boolean; carriers: Record<string, never> }) => void)
+    | undefined;
+  (performBackup as jest.Mock).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishBackup = resolve;
+      })
+  );
+  render(<BackupSection />);
+
+  const backupButton = screen.getByRole('button', { name: 'backup.backupNow' });
+  fireEvent.press(backupButton);
+  expect(
+    screen.getByRole('button', { name: 'backup.backupNow' }).props.accessibilityState.busy
+  ).toBe(true);
+  fireEvent.press(backupButton);
+  expect(performBackup).toHaveBeenCalledTimes(1);
+
+  await act(async () => finishBackup?.({ wroteZip: true, carriers: {} }));
+  expect(
+    screen.getByRole('button', { name: 'backup.backupNow' }).props.accessibilityState.busy
+  ).toBe(false);
 });
 
 it('reports the archive destination and an import path after Back Up Now', async () => {

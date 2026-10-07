@@ -110,6 +110,8 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
         {/* Navigation link */}
         {hasNavTarget ? (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('insights.viewInDetail')}
             style={pressable([styles.navLink, isDark && styles.navLinkDark])}
             android_ripple={pressRipple}
             onPress={handleNavigate}

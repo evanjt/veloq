@@ -104,6 +104,19 @@ export {
 export { useSectionTrim } from './hooks/useSectionTrim';
 export { buildFinalRouteGroup, buildRouteGroupBase } from './lib/buildRouteGroup';
 export { getPhaseDisplayName } from './lib/detectionProgress';
+export {
+  DETECTION_PARAM_RANGES,
+  isPastClamp,
+  isPastTestedRange,
+  parseParamInput,
+} from './lib/detectionParams';
+export {
+  GROUPING_PARAM_RANGES,
+  isPastGroupingRange,
+  parseGroupingInput,
+} from './lib/groupingParams';
+export { fromEditorValue, toEditorText } from './lib/paramUnits';
+export type { ParamEditorSheetInput } from './lib/paramEditorSheet';
 export { type GroupingParams, groupingParamsOf, paintPreview } from './lib/groupingParams';
 export { previewNewNumber } from './lib/previewNewNumber';
 export { previewRefusalKey } from './lib/previewRefusal';

@@ -3,7 +3,8 @@
  *
  * Handles:
  *   1. OAuth token exchange for intervals.icu (existing)
- *   2. Webhook relay: receives intervals.icu webhooks, sends silent push notifications
+ *   2. Webhook relay: receives intervals.icu webhooks, sends a data push to
+ *      every device and, on iOS, a visible push beside it
  *   3. Device token management: register/unregister push tokens
  *
  * See README.md for deployment instructions.
@@ -347,7 +348,6 @@ function challengeFromStoredState(storedState: string): string | null {
   }
 }
 
-/** Where a pending exchange lives. Namespaced so it cannot be read as a state. */
 /**
  * Redeem a one-time code for the token it stands for. The worker exchanges
  * intervals.icu's parked code only once the verifier has matched, so it never
@@ -546,8 +546,9 @@ const DEVICE_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
  * Soft cap on tokens stored per athlete. A real user has at most a handful
  * of devices (phone, tablet, maybe a watch companion). Anything beyond this
  * is almost certainly token rotation noise from dev/release reinstalls. The
- * webhook path also reactively prunes tokens Expo flags as DeviceNotRegistered
- *, this cap is a backstop for the case where no webhooks fire.
+ * webhook path also reactively prunes tokens Expo flags as
+ * DeviceNotRegistered. This cap is a backstop for the case where no webhooks
+ * fire.
  */
 const MAX_TOKENS_PER_ATHLETE = 10;
 
@@ -563,10 +564,12 @@ const PROCESSED_EVENTS = new Set([
 
 /**
  * Build the visible portion of the push for events that warrant a tray
- * notification even when the app is in FLAG_STOPPED. The text is generic,
- * the on-device task replaces it with enriched content (PR detection, etc.)
- * when the app is alive. Returns null for events that shouldn't surface a
- * tray entry on their own (wellness/fitness updates are background-only).
+ * notification. Only iOS is sent it. The text is generic and the iOS
+ * notification service extension rewrites it in place with enriched content.
+ * Android gets the data push alone, so a force-stopped Android package shows
+ * nothing until the app is opened. Returns null for events that shouldn't
+ * surface a tray entry on their own (wellness/fitness updates are
+ * background-only).
  */
 function visibleContentForEvent(
   type: string,
@@ -708,7 +711,8 @@ async function handleDeviceUnregister(
 
 /**
  * Receive webhook events from intervals.icu.
- * Validates shared secret, looks up device tokens, sends silent push.
+ * Validates shared secret, looks up device tokens, sends each a data push and,
+ * on iOS, a visible push for an activity event.
  *
  * intervals.icu payload format:
  * { secret: "...", events: [{ athlete_id, type, timestamp, activity?: {...} }] }
@@ -828,8 +832,8 @@ async function handleIntervalsWebhook(
  * (Android) and APNs (iOS) routing transparently. No Firebase project or APNs
  * key required. Expo Push is free.
  *
- * With `visible`, a tray push goes first and a silent data push behind it, for
- * the reason set out below; without it, only the silent one. The visible push
+ * With `visible` on iOS, a tray push goes first and a silent data push behind
+ * it. Without `visible`, or on Android, only the silent one. The visible push
  * carries generic text the caller wrote and, for an activity event, a `route`
  * the device reads when the notification is tapped. The silent push carries
  * event_type and activity_id. No personal data is in either.

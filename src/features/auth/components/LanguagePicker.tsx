@@ -45,6 +45,9 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
           ])}
           android_ripple={pressRipple}
           onPress={() => setShowLanguages(!showLanguages)}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('settings.language')}: ${currentLanguageLabel}`}
+          accessibilityState={{ expanded: showLanguages, selected: isDialectSelected }}
         >
           <MaterialCommunityIcons
             name="translate"
@@ -104,6 +107,9 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                       handleLanguageChange(valueToUse);
                     }}
                     style={pressable(styles.languageLabelContainer)}
+                    accessibilityRole="button"
+                    accessibilityLabel={lang.label}
+                    accessibilityState={{ selected: isSelected || isVariantOfThisLanguage }}
                     android_ripple={pressRipple}
                   >
                     <Text style={[styles.languageLabel, isDark && styles.textLight]}>

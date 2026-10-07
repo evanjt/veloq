@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, TouchableOpacity, Animated } from 'react-native';
+import { View, Pressable, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { colors } from '@/theme';
+import { IconButton } from '@/shared/ui/IconButton';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
 import type { RecordingMode, RecordingStatus } from '../types';
@@ -70,12 +72,13 @@ function TimerHeaderInner({
         )}
       </View>
       <View style={styles.headerRight}>
-        <TouchableOpacity
+        <Pressable
           testID="recording-type-badge"
-          style={[styles.typeBadge, { borderColor: border }]}
+          style={pressable([styles.typeBadge, { borderColor: border }])}
+          android_ripple={pressRipple}
           onPress={onOpenTypePicker}
-          activeOpacity={0.7}
           disabled={isLocked}
+          accessibilityRole="button"
         >
           <MaterialCommunityIcons
             name={getActivityIcon(currentActivityType)}
@@ -86,16 +89,13 @@ function TimerHeaderInner({
             {t(`activityTypes.${currentActivityType}`, currentActivityType)}
           </Text>
           <MaterialCommunityIcons name="chevron-down" size={14} color={textSecondary} />
-        </TouchableOpacity>
+        </Pressable>
         <View style={styles.statusRow}>
-          <TouchableOpacity
+          <IconButton
             testID="recording-lock-toggle"
             style={styles.lockChip}
             onPress={onLock}
             disabled={isLocked}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
             accessibilityLabel={t('recording.slideToUnlock', 'Slide to unlock')}
           >
             <MaterialCommunityIcons
@@ -103,7 +103,7 @@ function TimerHeaderInner({
               size={16}
               color={textSecondary}
             />
-          </TouchableOpacity>
+          </IconButton>
           {/* Nothing is recording on a screen waiting for Start, and a badge
               reading PAUSED there would mislead. The
               GPS indicator goes with it: no watch runs while idle. */}

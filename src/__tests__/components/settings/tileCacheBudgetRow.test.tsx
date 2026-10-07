@@ -11,16 +11,25 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 
 import { StorageStatsPanel } from '@/features/settings/components/StorageStatsPanel';
-import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudget';
+import { answerSheet } from '../../__shared__/answerSheet';
 
 // The maps barrel reaches the engine binding, which registers a TurboModule at
 // import time, so the graph this renders cannot load without the stub.
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 const mockSetBudgetMb = jest.fn();
 const mockBudget = { mb: 50 };
+const mockPush = jest.fn();
+const mockBack = jest.fn();
+const mockParams: { request?: string } = {};
+
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  router: { push: (...a: unknown[]) => mockPush(...a), back: () => mockBack() },
+  useLocalSearchParams: () => mockParams,
+}));
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -66,36 +75,32 @@ function renderPanel() {
 describe('the tile budget row', () => {
   beforeEach(() => {
     mockSetBudgetMb.mockClear();
+    mockPush.mockClear();
+    mockBack.mockClear();
+    delete mockParams.request;
     mockBudget.mb = 50;
   });
 
-  it('opens a picker rather than cycling the value', () => {
+  it('opens the budget sheet with the current value rather than cycling it', () => {
     const view = renderPanel();
-
-    expect(view.queryByTestId('settings-tile-cache-picker')).toBeNull();
     fireEvent.press(view.getByTestId('settings-tile-cache-limit'));
-
-    expect(view.getByTestId('settings-tile-cache-picker')).toBeTruthy();
+    expect(mockPush.mock.calls.at(-1)[0].pathname).toBe('sheets/tile-cache-budget');
     expect(mockSetBudgetMb).not.toHaveBeenCalled();
   });
 
-  it('offers every rung, so the athlete can see what the choices are', () => {
+  it('applies the value returned through the sheet channel', async () => {
     const view = renderPanel();
     fireEvent.press(view.getByTestId('settings-tile-cache-limit'));
-
-    for (const mb of TILE_CACHE_BUDGET_CHOICES_MB) {
-      expect(view.getByTestId(`settings-tile-cache-choice-${mb}`)).toBeTruthy();
-    }
+    answerSheet(mockPush, mockParams, 400);
+    await waitFor(() => expect(mockSetBudgetMb).toHaveBeenCalledWith(400));
   });
 
-  it('takes the rung the athlete picked, not the next one along', () => {
+  it('leaves the budget alone when the sheet is dismissed', async () => {
     const view = renderPanel();
     fireEvent.press(view.getByTestId('settings-tile-cache-limit'));
-
-    fireEvent.press(view.getByTestId('settings-tile-cache-choice-400'));
-
-    expect(mockSetBudgetMb).toHaveBeenCalledWith(400);
-    expect(view.queryByTestId('settings-tile-cache-picker')).toBeNull();
+    answerSheet(mockPush, mockParams, null);
+    await act(async () => {});
+    expect(mockSetBudgetMb).not.toHaveBeenCalled();
   });
 
   it('reports the new limit as applied only once the store has taken it', async () => {
@@ -105,7 +110,7 @@ describe('the tile budget row', () => {
     const view = render(<StorageStatsPanel {...baseProps} onBudgetApplied={onBudgetApplied} />);
     fireEvent.press(view.getByTestId('settings-tile-cache-limit'));
 
-    fireEvent.press(view.getByTestId('settings-tile-cache-choice-50'));
+    answerSheet(mockPush, mockParams, 50);
     expect(onBudgetApplied).not.toHaveBeenCalled();
 
     takeLimit();

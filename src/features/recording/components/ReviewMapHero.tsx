@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { spacing, ink, layout, colorWithOpacity } from '@/theme';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { TrimSlider } from '@/features/recording/components/TrimSlider';
-import { pressable, pressRipple } from '@/shared/ui';
+import { IconButton } from '@/shared/ui/IconButton';
 
 interface ReviewMapHeroProps {
   coordinates: [number, number][];
@@ -44,6 +45,7 @@ function ReviewMapHeroInner({
   onBack,
   disabled,
 }: ReviewMapHeroProps) {
+  const { t } = useTranslation();
   return (
     <View style={[styles.mapContainer, { height: mapHeight, paddingTop: topInset }]}>
       <RecordingMap
@@ -56,14 +58,14 @@ function ReviewMapHeroInner({
       />
 
       {/* Back button overlaid on map */}
-      <Pressable
+      <IconButton
         onPress={onBack}
-        style={pressable([styles.mapBackButton, { top: topInset + spacing.sm }])}
-        android_ripple={pressRipple}
-        disabled={disabled}
+        style={[styles.mapBackButton, { top: topInset + spacing.sm }]}
+        disabled={disabled === true}
+        accessibilityLabel={t('common.back', 'Back')}
       >
         <MaterialCommunityIcons name="arrow-left" size={24} color={ink.white} />
-      </Pressable>
+      </IconButton>
 
       {/* Trim slider overlaid at bottom of map */}
       {canTrim && (

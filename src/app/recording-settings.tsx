@@ -1,7 +1,10 @@
 import React, { useCallback } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Switch } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ToggleButton } from '@/shared/ui/Button';
+import { IconButton } from '@/shared/ui/IconButton';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,9 +19,21 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const GPS_MODES: GpsAccuracyMode[] = ['high', 'balanced', 'batterySaver'];
 
-const SPORT_THRESHOLDS: { key: SportCategory; labelKey: string; fallback: string }[] = [
-  { key: 'cycling', labelKey: 'recording.categories.cycling', fallback: 'Cycling' },
-  { key: 'running', labelKey: 'recording.categories.running', fallback: 'Running' },
+const SPORT_THRESHOLDS: {
+  key: SportCategory;
+  labelKey: string;
+  fallback: string;
+}[] = [
+  {
+    key: 'cycling',
+    labelKey: 'recording.categories.cycling',
+    fallback: 'Cycling',
+  },
+  {
+    key: 'running',
+    labelKey: 'recording.categories.running',
+    fallback: 'Running',
+  },
   {
     key: 'walking',
     labelKey: 'recording.settingsAutoPauseWalkingAndOther',
@@ -158,26 +173,35 @@ function RecordingSettingsScreenContent() {
                 testID="settings-auto-upload"
                 value={autoUploadEnabled}
                 onValueChange={handleToggleAutoUpload}
-                trackColor={{ false: colors.iconNeutral, true: colorWithOpacity(brand.teal, 0.38) }}
+                trackColor={{
+                  false: colors.iconNeutral,
+                  true: colorWithOpacity(brand.teal, 0.38),
+                }}
                 thumbColor={autoUploadEnabled ? brand.teal : colors.background}
               />
             </View>
           </View>
-          <TouchableOpacity
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('recording.library.title', 'My Recordings')}
             testID="settings-recordings-link"
-            style={[
+            style={pressable([
               styles.linkCard,
-              { backgroundColor: surface, borderColor: border, marginTop: spacing.sm },
-            ]}
+              {
+                backgroundColor: surface,
+                borderColor: border,
+                marginTop: spacing.sm,
+              },
+            ])}
+            android_ripple={pressRipple}
             onPress={() => navigateTo('/recordings')}
-            activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="folder-play-outline" size={20} color={textSecondary} />
             <Text style={[styles.linkText, { color: textPrimary }]}>
               {t('recording.library.title', 'My Recordings')}
             </Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* GPS & Battery Section */}
@@ -199,33 +223,14 @@ function RecordingSettingsScreenContent() {
               {GPS_MODES.map((mode) => {
                 const isSelected = gpsAccuracyMode === mode;
                 return (
-                  <TouchableOpacity
+                  <ToggleButton
                     key={mode}
                     testID={`settings-gps-mode-${mode}`}
-                    style={[
-                      styles.gpsModeChip,
-                      {
-                        backgroundColor: isSelected
-                          ? colorWithOpacity(brand.teal, 0.13)
-                          : isDark
-                            ? darkColors.background
-                            : colors.background,
-                        borderColor: isSelected ? brand.teal : border,
-                      },
-                    ]}
+                    style={styles.gpsModeChip}
+                    label={t(`recording.gpsModes.${mode}`)}
+                    selected={isSelected}
                     onPress={() => handleSelectGpsMode(mode)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.fieldChipText,
-                        { color: isSelected ? brand.teal : textSecondary },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {t(`recording.gpsModes.${mode}`)}
-                    </Text>
-                  </TouchableOpacity>
+                  />
                 );
               })}
             </View>
@@ -243,25 +248,25 @@ function RecordingSettingsScreenContent() {
                 </Text>
               </View>
               <View style={styles.thresholdControls}>
-                <TouchableOpacity
+                <IconButton
                   testID="settings-accuracy-filter-minus"
                   onPress={() => handleAdjustAccuracyFilter(-5)}
-                  style={[styles.thresholdBtn, { borderColor: border }]}
-                  activeOpacity={0.7}
+                  accessibilityLabel={t('recording.accuracyFilterDecrease')}
+                  variant="secondary"
                 >
                   <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
-                </TouchableOpacity>
+                </IconButton>
                 <Text style={[styles.thresholdValue, { color: textPrimary }]}>
                   {formatElevation(accuracyRejectThreshold, isMetric)}
                 </Text>
-                <TouchableOpacity
+                <IconButton
                   testID="settings-accuracy-filter-plus"
                   onPress={() => handleAdjustAccuracyFilter(5)}
-                  style={[styles.thresholdBtn, { borderColor: border }]}
-                  activeOpacity={0.7}
+                  accessibilityLabel={t('recording.accuracyFilterIncrease')}
+                  variant="secondary"
                 >
                   <MaterialCommunityIcons name="plus" size={16} color={textSecondary} />
-                </TouchableOpacity>
+                </IconButton>
               </View>
             </View>
 
@@ -281,7 +286,10 @@ function RecordingSettingsScreenContent() {
                 testID="settings-keep-awake"
                 value={keepAwakeEnabled}
                 onValueChange={handleToggleKeepAwake}
-                trackColor={{ false: colors.iconNeutral, true: colorWithOpacity(brand.teal, 0.38) }}
+                trackColor={{
+                  false: colors.iconNeutral,
+                  true: colorWithOpacity(brand.teal, 0.38),
+                }}
                 thumbColor={keepAwakeEnabled ? brand.teal : colors.background}
               />
             </View>
@@ -303,7 +311,10 @@ function RecordingSettingsScreenContent() {
                 testID="settings-auto-pause"
                 value={autoPauseEnabled}
                 onValueChange={handleToggleAutoPause}
-                trackColor={{ false: colors.iconNeutral, true: colorWithOpacity(brand.teal, 0.38) }}
+                trackColor={{
+                  false: colors.iconNeutral,
+                  true: colorWithOpacity(brand.teal, 0.38),
+                }}
                 thumbColor={autoPauseEnabled ? brand.teal : colors.background}
               />
             </View>
@@ -315,25 +326,25 @@ function RecordingSettingsScreenContent() {
                     {t('recording.autoPauseDelay', 'Auto-pause delay')}
                   </Text>
                   <View style={styles.thresholdControls}>
-                    <TouchableOpacity
+                    <IconButton
                       testID="settings-auto-pause-delay-minus"
                       onPress={() => handleAdjustAutoPauseDelay(-500)}
-                      style={[styles.thresholdBtn, { borderColor: border }]}
-                      activeOpacity={0.7}
+                      accessibilityLabel={t('recording.autoPauseDelayDecrease')}
+                      variant="secondary"
                     >
                       <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
-                    </TouchableOpacity>
+                    </IconButton>
                     <Text style={[styles.thresholdValue, { color: textPrimary }]}>
                       {(autoPauseDurationMs / 1000).toFixed(1)} s
                     </Text>
-                    <TouchableOpacity
+                    <IconButton
                       testID="settings-auto-pause-delay-plus"
                       onPress={() => handleAdjustAutoPauseDelay(500)}
-                      style={[styles.thresholdBtn, { borderColor: border }]}
-                      activeOpacity={0.7}
+                      accessibilityLabel={t('recording.autoPauseDelayIncrease')}
+                      variant="secondary"
                     >
                       <MaterialCommunityIcons name="plus" size={16} color={textSecondary} />
-                    </TouchableOpacity>
+                    </IconButton>
                   </View>
                 </View>
                 <Text style={[styles.thresholdTitle, { color: textSecondary }]}>
@@ -351,25 +362,29 @@ function RecordingSettingsScreenContent() {
                         {t(sport.labelKey, sport.fallback)}
                       </Text>
                       <View style={styles.thresholdControls}>
-                        <TouchableOpacity
+                        <IconButton
                           testID={`settings-threshold-${sport.key}-minus`}
                           onPress={() => handleAdjustThreshold(sport.key, -0.5)}
-                          style={[styles.thresholdBtn, { borderColor: border }]}
-                          activeOpacity={0.7}
+                          accessibilityLabel={t('recording.speedThresholdDecrease', {
+                            sport: t(sport.labelKey, sport.fallback),
+                          })}
+                          variant="secondary"
                         >
                           <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
-                        </TouchableOpacity>
+                        </IconButton>
                         <Text style={[styles.thresholdValue, { color: textPrimary }]}>
                           {formatSpeed(value / MPS_TO_KPH, isMetric)}
                         </Text>
-                        <TouchableOpacity
+                        <IconButton
                           testID={`settings-threshold-${sport.key}-plus`}
                           onPress={() => handleAdjustThreshold(sport.key, 0.5)}
-                          style={[styles.thresholdBtn, { borderColor: border }]}
-                          activeOpacity={0.7}
+                          accessibilityLabel={t('recording.speedThresholdIncrease', {
+                            sport: t(sport.labelKey, sport.fallback),
+                          })}
+                          variant="secondary"
                         >
                           <MaterialCommunityIcons name="plus" size={16} color={textSecondary} />
-                        </TouchableOpacity>
+                        </IconButton>
                       </View>
                     </View>
                   );
@@ -392,7 +407,11 @@ function RecordingSettingsScreenContent() {
                 key={mode}
                 style={[
                   styles.card,
-                  { backgroundColor: surface, borderColor: border, marginBottom: spacing.sm },
+                  {
+                    backgroundColor: surface,
+                    borderColor: border,
+                    marginBottom: spacing.sm,
+                  },
                 ]}
               >
                 <Text style={[styles.modeLabel, { color: textPrimary }]}>
@@ -402,33 +421,13 @@ function RecordingSettingsScreenContent() {
                   {ALL_DATA_FIELDS.map((field) => {
                     const isSelected = selectedFields.includes(field);
                     return (
-                      <TouchableOpacity
+                      <ToggleButton
                         key={field}
                         testID={`settings-field-${mode}-${field}`}
-                        style={[
-                          styles.fieldChip,
-                          {
-                            backgroundColor: isSelected
-                              ? colorWithOpacity(brand.teal, 0.13)
-                              : isDark
-                                ? darkColors.background
-                                : colors.background,
-                            borderColor: isSelected ? brand.teal : border,
-                          },
-                        ]}
+                        label={t(`recording.fields.${field}`)}
+                        selected={isSelected}
                         onPress={() => handleToggleField(mode, field)}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.fieldChipText,
-                            { color: isSelected ? brand.teal : textSecondary },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {t(`recording.fields.${field}`)}
-                        </Text>
-                      </TouchableOpacity>
+                      />
                     );
                   })}
                 </View>
@@ -442,18 +441,20 @@ function RecordingSettingsScreenContent() {
           <Text style={[styles.sectionTitle, { color: textSecondary }]}>
             {t('sensors.title', 'Sensors')}
           </Text>
-          <TouchableOpacity
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('sensors.manageSensors', 'Heart rate, power & cadence sensors')}
             testID="settings-sensors-link"
-            style={[styles.linkCard, { backgroundColor: surface, borderColor: border }]}
+            style={pressable([styles.linkCard, { backgroundColor: surface, borderColor: border }])}
+            android_ripple={pressRipple}
             onPress={() => navigateTo('/sensor-settings')}
-            activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="bluetooth" size={20} color={textSecondary} />
             <Text style={[styles.linkText, { color: textPrimary }]}>
               {t('sensors.manageSensors', 'Heart rate, power & cadence sensors')}
             </Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Units Link */}
@@ -461,15 +462,17 @@ function RecordingSettingsScreenContent() {
           <Text style={[styles.sectionTitle, { color: textSecondary }]}>
             {t('recording.settingsUnits')}
           </Text>
-          <TouchableOpacity
-            style={[styles.linkCard, { backgroundColor: surface, borderColor: border }]}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.units')}
+            style={pressable([styles.linkCard, { backgroundColor: surface, borderColor: border }])}
+            android_ripple={pressRipple}
             onPress={() => navigateTo('/display-settings')}
-            activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="ruler" size={20} color={textSecondary} />
             <Text style={[styles.linkText, { color: textPrimary }]}>{t('settings.units')}</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </ScrollView>
     </ScreenSafeAreaView>
@@ -534,14 +537,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  thresholdBtn: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   thresholdValue: {
     ...typography.bodyBold,
     fontVariant: ['tabular-nums'],
@@ -557,16 +552,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  fieldChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: 1,
-  },
-  fieldChipText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
-  },
   gpsModeRow: {
     flexDirection: 'row',
     gap: spacing.xs,
@@ -575,11 +560,6 @@ const styles = StyleSheet.create({
   },
   gpsModeChip: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: 1,
   },
   linkCard: {
     flexDirection: 'row',

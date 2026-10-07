@@ -325,10 +325,6 @@ function SectionDetailScreenContent() {
 
   const { isRunning } = useSectionMapData(effectiveSportType, section);
 
-  const computedForwardStats = forwardStats;
-  const computedReverseStats = reverseStats;
-  const computedBestForward = bestForwardRecord ?? null;
-  const computedBestReverse = bestReverseRecord ?? null;
   const bestForwardIsRecord = performance?.bestForwardIsRecord ?? false;
   const bestReverseIsRecord = performance?.bestReverseIsRecord ?? false;
 
@@ -495,10 +491,10 @@ function SectionDetailScreenContent() {
               histograms={performance?.histograms ?? NO_HISTOGRAMS}
               curves={performance?.curves}
               onDeltaLineChange={setDeltaLine}
-              forwardStats={computedForwardStats}
-              reverseStats={computedReverseStats}
-              bestForwardRecord={computedBestForward}
-              bestReverseRecord={computedBestReverse}
+              forwardStats={forwardStats}
+              reverseStats={reverseStats}
+              bestForwardRecord={bestForwardRecord}
+              bestReverseRecord={bestReverseRecord}
               bestForwardIsRecord={bestForwardIsRecord}
               bestReverseIsRecord={bestReverseIsRecord}
               calendarSummary={calendarSummary}

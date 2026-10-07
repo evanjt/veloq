@@ -246,6 +246,8 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
         <View style={styles.sectionsContainer}>
           {sections.map((section) => (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={section.sectionName}
               key={sectionRowKey(section)}
               style={pressable([styles.sectionCard, isDark && styles.sectionCardDark])}
               android_ripple={pressRipple}

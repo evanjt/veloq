@@ -3,9 +3,10 @@
  * a finish marker.
  *
  * Lifted out of the routes row so the insight cards draw a section the same
- * way. It takes points already normalised to 0..1 because the routes list
- * holds them that way, and `normalizeTrackPoints` is the conversion for a
- * caller that holds coordinates instead.
+ * way. It takes points already normalised because the routes list holds them
+ * that way, and `normalizeTrackPoints` is the conversion for a caller that
+ * holds coordinates instead. Either way the box is filled with one scale on
+ * both axes, so the points' own proportions are what is drawn.
  */
 
 import React, { memo, useId } from 'react';
@@ -13,29 +14,59 @@ import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-n
 
 import { colors, mapPreviewColors, ink } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
+import { projectRouteToBox } from '@/shared/geo/routePreview';
 
 export interface NormalisedPoint {
   x: number;
   y: number;
 }
 
-/** Coordinates to 0..1 of their own bounding box, y flipped for the screen. */
+/**
+ * Coordinates into the unit square with their geographic shape kept: longitude
+ * is compressed by cos(latitude), one scale serves both axes and the shorter
+ * axis is centred, so the longer one spans 0..1. y is flipped for the screen.
+ */
 export function normalizeTrackPoints(points: LatLngShort[]): NormalisedPoint[] {
-  if (points.length < 2) return [];
+  return projectRouteToBox(
+    points.map((p) => ({ latitude: p.lat, longitude: p.lng })),
+    1,
+    1,
+    0
+  );
+}
 
-  const lats = points.map((p) => p.lat);
-  const lngs = points.map((p) => p.lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
+/**
+ * Points into a width by height box with one scale on both axes, so the shape
+ * they were given is the shape drawn. The line is centred on the axis it does
+ * not fill.
+ */
+export function fitTrackToBox(
+  points: NormalisedPoint[],
+  width: number,
+  height: number,
+  padding: number
+): NormalisedPoint[] {
+  if (points.length === 0) return [];
 
-  const latRange = maxLat - minLat || 1;
-  const lngRange = maxLng - minLng || 1;
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const spanX = Math.max(...xs) - minX;
+  const spanY = Math.max(...ys) - minY;
+
+  const boxW = Math.max(1, width - padding * 2);
+  const boxH = Math.max(1, height - padding * 2);
+  const scaleX = spanX > 0 ? boxW / spanX : Infinity;
+  const scaleY = spanY > 0 ? boxH / spanY : Infinity;
+  const scale = Number.isFinite(Math.min(scaleX, scaleY)) ? Math.min(scaleX, scaleY) : 0;
+
+  const offsetX = padding + (boxW - spanX * scale) / 2;
+  const offsetY = padding + (boxH - spanY * scale) / 2;
 
   return points.map((p) => ({
-    x: (p.lng - minLng) / lngRange,
-    y: 1 - (p.lat - minLat) / latRange,
+    x: offsetX + (p.x - minX) * scale,
+    y: offsetY + (p.y - minY) * scale,
   }));
 }
 
@@ -64,10 +95,7 @@ export const TrackPreview = memo(function TrackPreview({
 
   const padding = 4;
 
-  const scaledPoints = points.map((p) => ({
-    x: p.x * (width - padding * 2) + padding,
-    y: p.y * (height - padding * 2) + padding,
-  }));
+  const scaledPoints = fitTrackToBox(points, width, height, padding);
 
   const pointsString = scaledPoints.map((p) => `${p.x},${p.y}`).join(' ');
   const startPoint = scaledPoints[0];

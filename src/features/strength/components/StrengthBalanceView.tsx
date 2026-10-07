@@ -28,7 +28,7 @@ import {
   type BalanceCopyKey,
 } from '../lib/formatting';
 import { listBalancePairNames } from '../lib/analysis';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button, IconButton, pressable, pressRipple } from '@/shared/ui';
 
 interface StrengthBalanceViewProps {
   visibleBalancePairs: StrengthBalancePair[];
@@ -69,20 +69,13 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
               {t('insights.strengthBalance.volumeSplit')}
             </Text>
-            <Pressable
-              onPress={openInfo}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityLabel={t('strength.pairsInfoTitle')}
-              accessibilityRole="button"
-              style={pressable()}
-              android_ripple={pressRipple}
-            >
+            <IconButton accessibilityLabel={t('strength.pairsInfoTitle')} onPress={openInfo}>
               <MaterialCommunityIcons
                 name="information-outline"
                 size={16}
                 color={isDark ? darkColors.textMuted : colors.textSecondary}
               />
-            </Pressable>
+            </IconButton>
           </View>
           <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
             {t('strength.balanceObservedPairs', {
@@ -199,11 +192,15 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
           style={pressable(styles.modalBackdrop)}
           android_ripple={pressRipple}
           onPress={closeInfo}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
         >
           <Pressable
             style={pressable([styles.modalCard, isDark && styles.modalCardDark])}
             android_ripple={pressRipple}
             onPress={(e) => e.stopPropagation()}
+            accessible={false}
+            accessibilityRole="none"
           >
             <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
               {t('strength.pairsInfoTitle')}
@@ -222,15 +219,13 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <Text style={[styles.modalThresholds, isDark && styles.modalThresholdsDark]}>
               {t('strength.pairsInfoMinSignal')}
             </Text>
-            <Pressable
+            <Button
+              label={t('common.done')}
+              variant="ghost"
+              size="sm"
               onPress={closeInfo}
-              style={pressable(styles.modalCloseButton)}
-              android_ripple={pressRipple}
-            >
-              <Text style={[styles.modalCloseText, isDark && { color: darkColors.linkTeal }]}>
-                {t('common.done')}
-              </Text>
-            </Pressable>
+              style={styles.modalCloseButton}
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -445,14 +440,5 @@ const styles = StyleSheet.create({
   modalCloseButton: {
     marginTop: spacing.sm,
     alignSelf: 'flex-end',
-    paddingVertical: spacing.xsPlus,
-    paddingHorizontal: spacing.md,
-    borderRadius: layout.borderRadiusSm,
-    backgroundColor: opacity.overlay.subtle,
-  },
-  modalCloseText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.linkTeal,
   },
 });

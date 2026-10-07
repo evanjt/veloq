@@ -270,16 +270,19 @@ module.exports = [
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
-    // The store ring and the What's New slides. Each of these reaches a module
-    // that reaches back, and the lazy call is what keeps the cycle out of the
-    // module graph. `importCycles.test.ts` is what holds that, and it passes
-    // because of these, not despite them.
+    // The stores require each other and push registration requires AuthStore.
+    // Lazy calls keep these module initialization cycles out of the graph.
     files: [
-      'src/app/_layout.tsx',
       'src/shared/app/AuthStore.ts',
+      'src/features/settings/stores/NotificationPreferencesStore.ts',
+    ],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    // The headless task and slide registry load these modules only when used.
+    files: [
       'src/features/recording/lib/backgroundLocation.ts',
       'src/features/settings/components/whatsNew/slides.ts',
-      'src/features/settings/stores/NotificationPreferencesStore.ts',
     ],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },

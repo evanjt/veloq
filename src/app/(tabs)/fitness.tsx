@@ -1,6 +1,6 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, StyleSheet, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import {
@@ -9,6 +9,7 @@ import {
   ChartSkeleton,
   StatsPillSkeleton,
   ErrorStatePreset,
+  Button,
 } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
@@ -368,38 +369,32 @@ function FitnessScreenContent() {
             <Text style={[styles.referencesLabel, isDark && styles.referencesLabelDark]}>
               {t('fitnessScreen.learnMore')}
             </Text>
-            <TouchableOpacity
+            <Button
+              label={t('fitnessScreen.linkFitnessPage')}
+              variant="ghost"
+              size="sm"
               onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/fitness')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}>
-                {t('fitnessScreen.linkFitnessPage')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            />
+            <Button
+              label={t('fitnessScreen.linkTrainingLoad')}
+              variant="ghost"
+              size="sm"
               onPress={() =>
                 WebBrowser.openBrowserAsync(
                   'https://www.sciencetosport.com/monitoring-training-load/'
                 )
               }
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}>
-                {t('fitnessScreen.linkTrainingLoad')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            />
+            <Button
+              label={t('fitnessScreen.linkTSBManagement')}
+              variant="ghost"
+              size="sm"
               onPress={() =>
                 WebBrowser.openBrowserAsync(
                   'https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html'
                 )
               }
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}>
-                {t('fitnessScreen.linkTSBManagement')}
-              </Text>
-            </TouchableOpacity>
+            />
           </View>
         </View>
       </ScrollView>
@@ -489,11 +484,6 @@ const styles = StyleSheet.create({
   },
   referencesLabelDark: {
     color: darkColors.textSecondary,
-  },
-  infoLink: {
-    ...typography.caption,
-    color: colors.linkTeal,
-    paddingVertical: spacing.xs,
   },
   skeletonContainer: {
     flex: 1,

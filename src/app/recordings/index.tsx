@@ -1,11 +1,13 @@
 import React, { useCallback, useMemo } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, FlatList, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScreenSafeAreaView, EmptyState, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { IconButton } from '@/shared/ui/IconButton';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
@@ -28,7 +30,10 @@ const statusMeta = (
   isDark: boolean
 ): Record<
   RecordingUploadStatus,
-  { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string }
+  {
+    icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+    color: string;
+  }
 > => ({
   localOnly: { icon: 'cellphone', color: colors.textSecondary },
   pending: { icon: 'cloud-upload-outline', color: colors.secondary },
@@ -43,9 +48,6 @@ const statusMeta = (
     color: isDark ? darkColors.warningAmber : colors.warningAmber,
   },
 });
-
-/** The row's retry is small, and a press that misses opens the recording. */
-const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
 function RecordingsLibraryScreenContent() {
   const { t } = useTranslation();
@@ -69,11 +71,12 @@ function RecordingsLibraryScreenContent() {
       // recording it opens never disagree about whether a send is still owed.
       const { canUpload, isUploading } = recordingActions(item, uploadingId);
       return (
-        <TouchableOpacity
+        <Pressable
+          accessibilityRole="button"
           testID={`recording-entry-${item.id}`}
-          style={[styles.card, { backgroundColor: surface, borderColor: border }]}
+          style={pressable([styles.card, { backgroundColor: surface, borderColor: border }])}
+          android_ripple={pressRipple}
           onPress={() => navigateTo(`/recordings/${item.id}`)}
-          activeOpacity={0.7}
         >
           <MaterialCommunityIcons
             name={getActivityIcon(item.activityType)}
@@ -106,23 +109,19 @@ function RecordingsLibraryScreenContent() {
             </View>
           ) : null}
           {canUpload && !isUploading ? (
-            <TouchableOpacity
+            <IconButton
               testID={`recording-retry-${item.id}`}
-              style={styles.rowAction}
               onPress={() => uploadNow(item.id)}
-              accessibilityRole="button"
               accessibilityLabel={t('recording.library.uploadNow', 'Upload now')}
-              hitSlop={HIT_SLOP}
-              activeOpacity={0.7}
             >
               <MaterialCommunityIcons
                 name="cloud-upload-outline"
                 size={20}
                 color={colors.primary}
               />
-            </TouchableOpacity>
+            </IconButton>
           ) : null}
-        </TouchableOpacity>
+        </Pressable>
       );
     },
     [meta, surface, border, textPrimary, textSecondary, isMetric, t, uploadNow, uploadingId]

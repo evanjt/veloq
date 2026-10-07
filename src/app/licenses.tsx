@@ -5,11 +5,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Linking,
   LayoutAnimation,
 } from 'react-native';
-import { ScreenSafeAreaView, pressable, pressRipple } from '@/shared/ui';
+import { IconButton, ScreenSafeAreaView, pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -457,7 +456,14 @@ function CollapsibleSection({ section, isDark, testID }: CollapsibleSectionProps
 
   return (
     <View testID={testID} style={styles.sectionContainer(isDark)}>
-      <TouchableOpacity style={styles.sectionHeader} onPress={toggleExpanded} activeOpacity={0.7}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={section.titleKey ? t(section.titleKey) : section.title}
+        accessibilityState={{ expanded }}
+        style={pressable(styles.sectionHeader)}
+        onPress={toggleExpanded}
+        android_ripple={pressRipple}
+      >
         <View style={styles.sectionTitleRow}>
           <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
             {section.titleKey ? t(section.titleKey) : section.title}
@@ -471,7 +477,7 @@ function CollapsibleSection({ section, isDark, testID }: CollapsibleSectionProps
           size={24}
           color={themeColors.textSecondary}
         />
-      </TouchableOpacity>
+      </Pressable>
 
       {expanded && (
         <View style={styles.sectionContent}>
@@ -503,6 +509,7 @@ interface LicenseEntryRowProps {
 }
 
 function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps) {
+  const { t } = useTranslation();
   const [showLicense, setShowLicense] = useState(false);
   const themeColors = isDark ? darkColors : colors;
 
@@ -526,7 +533,14 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
       <View style={styles.entryRow}>
         <View style={styles.entryInfo}>
           <Text style={[styles.entryName, { color: themeColors.textPrimary }]}>{entry.name}</Text>
-          <Pressable onPress={toggleLicense} style={pressable()} android_ripple={pressRipple}>
+          <Pressable
+            onPress={toggleLicense}
+            style={pressable()}
+            android_ripple={pressRipple}
+            accessibilityRole="button"
+            accessibilityLabel={`${entry.name}: ${entry.license}`}
+            accessibilityState={{ expanded: showLicense }}
+          >
             <Text
               style={[
                 styles.entryLicense,
@@ -538,18 +552,16 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
           </Pressable>
         </View>
         {entry.repository && (
-          <Pressable
+          <IconButton
+            accessibilityLabel={`${t('licenses.openRepository')}: ${entry.name}`}
             onPress={handlePress}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={pressable()}
-            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons
               name="open-in-new"
               size={18}
               color={themeColors.textSecondary}
             />
-          </Pressable>
+          </IconButton>
         )}
       </View>
       {entry.description && (

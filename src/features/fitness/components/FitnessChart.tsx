@@ -337,6 +337,9 @@ export const FitnessChart = React.memo(function FitnessChart({
         {/* Legend - pressable to toggle lines */}
         <View style={styles.legend}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('fitness.fitnessCTL')}
+            accessibilityState={{ selected: visibleLines.fitness }}
             style={pressable([
               styles.legendItem,
               !visibleLines.fitness && styles.legendItemDisabled,
@@ -363,6 +366,9 @@ export const FitnessChart = React.memo(function FitnessChart({
             </Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('fitness.fatigueATL')}
+            accessibilityState={{ selected: visibleLines.fatigue }}
             style={pressable([
               styles.legendItem,
               !visibleLines.fatigue && styles.legendItemDisabled,

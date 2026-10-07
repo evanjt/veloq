@@ -1,5 +1,5 @@
 import React, { useImperativeHandle, useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
@@ -13,6 +13,7 @@ import {
   colorWithOpacity,
 } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
+import { Button } from '@/shared/ui';
 
 interface ChartDistanceIndicatorProps {
   xAxisMode: 'distance' | 'time';
@@ -64,30 +65,23 @@ export const ChartDistanceIndicator = React.memo(
 
       if (canToggleXAxis && onXAxisModeToggle) {
         return (
-          <TouchableOpacity
-            style={[
-              styles.distanceIndicator,
-              styles.distanceIndicatorTappable,
-              isDark && styles.distanceIndicatorDark,
-              isDark && styles.distanceIndicatorTappableDark,
-            ]}
+          <Button
+            label={displayValue}
+            size="sm"
+            variant="secondary"
+            style={styles.distanceIndicatorButton}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Haptics.selectionAsync().catch(() => {});
               onXAxisModeToggle();
             }}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
-              {displayValue}
-            </Text>
-            <MaterialCommunityIcons
-              name="swap-horizontal"
-              size={12}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              style={styles.swapIcon}
-            />
-          </TouchableOpacity>
+            icon={
+              <MaterialCommunityIcons
+                name="swap-horizontal"
+                size={12}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+            }
+          />
         );
       }
 
@@ -117,21 +111,14 @@ const styles = StyleSheet.create({
     // Platform-optimized shadow
     ...shadows.pill,
   },
-  distanceIndicatorTappable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colorWithOpacity(ink.black, 0.1),
-  },
-  distanceIndicatorTappableDark: {
-    borderColor: colorWithOpacity(ink.white, 0.15),
+  distanceIndicatorButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 8,
+    ...shadows.pill,
   },
   distanceIndicatorDark: {
     backgroundColor: darkColors.surfaceOverlay,
-  },
-  swapIcon: {
-    marginLeft: spacing.xs,
   },
   distanceText: {
     fontSize: typography.label.fontSize,

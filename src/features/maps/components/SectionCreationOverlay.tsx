@@ -8,7 +8,6 @@ import {
   Pressable,
   View,
   StyleSheet,
-  TouchableOpacity,
   Text,
   ActivityIndicator,
   LayoutAnimation,
@@ -26,11 +25,12 @@ import {
   shadows,
   colorWithOpacity,
   ink,
+  slopToMinTapTarget,
 } from '@/theme';
 import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeTone';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { pressable, pressRipple } from '@/shared/ui';
+import { IconButton, pressable, pressRipple } from '@/shared/ui';
 
 export type CreationState =
   | 'idle'
@@ -188,33 +188,32 @@ export function SectionCreationOverlay({
       {/* Compact bottom bar */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         {/* Cancel/Retry button */}
-        <TouchableOpacity
-          accessibilityRole="button"
+        <IconButton
           accessibilityLabel={isError ? t('common.retry') : t('common.cancel')}
-          style={[styles.iconButton, isError ? styles.retryButton : styles.cancelButton]}
+          style={styles.iconButton}
+          variant={isError ? 'primary' : 'destructive'}
           onPress={isError && onDismissError ? onDismissError : onCancel}
-          activeOpacity={0.8}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <MaterialCommunityIcons
             name={isError ? 'refresh' : 'close'}
             size={22}
-            color={colors.textOnDark}
+            color={isError || isDark ? colors.textOnPrimary : colors.textOnDark}
           />
-        </TouchableOpacity>
+        </IconButton>
 
         {/* Center status pill - expandable */}
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
           accessibilityState={{ expanded: shouldExpand, disabled: isCreating }}
-          style={[
+          hitSlop={slopToMinTapTarget(STATUS_PILL_MIN_HEIGHT)}
+          style={pressable([
             styles.statusPill,
             pillStyle,
             shouldExpand && styles.statusPillExpanded,
             isError && [styles.statusPillError, { borderColor: palette.error }],
-          ]}
+          ])}
           onPress={toggleExpanded}
-          activeOpacity={0.9}
+          android_ripple={pressRipple}
           disabled={isCreating}
         >
           <View style={styles.statusRow}>
@@ -353,31 +352,31 @@ export function SectionCreationOverlay({
               </Pressable>
             </View>
           )}
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Create button - only when complete, or cancel on error */}
         {isComplete ? (
-          <TouchableOpacity
-            accessibilityRole="button"
+          <IconButton
             accessibilityLabel={t('routes.createSection')}
-            style={[styles.iconButton, styles.confirmButton]}
+            style={styles.iconButton}
+            variant="primary"
             onPress={onConfirm}
-            activeOpacity={0.8}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <MaterialCommunityIcons name="check" size={22} color={colors.textOnDark} />
-          </TouchableOpacity>
+            <MaterialCommunityIcons name="check" size={22} color={colors.textOnPrimary} />
+          </IconButton>
         ) : isError ? (
-          <TouchableOpacity
-            accessibilityRole="button"
+          <IconButton
             accessibilityLabel={t('common.cancel')}
-            style={[styles.iconButton, styles.cancelButton]}
+            style={styles.iconButton}
+            variant="destructive"
             onPress={onCancel}
-            activeOpacity={0.8}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <MaterialCommunityIcons name="close" size={22} color={colors.textOnDark} />
-          </TouchableOpacity>
+            <MaterialCommunityIcons
+              name="close"
+              size={22}
+              color={isDark ? colors.textOnPrimary : colors.textOnDark}
+            />
+          </IconButton>
         ) : (
           <View style={styles.iconButtonPlaceholder} />
         )}
@@ -385,6 +384,8 @@ export function SectionCreationOverlay({
     </View>
   );
 }
+
+const STATUS_PILL_MIN_HEIGHT = 44;
 
 const styles = StyleSheet.create({
   container: {
@@ -404,22 +405,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: layout.borderRadiusFull,
-    alignItems: 'center',
-    justifyContent: 'center',
     ...shadows.elevated,
   },
   iconButtonPlaceholder: {
     width: 44,
     height: 44,
-  },
-  cancelButton: {
-    backgroundColor: colors.error,
-  },
-  retryButton: {
-    backgroundColor: colors.primary,
-  },
-  confirmButton: {
-    backgroundColor: colors.success,
   },
   statusPill: {
     flex: 1,
@@ -427,7 +417,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    minHeight: 44,
+    minHeight: STATUS_PILL_MIN_HEIGHT,
     justifyContent: 'center',
     ...shadows.elevated,
   },

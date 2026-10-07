@@ -646,11 +646,6 @@ pub fn resolve_highlight_pooled(
     pick_highlight(route.as_ref(), &prs, announce_prs, milestone)
 }
 
-/// The templates the last push stored, as the renderer wants them.
-///
-/// `None` when a key is missing, which is a bundle written by an older or
-/// newer push site rather than anything a lock screen should be shown. The
-/// caller posts nothing, and the generic tray entry stands.
 /// The key of the plain "an activity arrived" title.
 ///
 /// Named because the push fallback reaches for it on its own: when the ladder
@@ -658,6 +653,11 @@ pub fn resolve_highlight_pooled(
 /// string in the bundle that says so without claiming anything.
 pub const RECORDED_TITLE_KEY: &str = "notifications.activityRecorded.title";
 
+/// The templates the last push stored, as the renderer wants them.
+///
+/// `None` when a key is missing, which is a bundle written by an older or
+/// newer push site rather than anything a lock screen should be shown. The
+/// caller posts nothing, and the generic tray entry stands.
 pub fn templates_from_stored(stored: &NotificationTemplates) -> Option<Templates> {
     let at = |key: &str| stored.templates.get(key).cloned();
     Some(Templates {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,7 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import { spacing, colors, darkColors, colorWithOpacity, layout, typography } from '@/theme';
 import { GrantAccessButton } from './GrantAccessButton';
-import { pressable, pressRipple } from '@/shared/ui';
+import { IconButton } from '@/shared/ui/IconButton';
 
 const AMBER_BG = colorWithOpacity(colors.warning, 0.12);
 const AMBER_BG_DARK = colorWithOpacity(colors.warning, 0.18);
@@ -46,15 +46,13 @@ function PermissionUpgradeBannerInner() {
             {t('recording.permissionNeeded', 'Permission needed to upload activities')}
           </Text>
           <GrantAccessButton onPress={upgradePermissions} loading={isUpgrading} small />
-          <Pressable
+          <IconButton
             testID="permission-banner-dismiss"
             onPress={dismissBanner}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={pressable()}
-            android_ripple={pressRipple}
+            accessibilityLabel={t('common.close', 'Close')}
           >
             <MaterialCommunityIcons name="close" size={18} color={AMBER_TEXT} />
-          </Pressable>
+          </IconButton>
         </View>
         {error ? (
           <Text style={styles.errorText} numberOfLines={2}>

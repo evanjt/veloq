@@ -254,6 +254,33 @@ it('passes a clean set', () => {
   expect(status).toBe(0);
 });
 
+describe('native Rust profile', () => {
+  it('refuses a local profile in workflow, job or step environment', () => {
+    for (const edited of [
+      TEST_YML.replace('concurrency:', 'env:\n  VELOQRS_RUST_PROFILE: release-dev\nconcurrency:'),
+      TEST_YML.replace('  rust:\n', '  rust:\n    env:\n      VELOQRS_RUST_PROFILE: release-dev\n'),
+      TEST_YML.replace(
+        '      - name: Check Rust benches\n',
+        '      - name: Check Rust benches\n        env:\n          VELOQRS_RUST_PROFILE: release-dev\n'
+      ),
+    ]) {
+      const output = refused({ ...CLEAN, '.github/workflows/test.yml': edited });
+      expect(output).toContain('VELOQRS_RUST_PROFILE must be release');
+    }
+  });
+
+  it('refuses a local profile in a Gradle command', () => {
+    const output = refused({
+      ...CLEAN,
+      '.github/workflows/build.yml': BUILD_YML.replace(
+        '      - name: Setup ccache',
+        '      - run: ./gradlew buildRustLibrary -PveloqrsRustProfile=release-dev\n      - name: Setup ccache'
+      ),
+    });
+    expect(output).toContain('veloqrsRustProfile must be release');
+  });
+});
+
 describe('caches', () => {
   it('refuses a Swatinem step without save-if', () => {
     const output = refused(

@@ -78,6 +78,8 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
 
       {sectionId && sectionName ? (
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={sectionName}
           style={pressable([styles.sectionLink, isDark && styles.sectionLinkDark])}
           android_ripple={pressRipple}
           onPress={handleSectionPress}

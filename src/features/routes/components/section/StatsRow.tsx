@@ -6,9 +6,6 @@
  * time/pace. The engine says whether that best is the direction's record: a
  * record carries a trophy and the gold value, any other best (the best of a
  * range, a lone lap, a tie) reads as "Best" in the muted value style.
- *
- * Extracted from SectionScatterChart so the scatter component owns only
- * the chart surface itself.
  */
 
 import { useMetricSystem } from '@/shared/app';

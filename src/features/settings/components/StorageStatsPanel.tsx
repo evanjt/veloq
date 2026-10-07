@@ -1,35 +1,17 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
+import { Pressable, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
-import { formatFullDate, formatFileSize } from '@/shared/format/format';
-import {
-  BYTES_PER_BUDGET_MB,
-  TILE_CACHE_BUDGET_CHOICES_MB,
-  type BasemapTileSizes,
-  useTileCacheSettings,
-} from '@/features/maps';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSheetOpener } from '@/shared/app/sheetRequest';
+import type { TileCacheBudgetSheetInput } from '@/app/sheets/tile-cache-budget';
+import { formatDateOrDash, formatFileSize } from '@/shared/format/format';
+import { BYTES_PER_BUDGET_MB, type BasemapTileSizes, useTileCacheSettings } from '@/features/maps';
 import { mapCacheTotal } from '../lib/mapCacheTotal';
-import {
-  colors,
-  darkColors,
-  opacity,
-  spacing,
-  layout,
-  typography,
-  colorWithOpacity,
-  ink,
-} from '@/theme';
+import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
 
 import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
 import { pressable, pressRipple } from '@/shared/ui';
-
-function formatDateOrDash(dateStr: string | null): string {
-  if (!dateStr) return '-';
-  return formatFullDate(dateStr);
-}
 
 /** Every segment the bar can draw. A key, never a literal: the legend and
  * the total line beside it were once English literals. */
@@ -234,17 +216,15 @@ export function StorageStatsPanel({
   const budgetMb = useTileCacheSettings((state) => state.budgetMb);
   const setBudgetMb = useTileCacheSettings((state) => state.setBudgetMb);
 
-  // A picker, not a cycle. Four rungs on a tap is a guessing game: reaching the
-  // top from the bottom means tapping past two values you did not want, and
-  // nothing on screen says what the rungs are until you have been through them.
-  const [pickingBudget, setPickingBudget] = useState(false);
-  const chooseBudget = useCallback(
-    (mb: number) => {
-      void Promise.resolve(setBudgetMb(mb)).then(() => onBudgetApplied?.());
-      setPickingBudget(false);
-    },
-    [setBudgetMb, setPickingBudget, onBudgetApplied]
-  );
+  const openSheet = useSheetOpener();
+  const chooseBudget = useCallback(async () => {
+    const result = await openSheet<TileCacheBudgetSheetInput, number>('sheets/tile-cache-budget', {
+      budgetMb,
+    });
+    if (result.kind !== 'selected') return;
+    await setBudgetMb(result.value);
+    onBudgetApplied?.();
+  }, [budgetMb, openSheet, setBudgetMb, onBudgetApplied]);
 
   // What the tiles hold against what they are allowed, which is the question
   // the control is answering. A store that has not reported is a floor, not a
@@ -403,7 +383,7 @@ export function StorageStatsPanel({
           </Text>
           <Pressable
             testID="settings-tile-cache-limit"
-            onPress={() => setPickingBudget(true)}
+            onPress={chooseBudget}
             style={pressable(styles.infoValueRow)}
             accessibilityRole="button"
             android_ripple={pressRipple}
@@ -450,58 +430,6 @@ export function StorageStatsPanel({
           )}
         </View>
       </View>
-
-      <Modal
-        visible={pickingBudget}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPickingBudget(false)}
-      >
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel={t('settings.tileCacheLimit')}
-          testID="settings-tile-cache-picker"
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setPickingBudget(false)}
-        >
-          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-            <Text style={[styles.modalTitle, isDark && styles.textLight]}>
-              {t('settings.tileCacheLimit')}
-            </Text>
-            {TILE_CACHE_BUDGET_CHOICES_MB.map((mb) => {
-              const selected = mb === budgetMb;
-              return (
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityLabel={formatFileSize(mb * BYTES_PER_BUDGET_MB)}
-                  accessibilityState={{ selected: selected }}
-                  key={mb}
-                  testID={`settings-tile-cache-choice-${mb}`}
-                  style={[styles.modalOption, selected && styles.modalOptionSelected]}
-                  onPress={() => chooseBudget(mb)}
-                  activeOpacity={0.6}
-                >
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      isDark && styles.textLight,
-                      selected && {
-                        color: isDark ? darkColors.linkTeal : colors.linkTeal,
-                      },
-                    ]}
-                  >
-                    {formatFileSize(mb * BYTES_PER_BUDGET_MB)}
-                  </Text>
-                  {selected && (
-                    <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Storage breakdown bar */}
       <StorageBreakdownBar
@@ -594,43 +522,6 @@ const styles = StyleSheet.create({
   budgetFooterText: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: opacity.overlay.scrim,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusLg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  modalContentDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  modalTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusMd,
-    minHeight: layout.minTapTarget,
-  },
-  modalOptionSelected: {
-    backgroundColor: colors.backgroundAlt,
-  },
-  modalOptionText: {
-    fontSize: typography.body.fontSize,
-    color: colors.textPrimary,
   },
   infoLabel: {
     fontSize: typography.bodySmall.fontSize,

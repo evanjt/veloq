@@ -1,5 +1,5 @@
 import React, { useState, memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Alert } from 'react-native';
 import { useTheme, useIsOnline } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -12,6 +12,7 @@ import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
 import { Row } from '@/shared/ui/Row';
+import { pressable, pressRipple } from '@/shared/ui';
 import { signOutMessage } from '../lib/signOutCopy';
 
 interface Athlete {
@@ -169,10 +170,10 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}
     >
       {/* Profile row */}
-      <TouchableOpacity
+      <Pressable
         accessibilityRole="button"
         accessibilityLabel={athlete?.name || t('settings.athleteFallback', 'Athlete')}
-        style={styles.profileRow}
+        style={pressable(styles.profileRow)}
         onPress={
           isDemo
             ? undefined
@@ -181,8 +182,8 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
                   `https://intervals.icu/athlete/${getStoredCredentials().athleteId ?? ''}/activities`
                 )
         }
-        activeOpacity={isDemo ? 1 : 0.7}
         disabled={isDemo}
+        android_ripple={pressRipple}
       >
         <View style={[styles.profilePhoto, isDark && styles.profilePhotoDark]}>
           {hasValidProfileUrl && !profileImageError ? (
@@ -236,7 +237,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
             color={isDark ? darkColors.textMuted : colors.textSecondary}
           />
         )}
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Logout row - keeps cached data for instant re-login */}
       <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />

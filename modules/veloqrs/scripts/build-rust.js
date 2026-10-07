@@ -32,8 +32,8 @@
 // that directory beside the archive. --sources-only copies the UniFFI
 // C++ bridge into the pod and builds nothing, for `pod install`.
 //
-// Features default to VELOQRS_CARGO_FEATURES, so a one-off instrumented build
-// needs no edit to Cargo.toml.
+// Profile and features default to VELOQRS_RUST_PROFILE and
+// VELOQRS_CARGO_FEATURES, so local builds need no edit to Cargo.toml.
 
 const { createHash } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
@@ -68,7 +68,11 @@ const IOS_TRIPLES = {
   'iphonesimulator:x86_64': 'x86_64-apple-ios',
 };
 
-const PROFILES = { release: { flag: ['--release'] }, debug: { flag: [] } };
+const PROFILES = {
+  release: { flag: ['--release'] },
+  'release-dev': { flag: ['--profile', 'release-dev'] },
+  debug: { flag: [] },
+};
 
 class BuildError extends Error {}
 
@@ -128,7 +132,7 @@ function cargoConfigOutside(rustDir, env) {
  * restoring a cached library agrees with the run that built it.
  */
 function compileEnvironment(env, { profile, triples }) {
-  const profileKey = `CARGO_PROFILE_${profile === 'debug' ? 'DEV' : profile.toUpperCase()}_`;
+  const profileKey = `CARGO_PROFILE_${profile === 'debug' ? 'DEV' : profile.toUpperCase().replace(/-/g, '_')}_`;
   const tripleKeys = triples.map((t) => t.toUpperCase().replace(/-/g, '_'));
   const exact = new Set([
     'RUSTFLAGS',
@@ -334,6 +338,7 @@ const TERMINAL_ENVIRONMENT = new Set([
   'LC_ALL',
   'DEVELOPER_DIR',
   'VELOQRS_CARGO_FEATURES',
+  'VELOQRS_RUST_PROFILE',
   'RUSTC_WRAPPER',
   'SSL_CERT_FILE',
   'SSL_CERT_DIR',
@@ -687,11 +692,12 @@ function slicesFromXcode(env) {
 
 function parseArgs(argv, env) {
   const [platform, ...rest] = argv;
+  const releaseBuild = env.APP_VARIANT === 'production' || env.CONFIGURATION === 'Release';
   const options = {
     platform,
     abis: [],
     slices: [],
-    profile: 'release',
+    profile: releaseBuild ? 'release' : env.VELOQRS_RUST_PROFILE || 'release',
     features: parseFeatures(env.VELOQRS_CARGO_FEATURES),
     api: 24,
   };
@@ -716,6 +722,9 @@ function parseArgs(argv, env) {
   }
   if (!PROFILES[options.profile]) {
     throw new BuildError(`unknown profile ${options.profile}: one of ${Object.keys(PROFILES).join(', ')}`);
+  }
+  if (releaseBuild && options.profile !== 'release') {
+    throw new BuildError('production and release builds require release Rust profile');
   }
   if (!Number.isInteger(options.api) || options.api <= 0) {
     throw new BuildError('--api needs a positive API level');

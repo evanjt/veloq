@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, Pressable, Linking } from 'react-native';
+import { View, StyleSheet, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,7 @@ import {
 } from '@/features/settings';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 
 export function NotificationOptInCard() {
@@ -121,26 +121,18 @@ export function NotificationOptInCard() {
 
         {/* Actions */}
         <View style={styles.actions}>
-          <Pressable
+          <Button
+            label={t(owed ? 'notifications.privacy.turnOff' : 'notifications.prompt.dismiss')}
+            variant="ghost"
+            size="sm"
             onPress={owed ? turnOff : dismiss}
-            hitSlop={8}
-            style={pressable()}
-            android_ripple={pressRipple}
-          >
-            <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
-              {t(owed ? 'notifications.privacy.turnOff' : 'notifications.prompt.dismiss')}
-            </Text>
-          </Pressable>
-          <Pressable
+          />
+          <Button
+            label={t(owed ? 'notifications.prompt.keep' : 'notifications.prompt.enable')}
+            size="sm"
             onPress={owed ? acceptPrivacy : turnOn}
             disabled={enabling}
-            style={pressable([styles.enableButton, enabling && styles.enableButtonDisabled])}
-            android_ripple={pressRipple}
-          >
-            <Text style={styles.enableText}>
-              {t(owed ? 'notifications.prompt.keep' : 'notifications.prompt.enable')}
-            </Text>
-          </Pressable>
+          />
         </View>
       </Card>
     </Animated.View>
@@ -182,27 +174,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.lg,
     paddingTop: spacing.xs,
-  },
-  dismissText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  dismissTextDark: {
-    color: darkColors.textSecondary,
-  },
-  enableButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-  },
-  enableButtonDisabled: {
-    opacity: 0.6,
-  },
-  enableText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.textOnPrimary,
   },
   hintContainer: {
     flexDirection: 'row',

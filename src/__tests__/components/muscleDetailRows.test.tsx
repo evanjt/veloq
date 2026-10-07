@@ -18,6 +18,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 
 jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
+  useTheme: () => ({ isDark: false }),
 }));
 
 jest.mock('expo-router', () => ({

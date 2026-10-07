@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Linking, Platform, Pressable, StyleSheet } from 'react-native';
+import { View, Linking, Platform, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, colorWithOpacity, spacing, layout, typography, darkColors } from '@/theme';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button } from '@/shared/ui/Button';
+import { IconButton } from '@/shared/ui/IconButton';
 
 /**
  * One-time, dismissable Android nudge to exempt Veloq from battery
@@ -34,7 +35,9 @@ export function BatteryOptimisationNudge() {
       testID="battery-opt-nudge"
       style={[
         styles.container,
-        { backgroundColor: colorWithOpacity(colors.warning, isDark ? 0.18 : 0.1) },
+        {
+          backgroundColor: colorWithOpacity(colors.warning, isDark ? 0.18 : 0.1),
+        },
       ]}
     >
       <MaterialCommunityIcons
@@ -49,30 +52,20 @@ export function BatteryOptimisationNudge() {
             'Long recordings work best with battery optimisation off for Veloq.'
           )}
         </Text>
-        <Pressable
+        <Button
           onPress={openBatterySettings}
-          accessibilityRole="button"
-          style={pressable()}
-          android_ripple={pressRipple}
-        >
-          <Text
-            style={[styles.link, { color: isDark ? darkColors.warningAmber : colors.warningAmber }]}
-          >
-            {t('recording.batteryOptOpenSettings', 'Open battery settings')}
-          </Text>
-        </Pressable>
+          label={t('recording.batteryOptOpenSettings', 'Open battery settings')}
+          variant="ghost"
+          size="sm"
+        />
       </View>
-      <Pressable
+      <IconButton
         testID="battery-opt-nudge-dismiss"
         onPress={dismiss}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        accessibilityRole="button"
         accessibilityLabel={t('common.close', 'Close')}
-        style={pressable()}
-        android_ripple={pressRipple}
       >
         <MaterialCommunityIcons name="close" size={18} color={colors.amberIcon} />
-      </Pressable>
+      </IconButton>
     </View>
   );
 }
@@ -95,10 +88,5 @@ const styles = StyleSheet.create({
   text: {
     fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
-  },
-  link: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
   },
 });

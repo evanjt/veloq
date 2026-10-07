@@ -1,7 +1,6 @@
 /**
  * Manages section creation state, tap handling, computed geometry,
  * and confirm/cancel/reset callbacks for ActivityMapView.
- * Extracted from ActivityMapView.tsx.
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';

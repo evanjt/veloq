@@ -279,6 +279,8 @@ export const ActivityCard = React.memo(
         style={styles.secondaryScroll}
       >
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={activity.name}
           onPress={handlePress}
           style={pressable(styles.secondaryStats)}
           android_ripple={pressRipple}
@@ -548,6 +550,8 @@ export const ActivityCard = React.memo(
                       (routeHighlight.timeDeltaSeconds != null &&
                         routeHighlight.timeDeltaSeconds > 0)) && (
                       <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${activity.name}, ${t('activityDetail.tabs.route')}`}
                         testID={`activity-card-${activity.id}-route-chip`}
                         onPress={() => openActivity('routes')}
                         hitSlop={8}
@@ -596,6 +600,8 @@ export const ActivityCard = React.memo(
                 />
                 {/* Primary stats */}
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={activity.name}
                   onPress={handlePress}
                   style={pressable(styles.primaryRow)}
                   android_ripple={pressRipple}
@@ -636,6 +642,8 @@ export const ActivityCard = React.memo(
                     <View style={styles.rightColumn}>
                       {sectionHighlights && sectionHighlights.length > 0 && (
                         <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${activity.name}, ${t('activityDetail.tabs.sections')}`}
                           testID={`activity-card-${activity.id}-section-chip`}
                           onPress={() => openActivity('sections')}
                           hitSlop={8}

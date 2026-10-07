@@ -128,6 +128,10 @@ impl PersistentEngine {
     pub(super) const SCHEMA_VERSION: i32 = SUPPORTED_SCHEMA_VERSION;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
+    ///
+    /// The numbered notes below cover some of them; [`Self::migration_scripts`]
+    /// names every file, in order, and the file names say what each adds.
+    ///
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
     /// M12: consolidated 0.2.2 → 0.3.0 upgrade.
     /// M13: untyped wellness body.

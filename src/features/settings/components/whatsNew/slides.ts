@@ -31,7 +31,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       icon: 'map-legend',
       showMeRoute: '/',
       showMeAction: 'enableSatellite3D',
-      // Lazy-loaded to avoid circular deps with MapLibre
+      // Load the map preview only when this slide is shown.
       get Component() {
         return require('./MapPreferencesSlide').MapPreferencesSlide;
       },

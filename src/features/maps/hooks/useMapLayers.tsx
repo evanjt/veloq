@@ -4,8 +4,6 @@
  * Builds all GeoJSON data structures needed by MapLibre shape sources:
  * route line, route overlay, section overlays (consolidated), highlight point,
  * and section marker elements.
- *
- * Extracted from ActivityMapView.tsx - pure refactor, no behaviour change.
  */
 
 import { useMemo } from 'react';

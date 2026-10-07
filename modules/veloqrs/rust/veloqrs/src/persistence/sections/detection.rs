@@ -11,10 +11,10 @@ const CHECKPOINT_EVERY: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// Whether this fold step has earned a checkpoint.
 ///
-/// A checkpoint costs about 5 KB and 0.07 ms per activity to encode, so a
-/// 1,000-activity library pays about 75 ms a write. What it records is the
-/// clusters that are cut, so between two of them the bytes are the same and the
-/// clock alone earns nothing: `done` has to have advanced. The last cluster
+/// A checkpoint at 1,000 activities encodes about 13 MB in about 60 ms, and
+/// the blob grows faster than per activity. What it records is the clusters
+/// that are cut, so between two of them the bytes are the same and the clock
+/// alone earns nothing: `done` has to have advanced. The last cluster
 /// always earns one, whatever the clock says, because it is the one a killed
 /// run most wants to resume from.
 fn checkpoint_due(
@@ -2014,7 +2014,7 @@ impl PersistentEngine {
 
     /// The same save, with the cache blob already encoded.
     ///
-    /// The encode is the expensive half, about 13 KB and 60 ms per 1,000
+    /// The encode is the expensive half, about 13 MB and 60 ms at 1,000
     /// activities, and it ran here under the write lock while every reader
     /// waited it out. `encode_cache_for_apply` pays it on the worker before the
     /// lock is taken and hands the row in, so what is left under the lock is the
@@ -2129,9 +2129,8 @@ impl PersistentEngine {
     }
 
     /// Apply completed section detection results synchronously: hot save
-    /// path followed by the deferred tail. Equivalent to today's pre-Tier
-    /// 1.1 single call. Callers that want to keep the UI responsive
-    /// during the tail should use `apply_sections_save` followed by
+    /// path followed by the deferred tail. Runs both stages in one call on the
+    /// calling thread. Callers that want to keep the UI responsive during the tail should use `apply_sections_save` followed by
     /// `apply_sections_finalize` on a background thread.
     pub fn apply_sections(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
         self.apply_sections_save(sections)?;
@@ -2183,10 +2182,11 @@ pub struct EvidenceRow {
 /// Encode the cache and its folded-id shadow. No engine, so a caller holding
 /// the checkpoint can pay the encode on its own thread.
 ///
-/// This is the expensive half: roughly 5 KB and 0.07 ms per activity, so about
-/// 75 ms at 1,000 activities and 375 ms at 5,000. Run inside the engine lock it
-/// was that long a hold every two seconds for the length of a detect, and every
-/// screen read arriving during one waited it out.
+/// This is the expensive half: about 13 MB and 60 ms at 1,000 activities, and
+/// the blob grows faster than per activity, so it is not extrapolated linearly.
+/// `benches/evidence_cache_write_cost.rs` takes the figures. Run inside the
+/// engine lock it was that long a hold every two seconds for the length of a
+/// detect, and every screen read arriving during one waited it out.
 pub fn encode_evidence_row(
     cache: &SectionEvidenceCache,
     folded_ids: &HashSet<String>,
@@ -2669,10 +2669,9 @@ mod tests {
         );
     }
 
-    /// A checkpoint costs about 5 KB and 0.07 ms per activity to encode, so a
-    /// 1,000-activity library pays 75 ms a write. The content only moves when a
-    /// cluster finishes, so a clock that fires between two of them re-encodes
-    /// bytes nobody needs.
+    /// A checkpoint at 1,000 activities encodes about 13 MB in about 60 ms. The
+    /// content only moves when a cluster finishes, so a clock that fires
+    /// between two of them re-encodes bytes nobody needs.
     #[test]
     fn the_clock_alone_does_not_earn_a_checkpoint() {
         let elapsed = CHECKPOINT_EVERY;

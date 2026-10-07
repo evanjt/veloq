@@ -22,11 +22,21 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  brand,
+  spacing,
+  layout,
+  typography,
+  slopToMinTapTarget,
+} from '@/theme';
 import { fallbackLetter } from '@/features/routes/lib/labelPreviewCentres';
 import type { CentreLabel } from '@/features/routes/lib/labelPreviewCentres';
 import type { PreviewCentre } from 'veloqrs';
 import { pressable, pressRipple } from '@/shared/ui';
+
+const CHIP_MIN_HEIGHT = 44;
 
 interface PreviewCentrePickerProps {
   centres: PreviewCentre[];
@@ -93,6 +103,7 @@ export function PreviewCentrePicker({
                 { backgroundColor: surface, borderColor: border },
                 active && styles.chipActive,
               ])}
+              hitSlop={slopToMinTapTarget(CHIP_MIN_HEIGHT)}
               android_ripple={pressRipple}
               onPress={() => onSelect(centre)}
               accessibilityRole="button"
@@ -147,7 +158,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     minWidth: 120,
-    minHeight: 44,
+    minHeight: CHIP_MIN_HEIGHT,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadiusSm,

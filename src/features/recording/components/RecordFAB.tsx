@@ -1,11 +1,12 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { navigateTo } from '@/shared/app/navigation';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import { colors, recording, spacing, layout } from '@/theme';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -20,22 +21,22 @@ function RecordFABInner() {
   if (sessionActive) return null;
 
   return (
-    <TouchableOpacity
+    <Pressable
       testID="record-fab"
-      style={[
+      style={pressable([
         styles.fab,
         {
           bottom: insets.bottom + TAB_BAR_SAFE_PADDING + spacing.md,
           backgroundColor: isDark ? recording.dark : recording.light,
         },
-      ]}
+      ])}
+      android_ripple={pressRipple}
       onPress={() => navigateTo('/record')}
-      activeOpacity={0.8}
       accessibilityRole="button"
       accessibilityLabel={t('recording.startActivity', 'Start Activity')}
     >
       <MaterialCommunityIcons name="record-circle-outline" size={28} color={colors.textOnDark} />
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

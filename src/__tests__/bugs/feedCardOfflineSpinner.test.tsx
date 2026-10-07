@@ -1,8 +1,8 @@
 /**
  * Scenario: the athlete scrolls the feed offline. No snapshot can be rendered,
  * because every rung of the ladder needs the network, but nothing says so
- * until a terminal failure arrives: 15 s of watchdog when idle, and scrolling
- * re-arms it, so a scrolling athlete waits the per-card 45 s timer.
+ * until a terminal failure arrives: the pipeline's staleness watchdog or the
+ * failure event at the end of the retry ladder.
  *
  * Expected behaviour: an offline card starts on the settled "nothing to draw"
  * mark rather than a spinner that cannot resolve, and goes back to the spinner

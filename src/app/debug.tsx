@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   RefreshControl,
   Platform,
   Share,
 } from 'react-native';
 import Constants from 'expo-constants';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { Button, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
@@ -76,11 +76,14 @@ function CollapsibleSection({
 
   return (
     <View style={[styles.section, isDark && styles.sectionDark]}>
-      <TouchableOpacity
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ expanded: open }}
         testID={testID}
-        style={styles.sectionHeader}
+        style={pressable(styles.sectionHeader)}
         onPress={() => setOpen(!open)}
-        activeOpacity={0.7}
+        android_ripple={pressRipple}
       >
         <View style={styles.sectionHeaderLeft}>
           <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
@@ -91,7 +94,7 @@ function CollapsibleSection({
           size={20}
           color={mutedColor}
         />
-      </TouchableOpacity>
+      </Pressable>
       {open && <View style={styles.sectionContent}>{children}</View>}
     </View>
   );
@@ -133,7 +136,6 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
   const daysUntilShow =
     lastActionDate != null ? Math.max(0, Math.ceil(30 - daysSince(lastActionDate))) : 0;
 
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   const presets = [
@@ -169,9 +171,10 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
       </Text>
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         {presets.map((p) => (
-          <TouchableOpacity
+          <Button
             key={p.days}
             testID={`debug-support-preset-${p.days}d`}
+            label={p.label}
             onPress={() =>
               debugOverride({
                 lastActionDate: daysAgoLocal(p.days),
@@ -179,51 +182,31 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
                 dismissCount: 0,
               })
             }
-            style={[styles.actionButton, { paddingHorizontal: spacing.sm }]}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.actionButtonText,
-                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
-              ]}
-            >
-              {p.label}
-            </Text>
-          </TouchableOpacity>
+            variant="ghost"
+            size="sm"
+          />
         ))}
       </View>
 
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
-        <TouchableOpacity
+        <Button
+          label="Clear dismissed"
           onPress={() =>
             debugOverride({
               lastActionDate: daysAgoLocal(31),
               permanentlyDismissed: false,
             })
           }
-          style={styles.actionButton}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.actionButtonText,
-              { color: isDark ? darkColors.linkTeal : colors.linkTeal },
-            ]}
-          >
-            Clear dismissed
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+          variant="ghost"
+          size="sm"
+        />
+        <Button
           testID="debug-support-legacy-toggle"
+          label={`${isLegacyPurchaser ? 'Unset' : 'Set'} legacy`}
           onPress={() => debugOverride({ isLegacyPurchaser: !isLegacyPurchaser })}
-          style={styles.actionButton}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.actionButtonText, { color: textColor }]}>
-            {isLegacyPurchaser ? 'Unset' : 'Set'} legacy
-          </Text>
-        </TouchableOpacity>
+          variant="ghost"
+          size="sm"
+        />
       </View>
     </CollapsibleSection>
   );
@@ -318,17 +301,14 @@ function BackgroundNotificationsDebug({
               </Text>
             </View>
           ))}
-          <TouchableOpacity style={styles.actionButton} onPress={handleClear} activeOpacity={0.7}>
-            <MaterialCommunityIcons name="delete-outline" size={16} color={colors.primary} />
-            <Text
-              style={[
-                styles.actionButtonText,
-                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
-              ]}
-            >
-              Clear Log
-            </Text>
-          </TouchableOpacity>
+          <Button
+            label="Clear Log"
+            onPress={handleClear}
+            variant="ghost"
+            size="sm"
+            style={styles.actionButton}
+            icon={<MaterialCommunityIcons name="delete-outline" size={16} color={colors.primary} />}
+          />
         </>
       ) : (
         <Text style={[styles.emptyText, { color: mutedColor }]}>
@@ -548,21 +528,16 @@ function DebugScreenContent() {
                   </Text>
                 </View>
               ))}
-              <TouchableOpacity
-                style={styles.actionButton}
+              <Button
+                label="Clear Metrics"
                 onPress={handleClearMetrics}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="delete-outline" size={16} color={colors.primary} />
-                <Text
-                  style={[
-                    styles.actionButtonText,
-                    { color: isDark ? darkColors.linkTeal : colors.linkTeal },
-                  ]}
-                >
-                  Clear Metrics
-                </Text>
-              </TouchableOpacity>
+                variant="ghost"
+                size="sm"
+                style={styles.actionButton}
+                icon={
+                  <MaterialCommunityIcons name="delete-outline" size={16} color={colors.primary} />
+                }
+              />
             </>
           ) : (
             <Text style={[styles.emptyText, { color: mutedColor }]}>
@@ -688,21 +663,12 @@ function DebugScreenContent() {
         <SupportCardDebug isDark={isDark} />
 
         {/* Share Debug Snapshot */}
-        <TouchableOpacity
-          style={[styles.shareButton, isDark && styles.shareButtonDark]}
+        <Button
+          label="Share Debug Snapshot"
           onPress={handleShareSnapshot}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="share-variant" size={18} color={colors.primary} />
-          <Text
-            style={[
-              styles.shareButtonText,
-              { color: isDark ? darkColors.linkTeal : colors.linkTeal },
-            ]}
-          >
-            Share Debug Snapshot
-          </Text>
-        </TouchableOpacity>
+          variant="secondary"
+          icon={<MaterialCommunityIcons name="share-variant" size={18} color={colors.primary} />}
+        />
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>
@@ -824,34 +790,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsPlus,
     marginTop: spacing.sm,
-    paddingVertical: spacing.xsPlus,
-  },
-  actionButtonText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
-  },
-  shareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  shareButtonDark: {
-    backgroundColor: darkColors.surfaceElevated,
-    borderColor: darkColors.border,
-  },
-  shareButtonText: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
   },
 });
 

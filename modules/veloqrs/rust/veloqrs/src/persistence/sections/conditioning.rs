@@ -276,7 +276,6 @@ fn try_start_conditioning_inner(owed_only: bool, required_install: Option<u64>) 
     true
 }
 
-/// Follow the in-flight run and flush work added while it ran.
 /// Put a batch back that its driver stopped following.
 ///
 /// A run whose driver timed out may still be going, and may still apply. The
@@ -312,6 +311,7 @@ fn flush_after_run_with(install: u64, after_check: impl FnOnce()) -> bool {
     condition_pending_for(Some(install))
 }
 
+/// Follow the in-flight run and flush work added while it ran.
 fn spawn_conditioning_driver(install: u64) {
     const DRIVER_POLL: Duration = Duration::from_millis(250);
 

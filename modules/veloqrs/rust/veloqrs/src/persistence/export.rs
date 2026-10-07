@@ -435,67 +435,26 @@ mod gpx_writer_tests {
 // Clear rollback snapshot
 // ============================================================================
 
-/// Pages copied per snapshot step, and the pause between steps. Small steps
-/// keep the writer's commits from waiting on the copy: in WAL mode a reader
-/// never blocks a writer, and the pause leaves the engine's connections room
-/// between steps.
-const SNAPSHOT_PAGES_PER_STEP: i32 = 100;
-const SNAPSHOT_STEP_PAUSE: std::time::Duration = std::time::Duration::from_millis(10);
-
-/// How many times a commit from another connection may restart the stepped
-/// copy before it takes the rest in one step.
-const SNAPSHOT_MAX_RESTARTS: u32 = 3;
-
-/// What a snapshot copy did, so a test can bound the work and not the time.
-#[derive(Debug, Default, PartialEq, Eq)]
-struct SnapshotCopyStats {
-    steps: u32,
-    restarts: u32,
-}
-
-/// Copy `source` into `dest` with `sqlite3_backup`.
+/// Copy `source` into `dest` with `sqlite3_backup`, in one step.
 ///
-/// A commit from another connection restarts a stepped copy from the first
-/// page, so under continuous commits it can run for ever. Each restart is
-/// counted, and after `max_restarts` the remaining pages are copied in one
-/// step: one read transaction, a consistent snapshot of the file as of its
-/// start, which in WAL mode does not block the writer and cannot be
-/// restarted. `between_steps` runs after every stepped copy, before the pause.
-fn copy_with_restart_bound(
+/// The library is a WAL file, where a reader neither waits for a writer nor
+/// blocks one. One step reads the whole file inside a single read
+/// transaction, so the copy is a consistent snapshot as of its start and no
+/// commit from another connection can restart it. Stepping in small
+/// batches would let each commit restart the copy from the first page, so a
+/// sync or a backfill committing faster than one pass would keep it from
+/// finishing.
+fn copy_in_one_step(
     source: &rusqlite::Connection,
     dest: &mut rusqlite::Connection,
-    max_restarts: u32,
-    mut between_steps: impl FnMut(),
-) -> Result<SnapshotCopyStats, String> {
+) -> Result<(), String> {
     use rusqlite::backup::StepResult;
 
     let copy = rusqlite::backup::Backup::new(source, dest)
         .map_err(|e| format!("Failed to init backup: {}", e))?;
-    let mut stats = SnapshotCopyStats::default();
-    let mut remaining = i32::MAX;
-    loop {
-        let pages = if stats.restarts >= max_restarts {
-            -1
-        } else {
-            SNAPSHOT_PAGES_PER_STEP
-        };
-        let step = copy
-            .step(pages)
-            .map_err(|e| format!("Backup failed: {}", e))?;
-        stats.steps += 1;
-        match step {
-            StepResult::Done => return Ok(stats),
-            StepResult::More => {
-                let now = copy.progress().remaining;
-                if now > remaining {
-                    stats.restarts += 1;
-                }
-                remaining = now;
-            }
-            _ => {}
-        }
-        between_steps();
-        std::thread::sleep(SNAPSHOT_STEP_PAUSE);
+    match copy.step(-1).map_err(|e| format!("Backup failed: {}", e))? {
+        StepResult::Done => Ok(()),
+        other => Err(format!("Backup stopped before the end: {:?}", other)),
     }
 }
 
@@ -503,21 +462,22 @@ fn copy_with_restart_bound(
 fn copy_database_snapshot(db_path: &str, dest_path: &str) -> Result<(), String> {
     let source = rusqlite::Connection::open(db_path)
         .map_err(|e| format!("Failed to open backup source: {}", e))?;
-    // A write on the engine's connection locks the file for its commit. Wait
-    // it out rather than failing the backup on a transient busy.
+    // A WAL read can still meet a transient busy, in recovery or when a
+    // checkpoint resets the WAL index. Wait it out rather than failing the
+    // copy.
     source
         .busy_timeout(std::time::Duration::from_secs(5))
         .map_err(|e| format!("Failed to set backup busy timeout: {}", e))?;
     let mut dest = rusqlite::Connection::open(dest_path)
         .map_err(|e| format!("Failed to open backup destination: {}", e))?;
-    copy_with_restart_bound(&source, &mut dest, SNAPSHOT_MAX_RESTARTS, || {}).map(|_| ())
+    copy_in_one_step(&source, &mut dest)
 }
 
 #[cfg(test)]
 mod snapshot_copy_tests {
     use super::*;
 
-    const ROWS: i64 = 600;
+    const ROWS: i64 = 2000;
 
     fn source_in(dir: &std::path::Path) -> rusqlite::Connection {
         let conn = rusqlite::Connection::open(dir.join("live.db")).unwrap();
@@ -536,45 +496,67 @@ mod snapshot_copy_tests {
             .unwrap()
     }
 
-    /// Scenario: another connection commits after every step.
-    /// Expected behaviour: restarts stop at the bound, the copy finishes, and
-    /// it holds a whole snapshot, with no more rows than the writer committed.
+    /// Scenario: a second connection commits in a loop for as long as the
+    /// snapshot runs, as a sync or a backfill does.
+    /// Expected behaviour: the snapshot finishes, is intact, and holds the
+    /// rows the source had when the copy began.
     #[test]
-    fn continuous_commits_restart_the_copy_only_up_to_the_bound() {
+    fn a_snapshot_finishes_beside_a_writer_that_never_stops() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::{Arc, mpsc};
+
         let dir = tempfile::TempDir::new().unwrap();
         let source = source_in(dir.path());
-        let writer = rusqlite::Connection::open(dir.path().join("live.db")).unwrap();
-        let mut dest = rusqlite::Connection::open(dir.path().join("copy.db")).unwrap();
+        let live = dir.path().join("live.db");
+        let copy = dir.path().join("copy.db");
+        let before = count(&source);
 
-        let mut commits = 0;
-        let stats = copy_with_restart_bound(&source, &mut dest, 2, || {
-            commits += 1;
-            assert!(commits < 200, "the copy kept restarting");
-            writer
-                .execute("INSERT INTO bulk (blob) VALUES (zeroblob(4096))", [])
-                .unwrap();
-        })
-        .unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let writer = {
+            let (live, stop) = (live.clone(), Arc::clone(&stop));
+            std::thread::spawn(move || {
+                let conn = rusqlite::Connection::open(live).unwrap();
+                conn.busy_timeout(std::time::Duration::from_secs(5))
+                    .unwrap();
+                while !stop.load(Ordering::Relaxed) {
+                    conn.execute("INSERT INTO small (n) VALUES (1)", [])
+                        .unwrap();
+                }
+            })
+        };
+        source
+            .execute_batch("CREATE TABLE IF NOT EXISTS small (n INTEGER)")
+            .unwrap();
 
-        assert_eq!(stats.restarts, 2);
-        let copied = count(&dest);
-        assert!(copied >= ROWS && copied <= ROWS + commits);
-        let integrity: String = dest
+        let (tx, rx) = mpsc::channel();
+        let (live_path, copy_path) = (
+            live.to_str().unwrap().to_string(),
+            copy.to_str().unwrap().to_string(),
+        );
+        std::thread::spawn(move || {
+            tx.send(copy_database_snapshot(&live_path, &copy_path)).ok();
+        });
+        let result = rx.recv_timeout(std::time::Duration::from_secs(30));
+        stop.store(true, Ordering::Relaxed);
+        writer.join().unwrap();
+
+        result.expect("the snapshot did not finish").unwrap();
+        let copied = rusqlite::Connection::open(&copy).unwrap();
+        assert_eq!(count(&copied), before);
+        let integrity: String = copied
             .query_row("PRAGMA integrity_check", [], |r| r.get(0))
             .unwrap();
         assert_eq!(integrity, "ok");
     }
 
     #[test]
-    fn an_idle_source_copies_without_a_restart() {
+    fn a_quiet_source_copies_whole() {
         let dir = tempfile::TempDir::new().unwrap();
         let source = source_in(dir.path());
         let mut dest = rusqlite::Connection::open(dir.path().join("copy.db")).unwrap();
 
-        let stats = copy_with_restart_bound(&source, &mut dest, 2, || {}).unwrap();
+        copy_in_one_step(&source, &mut dest).unwrap();
 
-        assert_eq!(stats.restarts, 0);
-        assert!(stats.steps > 1);
         assert_eq!(count(&dest), ROWS);
     }
 
@@ -584,7 +566,7 @@ mod snapshot_copy_tests {
         let source = rusqlite::Connection::open(dir.path().join("live.db")).unwrap();
         let mut dest = rusqlite::Connection::open(dir.path().join("copy.db")).unwrap();
 
-        copy_with_restart_bound(&source, &mut dest, 2, || {}).unwrap();
+        copy_in_one_step(&source, &mut dest).unwrap();
     }
 }
 
@@ -594,11 +576,9 @@ impl PersistentEngine {
     ///
     /// The copy opens its own connection to the same file, so it never takes
     /// the engine lock: a 400-activity library takes over a second to copy,
-    /// and on the calling thread that is a second of dropped frames. A commit
-    /// landing mid-copy restarts it, which is how `sqlite3_backup` keeps the
-    /// copy a consistent snapshot rather than a torn one. After a few
-    /// restarts the rest is copied in one step, so continuous commits cannot
-    /// keep the copy running.
+    /// and on the calling thread that is a second of dropped frames. The copy
+    /// is one step, a consistent snapshot that a commit landing mid-copy
+    /// neither waits for nor restarts.
     pub fn clear_snapshot_background(&self, dest_path: &str) -> super::BackupHandle {
         let db_path = self.db_path.clone();
         let dest_path = dest_path.to_string();

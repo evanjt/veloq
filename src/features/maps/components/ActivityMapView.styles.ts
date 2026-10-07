@@ -47,15 +47,9 @@ export const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: colorWithOpacity(ink.white, 0.95),
-    justifyContent: 'center',
-    alignItems: 'center',
     ...shadows.modal,
   },
   controlButtonDark: {
     backgroundColor: darkColors.surfaceCard,
-  },
-  controlButtonActive: {
-    backgroundColor: colors.primary,
   },
 });

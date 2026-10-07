@@ -2,18 +2,21 @@
  * Scenario: the launch after a quarantine. `takeQuarantineReport` answers once
  * and clears itself, so anything that reads it twice loses the message.
  *
- * Expected behaviour: each engine open reads it once, the card shows for every
- * quarantine, naming what was kept when anything was, and dismisses for good.
+ * Expected behaviour: each engine open reads it once, the platform alert shows
+ * for every quarantine, naming what was kept when anything was, and dismisses
+ * for good.
  */
 
 import React from 'react';
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { Alert, type AlertButton } from 'react-native';
+import { act, render } from '@testing-library/react-native';
 
 import { LibraryRebuiltNotice } from '@/features/settings/components/LibraryRebuiltNotice';
 import {
   captureQuarantineReport,
   clearQuarantineReport,
 } from '@/features/settings/lib/quarantineReport';
+import { useEngineStatus } from '@/features/routes';
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -33,8 +36,6 @@ jest.mock('@/shared/native/engine', () => ({
   isEngineReady: () => true,
 }));
 
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-
 const none = {
   history: 0,
   geometry: 0,
@@ -45,63 +46,81 @@ const none = {
   routeNames: 0,
 };
 
+let alertSpy: jest.SpyInstance;
+
+function lastAlert() {
+  const [title, body, buttons, options] = alertSpy.mock.calls[alertSpy.mock.calls.length - 1] as [
+    string,
+    string,
+    AlertButton[],
+    { cancelable?: boolean; onDismiss?: () => void },
+  ];
+  return { title, body, buttons, options };
+}
+
 beforeEach(() => {
   mockTake.mockReset().mockReturnValue(null);
   clearQuarantineReport();
+  alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 });
+
+afterEach(() => alertSpy.mockRestore());
 
 describe('LibraryRebuiltNotice', () => {
   it('shows nothing when this launch opened the file it was given', () => {
-    const { queryByTestId } = render(<LibraryRebuiltNotice />);
-    expect(queryByTestId('library-rebuilt-notice')).toBeNull();
+    render(<LibraryRebuiltNotice />);
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 
   it('says the library was rebuilt when the rebuild rescued nothing', () => {
     mockTake.mockReturnValue(none);
     captureQuarantineReport();
-    const { getByTestId, getByText, queryByTestId } = render(<LibraryRebuiltNotice />);
-    expect(getByTestId('library-rebuilt-notice')).toBeTruthy();
-    expect(queryByTestId('library-rebuilt-kept')).toBeNull();
-    expect(getByText('engine.quarantine.keptNothing')).toBeTruthy();
-    expect(getByText('engine.quarantine.resyncing')).toBeTruthy();
-  });
+    render(<LibraryRebuiltNotice />);
 
-  it('dismisses the rebuilt card for good when nothing was kept', () => {
-    mockTake.mockReturnValue(none);
-    captureQuarantineReport();
-    const { getByTestId, queryByTestId, rerender } = render(<LibraryRebuiltNotice />);
-    fireEvent.press(getByTestId('library-rebuilt-dismiss'));
-    rerender(<LibraryRebuiltNotice />);
-    expect(queryByTestId('library-rebuilt-notice')).toBeNull();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    const { title, body, buttons } = lastAlert();
+    expect(title).toBe('engine.quarantine.title');
+    expect(body).toBe('engine.quarantine.keptNothing\nengine.quarantine.resyncing');
+    expect(buttons.map((b) => b.text)).toEqual(['engine.quarantine.dismiss']);
   });
 
   it('names what was kept when something came across', () => {
     mockTake.mockReturnValue({ ...none, sections: 14, history: 92 });
     captureQuarantineReport();
-    const { getByTestId } = render(<LibraryRebuiltNotice />);
-    expect(getByTestId('library-rebuilt-notice')).toBeTruthy();
-    expect(getByTestId('library-rebuilt-kept').props.children).toContain(
-      'engine.quarantine.kept.sections:14'
-    );
+    render(<LibraryRebuiltNotice />);
+
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(lastAlert().body).toContain('engine.quarantine.kept.sections:14');
+    expect(lastAlert().body).toContain('engine.quarantine.resyncing');
+    expect(lastAlert().body).not.toContain('engine.quarantine.keptNothing');
   });
 
-  it('asks the engine once per open, because the read clears it', () => {
+  it('speaks once however often it rerenders, and the engine is asked once per open', () => {
     mockTake.mockReturnValue({ ...none, sections: 1 });
     captureQuarantineReport();
     const { rerender } = render(<LibraryRebuiltNotice />);
     rerender(<LibraryRebuiltNotice />);
     rerender(<LibraryRebuiltNotice />);
+    expect(alertSpy).toHaveBeenCalledTimes(1);
     expect(mockTake).toHaveBeenCalledTimes(1);
   });
 
-  it('stays dismissed', () => {
+  it('clears the report from the button and from an Android dismiss', () => {
     mockTake.mockReturnValue({ ...none, sections: 1 });
     captureQuarantineReport();
-    const { getByTestId, queryByTestId, rerender } = render(<LibraryRebuiltNotice />);
-    fireEvent.press(getByTestId('library-rebuilt-dismiss'));
-    expect(queryByTestId('library-rebuilt-notice')).toBeNull();
+    const { rerender } = render(<LibraryRebuiltNotice />);
+    expect(lastAlert().options.cancelable).toBe(true);
+
+    act(() => lastAlert().buttons[0].onPress?.());
+    expect(useEngineStatus.getState().quarantineReport).toBeNull();
     rerender(<LibraryRebuiltNotice />);
-    expect(queryByTestId('library-rebuilt-notice')).toBeNull();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+
+    mockTake.mockReturnValueOnce({ ...none, sections: 2 });
+    act(() => captureQuarantineReport());
+    expect(alertSpy).toHaveBeenCalledTimes(2);
+    act(() => lastAlert().options.onDismiss?.());
+    expect(useEngineStatus.getState().quarantineReport).toBeNull();
   });
 
   it('survives an engine that is not there', () => {
@@ -109,22 +128,22 @@ describe('LibraryRebuiltNotice', () => {
       throw new Error('not initialised');
     });
     captureQuarantineReport();
-    const { queryByTestId } = render(<LibraryRebuiltNotice />);
-    expect(queryByTestId('library-rebuilt-notice')).toBeNull();
+    render(<LibraryRebuiltNotice />);
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 
   it('shows a quarantine from an engine opened after the notice mounted', () => {
-    const { queryByTestId, getByTestId } = render(<LibraryRebuiltNotice />);
-    expect(queryByTestId('library-rebuilt-notice')).toBeNull();
+    render(<LibraryRebuiltNotice />);
+    expect(alertSpy).not.toHaveBeenCalled();
     mockTake.mockReturnValueOnce({ ...none, sections: 2 });
     act(() => captureQuarantineReport());
-    expect(getByTestId('library-rebuilt-notice')).toBeTruthy();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
     expect(mockTake).toHaveBeenCalledTimes(1);
   });
 
-  it('stays hidden when a later engine open has no quarantine', () => {
-    const { queryByTestId } = render(<LibraryRebuiltNotice />);
+  it('stays quiet when a later engine open has no quarantine', () => {
+    render(<LibraryRebuiltNotice />);
     act(() => captureQuarantineReport());
-    expect(queryByTestId('library-rebuilt-notice')).toBeNull();
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 });

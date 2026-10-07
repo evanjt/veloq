@@ -62,6 +62,7 @@ export interface ButtonProps {
   icon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  labelTestID?: string;
 }
 
 /**
@@ -126,6 +127,7 @@ export function Button({
   icon,
   style,
   testID,
+  labelTestID,
 }: ButtonProps) {
   const { isDark } = useTheme();
   const skin = paint(variant, isDark);
@@ -159,7 +161,7 @@ export function Button({
         <View style={styles.row}>
           {icon}
           <Text
-            testID={testID && `${testID}-label`}
+            testID={labelTestID ?? (testID && `${testID}-label`)}
             numberOfLines={1}
             style={[size === 'sm' ? styles.labelSm : styles.labelMd, { color: skin.color }]}
           >
@@ -174,6 +176,7 @@ export function Button({
 export interface ToggleButtonProps {
   label: string;
   onPress: () => void;
+  icon?: React.ReactNode;
   selected?: boolean;
   disabled?: boolean;
   size?: ButtonSize;
@@ -200,6 +203,7 @@ export interface ToggleButtonProps {
 export function ToggleButton({
   label,
   onPress,
+  icon,
   selected = false,
   disabled = false,
   size = 'sm',
@@ -238,16 +242,19 @@ export function ToggleButton({
         style,
       ]}
     >
-      <Text
-        testID={testID && `${testID}-label`}
-        numberOfLines={1}
-        style={[styles.chipLabel, { color: labelInk }]}
-      >
-        {label}
-        {count !== undefined && (
-          <Text style={[styles.chipCount, { color: countInk }]}> {count}</Text>
-        )}
-      </Text>
+      <View style={styles.row}>
+        {icon}
+        <Text
+          testID={testID && `${testID}-label`}
+          numberOfLines={1}
+          style={[styles.chipLabel, { color: labelInk }]}
+        >
+          {label}
+          {count !== undefined && (
+            <Text style={[styles.chipCount, { color: countInk }]}> {count}</Text>
+          )}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -287,8 +294,14 @@ export function ToggleButtonRow<T extends string>({
   );
 }
 
-const BUTTON_HEIGHT = { sm: controlHeight.buttonSm, md: controlHeight.button } as const;
-const CHIP_HEIGHT = { sm: controlHeight.chip, md: controlHeight.button } as const;
+const BUTTON_HEIGHT = {
+  sm: controlHeight.buttonSm,
+  md: controlHeight.button,
+} as const;
+const CHIP_HEIGHT = {
+  sm: controlHeight.chip,
+  md: controlHeight.button,
+} as const;
 const BUTTON_SLOP = {
   sm: slopToMinTapTarget(BUTTON_HEIGHT.sm),
   md: slopToMinTapTarget(BUTTON_HEIGHT.md),
@@ -334,6 +347,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
+    gap: spacing.xs,
   },
   chipSm: {
     minHeight: CHIP_HEIGHT.sm,

@@ -3,17 +3,16 @@ import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from './queryKeys';
 
 /**
- * Check if any persisted activities-infinite query has stale page params
- * (first page doesn't cover today's date). When stale, `invalidateQueries`
- * won't help because it refetches with the stored params - `resetQueries`
- * is needed to re-evaluate `initialPageParam` with today's date.
+ * Check if any activities-infinite query in this session holds stale page
+ * params (the first page doesn't cover today's date). A feed left open across
+ * midnight keeps the page params it was fetched with, and `invalidateQueries`
+ * refetches with those stored params, so today's activities never arrive.
+ * `resetQueries` re-evaluates `initialPageParam` with today's date, so
+ * pull-to-refresh resets when this returns true and invalidates otherwise.
  *
- * Every cached key is scanned rather than one reconstructed key. The
- * persisted-cache callback runs before `AuthStore` finishes reading SecureStore,
- * so an athlete id is not available yet.
- *
- * Lives in shared/query because it operates on the shared `queryKeys.activities`
- * surface and is consumed by the shared query-client cache lifecycle.
+ * Every key under `queryKeys.activities.infinite.all` is scanned, which is the
+ * same prefix the reset and the invalidation act on, so the check covers
+ * exactly the queries the refresh touches without knowing the athlete id.
  */
 export function isInfiniteActivitiesStale(queryClient: QueryClient): boolean {
   const today = formatLocalDate(new Date());

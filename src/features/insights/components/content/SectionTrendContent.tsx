@@ -115,6 +115,9 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
     <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
       <View style={styles.sectionHeader}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={section.sectionName}
+          accessibilityState={{ expanded }}
           onPress={handleToggle}
           style={pressable(styles.sectionContent)}
           android_ripple={pressRipple}
@@ -158,6 +161,9 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
 
         {/* Chevron: tappable to toggle accordion */}
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={section.sectionName}
+          accessibilityState={{ expanded }}
           onPress={handleToggle}
           testID={`section-trend-toggle-${section.sectionId}`}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 4 }}

@@ -6,9 +6,10 @@
  */
 
 import React from 'react';
-import { Pressable, TouchableOpacity, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 
 import { navigateTo } from '@/shared/app/navigation';
@@ -16,6 +17,7 @@ import { colors, colorWithOpacity, darkColors, layout, spacing, typography } fro
 import { useTheme } from '@/shared/app';
 import { selectStatusMessage, type StatusSlotInput } from '../lib/statusSlot';
 import { pressable, pressRipple } from '@/shared/ui';
+import { IconButton } from '@/shared/ui/IconButton';
 
 interface StatusSlotProps extends StatusSlotInput {
   onDismissGpsWarning: () => void;
@@ -28,6 +30,7 @@ function StatusSlotInner({
   splitBanner,
   onDismissGpsWarning,
 }: StatusSlotProps) {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const message = selectStatusMessage({
     backgroundTrackingWarning,
@@ -69,14 +72,9 @@ function StatusSlotInner({
       >
         <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
         <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
-        <Pressable
-          onPress={onDismissGpsWarning}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={pressable()}
-          android_ripple={pressRipple}
-        >
+        <IconButton onPress={onDismissGpsWarning} accessibilityLabel={t('common.close', 'Close')}>
           <MaterialCommunityIcons name="close" size={16} color={amber} />
-        </Pressable>
+        </IconButton>
       </Animated.View>
     );
   }
@@ -89,17 +87,17 @@ function StatusSlotInner({
         exiting={FadeOutUp.duration(150)}
         testID="status-slot-sensor"
       >
-        <TouchableOpacity
-          style={[styles.row, styles.warnRow]}
+        <Pressable
+          style={pressable([styles.row, styles.warnRow])}
+          android_ripple={pressRipple}
           onPress={() => navigateTo('/sensor-settings')}
-          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={message.text}
         >
           <MaterialCommunityIcons name="bluetooth" size={16} color={amber} />
           <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
           <MaterialCommunityIcons name="chevron-right" size={16} color={amber} />
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
     );
   }

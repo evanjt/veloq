@@ -308,6 +308,40 @@ describe('the Android build', () => {
     expect(existsSync(androidOut('release-arm64-v8a-lock-trace'))).toBe(true);
   });
 
+  it('keeps local iteration separate from the release library and fingerprints its overrides', () => {
+    build(ARM);
+    build([...ARM, '--profile', 'release-dev']);
+    expect(calls('cargo')).toEqual([
+      expect.stringContaining('build --release -p veloqrs'),
+      expect.stringContaining('build --profile release-dev -p veloqrs'),
+    ]);
+    expect(library('release-arm64-v8a', 'arm64-v8a')).toContain('uniffi_veloqrs_');
+    expect(existsSync(androidOut('release-dev-arm64-v8a'))).toBe(true);
+
+    build([...ARM, '--profile', 'release-dev'], { CARGO_PROFILE_RELEASE_DEV_LTO: 'true' });
+    expect(calls('cargo')).toHaveLength(1);
+    build([...ARM, '--profile', 'release-dev'], { CARGO_PROFILE_RELEASE_DEV_LTO: '' });
+    expect(calls('cargo')).toHaveLength(1);
+  });
+
+  it('takes the profile from the environment and lets the flag override it', () => {
+    build(ARM, { VELOQRS_RUST_PROFILE: 'release-dev' });
+    build([...ARM, '--profile', 'release'], { VELOQRS_RUST_PROFILE: 'release-dev' });
+
+    expect(calls('cargo')).toEqual([
+      expect.stringContaining('build --profile release-dev -p veloqrs'),
+      expect.stringContaining('build --release -p veloqrs'),
+    ]);
+  });
+
+  it('keeps production on release even when a local profile is selected', () => {
+    expect(() =>
+      build([...ARM, '--profile', 'release-dev'], { APP_VARIANT: 'production' })
+    ).toThrow(/production and release builds require release/);
+    build(ARM, { APP_VARIANT: 'production', VELOQRS_RUST_PROFILE: 'release-dev' });
+    expect(existsSync(androidOut('release-arm64-v8a'))).toBe(true);
+  });
+
   it('compiles again when a published library is deleted or altered', () => {
     const out = build(ARM);
     calls();
@@ -420,6 +454,29 @@ describe('the iOS build', () => {
   const archive = (selection: string) =>
     readFileSync(join(moduleDir, 'build/rust/ios', selection, 'libveloqrs_ffi.a'), 'latin1');
   const phase = (out: string) => ['ios', '--from-xcode', '--out', out];
+
+  it('takes a local profile from the Xcode phase environment', () => {
+    const linked = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
+    build(phase(linked), { ...SIM_PHASE, VELOQRS_RUST_PROFILE: 'release-dev' });
+
+    expect(calls('cargo')).toEqual([
+      expect.stringContaining('build --profile release-dev --target aarch64-apple-ios-sim'),
+    ]);
+    expect(archive('release-dev-iphonesimulator-arm64')).toContain('uniffi_veloqrs_');
+    expect(existsSync(join(linked, 'libveloqrs_ffi.a'))).toBe(true);
+  });
+
+  it('keeps an Xcode release configuration on release', () => {
+    const linked = join(root, 'Build/Products/Release-iphoneos/Veloqrs');
+    build(phase(linked), {
+      ...DEVICE_PHASE,
+      CONFIGURATION: 'Release',
+      VELOQRS_RUST_PROFILE: 'release-dev',
+    });
+
+    expect(calls('cargo')).toEqual([expect.stringContaining('build --release --target')]);
+    expect(archive('release-iphoneos-arm64')).toContain('uniffi_veloqrs_');
+  });
 
   it('builds each SDK into its own output, then reuses both with no compile', () => {
     build(BOTH);

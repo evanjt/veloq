@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
@@ -8,7 +8,7 @@ import { useMetricSystem, useTheme } from '@/shared/app';
 import { getActivityTypeConfig } from '../../lib/activityCategories';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button, IconButton } from '@/shared/ui';
 
 export interface SelectedActivity {
   activity: ActivityBoundsItem;
@@ -126,44 +126,35 @@ export const ActivityPopup = memo(function ActivityPopup({
           </Text>
           <Text style={[styles.popupDate, isDark && styles.popupDateDark]}>{formattedDate}</Text>
         </View>
-        <Pressable
+        <Button
           testID="activity-popup-view-details"
           onPress={onViewDetails}
-          style={pressable(styles.viewDetailsInline)}
-          android_ripple={pressRipple}
-          accessibilityLabel={t('maps.viewDetails')}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.viewDetailsText, isDark && { color: darkColors.linkTeal }]}>
-            {t('maps.viewDetails')}
-          </Text>
-          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
-        </Pressable>
+          label={t('maps.viewDetails')}
+          variant="ghost"
+          size="sm"
+          icon={<MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />}
+        />
         <View style={styles.popupHeaderButtons}>
-          <Pressable
+          <IconButton
             testID="activity-popup-zoom"
             onPress={onZoom}
-            style={pressable(styles.popupIconButton)}
-            android_ripple={pressRipple}
+            variant="ghost"
             accessibilityLabel={t('maps.zoomToActivity')}
-            accessibilityRole="button"
           >
             <MaterialCommunityIcons name="crosshairs-gps" size={22} color={colors.primary} />
-          </Pressable>
-          <Pressable
+          </IconButton>
+          <IconButton
             testID="activity-popup-close"
             onPress={onClose}
-            style={pressable(styles.popupIconButton)}
-            android_ripple={pressRipple}
+            variant="ghost"
             accessibilityLabel={t('maps.closePopup')}
-            accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name="close"
               size={22}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
-          </Pressable>
+          </IconButton>
         </View>
       </View>
 
@@ -219,9 +210,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.xs,
   },
-  popupIconButton: {
-    padding: spacing.xs,
-  },
   popupInfo: {
     flex: 1,
     marginRight: spacing.sm,
@@ -262,16 +250,5 @@ const styles = StyleSheet.create({
   },
   popupStatValueDark: {
     color: darkColors.textPrimary,
-  },
-  viewDetailsInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xs,
-  },
-  viewDetailsText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    color: colors.linkTeal,
   },
 });

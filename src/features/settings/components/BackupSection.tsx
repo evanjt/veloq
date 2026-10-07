@@ -453,11 +453,11 @@ export function BackupSection() {
           </View>
           <Button
             testID="backup-now-button"
-            label={backingUp ? t('backup.backingUp') : t('backup.backupNow')}
+            label={t('backup.backupNow')}
             variant="secondary"
             size="sm"
             onPress={handleBackupNow}
-            disabled={backingUp}
+            loading={backingUp}
           />
         </Row>
       </Card>

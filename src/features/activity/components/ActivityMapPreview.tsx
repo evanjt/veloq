@@ -150,9 +150,9 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   // Every rung of the ladder needs the network, so offline there is nothing to
   // wait for. Without this the card spins until a terminal failure arrives,
-  // which is the 15 s watchdog when idle and the 45 s per-card timer while the
-  // athlete keeps scrolling. Read each render rather than latched at mount, so
-  // the network coming back puts the card back on the spinner it belongs on.
+  // which is the pipeline's staleness watchdog or the failure event at the end
+  // of the retry ladder. Read each render rather than latched at mount, so the
+  // network coming back puts the card back on the spinner it belongs on.
   const isOnline = useIsOnline();
 
   // Reset image when map style or 3D preference changes

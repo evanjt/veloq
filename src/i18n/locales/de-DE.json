@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "Erhöhen",
+    "decrease": "Verringern",
+    "repositoryFor": "Repository für {{name}}"
+  },
   "about": {
     "dataAttribution": "Datenherkunft",
     "description": "Ein schneller Mobile-Client für intervals.icu mit Fokus auf Karten und visuelle Analyse.",
@@ -227,7 +232,6 @@
     "lastBackup": "Letztes Backup: {{date}}",
     "lastBackupNever": "Noch nie gesichert",
     "backupNow": "Jetzt sichern",
-    "backingUp": "Sicherung läuft...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "iCloud-Sicherung",
     "carrierDeviceAndroid": "Google-Sicherung",
@@ -862,6 +866,7 @@
     "recentPersonalRecord": "Aktueller Bestwert"
   },
   "licenses": {
+    "openRepository": "Repository öffnen",
     "footer": "Tippe auf ein Lizenz-Badge um den vollständigen Lizenztext anzuzeigen. Tippe auf das Link-Symbol um das Projekt-Repository zu besuchen.",
     "intro": "Veloq basiert auf Open-Source-Software. Dieser Bildschirm listet die verwendeten Drittanbieter-Bibliotheken und deren Lizenzen auf.",
     "sectionCoreFramework": "Kern-Framework",
@@ -1204,6 +1209,12 @@
     "accuracyFilter": "Genauigkeitsfilter",
     "accuracyFilterDescription": "GPS-Punkte verwerfen, die ungenauer sind als dieser Wert.",
     "autoPauseDelay": "Auto-Pause-Verzögerung",
+    "accuracyFilterDecrease": "Genauigkeitsfilter senken",
+    "accuracyFilterIncrease": "Genauigkeitsfilter erhöhen",
+    "autoPauseDelayDecrease": "Auto-Pause-Verzögerung verkürzen",
+    "autoPauseDelayIncrease": "Auto-Pause-Verzögerung verlängern",
+    "speedThresholdDecrease": "Geschwindigkeitsschwelle für {{sport}} senken",
+    "speedThresholdIncrease": "Geschwindigkeitsschwelle für {{sport}} erhöhen",
     "keepAwake": "Bildschirm aktiv halten",
     "keepAwakeDescription": "Verhindert, dass der Bildschirm während der Aufzeichnung ausgeht.",
     "routeOverlay": {
@@ -1380,6 +1391,13 @@
     "resetBounds": "Auf Original zurücksetzen",
     "trimPrecisionHint": "Regler nach oben oder unten ziehen für feinere Steuerung",
     "trimMode": "Zuschneiden",
+    "trimStartEarlier": "Startpunkt früher setzen",
+    "trimStartLater": "Startpunkt später setzen",
+    "trimEndEarlier": "Endpunkt früher setzen",
+    "trimEndLater": "Endpunkt später setzen",
+    "includeActivity": "Aktivität einschließen",
+    "excludeActivity": "Aktivität ausschließen",
+    "showExcludedActivities": "Ausgeschlossene Aktivitäten anzeigen",
     "expandMode": "Erweitern",
     "resetBoundsConfirm": "Auf die ursprünglich automatisch erkannten Grenzen zurücksetzen?\n\nDer Abschnitt wird erneut mit allen deinen Aktivitäten abgeglichen.",
     "liftGround": "Lift",

@@ -28,7 +28,7 @@ import { SETTINGS_MIGRATED_KEY } from './migrateSettingsToSqlite';
 const pending = new Map<string, string>();
 let flushing: Promise<void> | null = null;
 
-/** One commit is two fsyncs, so the batch is what a launch pays instead of one per store. */
+/** One transaction per tick, so a launch pays one commit instead of one per store. */
 function commitPending(): void {
   if (pending.size === 0) return;
   const pairs = [...pending].map(([key, value]) => ({ key, value }));
@@ -92,8 +92,8 @@ function sqliteHoldsEverything(engine: NonNullable<ReturnType<typeof getEngine>>
  * Write a setting to both SQLite and AsyncStorage (transition period).
  *
  * The SQLite half is batched: every write issued in the same tick commits
- * together, because a durable commit costs about 20 ms on the thread that
- * asked and a launch restores a dozen stores at once. The awaited promise
+ * in one transaction, because each engine call blocks the thread that asked
+ * and a launch restores a dozen stores at once. The awaited promise
  * resolves once the value is stored on both sides.
  */
 export async function setSetting(key: string, value: string): Promise<void> {

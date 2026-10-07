@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { colors, spacing } from '@/theme';
@@ -129,6 +130,7 @@ export const SectionMapView = memo(function SectionMapView({
   insetTop = 0,
   deltaLine = null,
 }: SectionMapViewProps) {
+  const { t } = useTranslation();
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const { getStyleForActivity, preferences } = useMapPreferences();
 
@@ -558,6 +560,8 @@ export const SectionMapView = memo(function SectionMapView({
               {/* Style toggle */}
               <TouchableOpacity
                 testID="section-map-style-toggle"
+                accessibilityRole="button"
+                accessibilityLabel={t('maps.toggleStyle')}
                 style={[styles.controlButton, isDark && styles.controlButtonDark]}
                 onPress={toggleMapStyle}
                 activeOpacity={0.6}
@@ -574,6 +578,9 @@ export const SectionMapView = memo(function SectionMapView({
               {hasRoute && (
                 <TouchableOpacity
                   testID="section-map-3d-toggle"
+                  accessibilityRole="button"
+                  accessibilityLabel={t(is3DMode ? 'maps.disable3D' : 'maps.enable3D')}
+                  accessibilityState={{ selected: is3DMode }}
                   style={[
                     styles.controlButton,
                     isDark && styles.controlButtonDark,
@@ -601,6 +608,8 @@ export const SectionMapView = memo(function SectionMapView({
               <TouchableOpacity
                 testID="section-map-compass"
                 style={[styles.controlButton, isDark && styles.controlButtonDark]}
+                accessibilityRole="button"
+                accessibilityLabel={t('maps.resetOrientation')}
                 onPress={resetOrientation}
                 activeOpacity={0.6}
                 hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
@@ -616,6 +625,9 @@ export const SectionMapView = memo(function SectionMapView({
               {/* GPS location */}
               <TouchableOpacity
                 style={[styles.controlButton, isDark && styles.controlButtonDark]}
+                accessibilityRole="button"
+                accessibilityLabel={t('maps.goToLocation')}
+                accessibilityState={{ disabled: locationLoading }}
                 onPress={locationLoading ? undefined : handleGetLocation}
                 activeOpacity={locationLoading ? 1 : 0.6}
                 disabled={locationLoading}
@@ -639,6 +651,8 @@ export const SectionMapView = memo(function SectionMapView({
               {enableFullscreen && !isTrimming && (
                 <TouchableOpacity
                   testID="section-map-fullscreen"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('maps.openFullscreen')}
                   style={[styles.controlButton, isDark && styles.controlButtonDark]}
                   onPress={openFullscreen}
                   activeOpacity={0.6}
@@ -663,6 +677,9 @@ export const SectionMapView = memo(function SectionMapView({
         // Non-interactive map - tap anywhere to fullscreen
         <TouchableOpacity
           style={[styles.container, { height }]}
+          accessibilityRole="button"
+          accessibilityLabel={t('maps.openFullscreen')}
+          accessibilityState={{ disabled: !enableFullscreen }}
           onPress={openFullscreen}
           activeOpacity={enableFullscreen ? 0.9 : 1}
           disabled={!enableFullscreen}

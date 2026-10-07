@@ -7,7 +7,6 @@ import {
   FlatList,
   Image,
   Platform,
-  Pressable,
   RefreshControl,
   StyleSheet,
   type LayoutChangeEvent,
@@ -20,8 +19,7 @@ import {
   ActivityCardSkeleton,
   TAB_BAR_SAFE_PADDING,
   canDrawProfilePhoto,
-  pressable,
-  pressRipple,
+  IconButton,
   SearchBar,
 } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
@@ -82,6 +80,7 @@ import { debug } from '@/shared/debug/debug';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const log = debug.create('Feed');
+const PROFILE_BUTTON_SIZE = 36;
 
 // iOS applies the estimate before layout; the header's onLayout sets the measured offset.
 const INITIAL_CONTENT_OFFSET = { x: 0, y: ESTIMATED_SEARCH_SECTION_HEIGHT } as const;
@@ -519,13 +518,11 @@ function FeedScreenContent() {
               style={styles.searchBar}
             />
             {!summaryCard.enabled && (
-              <Pressable
+              <IconButton
                 testID="home-profile-button"
                 onPress={navigateToSettings}
-                accessibilityRole="button"
                 accessibilityLabel={t('navigation.settings')}
-                style={pressable([styles.headerProfile, isDark && styles.headerProfileDark])}
-                android_ripple={pressRipple}
+                style={[styles.headerProfile, isDark && styles.headerProfileDark]}
               >
                 {canDrawProfilePhoto(profileUrl, profileImageFailed) ? (
                   <Image
@@ -541,7 +538,7 @@ function FeedScreenContent() {
                     color={isDark ? darkColors.textSecondary : colors.textSecondary}
                   />
                 )}
-              </Pressable>
+              </IconButton>
             )}
           </View>
 
@@ -788,8 +785,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerProfile: {
-    width: 36,
-    height: 36,
+    width: PROFILE_BUTTON_SIZE,
+    height: PROFILE_BUTTON_SIZE,
     borderRadius: layout.borderRadiusFull,
     marginLeft: spacing.sm,
     backgroundColor: opacity.overlay.light,

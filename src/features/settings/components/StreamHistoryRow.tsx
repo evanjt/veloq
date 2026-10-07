@@ -1,10 +1,10 @@
 /**
  * How much stream history the athlete keeps, and what it costs.
  *
- * The control, the readout, a 90 day default and a reset that clears the
- * excess. The engine owns all four: setting the window prunes on
- * the way in, so the size is re-read after every write rather than adjusted
- * here.
+ * The control, the readout, a keep-everything default and a reset that returns
+ * to it by opening the window all the way, which prunes nothing. The engine
+ * owns all four: narrowing the window prunes on the way in, so the size is
+ * re-read after every write rather than adjusted here.
  *
  * Narrowing does not cost the athlete a chart. A series outside the window is
  * refetched when they open the activity and drawn off the cached body, it is
@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Pressable, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { formatFileSize } from '@/shared/format/format';
@@ -32,7 +32,7 @@ import {
   nextStreamRetentionDays,
 } from '../lib/streamRetention';
 
-import { Row, pressable, pressRipple } from '@/shared/ui';
+import { Button, Row } from '@/shared/ui';
 
 export {
   STREAM_RETENTION_CHOICES_DAYS,
@@ -134,35 +134,21 @@ export function StreamHistoryRow({ isDark }: StreamHistoryRowProps) {
             {formatFileSize(bytes)}
           </Text>
           {days !== DEFAULT_STREAM_RETENTION_DAYS && (
-            <Pressable
+            <Button
               testID="settings-stream-reset"
+              label={t('settings.streamHistoryReset')}
               onPress={() => write(DEFAULT_STREAM_RETENTION_DAYS)}
-              style={pressable(styles.resetButton)}
-              android_ripple={pressRipple}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.resetText, isDark && { color: darkColors.linkTeal }]}>
-                {t('settings.streamHistoryReset')}
-              </Text>
-            </Pressable>
+              variant="ghost"
+              size="sm"
+            />
           )}
-          <Pressable
+          <Button
+            labelTestID="settings-stream-window"
+            label={`${windowLabel} ›`}
             onPress={() => write(nextStreamRetentionDays(days))}
-            accessibilityRole="button"
-            style={pressable()}
-            android_ripple={pressRipple}
-          >
-            <Text
-              testID="settings-stream-window"
-              style={[
-                styles.infoValue,
-                styles.valueClickable,
-                isDark && { color: darkColors.linkTeal },
-              ]}
-            >
-              {`${windowLabel} ›`}
-            </Text>
-          </Pressable>
+            variant="ghost"
+            size="sm"
+          />
         </View>
       </View>
     </Row>
@@ -196,18 +182,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  valueClickable: {
-    color: colors.linkTeal,
-  },
-  resetButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-  },
-  resetText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.linkTeal,
-    fontWeight: '500',
   },
   textLight: {
     color: colors.textOnDark,

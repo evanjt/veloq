@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "Increase",
+    "decrease": "Decrease",
+    "repositoryFor": "Repository for {{name}}"
+  },
   "about": {
     "dataAttribution": "Data Attribution",
     "description": "A fast mobile client for intervals.icu with a focus on maps and visual analytics.",
@@ -227,7 +232,6 @@
     "lastBackup": "Last backup: {{date}}",
     "lastBackupNever": "Never backed up",
     "backupNow": "Back Up Now",
-    "backingUp": "Backing up...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "iCloud backup",
     "carrierDeviceAndroid": "Google backup",
@@ -862,6 +866,7 @@
     "recentPersonalRecord": "Recent record"
   },
   "licenses": {
+    "openRepository": "Open repository",
     "footer": "Tap any licence badge to view the full licence text. Tap the link icon to visit the project repository.",
     "intro": "Veloq is built with open-source software. This screen lists the third-party libraries and their licences.",
     "sectionCoreFramework": "Core Framework",
@@ -1204,6 +1209,12 @@
     "accuracyFilter": "Accuracy filter",
     "accuracyFilterDescription": "Discard GPS points less accurate than this.",
     "autoPauseDelay": "Auto-pause delay",
+    "accuracyFilterDecrease": "Decrease accuracy filter",
+    "accuracyFilterIncrease": "Increase accuracy filter",
+    "autoPauseDelayDecrease": "Decrease auto-pause delay",
+    "autoPauseDelayIncrease": "Increase auto-pause delay",
+    "speedThresholdDecrease": "Decrease speed threshold for {{sport}}",
+    "speedThresholdIncrease": "Increase speed threshold for {{sport}}",
     "keepAwake": "Keep screen awake",
     "keepAwakeDescription": "Prevent the screen from sleeping during recording.",
     "routeOverlay": {
@@ -1389,6 +1400,13 @@
     "resetBounds": "Reset to Original",
     "trimPrecisionHint": "Drag handle up or down for finer control",
     "trimMode": "Trim",
+    "trimStartEarlier": "Move start earlier",
+    "trimStartLater": "Move start later",
+    "trimEndEarlier": "Move end earlier",
+    "trimEndLater": "Move end later",
+    "includeActivity": "Include activity",
+    "excludeActivity": "Exclude activity",
+    "showExcludedActivities": "Show excluded activities",
     "expandMode": "Expand",
     "resetBoundsConfirm": "Reset to the original auto-detected bounds?\n\nThe section will be re-matched against all your activities.",
     "liftGround": "Lift",

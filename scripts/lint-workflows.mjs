@@ -39,6 +39,7 @@
 //   keys       in a job that builds natively, every hashFiles() is taken before
 //              the job writes into the checkout, so a compiled library, a
 //              generated project or node_modules never keys a cache
+//   profile    workflows build the shipped Rust profile, including E2E builds
 //
 // Usage: node scripts/lint-workflows.mjs [--root <dir>]
 
@@ -87,6 +88,23 @@ const fail = (file, where, message) =>
 
 const action = (step) => (typeof step.uses === 'string' ? step.uses.split('@')[0] : '');
 const text = (value) => (value === undefined || value === null ? '' : String(value));
+
+function checkRustProfile(file, where, env, run = '') {
+  if (env && Object.hasOwn(env, 'VELOQRS_RUST_PROFILE') &&
+      text(env.VELOQRS_RUST_PROFILE) !== 'release') {
+    fail(file, where, 'VELOQRS_RUST_PROFILE must be release in workflows.');
+  }
+  for (const match of text(run).matchAll(/\bVELOQRS_RUST_PROFILE\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s;]+))/g)) {
+    if ((match[1] ?? match[2] ?? match[3]) !== 'release') {
+      fail(file, where, 'VELOQRS_RUST_PROFILE must be release in workflows.');
+    }
+  }
+  for (const match of text(run).matchAll(/-PveloqrsRustProfile\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s;]+))/g)) {
+    if ((match[1] ?? match[2] ?? match[3]) !== 'release') {
+      fail(file, where, 'veloqrsRustProfile must be release in workflows.');
+    }
+  }
+}
 
 /**
  * The expression with every parenthesised group that does not hold `ref`
@@ -448,6 +466,7 @@ function checkBenchesChecked(file, workflow) {
 
 function stepsOf(file, steps, prefix, isBenchWorkflow, isDefinition = false) {
   (steps ?? []).forEach((step, i) => {
+    checkRustProfile(file, `${prefix}step ${step.name ?? step.uses ?? i + 1}`, step.env, step.run);
     checkStep(
       file,
       `${prefix}step ${step.name ?? step.uses ?? i + 1}`,
@@ -714,6 +733,7 @@ const workflows = new Map(
 );
 
 for (const [file, { doc, isAction }] of parsed) {
+  checkRustProfile(file, 'env', doc.env);
   if (isAction) {
     stepsOf(file, doc.runs?.steps, '', false);
     continue;
@@ -726,6 +746,7 @@ for (const [file, { doc, isAction }] of parsed) {
   if (onMain) checkCancel(file, 'concurrency', doc.concurrency);
   checkDefinition(file, triggers);
   for (const [id, job] of Object.entries(doc.jobs ?? {})) {
+    checkRustProfile(file, `job ${id} env`, job.env);
     if (onMain) checkCancel(file, `job ${id} concurrency`, job.concurrency);
     stepsOf(file, job.steps, `job ${id} `, isBenchWorkflow, isDefinition);
     checkKeys(file, id, job.steps ?? []);

@@ -851,9 +851,11 @@ impl PersistentEngine {
         // all, and seeding cannot reach it either, since it has no matched
         // candidate to seed from and its held footprint is the only geometry
         // it has, so it competes on its stale ground. ACCEPTED: a marginal
-        // one-sided senior capture needs no debounce, the merge floor is its
-        // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]). The
-        // streaks are NOT an exposure. Since the two-streak ledger, a re-cut
+        // one-sided senior capture needs no debounce. [`MERGE_SIZE_RATIO`] at
+        // 0.3 demotes a contained senior carrying under that share of the
+        // candidate's metres out of the containment tier, so only a capture
+        // above that share is still accepted; [`MERGE_MUTUAL_FLOOR`] stays at
+        // 0.0 as the untargeted knob. The streaks are NOT an exposure. Since the two-streak ledger, a re-cut
         // debounce carries the dissolve streak through and a dissolve debounce
         // carries the re-cut streak through, so no capture erases the absence
         // evidence a rotation accumulated.
@@ -944,7 +946,7 @@ impl PersistentEngine {
         // bounce, the still-live row), a mint names neither. The pure-side
         // `fate_membership_property` proves the fates are membership-honest, so a
         // disagreement here is a mirror desync (a dropped grave from a corrupt
-        // identity blob is the known one, task #13). Loud in tests via
+        // identity blob is the known one). Loud in tests via
         // `debug_assert`, degraded to a safe mint in release so a corrupt blob
         // re-mints a fresh id rather than bricking the engine.
         for (j, section) in raw.into_iter().enumerate() {
@@ -1476,7 +1478,8 @@ pub(crate) fn purge_activity_from_tiers(
 impl PersistentEngine {
     /// Record a durable suppression intent for a corridor the user hid
     /// (`kind = "disabled"`) or removed (`kind = "deleted"`), capturing the
-    /// section's current ground so the emitter never re-detects it (invariant 6).
+    /// section's current ground so the emitter never re-detects it. A corridor the
+    /// user deleted or disabled never re-emerges from detection.
     /// Best-effort: a missing section is a no-op (nothing to suppress) and a write
     /// failure logs rather than propagates, the worst case is the older
     /// behaviour where the corridor could re-emerge, never a crash. For a delete,
@@ -1580,7 +1583,8 @@ impl PersistentEngine {
     ///   user-defined (accepted/renamed/merged), whose ground a fresh auto
     ///   section would collide with on `UNIQUE sections.id`.
     /// - The `section_intents` suppression records, user-disabled and
-    ///   user-deleted corridors that must stay hidden across restart (invariant 6).
+    ///   user-deleted corridors that must stay hidden across restart, because a corridor the
+    ///   user deleted or disabled never re-emerges from detection.
     ///   The disabled section's own row is is_user_defined=0 and the deleted row
     ///   is gone, so neither is caught by the first query; the retained intent
     ///   ground is what keeps the corridor from re-emerging.

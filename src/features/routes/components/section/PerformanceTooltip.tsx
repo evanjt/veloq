@@ -4,9 +4,6 @@
  * Displays the activity name, date, section time, pace/speed delta vs PR,
  * and exposes the reference / exclude / include controls. Tapping the row
  * navigates to the activity detail screen.
- *
- * Extracted from SectionScatterChart so the scatter component stays focused
- * on the chart surface.
  */
 
 import { useMetricSystem } from '@/shared/app';
@@ -94,6 +91,8 @@ export function PerformanceTooltip({
     <View style={styles.tooltipContainer}>
       <TouchableOpacity
         style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
+        accessibilityRole="button"
+        accessibilityLabel={selectedPoint.activityName}
         onPress={() => navigateTo(`/activity/${selectedPoint.activityId}`)}
         activeOpacity={0.7}
       >
@@ -199,6 +198,8 @@ export function PerformanceTooltip({
           )}
           {selectedPoint.isExcluded && onIncludeActivity ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('sections.includeActivity')}
               onPress={() => {
                 onIncludeActivity(selectedPoint.activityId);
                 onClearSelection();
@@ -213,6 +214,8 @@ export function PerformanceTooltip({
             onExcludeActivity &&
             !selectedPoint.isExcluded && (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('sections.excludeActivity')}
                 onPress={() => {
                   onExcludeActivity(selectedPoint.activityId);
                   onClearSelection();

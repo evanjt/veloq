@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { pressable } from '@/shared/ui';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +18,6 @@ interface SportToggleSelectorProps {
 
 /**
  * Pill-button group for selecting the active fitness sport (Cycling/Running/Swimming).
- * Extracted from FitnessScreen - uses `SPORT_COLORS` from `@/providers`.
  */
 export const SportToggleSelector = React.memo(function SportToggleSelector({
   sportMode,
@@ -30,18 +30,20 @@ export const SportToggleSelector = React.memo(function SportToggleSelector({
   return (
     <View style={styles.sportToggleContainer}>
       {SPORTS.map((sport) => (
-        <TouchableOpacity
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(`filters.${sport.toLowerCase()}` as never)}
+          accessibilityState={{ selected: sportMode === sport }}
           key={sport}
           testID={`fitness-sport-toggle-${sport}`}
-          style={[
+          style={pressable([
             styles.sportToggleButton,
             isDark && styles.sportToggleButtonDark,
             sportMode === sport && {
               backgroundColor: SPORT_COLORS[sport],
             },
-          ]}
+          ])}
           onPress={() => onSportModeChange(sport)}
-          activeOpacity={0.7}
         >
           <MaterialCommunityIcons
             name={sport === 'Cycling' ? 'bike' : sport === 'Running' ? 'run' : 'swim'}
@@ -57,7 +59,7 @@ export const SportToggleSelector = React.memo(function SportToggleSelector({
           >
             {t(`filters.${sport.toLowerCase()}` as never)}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       ))}
     </View>
   );

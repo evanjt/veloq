@@ -633,6 +633,12 @@ const GUARDS = [
     catches: 'a local hold drifting from its preview, deliberate or confirm class',
   },
   {
+    name: 'lint:tap-targets',
+    kind: 'style',
+    cmd: node('lint-tap-targets.mjs'),
+    catches: 'an explicitly undersized pressable with no hit slop to reach the platform minimum',
+  },
+  {
     name: 'lint:rgba',
     kind: 'style',
     cmd: node('lint-rgba-literals.mjs'),
@@ -650,6 +656,12 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-hand-rolled-buttons.mjs'),
     catches: 'a new hand-built button instead of the shared one',
+  },
+  {
+    name: 'lint:modal-sheets',
+    kind: 'style',
+    cmd: node('lint-modal-sheets.mjs'),
+    catches: 'a hand-built Modal sheet instead of a formSheet route',
   },
   {
     name: 'lint:roleless-pressables',

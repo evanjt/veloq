@@ -1,23 +1,15 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  RefreshControl,
-  Modal,
-  Pressable,
-} from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   ScreenSafeAreaView,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
-  pressable,
-  pressRipple,
   Shimmer,
+  IconButton,
+  ToggleButton,
 } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -29,12 +21,7 @@ import { useWellness, type TimeRange } from '@/features/wellness';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
-import {
-  SMOOTHING_PRESETS,
-  getSmoothingDescription,
-  getSmoothingPresetLabel,
-  type SmoothingWindow,
-} from '@/shared/math/smoothing';
+import { getSmoothingDescription, type SmoothingWindow } from '@/shared/math/smoothing';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -48,6 +35,8 @@ import {
   type TrainingChart,
 } from '@/shared/app/trainingEntry';
 import { useRevealChart } from '@/shared/app/useRevealChart';
+import { useSheetOpener } from '@/shared/app/sheetRequest';
+import type { SmoothingSheetInput } from '@/app/sheets/smoothing';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const trainingChartCard = (chart: TrainingChart) => TRAINING_CHART_CARD[chart];
@@ -95,7 +84,13 @@ function HealthScreenContent() {
   // Wellness state
   const [timeRange, setTimeRange] = useState<TimeRange>(DEFAULT_PERIOD);
   const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
-  const [showSmoothingModal, setShowSmoothingModal] = useState(false);
+  const openSheet = useSheetOpener();
+  const pickSmoothing = useCallback(async () => {
+    const result = await openSheet<SmoothingSheetInput, SmoothingWindow>('sheets/smoothing', {
+      window: smoothingWindow,
+    });
+    if (result.kind === 'selected') setSmoothingWindow(result.value);
+  }, [openSheet, smoothingWindow]);
 
   // Cross-chart scrubbing: the scrubbed day lives in the heatmap that draws it.
   // Held here it re-rendered the whole tab per day the gesture crossed, up to
@@ -181,43 +176,26 @@ function HealthScreenContent() {
         <View style={styles.timeRangeRow}>
           <View style={styles.timeRangeContainer}>
             {TIME_RANGES.map((range) => (
-              <TouchableOpacity
+              <ToggleButton
                 key={range.id}
-                style={[
-                  styles.timeRangeButton,
-                  isDark && styles.timeRangeButtonDark,
-                  timeRange === range.id && styles.timeRangeButtonActive,
-                ]}
+                label={t(range.labelKey as never)}
+                selected={timeRange === range.id}
                 onPress={() => setTimeRange(range.id)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.timeRangeText,
-                    isDark && styles.timeRangeTextDark,
-                    timeRange === range.id && styles.timeRangeTextActive,
-                  ]}
-                >
-                  {t(range.labelKey as never)}
-                </Text>
-              </TouchableOpacity>
+              />
             ))}
           </View>
-          <TouchableOpacity
-            style={[
-              styles.smoothingButton,
-              isDark && styles.smoothingButtonDark,
-              smoothingWindow !== 'auto' && styles.smoothingButtonActive,
-            ]}
-            onPress={() => setShowSmoothingModal(true)}
-            activeOpacity={0.7}
+          <IconButton
+            accessibilityLabel={t('wellness.smoothingTitle' as never)}
+            variant={smoothingWindow !== 'auto' ? 'primary' : 'secondary'}
+            onPress={pickSmoothing}
+            testID="training-smoothing-button"
           >
             <MaterialCommunityIcons
               name="chart-bell-curve-cumulative"
               size={18}
               color={smoothingWindow !== 'auto' ? colors.textOnPrimary : themeColors.textSecondary}
             />
-          </TouchableOpacity>
+          </IconButton>
         </View>
 
         {/* Wellness Trends Chart */}
@@ -271,61 +249,6 @@ function HealthScreenContent() {
           </View>
         )}
       </ScrollView>
-
-      {/* Smoothing Config Modal - only mount children when visible */}
-      {showSmoothingModal && (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowSmoothingModal(false)}
-        >
-          <Pressable
-            style={pressable(styles.modalOverlay)}
-            android_ripple={pressRipple}
-            onPress={() => setShowSmoothingModal(false)}
-          >
-            <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-              <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
-                {t('wellness.smoothingTitle' as never)}
-              </Text>
-              <Text style={[styles.modalDescription, isDark && styles.modalDescriptionDark]}>
-                {t('wellness.smoothingDescription' as never)}
-              </Text>
-              <View style={styles.smoothingOptions}>
-                {SMOOTHING_PRESETS.map((preset) => (
-                  <TouchableOpacity
-                    key={String(preset.value)}
-                    style={[
-                      styles.smoothingOption,
-                      isDark && styles.smoothingOptionDark,
-                      smoothingWindow === preset.value && styles.smoothingOptionActive,
-                    ]}
-                    onPress={() => {
-                      setSmoothingWindow(preset.value);
-                      setShowSmoothingModal(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.smoothingOptionText,
-                        isDark && styles.smoothingOptionTextDark,
-                        smoothingWindow === preset.value && styles.smoothingOptionTextActive,
-                      ]}
-                    >
-                      {getSmoothingPresetLabel(preset.value, t as never)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={[styles.modalHint, isDark && styles.modalHintDark]}>
-                {t('wellness.smoothingHint' as never)}
-              </Text>
-            </View>
-          </Pressable>
-        </Modal>
-      )}
     </ScreenSafeAreaView>
   );
 }
@@ -426,80 +349,6 @@ const styles = StyleSheet.create({
   },
   smoothingButtonActive: {
     backgroundColor: colors.primary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: opacity.overlay.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius + 4,
-    padding: spacing.lg,
-    width: '100%',
-    maxWidth: 320,
-  },
-  modalContentDark: {
-    backgroundColor: darkColors.surface,
-  },
-  modalTitle: {
-    ...typography.cardTitle,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  modalTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  modalDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  modalDescriptionDark: {
-    color: darkColors.textSecondary,
-  },
-  smoothingOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  smoothingOption: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xsPlus,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-  },
-  smoothingOptionDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  smoothingOptionActive: {
-    backgroundColor: colors.primary,
-  },
-  smoothingOptionText: {
-    ...typography.caption,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  smoothingOptionTextDark: {
-    color: darkColors.textSecondary,
-  },
-  smoothingOptionTextActive: {
-    color: colors.textOnPrimary,
-  },
-  modalHint: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  modalHintDark: {
-    color: darkColors.textSecondary,
   },
 });
 

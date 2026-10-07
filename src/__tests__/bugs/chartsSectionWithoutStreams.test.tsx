@@ -25,6 +25,8 @@ jest.mock('@/shared/ui', () => {
         <Text>{label}</Text>
       </Pressable>
     ),
+    IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    pressable: (style: unknown) => style,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DeviceAttribution: () => null,
     ScreenSafeAreaView: View,

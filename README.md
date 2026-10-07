@@ -76,6 +76,20 @@ build without an install, use `npm run android:debug`; install that verified APK
 later with `npm run install:android debug`. Regenerate bindings after changing a
 Rust export with `npm run ffi:generate`.
 
+Native Rust builds use Cargo's `release` profile by default. For local Dev
+iteration, set `VELOQRS_RUST_PROFILE=release-dev` before the build. Android's
+`-PveloqrsRustProfile=release-dev` property takes precedence over the variable;
+Xcode can read it from `.xcode.env.local`. The choice also applies when checking
+an APK with `scripts/install-apk.sh`, so keep the variable set through install.
+Production builds use `release`.
+
+`release-dev` keeps release optimization but disables LTO and uses 16 codegen
+units. In the measured Android edit cycle, the Rust link fell from about 120 s
+to 23 to 24 s. It is for local testing only: the different codegen layout can
+change route matching timing, so use a release build for performance decisions.
+On the host synthetic route matching benchmark, the measured median was
+88.795 µs for release and 74.452 µs for release-dev.
+
 ### E2E Tests (Maestro)
 
 Install [Maestro](https://maestro.mobile.dev/getting-started/installing-maestro), then with an emulator/simulator running:

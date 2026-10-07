@@ -20,6 +20,7 @@ import {
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
   Shimmer,
+  Button,
   pressable,
   pressRipple,
 } from '@/shared/ui';
@@ -268,6 +269,8 @@ function MapScreenContent() {
             <Pressable
               key={key}
               onPress={() => setPeriod(key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: period === key }}
               style={pressable([
                 styles.chip,
                 period === key
@@ -304,6 +307,8 @@ function MapScreenContent() {
             <Pressable
               key={key}
               onPress={() => setDistanceFilter(key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: distanceFilter === key }}
               style={pressable([
                 styles.chip,
                 distanceFilter === key
@@ -351,15 +356,12 @@ function MapScreenContent() {
             })}
             {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
           </Text>
-          <Pressable
+          <Button
+            label={t('mapScreen.expandRange', 'Expand range')}
+            variant="ghost"
+            size="sm"
             onPress={() => router.push('/sync-settings' as never)}
-            style={pressable()}
-            android_ripple={pressRipple}
-          >
-            <Text style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}>
-              {t('mapScreen.expandRange', 'Expand range')}
-            </Text>
-          </Pressable>
+          />
         </View>
       </View>
     </View>
@@ -458,11 +460,6 @@ const styles = StyleSheet.create({
   },
   infoTextDark: {
     color: darkColors.textSecondary,
-  },
-  infoLink: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.linkTeal,
-    fontWeight: '600',
   },
   attributionPill: {
     position: 'absolute',

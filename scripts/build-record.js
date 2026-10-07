@@ -18,8 +18,8 @@
 //
 // Unless told otherwise, an install asks for the Dev identity (the production
 // one when APP_VARIANT is production, as `app.config.js` reads it), the
-// release Rust profile Gradle builds by default, and the features in
-// VELOQRS_CARGO_FEATURES, as the Rust build reads them.
+// Rust profile in VELOQRS_RUST_PROFILE (release by default), and the features
+// in VELOQRS_CARGO_FEATURES, as the Rust build reads them.
 
 const fs = require('node:fs');
 const os = require('node:os');
@@ -52,7 +52,10 @@ function parse(argv, env) {
     expect: {
       applicationId:
         env.APP_VARIANT === 'production' ? IDENTITIES.production : IDENTITIES.development,
-      profile: 'release',
+      profile:
+        env.APP_VARIANT === 'production' || variant.toLowerCase() === 'release'
+          ? 'release'
+          : env.VELOQRS_RUST_PROFILE || 'release',
       features: list(env.VELOQRS_CARGO_FEATURES),
       deviceAbis: [],
     },
@@ -197,4 +200,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { main };
+module.exports = { main, parse };

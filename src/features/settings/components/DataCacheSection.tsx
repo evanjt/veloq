@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useRouteGroups, useSectionSummaries, useRouteSettings } from '@/features/routes';
 import { useTheme } from '@/shared/app';
-import { formatFullDate } from '@/shared/format/format';
+import { formatDateOrDash } from '@/shared/format/format';
 import { formatDaySpan, type SpanTranslator } from '@/shared/format/daySpan';
 import { estimateRoutesDatabaseSize, getAthleteFilesSize } from '@/shared/storage/gpsStorage';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -27,11 +27,6 @@ import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
-
-function formatDateOrDash(dateStr: string | null): string {
-  if (!dateStr) return '-';
-  return formatFullDate(dateStr);
-}
 
 interface DataCacheSectionProps {
   onLayout?: (event: LayoutChangeEvent) => void;

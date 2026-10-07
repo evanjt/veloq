@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, EmptyState, signalColor } from '@/shared/ui';
+import { Button } from '@/shared/ui/Button';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
@@ -49,7 +51,6 @@ function SensorSettingsScreenContent() {
   }, []);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const errorDeep = isDark ? darkColors.errorDeep : colors.errorDeep;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
@@ -144,18 +145,13 @@ function SensorSettingsScreenContent() {
                       {connection?.batteryPercent != null ? ` · ${connection.batteryPercent}%` : ''}
                     </Text>
                   </View>
-                  <TouchableOpacity
+                  <Button
                     testID={`sensor-forget-${sensor.id}`}
                     onPress={() => handleForget(sensor)}
-                    style={styles.forgetButton}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('sensors.forget', 'Forget')}
-                  >
-                    <Text style={[styles.forgetText, { color: errorDeep }]}>
-                      {t('sensors.forget', 'Forget')}
-                    </Text>
-                  </TouchableOpacity>
+                    label={t('sensors.forget', 'Forget')}
+                    variant="destructive"
+                    size="sm"
+                  />
                 </View>
               );
             })
@@ -180,40 +176,36 @@ function SensorSettingsScreenContent() {
             />
           ) : (
             <>
-              <TouchableOpacity
+              <Button
                 testID="sensor-scan-button"
-                style={[styles.scanButton, { backgroundColor: colors.primary }]}
+                style={styles.scanButton}
                 onPress={handleScan}
-                activeOpacity={0.8}
-              >
-                {scanning ? (
-                  <>
-                    <ActivityIndicator size="small" color={colors.textOnPrimary} />
-                    <Text style={styles.scanButtonText}>
-                      {t('sensors.stopScan', 'Stop scanning')}
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <MaterialCommunityIcons
-                      name="bluetooth-connect"
-                      size={18}
-                      color={colors.textOnPrimary}
-                    />
-                    <Text style={styles.scanButtonText}>
-                      {t('sensors.scan', 'Scan for sensors')}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                label={
+                  scanning
+                    ? t('sensors.stopScan', 'Stop scanning')
+                    : t('sensors.scan', 'Scan for sensors')
+                }
+                icon={
+                  <MaterialCommunityIcons
+                    name="bluetooth-connect"
+                    size={18}
+                    color={colors.textOnPrimary}
+                  />
+                }
+              />
 
               {discoverable.map((sensor) => (
-                <TouchableOpacity
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t('sensors.pair')}: ${sensor.name}`}
                   key={sensor.id}
                   testID={`sensor-discovered-${sensor.id}`}
-                  style={[styles.card, { backgroundColor: surface, borderColor: border }]}
+                  style={pressable([
+                    styles.card,
+                    { backgroundColor: surface, borderColor: border },
+                  ])}
+                  android_ripple={pressRipple}
                   onPress={() => handlePair(sensor)}
-                  activeOpacity={0.7}
                 >
                   <View style={styles.cardBody}>
                     <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
@@ -224,7 +216,7 @@ function SensorSettingsScreenContent() {
                   <Text style={[styles.pairText, { color: brand.teal }]}>
                     {t('sensors.pair', 'Pair')}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
 
               {scanning && discoverable.length === 0 && (
@@ -294,34 +286,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: spacing.xxs,
   },
-  forgetButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    minHeight: layout.minTapTarget,
-    justifyContent: 'center',
-  },
-  forgetText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-  },
   pairText: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
   },
   scanButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadius,
     marginBottom: spacing.sm,
-    minHeight: layout.minTapTarget,
-  },
-  scanButtonText: {
-    color: colors.textOnPrimary,
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
   },
 });
 

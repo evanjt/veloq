@@ -906,7 +906,6 @@ impl PersistentEngine {
         Ok(())
     }
 
-    /// Save processed activity IDs to database after section detection.
     /// Re-cut a single section's line from one member's own track. Cheap,
     /// user-initiated alternative to a corpus-wide detection rerun. Returns
     /// the new line's length, or None if the section doesn't exist / is

@@ -151,6 +151,8 @@ export function SectionLapList({
                         <TouchableOpacity
                           testID={`section-lap-undo-${id}`}
                           style={[styles.pill, isDark && styles.pillDark]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${t('sections.undoExclude')} ${t('sections.lap', { n: i + 1 })}`}
                           onPress={() => onIncludeLap(lap.activityId, lap.startIndex)}
                           activeOpacity={0.7}
                           hitSlop={pillHitSlop}
@@ -166,6 +168,8 @@ export function SectionLapList({
                         <TouchableOpacity
                           testID={`section-lap-exclude-${id}`}
                           style={[styles.pill, isDark && styles.pillDark]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${t('sections.excludeLap')} ${t('sections.lap', { n: i + 1 })}`}
                           onPress={() => onExcludeLap(lap.activityId, lap.startIndex)}
                           activeOpacity={0.7}
                           hitSlop={pillHitSlop}

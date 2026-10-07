@@ -13,15 +13,8 @@
  * says what is waiting on it, with a Why control for the longer answer.
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  ActivityIndicator,
-  StyleSheet,
-  Modal,
-  Pressable,
-  Text as RNText,
-} from 'react-native';
+import React from 'react';
+import { Alert, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -29,29 +22,17 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
 import { useElevationBackfill, useRouteSettings } from '@/features/routes';
-import {
-  colors,
-  darkColors,
-  spacing,
-  typography,
-  layout,
-  shadows,
-  colorWithOpacity,
-  ink,
-} from '@/theme';
-import { pressable, pressRipple } from '@/shared/ui';
+import { colors, darkColors, spacing, typography } from '@/theme';
+import { Button } from '@/shared/ui';
 
 export function ElevationBackfillStatus() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { phase, completed, total, failed, remaining, isPaused } = useElevationBackfill();
   const routeMatchingEnabled = useRouteSettings((state) => state.settings.enabled);
-  const [showWhy, setShowWhy] = useState(false);
 
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const textMuted = isDark ? darkColors.textMuted : colors.textMuted;
-  const surface = isDark ? darkColors.surface : colors.surface;
   const danger = isDark ? darkColors.error : colors.error;
 
   // The phase is a process-global that starts at `idle`, so at rest it says
@@ -125,39 +106,31 @@ export function ElevationBackfillStatus() {
       {status}
 
       {pausable && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('settings.elevationBackfillPause')}
-          style={pressable(styles.pauseRow)}
-          android_ripple={pressRipple}
-          onPress={() => getEngine()?.pauseElevationBackfill()}
+        <Button
           testID="elevation-backfill-pause"
-        >
-          <MaterialCommunityIcons name="pause-circle-outline" size={16} color={colors.primary} />
-          <Text
-            style={[styles.pauseText, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
-          >
-            {t('settings.elevationBackfillPause')}
-          </Text>
-        </Pressable>
+          label={t('settings.elevationBackfillPause')}
+          onPress={() => getEngine()?.pauseElevationBackfill()}
+          variant="ghost"
+          size="sm"
+          style={styles.action}
+          icon={
+            <MaterialCommunityIcons name="pause-circle-outline" size={16} color={colors.primary} />
+          }
+        />
       )}
 
       {isPaused && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('settings.elevationBackfillResume')}
-          style={pressable(styles.pauseRow)}
-          android_ripple={pressRipple}
-          onPress={() => getEngine()?.resumeElevationBackfill()}
+        <Button
           testID="elevation-backfill-resume"
-        >
-          <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.primary} />
-          <Text
-            style={[styles.pauseText, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
-          >
-            {t('settings.elevationBackfillResume')}
-          </Text>
-        </Pressable>
+          label={t('settings.elevationBackfillResume')}
+          onPress={() => getEngine()?.resumeElevationBackfill()}
+          variant="ghost"
+          size="sm"
+          style={styles.action}
+          icon={
+            <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.primary} />
+          }
+        />
       )}
 
       {routeMatchingEnabled && phase !== 'complete' && phase !== 'paused' && (
@@ -169,67 +142,29 @@ export function ElevationBackfillStatus() {
         </Text>
       )}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('settings.elevationBackfillWhy')}
-        style={pressable(styles.whyRow)}
-        android_ripple={pressRipple}
-        onPress={() => setShowWhy(true)}
+      <Button
         testID="elevation-backfill-why"
-      >
-        <MaterialCommunityIcons name="information-outline" size={14} color={textMuted} />
-        <Text style={[styles.whyText, { color: textMuted }]}>
-          {t('settings.elevationBackfillWhy')}
-        </Text>
-      </Pressable>
-
-      <Modal
-        visible={showWhy}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowWhy(false)}
-      >
-        <View style={styles.overlay}>
-          <View style={[styles.dialog, { backgroundColor: surface }]}>
-            <View style={styles.dialogHeader}>
-              <MaterialCommunityIcons name="terrain" size={24} color={colors.primary} />
-              <RNText style={[styles.dialogTitle, { color: textPrimary }]}>
-                {t('settings.elevationBackfillWhyTitle')}
-              </RNText>
-            </View>
-            <RNText
-              style={[styles.dialogBody, { color: textSecondary }]}
-              testID="elevation-backfill-why-body"
-            >
-              {t('settings.elevationBackfillWhyBody')}
-            </RNText>
-            <View style={styles.dialogActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('common.close')}
-                style={pressable(styles.closeBtn)}
-                android_ripple={pressRipple}
-                onPress={() => setShowWhy(false)}
-                testID="elevation-backfill-why-close"
-              >
-                <RNText
-                  style={[
-                    styles.closeText,
-                    { color: isDark ? darkColors.linkTeal : colors.linkTeal },
-                  ]}
-                >
-                  {t('common.close')}
-                </RNText>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        label={t('settings.elevationBackfillWhy')}
+        onPress={() =>
+          Alert.alert(
+            t('settings.elevationBackfillWhyTitle'),
+            t('settings.elevationBackfillWhyBody')
+          )
+        }
+        variant="ghost"
+        size="sm"
+        style={styles.action}
+        icon={<MaterialCommunityIcons name="information-outline" size={14} color={textMuted} />}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  action: {
+    alignSelf: 'center',
+    marginTop: spacing.sm,
+  },
   runningRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -246,69 +181,5 @@ const styles = StyleSheet.create({
   centred: {
     textAlign: 'center',
     marginTop: spacing.sm,
-  },
-  pauseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  pauseText: {
-    ...typography.body,
-    fontWeight: '500',
-  },
-  whyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  whyText: {
-    ...typography.label,
-    textTransform: 'none',
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: colorWithOpacity(ink.black, 0.5),
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  dialog: {
-    width: '100%',
-    maxWidth: 400,
-    borderRadius: layout.borderRadius,
-    padding: spacing.lg,
-    ...shadows.modal,
-  },
-  dialogHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  dialogTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-  },
-  dialogBody: {
-    fontSize: typography.bodySmall.fontSize,
-    lineHeight: 22,
-    marginBottom: spacing.lg,
-  },
-  dialogActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  closeBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  closeText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '500',
   },
 });

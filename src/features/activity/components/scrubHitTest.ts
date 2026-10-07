@@ -1,5 +1,4 @@
-// Pure hit-test for the sections-tab scrub gesture. Extracted from
-// ActivitySectionsSection so it can be unit-tested without a live component.
+// Pure hit-test for the sections-tab scrub gesture.
 //
 // The scrub lets the user long-press a section row and drag through the list
 // to highlight rows. We resolve the finger's window-Y to a row index via

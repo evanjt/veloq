@@ -6,6 +6,9 @@
  * name every category, count and date that de-DE names. Dialect wording cannot
  * be checked by equality, so review remains the rule for new confirmations.
  *
+ * Labels, metric labels included, keep the register they were written in and
+ * are not held to de-DE: a label may be dialect or standard German.
+ *
  * Expected behaviour: a Swiss oath in de-DE or in any locale other than
  * de-CH fails this suite, and de-CH keeps its oaths on the error titles.
  */

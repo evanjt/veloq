@@ -305,6 +305,9 @@ export function SectionScatterChart({
       {!mini && hasExcluded && onToggleShowExcluded && (
         <View style={styles.eyeToggleRow}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('sections.showExcludedActivities')}
+            accessibilityState={{ selected: showExcluded }}
             onPress={onToggleShowExcluded}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={pressable(styles.eyeToggle)}

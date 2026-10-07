@@ -31,6 +31,8 @@ export function StatDetailModal({ stat, isDark, onClose }: StatDetailModalProps)
   return (
     <Modal visible={stat !== null} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('common.close')}
         style={pressable(styles.modalOverlay)}
         android_ripple={pressRipple}
         onPress={onClose}

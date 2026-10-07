@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "Verhogen",
+    "decrease": "Verlagen",
+    "repositoryFor": "Repository voor {{name}}"
+  },
   "about": {
     "dataAttribution": "Data-attributie",
     "description": "Een snelle, offline-first mobiele client voor intervals.icu met focus op kaarten en visuele analyses.",
@@ -227,7 +232,6 @@
     "lastBackup": "Laatste back-up: {{date}}",
     "lastBackupNever": "Nog nooit een back-up gemaakt",
     "backupNow": "Nu back-up maken",
-    "backingUp": "Back-up maken...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "iCloud-back-up",
     "carrierDeviceAndroid": "Google-back-up",
@@ -862,6 +866,7 @@
     "recentPersonalRecord": "Recent persoonlijk record"
   },
   "licenses": {
+    "openRepository": "Repository openen",
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
     "intro": "Veloq is gebouwd met open-source software. Dit scherm toont de bibliotheken van derden en hun licenties.",
     "sectionCoreFramework": "Kernframework",
@@ -1204,6 +1209,12 @@
     "accuracyFilter": "Nauwkeurigheidsfilter",
     "accuracyFilterDescription": "GPS-punten verwerpen die minder nauwkeurig zijn dan deze waarde.",
     "autoPauseDelay": "Vertraging automatische pauze",
+    "accuracyFilterDecrease": "Nauwkeurigheidsfilter verlagen",
+    "accuracyFilterIncrease": "Nauwkeurigheidsfilter verhogen",
+    "autoPauseDelayDecrease": "Vertraging automatische pauze verkorten",
+    "autoPauseDelayIncrease": "Vertraging automatische pauze verlengen",
+    "speedThresholdDecrease": "Snelheidsdrempel voor {{sport}} verlagen",
+    "speedThresholdIncrease": "Snelheidsdrempel voor {{sport}} verhogen",
     "keepAwake": "Scherm aan houden",
     "keepAwakeDescription": "Voorkomt dat het scherm uitgaat tijdens het opnemen.",
     "routeOverlay": {
@@ -1380,6 +1391,13 @@
     "resetBounds": "Herstellen naar origineel",
     "trimPrecisionHint": "Sleep de hendel omhoog of omlaag voor fijnere controle",
     "trimMode": "Bijsnijden",
+    "trimStartEarlier": "Beginpunt eerder zetten",
+    "trimStartLater": "Beginpunt later zetten",
+    "trimEndEarlier": "Eindpunt eerder zetten",
+    "trimEndLater": "Eindpunt later zetten",
+    "includeActivity": "Activiteit opnemen",
+    "excludeActivity": "Activiteit uitsluiten",
+    "showExcludedActivities": "Uitgesloten activiteiten tonen",
     "expandMode": "Uitbreiden",
     "resetBoundsConfirm": "Herstellen naar de oorspronkelijk automatisch gedetecteerde grenzen?\n\nHet traject wordt opnieuw vergeleken met al je activiteiten.",
     "liftGround": "Lift",

@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { View, TextInput, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
+import { View, TextInput, ScrollView, Keyboard } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { Button } from '@/shared/ui/Button';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import { navigateTo } from '@/shared/app/navigation';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -24,20 +25,12 @@ function TouchableButton({
 }) {
   return (
     <View style={styles.buttonContainer}>
-      <TouchableOpacity
-        testID={testID}
-        accessibilityLabel={label}
-        accessibilityRole="button"
+      <Button
+        {...(testID && { testID })}
+        label={label}
         onPress={onPress}
-        disabled={disabled}
-        style={[
-          styles.primaryButton,
-          { backgroundColor: colors.primary, opacity: disabled ? 0.5 : 1 },
-        ]}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.primaryButtonText}>{label}</Text>
-      </TouchableOpacity>
+        disabled={disabled === true}
+      />
     </View>
   );
 }

@@ -81,7 +81,9 @@ describe('BaseMapView', () => {
       </SafeAreaProvider>
     );
 
-    fireEvent.press(screen.getByTestId('map-fullscreen-close'));
+    const close = screen.getByRole('button', { name: 'maps.closeMap' });
+    expect(close).toBe(screen.getByTestId('map-fullscreen-close'));
+    fireEvent.press(close);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
