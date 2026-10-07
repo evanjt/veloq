@@ -298,3 +298,94 @@ OpenStreetMap attribution shown on every map surface.
 ---
 
 *Last updated: 2026-09-01*
+
+## Direct shipped dependency register
+
+This register lists every direct app and engine dependency. The in-app Third-party licences screen carries the same licence and repository links.
+
+### JavaScript direct dependencies
+
+| Package | Licence | Repository |
+|---------|---------|------------|
+| @expo/vector-icons | MIT | https://github.com/expo/vector-icons |
+| @mapbox/polyline | BSD-3-Clause | https://github.com/mapbox/polyline |
+| @react-native-async-storage/async-storage | MIT | https://github.com/react-native-async-storage/async-storage |
+| @react-native-community/slider | MIT | https://github.com/callstack/react-native-slider |
+| @shopify/react-native-skia | MIT | https://github.com/Shopify/react-native-skia |
+| @tanstack/react-query | MIT | https://github.com/TanStack/query |
+| @ubjs/core | MPL-2.0 | https://github.com/jhugman/uniffi-bindgen-react-native |
+| d3-shape | ISC | https://github.com/d3/d3-shape |
+| expo | MIT | https://github.com/expo/expo |
+| expo-build-properties | MIT | https://github.com/expo/expo |
+| expo-camera | MIT | https://github.com/expo/expo |
+| expo-constants | MIT | https://github.com/expo/expo |
+| expo-crypto | MIT | https://github.com/expo/expo |
+| expo-document-picker | MIT | https://github.com/expo/expo |
+| expo-file-system | MIT | https://github.com/expo/expo |
+| expo-haptics | MIT | https://github.com/expo/expo |
+| expo-keep-awake | MIT | https://github.com/expo/expo |
+| expo-linear-gradient | MIT | https://github.com/expo/expo |
+| expo-linking | MIT | https://github.com/expo/expo |
+| expo-localization | MIT | https://github.com/expo/expo |
+| expo-location | MIT | https://github.com/expo/expo |
+| expo-network | MIT | https://github.com/expo/expo |
+| expo-notifications | MIT | https://github.com/expo/expo |
+| expo-router | MIT | https://github.com/expo/expo |
+| expo-screen-orientation | MIT | https://github.com/expo/expo |
+| expo-secure-store | MIT | https://github.com/expo/expo |
+| expo-sharing | MIT | https://github.com/expo/expo |
+| expo-splash-screen | MIT | https://github.com/expo/expo |
+| expo-status-bar | MIT | https://github.com/expo/expo |
+| expo-task-manager | MIT | https://github.com/expo/expo |
+| expo-web-browser | MIT | https://github.com/expo/expo |
+| i18next | MIT | https://github.com/i18next/i18next |
+| intl-pluralrules | ISC | https://github.com/eemeli/intl-pluralrules |
+| react | MIT | https://github.com/facebook/react |
+| react-i18next | MIT | https://github.com/i18next/react-i18next |
+| react-native | MIT | https://github.com/facebook/react-native |
+| react-native-ble-plx | Apache-2.0 | https://github.com/dotintent/react-native-ble-plx |
+| react-native-body-highlighter | MIT | https://github.com/nicoss54/react-native-body-highlighter |
+| react-native-cloud-storage | MIT | https://github.com/kuatsu/react-native-cloud-storage |
+| react-native-gesture-handler | MIT | https://github.com/software-mansion/react-native-gesture-handler |
+| react-native-iap | MIT | https://github.com/hyodotdev/openiap |
+| react-native-nitro-modules | MIT | https://github.com/mrousavy/nitro |
+| react-native-paper | MIT | https://github.com/callstack/react-native-paper |
+| react-native-reanimated | MIT | https://github.com/software-mansion/react-native-reanimated |
+| react-native-safe-area-context | MIT | https://github.com/th3rdwave/react-native-safe-area-context |
+| react-native-screens | MIT | https://github.com/software-mansion/react-native-screens |
+| react-native-svg | MIT | https://github.com/software-mansion/react-native-svg |
+| react-native-webview | MIT | https://github.com/react-native-webview/react-native-webview |
+| react-native-worklets | MIT | https://github.com/software-mansion/react-native-reanimated |
+| zod | MIT | https://github.com/colinhacks/zod |
+| zustand | MIT | https://github.com/pmndrs/zustand |
+
+### Rust direct dependencies
+
+| Package | Licence | Repository |
+|---------|---------|------------|
+| uniffi | MPL-2.0 | https://github.com/mozilla/uniffi-rs |
+| rusqlite | MIT | https://github.com/rusqlite/rusqlite |
+| rusqlite_migration | MIT | https://github.com/cljoly/rusqlite_migration |
+| rmp-serde | MIT | https://github.com/3Hren/msgpack-rust |
+| postcard | MIT OR Apache-2.0 | https://github.com/jamesmunns/postcard |
+| reqwest | MIT OR Apache-2.0 | https://github.com/seanmonstar/reqwest |
+| tokio | MIT | https://github.com/tokio-rs/tokio |
+| tokio-util | MIT | https://github.com/tokio-rs/tokio |
+| futures | MIT OR Apache-2.0 | https://github.com/rust-lang/futures-rs |
+| base64 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
+| thiserror | MIT OR Apache-2.0 | https://github.com/dtolnay/thiserror |
+| fitparser | MIT | https://github.com/stadelmanma/fitparse-rs |
+| log | MIT OR Apache-2.0 | https://github.com/rust-lang/log |
+| libc | MIT OR Apache-2.0 | https://github.com/rust-lang/libc |
+| serde | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
+| serde_json | MIT OR Apache-2.0 | https://github.com/serde-rs/json |
+| chrono | MIT OR Apache-2.0 | https://github.com/chronotope/chrono |
+| lru | MIT | https://github.com/jeromefroe/lru-rs |
+| rayon | MIT OR Apache-2.0 | https://github.com/rayon-rs/rayon |
+| image | MIT | https://github.com/image-rs/image |
+| tempfile | MIT OR Apache-2.0 | https://github.com/Stebalien/tempfile |
+| rstar | MIT OR Apache-2.0 | https://github.com/georust/rstar |
+| zip | MIT | https://github.com/zip-rs/zip2 |
+| android_logger | MIT OR Apache-2.0 | https://github.com/rust-mobile/android_logger-rs |
+| jni | MIT OR Apache-2.0 | https://github.com/jni-rs/jni-rs |
+| oslog | MIT | https://github.com/steven-joruk/oslog |

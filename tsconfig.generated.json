@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "outDir": ".tsbuild/generated",
+    "tsBuildInfoFile": ".tsbuild/generated.tsbuildinfo",
+    "exactOptionalPropertyTypes": false
+  },
+  "include": ["modules/veloqrs/src/generated/**/*.ts"],
+  "exclude": []
+}

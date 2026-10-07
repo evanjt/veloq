@@ -76,15 +76,18 @@ Install [Maestro](https://maestro.mobile.dev/getting-started/installing-maestro)
 
 ```bash
 npm run maestro:smoke       # Quick launch check (tier0)
-npm run maestro:critical    # Smoke + auth + recording (tier0+tier1)
-npm run maestro:regression  # Full feature coverage (tier0+tier1+tier2)
-npm run maestro:all         # Everything including stress tests
+npm run maestro:gate        # Smoke + critical path (tier0+tier1)
+npm run maestro:test        # Full feature coverage (tier0+tier1+tier2)
+npm run maestro:full        # Everything including stress tests (tier0-tier3)
 ```
 
 Run a single flow:
 
+With both handsets attached, export `ANDROID_SERIAL` first; Maestro takes no lock and picks its own transport, so every run goes through the wrapper:
+
 ```bash
-maestro test .maestro/recording-start-stop.yaml
+export ANDROID_SERIAL=<serial>
+scripts/with-maestro.sh test .maestro/recording-start-stop.yaml
 ```
 
 ### E2E in CI

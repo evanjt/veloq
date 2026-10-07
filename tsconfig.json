@@ -29,6 +29,8 @@
     "expo-env.d.ts"
   ],
   "exclude": [
-    "modules/veloqrs/rust/tracematch/web/**"
-  ]
+    "modules/veloqrs/rust/tracematch/web/**",
+    "modules/veloqrs/src/generated/**"
+  ],
+  "references": [{ "path": "./tsconfig.generated.json" }]
 }

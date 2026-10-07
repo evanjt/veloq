@@ -320,12 +320,12 @@
       <div class="container">
         <h1 data-i18n="title">Privacy Policy</h1>
         <p class="last-updated" data-i18n="lastUpdated">
-          Last updated: 26 March 2026
+          Last updated: 6 October 2026
         </p>
 
         <div class="highlight-box">
           <p data-i18n="overview">
-            Veloq operates primarily on your device. We do not collect, sell, or share your personal information. The app fetches your fitness data directly from Intervals.icu and stores it locally for offline access.
+            Veloq keeps your data on your device and the developer never receives it. The app fetches your fitness data directly from Intervals.icu and stores it locally for offline access. A copy leaves the device only when you turn on Automatic backup, tap Back Up Now, or export a backup yourself.
           </p>
         </div>
 
@@ -344,6 +344,7 @@
           <li data-i18n="authMethods.oauth.item1">Uses industry-standard OAuth 2.0 authentication</li>
           <li data-i18n="authMethods.oauth.item2">A Cloudflare Worker proxy handles the token exchange to keep the client secret secure</li>
           <li data-i18n="authMethods.oauth.item3">The proxy temporarily stores a state parameter (5-minute TTL) for CSRF protection</li>
+          <li data-i18n="authMethods.oauth.item6">The proxy holds intervals.icu's one-time sign-in code for up to 2 minutes, until your device redeems it</li>
           <li data-i18n="authMethods.oauth.item4">Your access token is returned directly to your device and stored in secure storage</li>
           <li data-i18n="authMethods.oauth.item5">The proxy does not store your access token</li>
         </ul>
@@ -358,18 +359,29 @@
         </ul>
 
         <h2 data-i18n="localStorage.title">Local Storage</h2>
-        <p data-i18n="localStorage.intro">All data is stored on your device only:</p>
+        <p data-i18n="localStorage.intro">Data is stored on your device:</p>
         <ul>
           <li data-i18n="localStorage.item1">
             <strong>Credentials</strong>. Encrypted (SecureStore), retained until you disconnect
           </li>
           <li data-i18n="localStorage.item2">
-            <strong>Activity data</strong>. 7 days cache, GPS tracks stored indefinitely
+            <strong>Activity data</strong>. Activities and GPS tracks are kept until you sign out or delete app data. Sensor streams (heart rate, power, cadence) are kept for the window chosen in Settings: 30, 90, 180 or 365 days, or everything, which is the default. Nothing deletes an activity by age
           </li>
           <li data-i18n="localStorage.item3">
             <strong>Preferences</strong>. Theme, map settings, retained until you clear app data
           </li>
         </ul>
+
+        <h2 data-i18n="backup.title">Backups</h2>
+        <p data-i18n="backup.intro">Automatic backup is off until you turn it on. When it is on, a backup is written to each of these places that applies:</p>
+        <ul>
+          <li data-i18n="backup.device"><strong>Device backup</strong>. Google on Android, Apple iCloud on iOS, under the phone's own backup setting</li>
+          <li data-i18n="backup.webdav"><strong>Nextcloud or WebDAV server</strong>. When you set one up</li>
+          <li data-i18n="backup.folder"><strong>A folder you pick</strong>. When you pick one</li>
+          <li data-i18n="backup.export"><strong>Export</strong>. Hands a backup to the share sheet, where you choose where it goes</li>
+        </ul>
+        <p data-i18n="backup.contents">Back Up Now writes a backup whatever the Automatic backup switch says. A backup holds your settings, including your Intervals.icu athlete ID and, if you set one, your export home location, the names of your routes, the sections you named, cut or edited with their map lines, and your pins, excludes and section history. It holds no credentials, activities, GPS tracks or sensor streams. A backup is not encrypted.</p>
+        <p data-i18n="backup.off">Turning Automatic backup off stops new backups. Copies already written stay where they are until you delete them there, and the last one stays in the device backup until you clear app data.</p>
 
         <h2 data-i18n="thirdParty.title">Third-Party Services</h2>
 
@@ -379,23 +391,24 @@
         <h3 data-i18n="thirdParty.maps.title">Map Tile Providers</h3>
         <p data-i18n="thirdParty.maps.desc">Standard web requests, no personal data sent:</p>
         <ul>
-          <li>OpenFreeMap / OpenStreetMap (light mode)</li>
-          <li>CARTO (dark mode)</li>
-          <li>EOX Sentinel-2 (satellite imagery)</li>
-          <li>AWS Terrain Tiles (3D elevation)</li>
+          <li data-i18n="thirdParty.maps.base">Base and dark map: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)</li>
+          <li data-i18n="thirdParty.maps.satellite">Satellite imagery: EOX Sentinel-2 (tiles.maps.eox.at), and by region swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl) and Luxembourg (wmts1-4.geoportail.lu)</li>
+          <li data-i18n="thirdParty.maps.terrain">3D terrain: AWS Terrain Tiles (s3.amazonaws.com)</li>
         </ul>
 
         <h3 data-i18n="thirdParty.cloudflare.title">Cloudflare Workers (OAuth mode only)</h3>
         <ul>
           <li data-i18n="thirdParty.cloudflare.item1">Temporarily stores OAuth state parameters (5-minute TTL)</li>
           <li data-i18n="thirdParty.cloudflare.item2">If you opt in to push notifications: stores your athlete ID and an Expo push token (30-day TTL)</li>
-          <li data-i18n="thirdParty.cloudflare.item3">Does not store access tokens or personal data</li>
+          <li data-i18n="thirdParty.cloudflare.item3">Stores your IP address as a rate-limit counter for 60 seconds</li>
+          <li data-i18n="thirdParty.cloudflare.item4">Records each webhook event handled (athlete ID, event type, activity ID) for 5 minutes, so a re-delivered event is not pushed twice</li>
+          <li data-i18n="thirdParty.cloudflare.item5">Does not store access tokens</li>
         </ul>
 
         <h3 data-i18n="thirdParty.expo.title">Expo Push Service (notifications only)</h3>
         <ul>
           <li data-i18n="thirdParty.expo.item1">Routes push notifications from our server to Apple (APNs) or Google (FCM) on your behalf</li>
-          <li data-i18n="thirdParty.expo.item2">Sees only the push token and a minimal payload (event type and activity ID)</li>
+          <li data-i18n="thirdParty.expo.item2">Sees only the push token and a minimal payload (event type, activity ID and your intervals.icu athlete ID, which the app uses to check the push is for the signed-in athlete)</li>
           <li data-i18n="thirdParty.expo.item3">Does not see notification content, all insight text is generated on your device</li>
         </ul>
 
@@ -415,14 +428,14 @@
         <h3 data-i18n="pushNotifications.howItWorks.title">How notifications work</h3>
         <ul>
           <li data-i18n="pushNotifications.howItWorks.item1">When Intervals.icu detects a new activity, it sends a webhook event to auth.veloq.fit</li>
-          <li data-i18n="pushNotifications.howItWorks.item2">Our server relays a minimal push message (containing only the event type and activity ID) through the Expo Push Service</li>
+          <li data-i18n="pushNotifications.howItWorks.item2">Our server relays a minimal push message (containing only the event type, activity ID and your intervals.icu athlete ID, which the app uses to check the push is for the signed-in athlete) through the Expo Push Service</li>
           <li data-i18n="pushNotifications.howItWorks.item3">Expo routes the message through Apple (APNs) or Google (FCM) to reach your device</li>
           <li data-i18n="pushNotifications.howItWorks.item4">Your device generates the notification content (PR details, insights) entirely on-device, neither our server, Expo, Apple, nor Google see this content</li>
         </ul>
 
         <h3 data-i18n="pushNotifications.disable.title">Disabling notifications</h3>
         <p data-i18n="pushNotifications.disable.desc">
-          You can disable notifications at any time in Settings. Disabling sends a removal request to our server. If the request fails (e.g. no internet), the app retries on next open. Logging out also removes your token. In all cases, server data expires automatically after 30 days.
+          You can disable notifications at any time in Settings. Disabling sends a removal request to our server. If the request fails (e.g. no internet), the app retries on next open. Logging out also removes your token when the request reaches the server; if it cannot (e.g. no internet), the app tells you, and this device may keep receiving notifications until the server data expires. In all cases, server data expires automatically after 30 days.
         </p>
 
         <p data-i18n="thirdParty.noTracking">
@@ -431,7 +444,7 @@
 
         <h2 data-i18n="dataSharing.title">Data Sharing</h2>
         <p data-i18n="dataSharing.content">
-          None. The developer has no access to your data. All data flows directly between your device and Intervals.icu, or through standard map tile requests (no personal data).
+          None. The developer has no access to your data. Data flows between your device and Intervals.icu, the map tile servers named above (no identifying data) and, only when you turn them on, push notifications and the backup destinations named above.
         </p>
 
         <h2 data-i18n="security.title">Security</h2>
@@ -459,7 +472,7 @@
         <h2 data-i18n="rights.title">Your Rights</h2>
         <ul>
           <li data-i18n="rights.item1"><strong>View your data:</strong> All data is visible within the app</li>
-          <li data-i18n="rights.item2"><strong>Delete your data:</strong> Uninstall the app or clear app data in device settings</li>
+          <li data-i18n="rights.item2"><strong>Delete your data:</strong> Uninstall the app or clear app data in device settings. A backup on a server, in a folder or in the device backup is deleted there</li>
           <li data-i18n="rights.item3"><strong>Revoke access:</strong> Disconnect your account in app settings, or revoke the OAuth app in Intervals.icu settings</li>
           <li data-i18n="rights.item4"><strong>Server data removal:</strong> If you uninstall the app with notifications enabled, your push token and athlete ID expire automatically after 30 days. For immediate removal, contact <a href="mailto:developer@veloq.fit">developer@veloq.fit</a></li>
         </ul>
@@ -513,9 +526,9 @@
           "footer.releases": "Releases",
           "footer.contact": "Contact",
           title: "Privacy Policy",
-          lastUpdated: "Last updated: 26 March 2026",
+          lastUpdated: "Last updated: 6 October 2026",
           overview:
-            "Veloq operates primarily on your device. We do not collect, sell, or share your personal information. The app fetches your fitness data directly from Intervals.icu and stores it locally for offline access.",
+            "Veloq keeps your data on your device and the developer never receives it. The app fetches your fitness data directly from Intervals.icu and stores it locally for offline access. A copy leaves the device only when you turn on Automatic backup, tap Back Up Now, or export a backup yourself.",
           "authMethods.title": "Authentication Methods",
           "authMethods.intro": "Veloq supports two ways to connect to your Intervals.icu account:",
           "authMethods.apiKey.title": "API Key Mode (Local Only)",
@@ -526,6 +539,7 @@
           "authMethods.oauth.item1": "Uses industry-standard OAuth 2.0 authentication",
           "authMethods.oauth.item2": "A Cloudflare Worker proxy handles the token exchange to keep the client secret secure",
           "authMethods.oauth.item3": "The proxy temporarily stores a state parameter (5-minute TTL) for CSRF protection",
+          "authMethods.oauth.item6": "The proxy holds intervals.icu's one-time sign-in code for up to 2 minutes, until your device redeems it",
           "authMethods.oauth.item4": "Your access token is returned directly to your device and stored in secure storage",
           "authMethods.oauth.item5": "The proxy does not store your access token",
           "dataFetch.title": "Data We Fetch",
@@ -535,22 +549,35 @@
           "dataFetch.item3": "Calendar and planned workouts",
           "dataFetch.item4": "Sport settings (zones, thresholds)",
           "localStorage.title": "Local Storage",
-          "localStorage.intro": "All data is stored on your device only:",
+          "localStorage.intro": "Data is stored on your device:",
           "localStorage.item1": "<strong>Credentials</strong>. Encrypted (SecureStore), retained until you disconnect",
-          "localStorage.item2": "<strong>Activity data</strong>. 7 days cache, GPS tracks stored indefinitely",
+          "localStorage.item2": "<strong>Activity data</strong>. Activities and GPS tracks are kept until you sign out or delete app data. Sensor streams (heart rate, power, cadence) are kept for the window chosen in Settings: 30, 90, 180 or 365 days, or everything, which is the default. Nothing deletes an activity by age",
           "localStorage.item3": "<strong>Preferences</strong>. Theme, map settings, retained until you clear app data",
+          "backup.title": "Backups",
+          "backup.intro": "Automatic backup is off until you turn it on. When it is on, a backup is written to each of these places that applies:",
+          "backup.device": "<strong>Device backup</strong>. Google on Android, Apple iCloud on iOS, under the phone's own backup setting",
+          "backup.webdav": "<strong>Nextcloud or WebDAV server</strong>. When you set one up",
+          "backup.folder": "<strong>A folder you pick</strong>. When you pick one",
+          "backup.export": "<strong>Export</strong>. Hands a backup to the share sheet, where you choose where it goes",
+          "backup.contents": "Back Up Now writes a backup whatever the Automatic backup switch says. A backup holds your settings, including your Intervals.icu athlete ID and, if you set one, your export home location, the names of your routes, the sections you named, cut or edited with their map lines, and your pins, excludes and section history. It holds no credentials, activities, GPS tracks or sensor streams. A backup is not encrypted.",
+          "backup.off": "Turning Automatic backup off stops new backups. Copies already written stay where they are until you delete them there, and the last one stays in the device backup until you clear app data.",
           "thirdParty.title": "Third-Party Services",
           "thirdParty.intervals.title": "Intervals.icu",
           "thirdParty.intervals.desc": 'Your fitness data source. See their <a href="https://intervals.icu/privacy-policy.html" target="_blank">Privacy Policy</a> and <a href="https://forum.intervals.icu/tos" target="_blank">Terms of Service</a>.',
           "thirdParty.maps.title": "Map Tile Providers",
           "thirdParty.maps.desc": "Standard web requests, no personal data sent:",
+          "thirdParty.maps.base": "Base and dark map: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
+          "thirdParty.maps.satellite": "Satellite imagery: EOX Sentinel-2 (tiles.maps.eox.at), and by region " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
+          "thirdParty.maps.terrain": "3D terrain: AWS Terrain Tiles (s3.amazonaws.com)",
           "thirdParty.cloudflare.title": "Cloudflare Workers (OAuth mode only)",
           "thirdParty.cloudflare.item1": "Temporarily stores OAuth state parameters (5-minute TTL)",
           "thirdParty.cloudflare.item2": "If you opt in to push notifications: stores your athlete ID and an Expo push token (30-day TTL)",
-          "thirdParty.cloudflare.item3": "Does not store access tokens or personal data",
+          "thirdParty.cloudflare.item3": "Stores your IP address as a rate-limit counter for 60 seconds",
+          "thirdParty.cloudflare.item4": "Records each webhook event handled (athlete ID, event type, activity ID) for 5 minutes, so a re-delivered event is not pushed twice",
+          "thirdParty.cloudflare.item5": "Does not store access tokens",
           "thirdParty.expo.title": "Expo Push Service (notifications only)",
           "thirdParty.expo.item1": "Routes push notifications from our server to Apple (APNs) or Google (FCM) on your behalf",
-          "thirdParty.expo.item2": "Sees only the push token and a minimal payload (event type and activity ID)",
+          "thirdParty.expo.item2": "Sees only the push token and a minimal payload (event type, activity ID and your intervals.icu athlete ID, which the app uses to check the push is for the signed-in athlete)",
           "thirdParty.expo.item3": "Does not see notification content, all insight text is generated on your device",
           "pushNotifications.title": "Push Notifications (Optional)",
           "pushNotifications.intro": "Push notifications are strictly opt-in. They are disabled by default and only available to OAuth (connected) users. API key users are never prompted and no data is ever sent.",
@@ -560,14 +587,14 @@
           "pushNotifications.whatStored.item3": "Your push token is re-registered each time you open the app (refreshing the 30-day TTL)",
           "pushNotifications.howItWorks.title": "How notifications work",
           "pushNotifications.howItWorks.item1": "When Intervals.icu detects a new activity, it sends a webhook event to auth.veloq.fit",
-          "pushNotifications.howItWorks.item2": "Our server relays a minimal push message (containing only the event type and activity ID) through the Expo Push Service",
+          "pushNotifications.howItWorks.item2": "Our server relays a minimal push message (containing only the event type, activity ID and your intervals.icu athlete ID, which the app uses to check the push is for the signed-in athlete) through the Expo Push Service",
           "pushNotifications.howItWorks.item3": "Expo routes the message through Apple (APNs) or Google (FCM) to reach your device",
           "pushNotifications.howItWorks.item4": "Your device generates the notification content (PR details, insights) entirely on-device, neither our server, Expo, Apple, nor Google see this content",
           "pushNotifications.disable.title": "Disabling notifications",
-          "pushNotifications.disable.desc": "You can disable notifications at any time in Settings. Disabling sends a removal request to our server. If the request fails (e.g. no internet), the app retries on next open. Logging out also removes your token. In all cases, server data expires automatically after 30 days.",
+          "pushNotifications.disable.desc": "You can disable notifications at any time in Settings. Disabling sends a removal request to our server. If the request fails (e.g. no internet), the app retries on next open. Logging out also removes your token when the request reaches the server; if it cannot (e.g. no internet), the app tells you, and this device may keep receiving notifications until the server data expires. In all cases, server data expires automatically after 30 days.",
           "thirdParty.noTracking": "No analytics, advertising, crash reporting, or tracking SDKs.",
           "dataSharing.title": "Data Sharing",
-          "dataSharing.content": "None. The developer has no access to your data. All data flows directly between your device and Intervals.icu, or through standard map tile requests (no personal data).",
+          "dataSharing.content": "None. The developer has no access to your data. Data flows between your device and Intervals.icu, the map tile servers named above (no identifying data) and, only when you turn them on, push notifications and the backup destinations named above.",
           "security.title": "Security",
           "security.item1": "Credentials encrypted using platform secure storage",
           "security.item2": "HTTPS/TLS for all network requests",
@@ -580,7 +607,7 @@
           "children.content": "Not intended for users under 13. No data is collected from any user.",
           "rights.title": "Your Rights",
           "rights.item1": "<strong>View your data:</strong> All data is visible within the app",
-          "rights.item2": "<strong>Delete your data:</strong> Uninstall the app or clear app data in device settings",
+          "rights.item2": "<strong>Delete your data:</strong> Uninstall the app or clear app data in device settings. A backup on a server, in a folder or in the device backup is deleted there",
           "rights.item3": "<strong>Revoke access:</strong> Disconnect your account in app settings, or revoke the OAuth app in Intervals.icu settings",
           "rights.item4": '<strong>Server data removal:</strong> If you uninstall the app with notifications enabled, your push token and athlete ID expire automatically after 30 days. For immediate removal, contact <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
           "changes.title": "Changes",
@@ -593,9 +620,9 @@
           "footer.releases": "Versiones",
           "footer.contact": "Contacto",
           title: "Política de Privacidad",
-          lastUpdated: "Última actualización: 26 de marzo de 2026",
+          lastUpdated: "Última actualización: 6 de octubre de 2026",
           overview:
-            "Veloq opera principalmente en tu dispositivo. No recopilamos, vendemos ni compartimos tu información personal. La aplicación obtiene tus datos de fitness directamente de Intervals.icu y los almacena localmente para acceso sin conexión.",
+            "Veloq guarda tus datos en tu dispositivo y el desarrollador nunca los recibe. La app obtiene tus datos de entrenamiento directamente de Intervals.icu y los almacena localmente para acceso sin conexión. Una copia sale del dispositivo solo cuando activas la copia de seguridad automática, tocas Respaldar ahora o exportas una copia tú mismo.",
           "authMethods.title": "Métodos de Autenticación",
           "authMethods.intro": "Veloq soporta dos formas de conectar a tu cuenta de Intervals.icu:",
           "authMethods.apiKey.title": "Modo Clave API (Solo Local)",
@@ -606,6 +633,7 @@
           "authMethods.oauth.item1": "Usa autenticación OAuth 2.0 estándar de la industria",
           "authMethods.oauth.item2": "Un proxy Cloudflare Worker maneja el intercambio de tokens para mantener el secreto del cliente seguro",
           "authMethods.oauth.item3": "El proxy almacena temporalmente un parámetro de estado (TTL de 5 minutos) para protección CSRF",
+          "authMethods.oauth.item6": "El proxy conserva el código de inicio de sesión de un solo uso de intervals.icu hasta 2 minutos, hasta que tu dispositivo lo canjee",
           "authMethods.oauth.item4": "Tu token de acceso se devuelve directamente a tu dispositivo y se almacena de forma segura",
           "authMethods.oauth.item5": "El proxy no almacena tu token de acceso",
           "dataFetch.title": "Datos que Obtenemos",
@@ -615,22 +643,35 @@
           "dataFetch.item3": "Calendario y entrenamientos planificados",
           "dataFetch.item4": "Configuración deportiva (zonas, umbrales)",
           "localStorage.title": "Almacenamiento Local",
-          "localStorage.intro": "Todos los datos se almacenan solo en tu dispositivo:",
+          "localStorage.intro": "Los datos se almacenan en tu dispositivo:",
           "localStorage.item1": "<strong>Credenciales</strong>. Encriptadas (SecureStore), retenidas hasta que te desconectes",
-          "localStorage.item2": "<strong>Datos de actividad</strong>. Caché de 7 días, tracks GPS almacenados indefinidamente",
+          "localStorage.item2": "<strong>Datos de actividad</strong>. Las actividades y los tracks GPS se conservan hasta que cierres sesión o borres los datos de la app. Los flujos de sensores (frecuencia cardíaca, potencia, cadencia) se conservan durante el periodo elegido en Ajustes: 30, 90, 180 o 365 días, o todo, que es el valor por defecto. Nada elimina una actividad por antigüedad",
           "localStorage.item3": "<strong>Preferencias</strong>. Tema, configuración del mapa, retenidos hasta que borres los datos de la app",
+          "backup.title": "Copias de Seguridad",
+          "backup.intro": "La copia de seguridad automática está desactivada hasta que la actives. Cuando está activada, se escribe una copia en cada uno de estos lugares que corresponda:",
+          "backup.device": "<strong>Copia del dispositivo</strong>. Google en Android, Apple iCloud en iOS, según el ajuste de copia de seguridad del propio teléfono",
+          "backup.webdav": "<strong>Servidor Nextcloud o WebDAV</strong>. Cuando configuras uno",
+          "backup.folder": "<strong>Una carpeta que eliges</strong>. Cuando eliges una",
+          "backup.export": "<strong>Exportar</strong>. Entrega una copia al menú de compartir, donde eliges adónde va",
+          "backup.contents": "Respaldar ahora escribe una copia sea cual sea el ajuste de copia automática. Una copia contiene tus ajustes, incluido tu ID de atleta de Intervals.icu y, si lo defines, tu ubicación de inicio de exportación, los nombres de tus rutas, las secciones que nombraste, recortaste o editaste con sus líneas de mapa, y tus pines, exclusiones e historial de secciones. No contiene credenciales, actividades, tracks GPS ni flujos de sensores. Una copia no está cifrada.",
+          "backup.off": "Desactivar la copia automática detiene las copias nuevas. Las copias ya escritas permanecen donde están hasta que las borres allí, y la última permanece en la copia del dispositivo hasta que borres los datos de la app.",
           "thirdParty.title": "Servicios de Terceros",
           "thirdParty.intervals.title": "Intervals.icu",
           "thirdParty.intervals.desc": 'Tu fuente de datos de fitness. Consulta su <a href="https://intervals.icu/privacy-policy.html" target="_blank">Política de Privacidad</a> y <a href="https://forum.intervals.icu/tos" target="_blank">Términos de Servicio</a>.',
           "thirdParty.maps.title": "Proveedores de Mapas",
           "thirdParty.maps.desc": "Solicitudes web estándar, sin datos personales enviados:",
+          "thirdParty.maps.base": "Mapa base y oscuro: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
+          "thirdParty.maps.satellite": "Imágenes satelitales: EOX Sentinel-2 (tiles.maps.eox.at), y según la región " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
+          "thirdParty.maps.terrain": "Terreno 3D: AWS Terrain Tiles (s3.amazonaws.com)",
           "thirdParty.cloudflare.title": "Cloudflare Workers (solo modo OAuth)",
           "thirdParty.cloudflare.item1": "Almacena temporalmente parámetros de estado OAuth (TTL de 5 minutos)",
           "thirdParty.cloudflare.item2": "Si activas las notificaciones push: almacena tu ID de atleta y un token push de Expo (TTL de 30 días)",
-          "thirdParty.cloudflare.item3": "No almacena tokens de acceso ni datos personales",
+          "thirdParty.cloudflare.item3": "Almacena tu dirección IP como contador de límite de solicitudes durante 60 segundos",
+          "thirdParty.cloudflare.item4": "Registra cada evento de webhook procesado (ID de atleta, tipo de evento, ID de actividad) durante 5 minutos, para no enviar dos veces un evento reenviado",
+          "thirdParty.cloudflare.item5": "No almacena tokens de acceso",
           "thirdParty.expo.title": "Servicio Push de Expo (solo notificaciones)",
           "thirdParty.expo.item1": "Enruta notificaciones push desde nuestro servidor a Apple (APNs) o Google (FCM) en tu nombre",
-          "thirdParty.expo.item2": "Solo ve el token push y un payload mínimo (tipo de evento e ID de actividad)",
+          "thirdParty.expo.item2": "Solo ve el token push y un payload mínimo (tipo de evento, ID de actividad e ID de atleta de intervals.icu, que la app usa para comprobar que la notificación es para el atleta con sesión iniciada)",
           "thirdParty.expo.item3": "No ve el contenido de las notificaciones, todo el texto de insights se genera en tu dispositivo",
           "pushNotifications.title": "Notificaciones Push (Opcional)",
           "pushNotifications.intro": "Las notificaciones push son estrictamente opcionales. Están desactivadas por defecto y solo disponibles para usuarios OAuth (conectados). Los usuarios con clave API nunca son solicitados y no se envía ningún dato.",
@@ -640,14 +681,14 @@
           "pushNotifications.whatStored.item3": "Tu token push se re-registra cada vez que abres la app (renovando el TTL de 30 días)",
           "pushNotifications.howItWorks.title": "Cómo funcionan las notificaciones",
           "pushNotifications.howItWorks.item1": "Cuando Intervals.icu detecta una nueva actividad, envía un evento webhook a auth.veloq.fit",
-          "pushNotifications.howItWorks.item2": "Nuestro servidor retransmite un mensaje push mínimo (solo tipo de evento e ID de actividad) a través del Servicio Push de Expo",
+          "pushNotifications.howItWorks.item2": "Nuestro servidor retransmite un mensaje push mínimo (solo tipo de evento, ID de actividad e ID de atleta de intervals.icu, que la app usa para comprobar que la notificación es para el atleta con sesión iniciada) a través del Servicio Push de Expo",
           "pushNotifications.howItWorks.item3": "Expo enruta el mensaje a través de Apple (APNs) o Google (FCM) para llegar a tu dispositivo",
           "pushNotifications.howItWorks.item4": "Tu dispositivo genera el contenido de la notificación (detalles de PR, insights) completamente en el dispositivo, ni nuestro servidor, Expo, Apple ni Google ven este contenido",
           "pushNotifications.disable.title": "Desactivar notificaciones",
-          "pushNotifications.disable.desc": "Puedes desactivar las notificaciones en cualquier momento en Ajustes. Desactivar envía una solicitud de eliminación a nuestro servidor. Si la solicitud falla (p. ej. sin internet), la app reintenta al abrirla de nuevo. Cerrar sesión también elimina tu token. En todos los casos, los datos del servidor expiran automáticamente después de 30 días.",
+          "pushNotifications.disable.desc": "Puedes desactivar las notificaciones en cualquier momento en Ajustes. Desactivar envía una solicitud de eliminación a nuestro servidor. Si la solicitud falla (p. ej. sin internet), la app reintenta al abrirla de nuevo. Cerrar sesión también elimina tu token cuando la solicitud llega al servidor; si no puede (p. ej. sin internet), la app te avisa y este dispositivo puede seguir recibiendo notificaciones hasta que los datos del servidor expiren. En todos los casos, los datos del servidor expiran automáticamente después de 30 días.",
           "thirdParty.noTracking": "Sin análisis, publicidad, informes de errores ni SDKs de seguimiento.",
           "dataSharing.title": "Compartir Datos",
-          "dataSharing.content": "Ninguno. El desarrollador no tiene acceso a tus datos. Todos los datos fluyen directamente entre tu dispositivo e Intervals.icu, o a través de solicitudes estándar de mapas (sin datos personales).",
+          "dataSharing.content": "Ninguno. El desarrollador no tiene acceso a tus datos. Los datos fluyen entre tu dispositivo e Intervals.icu, los servidores de mapas indicados arriba (sin datos personales) y, solo cuando los activas, las notificaciones push y los destinos de copia de seguridad indicados arriba.",
           "security.title": "Seguridad",
           "security.item1": "Credenciales encriptadas usando almacenamiento seguro de la plataforma",
           "security.item2": "HTTPS/TLS para todas las solicitudes de red",
@@ -660,7 +701,7 @@
           "children.content": "No está destinado a usuarios menores de 13 años. No se recopilan datos de ningún usuario.",
           "rights.title": "Tus Derechos",
           "rights.item1": "<strong>Ver tus datos:</strong> Todos los datos son visibles dentro de la aplicación",
-          "rights.item2": "<strong>Eliminar tus datos:</strong> Desinstala la aplicación o borra los datos de la app en la configuración del dispositivo",
+          "rights.item2": "<strong>Eliminar tus datos:</strong> Desinstala la aplicación o borra los datos de la app en la configuración del dispositivo. Una copia en un servidor, en una carpeta o en la copia del dispositivo se elimina allí",
           "rights.item3": "<strong>Revocar acceso:</strong> Desconecta tu cuenta en la configuración de la app, o revoca la app OAuth en la configuración de Intervals.icu",
           "rights.item4": '<strong>Eliminación de datos del servidor:</strong> Si desinstalas la app con las notificaciones activadas, tu token push e ID de atleta expiran automáticamente después de 30 días. Para eliminación inmediata, contacta a <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
           "changes.title": "Cambios",
@@ -673,9 +714,9 @@
           "footer.releases": "Versions",
           "footer.contact": "Contact",
           title: "Politique de Confidentialité",
-          lastUpdated: "Dernière mise à jour : 26 mars 2026",
+          lastUpdated: "Dernière mise à jour : 6 octobre 2026",
           overview:
-            "Veloq fonctionne principalement sur votre appareil. Nous ne collectons, vendons ni partageons vos informations personnelles. L'application récupère vos données fitness directement depuis Intervals.icu et les stocke localement pour un accès hors ligne.",
+            "Veloq garde vos données sur votre appareil et le développeur ne les reçoit jamais. L'app récupère vos données d'entraînement directement depuis Intervals.icu et les stocke localement pour un accès hors ligne. Une copie ne quitte l'appareil que si vous activez la sauvegarde automatique, touchez Sauvegarder maintenant ou exportez vous-même une sauvegarde.",
           "authMethods.title": "Méthodes d'Authentification",
           "authMethods.intro": "Veloq propose deux façons de se connecter à votre compte Intervals.icu :",
           "authMethods.apiKey.title": "Mode Clé API (Local Uniquement)",
@@ -686,6 +727,7 @@
           "authMethods.oauth.item1": "Utilise l'authentification OAuth 2.0 standard",
           "authMethods.oauth.item2": "Un proxy Cloudflare Worker gère l'échange de jetons pour garder le secret client sécurisé",
           "authMethods.oauth.item3": "Le proxy stocke temporairement un paramètre d'état (TTL de 5 minutes) pour la protection CSRF",
+          "authMethods.oauth.item6": "Le proxy conserve le code de connexion à usage unique d'intervals.icu jusqu'à 2 minutes, le temps que votre appareil l'échange",
           "authMethods.oauth.item4": "Votre jeton d'accès est retourné directement à votre appareil et stocké de manière sécurisée",
           "authMethods.oauth.item5": "Le proxy ne stocke pas votre jeton d'accès",
           "dataFetch.title": "Données que Nous Récupérons",
@@ -695,22 +737,35 @@
           "dataFetch.item3": "Calendrier et entraînements planifiés",
           "dataFetch.item4": "Paramètres sportifs (zones, seuils)",
           "localStorage.title": "Stockage Local",
-          "localStorage.intro": "Toutes les données sont stockées uniquement sur votre appareil :",
+          "localStorage.intro": "Les données sont stockées sur votre appareil :",
           "localStorage.item1": "<strong>Identifiants</strong>. Chiffrés (SecureStore), conservés jusqu'à déconnexion",
-          "localStorage.item2": "<strong>Données d'activité</strong>. Cache de 7 jours, traces GPS stockées indéfiniment",
+          "localStorage.item2": "<strong>Données d'activité</strong>. Les activités et les traces GPS sont conservées jusqu'à votre déconnexion ou la suppression des données de l'app. Les flux de capteurs (fréquence cardiaque, puissance, cadence) sont conservés pendant la durée choisie dans les Réglages : 30, 90, 180 ou 365 jours, ou tout, ce qui est le réglage par défaut. Rien ne supprime une activité selon son ancienneté",
           "localStorage.item3": "<strong>Préférences</strong>. Thème, paramètres de carte, conservés jusqu'à effacement des données",
+          "backup.title": "Sauvegardes",
+          "backup.intro": "La sauvegarde automatique est désactivée tant que vous ne l'activez pas. Activée, une sauvegarde est écrite dans chacun de ces emplacements qui s'applique :",
+          "backup.device": "<strong>Sauvegarde de l'appareil</strong>. Google sur Android, Apple iCloud sur iOS, selon le réglage de sauvegarde du téléphone lui-même",
+          "backup.webdav": "<strong>Serveur Nextcloud ou WebDAV</strong>. Lorsque vous en configurez un",
+          "backup.folder": "<strong>Un dossier que vous choisissez</strong>. Lorsque vous en choisissez un",
+          "backup.export": "<strong>Export</strong>. Remet une sauvegarde à la feuille de partage, où vous choisissez sa destination",
+          "backup.contents": "Sauvegarder maintenant écrit une sauvegarde quel que soit le réglage de sauvegarde automatique. Une sauvegarde contient vos réglages, dont votre ID d'athlète Intervals.icu et, si vous en avez défini un, votre point de départ d'export, les noms de vos itinéraires, les sections que vous avez nommées, coupées ou modifiées avec leurs tracés, ainsi que vos épingles, exclusions et l'historique des sections. Elle ne contient ni identifiants, ni activités, ni traces GPS, ni flux de capteurs. Une sauvegarde n'est pas chiffrée.",
+          "backup.off": "Désactiver la sauvegarde automatique arrête les nouvelles sauvegardes. Les copies déjà écrites restent où elles sont jusqu'à ce que vous les supprimiez là, et la dernière reste dans la sauvegarde de l'appareil jusqu'à l'effacement des données de l'app.",
           "thirdParty.title": "Services Tiers",
           "thirdParty.intervals.title": "Intervals.icu",
           "thirdParty.intervals.desc": 'Votre source de données fitness. Voir leur <a href="https://intervals.icu/privacy-policy.html" target="_blank">Politique de Confidentialité</a> et <a href="https://forum.intervals.icu/tos" target="_blank">Conditions d\'Utilisation</a>.',
           "thirdParty.maps.title": "Fournisseurs de Tuiles Cartographiques",
           "thirdParty.maps.desc": "Requêtes web standard, aucune donnée personnelle envoyée :",
+          "thirdParty.maps.base": "Carte de base et sombre: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
+          "thirdParty.maps.satellite": "Imagerie satellite: EOX Sentinel-2 (tiles.maps.eox.at), et selon la région " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
+          "thirdParty.maps.terrain": "Terrain 3D: AWS Terrain Tiles (s3.amazonaws.com)",
           "thirdParty.cloudflare.title": "Cloudflare Workers (mode OAuth uniquement)",
           "thirdParty.cloudflare.item1": "Stocke temporairement les paramètres d'état OAuth (TTL de 5 minutes)",
           "thirdParty.cloudflare.item2": "Si vous activez les notifications push : stocke votre ID d'athlète et un jeton push Expo (TTL de 30 jours)",
-          "thirdParty.cloudflare.item3": "Ne stocke pas les jetons d'accès ni les données personnelles",
+          "thirdParty.cloudflare.item3": "Stocke votre adresse IP comme compteur de limitation de débit pendant 60 secondes",
+          "thirdParty.cloudflare.item4": "Enregistre chaque événement webhook traité (ID d'athlète, type d'événement, ID d'activité) pendant 5 minutes, pour qu'un événement renvoyé ne soit pas notifié deux fois",
+          "thirdParty.cloudflare.item5": "Ne stocke pas les jetons d'accès",
           "thirdParty.expo.title": "Service Push Expo (notifications uniquement)",
           "thirdParty.expo.item1": "Achemine les notifications push de notre serveur vers Apple (APNs) ou Google (FCM) en votre nom",
-          "thirdParty.expo.item2": "Ne voit que le jeton push et un payload minimal (type d'événement et ID d'activité)",
+          "thirdParty.expo.item2": "Ne voit que le jeton push et un payload minimal (type d'événement, ID d'activité et ID d'athlète intervals.icu, que l'app utilise pour vérifier que la notification est destinée à l'athlète connecté)",
           "thirdParty.expo.item3": "Ne voit pas le contenu des notifications, tout le texte d'insights est généré sur votre appareil",
           "pushNotifications.title": "Notifications Push (Optionnel)",
           "pushNotifications.intro": "Les notifications push sont strictement optionnelles. Elles sont désactivées par défaut et uniquement disponibles pour les utilisateurs OAuth (connectés). Les utilisateurs avec clé API ne sont jamais sollicités et aucune donnée n'est envoyée.",
@@ -720,14 +775,14 @@
           "pushNotifications.whatStored.item3": "Votre jeton push est ré-enregistré chaque fois que vous ouvrez l'app (renouvellement du TTL de 30 jours)",
           "pushNotifications.howItWorks.title": "Comment fonctionnent les notifications",
           "pushNotifications.howItWorks.item1": "Quand Intervals.icu détecte une nouvelle activité, il envoie un événement webhook à auth.veloq.fit",
-          "pushNotifications.howItWorks.item2": "Notre serveur relaie un message push minimal (contenant uniquement le type d'événement et l'ID d'activité) via le Service Push Expo",
+          "pushNotifications.howItWorks.item2": "Notre serveur relaie un message push minimal (contenant uniquement le type d'événement, l'ID d'activité et l'ID d'athlète intervals.icu, que l'app utilise pour vérifier que la notification est destinée à l'athlète connecté) via le Service Push Expo",
           "pushNotifications.howItWorks.item3": "Expo achemine le message via Apple (APNs) ou Google (FCM) pour atteindre votre appareil",
           "pushNotifications.howItWorks.item4": "Votre appareil génère le contenu de la notification (détails PR, insights) entièrement sur l'appareil, ni notre serveur, Expo, Apple ni Google ne voient ce contenu",
           "pushNotifications.disable.title": "Désactiver les notifications",
           "pushNotifications.disable.desc": "Vous pouvez désactiver les notifications à tout moment dans les Réglages. La désactivation envoie une demande de suppression à notre serveur. Si la demande échoue (par ex. pas d'internet), l'app réessaie à la prochaine ouverture. La déconnexion supprime également votre jeton. Dans tous les cas, les données du serveur expirent automatiquement après 30 jours.",
           "thirdParty.noTracking": "Pas d'analytique, publicité, rapports d'erreurs ou SDKs de suivi.",
           "dataSharing.title": "Partage de Données",
-          "dataSharing.content": "Aucun. Le développeur n'a pas accès à vos données. Toutes les données transitent directement entre votre appareil et Intervals.icu, ou via des requêtes de tuiles standard (sans données personnelles).",
+          "dataSharing.content": "Aucun. Le développeur n'a pas accès à vos données. Les données transitent entre votre appareil et Intervals.icu, les serveurs de tuiles cités plus haut (sans données personnelles) et, uniquement si vous les activez, les notifications push et les destinations de sauvegarde citées plus haut.",
           "security.title": "Sécurité",
           "security.item1": "Identifiants chiffrés via le stockage sécurisé de la plateforme",
           "security.item2": "HTTPS/TLS pour toutes les requêtes réseau",
@@ -740,7 +795,7 @@
           "children.content": "Non destiné aux utilisateurs de moins de 13 ans. Aucune donnée n'est collectée auprès d'aucun utilisateur.",
           "rights.title": "Vos Droits",
           "rights.item1": "<strong>Voir vos données :</strong> Toutes les données sont visibles dans l'application",
-          "rights.item2": "<strong>Supprimer vos données :</strong> Désinstallez l'application ou effacez les données dans les paramètres de l'appareil",
+          "rights.item2": "<strong>Supprimer vos données :</strong> Désinstallez l'application ou effacez les données dans les paramètres de l'appareil. Une sauvegarde sur un serveur, dans un dossier ou dans la sauvegarde de l'appareil est supprimée à cet endroit",
           "rights.item3": "<strong>Révoquer l'accès :</strong> Déconnectez votre compte dans les paramètres de l'app, ou révoquez l'app OAuth dans les paramètres Intervals.icu",
           "rights.item4": '<strong>Suppression des données serveur :</strong> Si vous désinstallez l\'app avec les notifications activées, votre jeton push et ID d\'athlète expirent automatiquement après 30 jours. Pour une suppression immédiate, contactez <a href="mailto:developer@veloq.fit">developer@veloq.fit</a>',
           "changes.title": "Modifications",
