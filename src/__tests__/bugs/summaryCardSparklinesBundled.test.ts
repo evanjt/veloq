@@ -44,6 +44,8 @@ const SPARKLINES = {
   form: [10, 10, 10],
   hrv: [55, 56, 57],
   rhr: [48, 48, 47],
+  hrvRead: [true, false, true],
+  rhrRead: [true, true, true],
 };
 
 const engine = {
@@ -67,12 +69,21 @@ describe('the feed card sparklines', () => {
     expect(engine.getWellnessSparklines).not.toHaveBeenCalled();
     expect(result.current.fitnessData).toEqual(SPARKLINES.fitness);
     expect(result.current.hrvData).toEqual(SPARKLINES.hrv);
+    expect(result.current.hrvRead).toEqual(SPARKLINES.hrvRead);
+    expect(result.current.rhrRead).toEqual(SPARKLINES.rhrRead);
   });
 
   it('are absent rather than re-read when the bundle carries none', () => {
     const { result } = renderHook(() =>
       useSummaryCardData(CARD, { awaitPrecomputed: true, precomputedSparklines: null })
     );
+
+    expect(engine.getWellnessSparklines).not.toHaveBeenCalled();
+    expect(result.current.fitnessData).toBeUndefined();
+  });
+
+  it('are not read while the feed waits for the bundle', () => {
+    const { result } = renderHook(() => useSummaryCardData(undefined, { awaitPrecomputed: true }));
 
     expect(engine.getWellnessSparklines).not.toHaveBeenCalled();
     expect(result.current.fitnessData).toBeUndefined();

@@ -27,6 +27,16 @@ describe('the Rust test tree is built by a gate', () => {
     expect(read('scripts/merge-gates.sh')).toMatch(/cargo check --tests/);
   });
 
+  it('is checked with the synthetic feature, because cargo drops gated suites from --tests silently', () => {
+    const gate = read('scripts/merge-gates.sh');
+    expect(gate).toMatch(/cargo check --tests -p veloqrs --features synthetic/);
+    expect(gate).toMatch(/cargo check --tests -p tracematch --features synthetic/);
+  });
+
+  it('is checked featureless by the pre-commit gate, which stays fast', () => {
+    expect(read('scripts/check-rust-tests.ts')).not.toMatch(/synthetic/);
+  });
+
   it('is checked by the branch that staged the Rust, so it fails on its own commit', () => {
     expect(read('.husky/pre-commit')).toMatch(/rust-tests/);
     expect(read('package.json')).toMatch(/"lint:rust-tests"/);

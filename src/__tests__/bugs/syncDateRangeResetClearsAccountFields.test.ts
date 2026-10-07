@@ -6,10 +6,6 @@
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 
 describe('SyncDateRangeStore.reset', () => {
-  afterEach(() => {
-    useSyncDateRange.getState().clearUnlockTimeout();
-  });
-
   it('clears the GPS progress, the syncing flag and the last sync time', () => {
     const store = useSyncDateRange.getState();
     store.setGpsSyncProgress({
@@ -48,20 +44,6 @@ describe('SyncDateRangeStore.reset', () => {
     });
     expect(after.isGpsSyncing).toBe(false);
     expect(after.lastSyncTimestamp).toBeNull();
-  });
-
-  it('clears a terrain snapshot left rendering', () => {
-    useSyncDateRange
-      .getState()
-      .setTerrainSnapshotProgress({ status: 'rendering', completed: 2, total: 7 });
-
-    useSyncDateRange.getState().reset();
-
-    expect(useSyncDateRange.getState().terrainSnapshotProgress).toEqual({
-      status: 'idle',
-      completed: 0,
-      total: 0,
-    });
   });
 
   it('leaves the syncing flag down when reset lands mid-fetch', () => {

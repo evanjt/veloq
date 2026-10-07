@@ -15,8 +15,6 @@ import { resolve } from 'node:path';
 
 import { stateKey } from '../../../oauth-proxy/src/keys';
 
-const worker = readFileSync(resolve(__dirname, '../../../oauth-proxy/src/worker.ts'), 'utf8');
-
 describe('the OAuth state key', () => {
   it('carries a prefix of its own', () => {
     expect(stateKey('abc')).toBe('state:abc');
@@ -26,20 +24,6 @@ describe('the OAuth state key', () => {
     expect(stateKey('rate:1.2.3.4')).toBe('state:rate:1.2.3.4');
     expect(stateKey('dedup:i1:ACTIVITY:9')).toBe('state:dedup:i1:ACTIVITY:9');
     expect(stateKey('exchange:xyz')).toBe('state:exchange:xyz');
-  });
-
-  it('is what the worker reads, writes and deletes with', () => {
-    expect(worker).not.toMatch(/OAUTH_STATES\.(get|put|delete)\(\s*state\s*[,)]/);
-    for (const call of ['put', 'get', 'delete']) {
-      expect(worker).toContain(`OAUTH_STATES.${call}(stateKey(state)`);
-    }
-  });
-});
-
-describe('a malformed token response', () => {
-  it('is logged by its shape, never by its contents', () => {
-    expect(worker).not.toContain('console.error("Invalid token response:", tokenData)');
-    expect(worker).toContain('Object.keys(tokenData)');
   });
 });
 

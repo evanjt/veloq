@@ -13,6 +13,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { SupportCard } from '@/features/home/components/SupportCard';
+import { Card } from '@/shared/ui/Card';
 
 /** Every time the billing hook was mounted, which is the cost being moved. */
 const mockUseIAP = jest.fn();
@@ -69,9 +70,10 @@ describe('the support card and the billing connection', () => {
   it('opens one once the store says the card should show', () => {
     mockShouldShow = true;
 
-    const { getByTestId } = render(<SupportCard />);
+    const { getByTestId, UNSAFE_getByType } = render(<SupportCard />);
 
     expect(getByTestId('support-card')).toBeTruthy();
+    expect(UNSAFE_getByType(Card).props.variant).toBe('raised');
     expect(mockUseIAP).toHaveBeenCalled();
   });
 });

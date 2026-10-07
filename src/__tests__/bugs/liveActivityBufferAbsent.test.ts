@@ -47,8 +47,7 @@ const encoded = (s: LiveActivityContentState) => Buffer.byteLength(JSON.stringif
 it('agrees with a real encoder on a card carrying a trace', () => {
   const built = buildContentState({
     now: 1_700_000_600_000,
-    startTime: 1_700_000_000_000,
-    pausedDurationMs: 0,
+    movingMs: 600_000,
     distanceLabel: '12.4 km',
     speedLabel: '28.1 km/h',
     gps: track(20),

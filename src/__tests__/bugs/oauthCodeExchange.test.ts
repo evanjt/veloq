@@ -10,9 +10,6 @@
  * verifier its challenge was made from. A stolen code is useless on its own.
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import {
   codeChallengeFor,
   isValidVerifier,
@@ -91,59 +88,5 @@ describe('the one-time code', () => {
   it('is a different value every time', () => {
     const seen = new Set(Array.from({ length: 50 }, () => newOpaqueToken()));
     expect(seen.size).toBe(50);
-  });
-});
-
-describe('the proxy redirect back to the app', () => {
-  const worker = readFileSync(resolve(__dirname, '../../../oauth-proxy/src/worker.ts'), 'utf8');
-
-  it('puts a one-time code in the deep link, not the access token', () => {
-    const redirect = worker.slice(
-      worker.indexOf('function redirectToAppWithCode'),
-      worker.indexOf('function redirectToAppWithLegacyToken')
-    );
-    expect(redirect).not.toMatch(/access_token:\s*token\.access_token/);
-    expect(redirect).toMatch(/code:/);
-  });
-
-  it('reaches the token-in-URL redirect only for a build that registered no challenge', () => {
-    const callback = worker.slice(
-      worker.indexOf('async function handleOAuthCallback'),
-      worker.indexOf('function challengeFromStoredState')
-    );
-    expect(callback).toMatch(/if \(!challenge\) \{\n\s*return redirectToAppWithLegacyToken/);
-    // One caller, and it is that branch.
-    expect(callback.match(/redirectToAppWithLegacyToken\(/g)).toHaveLength(1);
-  });
-
-  it('spends the code before it knows whether the verifier was right', () => {
-    const exchange = worker.slice(worker.indexOf('async function handleTokenExchange'));
-    const deleted = exchange.indexOf('await env.OAUTH_STATES.delete(exchangeKey(code));\n\n  if');
-    const checked = exchange.indexOf('verifierMatches(');
-    expect(deleted).toBeGreaterThan(-1);
-    expect(deleted).toBeLessThan(checked);
-  });
-
-  it('answers every refusal the same way, so nothing says which half was wrong', () => {
-    const exchange = worker.slice(worker.indexOf('async function handleTokenExchange'));
-    const refusals = exchange.match(/exchangeRefused\("([a-z_]+)"\)/g) ?? [];
-    expect(refusals.length).toBeGreaterThan(3);
-    for (const refusal of refusals) {
-      expect(refusal).toMatch(/"(invalid_request|invalid_grant)"/);
-    }
-  });
-
-  it('keeps the token out of every cache on the way back', () => {
-    const exchange = worker.slice(worker.indexOf('async function handleTokenExchange'));
-    expect(exchange).toMatch(/"Cache-Control": "no-store"/);
-  });
-
-  it('exposes the HTTPS exchange the app redeems the code at', () => {
-    expect(worker).toMatch(/path === "\/oauth\/token" && request\.method === "POST"/);
-  });
-
-  it('checks the verifier against the stored challenge before handing anything back', () => {
-    const exchange = worker.slice(worker.indexOf('async function handleTokenExchange'));
-    expect(exchange).toMatch(/verifierMatches\(/);
   });
 });

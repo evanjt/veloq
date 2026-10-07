@@ -56,12 +56,12 @@ describe('the recording screen starts nothing it is not allowed to start', () =>
   });
 
   it('does not start when the athlete cannot record', () => {
-    renderHook(() => useInitRecordingEffect('idle', 'Ride', 'gps', undefined, false));
+    renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, false));
     expect(useRecordingStore.getState().startRecording).not.toHaveBeenCalled();
   });
 
   it('starts when the athlete can', () => {
-    renderHook(() => useInitRecordingEffect('idle', 'Ride', 'gps', undefined, true));
+    renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, true));
     expect(useRecordingStore.getState().startRecording).toHaveBeenCalledWith(
       'Ride',
       'gps',
@@ -73,15 +73,16 @@ describe('the recording screen starts nothing it is not allowed to start', () =>
 describe('the surfaces are handed no ride-starting URL while signed out', () => {
   // An engine with nothing in it still answers. Handing back undefined models
   // a shape the FFI never produces: it returns the payload or it throws.
+  // The engine copies the shortcuts off the context it is handed, so the
+  // context is what these read.
   const mockEngine = {
-    getWidgetSnapshot: jest.fn(() => ({
-      sparklines: null,
-      summary: null,
-      latest: null,
-      latestIsPr: false,
-      latestGps: null,
-    })),
+    composeWidgetSnapshot: jest.fn((_context: string) => '{}'),
+    setWidgetContext: jest.fn(() => true),
   };
+  const handed = () =>
+    JSON.parse(mockEngine.composeWidgetSnapshot.mock.calls.at(-1)![0]) as {
+      recordShortcuts: { type: string }[];
+    };
 
   beforeEach(() => {
     jest.resetModules();
@@ -99,7 +100,8 @@ describe('the surfaces are handed no ride-starting URL while signed out', () => 
     const { setRecentRecordingTypes } = require('@/shared/recording');
     setRecentRecordingTypes(['Ride']);
     const { gatherWidgetSnapshot } = require('@/features/home/lib/widgetSnapshot');
-    return gatherWidgetSnapshot({ locale: 'en-AU', isMetric: true, now: new Date(0) });
+    gatherWidgetSnapshot({ locale: 'en-AU', isMetric: true, now: new Date(0) });
+    return handed();
   }
 
   it('gathers no shortcuts when there is no account, so a stale one is cleared', () => {

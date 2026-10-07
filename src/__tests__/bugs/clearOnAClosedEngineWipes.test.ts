@@ -1,9 +1,8 @@
 /**
  * Scenario: the login screen runs with the engine closed by design, and both
  * Try Demo and a sign-in to another account call `clearAccountData` from it.
- * On a closed handle `startClearAll` returned at once, `pollClearAll` answered
- * `idle`, the poll's throw was swallowed and the re-open was skipped for want
- * of a path. Nothing on disk was touched and the call resolved as though it
+ * On a closed handle the wipe call returned at once, its failure was
+ * swallowed and the re-open was skipped for want of a path. Nothing on disk was touched and the call resolved as though it
  * had wiped, one tap after the athlete accepted "Continue and delete".
  *
  * Expected behaviour: a wipe asked for on a closed engine opens the database
@@ -20,8 +19,7 @@ const mockNativeEngine = {
   isInitialized: () => true,
   initOutcome: () => 1,
   setObserver: jest.fn(),
-  startClearAll: jest.fn(),
-  pollClearAll: jest.fn(() => 'complete'),
+  runClearAll: jest.fn(() => Promise.resolve()),
   destroy: jest.fn(),
   settings: () => mockSettings,
   heatmap: () => mockHeatmap,
@@ -67,7 +65,7 @@ describe('a wipe asked for on a closed engine', () => {
     await client.clear(DB);
 
     expect(mockCreate).toHaveBeenCalledWith(DB);
-    expect(mockNativeEngine.startClearAll).toHaveBeenCalled();
+    expect(mockNativeEngine.runClearAll).toHaveBeenCalled();
   });
 
   it('names the heatmap tiles directory to the wipe, with the heatmap never turned on', async () => {
@@ -77,7 +75,7 @@ describe('a wipe asked for on a closed engine', () => {
     await client.clear(DB);
 
     expect(mockHeatmap.setTilesPath).not.toHaveBeenCalled();
-    expect(mockNativeEngine.startClearAll).toHaveBeenCalledWith('/cache/heatmap-tiles/');
+    expect(mockNativeEngine.runClearAll).toHaveBeenCalledWith('/cache/heatmap-tiles/');
   });
 
   it('leaves the engine open on that database afterwards, as a wipe on an open one does', async () => {
@@ -94,7 +92,7 @@ describe('a wipe asked for on a closed engine', () => {
     const client = closedClient();
 
     await expect(client.clear()).rejects.toThrow();
-    expect(mockNativeEngine.startClearAll).not.toHaveBeenCalled();
+    expect(mockNativeEngine.runClearAll).not.toHaveBeenCalled();
   });
 
   it('rejects when the database it was given will not open', async () => {
@@ -108,7 +106,9 @@ describe('a wipe asked for on a closed engine', () => {
 
   it('still reports a wipe that started and then failed', async () => {
     const client = closedClient();
-    mockNativeEngine.pollClearAll.mockImplementationOnce(() => 'idle');
+    mockNativeEngine.runClearAll.mockImplementationOnce(() =>
+      Promise.reject(new Error('Clear thread died without a result'))
+    );
 
     await expect(client.clear(DB)).rejects.toThrow();
   });

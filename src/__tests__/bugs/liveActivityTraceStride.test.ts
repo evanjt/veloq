@@ -102,6 +102,17 @@ describe('the live activity card samples the track', () => {
     expect(outline?.points).toHaveLength(2);
   });
 
+  it('draws the origin placeholders of positionless samples as no point', () => {
+    const placed: [number, number][] = [
+      [46.0, 7.0],
+      [46.1, 7.1],
+      [46.2, 7.2],
+    ];
+    const padded: [number, number][] = [[0, 0], [0, 0], ...placed, [0, 0]];
+
+    expect(composeRouteOutline(padded, 10)).toEqual(composeRouteOutline(placed, 10));
+  });
+
   it('has nothing to draw from a single pair', () => {
     expect(composeRouteOutline([[46.0, 7.0]])).toBeNull();
   });

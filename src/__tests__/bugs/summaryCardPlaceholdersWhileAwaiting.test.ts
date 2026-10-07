@@ -72,7 +72,6 @@ describe('the summary card while the startup bundle is outstanding', () => {
 
     expect(result.current.heroValue).toBe('-');
     expect(result.current.heroTrend).toBeUndefined();
-    expect(result.current.heroZoneLabel).toBeUndefined();
   });
 
   it('draws no supporting number', () => {

@@ -29,8 +29,13 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn(async () => undefined),
 }));
 jest.mock('@/shared/app/AuthStore', () => ({
-  useAuthStore: { getState: () => ({ authMethod: 'apiKey' }) },
-  getStoredCredentials: () => ({ apiKey: 'key', accessToken: null, authMethod: 'apiKey' }),
+  useAuthStore: { getState: () => ({ authMethod: 'oauth' }) },
+  getStoredCredentials: () => ({
+    apiKey: null,
+    accessToken: 'token',
+    authMethod: 'oauth',
+    athleteId: 'i1',
+  }),
 }));
 jest.mock('@/features/settings/lib/autobackup/webdavConfig', () => ({
   getWebdavConfig: () => ({ url: 'https://nas.example/dav', username: 'u', password: 'p' }),
@@ -88,6 +93,6 @@ describe('a request that never answers', () => {
     const tested = testWebdavConnection();
     await jest.advanceTimersByTimeAsync(NET_DEADLINE_MS.interactive);
 
-    await expect(tested).resolves.toMatch(/timed out/i);
+    await expect(tested).resolves.toEqual({ kind: 'transport' });
   });
 });

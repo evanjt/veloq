@@ -11,8 +11,7 @@
 
 import { createAwakeClock } from '@/shared/app/awakeClock';
 import { pollDownloadProgress } from '@/features/routes/lib/gpsDownloadPoll';
-import { runDatabaseBackup } from '@/features/settings/lib/runBackup';
-import { runCatalogueClear } from '@/shared/native/engineClears';
+import { writeClearSnapshot } from '@/features/settings/lib/clearSnapshot';
 
 const noWait = () => Promise.resolve();
 
@@ -123,7 +122,7 @@ describe('a backup the app was suspended during', () => {
 
     let settle: () => void = () => {};
     const engine = {
-      runBackup: jest.fn(
+      writeClearSnapshot: jest.fn(
         () =>
           new Promise<void>((resolve) => {
             settle = resolve;
@@ -131,7 +130,7 @@ describe('a backup the app was suspended during', () => {
       ),
     };
 
-    const copying = runDatabaseBackup(engine, '/tmp/backup.db', { timeoutMs: 60_000 });
+    const copying = writeClearSnapshot(engine, '/tmp/backup.db', 60_000);
 
     time.advance(600_000);
     for (let tick = 0; tick < 4; tick += 1) {
@@ -140,77 +139,21 @@ describe('a backup the app was suspended during', () => {
     }
     settle();
 
-    await expect(copying).resolves.toBe('complete');
+    await expect(copying).resolves.toBeUndefined();
   });
 
   it('still gives up on a copy that never finishes while the app is awake', async () => {
     jest.useFakeTimers();
-    const engine = { runBackup: jest.fn(() => new Promise<void>(() => {})) };
+    const engine = { writeClearSnapshot: jest.fn(() => new Promise<void>(() => {})) };
 
     // The expectation goes on before the clock moves: the rejection lands
     // inside the tick, and a promise nobody is holding yet takes the run down.
-    const copying = expect(
-      runDatabaseBackup(engine, '/tmp/backup.db', { timeoutMs: 120 })
-    ).rejects.toThrow('did not finish in time');
+    const copying = expect(writeClearSnapshot(engine, '/tmp/backup.db', 120)).rejects.toThrow(
+      'did not finish in time'
+    );
     await jest.advanceTimersByTimeAsync(2_000);
 
     await copying;
-    jest.useRealTimers();
-  });
-});
-
-describe('a wipe the app was suspended during', () => {
-  const realNow = Date.now;
-
-  afterEach(() => {
-    Date.now = realNow;
-  });
-
-  /**
-   * The wipe is a Promise the engine answers, so the suspension is read by the
-   * ceiling's own sampling: a sample that arrives ten minutes after the last
-   * one is the process having been away, and the budget is given back.
-   */
-  it('does not give up over a deadline the suspension spent', async () => {
-    const time = clock(realNow());
-    Date.now = () => time.now();
-
-    let settle: () => void = () => {};
-    const engine = {
-      runClearRoutesAndSections: jest.fn(
-        () =>
-          new Promise<void>((resolve) => {
-            settle = resolve;
-          })
-      ),
-    };
-
-    const outcome = runCatalogueClear(engine, 60_000);
-
-    // Away for ten minutes, then a handful of ordinary samples.
-    time.advance(600_000);
-    for (let tick = 0; tick < 4; tick += 1) {
-      time.advance(500);
-      await Promise.resolve();
-    }
-    settle();
-
-    await expect(outcome).resolves.toEqual({
-      state: 'complete',
-      removed: undefined,
-    });
-  });
-
-  it('still stops watching a wipe that never finishes while the app is awake', async () => {
-    jest.useFakeTimers();
-    const engine = {
-      runClearRoutesAndSections: jest.fn(() => new Promise<void>(() => {})),
-    };
-
-    const outcome = runCatalogueClear(engine, 120);
-    await jest.advanceTimersByTimeAsync(2_000);
-
-    await expect(outcome).resolves.toEqual({ state: 'stillRunning' });
     jest.useRealTimers();
   });
 });

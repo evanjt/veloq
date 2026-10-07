@@ -8,11 +8,11 @@
  * Expected behaviour: no engine call happens during render, several events
  * arriving before the deferred read runs cost one call rather than one each,
  * the last bundle stays on screen while the next read is pending, and the
- * record carries only the summary card and the preview tracks.
+ * record carries only the summary card, the preview tracks, the sparklines and the new ids.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
-import { InteractionManager } from 'react-native';
+import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 
 import { useStartupData } from '@/features/home/hooks/useStartupData';
 import { getEngine } from '@/shared/native/engine';
@@ -31,17 +31,10 @@ const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 const SUMMARY_CARD = { currentWeek: { count: 3 } };
 
-type Task = { run: () => void; cancelled: boolean };
-let pending: Task[] = [];
+let idle: IdleScheduler;
 
 function flushInteractions(): void {
-  const queued = pending;
-  pending = [];
-  act(() => {
-    for (const task of queued) {
-      if (!task.cancelled) task.run();
-    }
-  });
+  act(() => idle.flush());
 }
 
 let subscribers: (() => void)[] = [];
@@ -63,24 +56,14 @@ const engine = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  pending = [];
   subscribers = [];
   engine.getStartupData.mockImplementation((_params: unknown, ids: string[]) => bundle(ids));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((task) => {
-    const entry: Task = { run: task as () => void, cancelled: false };
-    pending.push(entry);
-    return {
-      then: () => Promise.resolve(),
-      done: () => {},
-      cancel: () => {
-        entry.cancelled = true;
-      },
-    } as unknown as ReturnType<typeof InteractionManager.runAfterInteractions>;
-  });
+  idle = stubIdleScheduler('queued');
 });
 
 afterEach(() => {
+  idle.restore();
   jest.restoreAllMocks();
 });
 
@@ -145,13 +128,14 @@ describe('useStartupData', () => {
     expect(result.current.data).toBe(first);
   });
 
-  it('carries only the summary card, the preview tracks and the sparklines', () => {
+  it('carries only the summary card, the preview tracks, the sparklines and the new ids', () => {
     const { result } = renderHook(() => useStartupData([]));
     flushInteractions();
 
     expect(engine.getStartupData).toHaveBeenCalledTimes(1);
     expect(result.current.data?.previewTracks.size).toBe(0);
     expect(Object.keys(result.current.data ?? {}).sort()).toEqual([
+      'newActivityIds',
       'previewTracks',
       'sparklines',
       'summaryCardData',

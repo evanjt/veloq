@@ -18,8 +18,13 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/ui', () => {
-  const { View } = require('react-native');
+  const { View, Pressable, Text } = require('react-native');
   return {
+    Button: ({ label, onPress }: { label: string; onPress: () => void }) => (
+      <Pressable onPress={onPress}>
+        <Text>{label}</Text>
+      </Pressable>
+    ),
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DeviceAttribution: () => null,
     ScreenSafeAreaView: View,

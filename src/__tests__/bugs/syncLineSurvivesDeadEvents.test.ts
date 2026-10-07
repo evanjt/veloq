@@ -13,7 +13,11 @@
 import { act, renderHook } from '@testing-library/react-native';
 
 import { getEngine } from '@/shared/native/engine';
-import { FALLBACK_TICK_MS, subscribeToFallbackTick } from '@/shared/native/eventFallback';
+import {
+  FALLBACK_TICK_MS,
+  reconsiderFallback,
+  subscribeToFallbackTick,
+} from '@/shared/native/eventFallback';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { SyncState, type SyncStatus } from 'veloqrs';
 
@@ -150,5 +154,24 @@ describe('the sync line when nothing can be announced', () => {
     act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 5));
 
     expect(ticked).not.toHaveBeenCalled();
+  });
+});
+
+describe('the fallback timer against a closed engine', () => {
+  it('schedules nothing while the engine is closed, and starts once it opens', () => {
+    const engine = { ...fakeEngine(false, status(SyncState.Idle, 0)), ready: false };
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+    const tick = jest.fn();
+
+    const off = subscribeToFallbackTick(tick);
+    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 3));
+    expect(tick).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+
+    engine.ready = true;
+    reconsiderFallback();
+    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
+    expect(tick).toHaveBeenCalledTimes(1);
+    off();
   });
 });

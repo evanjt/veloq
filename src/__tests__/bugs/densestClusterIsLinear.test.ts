@@ -8,14 +8,11 @@
  * library inside one region is every activity and needs no search at all.
  */
 
-import {
-  densestClusterIndices,
-  CLUSTER_RADIUS_DEG,
-  type Centre,
-} from '@/features/maps/lib/densestCluster';
+import { densestClusterIndices, CLUSTER_RADIUS_DEG } from '@/features/maps/lib/densestCluster';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 /** The pairwise search this replaces, kept here to compare against. */
-function pairwiseCluster(centres: Centre[]): number[] {
+function pairwiseCluster(centres: LatLngShort[]): number[] {
   let bestIdx = 0;
   let bestCount = 0;
   for (let i = 0; i < centres.length; i++) {
@@ -46,7 +43,7 @@ function pairwiseCluster(centres: Centre[]): number[] {
 }
 
 /** `count` centres scattered inside a tenth of a degree of one spot. */
-function near(lat: number, lng: number, count: number): Centre[] {
+function near(lat: number, lng: number, count: number): LatLngShort[] {
   return Array.from({ length: count }, (_, i) => ({
     lat: lat + (i % 10) * 0.01,
     lng: lng + (i % 7) * 0.01,
@@ -84,7 +81,7 @@ describe('the densest cluster', () => {
   });
 
   it('frames the same region as the pairwise search it replaces', () => {
-    const cases: Centre[][] = [
+    const cases: LatLngShort[][] = [
       [...near(46.2, 7.35, 120), ...near(-33.8, 151.2, 5)],
       [...near(51.5, -0.12, 80), ...near(35.6, 139.6, 3), ...near(-23.5, -46.6, 2)],
       [...near(46.2, 7.35, 40), ...near(47.4, 8.5, 9)],
@@ -123,7 +120,7 @@ describe('the densest cluster', () => {
   });
 });
 
-function boundsOf(centres: Centre[], indices: number[]) {
+function boundsOf(centres: LatLngShort[], indices: number[]) {
   const lats = indices.map((i) => centres[i].lat);
   const lngs = indices.map((i) => centres[i].lng);
   return {

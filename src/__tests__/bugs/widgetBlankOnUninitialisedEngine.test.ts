@@ -17,7 +17,8 @@ import { gatherWidgetSnapshot } from '@/features/home/lib/widgetSnapshot';
 import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 
 const mockEngine = {
-  getWidgetSnapshot: jest.fn(),
+  composeWidgetSnapshot: jest.fn(),
+  setWidgetContext: jest.fn(),
 };
 let mockEngineReady = true;
 
@@ -51,22 +52,14 @@ const mockWidget = (
   }
 ).requireOptionalNativeModule();
 
-const answer = {
-  sparklines: { fitness: [70], fatigue: [60], form: [10], hrv: [], rhr: [] },
-  summary: {
-    currentWeek: { count: 1, totalDuration: 3600, totalDistance: 30_000, totalTss: 60 },
-    prevWeek: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
-  },
-  latest: null,
-  latestIsPr: false,
-  latestGps: null,
-};
+const answer = '{"schemaVersion":8,"metrics":{"fitness":{"value":70}}}';
 
 const opts = { locale: 'en-AU', isMetric: true, translate: (key: string) => key };
 
 beforeEach(() => {
   mockEngineReady = true;
-  mockEngine.getWidgetSnapshot.mockReset().mockReturnValue(answer);
+  mockEngine.composeWidgetSnapshot.mockReset().mockReturnValue(answer);
+  mockEngine.setWidgetContext.mockReset().mockReturnValue(true);
   mockWidget.writeSnapshot.mockReset();
   mockWidget.reloadWidgets.mockReset();
   mockWidget.publishRecordShortcuts.mockReset();
@@ -83,20 +76,38 @@ describe('gatherWidgetSnapshot', () => {
   });
 
   it('returns null when the read throws, rather than composing from nothing', () => {
-    // `get_widget_snapshot` goes through `with_engine`, which answers
-    // `NotInitialized` before the database is opened. Swallowing that and
-    // composing from undefined turns "unknown" into "zero".
-    mockEngine.getWidgetSnapshot.mockImplementation(() => {
+    // The read answers `NotInitialized` before the database is opened.
+    // Swallowing that and composing from undefined turns "unknown" into "zero".
+    mockEngine.composeWidgetSnapshot.mockImplementation(() => {
       throw new Error('NotInitialized');
     });
     expect(gatherWidgetSnapshot(opts)).toBeNull();
   });
 });
 
+describe('the context the push worker composes from', () => {
+  it('is stored with the one the snapshot was composed from', () => {
+    gatherWidgetSnapshot(opts);
+    expect(mockEngine.setWidgetContext).toHaveBeenCalledWith(
+      mockEngine.composeWidgetSnapshot.mock.calls[0][0]
+    );
+  });
+
+  it('is not stored when nothing could be composed', () => {
+    // A context stored beside no snapshot would let the worker compose in
+    // settings the app never wrote a file with.
+    mockEngine.composeWidgetSnapshot.mockImplementation(() => {
+      throw new Error('NotInitialized');
+    });
+    gatherWidgetSnapshot(opts);
+    expect(mockEngine.setWidgetContext).not.toHaveBeenCalled();
+  });
+});
+
 describe('updateWidgetSnapshot', () => {
-  it('writes when the engine is open', () => {
+  it('writes what the engine composed when the engine is open', () => {
     updateWidgetSnapshot();
-    expect(mockWidget.writeSnapshot).toHaveBeenCalled();
+    expect(mockWidget.writeSnapshot).toHaveBeenCalledWith(answer);
   });
 
   it('writes nothing when the engine is not open', () => {

@@ -13,7 +13,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gitFreeEnv } from '../__shared__/gitFixture';
@@ -76,12 +76,23 @@ function fixture(committed: Record<string, string>, staged: Record<string, strin
   return root;
 }
 
-function run(cwd: string): { status: number; output: string } {
+/**
+ * A temp directory of the run's own, so what it holds afterwards is this run's
+ * leftovers alone. The system one is shared with every landing on the machine,
+ * and each of those makes the same copy while its gates run.
+ */
+function scratch(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'merge-lint-tmp-'));
+  roots.push(dir);
+  return dir;
+}
+
+function run(cwd: string, tmp: string = scratch()): { status: number; output: string } {
   try {
     const output = execFileSync('sh', [SCRIPT], {
       cwd,
       encoding: 'utf8',
-      env: { ...gitFreeEnv(), VELOQ_MERGE_LINT_REPO: REPO },
+      env: { ...gitFreeEnv(), VELOQ_MERGE_LINT_REPO: REPO, TMPDIR: tmp },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { status: 0, output };
@@ -163,14 +174,51 @@ it('accepts the zero with the cache flags after it', () => {
   expect(run(root).status).toBe(0);
 });
 
-it('removes its copy on the failing path as well as the passing one', () => {
-  const copies = () => readdirSync(tmpdir()).filter((name) => name.startsWith('veloq-merge-lint'));
-  const before = copies();
+describe('the content cache', () => {
+  const cacheFile = (root: string): string =>
+    execFileSync('git', ['rev-parse', '--git-path', 'veloq-merge-lint.cache'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: gitFreeEnv(),
+    }).trim();
 
-  run(fixture({ 'a.js': CLEAN }));
-  run(fixture({ 'a.js': CLEAN }, { 'b.js': WARNING }));
+  const cachePath = (root: string): string => join(root, cacheFile(root));
 
-  expect(copies()).toEqual(before);
+  it('writes a content cache with an entry per linted file', () => {
+    const root = fixture({ 'a.js': CLEAN, 'b.js': CLEAN });
+
+    expect(run(root).status).toBe(0);
+
+    const cached = readFileSync(cachePath(root), 'utf8');
+    expect(cached).toContain('/a.js');
+    expect(cached).toContain('/b.js');
+  });
+
+  it('fails a warning committed after a clean run, for a changed file', () => {
+    const root = fixture({ 'a.js': CLEAN });
+    expect(run(root).status).toBe(0);
+
+    write(root, { 'a.js': WARNING });
+    git(root, 'add', 'a.js');
+
+    expect(run(root).status).not.toBe(0);
+  });
+
+  it('still fails a warning in a file the second run reads from the cache', () => {
+    const root = fixture({ 'a.js': CLEAN }, { 'b.js': WARNING });
+    expect(run(root).status).not.toBe(0);
+
+    expect(run(root).status).not.toBe(0);
+  });
+
+  it('does not lint a file removed from the index between runs', () => {
+    const root = fixture({ 'a.js': CLEAN, 'b.js': WARNING });
+    expect(run(root).status).not.toBe(0);
+
+    git(root, 'rm', '-q', '-f', 'b.js');
+
+    expect(run(root).status).toBe(0);
+  });
 });
 
 describe('the merge hook is the caller', () => {

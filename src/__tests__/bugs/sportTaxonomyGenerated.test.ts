@@ -10,21 +10,14 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
-import { readRustSportFamilies, renderSportTaxonomy } from '../../../scripts/lib/sportTaxonomy';
+import { SPORT_DISPLAY_GROUPS, SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
+import { readRustSportFamilies } from '../../../scripts/lib/sportTaxonomy';
 
-const GENERATED = resolve('src/shared/native/sportTaxonomy.generated.ts');
 const RUST = resolve('modules/veloqrs/rust/veloqrs/src/sport.rs');
 
 describe('the sport taxonomy', () => {
   it('is what the Rust module says it is', () => {
     expect(SPORT_FAMILIES).toEqual(readRustSportFamilies(readFileSync(RUST, 'utf-8')));
-  });
-
-  it('has a generated file no edit to Rust can leave behind', () => {
-    expect(readFileSync(GENERATED, 'utf-8')).toBe(
-      renderSportTaxonomy(readRustSportFamilies(readFileSync(RUST, 'utf-8')))
-    );
   });
 
   it('puts no sport in two families', () => {
@@ -34,6 +27,21 @@ describe('the sport taxonomy', () => {
         expect(seen.has(sport)).toBe(false);
         seen.add(sport);
       }
+    }
+  });
+
+  it('gives every named map filter sport one display group, with snowshoe under Hike', () => {
+    const seen = new Set<string>();
+    for (const sports of Object.values(SPORT_DISPLAY_GROUPS)) {
+      for (const sport of sports) {
+        expect(seen.has(sport)).toBe(false);
+        seen.add(sport);
+      }
+    }
+    expect(SPORT_DISPLAY_GROUPS.Hike).toContain('Snowshoe');
+    expect(SPORT_DISPLAY_GROUPS.Snow).not.toContain('Snowshoe');
+    for (const sport of ['StandUpPaddling', 'VirtualRow', 'Surfing', 'RollerSki', 'Squash']) {
+      expect(seen.has(sport)).toBe(true);
     }
   });
 

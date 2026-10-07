@@ -44,6 +44,10 @@ jest.mock('react-i18next', () => {
 });
 
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
+jest.mock('@/shared/app/NetworkContext', () => ({
+  useNetwork: () => ({ isOnline: true }),
+  useIsOnline: () => true,
+}));
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),
@@ -58,16 +62,6 @@ jest.mock('@tanstack/react-query', () => ({
 
 jest.mock('@/features/settings/hooks/exportIndex', () => ({
   useImportDatabaseBackup: () => ({ importDatabaseBackup: jest.fn(), importing: false }),
-}));
-
-jest.mock('@/features/auth/hooks/useBackupRestore', () => ({
-  useBackupRestore: () => ({
-    detectedBackup: null,
-    restoringDetected: false,
-    dismissedRestore: false,
-    setDismissedRestore: jest.fn(),
-    handleRestoreDetected: jest.fn(),
-  }),
 }));
 
 // The engine is closed at the login screen on a cold start, so identity comes

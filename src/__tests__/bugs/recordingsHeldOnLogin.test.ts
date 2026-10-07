@@ -8,18 +8,13 @@
  * is deleted either way.
  */
 
-import {
-  holdRecordingsOfOtherAthletes,
-  holdRecordingForAuth,
-} from '@/features/recording/lib/storage/recordingLibrary';
+import { holdRecordingsOfOtherAthletes } from '@/features/recording/lib/storage/recordingLibrary';
 
 const mockHoldOtherAthletes = jest.fn(() => 2);
-const mockHoldForAuth = jest.fn();
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     holdRecordingsOfOtherAthletes: mockHoldOtherAthletes,
-    holdRecordingForAuth: mockHoldForAuth,
   }),
 }));
 
@@ -47,12 +42,5 @@ describe('holding what is not the signing athlete-s', () => {
     mockHoldOtherAthletes.mockReturnValue(0);
     await holdRecordingsOfOtherAthletes('i296629');
     expect(mockHoldOtherAthletes).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('holding a ride whose credential was refused', () => {
-  it('passes the reason through, so the library can say why it is waiting', async () => {
-    await holdRecordingForAuth('rec-1', 'unauthorized (401)');
-    expect(mockHoldForAuth).toHaveBeenCalledWith('rec-1', 'unauthorized (401)');
   });
 });

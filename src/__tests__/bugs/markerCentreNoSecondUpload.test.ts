@@ -39,31 +39,7 @@ describe('where a map marker sits', () => {
     expect(startCenterFor(withStart)).not.toEqual(startCenterFor(activity()));
   });
 
-  it('falls back to the cached track when the engine holds no signature', () => {
-    expect(
-      startCenterFor(
-        activity({
-          latlngs: [
-            [46.21, 7.4],
-            [46.22, 7.41],
-          ],
-        })
-      )
-    ).toEqual([7.4, 46.21]);
-  });
-
-  it('prefers the engine start over a cached track, the engine being the record', () => {
-    expect(
-      startCenterFor(
-        activity({
-          startPoint: [46.2, 7.35],
-          latlngs: [[1, 2]],
-        })
-      )
-    ).toEqual([7.35, 46.2]);
-  });
-
-  it('falls back to the bounding box centre with neither', () => {
+  it('falls back to the bounding box centre with no start point', () => {
     expect(startCenterFor(activity())).toEqual([7.355, 46.2]);
   });
 
@@ -74,17 +50,11 @@ describe('where a map marker sits', () => {
     ]);
   });
 
-  it('ignores a cached first point carrying a non-finite coordinate', () => {
-    expect(startCenterFor(activity({ latlngs: [[Number.NaN, 7.4]] }))).toEqual([7.355, 46.2]);
-  });
-
   it('returns a finite pair for every shape, which is what the iOS marker upload needs', () => {
     const shapes: Partial<ActivityBoundsItem>[] = [
       {},
       { startPoint: [46.2, 7.35] },
-      { latlngs: [[46.21, 7.4]] },
-      { latlngs: [] },
-      { startPoint: [Number.NaN, Number.NaN], latlngs: [] },
+      { startPoint: [Number.NaN, Number.NaN] },
     ];
     for (const shape of shapes) {
       const [lng, lat] = startCenterFor(activity(shape));

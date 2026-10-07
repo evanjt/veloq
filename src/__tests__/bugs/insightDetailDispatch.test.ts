@@ -12,6 +12,7 @@
 import { CONTENT_BY_CATEGORY } from '@/features/insights/components/content/InsightDetailContent';
 import { SectionPRContent } from '@/features/insights/components/content/SectionPRContent';
 import { SectionTrendContent } from '@/features/insights/components/content/SectionTrendContent';
+import { RouteInsightContent } from '@/features/insights/components/content/RouteInsightContent';
 import { StalePRContent } from '@/features/insights/components/content/StalePRContent';
 import { HrvTrendContent } from '@/features/insights/components/content/HrvTrendContent';
 import { PeriodComparisonContent } from '@/features/insights/components/content/PeriodComparisonContent';
@@ -23,6 +24,7 @@ import type { InsightCategory } from '@/features/insights/types';
 const CATEGORIES: InsightCategory[] = [
   'section_pr',
   'section_trend',
+  'route',
   'stale_pr',
   'fitness_milestone',
   'period_comparison',
@@ -48,6 +50,7 @@ describe('insight detail dispatch', () => {
     expect(CONTENT_BY_CATEGORY.period_comparison).toBe(PeriodComparisonContent);
     expect(CONTENT_BY_CATEGORY.fitness_milestone).toBe(FitnessMilestoneContent);
     expect(CONTENT_BY_CATEGORY.efficiency_trend).toBe(EfficiencyTrendContent);
+    expect(CONTENT_BY_CATEGORY.route).toBe(RouteInsightContent);
   });
 
   it('covers every category, so a new one cannot fall through unnoticed', () => {

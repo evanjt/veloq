@@ -1,17 +1,18 @@
 /**
  * Scenario: a branch that merged the integration branch into itself first,
  * which is how a branch stays current, merges back as a fast-forward. Git runs
- * `pre-merge-commit` only for a merge that creates a commit, so for that whole
- * class it runs nothing, and every whole-tree guard the hook holds is skipped.
- * It is the class worked in a worktree, whose own commits ran no hooks either.
+ * `pre-merge-commit` only for a merge that creates a commit, so a fast-forward
+ * made by hand runs no gate at all. `scripts/land-branch.sh` gates its
+ * candidate before it fast-forwards, so its own move is covered.
  *
- * Expected behaviour: `post-merge`, which does fire on a fast-forward, runs the
- * same battery and says loudly that nothing gated the merge. It cannot refuse,
- * the ref has already moved, so saying so is the whole job.
+ * Expected behaviour: `post-merge` warns about a fast-forward nothing gated and
+ * points at the lander, stays quiet for a merge that made a commit and for the
+ * candidate the lander gated, and runs no battery itself, since after the ref
+ * has moved it cannot refuse.
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gitFreeEnv } from '../__shared__/gitFixture';
@@ -24,6 +25,15 @@ function git(cwd: string, ...args: string[]) {
     cwd,
     encoding: 'utf8',
     env: gitFreeEnv(),
+  });
+}
+
+/** Both streams of a merge, with the lander's switch when one is given. */
+function merge(cwd: string, args: string, gated?: string): string {
+  return execFileSync('sh', ['-c', `git merge ${args} 2>&1`], {
+    env: { ...gitFreeEnv(), ...(gated ? { VELOQ_LANDING_GATED: gated } : {}) },
+    cwd,
+    encoding: 'utf8',
   });
 }
 
@@ -45,46 +55,71 @@ function scratchRepo(): string {
   return dir;
 }
 
-describe('a fast-forward merge is gated after the fact, since it cannot be gated before', () => {
-  let dir = '';
+let dir = '';
 
-  afterEach(() => {
-    if (dir) rmSync(dir, { recursive: true, force: true });
-    dir = '';
+afterEach(() => {
+  if (dir) rmSync(dir, { recursive: true, force: true });
+  dir = '';
+});
+
+/** A branch one commit ahead, so merging it back is a fast-forward. */
+function ahead(): string {
+  dir = scratchRepo();
+  const base = git(dir, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
+  git(dir, 'checkout', '-q', '-b', 'branch');
+  writeFileSync(join(dir, 'file'), 'ahead\n');
+  git(dir, 'commit', '-q', '-am', 'ahead');
+  git(dir, 'checkout', '-q', base);
+  return base;
+}
+
+/** The landing shape: a merge built elsewhere, then fast-forwarded onto. */
+function landed(): string {
+  dir = scratchRepo();
+  const base = git(dir, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
+  git(dir, 'checkout', '-q', '-b', 'branch');
+  writeFileSync(join(dir, 'other'), 'theirs\n');
+  git(dir, 'add', '.');
+  git(dir, 'commit', '-q', '-m', 'theirs');
+  git(dir, 'checkout', '-q', '-b', 'staging', base);
+  git(dir, '-c', 'core.hooksPath=/dev/null', 'merge', '--no-ff', '--no-edit', 'branch');
+  git(dir, 'checkout', '-q', base);
+  return git(dir, 'rev-parse', 'staging').trim();
+}
+
+describe('a fast-forward made by hand', () => {
+  it('lands, warns that no gate ran, and names the lander that gates first', () => {
+    ahead();
+    const before = git(dir, 'rev-parse', '--short', 'HEAD').trim();
+
+    const said = merge(dir, '--no-edit branch');
+
+    expect(said).toMatch(/Fast-forward/);
+    expect(said).toMatch(/no gate ran/i);
+    expect(said).toContain('land-branch.sh');
+    expect(said).toContain(`VELOQ_MERGE_BASE=${before} ./scripts/merge-gates.sh`);
   });
 
-  it('runs the battery when the merge created no commit, so no hook gated it', () => {
-    dir = scratchRepo();
-    const base = git(dir, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
-    git(dir, 'checkout', '-q', '-b', 'branch');
-    writeFileSync(join(dir, 'file'), 'ahead\n');
-    git(dir, 'commit', '-q', '-am', 'ahead');
-    git(dir, 'checkout', '-q', base);
+  it('runs no battery, since after the ref has moved it cannot refuse', () => {
+    ahead();
 
-    const out = git(dir, 'merge', '--no-edit', 'branch');
+    merge(dir, '--no-edit branch');
 
-    expect(out).toMatch(/Fast-forward/);
-    expect(existsSync(join(dir, 'gates-ran'))).toBe(true);
+    expect(existsSync(join(dir, 'gates-ran'))).toBe(false);
   });
 
-  it('says so, rather than passing quietly, because nothing ran before the ref moved', () => {
-    dir = scratchRepo();
-    const base = git(dir, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
-    git(dir, 'checkout', '-q', '-b', 'branch');
-    writeFileSync(join(dir, 'file'), 'ahead\n');
-    git(dir, 'commit', '-q', '-am', 'ahead');
-    git(dir, 'checkout', '-q', base);
+  it('warns onto a merge commit too, which is what a hand-made landing looks like', () => {
+    landed();
 
-    const said = execFileSync('sh', ['-c', 'git merge --no-edit branch 2>&1'], {
-      env: gitFreeEnv(),
-      cwd: dir,
-      encoding: 'utf8',
-    });
+    const said = merge(dir, '--ff-only staging');
 
+    expect(git(dir, 'rev-parse', 'HEAD^2').trim().length).toBeGreaterThan(0);
     expect(said).toMatch(/no gate ran/i);
   });
+});
 
-  it('stays out of the way of a merge that made a commit, which pre-merge-commit already gated', () => {
+describe('a move something already gated', () => {
+  it('stays quiet for a merge that made a commit, which pre-merge-commit gated', () => {
     dir = scratchRepo();
     const base = git(dir, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
     git(dir, 'checkout', '-q', '-b', 'branch');
@@ -95,75 +130,28 @@ describe('a fast-forward merge is gated after the fact, since it cannot be gated
     writeFileSync(join(dir, 'file'), 'ours\n');
     git(dir, 'commit', '-q', '-am', 'ours');
 
-    git(dir, 'merge', '--no-edit', '--no-ff', 'branch');
+    const said = merge(dir, '--no-edit --no-ff branch');
 
+    expect(said).not.toMatch(/no gate ran/i);
     expect(existsSync(join(dir, 'gates-ran'))).toBe(false);
   });
 
-  /**
-   * One battery, two hooks. A gate that lives in only one of them is the hole
-   * this item is about, so the two must not drift apart.
-   */
-  it('runs the same battery the merge commit path runs', () => {
-    expect(hook('post-merge')).toMatch(/merge-gates\.sh/);
-    expect(hook('pre-merge-commit')).toMatch(/merge-gates\.sh/);
-  });
-});
+  it('stays quiet for the candidate the lander gated', () => {
+    const candidate = landed();
 
-/**
- * Scenario: `scripts/land-branch.sh` builds the merge in a staging worktree
- * with the hooks switched off, then moves the checkout onto it with
- * `--ff-only`. The ref move is a fast-forward, so `pre-merge-commit` never
- * runs, and the commit it lands on is a merge commit, so `HEAD^2` resolves and
- * the hook's own guard took that for "already gated". No gate ran on any
- * landing at all.
- *
- * Expected behaviour: the guard asks whether this move was a fast-forward, not
- * what shape the commit it landed on happens to be.
- */
-describe('a fast-forward onto a merge commit, which is every landing', () => {
-  let dir = '';
+    const said = merge(dir, '--ff-only staging', candidate);
 
-  afterEach(() => {
-    if (dir) rmSync(dir, { recursive: true, force: true });
-    dir = '';
+    expect(said).not.toMatch(/no gate ran/i);
   });
 
-  /** The landing shape: a merge built elsewhere, then fast-forwarded onto. */
-  function landed(): string {
-    dir = scratchRepo();
-    const base = git(dir, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
-    git(dir, 'checkout', '-q', '-b', 'branch');
-    writeFileSync(join(dir, 'other'), 'theirs\n');
-    git(dir, 'add', '.');
-    git(dir, 'commit', '-q', '-m', 'theirs');
+  it('still warns when the lander’s gated candidate is not where the ref landed', () => {
+    const candidate = landed();
+    git(dir, 'checkout', '-q', 'staging');
+    writeFileSync(join(dir, 'file'), 'after the gate\n');
+    git(dir, 'commit', '-q', '-am', 'after the gate');
+    git(dir, 'checkout', '-q', '-');
 
-    // The staging tree, standing in for land-branch.sh's own worktree: the
-    // merge is made with no hooks, so nothing gated it there either.
-    git(dir, 'checkout', '-q', '-b', 'staging', base);
-    git(dir, '-c', 'core.hooksPath=/dev/null', 'merge', '--no-ff', '--no-edit', 'branch');
-    git(dir, 'checkout', '-q', base);
-    return base;
-  }
-
-  it('runs the battery, because nothing gated the merge before the ref moved', () => {
-    landed();
-
-    const out = git(dir, 'merge', '--ff-only', 'staging');
-
-    expect(out).toMatch(/Fast-forward/);
-    expect(git(dir, 'rev-parse', 'HEAD^2').trim().length).toBeGreaterThan(0);
-    expect(existsSync(join(dir, 'gates-ran'))).toBe(true);
-  });
-
-  it('says so, since the ref has already moved and it cannot refuse', () => {
-    landed();
-
-    const said = execFileSync('sh', ['-c', 'git merge --ff-only staging 2>&1'], {
-      env: gitFreeEnv(),
-      cwd: dir,
-      encoding: 'utf8',
-    });
+    const said = merge(dir, '--ff-only staging', candidate);
 
     expect(said).toMatch(/no gate ran/i);
   });

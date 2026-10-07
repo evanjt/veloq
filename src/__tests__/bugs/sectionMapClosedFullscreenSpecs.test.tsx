@@ -43,6 +43,7 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
 }));
 
 jest.mock('expo-location', () => ({
@@ -70,7 +71,7 @@ function section(): FrequentSection {
     id: 'section-1',
     sectionType: 'auto',
     name: 'Bern climb',
-    sportType: 'Ride',
+    sportTypes: ['Ride'],
     polyline: POLYLINE,
     distanceMeters: 1200,
     activityIds: ['a1', 'a2', 'a3'],

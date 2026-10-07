@@ -51,7 +51,7 @@ function repoWithRealHook(): { root: string; ran: string; bin: string } {
   const record = (name: string) => `#!/bin/sh\necho ${name} >> "${ran}"\n`;
   for (const name of [
     'check-commit-index.sh',
-    'check-commit-lock.sh',
+    'check-retired-history.sh',
     'check-no-private-data.sh',
     'format-staged.sh',
     'merge-gates.sh',
@@ -93,7 +93,7 @@ function hookRan(ran: string): string[] {
 }
 
 describe('concluding a conflicted merge with git commit', () => {
-  it('runs the merge battery, after the lock check and before the parallel gates', () => {
+  it('runs the merge battery, after the index check and before the parallel gates', () => {
     const { root, ran, bin } = repoWithRealHook();
     runGit(['checkout', '-q', '-b', 'audit/side'], root);
     write(root, 'shared.txt', 'side\n');
@@ -112,7 +112,7 @@ describe('concluding a conflicted merge with git commit', () => {
     expect({ status, output }).toEqual({ status: 0, output: '' });
     const order = hookRan(ran);
     expect(order).toContain('merge-gates.sh');
-    expect(order.indexOf('merge-gates.sh')).toBeGreaterThan(order.indexOf('check-commit-lock.sh'));
+    expect(order.indexOf('merge-gates.sh')).toBeGreaterThan(order.indexOf('check-commit-index.sh'));
     expect(order.indexOf('merge-gates.sh')).toBeLessThan(order.indexOf('run-gates.sh'));
     expect(runGit(['log', '-1', '--format=%P'], root).trim().split(' ')).toHaveLength(2);
   });

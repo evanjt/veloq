@@ -8,9 +8,10 @@
  */
 
 import { renderHook } from '@testing-library/react-native';
-import { useSectionLaps, lapKey } from '@/features/routes/hooks/useSectionLaps';
+import { useSectionLaps } from '@/features/routes/hooks/useSectionLaps';
 import { useSectionLedger } from '@/features/routes/hooks/useSectionLedger';
 import { useSectionEfficiencyTrend } from '@/features/routes/hooks/useSectionEfficiencyTrend';
+import * as visibility from '../../../modules/veloqrs/src/delegates/sections/visibility';
 import { getEngine } from '@/shared/native/engine';
 import type { EfficiencyTrend } from 'veloqrs';
 
@@ -20,7 +21,6 @@ jest.mock('@/features/routes/hooks/useEngine', () => ({
 }));
 
 const engine = {
-  getExcludedSectionLaps: jest.fn(() => []),
   excludeSectionLap: jest.fn(() => true),
   includeSectionLap: jest.fn(() => true),
   getSectionHistory: jest.fn(() => []),
@@ -43,34 +43,19 @@ function point(date: number, ratio: number) {
 const trend: EfficiencyTrend = {
   sectionId: 'sec1',
   sectionName: 'Col des Planches',
+  sportType: 'Ride',
   points: [point(1, 0.5), point(2, 0.4)],
   trendSlope: -0.1,
-  isImproving: true,
+  direction: 0,
   hrChangeBpm: -3,
   effortCount: 4,
 };
 
-describe('the excluded laps come from the bundle', () => {
-  it('uses the bundled laps and reads nothing', () => {
-    const { result } = renderHook(() =>
-      useSectionLaps('sec1', 0, [{ activityId: 'a', startIndex: 40 }])
-    );
-
-    expect(result.current.excludedLaps).toEqual(new Set([lapKey('a', 40)]));
-    expect(engine.getExcludedSectionLaps).not.toHaveBeenCalled();
-  });
-
-  it('reads for itself when the bundle carried none', () => {
+describe('the excluded laps come from the screen read', () => {
+  it('reads nothing of its own: the lap list carries each lap flagged', () => {
     renderHook(() => useSectionLaps('sec1'));
 
-    expect(engine.getExcludedSectionLaps).toHaveBeenCalledWith('sec1');
-  });
-
-  it('takes an empty bundled list as an answer, not as absent', () => {
-    const { result } = renderHook(() => useSectionLaps('sec1', 0, []));
-
-    expect(result.current.excludedLaps.size).toBe(0);
-    expect(engine.getExcludedSectionLaps).not.toHaveBeenCalled();
+    expect(visibility).not.toHaveProperty('getExcludedSectionLaps');
   });
 });
 
@@ -105,31 +90,31 @@ describe('the ledger comes from the bundle', () => {
 
 describe('the efficiency trend comes from the bundle', () => {
   it('uses the bundled trend and reads nothing', () => {
-    const { result } = renderHook(() => useSectionEfficiencyTrend('sec1', trend));
+    const { result } = renderHook(() => useSectionEfficiencyTrend('sec1', 'Ride', trend));
 
-    expect(result.current).toBe(trend);
+    expect(result.current.trend).toBe(trend);
     expect(engine.getSectionEfficiencyTrend).not.toHaveBeenCalled();
   });
 
   it('drops a bundled trend that cannot be plotted', () => {
     const { result } = renderHook(() =>
-      useSectionEfficiencyTrend('sec1', { ...trend, points: [point(1, 0.5)] })
+      useSectionEfficiencyTrend('sec1', 'Ride', { ...trend, points: [point(1, 0.5)] })
     );
 
-    expect(result.current).toBeNull();
+    expect(result.current.trend).toBeNull();
     expect(engine.getSectionEfficiencyTrend).not.toHaveBeenCalled();
   });
 
   it('takes a bundled null as an answer, not as absent', () => {
-    const { result } = renderHook(() => useSectionEfficiencyTrend('sec1', null));
+    const { result } = renderHook(() => useSectionEfficiencyTrend('sec1', 'Ride', null));
 
-    expect(result.current).toBeNull();
+    expect(result.current.trend).toBeNull();
     expect(engine.getSectionEfficiencyTrend).not.toHaveBeenCalled();
   });
 
   it('reads for itself when the bundle carried none', () => {
-    renderHook(() => useSectionEfficiencyTrend('sec1'));
+    renderHook(() => useSectionEfficiencyTrend('sec1', 'Ride'));
 
-    expect(engine.getSectionEfficiencyTrend).toHaveBeenCalledWith('sec1');
+    expect(engine.getSectionEfficiencyTrend).toHaveBeenCalledWith('sec1', 'Ride');
   });
 });

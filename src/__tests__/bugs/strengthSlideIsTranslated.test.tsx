@@ -7,12 +7,14 @@
  * lives. It drew six English literals and went to Fitness.
  */
 
+import { resolvedLocale } from '../i18n/resolvedLocale';
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { StrengthSlide } from '@/features/settings/components/whatsNew/StrengthSlide';
 import { WHATS_NEW_SLIDES } from '@/features/settings/components/whatsNew/slides';
-import en from '@/i18n/locales/en-AU.json';
+
+const en = resolvedLocale('en-AU');
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 

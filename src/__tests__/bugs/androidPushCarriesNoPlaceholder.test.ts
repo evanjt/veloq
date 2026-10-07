@@ -51,7 +51,14 @@ describe('the placeholder the server sends', () => {
     });
   });
 
-  it('sends the visible push when the platform is unknown', () => {
-    expect(messages(undefined)).toHaveLength(2);
+  it('sends an unknown platform the silent push alone', () => {
+    const sent = messages(undefined);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toEqual({
+      to: TOKEN,
+      data: { activity_id: 'a-1' },
+      priority: 'high',
+      _contentAvailable: true,
+    });
   });
 });

@@ -129,14 +129,36 @@ it('passes a merge that stages nothing under src, before the ref moves', () => {
 });
 
 /**
- * Scenario: a fast-forward, which is every landing, runs the check from
- * `post-merge` after HEAD has moved. The index then matches HEAD, so a staged
- * diff is empty and an unformatted landed file passed unread.
+ * Scenario: the index names a blob the object store no longer holds. `git show`
+ * fails, prettier reads the empty input it was piped, finds nothing to rewrite,
+ * and the pipeline's status is prettier's, so the file passed unread.
  *
- * Expected behaviour: given the head the move started from, the check judges
- * that range, reading each file out of HEAD.
+ * Expected behaviour: a staged path the check cannot read fails it and is named.
  */
-describe('after a fast-forward', () => {
+it('fails a staged file whose blob cannot be read, rather than passing it unread', () => {
+  const root = fixture({ 'src/a.ts': TIDY }, { 'src/b.ts': UNTIDY });
+  const sha = execFileSync('git', ['rev-parse', ':src/b.ts'], {
+    cwd: root,
+    encoding: 'utf8',
+    env: gitFreeEnv(),
+  }).trim();
+  rmSync(join(root, '.git', 'objects', sha.slice(0, 2), sha.slice(2)));
+
+  const { status, output } = run(root);
+
+  expect(status).not.toBe(0);
+  expect(output).toContain('src/b.ts');
+});
+
+/**
+ * Scenario: a landing runs the check in the landing tree, where the candidate
+ * is already committed. The index then matches HEAD, so a staged diff is empty
+ * and an unformatted landed file passed unread.
+ *
+ * Expected behaviour: given the target the candidate was built on, the check
+ * judges that range, reading each file out of HEAD.
+ */
+describe('on a committed candidate', () => {
   /** A repository whose HEAD moved past `base` by one commit carrying `landed`. */
   function landed(files: Record<string, string>): { root: string; base: string } {
     const root = fixture({ 'src/a.ts': TIDY }, {});

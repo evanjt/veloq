@@ -21,9 +21,11 @@ import {
   formatShortDate,
   formatShortDateWithWeekday,
   formatMonth,
+  formatMonthYear,
   formatFullDate,
   formatFullDateWithWeekday,
   formatEpochDayUtc,
+  formatRelativeDate,
   parseDayString,
 } from '@/shared/format/format';
 
@@ -56,6 +58,7 @@ describe('a day string resolves to its own local day', () => {
     ['formatShortDate', formatShortDate],
     ['formatShortDateWithWeekday', formatShortDateWithWeekday],
     ['formatMonth', formatMonth],
+    ['formatMonthYear', formatMonthYear],
     ['formatFullDate', formatFullDate],
     ['formatFullDateWithWeekday', formatFullDateWithWeekday],
   ])('%s', (_name, format) => {
@@ -65,6 +68,12 @@ describe('a day string resolves to its own local day', () => {
   /** The first of a month is where an off-by-one day changes the month too. */
   it('does not fall back a month on the first', () => {
     expect(dateHandedToIntl(formatMonth, '2026-03-01').getTime()).toBe(localMidnight(2026, 3, 1));
+  });
+
+  it('does not fall back a month on the first for the month and year label', () => {
+    expect(dateHandedToIntl(formatMonthYear, '2026-06-01').getTime()).toBe(
+      localMidnight(2026, 6, 1)
+    );
   });
 
   /** And the first of January changes the year. */
@@ -84,6 +93,30 @@ describe('a day string resolves to its own local day', () => {
   it('takes a Date through untouched', () => {
     const d = new Date(2026, 2, 14, 9, 30);
     expect(dateHandedToIntl(formatShortDate as never, d as never).getTime()).toBe(d.getTime());
+  });
+});
+
+describe('formatRelativeDate', () => {
+  it('hands Intl the local day for a bare day', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 21, 12));
+    try {
+      expect(dateHandedToIntl(formatRelativeDate, '2026-08-10').getTime()).toBe(
+        localMidnight(2026, 8, 10)
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps an instant as an instant', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 21, 12));
+    try {
+      expect(dateHandedToIntl(formatRelativeDate, '2026-08-10T12:00:00Z').toISOString()).toBe(
+        '2026-08-10T12:00:00.000Z'
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

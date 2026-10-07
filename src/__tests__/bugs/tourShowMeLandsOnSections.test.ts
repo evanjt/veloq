@@ -1,10 +1,9 @@
 /**
- * Scenario: the 0.4.0 tour slide describes the section ledger, the revert, the
- * pin and the retired list, then offers Show Me.
+ * Scenario: the 0.4.0 tour slide says sections are deterministic and reshape
+ * with the athlete's runs, then offers Show Me.
  *
- * Expected behaviour: it lands on the sections sub-tab of the insights screen,
- * which is where all four live. The route was the bare '/insights', so it
- * dropped the athlete on the default sub-tab with none of them in sight.
+ * Expected behaviour: it lands on the detector settings, where the rule behind
+ * that is configured.
  */
 
 import { WHATS_NEW_SLIDES } from '@/features/settings/components/whatsNew/slides';
@@ -17,8 +16,8 @@ function slideRoutes(version: string): (string | undefined)[] {
 }
 
 describe("the tour's Show Me targets", () => {
-  it('takes the 0.4.0 sections slide to the sections sub-tab', () => {
-    expect(slideRoutes('0.4.0')).toEqual(['/insights?tab=sections']);
+  it('takes the 0.4.0 sections slide to the detector settings', () => {
+    expect(slideRoutes('0.4.0')).toEqual(['/detection-settings']);
   });
 
   it('leaves the 0.3.0 insights slide on the insights sub-tab', () => {

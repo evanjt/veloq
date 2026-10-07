@@ -42,6 +42,12 @@ jest.mock('expo-file-system/legacy', () => ({
   writeAsStringAsync: jest.fn(async (path: string, data: string) => {
     mockFileStore.set(path, data);
   }),
+  moveAsync: jest.fn(async ({ from, to }: { from: string; to: string }) => {
+    const data = mockFileStore.get(from);
+    if (data === undefined) throw new Error(`no file at ${from}`);
+    mockFileStore.delete(from);
+    mockFileStore.set(to, data);
+  }),
   deleteAsync: jest.fn(async (path: string) => {
     mockFileStore.delete(path);
     mockDirStore.delete(path);

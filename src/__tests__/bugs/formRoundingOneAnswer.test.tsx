@@ -12,6 +12,7 @@ import React from 'react';
 import { render, renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
+import { DEFAULT_MAX_HR } from '@/features/activity/lib/hrZones';
 import { useFitnessComputations } from '@/features/fitness/hooks/useFitnessComputations';
 import { TodayBanner } from '@/features/routes/components/TodayBanner';
 import type { Activity, WellnessData } from '@/types';
@@ -29,12 +30,6 @@ jest.mock('@/features/home/hooks/useWorkoutSections', () => ({
   useWorkoutSections: () => ({ sections: [] }),
 }));
 
-let mockWellnessDay: WellnessData;
-jest.mock('@/features/wellness', () => ({
-  useWellness: () => ({ data: [mockWellnessDay] }),
-  useWellnessLatestDate: () => ({ data: mockWellnessDay.id }),
-}));
-
 const activity = {
   id: 'a1',
   type: 'Ride',
@@ -49,8 +44,7 @@ function fitnessTabForm(day: WellnessData) {
       sportMode: 'Cycling',
       powerZones: undefined,
       hrZones: undefined,
-      eftpHistory: undefined,
-      decouplingStreams: undefined,
+      eftpTrend: undefined,
       selectedDate: null,
       selectedValues: null,
     })
@@ -59,13 +53,14 @@ function fitnessTabForm(day: WellnessData) {
 }
 
 function activityFormCard(day: WellnessData) {
-  const { result } = renderHook(() => useActivityStats({ activity, wellness: day }));
+  const { result } = renderHook(() =>
+    useActivityStats({ activity, wellness: day, isMetric: true, maxHR: DEFAULT_MAX_HR })
+  );
   return result.current.stats.find((s) => s.title === 'activity.stats.yourForm');
 }
 
 function todayBannerForm(day: WellnessData, shown: string) {
-  mockWellnessDay = day;
-  const tree = render(<TodayBanner todayPattern={null} />);
+  const tree = render(<TodayBanner form={{ ctl: day.ctl as number, atl: day.atl as number }} />);
   const escaped = shown.replace(/[+]/g, '\\+');
   return tree.queryByText(new RegExp(`\\(${escaped} TSB\\)$`));
 }

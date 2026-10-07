@@ -128,6 +128,67 @@ describe('maestro demo deep links', () => {
   });
 });
 
+// Every step, counted without reading its path.
+const SCREENSHOT_STEP = /^\s*-\s*takeScreenshot:/gm;
+
+/** A YAML scalar's value: quoted either way, or plain up to a comment. */
+function scalar(raw: string): string {
+  const text = raw.trim();
+  const quoted = text.match(/^"([^"]*)"|^'([^']*)'/);
+  if (quoted) return quoted[1] ?? quoted[2];
+  return text.replace(/\s+#.*$/, '');
+}
+
+/** The path of every `takeScreenshot` step, in each form Maestro accepts. */
+function screenshotPaths(content: string): string[] {
+  const lines = content.split('\n');
+  const paths: string[] = [];
+  lines.forEach((line, i) => {
+    const step = line.match(/^(\s*)-\s*takeScreenshot:(.*)$/);
+    if (!step) return;
+    const inline = scalar(step[2]);
+    if (inline) {
+      paths.push(inline);
+      return;
+    }
+    // The map form: `path:` among the keys indented under the step.
+    for (const next of lines.slice(i + 1)) {
+      if (next.trim() === '') continue;
+      if (next.search(/\S/) <= step[1].length) break;
+      const key = next.match(/^\s*path:(.*)$/);
+      if (key) {
+        paths.push(scalar(key[1]));
+        break;
+      }
+    }
+  });
+  return paths;
+}
+
+describe('the screenshot path reader', () => {
+  it.each([
+    ['double-quoted', '- takeScreenshot: "screenshots/a"\n'],
+    ['single-quoted', "- takeScreenshot: 'screenshots/a'\n"],
+    ['unquoted', '- takeScreenshot: screenshots/a\n'],
+    ['unquoted with a comment', '- takeScreenshot: screenshots/a # after login\n'],
+    ['path: map', '- takeScreenshot:\n    path: screenshots/a\n'],
+    ['quoted path: map', '- takeScreenshot:\n    path: "screenshots/a"\n'],
+  ])('reads the %s form', (_form, flow) => {
+    expect(screenshotPaths(`- launchApp\n${flow}- back\n`)).toEqual(['screenshots/a']);
+  });
+
+  it('reads one path per step across forms', () => {
+    const flow = [
+      '- takeScreenshot: after-login',
+      "- takeScreenshot: 'screenshots/b'",
+      '- takeScreenshot:',
+      '    path: c',
+      '- tapOn: "x"',
+    ].join('\n');
+    expect(screenshotPaths(flow)).toEqual(['after-login', 'screenshots/b', 'c']);
+  });
+});
+
 describe('maestro screenshot paths', () => {
   it('finds the flow suite', () => {
     expect(everyFlowFile.length).toBeGreaterThan(80);
@@ -135,16 +196,17 @@ describe('maestro screenshot paths', () => {
 
   it('captures somewhere, so the guard below is not vacuous', () => {
     const total = everyFlowFile.reduce(
-      (n, file) => n + [...readFlow(file).matchAll(/^\s*-\s*takeScreenshot:/gm)].length,
+      (n, file) => n + [...readFlow(file).matchAll(SCREENSHOT_STEP)].length,
       0
     );
     expect(total).toBeGreaterThan(300);
   });
 
   it.each(everyFlowFile)('%s writes every capture under screenshots/', (file) => {
-    const paths = [...readFlow(file).matchAll(/^\s*-\s*takeScreenshot:\s*"([^"]+)"/gm)].map(
-      (m) => m[1]
-    );
+    const content = readFlow(file);
+    const paths = screenshotPaths(content);
+    // A form the reader cannot parse would otherwise pass unchecked.
+    expect(paths).toHaveLength([...content.matchAll(SCREENSHOT_STEP)].length);
     const stray = paths.filter((p) => !p.startsWith(SCREENSHOT_DIR));
     expect(stray).toEqual([]);
   });

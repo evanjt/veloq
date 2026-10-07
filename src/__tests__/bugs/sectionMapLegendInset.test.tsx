@@ -16,7 +16,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
 import { HERO_HEADER_HEIGHT } from '@/shared/ui';
-import type { NearbyPolyline } from '@/features/routes/components/useSectionMapLayers';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -59,24 +58,13 @@ const SECTION: FrequentSection = {
   id: 'section-1',
   sectionType: 'auto',
   name: 'Bern climb',
-  sportType: 'Ride',
+  sportTypes: ['Ride'],
   polyline: POLYLINE,
   distanceMeters: 1200,
   activityIds: ['a1'],
   visitCount: 7,
   createdAt: '2026-01-15T10:00:00Z',
 };
-
-const NEARBY: NearbyPolyline[] = [
-  {
-    id: 'near-a',
-    name: 'Section a',
-    sportType: 'Ride',
-    distanceMeters: 300,
-    visitCount: 2,
-    encodedPolyline: new ArrayBuffer(8),
-  },
-];
 
 function renderHeader(insetTop: number) {
   return render(
@@ -97,8 +85,7 @@ function renderHeader(insetTop: number) {
         customName={null}
         nameInputRef={React.createRef()}
         highlightedActivityId={null}
-        nearbyPolylines={NEARBY}
-        onBack={jest.fn()}
+        highlightedLapPoints={POLYLINE}
         onStartEditing={jest.fn()}
         onSaveName={jest.fn()}
         onCancelEdit={jest.fn()}

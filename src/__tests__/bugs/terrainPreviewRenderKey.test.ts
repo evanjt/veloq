@@ -36,6 +36,12 @@ jest.mock('expo-file-system/legacy', () => ({
   writeAsStringAsync: jest.fn(async (path: string, data: string) => {
     mockFileStore.set(path, data);
   }),
+  moveAsync: jest.fn(async ({ from, to }: { from: string; to: string }) => {
+    const data = mockFileStore.get(from);
+    if (data === undefined) throw new Error(`no file at ${from}`);
+    mockFileStore.delete(from);
+    mockFileStore.set(to, data);
+  }),
   deleteAsync: jest.fn(async (path: string) => {
     if (mockDeleteGate) await mockDeleteGate();
     mockFileStore.delete(path);
@@ -102,15 +108,19 @@ describe('terrain preview cache keys the render, not just the style', () => {
     expect(mockFileStore.has(getTerrainPreviewUri('a1', 'light', FLAT))).toBe(false);
   });
 
-  it('clears both renders of an activity and leaves its neighbours alone', async () => {
+  it('clears every style and render of an activity and leaves its neighbours alone', async () => {
     await saveTerrainPreview('a1', 'light', FLAT, 'flatbytes');
     await saveTerrainPreview('a1', 'light', DRAPED, 'drapedbytes');
+    await saveTerrainPreview('a1', 'satellite', FLAT, 'satelliteflat');
+    await saveTerrainPreview('a1', 'satellite', DRAPED, 'satellitedraped');
     await saveTerrainPreview('a2', 'light', FLAT, 'other');
 
     await deleteTerrainPreviewsForActivity('a1');
 
     expect(hasTerrainPreview('a1', 'light', FLAT)).toBe(false);
     expect(hasTerrainPreview('a1', 'light', DRAPED)).toBe(false);
+    expect(hasTerrainPreview('a1', 'satellite', FLAT)).toBe(false);
+    expect(hasTerrainPreview('a1', 'satellite', DRAPED)).toBe(false);
     expect(hasTerrainPreview('a2', 'light', FLAT)).toBe(true);
   });
 

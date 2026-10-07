@@ -30,8 +30,6 @@ function buildFfiData(): InsightsData {
     currentWeek: makePeriod(3),
     previousWeek: makePeriod(2),
     chronicPeriod: makePeriod(12),
-    todayPeriod: makePeriod(0),
-    allPatterns: [],
     recentPrs: [],
     sectionCount: 0,
     sportTypes: ['Ride'],
@@ -61,7 +59,7 @@ describe('the form the insights read', () => {
   it('carries no form for a window the engine found no day in', () => {
     const data = { ...buildFfiData(), form: undefined } as unknown as InsightsData;
 
-    expect(computeInsightsFromData(data, t)).toEqual([]);
+    expect(computeInsightsFromData(data, t).insights).toEqual([]);
   });
 });
 
