@@ -35,7 +35,7 @@ jest.mock('expo-router', () => ({
   usePathname: () => '/map',
 }));
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     preferences: { defaultStyle: 'light' },
     getGlobalMapStyle: () => 'light',

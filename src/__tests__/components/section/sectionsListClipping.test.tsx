@@ -39,13 +39,7 @@ jest.mock('@/features/routes/hooks/useElevationBackfill', () => ({
 }));
 
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
-  useCustomSections: () => ({
-    sections: [],
-    count: 0,
-    isLoading: false,
-    error: null,
-    removeSection: jest.fn(),
-  }),
+  useSectionCommands: () => ({ removeSection: jest.fn() }),
 }));
 
 const mockEnableSection = jest.fn();

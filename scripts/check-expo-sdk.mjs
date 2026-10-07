@@ -58,7 +58,7 @@ try {
   bundled = readJson(join(root, 'node_modules', 'expo', 'bundledNativeModules.json'));
 } catch {
   console.error(
-    'check-expo-sdk: could not read node_modules/expo/bundledNativeModules.json. Run npm install first.',
+    'check-expo-sdk: could not read node_modules/expo/bundledNativeModules.json. Run npm install first.'
   );
   process.exit(1);
 }
@@ -107,7 +107,11 @@ if (nativeVersion) {
   for (const [name, range] of Object.entries(declared)) {
     if (!name.startsWith('@react-native/')) continue;
     if (!sharesMajorMinor(range, nativeVersion)) {
-      mismatches.push({ name, declared: range, expected: `${versionOf(nativeVersion)?.slice(0, 2).join('.')}.x` });
+      mismatches.push({
+        name,
+        declared: range,
+        expected: `${versionOf(nativeVersion)?.slice(0, 2).join('.')}.x`,
+      });
     }
     const resolved = lockVersion(name);
     if (!resolved || !sharesMajorMinor(resolved, nativeVersion)) {
@@ -118,7 +122,7 @@ if (nativeVersion) {
 
 function printTable(rows, columns) {
   const widths = columns.map((c) =>
-    Math.max(c.header.length, ...rows.map((r) => String(r[c.key]).length)),
+    Math.max(c.header.length, ...rows.map((r) => String(r[c.key]).length))
   );
   const line = (cells) => cells.map((cell, i) => String(cell).padEnd(widths[i])).join('  ');
   console.error(line(columns.map((c) => c.header)));
@@ -151,9 +155,7 @@ if (drift.length > 0) {
 }
 
 if (failed) {
-  console.error(
-    '\nFix: align the flagged packages with the SDK and update the lockfile.',
-  );
+  console.error('\nFix: align the flagged packages with the SDK and update the lockfile.');
   process.exit(1);
 }
 

@@ -484,7 +484,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-source-rules.mjs', '--rule', 'no-geocoding'),
     catches:
-      'athlete coordinates sent to a geocoder, through the platform API, a geocoding host in TypeScript or the engine, or a geocoding module returning',
+      'athlete coordinates sent to a second geocoder, through the platform API, a geocoding host in TypeScript or any engine file but the one geocoder, or a geocoding module returning',
   },
   {
     name: 'lint:unused-i18n-keys',
@@ -529,6 +529,13 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-em-dashes.mjs'),
     catches: 'an em dash in prose or comments',
+  },
+  {
+    name: 'lint:jsdoc-tags',
+    kind: 'style',
+    cmd: node('lint-jsdoc-tags.mjs'),
+    catches:
+      'a JSDoc tag line (@param, @returns, @example, @throws, @fileoverview) in TypeScript, which style.md does not allow',
   },
   {
     name: 'lint:question-titles',
@@ -592,6 +599,13 @@ const GUARDS = [
     cmd: node('lint-route-default-exports.mjs'),
     catches:
       'a non-screen module under src/app registering as a route, so its link throws in a release build',
+  },
+  {
+    name: 'lint:tsconfig-paths',
+    kind: 'correctness',
+    cmd: node('lint-tsconfig-paths.mjs'),
+    catches:
+      'a tsconfig path alias left pointing at a deleted directory, which reads as a real location and resolves nothing',
   },
   {
     name: 'lint:point-shape',

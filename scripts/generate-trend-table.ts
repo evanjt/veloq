@@ -19,7 +19,9 @@ const OUT_REL = 'src/shared/format/trendTable.generated.ts';
 const OUT = path.join(REPO, OUT_REL);
 
 const CHECK = process.argv.includes('--check');
-const source = CHECK ? (trackedText(REPO, RUST) ?? '') : fs.readFileSync(path.join(REPO, RUST), 'utf-8');
+const source = CHECK
+  ? (trackedText(REPO, RUST) ?? '')
+  : fs.readFileSync(path.join(REPO, RUST), 'utf-8');
 const rendered = renderTrendTable(readRustTrendMetrics(source));
 
 if (CHECK) {

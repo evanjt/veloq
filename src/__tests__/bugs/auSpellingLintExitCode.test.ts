@@ -21,6 +21,7 @@ import { join } from 'node:path';
 const SCRIPT = join(__dirname, '../../../scripts/lint-au-spelling.mjs');
 const CRATE = 'modules/veloqrs/rust/veloqrs/src';
 const LOCALES = 'src/i18n/locales';
+const TRACEMATCH = 'modules/veloqrs/rust/tracematch';
 
 function runGuard(root?: string): { status: number; output: string } {
   try {
@@ -55,6 +56,22 @@ function locales(files: Record<string, unknown>): string {
   for (const [name, body] of Object.entries(files)) {
     writeFileSync(join(root, LOCALES, name), JSON.stringify(body, null, 2));
   }
+  initFixtureRepo(root);
+  return root;
+}
+
+/** A checkout whose tracematch submodule holds `files`, each path under its `src`. */
+function withSubmodule(files: Record<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), 'au-spelling-sub-'));
+  roots.push(root);
+  const sub = join(root, TRACEMATCH);
+  for (const [name, body] of Object.entries(files)) {
+    mkdirSync(join(sub, 'src', name, '..'), { recursive: true });
+    writeFileSync(join(sub, 'src', name), body);
+  }
+  initFixtureRepo(sub);
+  runGit(['commit', '-q', '--no-gpg-sign', '-m', 'fixture'], sub);
+  writeFileSync(join(root, 'README.txt'), 'fixture\n');
   initFixtureRepo(root);
   return root;
 }
@@ -166,5 +183,81 @@ describe('the English locale files are read too', () => {
 
     expect(status).toBe(1);
     expect(output).toContain('a.b.c.d');
+  });
+});
+
+describe('the tracematch submodule is read from its own index', () => {
+  it('fails on an American word in submodule prose', () => {
+    const { status, output } = runGuard(
+      withSubmodule({ 'grouping.rs': '// fine\n// Initialize the groups\n' })
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain(`${TRACEMATCH}/src/grouping.rs:2`);
+    expect(output).toContain('initialis');
+    expect(output).not.toContain('grouping.rs:1');
+  });
+
+  it('fails on an American identifier in a nested directory', () => {
+    const { status, output } = runGuard(
+      withSubmodule({ 'sections/consensus.rs': 'fn normalize_track() {}\n' })
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain(`${TRACEMATCH}/src/sections/consensus.rs:1`);
+  });
+
+  it('passes Australian prose', () => {
+    expect(
+      runGuard(withSubmodule({ 'lib.rs': '// Normalise, then initialise the behaviour\n' })).status
+    ).toBe(0);
+  });
+
+  it('reads only Rust under src, not the submodule docs or tests', () => {
+    expect(
+      runGuard(withSubmodule({ 'lib.rs': '// ok\n', '../README.md': 'behavior\n' })).status
+    ).toBe(0);
+  });
+
+  it('passes the parsed scale name and its module path', () => {
+    expect(
+      runGuard(
+        withSubmodule({
+          'sections/mod.rs': [
+            'pub mod optimized;',
+            'pub use optimized::recalculate_section_polyline;',
+            'pub enum ScaleName {',
+            '    Optimized,',
+            '}',
+            'fn as_str() { ScaleName::Optimized => "optimized" }',
+            'fn from_str() { "optimized" => Ok(ScaleName::Optimized) }',
+            'fn go() { optimized::recalculate_section_polyline() }',
+            '',
+          ].join('\n'),
+        })
+      ).status
+    ).toBe(0);
+  });
+
+  it('still fails on optimized in prose beside the exempt scale name', () => {
+    const { status, output } = runGuard(
+      withSubmodule({
+        'lib.rs': '/// optimized for comparison\nconst S: &str = "optimized";\n',
+      })
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain('lib.rs:1');
+    expect(output).not.toContain('lib.rs:2');
+  });
+
+  it('refuses a submodule the index names but the disk does not hold', () => {
+    const root = withSubmodule({ 'lib.rs': '// clean\n' });
+    rmSync(join(root, TRACEMATCH, '.git'), { recursive: true, force: true });
+
+    const { status, output } = runGuard(root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('tracematch');
   });
 });

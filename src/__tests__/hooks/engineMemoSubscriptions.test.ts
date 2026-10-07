@@ -121,7 +121,7 @@ const getActivityDetailData = jest.fn(() => ({
   matchedSections: [],
   customSections: [],
   encounters: [],
-  highlights: { indicators: [], routeHighlights: [] },
+  highlights: { indicators: [], routeHighlights: [], strengthCards: [] },
   sectionTraces: [],
   prSectionIds: [],
 }));

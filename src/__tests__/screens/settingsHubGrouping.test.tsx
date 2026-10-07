@@ -25,7 +25,7 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     preferences: { defaultStyle: 'outdoors', terrain3DMode: 'off' },
   }),
@@ -42,6 +42,10 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 }));
 
 jest.mock('@/features/settings', () => ({
+  useMapPreferences: (...args: unknown[]) =>
+    jest.requireMock('@/features/settings/stores/MapPreferencesContext').useMapPreferences(...args),
+  useDashboardPreferences: jest.requireActual('@/features/settings/stores/summaryCardPreferences')
+    .useDashboardPreferences,
   useNotificationPreferences: jest.requireActual(
     '@/features/settings/stores/NotificationPreferencesStore'
   ).useNotificationPreferences,

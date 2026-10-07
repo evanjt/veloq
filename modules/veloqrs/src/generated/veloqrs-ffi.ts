@@ -1485,6 +1485,10 @@ interface NativeModuleInterface {
     radiusM: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_geocoding_enabled(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1511,6 +1515,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
     uniffiSelf: bigint,
     json: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_geocoding_enabled(
+    uniffiSelf: bigint,
+    enabled: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_notification_templates(
@@ -2106,12 +2115,14 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_engine_install(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_geocoding_enabled(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_notification_templates(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_geocoding_enabled(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_notification_templates(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings(): number;

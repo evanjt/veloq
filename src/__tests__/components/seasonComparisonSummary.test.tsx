@@ -5,40 +5,21 @@
  */
 
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { View } from 'react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RangeCoverage } from 'veloqrs';
 
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { changeLanguage, initializeI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
+import { capturePans, holdAndScrub, longPressPan } from '../__shared__/chartScrub';
 import { trainingScreenRead } from '../__shared__/trainingScreenRead';
-
-let mockOnStart: ((event: { x: number }) => void) | undefined;
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('react-native-gesture-handler', () => {
-  const pan = {
-    activateAfterLongPress: () => pan,
-    minDistance: () => pan,
-    onStart: (callback: (event: { x: number }) => void) => {
-      mockOnStart = callback;
-      return pan;
-    },
-    onUpdate: () => pan,
-    onEnd: () => pan,
-    onFinalize: () => pan,
-  };
-  return {
-    ...jest.requireActual('react-native-gesture-handler'),
-    Gesture: { Pan: () => pan },
-    GestureDetector: ({ children }: { children: React.ReactNode }) => children,
-  };
-});
-
 /** Wednesday 17 June 2026, the clock each test sets in local time. */
 const YEAR = 2026;
 
@@ -84,7 +65,10 @@ const engine = {
 
 let client: QueryClient;
 
+let pans: ReturnType<typeof capturePans>;
+
 function renderCard() {
+  pans = capturePans();
   return render(
     <QueryClientProvider client={client}>
       <SeasonComparison />
@@ -94,10 +78,11 @@ function renderCard() {
 
 /** Long-press the first month, which opens the tooltip on January. */
 async function scrubJanuary() {
-  await act(async () => {
-    mockOnStart?.({ x: 0 });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  const chart = screen.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
+  act(() => {
+    fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: 360, height: 200 } } });
   });
+  await holdAndScrub(longPressPan(pans), 10);
 }
 
 beforeEach(() => {
@@ -111,7 +96,10 @@ beforeEach(() => {
   );
 });
 
-afterEach(() => client.clear());
+afterEach(() => {
+  client.clear();
+  jest.restoreAllMocks();
+});
 
 describe('SeasonComparison series', () => {
   it('names each series once, beside its colour, with no separate legend row', async () => {

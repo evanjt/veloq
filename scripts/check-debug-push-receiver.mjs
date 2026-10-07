@@ -15,12 +15,16 @@ const misplaced = manifests.filter(
   ([path, content]) => path !== debugManifest && content.toString('utf8').includes(receiver)
 );
 if (misplaced.length > 0) {
-  console.error(`Debug push receiver appears outside the debug manifest: ${misplaced.map(([path]) => path).join(', ')}`);
+  console.error(
+    `Debug push receiver appears outside the debug manifest: ${misplaced.map(([path]) => path).join(', ')}`
+  );
   process.exitCode = 1;
 }
 
 const debug = sources.get(debugManifest)?.toString('utf8') ?? '';
-if (!/<receiver\s+android:name="com\.veloq\.DebugPushReceiver"\s+android:exported="true"/.test(debug)) {
+if (
+  !/<receiver\s+android:name="com\.veloq\.DebugPushReceiver"\s+android:exported="true"/.test(debug)
+) {
   console.error('Debug push receiver is missing or cannot accept an explicit adb broadcast');
   process.exitCode = 1;
 }

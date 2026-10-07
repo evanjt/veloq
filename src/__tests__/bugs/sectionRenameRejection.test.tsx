@@ -18,7 +18,7 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
 
 const mockRenameSection = jest.fn<Promise<void>, [string, string]>();
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
-  useCustomSections: () => ({ removeSection: jest.fn(), renameSection: mockRenameSection }),
+  useSectionCommands: () => ({ removeSection: jest.fn(), renameSection: mockRenameSection }),
 }));
 
 const section: FrequentSection = {

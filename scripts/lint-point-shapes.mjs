@@ -36,7 +36,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.log('Point shape guard: LatLng is declared once.');
     process.exit(0);
   }
-  console.error('A track point is declared locally. Import type LatLng from @/shared/geo/polyline:\n');
+  console.error(
+    'A track point is declared locally. Import type LatLng from @/shared/geo/polyline:\n'
+  );
   for (const hit of hits) console.error(`  ${hit}`);
   process.exit(1);
 }

@@ -1,14 +1,9 @@
 import { useState } from 'react';
 import type { MergeCandidate } from 'veloqrs';
-import type { RoutePoint } from '@/types';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import { DEFAULT_PERIOD } from '@/shared/app/period';
 
 export function useSectionUIState() {
-  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
-  const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
-    RoutePoint[] | undefined
-  >(undefined);
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
   // Merge dialog state
@@ -23,10 +18,6 @@ export function useSectionUIState() {
   const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
 
   return {
-    highlightedActivityId,
-    setHighlightedActivityId,
-    highlightedActivityPoints,
-    setHighlightedActivityPoints,
     mapReady,
     setMapReady,
     mergeTarget,

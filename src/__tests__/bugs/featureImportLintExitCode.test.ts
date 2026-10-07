@@ -8,6 +8,11 @@
  * baseline never listed fails, and an edge the tree has already beaten fails
  * with the number to paste back, or the ratchet stalls at its seed. A barrel
  * import, a feature reaching into itself and a test file are not counted.
+ *
+ * A `require()` inside a function is a deliberate deferral, so it may stay on its
+ * deep path when a permitted-list entry names its file and specifier and gives
+ * the reason. An unlisted one counts like an import, and so does a module-scope
+ * `require()`.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -141,6 +146,75 @@ describe('cross-feature import ratchet', () => {
     expect(output).toContain('2 barrel');
   });
 
+  describe('light entry', () => {
+    it('passes an import of another feature light entry with no baseline', () => {
+      const root = withTree({
+        'src/features/a/x.ts': "import { y } from '@/features/b/light';\nexport const x = y;\n",
+        'src/features/b/light.ts': "export { y } from './lib/y';\n",
+        'src/features/b/lib/y.ts': 'export const y = 1;\n',
+      });
+      const { status, output } = runLint(root);
+      expect(status).toBe(0);
+      expect(output).toContain('1 barrel');
+    });
+
+    it('passes a relative import of a light entry', () => {
+      const root = withTree({
+        'src/features/a/components/x.ts': "import { y } from '../../b/light';\n",
+        'src/features/b/light.ts': "export { y } from './lib/y';\n",
+        'src/features/b/lib/y.ts': 'export const y = 1;\n',
+      });
+      const { status, output } = runLint(root);
+      expect(status).toBe(0);
+      expect(output).toContain('1 barrel');
+    });
+
+    it('still counts a light.ts below the feature root as deep', () => {
+      const root = withTree({
+        'src/features/a/x.ts': "import { y } from '@/features/b/lib/light';\n",
+        'src/features/b/lib/light.ts': 'export const y = 1;\n',
+      });
+      const { status, output } = runLint(root);
+      expect(status).toBe(1);
+      expect(output).toContain('a -> b  1, baseline 0');
+    });
+
+    it.each([
+      ['export *', "export * from './lib/y';\n", 'export *'],
+      [
+        'a component import',
+        "import { Thing } from './components/Thing';\nexport { Thing };\n",
+        'components',
+      ],
+      ['a component re-export', "export { Thing } from './components/Thing';\n", 'components'],
+      [
+        'a component alias import',
+        "export { Thing } from '@/features/b/components/Thing';\n",
+        'components',
+      ],
+      ['its own index', "export { y } from './index';\n", 'index'],
+      ['its own bare barrel', "export { y } from '@/features/b';\n", 'index'],
+    ])('fails a light entry with %s, naming the file', (_label, body, reason) => {
+      const root = withTree({
+        'src/features/b/light.ts': body,
+        'src/features/b/lib/y.ts': 'export const y = 1;\n',
+        'src/features/b/components/Thing.tsx': 'export const Thing = 1;\n',
+      });
+      const { status, output } = runLint(root);
+      expect(status).toBe(1);
+      expect(output).toContain('src/features/b/light.ts');
+      expect(output).toContain(reason);
+    });
+
+    it('allows a light entry to reach another feature through its barrel', () => {
+      const root = withTree({
+        'src/features/b/light.ts': "export { z } from '@/features/c';\n",
+        'src/features/c/index.ts': 'export const z = 1;\n',
+      });
+      expect(runLint(root).status).toBe(0);
+    });
+  });
+
   it('passes a feature reaching into itself by its own alias path', () => {
     const root = withTree({
       'src/features/a/x.ts': "import { y } from '@/features/a/lib/y';\n",
@@ -206,5 +280,164 @@ describe('cross-feature import ratchet', () => {
     const { status, output } = runLint(root, '--json');
     expect(status).toBe(0);
     expect(JSON.parse(output)).toEqual({ 'a -> b': 1 });
+  });
+  describe('permitted lazy requires', () => {
+    const lazyIn = (root: string, entries: unknown): string => {
+      const path = join(root, 'lazy.json');
+      writeFileSync(path, `${JSON.stringify(entries, null, 2)}\n`);
+      return path;
+    };
+
+    const lazyTree = (extra: Record<string, string> = {}): string =>
+      withTree({
+        'src/features/a/x.ts': "export const load = () => require('@/features/b/lib/y').y;\n",
+        'src/features/b/lib/y.ts': 'export const y = 1;\n',
+        ...extra,
+      });
+
+    const entry = (over: Record<string, unknown> = {}) => ({
+      file: 'src/features/a/x.ts',
+      spec: '@/features/b/lib/y',
+      reason: 'b loads a native module a headless task must not start',
+      ...over,
+    });
+
+    it('counts an unlisted function-scope require as a deep import', () => {
+      const { status, output } = runLint(lazyTree());
+      expect(status).toBe(1);
+      expect(output).toContain('a -> b  1, baseline 0');
+    });
+
+    it('does not count a function-scope require the list permits', () => {
+      const root = lazyTree();
+      const { status, output } = runLint(root, '--lazy', lazyIn(root, [entry()]));
+      expect(status).toBe(0);
+      expect(output).toContain('1 lazy require(s) permitted');
+      expect(output).toContain('0 deep');
+    });
+
+    it('permits a require inside a method and a nested arrow function', () => {
+      const root = withTree({
+        'src/features/a/x.ts':
+          "export class K { m() { return () => require('@/features/b/lib/y'); } }\n",
+        'src/features/b/lib/y.ts': 'export const y = 1;\n',
+      });
+      expect(runLint(root, '--lazy', lazyIn(root, [entry()])).status).toBe(0);
+    });
+
+    it('lets a listed require cover only its own specifier', () => {
+      const root = lazyTree({
+        'src/features/a/z.ts': "export const f = () => require('@/features/b/lib/w');\n",
+      });
+      const { status, output } = runLint(root, '--lazy', lazyIn(root, [entry()]));
+      expect(status).toBe(1);
+      expect(output).toContain('a -> b  1, baseline 0');
+      expect(output).toContain('src/features/a/z.ts:1');
+    });
+
+    it('lets a listed require cover only its own file', () => {
+      const root = lazyTree({
+        'src/features/a/z.ts': "export const f = () => require('@/features/b/lib/y');\n",
+      });
+      const { status, output } = runLint(root, '--lazy', lazyIn(root, [entry()]));
+      expect(status).toBe(1);
+      expect(output).toContain('src/features/a/z.ts:1');
+      expect(output).not.toContain('src/features/a/x.ts:1');
+    });
+
+    it('does not let an entry cover a module-scope require', () => {
+      const root = withTree({
+        'src/features/a/x.ts': "export const y = require('@/features/b/lib/y').y;\n",
+        'src/features/b/lib/y.ts': 'export const y = 1;\n',
+      });
+      const lazy = lazyIn(root, [entry()]);
+      expect(JSON.parse(runLint(root, '--lazy', lazy, '--json').output)).toEqual({ 'a -> b': 1 });
+      const { status, output } = runLint(root, '--lazy', lazy);
+      expect(status).toBe(1);
+      expect(output).toContain('matches no function-scope require');
+    });
+
+    it('does not let an entry cover a static or dynamic import', () => {
+      const root = withTree({
+        'src/features/a/x.ts':
+          "import { y } from '@/features/b/lib/y';\nexport const load = () => import('@/features/b/lib/y');\n",
+        'src/features/b/lib/y.ts': 'export const y = 1;\n',
+      });
+      const lazy = lazyIn(root, [entry()]);
+      expect(JSON.parse(runLint(root, '--lazy', lazy, '--json').output)).toEqual({ 'a -> b': 2 });
+      const { status, output } = runLint(root, '--lazy', lazy);
+      expect(status).toBe(1);
+      expect(output).toContain('matches no function-scope require');
+    });
+
+    it('fails an entry that gives no reason', () => {
+      const root = lazyTree();
+      for (const reason of [undefined, '', '   ']) {
+        const { status, output } = runLint(root, '--lazy', lazyIn(root, [entry({ reason })]));
+        expect(status).toBe(1);
+        expect(output).toContain('no reason');
+        expect(output).toContain('src/features/a/x.ts  @/features/b/lib/y');
+      }
+    });
+
+    it('fails an entry that no longer matches a function-scope require', () => {
+      const root = withTree({
+        'src/features/a/x.ts': 'export const x = 1;\n',
+        'src/features/b/lib/y.ts': 'export const y = 1;\n',
+      });
+      const { status, output } = runLint(root, '--lazy', lazyIn(root, [entry()]));
+      expect(status).toBe(1);
+      expect(output).toContain('matches no function-scope require');
+    });
+
+    it('ignores an entry whose file is not in the tree at all', () => {
+      const root = withTree({ 'src/features/a/x.ts': 'export const x = 1;\n' });
+      expect(
+        runLint(root, '--lazy', lazyIn(root, [entry({ file: 'src/features/q/gone.ts' })])).status
+      ).toBe(0);
+    });
+
+    it('fails an entry whose file also imports the same feature at module scope', () => {
+      const root = lazyTree({
+        'src/features/a/x.ts':
+          "import { w } from '@/features/b/lib/w';\nexport const load = () => require('@/features/b/lib/y').y + w;\n",
+        'src/features/b/lib/w.ts': 'export const w = 1;\n',
+      });
+      const { status, output } = runLint(root, '--lazy', lazyIn(root, [entry()]));
+      expect(status).toBe(1);
+      expect(output).toContain('also imports b at module scope');
+    });
+
+    it('still permits an entry when the module-scope import is of another feature', () => {
+      const root = withTree({
+        'src/features/a/x.ts':
+          "import { w } from '@/features/c';\nexport const load = () => require('@/features/b/lib/y').y + w;\n",
+        'src/features/b/lib/y.ts': 'export const y = 1;\n',
+        'src/features/c/index.ts': 'export const w = 1;\n',
+      });
+      expect(runLint(root, '--lazy', lazyIn(root, [entry()])).status).toBe(0);
+    });
+
+    it('permits a lazy require alongside a baseline edge without lending it ground', () => {
+      const root = lazyTree({
+        'src/features/a/z.ts': "import { w } from '@/features/b/lib/w';\n",
+        'src/features/b/lib/w.ts': 'export const w = 1;\n',
+      });
+      const baseline = baselineIn(root, { 'a -> b': 1 });
+      const lazy = lazyIn(root, [entry()]);
+      expect(runLint(root, '--baseline', baseline, '--lazy', lazy).status).toBe(0);
+      // Listing the require must not leave the edge looking beaten at 2.
+      const loose = baselineIn(root, { 'a -> b': 2 });
+      const { status, output } = runLint(root, '--baseline', loose, '--lazy', lazy);
+      expect(status).toBe(1);
+      expect(output).toContain('a -> b  1, baseline 2');
+    });
+
+    it('reports a malformed list instead of passing', () => {
+      const root = lazyTree();
+      const { status, output } = runLint(root, '--lazy', lazyIn(root, { not: 'a list' }));
+      expect(status).toBe(1);
+      expect(output).toContain('must be a JSON array');
+    });
   });
 });

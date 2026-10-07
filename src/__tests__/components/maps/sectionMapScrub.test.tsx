@@ -52,7 +52,7 @@ jest.mock('@/features/maps/lib/mapSurfacePatch', () => {
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     preferences: { defaultStyle: 'light' },
     getStyleForActivity: () => 'light',

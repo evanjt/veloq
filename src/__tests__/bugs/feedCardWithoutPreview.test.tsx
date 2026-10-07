@@ -27,7 +27,7 @@ let mockSnapshotDone: ((uri: string) => void) | null = null;
 const mockCached = new Set<string>();
 const mockKey = (id: string, style: string, is3D: boolean) => `${id}_${style}_${is3D}`;
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'light',
     getTerrain3DMode: () => 'never',

@@ -90,16 +90,23 @@ const action = (step) => (typeof step.uses === 'string' ? step.uses.split('@')[0
 const text = (value) => (value === undefined || value === null ? '' : String(value));
 
 function checkRustProfile(file, where, env, run = '') {
-  if (env && Object.hasOwn(env, 'VELOQRS_RUST_PROFILE') &&
-      text(env.VELOQRS_RUST_PROFILE) !== 'release') {
+  if (
+    env &&
+    Object.hasOwn(env, 'VELOQRS_RUST_PROFILE') &&
+    text(env.VELOQRS_RUST_PROFILE) !== 'release'
+  ) {
     fail(file, where, 'VELOQRS_RUST_PROFILE must be release in workflows.');
   }
-  for (const match of text(run).matchAll(/\bVELOQRS_RUST_PROFILE\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s;]+))/g)) {
+  for (const match of text(run).matchAll(
+    /\bVELOQRS_RUST_PROFILE\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s;]+))/g
+  )) {
     if ((match[1] ?? match[2] ?? match[3]) !== 'release') {
       fail(file, where, 'VELOQRS_RUST_PROFILE must be release in workflows.');
     }
   }
-  for (const match of text(run).matchAll(/-PveloqrsRustProfile\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s;]+))/g)) {
+  for (const match of text(run).matchAll(
+    /-PveloqrsRustProfile\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s;]+))/g
+  )) {
     if ((match[1] ?? match[2] ?? match[3]) !== 'release') {
       fail(file, where, 'veloqrsRustProfile must be release in workflows.');
     }

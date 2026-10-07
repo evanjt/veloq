@@ -16,7 +16,7 @@ import {
   hasTerrainPreview,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { colors } from '@/theme';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { useMapPreferences } from '@/features/settings/stores/MapPreferencesContext';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 import { useMapLayers } from '@/features/maps/hooks/useMapLayers';

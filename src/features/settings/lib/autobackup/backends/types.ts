@@ -43,15 +43,11 @@ export interface BackupBackend {
 
   /**
    * Upload a backup file.
-   * @param localPath - Absolute filesystem path to the record archive
-   * @param metadata - Backup metadata for the entry
    */
   upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void>;
 
   /**
    * Download a backup file to a local path.
-   * @param backupId - ID from a BackupEntry
-   * @param destPath - Local filesystem path to write to
    */
   download(backupId: string, destPath: string): Promise<void>;
 

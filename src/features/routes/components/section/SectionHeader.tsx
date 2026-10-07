@@ -10,7 +10,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useMetricSystem } from '@/shared/app';
 import { DetailHero, HeroNameRow, HeroStatsRow, useHeroMapHeight } from '@/shared/ui';
-import { SectionMapView } from '../SectionMapView';
+import { HighlightedSectionMap } from './HighlightedSectionMap';
+import type { MapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { formatDistance, formatElevation } from '@/shared/format/format';
@@ -44,8 +45,8 @@ export interface SectionHeaderProps {
   customName: string | null;
   nameInputRef: React.RefObject<TextInput | null>;
   shadowTrack?: [number, number][] | undefined;
-  highlightedActivityId: string | null;
-  highlightedLapPoints?: RoutePoint[] | undefined;
+  /** The chart's scrubbed attempt. Only the map reads it, so a scrub never renders the header. */
+  highlight: MapHighlightStore;
   /** The attempt the chart's delta plot shows, which colours the section line. */
   deltaLine?: SectionDeltaLine | null | undefined;
   allActivityTraces?: Record<string, RoutePoint[]> | undefined;
@@ -78,8 +79,7 @@ export function SectionHeader({
   customName,
   nameInputRef,
   shadowTrack,
-  highlightedActivityId,
-  highlightedLapPoints,
+  highlight,
   deltaLine,
   allActivityTraces,
   onUnflagLift,
@@ -167,15 +167,14 @@ export function SectionHeader({
       }
     >
       {mapReady ? (
-        <SectionMapView
+        <HighlightedSectionMap
+          highlight={highlight}
           section={section}
           sportType={sportType}
           height={mapHeight}
           interactive={true}
           enableFullscreen={!isTrimming}
           shadowTrack={shadowTrack}
-          highlightedActivityId={highlightedActivityId}
-          highlightedLapPoints={highlightedLapPoints}
           deltaLine={deltaLine}
           allActivityTraces={allActivityTraces}
           trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}

@@ -12,10 +12,11 @@ import { useMemo } from 'react';
 import { convertLatLngTuples } from '@/shared/geo/polyline';
 import type { ActivityBoundsItem } from '@/types';
 import { sectionPalette, sectionPaletteIndex } from '@/theme/colors';
-import type { MapSection } from '@/features/routes';
+import type { MapSection } from '@/features/maps/hooks/useEngineMapActivities';
 import { getActivityTypeConfig } from '../../lib/activityCategories';
 import type { SelectedActivity } from './ActivityPopup';
 import { EMPTY_FEATURE_COLLECTION } from '../../lib/coordinates';
+import { buildUserLocationCollection } from '../../lib/userLocationLayer';
 
 // Size based on distance (always returns 24 - kept as function for future scaling)
 const MARKER_SIZE = 24;
@@ -180,25 +181,10 @@ export function useMapGeoJSON({
   // ===========================================
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no location
   // Using CircleLayer instead of MarkerView prevents Fabric view recycling crash
-  const userLocationGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    // Return empty collection when no location - visibility controlled via layer opacity
-    if (!userLocation) {
-      return EMPTY_FEATURE_COLLECTION;
-    }
-    return {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: { hasLocation: true },
-          geometry: {
-            type: 'Point',
-            coordinates: userLocation,
-          },
-        },
-      ],
-    };
-  }, [userLocation]);
+  const userLocationGeoJSON = useMemo(
+    () => buildUserLocationCollection(userLocation),
+    [userLocation]
+  );
 
   // ===========================================
   // 8. SELECTED ACTIVITY ROUTE - Full route line for selected activity

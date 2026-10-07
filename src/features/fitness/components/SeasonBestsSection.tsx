@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import { EngineReadFailure, pressable } from '@/shared/ui';
+import { EngineReadFailure, pressable, pressRipple } from '@/shared/ui';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '../lib/bestEfforts';
@@ -56,6 +56,7 @@ export function SeasonBestsSection({
 
   const viewAll = (
     <Pressable
+      android_ripple={pressRipple}
       accessibilityRole="button"
       accessibilityLabel={t('bestEffortsScreen.title')}
       testID="season-bests-view-all"
@@ -124,6 +125,7 @@ export function SeasonBestsSection({
             <View style={styles.activityColumn}>
               {activityName && effort.activityId ? (
                 <Pressable
+                  android_ripple={pressRipple}
                   accessibilityRole="button"
                   accessibilityLabel={activityName}
                   onPress={() => router.push(`/activity/${effort.activityId}`)}

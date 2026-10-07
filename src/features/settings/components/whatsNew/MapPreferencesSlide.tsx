@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { ToggleButtonRow } from '@/shared/ui';
-import { useMapPreferences } from '@/features/maps';
+import { useMapPreferences } from '../../stores/MapPreferencesContext';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { MapStylePreviewPicker } from '@/features/settings/components/MapStylePreviewPicker';

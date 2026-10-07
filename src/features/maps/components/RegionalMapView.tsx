@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { useMapPreferences } from '@/features/settings/stores/MapPreferencesContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -126,8 +126,6 @@ export function RegionalMapView({
     toggleHeatmap,
     toggle3D,
   } = useVisibilityToggles();
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [locationLoading, setLocationLoading] = useState(false);
   // The overlay carries six fields per section. The popup wants the whole
   // record, so it is read for the one section that was tapped.
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
@@ -265,16 +263,6 @@ export function RegionalMapView({
     [routeLineCache, showRoutes, routeLines]
   );
 
-  // All GeoJSON data for map layers
-  const { markersGeoJSON, sectionsGeoJSON, userLocationGeoJSON, routeGeoJSON, routeHasData } =
-    useMapGeoJSON({
-      allActivities: activities,
-      activityCenters,
-      sections,
-      userLocation,
-      selected,
-    });
-
   // Event handlers
   const {
     handleMarkerTap,
@@ -287,6 +275,8 @@ export function RegionalMapView({
     handleRegionIsChanging,
     handleRegionDidChange: baseHandleRegionDidChange,
     handleGetLocation,
+    userLocation,
+    locationLoading,
     toggleActivities,
     toggleSections: baseToggleSections,
     toggleRoutes,
@@ -305,9 +295,6 @@ export function RegionalMapView({
     showRoutes,
     setShowRoutes,
     setSelectedRoute: NOOP,
-    userLocation,
-    setUserLocation,
-    setLocationLoading,
     currentZoomRef,
     currentCenterRef,
     onCameraSettled: handleCameraSettled,
@@ -319,6 +306,16 @@ export function RegionalMapView({
     markUserInteracted,
     setSpider,
   });
+
+  // All GeoJSON data for map layers
+  const { markersGeoJSON, sectionsGeoJSON, userLocationGeoJSON, routeGeoJSON, routeHasData } =
+    useMapGeoJSON({
+      allActivities: activities,
+      activityCenters,
+      sections,
+      userLocation,
+      selected,
+    });
 
   // The markers are drawn into the canvas, so a link names the activity whose
   // popup opens. Each id opens once, so closing the popup leaves it closed.

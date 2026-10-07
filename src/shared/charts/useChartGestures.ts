@@ -469,8 +469,14 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   const syncXCoords = useCallback(
     <P>(points: readonly P[], getX: (point: P) => number) => {
       const current = xCoordsShared.value;
+      const first = points.at(0);
+      const last = points.at(-1);
+      // First and last both: a resize moves the far end while leaving the first stop in place.
       const unchanged =
-        points.length === current.length && (points.length === 0 || getX(points[0]) === current[0]);
+        points.length === current.length &&
+        (first === undefined ||
+          last === undefined ||
+          (getX(first) === current.at(0) && getX(last) === current.at(-1)));
       if (!unchanged) xCoordsShared.value = points.map(getX);
     },
     [xCoordsShared]

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Weather-related constants
+ * Weather-related constants
  *
  * Temperature thresholds and weather condition classifications
  * for activity statistics and UI display.

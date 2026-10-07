@@ -54,7 +54,7 @@ export const PREFERENCE_KEYS = [
  * Keys an older build kept in AsyncStorage. The migration copies the section
  * and route id ones it knows into the settings table and leaves the originals,
  * and a converted old backup can carry any of them, so the wipe removes all of
- * them from both sides. The push history key has no reader or writer left.
+ * them from both sides. The push history and pending snapshot keys have no reader or writer left.
  */
 export const LEGACY_LIBRARY_KEYS = [
   'veloq-disabled-sections',
@@ -63,6 +63,7 @@ export const LEGACY_LIBRARY_KEYS = [
   'veloq-geocoded-route-ids',
   'veloq-geocoded-section-ids',
   'veloq-insight-push-history',
+  'veloq-pending-terrain-snapshots',
 ] as const;
 
 /**

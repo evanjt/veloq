@@ -442,11 +442,20 @@ pub(crate) const RECORD_TABLES: &[(&str, &str)] = &[
 /// The row a converted `.veloq` file holds for a name it keeps by old id only.
 pub(crate) const LEGACY_SECTION_NAME: &str = "legacy_section_name";
 
+/// The rows a converted `.veloq` file holds for a section it disabled or
+/// superseded, kept by old id only. Auto section ids are positional, so one
+/// names unrelated ground in another library and is never applied by id.
+pub(crate) const LEGACY_SECTION_DISABLED: &str = "legacy_section_disabled";
+pub(crate) const LEGACY_SECTION_SUPERSEDED: &str = "legacy_section_superseded";
+
 /// Whether a row of `table` travels between libraries: a table a backup
-/// carries, or the legacy name row. Anything else, such as another build's
-/// registry, is this library's own and is neither placed nor kept.
+/// carries, or a legacy row kept by old id. Anything else, such as another
+/// build's registry, is this library's own and is neither placed nor kept.
 pub(crate) fn travels(table: &str) -> bool {
-    table == LEGACY_SECTION_NAME || RECORD_TABLES.iter().any(|(name, _)| *name == table)
+    matches!(
+        table,
+        LEGACY_SECTION_NAME | LEGACY_SECTION_DISABLED | LEGACY_SECTION_SUPERSEDED
+    ) || RECORD_TABLES.iter().any(|(name, _)| *name == table)
 }
 
 /// Read only the athlete's decisions from one consistent SQLite snapshot.

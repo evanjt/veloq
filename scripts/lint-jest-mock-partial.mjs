@@ -27,7 +27,8 @@ const ALLOWLIST = {
   'react-native-iap': 'reaches a Nitro module on import, which throws outside a native runtime',
   'react-native-webview': 'reads its native view manager on import',
   '@shopify/react-native-skia': 'needs the native Skia binding on import',
-  '@expo/vector-icons': 'pulls in expo-font, which resolves expo-asset, and expo-asset is not installed',
+  '@expo/vector-icons':
+    'pulls in expo-font, which resolves expo-asset, and expo-asset is not installed',
   '@expo/vector-icons/MaterialCommunityIcons':
     'one icon set of the package above, which pulls in expo-font the same way',
   'expo-localization':
@@ -43,7 +44,10 @@ const SHARED = /(^|\/)__shared__\//;
 const tree = treeView(ROOT, ['src', 'config']);
 
 function walk(dir, keep) {
-  return tree.files(dir, (rel) => !rel.split('/').includes('node_modules') && keep(join(ROOT, rel)));
+  return tree.files(
+    dir,
+    (rel) => !rel.split('/').includes('node_modules') && keep(join(ROOT, rel))
+  );
 }
 
 function sourceFiles() {
@@ -121,8 +125,7 @@ function bindings(root) {
   const initialisers = new Map();
   const functions = new Map();
   const exported = new Map();
-  const isExported = (node) =>
-    (ts.getCombinedModifierFlags(node) & ts.ModifierFlags.Export) !== 0;
+  const isExported = (node) => (ts.getCombinedModifierFlags(node) & ts.ModifierFlags.Export) !== 0;
   const collect = (node) => {
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
       const init = unwrap(node.initializer);
@@ -152,7 +155,8 @@ function spreadsActual(node, specifier, scope, delegate, seen = new Set()) {
   const isActual = (n, names = new Set()) => {
     const inner = unwrap(n);
     if (isRequireActualOf(inner, specifier)) return true;
-    if (!ts.isIdentifier(inner) || names.has(inner.text) || !initialisers.has(inner.text)) return false;
+    if (!ts.isIdentifier(inner) || names.has(inner.text) || !initialisers.has(inner.text))
+      return false;
     names.add(inner.text);
     return isActual(initialisers.get(inner.text), names);
   };
@@ -179,7 +183,11 @@ function spreadsActual(node, specifier, scope, delegate, seen = new Set()) {
 
 function parse(file) {
   const text = tree.text(file);
-  const kind = /x$/.test(file) ? ts.ScriptKind.TSX : /\.js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const kind = /x$/.test(file)
+    ? ts.ScriptKind.TSX
+    : /\.js$/.test(file)
+      ? ts.ScriptKind.JS
+      : ts.ScriptKind.TS;
   return ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
 }
 
@@ -257,7 +265,8 @@ for (const file of sourceFiles()) {
           initialisers: new Map([...scope.initialisers, ...own.initialisers]),
           functions: new Map([...scope.functions, ...own.functions]),
         };
-        const passes = ts.isFunctionLike(factory) && returnsActual(factory, specifier, local, delegate);
+        const passes =
+          ts.isFunctionLike(factory) && returnsActual(factory, specifier, local, delegate);
         if (!passes && !delegated) failures.push(`${where}  ${specifier}`);
       }
     }

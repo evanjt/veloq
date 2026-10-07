@@ -1,5 +1,5 @@
 /**
- * @fileoverview useRouteSyncProgress - Progress state management
+ * useRouteSyncProgress - Progress state management
  *
  * Manages the progress state for route data synchronization.
  * Provides safe state updates that respect component mount status.
@@ -24,8 +24,6 @@ interface UseRouteSyncProgressResult {
   /**
    * Safely update progress state.
    * Checks mount state before updating to prevent memory leaks.
-   *
-   * @param updater - New progress object or updater function
    */
   updateProgress: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void;
   /** Whether the component is currently mounted */
@@ -44,7 +42,6 @@ interface UseRouteSyncProgressResult {
  * This hook is typically used by useRouteDataSync to provide
  * progress tracking to the sync operation.
  *
- * @example
  * ```tsx
  * const { progress, updateProgress, isMountedRef } = useRouteSyncProgress();
  *

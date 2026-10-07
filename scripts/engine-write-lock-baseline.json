@@ -13,7 +13,7 @@
   "modules/veloqrs/rust/veloqrs/src/objects/recordings.rs": 10,
   "modules/veloqrs/rust/veloqrs/src/objects/routes.rs": 5,
   "modules/veloqrs/rust/veloqrs/src/objects/sections.rs": 23,
-  "modules/veloqrs/rust/veloqrs/src/objects/settings.rs": 7,
+  "modules/veloqrs/rust/veloqrs/src/objects/settings.rs": 8,
   "modules/veloqrs/rust/veloqrs/src/objects/strength.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/objects/sync.rs": 9,
   "modules/veloqrs/rust/veloqrs/src/objects/tiles.rs": 2,

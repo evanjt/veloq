@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Formats the staged TypeScript under src/ and restages it. lint-staged did this by
-# backing the whole tree up into `git stash`, which every worktree shares, so a commit
-# in one tree could take or drop another tree's entry. A file that also has unstaged
-# edits is left alone, since writing it would stage those edits too, and the format
-# check that runs after this names it.
+# Formats the staged TypeScript under src/ and the JavaScript and TypeScript under
+# scripts/, and restages it. lint-staged did this by backing the whole tree up into
+# `git stash`, which every worktree shares, so a commit in one tree could take or drop
+# another tree's entry. A file that also has unstaged edits is left alone, since
+# writing it would stage those edits too, and the format check that runs after this
+# names it.
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
@@ -12,7 +13,7 @@ prettier="$root/node_modules/.bin/prettier"
 # Unquoted, or a non-ASCII path arrives as an escaped string no file matches.
 # A read loop rather than mapfile, which bash 3.2 does not have.
 staged=()
-while IFS= read -r f; do staged+=("$f"); done < <(git -c core.quotePath=off diff --cached --name-only --diff-filter=ACMR -- 'src/*.ts' 'src/*.tsx')
+while IFS= read -r f; do staged+=("$f"); done < <(git -c core.quotePath=off diff --cached --name-only --diff-filter=ACMR -- 'src/*.ts' 'src/*.tsx' 'scripts/*.mjs' 'scripts/*.cjs' 'scripts/*.js' 'scripts/*.ts')
 [ "${#staged[@]}" -eq 0 ] && exit 0
 
 partial=()

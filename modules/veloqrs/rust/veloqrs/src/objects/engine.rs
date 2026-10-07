@@ -1411,14 +1411,27 @@ mod tests {
         let engine = VeloqEngine;
         seed_activity("a1");
 
+        // The copy claims its slot and then waits here for the engine, so the
+        // second call meets a copy that is certainly still going. Left free,
+        // a small library is copied between two polls of the slot and the
+        // copy is never seen running.
+        let (holding, held) = std::sync::mpsc::channel();
+        let (release, released) = std::sync::mpsc::channel::<()>();
+        let writer = std::thread::spawn(move || {
+            with_persistent_engine(|_| {
+                holding.send(()).ok();
+                released.recv().ok();
+            })
+            .expect("engine");
+        });
+        held.recv().expect("the writer took the lock");
+
         let dest = tmp.path().join("backup.db").to_string_lossy().into_owned();
         let running = {
             let dest = dest.clone();
             crate::runtime::ASYNC_RUNTIME
                 .spawn(async move { VeloqEngine.write_clear_snapshot(dest).await })
         };
-        // Refused while the first is in flight; once it has landed the next
-        // call is a fresh copy rather than a refusal that never lifts.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
         while !BACKUP_IN_FLIGHT.load(std::sync::atomic::Ordering::SeqCst) {
             assert!(
@@ -1428,9 +1441,17 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         assert!(
-            crate::runtime::block_on(engine.write_clear_snapshot(dest.clone())).is_err(),
+            matches!(
+                crate::runtime::block_on(engine.write_clear_snapshot(dest.clone())),
+                Err(VeloqError::Busy { .. })
+            ),
             "a second copy started while the first was still running"
         );
+
+        // Once it has landed the next call is a fresh copy rather than a
+        // refusal that never lifts.
+        release.send(()).ok();
+        writer.join().expect("writer thread");
         crate::runtime::block_on(running)
             .expect("the backup task")
             .expect("the copy");

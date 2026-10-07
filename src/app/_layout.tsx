@@ -20,11 +20,7 @@ import { reportFeedOpened } from '@/shared/native/feedSeen';
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { handleAppBackground } from '@/shared/app/appBackground';
-import {
-  isHeatmapEnabled,
-  MapPreferencesProvider,
-  registerMapSurfaceReclaimer,
-} from '@/features/maps';
+import { isHeatmapEnabled, registerMapSurfaceReclaimer } from '@/features/maps';
 import { useEngineStatus, useRouteReoptimization } from '@/features/routes';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
@@ -79,6 +75,7 @@ import {
   RestorePromptSheet,
   onAppForeground,
   initWebdavConfig,
+  MapPreferencesProvider,
   getNotificationPreferences,
   useNotificationPreferences,
   refreshPushTokenRegistration,

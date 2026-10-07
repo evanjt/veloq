@@ -1,5 +1,5 @@
 /**
- * @fileoverview useRouteSyncContext - Sync lifecycle management
+ * useRouteSyncContext - Sync lifecycle management
  *
  * Manages the refs and abort controller for route sync operations.
  * Provides stable references that won't cause callback recreation.
@@ -52,23 +52,17 @@ interface UseRouteSyncContextResult {
   /**
    * Create a new abort controller for sync operation.
    * Replaces any existing controller (aborting previous sync).
-   *
-   * @returns New abort controller
    */
   createAbortController: () => AbortController;
   /**
    * Check if a sync operation can start.
    * Returns true if authenticated and not already syncing.
-   *
-   * @returns Whether sync can proceed
    */
   canStartSync: () => boolean;
   /**
    * Mark sync as complete (reset isSyncingRef and clear abort controller).
    * Only clears the global mutex/controller when this run still owns them,
    * so a stale sync finishing after a cache clear can't stomp a newer run.
-   *
-   * @param abortController The controller returned by createAbortController for this run
    */
   markSyncComplete: (abortController: AbortController | null) => void;
 }
@@ -89,7 +83,6 @@ interface UseRouteSyncContextResult {
  * - Aborts in-flight HTTP requests on unmount
  * - Cleared when sync completes
  *
- * @example
  * ```tsx
  * const { isSyncingRef, createAbortController, canStartSync } = useRouteSyncContext();
  *

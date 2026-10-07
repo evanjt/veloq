@@ -8,7 +8,7 @@
  * - UnitPreferenceStore (three-tier metric/imperial resolution)
  * - RouteSettingsStore (clamping logic, setter isolation, optimistic updates)
  * - SportPreferenceStore (sport API types, colors, validation)
- * - DashboardPreferencesStore (reorder algorithm, metric toggle, sport defaults)
+ * - summaryCardPreferences (reorder algorithm, metric toggle, sport defaults)
  * - MapPreferencesContext (React Context, style resolution, batch updates)
  */
 
@@ -38,7 +38,7 @@ import {
   initializeSportPreference,
 } from '@/features/fitness/stores/SportPreferenceStore';
 
-// DashboardPreferencesStore
+// summaryCardPreferences
 import {
   useDashboardPreferences,
   initializeDashboardPreferences,
@@ -47,13 +47,13 @@ import {
   type MetricId,
   type SummaryCardPreferences,
   HERO_METRICS,
-} from '@/features/home/store';
+} from '@/features/settings/stores/summaryCardPreferences';
 
 // MapPreferencesContext
 import {
   MapPreferencesProvider,
   useMapPreferences,
-} from '@/features/maps/stores/MapPreferencesContext';
+} from '@/features/settings/stores/MapPreferencesContext';
 
 // Storage keys
 const UNIT_PREFERENCE_KEY = 'veloq-unit-preference';
@@ -300,10 +300,10 @@ describe('SportPreferenceStore', () => {
 });
 
 // ================================================================
-// DashboardPreferencesStore
+// summaryCardPreferences
 // ================================================================
 
-describe('DashboardPreferencesStore', () => {
+describe('summaryCardPreferences', () => {
   beforeEach(async () => {
     useDashboardPreferences.setState({
       summaryCard: { ...DEFAULT_SUMMARY_CARD },

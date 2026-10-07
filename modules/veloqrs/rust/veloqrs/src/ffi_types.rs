@@ -3596,6 +3596,23 @@ pub struct FfiMuscleGroup {
     pub intensity: u8,
 }
 
+/// What one strength feed card paints, read for a batch of activities at once.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStrengthCardSummary {
+    pub activity_id: String,
+    /// Stored sets exist, or the FIT file has a recorded outcome. False means a
+    /// download is still owed, in flight or failed, so an empty card says nothing.
+    pub settled: bool,
+    /// Rest, warmup and cooldown sets are not counted.
+    pub active_set_count: u32,
+    /// Distinct exercise names among the active sets.
+    pub exercise_count: u32,
+    /// Weight times repetitions over active sets.
+    pub total_volume_kg: f64,
+    /// Muscle groups the active sets work, primary over secondary.
+    pub muscles: Vec<FfiMuscleGroup>,
+}
+
 /// Aggregated muscle group volume over a time period.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiMuscleVolume {
@@ -3772,11 +3789,14 @@ pub struct FfiExerciseActivities {
 
 /// Combined payload for batched activity-list highlights: pre-computed
 /// section indicators (PRs + trends) and route highlights for the same
-/// activity IDs, delivered in a single FFI round-trip.
+/// activity IDs, and the strength cards among them, delivered in a single FFI
+/// round-trip.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiActivityHighlightsBundle {
     pub indicators: Vec<FfiActivityIndicator>,
     pub route_highlights: Vec<FfiActivityRouteHighlight>,
+    /// One row per strength activity among the ids, with what its card paints.
+    pub strength_cards: Vec<FfiStrengthCardSummary>,
 }
 
 // ============================================================================

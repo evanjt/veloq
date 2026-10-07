@@ -938,6 +938,27 @@ describe('no-geocoding', () => {
     expect(output).toContain(`${file}:1`);
   });
 
+  it('passes the host in the engine geocoder and fails the same line in any other engine file', () => {
+    const line = 'pub const ENDPOINT: &str = "https://nominatim.openstreetmap.org";\n';
+    const geocoder = 'modules/veloqrs/rust/veloqrs/src/net/geocode.rs';
+
+    expect(runRule('no-geocoding', fixture({ ...clean, [geocoder]: line })).status).toBe(0);
+    for (const elsewhere of [
+      'modules/veloqrs/rust/veloqrs/src/net/geocode_cache.rs',
+      'modules/veloqrs/rust/veloqrs/src/basemap/fetch.rs',
+      'modules/veloqrs/rust/veloqrs/src/net/tests/geocode.rs',
+      'src/net/geocode.rs',
+    ]) {
+      const { status, output } = runRule(
+        'no-geocoding',
+        fixture({ ...clean, [geocoder]: line, [elsewhere]: line })
+      );
+      expect(status).toBe(1);
+      expect(output).toContain(`${elsewhere}:1`);
+      expect(output).not.toContain(`${geocoder}:1`);
+    }
+  });
+
   it('fails a geocoding module under src/shared/geo whatever it exports', () => {
     const { status, output } = runRule(
       'no-geocoding',

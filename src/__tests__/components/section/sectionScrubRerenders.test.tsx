@@ -1,0 +1,153 @@
+/**
+ * Scenario: a chart scrub on the section screen wrote the scrubbed attempt into
+ * state held by the screen root, so every new index committed the whole screen.
+ *
+ * Expected behaviour: the scrub lives in a store the root creates and never
+ * reads. A new index renders the map that draws it and nothing above, the page
+ * scrolls back to the map on each new attempt, and a repeat or a clear leaves
+ * the page where it is.
+ */
+
+import React from 'react';
+import { render, renderHook, act } from '@testing-library/react-native';
+
+import { HighlightedSectionMap } from '@/features/routes/components/section/HighlightedSectionMap';
+import { useRevealMapOnHighlight } from '@/features/routes/hooks/useRevealMapOnDraw';
+import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
+import type { FrequentSection } from '@/types';
+
+const mockMapProps = jest.fn();
+
+jest.mock('@/features/routes/components/SectionMapView', () => ({
+  SectionMapView: (props: unknown) => {
+    mockMapProps(props);
+    return null;
+  },
+}));
+
+const SECTION: FrequentSection = {
+  id: 's1',
+  sectionType: 'auto',
+  sportTypes: ['Ride'],
+  polyline: [],
+  distanceMeters: 1200,
+  activityIds: ['a1'],
+  visitCount: 8,
+  createdAt: '2026-01-01T00:00:00Z',
+};
+
+const LAP = [{ lat: 1, lng: 2 }];
+
+function setup() {
+  const store = createMapHighlightStore();
+  const scrollTo = jest.fn();
+  const scrollRef = { current: { scrollTo } };
+  const rootRenders = jest.fn();
+
+  function Root() {
+    rootRenders();
+    useRevealMapOnHighlight(scrollRef as never, store);
+    return (
+      <HighlightedSectionMap
+        highlight={store}
+        section={SECTION}
+        height={200}
+        interactive={true}
+        enableFullscreen={true}
+      />
+    );
+  }
+
+  const tree = render(<Root />);
+  return { store, scrollTo, rootRenders, tree };
+}
+
+const lastMapProps = () => mockMapProps.mock.calls[mockMapProps.mock.calls.length - 1][0];
+
+beforeEach(() => mockMapProps.mockClear());
+
+describe('a chart scrub on the section screen', () => {
+  it('renders the map per index and never the root that owns the store', () => {
+    const { store, rootRenders } = setup();
+    expect(rootRenders).toHaveBeenCalledTimes(1);
+    mockMapProps.mockClear();
+
+    for (const id of ['a', 'b', 'c', 'd', 'e']) {
+      act(() => store.set(id, LAP));
+      expect(lastMapProps()).toMatchObject({
+        highlightedActivityId: id,
+        highlightedLapPoints: LAP,
+      });
+    }
+
+    expect(mockMapProps).toHaveBeenCalledTimes(5);
+    expect(rootRenders).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands the map nothing before a scrub and after a clear', () => {
+    const { store } = setup();
+    expect(lastMapProps()).toMatchObject({
+      highlightedActivityId: null,
+      highlightedLapPoints: undefined,
+    });
+
+    act(() => store.set('a', LAP));
+    act(() => store.set(null));
+
+    expect(lastMapProps()).toMatchObject({
+      highlightedActivityId: null,
+      highlightedLapPoints: undefined,
+    });
+  });
+
+  it('keeps a lap trace that arrives with the same attempt', () => {
+    const { store } = setup();
+    act(() => store.set('a'));
+    act(() => store.set('a', LAP));
+    expect(lastMapProps().highlightedLapPoints).toBe(LAP);
+  });
+
+  it('does not render the map again for the value it already holds', () => {
+    const { store } = setup();
+    act(() => store.set('a', LAP));
+    mockMapProps.mockClear();
+
+    act(() => store.set('a', LAP));
+
+    expect(mockMapProps).not.toHaveBeenCalled();
+  });
+
+  it('scrolls to the map on each new attempt and not on a repeat or a clear', () => {
+    const { store, scrollTo } = setup();
+
+    act(() => store.set('a', LAP));
+    act(() => store.set('a', LAP));
+    act(() => store.set('b', LAP));
+    act(() => store.set(null));
+    expect(scrollTo).toHaveBeenCalledTimes(2);
+    expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
+
+    act(() => store.set('b', LAP));
+    expect(scrollTo).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops listening when the screen unmounts', () => {
+    const store = createMapHighlightStore();
+    const scrollTo = jest.fn();
+    const view = renderHook(() =>
+      useRevealMapOnHighlight({ current: { scrollTo } } as never, store)
+    );
+
+    view.unmount();
+    act(() => store.set('a'));
+
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('takes a set that works detached, as a chart calls it', () => {
+    const store = createMapHighlightStore();
+    const { set } = store;
+    act(() => set('a', LAP));
+    expect(store.get()).toEqual({ activityId: 'a', lapPoints: LAP });
+  });
+});

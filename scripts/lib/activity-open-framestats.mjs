@@ -74,7 +74,8 @@ function measure(frames) {
   let settled = -1;
   for (let i = mountAt; i < after.length; i++) {
     let j = i;
-    while (j + 1 < after.length && after[j + 1].IntendedVsync - after[j].IntendedVsync <= 3 * vsync) j++;
+    while (j + 1 < after.length && after[j + 1].IntendedVsync - after[j].IntendedVsync <= 3 * vsync)
+      j++;
     if (j - i + 1 >= MIN_RUN) {
       settled = j;
       break;

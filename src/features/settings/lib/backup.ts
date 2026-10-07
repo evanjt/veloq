@@ -11,7 +11,7 @@ import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 import { sweepBackupFiles } from './backupCache';
 import { SHARE_COPY_PREFIX } from '@/features/settings/lib/autobackup/backends/localBackend';
 import { initializeSportPreference } from '@/features/fitness';
-import { initializeDashboardPreferences } from '@/features/home';
+import { initializeDashboardPreferences } from '../stores/summaryCardPreferences';
 import { initializeInsightsStore } from '@/features/insights';
 import {
   initializeHeatmapPreference,
@@ -427,16 +427,16 @@ const LEGACY_BACKUP_VERSION = 2;
  * AsyncStorage keys for legacy JSON backup.
  *
  * Deliberately excluded (cache or device state, re-derivable, wrong to restore
- * onto another install): 'veloq-query-cache', 'veloq-pending-terrain-snapshots',
- * 'terrain-preview-cache-version', 'veloq-recording-library' (the pre-table
+ * onto another install): 'veloq-query-cache', 'terrain-preview-cache-version', 'veloq-recording-library' (the pre-table
  * index, points at local FIT files that are not in the backup),
  * 'veloq-section-health-check-v1',
  * 'veloq-push-token-refreshed-at' (device-local refresh throttle; restoring a
  * stale timestamp could suppress a needed re-registration for a day). A
  * stale timestamp must not move to another install.
- * Also excluded because nothing reads them any more: 'veloq-disabled-sections',
- * 'veloq-superseded-sections', 'veloq-section-dismissals',
+ * Also excluded because nothing reads them any more: 'veloq-section-dismissals',
  * 'veloq-geocoded-route-ids' and 'veloq-geocoded-section-ids'.
+ * 'veloq-disabled-sections' and 'veloq-superseded-sections' are not settings
+ * rows either: each id converts to its own unplaced record below.
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',
@@ -495,6 +495,30 @@ const legacyBackupSchema = z.object({
   preferences: z.record(z.string(), z.unknown()).optional(),
 });
 
+/**
+ * The old per-section lists. Auto section ids are positional, so an id names
+ * unrelated ground in another library: each travels as its own unplaced record.
+ */
+const LEGACY_SECTION_STATE_TABLES = [
+  ['veloq-disabled-sections', 'legacy_section_disabled'],
+  ['veloq-superseded-sections', 'legacy_section_superseded'],
+] as const;
+
+/** The ids of one old list, held as a JSON string or an array. Unreadable lists carry none. */
+function legacyIdList(value: unknown): string[] {
+  let list = value;
+  if (typeof value === 'string') {
+    try {
+      list = JSON.parse(value);
+      // empty-on-error: an unreadable legacy list is a stored string, not an engine read, and carries no ids
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  return list.filter((id): id is string => typeof id === 'string' && id !== '');
+}
+
 /** Convert a readable `.veloq` file into the record restore's input. */
 export function convertLegacyBackupToRecord(json: string): RecordPayload {
   let parsed: unknown;
@@ -548,6 +572,11 @@ export function convertLegacyBackupToRecord(json: string): RecordPayload {
       values: { route_id: routeId, custom_name: customName },
       ground: null,
     });
+  }
+  for (const [key, table] of LEGACY_SECTION_STATE_TABLES) {
+    for (const id of legacyIdList(backup.preferences?.[key])) {
+      entries.push({ table, values: { section_id: id }, ground: null });
+    }
   }
   const allowed = new Set<string>(LEGACY_PREFERENCE_KEYS);
   for (const [key, value] of Object.entries(backup.preferences ?? {})) {

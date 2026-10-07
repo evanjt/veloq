@@ -278,7 +278,7 @@ mod tests {
 /// The strength reads a screen makes, over a pooled connection. The engine
 /// methods above delegate here rather than carrying a second copy.
 pub(crate) mod pooled {
-    use rusqlite::{Connection, Result as SqlResult, params};
+    use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
     use crate::fit::FitExerciseSet;
 
@@ -397,6 +397,24 @@ pub(crate) mod pooled {
             .collect::<SqlResult<Vec<_>>>()?;
 
         Ok(sets)
+    }
+
+    /// For a strength activity, whether its FIT file has a recorded outcome.
+    /// `None` for any other sport and for an id the library does not hold.
+    pub(crate) fn strength_outcome(
+        conn: &Connection,
+        activity_id: &str,
+    ) -> SqlResult<Option<bool>> {
+        let row = conn
+            .query_row(
+                "SELECT COALESCE(m.sport_type = 'WeightTraining', 0),
+                        EXISTS(SELECT 1 FROM fit_file_status f WHERE f.activity_id = m.activity_id)
+                 FROM activity_metrics m WHERE m.activity_id = ?",
+                params![activity_id],
+                |row| Ok((row.get::<_, bool>(0)?, row.get::<_, bool>(1)?)),
+            )
+            .optional()?;
+        Ok(row.and_then(|(is_strength, processed)| is_strength.then_some(processed)))
     }
 
     /// Whether the activity's FIT file has a settled verdict.

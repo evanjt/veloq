@@ -55,6 +55,7 @@ jest.mock('@/features/auth/lib/oauth', () => ({
 jest.mock('@/features/auth', () => ({
   ...jest.requireActual('@/features/auth/lib/oauth'),
   handleOAuthCallback: require('@/features/auth/lib/oauth').handleOAuthCallback,
+  recordGrantedScope: jest.requireActual('@/features/auth/lib/grantedScope').recordGrantedScope,
   OAUTH: require('@/features/auth/constants').OAUTH,
 }));
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({

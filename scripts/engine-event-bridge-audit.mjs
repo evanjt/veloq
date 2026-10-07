@@ -208,14 +208,16 @@ function main() {
     for (const o of orphans) console.error(`  ${o.file}\n    ${o.reason}`);
     console.error('');
     console.error('Fix: subscribe via useEngineSubscription/createEngineHook, or add the');
-    console.error('     query key group to GlobalDataSync\'s sync-complete invalidation block.');
+    console.error("     query key group to GlobalDataSync's sync-complete invalidation block.");
     console.error('');
   }
 
   const { missing, noBody } = findReinitGaps(backupSrc);
   if (noBody) {
     failed = true;
-    console.error('Could not locate storeInitialisers in backup.ts - restore reinit check skipped.');
+    console.error(
+      'Could not locate storeInitialisers in backup.ts - restore reinit check skipped.'
+    );
   } else if (missing.length > 0) {
     failed = true;
     console.error('Imported store initializers missing from storeInitialisers:');
@@ -231,7 +233,9 @@ function main() {
   }
 
   console.log('engine-event-bridge-audit: OK');
-  console.log(`  query key groups: ${knownGroups.size}, invalidated by GlobalDataSync: ${invalidatedGroups.size}`);
+  console.log(
+    `  query key groups: ${knownGroups.size}, invalidated by GlobalDataSync: ${invalidatedGroups.size}`
+  );
 }
 
 main();

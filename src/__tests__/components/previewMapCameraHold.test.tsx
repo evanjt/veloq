@@ -39,7 +39,7 @@ jest.mock('@/features/maps', () => {
   };
 });
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({ getGlobalMapStyle: () => 'light' }),
 }));
 

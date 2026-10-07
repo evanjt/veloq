@@ -12,7 +12,8 @@ const attributeStart = /#\s*\[/g;
 const exportWord = /\b(?:no_mangle|export_name)\b/;
 const macroExtern = /\bextern\s+(?:"[^"]*"\s*)?fn\s+[\w$]/g;
 const macroDefinition = /\bmacro_rules!\s*\w+\s*([({\[])/g;
-const refusal = /^(?:false|true|\(\)|-?\d+|std::ptr::null_mut\(\)|u8::from\(false\)|[A-Z][A-Z0-9_]*(?:::[A-Z][A-Z0-9_]*)*)$/;
+const refusal =
+  /^(?:false|true|\(\)|-?\d+|std::ptr::null_mut\(\)|u8::from\(false\)|[A-Z][A-Z0-9_]*(?:::[A-Z][A-Z0-9_]*)*)$/;
 const label = /^(?:"(?:\\.|[^"\\])*"|[A-Z][A-Z0-9_]*(?:::[A-Z][A-Z0-9_]*)*)$/;
 
 // The default root is this repository's crate, read out of the index. A `--root`
@@ -38,7 +39,9 @@ function skipLexeme(source, index) {
     return end === -1 ? source.length : end + 2;
   }
   if (source[index] === "'") {
-    const character = source.slice(index).match(/^'(?:\\(?:u\{[0-9a-fA-F_]+\}|x[0-9a-fA-F]{2}|.)|[^'\\\n])'/);
+    const character = source
+      .slice(index)
+      .match(/^'(?:\\(?:u\{[0-9a-fA-F_]+\}|x[0-9a-fA-F]{2}|.)|[^'\\\n])'/);
     return character ? index + character[0].length : index;
   }
   // A raw string takes no escapes and ends at a quote followed by as many
@@ -92,8 +95,9 @@ function withoutStrings(text, offset, ranges) {
 }
 
 function codeMatches(source, pattern, ranges) {
-  return [...source.matchAll(pattern)].filter((match) =>
-    !ranges.some(([start, end]) => start <= match.index && match.index < end));
+  return [...source.matchAll(pattern)].filter(
+    (match) => !ranges.some(([start, end]) => start <= match.index && match.index < end)
+  );
 }
 
 function closingAt(source, start, opening, closing) {
@@ -140,23 +144,32 @@ function isWrapped(body) {
   const close = closingAt(body, opening[0].length - 1, '(', ')');
   if (close === -1 || body.slice(close + 1).trim() !== '') return false;
   const args = argumentsOf(body.slice(opening[0].length, close));
-  return args?.length === 3 && label.test(args[0]) && refusal.test(args[1])
-    && /^(?:move\s+)?\|\s*\|\s*\S/.test(args[2]);
+  return (
+    args?.length === 3 &&
+    label.test(args[0]) &&
+    refusal.test(args[1]) &&
+    /^(?:move\s+)?\|\s*\|\s*\S/.test(args[2])
+  );
 }
 
 function isInputOnlyFree(header, body) {
   const parameters = header.match(/\(([^)]*)\)/)?.[1] ?? '';
-  const names = (argumentsOf(parameters) ?? []).map((parameter) => parameter.match(/^\s*(\w+)\s*:/)?.[1]);
+  const names = (argumentsOf(parameters) ?? []).map(
+    (parameter) => parameter.match(/^\s*(\w+)\s*:/)?.[1]
+  );
   if (!names[0] || names.some((name) => !name)) return false;
   const cleaned = body.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, '');
   const [pointer, length] = names;
   const nullCheck = `if${pointer}.is_null(){return;}`;
   if (!cleaned.startsWith(nullCheck)) return false;
   const drop = cleaned.slice(nullCheck.length);
-  return drop === `drop(unsafe{Box::from_raw(${pointer})});`
-    || drop === `drop(unsafe{CString::from_raw(${pointer})});`
-    || (length !== undefined
-      && drop === `drop(unsafe{Box::from_raw(std::ptr::slice_from_raw_parts_mut(${pointer},${length}))});`);
+  return (
+    drop === `drop(unsafe{Box::from_raw(${pointer})});` ||
+    drop === `drop(unsafe{CString::from_raw(${pointer})});` ||
+    (length !== undefined &&
+      drop ===
+        `drop(unsafe{Box::from_raw(std::ptr::slice_from_raw_parts_mut(${pointer},${length}))});`)
+  );
 }
 
 function checkFile({ path, source }) {
@@ -175,51 +188,62 @@ function checkFile({ path, source }) {
     const closing = { '(': ')', '{': '}', '[': ']' }[macro[1]];
     return [opening, closingAt(source, opening, macro[1], closing)];
   });
-  const inMacro = (index) => macros.some(([start, end]) => start < index && (end === -1 || index < end));
+  const inMacro = (index) =>
+    macros.some(([start, end]) => start < index && (end === -1 || index < end));
   // A macro can export a symbol the checks below never see: its attribute may
   // arrive as a fragment and its name as `$name`. So a macro that builds an
   // attribute from a fragment, exports, or declares an extern fn is refused.
   const macroFailures = [
-    ...attributes.filter((attribute) => inMacro(attribute.index) && attribute.text.includes('$'))
+    ...attributes
+      .filter((attribute) => inMacro(attribute.index) && attribute.text.includes('$'))
       .map(() => `${path}: macro_rules! builds an attribute from a fragment`),
-    ...codeMatches(searchSource, macroExtern, ranges).filter((entry) => inMacro(entry.index))
+    ...codeMatches(searchSource, macroExtern, ranges)
+      .filter((entry) => inMacro(entry.index))
       .map(() => `${path}: macro_rules! declares an extern fn`),
   ];
   const exportedEntries = new Map();
-  const failures = macroFailures.concat(attributes.filter((attribute) => exportWord.test(attribute.text)).flatMap((attribute) => {
-    if (inMacro(attribute.index)) {
-      return [`${path}: macro_rules! contains an exported symbol attribute`];
-    }
-    const rest = searchSource.slice(attribute.end);
-    const declaration = rest.match(/^\s*(?:#\s*\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?(?:unsafe\s+)?extern\s+(?:"[^"]*"\s+)?fn\s+\w+/);
-    const entryIndex = declaration === null
-      ? -1
-      : attribute.end + declaration[0].search(/\bextern\b/);
-    const entry = entries.find((candidate) => candidate.index === entryIndex);
-    if (!entry) return [`${path}: exported symbol attribute has no recognised entry point`];
-    exportedEntries.set(entryIndex, (exportedEntries.get(entryIndex) ?? 0) + 1);
-    return [];
-  }));
+  const failures = macroFailures.concat(
+    attributes
+      .filter((attribute) => exportWord.test(attribute.text))
+      .flatMap((attribute) => {
+        if (inMacro(attribute.index)) {
+          return [`${path}: macro_rules! contains an exported symbol attribute`];
+        }
+        const rest = searchSource.slice(attribute.end);
+        const declaration = rest.match(
+          /^\s*(?:#\s*\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?(?:unsafe\s+)?extern\s+(?:"[^"]*"\s+)?fn\s+\w+/
+        );
+        const entryIndex =
+          declaration === null ? -1 : attribute.end + declaration[0].search(/\bextern\b/);
+        const entry = entries.find((candidate) => candidate.index === entryIndex);
+        if (!entry) return [`${path}: exported symbol attribute has no recognised entry point`];
+        exportedEntries.set(entryIndex, (exportedEntries.get(entryIndex) ?? 0) + 1);
+        return [];
+      })
+  );
   for (const [index, count] of exportedEntries) {
-    if (count !== 1) failures.push(`${path}: exported entry at ${index} has ${count} symbol attributes`);
+    if (count !== 1)
+      failures.push(`${path}: exported entry at ${index} has ${count} symbol attributes`);
   }
-  return failures.concat(entries.flatMap((entry) => {
-    const name = entry[2];
-    if (entry[1] !== undefined && !['C', 'system'].includes(entry[1])) {
-      return [`${path}: ${name} has an unsupported extern ABI`];
-    }
-    const headerStart = entry.index + entry[0].length;
-    const start = source.indexOf('{', headerStart);
-    const end = start === -1 ? -1 : closingAt(source, start, '{', '}');
-    if (end === -1 || source.slice(headerStart, start).includes(';')) {
-      return [`${path}: ${name} has an unrecognised extern body`];
-    }
-    const header = source.slice(headerStart, start);
-    const body = source.slice(start + 1, end).trim();
-    if (name.endsWith('_free') && isInputOnlyFree(header, body)) return [];
-    if (isWrapped(body)) return [];
-    return [`${path}: ${name} must be enclosed by ffi_refuse_on_panic`];
-  }));
+  return failures.concat(
+    entries.flatMap((entry) => {
+      const name = entry[2];
+      if (entry[1] !== undefined && !['C', 'system'].includes(entry[1])) {
+        return [`${path}: ${name} has an unsupported extern ABI`];
+      }
+      const headerStart = entry.index + entry[0].length;
+      const start = source.indexOf('{', headerStart);
+      const end = start === -1 ? -1 : closingAt(source, start, '{', '}');
+      if (end === -1 || source.slice(headerStart, start).includes(';')) {
+        return [`${path}: ${name} has an unrecognised extern body`];
+      }
+      const header = source.slice(headerStart, start);
+      const body = source.slice(start + 1, end).trim();
+      if (name.endsWith('_free') && isInputOnlyFree(header, body)) return [];
+      if (isWrapped(body)) return [];
+      return [`${path}: ${name} must be enclosed by ffi_refuse_on_panic`];
+    })
+  );
 }
 
 const failures = rustSources(sourceRoot).flatMap(checkFile);

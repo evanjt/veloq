@@ -134,7 +134,9 @@ function clearLogcat() {
 function parsePeakRssMb(meminfoOutput) {
   // dumpsys meminfo reports "TOTAL PSS" / "TOTAL RSS" in KB. Prefer RSS, fall back
   // to PSS. Format varies across Android versions, so match leniently.
-  const rss = meminfoOutput.match(/TOTAL\s+RSS[:\s]+(\d+)/i) || meminfoOutput.match(/TOTAL\s+(\d+)\s+\d+\s+\d+/);
+  const rss =
+    meminfoOutput.match(/TOTAL\s+RSS[:\s]+(\d+)/i) ||
+    meminfoOutput.match(/TOTAL\s+(\d+)\s+\d+\s+\d+/);
   if (rss) return Math.round(Number(rss[1]) / 1024);
   return 0;
 }
@@ -197,7 +199,9 @@ function captureBannerState(logText) {
   // The post-120s banner should read as indeterminate "analyzing routes" rather
   // than being pinned at a low percent. We surface the last analyzing-related line
   // so the operator can eyeball whether the bar advanced or stalled.
-  const lines = logText.split('\n').filter((l) => /analyz|Analyz|detect|cluster|Rtree|R-tree/.test(l));
+  const lines = logText
+    .split('\n')
+    .filter((l) => /analyz|Analyz|detect|cluster|Rtree|R-tree/.test(l));
   if (lines.length === 0) return 'no-banner-markers';
   return lines[lines.length - 1].trim().slice(0, 120);
 }

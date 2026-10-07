@@ -257,9 +257,6 @@ export function useSectionTimeStreamSync(
  * Hook for calculating accurate section performance times.
  * Uses cached time streams from Rust engine (SQLite) when available.
  * Only fetches from API for activities missing from cache.
- *
- * @param section - The section to calculate performances for
- * @param sportType - Optional sport type filter for cross-sport sections
  */
 export function useSectionPerformances(
   section: FrequentSection | null,

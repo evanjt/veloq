@@ -28,11 +28,6 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
 /**
  * Generate aerobic efficiency trend insights from the engine's trends.
- *
- * @param trends - Efficiency trends from the insights bundle
- * @param now - Current timestamp for the insight
- * @param t - Translation function
- * @returns Array of efficiency trend insights (may be empty)
  */
 export function generateEfficiencyTrendInsights(
   trends: EfficiencyTrend[],

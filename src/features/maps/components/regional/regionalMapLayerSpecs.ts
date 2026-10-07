@@ -13,6 +13,10 @@ import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
+import {
+  USER_LOCATION_SOURCE_ID,
+  buildUserLocationLayers,
+} from '@/features/maps/lib/userLocationLayer';
 
 export const CLUSTER_SOURCE_ID = 'activity-clusters';
 export const CLUSTER_CIRCLE_LAYER_ID = 'cluster-circles';
@@ -61,7 +65,7 @@ export function buildRegionalSources(input: RegionalSourceInput): Record<string,
     'selected-route': { kind: 'geojson', data: input.routeGeoJSON },
     'spider-legs': { kind: 'geojson', data: input.spiderLinesGeoJSON },
     'spider-markers': { kind: 'geojson', data: input.spiderPointsGeoJSON },
-    'user-location': { kind: 'geojson', data: input.userLocationGeoJSON },
+    [USER_LOCATION_SOURCE_ID]: { kind: 'geojson', data: input.userLocationGeoJSON },
   };
 
   if (input.heatmapEnabled) {
@@ -287,28 +291,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       },
       visible: spiderVisible,
     },
-    {
-      id: 'user-location-outer',
-      type: 'circle',
-      source: 'user-location',
-      paint: {
-        'circle-radius': 12,
-        'circle-color': colors.primary,
-        'circle-opacity': hasUserLocation ? 0.3 : 0,
-      },
-    },
-    {
-      id: 'user-location-inner',
-      type: 'circle',
-      source: 'user-location',
-      paint: {
-        'circle-radius': 6,
-        'circle-color': colors.primary,
-        'circle-opacity': hasUserLocation ? 1 : 0,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': colors.textOnDark,
-      },
-    }
+    ...buildUserLocationLayers(hasUserLocation)
   );
 
   return layers;

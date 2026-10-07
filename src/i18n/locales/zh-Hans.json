@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "增加",
-    "decrease": "减少",
-    "repositoryFor": "{{name}} 的代码仓库"
-  },
   "about": {
     "dataAttribution": "数据来源",
     "description": "一款快速、离线优先的 intervals.icu 移动客户端，专注于地图和可视化分析。",
@@ -1475,7 +1470,9 @@
     "trendingSlower": "用时呈增长趋势",
     "renameFailedTitle": "无法保存名称",
     "renameFailedMessage": "未能保存路段名称，请重试。",
-    "nameTaken": "已有其他路段使用此名称，请选择其他名称。"
+    "nameTaken": "已有其他路段使用此名称，请选择其他名称。",
+    "undoExcludeLap": "撤销 第{{n}}圈",
+    "excludeLapNumber": "排除 第{{n}}圈"
   },
   "settings": {
     "developerDashboard": "开发者面板",
@@ -2117,7 +2114,8 @@
     "kind_absorbed": "另一路段已并入此路段",
     "splitFrom": "拆分自",
     "splitInto": "拆分为",
-    "unavailable": "路段不可用"
+    "unavailable": "路段不可用",
+    "revertVersion": "恢复 版本{{version}}"
   },
   "namedCorridors": {
     "title": "你起的名字",

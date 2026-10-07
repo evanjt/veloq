@@ -20,7 +20,6 @@ const log = debug.create('RouteReoptimization');
  * Monitors the sync date range for expansions (when user adds historical data)
  * and triggers route re-computation to improve route quality.
  *
- * @example
  * ```tsx
  * function App() {
  *   useRouteReoptimization();

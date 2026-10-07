@@ -1,6 +1,6 @@
 /**
- * Scenario: the engine throws a tagged failure while a surface reads a section,
- * a route group list or an activity's muscles.
+ * Scenario: the engine throws a tagged failure while a surface reads a section
+ * or a route group list.
  *
  * Expected behaviour: the surface shows the failure's message rather than the
  * empty or not-found state it draws for a read that answered nothing.
@@ -13,10 +13,9 @@ import { SectionPRContent } from '@/features/insights/components/content/Section
 import { StalePRContent } from '@/features/insights/components/content/StalePRContent';
 import { SectionTrendContent } from '@/features/insights/components/content/SectionTrendContent';
 import { RouteOverlayPicker } from '@/features/recording/components/RouteOverlayPicker';
-import { StrengthActivityCard } from '@/features/strength/components/StrengthActivityCard';
 import { useRouteGroups } from '@/features/routes/hooks/useRouteGroups';
 import { engineErrorTag } from '@/shared/native/engineError';
-import type { Activity, Insight } from '@/types';
+import type { Insight } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -147,31 +146,5 @@ describe('route hooks hand the failure on', () => {
   it('useRouteGroups returns the error of its summaries read', () => {
     const { result } = renderHook(() => useRouteGroups());
     expect(engineErrorTag(result.current.error)).toBe('Database');
-  });
-});
-
-describe('StrengthActivityCard', () => {
-  it('says the muscles could not be read rather than drawing none', () => {
-    const { getByTestId } = render(
-      <StrengthActivityCard
-        activity={
-          {
-            id: 'a1',
-            type: 'WeightTraining',
-            name: 'Lift',
-            start_date_local: '2026-01-01T08:00:00',
-            moving_time: 3600,
-          } as Activity
-        }
-        strengthData={{
-          muscles: [],
-          musclesError: lockFailed,
-          exerciseCount: 1,
-          setCount: 3,
-          totalWeight: 0,
-        }}
-      />
-    );
-    expect(getByTestId('muscle-groups-failure').props.children).toBe('engine.failure.database');
   });
 });

@@ -37,7 +37,7 @@ import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import { SectionsListHeader } from './SectionsListHeader';
 import { SectionsListFiltersBar } from './SectionsListFiltersBar';
-import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
+import { useSectionCommands } from '@/features/routes/hooks/useCustomSections';
 import { navigateTo } from '@/shared/app/navigation';
 import {
   FLOW_ADD_ONE,
@@ -275,7 +275,7 @@ export const SectionsList = memo(function SectionsList({
     isLoading,
   } = useSections({ preloadedEngineSections });
 
-  const { removeSection } = useCustomSections();
+  const { removeSection } = useSectionCommands();
   const { rescan, isScanning, refusal: rescanRefusal } = useSectionRescan();
   const detectionHold = useDetectionHold();
   const elevationBackfill = useElevationBackfill();

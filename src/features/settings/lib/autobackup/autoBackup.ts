@@ -164,7 +164,7 @@ function recordBackupFailure(carrierId: string, error: unknown): void {
 
 /**
  * Check if a backup should run based on throttling.
- * @param force - If true, skip time-based throttling (still checks if enabled)
+ * `force` skips the time-based throttling and still checks that auto-backup is enabled.
  */
 function shouldBackup(force = false): boolean {
   // Manual "Backup Now" should always work regardless of auto-backup setting

@@ -180,9 +180,15 @@ const DYNAMIC_KEYS = [
   'settings.terrain3DAlways',
 ];
 
+// The engine's one geocoder, the only file that may name a geocoding host.
+const ENGINE_GEOCODER = 'modules/veloqrs/rust/veloqrs/src/net/geocode.rs';
+
+const GEOCODING_HOSTS =
+  /nominatim\.openstreetmap\.org|photon\.komoot\.(?:io|de)|geocode\.maps\.co|api\.opencagedata\.com|maps\.googleapis\.com\/maps\/api\/geocode|api\.mapbox\.com\/geocoding|geocoding-api\.open-meteo\.com/;
+
 const GEOCODING_PATTERNS = [
   /\b(?:reverseGeocodeAsync|geocodeAsync)\b/,
-  /nominatim\.openstreetmap\.org|photon\.komoot\.(?:io|de)|geocode\.maps\.co|api\.opencagedata\.com|maps\.googleapis\.com\/maps\/api\/geocode|api\.mapbox\.com\/geocoding|geocoding-api\.open-meteo\.com/,
+  GEOCODING_HOSTS,
   /\bfrom\s+['"][^'"]*geocod[^'"]*['"]/i,
 ];
 
@@ -737,11 +743,13 @@ const RULES = {
     fix: 'add accessibilityRole and accessibilityState={{ selected }} to the pressable',
   },
 
-  // Coordinates never leave the device for a place name. The geocoding module
-  // is gone, so this holds the three ways it comes back: the platform
-  // geocoder, a geocoding host named in TypeScript or the engine, and a module
-  // of that name. It matches the host and not the word, so a comment naming
-  // a geocoder's policy page stays legal.
+  // A point leaves the device for a place name only through the engine's one
+  // geocoder, which is off until the athlete turns it on, paces its requests
+  // and keeps every answer. So a geocoding host may be named in that file and
+  // nowhere else, and this holds the three ways a second geocoder comes back:
+  // the platform geocoder, a geocoding host named in TypeScript or another
+  // engine file, and a TypeScript module of that name. It matches the host and
+  // not the word, so a comment naming a geocoder's policy page stays legal.
   'no-geocoding': {
     pathspec: ['src', 'modules/veloqrs/rust/veloqrs/src'],
     check(sources) {
@@ -755,11 +763,14 @@ const RULES = {
         if (/^src\/shared\/geo\/[^/]*geocod/i.test(file))
           out.push(`${file}  is a geocoding module`);
         if (!/\.(?:tsx?|rs)$/.test(file)) continue;
-        for (const pattern of GEOCODING_PATTERNS) out.push(...linesMatching(file, text, pattern));
+        for (const pattern of GEOCODING_PATTERNS) {
+          if (file === ENGINE_GEOCODER && pattern === GEOCODING_HOSTS) continue;
+          out.push(...linesMatching(file, text, pattern));
+        }
       }
       return out;
     },
-    fix: 'resolve the name from data the engine already holds, and send no coordinates to a geocoder',
+    fix: 'ask the engine geocoder in net/geocode.rs, which holds the switch, the pace and the kept answers',
   },
 
   // Every key in the reference locale is reached, by its full dotted path in

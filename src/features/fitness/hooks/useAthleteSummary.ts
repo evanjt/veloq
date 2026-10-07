@@ -54,8 +54,6 @@ export interface WeeklySummaryData {
 /**
  * Hook to fetch athlete weekly summaries (calendar weeks matching intervals.icu)
  * Returns current week and previous week data for comparison
- *
- * @param weeksBack - Number of weeks to fetch (default 8 for comparison purposes)
  */
 /** A week of totals, in the AthleteSummary shape the screens already read.
  *  Fields outside count / moving_time / distance / training_load are zeroed:

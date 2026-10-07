@@ -23,7 +23,10 @@ jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
 
 const mockBundle = jest.fn();
 const mockEngine = {
-  getActivityHighlightsBundle: (...args: unknown[]) => mockBundle(...args),
+  getActivityHighlightsBundle: (...args: unknown[]) => ({
+    strengthCards: [],
+    ...mockBundle(...args),
+  }),
   subscribe: (_event: string, listener: () => void) => {
     mockListeners.add(listener);
     return () => mockListeners.delete(listener);
@@ -64,6 +67,7 @@ function bundle(lapTime: number, trend: number) {
   return {
     indicators: [indicator('a1', lapTime), indicator('a2', lapTime)],
     routeHighlights: [routeHighlight('a1', trend), routeHighlight('a2', trend)],
+    strengthCards: [],
   };
 }
 
@@ -87,14 +91,23 @@ describe('highlight identity across an engine announcement', () => {
     expect(result.current.routes.get('a1')).toBe(first.routes.get('a1'));
   });
 
-  it('reads nothing and holds no highlights with route matching off', () => {
+  it('holds no section or route highlights with route matching off', () => {
     mockRouteMatchingOn = false;
 
     const { result } = renderHook(() => useActivitySectionHighlights(IDS));
 
-    expect(mockBundle).not.toHaveBeenCalled();
     expect(result.current.sections.size).toBe(0);
     expect(result.current.routes.size).toBe(0);
+  });
+
+  it('still carries the strength cards with route matching off', () => {
+    mockRouteMatchingOn = false;
+    const card = { activityId: 'a1', settled: true, activeSetCount: 3 };
+    mockBundle.mockImplementation(() => ({ ...bundle(120, 1), strengthCards: [card] }));
+
+    const { result } = renderHook(() => useActivitySectionHighlights(IDS));
+
+    expect(result.current.strengthCards).toEqual([card]);
   });
 
   it('replaces only the entry whose content moved', () => {

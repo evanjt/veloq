@@ -31,7 +31,7 @@ function engineAnswering(maxHr: () => number) {
     matchedSections: [],
     customSections: [],
     encounters: [],
-    highlights: { indicators: [], routeHighlights: [] },
+    highlights: { indicators: [], routeHighlights: [], strengthCards: [] },
     sectionTraces: [],
     prSectionIds: [],
     maxHr: maxHr(),

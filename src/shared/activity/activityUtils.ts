@@ -1,5 +1,5 @@
 /**
- * @fileoverview Activity type utilities and helpers
+ * Activity type utilities and helpers
  *
  * Provides functions for activity type classification, icons, and colors.
  * Used throughout the app for consistent activity representation.
@@ -96,10 +96,6 @@ const ACTIVITY_ICONS = {
  * Returns the MaterialCommunityIcons icon name for displaying activity types.
  * Falls back to 'heart-pulse' for unknown activity types.
  *
- * @param type - Activity type (accepts string for flexibility with API data)
- * @returns MaterialCommunityIcons icon name
- *
- * @example
  * ```ts
  * getActivityIcon('Ride');  // 'bike'
  * getActivityIcon('Run');   // 'run'
@@ -116,10 +112,6 @@ export function getActivityIcon(type: ActivityType | string): MaterialIconName {
  * Returns the theme color associated with each activity type.
  * Colors are semantic (blue for cycling, emerald for running, cyan for swimming).
  *
- * @param type - Activity type
- * @returns Hex color string (e.g., "#3B82F6")
- *
- * @example
  * ```ts
  * getActivityColor('Ride');  // "#3B82F6" (blue)
  * getActivityColor('Run');   // "#10B981" (emerald)
@@ -165,10 +157,7 @@ export function measuresPower(type: ActivityType): boolean {
 /**
  * Sort items by date ID in chronological order.
  * The id is expected to be a date string in YYYY-MM-DD format.
- * This is a common operation in fitness charts.
- *
- * @param items - Array of items with an id property containing a date string
- * @returns New sorted array (does not mutate original)
+ * This is a common operation in fitness charts. Returns a new array and leaves the input unchanged.
  */
 export function sortByDateId<T extends { id: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.id.localeCompare(b.id));

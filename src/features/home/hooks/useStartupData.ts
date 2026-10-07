@@ -113,6 +113,11 @@ function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
   }
 }
 
+/** Whether the bundle was read with at least one activity stored. */
+function bundleHoldsActivities(result: StartupResult): boolean {
+  return (result.summaryCardData?.currentWeek?.count ?? 0) > 0 || result.previewTracks.size > 0;
+}
+
 /** Whether the engine says a sync is running right now. */
 function syncInFlight(): boolean {
   try {
@@ -242,19 +247,25 @@ export function useStartupData(previewActivityIds: string[]): {
   });
 
   useEffect(() => {
-    if (syncInFlight()) {
+    const inFlight = syncInFlight();
+    if (inFlight) {
       if (readThisSync.current) {
         held.current = true;
         return undefined;
       }
-      readThisSync.current = true;
     } else {
       readThisSync.current = false;
     }
 
     return runWhenIdle(() => {
       const next = fetchStartupData(idsRef.current);
-      if (next) publish(next);
+      if (!next) return;
+      publish(next);
+      // The sync's one read is spent on a bundle that saw the library. The
+      // profile and wellness land before any activity, so a read ahead of the
+      // first stored rows saw nothing, and holding the rows behind it left the
+      // card's week and the previews on that until the settle.
+      if (inFlight && bundleHoldsActivities(next)) readThisSync.current = true;
     });
   }, [trigger, idsKey, publish]);
 

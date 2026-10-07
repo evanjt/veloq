@@ -26,7 +26,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
   useIsOnline: () => mockOnline,
 }));
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'light',
     getTerrain3DMode: () => 'never',

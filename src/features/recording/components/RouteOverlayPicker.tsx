@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatDistance } from '@/shared/format/format';
-// Deep imports keep the routes barrel (and its map components) out of the
-// recording module graph.
-import { useRouteGroups } from '@/features/routes';
+// The light entry keeps the routes map components out of the recording module
+// graph.
+import { useRouteGroups } from '@/features/routes/light';
 import { colors, darkColors, brand, spacing, layout, typography, opacity } from '@/theme';
 import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';

@@ -24,7 +24,9 @@ import { escapes, SETUP } from './check-native-tree.mjs';
 
 // `cwd` does not decide which repository git reads: a hook exports GIT_DIR and
 // GIT_COMMON_DIR and those win.
-const GIT_ENV = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
+const GIT_ENV = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))
+);
 
 const argv = process.argv.slice(2);
 const at = argv.indexOf('--root');
@@ -72,12 +74,16 @@ console.log(`setup-native: ${root} has an installation of its own and can build 
 /** The checkout the shared git directory lives in, or null outside a repository. */
 function mainCheckout(from) {
   try {
-    const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
-      cwd: from,
-      env: GIT_ENV,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
+    const common = execFileSync(
+      'git',
+      ['rev-parse', '--path-format=absolute', '--git-common-dir'],
+      {
+        cwd: from,
+        env: GIT_ENV,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }
+    ).trim();
     return dirname(common);
   } catch {
     return null;

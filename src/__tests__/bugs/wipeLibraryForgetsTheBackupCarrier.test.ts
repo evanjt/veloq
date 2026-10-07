@@ -64,7 +64,7 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 import {
   MapPreferencesProvider,
   useMapPreferences,
-} from '@/features/maps/stores/MapPreferencesContext';
+} from '@/features/settings/stores/MapPreferencesContext';
 
 import deviceWriteSites from '../__shared__/deviceWriteSites.json';
 
@@ -890,8 +890,8 @@ const DEVICE_WRITES: DeviceWrite[] = [
     },
   },
   {
-    where: 'veloq-pending-terrain-snapshots in AsyncStorage',
-    writers: ['src/features/maps/lib/storage/terrainPreviewCache.ts'],
+    where: 'veloq-pending-terrain-snapshots in AsyncStorage, written by an earlier install',
+    writers: [],
     holds: 'activity ids waiting for a preview',
     wiped: { storage: ['veloq-pending-terrain-snapshots'] },
   },
@@ -939,7 +939,8 @@ const DEVICE_WRITES: DeviceWrite[] = [
 
   // Recording.
   {
-    where: 'Documents/recordings/ and the legacy pending_uploads/',
+    where:
+      'Documents/recordings/, the legacy pending_uploads/, and the AsyncStorage <legacy key>-unadoptable archives of legacy entries no retry can adopt',
     writers: ['src/features/recording/lib/storage/recordingLibrary.ts'],
     holds: 'rides recorded on this device',
     kept: "recordings stay through a wipe by decision, and the next sign-in holds every ride that is not that athlete's",
@@ -1154,7 +1155,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     where: '@terrain_camera_overrides, veloq-map-activity-overrides, veloq-track-fetch-dismissed',
     writers: [
       'src/features/maps/lib/storage/terrainCameraOverrides.ts',
-      'src/features/maps/stores/MapPreferencesContext.tsx',
+      'src/features/settings/stores/MapPreferencesContext.tsx',
       'src/features/routes/lib/trackFetchNotice.ts',
       'src/shared/storage/migrateSettingsToSqlite.ts',
     ],
@@ -1222,7 +1223,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'src/shared/app/LanguageStore.ts',
       'src/shared/app/ThemeProvider.ts',
       'src/features/fitness/stores/SportPreferenceStore.ts',
-      'src/features/home/store.ts',
+      'src/features/settings/stores/summaryCardPreferences.ts',
       'src/features/maps/stores/HeatmapPreferenceStore.ts',
       'src/features/maps/lib/storage/tileCacheSettings.ts',
       'src/features/routes/stores/RouteSettingsStore.ts',

@@ -59,7 +59,9 @@ if (!(flags.length === 1 && /[= ]0$/.test(flags[0]))) {
     "lint-zero-warnings: package.json's lint script must pass --max-warnings 0, and only that"
   );
   console.error(`  found: ${flags.length > 0 ? flags.join(', ') : 'no --max-warnings flag'}`);
-  console.error('  fix the warnings, or disable one line with its reason; the number is not raised');
+  console.error(
+    '  fix the warnings, or disable one line with its reason; the number is not raised'
+  );
 }
 
 // With no location ESLint writes `.eslintcache` where it runs, which is the

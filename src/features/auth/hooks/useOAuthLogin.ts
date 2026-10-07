@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
-import { useUploadPermissionStore } from '@/features/recording';
+import { recordGrantedScope } from '@/features/auth/lib/grantedScope';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
@@ -93,7 +93,7 @@ export function useOAuthLogin({
           tokenResponse.athlete_name
         );
 
-        useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope ?? '');
+        recordGrantedScope(tokenResponse.scope);
 
         replaceTo('/');
       } else if (result.type === 'cancel') {

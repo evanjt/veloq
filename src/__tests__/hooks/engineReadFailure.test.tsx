@@ -13,9 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
 import {
   useEngineGroups,
-  useEngineSectionCount,
   useGroupSummaries,
-  useMapSections,
   useSectionSummaries,
 } from '@/features/routes/hooks/useEngine';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
@@ -36,8 +34,6 @@ const failing = () => {
 const engine = {
   subscribe: () => () => undefined,
   getGroups: jest.fn(failing),
-  getMapSections: jest.fn(failing),
-  getSectionCount: jest.fn(failing),
   getFilteredSectionSummaries: jest.fn(failing),
   getFilteredGroupSummaries: jest.fn(failing),
   getSectionById: jest.fn(failing),
@@ -55,16 +51,6 @@ describe('route engine hooks', () => {
     const { result } = renderHook(() => useEngineGroups());
     expect(engineErrorTag(result.current.error)).toBe('Database');
     expect(result.current.groups).toEqual([]);
-  });
-
-  it('useMapSections reports a thrown read', () => {
-    const { result } = renderHook(() => useMapSections());
-    expect(engineErrorTag(result.current.error)).toBe('Database');
-  });
-
-  it('useEngineSectionCount reports a thrown read rather than zero sections', () => {
-    const { result } = renderHook(() => useEngineSectionCount());
-    expect(engineErrorTag(result.current.error)).toBe('Database');
   });
 
   it('useSectionSummaries reports a thrown read', () => {
@@ -85,13 +71,9 @@ describe('route engine hooks', () => {
 
   it('a read that answers nothing is not an error', () => {
     engine.getSectionById.mockImplementation(() => null as never);
-    engine.getSectionCount.mockImplementation(() => 0 as never);
     const detail = renderHook(() => useSectionDetail('s1'));
-    const count = renderHook(() => useEngineSectionCount());
     expect(detail.result.current.section).toBeNull();
     expect(detail.result.current.error).toBeUndefined();
-    expect(count.result.current.count).toBe(0);
-    expect(count.result.current.error).toBeUndefined();
   });
 });
 

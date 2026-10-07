@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "Verhogen",
-    "decrease": "Verlagen",
-    "repositoryFor": "Repository voor {{name}}"
-  },
   "about": {
     "dataAttribution": "Data-attributie",
     "description": "Een snelle, offline-first mobiele client voor intervals.icu met focus op kaarten en visuele analyses.",
@@ -1475,7 +1470,9 @@
     "trendingSlower": "Trend naar langzamere tijden",
     "renameFailedTitle": "Naam kon niet worden opgeslagen",
     "renameFailedMessage": "De sectienaam is niet opgeslagen. Probeer het opnieuw.",
-    "nameTaken": "Een ander gedeelte heeft al deze naam. Kies een andere naam."
+    "nameTaken": "Een ander gedeelte heeft al deze naam. Kies een andere naam.",
+    "undoExcludeLap": "Ongedaan maken Ronde {{n}}",
+    "excludeLapNumber": "Uitsluiten Ronde {{n}}"
   },
   "settings": {
     "developerDashboard": "Ontwikkelaarsdashboard",
@@ -2117,7 +2114,8 @@
     "kind_absorbed": "Een ander stuk is met dit stuk samengevoegd",
     "splitFrom": "Afgesplitst van",
     "splitInto": "Opgesplitst in",
-    "unavailable": "Sectie niet beschikbaar"
+    "unavailable": "Sectie niet beschikbaar",
+    "revertVersion": "Terugzetten Versie {{version}}"
   },
   "namedCorridors": {
     "title": "Namen die je gaf",

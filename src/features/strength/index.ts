@@ -8,7 +8,7 @@ export { StrengthExerciseList } from './components/StrengthExerciseList';
 export { default as ExerciseDetailScreen } from './components/ExerciseDetailScreen';
 export { StrengthBalanceView } from './components/StrengthBalanceView';
 
-export { useExerciseSets, useMuscleGroups } from './hooks/useExerciseSets';
+export { useExerciseSets, useMuscleGroups, useStrengthCardData } from './hooks/useExerciseSets';
 export { useMuscleDetail } from './hooks/useMuscleDetail';
 export type { MuscleGroupDetail } from './hooks/useMuscleDetail';
 export {

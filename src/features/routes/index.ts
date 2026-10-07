@@ -51,7 +51,6 @@ export { type SectionsSortOption } from './components/SectionsList';
 export { RANGE_DAYS, type SectionTimeRange } from './constants';
 export {
   isElevationHold,
-  type MapSection,
   type SectionPerformanceRecord,
   useCustomSections,
   useCutoverHeld,
@@ -59,6 +58,7 @@ export {
   useExcludedActivities,
   useLedgerActivityNames,
   useRevealMapOnDraw,
+  useRevealMapOnHighlight,
   useRouteChartData,
   useRouteGroupingPreview,
   useRouteGroups,
@@ -121,6 +121,7 @@ export { type GroupingParams, groupingParamsOf, paintPreview } from './lib/group
 export { previewNewNumber } from './lib/previewNewNumber';
 export { previewRefusalKey } from './lib/previewRefusal';
 export { rescanRefusalKey } from './lib/rescanRefusal';
+export { createMapHighlightStore } from './lib/mapHighlight';
 export { routeHeadline } from './lib/routeHeadline';
 export {
   DEFAULT_SECTION_HIDE_FLAGS,

@@ -17,7 +17,7 @@ use crate::persistence::with_persistent_engine_blocking_for;
 use crate::{
     FfiExerciseActivities, FfiExerciseActivity, FfiExerciseContribution, FfiExerciseGroup,
     FfiExerciseSession, FfiExerciseSet, FfiMuscleGroup, FfiMuscleGroupDetail, FfiMuscleVolume,
-    FfiStrengthProgression, FfiStrengthSummary, FfiTimestampRange,
+    FfiStrengthCardSummary, FfiStrengthProgression, FfiStrengthSummary, FfiTimestampRange,
 };
 use log::info;
 use std::collections::HashMap;
@@ -641,6 +641,57 @@ pub fn summarise_session(sets: Vec<FfiExerciseSet>) -> FfiExerciseSession {
         exercise_count: names.len() as u32,
         total_volume_kg,
         total_duration_secs,
+    }
+}
+
+/// What the strength cards of a feed paint, for a batch of activity ids: one
+/// row per strength activity among them, in request order. Any other sport, and
+/// an id the library does not hold, has no row. A database failure leaves the
+/// activity without one, which draws as an ordinary card.
+pub(crate) fn strength_cards(
+    conn: &rusqlite::Connection,
+    activity_ids: &[String],
+) -> Vec<FfiStrengthCardSummary> {
+    let card = |id: &String| -> rusqlite::Result<Option<FfiStrengthCardSummary>> {
+        let Some(processed) = pooled::strength_outcome(conn, id)? else {
+            return Ok(None);
+        };
+        let sets = pooled::exercise_sets(conn, id)?;
+        Ok(Some(strength_card_summary(id, &sets, processed)))
+    };
+    activity_ids
+        .iter()
+        .filter_map(|id| {
+            card(id).unwrap_or_else(|e| {
+                log::warn!("[Strength] Card summary for {} unreadable: {}", id, e);
+                None
+            })
+        })
+        .collect()
+}
+
+/// The one rule for what a feed card shows of a session: the session's own
+/// totals, and the muscles from the same sets, so the two cannot be read apart.
+/// `processed` is the FIT outcome row, which settles an activity with no sets.
+pub(crate) fn strength_card_summary(
+    activity_id: &str,
+    sets: &[fit::FitExerciseSet],
+    processed: bool,
+) -> FfiStrengthCardSummary {
+    let session = summarise_session(sets_to_ffi(activity_id, sets));
+    FfiStrengthCardSummary {
+        activity_id: activity_id.to_string(),
+        settled: processed || !sets.is_empty(),
+        active_set_count: session.active_set_count,
+        exercise_count: session.exercise_count,
+        total_volume_kg: session.total_volume_kg,
+        muscles: fit::aggregate_muscle_groups(sets)
+            .into_iter()
+            .map(|g| FfiMuscleGroup {
+                slug: g.slug,
+                intensity: g.intensity,
+            })
+            .collect(),
     }
 }
 

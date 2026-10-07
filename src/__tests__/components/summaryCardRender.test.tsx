@@ -16,7 +16,10 @@ import { SummaryCard, type SummaryCardProps } from '@/features/home/components/S
 import { SummaryCardSparkline } from '@/features/home/components/SummaryCardSparkline';
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { summaryCardTarget } from '@/features/home/lib/summaryCardTargets';
-import { useDashboardPreferences, type MetricId } from '@/features/home/store';
+import {
+  useDashboardPreferences,
+  type MetricId,
+} from '@/features/settings/stores/summaryCardPreferences';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());

@@ -9,7 +9,8 @@ import { refuseEmptyListing, treeSources } from './lib/indexedSources.mjs';
 const rootArg = process.argv.indexOf('--root');
 const root = rootArg === -1 ? process.cwd() : resolve(process.argv[rootArg + 1]);
 
-const DESTRUCTURE = /=\s*require\(\s*(['"])(@\/features\/[a-z]+)\1\s*\)(\s*as\s+typeof\s+import\()?/g;
+const DESTRUCTURE =
+  /=\s*require\(\s*(['"])(@\/features\/[a-z]+)\1\s*\)(\s*as\s+typeof\s+import\()?/g;
 
 const tracked = treeSources(root, ['src']);
 refuseEmptyListing(tracked, 'lint:untyped-require');

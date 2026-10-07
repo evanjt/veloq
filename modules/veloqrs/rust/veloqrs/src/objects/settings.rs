@@ -267,6 +267,23 @@ impl SettingsManager {
         Ok(())
     }
 
+    /// Whether the athlete has agreed to send points to the geocoder for place
+    /// names. Off until they turn it on.
+    fn geocoding_enabled(&self) -> Result<bool, VeloqError> {
+        with_reader(crate::persistence::settings::geocoding_enabled_from)
+    }
+
+    /// Turn geocoding on or off. Turning it on stamps the moment, and only
+    /// what appears after it is named.
+    fn set_geocoding_enabled(&self, enabled: bool) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_geocoding_enabled(enabled)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
     /// Bytes the stream store holds, for the cache readout.
     fn stream_store_bytes(&self) -> Result<f64, VeloqError> {
         with_reader(|conn| {
@@ -319,6 +336,19 @@ mod tests {
         })
         .unwrap();
         assert_eq!(starts, 1);
+    }
+
+    #[test]
+    fn geocoding_reads_off_until_it_is_turned_on() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("geocoding_setting.db");
+        let settings = SettingsManager::new();
+
+        assert!(!settings.geocoding_enabled().unwrap());
+        settings.set_geocoding_enabled(true).unwrap();
+        assert!(settings.geocoding_enabled().unwrap());
+        settings.set_geocoding_enabled(false).unwrap();
+        assert!(!settings.geocoding_enabled().unwrap());
     }
 
     #[test]

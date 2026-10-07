@@ -69,7 +69,11 @@ export function indexedSources(root, pathspec = []) {
   // where a blob should be, gives up, and hands back a short map. Every guard
   // over this judges only what it returns, so the files after the odd one were
   // reported clean without being read.
-  const batch = git(root, ['cat-file', '--batch', '-z'], files.map((file) => `:${file}\0`).join(''));
+  const batch = git(
+    root,
+    ['cat-file', '--batch', '-z'],
+    files.map((file) => `:${file}\0`).join('')
+  );
 
   const sources = new Map();
   const unreadable = new Set();

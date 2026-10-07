@@ -74,6 +74,8 @@ function unplacedKindKey(kind: string) {
     case 'section_history':
       return 'backup.unplacedHistory';
     case 'section_intents':
+    case 'legacy_section_disabled':
+    case 'legacy_section_superseded':
       return 'backup.unplacedSectionSetting';
     case 'sections':
       return 'backup.unplacedSection';

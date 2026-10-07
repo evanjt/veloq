@@ -21,7 +21,9 @@ const strips = config.plugins?.filter(
   (plugin) => Array.isArray(plugin) && plugin[0] === 'transform-remove-console'
 );
 if (strips?.length !== 1 || JSON.stringify(strips[0][1]?.exclude) !== '["error"]') {
-  console.error('check-production-console: production must use transform-remove-console with only error excluded');
+  console.error(
+    'check-production-console: production must use transform-remove-console with only error excluded'
+  );
   process.exit(1);
 }
 console.log('check-production-console: production console strip configured');

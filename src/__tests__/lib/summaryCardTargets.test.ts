@@ -7,7 +7,11 @@
  * to a route whose tab accepts its chart, and that chart is placed on screen.
  */
 
-import { AVAILABLE_METRICS, HERO_METRICS, type MetricId } from '@/features/home/store';
+import {
+  AVAILABLE_METRICS,
+  HERO_METRICS,
+  type MetricId,
+} from '@/features/settings/stores/summaryCardPreferences';
 import { summaryCardTarget } from '@/features/home/lib/summaryCardTargets';
 import {
   FITNESS_CHART_PLACEMENT,

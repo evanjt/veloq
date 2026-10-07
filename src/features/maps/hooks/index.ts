@@ -1,5 +1,6 @@
 export { useEngineMapActivities } from './useEngineMapActivities';
 export { useMapCamera } from './useMapCamera';
+export { useLocateUser } from './useLocateUser';
 export { useMap3DBridge } from './useMap3DBridge';
 export { useMapLayers } from './useMapLayers';
 export { useMapFullscreen } from './useMapFullscreen';

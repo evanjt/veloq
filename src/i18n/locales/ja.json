@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "増やす",
-    "decrease": "減らす",
-    "repositoryFor": "{{name}}のリポジトリ"
-  },
   "about": {
     "dataAttribution": "データ帰属",
     "description": "マップとビジュアル分析に特化した、intervals.icu向けの高速オフライン対応モバイルクライアント。",
@@ -1475,7 +1470,9 @@
     "trendingSlower": "タイムが遅くなる傾向",
     "renameFailedTitle": "名前を保存できませんでした",
     "renameFailedMessage": "区間名を保存できませんでした。もう一度お試しください。",
-    "nameTaken": "このセクション名はすでに使われています。別の名前を入力してください。"
+    "nameTaken": "このセクション名はすでに使われています。別の名前を入力してください。",
+    "undoExcludeLap": "元に戻す ラップ{{n}}",
+    "excludeLapNumber": "除外 ラップ{{n}}"
   },
   "settings": {
     "developerDashboard": "開発者ダッシュボード",
@@ -2117,7 +2114,8 @@
     "kind_absorbed": "別の区間をこの区間に統合",
     "splitFrom": "分割元",
     "splitInto": "分割先",
-    "unavailable": "区間を表示できません"
+    "unavailable": "区間を表示できません",
+    "revertVersion": "戻す バージョン{{version}}"
   },
   "namedCorridors": {
     "title": "つけた名前",

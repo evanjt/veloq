@@ -1,5 +1,5 @@
 /**
- * @fileoverview Polyline encoding/decoding utilities
+ * Polyline encoding/decoding utilities
  *
  * Handles Google Polyline encoding format used by intervals.icu API.
  * Provides coordinate conversion and bounding box calculation.
@@ -23,11 +23,8 @@ export type { LatLng };
  *
  * Polyline encoding is a lossy compression algorithm for coordinate arrays.
  * Used by intervals.icu API to efficiently transmit GPS track data.
+ * Returns an empty array if decoding fails.
  *
- * @param encoded - Polyline encoded string
- * @returns Array of LatLng coordinates (empty array if decode fails)
- *
- * @example
  * ```ts
  * decodePolyline("_p~iF~ps|U_ulLnnqC"); // [{lat: 39.0, lng: -105.0}, ...]
  * ```
@@ -50,10 +47,6 @@ export function decodePolyline(encoded: string): LatLng[] {
  * Returns the minimum and maximum latitude/longitude values that encompass
  * all provided coordinates. Filters out NaN values before calculation.
  *
- * @param coordinates - Array of LatLng coordinates
- * @returns Bounding box with min/max lat/lng, or null if no valid coordinates
- *
- * @example
  * ```ts
  * const bounds = getBounds([
  *   {lat: 40.7128, lng: -74.0060},
@@ -96,10 +89,6 @@ export function getBounds(coordinates: LatLng[]): {
  * Auto-detects format by checking if values fall within valid latitude range (-90 to 90).
  * Longitude can be between -180 and 180, so values outside latitude range must be longitude.
  *
- * @param tuples - Array of coordinate tuples
- * @returns Detected format: 'latLng' or 'lngLat'
- *
- * @example
  * ```ts
  * detectCoordinateFormat([[40.7, -74.0]]);  // 'latLng'
  * detectCoordinateFormat([[-74.0, 40.7]]);  // 'lngLat' (first value > 90)
@@ -130,10 +119,6 @@ export function detectCoordinateFormat(tuples: [number, number][]): 'latLng' | '
  * Automatically detects [lat, lng] vs [lng, lat] format and converts
  * to LatLng objects. Preserves index alignment with stream data (no filtering).
  *
- * @param tuples - Array of coordinate tuples
- * @returns Array of LatLng objects
- *
- * @example
  * ```ts
  * convertLatLngTuples([[40.7, -74.0], [34.0, -118.0]]);
  * // [{latitude: 40.7, longitude: -74.0}, {latitude: 34.0, longitude: -118.0}]
@@ -250,11 +235,8 @@ export interface MapLibreBounds {
 
 /**
  * Calculate bounds from points with {lat, lng} format.
- * Returns MapLibre-compatible bounds with optional padding.
- *
- * @param points - Array of points with lat/lng properties
- * @param padding - Optional padding ratio (0.1 = 10% padding on each side)
- * @returns MapLibre bounds {ne, sw} or null if no valid points
+ * Returns MapLibre-compatible bounds with optional padding (0.1 = 10% on each side),
+ * or null if no point is valid.
  */
 export function getBoundsFromPoints(points: LatLngShort[], padding = 0): MapLibreBounds | null {
   if (points.length === 0) return null;
@@ -293,10 +275,6 @@ export function getBoundsFromPoints(points: LatLngShort[], padding = 0): MapLibr
 /**
  * Calculate bounds from LatLng coordinates and return MapLibre format.
  * Wrapper around getBounds that converts output format.
- *
- * @param coordinates - Array of LatLng coordinates
- * @param padding - Optional padding ratio
- * @returns MapLibre bounds {ne, sw} or null if no valid coordinates
  */
 export function getMapLibreBounds(coordinates: LatLng[], padding = 0): MapLibreBounds | null {
   const bounds = getBounds(coordinates);

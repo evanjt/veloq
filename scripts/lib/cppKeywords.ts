@@ -128,7 +128,10 @@ export interface KeywordCheckTarget {
  * and surrounding whitespace removed.
  */
 function parameterName(param: string): string {
-  return param.trim().replace(/^mut\s+/, '').trim();
+  return param
+    .trim()
+    .replace(/^mut\s+/, '')
+    .trim();
 }
 
 export function isCppKeyword(name: string): boolean {

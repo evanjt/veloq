@@ -28,7 +28,7 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
-  useCustomSections: () => ({ removeSection: jest.fn(), renameSection: jest.fn() }),
+  useSectionCommands: () => ({ removeSection: jest.fn(), renameSection: jest.fn() }),
 }));
 
 jest.mock('@/features/routes/hooks/useSectionRescan', () => ({

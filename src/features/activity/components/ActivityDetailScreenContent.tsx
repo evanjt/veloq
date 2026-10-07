@@ -37,7 +37,7 @@ import {
   useRouteSettings,
 } from '@/features/routes';
 import { useWellnessForDate } from '@/features/wellness';
-import { useGpxExport, useDebugStore } from '@/features/settings';
+import { useGpxExport, useDebugStore, useMapPreferences } from '@/features/settings';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
@@ -52,7 +52,6 @@ import {
   sectionCreationMessageKey,
   setCameraOverride,
   type TerrainCamera,
-  useMapPreferences,
 } from '@/features/maps';
 import { convertLatLngTuples } from '@/shared/geo/polyline';
 import { formatPrDelta, formatPrImprovement } from '@/shared/format/format';

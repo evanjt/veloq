@@ -24,7 +24,9 @@ const attr = (tag, name) => tag.match(new RegExp(`android:${name}="([^"]*)"`))?.
 function parse(xml) {
   const top = { children: [] };
   const stack = [top];
-  for (const m of xml.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<(\/?)([A-Za-z][\w.]*)([^>]*?)(\/?)>/g)) {
+  for (const m of xml
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .matchAll(/<(\/?)([A-Za-z][\w.]*)([^>]*?)(\/?)>/g)) {
     const [, closing, name, rest, selfClosing] = m;
     if (closing) {
       stack.pop();
@@ -45,9 +47,15 @@ function violations(node, file, out) {
         (c) => attr(c.rest, 'layout_width') === '0dp' && attr(c.rest, 'layout_weight')
       );
       for (const c of node.children) {
-        if (weighted && attr(c.rest, 'layout_width') === 'match_parent' && !attr(c.rest, 'layout_weight')) {
+        if (
+          weighted &&
+          attr(c.rest, 'layout_width') === 'match_parent' &&
+          !attr(c.rest, 'layout_weight')
+        ) {
           const id = attr(c.rest, 'id') ?? c.name;
-          out.push(`${file}: ${id} is match_parent wide beside weighted columns in a horizontal row`);
+          out.push(
+            `${file}: ${id} is match_parent wide beside weighted columns in a horizontal row`
+          );
         }
       }
     }

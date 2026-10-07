@@ -13,7 +13,7 @@ import {
   MapPreferencesProvider,
   useMapPreferenceActions,
   useMapPreferences,
-} from '@/features/maps';
+} from '@/features/settings';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 

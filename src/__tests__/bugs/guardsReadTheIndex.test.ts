@@ -71,6 +71,12 @@ const GUARDS = [
     violation: '// Kept for the reason in `B123`.\nexport const a = 1;\n',
   },
   {
+    script: 'lint-jsdoc-tags.mjs',
+    file: 'src/features/probe/useTags.ts',
+    clean: '/**\n * Describes the value.\n */\nexport const a = 1;\n',
+    violation: '/**\n * @returns the value\n */\nexport const a = 1;\n',
+  },
+  {
     script: 'lint-comment-line-refs.mjs',
     file: 'src/features/probe/useProbe.ts',
     clean: '// The reader, named rather than numbered.\nexport const a = 1;\n',

@@ -53,9 +53,13 @@ for (const file of walk(join(ROOT, 'src'))) {
 
 if (failures.length > 0) {
   console.error(`Test temp directories left behind: ${failures.length}. /tmp runs out of inodes.`);
-  console.error('Make fixtures with fs.mkdtempSync, which config/jest.tempDirs.js removes when the file ends.\n');
+  console.error(
+    'Make fixtures with fs.mkdtempSync, which config/jest.tempDirs.js removes when the file ends.\n'
+  );
   for (const f of failures) console.error(`  ${f}`);
   process.exit(1);
 }
 
-console.log('Test temp directory guard: the tracker is installed and no test makes a path it cannot see.');
+console.log(
+  'Test temp directory guard: the tracker is installed and no test makes a path it cannot see.'
+);

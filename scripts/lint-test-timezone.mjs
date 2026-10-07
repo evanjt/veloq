@@ -46,7 +46,11 @@ const failures = [];
 
 for (const file of files) {
   const full = file;
-  const kind = /x$/.test(file) ? ts.ScriptKind.TSX : /\.js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const kind = /x$/.test(file)
+    ? ts.ScriptKind.TSX
+    : /\.js$/.test(file)
+      ? ts.ScriptKind.JS
+      : ts.ScriptKind.TS;
   const sf = ts.createSourceFile(full, tree.text(file), ts.ScriptTarget.Latest, true, kind);
   const visit = (node) => {
     if (
@@ -55,7 +59,9 @@ for (const file of files) {
       node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
       isTimezoneEnv(node.left)
     ) {
-      failures.push(`${relative(ROOT, full)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`);
+      failures.push(
+        `${relative(ROOT, full)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
+      );
     }
     ts.forEachChild(node, visit);
   };

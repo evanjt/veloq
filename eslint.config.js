@@ -292,7 +292,7 @@ module.exports = [
     files: [
       'src/shared/app/seedDemoEngine.ts',
       'src/features/activity/lib/engineStreams.ts',
-      'src/features/maps/stores/MapPreferencesContext.tsx',
+      'src/features/settings/stores/MapPreferencesContext.tsx',
       'src/features/routes/hooks/useGpsDataFetcher.ts',
     ],
     rules: { '@typescript-eslint/no-require-imports': 'off' },

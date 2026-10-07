@@ -29,7 +29,12 @@ function check(file, source) {
     if (ts.isJsxAttribute(node) && node.name.text === 'delayLongPress') {
       const value = node.initializer;
       if (value && ts.isStringLiteral(value) && /^\d+$/.test(value.text)) report(node);
-      if (value && ts.isJsxExpression(value) && value.expression && numericLiteral(value.expression))
+      if (
+        value &&
+        ts.isJsxExpression(value) &&
+        value.expression &&
+        numericLiteral(value.expression)
+      )
         report(node);
     }
     if (

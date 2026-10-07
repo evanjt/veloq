@@ -4,6 +4,7 @@ import { useIsFocused } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { getMapLibreBounds } from '@/shared/geo/polyline';
+import { useMapPreferences } from '@/features/settings';
 import {
   calculateFlatCamera,
   deleteSupersededTerrainPreviews,
@@ -18,7 +19,6 @@ import {
   subscribeSnapshot,
   subscribeSnapshotFailure,
   type TerrainSnapshotWebViewRef,
-  useMapPreferences,
 } from '@/features/maps';
 import { StaticCompassArrow } from '@/shared/ui';
 import { useIsOnline } from '@/shared/app/NetworkContext';

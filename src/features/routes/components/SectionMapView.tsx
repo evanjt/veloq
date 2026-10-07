@@ -26,6 +26,7 @@ import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { colors, spacing } from '@/theme';
+import { useMapPreferences } from '@/features/settings';
 import {
   BaseMapView,
   boundsOfLngLat,
@@ -44,7 +45,6 @@ import {
   TRIM_UPDATE_THROTTLE_MS,
   useMapFullscreen,
   useDrawnMapStyle,
-  useMapPreferences,
   useThrottledValue,
   buildSectionTrimCollection,
   EMPTY_FEATURE_COLLECTION,

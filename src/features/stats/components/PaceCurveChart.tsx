@@ -16,7 +16,7 @@ import {
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { RangeCoverage } from 'veloqrs';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -266,6 +266,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       {/* Activity info row - shows which activity achieved this best effort */}
       {selectedActivity && (
         <Pressable
+          android_ripple={pressRipple}
           accessibilityRole="button"
           accessibilityLabel={selectedActivity.name}
           onPress={handleActivityTap}

@@ -1,9 +1,4 @@
 {
-  "accessibility": {
-    "increase": "Augmenter",
-    "decrease": "Diminuer",
-    "repositoryFor": "Dépôt de {{name}}"
-  },
   "about": {
     "dataAttribution": "Attribution des données",
     "description": "Une application mobile rapide pour intervals.icu axée sur les cartes et les analyses visuelles.",
@@ -1509,7 +1504,9 @@
     "trendingSlower": "Tendance à ralentir",
     "renameFailedTitle": "Impossible d’enregistrer le nom",
     "renameFailedMessage": "Le nom de la section n’a pas été enregistré. Réessayez.",
-    "nameTaken": "Une autre section porte déjà ce nom. Choisissez un autre nom."
+    "nameTaken": "Une autre section porte déjà ce nom. Choisissez un autre nom.",
+    "undoExcludeLap": "Annuler Tour {{n}}",
+    "excludeLapNumber": "Exclure Tour {{n}}"
   },
   "settings": {
     "developerDashboard": "Tableau de bord développeur",
@@ -1796,7 +1793,6 @@
     "completeActivitiesYearComparison": "Complétez des activités pour voir la comparaison annuelle",
     "completeDecouplingHint": "Complétez un effort soutenu avec puissance et FC pour voir l'analyse de découplage",
     "completePowerActivities": "Complétez des activités avec puissance pour voir votre tendance FTP",
-    "daysCount_many": "{{count}} de jours",
     "decouplingExplanation": "Le découplage mesure la dérive cardiaque - combien votre fréquence cardiaque augmente par rapport à la puissance lors d'efforts soutenus.",
     "decouplingProvenance": "Calculé par intervals.icu",
     "estimatedFtp": "FTP estimé",
@@ -2173,7 +2169,8 @@
     "kind_absorbed": "Un autre tronçon a été fusionné avec celui-ci",
     "splitFrom": "Issu de la division de",
     "splitInto": "Divisé en",
-    "unavailable": "Section indisponible"
+    "unavailable": "Section indisponible",
+    "revertVersion": "Rétablir Version {{version}}"
   },
   "namedCorridors": {
     "title": "Les noms que tu as donnés",

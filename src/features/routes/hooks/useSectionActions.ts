@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/shared/native/engine';
-import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
+import { useSectionCommands } from '@/features/routes/hooks/useCustomSections';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { announceDepartedRides } from '@/features/routes/lib/departedRides';
@@ -120,7 +120,7 @@ export function useSectionActions({
 }: UseSectionActionsArgs): UseSectionActionsResult {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { removeSection, renameSection } = useCustomSections();
+  const { removeSection, renameSection } = useSectionCommands();
   const { rescan, refusal: rescanRefusal, isScanning: isRematching } = useSectionRescan();
   const isRematchHeld = useDetectionHold() !== null;
 

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import {
   EngineReadFailure,
   pressable,
+  pressRipple,
   ScreenSafeAreaView,
   TAB_BAR_SAFE_PADDING,
   ToggleButtonRow,
@@ -153,6 +154,7 @@ function SportSection({ sport, efforts, isLoading, isDark }: SportSectionProps) 
           if (activityInfo && effort.activityId) {
             return (
               <Pressable
+                android_ripple={pressRipple}
                 accessibilityRole="button"
                 accessibilityLabel={effort.label}
                 key={effort.label}

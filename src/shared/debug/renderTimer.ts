@@ -28,8 +28,7 @@ if (__DEV__) {
 // ============================================================================
 
 /**
- * Log screen render with render count tracking.
- * @example
+ * Log screen render with render count tracking, used as:
  * // At top of component function:
  * const perfEnd = logScreenRender('FeedScreen');
  * // At end or in useEffect:

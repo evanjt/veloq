@@ -43,10 +43,6 @@ const ZOOM_REDUCTION_THRESHOLD = 300;
  *    - Adaptive pitch: flatter for mountainous terrain (avoids exaggerated peaks)
  *    - Reduce zoom for very tall terrain
  * 3. Fallback: perpendicular to start→end bearing, 60° pitch
- *
- * @param coordinates - Route coordinates as [lng, lat] pairs
- * @param altitude - Optional altitude array (meters) matching coordinate indices
- * @returns Camera parameters for 3D terrain view
  */
 /** Bounds midpoint + fitted zoom for a route, shared by the 3D and flat cameras. */
 function computeBoundsAndZoom(coordinates: [number, number][]): {
@@ -200,8 +196,7 @@ export function calculateFlatCamera(coordinates: [number, number][]): TerrainCam
  * from center to that point weighted by (altitude - mean). The sum points
  * toward high terrain. Camera bearing faces that direction so MapLibre
  * positions the camera on the low side.
- *
- * @returns bearing, pitch, and elevation range, or null if altitude data is insufficient
+ * Returns bearing, pitch and elevation range, or null if altitude data is insufficient.
  */
 function computeElevationCamera(
   coordinates: [number, number][],

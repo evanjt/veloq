@@ -38,7 +38,7 @@ jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
 }));
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'satellite',
     getTerrain3DMode: () => 'smart',
@@ -50,8 +50,6 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 
 jest.mock('@/features/strength', () => ({
   StrengthActivityCard: () => null,
-  useExerciseSets: () => ({ data: [] }),
-  useMuscleGroups: () => ({ data: [] }),
 }));
 
 jest.mock('@/features/activity/components/ActivityMapPreview', () => {

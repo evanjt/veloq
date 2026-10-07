@@ -11,9 +11,8 @@ import {
   SPORT_COLORS,
   currentAndPreviousWeek,
 } from '@/features/fitness';
-import { useDashboardPreferences } from '@/features/home/store';
+import { useDashboardPreferences, type MetricId } from '@/features/settings';
 import { summaryCardTarget } from '@/features/home/lib/summaryCardTargets';
-import { type MetricId } from '@/features/home/store';
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { formatWeightCompact } from '@/shared/format/weight';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';

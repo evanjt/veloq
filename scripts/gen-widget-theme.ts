@@ -59,8 +59,7 @@ const PALETTE_KEYS: (keyof WidgetPalette)[] = [
 const snake = (k: string) => k.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
 
 // The palette stores alpha hex as #RRGGBBAA (RN/SwiftUI order); Android XML wants #AARRGGBB.
-const androidHex = (hex: string) =>
-  hex.length === 9 ? `#${hex.slice(7)}${hex.slice(1, 7)}` : hex;
+const androidHex = (hex: string) => (hex.length === 9 ? `#${hex.slice(7)}${hex.slice(1, 7)}` : hex);
 
 function swiftPalette(name: string, p: WidgetPalette): string {
   const lines = PALETTE_KEYS.map((k) => `    static let ${k} = Color(hex: "${p[k]}")`);
@@ -103,9 +102,9 @@ ${swiftPalette('Dark', widgetPalette.dark)}
 }
 
 function androidColors(p: WidgetPalette): string {
-  return PALETTE_KEYS.map((k) => `  <color name="widget_${snake(k)}">${androidHex(p[k])}</color>`).join(
-    '\n'
-  );
+  return PALETTE_KEYS.map(
+    (k) => `  <color name="widget_${snake(k)}">${androidHex(p[k])}</color>`
+  ).join('\n');
 }
 
 function androidLight(): string {

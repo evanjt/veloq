@@ -23,7 +23,7 @@ const preferences = { defaultStyle: 'satellite' };
 const theme = { isDark: false };
 const network = { isOnline: true };
 
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({ preferences }),
 }));
 

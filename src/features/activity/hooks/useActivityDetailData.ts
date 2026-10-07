@@ -107,6 +107,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       highlights: {
         indicators: result.highlights.indicators,
         routeHighlights: result.highlights.routeHighlights,
+        strengthCards: result.highlights.strengthCards,
       },
       sectionTraces: buildTraces(result.sectionTraces),
       prSectionIds: new Set(result.prSectionIds),

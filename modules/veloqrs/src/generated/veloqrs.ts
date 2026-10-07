@@ -2769,13 +2769,154 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
 })();
 
 /**
+ * A muscle group activation, matching react-native-body-highlighter slug format.
+ */
+export type FfiMuscleGroup = {
+  /**
+   * Slug matching react-native-body-highlighter (e.g., "biceps", "chest")
+   */
+  slug: string;
+  /**
+   * 1 = secondary, 2 = primary
+   */
+  intensity: number;
+};
+
+/**
+ * Generated factory for {@link FfiMuscleGroup} record objects.
+ */
+export const FfiMuscleGroup = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMuscleGroup, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMuscleGroup>,
+  });
+})();
+
+const FfiConverterTypeFfiMuscleGroup = (() => {
+  type TypeName = FfiMuscleGroup;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        slug: FfiConverterString.readFromCursor(c),
+        intensity: FfiConverterUInt8.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.slug, c);
+      FfiConverterUInt8.writeIntoCursor(value.intensity, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.slug) +
+        FfiConverterUInt8.allocationSize(value.intensity)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What one strength feed card paints, read for a batch of activities at once.
+ */
+export type FfiStrengthCardSummary = {
+  activityId: string;
+  /**
+   * Stored sets exist, or the FIT file has a recorded outcome. False means a
+   * download is still owed, in flight or failed, so an empty card says nothing.
+   */
+  settled: boolean;
+  /**
+   * Rest, warmup and cooldown sets are not counted.
+   */
+  activeSetCount: number;
+  /**
+   * Distinct exercise names among the active sets.
+   */
+  exerciseCount: number;
+  /**
+   * Weight times repetitions over active sets.
+   */
+  totalVolumeKg: number;
+  /**
+   * Muscle groups the active sets work, primary over secondary.
+   */
+  muscles: Array<FfiMuscleGroup>;
+};
+
+/**
+ * Generated factory for {@link FfiStrengthCardSummary} record objects.
+ */
+export const FfiStrengthCardSummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiStrengthCardSummary,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiStrengthCardSummary>,
+  });
+})();
+
+const FfiConverterTypeFfiStrengthCardSummary = (() => {
+  type TypeName = FfiStrengthCardSummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        settled: FfiConverterBool.readFromCursor(c),
+        activeSetCount: FfiConverterUInt32.readFromCursor(c),
+        exerciseCount: FfiConverterUInt32.readFromCursor(c),
+        totalVolumeKg: FfiConverterFloat64.readFromCursor(c),
+        muscles: FfiConverterSequenceTypeFfiMuscleGroup.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterBool.writeIntoCursor(value.settled, c);
+      FfiConverterUInt32.writeIntoCursor(value.activeSetCount, c);
+      FfiConverterUInt32.writeIntoCursor(value.exerciseCount, c);
+      FfiConverterFloat64.writeIntoCursor(value.totalVolumeKg, c);
+      FfiConverterSequenceTypeFfiMuscleGroup.writeIntoCursor(value.muscles, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterBool.allocationSize(value.settled) +
+        FfiConverterUInt32.allocationSize(value.activeSetCount) +
+        FfiConverterUInt32.allocationSize(value.exerciseCount) +
+        FfiConverterFloat64.allocationSize(value.totalVolumeKg) +
+        FfiConverterSequenceTypeFfiMuscleGroup.allocationSize(value.muscles)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Combined payload for batched activity-list highlights: pre-computed
  * section indicators (PRs + trends) and route highlights for the same
- * activity IDs, delivered in a single FFI round-trip.
+ * activity IDs, and the strength cards among them, delivered in a single FFI
+ * round-trip.
  */
 export type FfiActivityHighlightsBundle = {
   indicators: Array<FfiActivityIndicator>;
   routeHighlights: Array<FfiActivityRouteHighlight>;
+  /**
+   * One row per strength activity among the ids, with what its card paints.
+   */
+  strengthCards: Array<FfiStrengthCardSummary>;
 };
 
 /**
@@ -2806,6 +2947,8 @@ const FfiConverterTypeFfiActivityHighlightsBundle = (() => {
           FfiConverterSequenceTypeFfiActivityIndicator.readFromCursor(c),
         routeHighlights:
           FfiConverterSequenceTypeFfiActivityRouteHighlight.readFromCursor(c),
+        strengthCards:
+          FfiConverterSequenceTypeFfiStrengthCardSummary.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -2817,6 +2960,10 @@ const FfiConverterTypeFfiActivityHighlightsBundle = (() => {
         value.routeHighlights,
         c,
       );
+      FfiConverterSequenceTypeFfiStrengthCardSummary.writeIntoCursor(
+        value.strengthCards,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -2825,6 +2972,9 @@ const FfiConverterTypeFfiActivityHighlightsBundle = (() => {
         ) +
         FfiConverterSequenceTypeFfiActivityRouteHighlight.allocationSize(
           value.routeHighlights,
+        ) +
+        FfiConverterSequenceTypeFfiStrengthCardSummary.allocationSize(
+          value.strengthCards,
         )
       );
     }
@@ -10732,60 +10882,6 @@ const FfiConverterTypeFfiMuscleExercises = (() => {
         FfiConverterSequenceTypeFfiExerciseSummary.allocationSize(
           value.exercises,
         )
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * A muscle group activation, matching react-native-body-highlighter slug format.
- */
-export type FfiMuscleGroup = {
-  /**
-   * Slug matching react-native-body-highlighter (e.g., "biceps", "chest")
-   */
-  slug: string;
-  /**
-   * 1 = secondary, 2 = primary
-   */
-  intensity: number;
-};
-
-/**
- * Generated factory for {@link FfiMuscleGroup} record objects.
- */
-export const FfiMuscleGroup = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiMuscleGroup, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiMuscleGroup>,
-  });
-})();
-
-const FfiConverterTypeFfiMuscleGroup = (() => {
-  type TypeName = FfiMuscleGroup;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        slug: FfiConverterString.readFromCursor(c),
-        intensity: FfiConverterUInt8.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.slug, c);
-      FfiConverterUInt8.writeIntoCursor(value.intensity, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.slug) +
-        FfiConverterUInt8.allocationSize(value.intensity)
       );
     }
   }
@@ -19862,8 +19958,9 @@ export interface ActivityManagerLike {
   getGpsTrack(activityId: string) /*throws*/ : ArrayBuffer;
   /**
    * Combined activity-list highlight bundle: section indicators (PRs +
-   * trends) and route highlights for the same batch of activity IDs in a
-   * single FFI round-trip. Consumed by `useActivitySectionHighlights`.
+   * trends), route highlights and the strength cards for the same batch of
+   * activity IDs in a single FFI round-trip. Consumed by
+   * `useActivitySectionHighlights`.
    */
   getHighlightsBundle(
     activityIds: Array<string>,
@@ -20270,8 +20367,9 @@ export class ActivityManager
 
   /**
    * Combined activity-list highlight bundle: section indicators (PRs +
-   * trends) and route highlights for the same batch of activity IDs in a
-   * single FFI round-trip. Consumed by `useActivitySectionHighlights`.
+   * trends), route highlights and the strength cards for the same batch of
+   * activity IDs in a single FFI round-trip. Consumed by
+   * `useActivitySectionHighlights`.
    */
   getHighlightsBundle(
     activityIds: Array<string>,
@@ -27772,6 +27870,11 @@ export interface SettingsManagerLike {
     homeLng: number,
     radiusM: number,
   ) /*throws*/ : ExportPrivacyPreview;
+  /**
+   * Whether the athlete has agreed to send points to the geocoder for place
+   * names. Off until they turn it on.
+   */
+  geocodingEnabled() /*throws*/ : boolean;
   getAthleteProfile() /*throws*/ : string | undefined;
   /**
    * Get a single user preference by key.
@@ -27794,6 +27897,11 @@ export interface SettingsManagerLike {
    */
   notificationTemplates() /*throws*/ : FfiNotificationTemplates | undefined;
   setAthleteProfile(json: string) /*throws*/ : void;
+  /**
+   * Turn geocoding on or off. Turning it on stamps the moment, and only
+   * what appears after it is named.
+   */
+  setGeocodingEnabled(enabled: boolean) /*throws*/ : void;
   /**
    * Hand the engine the notification templates for the locale the app is
    * running in. Answers whether anything was written, which is false for
@@ -28058,6 +28166,27 @@ export class SettingsManager
     }
   }
 
+  /**
+   * Whether the athlete has agreed to send points to the geocoder for place
+   * names. Off until they turn it on.
+   */
+  geocodingEnabled(): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_geocoding_enabled(
+            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
   getAthleteProfile(): string | undefined /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -28186,6 +28315,26 @@ export class SettingsManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
           uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(json, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  /**
+   * Turn geocoding on or off. Turning it on stamps the moment, and only
+   * what appears after it is named.
+   */
+  setGeocodingEnabled(enabled: boolean): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_geocoding_enabled(
+          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+          FfiConverterBool.lower(enabled, nativeModule().rustbuffer_alloc),
           callStatus,
         );
       },
@@ -31094,6 +31243,16 @@ const FfiConverterSequenceTypeFfiActivityRouteHighlight = new FfiConverterArray(
   FfiConverterTypeFfiActivityRouteHighlight,
 );
 
+// FfiConverter for Array<FfiMuscleGroup>
+const FfiConverterSequenceTypeFfiMuscleGroup = new FfiConverterArray(
+  FfiConverterTypeFfiMuscleGroup,
+);
+
+// FfiConverter for Array<FfiStrengthCardSummary>
+const FfiConverterSequenceTypeFfiStrengthCardSummary = new FfiConverterArray(
+  FfiConverterTypeFfiStrengthCardSummary,
+);
+
 // FfiConverter for Array<FfiSectionTrace>
 const FfiConverterSequenceTypeFfiSectionTrace = new FfiConverterArray(
   FfiConverterTypeFfiSectionTrace,
@@ -31705,11 +31864,6 @@ const FfiConverterOptionalTypeGpxFile = new FfiConverterOptional(
 const FfiConverterOptionalTypeFfiNotificationTemplates =
   new FfiConverterOptional(FfiConverterTypeFfiNotificationTemplates);
 
-// FfiConverter for Array<FfiMuscleGroup>
-const FfiConverterSequenceTypeFfiMuscleGroup = new FfiConverterArray(
-  FfiConverterTypeFfiMuscleGroup,
-);
-
 // FfiConverter for Array<FfiUnplacedRecord>
 const FfiConverterSequenceTypeFfiUnplacedRecord = new FfiConverterArray(
   FfiConverterTypeFfiUnplacedRecord,
@@ -32089,7 +32243,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle() !==
-    21725
+    21973
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle",
@@ -33688,6 +33842,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_geocoding_enabled() !==
+    55341
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_geocoding_enabled",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile() !==
     18956
   ) {
@@ -33733,6 +33895,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_geocoding_enabled() !==
+    39712
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_set_geocoding_enabled",
     );
   }
   if (
@@ -34535,6 +34705,7 @@ export default Object.freeze({
     FfiConverterTypeFfiStartupData,
     FfiConverterTypeFfiStoredCurve,
     FfiConverterTypeFfiStrengthBalancePair,
+    FfiConverterTypeFfiStrengthCardSummary,
     FfiConverterTypeFfiStrengthInsightSeries,
     FfiConverterTypeFfiStrengthProgression,
     FfiConverterTypeFfiStrengthScreenData,
