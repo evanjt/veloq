@@ -96,7 +96,7 @@ const APPLE_STRINGS = [
 ];
 
 /**
- * The Siri phrases, keyed as `AppShortcuts.xcstrings` requires: the English
+ * The Siri phrases, keyed as an `AppShortcuts` table requires: the English
  * phrase with each interpolation written `${name}`. The bundles write the same
  * slots the i18next way, `{{app}}` and `{{sport}}`.
  */
@@ -123,7 +123,10 @@ const ANDROID_STRINGS = [
 ];
 
 const LOCALIZABLE_FILE = 'Localizable.xcstrings';
-const APP_SHORTCUTS_FILE = 'AppShortcuts.xcstrings';
+// A `.strings` table per language rather than a catalogue: Xcode refuses an
+// `AppShortcuts` catalogue below iOS 17, and the app deploys to 16.4.
+const APP_SHORTCUTS_FILE = 'AppShortcuts.strings';
+const STALE_APP_SHORTCUTS_FILE = 'AppShortcuts.xcstrings';
 const ANDROID_STRINGS_FILE = 'native_strings.xml';
 
 const REGIONAL_BASES = {
@@ -174,12 +177,12 @@ function translation(bundles, locale, dotted) {
   return value;
 }
 
-function catalogue(entries, bundles, convert = (value) => value) {
+function catalogue(entries, bundles) {
   const strings = {};
   for (const { key, path: dotted } of entries) {
     const localizations = {};
     for (const [locale, { apple }] of Object.entries(PLATFORM_LOCALES)) {
-      const value = convert(translation(bundles, locale, dotted));
+      const value = translation(bundles, locale, dotted);
       for (const language of apple) {
         localizations[language] = { stringUnit: { state: 'translated', value } };
       }
@@ -193,10 +196,44 @@ function localizableCatalogue(bundles) {
   return catalogue(APPLE_STRINGS, bundles);
 }
 
-function appShortcutsCatalogue(bundles) {
-  return catalogue(APP_SHORTCUT_PHRASES, bundles, (value) =>
-    value.replace(/\{\{(\w+)\}\}/g, (slot, name) => PHRASE_SLOTS[name] ?? slot)
+/** Each Apple language's phrases, keyed by the English phrase. */
+function appShortcutPhrases(bundles) {
+  const byLanguage = {};
+  for (const [locale, { apple }] of Object.entries(PLATFORM_LOCALES)) {
+    const phrases = {};
+    for (const { key, path: dotted } of APP_SHORTCUT_PHRASES) {
+      phrases[key] = translation(bundles, locale, dotted).replace(
+        /\{\{(\w+)\}\}/g,
+        (slot, name) => PHRASE_SLOTS[name] ?? slot
+      );
+    }
+    for (const language of apple) byLanguage[language] = phrases;
+  }
+  return byLanguage;
+}
+
+/** A `.strings` literal: a backslash, a quote or a newline would end or bend it. */
+function encodeStringsLiteral(value) {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+function stringsTable(entries, source) {
+  const lines = Object.entries(entries).map(
+    ([key, value]) => `"${encodeStringsLiteral(key)}" = "${encodeStringsLiteral(value)}";`
   );
+  return `/* Generated at prebuild from ${source}. Do not edit. */\n${lines.join('\n')}\n`;
+}
+
+/** Every `AppShortcuts.strings`, keyed by its path under the app directory. */
+function appShortcutsStringFiles(bundles) {
+  const files = {};
+  for (const [language, phrases] of Object.entries(appShortcutPhrases(bundles))) {
+    files[path.join(`${language}.lproj`, APP_SHORTCUTS_FILE)] = stringsTable(
+      phrases,
+      'src/i18n/locales'
+    );
+  }
+  return files;
 }
 
 /**
@@ -265,7 +302,12 @@ function writeIosCatalogues({ widgetDir, appDir }, bundles = loadLocaleBundles()
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, LOCALIZABLE_FILE), localizable);
   }
-  fs.writeFileSync(path.join(appDir, APP_SHORTCUTS_FILE), json(appShortcutsCatalogue(bundles)));
+  for (const [file, text] of Object.entries(appShortcutsStringFiles(bundles))) {
+    fs.mkdirSync(path.dirname(path.join(appDir, file)), { recursive: true });
+    fs.writeFileSync(path.join(appDir, file), text);
+  }
+  // An earlier prebuild wrote the phrases as a catalogue, which fails the build.
+  fs.rmSync(path.join(appDir, STALE_APP_SHORTCUTS_FILE), { force: true });
 }
 
 /** Every Apple language a catalogue carries, for the project's known regions. */
@@ -280,10 +322,12 @@ module.exports = {
   ANDROID_STRINGS,
   LOCALIZABLE_FILE,
   APP_SHORTCUTS_FILE,
+  STALE_APP_SHORTCUTS_FILE,
   ANDROID_STRINGS_FILE,
   loadLocaleBundles,
   localizableCatalogue,
-  appShortcutsCatalogue,
+  appShortcutPhrases,
+  appShortcutsStringFiles,
   androidStringFiles,
   encodeAndroidString,
   decodeAndroidString,

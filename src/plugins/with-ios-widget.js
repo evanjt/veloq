@@ -25,6 +25,7 @@ const { ensureTargetDependencySections } = require('./xcodeTargetDependency');
 const {
   APP_SHORTCUTS_FILE,
   LOCALIZABLE_FILE,
+  STALE_APP_SHORTCUTS_FILE,
   appleLanguages,
   writeIosCatalogues,
 } = require('./nativeStrings');
@@ -350,6 +351,89 @@ function addMissingStringCatalogues(proj, targetUuid, files, groupName) {
   }
 }
 
+/** The file type Xcode gives one language's `.strings` table. */
+const STRINGS_FILE_TYPE = 'text.plist.strings';
+
+/**
+ * Add a localised `.strings` table to the target: a variant group named for
+ * the file, one reference per language at `<language>.lproj/<file>`, and the
+ * group copied as a resource. A language added since the last prebuild joins
+ * the existing group, so the table never goes stale.
+ */
+function addLocalisedStrings(proj, targetUuid, name, languages, groupName) {
+  if (!proj.pbxResourcesBuildPhaseObj(targetUuid)) {
+    proj.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', targetUuid);
+  }
+  const { group } = targetGroup(proj, groupName);
+
+  const variants = proj.hash.project.objects.PBXVariantGroup ?? {};
+  let variantKey = Object.keys(variants).find(
+    (key) => !key.endsWith('_comment') && unquote(String(variants[key].name)) === name
+  );
+  if (!variantKey) {
+    variantKey = proj.pbxCreateVariantGroup(name);
+    group.children.push({ value: variantKey, comment: name });
+  }
+  const variant = proj.getPBXVariantGroupByKey(variantKey);
+
+  const present = new Set(variant.children.map((child) => unquote(String(child.comment))));
+  const references = proj.pbxFileReferenceSection();
+  for (const language of languages.filter((l) => !present.has(l))) {
+    const fileRef = proj.generateUuid();
+    references[fileRef] = {
+      isa: 'PBXFileReference',
+      lastKnownFileType: STRINGS_FILE_TYPE,
+      name: `"${language}"`,
+      path: `"${pathInGroup(group, groupName, `${language}.lproj/${name}`)}"`,
+      sourceTree: '"<group>"',
+    };
+    references[`${fileRef}_comment`] = language;
+    variant.children.push({ value: fileRef, comment: language });
+  }
+
+  if (!copiedResourceNames(proj, targetUuid).has(name)) {
+    const build = {
+      uuid: proj.generateUuid(),
+      fileRef: variantKey,
+      basename: name,
+      group: 'Resources',
+      target: targetUuid,
+    };
+    proj.addToPbxBuildFileSection(build);
+    proj.addToPbxResourcesBuildPhase(build);
+  }
+}
+
+/**
+ * Take a resource out of the target and the project: its Resources entry, its
+ * build file, its reference and its place in the group. Used for a file an
+ * earlier prebuild added that the build now refuses.
+ */
+function removeResource(proj, targetUuid, name) {
+  const phase = proj.pbxResourcesBuildPhaseObj(targetUuid);
+  const builds = proj.pbxBuildFileSection();
+  const references = proj.pbxFileReferenceSection();
+  const fileRefs = Object.keys(references).filter(
+    (key) =>
+      !key.endsWith('_comment') && path.basename(unquote(String(references[key].path))) === name
+  );
+  for (const fileRef of fileRefs) {
+    for (const key of Object.keys(builds)) {
+      if (key.endsWith('_comment') || builds[key].fileRef !== fileRef) continue;
+      if (phase) phase.files = phase.files.filter((entry) => entry.value !== key);
+      delete builds[key];
+      delete builds[`${key}_comment`];
+    }
+    for (const g of Object.values(proj.hash.project.objects.PBXGroup ?? {})) {
+      if (g && Array.isArray(g.children)) {
+        g.children = g.children.filter((child) => child.value !== fileRef);
+      }
+    }
+    delete references[fileRef];
+    delete references[`${fileRef}_comment`];
+  }
+}
+
 /**
  * Every catalogue language as a region the project knows, which is what Xcode
  * records when a language is added in its own editor.
@@ -420,12 +504,9 @@ function configureWidgetProject(proj, { projectName, swiftFiles, bundleId, versi
   const appTargetUuid = targetUuidByName(proj, projectName);
   if (appTargetUuid) {
     addMissingSourceFiles(proj, appTargetUuid, SHARED_APP_FILES, projectName);
-    addMissingStringCatalogues(
-      proj,
-      appTargetUuid,
-      [LOCALIZABLE_FILE, APP_SHORTCUTS_FILE],
-      projectName
-    );
+    addMissingStringCatalogues(proj, appTargetUuid, [LOCALIZABLE_FILE], projectName);
+    removeResource(proj, appTargetUuid, STALE_APP_SHORTCUTS_FILE);
+    addLocalisedStrings(proj, appTargetUuid, APP_SHORTCUTS_FILE, appleLanguages(), projectName);
   }
 
   const targetUuid =
@@ -505,6 +586,7 @@ module.exports.BUNDLES_FILE = BUNDLES_FILE;
 module.exports.SHARED_APP_FILES = SHARED_APP_FILES;
 module.exports.SHARED_DIR = SHARED_DIR;
 module.exports.addMissingSourceFiles = addMissingSourceFiles;
+module.exports.addMissingStringCatalogues = addMissingStringCatalogues;
 module.exports.compiledSourceNames = compiledSourceNames;
 module.exports.configureWidgetProject = configureWidgetProject;
 module.exports.targetUuidByName = targetUuidByName;
