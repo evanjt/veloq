@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "Zwiększ",
+    "decrease": "Zmniejsz",
+    "repositoryFor": "Repozytorium {{name}}"
+  },
   "about": {
     "dataAttribution": "Atrybucja danych",
     "description": "Szybki, offline-first mobilny klient intervals.icu z naciskiem na mapy i analizę wizualną.",
@@ -231,7 +236,6 @@
     "lastBackup": "Ostatnia kopia: {{date}}",
     "lastBackupNever": "Nigdy nie tworzono kopii",
     "backupNow": "Utwórz kopię teraz",
-    "backingUp": "Tworzenie kopii...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "Kopia iCloud",
     "carrierDeviceAndroid": "Kopia Google",
@@ -926,6 +930,7 @@
     "recentPersonalRecord": "Niedawny rekord osobisty"
   },
   "licenses": {
+    "openRepository": "Otwórz repozytorium",
     "footer": "Dotknij dowolnej plakietki licencji, aby zobaczyć pełny tekst. Dotknij ikony linku, aby odwiedzić repozytorium projektu.",
     "intro": "Veloq jest zbudowany z oprogramowania open-source. Ten ekran wyświetla biblioteki innych firm i ich licencje.",
     "sectionCoreFramework": "Framework podstawowy",
@@ -1274,6 +1279,12 @@
     "accuracyFilter": "Filtr dokładności",
     "accuracyFilterDescription": "Odrzucaj punkty GPS mniej dokładne niż ta wartość.",
     "autoPauseDelay": "Opóźnienie autopauzy",
+    "accuracyFilterDecrease": "Zmniejsz filtr dokładności",
+    "accuracyFilterIncrease": "Zwiększ filtr dokładności",
+    "autoPauseDelayDecrease": "Skróć opóźnienie autopauzy",
+    "autoPauseDelayIncrease": "Wydłuż opóźnienie autopauzy",
+    "speedThresholdDecrease": "Obniż próg prędkości dla {{sport}}",
+    "speedThresholdIncrease": "Podnieś próg prędkości dla {{sport}}",
     "keepAwake": "Nie wygaszaj ekranu",
     "keepAwakeDescription": "Zapobiega wygaszaniu ekranu podczas nagrywania.",
     "routeOverlay": {
@@ -1468,6 +1479,13 @@
     "resetBounds": "Przywróć oryginał",
     "trimPrecisionHint": "Przeciągnij uchwyt w górę lub w dół, aby uzyskać dokładniejszą kontrolę",
     "trimMode": "Przytnij",
+    "trimStartEarlier": "Przesuń początek wcześniej",
+    "trimStartLater": "Przesuń początek później",
+    "trimEndEarlier": "Przesuń koniec wcześniej",
+    "trimEndLater": "Przesuń koniec później",
+    "includeActivity": "Uwzględnij aktywność",
+    "excludeActivity": "Wyklucz aktywność",
+    "showExcludedActivities": "Pokaż wykluczone aktywności",
     "expandMode": "Rozszerz",
     "resetBoundsConfirm": "Przywrócić oryginalne automatycznie wykryte granice?\n\nSekcja zostanie ponownie dopasowana do wszystkich Twoich aktywności.",
     "liftGround": "Wyciąg",

@@ -1877,7 +1877,8 @@ mod tests {
     ///
     /// Expected behaviour: a run can be asked to stop, and the ask is scoped to
     /// the run it was made during. A stale cancel must not stop the next one,
-    /// which is why it is cleared by the reset every run already calls.
+    /// which is why the flag is a field on the run holding the slot: the next
+    /// run starts with its own clear flag.
     #[test]
     fn a_run_can_be_cancelled_and_the_next_one_starts_clean() {
         let _serial = crate::test_globals::serial_global_state();

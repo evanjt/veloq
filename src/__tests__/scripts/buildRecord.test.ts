@@ -26,6 +26,7 @@ import {
 import { runGit } from '../__shared__/gitFixture';
 
 const record = require('../../../scripts/lib/build-record.js');
+const { parse } = require('../../../scripts/build-record.js');
 const { sourceIdentity, buildStamp } = require('../../../scripts/lib/build-stamp.js');
 
 const EXPECT = { applicationId: 'com.veloq.app.dev', profile: 'release', features: [] };
@@ -52,6 +53,21 @@ describe('the build record', () => {
       targets: ['arm64-v8a'],
     });
     expect(verify(root).problems).toEqual([]);
+  });
+
+  it('verifies a local-profile APK only when the install selects that profile', () => {
+    const apk = build(root, { profile: 'release-dev' });
+    record.writeRecord(root, apk, { variant: 'debug' });
+
+    const selected = parse(['verify', 'debug'], { VELOQRS_RUST_PROFILE: 'release-dev' });
+    const defaulted = parse(['verify', 'debug'], {});
+    expect(verify(root, selected.expect).problems).toEqual([]);
+    expect(verify(root, defaulted.expect).problems.join('\n')).toMatch(/profile/);
+  });
+
+  it('expects release for a release APK even with a local profile selected', () => {
+    const options = parse(['verify', 'release'], { VELOQRS_RUST_PROFILE: 'release-dev' });
+    expect(options.expect.profile).toBe('release');
   });
 
   it('verifies a build off a dirty tree while the tree is unchanged', () => {

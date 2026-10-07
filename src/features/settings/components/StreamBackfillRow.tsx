@@ -17,14 +17,14 @@
  */
 
 import React from 'react';
-import { View, Pressable, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { streamBackfillRefusalKey } from '../lib/streamBackfillRefusal';
 import { useStreamBackfill } from '../hooks/useStreamBackfill';
-import { Row, pressable, pressRipple } from '@/shared/ui';
+import { Button, Row } from '@/shared/ui';
 
 interface StreamBackfillRowProps {
   isDark: boolean;
@@ -74,25 +74,17 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
               {detail}
             </Text>
             {(isRunning || offersDownload) && (
-              <Pressable
+              <Button
                 testID="settings-stream-backfill-action"
-                onPress={isRunning ? stop : start}
-                accessibilityRole="button"
-                style={pressable()}
-                android_ripple={pressRipple}
-              >
-                <Text
-                  style={[
-                    styles.infoValue,
-                    styles.valueClickable,
-                    isDark && { color: darkColors.linkTeal },
-                  ]}
-                >
-                  {isRunning
+                label={
+                  isRunning
                     ? t('settings.streamBackfillStop')
-                    : t('settings.streamBackfillDownload')}
-                </Text>
-              </Pressable>
+                    : t('settings.streamBackfillDownload')
+                }
+                onPress={isRunning ? stop : start}
+                variant="ghost"
+                size="sm"
+              />
             )}
           </View>
         </View>
@@ -136,9 +128,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  valueClickable: {
-    color: colors.linkTeal,
   },
   textLight: {
     color: colors.textOnDark,

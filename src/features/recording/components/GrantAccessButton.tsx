@@ -6,12 +6,11 @@
  */
 
 import React from 'react';
-import { TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { colors, layout, spacing, typography } from '@/theme';
+import { colors } from '@/theme';
+import { Button } from '@/shared/ui/Button';
 
 interface GrantAccessButtonProps {
   onPress: () => void;
@@ -25,55 +24,19 @@ export function GrantAccessButton({ onPress, loading, small, testID }: GrantAcce
   const label = t('recording.grantAccess', 'Grant Access');
 
   return (
-    <TouchableOpacity
-      testID={testID}
-      style={[styles.button, small && styles.buttonSmall]}
+    <Button
+      {...(testID && { testID })}
+      label={label}
+      size={small ? 'sm' : 'md'}
       onPress={onPress}
-      disabled={loading}
-      activeOpacity={0.7}
-      hitSlop={small ? { top: 8, bottom: 8, left: 4, right: 4 } : undefined}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      {loading ? (
-        <ActivityIndicator size="small" color={colors.textOnPrimary} />
-      ) : (
-        <>
-          <MaterialCommunityIcons
-            name="shield-lock-outline"
-            size={small ? 14 : 16}
-            color={colors.textOnPrimary}
-          />
-          <Text style={[styles.label, small && styles.labelSmall]}>{label}</Text>
-        </>
-      )}
-    </TouchableOpacity>
+      loading={loading}
+      icon={
+        <MaterialCommunityIcons
+          name="shield-lock-outline"
+          size={small ? 14 : 16}
+          color={colors.textOnPrimary}
+        />
+      }
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    backgroundColor: colors.primary,
-    minHeight: layout.minTapTarget,
-  },
-  buttonSmall: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xsPlus,
-    minHeight: 32,
-  },
-  label: {
-    ...typography.bodyBold,
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textOnPrimary,
-  },
-  labelSmall: {
-    fontSize: typography.captionBold.fontSize,
-  },
-});

@@ -11,7 +11,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { SyncState } from 'veloqrs';
-import { View, ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -22,7 +22,7 @@ import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
 import { formatSyncProgress } from '@/shared/format/syncProgress';
 import { colors, darkColors, typography } from '@/theme';
-import { Row, pressable, pressRipple } from '@/shared/ui';
+import { Button, Row } from '@/shared/ui';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
 export function ActivitySyncRow() {
@@ -73,25 +73,15 @@ export function ActivitySyncRow() {
           </View>
         )}
       </View>
-      <Pressable
+      <Button
+        testID="sync-stop-button"
+        labelTestID="sync-stop-label"
+        label={stopping ? t('settings.syncStopping') : t('settings.syncStop')}
         onPress={stop}
         disabled={stopping}
-        accessibilityRole="button"
-        testID="sync-stop-button"
-        style={pressable()}
-        android_ripple={pressRipple}
-      >
-        <Text
-          style={[
-            styles.stop,
-            isDark && { color: darkColors.linkTeal },
-            stopping && { color: textSecondary },
-          ]}
-          testID="sync-stop-label"
-        >
-          {stopping ? t('settings.syncStopping') : t('settings.syncStop')}
-        </Text>
-      </Pressable>
+        variant="ghost"
+        size="sm"
+      />
     </Row>
   );
 }
@@ -105,10 +95,5 @@ const styles = StyleSheet.create({
   },
   library: {
     ...typography.caption,
-  },
-  stop: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.linkTeal,
   },
 });

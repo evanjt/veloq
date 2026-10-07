@@ -13,8 +13,10 @@ import {
   CutoverStatus,
   ElevationBackfillStatus,
 } from '@/features/settings/components';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, slopToMinTapTarget } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+
+const PREVIEW_ROW_HEIGHT = 44;
 
 function DetectionSettingsScreenContent() {
   const { t } = useTranslation();
@@ -99,6 +101,7 @@ function DetectionSettingsScreenContent() {
             onPress={() => router.push('/detection-preview' as Href)}
             accessibilityRole="button"
             accessibilityLabel={t('settings.previewSections')}
+            hitSlop={slopToMinTapTarget(PREVIEW_ROW_HEIGHT)}
             testID="detection-preview-row"
           >
             <MaterialCommunityIcons name="map-search-outline" size={20} color={textSecondary} />
@@ -117,6 +120,7 @@ function DetectionSettingsScreenContent() {
             onPress={() => router.push('/route-grouping-preview' as Href)}
             accessibilityRole="button"
             accessibilityLabel={t('settings.previewRouteGrouping')}
+            hitSlop={slopToMinTapTarget(PREVIEW_ROW_HEIGHT)}
             testID="route-grouping-preview-row"
           >
             <MaterialCommunityIcons name="source-branch" size={20} color={textSecondary} />
@@ -245,7 +249,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    minHeight: 44,
+    minHeight: PREVIEW_ROW_HEIGHT,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadius,

@@ -3,8 +3,17 @@ import * as Location from 'expo-location';
 
 import { debug } from '@/shared/debug/debug';
 import { brand } from '@/theme';
+import { ensureCredentialsHydrated, useAuthStore } from '@/shared/app/AuthStore';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import type { AutoPauseDetector } from './autoPause';
 import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
+import {
+  autoPauseDetector,
+  buildAutoPauseDetector,
+  evaluateAutoPause,
+  setAutoPauseDetector,
+} from './manualPause';
 import { locationServiceRunning, updateRecordingNotification } from './recordingNotification';
 import {
   buildRecordingBackup,
@@ -29,15 +38,6 @@ let restoredFromBackup = false;
 // The detector this runtime built for itself, when no session runs to own one.
 let headlessDetector: AutoPauseDetector | null = null;
 
-// Use require to avoid a circular dependency - this runs outside the React tree
-function recordingStore() {
-  return require('@/features/recording/stores/RecordingStore').useRecordingStore;
-}
-
-function autoPause(): typeof import('./manualPause') {
-  return require('./manualPause');
-}
-
 /**
  * A headless runtime renders no screen, so no session starts to evaluate
  * auto-pause and the batch has to. A session that starts later owns a detector
@@ -45,12 +45,11 @@ function autoPause(): typeof import('./manualPause') {
  */
 function batchDrivesAutoPause(): boolean {
   if (!restoredFromBackup) return false;
-  const pause = autoPause();
-  if (!pause.autoPauseDetector()) {
-    headlessDetector = pause.buildAutoPauseDetector();
-    pause.setAutoPauseDetector(headlessDetector);
+  if (!autoPauseDetector()) {
+    headlessDetector = buildAutoPauseDetector();
+    setAutoPauseDetector(headlessDetector);
   }
-  return pause.autoPauseDetector() === headlessDetector;
+  return autoPauseDetector() === headlessDetector;
 }
 
 /**
@@ -63,11 +62,9 @@ function batchDrivesAutoPause(): boolean {
  * is credited when it resumes or stops.
  */
 async function restoreSessionFromBackup(): Promise<boolean> {
-  const { ensureCredentialsHydrated } = require('@/shared/app/AuthStore');
   await ensureCredentialsHydrated();
   const backup = await loadRecordingBackup();
   if (!backup) return false;
-  const { useAuthStore } = require('@/shared/app/AuthStore');
   const auth = useAuthStore.getState();
   if (!auth.isAuthenticated || !backup.athleteId || backup.athleteId !== auth.athleteId)
     return false;
@@ -81,7 +78,7 @@ async function restoreSessionFromBackup(): Promise<boolean> {
   }
 
   // A foreground launch may have started or restored a session during the load.
-  if (recordingStore().getState().status !== 'idle') return false;
+  if (useRecordingStore.getState().status !== 'idle') return false;
 
   const { restoreRecordingBackup } = require('./restoreRecordingBackup');
   restoreRecordingBackup(backup, { headless: true });
@@ -94,7 +91,7 @@ export async function handleBackgroundLocations(
 ): Promise<void> {
   if (!locations || locations.length === 0) return;
 
-  const store = recordingStore();
+  const store = useRecordingStore;
   if (store.getState().status === 'idle' && !restoredFromBackup) {
     restoredFromBackup = await restoreSessionFromBackup();
   }
@@ -121,14 +118,13 @@ export async function handleBackgroundLocations(
     // whether or not the point itself is recorded. It can pause or resume the
     // ride mid-batch, so the status is read again for each point.
     store.getState().setRawLocationFix(point);
-    if (drivesAutoPause) autoPause().evaluateAutoPause();
+    if (drivesAutoPause) evaluateAutoPause();
     if (store.getState().status === 'recording') store.getState().addGpsPoint(point);
   }
 
   // A headless runtime has no screen and no periodic timer, so each batch
   // persists itself or the next kill loses everything since the last one.
   if (restoredFromBackup) {
-    const { useRecordingLiveStore } = require('../stores/RecordingLiveStore');
     const backup = buildRecordingBackup({
       ...store.getState(),
       autoPaused: useRecordingLiveStore.getState().autoPaused,

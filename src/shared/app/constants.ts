@@ -45,11 +45,6 @@ export const CHART = {
   DOWNSAMPLE_TARGET: 500,
 } as const;
 
-export const UI = {
-  /** Max height for routes list container */
-  ROUTES_LIST_MAX_HEIGHT: 400,
-} as const;
-
 export const INTERVALS_URLS = {
   signup: 'https://intervals.icu',
   privacyPolicy: 'https://intervals.icu/privacy-policy.html',

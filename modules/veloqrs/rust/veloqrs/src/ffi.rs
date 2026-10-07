@@ -289,7 +289,7 @@ pub(crate) fn usable_track(
     }
     let coords = track_points(latlngs, result.elevations.as_deref());
     // A series long enough to be a line can still filter down to nothing:
-    // `is_storable` drops a point outside the world or at the null island.
+    // `is_storable` drops a non-finite point and one outside the world.
     if coords.len() < 2 {
         return Err(TrackRefusal::TooShort);
     }
@@ -1169,7 +1169,7 @@ pub fn take_fetch_and_store_result(run: f64) -> Option<FetchAndStoreResult> {
 /// alone rather than duplicating a second detection progress surface.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct ElevationBackfillProgress {
-    /// idle, fetching, complete, partial or failed.
+    /// idle, fetching, complete, partial, paused or failed.
     pub phase: String,
     /// Activities this run has finished with.
     pub completed: u32,
@@ -1463,7 +1463,7 @@ pub fn get_routes_status_data() -> FfiRoutesStatusData {
     let detection_outcome = crate::objects::DetectionManager::new().last_outcome();
 
     let stream = get_stream_backfill_progress();
-    let stream_remaining = if stream.phase == "fetching" {
+    let stream_remaining = if stream.phase == crate::net::stream_backfill::STREAM_PHASE_FETCHING {
         None
     } else {
         get_stream_backfill_remaining().ok()
@@ -1473,11 +1473,12 @@ pub fn get_routes_status_data() -> FfiRoutesStatusData {
     // The count is a `COUNT(*)` over the stored tracks, so it is skipped while
     // a pass is reporting its own figures, exactly as the hook that used to
     // make two calls did.
-    let elevation_remaining = if elevation.phase == "fetching" {
-        None
-    } else {
-        get_elevation_backfill_remaining().ok()
-    };
+    let elevation_remaining =
+        if elevation.phase == crate::net::elevation_backfill::BACKFILL_PHASE_FETCHING {
+            None
+        } else {
+            get_elevation_backfill_remaining().ok()
+        };
 
     FfiRoutesStatusData {
         detection,
@@ -1880,7 +1881,7 @@ mod tests {
     impl EngineObserver for TrackRecorder {
         fn gps_track_stored(&self, activity_id: String) {
             // Not `with_persistent_engine`: an announcement made under the lock
-            // must fail this test, not hang it. But not a single `try_write`
+            // must fail this test, not hang it. But not a single `try_lock`
             // either, which answers "is this lock free right now" when the
             // question is "did the announcing thread let go of it".
             //

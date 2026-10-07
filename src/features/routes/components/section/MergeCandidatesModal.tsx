@@ -48,6 +48,8 @@ export const MergeCandidatesModal = memo(function MergeCandidatesModal({
   const renderItem = ({ item }: { item: MergeCandidate }) => (
     <TouchableOpacity
       style={[styles.row, { borderBottomColor: border }]}
+      accessibilityRole="button"
+      accessibilityLabel={item.name ?? item.sectionId}
       onPress={() => onSelect(item)}
       activeOpacity={0.6}
     >
@@ -90,7 +92,13 @@ export const MergeCandidatesModal = memo(function MergeCandidatesModal({
           />
 
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.cancel')}
+              onPress={onCancel}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.cancelText, { color: textSecondary }]}>
                 {t('common.cancel')}
               </Text>

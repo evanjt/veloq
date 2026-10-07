@@ -1,9 +1,10 @@
 import React, { memo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, mapStylePreview, spacing, typography } from '@/theme';
+import { colors, darkColors, layout, mapStylePreview, spacing } from '@/theme';
 import { type MapStyleType } from '@/features/maps';
+import { ToggleButton } from '@/shared/ui';
 
 const CIRCLE_SIZE = 70;
 
@@ -31,39 +32,28 @@ function MapStylePreviewPickerComponent({ value, onValueChange }: MapStylePrevie
         const preview = mapStylePreview[style];
 
         return (
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={t(labelKey as 'settings.light')}
-            accessibilityState={{ selected: isSelected }}
+          <ToggleButton
             key={style}
+            label={t(labelKey as never)}
+            selected={isSelected}
             style={styles.previewItem}
             onPress={() => onValueChange(style)}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[
-                styles.circleContainer,
-                isSelected && styles.circleContainerSelected,
-                isDark && styles.circleContainerDark,
-              ]}
-            >
-              <View style={[styles.mapCircle, { backgroundColor: preview.land }]}>
-                <View style={[styles.previewWater, { backgroundColor: preview.water }]} />
-                <View style={[styles.previewRoad, { backgroundColor: preview.road }]} />
-                <View style={[styles.previewRoadCross, { backgroundColor: preview.road }]} />
+            icon={
+              <View
+                style={[
+                  styles.circleContainer,
+                  isSelected && styles.circleContainerSelected,
+                  isDark && styles.circleContainerDark,
+                ]}
+              >
+                <View style={[styles.mapCircle, { backgroundColor: preview.land }]}>
+                  <View style={[styles.previewWater, { backgroundColor: preview.water }]} />
+                  <View style={[styles.previewRoad, { backgroundColor: preview.road }]} />
+                  <View style={[styles.previewRoadCross, { backgroundColor: preview.road }]} />
+                </View>
               </View>
-            </View>
-            <Text
-              style={[
-                styles.label,
-                isSelected && styles.labelSelected,
-                isSelected && isDark && { color: darkColors.linkTeal },
-                isDark && !isSelected && styles.labelDark,
-              ]}
-            >
-              {t(labelKey as never)}
-            </Text>
-          </TouchableOpacity>
+            }
+          />
         );
       })}
     </View>
@@ -76,12 +66,13 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    gap: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
   },
   previewItem: {
-    alignItems: 'center',
-    gap: spacing.xs,
+    flex: 1,
+    borderRadius: layout.borderRadiusMd,
   },
   circleContainer: {
     width: CIRCLE_SIZE + 6,
@@ -94,7 +85,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   circleContainerSelected: {
-    borderColor: colors.primary,
+    borderColor: colors.textOnPrimary,
   },
   circleContainerDark: {
     backgroundColor: darkColors.border,
@@ -130,18 +121,5 @@ const styles = StyleSheet.create({
     width: 3,
     height: CIRCLE_SIZE * 1.4,
     transform: [{ rotate: '10deg' }],
-  },
-  label: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  labelSelected: {
-    color: colors.linkTeal,
-    fontWeight: '600',
-  },
-  labelDark: {
-    color: darkColors.textSecondary,
   },
 });

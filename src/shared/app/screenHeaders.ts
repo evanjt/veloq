@@ -34,6 +34,10 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   routes: null,
   'sheets/activity-type': null,
   'sheets/insight': null,
+  'sheets/tile-cache-budget': null,
+  'sheets/param-editor': null,
+  'sheets/day-activities': null,
+  'sheets/smoothing': null,
 
   'activity/[id]': { overMap: true },
   'exercise/[category]': { titleKey: 'strength.history' },
@@ -86,6 +90,10 @@ export function screenAnimation(name: string): 'none' | 'default' {
 export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/activity-type': [0.6, 1],
   'sheets/insight': [0.5, 1],
+  'sheets/tile-cache-budget': 'fitToContents',
+  'sheets/param-editor': [0.6, 1],
+  'sheets/day-activities': 'fitToContents',
+  'sheets/smoothing': 'fitToContents',
 };
 
 /** The stack options that make a listed route a sheet, or undefined for any other route. */

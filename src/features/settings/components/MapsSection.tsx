@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import {
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { Row } from '@/shared/ui/Row';
+import { pressable, pressRipple } from '@/shared/ui';
 import { HeatmapRow } from './HeatmapRow';
 import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
 import { settingsStyles } from './settingsStyles';
@@ -112,12 +113,12 @@ export function MapsSection() {
         <Text style={[styles.mapStyleLabel, isDark && settingsStyles.textLight]}>
           {t('settings.defaultStyle')}
         </Text>
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${t('settings.terrain3D')}: ${terrain3DLabel}`}
-          style={styles.terrain3DBadge}
+          style={pressable(styles.terrain3DBadge)}
           onPress={cycleTerrain3DMode}
-          activeOpacity={0.6}
+          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons
             name="image-filter-hdr"
@@ -133,7 +134,7 @@ export function MapsSection() {
           >
             3D: {terrain3DLabel}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
       <MapStylePreviewPicker
         value={mapPreferences.defaultStyle}
@@ -162,17 +163,17 @@ export function MapsSection() {
           >
             {t('settings.exploreMapStyle')}
           </Text>
-          <TouchableOpacity
+          <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${t('settings.exploreMapStyle')}: ${t((STYLE_LABELS[exploreStyle] ?? 'settings.light') as 'settings.light')}`}
-            style={[styles.pill, { backgroundColor: pillBg }]}
+            style={pressable([styles.pill, { backgroundColor: pillBg }])}
             onPress={cycleGlobalMapStyle}
-            activeOpacity={0.6}
+            android_ripple={pressRipple}
           >
             <Text style={[styles.pillText, { color: mutedColor }]}>
               {t((STYLE_LABELS[exploreStyle] ?? 'settings.light') as 'settings.light')}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <View
@@ -205,25 +206,24 @@ export function MapsSection() {
               >
                 {t(labelKey as 'maps.activityTypes.ride')}
               </Text>
-              <TouchableOpacity
+              <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${t(labelKey as 'maps.activityTypes.ride')}: ${t(styleKey as 'settings.default')}`}
-                style={[styles.pill, { backgroundColor: pillBg }]}
+                style={pressable([styles.pill, { backgroundColor: pillBg }])}
                 testID={`map-style-pill-${key}`}
                 onPress={() => cycleActivityGroupStyle(types)}
-                activeOpacity={0.6}
+                android_ripple={pressRipple}
               >
                 <Text style={[styles.pillText, { color: mutedColor }]}>
                   {t(styleKey as 'settings.default')}
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </Pressable>
+              <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${t(labelKey as 'maps.activityTypes.ride')}: 3D ${t(terrainKey as 'settings.terrain3DSmart', { defaultValue: 'Smart' })}`}
-                style={[styles.pill, { backgroundColor: pillBg }]}
+                style={pressable([styles.pill, { backgroundColor: pillBg }])}
                 testID={`map-terrain-pill-${key}`}
                 onPress={() => cycleTerrain3DGroup(types)}
-                activeOpacity={0.6}
+                android_ripple={pressRipple}
               >
                 <Text style={[styles.pillText, { color: mutedColor }]}>
                   3D:{' '}
@@ -231,7 +231,7 @@ export function MapsSection() {
                     defaultValue: 'Smart',
                   })}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           );
         })}

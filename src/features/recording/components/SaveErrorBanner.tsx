@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { Button } from '@/shared/ui/Button';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { GrantAccessButton } from './GrantAccessButton';
 
@@ -59,23 +59,12 @@ export function SaveErrorBanner({
         <GrantAccessButton onPress={onUpgradePermissions} loading={isOAuthLoading} />
       )}
       {!showPermissionFix && onRetry && (
-        <TouchableOpacity
-          style={[styles.oauthUpgradeBtn, { backgroundColor: colors.primary }]}
+        <Button
+          style={styles.retryButton}
+          label={t('common.retry', 'Retry')}
           onPress={onRetry}
-          disabled={isRetrying}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.retry', 'Retry')}
-        >
-          {isRetrying ? (
-            <ActivityIndicator size="small" color={colors.textOnPrimary} />
-          ) : (
-            <>
-              <MaterialCommunityIcons name="refresh" size={16} color={colors.textOnPrimary} />
-              <Text style={styles.oauthUpgradeBtnText}>{t('common.retry', 'Retry')}</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          loading={isRetrying}
+        />
       )}
     </View>
   );
@@ -97,19 +86,7 @@ const styles = StyleSheet.create({
   errorBannerTextDark: {
     color: darkColors.errorDeep,
   },
-  oauthUpgradeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
+  retryButton: {
     marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    minHeight: layout.minTapTarget,
-  },
-  oauthUpgradeBtnText: {
-    ...typography.bodyBold,
-    color: colors.textOnPrimary,
-    fontSize: typography.bodySmall.fontSize,
   },
 });

@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "Augmenter",
+    "decrease": "Diminuer",
+    "repositoryFor": "Dépôt de {{name}}"
+  },
   "about": {
     "dataAttribution": "Attribution des données",
     "description": "Une application mobile rapide pour intervals.icu axée sur les cartes et les analyses visuelles.",
@@ -228,7 +233,6 @@
     "lastBackup": "Dernière sauvegarde : {{date}}",
     "lastBackupNever": "Jamais sauvegardé",
     "backupNow": "Sauvegarder maintenant",
-    "backingUp": "Sauvegarde en cours...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "Sauvegarde iCloud",
     "carrierDeviceAndroid": "Sauvegarde Google",
@@ -879,6 +883,7 @@
     "recentPersonalRecord": "Record personnel récent"
   },
   "licenses": {
+    "openRepository": "Ouvrir le dépôt",
     "footer": "Appuyez sur un badge de licence pour voir le texte complet. Appuyez sur l'icône de lien pour visiter le dépôt du projet.",
     "intro": "Veloq est construit avec des logiciels open-source. Cet écran liste les bibliothèques tierces et leurs licences.",
     "sectionCoreFramework": "Framework principal",
@@ -1223,6 +1228,12 @@
     "accuracyFilter": "Filtre de précision",
     "accuracyFilterDescription": "Ignorer les points GPS moins précis que cette valeur.",
     "autoPauseDelay": "Délai de pause automatique",
+    "accuracyFilterDecrease": "Réduire le filtre de précision",
+    "accuracyFilterIncrease": "Augmenter le filtre de précision",
+    "autoPauseDelayDecrease": "Réduire le délai de pause automatique",
+    "autoPauseDelayIncrease": "Augmenter le délai de pause automatique",
+    "speedThresholdDecrease": "Réduire le seuil de vitesse pour {{sport}}",
+    "speedThresholdIncrease": "Augmenter le seuil de vitesse pour {{sport}}",
     "keepAwake": "Garder l'écran allumé",
     "keepAwakeDescription": "Empêche l'écran de se mettre en veille pendant l'enregistrement.",
     "routeOverlay": {
@@ -1404,6 +1415,13 @@
     "resetBounds": "Réinitialiser à l'original",
     "trimPrecisionHint": "Glissez la poignée vers le haut ou le bas pour un contrôle plus fin",
     "trimMode": "Rogner",
+    "trimStartEarlier": "Avancer le début",
+    "trimStartLater": "Reculer le début",
+    "trimEndEarlier": "Avancer la fin",
+    "trimEndLater": "Reculer la fin",
+    "includeActivity": "Inclure l’activité",
+    "excludeActivity": "Exclure l’activité",
+    "showExcludedActivities": "Afficher les activités exclues",
     "expandMode": "Étendre",
     "resetBoundsConfirm": "Réinitialiser aux limites détectées automatiquement ?\n\nLa section sera à nouveau comparée à toutes vos activités.",
     "liftGround": "Remontée",

@@ -69,7 +69,9 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
 }));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
 jest.mock('@/shared/ui', () => {
+  const { Text } = require('react-native');
   return {
+    Button: ({ label }: { label: string }) => <Text>{label}</Text>,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ErrorStatePreset: () => null,

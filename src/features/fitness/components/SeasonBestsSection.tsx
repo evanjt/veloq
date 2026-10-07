@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import { EngineReadFailure } from '@/shared/ui';
+import { EngineReadFailure, pressable } from '@/shared/ui';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '../lib/bestEfforts';
@@ -55,15 +55,16 @@ export function SeasonBestsSection({
   const hasClimbing = hasClimbingValues || hasClimbingNote;
 
   const viewAll = (
-    <TouchableOpacity
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('bestEffortsScreen.title')}
       testID="season-bests-view-all"
-      style={[styles.viewAllRow, isDark && styles.viewAllRowDark]}
+      style={pressable([styles.viewAllRow, isDark && styles.viewAllRowDark])}
       onPress={() => router.push('/best-efforts')}
-      activeOpacity={0.7}
     >
       <Text style={[styles.viewAllText, { color: sportText }]}>{t('bestEffortsScreen.title')}</Text>
       <MaterialCommunityIcons name="chevron-right" size={18} color={sportColor} />
-    </TouchableOpacity>
+    </Pressable>
   );
 
   if (isLoading) {
@@ -122,15 +123,17 @@ export function SeasonBestsSection({
             </View>
             <View style={styles.activityColumn}>
               {activityName && effort.activityId ? (
-                <TouchableOpacity
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={activityName}
                   onPress={() => router.push(`/activity/${effort.activityId}`)}
-                  activeOpacity={0.7}
+                  style={pressable()}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={[styles.activityName, { color: sportText }]} numberOfLines={1}>
                     {activityName} →
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ) : null}
             </View>
           </View>

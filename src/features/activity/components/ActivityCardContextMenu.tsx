@@ -28,7 +28,7 @@ import {
   colorWithOpacity,
 } from '@/theme';
 import type { Activity } from '@/types';
-import { pressable, pressRipple } from '@/shared/ui';
+import { IconButton, pressable, pressRipple } from '@/shared/ui';
 
 interface ActivityCardContextMenuProps {
   visible: boolean;
@@ -113,7 +113,7 @@ export function ActivityCardContextMenu({
 
   const handleStyleSelect = useCallback(
     (style: MapStyleType) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.selectionAsync().catch(() => {});
       setActivityOverride(activity.id, { style });
     },
     [activity.id, setActivityOverride]
@@ -121,14 +121,14 @@ export function ActivityCardContextMenu({
 
   const handleToggle3D = useCallback(
     (value: boolean) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.selectionAsync().catch(() => {});
       setActivityOverride(activity.id, { terrain3D: value });
     },
     [activity.id, setActivityOverride]
   );
 
   const handleReset = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     clearActivityOverride(activity.id);
   }, [activity.id, clearActivityOverride]);
 
@@ -157,28 +157,35 @@ export function ActivityCardContextMenu({
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const dividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.08);
 
+  // iOS presents the transparent modal over the feed without removing it, so the card
+  // marks itself modal to keep VoiceOver inside the menu.
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       {/* press-feedback: none, the scrim is the way out and not a control */}
-      <Pressable style={styles.overlay} onPress={onDismiss}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('common.close')}
+        style={styles.overlay}
+        onPress={onDismiss}
+      >
         {/* press-feedback: none, this only stops the scrim taking the tap */}
-        <Pressable style={[styles.card, { backgroundColor: bgColor }]} onPress={() => {}}>
+        <Pressable
+          testID="activity-card-context-menu"
+          accessibilityViewIsModal
+          accessibilityRole="none"
+          accessible={false}
+          style={[styles.card, { backgroundColor: bgColor }]}
+          onPress={() => {}}
+        >
           {/* Header */}
           <View style={styles.header}>
             <MaterialCommunityIcons name={iconName} size={18} color={mutedColor} />
             <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
               {activity.name}
             </Text>
-            <Pressable
-              onPress={onDismiss}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.close')}
-              style={pressable()}
-              android_ripple={pressRipple}
-            >
+            <IconButton onPress={onDismiss} accessibilityLabel={t('common.close')}>
               <MaterialCommunityIcons name="close" size={20} color={mutedColor} />
-            </Pressable>
+            </IconButton>
           </View>
 
           {/* Map Style Selector */}
@@ -191,6 +198,9 @@ export function ActivityCardContextMenu({
                 const isSelected = currentStyle === key;
                 return (
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(labelKey)}
+                    accessibilityState={{ selected: isSelected }}
                     key={key}
                     onPress={() => handleStyleSelect(key)}
                     style={pressable(styles.styleOption)}
@@ -239,6 +249,8 @@ export function ActivityCardContextMenu({
 
           {/* Actions */}
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('activity.share')}
             style={pressable(styles.actionRow)}
             android_ripple={pressRipple}
             onPress={handleShare}
@@ -248,6 +260,8 @@ export function ActivityCardContextMenu({
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('activity.viewDetails')}
             style={pressable(styles.actionRow)}
             android_ripple={pressRipple}
             onPress={handleViewDetails}
@@ -263,6 +277,8 @@ export function ActivityCardContextMenu({
             <>
               <View style={[styles.divider, { backgroundColor: dividerColor }]} />
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('activity.resetToDefault')}
                 style={pressable(styles.actionRow)}
                 android_ripple={pressRipple}
                 onPress={handleReset}

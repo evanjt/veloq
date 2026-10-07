@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, View, StyleSheet, TouchableOpacity, FlatList, Modal } from 'react-native';
+import { Pressable, View, StyleSheet, FlatList, Modal } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { pressable, pressRipple } from '@/shared/ui';
+import { IconButton } from '@/shared/ui/IconButton';
 
 interface RouteOverlayPickerProps {
   visible: boolean;
@@ -96,35 +97,38 @@ export function RouteOverlayPicker({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity
-          activeOpacity={1}
-          style={[styles.sheet, { backgroundColor: surface, borderColor: border }]}
-        >
+      <View style={styles.backdrop}>
+        <Pressable
+          style={pressable(StyleSheet.absoluteFill)}
+          android_ripple={pressRipple}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close', 'Close')}
+        />
+        <View style={[styles.sheet, { backgroundColor: surface, borderColor: border }]}>
           <View style={styles.sheetHeader}>
             <Text style={[styles.sheetTitle, { color: textPrimary }]}>
               {t('recording.routeOverlay.title', 'Follow a route')}
             </Text>
-            <Pressable
+            <IconButton
               testID="route-overlay-close"
               onPress={onClose}
-              style={pressable(styles.closeButton)}
-              accessibilityRole="button"
               accessibilityLabel={t('common.close', 'Close')}
-              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
-            </Pressable>
+            </IconButton>
           </View>
 
-          <TouchableOpacity
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedRouteId == null }}
             testID="route-overlay-none"
-            style={[styles.row, { borderBottomColor: border }]}
+            style={pressable([styles.row, { borderBottomColor: border }])}
+            android_ripple={pressRipple}
             onPress={() => {
               onSelect(null);
               onClose();
             }}
-            activeOpacity={0.7}
           >
             <MaterialCommunityIcons
               name="close-circle-outline"
@@ -139,7 +143,7 @@ export function RouteOverlayPicker({
             >
               {t('recording.routeOverlay.none', 'No route')}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
           {groupsError !== undefined ? (
             <Text
@@ -161,14 +165,16 @@ export function RouteOverlayPicker({
               renderItem={({ item }) => {
                 const isSelected = item.id === selectedRouteId;
                 return (
-                  <TouchableOpacity
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
                     testID={`route-overlay-option-${item.id}`}
-                    style={[styles.row, { borderBottomColor: border }]}
+                    style={pressable([styles.row, { borderBottomColor: border }])}
+                    android_ripple={pressRipple}
                     onPress={() => {
                       onSelect(item.id);
                       onClose();
                     }}
-                    activeOpacity={0.7}
                   >
                     <MaterialCommunityIcons
                       name="map-marker-path"
@@ -194,13 +200,13 @@ export function RouteOverlayPicker({
                     {isSelected && (
                       <MaterialCommunityIcons name="check" size={20} color={brand.teal} />
                     )}
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               }}
             />
           )}
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -228,13 +234,6 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     ...typography.sectionTitle,
-  },
-  closeButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: -spacing.sm,
   },
   list: {
     flexGrow: 0,

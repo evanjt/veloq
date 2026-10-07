@@ -9,11 +9,39 @@
  * three presets set all five fields together.
  */
 
-import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import React, { useState } from 'react';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewParamPanel';
 import { DETECTION_PRESETS } from '@/features/routes/lib/detectionParams';
+
+import ParamEditorSheet from '@/app/sheets/param-editor';
+
+let mockSetRoute: (request: string | null) => void = () => {};
+let mockRequest: string | undefined;
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  router: {
+    push: ({ params }: { params: { request: string } }) => mockSetRoute(params.request),
+    back: () => mockSetRoute(null),
+  },
+  useLocalSearchParams: () => ({ request: mockRequest }),
+}));
+
+function renderWithSheet(panel: React.ReactElement) {
+  function Harness() {
+    const [request, setRequest] = useState<string | null>(null);
+    mockSetRoute = setRequest;
+    mockRequest = request ?? undefined;
+    return (
+      <>
+        {panel}
+        {request && <ParamEditorSheet key={request} />}
+      </>
+    );
+  }
+  return render(<Harness />);
+}
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -38,7 +66,7 @@ const params = {
 
 function panel(overrides: Partial<typeof params> = {}) {
   const onChange = jest.fn();
-  const view = render(
+  const view = renderWithSheet(
     <PreviewParamPanel params={{ ...params, ...overrides }} onChange={onChange} />
   );
   return { ...view, onChange };
@@ -54,14 +82,19 @@ describe('typing a parameter', () => {
     expect(getByTestId('param-editor-input').props.value).toBe('200');
   });
 
-  it('takes a value past the slider, which is the reason it exists', () => {
+  it('takes a value past the slider, which is the reason it exists', async () => {
     const { getByTestId, onChange } = panel();
 
     fireEvent.press(getByTestId('param-edit-maxSectionLength'));
     fireEvent.changeText(getByTestId('param-editor-input'), '500');
     fireEvent.press(getByTestId('param-editor-save'));
 
-    expect(onChange).toHaveBeenCalledWith({ ...params, maxSectionLength: 500000 });
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ...params,
+        maxSectionLength: 500000,
+      })
+    );
   });
 
   it('says when the detector stops telling the value apart', () => {
@@ -97,7 +130,7 @@ describe('typing a parameter', () => {
   });
 
   it('grows the slider to reach a value typed past its end', () => {
-    const { UNSAFE_getAllByType } = render(
+    const { UNSAFE_getAllByType } = renderWithSheet(
       <PreviewParamPanel params={{ ...params, maxSectionLength: 500000 }} onChange={jest.fn()} />
     );
     const Slider = require('@react-native-community/slider').default;
@@ -127,7 +160,7 @@ describe('the presets', () => {
 
 describe('a run in flight', () => {
   it('closes the editor and the presets, not just the sliders', () => {
-    const { getByTestId, queryByTestId } = render(
+    const { getByTestId, queryByTestId } = renderWithSheet(
       <PreviewParamPanel params={params} onChange={jest.fn()} disabled />
     );
 

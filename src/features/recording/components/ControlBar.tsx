@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Animated, Pressable } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '@/shared/app';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 
@@ -178,16 +179,16 @@ function PrimaryButton({
 }) {
   return (
     <View style={styles.buttonContainer}>
-      <TouchableOpacity
+      <Pressable
         testID={testID}
-        style={[styles.primaryButton, { backgroundColor: color }]}
+        style={pressable([styles.primaryButton, { backgroundColor: color }])}
+        android_ripple={pressRipple}
         onPress={onPress}
-        activeOpacity={0.7}
         accessibilityLabel={label}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons name={icon} size={28} color={colors.textOnDark} />
-      </TouchableOpacity>
+      </Pressable>
       <Text style={styles.buttonLabel}>{label}</Text>
     </View>
   );
@@ -211,16 +212,16 @@ function SecondaryButton({
 }) {
   return (
     <View style={styles.buttonContainer}>
-      <TouchableOpacity
+      <Pressable
         testID={testID}
-        style={[styles.secondaryButton, { backgroundColor }]}
+        style={pressable([styles.secondaryButton, { backgroundColor }])}
+        android_ripple={pressRipple}
         onPress={onPress}
-        activeOpacity={0.7}
         accessibilityLabel={label}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons name={icon} size={22} color={textColor} />
-      </TouchableOpacity>
+      </Pressable>
       <Text style={[styles.buttonLabel, { color: textColor }]}>{label}</Text>
     </View>
   );

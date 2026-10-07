@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   Animated,
   Alert,
   StyleSheet,
@@ -25,7 +25,7 @@ import { SectionInlinePlot } from './SectionInlinePlot';
 import { ActivityLedgerChanges } from './ActivityLedgerChanges';
 import { findRowIndexAtPageY } from './scrubHitTest';
 import { DataRangeFooter } from '@/features/routes';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { Button, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
 import { getEngine } from '@/shared/native/engine';
 import {
   groupSectionEncounters,
@@ -60,7 +60,7 @@ interface ActivitySectionsSectionProps {
   /** Whether a scan has returned, including one that found nothing */
   hasScanned: boolean;
   /** Trigger a scan for this activity */
-  onScan: () => void;
+  onScan: () => void | Promise<void>;
   /** Force-match to a specific section */
   onRematch: (sectionId: string) => boolean;
 }
@@ -94,6 +94,20 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   // Track which scan matches have been successfully added
   const [addedSectionIds, setAddedSectionIds] = useState(new Set<string>());
+  const [scanning, setScanning] = useState(false);
+  const scanningRef = useRef(false);
+
+  const handleScan = useCallback(() => {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
+    setScanning(true);
+    Promise.resolve()
+      .then(onScan)
+      .finally(() => {
+        scanningRef.current = false;
+        setScanning(false);
+      });
+  }, [onScan]);
 
   const hasScanned = scanReturned || addedSectionIds.size > 0;
 
@@ -391,8 +405,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   }, [startScrubAt, handleScrubMove, handleScrubEnd]);
 
   const handleContainerLayout = useCallback((_e: LayoutChangeEvent) => {
-    // Capture the list container's window-Y on mount. It's re-measured
-    // at scrub start to catch any outer-page scroll since this fired.
+    // Capture the list container's window-Y on mount. Scrub start re-measures
+    // only the first row, so an outer-page scroll since this fired leaves it stale.
     listContainerRef.current?.measureInWindow?.((_x: number, y: number) => {
       listTopYRef.current = y;
     });
@@ -502,20 +516,18 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           {t('activityDetail.noMatchedSectionsDescription')}
         </Text>
         {!hasScanned && (
-          <TouchableOpacity
-            style={[styles.scanButton, isDark && styles.scanButtonDark]}
-            onPress={onScan}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name="magnify" size={18} color={colors.primary} />
-            <Text style={[styles.scanButtonText, isDark && styles.scanButtonTextDark]}>
-              {t('sections.scanForMatches')}
-            </Text>
-          </TouchableOpacity>
+          <Button
+            label={t('sections.scanForMatches')}
+            variant="secondary"
+            icon={<MaterialCommunityIcons name="magnify" size={18} color={colors.primary} />}
+            onPress={handleScan}
+            loading={scanning}
+            style={styles.scanButton}
+          />
         )}
       </View>
     );
-  }, [isDark, t, hasScanned, onScan]);
+  }, [isDark, t, hasScanned, handleScan, scanning]);
 
   // Render a single scan match result row. The engine sends the name it
   // resolves for the section, the one every other screen shows.
@@ -531,10 +543,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           key={`${match.sectionId}-${match.startIndex}`}
           style={[styles.scanMatchRow, isDark && styles.scanMatchRowDark]}
         >
-          <TouchableOpacity
-            style={styles.scanMatchInfo}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={displayName}
+            style={pressable(styles.scanMatchInfo)}
+            android_ripple={pressRipple}
             onPress={() => navigateTo(`/section/${match.sectionId}?activityId=${activityId}`)}
-            activeOpacity={0.7}
           >
             <Text
               numberOfLines={2}
@@ -547,14 +561,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
               {startPct > 0 ? ` · ${t('sections.atPosition', { pct: startPct })}` : ''}
               {quality < 90 ? ` · ${t('sections.matchQuality', { quality })}` : ''}
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.addMatchButton}
+          </Pressable>
+          <Button
+            label={t('sections.addToSection')}
+            size="sm"
             onPress={() => handleRematch(match.sectionId)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.addMatchButtonText}>{t('sections.addToSection')}</Text>
-          </TouchableOpacity>
+          />
         </View>
       );
     },
@@ -569,12 +581,14 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
         {/* Scan trigger: show "Scan for more sections" link when sections exist */}
         {encounters.length > 0 && !hasScanned && (
-          <TouchableOpacity style={styles.scanLink} onPress={onScan} activeOpacity={0.7}>
-            <MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />
-            <Text style={[styles.scanLinkText, isDark && { color: darkColors.linkTeal }]}>
-              {t('sections.scanForMore')}
-            </Text>
-          </TouchableOpacity>
+          <Button
+            label={t('sections.scanForMore')}
+            variant="ghost"
+            icon={<MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />}
+            onPress={handleScan}
+            loading={scanning}
+            style={styles.scanLink}
+          />
         )}
 
         {/* Scan results */}
@@ -597,14 +611,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         )}
 
         {coordinates.length > 0 && !sectionCreationMode && (
-          <TouchableOpacity
-            style={[styles.createSectionButton, isDark && styles.createSectionButtonDark]}
+          <Button
+            label={t('routes.createSection')}
+            icon={<MaterialCommunityIcons name="plus" size={20} color={colors.textOnPrimary} />}
             onPress={() => onSectionCreationModeChange(true)}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name="plus" size={20} color={colors.textOnPrimary} />
-            <Text style={styles.createSectionButtonText}>{t('routes.createSection')}</Text>
-          </TouchableOpacity>
+            style={styles.createSectionButton}
+          />
         )}
 
         <DataRangeFooter days={cacheDays} isDark={isDark} />
@@ -621,7 +633,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     ledgerChanges,
     hasScanned,
     filteredScanMatches,
-    onScan,
+    handleScan,
+    scanning,
     renderScanMatch,
   ]);
 
@@ -703,26 +716,10 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   createSectionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: layout.borderRadiusLg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
     marginTop: spacing.lg,
     marginBottom: spacing.md,
-    gap: spacing.xs,
     ...shadows.elevated,
-  },
-  createSectionButtonDark: {
-    backgroundColor: colors.primary,
-  },
-  createSectionButtonText: {
-    color: colors.textOnPrimary,
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
   },
   swipeAction: {
     width: 80,
@@ -747,42 +744,11 @@ const styles = StyleSheet.create({
   disableSwipeAction: {
     backgroundColor: colors.warning,
   },
-  // Scan button (empty state)
   scanButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
     marginTop: spacing.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: layout.borderRadiusXl,
-    borderWidth: 1,
-    borderColor: colors.primary,
   },
-  scanButtonDark: {
-    borderColor: colors.primary,
-  },
-  scanButtonText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.linkTeal,
-  },
-  scanButtonTextDark: {
-    color: darkColors.linkTeal,
-  },
-  // Scan link (footer, when sections exist)
   scanLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
     marginHorizontal: spacing.md,
-  },
-  scanLinkText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.linkTeal,
-    fontWeight: '500',
   },
   // Scan results
   scanResultsContainer: {
@@ -822,17 +788,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
-  },
-  addMatchButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: layout.borderRadius,
-    backgroundColor: colors.primary,
-  },
-  addMatchButtonText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.textOnPrimary,
   },
   // No results
   scanNoResults: {

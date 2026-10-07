@@ -40,6 +40,7 @@ const mockStrip: {
   onTabChange?: (key: string) => void;
 } = { tabs: [], pages: [] };
 jest.mock('@/shared/ui', () => ({
+  pressable: (style: unknown) => style,
   ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
   ScreenSafeAreaView: ({ children }: { children: React.ReactNode }) => children,
   SwipeableTabs: ({

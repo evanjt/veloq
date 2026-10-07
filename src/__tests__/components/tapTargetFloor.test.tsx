@@ -7,15 +7,17 @@
  */
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { initializeI18n } from '@/i18n';
 import { HeroNameRow } from '@/shared/ui/DetailHero';
 import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips';
+import { SectionsListFiltersBar } from '@/features/routes/components/SectionsListFiltersBar';
 import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { layout } from '@/theme/layout';
+import { typography } from '@/theme';
 
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -103,5 +105,37 @@ describe('tap-target floor', () => {
 
     const chip = screen.getByTestId('home-filter-cycling');
     expect(reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);
+  });
+
+  it('holds each sections filter chip to the minimum height', () => {
+    const { UNSAFE_getAllByType } = render(
+      <SectionsListFiltersBar
+        regularSectionsCount={2}
+        sortOption="name"
+        onSortChange={jest.fn()}
+        sortChips={[{ key: 'name', label: 'Name', icon: 'sort-alphabetical-ascending' }]}
+        customCount={1}
+        hiddenFilters={{ custom: false, auto: false, disabled: false, unaccepted: false }}
+        onFilterPress={jest.fn()}
+        trueDisabledCount={1}
+        unacceptedAutoCount={1}
+        acceptedAutoCount={1}
+      />
+    );
+
+    const chips = UNSAFE_getAllByType(TouchableOpacity);
+    expect(chips).toHaveLength(4);
+    for (const chip of chips) {
+      const style = StyleSheet.flatten(chip.props.style) as {
+        paddingVertical: number;
+        borderWidth: number;
+      };
+      const drawnHeight =
+        typography.caption.lineHeight + 2 * (style.paddingVertical + style.borderWidth);
+      const hitSlop = chip.props.hitSlop as Slop;
+      expect(
+        drawnHeight + slopOn(hitSlop, 'top') + slopOn(hitSlop, 'bottom')
+      ).toBeGreaterThanOrEqual(layout.minTapTarget);
+    }
   });
 });

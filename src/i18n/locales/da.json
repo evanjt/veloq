@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "Forøg",
+    "decrease": "Formindsk",
+    "repositoryFor": "Kodelager for {{name}}"
+  },
   "about": {
     "dataAttribution": "Datakilder",
     "description": "En hurtig, offline-først mobilklient til intervals.icu med fokus på kort og visuel analyse.",
@@ -227,7 +232,6 @@
     "lastBackup": "Sidste backup: {{date}}",
     "lastBackupNever": "Aldrig sikkerhedskopieret",
     "backupNow": "Sikkerhedskopiér nu",
-    "backingUp": "Sikkerhedskopierer...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "iCloud-sikkerhedskopi",
     "carrierDeviceAndroid": "Google-sikkerhedskopi",
@@ -862,6 +866,7 @@
     "recentPersonalRecord": "Nylig personlig rekord"
   },
   "licenses": {
+    "openRepository": "Åbn repository",
     "footer": "Tryk på et licensmærke for at se den fulde licenstekst. Tryk på linkikonet for at besøge projektets repository.",
     "intro": "Veloq er bygget med open source-software. Denne skærm viser tredjepartsbiblioteker og deres licenser.",
     "sectionCoreFramework": "Kernerammeværk",
@@ -1204,6 +1209,12 @@
     "accuracyFilter": "Nøjagtighedsfilter",
     "accuracyFilterDescription": "Kassér GPS-punkter, der er mindre nøjagtige end denne værdi.",
     "autoPauseDelay": "Forsinkelse for autopause",
+    "accuracyFilterDecrease": "Sænk præcisionsfilter",
+    "accuracyFilterIncrease": "Øg præcisionsfilter",
+    "autoPauseDelayDecrease": "Forkort autopauseforsinkelse",
+    "autoPauseDelayIncrease": "Forlæng autopauseforsinkelse",
+    "speedThresholdDecrease": "Sænk hastighedsgrænse for {{sport}}",
+    "speedThresholdIncrease": "Øg hastighedsgrænse for {{sport}}",
     "keepAwake": "Hold skærmen tændt",
     "keepAwakeDescription": "Forhindrer skærmen i at slukke under optagelse.",
     "routeOverlay": {
@@ -1380,6 +1391,13 @@
     "resetBounds": "Nulstil til original",
     "trimPrecisionHint": "Træk håndtaget op eller ned for finere kontrol",
     "trimMode": "Beskær",
+    "trimStartEarlier": "Flyt start tidligere",
+    "trimStartLater": "Flyt start senere",
+    "trimEndEarlier": "Flyt slut tidligere",
+    "trimEndLater": "Flyt slut senere",
+    "includeActivity": "Medtag aktivitet",
+    "excludeActivity": "Udeluk aktivitet",
+    "showExcludedActivities": "Vis udelukkede aktiviteter",
     "expandMode": "Udvid",
     "resetBoundsConfirm": "Nulstil til de originale automatisk registrerede grænser?\n\nSektionen vil blive genmatchet mod alle dine aktiviteter.",
     "liftGround": "Lift",

@@ -852,7 +852,7 @@ impl PersistentEngine {
     /// The DB row is kept (disabled = 1) so enable can restore it with members
     /// intact, but it is dropped from the in-memory cache and the identity
     /// registry, and a durable suppression intent is recorded. Together these
-    /// stop the corridor from re-emerging on the next detect (invariant 6) and
+    /// stop the corridor from re-emerging on the next detect, and
     /// close the in-mem/DB seam: the visible view already hides a disabled
     /// section, so the in-memory cache must too, or detection keeps matching on
     /// a corridor the user hid.

@@ -1,11 +1,17 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
-import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Alert, Pressable } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { ScreenSafeAreaView, SwipeableTabs, type SwipeableTab } from '@/shared/ui';
+import {
+  ScreenSafeAreaView,
+  SwipeableTabs,
+  pressable,
+  pressRipple,
+  type SwipeableTab,
+} from '@/shared/ui';
 import { aboutInsightsBody, InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
 import {
   DateRangeSummary,
@@ -502,10 +508,11 @@ function InsightsScreenContent() {
           </View>
         </View>
         {!isRouteMatchingEnabled && (
-          <TouchableOpacity
+          <Pressable
+            accessibilityRole="button"
             onPress={() => useRouteSettings.getState().setEnabled(true)}
-            style={styles.disabledHint}
-            activeOpacity={0.6}
+            style={pressable(styles.disabledHint)}
+            android_ripple={pressRipple}
           >
             <MaterialCommunityIcons
               name="map-marker-off-outline"
@@ -520,7 +527,7 @@ function InsightsScreenContent() {
                 {t('insights.routesDisabledLine2', 'Tap to enable')}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         )}
         <IconButton
           icon="information-outline"

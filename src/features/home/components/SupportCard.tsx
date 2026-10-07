@@ -14,10 +14,10 @@ import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/shared/app';
 import { useSupportStore } from '@/shared/app/SupportStore';
 import { useDonation } from '@/shared/app/useDonation';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { Card } from '@/shared/ui/Card';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button, pressable, pressRipple } from '@/shared/ui';
 
 const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
@@ -170,6 +170,9 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
         <Pressable
           testID="support-card-tip-toggle"
           onPress={toggleTips}
+          accessibilityRole="button"
+          accessibilityLabel={t('support.supportDevelopment')}
+          accessibilityState={{ expanded: tipsExpanded }}
           style={pressable(styles.tipToggle)}
           android_ripple={pressRipple}
           hitSlop={4}
@@ -196,42 +199,30 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
               />
             </View>
           ) : (
-            <Pressable
+            <Button
               testID="support-card-sponsor-button"
               onPress={handleSponsor}
-              style={pressable([styles.sponsorButton, isDark && styles.sponsorButtonDark])}
-              android_ripple={pressRipple}
-            >
-              <MaterialCommunityIcons name="github" size={18} color={textColor} />
-              <Text style={[styles.sponsorText, isDark && styles.sponsorTextDark]}>
-                {t('support.sponsorGitHub')}
-              </Text>
-            </Pressable>
+              label={t('support.sponsorGitHub')}
+              variant="secondary"
+              icon={<MaterialCommunityIcons name="github" size={18} color={textColor} />}
+            />
           )}
         </Animated.View>
 
         <View style={styles.dismissRow}>
-          <Pressable
+          <Button
+            label={t('support.remindLater')}
+            variant="ghost"
+            size="sm"
             onPress={handleRemindLater}
-            hitSlop={8}
-            style={pressable()}
-            android_ripple={pressRipple}
-          >
-            <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
-              {t('support.remindLater')}
-            </Text>
-          </Pressable>
+          />
           <Text style={[styles.dismissSeparator, isDark && styles.dismissTextDark]}>·</Text>
-          <Pressable
+          <Button
+            label={t('support.neverShow')}
+            variant="ghost"
+            size="sm"
             onPress={handleNeverShow}
-            hitSlop={8}
-            style={pressable()}
-            android_ripple={pressRipple}
-          >
-            <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
-              {t('support.neverShow')}
-            </Text>
-          </Pressable>
+          />
         </View>
       </Card>
     </Animated.View>
@@ -250,18 +241,19 @@ function ActionButton({
   isDark: boolean;
 }) {
   return (
-    <Pressable
+    <Button
+      label={label}
+      variant="secondary"
       onPress={onPress}
-      style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
-      android_ripple={pressRipple}
-    >
-      <MaterialCommunityIcons
-        name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
-        size={20}
-        color={isDark ? darkColors.textPrimary : colors.textPrimary}
-      />
-      <Text style={[styles.actionButtonText, isDark && styles.actionButtonTextDark]}>{label}</Text>
-    </Pressable>
+      style={styles.actionButton}
+      icon={
+        <MaterialCommunityIcons
+          name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
+          size={20}
+          color={isDark ? darkColors.textPrimary : colors.textPrimary}
+        />
+      }
+    />
   );
 }
 
@@ -293,23 +285,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: layout.borderRadiusSm,
-  },
-  actionButtonDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  actionButtonText: {
-    ...typography.caption,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  actionButtonTextDark: {
-    color: darkColors.textPrimary,
   },
   tipToggle: {
     flexDirection: 'row',
@@ -322,36 +297,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
-  sponsorButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: layout.borderRadiusSm,
-  },
-  sponsorButtonDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  sponsorText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  sponsorTextDark: {
-    color: darkColors.textPrimary,
-  },
   dismissRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: spacing.xs,
-  },
-  dismissText: {
-    ...typography.caption,
-    color: colors.textSecondary,
   },
   dismissSeparator: {
     ...typography.caption,

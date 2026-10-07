@@ -212,8 +212,6 @@ impl PersistentEngine {
     }
 
     /// The overlay as a pure function of DB state: named intents resolved
-    /// onto the visible catalogue by core coverage.
-    /// The overlay as a pure function of DB state: named intents resolved
     /// onto the visible catalogue by core coverage. The computation itself is
     /// [`compute::compute_overlay`], shared with the pooled reader.
     fn compute_named_overlay(&self) -> NamedOverlay {
@@ -814,12 +812,6 @@ mod tests {
     }
 }
 
-/// The overlay, computed from the database and nothing else.
-///
-/// Free functions over a connection rather than methods, so the pooled reader
-/// can answer "what is this section called" without the engine lock. The
-/// engine's own `compute_named_overlay` is one call into here, so the two
-/// cannot drift.
 /// The overlay a pooled reader sees: the same computation, behind the read
 /// cache's `data_version` stamp, because resolving it walks every visible
 /// section and the answer only changes when something commits.
@@ -909,6 +901,12 @@ pub(crate) mod pooled {
     }
 }
 
+/// The overlay, computed from the database and nothing else.
+///
+/// Free functions over a connection rather than methods, so the pooled reader
+/// can answer "what is this section called" without the engine lock. The
+/// engine's own `compute_named_overlay` is one call into here, so the two
+/// cannot drift.
 pub(crate) mod compute {
     use std::collections::BTreeMap;
 

@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "增加",
+    "decrease": "减少",
+    "repositoryFor": "{{name}} 的代码仓库"
+  },
   "about": {
     "dataAttribution": "数据来源",
     "description": "一款快速、离线优先的 intervals.icu 移动客户端，专注于地图和可视化分析。",
@@ -227,7 +232,6 @@
     "lastBackup": "上次备份：{{date}}",
     "lastBackupNever": "从未备份",
     "backupNow": "立即备份",
-    "backingUp": "正在备份...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "iCloud 备份",
     "carrierDeviceAndroid": "Google 备份",
@@ -862,6 +866,7 @@
     "recentPersonalRecord": "最近的个人纪录"
   },
   "licenses": {
+    "openRepository": "打开代码仓库",
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
     "intro": "Veloq使用开源软件构建。此屏幕列出了第三方库及其许可证。",
     "sectionCoreFramework": "核心框架",
@@ -1204,6 +1209,12 @@
     "accuracyFilter": "精度过滤",
     "accuracyFilterDescription": "丢弃精度低于此值的 GPS 点。",
     "autoPauseDelay": "自动暂停延迟",
+    "accuracyFilterDecrease": "降低精度过滤阈值",
+    "accuracyFilterIncrease": "提高精度过滤阈值",
+    "autoPauseDelayDecrease": "缩短自动暂停延迟",
+    "autoPauseDelayIncrease": "延长自动暂停延迟",
+    "speedThresholdDecrease": "降低{{sport}}的速度阈值",
+    "speedThresholdIncrease": "提高{{sport}}的速度阈值",
     "keepAwake": "保持屏幕常亮",
     "keepAwakeDescription": "防止屏幕在录制期间休眠。",
     "routeOverlay": {
@@ -1380,6 +1391,13 @@
     "resetBounds": "恢复原始",
     "trimPrecisionHint": "上下拖动滑块以进行更精细的控制",
     "trimMode": "裁剪",
+    "trimStartEarlier": "提前起点",
+    "trimStartLater": "推后起点",
+    "trimEndEarlier": "提前终点",
+    "trimEndLater": "推后终点",
+    "includeActivity": "包含活动",
+    "excludeActivity": "排除活动",
+    "showExcludedActivities": "显示已排除的活动",
     "expandMode": "扩展",
     "resetBoundsConfirm": "恢复到自动检测的原始边界？\n\n该路段将与您的所有活动重新匹配。",
     "liftGround": "缆车",

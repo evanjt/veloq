@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Pressable, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useMetricSystem, useTheme } from '@/shared/app';
@@ -7,7 +7,7 @@ import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import type { FrequentSection } from '@/types';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button, IconButton } from '@/shared/ui';
 
 interface SectionPopupProps {
   section: FrequentSection;
@@ -42,34 +42,27 @@ export const SectionPopup = memo(function SectionPopup({
           </Text>
         </View>
         {onViewDetails && (
-          <Pressable
+          <Button
             testID="section-popup-view-details"
             onPress={onViewDetails}
-            style={pressable(styles.viewDetailsInline)}
-            android_ripple={pressRipple}
-            accessibilityLabel={t('maps.viewSectionDetails')}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.viewDetailsText, isDark && { color: darkColors.linkTeal }]}>
-              {t('maps.viewDetails')}
-            </Text>
-            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
-          </Pressable>
+            label={t('maps.viewSectionDetails')}
+            variant="ghost"
+            size="sm"
+            icon={<MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />}
+          />
         )}
-        <Pressable
+        <IconButton
           testID="section-popup-close"
           onPress={onClose}
-          style={pressable(styles.popupIconButton)}
-          android_ripple={pressRipple}
+          variant="ghost"
           accessibilityLabel={t('maps.closeSectionPopup')}
-          accessibilityRole="button"
         >
           <MaterialCommunityIcons
             name="close"
             size={22}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-        </Pressable>
+        </IconButton>
       </View>
 
       <View style={[styles.popupStats, isDark && styles.popupStatsDark]}>
@@ -118,9 +111,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xsPlus,
   },
-  popupIconButton: {
-    padding: spacing.xs,
-  },
   popupInfo: {
     flex: 1,
     marginRight: spacing.sm,
@@ -161,16 +151,5 @@ const styles = StyleSheet.create({
   },
   popupStatValueDark: {
     color: darkColors.textPrimary,
-  },
-  viewDetailsInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xsPlus,
-    paddingVertical: spacing.xs,
-  },
-  viewDetailsText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    color: colors.linkTeal,
   },
 });

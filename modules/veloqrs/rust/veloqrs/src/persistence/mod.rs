@@ -350,8 +350,8 @@ impl Default for SectionDetectionProgress {
 }
 
 /// The Unified detector's evidence cache after a fold, plus the id set it now
-/// reflects. Carried out-of-band from the section result so the legacy
-/// detectors need no channel change. The cache-aware apply stores it on the
+/// reflects. Carried out-of-band from the section result so the plain
+/// section result type needs no channel change. The cache-aware apply stores it on the
 /// engine only after `apply_sections` succeeds, so the cache can never get
 /// ahead of the applied catalogue.
 pub struct CacheUpdate {
@@ -1377,8 +1377,6 @@ impl PersistentEngine {
             self.groups_dirty_epoch += 1;
         }
     }
-    /// Invalidate the performance cache.
-    /// Call after any mutation that affects sections, time streams, or activity metrics.
     /// Run one editor's whole write inside a transaction, rolling back if any
     /// step of it fails.
     ///
@@ -1465,14 +1463,6 @@ impl PersistentEngine {
         self.perf_computations += 1;
     }
 
-    /// Drop the Unified evidence cache (and its folded-id shadow) so the next
-    /// detect cold-rebatches every cluster from the current DB state. Called at
-    /// every point the detection base changes out from under the cache: config
-    /// change, activity mutation/removal, and the section-clearing paths. The
-    /// cache holds no queryable member ids and cannot surgically drop one
-    /// activity's cluster, so any such change clears the whole cache; the next
-    /// detect rebuilds it from the real pool. Clearing the two fields together
-    /// is what stops the cache from ever disagreeing with the applied catalogue.
     /// How many activity ids the evidence cache has folded. Zero means the
     /// next detect cold-rebatches every cluster. Exposed so a test can tell a
     /// warm restart from a cold one without timing it.
@@ -1481,6 +1471,14 @@ impl PersistentEngine {
         self.cache_folded_ids.len()
     }
 
+    /// Drop the Unified evidence cache (and its folded-id shadow) so the next
+    /// detect cold-rebatches every cluster from the current DB state. Called at
+    /// every point the detection base changes out from under the cache: config
+    /// change, activity mutation/removal, and the section-clearing paths. The
+    /// cache holds no queryable member ids and cannot surgically drop one
+    /// activity's cluster, so any such change clears the whole cache; the next
+    /// detect rebuilds it from the real pool. Clearing the two fields together
+    /// is what stops the cache from ever disagreeing with the applied catalogue.
     pub(crate) fn invalidate_evidence_cache(&mut self) {
         self.forget_evidence_cache_in_memory();
         self.clear_persisted_evidence_cache();
@@ -1585,12 +1583,6 @@ impl PersistentEngine {
         Self::new(":memory:")
     }
 
-    /// Load all metadata and groups from the database.
-    ///
-    /// Each loader runs independently: one failing (a bad row, a transient
-    /// SQLITE_BUSY) must not abort the rest, or the engine comes up with an
-    /// arbitrarily truncated view of the data. Corruption errors propagate
-    /// so the caller can quarantine the file.
     /// The token the file carries, or zero when no handler has written one.
     ///
     /// Read off the engine's own connection, so it sees whatever another
@@ -1732,6 +1724,12 @@ impl PersistentEngine {
         }
     }
 
+    /// Load all metadata and groups from the database.
+    ///
+    /// Each loader runs independently: one failing (a bad row, a transient
+    /// SQLITE_BUSY) must not abort the rest, or the engine comes up with an
+    /// arbitrarily truncated view of the data. Corruption errors propagate
+    /// so the caller can quarantine the file.
     pub fn load(&mut self) -> SqlResult<()> {
         self.load_in_mode(EngineOpenMode::Foreground)
     }
@@ -1848,8 +1846,8 @@ impl PersistentEngine {
         // probe when no names exist.
         self.ensure_named_overlay();
 
-        // Indicator population is handled lazily via version check in get_activity_indicators().
-        // No need to populate here - first read triggers recompute if version mismatches.
+        // Indicators are not populated here: the version pass runs once in
+        // `PersistentEngine::new`, and `get_activity_indicators` only reads.
 
         Ok(())
     }

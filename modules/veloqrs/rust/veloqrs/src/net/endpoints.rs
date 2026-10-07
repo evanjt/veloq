@@ -1,5 +1,5 @@
 //! One async fetcher per intervals.icu endpoint: build request → transport →
-//! serde parse → convert. These replace the axios methods in `src/api/intervals.ts`.
+//! serde parse → convert.
 //! Credentials live on the `Transport`; callers pass only ids and params.
 
 use crate::governor::Lane;
@@ -353,8 +353,8 @@ pub async fn fetch_power_curve_body(
     decode_body(bytes)
 }
 
-/// `GET /athlete/{id}/pace-curves.json` as the untyped body, with the same
-/// running-only `gap` rule as `fetch_pace_curve`.
+/// `GET /athlete/{id}/pace-curves.json` as the untyped body. `gap=true` is sent
+/// only for the `Run` sport.
 pub async fn fetch_pace_curve_body(
     t: &Transport,
     athlete_id: &str,

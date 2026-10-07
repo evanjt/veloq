@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
@@ -18,11 +18,11 @@ import {
   StrengthBalanceView,
   STRENGTH_PERIODS,
 } from '@/features/strength';
-import { ErrorStatePreset, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ErrorStatePreset, TAB_BAR_SAFE_PADDING, ToggleButton } from '@/shared/ui';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState } from 'veloqrs';
-import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
+import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { StrengthPeriod, MuscleVolume } from '@/types';
 import { PERIOD_LABEL_KEYS, DEFAULT_PERIOD } from '@/shared/app/period';
 
@@ -131,27 +131,13 @@ export const StrengthTab = React.memo(function StrengthTab({
       {/* Period selector */}
       <View style={styles.periodRow}>
         {STRENGTH_PERIODS.map((p) => (
-          <TouchableOpacity
+          <ToggleButton
             key={p.id}
             testID={`strength-period-${p.id}`}
-            style={[
-              styles.periodButton,
-              isDark && styles.periodButtonDark,
-              period === p.id && styles.periodButtonActive,
-            ]}
+            label={t(p.labelKey as never)}
+            selected={period === p.id}
             onPress={() => setPeriod(p.id)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.periodText,
-                isDark && styles.periodTextDark,
-                period === p.id && styles.periodTextActive,
-              ]}
-            >
-              {t(p.labelKey as never)}
-            </Text>
-          </TouchableOpacity>
+          />
         ))}
       </View>
 
@@ -283,29 +269,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xs,
     marginBottom: spacing.md,
-  },
-  periodButton: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-  },
-  periodButtonDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  periodButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  periodText: {
-    ...typography.caption,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  periodTextDark: {
-    color: darkColors.textSecondary,
-  },
-  periodTextActive: {
-    color: colors.textOnPrimary,
   },
   loadingContainer: {
     paddingVertical: spacing.xxl,

@@ -1264,7 +1264,7 @@ const FfiConverterTypeDownloadProgressResult = (() => {
  */
 export type ElevationBackfillProgress = {
   /**
-   * idle, fetching, complete, partial or failed.
+   * idle, fetching, complete, partial, paused or failed.
    */
   phase: string;
   /**

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,7 @@ import { powerChartSeries } from '../lib/curveChartSeries';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
 import { RangeCoverage } from 'veloqrs';
-import { pressable, pressRipple } from '@/shared/ui';
+import { ToggleButton } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 
 interface PowerCurveChartProps {
@@ -200,42 +200,18 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
       {perKgAvailable && (
         <View style={styles.unitToggle}>
-          <Pressable
+          <ToggleButton
             testID="power-curve-unit-watts"
-            accessibilityRole="button"
-            accessibilityState={{ selected: !perKg }}
+            label={t('units.watts')}
+            selected={!perKg}
             onPress={() => setPerKgWanted(false)}
-            style={pressable([styles.unitPill, !perKg && styles.unitPillActive])}
-            android_ripple={pressRipple}
-          >
-            <Text
-              style={[
-                styles.unitText,
-                isDark && chartStyles.textDark,
-                !perKg && styles.unitTextActive,
-              ]}
-            >
-              {t('units.watts')}
-            </Text>
-          </Pressable>
-          <Pressable
+          />
+          <ToggleButton
             testID="power-curve-unit-per-kg"
-            accessibilityRole="button"
-            accessibilityState={{ selected: perKg }}
+            label={unit}
+            selected={perKg}
             onPress={() => setPerKgWanted(true)}
-            style={pressable([styles.unitPill, perKg && styles.unitPillActive])}
-            android_ripple={pressRipple}
-          >
-            <Text
-              style={[
-                styles.unitText,
-                isDark && chartStyles.textDark,
-                perKg && styles.unitTextActive,
-              ]}
-            >
-              {unit}
-            </Text>
-          </Pressable>
+          />
         </View>
       )}
 
@@ -361,24 +337,5 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: spacing.xs,
     marginBottom: spacing.xs,
-  },
-  unitPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusSm,
-  },
-  unitPillActive: {
-    backgroundColor: colors.primary + '20',
-  },
-  // The selected unit was the curve's own blue, 2.66:1 on white, on a pill that
-  // already carries a tinted ground and an `accessibilityState`. Weight says the
-  // same thing and leaves the text on the theme's own colour.
-  unitTextActive: {
-    fontWeight: '700',
-  },
-  unitText: {
-    fontSize: typography.pillLabel.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
   },
 });

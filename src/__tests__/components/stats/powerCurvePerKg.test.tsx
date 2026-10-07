@@ -12,6 +12,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { PowerCurveChart } from '@/features/stats/components/PowerCurveChart';
+import { layout } from '@/theme';
 import type { PowerCurve } from '@/types';
 
 const mockCurve: { current: PowerCurve } = {
@@ -40,6 +41,24 @@ describe('the power curve per-kilogram toggle', () => {
 
     expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260w');
     expect(screen.getByTestId('power-curve-unit-per-kg')).toBeTruthy();
+  });
+
+  it('draws the pair as selectable buttons that each reach the tap-target minimum', () => {
+    render(<PowerCurveChart ftp={300} />);
+
+    for (const [testID, selected] of [
+      ['power-curve-unit-watts', true],
+      ['power-curve-unit-per-kg', false],
+    ] as const) {
+      const pill = screen.getByTestId(testID);
+      const flat = Object.assign({}, ...[pill.props.style].flat(Infinity).filter(Boolean));
+      const slop = pill.props.hitSlop ?? {};
+      expect(pill.props.accessibilityRole).toBe('button');
+      expect(pill.props.accessibilityState).toMatchObject({ selected });
+      expect(
+        Number(flat.minHeight ?? 0) + (slop.top ?? 0) + (slop.bottom ?? 0)
+      ).toBeGreaterThanOrEqual(layout.minTapTarget);
+    }
   });
 
   it('switches the value, the axis and the FTP line to watts per kilogram', () => {

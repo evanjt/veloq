@@ -261,7 +261,6 @@ fn spawn_resume_ladder(
     }))
 }
 
-/// Put a ladder behind the pass, unless one is already climbing.
 /// Whether the engine this ladder works for is still installed.
 ///
 /// A read of the queue answers `None` for a destroyed engine and for a read
@@ -287,6 +286,7 @@ fn detection_switched_off() -> bool {
     )
 }
 
+/// Put a ladder behind the pass, unless one is already climbing.
 fn arm_resume_ladder() {
     spawn_resume_ladder(|| {
         resume_ladder(
@@ -1977,16 +1977,6 @@ mod tests {
     };
     use tempfile::TempDir;
 
-    /// Scenario: the backfill's final re-cut is normally the only arm running,
-    /// but nothing in the function itself enforces that. Several starting
-    /// together must spawn exactly as many workers as claimed the slot: each
-    /// worker opens its own connection and rewrites `route_groups` with the
-    /// whole pool resident, so one that nobody holds a handle to is loose in
-    /// the database with no way to stop or apply it.
-    ///
-    /// The re-cut drains the slot before it cuts, so the losers here go on to
-    /// take their turn rather than refuse. That is the design. What must never
-    /// happen is a spawn whose handle is thrown away.
     /// A restore lands while a pass is splicing. The batch finishes and writes
     /// elevation computed from the old library's tracks into the restored
     /// database, which is the item's failing case with this worker in it.
@@ -2047,6 +2037,16 @@ mod tests {
         assert_eq!(retire_batch(started_against, &["a1".to_string()]), 0);
     }
 
+    /// Scenario: the backfill's final re-cut is normally the only arm running,
+    /// but nothing in the function itself enforces that. Several starting
+    /// together must spawn exactly as many workers as claimed the slot: each
+    /// worker opens its own connection and rewrites `route_groups` with the
+    /// whole pool resident, so one that nobody holds a handle to is loose in
+    /// the database with no way to stop or apply it.
+    ///
+    /// The re-cut drains the slot before it cuts, so the losers here go on to
+    /// take their turn rather than refuse. That is the design. What must never
+    /// happen is a spawn whose handle is thrown away.
     #[test]
     fn a_final_detect_never_spawns_a_worker_it_drops() {
         let _serial = serial_global_state();
@@ -3820,9 +3820,7 @@ mod tests {
             connectivity::reset();
         }
     }
-    /// Scenario: the athlete pauses the download from Settings. The pass in
-    /// flight ends at its next batch boundary, and nothing starts another in
-    /// this process: not the launch trigger, not the ladder.
+
     /// Scenario: an ask that settles nothing leaves the row where it is, so the
     /// derived queue offers it again on the next pass. Which answers count
     /// against the track is what decides whether the queue can ever end.
@@ -3916,6 +3914,9 @@ mod tests {
         }
     }
 
+    /// Scenario: the athlete pauses the download from Settings. The pass in
+    /// flight ends at its next batch boundary, and nothing starts another in
+    /// this process: not the launch trigger, not the ladder.
     mod paused {
         use super::*;
         use crate::net::connectivity;

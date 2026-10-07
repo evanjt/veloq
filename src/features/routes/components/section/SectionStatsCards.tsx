@@ -130,6 +130,9 @@ export function SectionStatsCards({
               <Pressable
                 style={pressable([styles.calendarYearRow, isDark && styles.calendarYearRowDark])}
                 android_ripple={pressRipple}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('stats.year')} ${yearData.year}`}
+                accessibilityState={{ expanded: isYearExpanded }}
                 onPress={() => toggleYear(yearData.year)}
               >
                 <MaterialCommunityIcons
@@ -213,6 +216,8 @@ export function SectionStatsCards({
                             <Pressable
                               style={pressable(styles.calendarMonthEntry)}
                               android_ripple={pressRipple}
+                              accessibilityRole="button"
+                              accessibilityLabel={fwd.bestActivityName}
                               onPress={() => router.push(`/activity/${fwd.bestActivityId}`)}
                             >
                               <View
@@ -265,6 +270,8 @@ export function SectionStatsCards({
                             <Pressable
                               style={pressable(styles.calendarMonthEntry)}
                               android_ripple={pressRipple}
+                              accessibilityRole="button"
+                              accessibilityLabel={rev.bestActivityName}
                               onPress={() => router.push(`/activity/${rev.bestActivityId}`)}
                             >
                               <View

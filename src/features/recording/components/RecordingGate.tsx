@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { GrantAccessButton } from './GrantAccessButton';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button } from '@/shared/ui/Button';
 
 interface RecordingGateProps {
   /** Why recording is blocked. `ok` never reaches here. */
@@ -67,17 +67,12 @@ export function RecordingGate({
         {signedOut ? t('recording.signInDescription') : t('recording.writePermissionLocalOnly')}
       </Text>
       {signedOut ? (
-        <Pressable
+        <Button
           testID="recording-gate-signin-action"
           onPress={() => navigateTo('/login')}
-          accessibilityRole="button"
-          style={pressable()}
-          android_ripple={pressRipple}
-        >
-          <Text style={[styles.action, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}>
-            {t('recording.signInAction')}
-          </Text>
-        </Pressable>
+          label={t('recording.signInAction')}
+          variant="ghost"
+        />
       ) : (
         <>
           <GrantAccessButton
@@ -86,19 +81,12 @@ export function RecordingGate({
             loading={isUpgrading === true}
           />
           {onContinue ? (
-            <Pressable
+            <Button
               testID="recording-gate-continue"
               onPress={onContinue}
-              accessibilityRole="button"
-              style={pressable()}
-              android_ripple={pressRipple}
-            >
-              <Text
-                style={[styles.action, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
-              >
-                {t('recording.recordAnyway')}
-              </Text>
-            </Pressable>
+              label={t('recording.recordAnyway')}
+              variant="ghost"
+            />
           ) : null}
         </>
       )}
@@ -129,12 +117,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyMedium.fontSize,
     textAlign: 'center',
     lineHeight: 22,
-  },
-  action: {
-    ...typography.body,
-    fontWeight: '600',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
   },
   error: {
     fontSize: typography.bodyCompact.fontSize,

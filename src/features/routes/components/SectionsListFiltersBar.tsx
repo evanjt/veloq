@@ -4,8 +4,12 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, slopToMinTapTarget } from '@/theme';
 import type { SectionsSortOption } from './SectionsList';
+
+const CHIP_BORDER_WIDTH = 1;
+const CHIP_HEIGHT = typography.caption.lineHeight + 2 * (spacing.xs + CHIP_BORDER_WIDTH);
+const chipHitSlop = slopToMinTapTarget(CHIP_HEIGHT);
 
 type HiddenFilters = {
   custom: boolean;
@@ -60,6 +64,7 @@ export function SectionsListFiltersBar({
                 isActive && styles.sortChipActive,
               ]}
               onPress={() => onSortChange(chip.key)}
+              hitSlop={chipHitSlop}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={chip.label}
@@ -97,6 +102,7 @@ export function SectionsListFiltersBar({
             !hiddenFilters.custom && styles.sortChipActive,
           ]}
           onPress={() => onFilterPress('custom')}
+          hitSlop={chipHitSlop}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={t('routes.customCount', { count: customCount })}
@@ -133,6 +139,7 @@ export function SectionsListFiltersBar({
             !hiddenFilters.disabled && styles.sortChipActive,
           ]}
           onPress={() => onFilterPress('disabled')}
+          hitSlop={chipHitSlop}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={t('sections.removedCount', { count: trueDisabledCount })}
@@ -169,6 +176,7 @@ export function SectionsListFiltersBar({
             hiddenFilters.unaccepted && styles.sortChipActive,
           ]}
           onPress={() => onFilterPress('unaccepted')}
+          hitSlop={chipHitSlop}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={t('sections.acceptedOnly')}
@@ -218,7 +226,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
-    borderWidth: 1,
+    borderWidth: CHIP_BORDER_WIDTH,
     borderColor: colors.border,
   },
   sortChipDark: {

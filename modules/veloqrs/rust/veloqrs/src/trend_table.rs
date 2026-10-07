@@ -120,7 +120,6 @@ pub const TREND_METRICS: &[TrendMetric] = &[
     },
 ];
 
-/// The entry for a metric, or `None` for a name the table does not carry.
 /// The glyph a surface draws for a move of `current` against `baseline`, or
 /// `None` when there is nothing to compare with.
 ///
@@ -156,6 +155,7 @@ pub fn glyph(name: &str, current: Option<f64>, baseline: Option<f64>) -> Option<
     )
 }
 
+/// The entry for a metric, or `None` for a name the table does not carry.
 pub fn metric(name: &str) -> Option<&'static TrendMetric> {
     TREND_METRICS.iter().find(|m| m.name == name)
 }

@@ -8,12 +8,12 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, Linking } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, typography, spacing } from '@/theme';
 import type { Activity, WellnessData } from '@/types';
 import type { ActivityFitnessImpact } from 'veloqrs';
 import { DEFAULT_MAX_HR } from '../../lib/hrZones';
@@ -21,6 +21,7 @@ import { useActivityStats } from './useActivityStats';
 import { StatCard } from './StatCard';
 import { StatDetailModal } from './StatDetailModal';
 import { Card } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui';
 import type { StatDetail } from './types';
 
 interface InsightfulStatsProps {
@@ -81,16 +82,13 @@ export function InsightfulStats({
           <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
             {t('activity.activityStats')}
           </Text>
-          <TouchableOpacity
-            style={styles.intervalsLink}
+          <Button
+            label={t('activity.viewInIntervalsICU')}
+            variant="ghost"
+            size="sm"
             onPress={openInIntervalsICU}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.intervalsLinkText, isDark && { color: darkColors.linkTeal }]}>
-              {t('activity.viewInIntervalsICU')}
-            </Text>
-            <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
-          </TouchableOpacity>
+            icon={<MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />}
+          />
         </View>
 
         <View style={styles.statsGrid}>
@@ -125,16 +123,6 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: colors.textOnDark,
-  },
-  intervalsLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  intervalsLinkText: {
-    fontSize: typography.caption.fontSize,
-    color: colors.linkTeal,
-    fontWeight: '500',
   },
   statsGrid: {
     flexDirection: 'row',

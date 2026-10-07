@@ -50,6 +50,8 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
       {recentEfforts.map(({ record, direction, time, isPr: isPR, delta }) => {
         return (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${formatShortDate(record.activityDate)}, ${formatDuration(time)}`}
             key={`${record.activityId}-${direction}`}
             style={pressable([styles.row, isDark && styles.rowDark])}
             android_ripple={pressRipple}

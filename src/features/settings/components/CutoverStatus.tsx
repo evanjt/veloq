@@ -15,7 +15,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -24,7 +24,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useCutoverSummary } from '@/features/routes';
 import { CUTOVER_FAILURE_KEYS, CUTOVER_PHASE_KEYS } from '../lib/cutoverPhaseKeys';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 
 export const CUTOVER_STATUS_TEST_ID = 'cutover-status';
 export const CUTOVER_CANCEL_TEST_ID = 'cutover-cancel';
@@ -72,18 +72,13 @@ export function CutoverStatus() {
             {t('settings.cutoverStopping')}
           </Text>
         ) : (
-          <Pressable
-            onPress={stop}
+          <Button
             testID={CUTOVER_CANCEL_TEST_ID}
-            accessibilityRole="button"
-            hitSlop={8}
-            style={pressable()}
-            android_ripple={pressRipple}
-          >
-            <Text style={[styles.line, styles.centred, styles.stop, { color: textSecondary }]}>
-              {t('settings.cutoverStop')}
-            </Text>
-          </Pressable>
+            label={t('settings.cutoverStop')}
+            onPress={stop}
+            variant="ghost"
+            size="sm"
+          />
         )}
       </View>
     );
@@ -113,9 +108,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-  },
-  stop: {
-    textDecorationLine: 'underline',
   },
   line: {
     ...typography.bodySmall,

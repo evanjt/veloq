@@ -23,7 +23,7 @@ impl PersistentEngine {
     /// with full table scan). 25-50x speedup: 250-570ms → 10-20ms.
     /// Excludes disabled and superseded sections.
     ///
-    /// Tier 3.4: results are pre-deduplicated and pre-sorted by visit
+    /// Results are pre-deduplicated and pre-sorted by visit
     /// count (descending) so TS callers don't need to walk the array
     /// twice. The SELECT DISTINCT handles section_id dedup; the
     /// post-load sort orders by `Section.visit_count`.

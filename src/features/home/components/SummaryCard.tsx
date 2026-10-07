@@ -1,11 +1,18 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Pressable,
+  Image,
+  useWindowDimensions,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { canDrawProfilePhoto, Shimmer } from '@/shared/ui';
+import { canDrawProfilePhoto, Shimmer, pressable, pressRipple } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
 import { SummaryCardSparkline, SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
@@ -260,11 +267,12 @@ export const SummaryCard = React.memo(function SummaryCard({
             </TouchableOpacity>
 
             {/* Hero metric - tappable */}
-            <TouchableOpacity
-              style={styles.heroSection}
+            <Pressable
+              accessibilityRole={onHeroPress ? 'button' : undefined}
+              style={pressable(styles.heroSection)}
+              android_ripple={pressRipple}
               onPress={onHeroPress}
               disabled={!onHeroPress}
-              activeOpacity={onHeroPress ? 0.7 : 1}
             >
               {isLoading ? (
                 <View style={styles.heroValueRow}>
@@ -345,7 +353,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                   </Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Sparkline row - fitness or HRV depending on hero metric */}
@@ -387,11 +395,12 @@ export const SummaryCard = React.memo(function SummaryCard({
                     {'\u00B7'}
                   </Text>
                 )}
-                <TouchableOpacity
+                <Pressable
+                  accessibilityRole="button"
                   testID={`summary-card-metric-${index}`}
-                  style={styles.supportingMetric}
+                  style={pressable(styles.supportingMetric)}
+                  android_ripple={pressRipple}
                   onPress={() => navigateTo(metric.navigationTarget)}
-                  activeOpacity={0.7}
                 >
                   <Text style={[styles.metricLabel, isDark && styles.textMuted]}>
                     {metric.label}
@@ -414,7 +423,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                       {metric.trend && <Text style={styles.metricTrend}>{metric.trend}</Text>}
                     </Text>
                   )}
-                </TouchableOpacity>
+                </Pressable>
               </React.Fragment>
             ))}
           </View>

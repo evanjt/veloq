@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "Aumentar",
+    "decrease": "Diminuir",
+    "repositoryFor": "Repositório de {{name}}"
+  },
   "about": {
     "dataAttribution": "Atribuição de dados",
     "description": "Um cliente móvel rápido para intervals.icu com foco em mapas e análise visual.",
@@ -228,7 +233,6 @@
     "lastBackup": "Último backup: {{date}}",
     "lastBackupNever": "Nunca realizado",
     "backupNow": "Fazer backup agora",
-    "backingUp": "Fazendo backup...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "Backup do iCloud",
     "carrierDeviceAndroid": "Backup do Google",
@@ -879,6 +883,7 @@
     "recentPersonalRecord": "Recorde pessoal recente"
   },
   "licenses": {
+    "openRepository": "Abrir repositório",
     "footer": "Toque em qualquer selo de licença para ver o texto completo. Toque no ícone de link para visitar o repositório do projeto.",
     "intro": "O Veloq é construído com software de código aberto. Esta tela lista as bibliotecas de terceiros e suas licenças.",
     "sectionCoreFramework": "Framework principal",
@@ -1223,6 +1228,12 @@
     "accuracyFilter": "Filtro de precisão",
     "accuracyFilterDescription": "Descartar pontos de GPS menos precisos que este valor.",
     "autoPauseDelay": "Atraso da pausa automática",
+    "accuracyFilterDecrease": "Diminuir filtro de precisão",
+    "accuracyFilterIncrease": "Aumentar filtro de precisão",
+    "autoPauseDelayDecrease": "Diminuir atraso da pausa automática",
+    "autoPauseDelayIncrease": "Aumentar atraso da pausa automática",
+    "speedThresholdDecrease": "Diminuir limite de velocidade para {{sport}}",
+    "speedThresholdIncrease": "Aumentar limite de velocidade para {{sport}}",
     "keepAwake": "Manter a tela ligada",
     "keepAwakeDescription": "Impede que a tela desligue durante a gravação.",
     "routeOverlay": {

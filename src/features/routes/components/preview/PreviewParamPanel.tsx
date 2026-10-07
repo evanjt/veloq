@@ -19,47 +19,33 @@
  * fold would be unreachable exactly when the diff strip squeezes the column.
  */
 
-import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useTranslation } from 'react-i18next';
-import { formatDistance } from '@/shared/format/format';
+import type { PreviewParams } from 'veloqrs';
+
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { colors, darkColors, brand, opacity, spacing, layout, typography } from '@/theme';
+import { useSheetOpener } from '@/shared/app/sheetRequest';
+import { formatDistance } from '@/shared/format/format';
+import { pressable, pressRipple } from '@/shared/ui';
+import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import {
   DETECTION_PARAM_RANGES,
   DETECTION_PRESETS,
   DETECTION_PRESET_NAMES,
-  isPastClamp,
   isPastTestedRange,
-  parseParamInput,
   presetOf,
   type DetectionParamKey,
   type DetectionPresetName,
 } from '../../lib/detectionParams';
-import {
-  distanceEditorUnit,
-  fromEditorValue,
-  toEditorText,
-  type EditorUnit,
-} from '../../lib/paramUnits';
-import type { PreviewParams } from 'veloqrs';
-import { pressable, pressRipple } from '@/shared/ui';
+import type { ParamEditorSheetInput } from '../../lib/paramEditorSheet';
+import { distanceEditorUnit, toEditorText, type EditorUnit } from '../../lib/paramUnits';
 
 interface PreviewParamPanelProps {
   params: PreviewParams;
   onChange: (params: PreviewParams) => void;
   disabled?: boolean | undefined;
-}
-
-/** Which row the editor is open over, and what has been typed into it. */
-interface Editing {
-  key: DetectionParamKey;
-  label: string;
-  text: string;
-  /** What the editor opened with, so an untouched save cannot round the stored metres. */
-  initial: string;
-  unit: EditorUnit | null;
 }
 
 /** The unit a parameter is edited in, null for a count or a ratio. */
@@ -77,33 +63,26 @@ export function PreviewParamPanel({ params, onChange, disabled = false }: Previe
   const isMetric = useMetricSystem();
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
-  const [editing, setEditing] = useState<Editing | null>(null);
+  const openSheet = useSheetOpener();
 
   const set = (key: keyof PreviewParams) => (value: number) =>
     onChange({ ...params, [key]: value });
 
-  const open = (key: DetectionParamKey, label: string) => () => {
+  const open = (key: DetectionParamKey, label: string) => async () => {
     if (disabled) return;
     const unit = editorUnitOf(key, isMetric);
-    const text = toEditorText(params[key], unit);
-    setEditing({ key, label, text, initial: text, unit });
-  };
-
-  const save = () => {
-    if (!editing) return;
-    if (editing.text === editing.initial) {
-      setEditing(null);
-      return;
+    const initial = toEditorText(params[key], unit);
+    const input: ParamEditorSheetInput = {
+      kind: 'param',
+      key,
+      label,
+      initial,
+      unit,
+    };
+    const result = await openSheet<ParamEditorSheetInput, number>('sheets/param-editor', input);
+    if (result.kind === 'selected' && result.value !== params[key]) {
+      onChange({ ...params, [key]: result.value });
     }
-    const typed = parseParamInput(editing.key, editing.text);
-    // A refusal leaves the editor open with what was typed still in it: the
-    // athlete is one character from a value that works, and closing on them
-    // would throw the rest of the entry away.
-    if (typed === null) return;
-    const value = fromEditorValue(typed, editing.unit);
-    if (value <= 0) return;
-    onChange({ ...params, [editing.key]: value });
-    setEditing(null);
   };
 
   const active = presetOf(params);
@@ -147,7 +126,9 @@ export function PreviewParamPanel({ params, onChange, disabled = false }: Previe
       {row('minActivities', t('settings.sectionMinActivities', { count: params.minActivities }))}
       {row(
         'divergenceThreshold',
-        t('settings.sectionSameTraffic', { value: params.divergenceThreshold.toFixed(2) })
+        t('settings.sectionSameTraffic', {
+          value: params.divergenceThreshold.toFixed(2),
+        })
       )}
 
       <View style={styles.presetRow}>
@@ -171,16 +152,6 @@ export function PreviewParamPanel({ params, onChange, disabled = false }: Previe
           />
         ))}
       </View>
-
-      {editing !== null && (
-        <ParamEditor
-          editing={editing}
-          onText={(text) => setEditing({ ...editing, text })}
-          onSave={save}
-          onCancel={() => setEditing(null)}
-          isDark={isDark}
-        />
-      )}
     </ScrollView>
   );
 }
@@ -285,106 +256,6 @@ function PresetChip({
   );
 }
 
-function ParamEditor({
-  editing,
-  onText,
-  onSave,
-  onCancel,
-  isDark,
-}: {
-  editing: Editing;
-  onText: (text: string) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  isDark: boolean;
-}) {
-  const { t } = useTranslation();
-  const surface = isDark ? darkColors.surface : colors.surface;
-  const border = isDark ? darkColors.border : colors.border;
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-
-  const { min, max } = DETECTION_PARAM_RANGES[editing.key];
-  const parsed = parseParamInput(editing.key, editing.text);
-  const pastClamp =
-    parsed !== null && isPastClamp(editing.key, fromEditorValue(parsed, editing.unit));
-  const pastRange =
-    parsed !== null && isPastTestedRange(editing.key, fromEditorValue(parsed, editing.unit));
-  const bound = (metres: number) =>
-    editing.unit
-      ? `${toEditorText(metres, editing.unit)} ${editing.unit.label}`
-      : toEditorText(metres, null);
-
-  return (
-    <Modal transparent animationType="fade" onRequestClose={onCancel} testID="param-editor">
-      <View style={styles.scrim}>
-        <Pressable
-          style={pressable(StyleSheet.absoluteFill)}
-          android_ripple={pressRipple}
-          onPress={onCancel}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.cancel')}
-        />
-        <View style={[styles.sheet, { backgroundColor: surface, borderColor: border }]}>
-          <Text style={[styles.sheetTitle, { color: textPrimary }]}>{editing.label}</Text>
-          <TextInput
-            testID="param-editor-input"
-            value={editing.text}
-            onChangeText={onText}
-            keyboardType="numeric"
-            autoFocus
-            selectTextOnFocus
-            style={[styles.sheetInput, { color: textPrimary, borderColor: border }]}
-          />
-          <Text style={[styles.sheetNote, { color: textSecondary }]}>
-            {t('settings.sectionParamRange', { min: bound(min), max: bound(max) })}
-          </Text>
-          {pastRange && (
-            <Text
-              testID="param-editor-range-note"
-              style={[styles.sheetNote, { color: textSecondary }]}
-            >
-              {t('settings.sectionParamPastRange')}
-            </Text>
-          )}
-          {pastClamp && (
-            <Text
-              testID="param-editor-clamp-note"
-              style={[styles.sheetNote, { color: textSecondary }]}
-            >
-              {t('settings.sectionParamPastClamp')}
-            </Text>
-          )}
-          <View style={styles.sheetActions}>
-            <Pressable
-              onPress={onCancel}
-              testID="param-editor-cancel"
-              accessibilityRole="button"
-              style={pressable()}
-              android_ripple={pressRipple}
-            >
-              <Text style={[styles.sheetAction, { color: textSecondary }]}>
-                {t('common.cancel')}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={onSave}
-              testID="param-editor-save"
-              accessibilityRole="button"
-              style={pressable()}
-              android_ripple={pressRipple}
-            >
-              <Text style={[styles.sheetAction, { color: brand.tealLight }]}>
-                {t('common.save')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 // The card takes whatever the fixed chrome leaves, and `flexGrow: 1` on the
 // content lets the five rows divide that up on a tall screen. A short one
 // cannot give each row its tap target, so the card scrolls instead of drawing
@@ -404,7 +275,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.xs,
   },
-  paramRow: { flex: 1, justifyContent: 'center', minHeight: PARAM_ROW_MIN_HEIGHT },
+  paramRow: {
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: PARAM_ROW_MIN_HEIGHT,
+  },
   paramLabel: {
     ...typography.caption,
   },
@@ -431,38 +306,5 @@ const styles = StyleSheet.create({
   presetChipDisabled: { opacity: 0.4 },
   presetChipLabel: {
     ...typography.caption,
-  },
-  scrim: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
-    backgroundColor: opacity.overlay.scrim,
-  },
-  sheet: {
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  sheetTitle: {
-    ...typography.bodyMedium,
-  },
-  sheetInput: {
-    ...typography.body,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: layout.borderRadius,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  sheetNote: {
-    ...typography.caption,
-  },
-  sheetActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.lg,
-  },
-  sheetAction: {
-    ...typography.bodyMedium,
   },
 });

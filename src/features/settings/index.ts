@@ -2,7 +2,6 @@ export { useBackgroundJobs } from './hooks/useBackgroundJobs';
 export type { BackgroundJob, BackgroundJobId, BackgroundJobState } from './hooks/useBackgroundJobs';
 export { useNotificationPreferences } from './stores/NotificationPreferencesStore';
 export type { NotificationPreferences } from './stores/NotificationPreferencesStore';
-export { NotificationPrivacyDialog } from './components/NotificationPrivacyDialog';
 export { LibraryRebuiltNotice } from './components/LibraryRebuiltNotice';
 export { RestorePromptSheet } from './components/RestorePromptSheet';
 export { captureQuarantineReport } from './lib/quarantineReport';

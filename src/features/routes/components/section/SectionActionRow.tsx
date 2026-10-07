@@ -1,13 +1,12 @@
 import React from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { FrequentSection } from '@/types';
 import { sectionActionChips } from '../../lib/sectionActionChips';
 import { Button, IconButton } from '@/shared/ui';
-import { styles } from './SectionDetail.styles';
 
 export interface SectionActionRowProps {
   isDark: boolean;
@@ -188,3 +187,35 @@ export function SectionActionRow({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  actionChips: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexShrink: 1,
+  },
+  actionPill: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xsPlus,
+    borderRadius: layout.borderRadius,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  actionPillText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+});

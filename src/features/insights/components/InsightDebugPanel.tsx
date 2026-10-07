@@ -1,12 +1,13 @@
 import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { getLastInsightOutcome } from '../lib/generateInsights';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 
 interface Props {
   visible: boolean;
@@ -35,6 +36,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
   visible,
   onClose,
 }: Props) {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textMuted : colors.textSecondary;
@@ -53,15 +55,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
       <View style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: textColor }]}>Insight pipeline debug</Text>
-          <Pressable
-            onPress={onClose}
-            style={pressable(styles.closeBtn)}
-            android_ripple={pressRipple}
-          >
-            <Text style={{ color: textColor, fontSize: typography.bodyMedium.fontSize }}>
-              Close
-            </Text>
-          </Pressable>
+          <Button label={t('common.close')} variant="ghost" size="sm" onPress={onClose} />
         </View>
         <ScrollView contentContainerStyle={styles.scroll}>
           {!outcome ? (
@@ -150,10 +144,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.statsValue.fontSize,
     fontWeight: '600',
-  },
-  closeBtn: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
   },
   section: {
     fontSize: typography.body.fontSize,

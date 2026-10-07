@@ -76,6 +76,8 @@ export const InsightsPanel = React.memo(function InsightsPanel({
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {__DEV__ ? (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('insights.title')}
             onLongPress={handleLongPress}
             delayLongPress={CONFIRM_HOLD_MS}
             style={pressable()}

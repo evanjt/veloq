@@ -21,6 +21,8 @@ interface StatCardProps {
 export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: StatCardProps) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={stat.title}
       onLongPress={() => onPress(stat)}
       onPress={() => onPress(stat)}
       delayLongPress={PREVIEW_HOLD_MS}

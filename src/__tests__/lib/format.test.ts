@@ -9,7 +9,9 @@
 
 import {
   formatAxisDate,
+  formatDateOrDash,
   formatDistance,
+  formatFullDate,
   formatDuration,
   formatDurationCompact,
   formatDurationOrNull,
@@ -544,5 +546,20 @@ describe('formatAxisDate', () => {
   it('carries the year across a boundary', () => {
     expect(formatAxisDate(new Date('2023-12-31T12:00:00'), false)).toContain("'23");
     expect(formatAxisDate(new Date('2024-01-01T12:00:00'), false)).toContain("'24");
+  });
+});
+
+describe('formatDateOrDash', () => {
+  it('reads a missing date as a dash', () => {
+    expect(formatDateOrDash(null)).toBe('-');
+  });
+
+  it('reads an empty string as a dash', () => {
+    expect(formatDateOrDash('')).toBe('-');
+  });
+
+  it('renders a date string the way the full date does', () => {
+    expect(formatDateOrDash('2024-01-15')).toBe(formatFullDate('2024-01-15'));
+    expect(formatDateOrDash('2024-01-15')).toMatch(/15/);
   });
 });

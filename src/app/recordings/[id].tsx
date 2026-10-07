@@ -1,12 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, ScrollView, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,8 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
 
 import { ScreenSafeAreaView } from '@/shared/ui';
+import { Button } from '@/shared/ui/Button';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import {
   formatDistance,
   formatDuration,
@@ -144,7 +138,10 @@ function RecordingDetailScreenContent() {
       label: t('recording.library.recorded', 'Recorded'),
       value: new Date(entry.startTime).toLocaleString(getIntlLocale()),
     },
-    { label: t('recording.duration', 'Duration'), value: formatDuration(entry.durationSeconds) },
+    {
+      label: t('recording.duration', 'Duration'),
+      value: formatDuration(entry.durationSeconds),
+    },
   ];
   if (entry.distanceMeters > 0) {
     stats.push({
@@ -197,56 +194,43 @@ function RecordingDetailScreenContent() {
         </View>
 
         <View style={styles.actions}>
-          {canUpload && (
-            <TouchableOpacity
+          {(canUpload || isUploading) && (
+            <Button
               testID="recording-upload-button"
-              style={[styles.actionButton, { backgroundColor: colors.primary }]}
+              label={t('recording.library.uploadNow', 'Upload now')}
               onPress={handleUpload}
-              activeOpacity={0.8}
-            >
+              loading={isUploading}
+              icon={
+                <MaterialCommunityIcons
+                  name="cloud-upload-outline"
+                  size={18}
+                  color={colors.textOnPrimary}
+                />
+              }
+            />
+          )}
+          {canShare && (
+            <Button
+              testID="recording-share-button"
+              label={t('recording.library.share', 'Share FIT file')}
+              variant="secondary"
+              onPress={handleShare}
+              icon={<MaterialCommunityIcons name="export-variant" size={18} color={textPrimary} />}
+            />
+          )}
+          <Button
+            testID="recording-delete-button"
+            label={t('recording.library.delete', 'Delete')}
+            variant="destructive"
+            onPress={handleDelete}
+            icon={
               <MaterialCommunityIcons
-                name="cloud-upload-outline"
+                name="trash-can-outline"
                 size={18}
                 color={colors.textOnPrimary}
               />
-              <Text style={styles.actionButtonText}>
-                {t('recording.library.uploadNow', 'Upload now')}
-              </Text>
-            </TouchableOpacity>
-          )}
-          {isUploading && (
-            <View style={[styles.actionButton, { backgroundColor: colors.primary }]}>
-              <ActivityIndicator size="small" color={colors.textOnPrimary} />
-            </View>
-          )}
-          {canShare && (
-            <TouchableOpacity
-              testID="recording-share-button"
-              style={[styles.actionButton, styles.secondaryButton, { borderColor: border }]}
-              onPress={handleShare}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="export-variant" size={18} color={textPrimary} />
-              <Text style={[styles.secondaryButtonText, { color: textPrimary }]}>
-                {t('recording.library.share', 'Share FIT file')}
-              </Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            testID="recording-delete-button"
-            style={[
-              styles.actionButton,
-              styles.secondaryButton,
-              { borderColor: colorWithOpacity(colors.error, 0.4) },
-            ]}
-            onPress={handleDelete}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.error} />
-            <Text style={[styles.secondaryButtonText, { color: errorDeep }]}>
-              {t('recording.library.delete', 'Delete')}
-            </Text>
-          </TouchableOpacity>
+            }
+          />
         </View>
       </ScrollView>
     </ScreenSafeAreaView>
@@ -295,28 +279,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginHorizontal: spacing.md,
     gap: spacing.sm,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadius,
-    minHeight: layout.minTapTarget,
-  },
-  actionButtonText: {
-    color: colors.textOnPrimary,
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-  },
-  secondaryButtonText: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
   },
 });
 

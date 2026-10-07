@@ -265,13 +265,6 @@ fn select(
         .collect()
 }
 
-/// Convert raw stream objects into the parsed shape: zip latlng data/data2,
-/// prefer `fixed_altitude` over `altitude`, convert `ga_velocity` (m/s) to gap
-/// pace (min/km).
-///
-/// The `latlng` validity mask governs every series, so all of them come back the
-/// same length in one index space. TypeScript's `parseStreams` applies the same
-/// rule, so the chart cursor and the map cursor index the same samples.
 /// The series worth putting in the durable store, in the `latlng` index space
 /// the track is stored in and in the units the server sent.
 ///
@@ -325,6 +318,13 @@ pub fn storable_series(raw: &[StreamDto]) -> Vec<StreamDto> {
         .collect()
 }
 
+/// Convert raw stream objects into the parsed shape: zip latlng data/data2,
+/// prefer `fixed_altitude` over `altitude`, convert `ga_velocity` (m/s) to gap
+/// pace (min/km).
+///
+/// The `latlng` validity mask governs every series, so all of them come back the
+/// same length in one index space. TypeScript's `parseStreams` applies the same
+/// rule, so the chart cursor and the map cursor index the same samples.
 pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
     let mut out = ParsedStreams::default();
     let mut misaligned = Vec::new();
@@ -462,8 +462,8 @@ pub struct AthleteRecord {
 // Power / pace curves
 // ===========================================================================
 
-/// Find the oldest `start_date_local` in an activities list (the reduce in
-/// `getOldestActivityDate`). Returns None for an empty list.
+/// Find the oldest `start_date_local` in an activities list. Returns None for
+/// an empty list.
 pub fn oldest_activity_date(activities: &[ActivityRecord]) -> Option<String> {
     activities
         .iter()

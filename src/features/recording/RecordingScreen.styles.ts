@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, spacing, layout, typography } from '@/theme';
+import { spacing, layout, typography } from '@/theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -128,16 +128,5 @@ export const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginTop: spacing.lg,
-  },
-  primaryButton: {
-    borderRadius: layout.borderRadiusSm,
-    paddingVertical: spacing.sm,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    minHeight: layout.minTapTarget,
-  },
-  primaryButtonText: {
-    ...typography.bodyBold,
-    color: colors.textOnPrimary,
   },
 });

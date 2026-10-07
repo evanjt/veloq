@@ -29,7 +29,7 @@ const MERGE_FEATURE = 'synthetic';
  * has to drop out of the plan on its own, not break the gate until somebody
  * adds it to a list.
  *
- * Today that is `real-corpus`, whose two suites need a corpus on disk that a
+ * Today that is `real-corpus`, whose suites need a corpus on disk that a
  * merge cannot assume exists. Cargo refuses a `--test` naming a suite whose
  * features are absent rather than skipping it, so one such name takes the
  * whole command down and the merge is left staged for a reason that has

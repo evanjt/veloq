@@ -117,6 +117,8 @@ function Chips({
           key={id}
           testID={`${testID}-${id}`}
           style={[styles.chip, isDark && styles.chipDark]}
+          accessibilityRole="button"
+          accessibilityLabel={chipLabel(id, names)}
           onPress={() => router.push(`/activity/${id}`)}
           activeOpacity={0.7}
         >
@@ -187,6 +189,8 @@ export function SectionHistoryPanel({
           <TouchableOpacity
             testID="section-history-unpin"
             style={[styles.pill, isDark && styles.pillDark]}
+            accessibilityRole="button"
+            accessibilityLabel={t('sectionHistory.unpin')}
             onPress={onUnpin}
             activeOpacity={0.7}
           >
@@ -221,6 +225,9 @@ export function SectionHistoryPanel({
                 <TouchableOpacity
                   testID={`section-version-${v.version}-show`}
                   style={[styles.pill, isDark && styles.pillDark]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t('sectionHistory.version', { version: v.version })}, ${isShown ? t('sectionHistory.hideOnMap') : t('sectionHistory.showOnMap')}`}
+                  accessibilityState={{ selected: isShown }}
                   onPress={() => onShowVersion(isShown ? null : v.version)}
                   activeOpacity={0.7}
                 >
@@ -232,6 +239,8 @@ export function SectionHistoryPanel({
                   <TouchableOpacity
                     testID={`section-version-${v.version}-revert`}
                     style={[styles.pill, isDark && styles.pillDark]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t('sectionHistory.revert')} ${t('sectionHistory.version', { version: v.version })}`}
                     onPress={() => onRevert(v.version)}
                     activeOpacity={0.7}
                   >

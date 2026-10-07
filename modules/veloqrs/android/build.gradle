@@ -26,12 +26,15 @@ def isNewArchitectureEnabled() {
 }
 
 // What the Rust build is asked for. The profile defaults to release, which is
-// what every build has shipped; features come from -PveloqrsCargoFeatures or
-// VELOQRS_CARGO_FEATURES, so an instrumented build needs no edit here. Each
+// what every build has shipped. Local profile and features come from a Gradle
+// property first, then the environment. Each
 // selection has its own output directory, outside Gradle's build directory so
 // a CI cache restore is not taken for a stale output and deleted.
 def rustAbis = reactNativeArchitectures().collect { it.trim() }.findAll { it }.unique().sort()
-def rustProfile = (rootProject.findProperty("veloqrsRustProfile") ?: "release").toString()
+def releaseRustBuild = System.getenv("APP_VARIANT") == "production" ||
+  gradle.startParameter.taskNames.any { it =~ /(?i)(assemble|bundle).*release/ }
+def rustProfile = (releaseRustBuild ? "release" :
+  (rootProject.findProperty("veloqrsRustProfile") ?: System.getenv("VELOQRS_RUST_PROFILE") ?: "release")).toString()
 def rustFeatures = (rootProject.findProperty("veloqrsCargoFeatures") ?: System.getenv("VELOQRS_CARGO_FEATURES") ?: "")
   .toString().split(/[\s,]+/).findAll { it }.unique().sort()
 def rustApiLevel = 24

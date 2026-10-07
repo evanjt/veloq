@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   EngineReadFailure,
+  pressable,
   ScreenSafeAreaView,
   TAB_BAR_SAFE_PADDING,
   ToggleButtonRow,
@@ -151,19 +152,20 @@ function SportSection({ sport, efforts, isLoading, isDark }: SportSectionProps) 
 
           if (activityInfo && effort.activityId) {
             return (
-              <TouchableOpacity
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={effort.label}
                 key={effort.label}
                 testID={`best-efforts-row-${sport}-${effort.label}`}
-                style={[
+                style={pressable([
                   styles.row,
                   !isLast && styles.rowBorder,
                   !isLast && isDark && styles.rowBorderDark,
-                ]}
-                activeOpacity={0.7}
+                ])}
                 onPress={() => router.push(`/activity/${effort.activityId}`)}
               >
                 {rowBody}
-              </TouchableOpacity>
+              </Pressable>
             );
           }
 

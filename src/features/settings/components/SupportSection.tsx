@@ -11,7 +11,7 @@ import { getCrashLog, formatCrashLog } from '@/shared/debug/crashLog';
 import { shareFile } from '@/features/settings/lib/shareFile';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button, pressable, pressRipple } from '@/shared/ui';
 
 const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
@@ -59,40 +59,30 @@ export function SupportSection() {
       <View testID="support-section" style={[styles.card, isDark && styles.cardDark]}>
         {/* Action buttons */}
         <View style={styles.actionRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('support.review')}
+          <Button
+            label={t('support.review')}
             onPress={handleReview}
-            style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
-            android_ripple={pressRipple}
-          >
-            <MaterialCommunityIcons name="star" size={20} color={textColor} />
-            <Text style={[styles.actionButtonText, { color: textColor }]}>
-              {t('support.review')}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('support.idea')}
+            variant="secondary"
+            size="sm"
+            style={styles.actionButton}
+            icon={<MaterialCommunityIcons name="star" size={20} color={textColor} />}
+          />
+          <Button
+            label={t('support.idea')}
             onPress={() => WebBrowser.openBrowserAsync(`${GITHUB_ISSUES_URL}?labels=enhancement`)}
-            style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
-            android_ripple={pressRipple}
-          >
-            <MaterialCommunityIcons name="lightbulb-outline" size={20} color={textColor} />
-            <Text style={[styles.actionButtonText, { color: textColor }]}>{t('support.idea')}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('support.forum')}
+            variant="secondary"
+            size="sm"
+            style={styles.actionButton}
+            icon={<MaterialCommunityIcons name="lightbulb-outline" size={20} color={textColor} />}
+          />
+          <Button
+            label={t('support.forum')}
             onPress={() => WebBrowser.openBrowserAsync(FORUM_URL)}
-            style={pressable([styles.actionButton, isDark && styles.actionButtonDark])}
-            android_ripple={pressRipple}
-          >
-            <MaterialCommunityIcons name="forum-outline" size={20} color={textColor} />
-            <Text style={[styles.actionButtonText, { color: textColor }]}>
-              {t('support.forum')}
-            </Text>
-          </Pressable>
+            variant="secondary"
+            size="sm"
+            style={styles.actionButton}
+            icon={<MaterialCommunityIcons name="forum-outline" size={20} color={textColor} />}
+          />
         </View>
 
         <View style={[styles.divider, { backgroundColor: dividerColor }]} />
@@ -115,19 +105,14 @@ export function SupportSection() {
               />
             </View>
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('support.sponsorGitHub')}
+            <Button
               testID="support-sponsor-button"
+              label={t('support.sponsorGitHub')}
               onPress={() => WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL)}
-              style={pressable([styles.sponsorButton, isDark && styles.sponsorButtonDark])}
-              android_ripple={pressRipple}
-            >
-              <MaterialCommunityIcons name="github" size={18} color={textColor} />
-              <Text style={[styles.sponsorText, { color: textColor }]}>
-                {t('support.sponsorGitHub')}
-              </Text>
-            </Pressable>
+              variant="secondary"
+              size="sm"
+              icon={<MaterialCommunityIcons name="github" size={18} color={textColor} />}
+            />
           ))}
 
         <View style={[styles.divider, { backgroundColor: dividerColor }]} />
@@ -183,23 +168,11 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   actionButton: {
-    flex: 1,
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: layout.borderRadiusSm,
-  },
-  actionButtonDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  actionButtonText: {
-    ...typography.caption,
-    fontWeight: '500',
+    flexGrow: 1,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
@@ -224,21 +197,5 @@ const styles = StyleSheet.create({
   },
   tipContent: {
     paddingBottom: spacing.xs,
-  },
-  sponsorButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: layout.borderRadiusSm,
-  },
-  sponsorButtonDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  sponsorText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
   },
 });

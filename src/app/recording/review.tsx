@@ -4,8 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
+  Pressable,
   Animated,
   useWindowDimensions,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { replaceTo } from '@/shared/app/navigation';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import { Button, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 
@@ -239,7 +239,11 @@ function ReviewScreenContent() {
           testID="review-activity-name"
           style={[
             styles.nameInput,
-            { color: textPrimary, backgroundColor: surface, borderColor: border },
+            {
+              color: textPrimary,
+              backgroundColor: surface,
+              borderColor: border,
+            },
           ]}
           value={name}
           onChangeText={setName}
@@ -264,25 +268,30 @@ function ReviewScreenContent() {
         )}
 
         {/* Activity Type (tappable) */}
-        <TouchableOpacity
+        <Pressable
+          accessibilityRole="button"
           testID="review-activity-type"
-          style={[styles.typeChip, { backgroundColor: surface, borderColor: border }]}
+          style={pressable([styles.typeChip, { backgroundColor: surface, borderColor: border }])}
+          android_ripple={pressRipple}
           onPress={() => !isProcessing && openTypePicker()}
-          activeOpacity={0.7}
         >
           <MaterialCommunityIcons name={getActivityIcon(type)} size={20} color={activityColor} />
           <Text style={[styles.typeText, { color: textPrimary }]}>
             {t(`activityTypes.${type}`, type)}
           </Text>
           <MaterialCommunityIcons name="chevron-down" size={18} color={textSecondary} />
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Notes */}
         <TextInput
           testID="review-notes"
           style={[
             styles.notesInput,
-            { color: textPrimary, backgroundColor: surface, borderColor: border },
+            {
+              color: textPrimary,
+              backgroundColor: surface,
+              borderColor: border,
+            },
           ]}
           value={notes}
           onChangeText={setNotes}
@@ -335,19 +344,13 @@ function ReviewScreenContent() {
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          <TouchableOpacity
+          <Button
             testID="review-save-button"
-            style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+            label={t('common.save', 'Save')}
             onPress={handleSave}
             disabled={isProcessing}
-            activeOpacity={0.8}
-          >
-            {isUploading ? (
-              <ActivityIndicator size="small" color={colors.textOnPrimary} />
-            ) : (
-              <Text style={styles.primaryBtnText}>{t('common.save', 'Save')}</Text>
-            )}
-          </TouchableOpacity>
+            loading={isUploading}
+          />
 
           {!isManual && (
             <Button
@@ -472,17 +475,6 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: spacing.lg,
     gap: spacing.sm,
-  },
-  primaryBtn: {
-    borderRadius: layout.borderRadiusSm,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: layout.minTapTarget,
-  },
-  primaryBtnText: {
-    ...typography.bodyBold,
-    color: colors.textOnPrimary,
   },
   dangerBtn: {
     borderRadius: layout.borderRadiusSm,

@@ -15,19 +15,22 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
-import { colors, darkColors, typography, spacing, layout, ink } from '@/theme';
+import { colors, darkColors, typography, spacing, layout, ink, slopToMinTapTarget } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { Button, IconButton, ToggleButton, pressable, pressRipple } from '@/shared/ui';
 import {
+  levelRatio,
   precisionLevel,
-  precisionRatio,
+  shouldMarkCrossing,
   type PrecisionLevel,
 } from '@/features/routes/lib/trimPrecision';
 
 const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;
 const MIN_HANDLE_GAP = 0.05;
+const STEP_BUTTON_WIDTH = 30;
+const STEP_BUTTON_HEIGHT = 28;
 
 interface SectionTrimOverlayProps {
   pointCount: number;
@@ -101,10 +104,12 @@ export function SectionTrimOverlay({
     [trackWidthSV]
   );
 
-  // The level the last haptic marked. Held on the UI thread so the crossing is
-  // found inside the worklet: a drag crosses two thresholds at most, so the JS
-  // thread hears from the gesture twice rather than on every frame.
+  // The level the last update landed on, and when the last haptic fired. Held
+  // on the UI thread so a crossing is found inside the worklet: hysteresis
+  // makes a wobble on a threshold one crossing, and the floor keeps fast
+  // back-and-forth drags to one JS hop per interval.
   const lastPrecision = useSharedValue<PrecisionLevel>('normal');
+  const lastFireTime = useSharedValue(0);
 
   const fireHaptic = useCallback((level: PrecisionLevel) => {
     if (level === 'precision') {
@@ -153,10 +158,14 @@ export function SectionTrimOverlay({
           isDragging.value = true;
           prevTransX.value = 0;
           lastEmitTime.value = 0;
+          lastFireTime.value = 0;
         })
         .onUpdate((e) => {
           'worklet';
-          const ratio = precisionRatio(e.translationY);
+          const level = precisionLevel(e.translationY, lastPrecision.value);
+          const levelChanged = level !== lastPrecision.value;
+          lastPrecision.value = level;
+          const ratio = levelRatio(level);
           const tw = trackWidthSV.value;
           if (tw <= 0) return;
           const deltaX = (e.translationX - prevTransX.value) * ratio;
@@ -170,10 +179,12 @@ export function SectionTrimOverlay({
               runOnJS(onStartChange)(Math.round(newFrac * maxIndex));
             }
           }
-          const level = precisionLevel(e.translationY);
-          if (level !== lastPrecision.value) {
-            lastPrecision.value = level;
-            runOnJS(fireHaptic)(level);
+          if (levelChanged) {
+            const fireNow = Date.now();
+            if (shouldMarkCrossing(fireNow, lastFireTime.value)) {
+              lastFireTime.value = fireNow;
+              runOnJS(fireHaptic)(level);
+            }
           }
         })
         .onEnd(() => {
@@ -194,6 +205,7 @@ export function SectionTrimOverlay({
       isDragging,
       fireHaptic,
       lastPrecision,
+      lastFireTime,
       resetPrecision,
     ]
   );
@@ -207,10 +219,14 @@ export function SectionTrimOverlay({
           isDragging.value = true;
           prevTransX.value = 0;
           lastEmitTime.value = 0;
+          lastFireTime.value = 0;
         })
         .onUpdate((e) => {
           'worklet';
-          const ratio = precisionRatio(e.translationY);
+          const level = precisionLevel(e.translationY, lastPrecision.value);
+          const levelChanged = level !== lastPrecision.value;
+          lastPrecision.value = level;
+          const ratio = levelRatio(level);
           const tw = trackWidthSV.value;
           if (tw <= 0) return;
           const deltaX = (e.translationX - prevTransX.value) * ratio;
@@ -224,10 +240,12 @@ export function SectionTrimOverlay({
               runOnJS(onEndChange)(Math.round(newFrac * maxIndex));
             }
           }
-          const level = precisionLevel(e.translationY);
-          if (level !== lastPrecision.value) {
-            lastPrecision.value = level;
-            runOnJS(fireHaptic)(level);
+          if (levelChanged) {
+            const fireNow = Date.now();
+            if (shouldMarkCrossing(fireNow, lastFireTime.value)) {
+              lastFireTime.value = fireNow;
+              runOnJS(fireHaptic)(level);
+            }
           }
         })
         .onEnd(() => {
@@ -248,6 +266,7 @@ export function SectionTrimOverlay({
       isDragging,
       fireHaptic,
       lastPrecision,
+      lastFireTime,
       resetPrecision,
     ]
   );
@@ -351,6 +370,9 @@ export function SectionTrimOverlay({
         <View style={styles.stepGroup}>
           <Pressable
             style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
+            accessibilityRole="button"
+            accessibilityLabel={t('sections.trimStartEarlier')}
+            hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeStart(-1)}
             disabled={startIndex <= 0}
             android_ripple={pressRipple}
@@ -359,6 +381,9 @@ export function SectionTrimOverlay({
           </Pressable>
           <Pressable
             style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
+            accessibilityRole="button"
+            accessibilityLabel={t('sections.trimStartLater')}
+            hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeStart(1)}
             disabled={startIndex >= endIndex - Math.ceil(maxIndex * MIN_HANDLE_GAP)}
             android_ripple={pressRipple}
@@ -369,6 +394,9 @@ export function SectionTrimOverlay({
         <View style={styles.stepGroup}>
           <Pressable
             style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
+            accessibilityRole="button"
+            accessibilityLabel={t('sections.trimEndEarlier')}
+            hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeEnd(-1)}
             disabled={endIndex <= startIndex + Math.ceil(maxIndex * MIN_HANDLE_GAP)}
             android_ripple={pressRipple}
@@ -377,6 +405,9 @@ export function SectionTrimOverlay({
           </Pressable>
           <Pressable
             style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
+            accessibilityRole="button"
+            accessibilityLabel={t('sections.trimEndLater')}
+            hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
             onPress={() => nudgeEnd(1)}
             disabled={endIndex >= maxIndex}
             android_ripple={pressRipple}
@@ -500,8 +531,8 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   stepButton: {
-    width: 30,
-    height: 28,
+    width: STEP_BUTTON_WIDTH,
+    height: STEP_BUTTON_HEIGHT,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: colors.primary + '15',
     justifyContent: 'center',

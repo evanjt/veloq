@@ -636,6 +636,13 @@ export function formatFullDate(date: Date | string): string {
 }
 
 /**
+ * A full date, or a dash when there is none.
+ */
+export function formatDateOrDash(date: string | null): string {
+  return date ? formatFullDate(date) : '-';
+}
+
+/**
  * Format full date with weekday and year (e.g., "Fri, Jan 2, 2024")
  */
 export function formatFullDateWithWeekday(date: Date | string): string {

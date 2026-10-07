@@ -65,7 +65,6 @@ export function getAllRouteNames(host: DelegateHost): Record<string, string> {
   return Object.fromEntries(map);
 }
 
-/** Coordinate-encoded, like every track that leaves the engine. */
 /** No track at all, in the encoded form the engine returns. */
 const EMPTY_TRACK = new Uint8Array([]).buffer;
 

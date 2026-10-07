@@ -111,6 +111,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
     >
       <Pressable
         onPress={handlePress}
+        accessibilityRole="button"
         style={pressable(styles.secondaryStats)}
         android_ripple={pressRipple}
       >

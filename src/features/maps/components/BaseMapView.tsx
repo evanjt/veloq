@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
 // app shell still has to draw, and the barrel is what such a caller stubs.
@@ -21,7 +21,7 @@ import {
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
-import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
+import { CompassArrow, ComponentErrorBoundary, IconButton } from '@/shared/ui';
 import {
   featureCollection,
   lineFeature,
@@ -291,7 +291,7 @@ export function BaseMapView({
     <>
       {/* Close button */}
       {onClose && (
-        <TouchableOpacity
+        <IconButton
           testID="map-fullscreen-close"
           style={[
             styles.button,
@@ -300,21 +300,20 @@ export function BaseMapView({
             isDark && styles.buttonDark,
           ]}
           onPress={onClose}
-          activeOpacity={0.8}
+          variant="secondary"
           accessibilityLabel={t('maps.closeMap')}
-          accessibilityRole="button"
         >
           <MaterialCommunityIcons
             name="close"
             size={24}
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </IconButton>
       )}
 
       {/* Style toggle */}
       {showStyleToggle && (
-        <TouchableOpacity
+        <IconButton
           testID="map-style-toggle"
           style={[
             styles.button,
@@ -323,50 +322,43 @@ export function BaseMapView({
             isDark && styles.buttonDark,
           ]}
           onPress={toggleStyle}
-          activeOpacity={0.8}
+          variant="secondary"
           accessibilityLabel={t('maps.toggleStyle')}
-          accessibilityRole="button"
         >
           <MaterialCommunityIcons
             name={getStyleIcon(mapStyle)}
             size={24}
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </IconButton>
       )}
 
       {/* Control stack - positioned at same level as style toggle, horizontal layout */}
       <View style={[styles.controlStack, { top: insets.top + 12 }]}>
         {show3DToggle && has3DRoute && (
-          <TouchableOpacity
+          <IconButton
             testID="map-3d-toggle"
-            style={[
-              styles.controlButton,
-              isDark && styles.controlButtonDark,
-              is3DMode && styles.controlButtonActive,
-            ]}
+            style={[styles.controlButton, isDark && !is3DMode && styles.controlButtonDark]}
             onPress={toggle3D}
-            activeOpacity={0.8}
+            variant={is3DMode ? 'primary' : 'secondary'}
             accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
-            accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name="terrain"
               size={22}
               color={
-                is3DMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
+                is3DMode ? colors.textOnPrimary : isDark ? colors.textOnDark : colors.textSecondary
               }
             />
-          </TouchableOpacity>
+          </IconButton>
         )}
 
         {showOrientationButton && (
-          <TouchableOpacity
+          <IconButton
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPress={resetOrientation}
-            activeOpacity={0.8}
+            variant="secondary"
             accessibilityLabel={t('maps.resetOrientation')}
-            accessibilityRole="button"
           >
             <CompassArrow
               size={22}
@@ -374,23 +366,22 @@ export function BaseMapView({
               northColor={colors.error}
               southColor={isDark ? colors.textOnDark : colors.textSecondary}
             />
-          </TouchableOpacity>
+          </IconButton>
         )}
 
         {showLocationButton && (
-          <TouchableOpacity
+          <IconButton
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPress={handleGetLocation}
-            activeOpacity={0.8}
+            variant="secondary"
             accessibilityLabel={t('maps.goToLocation')}
-            accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name="crosshairs-gps"
               size={22}
               color={isDark ? colors.textOnDark : colors.textSecondary}
             />
-          </TouchableOpacity>
+          </IconButton>
         )}
 
         {extraControls}
@@ -482,9 +473,6 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: colorWithOpacity(ink.white, 0.95),
-    justifyContent: 'center',
-    alignItems: 'center',
     ...shadows.mapOverlay,
     zIndex: 10,
   },
@@ -505,19 +493,13 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   controlButton: {
-    width: layout.minTapTarget, // 44 - Accessibility minimum
-    height: layout.minTapTarget, // 44 - Accessibility minimum
-    borderRadius: layout.minTapTarget / 2, // 22
-    backgroundColor: colorWithOpacity(ink.white, 0.95),
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
+    borderRadius: layout.minTapTarget / 2,
     ...shadows.mapOverlay,
   },
   controlButtonDark: {
     backgroundColor: darkColors.surfaceCard,
-  },
-  controlButtonActive: {
-    backgroundColor: colors.primary,
   },
   attribution: {
     position: 'absolute',

@@ -99,6 +99,8 @@ export const ActivityHeader = React.memo(function ActivityHeader({
         <>
           {debugEnabled ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={activity.name}
               testID="activity-detail-name"
               delayLongPress={CONFIRM_HOLD_MS}
               onLongPress={() => {

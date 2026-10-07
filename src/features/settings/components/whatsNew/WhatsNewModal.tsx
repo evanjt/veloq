@@ -15,7 +15,7 @@ import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, ink, typography, colorWithOpacity } from '@/theme';
+import { colors, darkColors, spacing, layout, ink, colorWithOpacity } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useMapPreferenceActions } from '@/features/maps';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
@@ -23,7 +23,7 @@ import { useCutoverSummary } from '@/features/routes';
 import { cutoverHasChangesToShow } from '@/features/settings/lib/cutoverShowMe';
 import { getAllSlides, getSlidesSince, type WhatsNewSlideDefinition } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button, pressable, pressRipple } from '@/shared/ui';
 
 const SWIPE_THRESHOLD_RATIO = 0.2;
 const VELOCITY_THRESHOLD = 400;
@@ -245,24 +245,16 @@ export function WhatsNewModal() {
         {/* Mode toggle + dot indicators */}
         <View style={styles.indicators}>
           {canToggleMode && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
+            <Button
+              label={
                 tourState?.mode === 'tutorial'
                   ? t('whatsNew.justWhatsNew')
                   : t('whatsNew.seeAllFeatures')
               }
               onPress={handleModeToggle}
-              hitSlop={8}
-              style={pressable([styles.modeTogglePill, { borderColor: primaryColor }])}
-              android_ripple={pressRipple}
-            >
-              <Text style={[styles.modeToggleText, { color: primaryColor }]}>
-                {tourState?.mode === 'tutorial'
-                  ? t('whatsNew.justWhatsNew')
-                  : t('whatsNew.seeAllFeatures')}
-              </Text>
-            </Pressable>
+              variant="secondary"
+              size="sm"
+            />
           )}
           <View style={styles.dots}>
             {slides.map((_, index) => (
@@ -285,8 +277,6 @@ export function WhatsNewModal() {
           onSkip={dismiss}
           onNext={handleNext}
           onShowMe={handleShowMe}
-          mutedColor={mutedColor}
-          primaryColor={primaryColor}
           skipLabel={t('whatsNew.skipButton')}
           nextLabel={t('whatsNew.nextButton')}
           doneLabel={t('whatsNew.doneButton')}
@@ -324,8 +314,6 @@ function NavigationButtons({
   onSkip,
   onNext,
   onShowMe,
-  mutedColor,
-  primaryColor,
   skipLabel,
   nextLabel,
   doneLabel,
@@ -337,8 +325,6 @@ function NavigationButtons({
   onSkip: () => void;
   onNext: () => void;
   onShowMe: () => void;
-  mutedColor: string;
-  primaryColor: string;
   skipLabel: string;
   nextLabel: string;
   doneLabel: string;
@@ -362,62 +348,28 @@ function NavigationButtons({
       {/* Left: Skip (hidden on last slide) */}
       <View style={styles.navLeft}>
         <Animated.View style={isLast}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={skipLabel}
-            onPress={onSkip}
-            hitSlop={12}
-            style={pressable()}
-            android_ripple={pressRipple}
-          >
-            <Text style={[styles.navText, { color: mutedColor }]}>{skipLabel}</Text>
-          </Pressable>
+          <Button label={skipLabel} onPress={onSkip} variant="ghost" size="sm" />
         </Animated.View>
       </View>
 
       {/* Center: Show Me */}
       <Animated.View style={showMeStyle}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={showMeLabel}
+        <Button
+          label={showMeLabel}
           onPress={onShowMe}
-          hitSlop={12}
-          style={pressable()}
-          android_ripple={pressRipple}
-        >
-          <Text style={[styles.navText, styles.navTextBold, { color: primaryColor }]}>
-            {showMeLabel} →
-          </Text>
-        </Pressable>
+          variant="ghost"
+          size="sm"
+          icon={<Text>→</Text>}
+        />
       </Animated.View>
 
       {/* Right: Next / Done */}
       <View style={styles.navRight}>
         <Animated.View style={doneStyle}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={doneLabel}
-            onPress={onSkip}
-            hitSlop={12}
-            style={pressable([styles.doneButton, { backgroundColor: primaryColor }])}
-            android_ripple={pressRipple}
-          >
-            <Text style={[styles.doneText, { color: ink.white }]}>{doneLabel}</Text>
-          </Pressable>
+          <Button label={doneLabel} onPress={onSkip} size="sm" />
         </Animated.View>
         <Animated.View style={[styles.nextOverlay, isLast]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={nextLabel}
-            onPress={onNext}
-            hitSlop={12}
-            style={pressable()}
-            android_ripple={pressRipple}
-          >
-            <Text style={[styles.navText, styles.navTextBold, { color: primaryColor }]}>
-              {nextLabel}
-            </Text>
-          </Pressable>
+          <Button label={nextLabel} onPress={onNext} variant="ghost" size="sm" />
         </Animated.View>
       </View>
     </View>
@@ -451,16 +403,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.xs,
   },
-  modeTogglePill: {
-    borderWidth: 1.5,
-    borderRadius: layout.borderRadiusLg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xsPlus,
-  },
-  modeToggleText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-  },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -482,13 +424,6 @@ const styles = StyleSheet.create({
     minWidth: 60,
     alignItems: 'flex-start',
   },
-  navText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '500',
-  },
-  navTextBold: {
-    fontWeight: '600',
-  },
   navRight: {
     position: 'relative',
     minWidth: 80,
@@ -500,14 +435,5 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     justifyContent: 'center',
-  },
-  doneButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-  },
-  doneText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
   },
 });

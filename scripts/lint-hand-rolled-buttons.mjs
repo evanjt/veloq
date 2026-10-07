@@ -16,8 +16,8 @@
 // several, and it is the rendered controls the sweep replaces.
 //
 // Not counted: `src/shared/ui/`, where `Button` and the press primitives are
-// built; tests; and `src/features/maps/` overlays, whose press targets sit on a
-// map surface rather than in the layout and belong to the press-feedback sweep.
+// built; and tests. Map controls are counted too, including the remaining
+// pressable rows and chips, so new hand-rolled controls cannot enter unnoticed.
 //
 // Also refused, with no baseline: `Button` or `SegmentedButtons` imported from
 // `react-native-paper` anywhere under `src/`, `src/shared/ui/` included. The
@@ -45,7 +45,7 @@ const BASELINE_FILE = flagValue('--baseline', join(HERE, 'hand-rolled-button-bas
 const SRC = join(ROOT, 'src');
 const WRITE = process.argv.includes('--write');
 
-const EXEMPT = ['src/shared/ui/', 'src/__tests__/', 'src/features/maps/'];
+const EXEMPT = ['src/shared/ui/', 'src/__tests__/'];
 
 /** A rendered press primitive, opening tag only. */
 const RENDERED = /<(?:TouchableOpacity|Pressable)[\s/>]/g;

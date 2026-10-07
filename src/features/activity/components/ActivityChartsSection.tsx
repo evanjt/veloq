@@ -3,7 +3,7 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
+  Pressable,
   Modal,
   StatusBar,
   StyleSheet,
@@ -21,7 +21,14 @@ import { HRZonesChart } from './HRZonesChart';
 import { PowerZonesChart } from './PowerZonesChart';
 import { IntervalsTable } from './IntervalsTable';
 import { InsightfulStats } from './stats';
-import { Button, ComponentErrorBoundary, DeviceAttribution } from '@/shared/ui';
+import {
+  Button,
+  ComponentErrorBoundary,
+  DeviceAttribution,
+  IconButton,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
@@ -309,19 +316,17 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     metricValues={chartMetrics}
                   />
                 </View>
-                <TouchableOpacity
-                  style={[styles.fullscreenButton, isDark && styles.expandButtonDark]}
+                <IconButton
+                  style={styles.fullscreenButton}
                   onPress={openChartFullscreen}
-                  activeOpacity={0.7}
                   accessibilityLabel={t('maps.openFullscreen')}
-                  accessibilityRole="button"
                 >
                   <MaterialCommunityIcons
                     name="fullscreen"
                     size={16}
                     color={isDark ? colors.textOnDark : colors.textPrimary}
                   />
-                </TouchableOpacity>
+                </IconButton>
               </View>
             )}
 
@@ -364,10 +369,13 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 testID="activity-interval-table"
                 style={[styles.intervalsCard, isDark && styles.cardDark]}
               >
-                <TouchableOpacity
-                  style={[styles.intervalsBar, isDark && styles.intervalsBarDark]}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('activityDetail.tabs.intervals')}
+                  accessibilityState={{ expanded: intervalsExpanded }}
+                  style={pressable([styles.intervalsBar, isDark && styles.intervalsBarDark])}
+                  android_ripple={pressRipple}
                   onPress={() => setIntervalsExpanded((v) => !v)}
-                  activeOpacity={0.7}
                 >
                   <View style={styles.intervalsBarLeft}>
                     <Text style={[styles.intervalsTitle, isDark && styles.textMuted]}>
@@ -387,7 +395,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     size={18}
                     color={isDark ? darkColors.textSecondary : colors.textSecondary}
                   />
-                </TouchableOpacity>
+                </Pressable>
                 {intervalsExpanded && intervalsData?.icu_intervals && (
                   <IntervalsTable
                     intervals={intervalsData.icu_intervals}
@@ -434,22 +442,14 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 
         {/* Export GPX button */}
         {coordinates.length > 0 && (
-          <TouchableOpacity
+          <Button
             testID="activity-export-gpx"
-            style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+            style={styles.exportGpxButton}
             onPress={onExportGpx}
-            disabled={gpxExporting}
-            activeOpacity={0.7}
-          >
-            {gpxExporting ? (
-              <ActivityIndicator size="small" color={colors.textOnPrimary} />
-            ) : (
-              <MaterialCommunityIcons name="download" size={20} color={colors.textOnPrimary} />
-            )}
-            <Text style={styles.exportGpxButtonText}>
-              {gpxExporting ? t('export.exporting') : t('export.gpx')}
-            </Text>
-          </TouchableOpacity>
+            loading={gpxExporting}
+            label={t('export.gpx')}
+            icon={<MaterialCommunityIcons name="download" size={20} color={colors.textOnPrimary} />}
+          />
         )}
 
         {/* Device attribution */}
@@ -552,6 +552,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
           <View style={[styles.fullscreenContainer, isDark && styles.fullscreenContainerDark]}>
             {/* Close button */}
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
               style={[
                 styles.fullscreenCloseButton,
                 { top: Math.max(insets.top, insets.left, 16) + 8 },
@@ -635,9 +637,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: spacing.xs,
   },
-  expandButtonDark: {
-    backgroundColor: opacity.overlayDark.heavy,
-  },
   chartCard: {
     backgroundColor: colors.surface,
     borderRadius: layout.cardPadding,
@@ -716,12 +715,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   fullscreenButton: {
-    width: 28,
-    height: 28,
-    borderRadius: layout.borderRadius,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginLeft: 'auto',
   },
   fullscreenContainer: {
@@ -756,25 +749,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   exportGpxButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: layout.borderRadiusLg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
     marginTop: spacing.lg,
     marginBottom: spacing.md,
-    gap: spacing.xs,
     ...shadows.elevated,
-  },
-  exportGpxButtonDark: {
-    backgroundColor: colors.primary,
-  },
-  exportGpxButtonText: {
-    color: colors.textOnPrimary,
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
   },
 });

@@ -50,6 +50,14 @@ const CASES: Record<string, Case> = {
     violation: 'export const a = <Pressable onPress={f} />;\n',
     baseline: true,
   },
+  'lint-modal-sheets': {
+    guard: 'lint-modal-sheets.mjs',
+    tree: {},
+    target: 'src/a.tsx',
+    clean: 'export const a = 1;\n',
+    violation: 'export const a = <Modal visible />;\n',
+    baseline: true,
+  },
   'lint-engine-write-lock': {
     guard: 'lint-engine-write-lock.mjs',
     tree: {},

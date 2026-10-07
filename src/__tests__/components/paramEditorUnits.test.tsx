@@ -6,13 +6,40 @@
  * athlete's unit, and the value saved is metres.
  */
 
-import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import React, { useState } from 'react';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewParamPanel';
 import { GroupingParamPanel } from '@/features/routes/components/preview/GroupingParamPanel';
+import ParamEditorSheet from '@/app/sheets/param-editor';
 
 let mockIsMetric = false;
+
+let mockSetRoute: (request: string | null) => void = () => {};
+let mockRequest: string | undefined;
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  router: {
+    push: ({ params }: { params: { request: string } }) => mockSetRoute(params.request),
+    back: () => mockSetRoute(null),
+  },
+  useLocalSearchParams: () => ({ request: mockRequest }),
+}));
+
+function renderWithSheet(panel: React.ReactElement) {
+  function Harness() {
+    const [request, setRequest] = useState<string | null>(null);
+    mockSetRoute = setRequest;
+    mockRequest = request ?? undefined;
+    return (
+      <>
+        {panel}
+        {request && <ParamEditorSheet key={request} />}
+      </>
+    );
+  }
+  return render(<Harness />);
+}
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -26,8 +53,12 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => mockIsMetric,
 }));
-jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => mockIsMetric }));
+jest.mock('@/shared/app/useTheme', () => ({
+  useTheme: () => ({ isDark: false }),
+}));
+jest.mock('@/shared/app/useMetricSystem', () => ({
+  useMetricSystem: () => mockIsMetric,
+}));
 
 const params = {
   proximityThreshold: 200,
@@ -42,9 +73,9 @@ beforeEach(() => {
 });
 
 describe('the section parameter editor', () => {
-  it('shows feet, bounds in feet and saves metres for an imperial athlete', () => {
+  it('shows feet, bounds in feet and saves metres for an imperial athlete', async () => {
     const onChange = jest.fn();
-    const { getByTestId, getByText } = render(
+    const { getByTestId, getByText } = renderWithSheet(
       <PreviewParamPanel params={params} onChange={onChange} />
     );
 
@@ -55,24 +86,38 @@ describe('the section parameter editor', () => {
     fireEvent.changeText(getByTestId('param-editor-input'), '500');
     fireEvent.press(getByTestId('param-editor-save'));
 
-    expect(onChange).toHaveBeenCalledWith({ ...params, proximityThreshold: 152 });
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ...params,
+        proximityThreshold: 152,
+      })
+    );
   });
 
-  it('edits the long ceiling in miles', () => {
+  it('edits the long ceiling in miles', async () => {
     const onChange = jest.fn();
-    const { getByTestId } = render(<PreviewParamPanel params={params} onChange={onChange} />);
+    const { getByTestId } = renderWithSheet(
+      <PreviewParamPanel params={params} onChange={onChange} />
+    );
 
     fireEvent.press(getByTestId('param-edit-maxSectionLength'));
     expect(getByTestId('param-editor-input').props.value).toBe('124.27');
     fireEvent.changeText(getByTestId('param-editor-input'), '10');
     fireEvent.press(getByTestId('param-editor-save'));
 
-    expect(onChange).toHaveBeenCalledWith({ ...params, maxSectionLength: 16093 });
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ...params,
+        maxSectionLength: 16093,
+      })
+    );
   });
 
   it('saving an editor left untouched keeps the stored metres exactly', () => {
     const onChange = jest.fn();
-    const { getByTestId } = render(<PreviewParamPanel params={params} onChange={onChange} />);
+    const { getByTestId } = renderWithSheet(
+      <PreviewParamPanel params={params} onChange={onChange} />
+    );
 
     fireEvent.press(getByTestId('param-edit-maxSectionLength'));
     fireEvent.press(getByTestId('param-editor-save'));
@@ -84,7 +129,7 @@ describe('the section parameter editor', () => {
 
   it('leaves metres alone for a metric athlete and the visit count unitless', () => {
     mockIsMetric = true;
-    const { getByTestId, getByText } = render(
+    const { getByTestId, getByText } = renderWithSheet(
       <PreviewParamPanel params={params} onChange={jest.fn()} />
     );
 
@@ -94,7 +139,7 @@ describe('the section parameter editor', () => {
   });
 
   it('keeps the visit count and divergence free of a unit', () => {
-    const { getByTestId, getByText } = render(
+    const { getByTestId, getByText } = renderWithSheet(
       <PreviewParamPanel params={params} onChange={jest.fn()} />
     );
 
@@ -105,10 +150,10 @@ describe('the section parameter editor', () => {
 });
 
 describe('the grouping parameter editor', () => {
-  it('shows feet and saves metres for the endpoint distance', () => {
+  it('shows feet and saves metres for the endpoint distance', async () => {
     const onChange = jest.fn();
     const grouping = { minMatchPercentage: 55, endpointThreshold: 250 };
-    const { getByTestId, getByText } = render(
+    const { getByTestId, getByText } = renderWithSheet(
       <GroupingParamPanel params={grouping} onChange={onChange} />
     );
 
@@ -119,11 +164,16 @@ describe('the grouping parameter editor', () => {
     fireEvent.changeText(getByTestId('grouping-editor-input'), '1000');
     fireEvent.press(getByTestId('grouping-editor-save'));
 
-    expect(onChange).toHaveBeenCalledWith({ ...grouping, endpointThreshold: 305 });
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ...grouping,
+        endpointThreshold: 305,
+      })
+    );
   });
 
   it('keeps the match percentage a percentage', () => {
-    const { getByTestId } = render(
+    const { getByTestId } = renderWithSheet(
       <GroupingParamPanel
         params={{ minMatchPercentage: 55, endpointThreshold: 250 }}
         onChange={jest.fn()}

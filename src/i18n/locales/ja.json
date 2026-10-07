@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "増やす",
+    "decrease": "減らす",
+    "repositoryFor": "{{name}}のリポジトリ"
+  },
   "about": {
     "dataAttribution": "データ帰属",
     "description": "マップとビジュアル分析に特化した、intervals.icu向けの高速オフライン対応モバイルクライアント。",
@@ -227,7 +232,6 @@
     "lastBackup": "最終バックアップ: {{date}}",
     "lastBackupNever": "バックアップ未実施",
     "backupNow": "今すぐバックアップ",
-    "backingUp": "バックアップ中...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "iCloudバックアップ",
     "carrierDeviceAndroid": "Googleバックアップ",
@@ -862,6 +866,7 @@
     "recentPersonalRecord": "最近の自己ベスト"
   },
   "licenses": {
+    "openRepository": "リポジトリを開く",
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
     "intro": "Veloqはオープンソースソフトウェアで構築されています。この画面では、サードパーティライブラリとそのライセンスを一覧表示しています。",
     "sectionCoreFramework": "コアフレームワーク",
@@ -1204,6 +1209,12 @@
     "accuracyFilter": "精度フィルター",
     "accuracyFilterDescription": "この値より精度の低いGPSポイントを破棄します。",
     "autoPauseDelay": "自動一時停止までの時間",
+    "accuracyFilterDecrease": "精度フィルターを下げる",
+    "accuracyFilterIncrease": "精度フィルターを上げる",
+    "autoPauseDelayDecrease": "自動一時停止までの時間を短くする",
+    "autoPauseDelayIncrease": "自動一時停止までの時間を長くする",
+    "speedThresholdDecrease": "{{sport}}の速度しきい値を下げる",
+    "speedThresholdIncrease": "{{sport}}の速度しきい値を上げる",
     "keepAwake": "画面をオンのままにする",
     "keepAwakeDescription": "記録中に画面がスリープするのを防ぎます。",
     "routeOverlay": {
@@ -1380,6 +1391,13 @@
     "resetBounds": "元に戻す",
     "trimPrecisionHint": "ハンドルを上下にドラッグして微調整",
     "trimMode": "トリム",
+    "trimStartEarlier": "開始点を前に移動",
+    "trimStartLater": "開始点を後に移動",
+    "trimEndEarlier": "終了点を前に移動",
+    "trimEndLater": "終了点を後に移動",
+    "includeActivity": "アクティビティを含める",
+    "excludeActivity": "アクティビティを除外",
+    "showExcludedActivities": "除外したアクティビティを表示",
     "expandMode": "拡張",
     "resetBoundsConfirm": "自動検出された元の範囲に戻しますか？\n\nセクションはすべてのアクティビティと再照合されます。",
     "liftGround": "リフト",

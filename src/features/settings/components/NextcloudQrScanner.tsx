@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Pressable, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, cameraOverlay, layout, typography, colorWithOpacity, ink } from '@/theme';
-import { pressable, pressRipple } from '@/shared/ui';
+import { spacing, cameraOverlay, typography, colorWithOpacity, ink } from '@/theme';
+import { Button, IconButton } from '@/shared/ui';
 
 interface NextcloudQrScannerProps {
   onScanned: (data: string) => void;
@@ -29,26 +29,11 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
         <Text style={styles.permissionText}>
           {t('backup.cameraPermissionNeeded', 'Camera access is required to scan QR codes')}
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('backup.grantCameraAccess', 'Grant Camera Access')}
-          style={pressable(styles.grantButton)}
-          android_ripple={pressRipple}
+        <Button
+          label={t('backup.grantCameraAccess', 'Grant Camera Access')}
           onPress={requestPermission}
-        >
-          <Text style={styles.grantButtonText}>
-            {t('backup.grantCameraAccess', 'Grant Camera Access')}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('common.cancel')}
-          style={pressable(styles.cancelButton)}
-          android_ripple={pressRipple}
-          onPress={onClose}
-        >
-          <Text style={styles.cancelText}>{t('common.cancel')}</Text>
-        </Pressable>
+        />
+        <Button label={t('common.cancel')} onPress={onClose} variant="ghost" />
       </View>
     );
   }
@@ -70,15 +55,9 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('common.close')}
-          onPress={onClose}
-          style={pressable(styles.closeButton)}
-          android_ripple={pressRipple}
-        >
+        <IconButton accessibilityLabel={t('common.close')} onPress={onClose}>
           <MaterialCommunityIcons name="close" size={24} color={cameraOverlay.text} />
-        </Pressable>
+        </IconButton>
         <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR Code')}</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -125,12 +104,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
     backgroundColor: colorWithOpacity(ink.black, 0.5),
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   headerTitle: {
     fontSize: typography.cardTitle.fontSize,
@@ -195,23 +168,5 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     color: cameraOverlay.hint,
     textAlign: 'center',
-  },
-  grantButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusXl,
-    backgroundColor: colors.primary,
-  },
-  grantButtonText: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
-    color: cameraOverlay.text,
-  },
-  cancelButton: {
-    paddingVertical: spacing.sm,
-  },
-  cancelText: {
-    fontSize: typography.bodyMedium.fontSize,
-    color: cameraOverlay.hint,
   },
 });

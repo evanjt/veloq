@@ -5,8 +5,11 @@
 // whole index rather than a hand-listed set of directories is what keeps the
 // next corner from reopening.
 //
-// The tracematch submodule has its own index and is not covered here.
+// The tracematch submodule has its own index, which the superproject holds
+// only as a gitlink, so it is listed and read separately below.
 
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { indexedSources, refuseEmptyListing } from './lib/indexedSources.mjs';
 
 // Built from its code point so this file is not its own first offender.
@@ -36,6 +39,8 @@ function isText(bytes) {
   return !bytes.includes(0);
 }
 
+const SUBMODULE = 'modules/veloqrs/rust/tracematch';
+
 const failures = [];
 let total = 0;
 
@@ -44,6 +49,15 @@ let total = 0;
 // session has a file open rather than what anyone is committing.
 const tracked = indexedSources(root);
 refuseEmptyListing(tracked, 'Em dash guard');
+
+// An empty directory is a submodule nobody has initialised, as on a fresh
+// clone, and there is nothing of ours to read in it.
+const submoduleRoot = join(root, SUBMODULE);
+if (existsSync(join(submoduleRoot, '.git'))) {
+  for (const [file, bytes] of indexedSources(submoduleRoot)) {
+    tracked.set(`${SUBMODULE}/${file}`, bytes);
+  }
+}
 
 for (const [file, bytes] of tracked) {
   if (ALLOWED.some((prefix) => file.startsWith(prefix))) continue;

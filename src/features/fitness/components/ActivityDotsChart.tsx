@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -8,33 +8,17 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { ChartCrosshair, useChartGestures } from '@/shared/charts';
-import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getActivityColor, sortByDateId } from '@/shared/activity/activityUtils';
 import type { DayLoad } from 'veloqrs';
 import type { Activity, ActivityType, WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
 import { formFromLoads } from '@/shared/math';
-import { pressable, pressRipple } from '@/shared/ui';
+import { pressable } from '@/shared/ui';
 
-// Simple emoji icons for activity types
-const ACTIVITY_EMOJIS: Record<string, string> = {
-  Ride: '🚴',
-  Run: '🏃',
-  Swim: '🏊',
-  Walk: '🚶',
-  Hike: '🥾',
-  VirtualRide: '🚴',
-  VirtualRun: '🏃',
-  Workout: '💪',
-  WeightTraining: '🏋️',
-  Yoga: '🧘',
-  Other: '❤️',
-};
-
-const getActivityEmoji = (type: ActivityType): string => {
-  return ACTIVITY_EMOJIS[type] || '❤️';
-};
+import { useSheetOpener } from '@/shared/app/sheetRequest';
+import type { DayActivitiesInput } from '@/app/sheets/day-activities';
 
 interface ActivityDotsChartProps {
   /** Wellness data for date alignment */
@@ -88,7 +72,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     activities: DotData['activities'];
   } | null>(null);
   const persistedActivities = persisted?.activities ?? null;
-  const [showPicker, setShowPicker] = useState(false);
+  const openSheet = useSheetOpener();
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   onDateSelectRef.current = onDateSelect;
@@ -278,25 +262,23 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   };
 
   // Handle tap on activity label
-  const handleActivityTap = useCallback(() => {
+  const handleActivityTap = useCallback(async () => {
     if (displayActivities.length === 0) return;
 
     if (displayActivities.length === 1) {
       // Single activity - navigate directly
       router.push(`/activity/${displayActivities[0].id}`);
       setPersisted(null);
-    } else {
-      // Multiple activities - show picker
-      setShowPicker(true);
+      return;
     }
-  }, [displayActivities]);
-
-  // Handle activity selection from picker
-  const handleActivitySelect = useCallback((activityId: string) => {
-    setShowPicker(false);
+    // Multiple activities - choose one in a sheet
+    const result = await openSheet<DayActivitiesInput, string>('sheets/day-activities', {
+      activities: displayActivities,
+    });
+    if (result.kind !== 'selected') return;
     setPersisted(null);
-    router.push(`/activity/${activityId}`);
-  }, []);
+    router.push(`/activity/${result.value}`);
+  }, [displayActivities, openSheet]);
 
   // Below every hook, so the hook count stays fixed across renders.
   if (dotData.length === 0) {
@@ -327,7 +309,14 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       {/* Activity label when selected - tappable, styled as pill with activity color */}
       <View style={styles.labelContainer}>
         {displayActivities.length > 0 ? (
-          <TouchableOpacity onPress={handleActivityTap} activeOpacity={0.7}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              getActivitySummary(displayActivities) ?? t('fitness.selectActivity')
+            }
+            onPress={handleActivityTap}
+            style={pressable()}
+          >
             <View
               style={[
                 styles.activityPill,
@@ -348,7 +337,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                 {getActivitySummary(displayActivities)} →
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         ) : (
           <Text style={[styles.noActivityLabel, isDark && styles.noActivityLabelDark]}>
             {displayData ? t('fitness.restDay') : t('navigation.activities')}
@@ -366,60 +355,6 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
           </Text>
         )}
       </View>
-
-      {/* Activity picker modal */}
-      <Modal
-        visible={showPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPicker(false)}
-      >
-        <Pressable
-          style={pressable(styles.modalOverlay)}
-          android_ripple={pressRipple}
-          onPress={() => setShowPicker(false)}
-        >
-          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-            <Text style={[styles.modalTitle, isDark && styles.textLight]}>
-              {t('fitness.selectActivity')}
-            </Text>
-            {displayActivities.map((activity) => (
-              <TouchableOpacity
-                key={activity.id}
-                style={[styles.activityRow, isDark && styles.activityRowDark]}
-                onPress={() => handleActivitySelect(activity.id)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.activityIcon,
-                    { backgroundColor: getActivityColor(activity.type) },
-                  ]}
-                >
-                  <Text style={styles.activityIconText}>{getActivityEmoji(activity.type)}</Text>
-                </View>
-                <View style={styles.activityInfo}>
-                  <Text style={[styles.activityName, isDark && styles.textLight]} numberOfLines={1}>
-                    {activity.name}
-                  </Text>
-                  {activity.load > 0 && (
-                    <Text style={[styles.activityLoad, isDark && chartStyles.textDark]}>
-                      {Math.round(activity.load)} {t('stats.tss')}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setShowPicker(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
 
       <GestureDetector gesture={gesture}>
         <View
@@ -552,77 +487,5 @@ const styles = StyleSheet.create({
   },
   canvas: {
     flex: 1,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: opacity.overlay.heavy,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    width: '100%',
-    maxWidth: 320,
-  },
-  modalContentDark: {
-    backgroundColor: darkColors.surface,
-  },
-  modalTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    marginBottom: spacing.xs,
-  },
-  activityRowDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  activityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: layout.borderRadiusFull,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  activityIconText: {
-    fontSize: typography.bodySmall.fontSize,
-  },
-  activityInfo: {
-    flex: 1,
-  },
-  activityName: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  activityLoad: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  cancelButton: {
-    marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
   },
 });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING, pressable, pressRipple } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -66,11 +66,13 @@ function AccountRow({
         styles.accountCard,
       ]}
     >
-      <TouchableOpacity
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={athlete?.name || t('settings.account')}
         testID="settings-account-row"
-        style={styles.accountRow}
+        style={pressable(styles.accountRow)}
         onPress={() => navigateTo('/account')}
-        activeOpacity={0.7}
+        android_ripple={pressRipple}
       >
         <View style={[styles.accountPhoto, isDark && styles.accountPhotoDark]}>
           {hasValidProfileUrl && !profileImageError ? (
@@ -101,7 +103,7 @@ function AccountRow({
           size={20}
           color={isDark ? darkColors.textMuted : colors.textSecondary}
         />
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }

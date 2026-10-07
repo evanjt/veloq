@@ -10,8 +10,6 @@
  * The hook composes with the existing `handleRegionDidChange` handler from
  * `useMapHandlers` and the existing `toggleSections` callback - it wraps both
  * with the auto-toggle concern while preserving identity stability.
- *
- * Extracted from RegionalMapView.tsx - pure refactor, no behaviour change.
  */
 
 import { useCallback, useEffect, useRef } from 'react';

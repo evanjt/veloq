@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { RecordFAB } from '@/features/recording/components/RecordFAB';
@@ -63,10 +64,8 @@ function fabStyle(isDark: boolean) {
 }
 
 function StyleSheetFlatten(style: unknown): Record<string, unknown> {
-  return (Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style) as Record<
-    string,
-    unknown
-  >;
+  const resolved = typeof style === 'function' ? style({ pressed: false }) : style;
+  return StyleSheet.flatten(resolved) as Record<string, unknown>;
 }
 
 describe('the record button reads as recording', () => {

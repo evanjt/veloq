@@ -54,6 +54,8 @@ export function DemoBanner() {
       <Pressable
         testID="demo-mode-banner"
         onPress={handlePress}
+        accessibilityRole="button"
+        accessibilityLabel={`${t('demo.banner', { defaultValue: 'Demo Mode' })}. ${t('demo.tapToSignIn', { defaultValue: 'Tap to sign in' })}`}
         style={pressable([
           styles.container,
           isDark && styles.containerDark,

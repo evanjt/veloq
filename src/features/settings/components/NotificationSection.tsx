@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, Linking, Pressable } from 'react-native';
+import { Alert, View, StyleSheet, Linking, Pressable } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import { NotificationPrivacyDialog } from './NotificationPrivacyDialog';
 import {
   requestNotificationPermission,
   hasNotificationPermission,
@@ -34,7 +33,6 @@ export function NotificationSection() {
   const { enabled, privacyAccepted, categories, setEnabled, acceptPrivacy, setCategoryEnabled } =
     useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
-  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
 
   const canEnable = isOAuth && !isDemoMode;
 
@@ -49,7 +47,6 @@ export function NotificationSection() {
   }, [enabled, setEnabled]);
 
   const handlePrivacyAccept = useCallback(async () => {
-    setShowPrivacyDialog(false);
     acceptPrivacy();
     setToggling(true);
     const granted = await requestNotificationPermission();
@@ -59,13 +56,28 @@ export function NotificationSection() {
     setToggling(false);
   }, [acceptPrivacy, setEnabled]);
 
+  // The notice that has to be read before a push token leaves the device: it
+  // names what is stored on the server and who routes the notification.
+  // Dismissing it, by the back gesture or a tap outside, is a decline.
+  const showPrivacyNotice = useCallback(() => {
+    Alert.alert(
+      t('notifications.privacy.title'),
+      t('notifications.privacy.brief'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('notifications.privacy.accept'), onPress: handlePrivacyAccept },
+      ],
+      { cancelable: true }
+    );
+  }, [t, handlePrivacyAccept]);
+
   const handleMainToggle = useCallback(
     async (value: boolean) => {
       if (!canEnable) return;
 
       if (value) {
         if (!privacyAccepted) {
-          setShowPrivacyDialog(true);
+          showPrivacyNotice();
           return;
         }
         setToggling(true);
@@ -78,7 +90,7 @@ export function NotificationSection() {
         setEnabled(false);
       }
     },
-    [canEnable, privacyAccepted, setEnabled]
+    [canEnable, privacyAccepted, setEnabled, showPrivacyNotice]
   );
 
   return (
@@ -148,12 +160,6 @@ export function NotificationSection() {
           </Pressable>
         )}
       </View>
-
-      <NotificationPrivacyDialog
-        visible={showPrivacyDialog}
-        onCancel={() => setShowPrivacyDialog(false)}
-        onAccept={handlePrivacyAccept}
-      />
     </>
   );
 }

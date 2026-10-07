@@ -8,9 +8,16 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
+import * as Haptics from 'expo-haptics';
 
 import { BottomTabBar } from '@/shared/ui/BottomTabBar';
+
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
+}));
 
 let mockSegments: string[] = ['(tabs)'];
 
@@ -42,6 +49,7 @@ describe('BottomTabBar', () => {
     authState.isAuthenticated = false;
     authState.isDemoMode = false;
     mockSegments = ['(tabs)'];
+    jest.clearAllMocks();
   });
 
   it('renders nothing on a stack screen outside the tabs group', () => {
@@ -84,5 +92,18 @@ describe('BottomTabBar', () => {
     const { getByTestId } = render(<BottomTabBar />);
 
     expect(getByTestId('bottom-tab-bar')).toBeTruthy();
+  });
+
+  it('switching tab fires one selection haptic and no impact, and the current tab fires none', () => {
+    authState.isAuthenticated = true;
+    const { getByLabelText } = render(<BottomTabBar />);
+
+    fireEvent.press(getByLabelText('navigation.feed'));
+    expect(Haptics.selectionAsync).not.toHaveBeenCalled();
+
+    fireEvent.press(getByLabelText('navigation.fitness'));
+
+    expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
+    expect(Haptics.impactAsync).not.toHaveBeenCalled();
   });
 });

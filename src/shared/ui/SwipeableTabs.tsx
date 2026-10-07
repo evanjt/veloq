@@ -81,7 +81,7 @@ export function SwipeableTabs({
   const activeTabIndex = useSharedValue(initialIndex);
 
   const triggerHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.selectionAsync().catch(() => {});
   }, []);
 
   const updateTab = useCallback(

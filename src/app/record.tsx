@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  TouchableOpacity,
   Linking,
   Platform,
   ActivityIndicator,
@@ -12,6 +11,8 @@ import {
 import { Text } from 'react-native-paper';
 import {
   Button,
+  IconButton,
+  ToggleButton,
   ScreenSafeAreaView,
   TAB_BAR_SAFE_PADDING,
   pressable,
@@ -210,12 +211,9 @@ function RecordScreenContent() {
         options={{
           headerRight: () => (
             <View style={styles.headerActions}>
-              <TouchableOpacity
+              <IconButton
                 testID="record-library"
                 onPress={() => navigateTo('/recordings')}
-                style={styles.headerButton}
-                activeOpacity={0.7}
-                accessibilityRole="button"
                 accessibilityLabel={t('recording.library.title', 'My Recordings')}
               >
                 <MaterialCommunityIcons
@@ -223,17 +221,14 @@ function RecordScreenContent() {
                   size={22}
                   color={textSecondary}
                 />
-              </TouchableOpacity>
-              <TouchableOpacity
+              </IconButton>
+              <IconButton
                 testID="record-settings"
                 onPress={() => navigateTo('/recording-settings')}
-                style={styles.headerButton}
-                activeOpacity={0.7}
-                accessibilityRole="button"
                 accessibilityLabel={t('settings.title', 'Settings')}
               >
                 <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />
-              </TouchableOpacity>
+              </IconButton>
             </View>
           ),
         }}
@@ -332,28 +327,20 @@ function RecordScreenContent() {
           {chips.map((type) => {
             const selected = type === sport;
             return (
-              <Pressable
+              <ToggleButton
                 key={type}
                 testID={`record-type-${type}`}
-                style={pressable([
-                  styles.chip,
-                  { borderColor: selected ? colors.primary : border },
-                  selected && styles.chipSelected,
-                ])}
-                android_ripple={pressRipple}
+                label={t(`activityTypes.${type}` as never, type) as string}
+                selected={selected}
                 onPress={() => setChosenSport(type)}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-              >
-                <MaterialCommunityIcons
-                  name={getActivityIcon(type)}
-                  size={18}
-                  color={getActivityColor(type)}
-                />
-                <Text style={[styles.chipLabel, { color: textPrimary }]} numberOfLines={1}>
-                  {t(`activityTypes.${type}` as never, type) as string}
-                </Text>
-              </Pressable>
+                icon={
+                  <MaterialCommunityIcons
+                    name={getActivityIcon(type)}
+                    size={18}
+                    color={getActivityColor(type)}
+                  />
+                }
+              />
             );
           })}
           <Pressable
@@ -426,7 +413,10 @@ function SportSurface({
 
 const GPS_STATUS: Record<
   EntryGpsState,
-  { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; level: SignalLevel }
+  {
+    icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+    level: SignalLevel;
+  }
 > = {
   checking: { icon: 'crosshairs-question', level: 'idle' },
   ready: { icon: 'crosshairs-gps', level: 'ok' },
@@ -483,29 +473,22 @@ function GpsWarningLine({
           }
         >
           {state === 'none' && (
-            <Pressable
+            <Button
               onPress={() => Linking.openSettings()}
-              style={pressable()}
-              android_ripple={pressRipple}
-            >
-              <Text style={[styles.gpsSettingsLink, { color: tint }]}>
-                {t('recording.gpsAlertSettings', 'Open Settings')}
-              </Text>
-            </Pressable>
+              label={t('recording.gpsAlertSettings', 'Open Settings')}
+              variant="ghost"
+              size="sm"
+            />
           )}
         </SignalStatus>
       </View>
-      <Pressable
+      <IconButton
         testID="record-gps-warning-dismiss"
         onPress={onDismiss}
-        style={pressable(styles.dismissButton)}
-        android_ripple={pressRipple}
-        accessibilityRole="button"
         accessibilityLabel={t('common.close')}
-        hitSlop={spacing.sm}
       >
         <MaterialCommunityIcons name="close" size={18} color={tint} />
-      </Pressable>
+      </IconButton>
     </View>
   );
 }
@@ -517,12 +500,6 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  headerButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   surface: {
     flex: 1,
@@ -551,17 +528,6 @@ const styles = StyleSheet.create({
   },
   warningBody: {
     flex: 1,
-  },
-  dismissButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gpsSettingsLink: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
   },
   sportSurface: {
     flex: 1,
@@ -623,10 +589,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
-  },
-  chipSelected: {
-    borderWidth: 2,
-    backgroundColor: colorWithOpacity(colors.primary, 0.1),
   },
   chipLabel: {
     ...typography.bodySmall,

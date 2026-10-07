@@ -1,4 +1,9 @@
 {
+  "accessibility": {
+    "increase": "Aumentar",
+    "decrease": "Diminuir",
+    "repositoryFor": "Repositório de {{name}}"
+  },
   "about": {
     "dataAttribution": "Atribuição de dados",
     "description": "Um cliente móvel rápido para intervals.icu com foco em mapas e análise visual.",
@@ -228,7 +233,6 @@
     "lastBackup": "Última cópia: {{date}}",
     "lastBackupNever": "Nunca efetuada",
     "backupNow": "Fazer cópia agora",
-    "backingUp": "A criar cópia...",
     "backendWebdav": "WebDAV / Nextcloud",
     "carrierDeviceIos": "Cópia do iCloud",
     "carrierDeviceAndroid": "Cópia do Google",
@@ -879,6 +883,7 @@
     "recentPersonalRecord": "Recorde pessoal recente"
   },
   "licenses": {
+    "openRepository": "Abrir repositório",
     "footer": "Toque em qualquer selo de licença para ver o texto completo. Toque no ícone de link para visitar o repositório do projeto.",
     "intro": "O Veloq é construído com software de código aberto. Esta tela lista as bibliotecas de terceiros e suas licenças.",
     "sectionCoreFramework": "Framework principal",
@@ -1223,6 +1228,12 @@
     "accuracyFilter": "Filtro de precisão",
     "accuracyFilterDescription": "Descartar pontos GPS menos precisos do que este valor.",
     "autoPauseDelay": "Atraso da pausa automática",
+    "accuracyFilterDecrease": "Diminuir filtro de precisão",
+    "accuracyFilterIncrease": "Aumentar filtro de precisão",
+    "autoPauseDelayDecrease": "Diminuir atraso da pausa automática",
+    "autoPauseDelayIncrease": "Aumentar atraso da pausa automática",
+    "speedThresholdDecrease": "Diminuir limite de velocidade para {{sport}}",
+    "speedThresholdIncrease": "Aumentar limite de velocidade para {{sport}}",
     "keepAwake": "Manter o ecrã ligado",
     "keepAwakeDescription": "Impede que o ecrã se desligue durante a gravação.",
     "routeOverlay": {
@@ -1404,6 +1415,13 @@
     "resetBounds": "Repor original",
     "trimPrecisionHint": "Arraste o cursor para cima ou para baixo para um controlo mais fino",
     "trimMode": "Recortar",
+    "trimStartEarlier": "Mover início para trás",
+    "trimStartLater": "Mover início para a frente",
+    "trimEndEarlier": "Mover fim para trás",
+    "trimEndLater": "Mover fim para a frente",
+    "includeActivity": "Incluir atividade",
+    "excludeActivity": "Excluir atividade",
+    "showExcludedActivities": "Mostrar atividades excluídas",
     "expandMode": "Expandir",
     "resetBoundsConfirm": "Repor os limites originais detetados automaticamente?\n\nA secção será novamente comparada com todas as suas atividades.",
     "liftGround": "Teleférico",

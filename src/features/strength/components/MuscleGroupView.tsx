@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Pressable, View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,7 +30,7 @@ import { useMuscleGroups } from '../hooks/useExerciseSets';
 import { useMuscleDetail } from '../hooks/useMuscleDetail';
 import { formatWeight } from '@/shared/format/weight';
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
-import { pressable, pressRipple } from '@/shared/ui';
+import { IconButton } from '@/shared/ui';
 
 interface MuscleGroupViewProps {
   activityId: string;
@@ -148,20 +148,16 @@ export function MuscleGroupView({
                     >
                       {muscleDetail.name}
                     </Text>
-                    <Pressable
-                      onPress={() => setSelectedMuscle(null)}
-                      hitSlop={16}
-                      accessibilityRole="button"
+                    <IconButton
                       accessibilityLabel={t('common.close', 'Close')}
-                      style={pressable()}
-                      android_ripple={pressRipple}
+                      onPress={() => setSelectedMuscle(null)}
                     >
                       <MaterialCommunityIcons
                         name="close"
                         size={12}
                         color={isDark ? darkColors.textMuted : colors.textDisabled}
                       />
-                    </Pressable>
+                    </IconButton>
                   </View>
                   <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
                     {t('activity.muscle.setCount', {

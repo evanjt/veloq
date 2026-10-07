@@ -96,7 +96,7 @@ function BottomTabBarComponent() {
       }
 
       if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Haptics.selectionAsync().catch(() => {});
       }
       markTabPress(route);
       navigateTab(route);

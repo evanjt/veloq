@@ -26,8 +26,11 @@ jest.mock('@/shared/native/engine', () => ({
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/ui', () => {
-  const { View } = require('react-native');
+  const { View, Text } = require('react-native');
   return {
+    Button: ({ label }: { label: string }) => <Text>{label}</Text>,
+    IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    pressable: (style: unknown) => style,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DeviceAttribution: () => null,
     ScreenSafeAreaView: View,

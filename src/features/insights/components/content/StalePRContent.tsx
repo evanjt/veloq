@@ -167,6 +167,8 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
         <View style={styles.sectionList}>
           {sections.map((s: SupportingSection) => (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={s.sectionName}
               key={sectionRowKey(s)}
               style={pressable([styles.sectionCard, isDark && styles.sectionCardDark])}
               android_ripple={pressRipple}

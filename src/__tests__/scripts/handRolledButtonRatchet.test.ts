@@ -67,6 +67,14 @@ describe('the hand-rolled button ratchet', () => {
     expect(runGuard(root, {}).status).toBe(1);
   });
 
+  it('refuses a new map control and names its file', () => {
+    const root = treeWith({ 'src/features/maps/MapControls.tsx': TWO_BUTTONS });
+    const run = runGuard(root, {});
+
+    expect(run.status).toBe(1);
+    expect(run.output).toContain('src/features/maps/MapControls.tsx');
+  });
+
   it('refuses a baseline left above the tree, so a sweep cannot be undone', () => {
     const root = treeWith({ 'src/features/a/A.tsx': TWO_BUTTONS });
     const run = runGuard(root, { 'src/features/a/A.tsx': 5 });

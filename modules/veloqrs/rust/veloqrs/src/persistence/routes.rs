@@ -1088,15 +1088,15 @@ impl PersistentEngine {
         // Incremental grouping is correct at any new-to-total ratio
         // (existing groups stay valid; we only add new edges). The
         // benchmark shows it's faster than full at every ratio measured
-        // (60+90 → −37%, 154+396 → −19%). The 90% gate exists only to
+        // (60+90 → −37%, 154+396 → −19%).
         // Count new (ungrouped) sigs cheaply via Arc references - no clone yet.
         let new_count = arc_sigs
             .iter()
             .filter(|s| !already_grouped.contains(s.activity_id.as_str()))
             .count();
 
-        // skip the partition + HashSet build when nearly everything is
-        // new - full is simpler in that fresh-import case.
+        // The 90% gate exists only to skip the partition + HashSet build when
+        // nearly everything is new - full is simpler in that fresh-import case.
         // A changed rule re-evaluates pairs the incremental path never looks at.
         let use_incremental = !self.groups.is_empty()
             && new_count > 0

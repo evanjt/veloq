@@ -30,4 +30,14 @@ describe('recording settings threshold labels', () => {
     const row = getByTestId('settings-threshold-walking');
     expect(within(row).queryByText('recording.settingsAutoPauseWalkingAndOther')).not.toBeNull();
   });
+
+  it('names both accuracy filter controls', () => {
+    const { getByRole, getByTestId } = render(<RecordingSettingsScreen />);
+    expect(getByRole('button', { name: 'recording.accuracyFilterDecrease' })).toBe(
+      getByTestId('settings-accuracy-filter-minus')
+    );
+    expect(getByRole('button', { name: 'recording.accuracyFilterIncrease' })).toBe(
+      getByTestId('settings-accuracy-filter-plus')
+    );
+  });
 });

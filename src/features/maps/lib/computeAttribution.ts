@@ -4,8 +4,6 @@
  * Combines the style-specific attribution with dynamic satellite-source
  * attribution (when `style === 'satellite'` and a viewport is known) and
  * optional terrain attribution for 3D mode.
- *
- * Extracted from ActivityMapView.tsx for reuse and testability.
  */
 
 import {

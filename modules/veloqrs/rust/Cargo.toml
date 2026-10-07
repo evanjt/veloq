@@ -22,6 +22,13 @@ lto = true
 codegen-units = 1
 strip = false
 
+# Local iteration only. This profile is never shipped. With 16 codegen units,
+# rstar inlining into the section fold can vary and change warm-add timing.
+[profile.release-dev]
+inherits = "release"
+lto = false
+codegen-units = 16
+
 # Full DWARF put target/debug at 188 GB. Each of the 144 integration tests links
 # the crate statically and carries its own copy of every symbol name in the dep
 # graph: 393 MB a binary, of which 163 MB is .debug_str and only 30 MB is .text.

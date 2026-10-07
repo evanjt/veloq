@@ -8,7 +8,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import type { Insight, SupportingActivity } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
-import { getIntlLocale } from '@/shared/format/format';
+import { formatFullDate } from '@/shared/format/format';
 import { RankingFactorsGroup } from './RankingFactorsGroup';
 
 interface MethodologySectionProps {
@@ -112,6 +112,8 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
       </Text>
       {displayed.map((activity) => (
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={activity.activityName}
           key={activity.activityId}
           style={pressable([styles.activityRow, isDark && styles.activityRowDark])}
           android_ripple={pressRipple}
@@ -119,7 +121,7 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
         >
           <View style={styles.activityInfo}>
             <Text style={[styles.activityDate, isDark && styles.activityDateDark]}>
-              {formatActivityDate(activity.date)}
+              {formatFullDate(activity.date)}
             </Text>
             <Text
               style={[styles.activityName, isDark && styles.activityNameDark]}
@@ -143,20 +145,6 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
     </View>
   );
 });
-
-/** Format an ISO date string to a short readable date */
-function formatActivityDate(dateStr: string): string {
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(getIntlLocale(), {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-}
 
 const styles = StyleSheet.create({
   container: {

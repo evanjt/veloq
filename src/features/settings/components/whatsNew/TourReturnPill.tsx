@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -10,7 +10,7 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 
 export function TourReturnPill() {
   const { t } = useTranslation();
@@ -51,19 +51,13 @@ export function TourReturnPill() {
           </Text>
         )}
         <View style={styles.buttonRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('whatsNew.backToTour')}
-            style={pressable(styles.returnButton)}
-            android_ripple={pressRipple}
+          <Button
+            label={t('whatsNew.backToTour')}
             onPress={resumeTour}
-            hitSlop={8}
-          >
-            <MaterialCommunityIcons name="arrow-left" size={18} color={primaryColor} />
-            <Text style={[styles.backText, { color: primaryColor }]}>
-              {t('whatsNew.backToTour')}
-            </Text>
-          </Pressable>
+            variant="ghost"
+            size="sm"
+            icon={<MaterialCommunityIcons name="arrow-left" size={18} color={primaryColor} />}
+          />
 
           <View
             style={[
@@ -72,17 +66,13 @@ export function TourReturnPill() {
             ]}
           />
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('whatsNew.closeTour')}
-            style={pressable(styles.closeButton)}
-            android_ripple={pressRipple}
+          <Button
+            label={t('whatsNew.closeTour')}
             onPress={handleClose}
-            hitSlop={8}
-          >
-            <Text style={[styles.closeText, { color: mutedColor }]}>{t('whatsNew.closeTour')}</Text>
-            <MaterialCommunityIcons name="close" size={16} color={mutedColor} />
-          </Pressable>
+            variant="ghost"
+            size="sm"
+            icon={<MaterialCommunityIcons name="close" size={16} color={mutedColor} />}
+          />
         </View>
       </View>
     </Animated.View>
@@ -114,29 +104,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  returnButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingRight: spacing.sm,
-  },
-  backText: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
-  },
   divider: {
     width: 1,
     height: 20,
     marginHorizontal: spacing.xs,
-  },
-  closeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingLeft: spacing.sm,
-  },
-  closeText: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '500',
   },
 });

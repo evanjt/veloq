@@ -11,8 +11,6 @@
  * State setters are returned alongside the booleans so that downstream hooks
  * (notably `useMapHandlers`) can still drive them directly, while simple
  * inline toggles are provided via `toggle*` callbacks.
- *
- * Extracted from RegionalMapView.tsx - pure refactor, no behaviour change.
  */
 
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';

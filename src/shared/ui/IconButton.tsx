@@ -9,7 +9,13 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  type AccessibilityState,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import { useTheme } from '@/shared/app';
 import { controlHeight, layout, slopToMinTapTarget } from '@/theme';
@@ -19,11 +25,13 @@ import { paint, pressedOpacity, ripple, type ButtonVariant } from './Button';
 export interface IconButtonProps {
   /** What a screen reader announces. Required: an icon has no text of its own. */
   accessibilityLabel: string;
-  onPress: () => void;
+  onPress?: () => void;
+  onPressIn?: () => void;
   /** The glyph. It sizes itself, the target does not follow it. */
   children: React.ReactNode;
   variant?: ButtonVariant;
   disabled?: boolean;
+  accessibilityState?: AccessibilityState;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -31,9 +39,11 @@ export interface IconButtonProps {
 export function IconButton({
   accessibilityLabel,
   onPress,
+  onPressIn,
   children,
   variant = 'ghost',
   disabled = false,
+  accessibilityState,
   style,
   testID,
 }: IconButtonProps) {
@@ -45,11 +55,12 @@ export function IconButton({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled }}
+      accessibilityState={{ ...accessibilityState, disabled }}
       hitSlop={ICON_SLOP}
       android_ripple={disabled ? undefined : ripple}
       disabled={disabled}
       onPress={onPress}
+      onPressIn={onPressIn}
       style={({ pressed }) => [
         styles.base,
         {

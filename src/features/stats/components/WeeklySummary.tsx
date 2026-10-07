@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { View, Pressable, StyleSheet, Text as RNText } from 'react-native';
+import { View, StyleSheet, Text as RNText } from 'react-native';
 import {
   useAthleteSummary,
   getISOWeekNumber,
@@ -11,7 +11,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import type { ParseKeys, TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, typography, spacing, layout, verdictColor } from '@/theme';
+import { colors, darkColors, typography, spacing, verdictColor } from '@/theme';
 import { weeklyTrend, type WeeklyStat } from '@/features/stats/lib/weeklyTrend';
 import { RangeCoverage } from 'veloqrs';
 import {
@@ -27,7 +27,7 @@ import {
   usePeriodStats,
   type PeriodTotals,
 } from '@/features/stats/hooks/useEngineStats';
-import { EngineReadFailureRetry, pressable, pressRipple } from '@/shared/ui';
+import { EngineReadFailureRetry, ToggleButton } from '@/shared/ui';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { likeForLikeWindows } from '@/features/stats/lib/periodWindows';
 
@@ -222,27 +222,13 @@ export function WeeklySummary({
           <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
           <View style={styles.timeRangeSelector}>
             {TIME_RANGE_IDS.map((rangeId) => (
-              <Pressable
+              <ToggleButton
                 key={rangeId}
                 testID={`weekly-summary-range-${rangeId}`}
-                style={pressable([
-                  styles.timeRangeButton,
-                  isDark && styles.timeRangeButtonDark,
-                  timeRange === rangeId && styles.timeRangeButtonActive,
-                ])}
-                android_ripple={pressRipple}
+                label={getTimeRangeButtonLabel(rangeId, t)}
+                selected={timeRange === rangeId}
                 onPress={() => setTimeRange(rangeId)}
-              >
-                <Text
-                  style={[
-                    styles.timeRangeText,
-                    isDark && styles.textDark,
-                    timeRange === rangeId && styles.timeRangeTextActive,
-                  ]}
-                >
-                  {getTimeRangeButtonLabel(rangeId, t)}
-                </Text>
-              </Pressable>
+              />
             ))}
           </View>
         </View>
@@ -272,27 +258,13 @@ export function WeeklySummary({
         <Text style={[styles.title, isDark && styles.textLight]}>{labels.current}</Text>
         <View style={styles.timeRangeSelector}>
           {TIME_RANGE_IDS.map((rangeId) => (
-            <Pressable
+            <ToggleButton
               key={rangeId}
               testID={`weekly-summary-range-${rangeId}`}
-              style={pressable([
-                styles.timeRangeButton,
-                isDark && styles.timeRangeButtonDark,
-                timeRange === rangeId && styles.timeRangeButtonActive,
-              ])}
-              android_ripple={pressRipple}
+              label={getTimeRangeButtonLabel(rangeId, t)}
+              selected={timeRange === rangeId}
               onPress={() => setTimeRange(rangeId)}
-            >
-              <Text
-                style={[
-                  styles.timeRangeText,
-                  isDark && styles.textDark,
-                  timeRange === rangeId && styles.timeRangeTextActive,
-                ]}
-              >
-                {getTimeRangeButtonLabel(rangeId, t)}
-              </Text>
-            </Pressable>
+            />
           ))}
         </View>
       </View>
@@ -423,26 +395,6 @@ const styles = StyleSheet.create({
   timeRangeSelector: {
     flexDirection: 'row',
     gap: spacing.xs,
-  },
-  timeRangeButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusSm,
-    backgroundColor: opacity.overlay.light,
-  },
-  timeRangeButtonDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  timeRangeButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  timeRangeText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  timeRangeTextActive: {
-    color: colors.textOnPrimary,
   },
   statsGrid: {
     flexDirection: 'row',

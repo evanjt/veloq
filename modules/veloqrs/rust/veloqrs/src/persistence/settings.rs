@@ -269,10 +269,10 @@ impl PersistentEngine {
     /// Upsert several settings in one transaction, skipping each pair whose
     /// value is already stored. Returns how many were written.
     ///
-    /// One commit is two fsyncs, about 20 ms on a mid-range phone, and a
-    /// launch that changes six keys paid that six times over
-    /// (`set_setting`). Nothing is written when every pair is unchanged, so
-    /// the common launch still takes no commit at all.
+    /// One transaction per call, so a launch that changes six keys takes one
+    /// commit and one lock hold rather than six (`set_setting` has the
+    /// measured cost of a single write). Nothing is written when every pair
+    /// is unchanged, so the common launch still takes no commit at all.
     pub fn set_settings(&self, pairs: &[(String, String)]) -> SqlResult<usize> {
         if pairs.is_empty() {
             return Ok(0);

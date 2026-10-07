@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
-import { View, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Switch, Pressable } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ import {
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { RangeCoverage } from 'veloqrs';
+import { pressable } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -264,17 +265,18 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
       {/* Activity info row - shows which activity achieved this best effort */}
       {selectedActivity && (
-        <TouchableOpacity
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={selectedActivity.name}
           onPress={handleActivityTap}
-          style={styles.activityRow}
-          activeOpacity={0.7}
+          style={pressable(styles.activityRow)}
         >
           <View style={[styles.activityPill, isDark && styles.activityPillDark]}>
             <Text style={[styles.activityLabel, isDark && styles.textLight]} numberOfLines={1}>
               {selectedActivity.name} →
             </Text>
           </View>
-        </TouchableOpacity>
+        </Pressable>
       )}
 
       <CurveChart

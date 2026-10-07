@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows } from '@/theme';
 import { getActivityTypeConfig } from '../lib/activityCategories';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { ComponentErrorBoundary } from '@/shared/ui';
+import { ComponentErrorBoundary, IconButton } from '@/shared/ui';
 import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
@@ -642,7 +642,7 @@ export function RegionalMapView({
       )}
 
       {/* Style toggle */}
-      <TouchableOpacity
+      <IconButton
         style={[
           styles.button,
           styles.styleButton,
@@ -650,16 +650,15 @@ export function RegionalMapView({
           isDark && styles.buttonDark,
         ]}
         onPress={toggleStyle}
-        activeOpacity={0.8}
+        variant="secondary"
         accessibilityLabel={t('maps.toggleStyle')}
-        accessibilityRole="button"
       >
         <MaterialCommunityIcons
           name={getStyleIcon(mapStyle)}
           size={24}
           color={isDark ? colors.textOnDark : colors.textSecondary}
         />
-      </TouchableOpacity>
+      </IconButton>
       {/* Control button stack - positioned in middle of right side */}
       <MapControlStack
         top={insets.top + 64}
@@ -734,9 +733,6 @@ const styles = StyleSheet.create({
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: colorWithOpacity(ink.white, 0.95),
-    justifyContent: 'center',
-    alignItems: 'center',
     ...shadows.mapOverlay,
   },
   buttonDark: {

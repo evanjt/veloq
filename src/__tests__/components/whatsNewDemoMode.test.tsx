@@ -5,7 +5,7 @@
  * sign-in gets it.
  */
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
@@ -40,5 +40,22 @@ describe('WhatsNewModal auto-open', () => {
       useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     });
     expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
+  });
+
+  it('keeps the tour navigation discoverable by role and text', () => {
+    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+    render(
+      <MapPreferencesProvider>
+        <WhatsNewModal />
+      </MapPreferencesProvider>
+    );
+
+    for (const label of ['whatsNew.skipButton', 'whatsNew.doneButton']) {
+      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.getByRole('button', { name: label })).toBeTruthy();
+    }
+
+    fireEvent.press(screen.getByText('whatsNew.skipButton'));
+    expect(useWhatsNewStore.getState().tourState).toBeNull();
   });
 });

@@ -79,6 +79,10 @@ import {
   RestorePromptSheet,
   onAppForeground,
   initWebdavConfig,
+  getNotificationPreferences,
+  useNotificationPreferences,
+  refreshPushTokenRegistration,
+  reconcilePushRegistrationOnLaunch,
 } from '@/features/settings';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
@@ -405,8 +409,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
         // Sync notification state: if OS permission was revoked while backgrounded,
         // disable notifications in the app store and unregister the push token
-        const { getNotificationPreferences, useNotificationPreferences } =
-          require('@/features/settings') as typeof import('@/features/settings');
         const prefs = getNotificationPreferences();
         if (prefs.enabled) {
           hasNotificationPermission().then((granted) => {
@@ -418,8 +420,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             // Throttled to once a day inside the helper.
             const athleteId = useAuthStore.getState().athleteId;
             if (athleteId) {
-              const { refreshPushTokenRegistration } =
-                require('@/features/settings') as typeof import('@/features/settings');
               refreshPushTokenRegistration(athleteId).catch(() => {});
             }
           });
@@ -586,9 +586,7 @@ export default function RootLayout() {
   // Also retry any failed unregister from a previous session
   useEffect(() => {
     if (!appReady) return;
-    (
-      require('@/features/settings') as typeof import('@/features/settings')
-    ).reconcilePushRegistrationOnLaunch();
+    reconcilePushRegistrationOnLaunch();
   }, [appReady]);
 
   // Show minimal loading while initializing

@@ -197,6 +197,8 @@ export const SectionInlinePlot = memo(
           friction={2}
         >
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={group.sectionName}
             onPress={handlePress}
             style={pressable([
               styles.card,

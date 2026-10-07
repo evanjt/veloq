@@ -2,9 +2,9 @@
  * Give a promise a ceiling the athlete's session can carry, and say which of
  * the two arrived first.
  *
- * The engine's long jobs are Promises now rather than slots a screen polls, and
- * Every foreground wait has a ceiling a session can carry: past it the screen
- * stops waiting and says the work is still going, rather than leaving a spinner
+ * The engine's long jobs are Promises rather than slots a screen polls, so every
+ * foreground wait needs a ceiling a session can carry: past it the screen stops
+ * waiting and says the work is still going, rather than leaving a spinner
  * nobody can give up on. Rust keeps working either way, so the ceiling belongs
  * here and not in the export.
  *

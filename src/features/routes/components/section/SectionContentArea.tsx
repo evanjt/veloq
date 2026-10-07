@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SectionPerformanceSection, type SectionStreamsState } from './SectionPerformanceSection';
 import { SectionStatsCards } from './SectionStatsCards';
 import { SectionInfoCard } from './SectionInfoCard';
@@ -22,7 +22,6 @@ import type {
 } from 'veloqrs';
 import type { DirectionStats, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
-import { styles } from './SectionDetail.styles';
 
 export interface SectionContentAreaProps {
   isDark: boolean;
@@ -123,6 +122,8 @@ export function SectionContentArea({
       {isSectionDisabled && (
         <TouchableOpacity
           style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
+          accessibilityRole="button"
+          accessibilityLabel={t('sections.restoreSection')}
           onPress={onToggleDisable}
           activeOpacity={0.8}
         >
@@ -146,6 +147,8 @@ export function SectionContentArea({
       {mergeCandidates.length > 0 && (
         <TouchableOpacity
           style={[styles.mergeBanner, isDark && styles.mergeBannerDark]}
+          accessibilityRole="button"
+          accessibilityLabel={t('sections.mergeCandidatesTitle')}
           onPress={onMergePress}
           activeOpacity={0.8}
         >
@@ -235,3 +238,55 @@ export function SectionContentArea({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  contentSection: {
+    padding: layout.screenPadding,
+    paddingTop: spacing.lg,
+    gap: spacing.md,
+  },
+  disabledBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.warning + '15',
+    borderWidth: 1,
+    borderColor: colors.warning + '30',
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+  },
+  disabledBannerDark: {
+    backgroundColor: colors.warning + '20',
+    borderColor: colors.warning + '40',
+  },
+  // The colour is the consumer's: amber has to be the deep tone on white and
+  // the light tone on near-black, and a stylesheet cannot read the theme.
+  disabledBannerText: {
+    flex: 1,
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '500',
+  },
+  mergeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.info + '10',
+    borderWidth: 1,
+    borderColor: colors.info + '25',
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+  },
+  mergeBannerDark: {
+    backgroundColor: colors.info + '15',
+    borderColor: colors.info + '30',
+  },
+  mergeBannerText: {
+    flex: 1,
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '500',
+    color: colors.infoText,
+  },
+  mergeBannerTextDark: {
+    color: darkColors.infoText,
+  },
+});

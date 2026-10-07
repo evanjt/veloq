@@ -246,6 +246,8 @@ function LoginScreenContent() {
 
           <Pressable
             onPress={handleOpenVeloqPrivacy}
+            accessibilityRole="link"
+            accessibilityLabel={t('about.veloqPrivacy')}
             style={pressable(styles.veloqPrivacyLink)}
             android_ripple={pressRipple}
           >
@@ -259,6 +261,8 @@ function LoginScreenContent() {
           <View style={styles.linksRow}>
             <Pressable
               onPress={handleOpenIntervalsPrivacy}
+              accessibilityRole="link"
+              accessibilityLabel={t('login.privacyPolicy')}
               style={pressable()}
               android_ripple={pressRipple}
             >
@@ -269,6 +273,8 @@ function LoginScreenContent() {
             <Text style={[styles.linkSeparator, isDark && styles.textMuted]}>|</Text>
             <Pressable
               onPress={handleOpenIntervalsTerms}
+              accessibilityRole="link"
+              accessibilityLabel={t('login.termsOfService')}
               style={pressable()}
               android_ripple={pressRipple}
             >

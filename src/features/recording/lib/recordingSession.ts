@@ -119,25 +119,6 @@ function stopForegroundWatch(): void {
 }
 
 /**
- * Start the location watch if the permission is already granted. The session
- * never prompts: the recording screen owns the prompt, because a denial needs
- * a banner and an alert, and calls this again once the rider grants it.
- */
-/**
- * Arm the foreground service that keeps the fixes coming once the screen is
- * gone. Android 12 refuses a foreground service started by an app that is
- * already in the background, and the `AppState` change to `background` arrives
- * when the app is exactly that, so this runs for the whole session from the
- * moment recording starts rather than on the transition out.
- *
- * A refusal is not an exception. expo-location logs
- * `Foreground location task cannot be started while the app is in the
- * background!` and resolves, so the promise says nothing and taking it on trust
- * is how a ride runs its clock with no fixes at all. The task registry is asked
- * instead, and a refused start leaves `serviceStarted` false so the next
- * transition into `active` retries it.
- */
-/**
  * Keep re-deciding whether the service is running, for as long as the ride is.
  *
  * The one-shot check that used to decide this could only ever raise the warning:
@@ -176,6 +157,20 @@ function disarmServiceWatch(): void {
   serviceWatchTimer = null;
 }
 
+/**
+ * Arm the foreground service that keeps the fixes coming once the screen is
+ * gone. Android 12 refuses a foreground service started by an app that is
+ * already in the background, and the `AppState` change to `background` arrives
+ * when the app is exactly that, so this runs for the whole session from the
+ * moment recording starts rather than on the transition out.
+ *
+ * A refusal is not an exception. expo-location logs
+ * `Foreground location task cannot be started while the app is in the
+ * background!` and resolves, so the promise says nothing and taking it on trust
+ * is how a ride runs its clock with no fixes at all. The task registry is asked
+ * instead, and a refused start leaves `serviceStarted` false so the next
+ * transition into `active` retries it.
+ */
 async function startForegroundService(): Promise<void> {
   if (serviceStarted) return;
   try {
@@ -192,6 +187,11 @@ async function startForegroundService(): Promise<void> {
   useRecordingLiveStore.getState().setBackgroundTrackingFailed(!serviceStarted);
 }
 
+/**
+ * Start the location watch if the permission is already granted. The session
+ * never prompts: the recording screen owns the prompt, because a denial needs
+ * a banner and an alert, and calls this again once the rider grants it.
+ */
 export async function ensureLocationWatch(): Promise<boolean> {
   if (!running) return false;
   if (useRecordingStore.getState().mode !== 'gps') return false;

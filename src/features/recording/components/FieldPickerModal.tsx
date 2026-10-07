@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Pressable, View, Modal, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { Pressable, View, Modal, FlatList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import type { DataFieldType } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
+import { IconButton } from '@/shared/ui/IconButton';
 
 export const ALL_DATA_FIELDS: DataFieldType[] = [
   'speed',
@@ -56,22 +57,22 @@ function FieldPickerModalInner({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
+      <View style={styles.backdrop}>
+        <Pressable
+          style={pressable(StyleSheet.absoluteFill)}
+          android_ripple={pressRipple}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
+        />
         <View style={[styles.sheet, { backgroundColor: surface }]}>
           <View style={styles.header}>
             <Text style={[styles.title, { color: textPrimary }]}>
               {t('recording.settingsDataFields', 'Data Fields')}
             </Text>
-            <Pressable
-              onPress={onClose}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.close')}
-              style={pressable()}
-              android_ripple={pressRipple}
-            >
+            <IconButton onPress={onClose} accessibilityLabel={t('common.close')}>
               <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
-            </Pressable>
+            </IconButton>
           </View>
           <FlatList
             data={ALL_DATA_FIELDS}
@@ -80,15 +81,17 @@ function FieldPickerModalInner({
             renderItem={({ item }) => {
               const isSelected = item === selectedField;
               return (
-                <TouchableOpacity
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
                   testID={`field-option-${item}`}
-                  style={[
+                  style={pressable([
                     styles.row,
                     { borderBottomColor: border },
                     isSelected && styles.rowSelected,
-                  ]}
+                  ])}
+                  android_ripple={pressRipple}
                   onPress={() => onSelect(item)}
-                  activeOpacity={0.7}
                 >
                   <Text
                     style={[styles.rowText, { color: isSelected ? brand.teal : textPrimary }]}
@@ -99,12 +102,12 @@ function FieldPickerModalInner({
                   {isSelected && (
                     <MaterialCommunityIcons name="check" size={18} color={brand.teal} />
                   )}
-                </TouchableOpacity>
+                </Pressable>
               );
             }}
           />
         </View>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 }

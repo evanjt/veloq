@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
-import { ScreenSafeAreaView } from '@/shared/ui';
+import { View, Text, ScrollView, Pressable, Linking } from 'react-native';
+import { ScreenSafeAreaView, pressable, pressRipple } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -36,16 +36,18 @@ function LinkRow({ icon, label, url, isDark, testID }: LinkRowProps) {
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <TouchableOpacity
-      style={styles.linkRow}
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      style={pressable(styles.linkRow)}
       onPress={handlePress}
-      activeOpacity={0.7}
       testID={testID}
+      android_ripple={pressRipple}
     >
       <MaterialCommunityIcons name={icon} size={22} color={colors.primary} />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="open-in-new" size={18} color={mutedColor} />
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -66,16 +68,18 @@ function NavRow({ icon, label, route, isDark, testID }: NavRowProps) {
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <TouchableOpacity
-      style={styles.linkRow}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={pressable(styles.linkRow)}
       onPress={handlePress}
-      activeOpacity={0.7}
       testID={testID}
+      android_ripple={pressRipple}
     >
       <MaterialCommunityIcons name={icon} size={22} color={colors.primary} />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="chevron-right" size={22} color={mutedColor} />
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

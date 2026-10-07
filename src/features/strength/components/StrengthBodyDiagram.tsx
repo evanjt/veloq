@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { pressable } from '@/shared/ui';
 import {
   colors,
   darkColors,
@@ -67,7 +68,11 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
         </Text>
       </View>
       {selectedVolume ? (
-        <TouchableOpacity style={styles.subtitleRow} onPress={onClearSelection} activeOpacity={0.7}>
+        <Pressable
+          accessibilityRole="button"
+          style={pressable(styles.subtitleRow)}
+          onPress={onClearSelection}
+        >
           <View
             style={[
               styles.subtitleDot,
@@ -91,7 +96,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             size={14}
             color={isDark ? darkColors.textMuted : colors.textDisabled}
           />
-        </TouchableOpacity>
+        </Pressable>
       ) : (
         <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
           {t('strength.tapMuscleGroup')}

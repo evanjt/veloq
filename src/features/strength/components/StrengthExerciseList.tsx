@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
 import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
+import { pressable } from '@/shared/ui';
 
 import { muscleName } from '../lib/muscleNames';
 
@@ -34,20 +35,19 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
         {t('strength.exercisesTargeting', { muscle: selectedMuscleName })}
       </Text>
       {exerciseSummary.exercises.map((exercise, index) => (
-        <TouchableOpacity
+        <Pressable
           key={exercise.exerciseCategory}
-          style={[
+          style={pressable([
             styles.item,
             index > 0 && styles.itemBorder,
             index > 0 && isDark && styles.itemBorderDark,
-          ]}
+          ])}
           onPress={() => router.push(`/exercise/${exercise.exerciseCategory}`)}
           accessibilityRole="link"
           accessibilityLabel={t('strength.openExerciseHistory', {
             exercise: exercise.exerciseName,
           })}
           testID={`exercise-history-${exercise.exerciseCategory}`}
-          activeOpacity={0.7}
         >
           <View style={styles.dot} />
           <View style={styles.content}>
@@ -66,7 +66,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
             size={20}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </Pressable>
       ))}
     </View>
   );
