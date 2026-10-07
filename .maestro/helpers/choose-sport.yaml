@@ -1,0 +1,27 @@
+# Choose SPORT on the record entry screen: its chip when the chip row shows
+# it, otherwise from the full list behind More, which then shows it as a chip.
+appId: com.veloq.app.dev
+---
+- extendedWaitUntil:
+    visible:
+      id: "record-start"
+    timeout: 10000
+
+- runFlow:
+    when:
+      notVisible:
+        id: "record-type-${SPORT}"
+    commands:
+      - tapOn:
+          id: "record-sport-more"
+      - scrollUntilVisible:
+          element:
+            id: "activity-type-option-${SPORT}"
+          direction: DOWN
+          timeout: 10000
+          speed: 40
+      - tapOn:
+          id: "activity-type-option-${SPORT}"
+
+- tapOn:
+    id: "record-type-${SPORT}"

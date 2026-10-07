@@ -54,7 +54,9 @@ sleep 3
 "$ADB" wait-for-device
 "$ADB" install -r "$WORK/veloq-$RELEASE.apk"
 
-maestro test "$(dirname "$0")/../.maestro/upgrade/seed.yaml" --no-ansi
+# The released binary is the release id, which is what the pull below reads.
+"$(dirname "$0")/with-maestro.sh" test -e APP_ID=com.veloq.app \
+  "$(dirname "$0")/../.maestro/upgrade/seed.yaml" --no-ansi
 
 "$ADB" pull /data/data/com.veloq.app/files/routes.db "$WORK/v12.db"
 

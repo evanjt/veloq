@@ -19,7 +19,7 @@ appId: com.veloq.app.dev
       id: "control-resume"
     timeout: 5000
 
-- longPressOn:
+- tapOn:
     id: "control-stop"
 
 - extendedWaitUntil:

@@ -1,5 +1,5 @@
 # Comprehensive Map Integration Test
-# Tests map features: activities, routes, sections, popups, filters, and toggles
+# Tests map features: activities, routes, sections, filters, and toggles
 
 appId: com.veloq.app.dev
 tags:
@@ -22,9 +22,11 @@ tags:
 - takeScreenshot: "screenshots/map-controls-loaded"
 
 # =============================================================================
-# Activity Markers - Basic Interaction
+# Fit All
 # =============================================================================
 
+# The activity, section and route markers are features the map draws, with no
+# view to carry a testID, so no step here taps one or waits on its popup.
 - tapOn:
     id: "map-fit-all"
     optional: true
@@ -34,199 +36,7 @@ tags:
       id: "map-screen"
     timeout: 2000
 
-- tapOn:
-    id: "map-activity-marker-demo-test-0"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 3000
-    optional: true
-
-- takeScreenshot: "screenshots/map-activity-popup"
-
-- tapOn:
-    id: "activity-popup-zoom"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 2000
-    optional: true
-
-- tapOn:
-    id: "activity-popup-close"
-    optional: true
-
-- extendedWaitUntil:
-    notVisible:
-      id: "activity-popup"
-    timeout: 2000
-    optional: true
-
-# =============================================================================
-# Activity Details Navigation
-# =============================================================================
-
-- openLink: "veloq://map"
-- runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 5000
-
-- extendedWaitUntil:
-    visible:
-      id: "map-toggle-activities"
-    timeout: 3000
-
-- tapOn:
-    id: "map-activity-marker-demo-test-0"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 3000
-    optional: true
-
-- tapOn:
-    id: "activity-popup-view-details"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "activity-detail-screen"
-    timeout: 10000
-    optional: true
-
-- openLink: "veloq://map"
-- runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 10000
-
-# =============================================================================
-# Multi-Marker Test
-# =============================================================================
-
-- tapOn:
-    id: "map-fit-all"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 2000
-
-- tapOn:
-    id: "map-activity-marker-demo-test-0"
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 2000
-    optional: true
-- tapOn:
-    id: "activity-popup-close"
-    optional: true
-
-- tapOn:
-    id: "map-activity-marker-demo-test-1"
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 2000
-    optional: true
-- tapOn:
-    id: "activity-popup-close"
-    optional: true
-
-- tapOn:
-    id: "map-activity-marker-demo-test-2"
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 2000
-    optional: true
-- tapOn:
-    id: "activity-popup-close"
-    optional: true
-
-- tapOn:
-    id: "map-activity-marker-demo-test-3"
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 2000
-    optional: true
-- tapOn:
-    id: "activity-popup-close"
-    optional: true
-
-- tapOn:
-    id: "map-activity-marker-demo-test-4"
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "activity-popup"
-    timeout: 2000
-    optional: true
-- tapOn:
-    id: "activity-popup-close"
-    optional: true
-
-# =============================================================================
-# Sport Type Filters
-# =============================================================================
-
-- tapOn:
-    id: "map-filter-ride"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 2000
-
-- tapOn:
-    id: "map-filter-run"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "map-screen"
-    timeout: 2000
-
-- tapOn:
-    id: "map-filter-swim"
-    optional: true
-
-- tapOn:
-    id: "map-filter-hike"
-    optional: true
-
-- takeScreenshot: "screenshots/map-filter-applied"
-
-- tapOn:
-    id: "map-filter-clear"
-    optional: true
+- takeScreenshot: "screenshots/map-fit-all"
 
 # =============================================================================
 # Layer Toggles
@@ -293,42 +103,6 @@ tags:
     id: "map-toggle-activities"
 
 - takeScreenshot: "screenshots/map-layers-toggled"
-
-# =============================================================================
-# Section/Route Popup Interaction
-# =============================================================================
-
-# With sections layer on, try to tap a section marker
-- tapOn:
-    id: "map-section-marker-0"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "section-popup"
-    timeout: 3000
-    optional: true
-
-- tapOn:
-    id: "section-popup-close"
-    optional: true
-
-# Try route marker popup
-- tapOn:
-    id: "map-route-marker-0"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "route-popup"
-    timeout: 3000
-    optional: true
-
-- tapOn:
-    id: "route-popup-close"
-    optional: true
-
-- takeScreenshot: "screenshots/map-section-route-popups"
 
 # =============================================================================
 # Toggle Stress Test

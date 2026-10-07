@@ -7,7 +7,7 @@
 # put it back after:
 #
 #   adb shell settings put system font_scale 1.30
-#   maestro --device <id> test .maestro/largest-text-size.yaml
+#   ANDROID_SERIAL=<id> scripts/with-maestro.sh test .maestro/largest-text-size.yaml
 #   adb shell settings put system font_scale 1.00
 #
 # What the screenshots are read for, in order: a label clipped to an ellipsis
@@ -73,8 +73,8 @@ tags:
     timeout: 3000
 - takeScreenshot: "screenshots/largest-text-05-sections"
 
-# The routes tab, whose section list is the longest text in the app.
-- openLink: "veloq://routes"
+# The Insights tab, whose section list is the longest text in the app.
+- openLink: "veloq://insights"
 - runFlow:
     when:
       visible: "Open"
@@ -82,4 +82,4 @@ tags:
       - tapOn: "Open"
 - waitForAnimationToEnd:
     timeout: 3000
-- takeScreenshot: "screenshots/largest-text-06-routes"
+- takeScreenshot: "screenshots/largest-text-06-insights"

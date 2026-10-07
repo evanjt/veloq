@@ -1,0 +1,12 @@
+[package]
+name = "snapshot-copy-starvation"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Standalone: not a member of the engine workspace.
+[workspace]
+
+[dependencies]
+# The engine's own pin, so the probe runs the SQLite the app bundles.
+rusqlite = { version = "=0.31.0", features = ["bundled", "backup"] }

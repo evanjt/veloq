@@ -1,0 +1,51 @@
+# Regional map activity popup. The markers are drawn into the map canvas, so
+# no step can tap one. The map tab takes the activity to open as a parameter.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-map
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- openLink: "veloq://map?activity=demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-popup"
+    timeout: 45000
+
+- assertVisible:
+    id: "activity-popup-view-details"
+- assertVisible:
+    id: "activity-popup-close"
+
+- tapOn:
+    id: "activity-popup-close"
+- assertNotVisible:
+    id: "activity-popup"
+
+# Reopening needs a fresh selection, so the link is followed again.
+- openLink: "veloq://map?activity=demo-test-1"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-popup"
+    timeout: 15000
+
+- tapOn:
+    id: "activity-popup-view-details"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-name"
+    timeout: 15000

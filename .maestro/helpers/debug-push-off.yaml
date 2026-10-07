@@ -1,0 +1,7 @@
+appId: com.veloq.app.dev
+---
+- extendedWaitUntil:
+    visible: ${PUSH_EXPECTED_TITLE}
+    timeout: 10000
+    optional: true
+- assertNotVisible: ${PUSH_EXPECTED_TITLE}

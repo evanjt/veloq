@@ -6,7 +6,8 @@
 #
 # Strategy: sweep the first 5 demo activities; the flow fails if none of them
 # surface any pill (that would mean the entire indicator pipeline is broken).
-# Then for demo-test-0 (our anchor activity), dive in and count trophies.
+# demo-test-7 must show the PR pill. Then for demo-test-0 (our anchor
+# activity), dive in and count trophies.
 
 appId: com.veloq.app.dev
 tags:
@@ -79,6 +80,18 @@ tags:
                 duration: 400
 - assertVisible:
     id: "activity-card-.*-section-chip"
+
+# demo-test-7 is the fastest and newest ride on its route, so it holds a
+# section record whatever the rest of the library does. The pill is asserted
+# without a guard: a pipeline that stops writing section PRs fails here.
+- scrollUntilVisible:
+    element:
+      id: "activity-card-demo-test-7-pr-pill"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- assertVisible:
+    id: "activity-card-demo-test-7-pr-pill"
 
 # Bring the stable fixture into view before testing its optional indicators.
 # Otherwise these branches silently skip when a date-generated card is visible.

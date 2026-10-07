@@ -8,42 +8,15 @@ tags:
 ---
 - launchApp
 
-# Wait for login screen or home screen
+# Demo mode does not survive a relaunch, so after one the app is on the login
+# screen whatever an earlier flow left behind. A home screen here can only be a
+# real account, and this flow stops rather than sign it out: the wait is
+# required, and the flow fails against a real session with its credential
+# untouched.
 - extendedWaitUntil:
     visible:
       id: "login-screen"
     timeout: 30000
-    optional: true
-
-# If we're on home screen (already logged in), log out first
-- runFlow:
-    when:
-      visible:
-        id: "home-screen"
-    commands:
-      - openLink: "veloq://settings"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
-      - extendedWaitUntil:
-          visible:
-            id: "settings-screen"
-          timeout: 10000
-      - tapOn:
-          id: "settings-account-row"
-      - extendedWaitUntil:
-          visible:
-            id: "settings-logout-button"
-          timeout: 10000
-      - tapOn:
-          id: "settings-logout-button"
-      - tapOn: "Disconnect"
-      - extendedWaitUntil:
-          visible:
-            id: "login-screen"
-          timeout: 15000
 
 # Now on login screen, expand API key section
 - tapOn:

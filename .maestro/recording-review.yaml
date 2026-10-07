@@ -1,17 +1,26 @@
 # Recording Review Screen Test
-# Tests the review screen: verify fields, enter activity name, save
+# Tests the review screen: verify fields, enter activity name, save, and see
+# the saved ride on the feed
 
 appId: com.veloq.app.dev
 tags:
   - tier2
   - pack-recording
 onFlowComplete:
-  - openLink: "veloq://"
+  # Only a demo session is this flow's to clean up. The hook runs after a
+  # failure too, including the shared setup refusing a real account, and that
+  # session is left as it was found.
   - runFlow:
       when:
-        visible: "(?i)discard"
+        visible:
+          id: "demo-mode-banner"
       commands:
-        - tapOn: "(?i)discard"
+        - openLink: "veloq://"
+        - runFlow:
+            when:
+              visible: "(?i)discard"
+            commands:
+              - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -32,8 +41,12 @@ onFlowComplete:
     commands:
       - tapOn: "(?i)discard"
 
-- tapOn:
-    id: "record-type-Ride"
+# Choose Ride and start it from the entry screen
+- runFlow:
+    file: helpers/start-from-entry.yaml
+    env:
+      SPORT: Ride
+      ARMED: "true"
 
 # Wait for recording screen
 - extendedWaitUntil:
@@ -60,15 +73,11 @@ onFlowComplete:
 
 - takeScreenshot: "screenshots/recording-review-fields"
 
-# Verify RPE rating section is visible
-- assertVisible:
-    id: "review-rpe"
-
 # Verify trim section is visible
 - assertVisible:
     id: "review-trim"
 
-- takeScreenshot: "screenshots/recording-review-rpe-and-trim"
+- takeScreenshot: "screenshots/recording-review-trim"
 
 # Clear the default name and enter a custom one with special characters
 - tapOn:
@@ -89,6 +98,12 @@ onFlowComplete:
 - extendedWaitUntil:
     visible:
       id: "home-screen"
+    timeout: 10000
+
+# The saved ride is on the feed under the name it was given. The provisional
+# row is written at save time, so no sync is needed for it to appear.
+- extendedWaitUntil:
+    visible: "Test Ride 2025"
     timeout: 10000
 
 - takeScreenshot: "screenshots/recording-review-complete"

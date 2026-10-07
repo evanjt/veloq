@@ -1,5 +1,6 @@
 # Weekly Summary Component Tests
-# Tests the weekly summary stats and time range toggles on training screen
+# Tests the summary card's sparkline tap, then the weekly summary stats and
+# time range toggles on training screen
 
 appId: com.veloq.app.dev
 tags:
@@ -8,6 +9,21 @@ tags:
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
+
+# A tap on the summary card's sparkline opens the hero metric's chart. The demo
+# hero is fitness, so it lands on the fitness tab. The sparkline mounts after
+# the first frame's interactions, so wait for it rather than assert at once.
+- extendedWaitUntil:
+    visible:
+      id: "summary-card-sparkline"
+    timeout: 10000
+- tapOn:
+    id: "summary-card-sparkline"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+- takeScreenshot: "screenshots/summary-card-sparkline-tap"
 
 - runFlow:
     file: helpers/navigate-to-training.yaml
@@ -114,11 +130,7 @@ tags:
         id: "home-screen"
     commands:
       - assertVisible:
-          id: "summary-card-form-zone"
-          optional: true
-      - assertVisible:
           id: "summary-card-sparkline"
-          optional: true
       - takeScreenshot: "screenshots/summary-card-features"
 
 - takeScreenshot: "screenshots/weekly-summary-complete"

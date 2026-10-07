@@ -12,8 +12,8 @@
 // from a binary blob before it decodes, and the index holds both.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 
 // `cwd` does not decide which repository git reads. The pre-commit hook exports
 // GIT_DIR and GIT_INDEX_FILE, and those win, so a guard pointed at a fixture
@@ -72,6 +72,7 @@ export function indexedSources(root, pathspec = []) {
   const batch = git(root, ['cat-file', '--batch', '-z'], files.map((file) => `:${file}\0`).join(''));
 
   const sources = new Map();
+  const unreadable = new Set();
   let at = 0;
   let read = 0;
   for (const file of files) {
@@ -81,13 +82,18 @@ export function indexedSources(root, pathspec = []) {
     const parts = header.split(' ');
     read += 1;
     // Anything that is not a blob answers with a header and no body, and the
-    // walk has to step over the one line rather than read a length. Two shapes:
-    // `<path> missing` for a path the index does not hold, and `<sha> submodule`
-    // for a gitlink, which is what `modules/veloqrs/rust/tracematch` is. Reading
-    // the submodule's header as a blob's is what stopped the walk at file 730 of
-    // 3,022 and left everything sorting after it unread.
+    // walk has to step over the one line rather than read a length. A gitlink
+    // answers `<sha> submodule`, which is what `modules/veloqrs/rust/tracematch`
+    // is, and has no bytes to read. Reading its header as a blob's is what
+    // stopped the walk at file 730 of 3,022 and left everything after it unread.
+    //
+    // Every other bodiless answer is a file the listing named and git could not
+    // read: `:<path> missing` for a blob gone from the object store, or for a
+    // path left unmerged, which has nothing at stage 0. Stepping over those as
+    // well is how a pruned object dropped a file from every guard's reading.
     const size = Number(parts[2]);
     if (!Number.isFinite(size)) {
+      if (parts[parts.length - 1] !== 'submodule') unreadable.add(file);
       at = newline + 1;
       continue;
     }
@@ -103,6 +109,15 @@ export function indexedSources(root, pathspec = []) {
     throw new Error(
       `indexedSources: asked git for ${files.length} files and could only read ${read}. ` +
         'The batch reply stopped matching the request list, so the tree was not read.'
+    );
+  }
+  // A file the guard never saw is not a clean file. Say which, so the reader
+  // can tell a pruned object from an unfinished merge.
+  if (unreadable.size > 0) {
+    throw new Error(
+      `indexedSources: the index names ${unreadable.size} file(s) git could not read: ` +
+        `${[...unreadable].join(', ')}. ` +
+        'A blob missing from the object store, or a path left unmerged, so the tree was not read.'
     );
   }
   return sources;
@@ -139,4 +154,93 @@ export function refuseEmptyListing(sources, what) {
   console.error('another tree: the variables a hook inherits beat the directory this');
   console.error('was run in. A clean answer over an empty listing is not an answer.');
   process.exit(1);
+}
+
+function isCheckoutRoot(root) {
+  try {
+    const top = git(root, ['rev-parse', '--show-toplevel'], undefined).toString('utf8').trim();
+    return realpathSync(top) === realpathSync(root);
+  } catch {
+    return false;
+  }
+}
+
+function diskTree(root, pathspec) {
+  const sources = new Map();
+  const visit = (rel) => {
+    let entries;
+    try {
+      entries = readdirSync(join(root, rel), { withFileTypes: true });
+    } catch {
+      try {
+        sources.set(rel, readFileSync(join(root, rel)));
+      } catch {
+        // A pathspec naming nothing is an empty listing, as it is for git.
+      }
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name === 'node_modules' || entry.name === '.git') continue;
+      const child = rel === '' ? entry.name : `${rel}/${entry.name}`;
+      if (entry.isDirectory()) visit(child);
+      else if (entry.isFile()) sources.set(child, readFileSync(join(root, child)));
+    }
+  };
+  for (const spec of pathspec.length > 0 ? pathspec : ['']) visit(spec);
+  return sources;
+}
+
+/**
+ * The files under `pathspec` as the tree this commit or merge records, keyed by
+ * a slash-separated path relative to `root`.
+ *
+ * A whole-tree guard that walks the disk judges whichever session has a file
+ * open in the shared checkout, so inside a checkout this reads the index. A
+ * root that is not a checkout is a fixture, and has only its disk to read.
+ */
+export function treeSources(root, pathspec = []) {
+  return isCheckoutRoot(root) ? indexedSources(root, pathspec) : diskTree(root, pathspec);
+}
+
+/**
+ * One file's text as the tree records it, or `undefined` when the tree has no
+ * such file. A drift check compares a generated file with its source, and
+ * reading either off the disk judges whichever half another session has open.
+ * A write path keeps the disk: it has to change the file the checkout shows.
+ */
+export function trackedText(root, file) {
+  if (!isCheckoutRoot(root)) {
+    try {
+      return readFileSync(join(root, file), 'utf8');
+    } catch {
+      return undefined;
+    }
+  }
+  try {
+    return git(root, ['show', `:${file}`], undefined).toString('utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * `treeSources` shaped for a guard that walks directories: `files` lists the
+ * absolute paths under a directory that `accept` takes (given the path relative
+ * to `root`), `text` and `has` answer for one absolute path.
+ */
+export function treeView(root, pathspec = []) {
+  const sources = treeSources(root, pathspec);
+  const relOf = (file) => relative(root, file).split(sep).join('/');
+  return {
+    files(dir, accept = () => true) {
+      const prefix = `${relOf(dir)}/`;
+      const out = [];
+      for (const rel of sources.keys()) {
+        if (rel.startsWith(prefix) && accept(rel)) out.push(join(root, rel));
+      }
+      return out;
+    },
+    has: (file) => sources.has(relOf(file)),
+    text: (file) => sources.get(relOf(file))?.toString('utf8'),
+  };
 }

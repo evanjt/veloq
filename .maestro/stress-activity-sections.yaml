@@ -40,9 +40,14 @@ tags:
       - tapOn:
           id: "section-row-0"
           optional: true
-      - tapOn:
-          id: "section-back-button"
-          optional: true
+      # Back only from a section the tap opened: from the activity itself it
+      # would leave the screen this flow asserts it is still on.
+      - runFlow:
+          when:
+            visible:
+              id: "section-detail-screen"
+          commands:
+            - back
 
 # Verify we're still on activity detail
 - assertVisible:

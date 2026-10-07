@@ -48,17 +48,15 @@ tags:
 
 - takeScreenshot: "screenshots/settings-storage-stats"
 
-# Scroll to tile cache
+# Scroll to the tile cache limit, which the storage panel always renders
 - scrollUntilVisible:
     element:
-      id: "settings-tile-cache"
+      id: "settings-tile-cache-limit"
     direction: DOWN
     timeout: 10000
     speed: 40
-    optional: true
 
 - assertVisible:
-    id: "settings-tile-cache"
-    optional: true
+    id: "settings-tile-cache-used"
 
 - takeScreenshot: "screenshots/settings-profile-storage-complete"

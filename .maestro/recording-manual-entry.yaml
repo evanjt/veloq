@@ -6,12 +6,20 @@ tags:
   - tier2
   - pack-recording
 onFlowComplete:
-  - openLink: "veloq://"
+  # Only a demo session is this flow's to clean up. The hook runs after a
+  # failure too, including the shared setup refusing a real account, and that
+  # session is left as it was found.
   - runFlow:
       when:
-        visible: "(?i)discard"
+        visible:
+          id: "demo-mode-banner"
       commands:
-        - tapOn: "(?i)discard"
+        - openLink: "veloq://"
+        - runFlow:
+            when:
+              visible: "(?i)discard"
+            commands:
+              - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -32,47 +40,12 @@ onFlowComplete:
     commands:
       - tapOn: "(?i)discard"
 
-# The categories live behind the All Activities disclosure, which starts
-# closed, so nothing under it is in the tree until this is tapped.
-- scrollUntilVisible:
-    element:
-      id: "record-all-activities"
-    direction: DOWN
-    timeout: 10000
-    speed: 40
-
+# Weight training is a manual sport: Start opens its form rather than a clock.
 - runFlow:
-    when:
-      notVisible:
-        id: "record-category-gym"
-    commands:
-      - tapOn:
-          id: "record-all-activities"
-
-- scrollUntilVisible:
-    element:
-      id: "record-category-gym"
-    direction: DOWN
-    timeout: 10000
-    speed: 40
-
-# Expand the gym category to access WeightTraining
-- tapOn:
-    id: "record-category-gym"
-
-# Scroll WeightTraining to center of screen (away from tab bar overlap at bottom)
-- swipe:
-    start: 50%, 70%
-    end: 50%, 50%
-    duration: 300
-- extendedWaitUntil:
-    visible:
-      id: "record-type-WeightTraining"
-    timeout: 5000
-
-# Wait for WeightTraining to be ready then tap
-- tapOn:
-    id: "record-type-WeightTraining"
+    file: helpers/start-from-entry.yaml
+    env:
+      SPORT: WeightTraining
+      ARMED: "false"
 
 # Wait for manual entry form to load, verify key form fields
 - extendedWaitUntil:

@@ -1,0 +1,21 @@
+# Start SPORT from the record entry screen. Start begins a GPS or indoor
+# recording at once, and the flow waits for its controls. Pass ARMED "false"
+# for a manual sport, which opens its form.
+appId: com.veloq.app.dev
+---
+- runFlow:
+    file: choose-sport.yaml
+    env:
+      SPORT: ${SPORT}
+
+- tapOn:
+    id: "record-start"
+
+- runFlow:
+    when:
+      true: ${ARMED != 'false'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "recording-timer"
+          timeout: 10000

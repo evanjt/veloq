@@ -25,6 +25,36 @@ export interface SportTaxonomy {
   power: readonly string[];
 }
 
+export type SportDisplayGroups = Record<
+  'Ride' | 'Run' | 'Swim' | 'Walk' | 'Hike' | 'Snow' | 'Water' | 'Gym' | 'Racket' | 'Other',
+  readonly string[]
+>;
+
+const DISPLAY_NAMES = [
+  'Ride', 'Run', 'Swim', 'Walk', 'Hike', 'Snow', 'Water', 'Gym', 'Racket', 'Other',
+] as const;
+
+/** Read each display group from the same Rust constants used by map counts. */
+export function readRustSportDisplayGroups(source: string): SportDisplayGroups {
+  const families = readRustSportFamilies(source);
+  const aliases: Record<string, readonly string[]> = {
+    CYCLING: families.cycling,
+    RUNNING: families.running,
+    SWIMMING: families.swimming,
+  };
+  const groups: Partial<SportDisplayGroups> = {};
+  for (const name of DISPLAY_NAMES) {
+    const match = source.match(new RegExp(`pub const DISPLAY_${name.toUpperCase()}: &\\[&str\\] = (?:&\\[([\\s\\S]*?)\\]|([A-Z]+));`));
+    if (!match) throw new Error(`sport.rs declares no display group ${name}`);
+    const sports = match[2]
+      ? aliases[match[2]]
+      : [...match[1].matchAll(/"([^"]*)"/g)].map((entry) => entry[1]);
+    if (!sports?.length) throw new Error(`display group ${name} names no sport`);
+    groups[name] = sports;
+  }
+  return groups as SportDisplayGroups;
+}
+
 /** Read every `pub const NAME: &[&str] = &[...]` the taxonomy declares. */
 export function readRustSportFamilies(source: string): SportTaxonomy {
   const taxonomy: Partial<Record<keyof SportTaxonomy, string[]>> = {};
@@ -51,7 +81,7 @@ function renderList(name: string, sports: readonly string[]): string[] {
 }
 
 /** The generated module, byte for byte. */
-export function renderSportTaxonomy(taxonomy: SportTaxonomy): string {
+export function renderSportTaxonomy(taxonomy: SportTaxonomy, displayGroups: SportDisplayGroups): string {
   const lines = (Object.keys(taxonomy) as (keyof SportTaxonomy)[]).flatMap((name) =>
     renderList(name, taxonomy[name])
   );
@@ -63,6 +93,11 @@ export function renderSportTaxonomy(taxonomy: SportTaxonomy): string {
     '/** The sport families, as the engine declares them. */',
     'export const SPORT_FAMILIES = {',
     ...lines,
+    '} as const;',
+    '',
+    '/** The map and settings display groups, as the engine declares them. */',
+    'export const SPORT_DISPLAY_GROUPS = {',
+    ...DISPLAY_NAMES.flatMap((name) => renderList(name, displayGroups[name])),
     '} as const;',
     '',
   ].join('\n');

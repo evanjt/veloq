@@ -3,8 +3,14 @@
 # Handles: login, system alerts, Activity Notifications, WhatsNewModal
 appId: com.veloq.app.dev
 ---
+# A flow that needs the notification prompt still to answer passes
+# NOTIFICATIONS_PERMISSION: unset. Every other flow launches with all granted,
+# which is what launchApp does when it is given nothing.
 - launchApp:
     clearState: false
+    permissions:
+      all: allow
+      notifications: ${NOTIFICATIONS_PERMISSION || 'allow'}
 
 # Dismiss iOS "Open in Veloq?" deep link confirmation
 - runFlow:

@@ -3,7 +3,7 @@
 # Exercises the session-expiry / token-invalidation handling that fires when
 # an OAuth token is rejected (401) by intervals.icu, or when an API key is
 # revoked. The app's AuthStore.handleSessionExpired() clears credentials and
-# the login screen surfaces a `sessionExpired` banner (login.tsx:54-60).
+# the login screen surfaces a `sessionExpired` banner (in `login.tsx`).
 #
 # -----------------------------------------------------------------------------
 # WHAT THIS FLOW TESTS
