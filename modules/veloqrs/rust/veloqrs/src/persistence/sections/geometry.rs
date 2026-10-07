@@ -23,9 +23,34 @@ pub(crate) fn reference(
     Some((activity_id, start?, end?))
 }
 
+/// The one offset at which `polyline` sits inside `track`, if it sits at exactly one.
+pub(crate) fn locate_slice(track: &[GpsPoint], polyline: &[GpsPoint]) -> Option<(u32, u32)> {
+    const TOLERANCE: f64 = 1e-6;
+    let same = |a: &GpsPoint, b: &GpsPoint| {
+        (a.latitude - b.latitude).abs() < TOLERANCE && (a.longitude - b.longitude).abs() < TOLERANCE
+    };
+
+    if polyline.is_empty() || polyline.len() > track.len() {
+        return None;
+    }
+
+    let mut found: Option<(u32, u32)> = None;
+    for offset in 0..=(track.len() - polyline.len()) {
+        let window = &track[offset..offset + polyline.len()];
+        if !window.iter().zip(polyline).all(|(a, b)| same(a, b)) {
+            continue;
+        }
+        if found.is_some() {
+            return None;
+        }
+        found = Some((offset as u32, (offset + polyline.len() - 1) as u32));
+    }
+    found
+}
+
 /// One activity's stored stream. Free-standing rather than a method, so a read
 /// that already holds a prepared statement on the connection can still call it.
-fn stream(conn: &Connection, activity_id: &str) -> Option<Vec<GpsPoint>> {
+pub(crate) fn stream(conn: &Connection, activity_id: &str) -> Option<Vec<GpsPoint>> {
     let blob: Vec<u8> = conn
         .query_row(
             "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
@@ -91,7 +116,7 @@ pub(crate) fn rebuild_counted(
     }
 }
 
-fn slice(points: &[GpsPoint], reference: (&str, u32, u32)) -> Option<Vec<GpsPoint>> {
+pub(crate) fn slice(points: &[GpsPoint], reference: (&str, u32, u32)) -> Option<Vec<GpsPoint>> {
     let (activity_id, start, end) = reference;
     let (start, end) = (start as usize, end as usize);
     if start >= end || end > points.len() {

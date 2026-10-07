@@ -3,7 +3,7 @@
 use crate::objects::observer::Announcement;
 use crate::persistence::codec;
 use crate::persistence::codec::TrackRead;
-use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
+use crate::{ActivityMatchInfo, FrequentSection, GpsPoint, SectionEvidenceCache};
 
 /// How often a running fold checkpoints its progress at most; the last
 /// cluster always does.
@@ -33,16 +33,21 @@ fn checkpoint_due(
 }
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
+use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
-use super::super::route_identity::{RouteIdentity, load_identity, write_identity};
-use super::super::{
-    CacheUpdate, CheckpointSlot, PersistentEngine, SectionDetectionHandle,
-    SectionDetectionProgress, load_groups_from_db,
+use super::super::route_identity::{
+    RouteIdentity, advance_group_generation, load_identity, note_group_commit_off_engine,
+    read_group_generation, write_identity,
 };
+use super::super::routes::load_groups_from_db;
+use super::super::{
+    CacheUpdate, CheckpointSlot, PersistentEngine, SectionDetectionHandle, SectionDetectionProgress,
+};
+use super::identity::{ReplayApplied, SectionReplay};
 use super::track_pool::CorruptTrack;
 
 /// Share of unreadable rows above which a pool is treated as a read-path
@@ -216,27 +221,33 @@ fn abandon_window_active(conn: &Connection, activity_ids: &[String]) -> bool {
 
 /// Name the pool an abandoned run gave up on, so the next sync can tell it has
 /// already been decoded and rejected.
-fn record_abandoned_pool(conn: &Connection, activity_ids: &[String]) {
+fn record_abandoned_pool(conn: &Connection, install: u64, activity_ids: &[String]) {
     let value = serde_json::json!({
         "abandoned_at": chrono::Utc::now().timestamp(),
         "pool_digest": format!("{:016x}", pool_digest(activity_ids)),
         "pool_size": activity_ids.len(),
     })
     .to_string();
-    if let Err(e) = conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-        params![ABANDONED_POOL_KEY, value],
-    ) {
+    if let Err(e) = worker_write(conn, install, || {
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+            params![ABANDONED_POOL_KEY, value],
+        )?;
+        Ok(())
+    }) {
         log::error!("veloqrs: [pool integrity] abandon record failed: {}", e);
     }
 }
 
 /// Drop the abandon record once a pool is usable again.
-fn clear_abandoned_pool(conn: &Connection) {
-    let _ = conn.execute(
-        "DELETE FROM schema_info WHERE key = ?",
-        params![ABANDONED_POOL_KEY],
-    );
+fn clear_abandoned_pool(conn: &Connection, install: u64) {
+    let _ = worker_write(conn, install, || {
+        conn.execute(
+            "DELETE FROM schema_info WHERE key = ?",
+            params![ABANDONED_POOL_KEY],
+        )?;
+        Ok(())
+    });
 }
 
 /// Name every excluded track and its reason, capped so a corpus-wide read
@@ -275,15 +286,19 @@ fn log_corrupt_tracks(context: &str, readable: usize, corrupt: &[CorruptTrack]) 
 /// current one. A clean pool clears the record.
 fn record_pool_integrity(
     conn: &Connection,
+    install: u64,
     readable: usize,
     corrupt: &[CorruptTrack],
     abandoned: bool,
 ) {
     if corrupt.is_empty() {
-        let _ = conn.execute(
-            "DELETE FROM schema_info WHERE key = ?",
-            params![POOL_INTEGRITY_KEY],
-        );
+        let _ = worker_write(conn, install, || {
+            conn.execute(
+                "DELETE FROM schema_info WHERE key = ?",
+                params![POOL_INTEGRITY_KEY],
+            )?;
+            Ok(())
+        });
         return;
     }
     let value = serde_json::json!({
@@ -299,10 +314,13 @@ fn record_pool_integrity(
         "first_reason": corrupt.first().map(|c| c.reason.as_str()).unwrap_or(""),
     })
     .to_string();
-    if let Err(e) = conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-        params![POOL_INTEGRITY_KEY, value],
-    ) {
+    if let Err(e) = worker_write(conn, install, || {
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+            params![POOL_INTEGRITY_KEY, value],
+        )?;
+        Ok(())
+    }) {
         log::error!("veloqrs: [pool integrity] record failed: {}", e);
     }
 }
@@ -370,14 +388,49 @@ fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Vec<CorruptTr
     (signatures, corrupt)
 }
 
-/// Compute route groups from DB signatures and save them back.
-/// Runs on the background thread so it doesn't block the JS thread.
-fn recompute_and_save_groups(
+/// The worker's regroup. A self-applying run has the engine adopt what it
+/// committed straight away, not at the apply, and the engine lock does that as
+/// this run takes it. A run that is cancelled, finds its pool unusable or fails
+/// its section save never reloads groups at the apply, and the next foreground
+/// regroup would otherwise remap against the catalogue this run replaced. It then mints an id already committed to other members and
+/// carries the name saved on it there.
+///
+/// A run its caller applies leaves the adopt to that caller, which may be
+/// waiting for the result with the engine lock held.
+fn regroup_on_worker(
     conn: &Connection,
+    install: u64,
     match_config: &MatchConfig,
     existing_groups: &[RouteGroup],
-    activity_metadata: &HashMap<String, String>,
-) -> Vec<RouteGroup> {
+    generation: u64,
+    apply_on: ApplyOn,
+) -> (Vec<RouteGroup>, GroupSave) {
+    let (groups, save) =
+        recompute_and_save_groups(conn, install, match_config, existing_groups, generation);
+    if save == GroupSave::Committed && apply_on == ApplyOn::Worker {
+        super::super::with_persistent_engine_for(
+            install,
+            PersistentEngine::follow_committed_groups,
+        );
+    }
+    (groups, save)
+}
+
+/// Compute route groups from DB signatures and save them back, and say what
+/// became of the save. Runs on the background thread so it doesn't block the
+/// JS thread.
+///
+/// `existing_groups` is the catalogue the engine held at `generation`. When a
+/// group write has committed since, the save is refused and the committed
+/// catalogue is what the run goes on with: it is newer than this grouping, and
+/// the next foreground regroup starts from it.
+fn recompute_and_save_groups(
+    conn: &Connection,
+    install: u64,
+    match_config: &MatchConfig,
+    existing_groups: &[RouteGroup],
+    generation: u64,
+) -> (Vec<RouteGroup>, GroupSave) {
     let start = std::time::Instant::now();
 
     let (signatures, corrupt) = load_all_signatures(conn);
@@ -389,12 +442,12 @@ fn recompute_and_save_groups(
             log::error!(
                 "veloqrs: [BG Groups] Keeping the existing groups: too much of the signature pool is unreadable to regroup over"
             );
-            return existing_groups.to_vec();
+            return (existing_groups.to_vec(), GroupSave::Kept);
         }
     }
 
     if signatures.is_empty() {
-        return existing_groups.to_vec();
+        return (existing_groups.to_vec(), GroupSave::Kept);
     }
 
     let already_grouped: HashSet<&str> = existing_groups
@@ -407,9 +460,11 @@ fn recompute_and_save_groups(
         .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
 
     let total = signatures.len();
+    let chosen = crate::persistence::routes::routes_keeping_representative(conn, existing_groups);
     let use_incremental = !existing_groups.is_empty()
         && !new_sigs.is_empty()
-        && (new_sigs.len() as f64) < (total as f64 * 0.9);
+        && (new_sigs.len() as f64) < (total as f64 * 0.9)
+        && !crate::persistence::routes::groups_match_rule_changed(conn, match_config);
 
     let group_start = std::time::Instant::now();
     let result = if use_incremental {
@@ -418,12 +473,15 @@ fn recompute_and_save_groups(
             new_sigs.len(),
             existing_sigs.len()
         );
-        let groups =
-            tracematch::group_incremental(&new_sigs, existing_groups, &existing_sigs, match_config);
-        tracematch::GroupingResult {
-            groups,
-            activity_matches: HashMap::new(),
-        }
+        tracematch::group_incremental_with_matches(
+            &new_sigs,
+            &crate::persistence::routes::groups_keeping_chosen_representatives(
+                existing_groups,
+                &chosen,
+            ),
+            &existing_sigs,
+            match_config,
+        )
     } else {
         log::info!("[BG Groups] FULL: {} signatures", signatures.len());
         tracematch::group_signatures_parallel_with_matches(&signatures, match_config)
@@ -435,21 +493,43 @@ fn recompute_and_save_groups(
     // stable ids `route_names` and `activity_matches` are keyed on, and the user's
     // route names are orphaned by whichever writer happened to run last.
     let mut identity = load_identity(conn, existing_groups);
-    let (mut groups, _id_map) = identity.remap(existing_groups.to_vec(), result.groups);
+    let (mut groups, id_map) = identity.remap(existing_groups.to_vec(), result.groups, &chosen);
 
     for group in &mut groups {
-        if let Some(sport) = activity_metadata.get(&group.representative_id) {
-            group.sport_type = if sport.is_empty() {
-                "Ride".to_string()
-            } else {
-                sport.clone()
-            };
-        }
+        group.sport_type.clear();
     }
 
-    if let Err(e) = save_groups_to_db(conn, &groups, &identity) {
-        log::error!("[BG Groups] Save failed: {}", e);
-    }
+    // Measured here, before the write lock is taken: the percentages read every
+    // member's stored track, and the lock is held only for the rows.
+    let matches = measure_group_matches(
+        conn,
+        &groups,
+        result.activity_matches,
+        &id_map,
+        match_config,
+    );
+
+    let save = match save_groups_to_db(
+        conn,
+        install,
+        &groups,
+        &identity,
+        &matches,
+        match_config,
+        generation,
+    ) {
+        Ok(GroupSave::Superseded) => {
+            log::info!(
+                "[BG Groups] A newer catalogue committed during the run, keeping it over this grouping"
+            );
+            return (load_groups_from_db(conn), GroupSave::Superseded);
+        }
+        Ok(save) => save,
+        Err(e) => {
+            log::error!("[BG Groups] Save failed: {}", e);
+            GroupSave::Kept
+        }
+    };
 
     let total_ms = start.elapsed().as_millis();
     log::info!(
@@ -460,23 +540,188 @@ fn recompute_and_save_groups(
         group_ms
     );
 
-    groups
+    (groups, save)
+}
+
+/// The match rows the worker's grouping owes: each member's direction from the
+/// grouping, re-keyed through the id map onto the stable route ids, over the
+/// rows already stored, then every percentage measured from the stored tracks.
+/// The incremental arm reports only the routes that took a new member, so the
+/// stored rows carry the rest.
+fn measure_group_matches(
+    conn: &Connection,
+    groups: &[RouteGroup],
+    reported: HashMap<String, Vec<ActivityMatchInfo>>,
+    id_map: &HashMap<String, String>,
+    match_config: &MatchConfig,
+) -> HashMap<String, Vec<ActivityMatchInfo>> {
+    let mut held: HashMap<String, Vec<ActivityMatchInfo>> = HashMap::new();
+    if let Ok(mut stmt) = conn
+        .prepare("SELECT route_id, activity_id, match_percentage, direction FROM activity_matches")
+    {
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, f64>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        });
+        for (route_id, activity_id, match_percentage, direction) in
+            rows.into_iter().flatten().flatten()
+        {
+            if let Ok(direction) = direction.parse() {
+                held.entry(route_id).or_default().push(ActivityMatchInfo {
+                    activity_id,
+                    match_percentage,
+                    direction,
+                });
+            }
+        }
+    }
+    for (old_id, matches) in reported {
+        let entry = held
+            .entry(id_map.get(&old_id).cloned().unwrap_or(old_id))
+            .or_default();
+        for info in matches {
+            entry.retain(|m| m.activity_id != info.activity_id);
+            entry.push(info);
+        }
+    }
+    let live: HashSet<&str> = groups.iter().map(|g| g.group_id.as_str()).collect();
+    held.retain(|id, _| live.contains(id.as_str()));
+    for group in groups {
+        if let Some(entry) = held.get_mut(&group.group_id) {
+            let members: HashSet<&str> = group.activity_ids.iter().map(|s| s.as_str()).collect();
+            entry.retain(|m| members.contains(m.activity_id.as_str()));
+        }
+    }
+    super::super::routes::measure_match_percentages(
+        groups,
+        &held,
+        match_config,
+        |id| match conn
+            .query_row(
+                "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
+                [id],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .map(|blob| TrackRead::from_blob(&blob))
+        {
+            Ok(TrackRead::Present(points)) => Some(points),
+            _ => None,
+        },
+        None,
+        None,
+    )
+}
+
+/// What became of a background group write.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GroupSave {
+    Committed,
+    /// A group write committed after the run's snapshot, so nothing was written.
+    /// That write need not have regrouped: a representative choice does not, so
+    /// the regroup this run was for is still owed.
+    Superseded,
+    /// Nothing was written: the pool was empty or unusable, or the save failed.
+    Kept,
 }
 
 /// Save route groups and the registry that keyed them to DB (standalone, no
 /// engine needed). One transaction: a failure mid-way would otherwise leave the
 /// catalogue half-written, or the groups committed under ids the registry does
 /// not know, which is the crash window the registry reconcile exists to heal.
+///
+/// The generation is compared inside that transaction, so no group write can
+/// commit between the comparison and this one.
 fn save_groups_to_db(
     conn: &Connection,
+    install: u64,
     groups: &[RouteGroup],
     identity: &RouteIdentity,
+    matches: &HashMap<String, Vec<ActivityMatchInfo>>,
+    match_config: &MatchConfig,
+    generation: u64,
+) -> SqlResult<GroupSave> {
+    #[cfg(test)]
+    hold_group_write(conn, install, groups.len());
+    let mut superseded = false;
+    let written = worker_write(conn, install, || {
+        if read_group_generation(conn)? != generation {
+            superseded = true;
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        save_groups_txn(conn, groups, identity, matches)?;
+        crate::persistence::routes::stamp_groups_match_rule(conn, match_config)?;
+        advance_group_generation(conn)?;
+        crate::persistence::route_lines::rebuild(conn).map(|_| ())
+    });
+    match written {
+        Err(_) if superseded => Ok(GroupSave::Superseded),
+        Err(e) => Err(e),
+        Ok(()) => {
+            note_group_commit_off_engine();
+            Ok(GroupSave::Committed)
+        }
+    }
+}
+
+#[cfg(test)]
+type GroupWriteHold = (String, u64, mpsc::Sender<usize>, mpsc::Receiver<()>);
+
+#[cfg(test)]
+static GROUP_WRITE_HOLD: std::sync::Mutex<Option<GroupWriteHold>> = std::sync::Mutex::new(None);
+
+#[cfg(test)]
+pub(crate) fn pause_next_group_write(
+    path: &std::path::Path,
+    install: u64,
+) -> (mpsc::Receiver<usize>, mpsc::Sender<()>) {
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (resume_tx, resume_rx) = mpsc::channel();
+    *GROUP_WRITE_HOLD.lock().unwrap() = Some((
+        path.to_string_lossy().into_owned(),
+        install,
+        entered_tx,
+        resume_rx,
+    ));
+    (entered_rx, resume_tx)
+}
+
+#[cfg(test)]
+fn hold_group_write(conn: &Connection, install: u64, group_count: usize) {
+    let hold = {
+        let mut slot = GROUP_WRITE_HOLD.lock().unwrap();
+        if slot.as_ref().is_some_and(|(path, held_install, _, _)| {
+            conn.path() == Some(path.as_str()) && *held_install == install
+        }) {
+            slot.take()
+        } else {
+            None
+        }
+    };
+    if let Some((_, _, entered, resume)) = hold {
+        let _ = entered.send(group_count);
+        let _ = resume.recv();
+    }
+}
+
+fn worker_write(
+    conn: &Connection,
+    install: u64,
+    write: impl FnOnce() -> SqlResult<()>,
 ) -> SqlResult<()> {
+    let _lifecycle = super::super::ENGINE_LIFECYCLE
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     conn.execute_batch("BEGIN IMMEDIATE")?;
-    let result = save_groups_txn(conn, groups, identity);
-    if result.is_ok() {
-        conn.execute_batch("COMMIT")?;
+    let result = if super::super::engine_install() == install {
+        write().and_then(|()| super::super::commit_write_txn(conn))
     } else {
+        Err(rusqlite::Error::InvalidQuery)
+    };
+    if result.is_err() {
         let _ = conn.execute_batch("ROLLBACK");
     }
     result
@@ -486,7 +731,9 @@ fn save_groups_txn(
     conn: &Connection,
     groups: &[RouteGroup],
     identity: &RouteIdentity,
+    matches: &HashMap<String, Vec<ActivityMatchInfo>>,
 ) -> SqlResult<()> {
+    let chosen = crate::persistence::routes::chosen_representatives(conn)?;
     conn.execute("DELETE FROM route_groups", [])?;
     let mut stmt = conn.prepare(
         "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
@@ -510,7 +757,7 @@ fn save_groups_txn(
             group.group_id,
             group.representative_id,
             activity_ids_json,
-            group.sport_type,
+            "",
             min_lat,
             max_lat,
             min_lng,
@@ -519,6 +766,7 @@ fn save_groups_txn(
         ])?;
     }
     drop(stmt);
+    crate::persistence::routes::mark_chosen_representatives(conn, &chosen)?;
 
     // A name outlives its route only while the id survives. The remap keeps that
     // id, so this drops only the names of routes the regroup actually dissolved.
@@ -533,22 +781,66 @@ fn save_groups_txn(
         delete_name.execute(params![id])?;
     }
     drop(delete_name);
+    crate::persistence::routes::mint_route_numbers(conn, groups)?;
 
-    // Same reasoning for the match rows, which carry the user's per-activity
-    // exclusions. A carried id keeps them; only a dissolved route loses them.
-    let matched: Vec<String> = {
-        let mut stmt = conn.prepare("SELECT DISTINCT route_id FROM activity_matches")?;
-        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    // The match rows are rewritten whole, as the foreground writer does, so a
+    // member that left a route leaves no row naming it. The athlete's exclusions
+    // are the one record in them and ride across for every pair that survives.
+    let excluded: Vec<(String, String)> = {
+        let mut stmt =
+            conn.prepare("SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1")?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
         rows.filter_map(|r| r.ok()).collect()
     };
-    let mut delete_match = conn.prepare("DELETE FROM activity_matches WHERE route_id = ?")?;
-    for id in matched.iter().filter(|id| !live.contains(id.as_str())) {
-        delete_match.execute(params![id])?;
+    conn.execute("DELETE FROM activity_matches", [])?;
+    let mut insert = conn.prepare(
+        "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
+         VALUES (?, ?, ?, ?)",
+    )?;
+    for group in groups {
+        let members: HashSet<&str> = group.activity_ids.iter().map(|s| s.as_str()).collect();
+        for m in matches.get(&group.group_id).into_iter().flatten() {
+            if members.contains(m.activity_id.as_str()) {
+                insert.execute(params![
+                    group.group_id,
+                    m.activity_id,
+                    m.match_percentage,
+                    m.direction.to_string(),
+                ])?;
+            }
+        }
+        // A member the grouping reported no pair for, or whose track is unreadable.
+        for id in &group.activity_ids {
+            insert.execute(params![group.group_id, id, 0.0f64, "same"])?;
+        }
     }
-    drop(delete_match);
+    drop(insert);
+    let mut exclude = conn.prepare(
+        "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
+    )?;
+    for (route_id, activity_id) in &excluded {
+        exclude.execute(params![route_id, activity_id])?;
+    }
+    drop(exclude);
 
     write_identity(conn, identity)
 }
+
+#[cfg(test)]
+#[path = "tests/route_name_mint.rs"]
+mod route_name_mint_tests;
+
+#[cfg(test)]
+#[path = "tests/worker_regroup.rs"]
+mod worker_regroup_tests;
+
+#[cfg(test)]
+#[path = "tests/worker_match_rows.rs"]
+mod worker_match_rows_tests;
+
+#[cfg(test)]
+#[path = "tests/representative_choice.rs"]
+mod representative_choice_tests;
 
 /// Phase reported by a handle that was refused because detection is
 /// suspended. It is not one of the weighted run phases, so `get_percent`
@@ -629,6 +921,8 @@ fn apply_on_worker(
     update: Option<CacheUpdate>,
     activity_ids: &[String],
     progress: &SectionDetectionProgress,
+    regroup_owed: bool,
+    groups_epoch_at_spawn: u64,
 ) -> bool {
     // Off the lock: a 1,000-activity cache is about 13 MB to encode and every
     // reader used to wait it out inside the apply.
@@ -638,13 +932,17 @@ fn apply_on_worker(
     // restore, and the catalogue it computed from the old library would
     // otherwise be written into the new one.
     let saved = super::super::with_persistent_engine_for(install, |e| {
-        if let Err(err) = e.apply_sections_save_with_cache_row(sections, update, encoded) {
-            log::error!(
-                "veloqrs: [SectionDetection] apply_sections_save failed on the worker: {}",
-                err
-            );
-            return false;
-        }
+        let counts =
+            match e.apply_sections_save_with_cache_row_ranked(sections, update, encoded, false) {
+                Ok(counts) => counts,
+                Err(err) => {
+                    log::error!(
+                        "veloqrs: [SectionDetection] apply_sections_save failed on the worker: {}",
+                        err
+                    );
+                    return false;
+                }
+            };
         if let Err(err) = e.save_processed_activity_ids(activity_ids) {
             // Non-fatal: the sections WERE saved above. The consequence is
             // that the next sync re-detects these activities, which is wasted
@@ -657,8 +955,25 @@ fn apply_on_worker(
                 err
             );
         }
+        super::super::job_runs::record_job_run(
+            &e.db,
+            &super::super::job_runs::JobRun {
+                job: super::super::job_runs::BackgroundJob::Detection,
+                finished_at: super::super::attempts::now_ms(),
+                outcome: super::super::job_runs::RunOutcome::Complete,
+                handled: activity_ids.len().try_into().unwrap_or(u32::MAX),
+                added: counts.added,
+                changed: counts.changed,
+                retired: counts.retired,
+                failed: 0,
+            },
+        );
         true
     });
+
+    if saved == Some(true) {
+        rank_off_lock(install);
+    }
 
     if saved != Some(true) {
         if saved.is_none() {
@@ -675,9 +990,68 @@ fn apply_on_worker(
     super::super::with_persistent_engine_for(install, |e| {
         e.apply_sections_finalize_with_progress(Some(progress));
         // Reload groups from DB in case this thread recomputed and saved them.
-        e.reload_groups_from_db();
+        // A regroup refused over a newer write, or a store made while the run
+        // was in flight, is still owed, so the flag survives the reload.
+        e.adopt_run_groups(regroup_owed, groups_epoch_at_spawn);
     });
     true
+}
+
+/// Record that the run which started against `install` ended without applying,
+/// so the last-run line shows the failure rather than the success before it.
+pub(crate) fn record_failed_run(install: u64) {
+    super::super::with_persistent_engine_for(install, |e| {
+        super::super::job_runs::record_job_run(
+            &e.db,
+            &super::super::job_runs::JobRun {
+                job: super::super::job_runs::BackgroundJob::Detection,
+                finished_at: super::super::attempts::now_ms(),
+                outcome: super::super::job_runs::RunOutcome::Failed,
+                handled: 0,
+                added: 0,
+                changed: 0,
+                retired: 0,
+                failed: 0,
+            },
+        );
+    });
+}
+
+/// Rank the catalogue the apply just saved without holding the engine lock
+/// while the tracks are read and measured.
+///
+/// The plan is the section lines only. The tracks are read on a connection of
+/// this thread's own, and the lock is taken again for the score write alone.
+/// Between the apply and that write the new sections carry no score, which
+/// every reader already handles as it does for a section from before ranking
+/// existed. A failure leaves the scores as they were and is logged: ranking
+/// is an annotation of the saved catalogue, never a reason to lose it.
+pub(crate) fn rank_off_lock(install: u64) {
+    let Some((plan, path)) = super::super::with_persistent_engine_for(install, |e| {
+        let path = e.db.path().map(str::to_owned)?;
+        Some((e.rank_plan()?, path))
+    })
+    .flatten() else {
+        return;
+    };
+    let ranked = Connection::open_with_flags(
+        &path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .and_then(|conn| {
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
+        plan.compute(&conn)
+    })
+    .map_err(|e| log::warn!("veloqrs: [detection] ranking skipped: {}", e))
+    .ok();
+    let Some(ranked) = ranked else {
+        return;
+    };
+    super::super::with_persistent_engine_for(install, |e| {
+        if let Err(err) = e.write_rank(ranked) {
+            log::warn!("veloqrs: [detection] ranking not written: {}", err);
+        }
+    });
 }
 
 /// Announces the end of a detection run to the observer, whatever the run's
@@ -695,13 +1069,20 @@ fn apply_on_worker(
 /// structural, so no later edit can put it back.
 struct DetectionEnded<S> {
     senders: Option<S>,
+    completion_slot: Option<Arc<CheckpointSlot>>,
 }
 
 impl<S> DetectionEnded<S> {
     fn holding(senders: S) -> Self {
         Self {
             senders: Some(senders),
+            completion_slot: None,
         }
+    }
+
+    fn settling(mut self, slot: Option<Arc<CheckpointSlot>>) -> Self {
+        self.completion_slot = slot;
+        self
     }
 
     /// The senders, for as long as the run is still going.
@@ -715,6 +1096,9 @@ impl<S> DetectionEnded<S> {
 impl<S> Drop for DetectionEnded<S> {
     fn drop(&mut self) {
         drop(self.senders.take());
+        if let Some(slot) = self.completion_slot.take() {
+            slot.mark_worker_finished();
+        }
         crate::objects::observer::notify(Announcement::DetectionApplied);
     }
 }
@@ -812,10 +1196,26 @@ impl PersistentEngine {
         self.detect_sections_background_unchecked_applying(apply_on)
     }
 
-    /// The run behind [`detect_sections_background`], without the suspension
-    /// gate. Only the backfill's own final re-cut may call this: it holds the
-    /// guard precisely so nothing else can run, and its detect is the one the
-    /// suspension exists to protect.
+    /// Admit a forced run before clearing the processed set it will rebuild.
+    pub(crate) fn force_detect_sections_background_applying(
+        &mut self,
+    ) -> Result<SectionDetectionHandle, DetectionRefusal> {
+        if !self.detection_enabled() {
+            return Err(DetectionRefusal::SwitchedOff);
+        }
+        if super::conditioning::detection_suspended() {
+            return Err(DetectionRefusal::Suspended);
+        }
+        if self.cutover_is_owed() {
+            return Err(DetectionRefusal::CutoverOwed);
+        }
+        self.clear_processed_activity_ids();
+        Ok(self.detect_sections_background_unchecked_applying(ApplyOn::Worker))
+    }
+
+    /// The run behind [`detect_sections_background`], after its admission
+    /// gates have passed. The backfill's final re-cut also uses this while it
+    /// holds detection suspended for every other caller.
     pub(crate) fn detect_sections_background_unchecked(&mut self) -> SectionDetectionHandle {
         self.detect_sections_background_unchecked_applying(ApplyOn::Caller)
     }
@@ -874,6 +1274,8 @@ impl PersistentEngine {
         let needs_group_recompute = self.groups_dirty;
         let match_config = self.match_config.clone();
         let current_groups = self.groups.clone();
+        let group_generation = self.group_generation;
+        let groups_epoch_at_spawn = self.groups_dirty_epoch;
 
         // Build sport type map + activity_ids in a single pass over metadata.
         // Uses the HashMap key (= activity id) to avoid cloning m.id separately.
@@ -968,10 +1370,15 @@ impl PersistentEngine {
                 Some(flag) => {
                     let flag = Arc::clone(flag);
                     let echo_progress = progress.clone();
+                    let completion_slot = Arc::clone(&checkpoint_slot);
+                    #[cfg(test)]
+                    let worker_guard = crate::test_globals::detection_worker_started();
                     crate::threads::spawn_named("veloq-save", move || {
+                        #[cfg(test)]
+                        let _worker_guard = worker_guard.running();
                         // The guard holds the sender, so the notice lands
                         // once the outcome is readable.
-                        let ended = DetectionEnded::holding(tx);
+                        let ended = DetectionEnded::holding(tx).settling(Some(completion_slot));
                         echo_progress.set_phase("saving", 1);
                         if apply_on_worker(
                             install_at_spawn,
@@ -979,11 +1386,22 @@ impl PersistentEngine {
                             None,
                             &all_ids,
                             &echo_progress,
+                            false,
+                            groups_epoch_at_spawn,
                         ) {
                             flag.store(true, Ordering::SeqCst);
                         }
                         ended.senders().send((Vec::new(), Vec::new())).ok();
                     });
+                    return SectionDetectionHandle {
+                        receiver: rx,
+                        final_update: std::sync::Mutex::new(None),
+                        cache_receiver: cache_rx,
+                        checkpoint: checkpoint_slot,
+                        progress,
+                        worker_applied,
+                        cancel: Arc::new(AtomicBool::new(false)),
+                    };
                 }
                 None => {
                     tx.send((sections_copy, all_ids)).ok();
@@ -1022,7 +1440,13 @@ impl PersistentEngine {
             &section_config,
         )
         .unwrap_or_else(|| activity_ids.clone());
-        if ids_to_load.len() < activity_ids.len() {
+        let narrowed_pool = ids_to_load.len() < activity_ids.len();
+        let empty_pool_echo = narrowed_pool.then(|| {
+            self.raw_sections
+                .clone()
+                .unwrap_or_else(|| existing_sections.clone())
+        });
+        if narrowed_pool {
             log::info!(
                 "veloqrs: [SectionDetection] pool narrowed to {} of {} tracks by the clusters the new ids touch",
                 ids_to_load.len(),
@@ -1039,12 +1463,17 @@ impl PersistentEngine {
         let cancel = Arc::new(AtomicBool::new(false));
         let cancel_worker = Arc::clone(&cancel);
 
+        let completion_slot = applied_flag.as_ref().map(|_| Arc::clone(&checkpoint_slot));
         DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        #[cfg(test)]
+        let worker_guard = crate::test_globals::detection_worker_started();
         crate::threads::spawn_named("veloq-detect", move || {
+            #[cfg(test)]
+            let _worker_guard = worker_guard.running();
             // The guard holds both senders, so whether the run applied,
             // aborted or panicked the notice lands after the outcome the poll
             // behind it will read.
-            let ended = DetectionEnded::holding((tx, cache_tx));
+            let ended = DetectionEnded::holding((tx, cache_tx)).settling(completion_slot);
             log::info!(
                 "veloqrs: [SectionDetection] Background thread started with {} activity IDs",
                 ids_to_load.len()
@@ -1057,8 +1486,7 @@ impl PersistentEngine {
                     c
                 }
                 Err(e) => {
-                    log::info!("veloqrs: [SectionDetection] Failed to open DB: {:?}", e);
-                    ended.senders().0.send((Vec::new(), Vec::new())).ok();
+                    log::warn!("veloqrs: [SectionDetection] Failed to open DB: {:?}", e);
                     return;
                 }
             };
@@ -1067,10 +1495,10 @@ impl PersistentEngine {
             // changes or the window lapses, so an unreadable store costs one
             // full load per window rather than one per sync. The run still ends
             // without a result, so the poll reports the same abort.
-            if abandon_window_active(&conn, &ids_to_load) {
+            if abandon_window_active(&conn, &activity_ids) {
                 log::error!(
                     "veloqrs: [SectionDetection] Abandoning detection: this pool of {} activities was already found unreadable within the last {} hours. The catalogue is left unchanged.",
-                    ids_to_load.len(),
+                    activity_ids.len(),
                     ABANDON_RETRY_SECONDS / 3600
                 );
                 progress_clone.set_phase("aborted", 0);
@@ -1087,13 +1515,21 @@ impl PersistentEngine {
                 return;
             }
 
-            let groups = if needs_group_recompute {
+            let (groups, regroup_owed) = if needs_group_recompute {
                 log::info!(
                     "veloqrs: [SectionDetection] Recomputing route groups on background thread..."
                 );
-                recompute_and_save_groups(&conn, &match_config, &current_groups, &sport_map)
+                let (groups, save) = regroup_on_worker(
+                    &conn,
+                    install_at_spawn,
+                    &match_config,
+                    &current_groups,
+                    group_generation,
+                    apply_on,
+                );
+                (groups, save == GroupSave::Superseded)
             } else {
-                load_groups_from_db(&conn)
+                (load_groups_from_db(&conn), false)
             };
             log::info!(
                 "veloqrs: [SectionDetection] {} groups ready (recomputed={})",
@@ -1128,18 +1564,25 @@ impl PersistentEngine {
                 );
             }
 
-            let Some(pool) = super::track_pool::load_tracks_chunked(
+            let pool = match super::track_pool::load_tracks_chunked(
                 &conn,
                 &ids_to_load,
                 &progress_clone,
                 &cancel_worker,
-            ) else {
-                log::info!("veloqrs: [SectionDetection] Cancelled during the track load");
-                progress_clone.set_phase(PHASE_CANCELLED, 0);
-                return;
+            ) {
+                Ok(pool) => pool,
+                Err(super::track_pool::TrackLoadError::Cancelled) => {
+                    log::info!("veloqrs: [SectionDetection] Cancelled during the track load");
+                    progress_clone.set_phase(PHASE_CANCELLED, 0);
+                    return;
+                }
+                Err(super::track_pool::TrackLoadError::ReadFailed) => {
+                    log::error!("veloqrs: [SectionDetection] Track pool read failed");
+                    progress_clone.set_phase("aborted", 0);
+                    return;
+                }
             };
 
-            let rows_readable = pool.readable;
             let corrupt_tracks = pool.corrupt;
             let tracks = pool.tracks;
 
@@ -1158,27 +1601,72 @@ impl PersistentEngine {
             // corpus smaller than the user's library. Dropping `tx` unsent
             // leaves the poll reporting Died, which clears the handle and
             // leaves the stored catalogue exactly as it stands.
-            let usable = pool_is_usable(rows_readable, corrupt_tracks.len());
-            log_corrupt_tracks("SectionDetection", rows_readable, &corrupt_tracks);
-            record_pool_integrity(&conn, rows_readable, &corrupt_tracks, !usable);
+            let library_readable = activity_ids.len() - corrupt_tracks.len();
+            let empty_pool_verified = if tracks.is_empty() {
+                narrowed_pool
+                    || conn
+                        .query_row("SELECT COUNT(*) FROM gps_tracks", [], |row| {
+                            row.get::<_, i64>(0)
+                        })
+                        .is_ok_and(|rows| rows >= 0 && rows as usize == pool.readable)
+            } else {
+                true
+            };
+            let usable =
+                pool_is_usable(library_readable, corrupt_tracks.len()) && empty_pool_verified;
+            log_corrupt_tracks("SectionDetection", library_readable, &corrupt_tracks);
+            record_pool_integrity(
+                &conn,
+                install_at_spawn,
+                library_readable,
+                &corrupt_tracks,
+                !usable,
+            );
 
             if !usable {
-                log::error!(
-                    "veloqrs: [SectionDetection] Abandoning detection: {} of {} stored tracks are unreadable, past both the {} row floor and the {:.0}% ceiling. The catalogue is left unchanged.",
-                    corrupt_tracks.len(),
-                    rows_readable + corrupt_tracks.len(),
-                    MIN_CORRUPT_TO_ABANDON,
-                    MAX_CORRUPT_POOL_FRACTION * 100.0
-                );
-                record_abandoned_pool(&conn, &ids_to_load);
+                if tracks.is_empty() {
+                    log::error!(
+                        "veloqrs: [SectionDetection] Abandoning detection: the empty track pool could not be verified against stored rows. The catalogue is left unchanged."
+                    );
+                } else {
+                    log::error!(
+                        "veloqrs: [SectionDetection] Abandoning detection: {} of {} stored tracks are unreadable, past both the {} row floor and the {:.0}% ceiling. The catalogue is left unchanged.",
+                        corrupt_tracks.len(),
+                        activity_ids.len(),
+                        MIN_CORRUPT_TO_ABANDON,
+                        MAX_CORRUPT_POOL_FRACTION * 100.0
+                    );
+                }
+                record_abandoned_pool(&conn, install_at_spawn, &activity_ids);
                 progress_clone.set_phase("aborted", 0);
                 return;
             }
-            clear_abandoned_pool(&conn);
+            clear_abandoned_pool(&conn, install_at_spawn);
 
             if tracks.is_empty() {
                 log::info!("veloqrs: [SectionDetection] No tracks loaded, skipping detection");
-                progress_clone.set_phase("complete", 0);
+                let sections = empty_pool_echo.unwrap_or_default();
+                match &applied_flag {
+                    Some(flag) => {
+                        progress_clone.set_phase("saving", 1);
+                        if apply_on_worker(
+                            install_at_spawn,
+                            sections,
+                            None,
+                            &all_activity_ids,
+                            &progress_clone,
+                            regroup_owed,
+                            groups_epoch_at_spawn,
+                        ) {
+                            flag.store(true, Ordering::SeqCst);
+                        }
+                    }
+                    None => {
+                        progress_clone.set_phase("complete", 0);
+                        ended.senders().0.send((sections, all_activity_ids)).ok();
+                        return;
+                    }
+                }
                 ended.senders().0.send((Vec::new(), all_activity_ids)).ok();
                 return;
             }
@@ -1190,12 +1678,7 @@ impl PersistentEngine {
                 total_points / tracks.len().max(1)
             );
 
-            // #25: emit an intermediate phase so the JS progress bar moves
-            // past "loading" before the heavy tracematch detect call, which
-            // can run for tens of seconds before any per-item tick lands.
-            // Without this marker the bar sits frozen at the end of "loading"
-            // and a long large-corpus detection reads as a crash.
-            progress_clone.set_phase("analyzing", tracks.len() as u32);
+            progress_clone.set_phase("analyzing", 0);
 
             // The per-point time offsets the lift veto reads. Held here so
             // the borrowed view below outlives the fold, and positional to
@@ -1254,9 +1737,16 @@ impl PersistentEngine {
                 // there instead of from the last completed detect.
                 let mut last_checkpoint = std::time::Instant::now();
                 let mut last_done = 0usize;
+                // A cancel is read here, at each cluster boundary: the fold
+                // stops after putting one unthrottled checkpoint, so the slot
+                // holds the point it stopped at and a retry resumes from it.
                 let mut observe = |done: usize, total: usize, cache: &SectionEvidenceCache| {
-                    if !checkpoint_due(done, total, last_done, last_checkpoint.elapsed()) {
-                        return;
+                    progress_clone.set_progress(done, total);
+                    let cancelled = cancel_worker.load(Ordering::SeqCst);
+                    if !cancelled
+                        && !checkpoint_due(done, total, last_done, last_checkpoint.elapsed())
+                    {
+                        return ControlFlow::Continue(());
                     }
                     last_checkpoint = std::time::Instant::now();
                     last_done = done;
@@ -1266,8 +1756,13 @@ impl PersistentEngine {
                         checkpoint: true,
                         boundaries: Vec::new(),
                     });
+                    if cancelled {
+                        ControlFlow::Break(())
+                    } else {
+                        ControlFlow::Continue(())
+                    }
                 };
-                let fold = tracematch::detect_sections_incremental_observed(
+                let fold = match tracematch::detect_sections_incremental_observed(
                     &mut cache,
                     &existing_sections,
                     &tracks,
@@ -1281,7 +1776,22 @@ impl PersistentEngine {
                         freeze_all_geometry: false,
                     },
                     &mut observe,
-                );
+                ) {
+                    Ok(fold) => fold,
+                    Err(stopped) => {
+                        // Nothing is sent and nothing is applied, the shape
+                        // of the earlier cancel checks: the stored catalogue
+                        // stays as it was.
+                        log::info!(
+                            "veloqrs: [SectionDetection] Cancelled during the fold, after {} of {} clusters",
+                            stopped.done,
+                            stopped.total
+                        );
+                        progress_clone.set_phase(PHASE_CANCELLED, stopped.total as u32);
+                        progress_clone.set_progress(stopped.done, stopped.total);
+                        return;
+                    }
+                };
                 let sections_to_send = fold.catalogue;
 
                 log::info!(
@@ -1323,6 +1833,8 @@ impl PersistentEngine {
                             Some(update),
                             &all_activity_ids,
                             &progress_clone,
+                            regroup_owed,
+                            groups_epoch_at_spawn,
                         ) {
                             flag.store(true, Ordering::SeqCst);
                         }
@@ -1366,15 +1878,31 @@ impl PersistentEngine {
     /// the rollback contract is unchanged from the monolithic
     /// `apply_sections`.
     pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
+        self.apply_sections_save_ranked(sections, true).map(|_| ())
+    }
+
+    /// `apply_sections_save`, with ranking left to the caller when `rank` is
+    /// false. A caller that skips it must rank afterwards, off the lock if it
+    /// can (`rank_plan`, `RankPlan::compute`, `write_rank`); until then the
+    /// saved sections carry no score.
+    fn apply_sections_save_ranked(
+        &mut self,
+        sections: Vec<FrequentSection>,
+        rank: bool,
+    ) -> SqlResult<super::identity::SectionChangeCounts> {
         // A detected section with no portions at all is a producer bug, not an
         // input to handle: the detector cannot draw a line nobody traversed.
         // The unpooled case below is the ordinary one and stays a silent drop.
         // Release keeps that drop rather than panicking across the UniFFI
         // boundary, so this catches an upstream regression in debug only.
+        // A pinned section is the exception: a pin freezes existence, so the
+        // fold carries it with whatever portions it still has, none included.
+        let pinned: std::collections::HashSet<String> =
+            self.pinned_section_ids().into_iter().collect();
         debug_assert!(
-            !sections
-                .iter()
-                .any(|s| !s.is_user_defined && s.activity_portions.is_empty()),
+            !sections.iter().any(|s| !s.is_user_defined
+                && s.activity_portions.is_empty()
+                && !pinned.contains(&s.id)),
             "apply_sections_save was handed a section with no portions"
         );
         // Remap the raw detection batch through the assign-once identity +
@@ -1382,8 +1910,12 @@ impl PersistentEngine {
         // the app renders. Run on a clone of the registry so a failed save never
         // advances identity past what is durable in the DB; commit it only on Ok.
         let mut trial_identity = self.identity.clone();
-        let raw_for_convergence = sections.clone();
-        let (mut visible, events) = self.section_identity_apply_into(&mut trial_identity, sections);
+        let ReplayApplied {
+            mut visible,
+            events,
+            raw: raw_for_convergence,
+        } = self.section_identity_apply_into(&mut trial_identity, SectionReplay::whole(sections));
+        let counts = super::identity::SectionChangeCounts::from_events(&events);
         // A section whose every portion belongs to an activity the pool no
         // longer holds gets zero junction rows, so no trigger fires and it renders
         // as "0 visits" over an empty detail screen. Keep it out of the visible
@@ -1396,7 +1928,7 @@ impl PersistentEngine {
                     .iter()
                     .any(|p| self.activity_metadata.contains_key(&p.activity_id));
             match drop_reason(
-                section.is_user_defined,
+                section.is_user_defined || pinned.contains(&section.id),
                 section.activity_portions.len(),
                 any_pooled,
             ) {
@@ -1428,7 +1960,9 @@ impl PersistentEngine {
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
         match self.save_sections_with_events(&events) {
             Ok(()) => {
-                self.raw_sections = Some(raw_for_convergence);
+                if raw_for_convergence.is_some() {
+                    self.raw_sections = raw_for_convergence;
+                }
                 self.sections_dirty = false;
                 // Clear activity_traces to prevent memory leak. These GPS
                 // traces were used for consensus computation but aren't
@@ -1440,10 +1974,13 @@ impl PersistentEngine {
                 }
                 self.section_cache.clear();
                 self.invalidate_perf_cache();
-                if let Err(e) = self.rank_catalogue() {
+                if rank && let Err(e) = self.rank_catalogue() {
                     log::warn!("veloqrs: [detection] ranking skipped: {}", e);
                 }
-                Ok(())
+                if let Err(e) = self.settle_record_restore() {
+                    log::warn!("veloqrs: [detection] record restore retry paused: {}", e);
+                }
+                Ok(counts)
             }
             Err(e) => {
                 // The transaction rolled back both the catalogue and the blob;
@@ -1455,11 +1992,10 @@ impl PersistentEngine {
         }
     }
 
-    /// Cache-aware hot save: `apply_sections_save`, then advance the Unified
+    /// Cache-aware hot save: `apply_sections_save`, then advance the
     /// evidence cache iff the save succeeded. `update` is the worker's
-    /// `CacheUpdate` for the Unified path, or None for the legacy detectors and
-    /// the no-new-activities short-circuit (nothing to advance, the cache is
-    /// left as-is).
+    /// `CacheUpdate`, or None for the no-new-activities short-circuit.
+    /// With no update, the cache stays as-is.
     ///
     /// The consistency contract: the cache must never get ahead of the applied
     /// catalogue. On success the returned cache exactly reflects the sections
@@ -1495,6 +2031,19 @@ impl PersistentEngine {
         update: Option<CacheUpdate>,
         encoded: Option<EvidenceRow>,
     ) -> SqlResult<()> {
+        self.apply_sections_save_with_cache_row_ranked(sections, update, encoded, true)
+            .map(|_| ())
+    }
+
+    /// The same save, ranking only when `rank` is true. See
+    /// `apply_sections_save_ranked` for what a caller that skips it owes.
+    pub(crate) fn apply_sections_save_with_cache_row_ranked(
+        &mut self,
+        sections: Vec<FrequentSection>,
+        update: Option<CacheUpdate>,
+        encoded: Option<EvidenceRow>,
+        rank: bool,
+    ) -> SqlResult<super::identity::SectionChangeCounts> {
         // A checkpoint is a mid-fold snapshot, never the record of what was
         // persisted: adopting one as the final cache silently poisons the next
         // detect. The callers drain to the real update, so reaching here with
@@ -1507,10 +2056,10 @@ impl PersistentEngine {
             .as_ref()
             .map(|u| u.boundaries.clone())
             .unwrap_or_default();
-        let saved = self.apply_sections_save(sections);
+        let saved = self.apply_sections_save_ranked(sections, rank);
         self.fork_records.clear();
         match saved {
-            Ok(()) => {
+            Ok(counts) => {
                 if let Some(u) = update {
                     self.section_evidence_cache = u.cache;
                     self.cache_folded_ids = u.folded_ids;
@@ -1524,7 +2073,7 @@ impl PersistentEngine {
                         None => self.persist_evidence_cache(),
                     }
                 }
-                Ok(())
+                Ok(counts)
             }
             Err(e) => {
                 self.invalidate_evidence_cache();
@@ -1534,9 +2083,9 @@ impl PersistentEngine {
     }
 
     /// Cache-aware equivalent of `apply_sections`: the hot save-with-cache
-    /// followed by the deferred finalize tail. The harness/test ingest path uses
-    /// this so a Unified drip actually exercises the cache; production splits the
-    /// two halves across separate engine locks (see `objects/detection.rs`).
+    /// followed by the deferred finalize tail, under one engine lock. The
+    /// cutover's detect and the harness ingest take it; a detection worker
+    /// splits the two halves across separate engine locks instead.
     pub fn apply_sections_with_cache(
         &mut self,
         sections: Vec<FrequentSection>,
@@ -1611,7 +2160,7 @@ const EVIDENCE_CACHE_BLOB_VERSION: u8 = 1;
 /// rebatch on the next open at worst.
 ///
 /// Call this before the apply takes its lock, never inside it: the digest read
-/// takes the write lock itself, and `PERSISTENT_ENGINE` is a plain `RwLock`, so
+/// takes the engine lock itself, and `PERSISTENT_ENGINE` is a plain `Mutex`, so
 /// a re-entrant take on one thread deadlocks rather than warns. That is what
 /// keeps the encode off the lock, and it is why this is a free function and not
 /// a method on the engine.
@@ -1724,6 +2273,15 @@ impl PersistentEngine {
         self.section_evidence_cache.dirty_clusters()
     }
 
+    /// Whether a stored activity or a restored checkpoint still needs detection.
+    pub fn detection_owed(&self) -> bool {
+        self.section_evidence_cache.dirty_clusters() > 0
+            || self
+                .activity_metadata
+                .keys()
+                .any(|id| !self.processed_activity_ids.contains(id))
+    }
+
     fn persist_evidence_blob(
         &mut self,
         cache: &SectionEvidenceCache,
@@ -1824,7 +2382,7 @@ impl PersistentEngine {
                 true
             }
             Err(e) => {
-                log::warn!("veloqrs: evidence cache unreadable, starting cold: {e}");
+                log::error!("evidence_cache 1: unreadable row, starting cold: {e}");
                 self.clear_persisted_evidence_cache();
                 false
             }
@@ -1833,13 +2391,14 @@ impl PersistentEngine {
 }
 
 /// Why a detected section cannot enter the visible catalogue, or `None` if
-/// it can. Both causes leave it with no junction rows and a "0 visits" card,
+/// it can. `exempt` is a section the catalogue keeps whatever its support: a
+/// hand-drawn one, or one the athlete pinned. Both causes leave it with no junction rows and a "0 visits" card,
 /// but they are different faults wanting different investigations: no
 /// portions at all is the detector emitting nothing to traverse, unpooled
 /// members are ordinary churn as activities leave the pool. One message for
 /// both hid the first behind the second.
-fn drop_reason(is_user_defined: bool, portions: usize, any_pooled: bool) -> Option<&'static str> {
-    if is_user_defined {
+fn drop_reason(exempt: bool, portions: usize, any_pooled: bool) -> Option<&'static str> {
+    if exempt {
         return None;
     }
     if portions == 0 {
@@ -1852,9 +2411,28 @@ fn drop_reason(is_user_defined: bool, portions: usize, any_pooled: bool) -> Opti
 }
 
 #[cfg(test)]
+#[path = "tests/detection_install.rs"]
+mod detection_install_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::thread;
+
+    #[test]
+    fn a_worker_that_cannot_open_its_database_dies_without_a_result() {
+        let _serial = crate::test_globals::serial_global_state();
+        let tmp = crate::test_globals::init_global_engine("worker-open.db");
+        let handle = crate::persistence::with_persistent_engine(|engine| {
+            engine.db_path = tmp.path().to_string_lossy().into_owned();
+            engine.detect_sections_background_unchecked()
+        })
+        .expect("engine");
+
+        let (state, _) =
+            handle.recv_state_with_cache_within(Some(std::time::Duration::from_secs(5)));
+        assert!(matches!(state, crate::persistence::WorkerPoll::Died));
+    }
 
     /// Scenario: a detection is running when the athlete restores a backup.
     /// `destroy` cancels cooperatively, so a worker already past its last
@@ -1868,6 +2446,135 @@ mod tests {
         use super::*;
         use crate::persistence::{engine_install, with_persistent_engine};
         use crate::test_globals::{init_global_engine, serial_global_state};
+
+        fn engine_groups_epoch() -> u64 {
+            with_persistent_engine(|e| e.groups_dirty_epoch).expect("an engine")
+        }
+
+        fn groups_dirty() -> bool {
+            with_persistent_engine(|e| e.groups_are_dirty()).expect("an engine")
+        }
+
+        fn store_activity(id: &str) {
+            with_persistent_engine(|e| {
+                e.add_activity(
+                    id.to_string(),
+                    vec![
+                        crate::GpsPoint::new(51.5, -0.1),
+                        crate::GpsPoint::new(51.51, -0.11),
+                    ],
+                    "Ride".to_string(),
+                )
+                .unwrap();
+            })
+            .expect("an engine");
+        }
+
+        fn mark_groups_clean() {
+            with_persistent_engine(|e| e.groups_dirty = false).expect("an engine");
+        }
+
+        /// Scenario: an activity is stored while a detection run is in flight.
+        /// Expected behaviour: the apply leaves the grouping owed, so the
+        /// follow-up run regroups it instead of loading the old groups.
+        #[test]
+        fn an_activity_stored_during_a_run_is_still_owed_a_regroup_after_the_apply() {
+            let _serial = serial_global_state();
+            let _dir = init_global_engine("detection_apply_store.db");
+            mark_groups_clean();
+            let epoch_at_spawn = engine_groups_epoch();
+
+            store_activity("stored-during-run");
+            assert!(groups_dirty());
+
+            let applied = apply_on_worker(
+                engine_install(),
+                Vec::new(),
+                None,
+                &["a1".to_string()],
+                &SectionDetectionProgress::new(),
+                false,
+                epoch_at_spawn,
+            );
+
+            assert!(applied);
+            assert!(groups_dirty(), "the store made during the run was cleared");
+        }
+
+        fn detection_row() -> (String, u32) {
+            with_persistent_engine(|e| {
+                e.db.query_row(
+                    "SELECT outcome, handled FROM job_runs WHERE job = 'detection'",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .expect("a detection row")
+            })
+            .expect("an engine")
+        }
+
+        /// Expected behaviour: a run that ends without applying replaces the
+        /// success before it, so the last-run line does not claim it.
+        #[test]
+        fn a_run_that_ends_without_applying_replaces_the_last_success_with_a_failure() {
+            let _serial = serial_global_state();
+            let _dir = init_global_engine("detection_last_run_failed.db");
+            assert!(apply_on_worker(
+                engine_install(),
+                Vec::new(),
+                None,
+                &["a1".to_string(), "a2".to_string()],
+                &SectionDetectionProgress::new(),
+                false,
+                engine_groups_epoch(),
+            ));
+            assert_eq!(detection_row(), ("complete".to_string(), 2));
+
+            record_failed_run(engine_install());
+
+            assert_eq!(detection_row(), ("failed".to_string(), 0));
+        }
+
+        #[test]
+        fn a_run_with_no_store_during_it_leaves_the_grouping_clean() {
+            let _serial = serial_global_state();
+            let _dir = init_global_engine("detection_apply_clean.db");
+            store_activity("before-run");
+            mark_groups_clean();
+
+            let applied = apply_on_worker(
+                engine_install(),
+                Vec::new(),
+                None,
+                &["a1".to_string()],
+                &SectionDetectionProgress::new(),
+                false,
+                engine_groups_epoch(),
+            );
+
+            assert!(applied);
+            assert!(!groups_dirty());
+        }
+
+        #[test]
+        fn a_regroup_the_run_could_not_commit_stays_owed_after_the_apply() {
+            let _serial = serial_global_state();
+            let _dir = init_global_engine("detection_apply_owed.db");
+            mark_groups_clean();
+
+            let applied = apply_on_worker(
+                engine_install(),
+                Vec::new(),
+                None,
+                &["a1".to_string()],
+                &SectionDetectionProgress::new(),
+                true,
+                engine_groups_epoch(),
+            );
+
+            assert!(applied);
+            assert!(groups_dirty());
+        }
 
         fn processed() -> Vec<String> {
             with_persistent_engine(|e| {
@@ -1895,6 +2602,8 @@ mod tests {
                 None,
                 &["a1".to_string()],
                 &SectionDetectionProgress::new(),
+                false,
+                engine_groups_epoch(),
             );
 
             assert!(
@@ -1918,6 +2627,8 @@ mod tests {
                 None,
                 &["a1".to_string()],
                 &SectionDetectionProgress::new(),
+                false,
+                engine_groups_epoch(),
             );
 
             assert!(applied, "the stamp must not refuse the run it belongs to");
@@ -2015,7 +2726,7 @@ mod tests {
         assert_eq!(
             drop_reason(true, 0, false),
             None,
-            "a hand-drawn section nobody has run yet is not a drop"
+            "a hand-drawn or pinned section with no traversals is not a drop"
         );
     }
 
@@ -2052,6 +2763,7 @@ mod tests {
             vec!["detection_applied"],
             "a dead worker still ends the run on screen"
         );
+        crate::objects::observer::flush();
         set_observer(None);
     }
 
@@ -2087,6 +2799,7 @@ mod tests {
             ),
             "the sender is already gone when the notice lands"
         );
+        crate::objects::observer::flush();
         set_observer(None);
     }
 
@@ -2124,6 +2837,7 @@ mod tests {
             // both answers `None`.
             crate::objects::observer::flush();
 
+            crate::objects::observer::flush();
             set_observer(None);
             assert_eq!(
                 seen.result_disconnected(),
@@ -2194,9 +2908,12 @@ mod tests {
         fn fit_parsed(&self, _activity_id: String) {}
         fn tiles_generated(&self) {}
         fn backfill_phase(&self, _phase: String) {}
+        fn stream_backfill_phase(&self, _phase: String) {}
         fn cutover_settled(&self) {}
         fn preview_phase(&self, _phase: String) {}
         fn preview_finished(&self) {}
+        fn recordings_changed(&self) {}
+        fn upload_permission_refused(&self) {}
 
         fn detection_applied(&self) {
             *self.result_gone.lock().unwrap_or_else(|e| e.into_inner()) = Some(
@@ -2251,12 +2968,6 @@ mod tests {
         }
     }
 
-    fn sports(ids: &[&str]) -> HashMap<String, String> {
-        ids.iter()
-            .map(|id| (id.to_string(), "Ride".to_string()))
-            .collect()
-    }
-
     fn names(conn: &Connection) -> HashMap<String, String> {
         let mut stmt = conn
             .prepare("SELECT route_id, custom_name FROM route_names")
@@ -2273,6 +2984,7 @@ mod tests {
     /// the roots raw and orphan it.
     #[test]
     fn background_save_carries_stable_ids_and_names() {
+        let _serial = crate::test_globals::serial_global_state();
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_1", &["a1", "a2"]), group("r_2", &["b1"])];
         engine.route_identity_reseed();
@@ -2289,9 +3001,10 @@ mod tests {
         let prior = engine.groups.clone();
         recompute_and_save_groups(
             &engine.db,
+            crate::persistence::engine_install(),
             &MatchConfig::default(),
             &prior,
-            &sports(&["a1", "a2", "b1"]),
+            engine.group_generation,
         );
 
         let saved: HashSet<String> = {
@@ -2315,10 +3028,39 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_recompute_and_save_groups_retired_sport_scalar() {
+        let _serial = crate::test_globals::serial_global_state();
+        let engine = PersistentEngine::in_memory().unwrap();
+        store_signatures(&engine);
+
+        let (groups, _) = recompute_and_save_groups(
+            &engine.db,
+            crate::persistence::engine_install(),
+            &MatchConfig::default(),
+            &[],
+            engine.group_generation,
+        );
+        assert!(!groups.is_empty());
+        assert!(groups.iter().all(|group| group.sport_type.is_empty()));
+
+        let stored: Vec<String> = engine
+            .db
+            .prepare("SELECT sport_type FROM route_groups")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert!(!stored.is_empty());
+        assert!(stored.iter().all(String::is_empty));
+    }
+
     /// A route the regroup actually dissolves takes its name and match rows with
     /// it, so the id namespace the next run reads holds no dead keys.
     #[test]
     fn background_save_drops_names_of_dissolved_routes() {
+        let _serial = crate::test_globals::serial_global_state();
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_1", &["a1"]), group("r_2", &["b1"])];
         engine.route_identity_reseed();
@@ -2326,8 +3068,17 @@ mod tests {
 
         let prior = engine.groups.clone();
         let mut identity = load_identity(&engine.db, &prior);
-        let (remapped, _) = identity.remap(prior, vec![group("a1", &["a1"])]);
-        save_groups_to_db(&engine.db, &remapped, &identity).unwrap();
+        let (remapped, _) = identity.remap(prior, vec![group("a1", &["a1"])], &HashSet::new());
+        save_groups_to_db(
+            &engine.db,
+            crate::persistence::engine_install(),
+            &remapped,
+            &identity,
+            &HashMap::new(),
+            &tracematch::MatchConfig::default(),
+            engine.group_generation,
+        )
+        .unwrap();
 
         assert!(
             !names(&engine.db).contains_key("r_2"),
@@ -2406,5 +3157,74 @@ mod tests {
 
         assert!(engine.restore_evidence_cache());
         assert!(engine.cache_folded_ids.contains("a1"));
+    }
+
+    #[test]
+    fn a_cache_written_under_another_detector_revision_is_rejected() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let current = codec::serialize_named(&SectionEvidenceCache::new()).unwrap();
+        let previous = super::super::section_config_digest_at(
+            &engine.section_config,
+            super::super::DETECTOR_REVISION + 1,
+        );
+        engine
+            .db
+            .execute(
+                "INSERT INTO evidence_cache (id, config_digest, folded_ids, cache, updated_at)
+                 VALUES (1, ?1, ?2, ?3, 0)",
+                params![
+                    previous,
+                    codec::tag_blob(
+                        EVIDENCE_CACHE_BLOB_VERSION,
+                        codec::serialize_gps_composite(&vec!["a1".to_string()]).unwrap(),
+                    ),
+                    codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, current)
+                ],
+            )
+            .unwrap();
+
+        assert!(!engine.restore_evidence_cache());
+        assert!(engine.cache_folded_ids.is_empty());
+        assert_eq!(evidence_rows(&engine), 0);
+    }
+
+    #[test]
+    fn a_catalogue_stamped_under_another_detector_revision_reports_a_generation_change() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        for (key, value) in [
+            (
+                super::super::CATALOGUE_METHOD_KEY,
+                super::super::DETECTOR_METHOD.to_string(),
+            ),
+            (
+                super::super::CATALOGUE_CONFIG_DIGEST_KEY,
+                super::super::section_config_digest_at(
+                    &engine.section_config,
+                    super::super::DETECTOR_REVISION + 1,
+                ),
+            ),
+        ] {
+            engine
+                .db
+                .execute(
+                    "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+                    params![key, value],
+                )
+                .unwrap();
+        }
+
+        let (from, to) = engine
+            .detector_generation_change()
+            .expect("revision change");
+        assert_ne!(from.digest, to.digest);
+
+        engine
+            .db
+            .execute(
+                "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+                params![super::super::CATALOGUE_CONFIG_DIGEST_KEY, to.digest],
+            )
+            .unwrap();
+        assert!(engine.detector_generation_change().is_none());
     }
 }

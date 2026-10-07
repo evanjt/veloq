@@ -1,23 +1,483 @@
-//! Route groups: loading, grouping, matching, consensus routes, names.
+//! Route groups: loading, grouping, matching, representative routes, names.
 
-use crate::{
-    ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSignature, geo_utils,
-};
-use rusqlite::{Result as SqlResult, params, types::Type};
-use std::collections::HashMap;
+use crate::{ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSignature};
+use rusqlite::{Connection, OptionalExtension, Result as SqlResult, Row, params, types::Type};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use super::record_restore::HELD_NUMBER_PREFIX;
 use super::{GroupSummary, PersistentEngine, codec, get_route_word};
+
+/// `schema_info` key holding the digest of the match rule the stored groups
+/// were made under.
+pub(crate) const GROUPS_MATCH_RULE_KEY: &str = "groups_match_rule";
+
+/// The rule a grouping is made under, as the text stored beside the groups.
+pub(crate) fn match_rule_digest(config: &tracematch::MatchConfig) -> String {
+    format!("{config:?}")
+}
+
+/// Record the rule the groups just written were made under. Called inside the
+/// transaction that writes them, so the two commit or roll back together.
+pub(crate) fn stamp_groups_match_rule(
+    conn: &Connection,
+    config: &tracematch::MatchConfig,
+) -> SqlResult<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+        params![GROUPS_MATCH_RULE_KEY, match_rule_digest(config)],
+    )
+    .map(|_| ())
+}
+
+/// Record a rule for groups that carry none, which are groups saved before the
+/// rule was stamped. They are taken to have been made under `config`.
+pub(crate) fn stamp_groups_match_rule_if_absent(
+    conn: &Connection,
+    config: &tracematch::MatchConfig,
+) -> SqlResult<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO schema_info (key, value) VALUES (?, ?)",
+        params![GROUPS_MATCH_RULE_KEY, match_rule_digest(config)],
+    )
+    .map(|_| ())
+}
+
+/// Whether the stored groups were made under a rule other than `config`. Only
+/// a full regroup re-evaluates pairs of activities already grouped, so a
+/// changed rule rules out the incremental path. An unreadable stamp counts as
+/// changed, since a full regroup is the safe side of that doubt.
+pub(crate) fn groups_match_rule_changed(
+    conn: &Connection,
+    config: &tracematch::MatchConfig,
+) -> bool {
+    match conn
+        .query_row(
+            "SELECT value FROM schema_info WHERE key = ?",
+            params![GROUPS_MATCH_RULE_KEY],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+    {
+        Ok(Some(stored)) => stored != match_rule_digest(config),
+        Ok(None) => false,
+        Err(error) => {
+            log::warn!("veloqrs: [groups_match_rule] read failed: {error}");
+            true
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/route_decode.rs"]
+mod route_decode_tests;
+
+#[cfg(test)]
+#[path = "tests/route_numbers.rs"]
+mod route_number_tests;
+
+pub(super) fn decode_activity_ids(
+    row: &Row<'_>,
+    group_id: &str,
+    json_column: usize,
+    blob_column: usize,
+) -> SqlResult<Vec<String>> {
+    if let Some(blob) = row.get::<_, Option<Vec<u8>>>(blob_column)? {
+        return codec::deserialize(&blob).map_err(|error| {
+            log::error!("route_groups id={group_id}: invalid activity_ids_blob: {error}");
+            rusqlite::Error::FromSqlConversionFailure(
+                blob_column,
+                Type::Blob,
+                Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, error)),
+            )
+        });
+    }
+    let json: String = row.get(json_column)?;
+    serde_json::from_str(&json).map_err(|error| {
+        log::error!("route_groups id={group_id}: invalid activity_ids: {error}");
+        rusqlite::Error::FromSqlConversionFailure(json_column, Type::Text, Box::new(error))
+    })
+}
+
+fn decode_group_bounds(row: &Row<'_>) -> SqlResult<Option<Bounds>> {
+    Ok(
+        match (
+            row.get::<_, Option<f64>>(3)?,
+            row.get::<_, Option<f64>>(4)?,
+            row.get::<_, Option<f64>>(5)?,
+            row.get::<_, Option<f64>>(6)?,
+        ) {
+            (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) => Some(Bounds {
+                min_lat,
+                max_lat,
+                min_lng,
+                max_lng,
+            }),
+            _ => None,
+        },
+    )
+}
+
+fn decode_group_row(row: &Row<'_>) -> SqlResult<RouteGroup> {
+    let group_id: String = row.get(0)?;
+    let activity_ids = decode_activity_ids(row, &group_id, 2, 7)?;
+    Ok(RouteGroup {
+        group_id,
+        representative_id: row.get(1)?,
+        activity_ids,
+        sport_type: String::new(),
+        bounds: decode_group_bounds(row)?,
+        custom_name: None,
+        best_time: None,
+        avg_time: None,
+        best_pace: None,
+        best_activity_id: None,
+    })
+}
+
+/// The direction of `track` against `representative`, judged by the same
+/// endpoint rule the grouping applies to signatures, so a member the grouping
+/// never compared against the representative still gets a measured direction.
+fn endpoint_direction(
+    track: &[GpsPoint],
+    representative: &[GpsPoint],
+    endpoint_threshold: f64,
+) -> Direction {
+    let signature = |points: &[GpsPoint]| {
+        let (start, end) = (points[0], points[points.len() - 1]);
+        let bounds = tracematch::Bounds::from_points(&[start, end]).unwrap();
+        tracematch::RouteSignature {
+            activity_id: String::new(),
+            points: vec![start, end],
+            total_distance: 0.0,
+            start_point: start,
+            end_point: end,
+            bounds,
+            center: bounds.center(),
+        }
+    };
+    tracematch::matching::determine_direction_by_endpoints(
+        &signature(track),
+        &signature(representative),
+        endpoint_threshold,
+    )
+}
+
+/// Match percentage below which a member is a partial match of its route, not
+/// an attempt in either direction. Grouping labels a member `Partial` at the
+/// same threshold.
+const PARTIAL_MATCH_PERCENTAGE: f64 = 70.0;
+
+/// The direction stored for a member: `Partial` under the partial threshold,
+/// otherwise the endpoint direction.
+fn direction_for_percentage(percentage: f64, endpoint_direction: Direction) -> Direction {
+    if percentage < PARTIAL_MATCH_PERCENTAGE {
+        Direction::Partial
+    } else {
+        endpoint_direction
+    }
+}
+
+/// Each member's match against its route's representative, measured on the
+/// stored tracks rather than the simplified signatures. `seed` carries any
+/// percentage already held. The direction is measured again against the
+/// representative on every call, because a stored one belongs to whichever
+/// representative it was measured against. Both regroup writers call this,
+/// so the foreground and the worker cannot measure differently.
+///
+/// `only_group` narrows the work to one group, and `representative_override`
+/// measures against a representative other than the stored one.
+pub(super) fn measure_match_percentages(
+    groups: &[RouteGroup],
+    seed: &HashMap<String, Vec<ActivityMatchInfo>>,
+    match_config: &tracematch::MatchConfig,
+    load_track: impl Fn(&str) -> Option<Vec<GpsPoint>>,
+    only_group: Option<&str>,
+    representative_override: Option<&str>,
+) -> HashMap<String, Vec<ActivityMatchInfo>> {
+    use crate::matching::{amd_to_percentage, average_min_distance};
+    use std::collections::HashMap;
+    use std::time::Instant;
+
+    let func_start = Instant::now();
+
+    let in_scope = |group: &RouteGroup| match only_group {
+        Some(id) => group.group_id == id,
+        None => true,
+    };
+
+    log::info!(
+        "veloqrs: [PERF] recalculate_match_percentages: {} of {} groups, parallel AMD via rayon",
+        groups.iter().filter(|g| in_scope(g)).count(),
+        groups.len()
+    );
+
+    // First pass: collect all activity IDs and load tracks
+    // PERF: I/O bound - loads tracks SEQUENTIALLY from SQLite
+    let load_start = Instant::now();
+    let mut tracks: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::new();
+    let mut calculated = seed.clone();
+    let mut total_points_loaded: usize = 0;
+
+    for group in groups.iter().filter(|g| in_scope(g)) {
+        let representative_id = representative_override.unwrap_or(&group.representative_id);
+        // Load representative track
+        if let Some(track) = load_track(representative_id)
+            && track.len() >= 2
+        {
+            total_points_loaded += track.len();
+            tracks.insert(representative_id.to_string(), Arc::new(track));
+        }
+
+        // Load all member tracks in this group (use group.activity_ids,
+        // not the seed, so this works even when the match
+        // map is empty - e.g. after the incremental grouping path)
+        for activity_id in &group.activity_ids {
+            if !tracks.contains_key(activity_id)
+                && let Some(track) = load_track(activity_id)
+                && track.len() >= 2
+            {
+                total_points_loaded += track.len();
+                tracks.insert(activity_id.clone(), Arc::new(track));
+            }
+        }
+    }
+    let load_ms = load_start.elapsed().as_millis();
+    log::info!(
+        "[RUST: PERF] Track loading: {} tracks, {} total points in {}ms (SEQUENTIAL I/O)",
+        tracks.len(),
+        total_points_loaded,
+        load_ms
+    );
+
+    // Second pass: recalculate match percentages using AMD
+    // PERF: CPU bound - O(n*m) distance calculations per pair
+    // OPTIMISATION 1: Give the representative its self-match without AMD
+    // OPTIMISATION 2: Parallelize with rayon
+    let calc_start = Instant::now();
+
+    type WorkItem = (String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>);
+    let mut work_items: Vec<WorkItem> = Vec::new();
+    let mut skipped_self = 0u32;
+
+    for group in groups.iter().filter(|g| in_scope(g)) {
+        let representative_id = representative_override.unwrap_or(&group.representative_id);
+        if group.activity_ids.iter().any(|id| id == representative_id) {
+            skipped_self += 1;
+            let matches = calculated.entry(group.group_id.clone()).or_default();
+            if let Some(info) = matches
+                .iter_mut()
+                .find(|m| m.activity_id == representative_id)
+            {
+                info.match_percentage = 100.0;
+            } else {
+                matches.push(ActivityMatchInfo {
+                    activity_id: representative_id.to_string(),
+                    match_percentage: 100.0,
+                    direction: Direction::Same,
+                });
+            }
+        }
+        let rep_track = match tracks.get(representative_id) {
+            Some(t) => t,
+            None => continue,
+        };
+
+        for activity_id in &group.activity_ids {
+            if activity_id == representative_id {
+                continue;
+            }
+
+            let activity_track = match tracks.get(activity_id) {
+                Some(t) => t,
+                None => continue,
+            };
+
+            work_items.push((
+                group.group_id.clone(),
+                activity_id.clone(),
+                Arc::clone(activity_track),
+                Arc::clone(rep_track),
+            ));
+        }
+    }
+
+    log::info!(
+        "[RUST: PERF] AMD work: {} pairs to compute, {} self-comparisons skipped",
+        work_items.len(),
+        skipped_self
+    );
+
+    // Parallel AMD calculation using rayon
+    use rayon::prelude::*;
+
+    let results: Vec<(String, String, f64, usize, usize, Direction)> = work_items
+        .par_iter()
+        .map(|(group_id, activity_id, activity_track, rep_track)| {
+            let amd_1_to_2 = average_min_distance(activity_track, rep_track);
+            let amd_2_to_1 = average_min_distance(rep_track, activity_track);
+            let avg_amd = (amd_1_to_2 + amd_2_to_1) / 2.0;
+            (
+                group_id.clone(),
+                activity_id.clone(),
+                avg_amd,
+                activity_track.len(),
+                rep_track.len(),
+                endpoint_direction(activity_track, rep_track, match_config.endpoint_threshold),
+            )
+        })
+        .collect();
+
+    let amd_calculations = (results.len() * 2) as u32;
+
+    // Apply results back to activity_matches (upsert: create entry if missing)
+    for (group_id, activity_id, avg_amd, activity_len, rep_len, direction) in results {
+        let new_percentage = amd_to_percentage(
+            avg_amd,
+            match_config.perfect_threshold,
+            match_config.zero_threshold,
+        );
+
+        let matches = calculated.entry(group_id).or_default();
+        if let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id) {
+            log::debug!(
+                "veloqrs: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
+                activity_id,
+                match_info.match_percentage,
+                new_percentage,
+                avg_amd,
+                activity_len,
+                rep_len
+            );
+            match_info.match_percentage = new_percentage;
+            match_info.direction = direction_for_percentage(new_percentage, direction);
+        } else {
+            matches.push(ActivityMatchInfo {
+                activity_id,
+                match_percentage: new_percentage,
+                direction: direction_for_percentage(new_percentage, direction),
+            });
+        }
+    }
+
+    let calc_ms = calc_start.elapsed().as_millis();
+    let total_ms = func_start.elapsed().as_millis();
+    log::info!(
+        "[RUST: PERF] AMD calculations: {} calls in {}ms (PARALLEL with rayon)",
+        amd_calculations,
+        calc_ms
+    );
+    log::info!(
+        "[RUST: PERF] recalculate_match_percentages TOTAL: {}ms (load={}ms + calc={}ms)",
+        total_ms,
+        load_ms,
+        calc_ms
+    );
+    calculated
+}
+
+/// Load route groups for a worker with its own database connection.
+pub(super) fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
+    let mut stmt = match conn.prepare(
+        "SELECT id, representative_id, activity_ids,
+                bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                activity_ids_blob FROM route_groups",
+    ) {
+        Ok(stmt) => stmt,
+        Err(error) => {
+            log::warn!("route_groups: failed to prepare worker query: {error}");
+            return Vec::new();
+        }
+    };
+    match stmt.query_map([], decode_group_row) {
+        Ok(rows) => rows
+            .filter_map(|row| match row {
+                Ok(group) => Some(group),
+                Err(error) => {
+                    log::warn!("Skipping malformed row during group loading: {error}");
+                    None
+                }
+            })
+            .collect(),
+        Err(error) => {
+            log::warn!("route_groups: failed to query worker rows: {error}");
+            Vec::new()
+        }
+    }
+}
+#[cfg(test)]
+#[path = "tests/route_match_percentages.rs"]
+mod match_percentage_regressions;
+
+/// Each route whose representative the athlete chose, with that representative.
+/// A writer that deletes and reinserts the groups reads this first and hands it
+/// to [`mark_chosen_representatives`] after.
+pub(super) fn chosen_representatives(conn: &Connection) -> SqlResult<Vec<(String, String)>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, representative_id FROM route_groups WHERE representative_chosen = 1",
+    )?;
+    stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect()
+}
+
+/// The routes a regroup carries the representative of: those whose
+/// representative the athlete chose. Every other representative is the
+/// grouping's own pick and is made again. When the record cannot be read,
+/// every route in `prior` keeps its representative, so no choice is lost.
+pub(super) fn routes_keeping_representative(
+    conn: &Connection,
+    prior: &[RouteGroup],
+) -> HashSet<String> {
+    match chosen_representatives(conn) {
+        Ok(chosen) => chosen.into_iter().map(|(id, _)| id).collect(),
+        Err(error) => {
+            log::warn!("route_groups: chosen representatives unread, keeping every one: {error}");
+            prior.iter().map(|group| group.group_id.clone()).collect()
+        }
+    }
+}
+
+/// `groups` as the incremental grouping takes them. It keeps an existing
+/// group's representative while that is still a member, matched by group id,
+/// so a representative the athlete did not choose is cleared and the grouping
+/// makes its own pick there.
+pub(super) fn groups_keeping_chosen_representatives(
+    groups: &[RouteGroup],
+    chosen: &HashSet<String>,
+) -> Vec<RouteGroup> {
+    groups
+        .iter()
+        .map(|group| {
+            let mut group = group.clone();
+            if !chosen.contains(&group.group_id) {
+                group.representative_id.clear();
+            }
+            group
+        })
+        .collect()
+}
+
+/// Record again each choice in `chosen` whose route, rewritten, still holds the
+/// chosen representative. A route the regroup dissolved, or one whose chosen
+/// representative left it, keeps no record.
+pub(super) fn mark_chosen_representatives(
+    conn: &Connection,
+    chosen: &[(String, String)],
+) -> SqlResult<()> {
+    let mut mark = conn.prepare(
+        "UPDATE route_groups SET representative_chosen = 1
+         WHERE id = ? AND representative_id = ?",
+    )?;
+    for (route_id, representative_id) in chosen {
+        mark.execute(params![route_id, representative_id])?;
+    }
+    Ok(())
+}
 
 /// The order the route numbers are handed out in: most activities first, the
 /// id closing it so two groups tied on the count do not swap numbers between
 /// runs.
 ///
-/// Sport is not a term. The numbering is global and not per sport, which the
-/// counter below already says, and the scalar this used to lead with was the
-/// representative activity's rather than the route's, so it decided the
-/// numbering of an athlete's whole list by which activity happened to be
-/// picked as the picture.
 fn mint_order(a: &tracematch::RouteGroup, b: &tracematch::RouteGroup) -> std::cmp::Ordering {
     b.activity_ids
         .len()
@@ -25,37 +485,188 @@ fn mint_order(a: &tracematch::RouteGroup, b: &tracematch::RouteGroup) -> std::cm
         .then_with(|| a.group_id.cmp(&b.group_id))
 }
 
-/// The sport most of a group's members carry.
-///
-/// The set of sports on the summary answers "which sports have been here", and
-/// that is the answer the screens use. This is the single label the sort that
-/// numbers the routes still needs, so a tie settles alphabetically: two runs
-/// over the same library have to number the routes the same way.
-///
-/// A member with no metadata, or with an empty sport, votes for nothing. A
-/// group where nobody votes falls back to `Ride`, which is what the
-/// representative-shaped version did with a missing activity.
-fn dominant_sport(
-    activity_ids: &[String],
-    metadata: &HashMap<String, super::ActivityMetadata>,
-) -> String {
-    let mut counts: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
-    for id in activity_ids {
-        let Some(meta) = metadata.get(id) else {
-            continue;
-        };
-        if meta.sport_type.is_empty() {
+/// The route word of every shipped language. A released build stored a minted
+/// label in `route_names` in whichever of these was current at the time.
+const SHIPPED_ROUTE_WORDS: [&str; 10] = [
+    "Route",
+    "Strecke",
+    "Rute",
+    "Ruta",
+    "Trasa",
+    "Rota",
+    "Percorso",
+    "Itinéraire",
+    "ルート",
+    "路线",
+];
+
+/// The number a stored name shows, when it reads as a route word and a
+/// number, bare or behind a sport as released builds once minted it.
+fn label_number(name: &str, route_word: &str) -> Option<u32> {
+    let (label, digits) = name.rsplit_once(' ')?;
+    let number: u32 = digits.parse().ok().filter(|n: &u32| *n > 0)?;
+    if number.to_string() != digits {
+        return None;
+    }
+    let word = label.rsplit_once(' ').map_or(label, |(sport, word)| {
+        let sports = [
+            "Ride",
+            "Run",
+            "Hike",
+            "Walk",
+            "Swim",
+            "VirtualRide",
+            "VirtualRun",
+        ];
+        if sports.contains(&sport) { word } else { label }
+    });
+    (word == route_word || SHIPPED_ROUTE_WORDS.contains(&word)).then_some(number)
+}
+
+fn stored_route_names(conn: &Connection) -> SqlResult<HashMap<String, String>> {
+    let mut stmt = conn.prepare("SELECT route_id, custom_name FROM route_names")?;
+    Ok(stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .filter_map(|row| match row {
+            Ok(name) => Some(name),
+            Err(error) => {
+                log::warn!("Skipping malformed route name: {error:?}");
+                None
+            }
+        })
+        .collect())
+}
+
+pub(super) fn stored_route_numbers(conn: &Connection) -> SqlResult<HashMap<String, u32>> {
+    let mut stmt = conn.prepare("SELECT route_id, number FROM route_numbers")?;
+    Ok(stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .filter_map(|row| match row {
+            Ok(number) => Some(number),
+            Err(error) => {
+                log::warn!("Skipping malformed route number: {error:?}");
+                None
+            }
+        })
+        .collect())
+}
+
+/// The label a route with no typed name is shown under.
+fn numbered_label(route_word: &str, number: u32) -> String {
+    format!("{route_word} {number}")
+}
+
+/// The name every route is shown under: the one the athlete typed, otherwise
+/// its number behind `route_word`.
+fn route_display_names(conn: &Connection, route_word: &str) -> SqlResult<HashMap<String, String>> {
+    let mut names = stored_route_names(conn)?;
+    for (route_id, number) in stored_route_numbers(conn)? {
+        if route_id.starts_with(HELD_NUMBER_PREFIX) {
             continue;
         }
-        *counts.entry(meta.sport_type.as_str()).or_default() += 1;
+        names
+            .entry(route_id)
+            .or_insert_with(|| numbered_label(route_word, number));
     }
-    counts
-        .into_iter()
-        .max_by(|(a_sport, a_count), (b_sport, b_count)| {
-            a_count.cmp(b_count).then_with(|| b_sport.cmp(a_sport))
-        })
-        .map(|(sport, _)| sport.to_string())
-        .unwrap_or_else(|| "Ride".to_string())
+    Ok(names)
+}
+
+/// `route_display_names` for `ids` alone, so a page of the list reads the
+/// names it shows and not every route's.
+fn route_display_names_for(
+    conn: &Connection,
+    route_word: &str,
+    ids: &[&str],
+) -> SqlResult<HashMap<String, String>> {
+    let mut names = HashMap::new();
+    let mut numbers = Vec::new();
+    for chunk in ids.chunks(500) {
+        let marks = vec!["?"; chunk.len()].join(",");
+        let bound = rusqlite::params_from_iter(chunk.iter());
+        let mut stmt = conn.prepare(&format!(
+            "SELECT route_id, custom_name FROM route_names WHERE route_id IN ({marks})"
+        ))?;
+        for row in stmt.query_map(bound, |row| Ok((row.get(0)?, row.get(1)?)))? {
+            let (id, name): (String, String) = row?;
+            names.insert(id, name);
+        }
+        let bound = rusqlite::params_from_iter(chunk.iter());
+        let mut stmt = conn.prepare(&format!(
+            "SELECT route_id, number FROM route_numbers WHERE route_id IN ({marks})"
+        ))?;
+        for row in stmt.query_map(bound, |row| Ok((row.get(0)?, row.get(1)?)))? {
+            numbers.push(row?);
+        }
+    }
+    for (route_id, number) in numbers {
+        let route_id: String = route_id;
+        if route_id.starts_with(HELD_NUMBER_PREFIX) {
+            continue;
+        }
+        names
+            .entry(route_id)
+            .or_insert_with(|| numbered_label(route_word, number));
+    }
+    Ok(names)
+}
+
+/// Give every group without a number one, within the caller's transaction.
+/// A number stays with its route id when the group leaves, so a number is
+/// never reissued to other ground and a group that returns keeps its own. A
+/// number held for a restored route whose rides are not grouped here yet stays
+/// held the same way.
+///
+/// A group whose stored name reads as a route word and a number holds that
+/// number first when it is free, so a label kept from a released build never
+/// shows beside an unnamed route minted to the same number. Every other group
+/// takes the lowest number no route has held, in member-count order.
+pub(super) fn mint_route_numbers(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> {
+    let numbers = stored_route_numbers(conn)?;
+    let names = stored_route_names(conn)?;
+    let route_word = get_route_word();
+    let mut taken: HashSet<u32> = numbers.values().copied().collect();
+    let mut unnumbered: Vec<&RouteGroup> = groups
+        .iter()
+        .filter(|group| !numbers.contains_key(&group.group_id))
+        .collect();
+    unnumbered.sort_by(|a, b| mint_order(a, b));
+
+    let mut insert = conn.prepare("INSERT INTO route_numbers (route_id, number) VALUES (?, ?)")?;
+    let mut rest = Vec::new();
+    for group in unnumbered {
+        let kept = names
+            .get(&group.group_id)
+            .and_then(|name| label_number(name, &route_word));
+        match kept {
+            Some(number) if taken.insert(number) => {
+                insert.execute(params![group.group_id, number])?;
+            }
+            _ => rest.push(group),
+        }
+    }
+    let mut candidate = 1;
+    for group in rest {
+        while taken.contains(&candidate) {
+            candidate += 1;
+        }
+        insert.execute(params![group.group_id, candidate])?;
+        taken.insert(candidate);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+type RepresentativeWriteHook = Box<dyn FnOnce() + Send>;
+
+#[cfg(test)]
+static BEFORE_REPRESENTATIVE_WRITE: std::sync::Mutex<Option<RepresentativeWriteHook>> =
+    std::sync::Mutex::new(None);
+
+/// Run `hook` once, at the next representative write, before its transaction
+/// opens and after the choice has followed the database.
+#[cfg(test)]
+pub(crate) fn before_next_representative_write(hook: impl FnOnce() + Send + 'static) {
+    *BEFORE_REPRESENTATIVE_WRITE.lock().unwrap() = Some(Box::new(hook));
 }
 
 impl PersistentEngine {
@@ -67,59 +678,22 @@ impl PersistentEngine {
     pub(super) fn load_groups(&mut self) -> SqlResult<()> {
         self.groups.clear();
 
+        // Before the rows: a commit landing between the two reads then leaves
+        // this engine on newer groups under an older generation, which costs a
+        // background regroup its write, never the other way about.
+        self.group_generation = super::route_identity::read_group_generation(&self.db)?;
+
         // Scope the statement to release the borrow before load_route_names
         {
             let mut stmt = self.db.prepare(
-                "SELECT id, representative_id, activity_ids, sport_type,
+                "SELECT id, representative_id, activity_ids,
                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                         activity_ids_blob
                  FROM route_groups",
             )?;
 
             self.groups = stmt
-                .query_map([], |row| {
-                    let activity_ids: Vec<String> = if let Ok(Some(blob)) =
-                        row.get::<_, Option<Vec<u8>>>(8)
-                    {
-                        codec::deserialize(&blob).unwrap_or_default()
-                    } else {
-                        let json: String = row.get(2)?;
-                        serde_json::from_str(&json).map_err(|e| {
-                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                        })?
-                    };
-
-                    let bounds =
-                        if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
-                            row.get::<_, Option<f64>>(4)?,
-                            row.get::<_, Option<f64>>(5)?,
-                            row.get::<_, Option<f64>>(6)?,
-                            row.get::<_, Option<f64>>(7)?,
-                        ) {
-                            Some(Bounds {
-                                min_lat,
-                                max_lat,
-                                min_lng,
-                                max_lng,
-                            })
-                        } else {
-                            None
-                        };
-
-                    Ok(RouteGroup {
-                        group_id: row.get(0)?,
-                        representative_id: row.get(1)?,
-                        activity_ids,
-                        sport_type: row.get(3)?,
-                        bounds,
-                        custom_name: None, // Will be loaded separately from route_names table
-                        // Performance stats populated by engine when metrics are available
-                        best_time: None,
-                        avg_time: None,
-                        best_pace: None,
-                        best_activity_id: None,
-                    })
-                })?
+                .query_map([], decode_group_row)?
                 .filter_map(|r| match r {
                     Ok(v) => Some(v),
                     Err(e) => {
@@ -146,13 +720,21 @@ impl PersistentEngine {
             matches_count
         );
 
+        if !self.groups.is_empty() {
+            stamp_groups_match_rule_if_absent(&self.db, &self.match_config)?;
+        }
         if !self.groups.is_empty() && self.activity_matches.is_empty() {
             log::info!(
                 "veloqrs: Forcing groups recompute: groups exist but activity_matches is empty"
             );
-            self.groups_dirty = true;
+            self.set_groups_dirty(true);
+        } else if groups_match_rule_changed(&self.db, &self.match_config) {
+            log::info!(
+                "veloqrs: Forcing groups recompute: the match rule changed since they were made"
+            );
+            self.set_groups_dirty(true);
         } else {
-            self.groups_dirty = false;
+            self.set_groups_dirty(false);
         }
 
         // Backfill: ensure every group member has an activity_matches DB entry.
@@ -216,7 +798,7 @@ impl PersistentEngine {
                     "veloqrs: [migration] All non-representative match percentages are 0.0, \
                      running one-time AMD recalculation"
                 );
-                self.recalculate_match_percentages_from_tracks(None);
+                self.activity_matches = self.recalculate_match_percentages_from_tracks(None, None);
                 match self.persist_match_percentages(None) {
                     Ok(()) => {
                         let _ = self.db.execute(
@@ -244,228 +826,22 @@ impl PersistentEngine {
         Ok(())
     }
 
-    /// Load custom route names and apply them to groups.
-    /// Also generates names for any groups that don't have names yet (migration).
+    /// Number any group that has no number yet, then put every group's
+    /// shown name on it.
     fn load_route_names(&mut self) -> SqlResult<()> {
-        let mut stmt = self
-            .db
-            .prepare("SELECT route_id, custom_name FROM route_names")?;
+        mint_route_numbers(&self.db, &self.groups)?;
+        self.apply_route_names()
+    }
 
-        let mut names: HashMap<String, String> = stmt
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?
-            .filter_map(|r| match r {
-                Ok(v) => Some(v),
-                Err(e) => {
-                    log::warn!("Skipping malformed row during route name loading: {:?}", e);
-                    None
-                }
-            })
-            .collect();
-
-        // Clean up orphaned route_names (names for routes that no longer exist)
-        let current_group_ids: std::collections::HashSet<&str> =
-            self.groups.iter().map(|g| g.group_id.as_str()).collect();
-
-        let orphaned_ids: Vec<String> = names
-            .keys()
-            .filter(|id| !current_group_ids.contains(id.as_str()))
-            .cloned()
-            .collect();
-
-        if !orphaned_ids.is_empty() {
-            log::info!(
-                "veloqrs: [PersistentEngine] load_route_names: Cleaning up {} orphaned route names",
-                orphaned_ids.len()
-            );
-            let mut delete_stmt = self
-                .db
-                .prepare("DELETE FROM route_names WHERE route_id = ?")?;
-            for id in &orphaned_ids {
-                delete_stmt.execute(params![id])?;
-                names.remove(id);
-            }
-        }
-
-        // Migration: Generate names for groups that don't have names yet.
-        // Sorted by id, because the counter below hands out numbers in this
-        // order and an unordered walk gives the same route a different number
-        // on the next run.
-        let mut groups_without_names: Vec<(String, String)> = self
-            .groups
-            .iter()
-            .filter(|g| !names.contains_key(&g.group_id))
-            .map(|g| (g.group_id.clone(), g.sport_type.clone()))
-            .collect();
-        groups_without_names.sort();
-
-        if !groups_without_names.is_empty() {
-            log::info!(
-                "veloqrs: [PersistentEngine] Migrating {} routes without names",
-                groups_without_names.len()
-            );
-
-            let route_word = get_route_word();
-
-            // Collect which numbers are already taken (check both old and new patterns)
-            let mut taken_numbers: std::collections::HashSet<u32> =
-                std::collections::HashSet::new();
-            for name in names.values() {
-                // New pattern: "Route N"
-                let prefix = format!("{} ", route_word);
-                if name.starts_with(&prefix)
-                    && let Ok(num) = name[prefix.len()..].parse::<u32>()
-                {
-                    taken_numbers.insert(num);
-                }
-                // Old pattern: "{Sport} Route N" - still recognise for numbering
-                for sport in [
-                    "Ride",
-                    "Run",
-                    "Hike",
-                    "Walk",
-                    "Swim",
-                    "VirtualRide",
-                    "VirtualRun",
-                ] {
-                    let old_prefix = format!("{} {} ", sport, route_word);
-                    if name.starts_with(&old_prefix)
-                        && let Ok(num) = name[old_prefix.len()..].parse::<u32>()
-                    {
-                        taken_numbers.insert(num);
-                    }
-                }
-            }
-
-            // Generate and insert names for groups without names
-            let mut insert_stmt = self.db.prepare(
-                "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)",
-            )?;
-
-            // Track next available number (no longer per-sport)
-            let mut counter: u32 = 0;
-
-            for (group_id, _sport_type) in groups_without_names {
-                // Find next available number (skip taken numbers)
-                loop {
-                    counter += 1;
-                    if !taken_numbers.contains(&counter) {
-                        break;
-                    }
-                }
-
-                let new_name = format!("{} {}", route_word, counter);
-                insert_stmt.execute(params![&group_id, &new_name])?;
-                names.insert(group_id, new_name.clone());
-                taken_numbers.insert(counter); // Mark this number as taken
-            }
-        }
-
-        // Migration: Strip sport type prefixes from auto-generated route names
-        // "Walk Route 1" → "Route 1", with conflict resolution
-        {
-            let route_word = get_route_word();
-            let sports = [
-                "Ride",
-                "Run",
-                "Hike",
-                "Walk",
-                "Swim",
-                "VirtualRide",
-                "VirtualRun",
-            ];
-            let mut renames: Vec<(String, u32)> = Vec::new(); // (route_id, number)
-            for (id, name) in &names {
-                for sport in &sports {
-                    let prefix = format!("{} {} ", sport, route_word);
-                    if name.starts_with(&prefix) {
-                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                            renames.push((id.clone(), num));
-                        }
-                        break;
-                    }
-                }
-            }
-
-            // The walk over `names` above is unordered, and every step below
-            // hands out numbers positionally, so canonicalise once here.
-            renames.sort();
-
-            if !renames.is_empty() {
-                let mut used: std::collections::HashSet<u32> = std::collections::HashSet::new();
-                for name in names.values() {
-                    let pfx = format!("{} ", route_word);
-                    if name.starts_with(&pfx)
-                        && let Ok(num) = name[pfx.len()..].parse::<u32>()
-                    {
-                        used.insert(num);
-                    }
-                }
-
-                let mut next = renames.iter().map(|(_, n)| *n).max().unwrap_or(0);
-                let mut update_stmt = self
-                    .db
-                    .prepare("UPDATE route_names SET custom_name = ? WHERE route_id = ?")?;
-
-                // Group by number to resolve conflicts. Keyed order, because the
-                // loop below assigns final numbers as it walks.
-                let mut by_num: std::collections::BTreeMap<u32, Vec<String>> =
-                    std::collections::BTreeMap::new();
-                for (id, num) in &renames {
-                    by_num.entry(*num).or_default().push(id.clone());
-                }
-
-                for (num, ids) in &by_num {
-                    // Sort by activity count (prefer group with more activities)
-                    let mut sorted_ids: Vec<(&str, usize)> = ids
-                        .iter()
-                        .map(|id| {
-                            let count = self
-                                .groups
-                                .iter()
-                                .find(|g| &g.group_id == id)
-                                .map(|g| g.activity_ids.len())
-                                .unwrap_or(0);
-                            (id.as_str(), count)
-                        })
-                        .collect();
-                    sorted_ids.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
-
-                    for (i, (id, _)) in sorted_ids.iter().enumerate() {
-                        let final_num = if i == 0 && !used.contains(num) {
-                            used.insert(*num);
-                            *num
-                        } else {
-                            loop {
-                                next += 1;
-                                if !used.contains(&next) {
-                                    break;
-                                }
-                            }
-                            used.insert(next);
-                            next
-                        };
-                        let new_name = format!("{} {}", route_word, final_num);
-                        update_stmt.execute(params![&new_name, id])?;
-                        names.insert(id.to_string(), new_name);
-                    }
-                }
-
-                log::info!(
-                    "veloqrs: [PersistentEngine] Stripped sport prefixes from {} route names",
-                    renames.len()
-                );
-            }
-        }
-
-        // Apply names to groups
+    /// Put each group's shown name on the in-memory groups, in the current
+    /// route word, and drop cached groups that carry the previous one.
+    pub(super) fn apply_route_names(&mut self) -> SqlResult<()> {
+        let route_word = get_route_word();
+        let names = route_display_names(&self.db, &route_word)?;
         for group in &mut self.groups {
-            if let Some(name) = names.get(&group.group_id) {
-                group.custom_name = Some(name.clone());
-            }
+            group.custom_name = names.get(&group.group_id).cloned();
         }
-
+        self.route_names_word = route_word;
         Ok(())
     }
 
@@ -487,6 +863,11 @@ impl PersistentEngine {
             && self.match_config.endpoint_threshold == endpoint_threshold
         {
             return;
+        }
+        // Groups from before the rule was stamped were made under the rule
+        // being replaced, and that has to be on record before it goes.
+        if let Err(e) = stamp_groups_match_rule_if_absent(&self.db, &self.match_config) {
+            log::warn!("veloqrs: [set_match_strictness] stamp failed: {}", e);
         }
         self.match_config.min_match_percentage = min_match_pct;
         self.match_config.endpoint_threshold = endpoint_threshold;
@@ -511,7 +892,7 @@ impl PersistentEngine {
                 );
             }
         }
-        self.groups_dirty = true;
+        self.set_groups_dirty(true);
     }
 
     /// The strictness in force, as `(min_match_percentage, endpoint_threshold)`.
@@ -533,6 +914,11 @@ impl PersistentEngine {
         if self.groups_dirty {
             self.recompute_groups();
         }
+        if self.route_names_word != get_route_word()
+            && let Err(error) = self.apply_route_names()
+        {
+            log::warn!("[get_groups] route names: {error}");
+        }
         &self.groups
     }
 
@@ -540,9 +926,64 @@ impl PersistentEngine {
     /// groups). Clears the dirty flag so the next `get_groups()` won't
     /// re-trigger a synchronous recompute.
     pub fn reload_groups_from_db(&mut self) {
-        if let Err(e) = self.load_groups() {
+        if let Err(e) = self.load_groups_with_registry() {
             log::warn!("[reload_groups_from_db] Failed: {}", e);
         }
+    }
+
+    /// Adopt the groups and registry a background regroup has just committed,
+    /// leaving a regroup that is owed still owed. The flag cannot tell the
+    /// regroup this run answered from a store made while it ran, so it stays
+    /// set and the next read regroups over the adopted catalogue.
+    pub(crate) fn adopt_committed_groups(&mut self) {
+        let dirty = self.groups_dirty;
+        self.reload_groups_from_db();
+        // Re-asserting a flag that was already set invalidates nothing new, so
+        // the epoch stays where it was: a run reads a moved epoch as a store.
+        self.groups_dirty = dirty;
+    }
+
+    /// Adopt the groups a finished detection run left in the database. The
+    /// grouping stays owed when the run could not commit its regroup, and when
+    /// anything marked it stale after the run captured `epoch_at_spawn`: the
+    /// run grouped the library as it stood at spawn, so a store made since is
+    /// in no route yet.
+    pub(crate) fn adopt_run_groups(&mut self, regroup_owed: bool, epoch_at_spawn: u64) {
+        let owed = regroup_owed || self.groups_dirty_epoch != epoch_at_spawn;
+        self.reload_groups_from_db();
+        self.set_groups_dirty(owed);
+    }
+
+    /// Adopt a group write committed on another connection that no caller
+    /// adopted, as when the cutover's wait gives up and its detect commits
+    /// afterwards. The engine lock runs this before handing the engine to any
+    /// caller once such a write has committed, so no reader acts on the groups
+    /// that commit replaced. A write runs it again where a commit can land
+    /// inside the same lock hold.
+    pub(crate) fn follow_committed_groups(&mut self) {
+        match super::route_identity::read_group_generation(&self.db) {
+            Ok(generation) if generation != self.group_generation => {
+                self.adopt_committed_groups();
+            }
+            Ok(_) => {}
+            Err(e) => {
+                log::warn!(
+                    "veloqrs: [follow_committed_groups] generation read failed: {}",
+                    e
+                );
+                // Unread, so the next lock take tries again.
+                super::route_identity::note_group_commit_off_engine();
+            }
+        }
+    }
+
+    /// Load route groups and the registry that assigns their stable ids.
+    pub(super) fn load_groups_with_registry(&mut self) -> SqlResult<()> {
+        self.load_groups()?;
+        if !self.route_identity_restore() {
+            self.route_identity_reseed();
+        }
+        Ok(())
     }
 
     /// Recompute route groups.
@@ -550,6 +991,12 @@ impl PersistentEngine {
         use std::time::Instant;
         let total_start = Instant::now();
         log::info!("[RUST: PERF] recompute_groups: starting...");
+
+        // A background regroup can commit after the adopt meant for it, as the
+        // cutover's detect does once its wait has given up. Remapping over the
+        // groups that commit replaced would mint ids it already holds and carry
+        // its names onto other routes, so the regroup starts from the commit.
+        self.follow_committed_groups();
 
         // Phase 1: Load all signatures (Arc avoids full clone on cache hit)
         let sig_start = Instant::now();
@@ -591,6 +1038,7 @@ impl PersistentEngine {
             .collect();
 
         let total = arc_sigs.len();
+        let chosen = routes_keeping_representative(&self.db, &self.groups);
         // Incremental grouping is correct at any new-to-total ratio
         // (existing groups stay valid; we only add new edges). The
         // benchmark shows it's faster than full at every ratio measured
@@ -603,8 +1051,11 @@ impl PersistentEngine {
 
         // skip the partition + HashSet build when nearly everything is
         // new - full is simpler in that fresh-import case.
-        let use_incremental =
-            !self.groups.is_empty() && new_count > 0 && (new_count as f64) < (total as f64 * 0.9);
+        // A changed rule re-evaluates pairs the incremental path never looks at.
+        let use_incremental = !self.groups.is_empty()
+            && new_count > 0
+            && (new_count as f64) < (total as f64 * 0.9)
+            && !groups_match_rule_changed(&self.db, &self.match_config);
 
         // Materialise owned Vecs for tracematch (needs &[RouteSignature]).
         // With Arc this is one clone per sig instead of two (cache-hit + partition).
@@ -626,7 +1077,7 @@ impl PersistentEngine {
             );
             tracematch::group_incremental_with_matches(
                 &new_sigs,
-                &self.groups,
+                &groups_keeping_chosen_representatives(&self.groups, &chosen),
                 &existing_sigs,
                 &self.match_config,
             )
@@ -653,10 +1104,14 @@ impl PersistentEngine {
         // on a resync); the registry carries the prior stable id and the user's
         // representative onto the matching group by member overlap instead.
         let prior_groups = std::mem::take(&mut self.groups);
-        let (remapped, id_map) = self.route_identity_remap(prior_groups, result.groups);
+        let prior_matches = self.activity_matches.clone();
+        let prior_identity = self.route_identity.clone();
+        let (remapped, id_map) =
+            self.route_identity_remap(prior_groups.clone(), result.groups, &chosen);
         self.groups = remapped;
-        // A regroup rebuilds the in-memory groups from geometry; the names
-        // live in `route_names` and ride back onto the ids that survived.
+        // A regroup rebuilds the in-memory groups from geometry; the names and
+        // numbers live in `route_names` and `route_numbers` and ride back onto
+        // the ids that survived.
         let names = self.get_all_route_names();
         for group in &mut self.groups {
             group.custom_name = names.get(&group.group_id).cloned();
@@ -678,7 +1133,7 @@ impl PersistentEngine {
         // Phase 3: Recalculate match percentages using ORIGINAL GPS tracks (not simplified signatures)
         // This captures actual GPS variation that was smoothed out by Douglas-Peucker
         // NOTE: This is the BOTTLENECK - see PERF logs inside this function
-        self.recalculate_match_percentages_from_tracks(None);
+        self.activity_matches = self.recalculate_match_percentages_from_tracks(None, None);
 
         // Log match info computed
         let total_matches: usize = self.activity_matches.values().map(|v| v.len()).sum();
@@ -688,12 +1143,8 @@ impl PersistentEngine {
             total_matches
         );
 
-        // The scalar is the sport most of the group's members carry. It used to
-        // be the representative's, which is a choice of picture rather than a
-        // claim about the sport, so a loop ridden four times and walked once
-        // could be labelled `Walk` and sorted among the walks.
         for group in &mut self.groups {
-            group.sport_type = dominant_sport(&group.activity_ids, &self.activity_metadata);
+            group.sport_type.clear();
         }
 
         // Phase 4: Save to database
@@ -702,9 +1153,14 @@ impl PersistentEngine {
         // (mint counter + seniority), atomic with the groups it describes.
         if let Err(e) = self.save_groups() {
             log::error!("veloqrs: Failed to save groups to database: {}", e);
+            self.groups = prior_groups;
+            self.activity_matches = prior_matches;
+            self.route_identity = prior_identity;
+            self.set_groups_dirty(true);
+            return;
         }
         let save_ms = save_start.elapsed().as_millis();
-        self.groups_dirty = false;
+        self.set_groups_dirty(false);
 
         // Recompute materialised PR/trend indicators with updated route groups
         if let Err(e) = self.recompute_activity_indicators() {
@@ -735,170 +1191,23 @@ impl PersistentEngine {
     /// library, which is what regrouping needs. Without the filter, choosing a
     /// representative for one route loaded and compared every track in every
     /// group, on the JS thread and under the write lock.
-    fn recalculate_match_percentages_from_tracks(&mut self, only_group: Option<&str>) {
-        use crate::matching::{amd_to_percentage, average_min_distance};
-        use std::collections::HashMap;
-        use std::time::Instant;
-
-        let func_start = Instant::now();
-
-        let in_scope = |group: &RouteGroup| match only_group {
-            Some(id) => group.group_id == id,
-            None => true,
-        };
-
-        log::info!(
-            "veloqrs: [PERF] recalculate_match_percentages: {} of {} groups, parallel AMD via rayon",
-            self.groups.iter().filter(|g| in_scope(g)).count(),
-            self.groups.len()
-        );
-
-        // First pass: collect all activity IDs and load tracks
-        // PERF: I/O bound - loads tracks SEQUENTIALLY from SQLite
-        let load_start = Instant::now();
-        let mut tracks: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::new();
-        let mut total_points_loaded: usize = 0;
-
-        for group in self.groups.iter().filter(|g| in_scope(g)) {
-            // Load representative track
-            if let Some(track) = self.load_gps_track_from_db(&group.representative_id)
-                && track.len() >= 2
-            {
-                total_points_loaded += track.len();
-                tracks.insert(group.representative_id.clone(), Arc::new(track));
-            }
-
-            // Load all member tracks in this group (use group.activity_ids,
-            // not self.activity_matches, so this works even when the match
-            // map is empty - e.g. after the incremental grouping path)
-            for activity_id in &group.activity_ids {
-                if !tracks.contains_key(activity_id)
-                    && let Some(track) = self.load_gps_track_from_db(activity_id)
-                    && track.len() >= 2
-                {
-                    total_points_loaded += track.len();
-                    tracks.insert(activity_id.clone(), Arc::new(track));
-                }
-            }
-        }
-        let load_ms = load_start.elapsed().as_millis();
-        log::info!(
-            "[RUST: PERF] Track loading: {} tracks, {} total points in {}ms (SEQUENTIAL I/O)",
-            tracks.len(),
-            total_points_loaded,
-            load_ms
-        );
-
-        // Second pass: recalculate match percentages using AMD
-        // PERF: CPU bound - O(n*m) distance calculations per pair
-        // OPTIMISATION 1: Skip self-comparisons (activity == representative)
-        // OPTIMISATION 2: Parallelize with rayon
-        let calc_start = Instant::now();
-
-        type WorkItem = (String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>);
-        let mut work_items: Vec<WorkItem> = Vec::new();
-        let mut skipped_self = 0u32;
-
-        for group in self.groups.iter().filter(|g| in_scope(g)) {
-            let rep_track = match tracks.get(&group.representative_id) {
-                Some(t) => t,
-                None => continue,
-            };
-
-            for activity_id in &group.activity_ids {
-                if *activity_id == group.representative_id {
-                    skipped_self += 1;
-                    continue;
-                }
-
-                let activity_track = match tracks.get(activity_id) {
-                    Some(t) => t,
-                    None => continue,
-                };
-
-                work_items.push((
-                    group.group_id.clone(),
-                    activity_id.clone(),
-                    Arc::clone(activity_track),
-                    Arc::clone(rep_track),
-                ));
-            }
-        }
-
-        log::info!(
-            "[RUST: PERF] AMD work: {} pairs to compute, {} self-comparisons skipped",
-            work_items.len(),
-            skipped_self
-        );
-
-        // Parallel AMD calculation using rayon
-        use rayon::prelude::*;
-
-        let results: Vec<(String, String, f64, usize, usize)> = work_items
-            .par_iter()
-            .map(|(group_id, activity_id, activity_track, rep_track)| {
-                let amd_1_to_2 = average_min_distance(activity_track, rep_track);
-                let amd_2_to_1 = average_min_distance(rep_track, activity_track);
-                let avg_amd = (amd_1_to_2 + amd_2_to_1) / 2.0;
-                (
-                    group_id.clone(),
-                    activity_id.clone(),
-                    avg_amd,
-                    activity_track.len(),
-                    rep_track.len(),
-                )
-            })
-            .collect();
-
-        let amd_calculations = (results.len() * 2) as u32;
-
-        // Apply results back to activity_matches (upsert: create entry if missing)
-        for (group_id, activity_id, avg_amd, activity_len, rep_len) in results {
-            let new_percentage = amd_to_percentage(
-                avg_amd,
-                self.match_config.perfect_threshold,
-                self.match_config.zero_threshold,
-            );
-
-            let matches = self.activity_matches.entry(group_id).or_default();
-            if let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id) {
-                log::debug!(
-                    "veloqrs: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
-                    activity_id,
-                    match_info.match_percentage,
-                    new_percentage,
-                    avg_amd,
-                    activity_len,
-                    rep_len
-                );
-                match_info.match_percentage = new_percentage;
-            } else {
-                matches.push(ActivityMatchInfo {
-                    activity_id,
-                    match_percentage: new_percentage,
-                    direction: Direction::Same,
-                });
-            }
-        }
-
-        let calc_ms = calc_start.elapsed().as_millis();
-        let total_ms = func_start.elapsed().as_millis();
-        log::info!(
-            "[RUST: PERF] AMD calculations: {} calls in {}ms (PARALLEL with rayon)",
-            amd_calculations,
-            calc_ms
-        );
-        log::info!(
-            "[RUST: PERF] recalculate_match_percentages TOTAL: {}ms (load={}ms + calc={}ms)",
-            total_ms,
-            load_ms,
-            calc_ms
-        );
+    fn recalculate_match_percentages_from_tracks(
+        &self,
+        only_group: Option<&str>,
+        representative_override: Option<&str>,
+    ) -> HashMap<String, Vec<ActivityMatchInfo>> {
+        measure_match_percentages(
+            &self.groups,
+            &self.activity_matches,
+            &self.match_config,
+            |id| self.load_gps_track_from_db(id),
+            only_group,
+            representative_override,
+        )
     }
 
     /// Write in-memory match percentages back to SQLite.
-    /// Only updates rows where the computed percentage is non-zero
-    /// (representatives stay at 0.0 by design - they are the reference track).
+    /// Writes every match value, including a drop to zero and the representative's self-match.
     ///
     /// `only_group` matches the recompute above: write back what was just
     /// recalculated and nothing else. One transaction, not one per row: every
@@ -908,12 +1217,9 @@ impl PersistentEngine {
         let result = self.write_match_percentages(only_group);
         match result {
             Ok(updated) => {
-                self.db.execute_batch("COMMIT")?;
+                super::commit_write_txn(&self.db)?;
                 if updated > 0 {
-                    log::info!(
-                        "veloqrs: Persisted {} non-zero match percentages to DB",
-                        updated
-                    );
+                    log::info!("veloqrs: Persisted {} match percentages to DB", updated);
                 }
                 Ok(())
             }
@@ -928,7 +1234,7 @@ impl PersistentEngine {
 
     fn write_match_percentages(&self, only_group: Option<&str>) -> SqlResult<u32> {
         let mut stmt = self.db.prepare(
-            "UPDATE activity_matches SET match_percentage = ?
+            "UPDATE activity_matches SET match_percentage = ?, direction = ?
              WHERE route_id = ? AND activity_id = ?",
         )?;
         let mut updated = 0u32;
@@ -939,21 +1245,23 @@ impl PersistentEngine {
                 continue;
             }
             for m in matches {
-                if m.match_percentage > 0.0 {
-                    updated +=
-                        stmt.execute(params![m.match_percentage, route_id, m.activity_id])? as u32;
-                }
+                updated += stmt.execute(params![
+                    m.match_percentage,
+                    m.direction.to_string(),
+                    route_id,
+                    m.activity_id
+                ])? as u32;
             }
         }
         Ok(updated)
     }
 
-    pub(super) fn save_groups(&self) -> SqlResult<()> {
+    pub(super) fn save_groups(&mut self) -> SqlResult<()> {
         // The DELETE + rebuild below must be atomic: a failure mid-way would
         // otherwise permanently drop every route group and activity match.
         self.db.execute_batch("BEGIN IMMEDIATE")?;
 
-        let result = (|| -> SqlResult<()> {
+        let result = (|| -> SqlResult<u64> {
             // Snapshot excluded flags before wiping - user exclusions must survive recompute
             let excluded_pairs: Vec<(String, String)> = {
                 let mut stmt = self.db.prepare(
@@ -964,99 +1272,9 @@ impl PersistentEngine {
                     .collect()
             };
 
+            let chosen = chosen_representatives(&self.db)?;
             self.db.execute("DELETE FROM route_groups", [])?;
             self.db.execute("DELETE FROM activity_matches", [])?;
-
-            // Load existing route names to preserve user-set names
-            let existing_names: HashMap<String, String> = {
-                let mut stmt = self
-                    .db
-                    .prepare("SELECT route_id, custom_name FROM route_names")?;
-                stmt.query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })?
-                .filter_map(|r| match r {
-                    Ok(v) => Some(v),
-                    Err(e) => {
-                        log::warn!("Skipping malformed row during route name loading: {:?}", e);
-                        None
-                    }
-                })
-                .collect()
-            };
-
-            // Clean up orphaned route_names (names for routes that no longer exist)
-            let current_group_ids: std::collections::HashSet<&str> =
-                self.groups.iter().map(|g| g.group_id.as_str()).collect();
-
-            let orphaned_ids: Vec<String> = existing_names
-                .keys()
-                .filter(|id| !current_group_ids.contains(id.as_str()))
-                .cloned()
-                .collect();
-
-            if !orphaned_ids.is_empty() {
-                log::info!(
-                    "veloqrs: [PersistentEngine] Cleaning up {} orphaned route names",
-                    orphaned_ids.len()
-                );
-                let mut delete_stmt = self
-                    .db
-                    .prepare("DELETE FROM route_names WHERE route_id = ?")?;
-                for id in &orphaned_ids {
-                    delete_stmt.execute(params![id])?;
-                }
-            }
-
-            // Rebuild existing_names after cleanup
-            let existing_names: HashMap<String, String> = {
-                let mut stmt = self
-                    .db
-                    .prepare("SELECT route_id, custom_name FROM route_names")?;
-                stmt.query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })?
-                .filter_map(|r| match r {
-                    Ok(v) => Some(v),
-                    Err(e) => {
-                        log::warn!("Skipping malformed row during route name rebuild: {:?}", e);
-                        None
-                    }
-                })
-                .collect()
-            };
-
-            let route_word = get_route_word();
-
-            // Which numbers are already spoken for. Names are not per sport, so
-            // one set, and the old "Run Route 1" shape still counts against it
-            // until the loader's migration has rewritten those rows.
-            let mut taken_numbers: std::collections::HashSet<u32> =
-                std::collections::HashSet::new();
-            for name in existing_names.values() {
-                let prefix = format!("{} ", route_word);
-                if name.starts_with(&prefix)
-                    && let Ok(num) = name[prefix.len()..].parse::<u32>()
-                {
-                    taken_numbers.insert(num);
-                }
-                for sport in [
-                    "Ride",
-                    "Run",
-                    "Hike",
-                    "Walk",
-                    "Swim",
-                    "VirtualRide",
-                    "VirtualRun",
-                ] {
-                    let old_prefix = format!("{} {} ", sport, route_word);
-                    if name.starts_with(&old_prefix)
-                        && let Ok(num) = name[old_prefix.len()..].parse::<u32>()
-                    {
-                        taken_numbers.insert(num);
-                    }
-                }
-            }
 
             // Insert groups (dual-write: JSON for backward compat, blob for fast reads)
             let mut stmt = self.db.prepare(
@@ -1066,16 +1284,8 @@ impl PersistentEngine {
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )?;
 
-            // Prepare statement for inserting new route names
-            let mut name_stmt = self.db.prepare(
-                "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)",
-            )?;
-
             let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
             sorted_groups.sort_by(|a, b| mint_order(a, b));
-
-            // Track the next available number. Numbering is global, not per sport.
-            let mut counter: u32 = 0;
 
             for group in sorted_groups {
                 let activity_ids_json = serde_json::to_string(&group.activity_ids)
@@ -1085,7 +1295,7 @@ impl PersistentEngine {
                     group.group_id,
                     group.representative_id,
                     activity_ids_json,
-                    group.sport_type,
+                    "",
                     group.bounds.map(|b| b.min_lat),
                     group.bounds.map(|b| b.max_lat),
                     group.bounds.map(|b| b.min_lng),
@@ -1093,22 +1303,10 @@ impl PersistentEngine {
                     group.activity_ids.len() as u32,
                     activity_ids_blob,
                 ])?;
-
-                // Generate unique name if route doesn't already have one
-                if !existing_names.contains_key(&group.group_id) {
-                    // Find next available number (skip taken numbers)
-                    loop {
-                        counter += 1;
-                        if !taken_numbers.contains(&counter) {
-                            break;
-                        }
-                    }
-
-                    let new_name = format!("{} {}", route_word, counter);
-                    name_stmt.execute(params![group.group_id, new_name])?;
-                    taken_numbers.insert(counter); // Mark this number as taken
-                }
             }
+
+            mark_chosen_representatives(&self.db, &chosen)?;
+            mint_route_numbers(&self.db, &self.groups)?;
 
             // Insert activity matches
             let mut match_stmt = self.db.prepare(
@@ -1170,11 +1368,29 @@ impl PersistentEngine {
                 )?;
             }
 
-            Ok(())
+            stamp_groups_match_rule(&self.db, &self.match_config)?;
+
+            // Advanced without a compare: this write replaces the whole
+            // catalogue from memory, so a background commit landing since the
+            // engine last followed is overwritten along with its generation,
+            // and memory and the database agree again.
+            let generation = super::route_identity::advance_group_generation(&self.db)?;
+            super::route_lines::rebuild(&self.db)?;
+            Ok(generation)
         })();
 
-        match result {
-            Ok(()) => self.db.execute_batch("COMMIT"),
+        let committed =
+            result.and_then(|generation| self.db.execute_batch("COMMIT").map(|()| generation));
+        match committed {
+            Ok(generation) => {
+                self.group_generation = generation;
+                // A group this save numbered is shown under that number at once,
+                // not only after the next load. The save has committed either way.
+                if let Err(error) = self.apply_route_names() {
+                    log::warn!("[save_groups] route names: {error}");
+                }
+                Ok(())
+            }
             Err(e) => {
                 let _ = self.db.execute_batch("ROLLBACK");
                 Err(e)
@@ -1193,382 +1409,76 @@ impl PersistentEngine {
             .unwrap_or(0)
     }
 
-    /// Get group summaries for the routes screen.
+    /// Get group summaries for the routes screen, from the one assembly the
+    /// pooled read uses. A group's sports come from `activities` and fall back
+    /// to `activity_metrics`, so they are known from ingest, before metrics.
     pub fn get_group_summaries(&self) -> Vec<GroupSummary> {
-        let mut stmt = match self.db.prepare(
-            "SELECT id, representative_id, sport_type, activity_ids,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    activity_count, activity_ids_blob
-             FROM route_groups",
-        ) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!(
-                    "veloqrs: [PersistentEngine] Failed to prepare group summaries query: {}",
-                    e
-                );
-                return Vec::new();
-            }
-        };
-
-        // Load custom names
-        let custom_names = self.get_all_route_names();
-
-        let raw_results: Vec<(GroupSummary, Vec<String>)> = stmt
-            .query_map([], |row| {
-                let group_id: String = row.get(0)?;
-                let representative_id: String = row.get(1)?;
-                let sport_type: String = row.get(2)?;
-
-                // Read activity_count from cached column, fall back to JSON parse if NULL
-                let activity_count: u32 = match row.get::<_, Option<u32>>(8)? {
-                    Some(count) => count,
-                    None => {
-                        let activity_ids_json: String = row.get(3)?;
-                        serde_json::from_str::<Vec<String>>(&activity_ids_json)
-                            .map(|ids| ids.len() as u32)
-                            .unwrap_or(0)
-                    }
-                };
-
-                // Build bounds if present
-                let bounds = if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
-                    row.get::<_, Option<f64>>(4)?,
-                    row.get::<_, Option<f64>>(5)?,
-                    row.get::<_, Option<f64>>(6)?,
-                    row.get::<_, Option<f64>>(7)?,
-                ) {
-                    Some(crate::FfiBounds {
-                        min_lat,
-                        max_lat,
-                        min_lng,
-                        max_lng,
-                    })
-                } else {
-                    None
-                };
-
-                // Look up custom name
-                let custom_name = custom_names.get(&group_id).cloned();
-
-                // Parse activity_ids (prefer blob, fall back to JSON)
-                let activity_ids: Vec<String> =
-                    if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(9) {
-                        codec::deserialize(&blob).unwrap_or_default()
-                    } else {
-                        let json: String = row.get(3)?;
-                        serde_json::from_str(&json).map_err(|e| {
-                            rusqlite::Error::FromSqlConversionFailure(3, Type::Text, Box::new(e))
-                        })?
-                    };
-
-                Ok((
-                    GroupSummary {
-                        group_id,
-                        representative_id,
-                        sport_type,
-                        activity_count,
-                        custom_name,
-                        bounds,
-                        sport_types: vec![], // populated below
-                    },
-                    activity_ids,
-                ))
-            })
-            .ok()
-            .map(|iter| {
-                iter.filter_map(|r| match r {
-                    Ok(v) => Some(v),
-                    Err(e) => {
-                        log::warn!(
-                            "Skipping malformed row during group summary loading: {:?}",
-                            e
-                        );
-                        None
-                    }
-                })
-                .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-
-        // Every sport that has traversed the ground, from the same authority a
-        // section reads: `sport_of` prefers `activity_metadata`, written on
-        // ingest, and falls back to `activity_metrics`, which fills only once
-        // metrics load. Reading metrics alone left a route's sport icons empty
-        // on a cold start while the section list beside it had them.
-        let results: Vec<GroupSummary> = raw_results
-            .into_iter()
-            .map(|(mut summary, activity_ids)| {
-                let mut types: std::collections::HashSet<String> = std::collections::HashSet::new();
-                for id in &activity_ids {
-                    if let Some(sport) = self.sport_of(id) {
-                        types.insert(sport.to_string());
-                    }
-                }
-                let mut sport_types: Vec<String> = types.into_iter().collect();
-                sport_types.sort();
-                summary.sport_types = sport_types;
-                summary
-            })
-            .collect();
-
-        log::info!(
-            "veloqrs: [PersistentEngine] get_group_summaries returned {} summaries",
-            results.len()
-        );
-        results
-    }
-
-    /// Get a single group by ID with LRU caching.
-    /// Uses LRU cache to avoid repeated SQLite queries for hot groups.
-    pub fn get_group_by_id(&mut self, group_id: &str) -> Option<RouteGroup> {
-        // Check LRU cache first
-        if let Some(group) = self.group_cache.get(&group_id.to_string()) {
-            log::debug!(
-                "veloqrs: [PersistentEngine] get_group_by_id cache hit for {}",
-                group_id
-            );
-            return Some(group.clone());
-        }
-
-        let custom_names = self.get_all_route_names();
-
-        let result: Option<RouteGroup> = self
-            .db
-            .query_row(
-                "SELECT id, representative_id, activity_ids, sport_type,
-                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                        activity_ids_blob
-                 FROM route_groups WHERE id = ?",
-                params![group_id],
-                |row| {
-                    let id: String = row.get(0)?;
-                    let representative_id: String = row.get(1)?;
-                    let sport_type: String = row.get(3)?;
-
-                    let activity_ids: Vec<String> = if let Ok(Some(blob)) =
-                        row.get::<_, Option<Vec<u8>>>(8)
-                    {
-                        codec::deserialize(&blob).unwrap_or_default()
-                    } else {
-                        let json: String = row.get(2)?;
-                        serde_json::from_str(&json).map_err(|e| {
-                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                        })?
-                    };
-
-                    let bounds =
-                        if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
-                            row.get::<_, Option<f64>>(4)?,
-                            row.get::<_, Option<f64>>(5)?,
-                            row.get::<_, Option<f64>>(6)?,
-                            row.get::<_, Option<f64>>(7)?,
-                        ) {
-                            Some(Bounds {
-                                min_lat,
-                                max_lat,
-                                min_lng,
-                                max_lng,
-                            })
-                        } else {
-                            None
-                        };
-
-                    let custom_name = custom_names.get(&id).cloned();
-
-                    Ok(RouteGroup {
-                        group_id: id,
-                        representative_id,
-                        activity_ids,
-                        sport_type,
-                        bounds,
-                        custom_name,
-                        best_time: None,
-                        avg_time: None,
-                        best_pace: None,
-                        best_activity_id: None,
-                    })
-                },
-            )
-            .ok();
-
-        // Cache for future access
-        if let Some(ref group) = result {
-            self.group_cache.put(group_id.to_string(), group.clone());
-            log::info!(
-                "veloqrs: [PersistentEngine] get_group_by_id found and cached group {}",
-                group_id
-            );
-        } else {
-            log::info!(
-                "veloqrs: [PersistentEngine] get_group_by_id: group {} not found",
-                group_id
-            );
-        }
-
-        result
+        pooled::group_summaries(&self.db)
     }
 
     // ========================================================================
-    // Consensus Routes
+    // Representative Routes
     // ========================================================================
 
-    /// Load a group's activity IDs directly from SQLite without triggering recomputation.
-    fn get_group_activity_ids_from_db(&self, group_id: &str) -> Option<Vec<String>> {
-        self.db
-            .query_row(
-                "SELECT activity_ids FROM route_groups WHERE id = ?",
-                params![group_id],
-                |row| {
-                    let json: String = row.get(0)?;
-                    serde_json::from_str(&json).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(0, Type::Text, Box::new(e))
-                    })
-                },
-            )
-            .ok()
-    }
-
-    /// Batch-load simplified signature polylines for multiple activity IDs.
-    /// Returns a map of activity_id → flat [lat, lng, lat, lng, ...] coordinates.
-    /// Uses the signatures table (MessagePack BLOBs with ~100 simplified points).
-    pub(super) fn get_representative_polylines_batch(
-        &self,
-        activity_ids: &[&str],
-    ) -> HashMap<String, Vec<u8>> {
-        if activity_ids.is_empty() {
-            return HashMap::new();
-        }
-
-        let placeholders: Vec<&str> = activity_ids.iter().map(|_| "?").collect();
-        let query = format!(
-            "SELECT activity_id, points FROM signatures WHERE activity_id IN ({})",
-            placeholders.join(",")
-        );
-
-        let mut stmt = match self.db.prepare(&query) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!(
-                    "veloqrs: [PersistentEngine] Failed to prepare batch signature query: {}",
-                    e
-                );
-                return HashMap::new();
-            }
-        };
-
-        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
-            .iter()
-            .map(|id| id as &dyn rusqlite::types::ToSql)
-            .collect();
-
-        let results: HashMap<String, Vec<u8>> = stmt
-            .query_map(params.as_slice(), |row| {
-                let activity_id: String = row.get(0)?;
-                let points_blob: Vec<u8> = row.get(1)?;
-                let points: Vec<GpsPoint> =
-                    codec::deserialize_points(&points_blob).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, e.into())
-                    })?;
-                Ok((activity_id, crate::coords::encode(&points)))
-            })
-            .ok()
-            .map(|iter| {
-                iter.filter_map(|r| match r {
-                    Ok(v) => Some(v),
-                    Err(e) => {
-                        log::warn!(
-                            "Skipping malformed row during batch polyline loading: {:?}",
-                            e
-                        );
-                        None
-                    }
-                })
-                .collect()
-            })
-            .unwrap_or_default();
-
-        results
-    }
-
-    /// Get consensus route for a group, with caching.
-    ///
-    /// Returns an `Arc<Vec<GpsPoint>>` so cache hits are O(1) refcount bumps
-    /// instead of full `Vec` clones.
-    pub fn get_consensus_route(&mut self, group_id: &str) -> Option<Arc<Vec<GpsPoint>>> {
-        // Check cache
-        if let Some(consensus) = self.consensus_cache.get(&group_id.to_string()) {
-            return Some(consensus.clone());
-        }
-
-        // Load activity IDs directly from SQLite to avoid triggering recompute_groups()
-        let activity_ids = self.get_group_activity_ids_from_db(group_id)?;
-        if activity_ids.is_empty() {
-            return None;
-        }
-
-        // Get tracks for this group (now we can borrow self again)
-        let tracks: Vec<Vec<GpsPoint>> = activity_ids
-            .iter()
-            .filter_map(|id| self.get_gps_track(id))
-            .collect();
-
-        if tracks.is_empty() {
-            return None;
-        }
-
-        // Compute medoid (most representative track)
-        let consensus = Arc::new(medoid_track(&tracks));
-
-        // Cache result
-        self.consensus_cache
-            .put(group_id.to_string(), consensus.clone());
-
-        Some(consensus)
+    /// The stored representative's own track for a route group.
+    pub fn get_representative_route(&self, group_id: &str) -> Option<Vec<GpsPoint>> {
+        pooled::representative_route(&self.db, group_id)
     }
 
     // ========================================================================
     // Route Names
     // ========================================================================
 
-    /// Set a custom name for a route.
-    /// Pass None to clear the custom name.
+    /// Set the name the athlete typed for a route. `None`, or the route's own
+    /// numbered label in the current language, clears it, so the route is
+    /// shown under its number again and that label follows the language.
     pub fn set_route_name(&mut self, route_id: &str, name: Option<&str>) -> SqlResult<()> {
-        match name {
-            Some(n) => {
+        let route_word = get_route_word();
+        let number: Option<u32> = self
+            .db
+            .query_row(
+                "SELECT number FROM route_numbers WHERE route_id = ?",
+                params![route_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let typed =
+            name.filter(|name| number.is_none_or(|n| *name != numbered_label(&route_word, n)));
+        match typed {
+            Some(name) => {
                 self.db.execute(
                     "INSERT OR REPLACE INTO route_names (route_id, custom_name) VALUES (?, ?)",
-                    params![route_id, n],
+                    params![route_id, name],
                 )?;
-                // Update in-memory group
-                if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
-                    group.custom_name = Some(n.to_string());
-                }
             }
             None => {
                 self.db.execute(
                     "DELETE FROM route_names WHERE route_id = ?",
                     params![route_id],
                 )?;
-                // Update in-memory group
-                if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
-                    group.custom_name = None;
-                }
             }
+        }
+        let shown = typed
+            .map(str::to_string)
+            .or_else(|| number.map(|n| numbered_label(&route_word, n)));
+        if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
+            group.custom_name = shown;
         }
         Ok(())
     }
 
-    /// Get the custom name for a route (if any).
+    /// The name a route is shown under.
     pub fn get_route_name(&self, route_id: &str) -> Option<String> {
-        // Check in-memory groups first
+        if self.route_names_word != get_route_word() {
+            return pooled::all_route_names(&self.db).remove(route_id);
+        }
         self.groups
             .iter()
             .find(|g| g.group_id == route_id)
             .and_then(|g| g.custom_name.clone())
     }
 
-    /// Get all custom route names from the database.
+    /// The name every route is shown under, keyed by route.
     pub fn get_all_route_names(&self) -> HashMap<String, String> {
         pooled::all_route_names(&self.db)
     }
@@ -1614,11 +1524,33 @@ impl PersistentEngine {
         pooled::excluded_route_activity_ids(&self.db, route_id)
     }
 
+    /// Choose a route's representative. A group write committed on another
+    /// connection while the match percentages are recalculated refuses the
+    /// write, and the choice runs again over the catalogue that write left,
+    /// a bounded number of times.
     pub fn set_route_representative(
         &mut self,
         route_id: &str,
         activity_id: &str,
     ) -> Result<(), String> {
+        const ATTEMPTS: usize = 3;
+        for _ in 0..ATTEMPTS {
+            match self.try_set_route_representative(route_id, activity_id)? {
+                RepresentativeWrite::Written => return Ok(()),
+                RepresentativeWrite::Superseded => {}
+            }
+        }
+        Err(format!(
+            "Route groups kept changing while choosing a representative for {route_id}"
+        ))
+    }
+
+    fn try_set_route_representative(
+        &mut self,
+        route_id: &str,
+        activity_id: &str,
+    ) -> Result<RepresentativeWrite, String> {
+        self.follow_committed_groups();
         let member = self
             .groups
             .iter()
@@ -1635,43 +1567,105 @@ impl PersistentEngine {
             ));
         }
 
-        // The row first, then the field. Moving the field first left a refused
-        // write with the session drawing one representative and the file
-        // holding another, and the match percentages below are recomputed off
-        // the memory value.
-        self.db
-            .execute(
-                "UPDATE route_groups SET representative_id = ? WHERE id = ?",
-                rusqlite::params![activity_id, route_id],
-            )
-            .map_err(|e| format!("DB update failed: {}", e))?;
+        let calculated = self
+            .recalculate_match_percentages_from_tracks(Some(route_id), Some(activity_id))
+            .remove(route_id)
+            .unwrap_or_default();
 
-        if let Some(group) = self.groups.iter_mut().find(|g| g.group_id == route_id) {
-            group.representative_id = activity_id.to_string();
-        }
+        let Some(generation) =
+            self.write_representative_selection(route_id, activity_id, &calculated)?
+        else {
+            return Ok(RepresentativeWrite::Superseded);
+        };
+        self.group_generation = generation;
 
-        self.consensus_cache.pop(&route_id.to_string());
-        self.group_cache.pop(&route_id.to_string());
+        self.groups
+            .iter_mut()
+            .find(|group| group.group_id == route_id)
+            .unwrap()
+            .representative_id = activity_id.to_string();
+        self.activity_matches
+            .insert(route_id.to_string(), calculated);
 
-        // Recompute match percentages against the new representative and persist.
-        // Only this group moved, so only this group is recomputed.
-        self.recalculate_match_percentages_from_tracks(Some(route_id));
-        if let Err(e) = self.persist_match_percentages(Some(route_id)) {
-            log::error!(
-                "veloqrs: Failed to persist match percentages after representative change: {}",
-                e
-            );
-        }
-
-        Ok(())
+        Ok(RepresentativeWrite::Written)
     }
+
+    /// Write the choice and advance the generation, or `None` when a group
+    /// write committed since this engine last followed the database, in which
+    /// case nothing is written. Compared inside the write's own transaction,
+    /// as the background regroup compares, so nothing commits in between.
+    fn write_representative_selection(
+        &mut self,
+        route_id: &str,
+        activity_id: &str,
+        calculated: &[ActivityMatchInfo],
+    ) -> Result<Option<u64>, String> {
+        #[cfg(test)]
+        {
+            let hook = BEFORE_REPRESENTATIVE_WRITE.lock().unwrap().take();
+            if let Some(hook) = hook {
+                hook();
+            }
+        }
+        let mut superseded = false;
+        let written = self.in_write_txn(|engine| {
+            let stored = super::route_identity::read_group_generation(&engine.db)
+                .map_err(|error| format!("DB read failed: {error}"))?;
+            if stored != engine.group_generation {
+                superseded = true;
+                return Err(String::from("superseded"));
+            }
+            let updated = engine
+                .db
+                .execute(
+                    "UPDATE route_groups SET representative_id = ?, representative_chosen = 1
+                     WHERE id = ?",
+                    params![activity_id, route_id],
+                )
+                .map_err(|error| format!("DB update failed: {error}"))?;
+            if updated != 1 {
+                return Err(format!("Route group {route_id} is no longer stored"));
+            }
+            for item in calculated {
+                engine
+                    .db
+                    .execute(
+                        "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
+                         VALUES (?, ?, ?, ?)
+                         ON CONFLICT(route_id, activity_id) DO UPDATE SET
+                             match_percentage = excluded.match_percentage,
+                             direction = excluded.direction",
+                        params![route_id, item.activity_id, item.match_percentage, item.direction.to_string()],
+                    )
+                    .map_err(|error| format!("DB update failed: {error}"))?;
+            }
+            let generation = super::route_identity::advance_group_generation(&engine.db)
+                .map_err(|error| format!("DB update failed: {error}"))?;
+            super::route_lines::replace_representative(&engine.db, route_id, activity_id, stored)
+                .map_err(|error| format!("DB update failed: {error}"))?;
+            Ok(generation)
+        });
+        match written {
+            Err(_) if superseded => Ok(None),
+            written => written.map(Some),
+        }
+    }
+}
+
+/// What became of one attempt at a representative choice.
+enum RepresentativeWrite {
+    Written,
+    /// A group write committed between the follow and the write, so nothing
+    /// was written and the choice is to run again over that write's groups.
+    Superseded,
 }
 
 impl PersistentEngine {
     /// The routes each section's activities are grouped into, from the
     /// junction join, for a batch of sections in one statement. `DISTINCT`
     /// because the junction is keyed per pass, and an exclusion on either
-    /// table keeps its row out. A section on no route is absent from the map.
+    /// table keeps its row out, and a group under the routes list's floor is
+    /// not a route. A section on no route is absent from the map.
     pub fn route_ids_for_sections(&self, section_ids: &[String]) -> HashMap<String, Vec<String>> {
         pooled::route_ids_for_sections(&self.db, section_ids)
     }
@@ -1708,12 +1702,19 @@ pub(crate) mod pooled {
         let Ok(mut stmt) = conn.prepare(&sql) else {
             return out;
         };
+        let routes: std::collections::HashSet<String> = group_keys(conn, false, false)
+            .into_iter()
+            .filter(|g| g.activity_count >= crate::persistence::route_lines::MIN_ROUTE_ACTIVITIES)
+            .map(|g| g.group_id)
+            .collect();
         let rows = stmt.query_map(rusqlite::params_from_iter(section_ids.iter()), |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         });
         if let Ok(rows) = rows {
             for (section_id, route_id) in rows.filter_map(|r| r.ok()) {
-                out.entry(section_id).or_default().push(route_id);
+                if routes.contains(&route_id) {
+                    out.entry(section_id).or_default().push(route_id);
+                }
             }
         }
         out
@@ -1721,11 +1722,48 @@ pub(crate) mod pooled {
 
     use std::collections::HashMap;
 
-    use rusqlite::{Connection, params};
+    use rusqlite::{Connection, Result as SqlResult, Row, params};
 
     use tracematch::{GpsPoint, RouteGroup};
 
-    use crate::Bounds;
+    use super::{decode_activity_ids, decode_group_bounds, decode_group_row};
+
+    pub(crate) fn representative_polylines(
+        conn: &Connection,
+        activity_ids: &[&str],
+    ) -> HashMap<String, Vec<u8>> {
+        if activity_ids.is_empty() {
+            return HashMap::new();
+        }
+        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let query = format!(
+            "SELECT activity_id, points FROM signatures WHERE activity_id IN ({placeholders})"
+        );
+        let Ok(mut stmt) = conn.prepare(&query) else {
+            return HashMap::new();
+        };
+        let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+        stmt.query_map(params.as_slice(), |row| {
+            let id: String = row.get(0)?;
+            let points_blob: Vec<u8> = row.get(1)?;
+            let points: Vec<GpsPoint> = match super::codec::deserialize_points(&points_blob) {
+                Ok(points) => points,
+                Err(e) => {
+                    log::error!("signatures {id}: points read failed: {e}");
+                    return Ok(None);
+                }
+            };
+            Ok(Some((
+                id,
+                crate::persistence::codec::encode_polyline(&points),
+            )))
+        })
+        .map(|rows| rows.filter_map(Result::ok).flatten().collect())
+        .unwrap_or_default()
+    }
 
     /// The match rows for one route, in the shape the performance arithmetic
     /// takes them.
@@ -1768,14 +1806,14 @@ pub(crate) mod pooled {
     pub(crate) fn all_groups(conn: &Connection) -> Vec<RouteGroup> {
         let names = all_route_names(conn);
         let Ok(mut stmt) = conn.prepare(
-            "SELECT id, representative_id, activity_ids, sport_type,
+            "SELECT id, representative_id, activity_ids,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     activity_ids_blob
              FROM route_groups",
         ) else {
             return Vec::new();
         };
-        let rows = stmt.query_map([], |row| Ok(group_from_row(row, &names)));
+        let rows = stmt.query_map([], |row| group_from_row(row, &names));
         match rows {
             Ok(rows) => rows.flatten().collect(),
             Err(e) => {
@@ -1785,98 +1823,245 @@ pub(crate) mod pooled {
         }
     }
 
+    /// Every route group's summary, sport types included.
+    pub(crate) fn group_summaries(conn: &Connection) -> Vec<crate::persistence::GroupSummary> {
+        let mut summaries = group_keys(conn, false, true);
+        fill_page_details(conn, &mut summaries);
+        summaries
+    }
+
+    /// Every route group's summary from stored columns alone: the count, the
+    /// bounds, the name and the representative's distance. The membership is
+    /// decoded only for a group with no stored count, and the sport types are
+    /// left empty for `fill_page_details`, so the search, the filters and the
+    /// order read one row per group and the page alone pays for its members.
+    /// The representative's distance is joined in only when `with_distances`
+    /// says the order needs it, and is otherwise left for `fill_page_details`.
+    pub(crate) fn group_keys(
+        conn: &Connection,
+        with_distances: bool,
+        with_names: bool,
+    ) -> Vec<crate::persistence::GroupSummary> {
+        let (distance, join) = if with_distances {
+            (
+                "COALESCE(m.distance, 0.0)",
+                "LEFT JOIN activity_metrics m ON m.activity_id = g.representative_id",
+            )
+        } else {
+            ("0.0", "")
+        };
+        let names = if with_names {
+            all_route_names(conn)
+        } else {
+            HashMap::new()
+        };
+        let sql = format!(
+            "SELECT g.id, g.representative_id, g.activity_count,
+                    g.bounds_min_lat, g.bounds_max_lat, g.bounds_min_lng, g.bounds_max_lng,
+                    {distance},
+                    CASE WHEN g.activity_count IS NULL THEN g.activity_ids END,
+                    CASE WHEN g.activity_count IS NULL THEN g.activity_ids_blob END
+             FROM route_groups g {join}"
+        );
+        let Ok(mut stmt) = conn.prepare(&sql) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            let group_id: String = row.get(0)?;
+            let activity_count = match row.get::<_, Option<u32>>(2)? {
+                Some(count) => count,
+                None => decode_activity_ids(row, &group_id, 8, 9)?.len() as u32,
+            };
+            Ok(crate::persistence::GroupSummary {
+                custom_name: names.get(&group_id).cloned(),
+                representative_id: row.get(1)?,
+                activity_count,
+                bounds: decode_group_bounds(row)?.map(crate::FfiBounds::from),
+                distance_meters: row.get(7)?,
+                sport_types: Vec::new(),
+                group_id,
+            })
+        });
+        match rows {
+            Ok(rows) => rows.flatten().collect(),
+            Err(e) => {
+                log::warn!("[routes] groups: {e:?}");
+                Vec::new()
+            }
+        }
+    }
+
+    /// Name the groups of a page, reading the names of those routes alone.
+    pub(crate) fn name_groups(
+        conn: &Connection,
+        summaries: &mut [crate::persistence::GroupSummary],
+    ) {
+        let ids: Vec<&str> = summaries.iter().map(|s| s.group_id.as_str()).collect();
+        let names = super::route_display_names_for(conn, &super::get_route_word(), &ids)
+            .unwrap_or_else(|error| {
+                log::warn!("[routes] route names: {error:?}");
+                HashMap::new()
+            });
+        for summary in summaries {
+            summary.custom_name = names.get(&summary.group_id).cloned();
+        }
+    }
+
+    /// The sport types of the activities in each of `summaries`, and the
+    /// representative's distance, read for those groups only.
+    pub(crate) fn fill_page_details(
+        conn: &Connection,
+        summaries: &mut [crate::persistence::GroupSummary],
+    ) {
+        if summaries.is_empty() {
+            return;
+        }
+        let group_ids: Vec<&str> = summaries.iter().map(|s| s.group_id.as_str()).collect();
+        let members = group_members(conn, &group_ids);
+        let wanted: Vec<&str> = members.values().flatten().map(String::as_str).collect();
+        let sports = activity_sports(conn, &wanted);
+        let representatives: Vec<&str> = summaries
+            .iter()
+            .map(|s| s.representative_id.as_str())
+            .collect();
+        let distances = activity_distances(conn, &representatives);
+        for summary in summaries {
+            summary.distance_meters = distances
+                .get(&summary.representative_id)
+                .copied()
+                .unwrap_or(0.0);
+            summary.sport_types = members
+                .get(&summary.group_id)
+                .into_iter()
+                .flatten()
+                .filter_map(|id| sports.get(id))
+                .cloned()
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect();
+        }
+    }
+
+    fn json_array(ids: &[&str]) -> String {
+        serde_json::to_string(ids).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// The member activity ids of each listed group. A group whose stored
+    /// membership will not decode is left out, as `all_groups` leaves it out.
+    fn group_members(conn: &Connection, group_ids: &[&str]) -> HashMap<String, Vec<String>> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT id, activity_ids, activity_ids_blob FROM route_groups
+             WHERE id IN (SELECT value FROM json_each(?1))",
+        ) else {
+            return HashMap::new();
+        };
+        stmt.query_map(params![json_array(group_ids)], |row| {
+            let group_id: String = row.get(0)?;
+            let ids = decode_activity_ids(row, &group_id, 1, 2)?;
+            Ok((group_id, ids))
+        })
+        .map(|rows| rows.flatten().collect())
+        .unwrap_or_default()
+    }
+
+    fn activity_distances(conn: &Connection, activity_ids: &[&str]) -> HashMap<String, f64> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT activity_id, distance FROM activity_metrics
+             WHERE activity_id IN (SELECT value FROM json_each(?1))",
+        ) else {
+            return HashMap::new();
+        };
+        stmt.query_map(params![json_array(activity_ids)], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })
+        .map(|rows| rows.flatten().collect())
+        .unwrap_or_default()
+    }
+
+    /// The sport of each listed activity. An activity with no GPS row is read
+    /// from its metrics row, and that second read happens only when some
+    /// listed activity needs it.
+    fn activity_sports(conn: &Connection, activity_ids: &[&str]) -> HashMap<String, String> {
+        let read = |sql: &str, ids: &[&str]| -> HashMap<String, String> {
+            let Ok(mut stmt) = conn.prepare(sql) else {
+                return HashMap::new();
+            };
+            stmt.query_map(params![json_array(ids)], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .map(|rows| rows.flatten().collect())
+            .unwrap_or_default()
+        };
+        let mut sports = read(
+            "SELECT id, sport_type FROM activities
+             WHERE id IN (SELECT value FROM json_each(?1))",
+            activity_ids,
+        );
+        let missing: Vec<&str> = activity_ids
+            .iter()
+            .copied()
+            .filter(|id| !sports.contains_key(*id))
+            .collect();
+        if !missing.is_empty() {
+            sports.extend(read(
+                "SELECT activity_id, sport_type FROM activity_metrics
+                 WHERE activity_id IN (SELECT value FROM json_each(?1))",
+                &missing,
+            ));
+        }
+        sports
+    }
+
     /// One route group by id.
     pub(crate) fn group_by_id(conn: &Connection, group_id: &str) -> Option<RouteGroup> {
         let names = all_route_names(conn);
         conn.query_row(
-            "SELECT id, representative_id, activity_ids, sport_type,
+            "SELECT id, representative_id, activity_ids,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     activity_ids_blob
              FROM route_groups WHERE id = ?",
             params![group_id],
-            |row| Ok(group_from_row(row, &names)),
+            |row| group_from_row(row, &names),
         )
         .ok()
     }
 
-    /// One `route_groups` row, with the custom name the athlete gave it.
-    fn group_from_row(row: &rusqlite::Row<'_>, names: &HashMap<String, String>) -> RouteGroup {
-        let id: String = row.get(0).unwrap_or_default();
-        let activity_ids: Vec<String> = match row.get::<_, Option<Vec<u8>>>(8) {
-            Ok(Some(blob)) => super::codec::deserialize(&blob).unwrap_or_default(),
-            _ => row
-                .get::<_, String>(2)
-                .ok()
-                .and_then(|json| serde_json::from_str(&json).ok())
-                .unwrap_or_default(),
-        };
-        let bounds = match (
-            row.get::<_, Option<f64>>(4),
-            row.get::<_, Option<f64>>(5),
-            row.get::<_, Option<f64>>(6),
-            row.get::<_, Option<f64>>(7),
-        ) {
-            (Ok(Some(min_lat)), Ok(Some(max_lat)), Ok(Some(min_lng)), Ok(Some(max_lng))) => {
-                Some(Bounds {
-                    min_lat,
-                    max_lat,
-                    min_lng,
-                    max_lng,
-                })
-            }
-            _ => None,
-        };
-        let custom_name = names.get(&id).cloned();
-        RouteGroup {
-            group_id: id,
-            representative_id: row.get(1).unwrap_or_default(),
-            activity_ids,
-            sport_type: row.get(3).unwrap_or_default(),
-            bounds,
-            custom_name,
-            best_time: None,
-            avg_time: None,
-            best_pace: None,
-            best_activity_id: None,
-        }
+    /// One `route_groups` row, with the name it is shown under.
+    fn group_from_row(row: &Row<'_>, names: &HashMap<String, String>) -> SqlResult<RouteGroup> {
+        let mut group = decode_group_row(row)?;
+        group.custom_name = names.get(&group.group_id).cloned();
+        Ok(group)
     }
 
-    /// The group's consensus line: the member track closest to all the others.
-    ///
-    /// Cached beside the pool, because the medoid is computed over every track
-    /// in the group and the route tab asks for it on every open.
-    pub(crate) fn consensus_route(conn: &Connection, group_id: &str) -> Option<Vec<GpsPoint>> {
-        crate::persistence::read_cache::consensus(group_id, || {
-            let ids = group_by_id(conn, group_id)?.activity_ids;
-            if ids.is_empty() {
-                return None;
-            }
-            let tracks: Vec<Vec<GpsPoint>> = ids
-                .iter()
-                .filter_map(|id| crate::persistence::activities::pooled::gps_track(conn, id))
-                .collect();
-            if tracks.is_empty() {
-                return None;
-            }
-            Some(super::medoid_track(&tracks))
-        })
-        .map(|arc| (*arc).clone())
+    /// The stored representative's own track for a route group.
+    pub(crate) fn representative_route(conn: &Connection, group_id: &str) -> Option<Vec<GpsPoint>> {
+        let representative_id: String = conn
+            .query_row(
+                "SELECT representative_id FROM route_groups WHERE id = ?1",
+                params![group_id],
+                |row| row.get(0),
+            )
+            .ok()?;
+        crate::persistence::activities::pooled::gps_track(conn, &representative_id)
     }
 
-    /// Every custom route name the athlete has given, keyed by group.
+    /// The name every route is shown under, keyed by group: the one the
+    /// athlete typed, otherwise its number behind the current route word.
     pub(crate) fn all_route_names(conn: &Connection) -> HashMap<String, String> {
-        // Query the database directly to ensure we get the latest names
-        let mut result = HashMap::new();
-        if let Ok(mut stmt) = conn.prepare("SELECT route_id, custom_name FROM route_names")
-            && let Ok(rows) = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-        {
-            for row in rows.flatten() {
-                result.insert(row.0, row.1);
-            }
-        }
-        result
+        super::route_display_names(conn, &super::get_route_word()).unwrap_or_else(|error| {
+            log::warn!("[routes] route names: {error:?}");
+            HashMap::new()
+        })
+    }
+
+    /// The names of `ids` alone, for a read that shows a few routes of many.
+    pub(crate) fn route_names_for(conn: &Connection, ids: &[&str]) -> HashMap<String, String> {
+        super::route_display_names_for(conn, &super::get_route_word(), ids).unwrap_or_else(
+            |error| {
+                log::warn!("[routes] route names: {error:?}");
+                HashMap::new()
+            },
+        )
     }
 
     /// The activities the athlete took out of a route group.
@@ -1926,15 +2111,273 @@ pub(crate) mod pooled {
 
 #[cfg(test)]
 mod tests {
+    /// A signature whose points blob will not decode is left out of the
+    /// polylines and the failure is logged, as the lock-holding read does.
+    #[test]
+    fn an_undecodable_signature_is_skipped_out_loud() {
+        crate::test_log::capturing();
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                 VALUES ('garbled-sig', 'Ride', 0, 0, 0, 0)",
+                [],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO signatures (activity_id, points, start_point_lat, start_point_lng,
+                                         end_point_lat, end_point_lng, total_distance, point_count)
+                 VALUES ('garbled-sig', x'ff', 0, 0, 0, 0, 0, 2)",
+                [],
+            )
+            .unwrap();
+        let out = super::pooled::representative_polylines(&engine.db, &["garbled-sig"]);
+        assert!(out.is_empty());
+        let said = crate::test_log::errors_with("signatures garbled-sig");
+        assert_eq!(said.len(), 1, "{said:?}");
+    }
+
     use rusqlite::params;
 
     use super::{PersistentEngine, mint_order};
     use tracematch::GpsPoint;
 
-    /// Scenario: the order route numbers are handed out in. It led with the
-    /// group's scalar sport, which is the representative activity's, so which
-    /// activity happened to be the picture decided the numbering of the whole
-    /// list.
+    fn stored_names(engine: &PersistentEngine) -> Vec<(String, String)> {
+        let mut rows: Vec<(String, String)> = engine.get_all_route_names().into_iter().collect();
+        rows.sort();
+        rows
+    }
+
+    /// Scenario: the athlete typed "Walk Route 2" on one loop while another
+    /// holds "Route 2", then the groups are loaded twice with a third unnamed
+    /// group arriving between the loads.
+    /// Expected behaviour: both stored names are untouched, the new group
+    /// takes neither number, and the second load changes nothing.
+    #[test]
+    fn loading_groups_keeps_a_typed_sport_prefixed_name() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for id in ["r_1", "r_2"] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+                 VALUES (?, ?, '[\"a\"]', 'Walk')",
+                    params![id, format!("rep_{id}")],
+                )
+                .unwrap();
+        }
+        engine.set_route_name("r_1", Some("Walk Route 2")).unwrap();
+        engine.set_route_name("r_2", Some("Route 2")).unwrap();
+
+        engine.load_groups().unwrap();
+        let stored = engine.get_all_route_names();
+        assert_eq!(stored.get("r_1").map(String::as_str), Some("Walk Route 2"));
+        assert_eq!(stored.get("r_2").map(String::as_str), Some("Route 2"));
+
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+             VALUES ('r_3', 'rep_r_3', '[\"a\"]', 'Walk')",
+                [],
+            )
+            .unwrap();
+        engine.load_groups().unwrap();
+        let with_third = stored_names(&engine);
+        let third = with_third
+            .iter()
+            .find(|(id, _)| id == "r_3")
+            .map(|(_, name)| name.as_str())
+            .expect("the third group is named");
+        assert_ne!(third, "Route 2");
+        assert_ne!(third, "Walk Route 2");
+        assert_eq!(
+            with_third.iter().filter(|(_, name)| name == third).count(),
+            1
+        );
+
+        engine.load_groups().unwrap();
+        assert_eq!(stored_names(&engine), with_third);
+        assert_eq!(
+            engine.get_all_route_names().get("r_1").map(String::as_str),
+            Some("Walk Route 2")
+        );
+    }
+
+    #[test]
+    fn renaming_a_warmed_group_updates_its_next_detail_read() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+             VALUES ('r1', 'a1', '[\"a1\"]', 'Ride')",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            super::pooled::group_by_id(&engine.db, "r1")
+                .unwrap()
+                .custom_name,
+            None
+        );
+
+        engine.set_route_name("r1", Some("Morning loop")).unwrap();
+
+        assert_eq!(
+            super::pooled::group_by_id(&engine.db, "r1")
+                .unwrap()
+                .custom_name
+                .as_deref(),
+            Some("Morning loop")
+        );
+    }
+
+    #[test]
+    fn loading_groups_drops_a_warmed_group_from_the_prior_generation() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+             VALUES ('r1', 'a1', '[\"a1\"]', 'Ride')",
+                [],
+            )
+            .unwrap();
+        assert!(super::pooled::group_by_id(&engine.db, "r1").is_some());
+        engine
+            .db
+            .execute("DELETE FROM route_groups WHERE id = 'r1'", [])
+            .unwrap();
+
+        engine.load_groups().unwrap();
+
+        assert!(super::pooled::group_by_id(&engine.db, "r1").is_none());
+    }
+
+    #[test]
+    fn a_failed_group_save_keeps_the_prior_catalogue_and_a_retry_due() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let track: Vec<GpsPoint> = (0..12)
+            .map(|i| GpsPoint::new(46.0 + f64::from(i) * 0.0005, 7.0))
+            .collect();
+        engine
+            .add_activity("a1".to_string(), track.clone(), "Ride".to_string())
+            .unwrap();
+        engine.get_groups();
+        let before: Vec<Vec<String>> = engine
+            .groups
+            .iter()
+            .map(|group| group.activity_ids.clone())
+            .collect();
+        let identity = engine.route_identity_blob();
+        let route_id = engine.groups[0].group_id.clone();
+        let stored_before: String = engine
+            .db
+            .query_row(
+                "SELECT activity_ids FROM route_groups WHERE id = ?",
+                [&route_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        engine
+            .add_activity("a2".to_string(), track, "Ride".to_string())
+            .unwrap();
+        engine.db.commit_hook(Some(|| true));
+
+        engine.recompute_groups();
+
+        assert!(engine.groups_are_dirty());
+        let after: Vec<Vec<String>> = engine
+            .groups
+            .iter()
+            .map(|group| group.activity_ids.clone())
+            .collect();
+        assert_eq!(after, before);
+        assert_eq!(engine.route_identity_blob(), identity);
+        let stored_after: String = engine
+            .db
+            .query_row(
+                "SELECT activity_ids FROM route_groups WHERE id = ?",
+                [&route_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored_after, stored_before);
+        engine.db.commit_hook(Some(|| false));
+        assert!(
+            engine
+                .get_groups()
+                .iter()
+                .any(|group| group.activity_ids.contains(&"a2".to_string()))
+        );
+        assert!(!engine.groups_are_dirty());
+    }
+
+    #[test]
+    fn regroup_replaces_a_warmed_groups_members() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let track: Vec<GpsPoint> = (0..12)
+            .map(|i| GpsPoint::new(46.0 + f64::from(i) * 0.0005, 7.0))
+            .collect();
+        engine
+            .add_activity("a1".to_string(), track.clone(), "Ride".to_string())
+            .unwrap();
+        let group_id = engine.get_groups()[0].group_id.clone();
+        assert_eq!(
+            super::pooled::group_by_id(&engine.db, &group_id)
+                .unwrap()
+                .activity_ids,
+            vec!["a1"]
+        );
+
+        engine
+            .add_activity("a2".to_string(), track, "Ride".to_string())
+            .unwrap();
+        engine.get_groups();
+
+        assert_eq!(
+            super::pooled::group_by_id(&engine.db, &group_id)
+                .unwrap()
+                .activity_ids
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn every_catalogue_clear_drops_warmed_section_reads() {
+        for clear in [0, 1, 2] {
+            let mut engine = PersistentEngine::in_memory().unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                    distance_meters, is_user_defined, version, created_at)
+                 VALUES ('s1', 'auto', 'Section 1', 'Ride', '[]', 400.0, 0, 1,
+                    '2026-01-01T00:00:00Z')",
+                    [],
+                )
+                .unwrap();
+            engine.load_sections().unwrap();
+            assert!(engine.get_section_by_id("s1").is_some());
+
+            match clear {
+                0 => engine.clear().unwrap(),
+                1 => engine.clear_routes_and_sections().unwrap(),
+                _ => {
+                    engine.clear_derived().unwrap();
+                }
+            }
+
+            assert!(engine.get_section_by_id("s1").is_none(), "clear {clear}");
+        }
+    }
+
+    /// Route numbers follow member count, then stable id.
     mod numbering_order {
         use super::mint_order;
         use std::cmp::Ordering;
@@ -2044,6 +2487,17 @@ mod tests {
                 )
                 .unwrap();
         }
+        for rid in ["r1", "r2", "r3", "r4"] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+                        activity_count)
+                     VALUES (?, 'a1', '[]', 'Ride', 2)",
+                    params![rid],
+                )
+                .unwrap();
+        }
         // The rows above stand in for a saved regroup; a dirty flag would
         // have `get_groups` rewrite them from the activities' empty signatures.
         engine.groups_dirty = false;
@@ -2059,6 +2513,25 @@ mod tests {
 
         let s2 = engine.get_section("s2").unwrap();
         assert_eq!(s2.route_ids, Some(vec!["r2".to_string()]));
+    }
+
+    #[test]
+    fn a_section_names_only_the_routes_the_routes_list_shows() {
+        let engine = engine_with_routes_and_sections();
+        engine
+            .db
+            .execute(
+                "UPDATE route_groups SET activity_count = 1 WHERE id = 'r1'",
+                [],
+            )
+            .unwrap();
+
+        let s1 = engine.get_section("s1").unwrap();
+        assert_eq!(s1.route_ids, Some(vec!["r2".to_string()]));
+
+        let routes = engine.route_ids_for_sections(&["s1".to_string(), "s2".to_string()]);
+        assert_eq!(routes["s1"], vec!["r2"]);
+        assert_eq!(routes["s2"], vec!["r2"]);
     }
 
     #[test]
@@ -2110,15 +2583,6 @@ mod tests {
             .execute("UPDATE sections SET disabled = 1 WHERE id = 's2'", [])
             .unwrap();
         assert_eq!(engine.section_ids_for_route("r2"), vec!["s1"]);
-    }
-
-    #[test]
-    fn the_route_bundle_carries_its_section_list() {
-        let mut engine = engine_with_routes_and_sections();
-
-        let bundle = engine.route_detail_data("r2", None, 0);
-
-        assert_eq!(bundle.section_ids, vec!["s1", "s2"]);
     }
 
     #[test]
@@ -2224,60 +2688,4 @@ mod regroup_signature_reads {
         assert_eq!(again, grouped, "the same library grouped differently");
         engine.db.trace(None);
     }
-}
-
-/// The member track closest to all the others, which is the line the route
-/// tab draws for the group.
-pub(crate) fn medoid_track(tracks: &[Vec<GpsPoint>]) -> Vec<GpsPoint> {
-    if tracks.is_empty() {
-        return vec![];
-    }
-    if tracks.len() == 1 {
-        return tracks[0].clone();
-    }
-
-    // Find track with minimum total distance to all others
-    let mut best_idx = 0;
-    let mut best_total_dist = f64::MAX;
-
-    for (i, track_i) in tracks.iter().enumerate() {
-        let total_dist: f64 = tracks
-            .iter()
-            .enumerate()
-            .filter(|(j, _)| *j != i)
-            .map(|(_, track_j)| track_distance(track_i, track_j))
-            .sum();
-
-        if total_dist < best_total_dist {
-            best_total_dist = total_dist;
-            best_idx = i;
-        }
-    }
-
-    tracks[best_idx].clone()
-}
-
-/// How far apart two tracks run, for the medoid comparison.
-fn track_distance(track1: &[GpsPoint], track2: &[GpsPoint]) -> f64 {
-    if track1.is_empty() || track2.is_empty() {
-        return f64::MAX;
-    }
-
-    let sample_size = 20.min(track1.len().min(track2.len()));
-    let step1 = track1.len() / sample_size;
-    let step2 = track2.len() / sample_size;
-
-    let sampled1: Vec<&GpsPoint> = (0..sample_size).map(|i| &track1[i * step1]).collect();
-    let sampled2: Vec<&GpsPoint> = (0..sample_size).map(|i| &track2[i * step2]).collect();
-
-    sampled1
-        .iter()
-        .map(|p1| {
-            sampled2
-                .iter()
-                .map(|p2| geo_utils::haversine_distance(p1, p2))
-                .fold(f64::MAX, f64::min)
-        })
-        .sum::<f64>()
-        / sample_size as f64
 }

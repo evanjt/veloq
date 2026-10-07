@@ -2,7 +2,8 @@
 //!
 //! tracematch emits GROUND (sections with throwaway positional ids that
 //! renumber on every detect). This layer owns the id over time: an
-//! opaque `s_<ts>__<rand>` id assigned once and carried forward with its ground,
+//! content id from the sport and heart cell, assigned once and carried forward
+//! (or a clock `s_<ts>__<seq>` id for a section with no line),
 //! plus the hysteresis debounce that stops a single add flipping the visible
 //! catalogue while it still converges to the batch. It generalises the one thing
 //! that already survives resync today, a custom section's non-positional id
@@ -14,7 +15,8 @@
 //!
 //! - REAL IDS. The pure layer mints deterministic `s_<n>` placeholders so its
 //!   plans are byte-stable; those must never reach the DB. The registry owns the
-//!   real opaque id (`s_<ts>__<rand>`) and joins it onto the pure plan by the
+//!   content id with the next free ordinal, or a clock id for a line-free
+//!   section, and joins it onto the pure plan by the
 //!   `s_<n>` key returned from [`HysteresisState::step_assign`].
 //! - THE VELOQRS PAYLOAD. A section is more than a polyline: members, portions,
 //!   name. The payload mirrors the pure layer's held ground through the
@@ -34,9 +36,6 @@
 //! whose id has passed to such a durable row is relinquished. So auto detection
 //! never re-emits, and never collides on `UNIQUE sections.id` with, a section the
 //! user has frozen. That is what flips accept/trim/merge survival by construction.
-//!
-//! Design: `~/.claude/plans/b2-identity-hysteresis-design.md` (Part 4 step 2,
-//! and Part 5 for the four as-built deviations from the pure layer).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -50,6 +49,54 @@ use tracematch::{
     CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
     SectionConfig, shares_ground,
 };
+
+/// Sets each row's sport to the dominant sport of its members. A row none of
+/// whose members has a known sport keeps its label.
+fn relabel_by_member_sport(
+    rows: &mut BTreeMap<String, IdentityRow>,
+    sports: &HashMap<String, String>,
+) {
+    for row in rows.values_mut() {
+        if row
+            .section
+            .activity_ids
+            .iter()
+            .any(|id| sports.contains_key(id))
+        {
+            row.section.sport_type = tracematch::dominant_sport(&row.section.activity_ids, sports);
+        }
+    }
+}
+
+/// Position a split piece on the line that existed before the split. A nearest
+/// point on the new parent piece would lose the line's original start.
+fn split_piece_progress(parent: &[GpsPoint], piece: &[GpsPoint]) -> Option<f64> {
+    let target = piece.get(piece.len() / 2)?;
+    let mut travelled = 0.0;
+    let mut best: Option<(f64, f64)> = None;
+    for pair in parent.windows(2) {
+        let (a, b) = (&pair[0], &pair[1]);
+        let lon_scale = a.latitude.to_radians().cos().abs().max(0.01);
+        let dx = (b.longitude - a.longitude) * lon_scale;
+        let dy = b.latitude - a.latitude;
+        let tx = (target.longitude - a.longitude) * lon_scale;
+        let ty = target.latitude - a.latitude;
+        let length_sq = dx * dx + dy * dy;
+        let fraction = if length_sq > 0.0 {
+            ((tx * dx + ty * dy) / length_sq).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let gap_sq = (tx - fraction * dx).powi(2) + (ty - fraction * dy).powi(2);
+        let length = tracematch::geo_utils::haversine_distance(a, b);
+        let progress = travelled + fraction * length;
+        if best.is_none_or(|(gap, along)| gap_sq < gap || (gap_sq == gap && progress < along)) {
+            best = Some((gap_sq, progress));
+        }
+        travelled += length;
+    }
+    best.map(|(_, progress)| progress)
+}
 
 /// `identity_state.key` for the section registry blob.
 pub(crate) const SECTION_IDENTITY_KEY: &str = "section_identity";
@@ -111,6 +158,30 @@ fn reference_of(section: &FrequentSection) -> Option<(String, u32, u32)> {
     Some((section.representative_activity_id.clone(), start, end))
 }
 
+/// What one apply did to the catalogue, in the three words the last-run line
+/// uses. A split's children arrive as `formed` events, so they count as added.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct SectionChangeCounts {
+    pub added: u32,
+    pub changed: u32,
+    pub retired: u32,
+}
+
+impl SectionChangeCounts {
+    pub(crate) fn from_events(events: &[SectionLifecycleEvent]) -> Self {
+        let mut counts = Self::default();
+        for event in events {
+            match event.kind {
+                "formed" | "restored" => counts.added += 1,
+                "recut" | "split" => counts.changed += 1,
+                "merged" | "dissolved" => counts.retired += 1,
+                _ => {}
+            }
+        }
+        counts
+    }
+}
+
 /// One fired lifecycle change, keyed by real id, produced by the identity
 /// apply (the one emitter) and written to `section_history` /
 /// `section_geometry` inside the catalogue-save transaction. `kind` is the
@@ -125,6 +196,79 @@ pub(crate) struct SectionLifecycleEvent {
     pub geometry: Option<Vec<GpsPoint>>,
     /// Where `geometry` was sliced from, when it is a slice of one activity.
     pub reference: Option<(String, u32, u32)>,
+}
+
+/// What arrives with one replay step.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Arrival {
+    /// Every pooled activity the registry has not seen yet: a detect that cut
+    /// one catalogue for its whole batch.
+    Unseen,
+    /// The one activity the step's catalogue was cut after. Nothing arrives
+    /// when the pool does not hold it or the registry has already seen it.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "a per-arrival detect is the first to build one")
+    )]
+    Activity(String),
+}
+
+/// One arrival and the raw catalogue detection cut after it, carried as the
+/// blocks of that catalogue that changed against the step before. A block
+/// mapped to `None` left the catalogue.
+pub(crate) struct ReplayStep<K> {
+    pub arrival: Arrival,
+    pub changed: Vec<(K, Option<Vec<FrequentSection>>)>,
+}
+
+/// The arrivals of one ingest in the order the debounce counts them, each with
+/// the raw catalogue cut after it. A step's catalogue is every block live after
+/// its changes, concatenated in key order, so a step carries only what its
+/// arrival changed and memory grows with the changes, not with the ingest
+/// times the catalogue. Raw section ids carry no meaning to the apply.
+pub(crate) struct SectionReplay<K> {
+    steps: Vec<ReplayStep<K>>,
+}
+
+impl<K: Ord> SectionReplay<K> {
+    pub(crate) fn new(steps: Vec<ReplayStep<K>>) -> Self {
+        Self { steps }
+    }
+}
+
+impl SectionReplay<()> {
+    /// One step under one catalogue, with every unseen activity arriving at
+    /// once.
+    pub(crate) fn whole(raw: Vec<FrequentSection>) -> Self {
+        Self::new(vec![ReplayStep {
+            arrival: Arrival::Unseen,
+            changed: vec![((), Some(raw))],
+        }])
+    }
+}
+
+/// What a replay applied: the visible catalogue after its last step, every
+/// lifecycle event its steps fired in step order, and the raw catalogue of the
+/// last step, which is `None` for a replay with no step.
+pub(crate) struct ReplayApplied {
+    pub visible: Vec<FrequentSection>,
+    pub events: Vec<SectionLifecycleEvent>,
+    pub raw: Option<Vec<FrequentSection>>,
+}
+
+/// What every step of one replay reads and none of them moves.
+struct ReplayContext {
+    config: SectionConfig,
+    /// The durable-intent grounds and ids (see `durable_intent_rows`).
+    intent_grounds: Vec<Vec<GpsPoint>>,
+    intent_ids: BTreeSet<String>,
+    accepted_bounds: Vec<AcceptedBounds>,
+    /// Every id a mint must avoid, from one scan of the database.
+    stored_ids: BTreeSet<String>,
+    /// The pooled activity ids.
+    pool: BTreeSet<String>,
+    /// Member sports for the pooled relabel, when sports are pooled.
+    sports: Option<HashMap<String, String>>,
 }
 
 /// Version byte on the persisted section-registry blob. Bump on any
@@ -162,7 +306,7 @@ pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 5;
 /// churn, WITHOUT reducing the real duplication. Constants discipline: a value
 /// that fails generalisation does not ship. The duplication family, visible-
 /// catalogue inflation from the re-cut debounce holding stale covered geometry
-/// (see the seam note in `section_identity_apply_into`), was a FOLD-level fix in
+/// (see the seam note in `section_identity_step`), was a FOLD-level fix in
 /// the pure layer, landed, not a merge floor. Kept as an explicit knob so a
 /// revisit can carry a TARGETED trigger, not a blanket floor.
 const MERGE_MUTUAL_FLOOR: f64 = 0.0;
@@ -189,8 +333,7 @@ const MERGE_SIZE_RATIO: f64 = 0.3;
 /// the pure layer's `s_<n>` join id.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct IdentityRow {
-    /// The opaque `s_<ts>__<rand>` id written to `sections.id`, or a seeded
-    /// existing id adopted on first open. Never a positional `sec_<sport>_<n>`.
+    /// The content or clock id written to `sections.id`, or a seeded existing id.
     real_id: String,
     /// The section persisted under `real_id`. `section.id == real_id` always.
     section: FrequentSection,
@@ -257,20 +400,19 @@ impl Default for SectionIdentity {
 
 impl PersistentEngine {
     /// Every id the database holds or has held: the live rows, the rows the
-    /// view hides, and every id the ledger, the geometry versions, the pins or
-    /// the cutover archive name. A content id retired by a merge or a delete
-    /// never comes back for the same ground, or its history would read as one
-    /// section. The pins and the archive outlive the `sections` wipe, so a mint
-    /// that skipped them could re-issue an id a dead pin still claims.
+    /// view hides, and every id the ledger, the geometry versions or the pins
+    /// name, the cutover's archived states among them. A content id retired by
+    /// a merge or a delete never comes back for the same ground, or its history
+    /// would read as one section. The ledger and the pins outlive the
+    /// `sections` wipe, so a mint that skipped them could re-issue an id a dead
+    /// pin still claims.
     fn stored_section_ids(&self) -> BTreeSet<String> {
         self.db
             .prepare(
                 "SELECT id FROM sections
                  UNION SELECT section_id FROM section_history
                  UNION SELECT section_id FROM section_geometry
-                 UNION SELECT section_id FROM section_pins
-                 UNION SELECT section_id FROM section_catalogue_archive
-                 UNION SELECT section_id FROM section_catalogue_archive_members",
+                 UNION SELECT section_id FROM section_pins",
             )
             .and_then(|mut stmt| {
                 stmt.query_map([], |row| row.get::<_, String>(0))
@@ -289,6 +431,16 @@ impl PersistentEngine {
     #[doc(hidden)]
     pub fn section_identity_visible_len(&self) -> usize {
         self.identity.rows.len()
+    }
+
+    /// The payload the registry holds for a real id, whichever pure id it sits under.
+    #[cfg(test)]
+    pub(crate) fn section_identity_payload(&self, real_id: &str) -> Option<&FrequentSection> {
+        self.identity
+            .rows
+            .values()
+            .find(|r| r.real_id == real_id)
+            .map(|r| &r.section)
     }
 
     /// The last RAW detection catalogue applied, before the identity/hysteresis
@@ -382,9 +534,7 @@ impl PersistentEngine {
     /// reseeds rather than misparsing. rmp-encoded, not postcard: the payload
     /// carries GpsPoint composites (see the version-constant note).
     pub(crate) fn section_identity_blob(&self) -> Option<Vec<u8>> {
-        codec::serialize_named(&self.identity)
-            .map(|body| codec::tag_blob(SECTION_IDENTITY_BLOB_VERSION, body))
-            .ok()
+        identity_blob_for(&self.identity)
     }
 
     /// Restore the section registry from its persisted blob. Returns false, so
@@ -414,17 +564,14 @@ impl PersistentEngine {
         match codec::deserialize_gps_composite::<SectionIdentity>(body) {
             Ok(state) => {
                 self.identity = state;
-                // No counter-reconcile equivalent to the route registry's. Section
-                // ids are `s_<ts>__<rand>`, collision-free by construction, so the
-                // same one-generation stale-blob window cannot mint a duplicate PK.
-                // The window can leave a catalogue id unknown to the restored
-                // registry (a section saved after the stale blob), but that section
-                // is simply re-matched by ground on the next apply's step_assign -
-                // it self-heals through remap, not a failed load.
+                // Stored ids seed `taken` before minting, so a stale blob cannot
+                // mint a duplicate content id for a section saved after the blob.
                 true
             }
             Err(e) => {
-                log::warn!("veloqrs: [section_identity_restore] decode failed, reseeding: {e}");
+                log::error!(
+                    "identity_state {SECTION_IDENTITY_KEY}: blob decode failed, reseeding: {e}"
+                );
                 false
             }
         }
@@ -459,15 +606,41 @@ impl PersistentEngine {
     /// [`tracematch::SectionUpdatePolicy::pinned_ids`] and freezes them through
     /// the fold. Sorted, so the policy carries no read order.
     pub(crate) fn pinned_section_ids(&self) -> Vec<String> {
-        let Ok(mut stmt) = self
-            .db
-            .prepare("SELECT section_id FROM section_pins ORDER BY section_id")
-        else {
-            return Vec::new();
+        super::pooled::pinned_section_ids(&self.db)
+    }
+
+    /// A loaded section with the traversals the athlete excluded put back. The
+    /// loaded catalogue leaves them out, but the registry is what a detect
+    /// writes the section from when it carries it unchanged, and a member the
+    /// registry lacks is written with no row for the exclusion to sit on.
+    fn with_excluded_members(&self, section: &FrequentSection) -> FrequentSection {
+        let mut whole = section.clone();
+        let Ok(mut stmt) = self.db.prepare_cached(
+            "SELECT activity_id, direction, start_index, end_index, distance_meters
+             FROM section_activities
+             WHERE section_id = ? AND excluded = 1
+             ORDER BY activity_id, start_index",
+        ) else {
+            return whole;
         };
-        stmt.query_map([], |row| row.get::<_, String>(0))
-            .map(|rows| rows.flatten().collect())
-            .unwrap_or_default()
+        let rows = stmt.query_map(rusqlite::params![section.id], |row| {
+            let direction: String = row.get(1)?;
+            Ok(tracematch::SectionPortion {
+                activity_id: row.get(0)?,
+                start_index: row.get(2)?,
+                end_index: row.get(3)?,
+                distance_meters: row.get(4)?,
+                direction: direction.parse().unwrap_or(tracematch::Direction::Same),
+            })
+        });
+        for portion in rows.into_iter().flatten().flatten() {
+            if !whole.activity_ids.contains(&portion.activity_id) {
+                whole.activity_ids.push(portion.activity_id.clone());
+            }
+            whole.visit_count += 1;
+            whole.activity_portions.push(portion);
+        }
+        whole
     }
 
     /// Seed the registry from the sections already loaded from the DB, adopting
@@ -490,7 +663,7 @@ impl PersistentEngine {
             .sections
             .iter()
             .filter(|s| !s.is_user_defined)
-            .cloned()
+            .map(|s| self.with_excluded_members(s))
             .collect();
 
         let mut identity = SectionIdentity::default();
@@ -523,18 +696,29 @@ impl PersistentEngine {
         self.section_identity_persist();
     }
 
-    /// Run a fresh detection catalogue through the identity + hysteresis layer,
-    /// returning the VISIBLE catalogue to persist plus the lifecycle events the
-    /// step fired: stable ids carried onto surviving ground, fresh ids minted
-    /// for new ground, dissolves and re-cuts debounced. Operates on `identity`
-    /// (a clone the caller commits only on a durable save) so a failed save
-    /// never advances the registry past the DB; the events become durable in
-    /// the same save transaction, so a rolled-back save also drops them.
-    pub(crate) fn section_identity_apply_into(
+    /// Run a replay of detection catalogues through the identity + hysteresis
+    /// layer, one hysteresis step per arrival, returning the VISIBLE catalogue
+    /// to persist plus the lifecycle events the steps fired: stable ids carried
+    /// onto surviving ground, fresh ids minted for new ground, dissolves and
+    /// re-cuts debounced. The debounce counts arrivals, so a replay of `n`
+    /// steps lands where `n` applies of one step each land. Operates on
+    /// `identity` (a clone the caller commits only on a durable save) so a
+    /// failed save never advances the registry past the DB; the events become
+    /// durable in the same save transaction, so a rolled-back save also drops
+    /// them. A replay with no step moves nothing and fires nothing.
+    pub(crate) fn section_identity_apply_into<K: Ord>(
         &self,
         identity: &mut SectionIdentity,
-        raw: Vec<FrequentSection>,
-    ) -> (Vec<FrequentSection>, Vec<SectionLifecycleEvent>) {
+        replay: SectionReplay<K>,
+    ) -> ReplayApplied {
+        let mut events: Vec<SectionLifecycleEvent> = Vec::new();
+        if replay.steps.is_empty() {
+            return ReplayApplied {
+                visible: identity.rows.values().map(|r| r.section.clone()).collect(),
+                events,
+                raw: None,
+            };
+        }
         let config = self.section_config.clone();
         // Durable-intent grounds + ids: exactly the rows the detection wipe
         // spares (custom, trimmed/backed-up, or accepted/user-defined). Their
@@ -542,7 +726,59 @@ impl PersistentEngine {
         // crashes the save), and any registry id that has passed to one is
         // relinquished.
         let (intent_grounds, intent_ids) = self.durable_intent_rows();
-        let accepted_bounds = self.accepted_section_bounds();
+        let sports = config.pool_sports.then(|| {
+            self.activity_metadata
+                .iter()
+                .map(|(id, m)| (id.clone(), m.sport_type.clone()))
+                .collect()
+        });
+        let ctx = ReplayContext {
+            config,
+            intent_grounds,
+            intent_ids,
+            accepted_bounds: self.accepted_section_bounds(),
+            // One scan for the whole replay. This reads six tables, and every
+            // mint of every step reads the result.
+            stored_ids: self.stored_section_ids(),
+            pool: self.activity_metadata.keys().cloned().collect(),
+            sports,
+        };
+
+        let mut blocks: BTreeMap<K, Vec<FrequentSection>> = BTreeMap::new();
+        for step in replay.steps {
+            for (key, block) in step.changed {
+                match block {
+                    Some(sections) => {
+                        blocks.insert(key, sections);
+                    }
+                    None => {
+                        blocks.remove(&key);
+                    }
+                }
+            }
+            let raw: Vec<&FrequentSection> = blocks.values().flatten().collect();
+            self.section_identity_step(identity, &ctx, &raw, &step.arrival, &mut events);
+        }
+
+        ReplayApplied {
+            visible: identity.rows.values().map(|r| r.section.clone()).collect(),
+            events,
+            raw: Some(blocks.into_values().flatten().collect()),
+        }
+    }
+
+    /// One hysteresis step of a replay: the raw catalogue cut after `arrival`,
+    /// its fired lifecycle events appended to `events`.
+    fn section_identity_step(
+        &self,
+        identity: &mut SectionIdentity,
+        ctx: &ReplayContext,
+        raw: &[&FrequentSection],
+        arrival: &Arrival,
+        events: &mut Vec<SectionLifecycleEvent>,
+    ) {
+        let config = &ctx.config;
+        let (intent_grounds, intent_ids) = (&ctx.intent_grounds, &ctx.intent_ids);
 
         // RELINQUISH: a row whose real id now belongs to a durable-intent DB row
         // has handed identity ownership to that row. Stop carrying it (and stop
@@ -577,7 +813,7 @@ impl PersistentEngine {
                 identity
                     .hysteresis
                     .tombstone_ground_of(pid)
-                    .is_some_and(|g| ground_owned_by_intent(g, &intent_grounds))
+                    .is_some_and(|g| ground_owned_by_intent(g, intent_grounds))
             })
             .collect();
         for pid in claimed {
@@ -588,12 +824,13 @@ impl PersistentEngine {
         // SUPPRESS: drop any candidate whose ground a durable-intent row already
         // owns. The durable row represents that ground; a fresh auto section for
         // it is the collision. This is the custom-section rule generalised.
-        let raw: Vec<FrequentSection> = raw
-            .into_iter()
+        let raw: Vec<&FrequentSection> = raw
+            .iter()
+            .copied()
             .filter(|s| {
                 !s.is_user_defined
-                    && !ground_owned_by_intent(&s.polyline, &intent_grounds)
-                    && !bbox_dominated(&s.polyline, &accepted_bounds)
+                    && !ground_owned_by_intent(&s.polyline, intent_grounds)
+                    && !bbox_dominated(&s.polyline, &ctx.accepted_bounds)
             })
             .collect();
 
@@ -620,53 +857,66 @@ impl PersistentEngine {
         // debounce carries the dissolve streak through and a dissolve debounce
         // carries the re-cut streak through, so no capture erases the absence
         // evidence a rotation accumulated.
-        let candidates: Vec<CandidateSection> =
-            raw.iter().map(CandidateSection::from_section).collect();
+        let candidates: Vec<CandidateSection> = raw
+            .iter()
+            .map(|s| CandidateSection::from_section(s))
+            .collect();
+        // Whether a cut counted a ride: membership is the cut's verdict
+        // wherever the cut looked, and the held line judges only what it never
+        // saw.
+        let judged = |cut: &FrequentSection, aid: &str| {
+            cut_judged(&self.activity_metadata, config.pool_sports, cut, aid)
+        };
         // The registry's half of the agreement floor. The pure layer adopts an
         // agreeing extent only while the passes hold; members are this side's
-        // evidence, and a prior member with no qualifying pass on the new line
-        // would leave the section silently, since the graft below can only
-        // keep what still matches. Reporting the loss makes it a debounced
-        // re-cut the ledger narrates instead.
+        // evidence, and a prior member the cut left out would leave the section
+        // silently on adoption. Reporting the loss makes it a debounced re-cut
+        // the ledger narrates instead.
         let rows = &identity.rows;
         let loses_a_member = |pid: &str, j: usize| -> bool {
             let Some(row) = rows.get(pid) else {
                 return false;
             };
-            let cand = &raw[j];
-            // One matcher for the candidate line, not one per member checked.
-            let line = tracematch::PreparedLine::new(&cand.polyline, &config);
-            row.section.activity_ids.iter().any(|aid| {
-                !cand.activity_ids.contains(aid)
-                    && self.get_gps_track(aid).is_some_and(|track| {
-                        line.as_ref()
-                            .map(|l| l.portions(aid, &track))
-                            .unwrap_or_default()
-                            .is_empty()
-                    })
-            })
+            let cand = raw[j];
+            row.section
+                .activity_ids
+                .iter()
+                .any(|aid| !cand.activity_ids.contains(aid) && judged(cand, aid))
         };
         let (out, resolutions) = identity
             .hysteresis
             .step_assign_guarded(&candidates, &loses_a_member);
 
-        // Activities new since the last apply, and their tracks, for the fold.
-        // Read up front so the reconcile below borrows nothing from `self`.
-        let now_seen: BTreeSet<String> = self.activity_metadata.keys().cloned().collect();
-        let new_tracks: BTreeMap<String, Vec<GpsPoint>> = now_seen
-            .difference(&identity.seen)
-            .filter_map(|id| self.get_gps_track(id).map(|t| (id.clone(), t)))
-            .collect();
         // What arrived this step. A change that fires now was around these
         // and around whatever arrived while it was pending.
-        let arrivals: BTreeSet<String> = now_seen.difference(&identity.seen).cloned().collect();
+        let arrivals: BTreeSet<String> = match arrival {
+            Arrival::Unseen => ctx.pool.difference(&identity.seen).cloned().collect(),
+            Arrival::Activity(id) => (ctx.pool.contains(id) && !identity.seen.contains(id))
+                .then(|| id.clone())
+                .into_iter()
+                .collect(),
+        };
+        // The seen set after this step: what the pool still holds of the
+        // seen set before it, and this step's arrivals.
+        let now_seen: BTreeSet<String> = identity
+            .seen
+            .intersection(&ctx.pool)
+            .chain(&arrivals)
+            .cloned()
+            .collect();
+        // The arrivals' tracks, for the fold. Read up front so the reconcile
+        // below borrows nothing from `self`.
+        let new_tracks: BTreeMap<String, Vec<GpsPoint>> = arrivals
+            .iter()
+            .filter_map(|id| self.get_gps_track(id).map(|t| (id.clone(), t)))
+            .collect();
         let around_of = |pid: &str| -> Vec<String> {
             let mut ids: BTreeSet<String> = identity.around.get(pid).cloned().unwrap_or_default();
             ids.extend(arrivals.iter().cloned());
             ids.into_iter().collect()
         };
         let arrivals_list: Vec<String> = arrivals.iter().cloned().collect();
-        let cell = tracematch::line_match_cell_m(&config);
+        let cell = tracematch::line_match_cell_m(config);
         let fork_around_of = |line: &[GpsPoint]| fork_around(&self.fork_records, line, cell);
 
         // Reconcile the payload map to the pure layer's post-step visible set.
@@ -697,10 +947,6 @@ impl PersistentEngine {
         // identity blob is the known one, task #13). Loud in tests via
         // `debug_assert`, degraded to a safe mint in release so a corrupt blob
         // re-mints a fresh id rather than bricking the engine.
-        // One scan for the whole batch. This reads six tables, and the closure
-        // below runs once per minted section.
-        let stored_ids = self.stored_section_ids();
-
         for (j, section) in raw.into_iter().enumerate() {
             let pid = resolutions[j].id.clone();
             let membership_ok = match resolutions[j].fate {
@@ -725,12 +971,13 @@ impl PersistentEngine {
                 resolutions[j].fate
             );
 
+            let cut = section;
             // Moved into whichever branch consumes it (adopt, restore, or the
             // mint fallback); a divergence leaves it for the fallback.
             let mut payload = Some(section);
             let carried = match resolutions[j].fate {
                 CandidateFate::CarriedFrozen => old_rows.get(&pid).cloned().map(|mut row| {
-                    fold_new_activities(&mut row.section, &new_tracks, &config);
+                    fold_new_activities(&mut row.section, Some(cut), &judged, &new_tracks, config);
                     row
                 }),
                 CandidateFate::CarriedAdopted => old_rows.get(&pid).cloned().map(|mut row| {
@@ -739,7 +986,8 @@ impl PersistentEngine {
                     // fields carry, and prior members the non-monotone batch
                     // re-clustering dropped are grafted back against the NEW
                     // geometry so membership stays monotone across the adopt.
-                    let prior = std::mem::replace(&mut row.section, payload.take().unwrap());
+                    let prior =
+                        std::mem::replace(&mut row.section, payload.take().unwrap().clone());
                     row.section.id = row.real_id.clone();
                     row.section.name = prior.name.clone();
                     row.section.created_at = prior.created_at.clone();
@@ -750,14 +998,14 @@ impl PersistentEngine {
                     // carry takes the cut's label and two libraries with the
                     // same ground agree whichever sport arrived first. A
                     // frozen carry keeps the prior payload, label included.
-                    graft_prior_members(self, &mut row.section, &prior, &config);
+                    graft_prior_members(self, &mut row.section, cut, &prior, &judged, config);
                     // An adopted carry keeps learning new traffic exactly as a
                     // frozen one does: the batch candidate only carries its own
                     // sport's members, but a new activity of another sport on
                     // the same ground must still join the row this step, or the
                     // cross-sport merge's majority pick hands the corridor to a
                     // freshly minted id and identity breaks on a sport addition.
-                    fold_new_activities(&mut row.section, &new_tracks, &config);
+                    fold_new_activities(&mut row.section, Some(cut), &judged, &new_tracks, config);
                     row
                 }),
                 CandidateFate::Restored => old_graves
@@ -770,7 +1018,8 @@ impl PersistentEngine {
                         // (comes back as itself). The prior is the grave, or
                         // the live row on a same-step bounce.
                         let real_id = row.real_id.clone();
-                        let prior = std::mem::replace(&mut row.section, payload.take().unwrap());
+                        let prior =
+                            std::mem::replace(&mut row.section, payload.take().unwrap().clone());
                         row.section.id = real_id;
                         row.section.name = prior.name.clone();
                         row.section.created_at = prior.created_at.clone();
@@ -787,11 +1036,11 @@ impl PersistentEngine {
             };
 
             let row = carried.unwrap_or_else(|| {
-                let mut section = payload.take().expect("payload consumed once");
+                let mut section = payload.take().expect("payload consumed once").clone();
                 // Every id the database holds or has held, the rows the
                 // view hides (disabled, superseded, accepted) and the
                 // retired included: a mint must never land on one of them.
-                let mut taken: BTreeSet<String> = stored_ids.clone();
+                let mut taken: BTreeSet<String> = ctx.stored_ids.clone();
                 taken.extend(self.sections.iter().map(|s| s.id.clone()));
                 taken.extend(new_rows.values().map(|r| r.real_id.clone()));
                 taken.extend(old_rows.values().map(|r| r.real_id.clone()));
@@ -811,16 +1060,27 @@ impl PersistentEngine {
 
         // Pending-frozen visible ids (a debounced dissolve or re-cut with no
         // candidate this step): keep the prior payload, still folding new
-        // activities into it so a held section stays live.
+        // activities into it so a held section stays live. No cut drew this
+        // ground, so its held line is the only judge there is.
         for pid in identity.hysteresis.visible_ids() {
             if new_rows.contains_key(&pid) {
                 continue;
             }
             if let Some(mut row) = old_rows.get(&pid).cloned() {
-                fold_new_activities(&mut row.section, &new_tracks, &config);
+                fold_new_activities(&mut row.section, None, &judged, &new_tracks, config);
                 new_rows.insert(pid, row);
             }
         }
+
+        let split_parent_ids: BTreeSet<&str> = resolutions
+            .iter()
+            .filter_map(|resolution| resolution.split_from.as_deref())
+            .collect();
+        let old_parent_lines: BTreeMap<String, Vec<GpsPoint>> = old_rows
+            .iter()
+            .filter(|(pid, _)| split_parent_ids.contains(pid.as_str()))
+            .map(|(pid, row)| (pid.clone(), row.section.polyline.clone()))
+            .collect();
 
         // Newly tombstoned ids (a sustained dissolve fired this step): move their
         // payload into the graves so a later re-emergence restores the real id.
@@ -839,7 +1099,6 @@ impl PersistentEngine {
         // nothing (no visible change to narrate). Reasons and era snapshots
         // are taken at fire time: what was true when the change became
         // visible, not when its streak began.
-        let mut events: Vec<SectionLifecycleEvent> = Vec::new();
         // Same-step bounces: restored pids that were still live rows (only a
         // pre-step row appears in old_real; a grave never does). The section
         // visibly never left, so neither the fired dissolve nor the restore
@@ -909,8 +1168,55 @@ impl PersistentEngine {
             }
         }
         for (parent_real, siblings) in split_children {
+            let parent_pid = old_real
+                .iter()
+                .find(|(_, real)| *real == &parent_real)
+                .map(|(pid, _)| pid);
+            let parent_line = parent_pid
+                .and_then(|pid| old_parent_lines.get(pid))
+                .map(Vec::as_slice);
+            let mut pieces = siblings.clone();
+            if parent_pid
+                .and_then(|pid| new_rows.get(pid))
+                .is_some_and(|row| row.real_id == parent_real)
+            {
+                pieces.push(parent_real.clone());
+            }
+            let progress = |id: &String| {
+                parent_line.and_then(|line| {
+                    new_rows
+                        .values()
+                        .find(|row| &row.real_id == id)
+                        .and_then(|row| split_piece_progress(line, &row.section.polyline))
+                })
+            };
+            pieces.sort_by(|a, b| match (progress(a), progress(b)) {
+                (Some(x), Some(y)) => x.total_cmp(&y).then_with(|| a.cmp(b)),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => a.cmp(b),
+            });
+            for (index, child) in pieces.iter().enumerate() {
+                if child == &parent_real {
+                    continue;
+                }
+                if let Some(event) = events
+                    .iter_mut()
+                    .find(|event| event.kind == "formed" && &event.real_id == child)
+                    && let Some(details) = event
+                        .details
+                        .as_deref()
+                        .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+                {
+                    let mut details = details.as_object().cloned().unwrap_or_default();
+                    details.insert("line_order".into(), serde_json::json!(index + 1));
+                    event.details = Some(serde_json::Value::Object(details).to_string());
+                }
+            }
+            let ordered_siblings: Vec<String> =
+                pieces.into_iter().filter(|id| id != &parent_real).collect();
             let mut details = self.section_era_snapshot(&parent_real);
-            details.insert("siblings".into(), serde_json::json!(siblings));
+            details.insert("siblings".into(), serde_json::json!(ordered_siblings));
             let fork = new_rows
                 .values()
                 .find(|r| r.real_id == parent_real)
@@ -985,92 +1291,27 @@ impl PersistentEngine {
         // Pooled detection labels a cut by the sport its members do. The
         // same rule runs over every carried row here, so the heading is a
         // function of the members and not of which sport arrived first.
-        if config.pool_sports {
-            let sports: HashMap<String, String> = self
-                .activity_metadata
-                .iter()
-                .map(|(id, m)| (id.clone(), m.sport_type.clone()))
-                .collect();
-            for row in new_rows.values_mut() {
-                if row
-                    .section
-                    .activity_ids
-                    .iter()
-                    .any(|id| sports.contains_key(id))
-                {
-                    row.section.sport_type =
-                        tracematch::dominant_sport(&row.section.activity_ids, &sports);
-                }
-            }
+        if let Some(sports) = &ctx.sports {
+            relabel_by_member_sport(&mut new_rows, sports);
         }
 
         identity.rows = new_rows;
         identity.seen = now_seen;
-
-        (
-            identity.rows.values().map(|r| r.section.clone()).collect(),
-            events,
-        )
     }
 
     /// The era snapshot of one section as it stands NOW, before the change
-    /// this event narrates lands: the PR and its activity, the mean time, and
-    /// the visit cadence. Read from the junction cache and activity dates the
-    /// save has not yet rewritten, so a dissolved section's final era survives
-    /// the cascade that removes its rows. Fields are null when the era had no
-    /// cached times (lap times fill lazily on first performance read).
-    fn section_era_snapshot(&self, real_id: &str) -> serde_json::Map<String, serde_json::Value> {
+    /// this event narrates lands: each sport's record and its activity.
+    /// Read from the junction cache the save has not yet rewritten, so a
+    /// dissolved section's final era survives the cascade that removes its
+    /// rows. Records are empty when the era had no cached times (lap times
+    /// fill lazily on first performance read).
+    pub(super) fn section_era_snapshot(
+        &self,
+        real_id: &str,
+    ) -> serde_json::Map<String, serde_json::Value> {
         let mut snap = serde_json::Map::new();
-        let pr: Option<(String, f64)> = self
-            .db
-            .query_row(
-                "SELECT activity_id, lap_time FROM section_activities
-                 WHERE section_id = ? AND excluded = 0 AND lap_time IS NOT NULL
-                 ORDER BY lap_time ASC, activity_id ASC LIMIT 1",
-                rusqlite::params![real_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .ok();
-        let avg: Option<f64> = self
-            .db
-            .query_row(
-                "SELECT AVG(lap_time) FROM section_activities
-                 WHERE section_id = ? AND excluded = 0 AND lap_time IS NOT NULL",
-                rusqlite::params![real_id],
-                |row| row.get(0),
-            )
-            .ok()
-            .flatten();
-        let cadence: Option<(i64, Option<i64>, Option<i64>)> = self
-            .db
-            .query_row(
-                "SELECT COUNT(*), MIN(a.start_date), MAX(a.start_date)
-                 FROM section_activities sa JOIN activities a ON a.id = sa.activity_id
-                 WHERE sa.section_id = ? AND sa.excluded = 0",
-                rusqlite::params![real_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .ok();
-        let visits_per_month = cadence.and_then(|(count, min_d, max_d)| {
-            if count == 0 {
-                return None;
-            }
-            let span_days = (max_d? - min_d?) as f64 / 86_400.0;
-            Some(count as f64 / (span_days / 30.44).max(1.0))
-        });
-        snap.insert(
-            "pr_activity_id".into(),
-            serde_json::json!(pr.as_ref().map(|p| &p.0)),
-        );
-        snap.insert(
-            "pr_time".into(),
-            serde_json::json!(pr.as_ref().map(|p| p.1)),
-        );
-        snap.insert("avg_time".into(), serde_json::json!(avg));
-        snap.insert(
-            "visits_per_month".into(),
-            serde_json::json!(visits_per_month),
-        );
+        let prs = super::history::current_prs_on(&self.db, real_id);
+        snap.insert("prs".into(), super::history::prs_json(&prs));
         snap
     }
 
@@ -1098,59 +1339,141 @@ impl PersistentEngine {
         self.section_identity_persist();
     }
 
+    /// Re-admit an auto section to the registry under its real id, the one-row
+    /// form of [`section_identity_reseed`](Self::section_identity_reseed).
+    ///
+    /// A reset or an enable hands a row back to the detection wipe after the
+    /// registry let it go, so with no prior for its ground the next detect
+    /// would mint it a new id and strand its exclusions on the old one. The
+    /// rows already held are stepped as their own candidates, which carries
+    /// each unchanged, and the one new candidate resolves to a fresh pure id
+    /// that the real id is joined to. If a held row does not resolve to its own
+    /// id the step is not a no-op, so the whole registry reseeds instead.
+    /// Idempotent: a section already held, user-defined, disabled or absent
+    /// from the catalogue is left alone.
+    pub(crate) fn section_identity_admit(&mut self, real_id: &str) {
+        if self.identity.rows.values().any(|r| r.real_id == real_id) {
+            return;
+        }
+        let Some(section) = self
+            .sections
+            .iter()
+            .find(|s| s.id == real_id && !s.is_user_defined)
+            .map(|s| self.with_excluded_members(s))
+        else {
+            return;
+        };
+
+        let held: Vec<(String, FrequentSection)> = self
+            .identity
+            .rows
+            .iter()
+            .map(|(pid, r)| (pid.clone(), r.section.clone()))
+            .collect();
+        let mut candidates: Vec<CandidateSection> = held
+            .iter()
+            .map(|(_, s)| CandidateSection::from_section(s))
+            .collect();
+        candidates.push(CandidateSection::from_section(&section));
+
+        let mut trial = self.identity.hysteresis.clone();
+        let (_out, resolutions) = trial.step_assign(&candidates);
+        let carried_whole = held
+            .iter()
+            .enumerate()
+            .all(|(j, (pid, _))| resolutions[j].id == *pid);
+        let new_pid = resolutions[held.len()].id.clone();
+        if !carried_whole || self.identity.rows.contains_key(&new_pid) {
+            self.section_identity_reseed();
+        } else {
+            self.identity.hysteresis = trial;
+            self.identity.rows.insert(
+                new_pid,
+                IdentityRow {
+                    real_id: real_id.to_string(),
+                    section,
+                },
+            );
+        }
+        self.section_identity_persist();
+    }
+
     /// Drop a removed activity from every section the registry carries (visible
     /// rows and tombstoned graves) and from the in-memory catalogue, and forget it
     /// as seen so a later re-add folds it back in. The append-only fold otherwise
     /// keeps a removed contributor as a phantom member, which the activity_id
     /// foreign key now (correctly) refuses to persist, aborting the whole
-    /// detection apply. Called by remove_activity. Ground is untouched: only the
-    /// gone activity leaves; the section's geometry and other members stay.
+    /// detection apply. Ground is untouched: only the gone activity leaves;
+    /// the section's geometry and other members stay.
     pub(crate) fn section_identity_purge_activity(&mut self, activity_id: &str) {
-        /// Whether the section carried the activity at all, and how many
-        /// passes left with it.
-        fn drop_from(section: &mut FrequentSection, activity_id: &str) -> (bool, u32) {
-            let ids_before = section.activity_ids.len();
-            section.activity_ids.retain(|a| a != activity_id);
-            let before = section.activity_portions.len();
-            section
-                .activity_portions
-                .retain(|p| p.activity_id != activity_id);
-            let dropped = (before - section.activity_portions.len()) as u32;
-            section.visit_count = section.visit_count.saturating_sub(dropped);
-            (
-                dropped > 0 || section.activity_ids.len() != ids_before,
-                dropped,
-            )
-        }
-        let mut moved = false;
-        // The pure layer holds its own count per visible id, and reads a
-        // batch that counts fewer passes on an unchanged line as a re-cut.
-        // Telling it what left keeps a deletion from narrating one.
-        let mut dropped_by_pid: Vec<(String, u32)> = Vec::new();
-        for (pid, row) in self.identity.rows.iter_mut() {
-            let (touched, dropped) = drop_from(&mut row.section, activity_id);
-            moved |= touched;
-            if dropped > 0 {
-                dropped_by_pid.push((pid.clone(), dropped));
-            }
-        }
-        for (pid, dropped) in dropped_by_pid {
-            self.identity.hysteresis.drop_visits(&pid, dropped);
-        }
-        for row in self.identity.graves.values_mut() {
-            moved |= drop_from(&mut row.section, activity_id).0;
-        }
-        moved |= self.identity.seen.remove(activity_id);
-        for section in &mut self.sections {
-            drop_from(section, activity_id);
-        }
-        // The blob is the whole catalogue, and a bulk delete is one call per
-        // activity, so an untouched registry writes nothing.
-        if moved {
+        if self.section_identity_purge_activity_in_memory(activity_id) {
             self.section_identity_persist();
         }
     }
 
+    /// Update the registry and section tier without writing rows.
+    pub(crate) fn section_identity_purge_activity_in_memory(&mut self, activity_id: &str) -> bool {
+        purge_activity_from_tiers(&mut self.identity, &mut self.sections, activity_id)
+    }
+}
+
+/// Encode a section registry for persistence.
+pub(crate) fn identity_blob_for(identity: &SectionIdentity) -> Option<Vec<u8>> {
+    codec::serialize_named(identity)
+        .map(|body| codec::tag_blob(SECTION_IDENTITY_BLOB_VERSION, body))
+        .ok()
+}
+
+/// Remove an activity from candidate registry and section tiers.
+pub(crate) fn purge_activity_from_tiers(
+    identity: &mut SectionIdentity,
+    sections: &mut [FrequentSection],
+    activity_id: &str,
+) -> bool {
+    /// Whether the section carried the activity at all, and how many
+    /// passes left with it.
+    fn drop_from(section: &mut FrequentSection, activity_id: &str) -> (bool, u32) {
+        let ids_before = section.activity_ids.len();
+        section.activity_ids.retain(|a| a != activity_id);
+        let before = section.activity_portions.len();
+        section
+            .activity_portions
+            .retain(|p| p.activity_id != activity_id);
+        let dropped = (before - section.activity_portions.len()) as u32;
+        section.visit_count = section.visit_count.saturating_sub(dropped);
+        (
+            dropped > 0 || section.activity_ids.len() != ids_before,
+            dropped,
+        )
+    }
+    let mut moved = false;
+    // The pure layer holds its own count per visible id, and reads a
+    // batch that counts fewer passes on an unchanged line as a re-cut.
+    // Telling it what left keeps a deletion from narrating one.
+    let mut dropped_by_pid: Vec<(String, u32)> = Vec::new();
+    for (pid, row) in identity.rows.iter_mut() {
+        let (touched, dropped) = drop_from(&mut row.section, activity_id);
+        moved |= touched;
+        if dropped > 0 {
+            dropped_by_pid.push((pid.clone(), dropped));
+        }
+    }
+    for (pid, dropped) in dropped_by_pid {
+        identity.hysteresis.drop_visits(&pid, dropped);
+    }
+    for row in identity.graves.values_mut() {
+        moved |= drop_from(&mut row.section, activity_id).0;
+    }
+    moved |= identity.seen.remove(activity_id);
+    for section in sections {
+        drop_from(section, activity_id);
+    }
+    // The blob is the whole catalogue, and a bulk delete is one call per
+    // activity, so an untouched registry writes nothing.
+    moved
+}
+
+impl PersistentEngine {
     /// Record a durable suppression intent for a corridor the user hid
     /// (`kind = "disabled"`) or removed (`kind = "deleted"`), capturing the
     /// section's current ground so the emitter never re-detects it (invariant 6).
@@ -1172,19 +1495,16 @@ impl PersistentEngine {
         if !exists {
             return;
         }
-        // The intent keeps its own JSON footprint, so serialise the section's
-        // decoded geometry rather than copying the now-placeholder column.
+        // The intent keeps its own footprint, the section's decoded line.
         let polyline = self.stored_section_polyline(section_id).unwrap_or_default();
-        let Ok(polyline_json) = serde_json::to_string(&polyline) else {
-            return;
-        };
         if let Err(e) = self.db.execute(
-            "INSERT INTO section_intents (id, kind, polyline_json, created_at)
-             VALUES (?, ?, ?, datetime('now'))
+            "INSERT INTO section_intents (id, kind, polyline_blob, polyline_json, created_at)
+             VALUES (?, ?, ?, NULL, datetime('now'))
              ON CONFLICT(id, kind) DO UPDATE SET
-                polyline_json = excluded.polyline_json,
+                polyline_blob = excluded.polyline_blob,
+                polyline_json = NULL,
                 created_at = excluded.created_at",
-            rusqlite::params![section_id, kind, polyline_json],
+            rusqlite::params![section_id, kind, codec::serialize_track_points(&polyline)],
         ) {
             log::warn!("veloqrs: [record_section_intent] {section_id} ({kind}): {e}");
         }
@@ -1202,27 +1522,54 @@ impl PersistentEngine {
         }
     }
 
-    /// Bounding boxes of the accepted sections. A candidate mostly inside one of
-    /// these is the same corridor drawn coarsely, so it is suppressed before the
-    /// registry sees it rather than dropped at save, where it would leave a row
-    /// behind with no catalogue entry.
+    /// Bounding boxes and ground of the accepted sections. A candidate mostly
+    /// inside one of these boxes and lying along its ground is the same corridor
+    /// drawn coarsely, so it is suppressed before the registry sees it rather
+    /// than dropped at save, where it would leave a row behind with no
+    /// catalogue entry.
     fn accepted_section_bounds(&self) -> Vec<AcceptedBounds> {
         let Ok(mut stmt) = self.db.prepare(
-            "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+            "SELECT id, bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    polyline_blob, polyline_json, representative_activity_id,
+                    rep_start_index, rep_end_index
              FROM sections WHERE is_user_defined = 1 AND bounds_min_lat IS NOT NULL",
         ) else {
             return Vec::new();
         };
-        stmt.query_map([], |row| {
-            Ok(AcceptedBounds {
-                min_lat: row.get(0)?,
-                max_lat: row.get(1)?,
-                min_lng: row.get(2)?,
-                max_lng: row.get(3)?,
-            })
-        })
-        .map(|rows| rows.flatten().collect())
-        .unwrap_or_default()
+        // Collected before resolving: the rebuild queries the same connection
+        // this statement is still walking.
+        let rows: Vec<_> = match stmt.query_map([], |row| {
+            Ok((
+                [row.get::<_, f64>(1)?, row.get(2)?, row.get(3)?, row.get(4)?],
+                row.get::<_, Option<Vec<u8>>>(5)?,
+                row.get::<_, Option<String>>(6)?,
+                row.get::<_, Option<String>>(7)?,
+                row.get::<_, Option<u32>>(8)?,
+                row.get::<_, Option<u32>>(9)?,
+            ))
+        }) {
+            Ok(iter) => iter.flatten().collect(),
+            Err(_) => return Vec::new(),
+        };
+        drop(stmt);
+        rows.into_iter()
+            .filter_map(
+                |([min_lat, max_lat, min_lng, max_lng], blob, json, rep_id, start, end)| {
+                    let reference = geometry::reference(rep_id.as_deref(), start, end);
+                    let ground =
+                        geometry::line(&self.db, blob.as_deref(), json.as_deref(), reference)
+                            .ok()
+                            .filter(|pts| !pts.is_empty())?;
+                    Some(AcceptedBounds {
+                        min_lat,
+                        max_lat,
+                        min_lng,
+                        max_lng,
+                        ground,
+                    })
+                },
+            )
+            .collect()
     }
 
     /// Grounds (polylines) and ids of the durable-intent DB rows the emitter must
@@ -1241,14 +1588,15 @@ impl PersistentEngine {
         let mut grounds = Vec::new();
         let mut ids = BTreeSet::new();
         {
-            let mut stmt = match self.db.prepare(
+            let mut stmt = match self.db.prepare(concat!(
                 "SELECT id, polyline_blob, polyline_json, representative_activity_id,
                         rep_start_index, rep_end_index
                  FROM sections
                  WHERE section_type = 'custom'
-                    OR original_polyline_json IS NOT NULL
-                    OR is_user_defined = 1",
-            ) {
+                    OR is_user_defined = 1
+                    OR ",
+                super::has_original_line!()
+            )) {
                 Ok(s) => s,
                 Err(_) => return (grounds, ids),
             };
@@ -1288,16 +1636,20 @@ impl PersistentEngine {
         // all kinds would make naming a corridor silently hide it
         // (`naming_never_suppresses_corridor` is the regression gate).
         if let Ok(mut stmt) = self.db.prepare(
-            "SELECT id, polyline_json FROM section_intents
+            "SELECT id, polyline_blob, polyline_json FROM section_intents
              WHERE kind IN ('disabled', 'deleted')",
         ) {
             let rows = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<Vec<u8>>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
             });
             if let Ok(iter) = rows {
-                for (id, polyline_json) in iter.flatten() {
+                for (id, blob, json) in iter.flatten() {
                     ids.insert(id);
-                    if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json)
+                    if let Ok(pts) = codec::decode_polyline_row(blob.as_deref(), json.as_deref())
                         && !pts.is_empty()
                     {
                         grounds.push(pts);
@@ -1309,15 +1661,61 @@ impl PersistentEngine {
     }
 }
 
-/// Bounding box of an accepted section, in degrees.
+/// Bounding box of an accepted section, in degrees, with its ground.
 struct AcceptedBounds {
     min_lat: f64,
     max_lat: f64,
     min_lng: f64,
     max_lng: f64,
+    ground: Vec<GpsPoint>,
 }
 
-/// Whether most of a candidate's bounding box sits inside an accepted section's.
+/// How far a candidate may sit from an accepted section's line and still be
+/// that section drawn coarsely.
+const COARSE_REDRAW_TOL_M: f64 = 150.0;
+
+/// Fraction of `samples` within `tol_m` of the polyline `line`, measured to its
+/// segments so a sparsely drawn line is not read as a row of isolated points.
+fn fraction_near_line(samples: &[GpsPoint], line: &[GpsPoint], tol_m: f64) -> f64 {
+    if samples.is_empty() || line.len() < 2 {
+        return 0.0;
+    }
+    let lat0 = line[0].latitude.to_radians();
+    let to_xy = |p: &GpsPoint| {
+        (
+            p.longitude.to_radians() * lat0.cos() * 6_371_000.0,
+            p.latitude.to_radians() * 6_371_000.0,
+        )
+    };
+    let segments: Vec<((f64, f64), (f64, f64))> = line
+        .windows(2)
+        .map(|w| (to_xy(&w[0]), to_xy(&w[1])))
+        .collect();
+    let near = samples
+        .iter()
+        .filter(|s| {
+            let (sx, sy) = to_xy(s);
+            segments.iter().any(|&((ax, ay), (bx, by))| {
+                let (dx, dy) = (bx - ax, by - ay);
+                let len2 = dx * dx + dy * dy;
+                let t = if len2 > 0.0 {
+                    (((sx - ax) * dx + (sy - ay) * dy) / len2).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let (px, py) = (ax + t * dx - sx, ay + t * dy - sy);
+                px * px + py * py <= tol_m * tol_m
+            })
+        })
+        .count();
+    near as f64 / samples.len() as f64
+}
+
+/// Whether a candidate is an accepted section's ground drawn coarsely: most of
+/// its bounding box sits inside the accepted box, and a majority of its points
+/// lie within [`COARSE_REDRAW_TOL_M`] of the accepted line. The box is only a
+/// prefilter; a road through the interior of an accepted loop passes it and
+/// fails the ground test.
 fn bbox_dominated(polyline: &[GpsPoint], accepted: &[AcceptedBounds]) -> bool {
     if accepted.is_empty() || polyline.len() < 2 {
         return false;
@@ -1336,6 +1734,8 @@ fn bbox_dominated(polyline: &[GpsPoint], accepted: &[AcceptedBounds]) -> bool {
             return false;
         }
         ((max_lat - min_lat) * (max_lng - min_lng)) / area > 0.45
+            && fraction_near_line(polyline, &a.ground, COARSE_REDRAW_TOL_M)
+                >= tracematch::sections::CARRY_COVERAGE
     })
 }
 
@@ -1345,27 +1745,72 @@ fn ground_owned_by_intent(polyline: &[GpsPoint], intent_grounds: &[Vec<GpsPoint>
     intent_grounds.iter().any(|g| shares_ground(polyline, g))
 }
 
-/// Append-only fold: add each new activity that traverses `section`'s held
-/// polyline, and only those. Never removes a member and never adopts the batch's
+/// Whether the detector's cut counted `activity_id` against the line it drew.
+///
+/// The cut counts every track of its partition, the whole pool under
+/// `pool_sports` and one sport otherwise, so a track of the partition it leaves
+/// out is one it rejected. The line it counted against can be longer than the
+/// line it ships, since a chain meet or a seam clip shortens the drawn line
+/// after the count, so the shipped line cannot stand in for that verdict.
+fn cut_judged(
+    metadata: &HashMap<String, crate::persistence::ActivityMetadata>,
+    pooled: bool,
+    cut: &FrequentSection,
+    activity_id: &str,
+) -> bool {
+    metadata
+        .get(activity_id)
+        .is_some_and(|m| pooled || m.sport_type == cut.sport_type)
+}
+
+/// One arrival's passes over a carried section: the cut's own passes when the
+/// cut counted the ride, which are the rows a batch of the same rides writes,
+/// and the held line's when the cut never saw it.
+fn arrival_portions<'a>(
+    aid: &str,
+    track: &[GpsPoint],
+    cut: Option<&FrequentSection>,
+    judged: &dyn Fn(&FrequentSection, &str) -> bool,
+    line: &mut Option<Option<tracematch::PreparedLine<'a>>>,
+    polyline: &'a [GpsPoint],
+    config: &SectionConfig,
+) -> Vec<tracematch::SectionPortion> {
+    match cut {
+        Some(cut) if judged(cut, aid) => cut
+            .activity_portions
+            .iter()
+            .filter(|p| p.activity_id == aid)
+            .cloned()
+            .collect(),
+        _ => line
+            .get_or_insert_with(|| tracematch::PreparedLine::new(polyline, config))
+            .as_ref()
+            .map(|l| l.portions(aid, track))
+            .unwrap_or_default(),
+    }
+}
+
+/// Append-only fold: add each new activity the cut counts on this ground, and
+/// only those. Never removes a member and never adopts the batch's
 /// re-clustered set, so a carried section is monotone across an add, the
 /// property the strict single-add gates assert. New laps bump `visit_count` in
 /// step with the junction rows `save_sections` will write.
 fn fold_new_activities(
     section: &mut FrequentSection,
+    cut: Option<&FrequentSection>,
+    judged: &dyn Fn(&FrequentSection, &str) -> bool,
     new_tracks: &BTreeMap<String, Vec<GpsPoint>>,
     config: &SectionConfig,
 ) {
     // Cloned so the fold can keep pushing members while the matcher, built
-    // once for the whole fold, still holds the line.
+    // at most once for the whole fold, still holds the line.
     let polyline = section.polyline.clone();
-    let Some(line) = tracematch::PreparedLine::new(&polyline, config) else {
-        return;
-    };
+    let mut line = None;
     for (aid, track) in new_tracks {
         if section.activity_ids.iter().any(|x| x == aid) {
             continue;
         }
-        let portions = line.portions(aid, track);
+        let portions = arrival_portions(aid, track, cut, judged, &mut line, &polyline, config);
         if portions.is_empty() {
             continue;
         }
@@ -1375,26 +1820,32 @@ fn fold_new_activities(
     }
 }
 
-/// Append `prior` members missing from an adopted batch payload whose tracks
-/// still match the new polyline. The batch re-clustering is not monotone: a
-/// member can drop out of the fresh cut while its traversals still cover the
-/// adopted ground, and losing it would break the single-add stability the
-/// lifecycle gates assert. Portions are computed against the NEW geometry so
-/// the junction rows `save_sections` writes stay coherent; a member whose
-/// track genuinely left the adopted ground stays dropped.
+/// Append `prior` members missing from an adopted batch payload that the cut
+/// never counted, a member of another sport when sports are not pooled, whose
+/// tracks still match the new polyline. A member the cut counted and left out
+/// stays out: the member-loss guard has already held the adoption back as a
+/// debounced re-cut, and a re-cut that fires is the cut's verdict holding.
+/// Portions are computed against the NEW geometry so the junction rows
+/// `save_sections` writes stay coherent; a member whose track genuinely left
+/// the adopted ground stays dropped.
 fn graft_prior_members(
     engine: &PersistentEngine,
     section: &mut FrequentSection,
+    cut: &FrequentSection,
     prior: &FrequentSection,
+    judged: &dyn Fn(&FrequentSection, &str) -> bool,
     config: &SectionConfig,
 ) {
     let have: BTreeSet<&str> = section.activity_ids.iter().map(String::as_str).collect();
     let missing: Vec<String> = prior
         .activity_ids
         .iter()
-        .filter(|aid| !have.contains(aid.as_str()))
+        .filter(|aid| !have.contains(aid.as_str()) && !judged(cut, aid))
         .cloned()
         .collect();
+    if missing.is_empty() {
+        return;
+    }
     // Cloned so the fold can keep pushing members while the matcher, built
     // once for the whole fold, still holds the line.
     let polyline = section.polyline.clone();
@@ -1415,32 +1866,24 @@ fn graft_prior_members(
     }
 }
 
-/// The id a section carries from birth: `s_<sport>_<lat>_<lng>`, from the
-/// 100 m earth cell its heart sits in. A stable, readable name, unique within
-/// one library and reproducible for the same activity pool and config. It is
-/// not a cross-library key: two cuts of one corridor seldom put the heart in
-/// the same cell, and matching ground across cuts is
-/// [`tracematch::shares_ground`]'s job. A cell already taken (a neighbour on
-/// the same block, or a grave) gets the next free ordinal; a section with no
-/// line falls back to the clock, which never collides.
-pub fn content_id_for(
-    polyline: &[GpsPoint],
-    sport_type: &str,
-    taken: &BTreeSet<String>,
-) -> Option<String> {
+/// The id a section carries from birth: `s_<lat>_<lng>`, from the 100 m
+/// earth cell its heart sits in. Ground has no sport, so the id names none.
+/// A stable, readable name, unique within one library and reproducible for
+/// the same activities arriving in the same order under the same config: a
+/// carried id keeps the heart of its first cut, and the ordinal is chosen
+/// against every id the library has held, so the id depends on the arrival
+/// sequence as well as the pool. Ground, not the id, agrees across arrival
+/// orders. It is not a cross-library key: two
+/// cuts of one corridor seldom put the heart in the same cell, and matching
+/// ground across cuts is [`tracematch::shares_ground`]'s job. A cell already
+/// taken (a neighbour on the same block, or a grave) gets the next free
+/// ordinal; a section with no line falls back to the clock, which never
+/// collides. An id minted with a sport term before is kept, never re-keyed:
+/// the record tables key on it.
+pub fn content_id_for(polyline: &[GpsPoint], taken: &BTreeSet<String>) -> Option<String> {
     let heart = tracematch::section_heart(polyline)?;
     let (lat, lng) = tracematch::earth_cell(&heart);
-    let sport = sport_type
-        .chars()
-        .filter(|c| c.is_ascii_alphanumeric())
-        .collect::<String>()
-        .to_ascii_lowercase();
-    let sport = if sport.is_empty() {
-        "all".to_string()
-    } else {
-        sport
-    };
-    let base = format!("s_{sport}_{lat}_{lng}");
+    let base = format!("s_{lat}_{lng}");
     if !taken.contains(&base) {
         return Some(base);
     }
@@ -1450,7 +1893,7 @@ pub fn content_id_for(
 }
 
 fn mint_content_id(section: &FrequentSection, taken: &BTreeSet<String>, seq: &mut u64) -> String {
-    if let Some(id) = content_id_for(&section.polyline, &section.sport_type, taken) {
+    if let Some(id) = content_id_for(&section.polyline, taken) {
         return id;
     }
     let ts = SystemTime::now()
@@ -1471,6 +1914,119 @@ mod tests {
         CandidateSection as PureCandidate, Decision, IdentityParams, PriorSection, RetireReason,
         Retirement, plan_identity_tuned,
     };
+
+    /// Scenario: two sections have their hearts in one cell, one of them
+    /// ridden and the other run.
+    /// Expected behaviour: the first takes the cell's id and the second its
+    /// next ordinal, and neither id names a sport.
+    #[test]
+    fn a_minted_id_names_the_cell_and_no_sport() {
+        let line = track();
+        let first = content_id_for(&line, &BTreeSet::new()).expect("a line has a heart");
+        let second =
+            content_id_for(&line, &BTreeSet::from([first.clone()])).expect("a free ordinal");
+
+        assert_eq!(second, format!("{first}_2"));
+        for id in [&first, &second] {
+            assert!(
+                !["ride", "run", "all"]
+                    .iter()
+                    .any(|sport| id.contains(sport)),
+                "{id}"
+            );
+        }
+    }
+
+    /// Scenario: detection hands the registry a cut labelled Ride whose
+    /// members are all stored as runs.
+    ///
+    /// Expected behaviour: the row the registry carries out is labelled Run,
+    /// the sport its members do, and not the label it arrived with.
+    #[test]
+    fn a_carried_row_takes_its_members_dominant_sport() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine =
+            PersistentEngine::new(dir.path().join("sport.db").to_str().unwrap()).expect("engine");
+        for id in ["a1", "a2"] {
+            engine
+                .add_activity(id.into(), track(), "Run".into())
+                .expect("add_activity");
+        }
+        assert!(engine.section_config.pool_sports);
+        let cut = FrequentSection {
+            polyline: track(),
+            point_density: vec![2; track().len()],
+            activity_ids: vec!["a1".to_string(), "a2".to_string()],
+            visit_count: 2,
+            sport_type: "Ride".to_string(),
+            ..sample_registry_section()
+        };
+
+        let mut identity = SectionIdentity::default();
+        let carried = engine
+            .section_identity_apply_into(&mut identity, SectionReplay::whole(vec![cut]))
+            .visible;
+
+        assert_eq!(carried.len(), 1, "the cut is carried");
+        assert_eq!(carried[0].sport_type, "Run");
+    }
+
+    /// A row none of whose members has a known sport keeps its label, and a
+    /// row already matching its members is unchanged.
+    #[test]
+    fn relabelling_leaves_rows_without_known_member_sports_alone() {
+        let row = |id: &str, sport: &str, members: &[&str]| {
+            let section = FrequentSection {
+                id: id.to_string(),
+                sport_type: sport.to_string(),
+                activity_ids: members.iter().map(|m| m.to_string()).collect(),
+                ..sample_registry_section()
+            };
+            (
+                id.to_string(),
+                IdentityRow {
+                    real_id: id.to_string(),
+                    section,
+                },
+            )
+        };
+        let mut rows: BTreeMap<String, IdentityRow> = [
+            row("a", "Ride", &["r1", "r2", "b1"]),
+            row("b", "Ride", &["unknown1"]),
+            row("c", "Run", &["r1"]),
+        ]
+        .into_iter()
+        .collect();
+        let sports: HashMap<String, String> = [("r1", "Run"), ("r2", "Run"), ("b1", "Ride")]
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+
+        relabel_by_member_sport(&mut rows, &sports);
+
+        assert_eq!(rows["a"].section.sport_type, "Run");
+        assert_eq!(rows["b"].section.sport_type, "Ride");
+        assert_eq!(rows["c"].section.sport_type, "Run");
+    }
+
+    #[test]
+    fn split_piece_order_follows_the_parent_line_in_either_direction() {
+        let parent: Vec<GpsPoint> = (0..5)
+            .map(|i| GpsPoint::new(46.0, 7.0 + i as f64 * 0.001))
+            .collect();
+        let first = vec![GpsPoint::new(46.0, 7.0002), GpsPoint::new(46.0, 7.0012)];
+        let last = vec![GpsPoint::new(46.0, 7.0028), GpsPoint::new(46.0, 7.0038)];
+        let reverse: Vec<GpsPoint> = parent.iter().copied().rev().collect();
+
+        assert!(
+            split_piece_progress(&parent, &first).unwrap()
+                < split_piece_progress(&parent, &last).unwrap()
+        );
+        assert!(
+            split_piece_progress(&reverse, &first).unwrap()
+                > split_piece_progress(&reverse, &last).unwrap()
+        );
+    }
 
     /// Scenario: a short senior prior sits inside a much longer candidate that
     /// a longer junior also covers. With the size ratio off the senior takes
@@ -1536,6 +2092,45 @@ mod tests {
             off.decisions,
             vec![Decision::MergeInherit { id: "s_A".into() }],
             "at 0.0 the capture is allowed, which is what makes the assertion above a test"
+        );
+    }
+
+    fn event(kind: &'static str) -> SectionLifecycleEvent {
+        SectionLifecycleEvent {
+            real_id: "s".into(),
+            kind,
+            details: None,
+            geometry: None,
+            reference: None,
+        }
+    }
+
+    #[test]
+    fn lifecycle_events_count_as_added_changed_and_retired() {
+        let events: Vec<_> = [
+            "formed",
+            "formed",
+            "restored",
+            "split",
+            "recut",
+            "merged",
+            "dissolved",
+            "dissolved",
+        ]
+        .into_iter()
+        .map(event)
+        .collect();
+        assert_eq!(
+            SectionChangeCounts::from_events(&events),
+            SectionChangeCounts {
+                added: 3,
+                changed: 2,
+                retired: 3
+            }
+        );
+        assert_eq!(
+            SectionChangeCounts::from_events(&[]),
+            SectionChangeCounts::default()
         );
     }
 
@@ -1799,4 +2394,335 @@ mod tests {
             vec![12]
         );
     }
+
+    /// A line of `n` points running north from `lat`, about 11 m apart.
+    fn line_at(lat: f64, n: u32) -> Vec<GpsPoint> {
+        (0..n)
+            .map(|i| GpsPoint::new(lat + f64::from(i) * 0.000_1, 7.0))
+            .collect()
+    }
+
+    /// A raw detection cut on `line` whose members are `members`.
+    fn raw_cut(line: Vec<GpsPoint>, members: &[&str]) -> FrequentSection {
+        FrequentSection {
+            id: "raw".to_string(),
+            name: None,
+            point_density: vec![2; line.len()],
+            polyline: line,
+            representative_activity_id: members[0].to_string(),
+            activity_ids: members.iter().map(|m| m.to_string()).collect(),
+            visit_count: members.len() as u32,
+            version: 0,
+            ..sample_registry_section()
+        }
+    }
+
+    /// The ground the seed holds, which every later catalogue drops.
+    fn hill() -> Vec<GpsPoint> {
+        line_at(47.0, 40)
+    }
+
+    /// Ground first cut long, then cut to its first half.
+    fn valley_long() -> Vec<GpsPoint> {
+        line_at(46.0, 40)
+    }
+
+    fn valley_short() -> Vec<GpsPoint> {
+        line_at(46.0, 20)
+    }
+
+    /// An engine holding one hill ride, its registry seeded by one apply of a
+    /// catalogue holding the hill.
+    fn seeded(dir: &TempDir) -> (PersistentEngine, SectionIdentity) {
+        let path = dir.path().join("replay.db");
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        engine
+            .add_activity("hill-1".into(), hill(), "Ride".into())
+            .expect("add_activity");
+        let mut identity = SectionIdentity::default();
+        let seed = engine.section_identity_apply_into(
+            &mut identity,
+            SectionReplay::whole(vec![raw_cut(hill(), &["hill-1"])]),
+        );
+        assert_eq!(seed.visible.len(), 1, "the seed holds the hill");
+        (engine, identity)
+    }
+
+    fn add_valley_ride(engine: &mut PersistentEngine, id: &str) {
+        engine
+            .add_activity(id.into(), valley_long(), "Ride".into())
+            .expect("add_activity");
+    }
+
+    const VALLEY_RIDES: [&str; 4] = ["valley-1", "valley-2", "valley-3", "valley-4"];
+
+    /// The raw catalogue detection cut after each valley ride: the hill is gone
+    /// from the first, the valley is cut long by the first and short after,
+    /// and the fourth ride changes no cut.
+    fn valley_catalogues() -> Vec<Vec<FrequentSection>> {
+        vec![
+            vec![raw_cut(valley_long(), &VALLEY_RIDES[..1])],
+            vec![raw_cut(valley_short(), &VALLEY_RIDES[..2])],
+            vec![raw_cut(valley_short(), &VALLEY_RIDES[..3])],
+            vec![raw_cut(valley_short(), &VALLEY_RIDES[..3])],
+        ]
+    }
+
+    /// The same catalogues as a replay of the blocks each ride changed.
+    fn valley_replay() -> SectionReplay<&'static str> {
+        let mut catalogues = valley_catalogues().into_iter();
+        let mut next = || catalogues.next().expect("a catalogue per ride");
+        let step = |ride: &str, changed| ReplayStep {
+            arrival: Arrival::Activity(ride.to_string()),
+            changed,
+        };
+        SectionReplay::new(vec![
+            step(
+                VALLEY_RIDES[0],
+                vec![("hill", None), ("valley", Some(next()))],
+            ),
+            step(VALLEY_RIDES[1], vec![("valley", Some(next()))]),
+            step(VALLEY_RIDES[2], vec![("valley", Some(next()))]),
+            step(VALLEY_RIDES[3], Vec::new()),
+        ])
+    }
+
+    /// The registry with the birth stamps cleared, which read the clock.
+    fn registry_bytes(identity: &SectionIdentity) -> Vec<u8> {
+        let mut identity = identity.clone();
+        for row in identity
+            .rows
+            .values_mut()
+            .chain(identity.graves.values_mut())
+        {
+            row.section.created_at = None;
+        }
+        codec::serialize_named(&identity).expect("encode")
+    }
+
+    fn catalogue_json(sections: &[FrequentSection]) -> serde_json::Value {
+        let cleared: Vec<FrequentSection> = sections
+            .iter()
+            .cloned()
+            .map(|mut s| {
+                s.created_at = None;
+                s
+            })
+            .collect();
+        serde_json::to_value(cleared).expect("encode")
+    }
+
+    type EventRow = (
+        String,
+        &'static str,
+        Option<String>,
+        Option<Vec<GpsPoint>>,
+        Option<(String, u32, u32)>,
+    );
+
+    fn event_rows(events: &[SectionLifecycleEvent]) -> Vec<EventRow> {
+        events
+            .iter()
+            .map(|e| {
+                (
+                    e.real_id.clone(),
+                    e.kind,
+                    e.details.clone(),
+                    e.geometry.clone(),
+                    e.reference.clone(),
+                )
+            })
+            .collect()
+    }
+
+    fn around_of(event: &EventRow) -> Vec<String> {
+        event
+            .2
+            .as_deref()
+            .and_then(|d| serde_json::from_str::<serde_json::Value>(d).ok())
+            .and_then(|d| d.get("around").cloned())
+            .map(|a| serde_json::from_value(a).expect("a list of ids"))
+            .unwrap_or_default()
+    }
+
+    fn pure_id_of(identity: &SectionIdentity, real_id: &str) -> Option<String> {
+        identity
+            .rows
+            .iter()
+            .chain(identity.graves.iter())
+            .find(|(_, r)| r.real_id == real_id)
+            .map(|(pid, _)| pid.clone())
+    }
+
+    /// Scenario: four rides arrive after a seed that holds the hill, and the
+    /// catalogue cut after each of them drops the hill and cuts the valley,
+    /// long after the first and short after the rest. Once as one detect per
+    /// ride, once as one detect for all four whose catalogues are replayed.
+    /// Expected behaviour: both land on the same visible catalogue, ids,
+    /// pending ledger, tombstones and events. The hill dissolves on the third
+    /// arrival and its retirement names the three it was pending across; the
+    /// valley minted at the first is re-cut at the fourth, a step whose
+    /// catalogue is carried over unchanged.
+    #[test]
+    fn a_replay_of_arrivals_lands_where_one_apply_per_arrival_lands() {
+        let one_by_one_dir = TempDir::new().expect("tempdir");
+        let (mut one_by_one, mut one_by_one_identity) = seeded(&one_by_one_dir);
+        let hill_id = one_by_one_identity
+            .rows
+            .values()
+            .next()
+            .expect("the hill row")
+            .real_id
+            .clone();
+        let mut one_by_one_events = Vec::new();
+        let mut one_by_one_visible = Vec::new();
+        for (ride, catalogue) in VALLEY_RIDES.iter().zip(valley_catalogues()) {
+            add_valley_ride(&mut one_by_one, ride);
+            let applied = one_by_one.section_identity_apply_into(
+                &mut one_by_one_identity,
+                SectionReplay::whole(catalogue),
+            );
+            let rows = event_rows(&applied.events);
+            let kinds: Vec<&str> = rows.iter().map(|e| e.1).collect();
+            match *ride {
+                "valley-1" => assert_eq!(kinds, ["formed"], "the valley is minted"),
+                "valley-3" => {
+                    assert_eq!(
+                        kinds,
+                        ["dissolved"],
+                        "the hill dissolves on the third arrival"
+                    );
+                    assert_eq!(rows[0].0, hill_id);
+                    assert_eq!(around_of(&rows[0]), VALLEY_RIDES[..3].to_vec());
+                }
+                "valley-4" => {
+                    assert_eq!(kinds, ["recut"], "the short cut held for three arrivals");
+                    assert_eq!(around_of(&rows[0]), VALLEY_RIDES[1..].to_vec());
+                }
+                _ => assert!(kinds.is_empty(), "{ride} fires nothing"),
+            }
+            one_by_one_events.extend(rows);
+            one_by_one_visible = applied.visible;
+        }
+
+        let replay_dir = TempDir::new().expect("tempdir");
+        let (mut replayed, mut replayed_identity) = seeded(&replay_dir);
+        for ride in VALLEY_RIDES {
+            add_valley_ride(&mut replayed, ride);
+        }
+        let applied = replayed.section_identity_apply_into(&mut replayed_identity, valley_replay());
+
+        assert_eq!(
+            catalogue_json(&applied.visible),
+            catalogue_json(&one_by_one_visible)
+        );
+        assert_eq!(event_rows(&applied.events), one_by_one_events);
+        assert_eq!(
+            registry_bytes(&replayed_identity),
+            registry_bytes(&one_by_one_identity),
+            "ids, pending ledger, tombstones and seen set agree"
+        );
+        let hill_pid = pure_id_of(&replayed_identity, &hill_id).expect("the hill's grave");
+        assert!(replayed_identity.hysteresis.is_tombstoned(&hill_pid));
+        assert_eq!(
+            catalogue_json(&applied.raw.expect("the last step's catalogue")),
+            catalogue_json(&valley_catalogues()[3]),
+            "the raw catalogue is the last step's"
+        );
+    }
+
+    /// Scenario: the same four rides in one detect, with only the last
+    /// catalogue applied, which is a detect that does not replay.
+    /// Expected behaviour: the hill is still visible and pending after it.
+    /// One step of absence is one step, however many rides it covered.
+    #[test]
+    fn one_apply_for_many_arrivals_steps_the_debounce_once() {
+        let dir = TempDir::new().expect("tempdir");
+        let (mut engine, mut identity) = seeded(&dir);
+        let hill_id = identity
+            .rows
+            .values()
+            .next()
+            .expect("the hill")
+            .real_id
+            .clone();
+        for ride in VALLEY_RIDES {
+            add_valley_ride(&mut engine, ride);
+        }
+
+        let applied = engine.section_identity_apply_into(
+            &mut identity,
+            SectionReplay::whole(valley_catalogues().pop().expect("the last catalogue")),
+        );
+
+        assert!(applied.visible.iter().any(|s| s.id == hill_id));
+        let hill_pid = pure_id_of(&identity, &hill_id).expect("the hill row");
+        assert!(identity.hysteresis.pending_ids().contains(&hill_pid));
+        assert!(!applied.events.iter().any(|e| e.kind == "dissolved"));
+    }
+
+    /// Scenario: one ride arrives, applied once as a one-step replay naming
+    /// it and once as the whole-batch form.
+    /// Expected behaviour: the two are the same apply.
+    #[test]
+    fn a_one_step_replay_is_the_whole_batch_apply() {
+        let catalogue = valley_catalogues().remove(0);
+        let whole_dir = TempDir::new().expect("tempdir");
+        let (mut whole, mut whole_identity) = seeded(&whole_dir);
+        add_valley_ride(&mut whole, VALLEY_RIDES[0]);
+        let whole_applied = whole.section_identity_apply_into(
+            &mut whole_identity,
+            SectionReplay::whole(catalogue.clone()),
+        );
+
+        let step_dir = TempDir::new().expect("tempdir");
+        let (mut step, mut step_identity) = seeded(&step_dir);
+        add_valley_ride(&mut step, VALLEY_RIDES[0]);
+        let step_applied = step.section_identity_apply_into(
+            &mut step_identity,
+            SectionReplay::new(vec![ReplayStep {
+                arrival: Arrival::Activity(VALLEY_RIDES[0].to_string()),
+                changed: vec![((), Some(catalogue))],
+            }]),
+        );
+
+        assert_eq!(
+            catalogue_json(&step_applied.visible),
+            catalogue_json(&whole_applied.visible)
+        );
+        assert_eq!(
+            event_rows(&step_applied.events),
+            event_rows(&whole_applied.events)
+        );
+        assert_eq!(
+            registry_bytes(&step_identity),
+            registry_bytes(&whole_identity)
+        );
+    }
+
+    /// Scenario: a detect with a ride stored but no step to replay.
+    /// Expected behaviour: the registry does not move, nothing fires, the
+    /// visible catalogue is the one the registry held, and there is no raw
+    /// catalogue to store.
+    #[test]
+    fn an_empty_replay_steps_nothing() {
+        let dir = TempDir::new().expect("tempdir");
+        let (mut engine, mut identity) = seeded(&dir);
+        add_valley_ride(&mut engine, VALLEY_RIDES[0]);
+        let before = codec::serialize_named(&identity).expect("encode");
+        let held: Vec<FrequentSection> =
+            identity.rows.values().map(|r| r.section.clone()).collect();
+
+        let applied =
+            engine.section_identity_apply_into(&mut identity, SectionReplay::<()>::new(Vec::new()));
+
+        assert_eq!(codec::serialize_named(&identity).expect("encode"), before);
+        assert!(applied.events.is_empty());
+        assert!(applied.raw.is_none());
+        assert_eq!(catalogue_json(&applied.visible), catalogue_json(&held));
+    }
 }
+
+#[cfg(test)]
+#[path = "tests/registry_membership_judge.rs"]
+mod registry_membership_judge;
