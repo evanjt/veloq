@@ -104,7 +104,9 @@ pub fn correlate(xs: &[Option<f64>], ys: &[Option<f64>], floor: usize) -> Correl
 
     // A constant series has no spread to share, so r is undefined rather than
     // zero. This is the division an implementation gets wrong.
-    if var_x <= 0.0 || var_y <= 0.0 {
+    let constant =
+        |values: &dyn Fn(&(f64, f64)) -> f64| pairs.iter().all(|p| values(p) == values(&pairs[0]));
+    if constant(&|p| p.0) || constant(&|p| p.1) || var_x <= 0.0 || var_y <= 0.0 {
         return Correlation::Undefined { n };
     }
 
@@ -194,6 +196,32 @@ mod tests {
             "{} not inside {}..{}",
             e.r,
             e.low,
+            e.high
+        );
+    }
+
+    /// Fisher's interval for r = 0.8660254 on n = 5: atanh(r) = 1.3169579, the
+    /// standard error is 1/sqrt(n - 3), and the bounds are tanh of the 95% band (z of 1.959964).
+    #[test]
+    fn a_known_series_gives_the_published_interval() {
+        let xs = some(&[1.0, 2.0, 3.0, 4.0, 5.0]);
+        let ys = some(&[2.0, 4.0, 5.0, 4.0, 8.0]);
+
+        let e = correlate(&xs, &ys, 4)
+            .estimate()
+            .cloned()
+            .expect("an estimate");
+
+        let z = 0.866_025_403_784_438_7_f64.atanh();
+        let half = 1.959_964 / 2.0_f64.sqrt();
+        assert!(
+            (e.low - (z - half).tanh()).abs() < 1e-9,
+            "low was {}",
+            e.low
+        );
+        assert!(
+            (e.high - (z + half).tanh()).abs() < 1e-9,
+            "high was {}",
             e.high
         );
     }
@@ -311,6 +339,28 @@ mod tests {
             Correlation::Undefined { n: 5 }
         );
         assert_eq!(correlate(&flat, &flat, 4), Correlation::Undefined { n: 5 });
+    }
+
+    /// A repeated value that is not exact in binary leaves a mean an ulp off,
+    /// so the accumulated variance is a tiny positive number, not zero.
+    #[test]
+    fn a_constant_series_inexact_in_binary_is_undefined() {
+        let varying: Vec<Option<f64>> = (0..24).map(|i| Some(f64::from(i * i % 7))).collect();
+        for value in [50.2, 0.1] {
+            let flat = vec![Some(value); 24];
+            assert_eq!(
+                correlate(&flat, &varying, 10),
+                Correlation::Undefined { n: 24 }
+            );
+            assert_eq!(
+                correlate(&varying, &flat, 10),
+                Correlation::Undefined { n: 24 }
+            );
+            assert_eq!(
+                correlate(&flat, &flat, 10),
+                Correlation::Undefined { n: 24 }
+            );
+        }
     }
 
     /// The case the panel exists to refuse: enough attempts, a coefficient

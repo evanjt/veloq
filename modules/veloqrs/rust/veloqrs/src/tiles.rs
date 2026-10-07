@@ -36,20 +36,21 @@ impl Default for HeatmapConfig {
 
 /// Pre-computed 256-entry colour lookup table mapping intensity to RGBA.
 /// Gradient: transparent → deep teal → brand teal → pale teal highlight.
-/// Uses the Veloq brand teal palette for good contrast on both light and dark maps.
+/// Alpha starts high enough that the light map, which darkens the colour channels
+/// in its paint, keeps the faintest stop at 3:1 over its land and roads.
 fn build_colour_lut() -> [[u8; 4]; 256] {
     let mut lut = [[0u8; 4]; 256];
 
     // Gradient stops: (intensity, r, g, b, a)
     let stops: &[(f32, f32, f32, f32, f32)] = &[
         (0.0, 0.0, 0.0, 0.0, 0.0),          // transparent
-        (0.04, 13.0, 148.0, 136.0, 28.0),   // subtle teal (#0D9488)
-        (0.14, 16.0, 163.0, 150.0, 80.0),   // visible teal
-        (0.32, 20.0, 184.0, 166.0, 128.0),  // brand teal (#14B8A6)
-        (0.58, 45.0, 212.0, 191.0, 176.0),  // bright teal (#2DD4BF)
-        (0.80, 94.0, 234.0, 212.0, 216.0),  // light teal (#5EEAD4)
-        (0.94, 153.0, 246.0, 228.0, 236.0), // pale teal
-        (1.0, 204.0, 251.0, 241.0, 246.0),  // very pale teal highlight
+        (0.04, 13.0, 148.0, 136.0, 176.0),  // subtle teal (#0D9488)
+        (0.14, 16.0, 163.0, 150.0, 190.0),  // visible teal
+        (0.32, 20.0, 184.0, 166.0, 205.0),  // brand teal (#14B8A6)
+        (0.58, 45.0, 212.0, 191.0, 220.0),  // bright teal (#2DD4BF)
+        (0.80, 94.0, 234.0, 212.0, 232.0),  // light teal (#5EEAD4)
+        (0.94, 153.0, 246.0, 228.0, 242.0), // pale teal
+        (1.0, 204.0, 251.0, 241.0, 248.0),  // very pale teal highlight
     ];
 
     for (i, entry) in lut.iter_mut().enumerate().skip(1) {
@@ -397,6 +398,80 @@ fn tile_range_for_bounds(
     )
 }
 
+/// A rectangle of tiles at one zoom, inclusive on every edge. A single tile is
+/// a span with equal edges.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TileSpan {
+    pub z: u8,
+    pub x0: u32,
+    pub x1: u32,
+    pub y0: u32,
+    pub y1: u32,
+}
+
+impl TileSpan {
+    pub fn tile(z: u8, x: u32, y: u32) -> Self {
+        Self {
+            z,
+            x0: x,
+            x1: x,
+            y0: y,
+            y1: y,
+        }
+    }
+}
+
+/// The tiles [`invalidate_tiles_along_track`] takes for a track, as spans, so
+/// a sweep can say which ground it changed.
+pub fn track_spans(track: &[GpsPoint], min_zoom: u8, max_zoom: u8) -> Vec<TileSpan> {
+    let mut spans = Vec::new();
+    for z in min_zoom..=max_zoom {
+        spans.extend(
+            tiles_along_track(track, z)
+                .into_iter()
+                .map(|(x, y)| TileSpan::tile(z, x, y)),
+        );
+    }
+    spans
+}
+
+/// The tile range of a box at every zoom, one span each, which is the ground
+/// [`invalidate_tiles_in_bounds`] takes for it.
+pub fn bounds_spans(
+    min_lat: f64,
+    max_lat: f64,
+    min_lng: f64,
+    max_lng: f64,
+    min_zoom: u8,
+    max_zoom: u8,
+) -> Vec<TileSpan> {
+    (min_zoom..=max_zoom)
+        .map(|z| {
+            let (x0, x1, y0, y1) = tile_range_for_bounds(min_lat, max_lat, min_lng, max_lng, z);
+            TileSpan { z, x0, x1, y0, y1 }
+        })
+        .collect()
+}
+
+/// The tiles a track inside this box can be drawn into at one zoom: the box's
+/// own range and the one-tile halo `tiles_along_track` adds around each point.
+pub fn reach_range_for_bounds(
+    min_lat: f64,
+    max_lat: f64,
+    min_lng: f64,
+    max_lng: f64,
+    zoom: u8,
+) -> TileSpan {
+    let (x0, x1, y0, y1) = tile_range_for_bounds(min_lat, max_lat, min_lng, max_lng, zoom);
+    TileSpan {
+        z: zoom,
+        x0: x0.saturating_sub(1),
+        x1: x1.saturating_add(1),
+        y0: y0.saturating_sub(1),
+        y1: y1.saturating_add(1),
+    }
+}
+
 /// Enumerate tile coordinates for a bounding box at a given zoom level
 pub fn tiles_for_bounds(
     min_lat: f64,
@@ -625,6 +700,83 @@ fn gaussian_blur_3x3(buf: &IntensityBuffer) -> IntensityBuffer {
 // Tile Generation
 // ============================================================================
 
+/// A point closer than this, in pixels, to the last one drawn from adds no
+/// ground the stroke between them did not already cover, so it is not drawn.
+/// Without it a recording's sample rate sets a pixel's brightness and the cost
+/// of a low-zoom tile scales with every point that falls in it.
+const MIN_STROKE_PIXELS: f32 = 1.0;
+
+/// End a run of valid points: draw to the last point dropped since the last
+/// stroke, if any, and clear the run. Returns the strokes drawn.
+fn close_run(
+    buf: &mut IntensityBuffer,
+    kept: &mut Option<(f32, f32)>,
+    dropped: &mut Option<(f32, f32)>,
+    reach: f32,
+    (width, intensity): (f32, f32),
+) -> usize {
+    let mut drawn = 0;
+    if let (Some((kx, ky)), Some((px, py))) = (*kept, *dropped)
+        && segment_reaches_tile(kx, ky, px, py, reach)
+    {
+        draw_line_intensity(buf, kx, ky, px, py, width, intensity);
+        drawn = 1;
+    }
+    *kept = None;
+    *dropped = None;
+    drawn
+}
+
+/// Draw each track into the buffer and return how many strokes that took.
+fn stroke_tracks<T: AsRef<[GpsPoint]>>(
+    buf: &mut IntensityBuffer,
+    z: u8,
+    x: u32,
+    y: u32,
+    tracks: &[T],
+) -> usize {
+    let line_width = line_width_for_zoom(z);
+    let width_intensity = (line_width, line_intensity_for_zoom(z));
+    let reach = stroke_reach(line_width);
+    let mut strokes = 0;
+
+    for track in tracks {
+        let track = track.as_ref();
+        // The last point kept, and the latest point dropped for sitting within
+        // half a pixel of it. The dropped one is drawn to when the run ends, so
+        // a track still reaches its true end.
+        let mut kept: Option<(f32, f32)> = None;
+        let mut dropped: Option<(f32, f32)> = None;
+
+        for point in track {
+            if !point.is_valid() {
+                strokes += close_run(buf, &mut kept, &mut dropped, reach, width_intensity);
+                continue;
+            }
+
+            let (px, py) = gps_to_pixel_unbounded(point, z, x, y);
+            let Some((kx, ky)) = kept else {
+                kept = Some((px, py));
+                continue;
+            };
+            let (dx, dy) = (px - kx, py - ky);
+            if dx * dx + dy * dy < MIN_STROKE_PIXELS * MIN_STROKE_PIXELS {
+                dropped = Some((px, py));
+                continue;
+            }
+            dropped = None;
+            if segment_reaches_tile(kx, ky, px, py, reach) {
+                let (width, intensity) = width_intensity;
+                draw_line_intensity(buf, kx, ky, px, py, width, intensity);
+                strokes += 1;
+            }
+            kept = Some((px, py));
+        }
+        strokes += close_run(buf, &mut kept, &mut dropped, reach, width_intensity);
+    }
+    strokes
+}
+
 /// Generate a single heatmap tile from GPS tracks.
 /// Returns PNG bytes, or None if the tile contains no data.
 ///
@@ -637,33 +789,8 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
     y: u32,
     tracks: &[T],
 ) -> Option<Vec<u8>> {
-    let line_width = line_width_for_zoom(z);
-    let intensity = line_intensity_for_zoom(z);
-
     let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
-
-    let reach = stroke_reach(line_width);
-
-    // Draw each track onto the intensity buffer
-    for track in tracks {
-        let track = track.as_ref();
-        let mut prev_pixel: Option<(f32, f32)> = None;
-
-        for point in track {
-            if !point.is_valid() {
-                prev_pixel = None;
-                continue;
-            }
-
-            let (px, py) = gps_to_pixel_unbounded(point, z, x, y);
-            if let Some((prev_x, prev_y)) = prev_pixel
-                && segment_reaches_tile(prev_x, prev_y, px, py, reach)
-            {
-                draw_line_intensity(&mut buf, prev_x, prev_y, px, py, line_width, intensity);
-            }
-            prev_pixel = Some((px, py));
-        }
-    }
+    stroke_tracks(&mut buf, z, x, y, tracks);
 
     // Skip empty tiles entirely
     if buf.is_empty() {
@@ -718,7 +845,9 @@ fn write_tile_file(
     bytes: &[u8],
 ) -> std::io::Result<()> {
     std::fs::create_dir_all(base_path.join(z.to_string()).join(x.to_string()))?;
-    std::fs::write(tile_path(base_path, z, x, y, extension), bytes)
+    // Through a rename: the plan skips a tile that exists, so a kill mid-write
+    // that left a short file would be served as drawn until the ground changed.
+    crate::atomic_file::write_atomically(&tile_path(base_path, z, x, y, extension), bytes)
 }
 
 /// Save a tile PNG to disk at the standard z/x/y.png path
@@ -755,8 +884,7 @@ pub fn tile_exists(base_path: &Path, z: u8, x: u32, y: u32) -> bool {
 /// tiles over the default zoom span. Measured, a long ride's box over a cache
 /// 1.6 per cent dense takes 450 ms probed and 9 ms listed, and listing wins at
 /// every density, including a full one, because the probe's cost does not
-/// depend on density at all. `tests/tile_sweep_enumeration.rs` is that
-/// measurement.
+/// depend on density at all.
 pub fn invalidate_tiles_in_bounds(
     base_path: &Path,
     min_lat: f64,
@@ -815,19 +943,76 @@ pub fn invalidate_tiles_in_bounds(
     deleted
 }
 
-/// Clear all heatmap tiles from disk
-pub fn clear_all_tiles(base_path: &Path) -> u32 {
+/// Delete the tiles a track reaches, at every zoom from `min_zoom` to
+/// `max_zoom`, answering how many tiles went.
+///
+/// The set is [`tiles_along_track`]'s, which is the set a pass draws the track
+/// into, so a store takes exactly the ground its track changed and the rest of
+/// its box keeps the heat it has.
+pub fn invalidate_tiles_along_track(
+    base_path: &Path,
+    track: &[GpsPoint],
+    min_zoom: u8,
+    max_zoom: u8,
+) -> u32 {
     let mut deleted = 0u32;
-    if base_path.exists()
-        && let Ok(entries) = std::fs::read_dir(base_path)
-    {
-        for entry in entries.flatten() {
-            if entry.path().is_dir() && std::fs::remove_dir_all(entry.path()).is_ok() {
+    for z in min_zoom..=max_zoom {
+        for (x, y) in tiles_along_track(track, z) {
+            // The marker has to go with the tile, or it claims the ground is
+            // drawn and the redraw is skipped. One tile either way.
+            let png = std::fs::remove_file(tile_path(base_path, z, x, y, "png")).is_ok();
+            let empty =
+                std::fs::remove_file(tile_path(base_path, z, x, y, EMPTY_MARKER_EXT)).is_ok();
+            if png || empty {
                 deleted += 1;
             }
         }
     }
     deleted
+}
+
+/// Clear all heatmap tiles from disk, answering how many zoom levels went.
+///
+/// Every zoom level is attempted, so one that cannot be removed does not keep
+/// the rest on disk. The error names what could not be removed: a set that
+/// cannot be listed or emptied is still there for the map to serve.
+pub fn clear_all_tiles(base_path: &Path) -> Result<u32, String> {
+    if !base_path.exists() {
+        return Ok(0);
+    }
+    let entries = std::fs::read_dir(base_path).map_err(|e| {
+        format!(
+            "Could not list the heatmap tiles at {}: {}",
+            base_path.display(),
+            e
+        )
+    })?;
+    let mut deleted = 0u32;
+    let mut failed = Vec::new();
+    for entry in entries {
+        let path = match entry {
+            Ok(entry) => entry.path(),
+            Err(e) => {
+                failed.push(format!("{}: {}", base_path.display(), e));
+                continue;
+            }
+        };
+        if !path.is_dir() {
+            continue;
+        }
+        match std::fs::remove_dir_all(&path) {
+            Ok(()) => deleted += 1,
+            Err(e) => failed.push(format!("{}: {}", path.display(), e)),
+        }
+    }
+    if failed.is_empty() {
+        Ok(deleted)
+    } else {
+        Err(format!(
+            "Could not remove heatmap tiles: {}",
+            failed.join("; ")
+        ))
+    }
 }
 
 // ============================================================================
@@ -837,6 +1022,71 @@ pub fn clear_all_tiles(base_path: &Path) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Scenario: a pass redraws a tile the map is reading. Written in place,
+    /// the file is truncated before the new bytes land, so a reader, or a
+    /// process killed between the two, is left with a short tile.
+    ///
+    /// Expected behaviour: the redraw installs a new file and a reader holding
+    /// the old one reads it whole.
+    #[cfg(unix)]
+    #[test]
+    fn a_redraw_installs_a_new_file_rather_than_rewriting_the_one_a_reader_holds() {
+        use std::io::Read;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path();
+        save_tile(base, 12, 1, 1, b"the first draw, whole").expect("first draw");
+        let mut held =
+            std::fs::File::open(tile_path(base, 12, 1, 1, "png")).expect("reader opens it");
+
+        save_tile(base, 12, 1, 1, b"redrawn").expect("redraw");
+
+        let mut read = Vec::new();
+        held.read_to_end(&mut read).expect("read");
+        assert_eq!(read, b"the first draw, whole", "the reader saw the rewrite");
+        assert_eq!(
+            std::fs::read(tile_path(base, 12, 1, 1, "png")).expect("tile"),
+            b"redrawn"
+        );
+        let left: Vec<_> = std::fs::read_dir(base.join("12").join("1"))
+            .expect("column")
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            left,
+            vec!["1.png".to_string()],
+            "a temp file was left behind"
+        );
+    }
+
+    /// A temp file a killed write left behind is not a drawn tile, so the
+    /// next pass draws that tile rather than skipping it.
+    #[test]
+    fn a_leftover_temp_file_is_not_a_drawn_tile() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let column = tmp.path().join("12").join("1");
+        std::fs::create_dir_all(&column).expect("column");
+        std::fs::write(column.join("1.png.0.tmp"), b"half a PNG").expect("temp");
+        std::fs::write(column.join("1.empty.1.tmp"), b"").expect("temp");
+
+        assert!(!tile_exists(tmp.path(), 12, 1, 1));
+    }
+
+    /// An empty marker goes through the same install, and leaves only itself.
+    #[test]
+    fn an_empty_marker_leaves_no_temp_file() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        mark_tile_empty(tmp.path(), 12, 1, 1).expect("marker");
+
+        let left: Vec<_> = std::fs::read_dir(tmp.path().join("12").join("1"))
+            .expect("column")
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(left, vec!["1.empty".to_string()]);
+        assert!(tile_exists(tmp.path(), 12, 1, 1));
+    }
 
     #[test]
     fn test_tile_bounds() {
@@ -858,6 +1108,80 @@ mod tests {
         let ty = lat_to_tile_y(lat, zoom);
         assert!(tx > 0.0 && tx < 1024.0);
         assert!(ty > 0.0 && ty < 1024.0);
+    }
+
+    /// A straight path of `length_m` metres due east from a fixed start,
+    /// sampled every `step_m` metres.
+    fn east_path(length_m: f64, step_m: f64) -> Vec<GpsPoint> {
+        let lat = 47.0_f64;
+        let deg_per_m = 1.0 / (111_320.0 * lat.to_radians().cos());
+        let n = (length_m / step_m).round() as usize;
+        (0..=n)
+            .map(|i| GpsPoint::new(lat, 7.0 + i as f64 * step_m * deg_per_m))
+            .collect()
+    }
+
+    fn strokes_into_covered_tiles(zoom: u8, path: &[GpsPoint]) -> (usize, u16) {
+        let mut strokes = 0;
+        let mut peak = 0;
+        let first = lon_to_tile_x(path[0].longitude, zoom).floor() as u32;
+        let last = lon_to_tile_x(path[path.len() - 1].longitude, zoom).floor() as u32;
+        let ty = lat_to_tile_y(path[0].latitude, zoom).floor() as u32;
+        for tx in first..=last {
+            let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
+            strokes += stroke_tracks(&mut buf, zoom, tx, ty, &[path]);
+            peak = peak.max(buf.data.iter().copied().max().unwrap_or(0));
+        }
+        (strokes, peak)
+    }
+
+    /// Scenario: one ground track recorded every 3 m and again every 30 m.
+    ///
+    /// Expected behaviour: both draw about the same brightness at every zoom,
+    /// and the dense recording costs strokes by the pixels it crosses, not by
+    /// the samples it holds.
+    #[test]
+    fn a_tile_draws_ground_by_pixels_crossed_not_by_samples_recorded() {
+        for zoom in [8u8, 12] {
+            let dense = east_path(10_000.0, 3.0);
+            let sparse = east_path(10_000.0, 30.0);
+            let (dense_strokes, dense_peak) = strokes_into_covered_tiles(zoom, &dense);
+            let (_, sparse_peak) = strokes_into_covered_tiles(zoom, &sparse);
+
+            let metres_per_px = 40_075_016.0 * 47.0_f64.to_radians().cos()
+                / (TILE_SIZE as f64 * (1u64 << zoom) as f64);
+            let pixels_crossed = 10_000.0 / metres_per_px;
+            assert!(
+                (dense_strokes as f64) <= 1.5 * pixels_crossed + 16.0,
+                "z{zoom}: {dense_strokes} strokes for {pixels_crossed:.0} pixels"
+            );
+            assert!(
+                dense_peak as f64 <= sparse_peak as f64 * 2.0 + 1.0
+                    && sparse_peak as f64 <= dense_peak as f64 * 2.0 + 1.0,
+                "z{zoom}: dense peak {dense_peak}, sparse peak {sparse_peak}"
+            );
+        }
+    }
+
+    /// Expected behaviour: thinning keeps the last point of a track and the
+    /// ground on either side of an invalid fix.
+    #[test]
+    fn thinning_keeps_the_last_point_and_the_ground_after_a_gap() {
+        let zoom = 8;
+        let mut path = east_path(20_000.0, 1.0);
+        let tail = path.split_off(10_000);
+        let mut gapped = path.clone();
+        gapped.push(GpsPoint::new(f64::NAN, f64::NAN));
+        gapped.extend(tail.iter().cloned());
+        let tx = lon_to_tile_x(tail.last().unwrap().longitude, zoom).floor() as u32;
+        let ty = lat_to_tile_y(path[0].latitude, zoom).floor() as u32;
+        let end = gps_to_pixel_unbounded(tail.last().unwrap(), zoom, tx, ty);
+        let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
+        stroke_tracks(&mut buf, zoom, tx, ty, &[gapped]);
+        let (ex, ey) = (end.0.floor() as i32, end.1.floor() as i32);
+        let lit = (ex - 1..=ex)
+            .any(|x| x >= 0 && (x as u32) < TILE_SIZE && buf.get(x as u32, ey as u32) > 0);
+        assert!(lit, "the track's last point at {end:?} was thinned away");
     }
 
     #[test]
@@ -1250,6 +1574,64 @@ mod tests {
         assert!(lut[255][3] > 200);
         // Monotonically increasing alpha
         assert!(lut[128][3] > lut[1][3]);
+    }
+
+    fn channel_luminance(c: f32) -> f32 {
+        let c = c / 255.0;
+        if c <= 0.03928 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    }
+
+    fn luminance(rgb: [f32; 3]) -> f32 {
+        0.2126 * channel_luminance(rgb[0])
+            + 0.7152 * channel_luminance(rgb[1])
+            + 0.0722 * channel_luminance(rgb[2])
+    }
+
+    fn contrast_ratio(a: [f32; 3], b: [f32; 3]) -> f32 {
+        let (la, lb) = (luminance(a), luminance(b));
+        (la.max(lb) + 0.05) / (la.min(lb) + 0.05)
+    }
+
+    #[test]
+    fn faint_stops_hold_three_to_one_on_light_map_grounds() {
+        // The light map paints the layer at full opacity with the colour channels
+        // scaled by its brightness ceiling, so only the LUT alpha is left to tune.
+        const LIGHT_BRIGHTNESS_MAX: f32 = 0.45;
+        let grounds: [[f32; 3]; 4] = [
+            [248.0, 244.0, 240.0],
+            [255.0, 255.0, 255.0],
+            [255.0, 238.0, 170.0],
+            [255.0, 204.0, 136.0],
+        ];
+        let lut = &*COLOUR_LUT;
+        for stop in [0.04_f32, 0.14, 0.32] {
+            let entry = lut[(stop * 255.0).round() as usize];
+            let alpha = entry[3] as f32 / 255.0;
+            for ground in grounds {
+                let mut over = [0.0_f32; 3];
+                for ch in 0..3 {
+                    over[ch] = entry[ch] as f32 * LIGHT_BRIGHTNESS_MAX * alpha
+                        + ground[ch] * (1.0 - alpha);
+                }
+                let ratio = contrast_ratio(over, ground);
+                assert!(
+                    ratio >= 3.0,
+                    "stop {stop} over {ground:?} is {ratio:.2}:1, below 3:1"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn alpha_never_falls_as_intensity_rises() {
+        let lut = &*COLOUR_LUT;
+        for i in 2..256 {
+            assert!(lut[i][3] >= lut[i - 1][3], "alpha fell at index {i}");
+        }
     }
 
     #[test]

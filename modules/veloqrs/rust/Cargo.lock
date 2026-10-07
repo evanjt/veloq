@@ -3552,7 +3552,7 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 
 [[package]]
 name = "tracematch"
-version = "3.0.0"
+version = "2.1.0"
 dependencies = [
  "criterion",
  "geo",
@@ -3817,6 +3817,7 @@ dependencies = [
  "httpmock",
  "image",
  "jni",
+ "libc",
  "log",
  "lru",
  "oslog",

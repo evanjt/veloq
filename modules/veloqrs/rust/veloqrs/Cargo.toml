@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["Evan Thomas <evan@evanjt.com>"]
 license = "Apache-2.0"
 publish = false
+autotests = false
 
 [lib]
 name = "veloqrs"
@@ -30,13 +31,14 @@ uniffi = { version = "0.31", features = ["cli"] }
 # Persistence
 rusqlite = { version = "0.31", features = ["bundled", "backup"] }
 rusqlite_migration = "1.2"
+tempfile = "3.27"
 rmp-serde = "1.1"
 postcard = { version = "1", features = ["alloc"] }
 
 # HTTP client
 # `http2` is a default and `default-features = false` drops it. Without it the
 # tile fetcher never offers h2 over ALPN, so a pan's two dozen misses each open
-# their own connection and pay their own TLS handshake (`I73`).
+# their own connection and pay their own TLS handshake.
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart", "stream", "gzip", "http2"], default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "fs"] }
 tokio-util = { version = "0.7", features = ["io"] }
@@ -60,6 +62,9 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 rstar = "0.12"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.15"
 jni = "0.21"
@@ -71,7 +76,6 @@ oslog = "0.2"
 uniffi = { version = "0.31", features = ["build"] }
 
 [dev-dependencies]
-tempfile = "3.27"
 # The commit hook counts transactions, which is how a page write proves it
 # is one commit and not one per row, and the trace hook counts statements,
 # which is how a loop proves it reads a blob once rather than once per row.
@@ -83,220 +87,151 @@ sha2 = "0.11"
 httpmock = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
 
+# Every test stanza says on the line above it why it is a binary of its
+# own: an area gathers a part of the crate, and a standalone target holds
+# process-wide state no other test may share. `feature_gates` refuses one
+# without its reason. A test whose only shared state is the engine joins an
+# area and takes that area's `serial_state()`.
+
+# Area: the app's readers and writers that need no synthetic corpus.
 [[test]]
-name = "accepted_bounds_dedup"
+name = "app"
+path = "tests/app/main.rs"
+
+# Standalone: opens the engine through the push entry, which needs the process's engine still closed.
+[[test]]
+name = "push_engine_corrupt"
+path = "tests/push_engine_corrupt.rs"
+
+# Standalone: a push cold-starts the process-wide engine, which stays open for the life of the process.
+[[test]]
+name = "push_engine_open"
+path = "tests/push_engine_open.rs"
+
+# Standalone: the extension's C entry opens the engine once per process and ignores a second path.
+[[test]]
+name = "push_service_extension"
+path = "tests/push_service_extension.rs"
+
+# Standalone: the refusal entry opens the engine at the path it is given, once per process.
+[[test]]
+name = "push_refusal_record"
+path = "tests/push_refusal_record.rs"
+
+# Area: the app's readers and writers driven by the synthetic corpus.
+[[test]]
+name = "app_synthetic"
+path = "tests/app_synthetic/main.rs"
 required-features = ["synthetic"]
 
+# Area: the owner's private corpora measured through the process-wide engine.
 [[test]]
-name = "clear_resets_identity"
+name = "corpus"
+path = "tests/corpus/main.rs"
+required-features = ["real-corpus"]
+
+# Standalone: times the attach of one activity on the private corpus against a recorded baseline.
+[[test]]
+name = "attach_cost_band"
+path = "tests/attach_cost_band.rs"
+required-features = ["real-corpus"]
+
+# Standalone: times the lifecycle steps on the synthetic corpus against a recorded baseline.
+[[test]]
+name = "lifecycle_cost_band"
+path = "tests/lifecycle_cost_band.rs"
+required-features = ["synthetic", "real-corpus"]
+
+# Area: detection over engines each test owns, with no process-wide engine.
+[[test]]
+name = "detection"
+path = "tests/detection/main.rs"
+
+# Area: detection on the synthetic corpus, through the process-wide engine and its workers.
+[[test]]
+name = "detection_synthetic"
+path = "tests/detection_synthetic/main.rs"
 required-features = ["synthetic"]
 
+# Area: the guards on the test and bench targets themselves, which read files and open no engine.
 [[test]]
-name = "persistence_stress"
-required-features = ["synthetic"]
+name = "feature_gates"
+path = "tests/feature_gates/main.rs"
 
-[[test]]
-name = "harness_bound"
-required-features = ["synthetic"]
-
-[[test]]
-name = "named_corridors"
-required-features = ["synthetic"]
-
-[[test]]
-name = "registry_adoption"
-required-features = ["synthetic"]
-
-[[test]]
-name = "lifecycle_scenarios"
-required-features = ["synthetic"]
-
-[[test]]
-name = "apply_sections_atomicity"
-required-features = ["synthetic"]
-
-[[test]]
-name = "apply_recounts_once"
-required-features = ["synthetic"]
-
-[[test]]
-name = "schema_indexes"
-required-features = ["synthetic"]
-
-[[test]]
-name = "detection_pool_invariance"
-required-features = ["synthetic"]
-
-[[test]]
-name = "section_sport_membership"
-required-features = ["synthetic"]
-
-[[test]]
-name = "section_blob_is_droppable"
-required-features = ["synthetic"]
-
-[[test]]
-name = "section_geometry_reference"
-required-features = ["synthetic"]
-
-[[test]]
-name = "heatmap_parity"
-required-features = ["synthetic"]
-
-[[test]]
-name = "heatmap_idempotent"
-required-features = ["synthetic"]
-
-[[test]]
-name = "tile_pass_slot"
-required-features = ["synthetic"]
-
-[[test]]
-name = "heatmap_work_is_cancellable"
-required-features = ["synthetic"]
-
-[[test]]
-name = "heatmap_tile_set"
-required-features = ["synthetic"]
-
-[[test]]
-name = "index_new_activity"
-required-features = ["synthetic"]
-
-[[test]]
-name = "playback_vs_batch"
-required-features = ["synthetic"]
-
-[[test]]
-name = "section_portions_roundtrip"
-required-features = ["synthetic"]
-
-[[test]]
-name = "section_zero_visit_guard"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_battery"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_cache_coherence"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_concurrency_durability"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_config_stability"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_determinism"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_edits"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_edits_geometry"
-required-features = ["synthetic"]
-
-[[test]]
-name = "detection_determinism"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_engine_cache"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_lifecycle"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_merge_evolution"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_multigeo_sport"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_order_idempotency"
-required-features = ["synthetic"]
-
-[[test]]
-name = "suite2_routes_lifecycle"
-required-features = ["synthetic"]
-
-[[test]]
-name = "section_events"
-required-features = ["synthetic"]
-
-[[test]]
-name = "section_history"
-required-features = ["synthetic"]
-
-[[test]]
-name = "apply_idempotency"
-required-features = ["synthetic"]
-
-[[test]]
-name = "identity_seam"
-required-features = ["synthetic"]
-
-# These six carry a crate-level `#![cfg(feature = "synthetic")]`. Without a
-# stanza cargo still builds them under the default lane and prints
-# `ok. 0 passed`, so a skipped file is indistinguishable from a passing one.
-[[test]]
-name = "section_summaries_read_path"
-required-features = ["synthetic"]
-
-[[test]]
-name = "conditioning_driver"
-required-features = ["synthetic"]
-
-[[test]]
-name = "ffi_add_conditions"
-required-features = ["synthetic"]
-
-[[test]]
-name = "refresh_portions"
-required-features = ["synthetic"]
-
-[[test]]
-name = "two_tier_ingest"
-required-features = ["synthetic"]
-
-[[test]]
-name = "detection_settles"
-required-features = ["synthetic"]
-
-[[test]]
-name = "exclusion_durability"
-required-features = ["synthetic"]
-
+# Standalone: installs a capturing global logger, which a process takes once and keeps.
 [[test]]
 name = "hot_path_logging"
+path = "tests/hot_path_logging.rs"
 required-features = ["synthetic"]
 
+# Standalone: swaps the process panic hook and poisons the global engine lock on purpose.
 [[test]]
-name = "custom_section_survives_clear"
+name = "lock_poison_recovery"
+path = "tests/lock_poison_recovery.rs"
+
+# Area: storage, init and failover of the engine and its database file.
+[[test]]
+name = "persistence"
+path = "tests/persistence/main.rs"
+
+# Area: sections, their geometry, metrics and filters.
+[[test]]
+name = "section"
+path = "tests/section/main.rs"
+
+# Area: sections on the synthetic corpus.
+[[test]]
+name = "section_synthetic"
+path = "tests/section_synthetic/main.rs"
 required-features = ["synthetic"]
 
+# Area: the second synthetic suite, scenario runs over whole libraries.
 [[test]]
-name = "section_count_matches_the_list"
+name = "suite2"
+path = "tests/suite2/main.rs"
 required-features = ["synthetic"]
 
+# Standalone: installs a counting global allocator, which would count every other test's allocations.
 [[test]]
-name = "identity_reseed"
+name = "track_read"
+path = "tests/track_read.rs"
+
+# Area: heatmap tiles and their scheme handler.
+[[test]]
+name = "heatmap"
+path = "tests/heatmap/main.rs"
+
+# Area: heatmap tiles built from the synthetic corpus.
+[[test]]
+name = "heatmap_synthetic"
+path = "tests/heatmap_synthetic/main.rs"
 required-features = ["synthetic"]
 
+# Area: schema, migrations and the released-user upgrades.
 [[test]]
-name = "detection_fixed_point"
+name = "migration"
+path = "tests/migration/main.rs"
+
+# Area: the detection preview and the names it reads.
+[[test]]
+name = "preview"
+path = "tests/preview/main.rs"
+
+# Area: detection state held process-wide, its events, suspension and the cutover.
+[[test]]
+name = "detection_global"
+path = "tests/detection_global/main.rs"
+
+# Standalone: waits on the process-wide last detection outcome, which an earlier run in the process leaves complete.
+[[test]]
+name = "detection_resume"
+path = "tests/detection_resume.rs"
 required-features = ["synthetic"]
+
+# Area: wellness reads and writes.
+[[test]]
+name = "wellness"
+path = "tests/wellness/main.rs"
 
 [[bench]]
 name = "heatmap_tiles"
@@ -312,6 +247,10 @@ required-features = ["synthetic"]
 
 [[bench]]
 name = "lap_sensor_enrichment_cost"
+required-features = ["synthetic"]
+
+[[bench]]
+name = "strapless_backfill_cost"
 required-features = ["synthetic"]
 
 [[bench]]
@@ -335,14 +274,19 @@ name = "insights_data_cost"
 name = "strength_screen_cost"
 
 [[bench]]
-name = "live_section_replay"
-
-[[bench]]
 name = "evidence_cache_decode_cost"
 required-features = ["synthetic"]
 
 [[bench]]
 name = "evidence_cache_write_cost"
+required-features = ["synthetic"]
+
+[[bench]]
+name = "playback_vs_batch_cost"
+required-features = ["synthetic"]
+
+[[bench]]
+name = "lifecycle_year_expansion_cost"
 required-features = ["synthetic"]
 
 [[bench]]
@@ -367,15 +311,32 @@ harness = false
 name = "routes_screen_read_cost"
 harness = false
 
+[[bench]]
+name = "worker_write_overlap"
+required-features = ["synthetic"]
+
+[[bench]]
+name = "track_store_drain_cost"
+required-features = ["synthetic"]
+
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"
 
-# Diagnostics over a private .veloqdb export. Not a test: it asserts nothing
-# and CI has no database to point it at.
+# Diagnostics over a private .veloqdb export. The report itself asserts nothing
+# and CI has no database to point it at; `test = true` runs the unit test that
+# requires VELOQ_DB to be set explicitly.
 [[example]]
 name = "detection_audit"
 path = "examples/detection_audit.rs"
+test = true
+
+# Wellness-correlation totals over a copy of a library supplied at run time.
+# `test = true` runs the unit tests, which need no database.
+[[example]]
+name = "section_correlation_audit"
+path = "examples/section_correlation_audit.rs"
+test = true
 
 [[example]]
 name = "stream_store_cost"
@@ -386,67 +347,10 @@ name = "grouping_preview_cost"
 path = "examples/grouping_preview_cost.rs"
 
 [[example]]
-name = "map_signature_passes"
-path = "examples/map_signature_passes.rs"
+name = "upgrade_elevation_replay"
+path = "examples/upgrade_elevation_replay.rs"
 
-[[test]]
-name = "corpus_migration"
-required-features = ["real-corpus"]
-
-[[test]]
-name = "corpus_preview_identity"
-required-features = ["real-corpus"]
-
-[[test]]
-name = "evidence_cache_durability"
+[[example]]
+name = "heatmap_pass_phases"
+path = "examples/heatmap_pass_phases.rs"
 required-features = ["synthetic"]
-
-[[test]]
-name = "evidence_cache_encode_off_lock"
-required-features = ["synthetic"]
-
-[[test]]
-name = "representative_against_medoid"
-required-features = ["synthetic"]
-
-[[test]]
-name = "detection_final_cache"
-required-features = ["synthetic"]
-
-[[test]]
-name = "section_attribution"
-required-features = ["synthetic"]
-
-[[test]]
-name = "content_ids"
-required-features = ["synthetic"]
-
-[[test]]
-name = "section_enrichment"
-required-features = ["synthetic"]
-
-[[test]]
-name = "detection_resume"
-required-features = ["synthetic"]
-
-[[test]]
-name = "group_dominant_sport"
-required-features = ["synthetic"]
-
-[[test]]
-name = "group_sport_icons_before_metrics"
-required-features = ["synthetic"]
-
-[[test]]
-name = "every_table_declares_an_owner"
-path = "tests/every_table_declares_an_owner.rs"
-
-[[test]]
-name = "tile_sweep_enumeration"
-
-[[test]]
-name = "detection_narrowed_pool"
-required-features = ["synthetic"]
-
-[[test]]
-name = "routes_screen_query"

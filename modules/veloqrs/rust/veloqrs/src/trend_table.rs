@@ -9,7 +9,10 @@
 //! TypeScript copy cannot drift: `npm run audit` fails when it does.
 //!
 //! The deadband here is **absolute**, in the metric's own units: points of CTL,
-//! hours, whole activities, watts, minutes per kilometre, beats, kilograms.
+//! hours, whole activities, watts, minutes of pace, beats, kilograms. Pace is
+//! minutes per kilometre for threshold pace and minutes per 100 m for CSS,
+//! the unit each is printed in, and it is pace rather than the critical speed
+//! it comes from: a pace that falls is an athlete who got faster.
 //! [`crate::trend::classify_change`] takes a **fraction** of the baseline,
 //! which is the right shape for a lap time and the wrong one for a weight in
 //! kilograms, so the two stay separate and a caller picks the one its metric
@@ -76,11 +79,20 @@ pub const TREND_METRICS: &[TrendMetric] = &[
         deadband: 5.0,
         polarity: Polarity::None,
     },
+    // Weighted sets move with no judgement, as load does. The progression
+    // surfaces take the engine's own direction, which is past a 15 per cent
+    // change of its two-week averages, and read only the polarity from here.
+    TrendMetric {
+        name: "weekSets",
+        deadband: 1.0,
+        polarity: Polarity::None,
+    },
     TrendMetric {
         name: "ftp",
         deadband: 2.0,
         polarity: Polarity::Higher,
     },
+    // Three seconds a kilometre, and three seconds a hundred metres for CSS.
     TrendMetric {
         name: "thresholdPace",
         deadband: 0.05,
@@ -174,6 +186,13 @@ mod tests {
                 m.name
             );
         }
+    }
+
+    #[test]
+    fn weekly_weighted_sets_carry_no_polarity() {
+        let m = metric("weekSets").expect("weekSets is in the table");
+        assert_eq!(m.polarity, Polarity::None);
+        assert_eq!(m.deadband, 1.0);
     }
 
     #[test]

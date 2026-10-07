@@ -15,7 +15,6 @@
 //! memory because the handler that needs them most is the one that cold-starts
 //! the process, with no JavaScript in it to push anything.
 
-use crate::persistence::PersistentEngine;
 use crate::persistence::settings::NotificationTemplates;
 
 /// Roughly what an Android lock screen shows of a body before it collapses the
@@ -36,7 +35,7 @@ const MIN_PLACE_NAME: usize = 6;
 
 const SEPARATOR: &str = " - ";
 
-/// The fifteen templates a sentence is built from, taken off whatever the last
+/// The seventeen templates a sentence is built from, taken off whatever the last
 /// push stored.
 ///
 /// A struct rather than the stored map: a rung that reaches for a key the
@@ -56,9 +55,14 @@ pub struct Templates {
     pub section_pr_delta: String,
     pub section_pr_count: String,
     pub section_pr_many: String,
+    /// The count-of-one form of `section_pr_many`, for languages whose plural clause is wrong at 1.
+    pub section_pr_many_one: String,
     pub faster_on_route: String,
     pub faster_on_route_delta: String,
-    pub on_route: String,
+    /// `{{current}}` watts and `{{change}}` watts gained.
+    pub ftp_milestone: String,
+    /// `{{delta}}`, already carrying its unit.
+    pub pace_milestone: String,
 }
 
 /// The enriched notification for one activity, and the same finding whole.
@@ -134,10 +138,14 @@ pub enum Highlight {
         route_name: String,
         gap_seconds: Option<u32>,
     },
-    /// A known route, no verdict on the time.
-    OnRoute { route_name: String },
-    /// A fitness milestone this activity caused, carrying its own wording.
-    Milestone { title: String },
+    /// The athlete's FTP crossed the milestone step on the day of this ride.
+    FtpMilestone {
+        current_watts: u16,
+        change_watts: u32,
+    },
+    /// The athlete's critical pace improved on the day of this ride. `delta`
+    /// is the saving with its unit, such as `12s/km`.
+    PaceMilestone { delta: String },
     /// Nothing worth a push, so there is no notification.
     None,
 }
@@ -150,7 +158,7 @@ impl Highlight {
             | Highlight::SectionPrMany { .. }
             | Highlight::RoutePrUnnamed { .. } => Tier::Pr,
             Highlight::FasterOnRoute { .. } => Tier::Faster,
-            Highlight::OnRoute { .. } | Highlight::Milestone { .. } | Highlight::None => {
+            Highlight::FtpMilestone { .. } | Highlight::PaceMilestone { .. } | Highlight::None => {
                 Tier::Recorded
             }
         }
@@ -308,12 +316,17 @@ fn render(
             named,
             count,
         } => Some(if *named {
+            let rest = count - 1;
             fit(
                 &|place| {
-                    interpolate(
-                        &strings.section_pr_many,
-                        &[("name", place), ("count", &(count - 1).to_string())],
-                    )
+                    if rest == 1 {
+                        interpolate(&strings.section_pr_many_one, &[("name", place)])
+                    } else {
+                        interpolate(
+                            &strings.section_pr_many,
+                            &[("name", place), ("count", &rest.to_string())],
+                        )
+                    }
                 },
                 section_name,
             )
@@ -342,11 +355,19 @@ fn render(
             },
             route_name,
         )),
-        Highlight::OnRoute { route_name } => Some(fit(
-            &|place| interpolate(&strings.on_route, &[("name", place)]),
-            route_name,
+        Highlight::FtpMilestone {
+            current_watts,
+            change_watts,
+        } => Some(interpolate(
+            &strings.ftp_milestone,
+            &[
+                ("current", &current_watts.to_string()),
+                ("change", &change_watts.to_string()),
+            ],
         )),
-        Highlight::Milestone { title } => Some(title.clone()),
+        Highlight::PaceMilestone { delta } => {
+            Some(interpolate(&strings.pace_milestone, &[("delta", delta)]))
+        }
         Highlight::None => None,
     }
 }
@@ -386,37 +407,27 @@ pub fn notification_for(
 // The ladder
 // ============================================================================
 
-/// Seconds this activity's section PR improved on the previous best, from the
-/// records the performance query already returned. `None` when this is the
-/// only timed attempt in the PR's direction, or times tie.
+/// Seconds this activity's section PR improved on another outing in its direction.
 fn section_pr_delta(
     result: &crate::types::SectionPerformanceResult,
     activity_id: &str,
 ) -> Option<u32> {
-    let best = result.best_record.as_ref()?;
-    if best.activity_id != activity_id || !best.best_time.is_finite() || best.best_time <= 0.0 {
-        return None;
+    for best in [
+        result.best_forward_record.as_ref(),
+        result.best_reverse_record.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if best.activity_id != activity_id {
+            continue;
+        }
+        let rival = crate::persistence::records::section_record_rival(result, best);
+        if crate::persistence::records::is_personal_record(best.best_time, rival) {
+            return rival.map(|time| (time - best.best_time) as u32);
+        }
     }
-    let previous = result
-        .records
-        .iter()
-        .filter(|r| {
-            r.activity_id != activity_id
-                && r.direction == best.direction
-                && r.best_time.is_finite()
-                && r.best_time > 0.0
-        })
-        .map(|r| r.best_time)
-        .fold(f64::INFINITY, f64::min);
-    if !previous.is_finite() {
-        return None;
-    }
-    let delta = previous - best.best_time;
-    if delta > 0.0 {
-        Some(delta as u32)
-    } else {
-        None
-    }
+    None
 }
 
 /// What the section performance queries came back with, reduced to what the
@@ -439,14 +450,13 @@ pub struct SectionPrs {
 /// athlete what they already know they did, and it fired on every activity, so
 /// an athlete who commutes five days a week got five pushes worth nothing.
 ///
-/// `milestone_title` is what JavaScript's insight pipeline found, if anything.
-/// A native handler has no insights and passes `None`, which is the whole of
-/// what it gives up by not running JavaScript.
+/// `milestone` is the fitness step this activity caused, if any, found by
+/// [`fitness_milestone_pooled`] from the engine's own rows.
 pub fn pick_highlight(
     route: Option<&crate::FfiActivityRouteHighlight>,
     sections: &SectionPrs,
     announce_prs: bool,
-    milestone_title: Option<&str>,
+    milestone: Option<Highlight>,
 ) -> Highlight {
     // Achievements first, gated by the PR category preference, then the
     // matched-route identity, then plain traversal counts.
@@ -484,20 +494,75 @@ pub fn pick_highlight(
             gap_seconds: r.time_delta_seconds.filter(|s| *s > 0).map(|s| s as u32),
         };
     }
-    if let Some(r) = route.filter(|r| !r.route_name.is_empty()) {
-        return Highlight::OnRoute {
-            route_name: r.route_name.clone(),
-        };
-    }
-    // Riding through a section is not a result. Only notable rides notify, so
-    // this stops here rather than announcing that the ride happened.
+    // A named route with no verdict on the time, and riding through a section,
+    // are not results. Only notable rides notify, so this stops here rather
+    // than announcing that the ride happened.
 
-    match milestone_title {
-        Some(title) if !title.is_empty() => Highlight::Milestone {
-            title: title.to_string(),
-        },
-        _ => Highlight::None,
+    milestone.unwrap_or(Highlight::None)
+}
+
+/// The smallest FTP step, in watts, that is a milestone.
+const MIN_FTP_STEP_WATTS: i32 = 5;
+
+/// The fitness step an activity caused, read from committed rows.
+///
+/// A step is the activity's own: FTP counts only on the ride whose day first
+/// carries a thirty day rise of [`MIN_FTP_STEP_WATTS`] or more, judged by the
+/// trend as it stood that day against the day before, and pace only on the
+/// ride whose day holds the snapshot that improved it. A later ride sees the
+/// same standing step and finds no crossing, so one step is announced once.
+/// FTP is judged for cycling, running pace for runs and swim pace for swims.
+pub fn fitness_milestone_pooled(
+    conn: &rusqlite::Connection,
+    activity_id: &str,
+) -> Option<Highlight> {
+    use crate::persistence::fitness::derivations::pooled as fitness;
+    let (sport, date): (String, i64) = conn
+        .query_row(
+            "SELECT sport_type, date FROM activity_metrics WHERE activity_id = ?",
+            [activity_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .ok()?;
+    let day = chrono::DateTime::from_timestamp(date, 0)?.date_naive();
+
+    if crate::sport::is_cycling(&sport) {
+        let on = fitness::ftp_trend_to(conn, &day.format("%Y-%m-%d").to_string());
+        let before = fitness::ftp_trend_to(
+            conn,
+            &(day - chrono::Duration::days(1))
+                .format("%Y-%m-%d")
+                .to_string(),
+        );
+        let step = on.delta_watts.filter(|d| *d >= MIN_FTP_STEP_WATTS)?;
+        let standing = before.delta_watts.is_some_and(|d| d >= MIN_FTP_STEP_WATTS);
+        if standing {
+            return None;
+        }
+        return Some(Highlight::FtpMilestone {
+            current_watts: on.latest_ftp?,
+            change_watts: step as u32,
+        });
     }
+
+    let (family, unit) = if crate::sport::is_running(&sport) {
+        ("Run", "s/km")
+    } else if crate::sport::is_swimming(&sport) {
+        ("Swim", "s/100m")
+    } else {
+        return None;
+    };
+    let day_start = day.and_hms_opt(0, 0, 0)?.and_utc().timestamp();
+    let trend = fitness::pace_trend_through(conn, family, day_start + 86_399);
+    let snapshot = trend.latest_date? as i64;
+    if snapshot < day_start {
+        return None;
+    }
+    let seconds = trend.delta_seconds?.round() as i64;
+    let percent = trend.gain_percent?.round() as i64;
+    (seconds > 0 && percent > 0).then(|| Highlight::PaceMilestone {
+        delta: format!("{seconds}{unit}"),
+    })
 }
 
 /// What this activity did on every section it matched.
@@ -514,58 +579,52 @@ fn section_prs_from(
     let mut first = true;
     for section in sections {
         let perf = performances(&section.id);
-        let is_best = perf
-            .best_record
-            .as_ref()
-            .is_some_and(|b| b.activity_id == activity_id);
-        if !is_best {
+        let Some(improvement) = section_pr_delta(&perf, activity_id) else {
             continue;
-        }
+        };
         prs.count += 1;
         if first {
             first = false;
             let name = section.name.clone().unwrap_or_default();
             prs.first_named = !name.is_empty();
             prs.first_name = name;
-            prs.first_improvement_seconds = section_pr_delta(&perf, activity_id);
+            prs.first_improvement_seconds = Some(improvement);
         }
     }
     prs
 }
 
-/// The ladder against the engine: three reads, then [`pick_highlight`].
-pub fn resolve_highlight(
-    engine: &mut PersistentEngine,
-    activity_id: &str,
-    announce_prs: bool,
-    milestone_title: Option<&str>,
-) -> Highlight {
-    let route = engine
-        .get_activity_route_highlights(&[activity_id.to_string()])
-        .into_iter()
-        .find(|h| h.activity_id == activity_id);
-    let sections = engine.get_sections_for_activity(activity_id);
-    let prs = section_prs_from(&sections, activity_id, |id| {
-        engine.get_section_performances_filtered(id, None)
-    });
-    pick_highlight(route.as_ref(), &prs, announce_prs, milestone_title)
+fn detection_enabled_from(conn: &rusqlite::Connection) -> bool {
+    !matches!(
+        crate::persistence::settings::setting_from(
+            conn,
+            crate::persistence::settings::settings_keys::DETECTION_ENABLED
+        )
+        .ok()
+        .flatten()
+        .as_deref(),
+        Some("0")
+    )
 }
 
-/// The same ladder, read from SQLite alone.
+/// The notification highlight, read from committed SQLite rows.
 ///
-/// A push lands whenever it lands, which is as often as not while a sync page
-/// is committing. On the engine lock the handler waited the page out before it
-/// could say what the activity was worth, so the tray entry arrived late or
-/// generic. Every read behind this one is committed rows, so it does not wait.
-///
-/// It shares [`pick_highlight`] and [`section_prs_from`] with the lock-holding
-/// path above, so the two can only differ in where the rows came from.
+/// A push can arrive while a sync page commits. Every read uses committed rows
+/// so the handler does not wait for the engine lock.
 pub fn resolve_highlight_pooled(
     conn: &rusqlite::Connection,
     activity_id: &str,
     announce_prs: bool,
-    milestone_title: Option<&str>,
+    announce_milestones: bool,
 ) -> Highlight {
+    let milestone = announce_milestones
+        .then(|| fitness_milestone_pooled(conn, activity_id))
+        .flatten();
+    // Route matching off means no route or section rung: a section the athlete
+    // kept would otherwise still announce itself for a feature they switched off.
+    if !detection_enabled_from(conn) {
+        return pick_highlight(None, &SectionPrs::default(), announce_prs, milestone);
+    }
     let ids = [activity_id.to_string()];
     let route = crate::persistence::fitness::derivations::pooled::route_highlights(conn, &ids)
         .into_iter()
@@ -576,10 +635,15 @@ pub fn resolve_highlight_pooled(
         activity_id,
         &names,
     );
+    let sport = crate::persistence::sections::queries::pooled::sport_of_activity(conn, activity_id);
     let prs = section_prs_from(&sections, activity_id, |id| {
-        crate::persistence::fitness::performances::pooled::section_performances(conn, id, None)
+        crate::persistence::fitness::performances::pooled::section_performances(
+            conn,
+            id,
+            sport.as_deref(),
+        )
     });
-    pick_highlight(route.as_ref(), &prs, announce_prs, milestone_title)
+    pick_highlight(route.as_ref(), &prs, announce_prs, milestone)
 }
 
 /// The templates the last push stored, as the renderer wants them.
@@ -609,17 +673,12 @@ pub fn templates_from_stored(stored: &NotificationTemplates) -> Option<Templates
         section_pr_delta: at("notifications.activityBody.sectionPrDelta")?,
         section_pr_count: at("notifications.activityBody.sectionPrCount")?,
         section_pr_many: at("notifications.activityBody.sectionPrMany")?,
+        section_pr_many_one: at("notifications.activityBody.sectionPrManyOne")?,
         faster_on_route: at("notifications.activityBody.fasterOnRoute")?,
         faster_on_route_delta: at("notifications.activityBody.fasterOnRouteDelta")?,
-        on_route: at("notifications.activityBody.onRoute")?,
+        ftp_milestone: at("insights.ftpIncrease")?,
+        pace_milestone: at("insights.paceImproved")?,
     })
-}
-
-/// The templates for the locale JavaScript last pushed, or `None` on an
-/// install where it never has.
-pub fn stored_templates(engine: &PersistentEngine) -> Option<Templates> {
-    let stored = engine.notification_templates().ok()??;
-    templates_from_stored(&stored)
 }
 
 /// The whole path from SQLite alone, for a push handler that must not wait.
@@ -628,24 +687,11 @@ pub fn build_notification_pooled(
     activity_id: &str,
     activity_name: &str,
     announce_prs: bool,
-    milestone_title: Option<&str>,
+    announce_milestones: bool,
 ) -> Option<FfiActivityNotification> {
     let stored = crate::persistence::settings::notification_templates_from(conn).ok()??;
     let strings = templates_from_stored(&stored)?;
-    let highlight = resolve_highlight_pooled(conn, activity_id, announce_prs, milestone_title);
-    Some(notification_for(&highlight, activity_name, &strings))
-}
-
-/// The whole path, for a caller that has an activity id and nothing else.
-pub fn build_notification(
-    engine: &mut PersistentEngine,
-    activity_id: &str,
-    activity_name: &str,
-    announce_prs: bool,
-    milestone_title: Option<&str>,
-) -> Option<FfiActivityNotification> {
-    let strings = stored_templates(engine)?;
-    let highlight = resolve_highlight(engine, activity_id, announce_prs, milestone_title);
+    let highlight = resolve_highlight_pooled(conn, activity_id, announce_prs, announce_milestones);
     Some(notification_for(&highlight, activity_name, &strings))
 }
 

@@ -18,6 +18,18 @@ const MAX_BACKOFF: Duration = Duration::from_secs(8);
 /// request).
 const MAX_RETRY_AFTER: Duration = Duration::from_secs(120);
 
+/// The one place a retry backoff, a pacing wait or a lane yield sleeps.
+///
+/// Tests that hold the crate lock record the wait instead of spending it, so
+/// what the code asked for stays observable without the suite waiting it out.
+pub(crate) async fn pause(wait: Duration) {
+    #[cfg(test)]
+    if crate::test_globals::record_pause(wait) {
+        return;
+    }
+    tokio::time::sleep(wait).await;
+}
+
 /// Decide how long to wait before retrying a failed request.
 ///
 /// The server's `Retry-After` (seconds) always wins when present - it knows its
@@ -200,7 +212,7 @@ impl Governor {
         };
         let now = Instant::now();
         if scheduled > now {
-            tokio::time::sleep(scheduled - now).await;
+            pause(scheduled - now).await;
         }
     }
 
@@ -230,7 +242,7 @@ impl Governor {
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
             let wait = (backlog - max_ahead).min(MAX_LANE_YIELD - waited);
-            tokio::time::sleep(wait).await;
+            pause(wait).await;
             waited += wait;
         }
     }
@@ -328,6 +340,7 @@ mod tests {
 
     #[test]
     fn paces_concurrent_acquires_under_target_rate() {
+        let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
             let gov = Arc::new(Governor::new(8, Box::new(NoopPolicy)));
             let start = Instant::now();
@@ -352,6 +365,7 @@ mod tests {
 
     #[test]
     fn policy_pace_adds_to_interval() {
+        let _clock = crate::test_globals::real_clock();
         struct FixedPace(Duration);
         impl Policy for FixedPace {
             fn pace(&self, _lane: Lane) -> Duration {
@@ -373,22 +387,24 @@ mod tests {
     }
 
     /// Expected behaviour: a lane with no queue limit claims the next slot
-    /// immediately however long the schedule already is.
+    /// behind the schedule however long it already is, and never parks for it
+    /// to drain.
     #[test]
     fn interactive_never_yields() {
+        let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
             let gov = Governor::new(8, Box::new(YieldBackfillPolicy::new()));
-            // Build a backlog of roughly a second.
-            for _ in 0..8 {
-                gov.acquire(Lane::Interactive).await;
+            // Eight claims polled once each put the next free slot about a
+            // second out, with none of them waited on.
+            let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+            let mut claims: Vec<_> = (0..8)
+                .map(|_| Box::pin(gov.acquire(Lane::Interactive)))
+                .collect();
+            for claim in &mut claims {
+                let _ = claim.as_mut().poll(&mut cx);
             }
-            let start = Instant::now();
             gov.acquire(Lane::Interactive).await;
-            assert!(
-                start.elapsed() < Duration::from_millis(400),
-                "interactive waited on the queue: {:?}",
-                start.elapsed()
-            );
+            assert_eq!(gov.yields(), 0, "interactive parked for the queue to drain");
         });
     }
 
@@ -396,6 +412,7 @@ mod tests {
     /// the queue has drained, rather than taking the slot at the back of it.
     #[test]
     fn backfill_parks_behind_a_busy_schedule() {
+        let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
             let gov = Arc::new(Governor::new(8, Box::new(YieldBackfillPolicy::new())));
             // Eight interactive claims put the next free slot ~875ms out.
@@ -432,6 +449,7 @@ mod tests {
     /// binary started.
     #[test]
     fn backfill_alone_pays_no_yield() {
+        let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
             let gov = Governor::new(1000, Box::new(YieldBackfillPolicy::new()));
             for _ in 0..5 {
@@ -449,6 +467,7 @@ mod tests {
     /// move when the backfill really does park.
     #[test]
     fn a_busy_schedule_records_the_yield_it_costs() {
+        let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
             let gov = Arc::new(Governor::new(8, Box::new(YieldBackfillPolicy::new())));
             let mut claims = Vec::new();
