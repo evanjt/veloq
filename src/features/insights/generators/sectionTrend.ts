@@ -1,178 +1,89 @@
-import { formatDuration } from '@/shared/format/format';
-import type { Insight, SectionTrendData, TFunc } from '../types';
+import type { Insight, SectionTrendData, SupportingSection, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
-import { INSIGHTS_CONFIG, confidenceFrom, maxAgeDaysFor, maxPerCategoryFor } from '../lib/config';
-import { sparkline } from '../lib/sparkline';
+import { confidenceFrom, maxAgeDaysFor } from '../lib/config';
+import { sectionPairKey } from '../lib/sectionIdentity';
 
 const DAY_MS = 86_400_000;
 
-/** Engine scores are 0..1. Show them as whole percentages. */
-function asPercent(score: number): string {
-  return `${Math.round(score * 100)}%`;
+function fallbackEligible(
+  trends: SectionTrendData[],
+  coveredPairs: Set<string>
+): SectionTrendData[] {
+  const maxAgeDays = maxAgeDaysFor('section_trend');
+  return trends.filter((section) => {
+    if (section.trend === 0) return false;
+    if (coveredPairs.has(sectionPairKey(section.sectionId, section.sportType))) return false;
+    return section.daysSinceLast == null || section.daysSinceLast <= maxAgeDays;
+  });
 }
 
-/**
- * Generate section trend insights for improving/declining sections.
- *
- * Recency: the triggering event (the declining/improving trend) must be
- * current. A section last visited months ago is not a motivating insight,
- * even if the historic trend is strong. We drop sections whose
- * `daysSinceLast` exceeds `INSIGHTS_CONFIG.activeWindowDays` here - the
- * rules-pipeline G1 gate will re-check via meta.sourceTimestamp, so this
- * local filter is a pre-selection to avoid wasting one of our 2 candidate
- * slots on a stale section.
- *
- * @param existingInsightIds - IDs of already-generated insights (to avoid duplicates)
- */
+function supportingSections(trends: SectionTrendData[]): SupportingSection[] {
+  return trends.map((section) => ({
+    sectionId: section.sectionId,
+    sectionName: section.sectionName,
+    bestTime: section.bestTimeSecs,
+    trend: section.trend,
+    traversalCount: section.traversalCount,
+    sportType: section.sportType,
+    hasRecentPR: section.latestIsPr,
+    daysSinceLast: section.daysSinceLast,
+    ranking: section.ranking,
+  }));
+}
+
+export interface SectionTrendCounts {
+  faster: number;
+  slower: number;
+}
+
+/** One summary whose rows retain every eligible section and sport. */
 export function generateSectionTrendInsights(
   sectionTrends: SectionTrendData[],
-  existingInsightIds: Set<string>,
+  coveredPairs: Set<string>,
   now: number,
-  t: TFunc
+  t: TFunc,
+  engineCounts?: SectionTrendCounts
 ): Insight[] {
-  if (!sectionTrends || sectionTrends.length === 0) return [];
+  const sections = engineCounts
+    ? [...sectionTrends]
+    : fallbackEligible(sectionTrends, coveredPairs);
+  sections.sort(
+    (a, b) =>
+      (b.ranking?.relevance ?? 0) - (a.ranking?.relevance ?? 0) ||
+      b.traversalCount - a.traversalCount
+  );
+  const [best] = sections;
+  if (!best) return [];
+  const faster = engineCounts?.faster ?? sections.filter((section) => section.trend > 0).length;
+  const slower = engineCounts?.slower ?? sections.filter((section) => section.trend < 0).length;
+  const newestAge = sections.reduce(
+    (age, section) => Math.min(age, section.daysSinceLast ?? 0),
+    Infinity
+  );
 
-  // The floor is the direction's, not the category's: a decline says the
-  // athlete got worse and has to stand on more than an improvement does.
-  const floorFor = (trend: number) =>
-    trend < 0
-      ? INSIGHTS_CONFIG.repetition.section_trend_declining_min
-      : INSIGHTS_CONFIG.repetition.section_trend_min;
-  const maxAgeDays = maxAgeDaysFor('section_trend');
-  const eligible = sectionTrends.filter((s) => {
-    if (s.traversalCount < floorFor(s.trend)) return false;
-    if (s.trend === 0) return false;
-    // Recency: keep sections of unknown age (no daysSinceLast) and those
-    // within the active window; drop stale ones.
-    if (s.daysSinceLast != null && Number.isFinite(s.daysSinceLast)) {
-      if (s.daysSinceLast > maxAgeDays) return false;
-    }
-    return true;
-  });
-  if (eligible.length === 0) return [];
-
-  // Relevance is the engine's composite rank, so it decides between two
-  // sections trending the same way. Traversal count only breaks a tie the
-  // engine did not score, which is the pattern fallback path.
-  const sorted = [...eligible].sort((a, b) => {
-    if (b.trend !== a.trend) return b.trend - a.trend;
-    const relevance = (b.ranking?.relevance ?? 0) - (a.ranking?.relevance ?? 0);
-    if (relevance !== 0) return relevance;
-    if (a.latestIsPr !== b.latestIsPr) return a.latestIsPr ? -1 : 1;
-    return b.traversalCount - a.traversalCount;
-  });
-
-  const cap = maxPerCategoryFor('section_trend');
-  const insights: Insight[] = [];
-  for (const section of sorted) {
-    if (insights.length >= cap) break;
-
-    // Skip sections that already have a PR or stale-PR insight
-    if (existingInsightIds.has(section.sectionId)) continue;
-
-    const isImproving = section.trend === 1;
-    const priority = isImproving && section.latestIsPr ? 2 : 3;
-
-    const daysSinceLast = section.daysSinceLast;
-    const sourceTimestamp =
-      daysSinceLast != null && Number.isFinite(daysSinceLast)
-        ? now - daysSinceLast * DAY_MS
-        : undefined;
-
-    insights.push(
-      makeInsight({
-        id: `section_trend-${section.sectionId}`,
-        category: 'section_trend',
-        priority: priority as 2 | 3,
-        icon: isImproving ? 'trending-up' : 'trending-down',
-        iconTone: isImproving ? 'positive' : 'negative',
-        title: isImproving
-          ? t('insights.sectionImproving', { name: section.sectionName })
-          : t('insights.sectionDeclining', { name: section.sectionName }),
-        body: isImproving
-          ? t('insights.sectionImprovingBody', {
-              median: formatDuration(section.medianRecentSecs),
-              best: formatDuration(section.bestTimeSecs),
-              count: section.traversalCount,
-            })
-          : t('insights.sectionDecliningBody', {
-              median: formatDuration(section.medianRecentSecs),
-              best: formatDuration(section.bestTimeSecs),
-              count: section.traversalCount,
-            }),
-        navigationTarget: `/section/${section.sectionId}`,
-        timestamp: now,
-        confidence: confidenceFrom('section_trend', section.traversalCount),
-        meta: {
-          sourceTimestamp,
-          comparisonKind: 'self',
-          repetitionCount: section.traversalCount,
-          placeName: section.sectionName,
-          sectionId: section.sectionId,
-          ranking: section.ranking,
-        },
-        supportingData: {
-          ...sparkline(section.recentEfforts, t('insights.data.recentEfforts')),
-          sections: [
-            {
-              sectionId: section.sectionId,
-              sectionName: section.sectionName,
-              bestTime: section.bestTimeSecs,
-              trend: section.trend,
-              traversalCount: section.traversalCount,
-              sportType: section.sportType,
-              hasRecentPR: section.latestIsPr,
-              daysSinceLast: section.daysSinceLast,
-              ranking: section.ranking,
-            },
-          ],
-          dataPoints: [
-            {
-              label: t('insights.data.recentMedian'),
-              value: formatDuration(section.medianRecentSecs),
-            },
-            {
-              label: t('insights.data.bestTime'),
-              value: formatDuration(section.bestTimeSecs),
-              context: 'good' as const,
-            },
-            {
-              label: t('insights.data.efforts'),
-              value: section.traversalCount,
-            },
-            ...(section.ranking
-              ? [
-                  {
-                    label: t('insights.data.relevance'),
-                    value: asPercent(section.ranking.relevance),
-                  },
-                  {
-                    label: t('insights.data.recency'),
-                    value: asPercent(section.ranking.recency),
-                  },
-                  {
-                    label: t('insights.data.improvementSignal'),
-                    value: asPercent(section.ranking.improvement),
-                  },
-                  {
-                    label: t('insights.data.anomaly'),
-                    value: asPercent(section.ranking.anomaly),
-                  },
-                  {
-                    label: t('insights.data.engagement'),
-                    value: asPercent(section.ranking.engagement),
-                  },
-                ]
-              : []),
-          ],
-        },
-        methodology: {
-          name: t('insights.methodology.sectionTrendName'),
-          description: t('insights.methodology.sectionTrend'),
-        },
-      })
-    );
-  }
-
-  return insights;
+  return [
+    makeInsight({
+      id: 'section_trend-summary',
+      category: 'section_trend',
+      priority: 3,
+      icon: faster >= slower ? 'trending-up' : 'trending-down',
+      iconTone: faster >= slower ? 'positive' : 'negative',
+      title: t('insights.sectionTrendSummary', {
+        faster: t('insights.sectionTrendFaster', { count: faster }),
+        slower: t('insights.sectionTrendSlower', { count: slower }),
+      }),
+      timestamp: now,
+      confidence: confidenceFrom('section_trend', best.traversalCount),
+      meta: {
+        sourceTimestamp: now - newestAge * DAY_MS,
+        comparisonKind: 'self',
+        repetitionCount: best.traversalCount,
+      },
+      supportingData: { sections: supportingSections(sections) },
+      methodology: {
+        name: t('insights.methodology.sectionTrendName'),
+        description: t('insights.methodology.sectionTrend'),
+      },
+    }),
+  ];
 }

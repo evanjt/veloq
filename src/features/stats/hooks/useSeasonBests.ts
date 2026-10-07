@@ -1,8 +1,22 @@
 import { useMemo } from 'react';
-import { usePowerCurve, getIndexAtDuration } from './usePowerCurve';
-import { usePaceCurve, getIndexAtDistance, getTimeAtDistance } from './usePaceCurve';
-import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
-import { type PrimarySport } from '@/features/fitness/stores';
+import { useBestEfforts, type BestEffortsSport } from './useBestEfforts';
+import {
+  formatPaceCompact,
+  formatSwimPace,
+  paceUnitLabel,
+  swimPaceUnitLabel,
+} from '@/shared/format/format';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
+import { type PrimarySport } from '@/features/fitness';
+import type { BestEffortsData } from 'veloqrs';
+
+/** What the climb read says about the rows behind empty windows. */
+export interface ClimbStatus {
+  /** Activities whose climb rows are still being computed. */
+  owed: number;
+  /** Activities left out because their elevation is not the corrected series. */
+  sourceExcluded: number;
+}
 
 export interface BestEffort {
   label: string;
@@ -12,8 +26,20 @@ export interface BestEffort {
   checkpoint: number; // secs for power, meters for pace
 }
 
+/** A climbing best as the rows draw it. */
+export interface ClimbBest {
+  label: string;
+  windowS: number;
+  /** Vertical metres per hour. */
+  vam: number | null;
+  wattsPerKg: number | null;
+  activityId: string | undefined;
+}
+
 export interface UseSeasonBestsResult {
   efforts: BestEffort[];
+  climbing: ClimbBest[];
+  climbingStatus: ClimbStatus;
   isLoading: boolean;
   headerSummary: string | null;
 }
@@ -23,95 +49,61 @@ interface UseSeasonBestsOptions {
   days: number;
 }
 
-const CYCLING_CHECKPOINTS = [
-  { secs: 5, label: '5s' },
-  { secs: 60, label: '1m' },
-  { secs: 300, label: '5m' },
-  { secs: 1200, label: '20m' },
-  { secs: 3600, label: '1h' },
-];
-
-const RUNNING_CHECKPOINTS = [
-  { meters: 400, label: '400m' },
-  { meters: 1000, label: '1K' },
-  { meters: 5000, label: '5K' },
-  { meters: 10000, label: '10K' },
-  { meters: 21097.5, label: 'Half' },
-];
-
-const SWIMMING_CHECKPOINTS = [
-  { meters: 100, label: '100m' },
-  { meters: 200, label: '200m' },
-  { meters: 400, label: '400m' },
-  { meters: 1500, label: '1500m' },
-];
-
-const API_TYPE: Record<PrimarySport, string> = {
+const API_TYPE: Record<PrimarySport, BestEffortsSport> = {
   Cycling: 'Ride',
   Running: 'Run',
   Swimming: 'Swim',
 };
 
+/** One sport's bests from the screen read, as the rows draw them. */
+export function bestEffortsOf(
+  data: BestEffortsData | null | undefined,
+  sport: PrimarySport
+): BestEffort[] {
+  const row = data?.sports.find((s) => s.sport === API_TYPE[sport]);
+  return (row?.efforts ?? []).map((e) => ({
+    label: e.label,
+    value: e.value ?? null,
+    time: e.time ?? null,
+    activityId: e.activityId,
+    checkpoint: e.checkpoint,
+  }));
+}
+
+/** One sport's climbing bests from the screen read: Ride and Run have them, Swim does not. */
+export function climbBestsOf(
+  data: BestEffortsData | null | undefined,
+  sport: PrimarySport
+): ClimbBest[] {
+  const row = data?.climbing.find((c) => c.sport === API_TYPE[sport]);
+  return (row?.bests ?? []).map((b) => ({
+    label: b.label,
+    windowS: b.windowS,
+    vam: b.vam ?? null,
+    wattsPerKg: b.wattsPerKg ?? null,
+    activityId: b.activityId,
+  }));
+}
+
+/** One sport's owed and excluded counts from the climb read, zero when it has no row. */
+export function climbStatusOf(
+  data: BestEffortsData | null | undefined,
+  sport: PrimarySport
+): ClimbStatus {
+  const row = data?.climbing.find((c) => c.sport === API_TYPE[sport]);
+  return { owed: row?.owed ?? 0, sourceExcluded: row?.sourceExcluded ?? 0 };
+}
+
 export function useSeasonBests({ sport, days }: UseSeasonBestsOptions): UseSeasonBestsResult {
-  const apiSport = API_TYPE[sport];
+  const isMetric = useMetricSystem();
+  const shown = useMemo(() => [API_TYPE[sport]], [sport]);
+  const { data, isLoading } = useBestEfforts(days, shown);
 
-  const { data: powerCurve, isLoading: loadingPower } = usePowerCurve({
-    sport: apiSport,
-    days,
-    enabled: sport === 'Cycling',
-  });
+  const efforts = useMemo((): BestEffort[] => bestEffortsOf(data, sport), [data, sport]);
 
-  const { data: paceCurve, isLoading: loadingPace } = usePaceCurve({
-    sport: apiSport,
-    days,
-    enabled: sport === 'Running' || sport === 'Swimming',
-  });
+  const climbing = useMemo((): ClimbBest[] => climbBestsOf(data, sport), [data, sport]);
 
-  const efforts = useMemo((): BestEffort[] => {
-    if (sport === 'Cycling') {
-      if (!powerCurve?.secs || !powerCurve?.watts) return [];
-      return CYCLING_CHECKPOINTS.map(({ secs, label }) => {
-        const index = getIndexAtDuration(powerCurve, secs);
-        return {
-          label,
-          value: index !== null ? (powerCurve.watts[index] ?? null) : null,
-          time: null,
-          activityId: index !== null ? powerCurve.activity_ids?.[index] : undefined,
-          checkpoint: secs,
-        };
-      });
-    }
-
-    if (sport === 'Running') {
-      if (!paceCurve?.distances || !paceCurve?.pace) return [];
-      return RUNNING_CHECKPOINTS.map(({ meters, label }) => {
-        const index = getIndexAtDistance(paceCurve, meters);
-        return {
-          label,
-          value: index !== null ? (paceCurve.pace[index] ?? null) : null,
-          time: getTimeAtDistance(paceCurve, meters),
-          activityId: index !== null ? paceCurve.activity_ids?.[index] : undefined,
-          checkpoint: meters,
-        };
-      });
-    }
-
-    if (sport === 'Swimming') {
-      if (!paceCurve?.distances || !paceCurve?.pace) return [];
-      return SWIMMING_CHECKPOINTS.map(({ meters, label }) => {
-        const index = getIndexAtDistance(paceCurve, meters);
-        return {
-          label,
-          value: index !== null ? (paceCurve.pace[index] ?? null) : null,
-          time: getTimeAtDistance(paceCurve, meters),
-          activityId: index !== null ? paceCurve.activity_ids?.[index] : undefined,
-          checkpoint: meters,
-        };
-      });
-    }
-
-    return [];
-  }, [sport, powerCurve, paceCurve]);
+  const climbingStatus = useMemo(() => climbStatusOf(data, sport), [data, sport]);
 
   const headerSummary = useMemo((): string | null => {
     if (efforts.length === 0) return null;
@@ -129,25 +121,27 @@ export function useSeasonBests({ sport, days }: UseSeasonBestsOptions): UseSeaso
     if (sport === 'Running') {
       // Show 5K pace as the headline
       const fiveK = efforts.find((e) => e.checkpoint === 5000);
-      if (fiveK?.value) return `5K: ${formatPaceCompact(fiveK.value)}/km`;
+      if (fiveK?.value)
+        return `5K: ${formatPaceCompact(fiveK.value, isMetric)}${paceUnitLabel(isMetric)}`;
       const first = efforts.find((e) => e.value !== null);
-      if (first?.value) return `${first.label}: ${formatPaceCompact(first.value)}/km`;
+      if (first?.value)
+        return `${first.label}: ${formatPaceCompact(first.value, isMetric)}${paceUnitLabel(isMetric)}`;
       return null;
     }
 
     if (sport === 'Swimming') {
       // Show 400m pace as the headline
       const fourHundred = efforts.find((e) => e.checkpoint === 400);
-      if (fourHundred?.value) return `400m: ${formatSwimPace(fourHundred.value)}/100m`;
+      if (fourHundred?.value)
+        return `400m: ${formatSwimPace(fourHundred.value, isMetric)}${swimPaceUnitLabel(isMetric)}`;
       const first = efforts.find((e) => e.value !== null);
-      if (first?.value) return `${first.label}: ${formatSwimPace(first.value)}/100m`;
+      if (first?.value)
+        return `${first.label}: ${formatSwimPace(first.value, isMetric)}${swimPaceUnitLabel(isMetric)}`;
       return null;
     }
 
     return null;
-  }, [sport, efforts]);
+  }, [sport, efforts, isMetric]);
 
-  const isLoading = sport === 'Cycling' ? loadingPower : loadingPace;
-
-  return { efforts, isLoading, headerSummary };
+  return { efforts, climbing, climbingStatus, isLoading, headerSummary };
 }

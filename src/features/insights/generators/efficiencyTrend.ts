@@ -1,4 +1,4 @@
-import type { EfficiencyTrend } from 'veloqrs';
+import { EfficiencyDirection, type EfficiencyTrend } from 'veloqrs';
 
 import type { Insight } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
@@ -6,9 +6,9 @@ import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/confi
 /**
  * Aerobic Efficiency Trend Insights
  *
- * Detects improving aerobic efficiency on frequently-visited sections by
- * analysing heart rate per unit of speed over time. A declining ratio, fewer
- * beats for the same speed, indicates physiological adaptation.
+ * Detects changes in aerobic efficiency on frequently visited sections by
+ * analysing heart rate per unit of speed over time. A lower ratio means less
+ * cardiac cost at the same speed.
  *
  * Evidence base:
  * Coyle, E. F. et al. (1991). Time course of loss of adaptations after
@@ -18,7 +18,7 @@ import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/confi
  *
  * Data source: the engine's insights bundle, which computes linear regression
  * of that ratio over matched efforts and returns only the sections that
- * cleared the improvement, effort-count and HR-change thresholds. Sections
+ * cleared a directional, effort-count and HR-change threshold. Sections
  * without sufficient HR data never reach here.
  */
 
@@ -44,26 +44,43 @@ export function generateEfficiencyTrendInsights(
   const minEfforts = INSIGHTS_CONFIG.repetition.efficiency_trend_min;
   const insights: Insight[] = [];
 
-  for (const trend of trends) {
+  const ordered = [...trends].sort(
+    (a, b) =>
+      Number(a.direction !== EfficiencyDirection.Improving) -
+      Number(b.direction !== EfficiencyDirection.Improving)
+  );
+  for (const trend of ordered) {
     if (insights.length >= cap) break;
 
-    if (!trend.isImproving || trend.effortCount < minEfforts) continue;
+    const declining = trend.direction === EfficiencyDirection.Worsening;
+    const floor = declining
+      ? INSIGHTS_CONFIG.repetition.efficiency_trend_declining_min
+      : minEfforts;
+    if (trend.direction === EfficiencyDirection.Flat || trend.effortCount < floor) continue;
 
     const hrChange = Math.abs(Math.round(trend.hrChangeBpm));
-    if (hrChange < 1) continue;
 
     insights.push({
-      id: `efficiency_trend-${trend.sectionId}`,
+      id: `efficiency_trend-${trend.sectionId}-${trend.sportType}`,
       category: 'efficiency_trend',
       priority: 1,
       icon: 'heart-pulse',
-      iconTone: 'positive',
-      title: t('insights.efficiencyTrend.title', { name: trend.sectionName }),
-      subtitle: t('insights.efficiencyTrend.subtitle', {
-        hrChange,
-        efforts: trend.effortCount,
-      }),
-      body: t('insights.efficiencyTrend.body', {
+      iconTone: declining ? 'neutral' : 'positive',
+      title: t(
+        declining ? 'insights.efficiencyTrend.changeTitle' : 'insights.efficiencyTrend.title',
+        {
+          name: trend.sectionName,
+          hrChange,
+        }
+      ),
+      subtitle: t(
+        declining ? 'insights.efficiencyTrend.changeSubtitle' : 'insights.efficiencyTrend.subtitle',
+        {
+          hrChange,
+          efforts: trend.effortCount,
+        }
+      ),
+      body: t(declining ? 'insights.efficiencyTrend.changeBody' : 'insights.efficiencyTrend.body', {
         name: trend.sectionName,
         efforts: trend.effortCount,
         hrChange,
@@ -92,14 +109,22 @@ export function generateEfficiencyTrendInsights(
               sparklineLabel: t('insights.efficiencyTrend.seriesLabel'),
             }
           : {}),
+        // The ratio is heart rate times pace, so its slope and the engine's
+        // direction describe the same movement.
+        trend: {
+          direction: trend.trendSlope < 0 ? 'down' : trend.trendSlope > 0 ? 'up' : 'flat',
+          verdict: declining ? 'declined' : 'improved',
+        },
         dataPoints: [
           {
+            key: 'hrChange',
             label: t('insights.data.hrChange'),
-            value: `-${hrChange}`,
+            value: `${declining ? '+' : '-'}${hrChange}`,
             unit: 'bpm',
-            context: 'good' as const,
+            context: declining ? ('neutral' as const) : ('good' as const),
           },
           {
+            key: 'effortCount',
             label: t('insights.data.efforts'),
             value: trend.effortCount,
           },
@@ -113,14 +138,14 @@ export function generateEfficiencyTrendInsights(
           {
             sectionId: trend.sectionId,
             sectionName: trend.sectionName,
+            sportType: trend.sportType,
           },
         ],
       },
       methodology: {
-        name: 'Aerobic efficiency regression',
-        description:
-          'Tracks heart rate per unit of speed across matched section efforts over time. Uses ordinary least squares linear regression on that time series.',
-        formula: 'efficiency = avg_hr * pace_secs_per_km',
+        name: t('insights.methodology.efficiencyName'),
+        description: t('insights.methodology.efficiencyDescription'),
+        formula: t('insights.methodology.efficiencyFormula'),
       },
     });
   }

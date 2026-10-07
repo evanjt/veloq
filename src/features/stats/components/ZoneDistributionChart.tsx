@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
+import { RangeCoverage } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import { ZoneHistogram, type ZoneBand } from '@/shared/charts';
@@ -18,6 +19,12 @@ interface ZoneDistributionChartProps {
   title?: string | undefined;
   /** Time period label */
   periodLabel?: string | undefined;
+  /**
+   * The census answer for the period the caption names. `NotFetched` turns the
+   * empty state into "not downloaded", and under bars adds a line saying part
+   * of the period is missing. Absent, the card claims nothing either way.
+   */
+  coverage?: RangeCoverage | undefined;
 }
 
 export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
@@ -25,6 +32,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
   type = 'power',
   title,
   periodLabel,
+  coverage,
 }: ZoneDistributionChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -57,6 +65,8 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
     [processedData]
   );
 
+  const notDownloaded = coverage === RangeCoverage.NotFetched;
+
   // Show empty state if no data
   if (!data || data.length === 0) {
     return (
@@ -66,12 +76,16 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
           <Text style={[styles.subtitle, isDark && styles.textDark]}>{displayPeriodLabel}</Text>
         </View>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>{t('stats.noZoneData')}</Text>
-          <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-            {type === 'power'
-              ? t('stats.completeActivitiesPower')
-              : t('stats.completeActivitiesHr')}
+          <Text style={[styles.emptyText, isDark && styles.textDark]}>
+            {notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noZoneData')}
           </Text>
+          {!notDownloaded && (
+            <Text style={[styles.emptyHint, isDark && styles.textDark]}>
+              {type === 'power'
+                ? t('stats.completeActivitiesPower')
+                : t('stats.completeActivitiesHr')}
+            </Text>
+          )}
         </View>
       </View>
     );
@@ -96,6 +110,15 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
           {formatDurationHuman(processedData.reduce((sum, d) => sum + d.seconds, 0))}
         </Text>
       </View>
+
+      {notDownloaded && (
+        <Text
+          testID="zone-distribution-partial"
+          style={[styles.partial, isDark && styles.textDark]}
+        >
+          {t('stats.rangePartlyDownloaded')}
+        </Text>
+      )}
     </View>
   );
 });
@@ -141,6 +164,11 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  partial: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   emptyState: {
     flex: 1,

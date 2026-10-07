@@ -1,18 +1,15 @@
 import { useMemo } from 'react';
 
 import { useWellness, timeRangeToDays, type TimeRange } from '@/features/wellness';
-import {
-  useActivities,
-  useActivityStreams,
-  useEFTPHistory,
-  getLatestFTP,
-} from '@/features/activity';
-import { isCyclingActivity } from '@/shared/activity/activityUtils';
+import { decouplingSource, useActivities, getLatestFTP } from '@/features/activity';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve, useSeasonBests } from '@/features/stats';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { useZoneDistribution } from './useZoneDistribution';
+import { useDailyActivityLoads } from './useDailyActivityLoads';
+import { useFitnessScreenRead } from './useFitnessScreenRead';
+import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
 
 interface UseFitnessScreenDataArgs {
   timeRange: TimeRange;
@@ -38,10 +35,14 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     enabled: isAuthenticated,
   });
 
-  const powerZones = useZoneDistribution({ type: 'power', sport: sportMode });
-  const hrZones = useZoneDistribution({ type: 'hr', sport: sportMode });
+  const dailyLoads = useDailyActivityLoads(days, isAuthenticated);
 
-  const eftpHistory = useEFTPHistory(activities);
+  const powerZones = useZoneDistribution({ type: 'power', sport: sportMode, days });
+  const hrZones = useZoneDistribution({ type: 'hr', sport: sportMode, days });
+  // The census over the period the zone cards are captioned with.
+  const zoneCoverage = useRangeCoverage(days);
+
+  const { eftpTrend, eftpChanges, storedRunPace, storedSwimPace } = useFitnessScreenRead();
 
   const { data: sportSettings } = useSportSettings();
   const cyclingSettings = getSettingsForSport(sportSettings, 'Ride');
@@ -68,44 +69,38 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
 
   const {
     efforts: bestsEfforts,
+    climbing: bestsClimbing,
+    climbingStatus: bestsClimbingStatus,
     isLoading: loadingBests,
     headerSummary: bestsHeader,
   } = useSeasonBests({ sport: sportMode, days });
 
-  const decouplingActivity = useMemo(() => {
-    if (!activities) return null;
-    return (
-      activities.find(
-        (a) =>
-          isCyclingActivity(a.type) &&
-          (a.icu_average_watts || a.average_watts) &&
-          (a.average_heartrate || a.icu_average_hr) &&
-          a.moving_time >= 30 * 60
-      ) || null
-    );
-  }, [activities]);
-
-  const { data: decouplingStreams, isLoading: loadingStreams } = useActivityStreams(
-    decouplingActivity?.id || ''
-  );
+  // The value intervals.icu stored on the ride, which is what its activity
+  // screen prints, so the card and that screen cannot disagree.
+  const decoupling = useMemo(() => decouplingSource(activities), [activities]);
 
   return {
     wellness,
     activities,
+    dailyLoads,
     powerZones,
     hrZones,
-    eftpHistory,
+    zoneCoverage,
+    eftpTrend,
+    eftpChanges,
+    storedRunPace,
+    storedSwimPace,
     currentFTP,
     runSettings,
     runPaceCurve,
     swimPaceCurve,
     bestsEfforts,
+    bestsClimbing,
+    bestsClimbingStatus,
     loadingActivities,
     loadingBests,
     bestsHeader,
-    decouplingActivity,
-    decouplingStreams,
-    loadingStreams,
+    decouplingSource: decoupling,
     isLoading,
     isFetching,
     isError,

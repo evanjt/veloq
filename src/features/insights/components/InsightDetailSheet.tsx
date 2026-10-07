@@ -19,7 +19,7 @@ import {
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
 import type { Insight } from '@/types';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 /** Share of the window the sheet rises to. */
 const SHEET_FRACTION = 0.85;
@@ -52,12 +52,14 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   // Content components for these categories already have embedded navigation
   // (e.g. tappable section names that go straight to the section detail page).
   const contentHandlesNav =
-    insight.category === 'section_pr' || insight.category === 'section_trend';
+    insight.category === 'section_pr' ||
+    insight.category === 'section_trend' ||
+    insight.category === 'route';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <Pressable style={pressable(styles.backdrop)} onPress={onClose}>
+      <Pressable style={pressable(styles.backdrop)} android_ripple={pressRipple} onPress={onClose}>
         <View style={styles.backdropFill} />
       </Pressable>
       <View
@@ -92,6 +94,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
             </Text>
             <Pressable
               style={pressable(styles.closeButton)}
+              android_ripple={pressRipple}
               onPress={onClose}
               hitSlop={12}
               accessibilityRole="button"
@@ -122,6 +125,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
           {/* Methodology transparency - single "How was this calculated?" block */}
           {insight.methodology ||
+          insight.meta?.ranking ||
           insight.supportingData?.formula ||
           insight.supportingData?.algorithmDescription ? (
             <View style={styles.methodologySection}>
@@ -133,6 +137,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           {hasNavTarget ? (
             <Pressable
               style={pressable([styles.navLink, isDark && styles.navLinkDark])}
+              android_ripple={pressRipple}
               onPress={handleNavigate}
             >
               <Text style={[styles.navLinkText, isDark && styles.navLinkTextDark]}>
@@ -165,8 +170,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: layout.borderRadiusXl,
+    borderTopRightRadius: layout.borderRadiusXl,
     overflow: 'hidden',
   },
   sheetDark: {

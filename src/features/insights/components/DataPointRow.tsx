@@ -2,14 +2,24 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  layout,
+  typography,
+  verdictColor,
+  type VerdictRung,
+} from '@/theme';
 import type { DataPoint } from '@/types';
 
-const CONTEXT_COLORS: Record<string, string> = {
-  good: colors.success,
-  warning: colors.warning,
-  concern: colors.error,
-  neutral: colors.textDisabled,
+/** The ladder rung each verdict a generator gives a value is drawn on. */
+const CONTEXT_RUNG: Record<NonNullable<DataPoint['context']>, VerdictRung> = {
+  good: 'positive',
+  warning: 'caution',
+  concern: 'negative',
+  neutral: 'neutral',
 };
 
 interface DataPointRowProps {
@@ -18,7 +28,9 @@ interface DataPointRowProps {
 
 export const DataPointRow = React.memo(function DataPointRow({ dataPoint }: DataPointRowProps) {
   const { isDark } = useTheme();
-  const contextColor = dataPoint.context ? CONTEXT_COLORS[dataPoint.context] : undefined;
+  const contextColor = dataPoint.context
+    ? verdictColor(CONTEXT_RUNG[dataPoint.context], isDark)
+    : undefined;
 
   return (
     <View style={styles.container}>

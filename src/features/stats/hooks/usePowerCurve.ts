@@ -1,4 +1,5 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
@@ -29,6 +30,7 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   // fetched", which is the cue to ask Rust for it; the empty curve is what the
   // chart draws in the meantime.
   const query = useQuery<DatedPowerCurve | null>({
+    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => {
       // The engine answers `null` for a window never fetched and for a body
@@ -72,30 +74,6 @@ function emptyPowerCurve(sport: string): PowerCurve {
   return { type: 'power', sport, secs: [], watts: [] };
 }
 
-// Standard durations for power curve display (in seconds)
-export const POWER_CURVE_DURATIONS = [
-  { secs: 5, label: '5s' },
-  { secs: 15, label: '15s' },
-  { secs: 30, label: '30s' },
-  { secs: 60, label: '1m' },
-  { secs: 120, label: '2m' },
-  { secs: 300, label: '5m' },
-  { secs: 600, label: '10m' },
-  { secs: 1200, label: '20m' },
-  { secs: 1800, label: '30m' },
-  { secs: 3600, label: '1h' },
-  { secs: 7200, label: '2h' },
-];
-
-// Get power at a specific duration from the curve
-export function getPowerAtDuration(curve: PowerCurve | undefined, secs: number): number | null {
-  if (!curve?.watts) return null;
-
-  const index = getIndexAtDuration(curve, secs);
-  if (index === null) return null;
-  return curve.watts[index] ?? null;
-}
-
 // Get the array index for a given duration (exact or closest match)
 export function getIndexAtDuration(curve: PowerCurve | undefined, secs: number): number | null {
   if (!curve?.secs || curve.secs.length === 0) return null;
@@ -113,14 +91,4 @@ export function getIndexAtDuration(curve: PowerCurve | undefined, secs: number):
     }
   }
   return closestIndex;
-}
-
-// Format power curve data for chart display
-export function formatPowerCurveForChart(curve: PowerCurve | undefined) {
-  if (!curve?.secs || !curve?.watts) return [];
-
-  return POWER_CURVE_DURATIONS.map(({ secs, label }) => {
-    const power = getPowerAtDuration(curve, secs);
-    return power !== null ? { secs, label, power } : null;
-  }).filter((d): d is { secs: number; label: string; power: number } => d !== null);
 }

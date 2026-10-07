@@ -21,9 +21,14 @@ import {
 import type { VerdictRung } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
 
-import { formatSetCount, formatBalanceRatio } from '../lib/formatting';
-import { BALANCE_PAIR_NAMES } from '../lib/analysis';
-import { pressable } from '@/shared/ui';
+import {
+  balanceStatusLabelKey,
+  formatSetCount,
+  formatBalanceRatio,
+  type BalanceCopyKey,
+} from '../lib/formatting';
+import { listBalancePairNames } from '../lib/analysis';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface StrengthBalanceViewProps {
   visibleBalancePairs: StrengthBalancePair[];
@@ -49,6 +54,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
 }: StrengthBalanceViewProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
+  const balanceCopy = (key: BalanceCopyKey) => t(key);
   const [infoOpen, setInfoOpen] = useState(false);
   const openInfo = useCallback(() => setInfoOpen(true), []);
   const closeInfo = useCallback(() => setInfoOpen(false), []);
@@ -69,6 +75,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
               accessibilityLabel={t('strength.pairsInfoTitle')}
               accessibilityRole="button"
               style={pressable()}
+              android_ripple={pressRipple}
             >
               <MaterialCommunityIcons
                 name="information-outline"
@@ -98,7 +105,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
                 { color: verdictColor(balanceRung(featuredBalancePair.status), isDark) },
               ]}
             >
-              {formatBalanceRatio(featuredBalancePair)}
+              {formatBalanceRatio(featuredBalancePair, balanceCopy)}
             </Text>
           </View>
         ) : null}
@@ -109,12 +116,12 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
           {featuredBalancePair.status === 'balanced'
             ? t('strength.balancedPairsClose')
             : t('strength.balanceDominant', {
-                dominant: featuredBalancePair.dominantLabel ?? 'One side',
+                dominant: featuredBalancePair.dominantLabel ?? t('strength.oneSide'),
                 other:
                   featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
                     ? featuredBalancePair.rightLabel
                     : featuredBalancePair.leftLabel,
-                pair: featuredBalancePair.label.toLowerCase(),
+                pair: featuredBalancePair.label,
               })}
         </Text>
       ) : null}
@@ -144,15 +151,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
                   { color: verdictColor(balanceRung(pair.status), isDark) },
                 ]}
               >
-                {pair.status === 'balanced'
-                  ? t('insights.strengthBalance.balanced')
-                  : pair.status === 'watch'
-                    ? t('insights.strengthBalance.watch')
-                    : pair.status === 'imbalanced'
-                      ? t('insights.strengthBalance.imbalanced')
-                      : pair.status === 'one-sided'
-                        ? t('insights.strengthBalance.oneSided')
-                        : t('insights.strengthBalance.lowSignal')}
+                {t(balanceStatusLabelKey(pair.status))}
               </Text>
             </View>
           </View>
@@ -180,7 +179,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
           </View>
 
           <Text style={[styles.balanceRatioText, isDark && styles.balanceRatioTextDark]}>
-            {formatBalanceRatio(pair)}
+            {formatBalanceRatio(pair, balanceCopy)}
           </Text>
         </View>
       ))}
@@ -196,9 +195,14 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
         onRequestClose={closeInfo}
         statusBarTranslucent
       >
-        <Pressable style={pressable(styles.modalBackdrop)} onPress={closeInfo}>
+        <Pressable
+          style={pressable(styles.modalBackdrop)}
+          android_ripple={pressRipple}
+          onPress={closeInfo}
+        >
           <Pressable
             style={pressable([styles.modalCard, isDark && styles.modalCardDark])}
+            android_ripple={pressRipple}
             onPress={(e) => e.stopPropagation()}
           >
             <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
@@ -207,7 +211,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <Text style={[styles.modalIntro, isDark && styles.modalIntroDark]}>
               {t('strength.pairsInfoIntro')}
             </Text>
-            {BALANCE_PAIR_NAMES.map(({ id, label }) => (
+            {listBalancePairNames(t).map(({ id, label }) => (
               <Text key={id} style={[styles.modalPair, isDark && styles.modalPairDark]}>
                 • {label}
               </Text>
@@ -218,8 +222,14 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <Text style={[styles.modalThresholds, isDark && styles.modalThresholdsDark]}>
               {t('strength.pairsInfoMinSignal')}
             </Text>
-            <Pressable onPress={closeInfo} style={pressable(styles.modalCloseButton)}>
-              <Text style={styles.modalCloseText}>{t('common.done')}</Text>
+            <Pressable
+              onPress={closeInfo}
+              style={pressable(styles.modalCloseButton)}
+              android_ripple={pressRipple}
+            >
+              <Text style={[styles.modalCloseText, isDark && { color: darkColors.linkTeal }]}>
+                {t('common.done')}
+              </Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -443,6 +453,6 @@ const styles = StyleSheet.create({
   modalCloseText: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.linkTeal,
   },
 });

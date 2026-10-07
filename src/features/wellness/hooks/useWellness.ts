@@ -8,6 +8,7 @@
  * refreshes the charts without a second network call.
  */
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { PERIOD_DAYS } from '@/shared/app/period';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -116,6 +117,7 @@ export function useWellness(range: TimeRange = '3m') {
   useWellnessInvalidation();
 
   return useQuery<WellnessData[]>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.wellness.byRange(range, oldest, newest),
     queryFn: () => readWellness(oldest, newest),
     enabled: isAuthenticated,
@@ -126,26 +128,6 @@ export function useWellness(range: TimeRange = '3m') {
   });
 }
 
-/**
- * The newest stored wellness date, or null when nothing has synced.
- *
- * A scalar, so a screen can date the last sync without pulling the rows and
- * their CTL back across the FFI to quote as today's figures.
- */
-export function useWellnessLatestDate() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-
-  useWellnessInvalidation();
-
-  return useQuery<string | null>({
-    queryKey: queryKeys.wellness.latestDate,
-    queryFn: () => getEngine()?.getWellnessLatestDate?.() ?? null,
-    enabled: isAuthenticated,
-    staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 24,
-  });
-}
-
 // Used for showing Form (CTL/ATL/TSB) on activity detail pages.
 export function useWellnessForDate(date: string | undefined) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -153,6 +135,7 @@ export function useWellnessForDate(date: string | undefined) {
   useWellnessInvalidation();
 
   return useQuery<WellnessData | null>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.wellness.byDate(date),
     queryFn: () => {
       if (!date) return null;

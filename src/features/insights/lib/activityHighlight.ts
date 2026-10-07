@@ -14,6 +14,4 @@ export interface ActivityInfo {
   name: string;
   type: string;
   ingested: boolean;
-  distance?: number | undefined;
-  movingTime?: number | undefined;
 }

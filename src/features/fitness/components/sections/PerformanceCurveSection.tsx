@@ -13,6 +13,8 @@ import {
   CurveFreshnessLine,
   curveFreshness,
   type BestEffort,
+  type ClimbBest,
+  type ClimbStatus,
 } from '@/features/stats';
 import { useTheme } from '@/shared/app';
 import {
@@ -20,7 +22,13 @@ import {
   SPORT_TEXT_COLORS_DARK,
   type PrimarySport,
 } from '@/features/fitness/stores';
-import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
+import {
+  formatPaceCompact,
+  formatSwimPace,
+  paceUnitLabel,
+  swimPaceUnitLabel,
+} from '@/shared/format/format';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SeasonBestsSection } from '..';
 
@@ -35,6 +43,8 @@ interface PerformanceCurveSectionProps {
   bestsExpanded: boolean;
   onBestsToggle: (expanded: boolean) => void;
   bestsEfforts: BestEffort[];
+  bestsClimbing: ClimbBest[];
+  bestsClimbingStatus: ClimbStatus;
   loadingBests: boolean;
   bestsHeader: string | null;
 }
@@ -50,11 +60,14 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
   bestsExpanded,
   onBestsToggle,
   bestsEfforts,
+  bestsClimbing,
+  bestsClimbingStatus,
   loadingBests,
   bestsHeader,
 }: PerformanceCurveSectionProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const sportText = isDark ? SPORT_TEXT_COLORS_DARK : SPORT_TEXT_COLORS;
 
   // The chart under each row decides whether there is a series, so the header
@@ -110,14 +123,18 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
           estimatedHeight={sportMode === 'Cycling' ? 270 : 240}
           headerRight={
             sportMode === 'Cycling' && headerFtp ? (
-              <Text style={[styles.headerValue, { color: sportText.Cycling }]}>{headerFtp}w</Text>
+              <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
+                {headerFtp} {t('units.watts')}
+              </Text>
             ) : sportMode === 'Running' && headerRunPace ? (
               <Text style={[styles.headerValue, { color: sportText.Running }]}>
-                {formatPaceCompact(headerRunPace)}/km
+                {formatPaceCompact(headerRunPace, isMetric)}
+                {paceUnitLabel(isMetric)}
               </Text>
             ) : sportMode === 'Swimming' && headerSwimPace ? (
               <Text style={[styles.headerValue, { color: sportText.Swimming }]}>
-                {formatSwimPace(headerSwimPace)}/100m
+                {formatSwimPace(headerSwimPace, isMetric)}
+                {swimPaceUnitLabel(isMetric)}
               </Text>
             ) : null
           }
@@ -155,8 +172,9 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
             <CurveFreshnessLine freshness={freshness} />
             <SeasonBestsSection
               efforts={bestsEfforts}
+              climbing={bestsClimbing}
+              climbingStatus={bestsClimbingStatus}
               sport={sportMode}
-              days={days}
               isLoading={loadingBests}
             />
           </View>

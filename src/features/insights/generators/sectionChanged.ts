@@ -9,7 +9,7 @@ import { NO_POPULATION, maxPerCategoryFor } from '../lib/config';
  * than judging the change: what moved and when, never why it was right.
  *
  * Data source: the engine's ledger of visible changes on live sections
- * (`getRecentSectionChanges`), joined to display names by the caller.
+ * (`recent_section_changes` on `insights_data`), joined to display names by the caller.
  */
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -51,7 +51,9 @@ export function generateSectionChangedInsights(
       body: t('insights.sectionChanged.body'),
       navigationTarget: `/section/${change.sectionId}`,
       timestamp: now,
-      isNew: true,
+      // The dot is the fingerprint diff's to set, so a card the athlete has
+      // seen loses it.
+      isNew: false,
       confidence: NO_POPULATION,
       meta: {
         sourceTimestamp: change.at,

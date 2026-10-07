@@ -1,8 +1,12 @@
+import type { FfiImprovementBasis } from 'veloqrs';
 import type { InsightTone } from '@/theme';
+import type { TrendDirection, TrendVerdict } from '@/shared/format/trend';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 export type InsightCategory =
   | 'section_pr'
   | 'section_trend'
+  | 'route'
   | 'stale_pr'
   | 'fitness_milestone'
   | 'period_comparison'
@@ -14,7 +18,15 @@ export type InsightCategory =
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;
 
+/**
+ * What a value is, for a reader that needs one value by name. The label is
+ * translated, so a reader that matched it found nothing outside English.
+ */
+export type DataPointKey = 'hrvAverage' | 'hrvLatest' | 'hrChange' | 'effortCount' | 'balanceRatio';
+
 export interface DataPoint {
+  /** Set where a sheet or the card reads this value back by name. */
+  key?: DataPointKey | undefined;
   label: string;
   value: number | string;
   unit?: string | undefined;
@@ -36,7 +48,7 @@ export interface InsightMethodology {
 }
 
 /**
- * The engine's ML relevance breakdown for one section, all 0..1.
+ * The engine's composite relevance breakdown for one section, all 0..1.
  * `relevance` is the composite the ranker sorts on, the other four are the
  * components it weighs. Weights live in Rust
  * (`persistence/sections/ranking.rs`) and are not restated here.
@@ -47,6 +59,14 @@ export interface SectionRankingScores {
   improvement: number;
   anomaly: number;
   engagement: number;
+  /**
+   * The signed fraction the athlete got faster by before `improvement` clamps
+   * it: +0.14 is 14% faster, -1.5 is 150% slower. Absent when the engine
+   * compared nothing, which is not a 0% change.
+   */
+  improvementChange?: number | undefined;
+  /** What `improvementChange` compares. Absent when it is. */
+  improvementBasis?: FfiImprovementBasis | undefined;
 }
 
 export interface SupportingSection {
@@ -60,7 +80,34 @@ export interface SupportingSection {
   daysSinceLast?: number | undefined;
   ranking?: SectionRankingScores | undefined;
   /** The section's line, thinned by the engine for the card's thumbnail. */
-  previewPoints?: { lat: number; lng: number }[] | undefined;
+  previewPoints?: LatLngShort[] | undefined;
+}
+
+/**
+ * One route bucket an insight lists: a route in one sport and one direction,
+ * as the engine's insights read carried it.
+ */
+export interface SupportingRoute {
+  /** One row per route, sport and direction: the React key. */
+  rowKey: string;
+  routeId: string;
+  routeName: string;
+  sportType: string;
+  /**
+   * Set only where the list holds the route's other direction too, or this is
+   * the reverse one, so a route ridden one way carries no label.
+   */
+  direction?: 'forward' | 'reverse' | undefined;
+  isRecentRecord: boolean;
+  /** -1 slower, 0 stable, 1 faster. */
+  trend: number;
+  /** The fastest counted attempt's moving time, seconds. */
+  bestTime: number;
+  daysSinceLast: number;
+  attemptCount: number;
+  /** The last counted attempts' moving times, oldest first. */
+  recentEfforts?: SeriesPoint[] | undefined;
+  navigationTarget: string;
 }
 
 export interface SupportingActivity {
@@ -71,12 +118,25 @@ export interface SupportingActivity {
   sportType?: string;
 }
 
+/**
+ * The move a card reports, judged where the metric is known. A surface draws
+ * the glyph and the rung from this and never from the sign of a number, which
+ * is what drew a falling efficiency ratio, the good news, in red.
+ */
+export interface SupportingTrend {
+  direction: TrendDirection;
+  verdict: TrendVerdict;
+}
+
 export interface InsightSupportingData {
   dataPoints?: DataPoint[];
   sections?: SupportingSection[];
+  routes?: SupportingRoute[];
   activities?: SupportingActivity[];
   sparklineData?: number[];
   sparklineLabel?: string;
+  /** The direction and verdict of the series or comparison the card reports. */
+  trend?: SupportingTrend | undefined;
   comparisonData?: {
     current: DataPoint;
     previous: DataPoint;
@@ -93,12 +153,6 @@ export interface InsightMeta {
    * `Insight.timestamp` (generation time) when unset - treat unset as "fresh".
    */
   sourceTimestamp?: number | undefined;
-  /**
-   * Centroid of the section/route the insight references, if location-bound.
-   * Drives the proximity gate (G2). Absent for non-location insights
-   * (fitness milestones, HRV, strength).
-   */
-  location?: { lat: number; lng: number } | undefined;
   /**
    * 'self' compares the user to their own past (Kappen 2018 - preferred).
    * 'other' compares to population/others. 'none' for pure status facts.
@@ -222,7 +276,7 @@ export interface SectionPR {
   /** The last efforts on the section, oldest first, for the card's graphic. */
   recentEfforts?: SeriesPoint[];
   /** The section's line, thinned by the engine for the card's thumbnail. */
-  previewPoints?: { lat: number; lng: number }[];
+  previewPoints?: LatLngShort[];
 }
 
 export interface SectionTrendData {

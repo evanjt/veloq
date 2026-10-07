@@ -4,8 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
-import type { VerdictRung } from '@/theme';
-import type { StrengthProgressTrend } from '@/features/strength/types';
+import { trendVerdict, verdictRung } from '@/shared/format/trend';
 import {
   colors,
   darkColors,
@@ -19,12 +18,19 @@ import {
 } from '@/theme';
 import type { ExerciseSummary, MuscleVolume, StrengthProgression } from '@/types';
 
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
-import { formatSetCount, formatWeightRounded as formatWeight } from '../lib/formatting';
+import { muscleName as nameOf } from '../lib/muscleNames';
+import { formatSetCount } from '../lib/formatting';
+import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
+import { Card } from '@/shared/ui/Card';
 
 interface StrengthProgressionCardProps {
   selectedVolume: MuscleVolume;
-  progression: StrengthProgression;
+  /**
+   * The muscle's trailing four weeks, or null when none of them reached it.
+   * The period totals are drawn either way: the period can reach further back
+   * than four weeks.
+   */
+  progression: StrengthProgression | null;
   maxProgressWeightedSets: number;
   exerciseSummary?: { exercises: ExerciseSummary[] } | null;
   /** Period label for the right-side stats (e.g. "4 weeks", "7 days"). */
@@ -36,17 +42,6 @@ interface StrengthProgressionCardProps {
 
 const MINI_BAR_HEIGHT = 26;
 const MINI_BAR_WIDTH = 6;
-
-/**
- * A progression trend is a verdict. A fall used to share amber with a caution,
- * which made a decline read as a warning about what comes next rather than a
- * judgement on what already happened.
- */
-function trendRung(trend: StrengthProgressTrend): VerdictRung {
-  if (trend === 'up') return 'positive';
-  if (trend === 'down') return 'negative';
-  return 'neutral';
-}
 
 export const StrengthProgressionCard = React.memo(function StrengthProgressionCard({
   selectedVolume,
@@ -60,153 +55,166 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
 
-  const muscleName = MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug;
+  const muscleName = nameOf(selectedVolume.slug, t);
 
   return (
-    <View style={[styles.progressCard, isDark && styles.progressCardDark]}>
-      <View style={styles.titleRow}>
-        <View style={styles.titleColumn}>
-          <Text style={[styles.progressTitle, isDark && styles.progressTitleDark]}>
-            {t('strength.progression', { muscle: muscleName })}
-          </Text>
-          <Text style={[styles.progressSubtitle, isDark && styles.progressSubtitleDark]}>
-            {t('strength.last4Weeks')}
-          </Text>
-        </View>
+    <View testID="strength-progression-card" style={styles.progressFrame}>
+      <Card variant="flat">
+        <View style={styles.titleRow}>
+          <View style={styles.titleColumn}>
+            <Text style={[styles.progressTitle, isDark && styles.progressTitleDark]}>
+              {progression ? t('strength.progression', { muscle: muscleName }) : muscleName}
+            </Text>
+            {progression ? (
+              <Text style={[styles.progressSubtitle, isDark && styles.progressSubtitleDark]}>
+                {t('strength.last4Weeks')}
+              </Text>
+            ) : null}
+          </View>
 
-        {/* Inline mini bar chart: always represents the trailing 4 weeks
+          {/* Inline mini bar chart: always represents the trailing 4 weeks
             regardless of the period selector above. */}
-        <View style={styles.miniBars}>
-          {progression.points.map((point, index) => {
-            const isCurrent = index === progression.points.length - 1;
-            return (
-              <View
-                key={point.label}
-                style={[
-                  styles.miniBar,
-                  {
-                    height: Math.max(
-                      3,
-                      (point.weightedSets / maxProgressWeightedSets) * MINI_BAR_HEIGHT
-                    ),
-                    backgroundColor: isCurrent ? brand.tealLight : brand.tealDark,
-                  },
-                ]}
-              />
-            );
-          })}
-        </View>
+          {progression ? (
+            <View style={styles.miniBars}>
+              {progression.points.map((point, index) => {
+                const isCurrent = index === progression.points.length - 1;
+                return (
+                  <View
+                    key={point.label}
+                    style={[
+                      styles.miniBar,
+                      {
+                        height: Math.max(
+                          3,
+                          (point.weightedSets / maxProgressWeightedSets) * MINI_BAR_HEIGHT
+                        ),
+                        backgroundColor: isCurrent ? brand.tealLight : brand.tealDark,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          ) : null}
 
-        {progression.changePct != null && (
-          <View
-            style={[
-              styles.trendBadge,
-              { backgroundColor: verdictFill(trendRung(progression.trend), isDark, true) },
-            ]}
-          >
-            <Text
+          {progression?.changePct != null && (
+            <View
               style={[
-                styles.trendText,
-                { color: verdictColor(trendRung(progression.trend), isDark) },
+                styles.trendBadge,
+                {
+                  backgroundColor: verdictFill(
+                    verdictRung(trendVerdict('weekSets', progression.trend)),
+                    isDark,
+                    true
+                  ),
+                },
               ]}
             >
-              {`${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}%`}
-            </Text>
-          </View>
-        )}
-      </View>
+              <Text
+                style={[
+                  styles.trendText,
+                  {
+                    color: verdictColor(
+                      verdictRung(trendVerdict('weekSets', progression.trend)),
+                      isDark
+                    ),
+                  },
+                ]}
+              >
+                {`${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}%`}
+              </Text>
+            </View>
+          )}
+        </View>
 
-      {/* Period-driven stats row. The bars above are always 4 weeks; this row
+        {/* Period-driven stats row. The bars above are always 4 weeks; this row
           changes with the period selector (7d / 4w / 3m / 6m). */}
-      <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-            {formatSetCount(selectedVolume.weightedSets)}
-          </Text>
-          <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-            {t('strength.sets')}
-          </Text>
+        <View style={styles.statsRow}>
+          <View style={styles.stat}>
+            <Text style={[styles.statValue, isDark && styles.statValueDark]}>
+              {formatSetCount(selectedVolume.weightedSets)}
+            </Text>
+            <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+              {t('strength.sets')}
+            </Text>
+          </View>
+          {selectedVolume.totalReps > 0 && (
+            <View style={styles.stat}>
+              <Text style={[styles.statValue, isDark && styles.statValueDark]}>
+                {selectedVolume.totalReps}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+                {t('strength.reps')}
+              </Text>
+            </View>
+          )}
+          {selectedVolume.volumeKg > 0 && (
+            <View style={styles.stat}>
+              <Text style={[styles.statValue, isDark && styles.statValueDark]}>
+                {formatWeight(selectedVolume.volumeKg, isMetric)}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+                {t('strength.totalVolume')}
+              </Text>
+            </View>
+          )}
+          {exerciseSummary && exerciseSummary.exercises.length > 0 && (
+            <View style={styles.stat}>
+              <Text style={[styles.statValue, isDark && styles.statValueDark]}>
+                {exerciseSummary.exercises.length}
+              </Text>
+              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+                {exerciseSummary.exercises.length === 1
+                  ? t('strength.exercise')
+                  : t('strength.exercises')}
+              </Text>
+            </View>
+          )}
+          {periodLabel ? (
+            <Text style={[styles.periodHint, isDark && styles.periodHintDark]}>
+              {`(${periodLabel})`}
+            </Text>
+          ) : null}
         </View>
-        {selectedVolume.totalReps > 0 && (
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-              {selectedVolume.totalReps}
-            </Text>
-            <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-              {t('strength.reps')}
-            </Text>
+
+        {progression ? (
+          <View style={styles.metaRow}>
+            <View style={[styles.metaBox, isDark && styles.metaBoxDark]}>
+              <Text style={[styles.metaValue, isDark && styles.metaValueDark]}>
+                {formatSetCount(progression.recentAverage)}
+              </Text>
+              <Text style={[styles.metaLabel, isDark && styles.metaLabelDark]}>
+                {t('strength.recentAvg')}
+              </Text>
+            </View>
+            <View style={[styles.metaBox, isDark && styles.metaBoxDark]}>
+              <Text style={[styles.metaValue, isDark && styles.metaValueDark]}>
+                {formatSetCount(progression.baselineAverage)}
+              </Text>
+              <Text style={[styles.metaLabel, isDark && styles.metaLabelDark]}>
+                {t('strength.earlierAvg')}
+              </Text>
+            </View>
+            <View style={[styles.metaBox, isDark && styles.metaBoxDark]}>
+              <Text style={[styles.metaValue, isDark && styles.metaValueDark]}>
+                {formatSetCount(progression.peakWeightedSets)}
+              </Text>
+              <Text style={[styles.metaLabel, isDark && styles.metaLabelDark]}>
+                {t('strength.peakWeek')}
+              </Text>
+            </View>
           </View>
-        )}
-        {selectedVolume.totalWeightKg > 0 && (
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-              {formatWeight(selectedVolume.totalWeightKg, isMetric)}
-            </Text>
-            <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-              {t('strength.totalVolume')}
-            </Text>
-          </View>
-        )}
-        {exerciseSummary && exerciseSummary.exercises.length > 0 && (
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-              {exerciseSummary.exercises.length}
-            </Text>
-            <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-              {exerciseSummary.exercises.length === 1
-                ? t('strength.exercise')
-                : t('strength.exercises')}
-            </Text>
-          </View>
-        )}
-        {periodLabel ? (
-          <Text style={[styles.periodHint, isDark && styles.periodHintDark]}>
-            {`(${periodLabel})`}
-          </Text>
         ) : null}
-      </View>
 
-      <View style={styles.metaRow}>
-        <View style={[styles.metaBox, isDark && styles.metaBoxDark]}>
-          <Text style={[styles.metaValue, isDark && styles.metaValueDark]}>
-            {formatSetCount(progression.recentAverage)}
-          </Text>
-          <Text style={[styles.metaLabel, isDark && styles.metaLabelDark]}>
-            {t('strength.recentAvg')}
-          </Text>
-        </View>
-        <View style={[styles.metaBox, isDark && styles.metaBoxDark]}>
-          <Text style={[styles.metaValue, isDark && styles.metaValueDark]}>
-            {formatSetCount(progression.baselineAverage)}
-          </Text>
-          <Text style={[styles.metaLabel, isDark && styles.metaLabelDark]}>
-            {t('strength.earlierAvg')}
-          </Text>
-        </View>
-        <View style={[styles.metaBox, isDark && styles.metaBoxDark]}>
-          <Text style={[styles.metaValue, isDark && styles.metaValueDark]}>
-            {formatSetCount(progression.peakWeightedSets)}
-          </Text>
-          <Text style={[styles.metaLabel, isDark && styles.metaLabelDark]}>
-            {t('strength.peakWeek')}
-          </Text>
-        </View>
-      </View>
-
-      {children ? <View style={styles.childrenSlot}>{children}</View> : null}
+        {children ? <View style={styles.childrenSlot}>{children}</View> : null}
+      </Card>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  progressCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
+  progressFrame: {
     marginBottom: spacing.sm,
-  },
-  progressCardDark: {
-    backgroundColor: darkColors.surface,
   },
   titleRow: {
     flexDirection: 'row',
@@ -240,7 +248,7 @@ const styles = StyleSheet.create({
   },
   miniBar: {
     width: MINI_BAR_WIDTH,
-    borderRadius: spacing.xxs,
+    borderRadius: layout.borderRadiusXs,
   },
   trendBadge: {
     borderRadius: layout.borderRadiusSm,

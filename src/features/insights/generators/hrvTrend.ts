@@ -11,7 +11,7 @@ interface TrendShape {
   avg: number;
   latest: number;
   dataPoints: number;
-  sparkline: number[];
+  sparkline: { value: number }[];
   signalDelta?: number;
 }
 
@@ -57,7 +57,11 @@ export function generateHrvTrendInsight(
       priority: 2,
       icon: trendIcon,
       iconTone: trendTone,
-      title: t(`insights.hrvTrend.${trendKey}`),
+      title: t(
+        trend.reason === 'lastTwoDays'
+          ? 'insights.hrvTrend.lastTwoDays'
+          : `insights.hrvTrend.${trendKey}`
+      ),
       // Two rules end in `trendingDown` and they are different claims, so the
       // body says which one fired rather than reporting a falling average
       // over a window whose average did not fall.
@@ -87,12 +91,14 @@ export function generateHrvTrendInsight(
       supportingData: {
         dataPoints: [
           {
+            key: 'hrvAverage',
             label: t('insights.data.sevenDayAvg'),
             value: Math.round(trend.avg),
             unit: 'ms',
             context: 'neutral',
           },
           {
+            key: 'hrvLatest',
             label: t('insights.data.latestHrv'),
             value: Math.round(trend.latest),
             unit: 'ms',
@@ -104,7 +110,7 @@ export function generateHrvTrendInsight(
             unit: t('insights.data.days'),
           },
         ],
-        sparklineData: trend.sparkline,
+        sparklineData: trend.sparkline.map((point) => point.value),
         sparklineLabel: t('insights.data.hrvSevenDay'),
       },
       methodology: {

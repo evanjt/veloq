@@ -57,3 +57,19 @@ export function currentAndPreviousWeek(now: Date): {
     prevEndTs: localWallClockToEpochSeconds(prevSunday),
   };
 }
+
+/**
+ * The `days` before today through the end of today, as wall-clock stamps: the
+ * same calendar days a trailing range of that length is captioned with.
+ */
+export function trailingDaysWindow(days: number, now: Date): { startTs: number; endTs: number } {
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 0);
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - days);
+  return {
+    startTs: localWallClockToEpochSeconds(start),
+    endTs: localWallClockToEpochSeconds(end),
+  };
+}

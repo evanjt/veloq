@@ -2,12 +2,13 @@ import React, { useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 import { SupportingDataSection } from '../SupportingDataSection';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface EfficiencyTrendContentProps {
   insight: Insight;
@@ -22,13 +23,14 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
   insight,
 }: EfficiencyTrendContentProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   const sectionId = insight.supportingData?.sections?.[0]?.sectionId;
   const sectionName = insight.supportingData?.sections?.[0]?.sectionName;
 
-  const hrChangePoint = insight.supportingData?.dataPoints?.find((dp) => dp.unit === 'bpm');
-  const effortCountPoint = insight.supportingData?.dataPoints?.find((dp) =>
-    dp.label?.toLowerCase().includes('effort')
+  const hrChangePoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrChange');
+  const effortCountPoint = insight.supportingData?.dataPoints?.find(
+    (dp) => dp.key === 'effortCount'
   );
 
   const handleSectionPress = useCallback(() => {
@@ -46,7 +48,7 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
               {hrChangePoint.value} {hrChangePoint.unit}
             </Text>
             <Text style={[styles.hrLabel, isDark && styles.hrLabelDark]}>
-              across matched efforts
+              {t('insights.efficiencyTrend.sheetHrCaption')}
             </Text>
           </View>
           {effortCountPoint ? (
@@ -54,7 +56,9 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
               <Text style={[styles.effortCount, isDark && styles.effortCountDark]}>
                 {effortCountPoint.value}
               </Text>
-              <Text style={[styles.effortLabel, isDark && styles.effortLabelDark]}>efforts</Text>
+              <Text style={[styles.effortLabel, isDark && styles.effortLabelDark]}>
+                {effortCountPoint.label}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -62,20 +66,20 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
 
       <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
         <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
-          Matched-effort comparison
+          {t('insights.efficiencyTrend.sheetHeading')}
         </Text>
         <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>
-          Based on repeat efforts on the same section that include both heart rate and pace data.
-          Compares cardiovascular cost across those passes over time.
+          {t('insights.efficiencyTrend.sheetBody')}
         </Text>
         <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>
-          Open the section for the underlying efforts.
+          {t('insights.efficiencyTrend.sheetMeta')}
         </Text>
       </View>
 
       {sectionId && sectionName ? (
         <Pressable
           style={pressable([styles.sectionLink, isDark && styles.sectionLinkDark])}
+          android_ripple={pressRipple}
           onPress={handleSectionPress}
         >
           <MaterialCommunityIcons

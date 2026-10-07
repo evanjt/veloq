@@ -2,6 +2,7 @@ import React from 'react';
 import type { Insight, InsightCategory } from '@/features/insights/types';
 import { SectionPRContent } from './SectionPRContent';
 import { SectionTrendContent } from './SectionTrendContent';
+import { RouteInsightContent } from './RouteInsightContent';
 import { StalePRContent } from './StalePRContent';
 import { HrvTrendContent } from './HrvTrendContent';
 import { PeriodComparisonContent } from './PeriodComparisonContent';
@@ -35,6 +36,7 @@ export const CONTENT_BY_CATEGORY: Record<
   section_pr: SectionPRContent,
   section_trend: SectionTrendContent,
   stale_pr: StalePRContent,
+  route: RouteInsightContent,
   fitness_milestone: FitnessMilestoneContent,
   period_comparison: PeriodComparisonContent,
   hrv_trend: HrvTrendContent,

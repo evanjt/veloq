@@ -1,15 +1,16 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Pressable, View, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { Stack } from 'expo-router';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import type { ExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app';
+import { engineErrorKey } from '@/shared/native/engineError';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
 import {
   colors,
@@ -17,18 +18,19 @@ import {
   spacing,
   typography,
   brand,
-  bodyDiagram,
   loupeChrome,
   layout,
   colorWithOpacity,
   ink,
+  mapTextShadow,
 } from '@/theme';
 import type { ActivityDetail } from '@/types';
 
 import { useMuscleGroups } from '../hooks/useExerciseSets';
 import { useMuscleDetail } from '../hooks/useMuscleDetail';
-import { formatWeight } from '../lib/formatting';
+import { formatWeight } from '@/shared/format/weight';
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface MuscleGroupViewProps {
   activityId: string;
@@ -54,7 +56,10 @@ export function MuscleGroupView({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
-  const { data: muscleGroups } = useMuscleGroups(activityId, hasExercises);
+  const { data: muscleGroups, error: muscleGroupsError } = useMuscleGroups(
+    activityId,
+    hasExercises
+  );
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const muscleDetail = useMuscleDetail(activityId, selectedMuscle);
 
@@ -77,16 +82,8 @@ export function MuscleGroupView({
       (muscleGroups ?? []).map((g) => ({
         slug: g.slug as NonNullable<ExtendedBodyPart['slug']>,
         intensity: g.intensity,
-        ...(g.slug === selectedMuscle
-          ? {
-              styles: {
-                stroke: isDark ? bodyDiagram.selectedStrokeDark : bodyDiagram.selectedStroke,
-                strokeWidth: 2.5,
-              },
-            }
-          : {}),
       })),
-    [muscleGroups, selectedMuscle, isDark]
+    [muscleGroups]
   );
 
   const tappableSlugs = useMemo(
@@ -99,26 +96,15 @@ export function MuscleGroupView({
 
   return (
     <View style={[styles.hero, isDark && styles.heroDark]}>
-      {/* Back button */}
-      <View style={[styles.floatingHeader, { paddingTop: insets.top }]} pointerEvents="box-none">
-        <TouchableOpacity
-          testID="activity-detail-back"
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="arrow-left"
-            size={24}
-            color={isDark ? colors.textOnDark : colors.textPrimary}
-          />
-        </TouchableOpacity>
-      </View>
+      <Stack.Screen
+        options={{ headerTintColor: isDark ? colors.textOnDark : colors.textPrimary }}
+      />
 
       {/* Body diagrams with unified loupe + center column */}
       <View style={[styles.bodyContainer, { paddingTop: insets.top + 40 }]}>
         <BodyPairWithLoupe
           data={bodyData}
+          selectedSlug={selectedMuscle}
           gender={gender}
           scale={0.65}
           colors={BODY_COLORS}
@@ -136,6 +122,12 @@ export function MuscleGroupView({
                 <View style={[styles.legendDot, { backgroundColor: SECONDARY_COLOR }]} />
                 <Text style={styles.legendText}>{t('activityDetail.secondary')}</Text>
               </View>
+
+              {muscleGroupsError ? (
+                <Text testID="muscle-groups-failure" style={styles.legendText}>
+                  {t(engineErrorKey(muscleGroupsError, 'engine.failure.database'))}
+                </Text>
+              ) : null}
 
               {muscleDetail ? (
                 <>
@@ -156,18 +148,20 @@ export function MuscleGroupView({
                     >
                       {muscleDetail.name}
                     </Text>
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => setSelectedMuscle(null)}
                       hitSlop={16}
                       accessibilityRole="button"
                       accessibilityLabel={t('common.close', 'Close')}
+                      style={pressable()}
+                      android_ripple={pressRipple}
                     >
                       <MaterialCommunityIcons
                         name="close"
                         size={12}
                         color={isDark ? darkColors.textMuted : colors.textDisabled}
                       />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                   <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
                     {t('activity.muscle.setCount', {
@@ -178,9 +172,9 @@ export function MuscleGroupView({
                       count: muscleDetail.totalReps,
                     })}
                   </Text>
-                  {muscleDetail.totalVolumeKg > 0 && (
+                  {muscleDetail.volumeKg > 0 && (
                     <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
-                      {formatWeight(Math.round(muscleDetail.totalVolumeKg), isMetric)}
+                      {formatWeight(Math.round(muscleDetail.volumeKg), isMetric)}
                     </Text>
                   )}
                   <ScrollView
@@ -208,7 +202,8 @@ export function MuscleGroupView({
                           </Text>
                         </View>
                         <Text style={[styles.detailExSub, isDark && styles.detailExSubDark]}>
-                          {ex.sets}×{ex.reps}
+                          {t('activity.muscle.setCount', { count: ex.sets })} ·{' '}
+                          {t('activity.muscle.repsCount', { count: ex.reps })}
                         </Text>
                       </View>
                     ))}
@@ -247,6 +242,8 @@ export function MuscleGroupView({
   );
 }
 
+const MUSCLE_VIEW_BOTTOM_PADDING = spacing.xl + spacing.lg;
+
 const styles = StyleSheet.create({
   hero: {
     position: 'relative',
@@ -255,27 +252,9 @@ const styles = StyleSheet.create({
   heroDark: {
     backgroundColor: loupeChrome.bgDark,
   },
-  floatingHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    zIndex: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colorWithOpacity(colors.neutralLine, 0.3),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   bodyContainer: {
     paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.xl + spacing.lg,
+    paddingBottom: MUSCLE_VIEW_BOTTOM_PADDING,
   },
   centerColumn: {
     width: 120,
@@ -389,12 +368,10 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   activityName: {
-    fontSize: typography.statsValue.fontSize,
-    fontWeight: '700',
+    ...typography.statsValue,
     color: colors.textOnDark,
     textShadowColor: colorWithOpacity(ink.black, 0.6),
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...mapTextShadow,
   },
   activityNameLight: {
     color: colors.textPrimary,
@@ -414,12 +391,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   durationStat: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     fontWeight: '600',
     color: colors.textOnDark,
     textShadowColor: colorWithOpacity(ink.black, 0.5),
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    ...mapTextShadow,
   },
   durationStatLight: {
     color: colors.textPrimary,

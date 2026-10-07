@@ -12,7 +12,7 @@ import {
   chartBoundsFor,
   dataExtent,
   gridLineYs,
-  projectPoints,
+  projectRuns,
   xForValue,
   yForValue,
   type ChartPadding,
@@ -24,7 +24,10 @@ import { useChartColors } from './useChartColors';
 
 /** Everything a chart body needs to draw into the measured box. */
 export interface ChartFrame<K extends string> {
+  /** Every finite sample per series, for the crosshair and gestures. */
   points: Record<K, ProjectedPoint[]>;
+  /** The same samples split where a sample is missing, one entry per unbroken stretch. */
+  runs: Record<K, ProjectedPoint[][]>;
   bounds: ChartBounds;
   width: number;
   height: number;
@@ -85,11 +88,14 @@ export function ChartCanvas<T, K extends string>({
     const bounds = chartBoundsFor(size.width, size.height, pad);
     const xd = xDomain ?? dataExtent(data, x);
     const points = {} as Record<K, ProjectedPoint[]>;
+    const runs = {} as Record<K, ProjectedPoint[][]>;
     for (const key of Object.keys(series) as K[]) {
-      points[key] = projectPoints(data, x, series[key], xd, yDomain, bounds);
+      runs[key] = projectRuns(data, x, series[key], xd, yDomain, bounds);
+      points[key] = runs[key].flat();
     }
     return {
       points,
+      runs,
       bounds,
       width: size.width,
       height: size.height,

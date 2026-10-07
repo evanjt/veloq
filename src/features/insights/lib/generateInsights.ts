@@ -1,14 +1,18 @@
-import type { EfficiencyTrend, HrvTrend, StalePrOpportunity } from 'veloqrs';
-import type { StrengthProgressionRecord, StrengthSummary } from '@/features/strength/types';
+import type { EfficiencyTrend, FfiRouteInsight, HrvTrend, StalePrOpportunity } from 'veloqrs';
+import type { StrengthProgressionRecord, StrengthSummary } from '@/features/strength';
 
 import { generateStalePRInsights } from '../generators/stalePr';
 import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
 import { generateSectionPRInsights } from '../generators/sectionPR';
-import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
+import { generateStrengthInsights } from '@/features/strength';
 import { generateHrvTrendInsight } from '../generators/hrvTrend';
 import { generatePeriodComparisonInsights } from '../generators/periodComparison';
 import { generateFitnessMilestoneInsights } from '../generators/fitnessMilestone';
+import { generateRouteInsights } from '../generators/routeInsights';
+import type { RouteInsightCounts } from '../generators/routeInsights';
 import { generateSectionTrendInsights } from '../generators/sectionTrend';
+import type { SectionTrendCounts } from '../generators/sectionTrend';
+import { insightPairKeys } from './sectionIdentity';
 import {
   generateSectionChangedInsights,
   type SectionChangeInput,
@@ -27,12 +31,9 @@ import type {
 import { INSIGHTS_CONFIG } from './config';
 import {
   applyMixAndCap,
-  passesProximity,
   passesRecency,
   passesRepetition,
-  passesValence,
   scoreInsight,
-  type Bbox,
   type DropRecord,
   type GateReason,
   type ScoredInsight,
@@ -41,11 +42,9 @@ import {
 // Re-export for tests and consumers
 
 /**
- * Insight pipeline: generate → hard gates (G1–G4) → score (R5–R8) → diversity
+ * Insight pipeline: generate → hard gates (G1, G3) → score (R5–R8) → diversity
  * cap (D9–D10). Every rule is a pure function in `rules.ts`; every threshold
- * is in `config.ts`. See the plan at
- * /home/evan/.claude/plans/hi-couoe-you-tak3-vivid-lemur.md for research
- * citations.
+ * is in `config.ts`.
  */
 
 export interface InsightInputData {
@@ -54,18 +53,20 @@ export interface InsightInputData {
   ftpTrend: FtpTrend | null;
   paceTrend: PaceTrend | null;
   swimPaceTrend?: PaceTrend | null;
+  /** The athlete's unit preference; pace cards read per mile and per 100 yd when false. */
+  isMetric?: boolean;
   recentPRs: SectionPR[];
   sectionTrends: SectionTrendData[];
+  sectionTrendCounts?: SectionTrendCounts | undefined;
   sectionChanges?: SectionChangeInput[];
+  /** Every route bucket with a recent record or a trend, as the engine read them. */
+  routeInsights?: readonly FfiRouteInsight[] | undefined;
+  /** The engine's counts over those rows. */
+  routeInsightCounts?: RouteInsightCounts | undefined;
   /** The HRV verdict, as the engine read it over the bundle's window. */
   hrvTrend?: HrvTrend | null;
   /** Stale-PR opportunities, already excluding the sections `recentPRs` covers. */
   stalePrOpportunities?: StalePrOpportunity[];
-  formTsb: number | null;
-  formCtl: number | null;
-  formAtl: number | null;
-  peakCtl: number | null;
-  currentCtl: number | null;
   chronicPeriod?: PeriodStats | null;
   /**
    * The chronic window one week at a time, oldest first, as the engine cut it.
@@ -77,14 +78,8 @@ export interface InsightInputData {
   weekOverWeek?: PeriodComparison | null;
   /** Last week against the chronic weekly average, as the engine took it. */
   weekAgainstChronic?: PeriodComparison | null;
-  allSectionTrends?: SectionTrendData[];
   /** Efficiency trends from the engine, already filtered and capped. */
   efficiencyTrends?: EfficiencyTrend[];
-  /**
-   * Bbox of activities in the last `activeWindowDays` - drives the proximity
-   * gate (G2). Null disables the gate (insufficient data, gate off, etc.).
-   */
-  activeRegion?: Bbox | null;
   /** Four-week strength rollup. Null when the athlete logs no strength work. */
   strengthMonthly?: StrengthSummary | null;
   /** Per-week strength rollups backing the progression candidates. */
@@ -160,7 +155,7 @@ function logInsightGeneration(outcome: PipelineOutcome): void {
     const reason = capped ? ` (${capped.reason})` : '';
     // eslint-disable-next-line no-console
     console.log(
-      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} conf=${s.breakdown.confidence.toFixed(0)} ml=${s.breakdown.ranking.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
+      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} conf=${s.breakdown.confidence.toFixed(0)} rank=${s.breakdown.ranking.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
     );
   }
   // eslint-disable-next-line no-console
@@ -211,7 +206,14 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   );
   candidates.push(
     ...safeRun('fitnessMilestone', () =>
-      generateFitnessMilestoneInsights(data.ftpTrend, data.paceTrend, data.swimPaceTrend, now, t)
+      generateFitnessMilestoneInsights(
+        data.ftpTrend,
+        data.paceTrend,
+        data.swimPaceTrend,
+        now,
+        t,
+        data.isMetric
+      )
     )
   );
 
@@ -220,18 +222,31 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // its own ranking and answers an empty list when nothing qualifies, so a
   // second gate here could only hide a card it had already decided to show.
   candidates.push(
-    ...safeRun('stalePR', () => generateStalePRInsights(data.stalePrOpportunities, t, now))
+    ...safeRun('stalePR', () =>
+      generateStalePRInsights(data.stalePrOpportunities, t, now, data.isMetric)
+    )
   );
 
-  const existingIds = new Set(
-    candidates.flatMap((i) => {
-      const match = i.id.match(/section_pr-(.+)|stale_pr-(.+)/);
-      return match ? [match[1] ?? match[2]] : [];
-    })
+  const coveredPairs = new Set(
+    candidates
+      .filter((i) => i.category === 'section_pr' || i.category === 'stale_pr')
+      .flatMap(insightPairKeys)
   );
   candidates.push(
     ...safeRun('sectionTrend', () =>
-      generateSectionTrendInsights(data.sectionTrends, existingIds, now, t)
+      generateSectionTrendInsights(
+        data.sectionTrends,
+        coveredPairs,
+        now,
+        t,
+        data.sectionTrendCounts
+      )
+    )
+  );
+
+  candidates.push(
+    ...safeRun('routeInsights', () =>
+      generateRouteInsights(data.routeInsights, data.routeInsightCounts, now, t)
     )
   );
 
@@ -262,18 +277,12 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     );
   }
 
-  // 2. Hard gates (G1–G4) - reject before scoring
-  const activeRegion = data.activeRegion ?? null;
+  // 2. Hard gates (G1, G3) - reject before scoring
   const rejected: { insight: Insight; reason: GateReason }[] = [];
   const passed: Insight[] = [];
 
   for (const insight of candidates) {
-    const gates = [
-      passesRecency(insight, now),
-      passesProximity(insight, activeRegion),
-      passesRepetition(insight),
-      passesValence(insight),
-    ];
+    const gates = [passesRecency(insight, now), passesRepetition(insight)];
     const failed = gates.find((g) => !g.passed);
     if (failed && failed.reason) {
       rejected.push({ insight, reason: failed.reason });

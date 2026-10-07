@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -15,6 +16,22 @@ import {
 } from '@/theme';
 import type { Insight } from '@/types';
 
+/** What each milestone compares, named as its card names it. */
+const CONTEXT_COPY = {
+  power: {
+    heading: 'insights.milestoneSheet.powerHeading',
+    summary: 'insights.milestoneSheet.powerSummary',
+  },
+  run: {
+    heading: 'insights.milestoneSheet.runHeading',
+    summary: 'insights.milestoneSheet.runSummary',
+  },
+  swim: {
+    heading: 'insights.milestoneSheet.swimHeading',
+    summary: 'insights.milestoneSheet.swimSummary',
+  },
+} as const;
+
 interface FitnessMilestoneContentProps {
   insight: Insight;
 }
@@ -23,6 +40,7 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   insight,
 }: FitnessMilestoneContentProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const dataPoints = insight.supportingData?.dataPoints;
   if (!dataPoints || dataPoints.length < 2) return null;
 
@@ -33,21 +51,21 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   const changeStr = changePoint ? String(changePoint.value) : '';
   const changeUnit = changePoint?.unit ?? '';
   const isPositive = changePoint?.context === 'good';
-  const isPowerMilestone = currentPoint.unit === 'W';
-  const isSwimMilestone = currentPoint.unit === '/100m';
-  const contextSummary = isPowerMilestone
-    ? `FTP shifted from ${String(previousPoint.value)}W to ${String(currentPoint.value)}W. Derived from recent power data.`
-    : isSwimMilestone
-      ? `Threshold swim pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per 100m. Derived from recent swim data.`
-      : `Running threshold pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per km. Derived from recent run data.`;
-  const contextHeading = isPowerMilestone
-    ? 'FTP change context'
-    : isSwimMilestone
-      ? 'Swim pace change context'
-      : 'Running pace change context';
+  // The unit says which estimate moved: watts are the daily eFTP, a pace per
+  // 100 metres or yards is critical swim speed, a pace per kilometre or mile
+  // critical speed.
+  const unit = currentPoint.unit ?? '';
+  const kind = unit === 'W' ? 'power' : unit.startsWith('/100') ? 'swim' : 'run';
+  const summaryValues = {
+    previous: String(previousPoint.value),
+    current: String(currentPoint.value),
+    unit,
+  };
+  const contextHeading = t(CONTEXT_COPY[kind].heading);
+  const contextSummary = t(CONTEXT_COPY[kind].summary, summaryValues);
 
   const lineColor = isDark ? darkColors.border : colors.border;
-  const dotColor = isPositive ? colors.success : colors.warning;
+  const dotColor = verdictColor(isPositive ? 'positive' : 'negative', isDark);
 
   return (
     <View style={styles.container}>

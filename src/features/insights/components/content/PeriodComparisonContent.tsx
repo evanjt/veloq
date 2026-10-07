@@ -4,7 +4,8 @@ import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout, typography, verdictColor } from '@/theme';
+import { verdictRung } from '@/shared/format/trend';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
@@ -92,12 +93,17 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
 
   if (!comparison) return null;
 
+  // The generator judged the move by the polarity table. Load has no
+  // polarity, so it is the neutral rung either way, and the arrow is its bare
+  // direction. Nothing here reads a verdict off the sign of the string.
   const changeStr = String(comparison.change.value);
-  const isPositive = changeStr.startsWith('+');
-  const changeColor = isPositive ? colors.success : colors.warning;
-  const changeIcon = isPositive ? 'arrow-up' : 'arrow-down';
+  const trend = insight.supportingData?.trend;
+  const rung = trend ? verdictRung(trend.verdict) : 'neutral';
+  const changeColor = verdictColor(rung, isDark);
+  const changeIcon =
+    trend?.direction === 'up' ? 'arrow-up' : trend?.direction === 'down' ? 'arrow-down' : 'minus';
 
-  const barColor = isPositive ? colors.success : colors.fitnessBlue;
+  const barColor = verdictColor(rung, isDark);
   const mutedBarColor = chartColors.mutedBar;
 
   return (

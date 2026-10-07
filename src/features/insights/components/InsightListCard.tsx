@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,17 +8,19 @@ import {
   colors,
   darkColors,
   spacing,
-  shadows,
   colorWithOpacity,
   brand,
   insightCategoryColors,
   layout,
   typography,
   insightToneColor,
+  verdictColor,
 } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
+import { Card } from '@/shared/ui/Card';
 import type { Insight } from '@/types';
 import { getInlineMetric } from '../lib/inlineMetric';
+import { TrackPreview, normalizeTrackPoints, type NormalisedPoint } from '@/shared/ui/TrackPreview';
 
 interface InsightListCardProps {
   insight: Insight;
@@ -35,6 +37,22 @@ function getSparklineData(insight: Insight): number[] | null {
 
 const SPARK_W = 48;
 const SPARK_H = 20;
+const PREVIEW_H = 28;
+
+/**
+ * The section a PR card is about, as a thumbnail. A name like "Section 6"
+ * says nothing about which stretch of road it is, and the engine hands the
+ * line over with the record rather than the card reading geometry of its own.
+ */
+function getSectionPreview(
+  insight: Insight
+): { sectionId: string; points: NormalisedPoint[] } | null {
+  if (insight.category !== 'section_pr') return null;
+  const section = insight.supportingData?.sections?.[0];
+  if (!section?.previewPoints) return null;
+  const points = normalizeTrackPoints(section.previewPoints);
+  return points.length >= 2 ? { sectionId: section.sectionId, points } : null;
+}
 
 const MiniSparkline = React.memo(function MiniSparkline({
   data,
@@ -98,21 +116,21 @@ export const InsightListCard = React.memo(function InsightListCard({
   const categoryColor = insightCategoryColors[insight.category] ?? colors.primary;
   const metric = useMemo(() => getInlineMetric(insight), [insight]);
   const sparkData = useMemo(() => getSparklineData(insight), [insight]);
+  const sectionPreview = useMemo(() => getSectionPreview(insight), [insight]);
 
-  const contextColor =
-    metric?.context == null
-      ? colors.warning
-      : metric.context.startsWith('+')
-        ? colors.success
-        : colors.warning;
+  // The change's own verdict, never the sign of its string.
+  const contextColor = verdictColor(metric?.contextRung ?? 'neutral', isDark);
 
   const handlePress = useCallback(() => onPress(insight), [onPress, insight]);
 
   return (
-    <TouchableOpacity
-      style={[styles.card, isDark && styles.cardDark]}
+    <Card
+      variant="raised"
+      padding="none"
+      style={{ flexDirection: 'row', alignItems: 'center' }}
       onPress={handlePress}
-      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={insight.title}
       testID={`insight-card-${insight.id}`}
     >
       <View style={[styles.colorBar, { backgroundColor: categoryColor }]} />
@@ -139,7 +157,18 @@ export const InsightListCard = React.memo(function InsightListCard({
 
       {/* Inline data preview: metric value + optional sparkline */}
       <View style={styles.dataPreview}>
-        {sparkData ? <MiniSparkline data={sparkData} color={categoryColor} /> : null}
+        {sectionPreview ? (
+          <TrackPreview
+            testID={`section-preview-${sectionPreview.sectionId}`}
+            points={sectionPreview.points}
+            color={categoryColor}
+            isDark={isDark}
+            width={SPARK_W}
+            height={PREVIEW_H}
+          />
+        ) : sparkData ? (
+          <MiniSparkline data={sparkData} color={categoryColor} />
+        ) : null}
         {metric ? (
           <View style={styles.metricContainer}>
             <Text style={[styles.metricValue, isDark && styles.metricValueDark]} numberOfLines={1}>
@@ -160,27 +189,11 @@ export const InsightListCard = React.memo(function InsightListCard({
         color={isDark ? darkColors.textMuted : colors.textMuted}
         style={styles.chevron}
       />
-    </TouchableOpacity>
+    </Card>
   );
 });
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusSm,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.xxs,
-    overflow: 'hidden',
-    ...shadows.card,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surfaceCard,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-    ...shadows.none,
-  },
   colorBar: {
     width: 4,
     alignSelf: 'stretch',

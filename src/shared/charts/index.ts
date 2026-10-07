@@ -42,6 +42,7 @@ export {
   domainContains,
   gridLineYs,
   projectPoints,
+  projectRuns,
   scaleFor,
   xForValue,
   yForValue,

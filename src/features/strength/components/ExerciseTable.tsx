@@ -1,42 +1,24 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, StyleSheet, ActivityIndicator, Linking } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Text } from 'react-native-paper';
 import { Trans, useTranslation } from 'react-i18next';
-import type { ExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDuration } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography, shadows, brand } from '@/theme';
 
 import { useExerciseSets } from '../hooks/useExerciseSets';
-import { formatWeight } from '../lib/formatting';
+import { formatWeight } from '@/shared/format/weight';
+import type { ExerciseGroup } from 'veloqrs';
+import { Button } from '@/shared/ui';
 
 interface ExerciseTableProps {
   activityId: string;
   activityType: string;
   isDark: boolean;
   athleteSex?: string | undefined;
-}
-
-interface ExerciseGroup {
-  name: string;
-  sets: ExerciseSet[];
-}
-
-function groupExercises(sets: ExerciseSet[]): ExerciseGroup[] {
-  const groups: ExerciseGroup[] = [];
-  let current: ExerciseGroup | null = null;
-
-  for (const set of sets) {
-    if (set.setType !== 0) continue;
-    if (!current || current.name !== set.displayName) {
-      current = { name: set.displayName, sets: [] };
-      groups.push(current);
-    }
-    current.sets.push(set);
-  }
-
-  return groups;
+  exerciseGroups?: ExerciseGroup[] | undefined;
 }
 
 export function ExerciseTable({
@@ -44,15 +26,32 @@ export function ExerciseTable({
   activityType,
   isDark,
   athleteSex,
+  exerciseGroups,
 }: ExerciseTableProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const isMetric = useMetricSystem();
-  const { data: exerciseSets, isLoading, outcome } = useExerciseSets(activityId, activityType);
+  const { session, isLoading, outcome } = useExerciseSets(activityId, activityType);
 
-  const groups = useMemo(() => {
-    if (!exerciseSets || exerciseSets.length === 0) return [];
-    return groupExercises(exerciseSets);
-  }, [exerciseSets]);
+  const groups = session.groups.map((group) => {
+    const fromDetail = exerciseGroups?.find(
+      (candidate) =>
+        candidate.name === group.name &&
+        candidate.exerciseCategory === group.exerciseCategory &&
+        candidate.sets.length === group.sets.length &&
+        candidate.sets.every((set, index) => {
+          const current = group.sets[index];
+          return (
+            set.setOrder === current?.setOrder &&
+            set.weightKg === current.weightKg &&
+            set.repetitions === current.repetitions &&
+            set.durationSecs === current.durationSecs &&
+            set.startTime === current.startTime
+          );
+        })
+    );
+    return fromDetail ?? group;
+  });
 
   if (isLoading) {
     return (
@@ -77,17 +76,8 @@ export function ExerciseTable({
 
   if (groups.length === 0) return null;
 
-  const totalSets = groups.reduce((sum, g) => sum + g.sets.length, 0);
   const hasSex = athleteSex === 'M' || athleteSex === 'F';
   const bodyType = t(athleteSex === 'F' ? 'strength.female' : 'strength.male');
-
-  // Compute totals
-  const allActiveSets = exerciseSets?.filter((s) => s.setType === 0) ?? [];
-  const totalWeight = allActiveSets.reduce(
-    (sum, s) => sum + (s.weightKg ?? 0) * (s.repetitions ?? 1),
-    0
-  );
-  const totalDuration = allActiveSets.reduce((sum, s) => sum + (s.durationSecs ?? 0), 0);
 
   return (
     <>
@@ -100,7 +90,7 @@ export function ExerciseTable({
           <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
             {t('activityDetail.exercisesSummary', {
               exercises: groups.length,
-              sets: totalSets,
+              sets: session.activeSetCount,
             })}
           </Text>
         </View>
@@ -108,7 +98,26 @@ export function ExerciseTable({
         {groups.map((group, groupIdx) => (
           <View key={`${group.name}-${groupIdx}`}>
             {groupIdx > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
-            <Text style={[styles.exerciseName, isDark && styles.textDark]}>{group.name}</Text>
+            <View style={styles.exerciseHeading}>
+              <Text style={[styles.exerciseName, isDark && styles.textDark]}>{group.name}</Text>
+              <Button
+                label={t('strength.history')}
+                variant="ghost"
+                size="sm"
+                onPress={() => router.push(`/exercise/${group.exerciseCategory}`)}
+              />
+            </View>
+            {group.bestSet && (
+              <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
+                {t('strength.bestSet')}: {formatWeight(group.bestSet.weightKg ?? 0, isMetric)} ·{' '}
+                {group.bestSet.repetitions ?? '--'} {t('strength.reps')}
+              </Text>
+            )}
+            {group.restSeconds.length > 0 && (
+              <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
+                {t('strength.restBetweenSets')}: {group.restSeconds.map(formatDuration).join(' · ')}
+              </Text>
+            )}
 
             <View style={styles.headerRow}>
               <Text style={[styles.colHeader, styles.colSet, isDark && styles.textSecondaryDark]}>
@@ -155,16 +164,18 @@ export function ExerciseTable({
 
         {/* Totals row */}
         <View style={[styles.totalsRow, isDark && styles.totalsRowDark]}>
-          <Text style={[styles.totalsLabel, isDark && styles.textSecondaryDark]}>Total</Text>
+          <Text style={[styles.totalsLabel, isDark && styles.textSecondaryDark]}>
+            {t('strength.totalLabel')}
+          </Text>
           <View style={styles.totalsValues}>
-            {totalWeight > 0 && (
+            {session.totalVolumeKg > 0 && (
               <Text style={[styles.totalsValue, isDark && styles.textDark]}>
-                {formatWeight(Math.round(totalWeight), isMetric)}
+                {formatWeight(Math.round(session.totalVolumeKg), isMetric)}
               </Text>
             )}
-            {totalDuration > 0 && (
+            {session.totalDurationSecs > 0 && (
               <Text style={[styles.totalsValue, isDark && styles.textSecondaryDark]}>
-                {formatDuration(totalDuration)}
+                {formatDuration(session.totalDurationSecs)}
               </Text>
             )}
           </View>
@@ -181,7 +192,7 @@ export function ExerciseTable({
               components={{
                 source: (
                   <Text
-                    style={styles.infoLink}
+                    style={[styles.infoLink, isDark && { color: darkColors.linkTeal }]}
                     onPress={() => Linking.openURL('https://github.com/yuhonas/free-exercise-db')}
                   >
                     {''}
@@ -213,6 +224,7 @@ export function ExerciseTable({
 }
 
 const styles = StyleSheet.create({
+  exerciseHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   card: {
     backgroundColor: colors.surface,
     borderRadius: layout.cardPadding,
@@ -355,7 +367,7 @@ const styles = StyleSheet.create({
   infoDot: {
     width: spacing.sm,
     height: spacing.sm,
-    borderRadius: spacing.xs,
+    borderRadius: layout.borderRadiusXs,
     marginTop: spacing.xs,
     marginRight: spacing.xs,
   },
@@ -377,6 +389,6 @@ const styles = StyleSheet.create({
   },
   infoLink: {
     ...typography.caption,
-    color: colors.primary,
+    color: colors.linkTeal,
   },
 });

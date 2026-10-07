@@ -19,7 +19,7 @@ export function shouldDismissForActivity(
   activityId: string
 ): boolean {
   if (identifier === `activity-${activityId}`) return true;
-  return tapTargetFromPushData(data)?.path === `/summary/${activityId}`;
+  return tapTargetFromPushData(data)?.path === `/activity/${activityId}`;
 }
 
 /** One entry as the tray reports it: its identifier and its push payload. */
@@ -103,12 +103,18 @@ export async function replaceActivityTrayEntry(r: TrayReplacement): Promise<bool
  * worth a push, and the generic entry has to come down with it: leaving it
  * would hand the athlete "Activity Recorded" permanently, which is worse than
  * the line it replaced.
+ *
+ * On iOS the notification service extension is the only poster for an activity
+ * push, so the answer is `none` whatever the body says: a post here would sit
+ * beside the extension's entry, and a dismiss would take it down.
  */
 export function trayActionFor(
+  os: string,
   body: string,
   foreground: boolean,
   ingested: boolean
-): 'post' | 'dismiss-only' | 'leave' {
+): 'post' | 'dismiss-only' | 'leave' | 'none' {
+  if (os === 'ios') return 'none';
   if (!body.trim()) return ingested ? 'dismiss-only' : 'leave';
   return foreground ? 'dismiss-only' : 'post';
 }

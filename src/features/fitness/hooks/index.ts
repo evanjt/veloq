@@ -7,5 +7,6 @@ export {
 } from './useAthleteSummary';
 export { useFitnessRefresh } from './useFitnessRefresh';
 export { useFitnessComputations } from './useFitnessComputations';
+export { useDailyActivityLoads } from './useDailyActivityLoads';
 export { useFitnessScreenData } from './useFitnessScreenData';
-export { useStoredPaceTrend } from './useStoredPaceTrend';
+export { useFitnessWindow } from './useFitnessWindow';

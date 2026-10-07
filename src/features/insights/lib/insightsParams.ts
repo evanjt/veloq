@@ -6,17 +6,14 @@
  */
 
 import type { InsightsParams } from 'veloqrs';
-import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { isRouteMatchingEnabled } from '@/features/routes';
+import { currentAndPreviousWeek } from '@/features/fitness';
+import { getMonday } from '@/shared/format/format';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
+import { trailingWeekRanges } from '@/shared/time/trailingWeeks';
 
-import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from './config';
+import { INSIGHTS_CONFIG, maxAgeDaysFor, maxPerCategoryFor, minAgeDaysFor } from './config';
 import { wellnessWindow } from './wellnessWindow';
-
-/** Ranked sections requested per sport. */
-const RANKED_LIMIT = 50;
-
-/** Efficiency candidates taken from each sport's ranked list. */
-const EFFICIENCY_PER_SPORT = 5;
 
 /**
  * The trailing window form is read from.
@@ -38,33 +35,10 @@ const HISTORY_LIMIT = 20;
 
 const WELLNESS_WINDOW_DAYS = 30;
 
-/** The trailing window the HRV verdict is read over. */
-const HRV_WINDOW_DAYS = 7;
-
-/** The trailing window the section-change list covers. */
-const SECTION_CHANGE_WINDOW_DAYS = 14;
-
 const toTs = (d: Date) => localWallClockToEpochSeconds(d);
 
-/** The four trailing weeks the strength insights compare. */
-function trailingStrengthWeeks(): { startTs: number; endTs: number }[] {
-  const end = new Date();
-  end.setHours(23, 59, 59, 0);
-
-  const ranges: { startTs: number; endTs: number }[] = [];
-  for (let index = 3; index >= 0; index -= 1) {
-    const rangeEnd = new Date(end);
-    rangeEnd.setDate(rangeEnd.getDate() - index * 7);
-
-    const rangeStart = new Date(rangeEnd);
-    rangeStart.setDate(rangeStart.getDate() - 6);
-    rangeStart.setHours(0, 0, 0, 0);
-
-    ranges.push({ startTs: toTs(rangeStart), endTs: toTs(rangeEnd) });
-  }
-
-  return ranges;
-}
+/** How many trailing weeks the strength insights compare. */
+const STRENGTH_WEEKS = 4;
 
 /** The trailing 28 days the monthly strength summary covers. */
 function trailingStrengthMonth(): { startTs: number; endTs: number } {
@@ -84,19 +58,18 @@ function trailingStrengthMonth(): { startTs: number; endTs: number } {
 export function buildInsightsParams(): InsightsParams {
   const now = new Date();
 
-  const startOfWeek = new Date(now);
-  const day = startOfWeek.getDay();
-  startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
-  startOfWeek.setHours(0, 0, 0, 0);
+  const { weekStartTs, prevStartTs } = currentAndPreviousWeek(now);
 
-  const startOfLastWeek = new Date(startOfWeek);
-  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+  // Last week up to the same weekday and time as now, so a part-week is
+  // compared with the same part of the previous one.
+  const samePointLastWeek = new Date(now);
+  samePointLastWeek.setDate(samePointLastWeek.getDate() - 7);
 
   // The four weeks before last week. The engine reads the chronic window as
   // `chronic_start .. prev_start` and divides by a fixed four, so it starts
   // four weeks before the previous week and not before the current one.
-  const chronicStart = new Date(startOfLastWeek);
-  chronicStart.setDate(chronicStart.getDate() - 28);
+  const chronicStart = getMonday(now);
+  chronicStart.setDate(chronicStart.getDate() - 7 - 28);
 
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
@@ -105,26 +78,31 @@ export function buildInsightsParams(): InsightsParams {
 
   return {
     historyLimit: HISTORY_LIMIT,
-    currentStart: toTs(startOfWeek),
+    currentStart: weekStartTs,
     currentEnd: toTs(now),
-    prevStart: toTs(startOfLastWeek),
-    prevEnd: toTs(startOfWeek) - 1,
+    prevStart: prevStartTs,
+    prevEnd: toTs(samePointLastWeek),
     chronicStart: toTs(chronicStart),
     todayStart: toTs(todayStart),
     includeSections: isRouteMatchingEnabled(),
-    rankedLimit: RANKED_LIMIT,
+    rankedLimit: INSIGHTS_CONFIG.limits.rankedPerSport,
     activeWindowDays: INSIGHTS_CONFIG.activeWindowDays,
-    efficiencyPerSport: EFFICIENCY_PER_SPORT,
+    efficiencyPerSport: INSIGHTS_CONFIG.limits.efficiencyPerSport,
+    efficiencyMinHrChangeBpm: INSIGHTS_CONFIG.thresholds.efficiencyMinHrChangeBpm,
     efficiencyLimit: maxPerCategoryFor('efficiency_trend'),
     efficiencyMinEfforts: INSIGHTS_CONFIG.repetition.efficiency_trend_min,
+    efficiencyDecliningMinEfforts: INSIGHTS_CONFIG.repetition.efficiency_trend_declining_min,
     strengthMonth: trailingStrengthMonth(),
-    strengthWeeks: trailingStrengthWeeks(),
+    strengthWeeks: trailingWeekRanges(STRENGTH_WEEKS),
     wellnessOldest: wellness.oldest,
     wellnessNewest: wellness.newest,
-    hrvWindowDays: HRV_WINDOW_DAYS,
-    sectionChangeWindowDays: SECTION_CHANGE_WINDOW_DAYS,
+    hrvWindowDays: INSIGHTS_CONFIG.windows.hrvDays,
+    sectionChangeWindowDays: maxAgeDaysFor('section_changed'),
     staleThresholdDays: minAgeDaysFor('stale_pr'),
-    staleMinGainPercent: INSIGHTS_CONFIG.thresholds.minFtpGainPercent,
-    staleMaxOpportunities: maxPerCategoryFor('stale_pr'),
+    staleMinGainPercent: INSIGHTS_CONFIG.thresholds.staleMinGainPercent,
+    staleMaxOpportunities: INSIGHTS_CONFIG.thresholds.staleMaxOpportunities,
+    staleMinTraversals: INSIGHTS_CONFIG.repetition.stale_pr_min_lifetime,
+    recentPrWindowDays: maxAgeDaysFor('section_pr'),
+    recentPrMinOutings: INSIGHTS_CONFIG.repetition.section_pr_min_outings,
   };
 }

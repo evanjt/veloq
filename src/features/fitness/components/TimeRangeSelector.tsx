@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   timeRangeButton: {
-    paddingHorizontal: spacing.sm + 4,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,

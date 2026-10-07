@@ -4,6 +4,8 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
+import type { TFunc } from '../types';
+import { sectionRowKey, sectionWithSport } from '../lib/cardSport';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import {
@@ -16,13 +18,15 @@ import {
   layout,
   typography,
   verdictColor,
-  colorWithOpacity,
+  verdictFill,
 } from '@/theme';
 import { DataPointRow } from './DataPointRow';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 import { TrackPreview, normalizeTrackPoints } from '@/shared/ui/TrackPreview';
+import { verdictIcon, verdictRung } from '@/shared/format/trend';
+import type { LatLngShort } from '@/shared/geo/distance';
 
 const SPARKLINE_HEIGHT = 60;
 
@@ -40,7 +44,7 @@ function SectionPreview({
   points,
 }: {
   sectionId: string;
-  points?: { lat: number; lng: number }[] | undefined;
+  points?: LatLngShort[] | undefined;
 }) {
   const { isDark } = useTheme();
   const normalised = useMemo(() => normalizeTrackPoints(points ?? []), [points]);
@@ -72,16 +76,6 @@ function getTrendColor(trend?: number, isDark?: boolean): string {
   if (trend > 0) return verdictColor('positive', !!isDark);
   if (trend < 0) return verdictColor('negative', !!isDark);
   return verdictColor('neutral', !!isDark);
-}
-
-function computeSparklineTrend(data: number[]): { direction: string; change: string } {
-  if (data.length < 2) return { direction: 'minus', change: '0%' };
-  const first = data[0];
-  const last = data[data.length - 1];
-  if (first === 0) return { direction: last > 0 ? 'trending-up' : 'minus', change: '--' };
-  const pct = ((last - first) / Math.abs(first)) * 100;
-  const direction = pct > 0 ? 'trending-up' : pct < 0 ? 'trending-down' : 'minus';
-  return { direction, change: `${pct > 0 ? '+' : ''}${pct.toFixed(0)}%` };
 }
 
 function buildSparklinePath(
@@ -134,17 +128,13 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   const comparison = data.comparisonData ?? null;
   const sections = data.sections?.length ? data.sections : null;
 
-  const sparklineTrend = useMemo(
-    () => (sparkline ? computeSparklineTrend(sparkline) : null),
-    [sparkline]
-  );
-
-  const trendColor = useMemo(() => {
-    if (!sparklineTrend) return verdictColor('positive', isDark);
-    if (sparklineTrend.direction === 'trending-up') return verdictColor('positive', isDark);
-    if (sparklineTrend.direction === 'trending-down') return verdictColor('negative', isDark);
-    return verdictColor('neutral', isDark);
-  }, [sparklineTrend, isDark]);
+  // The generator judged the series where the metric is known, so a falling
+  // efficiency ratio arrives as an improvement. A series with no verdict is
+  // drawn on the neutral rung with no arrow: its first and last points say
+  // which way it went, not whether that was good.
+  const trend = data.trend;
+  const trendColor = verdictColor(trend ? verdictRung(trend.verdict) : 'neutral', isDark);
+  const trendGlyph = trend ? verdictIcon(trend.verdict, trend.direction) : null;
 
   return (
     <View style={styles.container}>
@@ -162,27 +152,8 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                 {data.sparklineLabel}
               </Text>
             ) : null}
-            {sparklineTrend ? (
-              <View style={styles.sparklineTrend}>
-                <MaterialCommunityIcons
-                  name={sparklineTrend.direction as never}
-                  size={18}
-                  color={trendColor}
-                />
-                <Text
-                  style={[
-                    styles.sparklineChange,
-                    sparklineTrend.direction === 'trending-up' && {
-                      color: verdictColor('positive', isDark),
-                    },
-                    sparklineTrend.direction === 'trending-down' && {
-                      color: verdictColor('negative', isDark),
-                    },
-                  ]}
-                >
-                  {sparklineTrend.change}
-                </Text>
-              </View>
+            {trendGlyph && trendGlyph !== 'minus' ? (
+              <MaterialCommunityIcons name={trendGlyph} size={18} color={trendColor} />
             ) : null}
           </View>
           <SparklineChart data={sparkline} color={trendColor} />
@@ -195,8 +166,12 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
           style={[
             styles.comparisonCard,
             isDark && styles.comparisonCardDark,
-            comparison.change.context === 'good' && styles.comparisonPositive,
-            comparison.change.context === 'concern' && styles.comparisonNegative,
+            comparison.change.context === 'good' && {
+              backgroundColor: verdictFill('positive', isDark),
+            },
+            comparison.change.context === 'concern' && {
+              backgroundColor: verdictFill('negative', isDark),
+            },
           ]}
         >
           <View style={styles.comparisonColumns}>
@@ -265,8 +240,9 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
         <View style={styles.sectionsContainer}>
           {sections.map((section) => (
             <Pressable
-              key={section.sectionId}
+              key={sectionRowKey(section)}
               style={pressable([styles.sectionCard, isDark && styles.sectionCardDark])}
+              android_ripple={pressRipple}
               onPress={() => navigateTo(`/section/${section.sectionId}`)}
             >
               <SectionPreview sectionId={section.sectionId} points={section.previewPoints} />
@@ -275,7 +251,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                   style={[styles.sectionName, isDark && styles.sectionNameDark]}
                   numberOfLines={1}
                 >
-                  {section.sectionName}
+                  {sectionWithSport(section.sectionName, section.sportType, t as unknown as TFunc)}
                 </Text>
                 <View style={styles.sectionMeta}>
                   {section.bestTime != null ? (
@@ -311,33 +287,37 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
 });
 
 /** Inline Skia sparkline with gradient fill */
-const SparklineChart = React.memo(function SparklineChart({
+export const SparklineChart = React.memo(function SparklineChart({
   data,
   color,
+  width = 280,
+  height = SPARKLINE_HEIGHT,
 }: {
   data: number[];
   color: string;
+  width?: number;
+  height?: number;
 }) {
-  const WIDTH = 280;
+  const WIDTH = width;
   const PADDING = 4;
 
   const linePath = useMemo(
-    () => buildSparklinePath(data, WIDTH, SPARKLINE_HEIGHT, PADDING),
-    [data]
+    () => buildSparklinePath(data, WIDTH, height, PADDING),
+    [data, WIDTH, height]
   );
   const areaPath = useMemo(
-    () => buildSparklineAreaPath(data, WIDTH, SPARKLINE_HEIGHT, PADDING),
-    [data]
+    () => buildSparklineAreaPath(data, WIDTH, height, PADDING),
+    [data, WIDTH, height]
   );
 
   if (!linePath) return null;
 
   return (
-    <Canvas style={{ width: WIDTH, height: SPARKLINE_HEIGHT }}>
+    <Canvas style={{ width: WIDTH, height }}>
       <Path path={areaPath} style="fill">
         <LinearGradient
           start={vec(0, 0)}
-          end={vec(0, SPARKLINE_HEIGHT)}
+          end={vec(0, height)}
           colors={[`${color}40`, `${color}05`]}
         />
       </Path>
@@ -373,16 +353,6 @@ const styles = StyleSheet.create({
   sparklineLabelDark: {
     color: darkColors.textSecondary,
   },
-  sparklineTrend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  sparklineChange: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
   // Comparison
   comparisonCard: {
     borderRadius: layout.borderRadiusMd,
@@ -392,12 +362,6 @@ const styles = StyleSheet.create({
   },
   comparisonCardDark: {
     backgroundColor: opacity.overlayDark.light,
-  },
-  comparisonPositive: {
-    backgroundColor: colorWithOpacity(colors.success, 0.08),
-  },
-  comparisonNegative: {
-    backgroundColor: colorWithOpacity(colors.warning, 0.08),
   },
   comparisonColumns: {
     flexDirection: 'row',

@@ -1,4 +1,10 @@
-import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
+import {
+  formatPaceCompact,
+  formatSwimPace,
+  paceSecondsForUnit,
+  paceUnitLabel,
+  swimPaceUnitLabel,
+} from '@/shared/format/format';
 import type { Insight, FtpTrend, PaceTrend, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
@@ -43,7 +49,8 @@ function addPaceMilestoneInsight(
     icon: string;
     iconTone: InsightTone;
     paceUnit: string;
-    changeUnit: string;
+    sport: 'run' | 'swim';
+    isMetric: boolean;
     formatValue: (speedMetersPerSecond: number) => string;
   }
 ): void {
@@ -55,17 +62,30 @@ function addPaceMilestoneInsight(
     typeof pace.deltaSeconds !== 'number' ||
     pace.latestPace <= 0 ||
     pace.previousPace <= 0 ||
-    pace.latestPace <= pace.previousPace
+    pace.latestPace === pace.previousPace
   ) {
     return;
   }
 
-  // The engine measured the move in the unit the sport is paced in, so both
-  // numbers are read rather than derived and only the rounding is ours.
-  const deltaSecs = Math.round(pace.deltaSeconds);
+  // The engine measured the move per kilometre or per 100 m, so both numbers
+  // are read rather than derived: only the unit and the rounding are ours.
+  const deltaSecs = Math.round(
+    paceSecondsForUnit(pace.deltaSeconds, options.sport, options.isMetric)
+  );
   const gainPercent = Math.round(pace.gainPercent);
+  const declining = pace.latestPace < pace.previousPace;
+  const minPercent = declining
+    ? INSIGHTS_CONFIG.thresholds.minPaceDeclinePercent
+    : INSIGHTS_CONFIG.thresholds.minPaceChangePercent;
 
-  if (deltaSecs <= 0 || gainPercent <= 0) return;
+  if (
+    Math.sign(pace.gainPercent) !== (declining ? -1 : 1) ||
+    Math.sign(pace.deltaSeconds) !== (declining ? -1 : 1) ||
+    Math.abs(pace.gainPercent) < minPercent ||
+    deltaSecs === 0 ||
+    gainPercent === 0
+  )
+    return;
 
   insights.push(
     makeInsight({
@@ -73,9 +93,9 @@ function addPaceMilestoneInsight(
       category: 'fitness_milestone',
       priority: 2,
       icon: options.icon as Insight['icon'],
-      iconTone: options.iconTone,
-      title: t('insights.paceImproved', {
-        delta: `${deltaSecs}${options.changeUnit}`,
+      iconTone: declining ? 'neutral' : options.iconTone,
+      title: t(declining ? 'insights.paceChange' : 'insights.paceImproved', {
+        delta: `${declining ? '−' : ''}${Math.abs(deltaSecs)}s${options.paceUnit}`,
       }),
       navigationTarget: fitnessTarget({ date: dayOf(pace.latestDate) }),
       timestamp: now,
@@ -88,12 +108,16 @@ function addPaceMilestoneInsight(
       },
       supportingData: {
         ...sparkline(pace.history, t('insights.data.paceHistory')),
+        trend: {
+          direction: declining ? 'down' : 'up',
+          verdict: declining ? 'declined' : 'improved',
+        },
         dataPoints: [
           {
             label: t('insights.data.currentPace'),
             value: options.formatValue(pace.latestPace),
             unit: options.paceUnit,
-            context: 'good',
+            context: declining ? 'neutral' : 'good',
           },
           {
             label: t('insights.data.previousPace'),
@@ -102,14 +126,14 @@ function addPaceMilestoneInsight(
           },
           {
             label: t('insights.data.improvement'),
-            value: `+${gainPercent}%`,
-            context: 'good',
+            value: `${declining ? '' : '+'}${gainPercent}%`,
+            context: declining ? 'neutral' : 'good',
           },
         ],
       },
       methodology: {
-        name: t('insights.methodology.thresholdSpeedName'),
-        description: t('insights.methodology.thresholdSpeedDescription'),
+        name: t('insights.methodology.criticalSpeedName'),
+        description: t('insights.methodology.criticalSpeedDescription'),
       },
     })
   );
@@ -120,7 +144,8 @@ export function generateFitnessMilestoneInsights(
   paceTrend: PaceTrend | null | undefined,
   swimPaceTrend: PaceTrend | null | undefined,
   now: number,
-  t: TFunc
+  t: TFunc,
+  isMetric = true
 ): Insight[] {
   const insights: Insight[] = [];
 
@@ -133,20 +158,24 @@ export function generateFitnessMilestoneInsights(
     typeof ftp.deltaWatts === 'number' &&
     ftp.latestFtp > 0 &&
     ftp.previousFtp > 0 &&
-    ftp.latestFtp > ftp.previousFtp
+    ftp.latestFtp !== ftp.previousFtp
   ) {
     const delta = ftp.deltaWatts;
-    if (delta >= INSIGHTS_CONFIG.thresholds.minFtpChangeWatts) {
+    const declining = ftp.latestFtp < ftp.previousFtp;
+    const minChange = declining
+      ? INSIGHTS_CONFIG.thresholds.minFtpDeclineWatts
+      : INSIGHTS_CONFIG.thresholds.minFtpChangeWatts;
+    if (Math.sign(delta) === (declining ? -1 : 1) && Math.abs(delta) >= minChange) {
       insights.push(
         makeInsight({
           id: 'fitness_milestone-ftp',
           category: 'fitness_milestone',
           priority: 2,
           icon: 'lightning-bolt',
-          iconTone: 'positive',
-          title: t('insights.ftpIncrease', {
+          iconTone: declining ? 'neutral' : 'positive',
+          title: t(declining ? 'insights.ftpChange' : 'insights.ftpIncrease', {
             current: Math.round(ftp.latestFtp),
-            change: delta,
+            change: declining ? `−${Math.abs(delta)}` : delta,
           }),
           navigationTarget: fitnessTarget({ date: dayOf(ftp.latestDate) }),
           timestamp: now,
@@ -157,12 +186,16 @@ export function generateFitnessMilestoneInsights(
           },
           supportingData: {
             ...sparkline(ftp.history, t('insights.data.ftpHistory')),
+            trend: {
+              direction: declining ? 'down' : 'up',
+              verdict: declining ? 'declined' : 'improved',
+            },
             dataPoints: [
               {
                 label: t('insights.data.currentFtp'),
                 value: Math.round(ftp.latestFtp),
                 unit: 'W',
-                context: 'good',
+                context: declining ? 'neutral' : 'good',
               },
               {
                 label: t('insights.data.previousFtp'),
@@ -171,9 +204,9 @@ export function generateFitnessMilestoneInsights(
               },
               {
                 label: t('insights.data.change'),
-                value: `+${delta}`,
+                value: `${declining ? '' : '+'}${delta}`,
                 unit: 'W',
-                context: 'good',
+                context: declining ? 'neutral' : 'good',
               },
             ],
           },
@@ -190,18 +223,20 @@ export function generateFitnessMilestoneInsights(
     id: 'fitness_milestone-pace',
     icon: 'run-fast',
     iconTone: 'positive',
-    paceUnit: '/km',
-    changeUnit: 's/km',
-    formatValue: (speedMetersPerSecond) => formatPaceCompact(speedMetersPerSecond),
+    paceUnit: paceUnitLabel(isMetric),
+    sport: 'run',
+    isMetric,
+    formatValue: (speedMetersPerSecond) => formatPaceCompact(speedMetersPerSecond, isMetric),
   });
 
   addPaceMilestoneInsight(insights, swimPaceTrend ?? null, now, t, {
     id: 'fitness_milestone-swim-pace',
     icon: 'swim',
     iconTone: 'info',
-    paceUnit: '/100m',
-    changeUnit: 's/100m',
-    formatValue: (speedMetersPerSecond) => formatSwimPace(speedMetersPerSecond),
+    paceUnit: swimPaceUnitLabel(isMetric),
+    sport: 'swim',
+    isMetric,
+    formatValue: (speedMetersPerSecond) => formatSwimPace(speedMetersPerSecond, isMetric),
   });
 
   return insights;

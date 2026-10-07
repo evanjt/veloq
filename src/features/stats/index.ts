@@ -14,26 +14,28 @@ export type { ActivityHeatmapHandle } from './components';
 
 export {
   usePaceCurve,
-  PACE_CURVE_DISTANCES,
-  SWIM_PACE_CURVE_DISTANCES,
-  getPaceAtDistance,
   getIndexAtDistance,
   getTimeAtDistance,
   usePowerCurve,
-  POWER_CURVE_DURATIONS,
-  getPowerAtDuration,
   getIndexAtDuration,
-  formatPowerCurveForChart,
   useSeasonBests,
+  bestEffortsOf,
+  climbBestsOf,
+  climbStatusOf,
+  type ClimbStatus,
+  useBestEfforts,
   type BestEffort,
+  type ClimbBest,
+  type BestEffortsSport,
   type UseSeasonBestsResult,
 } from './hooks';
 
 export {
   buildChartData,
-  calculateDecoupling,
   computeAllAverages,
   computeIntervalBands,
+  formatScrubValue,
+  seriesAverage,
   type DataSeries,
   type SeriesInfo,
   type ChartMetricValue,
@@ -46,3 +48,8 @@ export {
   curveFreshness,
   type CurveFreshness,
 } from './lib';
+export {
+  BEST_EFFORTS_DEFAULT_PERIOD,
+  BEST_EFFORTS_PERIODS,
+  bestEffortsDays,
+} from './lib/bestEffortsPeriod';

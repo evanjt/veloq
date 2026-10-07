@@ -3,12 +3,14 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CurveChart, useChartColors } from '@/shared/charts';
+import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { colors, typography, spacing, chartStyles, layout, colorWithOpacity } from '@/theme';
+import { powerChartSeries } from '../lib/curveChartSeries';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
 import { RangeCoverage } from 'veloqrs';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
+import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 
 interface PowerCurveChartProps {
   sport?: string | undefined;
@@ -22,7 +24,13 @@ interface PowerCurveChartProps {
 }
 
 const FTP_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
-const X_LABELS = ['5s', '1m', '5m', '20m', '1h'];
+const X_LABELS: PlacedLabel[] = [
+  { label: '5s', value: Math.log10(5) },
+  { label: '1m', value: Math.log10(60) },
+  { label: '5m', value: Math.log10(300) },
+  { label: '20m', value: Math.log10(1200) },
+  { label: '1h', value: Math.log10(3600) },
+];
 
 interface ChartPoint {
   x: number;
@@ -71,7 +79,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   const chartColors = useChartColors();
   const lineColor = color ?? chartColors.powerCurve;
 
-  const { data: curve, isLoading, error, coverage } = usePowerCurve({ sport, days });
+  const { data: curve, isLoading, error, coverage, bodyStatus } = usePowerCurve({ sport, days });
 
   // Per kilogram is the one comparison that survives a change of body weight.
   // Offered only when the body carried the series, and never persisted: it is
@@ -96,18 +104,8 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       };
     }
 
-    // Build data points from the curve
-    const points: { secs: number; watts: number }[] = [];
-
-    for (let i = 0; i < curve.secs.length; i++) {
-      const secs = curve.secs[i];
-      const watts = series[i];
-      if (watts > 0 && secs > 0) {
-        points.push({ secs, watts });
-      }
-    }
-
-    if (points.length === 0) {
+    const plotted = powerChartSeries(curve.secs, series);
+    if (!plotted) {
       return {
         chartData: [],
         ftpValue: ftpShown,
@@ -115,54 +113,18 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       };
     }
 
-    // Sort by duration
-    points.sort((a, b) => a.secs - b.secs);
-
-    // Sample points using logarithmic spacing for smooth curve
-    const sampled: typeof points = [];
-    const logMin = Math.log10(Math.max(1, points[0].secs));
-    const logMax = Math.log10(points[points.length - 1].secs);
-    const numSamples = 60;
-
-    for (let i = 0; i < numSamples; i++) {
-      const logVal = logMin + (logMax - logMin) * (i / (numSamples - 1));
-      const targetSecs = Math.pow(10, logVal);
-
-      // Find closest point
-      let closest = points[0];
-      let minDiff = Math.abs(points[0].secs - targetSecs);
-      for (const p of points) {
-        const diff = Math.abs(p.secs - targetSecs);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closest = p;
-        }
-      }
-
-      // Avoid duplicates
-      if (sampled.length === 0 || sampled[sampled.length - 1].secs !== closest.secs) {
-        sampled.push(closest);
-      }
-    }
-
-    // Convert to chart format (use log of duration for x to spread out short durations)
-    const data: ChartPoint[] = sampled.map((p) => ({
+    // Log of duration on x spreads out short durations
+    const data: ChartPoint[] = plotted.points.map((p) => ({
       x: Math.log10(p.secs),
       y: p.watts,
       secs: p.secs,
       watts: p.watts,
     }));
 
-    // Calculate Y domain
-    const watts = data.map((d) => d.y);
-    const minWatts = Math.min(...watts);
-    const maxWatts = Math.max(...watts);
-    const padding = (maxWatts - minWatts) * 0.1;
-
     return {
       chartData: data,
       ftpValue: ftpShown,
-      yDomain: [Math.max(0, minWatts - padding), maxWatts + padding] as [number, number],
+      yDomain: plotted.yDomain,
     };
   }, [curve, ftp, perKg]);
 
@@ -176,15 +138,13 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     [ftpValue]
   );
 
-  if (isLoading) {
+  const awaitingBody = bodyStatus === 'waiting' && chartData.length === 0;
+
+  if (isLoading || awaitingBody) {
     return (
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDark && chartStyles.textDark]}>
-            {t('common.loading')}
-          </Text>
-        </View>
+        <CurveLoadingPlaceholder height={height} />
       </View>
     );
   }
@@ -246,6 +206,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             accessibilityState={{ selected: !perKg }}
             onPress={() => setPerKgWanted(false)}
             style={pressable([styles.unitPill, !perKg && styles.unitPillActive])}
+            android_ripple={pressRipple}
           >
             <Text
               style={[
@@ -263,6 +224,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             accessibilityState={{ selected: perKg }}
             onPress={() => setPerKgWanted(true)}
             style={pressable([styles.unitPill, perKg && styles.unitPillActive])}
+            android_ripple={pressRipple}
           >
             <Text
               style={[
@@ -357,15 +319,6 @@ const styles = StyleSheet.create({
   valueNumber: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
   },
   emptyState: {
     flex: 1,

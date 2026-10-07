@@ -2,18 +2,21 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { useSectionDetail } from '@/features/routes/hooks/useEngine';
-import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
+import { useSectionPerformances } from '@/features/routes';
+import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { findPreviousBest } from '@/features/insights/lib/previousBest';
 import { cardSportType } from '@/features/insights/lib/cardSport';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
+import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
 import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, opacity, brand, layout, typography } from '@/theme';
+import { prRecordOf } from '@/features/insights/lib/directionBests';
 import type { Insight } from '@/types';
 
 const ACCENT_COLOR = brand.gold;
@@ -26,17 +29,19 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   insight,
 }: SectionPRContentProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const prData = insight.supportingData?.sections?.[0];
   const sectionId = prData?.sectionId ?? null;
-  const { section } = useSectionDetail(sectionId);
+  const { section, error: sectionError } = useSectionDetail(sectionId);
   // The record's sport, so the timeline, the effort count, the percentile and
   // the previous best all stand on the rows the record was set against. Read
   // unfiltered, a ride PR on ground that is also run opened on the runs.
-  const { records, bestRecord, isLoading } = useSectionPerformances(section, prData?.sportType);
+  const { records, bests, isLoading } = useSectionPerformances(section, prData?.sportType);
 
   // The record's sport, not the section's: shared ground holds a record in
   // each sport that travels it.
-  const sportType = cardSportType(prData?.sportType, section?.sportType);
+  const bestRecord = useMemo(() => prRecordOf(bests), [bests]);
+  const sportType = cardSportType(prData?.sportType, section?.sportTypes);
   const bestTime = bestRecord?.bestTime ?? prData?.bestTime ?? null;
   const bestTimeFormatted = bestTime != null ? formatDuration(bestTime) : null;
   const effortCount = records.length > 0 ? records.length : undefined;
@@ -61,11 +66,12 @@ export const SectionPRContent = React.memo(function SectionPRContent({
     return Math.round((slowerCount / otherCount) * 100);
   }, [records, bestRecord]);
 
-  // PR context: count how many recent PRs from the insight data
-  const recentPRCount = insight.supportingData?.sections?.length ?? 0;
-
   return (
     <View style={styles.container}>
+      {sectionError !== undefined ? (
+        <EngineReadFailure error={sectionError} testID="section-read-failure" />
+      ) : null}
+
       {/* Section map */}
       {section?.polyline && section.polyline.length >= 2 ? (
         <SectionInsightMap polyline={section.polyline} lineColor={ACCENT_COLOR} />
@@ -103,15 +109,17 @@ export const SectionPRContent = React.memo(function SectionPRContent({
           {/* Delta from previous best */}
           {deltaFormatted ? (
             <Text style={styles.deltaText}>
-              {'\u2212'}
-              {deltaFormatted} from previous
+              {t('insights.sectionPrSheet.fromPrevious', { delta: deltaFormatted })}
             </Text>
           ) : null}
 
           {/* Previous best context */}
           {previousBestTimeFormatted && previousBestDate ? (
             <Text style={[styles.previousText, isDark && styles.previousTextDark]}>
-              Previous: {previousBestTimeFormatted} on {previousBestDate}
+              {t('insights.sectionPrSheet.previous', {
+                time: previousBestTimeFormatted,
+                date: previousBestDate,
+              })}
             </Text>
           ) : null}
 
@@ -120,21 +128,14 @@ export const SectionPRContent = React.memo(function SectionPRContent({
             {effortCount != null && effortCount > 1 ? (
               <View style={[styles.contextChip, isDark && styles.contextChipDark]}>
                 <Text style={[styles.contextText, isDark && styles.contextTextDark]}>
-                  {effortCount} efforts
+                  {t('insights.sectionPrSheet.efforts', { n: effortCount })}
                 </Text>
               </View>
             ) : null}
             {percentileFaster != null && percentileFaster > 0 ? (
               <View style={[styles.contextChip, isDark && styles.contextChipDark]}>
                 <Text style={[styles.contextText, isDark && styles.contextTextDark]}>
-                  Faster than {percentileFaster}% of efforts
-                </Text>
-              </View>
-            ) : null}
-            {recentPRCount > 1 ? (
-              <View style={[styles.contextChip, isDark && styles.contextChipDark]}>
-                <Text style={[styles.contextText, isDark && styles.contextTextDark]}>
-                  {recentPRCount} PRs this week
+                  {t('insights.sectionPrSheet.fasterThan', { percent: percentileFaster })}
                 </Text>
               </View>
             ) : null}
@@ -148,16 +149,12 @@ export const SectionPRContent = React.memo(function SectionPRContent({
           <Shimmer width="100%" height={160} borderRadius={8} />
         </View>
       ) : records.length >= 2 ? (
-        <SectionPerformanceTimeline
-          records={records}
-          bestRecord={bestRecord}
-          lineColor={ACCENT_COLOR}
-        />
+        <SectionPerformanceTimeline records={records} bests={bests} lineColor={ACCENT_COLOR} />
       ) : null}
 
       {/* Recent efforts list */}
       {!isLoading && records.length > 0 ? (
-        <RecentEffortsList records={records} bestRecord={bestRecord} />
+        <RecentEffortsList records={records} bests={bests} />
       ) : null}
     </View>
   );

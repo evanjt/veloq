@@ -1,62 +1,24 @@
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Platform } from 'react-native';
 
+import { getSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
-import {
-  presentActivityNotification,
-  presentInsightNotification,
-} from '@/features/settings/lib/notificationService';
-import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import { presentActivityNotification } from '@/features/settings/lib/notificationService';
+import type { NotificationPreferences } from '@/features/settings';
 
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 import type { ActivityInfo } from './lib/activityHighlight';
-import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
+import { activityStartEpoch } from '@/shared/activity/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
 import { replaceActivityTrayEntry, trayActionFor } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
 import { awaitActivityBody } from './lib/awaitActivityBody';
-import { writeRouteLineAttachment } from './lib/routeLineImage';
-import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
-import {
-  filterInsightsForNotificationPreferences,
-  formatInsightNotification,
-  isPushAllowed,
-  pickBestInsightForNotification,
-  prunePushHistory,
-} from './notifications';
-import { computeInsightFingerprint } from './store';
-import { readInsightFingerprint, writeInsightFingerprint } from './lib/fingerprintStore';
 const log = debug.create('BackgroundInsight');
 
 export const BACKGROUND_INSIGHT_TASK = 'veloq-background-insight';
 
 const PREFS_KEY = 'veloq-notification-preferences';
-/** History of recent push timestamps (ms epoch) for D11 cooldown enforcement. */
-const PUSH_HISTORY_KEY = 'veloq-insight-push-history';
-
-async function readPushHistory(): Promise<number[]> {
-  try {
-    const raw = await AsyncStorage.getItem(PUSH_HISTORY_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
-  } catch {
-    return [];
-  }
-}
-
-async function appendPushHistory(ts: number): Promise<void> {
-  try {
-    const existing = await readPushHistory();
-    const pruned = prunePushHistory([...existing, ts], ts);
-    await AsyncStorage.setItem(PUSH_HISTORY_KEY, JSON.stringify(pruned));
-  } catch (e) {
-    log.warn('Could not persist push history:', e);
-  }
-}
 
 /** Max time to wait for GPS download (15 seconds) */
 const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
@@ -66,12 +28,13 @@ const GPS_DOWNLOAD_POLL_MS = 250;
 const ACTIVITY_DETAIL_TIMEOUT_MS = 15_000;
 
 /**
- * Read notification preferences directly from AsyncStorage.
+ * Read notification preferences through the settings reader, so an open
+ * engine answers from SQLite and a headless start falls back to the mirror.
  * In background context, Zustand store may not be initialized.
  */
 async function readPrefsFromStorage(): Promise<NotificationPreferences | null> {
   try {
-    const raw = await AsyncStorage.getItem(PREFS_KEY);
+    const raw = await getSetting(PREFS_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as NotificationPreferences;
   } catch {
@@ -98,8 +61,8 @@ interface FetchRunResult {
 }
 
 async function waitForRunResult(
-  takeResult: (run: bigint) => FetchRunResult | null | undefined,
-  run: bigint
+  takeResult: (run: number) => FetchRunResult | null | undefined,
+  run: number
 ): Promise<FetchRunResult | null> {
   const deadline = Date.now() + GPS_DOWNLOAD_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -146,29 +109,13 @@ async function indexActivity(
 }
 
 /**
- * Draw the route line the enriched notification carries beside its text.
- * iOS only: a locally scheduled notification on Android resolves its image to
- * the static large icon, so there is nothing for the file to attach to.
- * Returns null whenever the picture cannot be made, which never blocks the
- * notification itself.
- */
-async function drawRouteLine(activityId: string): Promise<string | null> {
-  if (Platform.OS !== 'ios') return null;
-  try {
-    const { engine, decodeCoords } = require('veloqrs');
-    const points = decodeCoords(engine.getGpsTrack(activityId));
-    return await writeRouteLineAttachment(activityId, points.length > 0 ? points : null);
-  } catch (e) {
-    log.warn('Route picture could not be drawn:', e);
-    return null;
-  }
-}
-
-/**
  * Fetch activity metadata and download GPS into the Rust engine.
  * Returns activity info for notification enrichment, or null on failure.
  */
-async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo | null> {
+async function fetchAndIngestActivity(
+  activityId: string,
+  expectedAthleteId: string
+): Promise<ActivityInfo | null> {
   try {
     const {
       ensureCredentialsHydrated,
@@ -181,23 +128,23 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
     // is. Read it from SecureStore before the guard, or every cold push bails
     // here and no rung below it ever runs.
     await ensureCredentialsHydrated();
-    if (!getStoredCredentials().athleteId) return null;
+    if (getStoredCredentials().athleteId !== expectedAthleteId) return null;
 
     // A headless start may reach the engine before the layout init effect has,
     // so hand it the rehydrated credential before asking it to fetch.
     pushCredentialsToEngine();
 
-    const { startFetchAndStore, takeFetchAndStoreResult, engine } = require('veloqrs');
+    const { engine } = require('veloqrs');
+    const { DownloadPriority } = require('veloqrs') as typeof import('veloqrs');
 
     const activity = await awaitActivityBody(engine, activityId, ACTIVITY_DETAIL_TIMEOUT_MS);
     if (!activity) return null;
+    if (getStoredCredentials().athleteId !== expectedAthleteId) return null;
 
     const activityInfo: ActivityInfo = {
       name: typeof activity.name === 'string' ? activity.name : 'Activity',
       type: typeof activity.type === 'string' ? activity.type : 'Ride',
       ingested: false,
-      distance: typeof activity.distance === 'number' ? activity.distance : undefined,
-      movingTime: typeof activity.moving_time === 'number' ? activity.moving_time : undefined,
     };
 
     // Skip GPS download if we already have this activity in SQLite - the
@@ -220,27 +167,29 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       return activityInfo;
     }
 
-    const run = startFetchAndStore(
+    const startDate = activityStartEpoch(
+      typeof activity.start_date_local === 'string' ? activity.start_date_local : undefined
+    );
+    const run = engine.startFetchAndStore(
       [activityId],
       [
         {
           activityId,
           sportType: activityInfo.type,
-          startDate: activityStartEpoch(
-            typeof activity.start_date_local === 'string' ? activity.start_date_local : undefined
-          ),
+          ...(startDate !== undefined && { startDate }),
         },
-      ]
+      ],
+      // One activity a notification is waiting on, so it takes the lane that
+      // does not queue behind a foreground bulk pass.
+      DownloadPriority.Interactive
     );
 
     const startTime = Date.now();
-    const result = await waitForRunResult(takeFetchAndStoreResult, run);
+    const result = await waitForRunResult((r: number) => engine.takeFetchAndStoreResult(r), run);
     if (!result) {
       log.warn(`GPS ingest timed out after ${GPS_DOWNLOAD_TIMEOUT_MS}ms for ${activityId}`);
     }
     if (result && result.successCount > 0) {
-      const { toActivityMetrics } = require('@/shared/activity/activityMetrics');
-      engine.setActivityMetrics([toActivityMetrics(activity)]);
       engine.triggerRefresh('activities');
       activityInfo.ingested = true;
       log.log(
@@ -251,8 +200,8 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       // PRs are present when the notification body queries the engine below.
       await indexActivity(engine, activityId);
 
-      // Queue for priority terrain snapshot generation when app opens
-      const { addPendingSnapshot } = require('@/features/maps/lib/storage/terrainPreviewCache');
+      // Only mounts the snapshot pool early on next open; it changes no order
+      const { addPendingSnapshot } = require('@/features/maps') as typeof import('@/features/maps');
       addPendingSnapshot(activityId).catch(() => {});
     }
 
@@ -289,7 +238,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
   try {
     await appendTaskRun({ stage: 'fired' });
 
-    // 1. Read preferences directly from AsyncStorage (Zustand may not be hydrated)
+    // 1. Read preferences through getSetting (Zustand may not be hydrated)
     const prefs = await readPrefsFromStorage();
     log.log(`Prefs: enabled=${prefs?.enabled}, hasData=${!!data}`);
     if (!prefs?.enabled) {
@@ -302,6 +251,15 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     // extractor tries every known wrapping (dataString, body, flat, nested).
     const payload = extractPushPayload(data);
     const { eventType, activityId, sourceShape } = payload;
+
+    if (eventType) {
+      const { ensureCredentialsHydrated, getStoredCredentials } = require('@/shared/app/AuthStore');
+      await ensureCredentialsHydrated();
+      if (!payload.athleteId || payload.athleteId !== getStoredCredentials().athleteId) {
+        await appendTaskRun({ stage: 'bailed', detail: 'push athlete not signed in' });
+        return;
+      }
+    }
 
     log.log(`Push received: event=${eventType}, activity=${activityId}, shape=${sourceShape}`);
 
@@ -322,13 +280,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     await appendTaskRun({ stage: 'parsed', eventType, activityId, sourceShape });
 
     const isActivityEvent = eventType === 'ACTIVITY_UPLOADED' || eventType === 'ACTIVITY_ANALYZED';
-
-    // 3. Get i18n translation function (standalone, no React)
-    const { i18n } = require('@/i18n');
-    const t = i18n.t.bind(i18n) as (
-      key: string,
-      params?: Record<string, string | number>
-    ) => string;
+    const pushAthleteId = payload.athleteId;
 
     // Note: no on-device placeholder notification - the worker's visible push
     // is already in the tray by the time this task runs. We dismiss that one
@@ -336,9 +288,14 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     // 5. If activity event, fetch metadata + download GPS into engine
     let activityInfo: ActivityInfo | null = null;
-    if (isActivityEvent && activityId) {
+    if (isActivityEvent && activityId && pushAthleteId) {
       const ingestStart = Date.now();
-      activityInfo = await fetchAndIngestActivity(activityId);
+      activityInfo = await fetchAndIngestActivity(activityId, pushAthleteId);
+      const { getStoredCredentials } = require('@/shared/app/AuthStore');
+      if (getStoredCredentials().athleteId !== pushAthleteId) {
+        await appendTaskRun({ stage: 'bailed', detail: 'signed-in athlete changed' });
+        return;
+      }
       await appendTaskRun({
         stage: 'ingested',
         eventType,
@@ -349,33 +306,25 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       });
     }
 
-    // 6. Generate insights (now includes new activity if ingested). Form rides
-    // the bundle, read off the wellness the sync above refreshed, so there is
-    // no second read of a month of rows here.
-    const enginePayload = fetchInsightsDataFromEngine();
-    const insights = enginePayload
-      ? computeInsightsFromData(enginePayload.insightsData, t, enginePayload.summaryCardData)
-      : [];
-
     // 7b. Refresh the home-screen widget - the engine already holds the newly
     // ingested activity, so this is a cheap snapshot write. Lazy-required (deep
     // path, no React components) to keep the headless module graph lean. No-op
     // until the native widget module is built in.
     try {
-      const { updateWidgetSnapshot } = require('@/features/home/lib/widgetBridge');
+      const { updateWidgetSnapshot } =
+        require('@/features/home') as typeof import('@/features/home');
       updateWidgetSnapshot();
     } catch (e) {
       log.warn('widget snapshot update failed:', e);
     }
 
-    // 8. Find insights that are NEW (caused by this activity)
-    const storedFingerprint = await readInsightFingerprint();
-    const previousIds = new Set(storedFingerprint.split('|'));
-    const newInsights = insights.filter((i) => !previousIds.has(i.id));
-    const allowedNewInsights = filterInsightsForNotificationPreferences(newInsights, prefs);
-
-    // 9. Replace the placeholder with the enriched activity notification
-    if (isActivityEvent && activityId) {
+    // 9. Replace the placeholder with the enriched activity notification.
+    // On iOS the notification service extension is the only poster for an
+    // activity push, so the task ingests and refreshes but leaves the tray alone.
+    if (isActivityEvent && activityId && Platform.OS === 'ios') {
+      log.log('Activity push on iOS, tray left to the notification extension');
+      await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (extension posts)' });
+    } else if (isActivityEvent && activityId) {
       // An ingest that failed has no name, and an empty body is how that
       // reaches the tray decision below rather than as the notification's own
       // title repeated back to the athlete.
@@ -388,14 +337,13 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       // Lazily required like every other engine reach in this file, to keep
       // the headless module graph lean.
       const { engine } = require('veloqrs') as typeof import('veloqrs');
-      const milestone = prefs.categories.fitnessMilestone
-        ? allowedNewInsights.find((i) => i.category === 'fitness_milestone')
-        : undefined;
+      // The engine finds a fitness milestone itself, so the switch is all it
+      // is told.
       const { title, body } = engine.activityNotification(
         activityId,
         activityInfo?.name ?? '',
         prefs.categories.sectionPr,
-        milestone?.title ?? null
+        prefs.categories.fitnessMilestone
       ) ?? { title: '', body: '' };
 
       // The enriched entry goes up, then the entries it replaces come down.
@@ -404,11 +352,11 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       // tapping the visible push cold-starts the app and the silent push fires
       // the task a second later. The old entries still come down.
       const action = trayActionFor(
+        Platform.OS,
         body,
         AppState.currentState === 'active',
         activityInfo?.ingested ?? false
       );
-      const attachmentUri = action === 'post' ? await drawRouteLine(activityId) : null;
       const posted =
         action === 'leave'
           ? false
@@ -424,13 +372,10 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
                 action === 'dismiss-only'
                   ? null
                   : () =>
-                      presentActivityNotification(
+                      presentActivityNotification(activityId, title, body, {
+                        route: `/activity/${activityId}`,
                         activityId,
-                        title,
-                        body,
-                        { route: `/activity/${activityId}`, activityId },
-                        attachmentUri
-                      ),
+                      }),
             });
 
       if (posted) {
@@ -446,34 +391,14 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
         log.warn('Enriched notification could not be posted, tray left as it was');
         await appendTaskRun({ stage: 'notified', activityId, detail: 'post failed' });
       }
-    } else if (allowedNewInsights.length > 0) {
-      // Non-activity event (fitness update, wellness change) with new insights.
-      // Enforce D11 cooldown - max pushes/week + min spacing - so a flurry of
-      // wellness webhooks can't chain-fire notifications.
-      const history = await readPushHistory();
-      if (!isPushAllowed(history)) {
-        log.log(`Push blocked by cooldown (history=${history.length} in last 7d)`);
-      } else {
-        const bestInsight = pickBestInsightForNotification(allowedNewInsights);
-        if (bestInsight) {
-          const content = formatInsightNotification(bestInsight, t);
-          await presentInsightNotification(content.title, content.body, content.data);
-          await appendPushHistory(Date.now());
-          log.log(`Notification sent: ${content.title} - ${content.body}`);
-        }
-      }
     } else {
-      log.log('No notification content to show');
+      // Fitness and wellness updates sync silently. Their insights wait for
+      // the next time the app opens.
+      log.log('No activity behind this push, nothing to post');
     }
 
     // 9b. The engine starts a detection run itself when the stored batch
     // lands; the foreground drain picks up the completed run on next open.
-
-    // 9. Update stored fingerprint
-    const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';
-    if (currentFingerprint) {
-      await writeInsightFingerprint(currentFingerprint);
-    }
 
     // 10. A delivered push proves the pipeline is alive, so use it to keep
     // the server-side token registration (30-day TTL) fresh for users who
@@ -483,8 +408,8 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     try {
       const { ensureCredentialsHydrated, getStoredCredentials } = require('@/shared/app/AuthStore');
       await ensureCredentialsHydrated();
-      const athleteId: string | null = getStoredCredentials().athleteId;
-      if (athleteId) {
+      const { athleteId, authMethod } = getStoredCredentials();
+      if (athleteId && authMethod === 'oauth') {
         const {
           refreshPushTokenRegistration,
         } = require('@/features/settings/lib/pushTokenRegistration');

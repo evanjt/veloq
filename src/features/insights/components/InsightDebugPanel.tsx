@@ -6,11 +6,20 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { getLastInsightOutcome } from '../lib/generateInsights';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
+}
+
+type Breakdown = NonNullable<
+  ReturnType<typeof getLastInsightOutcome>
+>['scored'][number]['breakdown'];
+
+// base leads because the priority step is the largest term in the score.
+function formatBreakdown(b: Breakdown): string {
+  return `(base=${b.base.toFixed(0)} conf=${b.confidence.toFixed(0)} rank=${b.ranking.toFixed(0)} cat=${b.category} spec=${b.specificity} self=${b.temporalSelf} sig=${b.signal})`;
 }
 
 /**
@@ -44,7 +53,11 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
       <View style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: textColor }]}>Insight pipeline debug</Text>
-          <Pressable onPress={onClose} style={pressable(styles.closeBtn)}>
+          <Pressable
+            onPress={onClose}
+            style={pressable(styles.closeBtn)}
+            android_ripple={pressRipple}
+          >
             <Text style={{ color: textColor, fontSize: typography.bodyMedium.fontSize }}>
               Close
             </Text>
@@ -62,9 +75,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
               </Text>
               {onScreen.map((insight, index) => {
                 const scored = scoredById.get(insight.id);
-                const breakdown = scored
-                  ? ` (conf=${scored.breakdown.confidence.toFixed(0)} ml=${scored.breakdown.ranking.toFixed(0)} cat=${scored.breakdown.category} spec=${scored.breakdown.specificity} self=${scored.breakdown.temporalSelf} sig=${scored.breakdown.signal})`
-                  : '';
+                const breakdown = scored ? ` ${formatBreakdown(scored.breakdown)}` : '';
                 return (
                   <Text
                     key={insight.id}
@@ -92,11 +103,15 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
               <Text style={[styles.section, { color: textColor }]}>
                 Cap-dropped ({outcome.capDropped.length})
               </Text>
-              {outcome.capDropped.map((d) => (
-                <Text key={d.insight.id} style={[styles.row, { color: mutedColor }]}>
-                  {`DROPPED  ${d.insight.category}/${d.insight.id} - score=${d.score.toFixed(0)} (${d.reason})`}
-                </Text>
-              ))}
+              {outcome.capDropped.map((d) => {
+                const scored = scoredById.get(d.insight.id);
+                const breakdown = scored ? ` ${formatBreakdown(scored.breakdown)}` : '';
+                return (
+                  <Text key={d.insight.id} style={[styles.row, { color: mutedColor }]}>
+                    {`DROPPED  ${d.insight.category}/${d.insight.id} - score=${d.score.toFixed(0)} (${d.reason})${breakdown}`}
+                  </Text>
+                );
+              })}
 
               <Text style={[styles.section, { color: textColor }]}>
                 Gated ({outcome.rejected.length})
@@ -113,6 +128,8 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
     </Modal>
   );
 });
+
+const DEBUG_SCROLL_BOTTOM_PADDING = spacing.xl * 2;
 
 const styles = StyleSheet.create({
   container: {
@@ -146,7 +163,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xl * 2,
+    paddingBottom: DEBUG_SCROLL_BOTTOM_PADDING,
   },
   row: {
     fontFamily: 'monospace',

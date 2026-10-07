@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ExerciseSet, MuscleGroup } from 'veloqrs';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
+import type { ExerciseSession, MuscleGroup } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -36,16 +37,21 @@ function isDemo(): boolean {
  */
 /** What the engine holds for one activity, and whether it has settled it. */
 interface ExerciseSetsRead {
-  sets: ExerciseSet[];
+  session: ExerciseSession;
   /** A FIT status row exists, so there is nothing more to download. */
   settled: boolean;
 }
 
 /** No sets and no verdict: the download is owed, in flight, or failed. */
-const unsettled: ExerciseSetsRead = { sets: [], settled: false };
-
-/** Stable identity, so a consumer's memo does not fire on every read. */
-const EMPTY_SETS: ExerciseSet[] = [];
+const EMPTY_SESSION: ExerciseSession = {
+  sets: [],
+  groups: [],
+  activeSetCount: 0,
+  exerciseCount: 0,
+  totalVolumeKg: 0,
+  totalDurationSecs: 0,
+};
+const unsettled: ExerciseSetsRead = { session: EMPTY_SESSION, settled: false };
 
 /**
  * What an empty list means. `pending` is every kind of ignorance: the read has
@@ -56,7 +62,7 @@ export type ExerciseSetsOutcome = 'loaded' | 'empty' | 'pending';
 
 function outcomeOf(read: ExerciseSetsRead | undefined): ExerciseSetsOutcome {
   if (!read) return 'pending';
-  if (read.sets.length > 0) return 'loaded';
+  if (read.session.sets.length > 0) return 'loaded';
   return read.settled ? 'empty' : 'pending';
 }
 
@@ -68,6 +74,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
   // the two cannot disagree: a settled activity with no sets has none, and an
   // unsettled one is a download still owed.
   const query = useQuery<ExerciseSetsRead>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.strength.exerciseSets(activityId),
     queryFn: () => {
       const engine = getEngine();
@@ -81,10 +88,10 @@ export function useExerciseSets(activityId: string, activityType: string) {
 
       try {
         const cached = engine.getExerciseSets(activityId);
-        if (cached.length > 0) return { sets: cached, settled: true };
+        if (cached.sets.length > 0) return { session: cached, settled: true };
 
         // A settled activity has nothing more to fetch, whether or not it has sets.
-        if (engine.isFitProcessed(activityId)) return { sets: [], settled: true };
+        if (engine.isFitProcessed(activityId)) return { session: EMPTY_SESSION, settled: true };
 
         // Demo mode has no FIT file - seed synthetic sets for any fixture
         // activity that carries one, then read back through the normal path.
@@ -94,7 +101,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
             return unsettled;
           }
           engine.bulkInsertExerciseSets(activityId, demoStrengthSets[activityId]);
-          return { sets: engine.getExerciseSets(activityId), settled: true };
+          return { session: engine.getExerciseSets(activityId), settled: true };
         }
 
         engine.fetchAndParseExerciseSets(activityId);
@@ -123,7 +130,8 @@ export function useExerciseSets(activityId: string, activityType: string) {
 
   return {
     ...query,
-    data: query.data?.sets ?? EMPTY_SETS,
+    data: query.data?.session.sets ?? EMPTY_SESSION.sets,
+    session: query.data?.session ?? EMPTY_SESSION,
     outcome: outcomeOf(query.data),
   };
 }
@@ -150,17 +158,13 @@ export function useStrengthReconnect(): void {
  */
 export function useMuscleGroups(activityId: string, hasExercises: boolean) {
   return useQuery<MuscleGroup[]>({
+    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.strength.muscleGroups(activityId),
     queryFn: () => {
       const engine = getEngine();
       if (!engine || typeof engine.getMuscleGroups !== 'function') return [];
 
-      try {
-        return engine.getMuscleGroups(activityId);
-      } catch (err) {
-        console.error('[MuscleGroups] Error:', err);
-        return [];
-      }
+      return engine.getMuscleGroups(activityId);
     },
     enabled: hasExercises && !!activityId,
     staleTime: Infinity,

@@ -2,11 +2,12 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, LayoutAnimation, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useTheme } from '@/shared/app';
-import { getSportDisplayName, getActivityIcon } from '@/shared/activity/activityUtils';
-import { useSectionDetail } from '@/features/routes/hooks/useEngine';
-import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
-import { navigateTo } from '@/shared/app/navigation';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { useSectionPerformances } from '@/features/routes';
+import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
@@ -23,7 +24,9 @@ import {
   typography,
 } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple, EngineReadFailure } from '@/shared/ui';
+import type { TFunc } from '../../types';
+import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
 
 function getTrendIcon(trend?: number): string {
   if (trend == null) return 'minus';
@@ -46,13 +49,11 @@ interface SectionTrendContentProps {
   insight: Insight;
 }
 
-function capitalize(value: string): string {
-  return value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value;
-}
-
-function getClusterContext(sections: SupportingSection[]): {
+function getClusterContext(
+  sections: SupportingSection[],
+  t: TFunction
+): {
   heading: string;
-  body: string;
   meta: string;
 } {
   const uniqueSports = Array.from(
@@ -64,14 +65,16 @@ function getClusterContext(sections: SupportingSection[]): {
         )
     )
   );
-  const sportLabel = uniqueSports.length === 1 ? getSportDisplayName(uniqueSports[0]) : null;
+  const sport =
+    uniqueSports.length === 1
+      ? t(`activityTypes.${uniqueSports[0]}`, { defaultValue: uniqueSports[0] })
+      : null;
 
   return {
-    heading: sportLabel ? `${capitalize(sportLabel)} section group` : 'Section group',
-    body: sportLabel
-      ? `These ${sportLabel} sections show recent efforts moving in the same direction.`
-      : 'These sections show recent efforts moving in the same direction.',
-    meta: 'Expand a row for the underlying efforts.',
+    heading: sport
+      ? t('insights.sectionTrendSheet.headingSport', { sport })
+      : t('insights.sectionTrendSheet.heading'),
+    meta: t('insights.sectionTrendSheet.meta'),
   };
 }
 
@@ -80,9 +83,7 @@ function getClusterContext(sections: SupportingSection[]): {
  * Always mounts the hook (no conditional hook calls) but only
  * fetches/renders effort data when expanded.
  *
- * Two tap targets:
- *  - Section name area navigates to section detail page
- *  - Chevron toggles accordion open/closed
+ * The row opens the section's efforts in this sheet.
  */
 const SectionAccordionItem = React.memo(function SectionAccordionItem({
   section,
@@ -91,31 +92,33 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
 }: {
   section: SupportingSection;
   expanded: boolean;
-  onToggle: (sectionId: string) => void;
+  onToggle: (rowKey: string) => void;
 }) {
   const { isDark } = useTheme();
-  const { section: fullSection } = useSectionDetail(expanded ? section.sectionId : null);
+  const { t } = useTranslation();
+  const { section: fullSection, error: sectionError } = useSectionDetail(
+    expanded ? section.sectionId : null
+  );
   // The trend's sport, which is what the row was ranked under. Read
   // unfiltered, the accordion opened on every sport's efforts.
-  const { records, bestRecord, isLoading } = useSectionPerformances(
+  const { records, bests, isLoading } = useSectionPerformances(
     expanded ? fullSection : null,
     section.sportType
   );
 
   const handleToggle = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    onToggle(section.sectionId);
-  }, [onToggle, section.sectionId]);
-
-  const handleNavigateToSection = useCallback(() => {
-    navigateTo(`/section/${section.sectionId}`);
-  }, [section.sectionId]);
+    onToggle(sectionRowKey(section));
+  }, [onToggle, section]);
 
   return (
     <View style={[styles.sectionCard, isDark && styles.sectionCardDark]}>
       <View style={styles.sectionHeader}>
-        {/* Section name: tappable to navigate to section detail */}
-        <Pressable onPress={handleNavigateToSection} style={pressable(styles.sectionContent)}>
+        <Pressable
+          onPress={handleToggle}
+          style={pressable(styles.sectionContent)}
+          android_ripple={pressRipple}
+        >
           <View style={styles.sectionNameRow}>
             {section.sportType ? (
               <MaterialCommunityIcons
@@ -126,7 +129,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               />
             ) : null}
             <Text style={[styles.sectionName, isDark && styles.sectionNameDark]} numberOfLines={1}>
-              {section.sectionName}
+              {sectionWithSport(section.sectionName, section.sportType, t as unknown as TFunc)}
             </Text>
             {section.hasRecentPR ? (
               <View style={styles.prChip}>
@@ -156,8 +159,10 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
         {/* Chevron: tappable to toggle accordion */}
         <Pressable
           onPress={handleToggle}
+          testID={`section-trend-toggle-${section.sectionId}`}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 4 }}
           style={pressable(styles.chevronButton)}
+          android_ripple={pressRipple}
         >
           <MaterialCommunityIcons
             name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -169,15 +174,17 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
 
       {expanded ? (
         <View style={styles.expandedContent}>
-          {isLoading ? (
+          {sectionError !== undefined ? (
+            <EngineReadFailure error={sectionError} testID="section-read-failure" />
+          ) : isLoading ? (
             <View style={[styles.shimmerRow, isDark && styles.shimmerRowDark]}>
               <Shimmer width="100%" height={40} borderRadius={8} />
             </View>
           ) : records.length > 0 ? (
-            <RecentEffortsList records={records} bestRecord={bestRecord} />
+            <RecentEffortsList records={records} bests={bests} />
           ) : (
             <Text style={[styles.noEfforts, isDark && styles.noEffortsDark]}>
-              No recorded efforts
+              {t('insights.sectionTrendSheet.noEfforts')}
             </Text>
           )}
         </View>
@@ -190,22 +197,23 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
   insight,
 }: SectionTrendContentProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   // Memoised so the empty fallback is one array rather than a fresh one each
   // render, which recomputed the cluster context and the rows below it.
   const supportingSections = insight.supportingData?.sections;
   const sections = useMemo(() => supportingSections ?? [], [supportingSections]);
-  const context = useMemo(() => getClusterContext(sections), [sections]);
+  const context = useMemo(() => getClusterContext(sections, t), [sections, t]);
 
   // All sections start collapsed
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  const handleToggle = useCallback((sectionId: string) => {
+  const handleToggle = useCallback((rowKey: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(sectionId)) {
-        next.delete(sectionId);
+      if (next.has(rowKey)) {
+        next.delete(rowKey);
       } else {
-        next.add(sectionId);
+        next.add(rowKey);
       }
       return next;
     });
@@ -224,15 +232,14 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
         <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
           {context.heading}
         </Text>
-        <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>{context.body}</Text>
         <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>{context.meta}</Text>
       </View>
 
       {sections.map((section: SupportingSection) => (
         <SectionAccordionItem
-          key={section.sectionId}
+          key={sectionRowKey(section)}
           section={section}
-          expanded={expandedIds.has(section.sectionId)}
+          expanded={expandedIds.has(sectionRowKey(section))}
           onToggle={handleToggle}
         />
       ))}
@@ -241,7 +248,7 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
         <View style={styles.legend}>
           <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
-            Recent personal record
+            {t('insights.recentPersonalRecord')}
           </Text>
         </View>
       ) : null}
@@ -269,14 +276,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   contextHeadingDark: {
-    color: darkColors.textPrimary,
-  },
-  contextBody: {
-    fontSize: typography.bodyCompact.fontSize,
-    lineHeight: 18,
-    color: colors.textPrimary,
-  },
-  contextBodyDark: {
     color: darkColors.textPrimary,
   },
   contextMeta: {

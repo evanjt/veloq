@@ -3,11 +3,19 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CurveChart, useChartColors } from '@/shared/charts';
+import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { colors, typography, spacing, chartStyles, layout, colorWithOpacity } from '@/theme';
 import { RangeCoverage } from 'veloqrs';
+import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
+import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
-import { formatDistance, formatMinSec, formatSwimPace } from '@/shared/format/format';
+import {
+  formatDistance,
+  formatMinSec,
+  formatSwimPace,
+  paceSecondsForUnit,
+  swimPaceUnitLabel,
+} from '@/shared/format/format';
 
 interface SwimPaceCurveChartProps {
   /** Number of days to include (default 365) */
@@ -16,12 +24,13 @@ interface SwimPaceCurveChartProps {
 }
 
 const CSS_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
-const X_LABELS = ['100m', '200m', '400m', '800m', '1.5K'];
-
-// Metric on purpose, whatever the unit setting says: the X labels are metric
-// distances and the suffix below is a literal /100m, so a per-100 yd pace here
-// would disagree with the axis it is plotted against.
-const formatPace100m = (metersPerSecond: number) => formatSwimPace(metersPerSecond, true);
+const X_LABELS: PlacedLabel[] = [
+  { label: '100m', value: Math.log10(100) },
+  { label: '200m', value: Math.log10(200) },
+  { label: '400m', value: Math.log10(400) },
+  { label: '800m', value: Math.log10(800) },
+  { label: '1.5K', value: Math.log10(1500) },
+];
 
 // Format time as mm:ss or h:mm:ss
 function formatTime(totalSeconds: number): string {
@@ -55,8 +64,18 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   const { isDark } = useTheme();
   const chartColors = useChartColors();
   const isMetric = useMetricSystem();
+  const formatPaceAxis = useCallback(
+    (secsPer100m: number) => formatMinSec(paceSecondsForUnit(secsPer100m, 'swim', isMetric)),
+    [isMetric]
+  );
 
-  const { data: curve, isLoading, error, coverage } = usePaceCurve({ sport: 'Swim', days });
+  const {
+    data: curve,
+    isLoading,
+    error,
+    coverage,
+    bodyStatus,
+  } = usePaceCurve({ sport: 'Swim', days });
 
   // Process curve data - use distances directly from API
   const { chartData, cssPace, yDomain } = useMemo(() => {
@@ -68,30 +87,8 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       };
     }
 
-    const points: ChartPoint[] = [];
-
-    for (let i = 0; i < curve.distances.length; i++) {
-      const distance = curve.distances[i];
-      const time = curve.times[i];
-      const speed = curve.pace[i];
-      if (distance > 0 && time > 0 && speed > 0) {
-        const paceSecsPer100m = speedToSecsPer100m(speed);
-
-        // Filter reasonable swim paces (50s to 4min per 100m) and reasonable distances
-        if (paceSecsPer100m >= 50 && paceSecsPer100m <= 240 && distance >= 25) {
-          points.push({
-            x: 0,
-            y: 0,
-            distance,
-            paceSecsPer100m,
-            paceMs: speed,
-            time,
-          });
-        }
-      }
-    }
-
-    if (points.length === 0) {
+    const series = paceChartSeries(curve, speedToSecsPer100m);
+    if (!series) {
       return {
         chartData: [],
         cssPace: null,
@@ -99,38 +96,22 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       };
     }
 
-    points.sort((a, b) => a.distance - b.distance);
-
-    // Sample for smoother curve
-    const sampled: typeof points = [];
-    let lastDist = 0;
-    for (const p of points) {
-      const minGap = p.distance < 200 ? 10 : p.distance < 1000 ? 50 : 100;
-      if (p.distance - lastDist >= minGap) {
-        sampled.push(p);
-        lastDist = p.distance;
-      }
-    }
-
     // Use log scale for x-axis
-    const data = sampled.map((p) => ({
-      ...p,
-      x: Math.log10(p.distance),
-      y: p.paceSecsPer100m,
+    const data: ChartPoint[] = series.points.map(({ distance, time, speed, pace }) => ({
+      x: Math.log10(distance),
+      y: pace,
+      distance,
+      paceSecsPer100m: pace,
+      paceMs: speed,
+      time,
     }));
 
-    const cssSecsPer100m = curve.criticalSpeed ? speedToSecsPer100m(curve.criticalSpeed) : null;
-
-    const paces = data.map((d) => d.y);
-    const minPace = Math.min(...paces); // fastest
-    const maxPace = Math.max(...paces); // slowest
-    const padding = (maxPace - minPace) * 0.1;
+    const cssSecsPer100m = curve?.criticalSpeed ? speedToSecsPer100m(curve.criticalSpeed) : null;
 
     return {
       chartData: data,
       cssPace: cssSecsPer100m,
-      // Invert y domain: [max, min] puts faster paces (lower values) at TOP
-      yDomain: [maxPace + padding, minPace - padding] as [number, number],
+      yDomain: series.yDomain,
     };
   }, [curve]);
 
@@ -143,15 +124,13 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
     [cssPace]
   );
 
-  if (isLoading) {
+  const awaitingBody = bodyStatus === 'waiting' && chartData.length === 0;
+
+  if (isLoading || awaitingBody) {
     return (
       <View style={[styles.container, { height }]}>
         <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.swimPaceCurve')}</Text>
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDark && chartStyles.textDark]}>
-            {t('common.loading')}
-          </Text>
-        </View>
+        <CurveLoadingPlaceholder height={height} />
       </View>
     );
   }
@@ -201,7 +180,8 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
               {t('metrics.pace')}
             </Text>
             <Text style={[styles.valueNumber, isDark && styles.textLight]}>
-              {formatPace100m(displayData.paceMs)}/100m
+              {formatSwimPace(displayData.paceMs, isMetric)}
+              {swimPaceUnitLabel(isMetric)}
             </Text>
           </View>
         </View>
@@ -213,7 +193,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         color={chartColors.swimCurve}
         referenceLine={referenceLine}
         xLabels={X_LABELS}
-        formatY={formatMinSec}
+        formatY={formatPaceAxis}
         crosshairMode="finger"
         onSelect={setTooltipData}
         onInteractionChange={handleInteractionChange}
@@ -224,7 +204,8 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
           <Text style={[styles.legendText, isDark && chartStyles.textDark]}>
-            CSS {formatMinSec(cssPace)}/100m
+            CSS {formatMinSec(paceSecondsForUnit(cssPace, 'swim', isMetric))}
+            {swimPaceUnitLabel(isMetric)}
           </Text>
         </View>
       )}
@@ -261,15 +242,6 @@ const styles = StyleSheet.create({
   valueNumber: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
   },
   emptyState: {
     flex: 1,

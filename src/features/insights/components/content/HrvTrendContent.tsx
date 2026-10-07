@@ -76,19 +76,11 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   }, []);
 
   const sparklineData = insight.supportingData?.sparklineData;
-  const avgPoint = insight.supportingData?.dataPoints?.find(
-    (dp) => dp.label.toLowerCase().includes('avg') || dp.label.toLowerCase().includes('average')
-  );
-  const latestPoint = insight.supportingData?.dataPoints?.find((dp) =>
-    dp.label.toLowerCase().includes('latest')
-  );
-  const daysPoint = insight.supportingData?.dataPoints?.find(
-    (dp) => dp.label.toLowerCase().includes('data') || dp.label.toLowerCase().includes('days')
-  );
+  const avgPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvAverage');
+  const latestPoint = insight.supportingData?.dataPoints?.find((dp) => dp.key === 'hrvLatest');
 
   const avgValue = typeof avgPoint?.value === 'number' ? avgPoint.value : null;
   const latestValue = typeof latestPoint?.value === 'number' ? latestPoint.value : null;
-  const daysCount = typeof daysPoint?.value === 'number' ? daysPoint.value : sparklineData?.length;
 
   const trendColor = insightToneColor(insight.iconTone, isDark);
 
@@ -133,14 +125,12 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
         ) : null}
         <View style={styles.trendRow}>
           <MaterialCommunityIcons name={insight.icon as never} size={18} color={trendColor} />
-          {avgValue != null && (avgValue !== latestValue || latestValue == null) ? (
+          {avgPoint && avgValue != null && (avgValue !== latestValue || latestValue == null) ? (
             <Text style={[styles.avgText, isDark && styles.avgTextDark]}>
-              {daysCount ? `${daysCount}-day` : '7-day'} avg: {avgValue} ms
+              {avgPoint.label}: {avgValue} ms
             </Text>
-          ) : avgValue != null ? (
-            <Text style={[styles.avgText, isDark && styles.avgTextDark]}>
-              {daysCount ? `${daysCount}-day` : '7-day'} average
-            </Text>
+          ) : avgPoint && avgValue != null ? (
+            <Text style={[styles.avgText, isDark && styles.avgTextDark]}>{avgPoint.label}</Text>
           ) : null}
         </View>
       </View>

@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { InteractionManager } from 'react-native';
+import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
 
-import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useStableBy } from '@/shared/app/useStableBy';
-import { useWellness, useWellnessLatestDate } from '@/features/wellness';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
+import { useWellness } from '@/features/wellness';
 
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from '../lib/computeInsightsData';
-import { droppedFormSyncDate } from '../lib/wellnessWindow';
-import type { ActivityPattern } from '@/types';
 import type { Insight } from '../types';
 
 /** What `useWellness` hands back, without reaching into another feature for the row type. */
@@ -51,16 +50,19 @@ function wellnessKey(data: WellnessArray): string {
 
 export function useInsights(): {
   insights: Insight[];
-  /** Today's pattern out of the same bundle, so no caller recomputes it */
-  todayPattern: ActivityPattern | null;
+  /** The pipeline threw, so an empty list is not an empty library */
+  failed: boolean;
+  /** Reads the insights again after a failure */
+  retry: () => void;
+  /** The newest form reading out of the same bundle, null without wellness */
+  form: { ctl: number; atl: number } | null;
   hasNewInsights: boolean;
   markAsSeen: () => void;
   /**
-   * The last wellness sync's date, set only when the today-anchored window is
-   * empty and wellness has synced at least once, so the form cards were
-   * dropped rather than never earned.
+   * The newest stored wellness date, set by the engine only when the HRV
+   * trend was withheld because the window went stale.
    */
-  droppedFormSyncDate: string | null;
+  hrvWithheldSince: string | null;
 } {
   const { t } = useTranslation();
   const trigger = useEngineSubscription(['activities', 'sections']);
@@ -94,18 +96,19 @@ export function useInsights(): {
 
   // Get wellness data for form/TSB (from TanStack Query, not FFI)
   const { data: wellnessData } = useWellness('1m');
-  // The window is anchored on today, so a library synced a month ago answers
-  // empty and every form insight drops out. The last sync's date is what the
-  // panel says instead of leaving that silent.
-  const { data: wellnessLatestDate } = useWellnessLatestDate();
 
   // Only update when the latest CTL/ATL values actually change: the reason is
   // on `wellnessKey`.
   const stableWellness = useStableBy(wellnessData, wellnessKey(wellnessData));
+  const isMetric = useMetricSystem();
 
   // Deferred insights computation - starts empty, populates after interactions
   const [insights, setInsights] = useState<Insight[]>([]);
-  const [todayPattern, setTodayPattern] = useState<ActivityPattern | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retryTrigger, setRetryTrigger] = useState(0);
+  const retry = useCallback(() => setRetryTrigger((n) => n + 1), []);
+  const [form, setForm] = useState<{ ctl: number; atl: number } | null>(null);
+  const [hrvWithheldSince, setHrvWithheldSince] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -115,19 +118,26 @@ export function useInsights(): {
     };
   }, []);
 
-  // The first read is the visit's own and runs as soon as interactions allow.
+  // The first read is the visit's own and runs as soon as the thread is idle.
   // Later ones wait for the announcements to stop: the engine raises
   // `activities` and `sections` several times while a launch settles, and each
   // read is about 70 ms under the engine lock on the thread drawing the tab.
   const hasComputedRef = useRef(false);
 
   useEffect(() => {
-    let handle: ReturnType<typeof InteractionManager.runAfterInteractions> | null = null;
+    let cancelRun: (() => void) | null = null;
     const compute = () => {
-      handle = InteractionManager.runAfterInteractions(() => {
+      cancelRun = runWhenIdle(() => {
         if (!isMountedRef.current) return;
 
-        const fetched = fetchInsightsDataFromEngine();
+        let fetched: ReturnType<typeof fetchInsightsDataFromEngine>;
+        try {
+          fetched = fetchInsightsDataFromEngine();
+        } catch (e) {
+          console.error('[insights] engine read failed', e);
+          if (isMountedRef.current) setFailed(true);
+          return;
+        }
         const data = fetched?.insightsData ?? null;
         const summaryData = fetched?.summaryCardData ?? null;
 
@@ -137,27 +147,30 @@ export function useInsights(): {
         const result = computeInsightsFromData(
           data,
           t as (key: string, params?: Record<string, string | number>) => string,
-          summaryData
+          summaryData,
+          isMetric
         );
 
         if (isMountedRef.current) {
           hasComputedRef.current = true;
-          setInsights(result);
-          setTodayPattern(data.todayPattern ?? null);
+          setInsights(result.insights);
+          setFailed(result.failed);
+          setForm(data.form ? { ctl: data.form.ctl, atl: data.form.atl } : null);
+          setHrvWithheldSince(data.hrvWithheldSince ?? null);
         }
       });
     };
 
     if (!hasComputedRef.current) {
       compute();
-      return () => handle?.cancel();
+      return () => cancelRun?.();
     }
     const settle = setTimeout(compute, RECOMPUTE_SETTLE_MS);
     return () => {
       clearTimeout(settle);
-      handle?.cancel();
+      cancelRun?.();
     };
-  }, [trigger, focusTrigger, stableWellness, t]);
+  }, [trigger, focusTrigger, retryTrigger, stableWellness, t, isMetric]);
 
   // Stabilise reference -- only update when insight IDs actually change
   const stableInsights = useStableBy(insights, insights.map((i) => i.id).join(','));
@@ -188,9 +201,9 @@ export function useInsights(): {
   useEffect(() => {
     const { fingerprint, changed } = annotated;
     if (annotated.insights.length === 0 || fingerprint === lastSeenFingerprint) {
-      setNewInsights(new Set());
+      setNewInsights(false);
     } else {
-      setNewInsights(changed);
+      setNewInsights(changed.size > 0);
     }
   }, [annotated, lastSeenFingerprint, setNewInsights]);
 
@@ -202,9 +215,11 @@ export function useInsights(): {
 
   return {
     insights: annotatedInsights,
-    todayPattern,
+    failed,
+    retry,
+    form,
     hasNewInsights,
     markAsSeen,
-    droppedFormSyncDate: droppedFormSyncDate(wellnessData, wellnessLatestDate),
+    hrvWithheldSince,
   };
 }

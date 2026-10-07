@@ -7,14 +7,23 @@ import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { colors, typography, spacing, layout, chartStyles, darkColors } from '@/theme';
-import type { eFTPPoint } from '@/types';
+import { verdictColor, verdictFill, type VerdictRung } from '@/theme/colors';
 import { formatMonth } from '@/shared/format/format';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
-import { ftpChangeOverDays } from '../lib/ftpTrend';
+
+/** One daily eFTP estimate: the local day and the watts. */
+interface FtpSeriesPoint {
+  date: string;
+  eftp: number;
+}
 
 interface FTPTrendChartProps {
-  /** eFTP history data points */
-  data?: eFTPPoint[] | undefined;
+  /** The engine's daily eFTP series, oldest first */
+  data?: FtpSeriesPoint[] | undefined;
+  /** The engine's step in watts over the window the caption names, with its sign */
+  change?: number | undefined;
+  /** The step as a percentage of the earlier estimate */
+  changePercent?: number | undefined;
   /** Chart height */
   height?: number | undefined;
 }
@@ -25,14 +34,16 @@ interface FtpPoint {
   date: string;
 }
 
-/** What "from 3 months ago" under the card means, in days. */
-const TREND_WINDOW_DAYS = 90;
-
 const CHART_PADDING = { top: 8 } as const;
 const SERIES = { y: (d: FtpPoint) => d.y };
 const xOf = (d: FtpPoint) => d.x;
 
-export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
+export function FTPTrendChart({
+  data,
+  change: ftpChange = 0,
+  changePercent = 0,
+  height = 180,
+}: FTPTrendChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const chartColors = useChartColors();
@@ -47,34 +58,26 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
     }));
   }, [data]);
 
-  const { minFTP, maxFTP, latestFTP, ftpChange, changePercent } = useMemo(() => {
+  const { minFTP, maxFTP, latestFTP } = useMemo(() => {
     if (chartData.length === 0) {
       return {
         minFTP: 200,
         maxFTP: 300,
         latestFTP: 0,
-        ftpChange: 0,
-        changePercent: 0,
       };
     }
 
     const values = chartData.map((d) => d.y);
-    const { baseline, latest, change } = ftpChangeOverDays(
-      chartData.map((d) => ({ date: d.date, eftp: d.y })),
-      TREND_WINDOW_DAYS
-    );
-    const percent = baseline > 0 ? (change / baseline) * 100 : 0;
 
     return {
       minFTP: Math.min(...values) - 10,
       maxFTP: Math.max(...values) + 10,
-      latestFTP: latest,
-      ftpChange: change,
-      changePercent: percent,
+      latestFTP: values[values.length - 1],
     };
   }, [chartData]);
 
-  const isImproving = ftpChange >= 0;
+  const rung: VerdictRung = ftpChange > 0 ? 'positive' : ftpChange < 0 ? 'negative' : 'neutral';
+  const arrow = ftpChange > 0 ? '▲ ' : ftpChange < 0 ? '▼ ' : '';
   const yDomain = useMemo<[number, number]>(() => [minFTP, maxFTP], [minFTP, maxFTP]);
 
   // Show empty state if no data
@@ -110,19 +113,15 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
             >
               {latestFTP}W
             </Text>
-            <View style={[styles.changeBadge, isImproving ? styles.positive : styles.negative]}>
-              <Text
-                style={[
-                  styles.changeText,
-                  { color: isDark ? darkColors.successDeep : colors.successDeep },
-                ]}
-              >
-                {isImproving ? '▲' : '▼'} {Math.abs(ftpChange)}W
+            <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
+              <Text style={[styles.changeText, { color: verdictColor(rung, isDark) }]}>
+                {arrow}
+                {Math.abs(ftpChange)}W
               </Text>
             </View>
           </View>
           <Text style={[styles.changeSubtext, isDark && chartStyles.textDark]}>
-            {isImproving ? '+' : ''}
+            {ftpChange > 0 ? '+' : ''}
             {changePercent.toFixed(1)}% {t('stats.from3MonthsAgo')}
           </Text>
         </View>
@@ -230,12 +229,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadius,
-  },
-  positive: {
-    backgroundColor: colors.success + '20',
-  },
-  negative: {
-    backgroundColor: colors.error + '20',
   },
   changeText: {
     fontSize: typography.caption.fontSize,

@@ -10,22 +10,13 @@ import {
 export type GateReason =
   | 'recency_too_old'
   | 'recency_too_recent'
-  | 'proximity_outside_region'
   | 'repetition_below_min'
-  | 'valence_punitive'
   | 'category_cap'
   | 'surface_cap';
 
 export interface GateOutcome {
   passed: boolean;
   reason?: GateReason;
-}
-
-export interface Bbox {
-  minLat: number;
-  maxLat: number;
-  minLng: number;
-  maxLng: number;
 }
 
 export interface ScoredInsight {
@@ -49,10 +40,10 @@ const DAY_MS = 86_400_000;
 // ---------------------------------------------------------------------------
 
 /**
- * G1 - event recency. Opt-in: only checked when `insight.meta.sourceTimestamp`
- * is set. Generators that already enforce recency internally (e.g. stale_pr's
- * detector) can omit sourceTimestamp to skip this gate. Rejects both too-old
- * (most categories) and too-recent (stale_pr, where staleness is the signal).
+ * G1 - event recency. Checked only when `insight.meta.sourceTimestamp` is
+ * set, and every generator reporting an event sets it. Rejects both too-old
+ * (most categories) and too-recent (stale_pr, which relies on the timestamp
+ * for its inverted bound, since staleness is the signal).
  */
 export function passesRecency(
   insight: Insight,
@@ -72,35 +63,6 @@ export function passesRecency(
 }
 
 /**
- * G2 - proximity. Only enforced for location-bound insights (meta.location
- * present). Rejects if centroid lies outside activeRegion + paddingKm.
- * Returns passed=true when gate is disabled or region is unknown.
- */
-export function passesProximity(
-  insight: Insight,
-  activeRegion: Bbox | null,
-  cfg: InsightsConfig = INSIGHTS_CONFIG
-): GateOutcome {
-  if (!cfg.proximity.enabled) return { passed: true };
-  if (!activeRegion) return { passed: true }; // not enough data to enforce
-  const loc = insight.meta?.location;
-  if (!loc) return { passed: true }; // non-location insight
-
-  const padDeg = kmToDegreesLat(cfg.proximity.paddingKm);
-  const padLngDeg = kmToDegreesLng(
-    cfg.proximity.paddingKm,
-    (activeRegion.minLat + activeRegion.maxLat) / 2
-  );
-
-  const inLat = loc.lat >= activeRegion.minLat - padDeg && loc.lat <= activeRegion.maxLat + padDeg;
-  const inLng =
-    loc.lng >= activeRegion.minLng - padLngDeg && loc.lng <= activeRegion.maxLng + padLngDeg;
-
-  if (inLat && inLng) return { passed: true };
-  return { passed: false, reason: 'proximity_outside_region' };
-}
-
-/**
  * G3 - repetition floor. Trend-type insights require enough lifetime efforts
  * for the trend to be real signal (Lally 2010). Other categories pass through.
  */
@@ -114,25 +76,6 @@ export function passesRepetition(
   const min = repetitionMinFor(insight.category, cfg);
   if (min == null) return { passed: true };
   if (count < min) return { passed: false, reason: 'repetition_below_min' };
-  return { passed: true };
-}
-
-/**
- * G4 - valence. Scans title/body for punitive patterns. Copy review is the
- * primary defence; this is a safety net.
- */
-const PUNITIVE_PATTERNS = [
-  /\byou (haven't|have not|didn't|did not) /i,
-  /\byou (failed|missed) /i,
-  /\bbehind schedule\b/i,
-  /\bnot enough\b/i,
-];
-
-export function passesValence(insight: Insight): GateOutcome {
-  const haystack = `${insight.title}\n${insight.body ?? ''}`;
-  for (const pattern of PUNITIVE_PATTERNS) {
-    if (pattern.test(haystack)) return { passed: false, reason: 'valence_punitive' };
-  }
   return { passed: true };
 }
 
@@ -208,27 +151,19 @@ export function confidenceScore(insight: Insight, cfg: InsightsConfig = INSIGHTS
 /**
  * R9 - what the engine says the section behind this insight is worth.
  *
- * The four component scores are the engine's own, computed per section in
- * `persistence/sections/ranking.rs`, and the sections tab's Relevance sort
- * already ranks on their blend. This is that blend, read by the insight ranker
- * so a section the engine rates highly can outrank one it does not.
- *
- * **Never read `relevance`.** It is exactly this blend of the other four, so a
- * term taking it beside its own components counts every component twice.
+ * The engine owns the blend: `persistence/sections/ranking.rs` weighs the four
+ * component scores into `relevance`, and the sections tab's Relevance sort and
+ * this term both read that one number, so a weight change there moves both
+ * together. No component is read here and no weight table is kept here.
  *
  * An insight with no section has no such score. It takes zero and its rank
  * comes from the other terms, the same rule `confidence` follows: a declared
  * absence is not a middle.
  */
-export function mlScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
+export function rankingScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
   const r = insight.meta?.ranking;
   if (!r) return 0;
-  const w = cfg.scoring.rankingWeights;
-  const blend =
-    w.recency * r.recency +
-    w.improvement * r.improvement +
-    w.anomaly * r.anomaly +
-    w.engagement * r.engagement;
+  const blend = r.relevance;
   if (!Number.isFinite(blend)) return 0;
   return Math.min(1, Math.max(0, blend)) * cfg.scoring.rankingWeight;
 }
@@ -249,13 +184,13 @@ export function scoreInsight(
   insight: Insight,
   cfg: InsightsConfig = INSIGHTS_CONFIG
 ): ScoredInsight {
-  const base = (6 - insight.priority) * 50;
+  const base = (6 - insight.priority) * cfg.scoring.priorityStep;
   const confidence = confidenceScore(insight, cfg);
   const category = cfg.scoring.categoryBase[insight.category] ?? 0;
   const specificity = specificityScore(insight, cfg);
   const temporalSelf = temporalSelfScore(insight, cfg);
   const signal = signalScore(insight, cfg);
-  const ranking = mlScore(insight, cfg);
+  const ranking = rankingScore(insight, cfg);
 
   const total = base + confidence + category + specificity + temporalSelf + signal + ranking;
 
@@ -285,18 +220,43 @@ export interface DropRecord {
 }
 
 /**
- * D9 + D10 - sort by score, enforce per-category cap, then total cap.
+ * Reserve category slots for improvements, sort by score across categories,
+ * then enforce the total cap.
  * Returns the kept list and dropped records (with reasons) for the debug panel.
  */
 export function applyMixAndCap(
   scored: ScoredInsight[],
   cfg: InsightsConfig = INSIGHTS_CONFIG
 ): { kept: Insight[]; dropped: DropRecord[] } {
-  const sorted = [...scored].sort(
-    (a, b) => b.score - a.score || a.insight.priority - b.insight.priority
-  );
+  const byScore = (a: ScoredInsight, b: ScoredInsight) =>
+    b.score - a.score || a.insight.priority - b.insight.priority;
+  const sorted = [...scored].sort(byScore);
+  const byCategory = new Map<InsightCategory, ScoredInsight[]>();
+  for (const candidate of sorted) {
+    const category = candidate.insight.category;
+    const group = byCategory.get(category) ?? [];
+    group.push(candidate);
+    byCategory.set(category, group);
+  }
+  const categoryEligible = new Set<ScoredInsight>();
+  for (const [category, group] of byCategory) {
+    const limit = maxPerCategoryFor(category, cfg);
+    const selected = group.slice(0, limit);
+    const waitingImprovements = group
+      .slice(limit)
+      .filter((candidate) => candidate.insight.supportingData?.trend?.verdict === 'improved');
+    for (const improvement of waitingImprovements) {
+      const declineIndex = selected.findLastIndex(
+        (candidate) => candidate.insight.supportingData?.trend?.verdict === 'declined'
+      );
+      if (declineIndex === -1) break;
+      selected[declineIndex] = improvement;
+    }
+    for (const candidate of selected) {
+      categoryEligible.add(candidate);
+    }
+  }
 
-  const perCategory = new Map<InsightCategory, number>();
   const kept: Insight[] = [];
   const dropped: DropRecord[] = [];
 
@@ -305,12 +265,10 @@ export function applyMixAndCap(
       dropped.push({ insight: s.insight, score: s.score, reason: 'surface_cap' });
       continue;
     }
-    const used = perCategory.get(s.insight.category) ?? 0;
-    if (used >= maxPerCategoryFor(s.insight.category, cfg)) {
+    if (!categoryEligible.has(s)) {
       dropped.push({ insight: s.insight, score: s.score, reason: 'category_cap' });
       continue;
     }
-    perCategory.set(s.insight.category, used + 1);
     kept.push(s.insight);
   }
 
@@ -323,11 +281,8 @@ export function applyMixAndCap(
 
 function repetitionMinFor(category: InsightCategory, cfg: InsightsConfig): number | null {
   switch (category) {
-    // The category floor. The declining branch's higher floor is applied where
-    // the direction is known, in the generator, and a decline that reaches
-    // this gate has already cleared the larger of the two.
-    case 'section_trend':
-      return cfg.repetition.section_trend_min;
+    // The engine returns a section trend only from six traversals, so no floor
+    // here could bind.
     case 'efficiency_trend':
       return cfg.repetition.efficiency_trend_min;
     case 'stale_pr':
@@ -335,14 +290,4 @@ function repetitionMinFor(category: InsightCategory, cfg: InsightsConfig): numbe
     default:
       return null;
   }
-}
-
-function kmToDegreesLat(km: number): number {
-  return km / 111.32;
-}
-
-function kmToDegreesLng(km: number, atLat: number): number {
-  const cosLat = Math.cos((atLat * Math.PI) / 180);
-  if (cosLat === 0) return km / 111.32;
-  return km / (111.32 * cosLat);
 }

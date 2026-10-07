@@ -1,7 +1,10 @@
 export {
-  calculateTSB,
   getFormZone,
+  formatForm,
+  formChartSeries,
+  type FormChartPoint,
   FORM_ZONE_COLORS,
+  FORM_ZONE_MARK_COLORS,
   FORM_ZONE_TEXT_COLORS,
   FORM_ZONE_TEXT_COLORS_DARK,
   formZoneTextColor,
@@ -10,4 +13,4 @@ export {
   type FormZone,
 } from './fitness';
 
-export { formatEffortValue } from './bestEfforts';
+export { formatClimbValue, formatEffortValue } from './bestEfforts';

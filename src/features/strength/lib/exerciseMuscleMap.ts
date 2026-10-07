@@ -7,7 +7,7 @@
  * here is the label, which is a UI concern and is translated nowhere else.
  *
  * The slugs are the engine's, so the two lists have to agree:
- * `src/__tests__/bugs/muscleSlugParity.test.ts` fails when they do not. Every
+ * a row of `src/__tests__/contracts/nativeContracts.test.ts` fails when they do not. Every
  * call site falls back to the raw slug, so a missing name is `lower-back` on
  * screen rather than a crash.
  *
@@ -30,21 +30,3 @@ export type MuscleSlug =
   | 'trapezius'
   | 'triceps'
   | 'upper-back';
-
-export const MUSCLE_DISPLAY_NAMES: Record<MuscleSlug, string> = {
-  abs: 'Abs',
-  adductors: 'Adductors',
-  biceps: 'Biceps',
-  calves: 'Calves',
-  chest: 'Chest',
-  deltoids: 'Deltoids',
-  forearm: 'Forearms',
-  gluteal: 'Glutes',
-  hamstring: 'Hamstrings',
-  'lower-back': 'Lower Back',
-  obliques: 'Obliques',
-  quadriceps: 'Quadriceps',
-  trapezius: 'Trapezius',
-  triceps: 'Triceps',
-  'upper-back': 'Upper Back',
-};

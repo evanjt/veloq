@@ -10,10 +10,12 @@ import { router } from 'expo-router';
 import { ChartCrosshair, useChartGestures } from '@/shared/charts';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
 import { getActivityColor, sortByDateId } from '@/shared/activity/activityUtils';
+import type { DayLoad } from 'veloqrs';
 import type { Activity, ActivityType, WellnessData } from '@/types';
-import { stripMarks, markFills } from '../lib/stripMarks';
+import { stripMarks, stripKey, markFills } from '../lib/stripMarks';
+import { dayLoadReadout } from '../lib/dayLoadReadout';
 import { formFromLoads } from '@/shared/math';
-import { pressable } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 
 // Simple emoji icons for activity types
 const ACTIVITY_EMOJIS: Record<string, string> = {
@@ -39,6 +41,8 @@ interface ActivityDotsChartProps {
   data: WellnessData[];
   /** Activities to display as dots */
   activities?: Activity[];
+  /** Recorded activity load per local day, from the engine. */
+  dailyLoads?: DayLoad[];
   height?: number;
   selectedDate?: string | null;
   sharedSelectedIdx?: SharedValue<number>;
@@ -66,6 +70,7 @@ interface DotData {
 export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   data,
   activities = [],
+  dailyLoads,
   height = 40,
   selectedDate,
   sharedSelectedIdx,
@@ -76,16 +81,13 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const { isDark } = useTheme();
   const [selectedData, setSelectedData] = useState<DotData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
-  // Persisted activities after scrub ends (for tappable label)
-  const [persistedActivities, setPersistedActivities] = useState<
-    | {
-        id: string;
-        name: string;
-        type: ActivityType;
-        load: number;
-      }[]
-    | null
-  >(null);
+  // The day and its activities after a scrub ends, for the tappable label
+  // and the load readout beside it.
+  const [persisted, setPersisted] = useState<{
+    date: string;
+    activities: DotData['activities'];
+  } | null>(null);
+  const persistedActivities = persisted?.activities ?? null;
   const [showPicker, setShowPicker] = useState(false);
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
@@ -144,7 +146,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const handleSelect = useCallback((point: DotData) => {
     selectedDataRef.current = point;
     setSelectedData(point);
-    setPersistedActivities(null);
+    setPersisted(null);
     onDateSelectRef.current?.(point.date, {
       fitness: point.fitness,
       fatigue: point.fatigue,
@@ -156,11 +158,11 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const handleInteractionChange = useCallback((active: boolean) => {
     onInteractionChangeRef.current?.(active);
     if (active) {
-      setPersistedActivities(null);
+      setPersisted(null);
       return;
     }
     const last = selectedDataRef.current;
-    if (last?.activities.length) setPersistedActivities(last.activities);
+    if (last?.activities.length) setPersisted({ date: last.date, activities: last.activities });
     selectedDataRef.current = null;
     setSelectedData(null);
     onDateSelectRef.current?.(null, null);
@@ -183,20 +185,26 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       if (idx >= 0) {
         setSelectedData(dotData[idx]);
         externalSelectedIdx.value = idx;
+      } else {
+        // A pinned day with no row stands for no activities, not the last day's.
+        setSelectedData(null);
+        setPersisted(null);
+        externalSelectedIdx.value = -1;
       }
     } else if (!selectedDate && !isActive) {
       // When selectedDate clears (scrub ended on another chart), persist activities
       if (selectedData?.activities?.length) {
-        setPersistedActivities(selectedData.activities);
+        setPersisted({ date: selectedData.date, activities: selectedData.activities });
       }
       setSelectedData(null);
       externalSelectedIdx.value = -1;
     }
   }, [selectedDate, dotData, isActive, externalSelectedIdx, selectedData]);
 
-  // One mark per day, or per week once a day has too little width, scaled
-  // by the day's load and stacked by sport share.
+  // One mark per active date, constant height, split equally by sport.
   const marks = useMemo(() => stripMarks(dotData, chartWidth), [dotData, chartWidth]);
+
+  const key = useMemo(() => stripKey(dotData), [dotData]);
 
   // Days sit on an even split of the width, so the crosshair can land on one
   // even when the selection came from another chart.
@@ -218,7 +226,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         if (prevIdx >= 0 && prevIdx < dotData.length) {
           const prevPoint = dotData[prevIdx];
           if (prevPoint?.activities?.length > 0) {
-            setPersistedActivities(prevPoint.activities);
+            setPersisted({ date: prevPoint.date, activities: prevPoint.activities });
           }
         }
         setSelectedData(null);
@@ -229,7 +237,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       if (point) {
         setSelectedData(point);
         // Clear persisted when actively scrubbing
-        setPersistedActivities(null);
+        setPersisted(null);
       }
     },
     [dotData]
@@ -257,7 +265,10 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     [selectedData, persistedActivities]
   );
 
-  // Get activity summary for display
+  const loadByDate = useMemo(
+    () => new Map((dailyLoads ?? []).map((d) => [d.date, d])),
+    [dailyLoads]
+  );
   const getActivitySummary = (acts: typeof displayActivities) => {
     if (acts.length === 0) return null;
     if (acts.length === 1) {
@@ -273,7 +284,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     if (displayActivities.length === 1) {
       // Single activity - navigate directly
       router.push(`/activity/${displayActivities[0].id}`);
-      setPersistedActivities(null);
+      setPersisted(null);
     } else {
       // Multiple activities - show picker
       setShowPicker(true);
@@ -283,7 +294,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   // Handle activity selection from picker
   const handleActivitySelect = useCallback((activityId: string) => {
     setShowPicker(false);
-    setPersistedActivities(null);
+    setPersisted(null);
     router.push(`/activity/${activityId}`);
   }, []);
 
@@ -295,12 +306,24 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const displayData =
     selectedData || (selectedDate ? dotData.find((d) => d.date === selectedDate) : null);
 
+  // The day the label stands for: the selection, or the one a released scrub
+  // left its activities on.
+  const readoutDate = displayData?.date ?? persisted?.date ?? null;
+  const readout = readoutDate ? dayLoadReadout(loadByDate.get(readoutDate)) : null;
+
   // Get activity color for the pill - use first activity's type color
   const activityPillColor =
     displayActivities.length > 0 ? getActivityColor(displayActivities[0].type) : colors.primary;
 
+  const mutedColor = isDark ? darkColors.textDisabled : colors.textDisabled;
+  const keyTextStyle = [styles.keyText, isDark && styles.noActivityLabelDark];
+
   return (
     <View style={styles.container}>
+      <Text accessibilityRole="header" style={[styles.stripTitle, isDark && styles.stripTitleDark]}>
+        {t('fitness.daysTrained')}
+      </Text>
+
       {/* Activity label when selected - tappable, styled as pill with activity color */}
       <View style={styles.labelContainer}>
         {displayActivities.length > 0 ? (
@@ -331,6 +354,17 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
             {displayData ? t('fitness.restDay') : t('navigation.activities')}
           </Text>
         )}
+        {readout && (
+          <Text
+            testID="fitness-day-load"
+            style={[styles.dayLoad, isDark && styles.noActivityLabelDark]}
+            numberOfLines={1}
+          >
+            {t('fitness.trainingLoad')}{' '}
+            {readout.total === null ? t('fitness.loadUnavailable') : readout.total}
+            {readout.status === 'partial' ? ` ${t('fitness.loadPartial')}` : ''}
+          </Text>
+        )}
       </View>
 
       {/* Activity picker modal */}
@@ -340,7 +374,11 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         animationType="fade"
         onRequestClose={() => setShowPicker(false)}
       >
-        <Pressable style={pressable(styles.modalOverlay)} onPress={() => setShowPicker(false)}>
+        <Pressable
+          style={pressable(styles.modalOverlay)}
+          android_ripple={pressRipple}
+          onPress={() => setShowPicker(false)}
+        >
           <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
             <Text style={[styles.modalTitle, isDark && styles.textLight]}>
               {t('fitness.selectActivity')}
@@ -366,7 +404,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                   </Text>
                   {activity.load > 0 && (
                     <Text style={[styles.activityLoad, isDark && chartStyles.textDark]}>
-                      {Math.round(activity.load)} TSS
+                      {Math.round(activity.load)} {t('stats.tss')}
                     </Text>
                   )}
                 </View>
@@ -396,8 +434,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                 {marks.map((mark) => {
                   const total = mark.height * height;
                   let top = height - total;
-                  const muted = isDark ? darkColors.textDisabled : colors.textDisabled;
-                  return markFills(mark, muted, getActivityColor).map((fill, n) => {
+                  return markFills(mark, mutedColor, getActivityColor).map((fill, n) => {
                     const y = top;
                     const fillHeight = fill.fraction * total;
                     top += fillHeight;
@@ -421,18 +458,80 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
           <ChartCrosshair style={crosshairStyle} topOffset={0} bottomOffset={0} />
         </View>
       </GestureDetector>
+
+      {(key.sports.length > 0 || key.noLoad) && (
+        <View>
+          <View style={styles.keyRow}>
+            {key.sports.map((type) => (
+              <View key={type} testID={`fitness-strip-key-${type}`} style={styles.keyItem}>
+                <View style={[styles.keySwatch, { backgroundColor: getActivityColor(type) }]} />
+                <Text style={keyTextStyle}>
+                  {t(`activityTypes.${type}`, { defaultValue: type })}
+                </Text>
+              </View>
+            ))}
+            {key.noLoad && (
+              <View testID="fitness-strip-key-noLoad" style={styles.keyItem}>
+                <View style={[styles.keySwatch, { backgroundColor: mutedColor }]} />
+                <Text style={keyTextStyle}>{t('fitness.noLoadKey')}</Text>
+              </View>
+            )}
+          </View>
+          <Text testID="fitness-strip-gloss" style={keyTextStyle}>
+            {t('fitness.stripGloss')}
+          </Text>
+        </View>
+      )}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
   container: {},
+  stripTitle: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  stripTitleDark: {
+    color: darkColors.textPrimary,
+  },
+  keyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: spacing.md,
+    rowGap: spacing.xs,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  keyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  keySwatch: {
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: layout.borderRadiusSm,
+  },
+  keyText: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+  },
   labelContainer: {
     height: 24,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  dayLoad: {
+    flexShrink: 1,
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
   },
   activityPill: {
-    paddingHorizontal: spacing.sm + 4,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,

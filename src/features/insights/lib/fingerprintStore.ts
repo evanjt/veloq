@@ -1,9 +1,8 @@
-/** The single home for the insights fingerprint. The foreground store and the
- *  headless background task both read and write it here, so a background run
- *  cannot advance a copy the next `initialize()` never sees. */
 import { getSetting, setSetting, removeSetting } from '@/shared/storage/settingsStorage';
 
 const FINGERPRINT_KEY = 'veloq-insights-fingerprint';
+// No longer written, but installed devices may still hold it, so a wipe removes it.
+const LEGACY_NOTIFIED_FINGERPRINT_KEY = 'veloq-insights-notified-fingerprint';
 
 export async function readInsightFingerprint(): Promise<string> {
   const stored = await getSetting(FINGERPRINT_KEY);
@@ -24,5 +23,8 @@ export async function writeInsightFingerprint(fingerprint: string): Promise<void
  * next athlete on the device never gets told about.
  */
 export async function forgetInsightFingerprint(): Promise<void> {
-  await removeSetting(FINGERPRINT_KEY);
+  await Promise.all([
+    removeSetting(FINGERPRINT_KEY),
+    removeSetting(LEGACY_NOTIFIED_FINGERPRINT_KEY),
+  ]);
 }

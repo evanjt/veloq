@@ -1,17 +1,34 @@
-import React, { useImperativeHandle, useMemo, useRef, useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, {
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+} from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
+import { RangeCoverage } from 'veloqrs';
 import { colors, darkColors, typography, spacing, contributionRamp, layout } from '@/theme';
-import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { formatLocalDate } from '@/shared/format/format';
+import { useTrainingScreenData } from '../hooks/useEngineStats';
+import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
+import { formatFullDate, formatMonth, getIntlLocale } from '@/shared/format/format';
 import {
-  cellPositions,
-  daysBack,
-  HEATMAP_CELL_GAP,
+  cellPosition,
+  columnYear,
+  positionsOf,
   HEATMAP_CELL_SIZE,
+  HEATMAP_PITCH,
   HEATMAP_WEEKS,
 } from '../lib/heatmapGrid';
 
@@ -32,14 +49,26 @@ export interface ActivityHeatmapHandle {
 const INTENSITY_COLORS = contributionRamp.dark;
 const INTENSITY_COLORS_LIGHT = contributionRamp.light;
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const DAYS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+/** The weekday rows that carry a name, Sunday 0, every other one so they fit. */
+const NAMED_ROWS = new Set([1, 3, 5]);
 
-const WEEKS_TO_SHOW = HEATMAP_WEEKS;
 const CELL_SIZE = HEATMAP_CELL_SIZE;
-const CELL_GAP = HEATMAP_CELL_GAP;
-const DAY_LABELS_WIDTH = 20;
-const DAY_LABELS_MARGIN = spacing.xs; // 4
+const GRID_WIDTH = HEATMAP_WEEKS * HEATMAP_PITCH;
+const GRID_HEIGHT = 7 * HEATMAP_PITCH;
+/** The fixed column left of the scroll view, wide enough for a four digit year. */
+const GUTTER_WIDTH = spacing.lg;
+const GUTTER_MARGIN = spacing.xs;
+
+/** A weekday's short name in the app language, Sunday 0. */
+function weekdayName(row: number): string {
+  // 1 January 2023 was a Sunday.
+  return new Date(2023, 0, 1 + row).toLocaleDateString(getIntlLocale(), { weekday: 'short' });
+}
+
+/** The first column the viewport shows, from the scroll offset. */
+function columnAt(offset: number): number {
+  return Math.floor(Math.max(0, offset) / HEATMAP_PITCH);
+}
 
 export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityHeatmapProps>(
   function ActivityHeatmap(_props, ref) {
@@ -50,114 +79,119 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
     const scrollRef = useRef<ScrollView>(null);
 
-    const cellSize = CELL_SIZE;
-    const cellGap = CELL_GAP;
+    // The one interval every part of the card describes, and the days the
+    // training screen read takes for it. It moves with the local date, so a
+    // calendar left open past midnight moves with it.
+    const {
+      windows: { heatmap: grid },
+      data: { heatmap },
+      isPending,
+    } = useTrainingScreenData();
+    const firstDay = grid.cells[0].date;
+    const lastDay = grid.cells[grid.cells.length - 1].date;
 
-    // The engine's own event is what says the cache changed.
-    const readHeatmap = useEngineRead(['activities']);
-
-    // A year of intensities, from the engine's own cache. It is derived from
-    // `activity_metrics` on every metrics write and rebuilt from that table by
-    // migration, and that table covers exactly what `activity_bodies` covers, so
-    // there is no range left for a JS pass over parsed bodies to fill in.
-    const activityMap = useMemo(() => {
-      const map = new Map<string, number>();
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - WEEKS_TO_SHOW * 7);
-      const startDate = formatLocalDate(cutoff);
-      const endDate = formatLocalDate(new Date());
-
-      readHeatmap((engine) => {
-        try {
-          const days = engine.getActivityHeatmap(startDate, endDate);
-          for (const day of days) {
-            map.set(day.date, day.intensity);
-          }
-        } catch {
-          // A read that throws leaves the grid empty rather than failing the tab.
-        }
-      });
-
+    // The engine updates this cache from activity metrics writes and removals.
+    // Migration rebuilds it from stored metrics on upgrade. A read that throws
+    // leaves the grid empty rather than failing the tab.
+    const days = useMemo(() => {
+      const map = new Map<string, { intensity: number; activityCount: number }>();
+      for (const day of heatmap) map.set(day.date, day);
       return map;
-    }, [readHeatmap]);
+    }, [heatmap]);
 
-    // Generate grid data (flat intensity array for Picture - no object allocations)
-    const { intensities, monthLabels, totalActivities } = useMemo(() => {
-      const today = new Date();
-      // Flat array: intensities[w * 7 + d]
-      const intensities = new Uint8Array(WEEKS_TO_SHOW * 7);
-      const monthPositions: { month: string; col: number; year?: number | undefined }[] = [];
+    const coverage = useWindowCoverage(firstDay, lastDay);
 
-      let lastMonth = -1;
-      let lastYear = -1;
-
-      for (let w = WEEKS_TO_SHOW - 1; w >= 0; w--) {
-        for (let d = 0; d < 7; d++) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - daysBack(w, d));
-          const dateStr = formatLocalDate(date);
-          const col = WEEKS_TO_SHOW - 1 - w;
-          intensities[col * 7 + d] = activityMap.get(dateStr) || 0;
-
-          if (d === 0) {
-            const month = date.getMonth();
-            const year = date.getFullYear();
-            if (month !== lastMonth) {
-              const showYear = month === 0 || lastYear === -1 || year !== lastYear;
-              monthPositions.push({
-                month: MONTHS[month],
-                col,
-                year: showYear ? year : undefined,
-              });
-              lastMonth = month;
-              lastYear = year;
-            }
-          }
-        }
-      }
-
+    // Flat intensity array for the picture, `col * 7 + row`, and the count of
+    // activities on the days drawn. A day whose activities have no moving time
+    // has no intensity and still counts.
+    const { intensities, totalActivities } = useMemo(() => {
+      const intensities = new Uint8Array(HEATMAP_WEEKS * 7);
       let total = 0;
-      activityMap.forEach((v) => {
-        if (v > 0) total++;
-      });
+      for (const cell of grid.cells) {
+        const day = days.get(cell.date);
+        if (!day) continue;
+        intensities[cell.col * 7 + cell.row] = day.intensity;
+        total += day.activityCount;
+      }
+      return { intensities, totalActivities: total };
+    }, [grid, days]);
 
-      return { intensities, monthLabels: monthPositions, totalActivities: total };
-    }, [activityMap]);
+    // Names follow the app language. `t` is rebound when the language
+    // changes, which is what rebuilds them.
+    const labels = useMemo(
+      () => ({
+        months: grid.monthLabels.map((m) => ({ ...m, name: formatMonth(m.date) })),
+        weekdays: Array.from({ length: 7 }, (_, row) =>
+          NAMED_ROWS.has(row) ? weekdayName(row) : ''
+        ),
+        range: t('stats.calendarRange', {
+          start: formatFullDate(grid.first),
+          end: formatFullDate(grid.last),
+        }),
+      }),
+      [grid, t]
+    );
 
-    const gridWidth = WEEKS_TO_SHOW * (cellSize + cellGap);
-    const gridHeight = 7 * (cellSize + cellGap);
+    const dividerColor = isDark ? darkColors.divider : colors.divider;
 
     // Pre-render entire heatmap grid as a single Skia Picture (zero React elements)
     const heatmapPicture = useMemo(() => {
       const recorder = Skia.PictureRecorder();
-      const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, gridWidth, gridHeight));
+      const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, GRID_WIDTH, GRID_HEIGHT));
       const paint = Skia.Paint();
 
-      for (let w = 0; w < WEEKS_TO_SHOW; w++) {
-        for (let d = 0; d < 7; d++) {
-          paint.setColor(Skia.Color(intensityColors[intensities[w * 7 + d]]));
-          canvas.drawRRect(
-            Skia.RRectXY(
-              Skia.XYWHRect(w * (cellSize + cellGap), d * (cellSize + cellGap), cellSize, cellSize),
-              1,
-              1
-            ),
-            paint
-          );
+      for (const cell of grid.cells) {
+        const { x, y } = cellPosition(cell.col, cell.row);
+        paint.setColor(Skia.Color(intensityColors[intensities[cell.col * 7 + cell.row]]));
+        canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(x, y, CELL_SIZE, CELL_SIZE), 1, 1), paint);
+      }
+
+      // Where January begins: down the gap left of 1 January's column from its
+      // row, along the gap above it, and down the gap right of that column to
+      // it, so December sits on one side of the line and January on the other.
+      const boundary = grid.januaryBoundary;
+      if (boundary) {
+        const line = Skia.Paint();
+        line.setColor(Skia.Color(dividerColor));
+        line.setStrokeWidth(1);
+        const left = boundary.col * HEATMAP_PITCH - 1;
+        const right = left + HEATMAP_PITCH;
+        const top = boundary.row * HEATMAP_PITCH - 1;
+        if (boundary.row === 0) {
+          canvas.drawLine(left, 0, left, GRID_HEIGHT, line);
+        } else {
+          canvas.drawLine(left, top, left, GRID_HEIGHT, line);
+          canvas.drawLine(left, top, right, top, line);
+          canvas.drawLine(right, 0, right, top, line);
         }
       }
 
       return recorder.finishRecordingAsPicture();
-    }, [intensities, cellSize, cellGap, gridWidth, gridHeight, intensityColors]);
+    }, [grid, intensities, intensityColors, dividerColor]);
 
-    // Built once with the grid, off the same date logic, so a scrub tick is one
-    // lookup rather than 364 `Date` constructions and format calls.
-    const positions = useMemo(() => cellPositions(new Date()), []);
+    // Built once with the grid, off the same layout, so a scrub tick is one
+    // lookup rather than a walk of the year.
+    const positions = useMemo(() => positionsOf(grid), [grid]);
 
     const highlightPos = useMemo(
       () => (highlightDate ? (positions.get(highlightDate) ?? null) : null),
       [highlightDate, positions]
     );
+
+    // The year of the leftmost column in view, pinned beside the grid. Before
+    // the first scroll event the view sits at its right end, so the column is
+    // worked out from the viewport's width. State holds the column, not the
+    // offset, so a scroll re-renders only when the column changes.
+    const [viewportWidth, setViewportWidth] = useState(0);
+    const [scrolledColumn, setScrolledColumn] = useState<number | null>(null);
+    const onViewportLayout = useCallback((event: LayoutChangeEvent) => {
+      setViewportWidth(event.nativeEvent.layout.width);
+    }, []);
+    const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      setScrolledColumn(columnAt(event.nativeEvent.contentOffset.x));
+    }, []);
+    const leftColumn = scrolledColumn ?? columnAt(GRID_WIDTH - viewportWidth);
+    const pinnedYear = columnYear(grid, leftColumn);
 
     // Auto-scroll to highlighted cell
     useEffect(() => {
@@ -167,9 +201,11 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       }
     }, [highlightPos]);
 
-    // Show empty state when the year holds nothing. The cache is the source, so
-    // an empty grid and no activities are the same thing.
+    // Show empty state when the drawn range holds nothing. The cache is the
+    // source, so an empty grid and no activities are the same thing, and the
+    // census says whether that is the account or a range never downloaded.
     if (totalActivities === 0) {
+      const notDownloaded = coverage === RangeCoverage.NotFetched;
       return (
         <View style={styles.container}>
           <View style={styles.header}>
@@ -177,13 +213,18 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
               {t('stats.activityCalendar')}
             </Text>
           </View>
+          {/* Until the first answer there is nothing to say about the range. */}
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyText, isDark && styles.textDark]}>
-              {t('stats.noActivityData')}
-            </Text>
-            <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-              {t('stats.completeActivitiesHeatmap')}
-            </Text>
+            {!isPending && (
+              <Text style={[styles.emptyText, isDark && styles.textDark]}>
+                {notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noActivityData')}
+              </Text>
+            )}
+            {!isPending && !notDownloaded && (
+              <Text style={[styles.emptyHint, isDark && styles.textDark]}>
+                {t('stats.completeActivitiesHeatmap')}
+              </Text>
+            )}
           </View>
         </View>
       );
@@ -193,9 +234,14 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>
-            {t('stats.activityCalendar')}
-          </Text>
+          <View>
+            <Text style={[styles.title, isDark && styles.textLight]}>
+              {t('stats.activityCalendar')}
+            </Text>
+            <Text testID="activity-heatmap-range" style={[styles.range, isDark && styles.textDark]}>
+              {labels.range}
+            </Text>
+          </View>
           <Text
             testID="activity-heatmap-count"
             style={[styles.subtitle, isDark && styles.textDark]}
@@ -204,65 +250,69 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
           </Text>
         </View>
 
-        {/* Horizontally scrollable heatmap grid */}
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
-        >
-          <View>
-            {/* Month labels */}
-            <View
-              style={[
-                styles.monthLabels,
-                { width: gridWidth, marginLeft: DAY_LABELS_WIDTH + DAY_LABELS_MARGIN },
-              ]}
-            >
-              {monthLabels.map((m, idx) =>
-                m.year !== undefined ? (
-                  <View
-                    key={idx}
-                    style={[styles.monthLabelContainer, { left: m.col * (cellSize + cellGap) }]}
-                  >
-                    <Text style={[styles.yearLabel, isDark && styles.textLight]}>{m.year}</Text>
-                    <Text style={[styles.monthLabel, isDark && styles.textDark]}>{m.month}</Text>
-                  </View>
-                ) : (
-                  <Text
-                    key={idx}
-                    style={[
-                      styles.monthLabel,
-                      styles.monthLabelAbsolute,
-                      isDark && styles.textDark,
-                      { left: m.col * (cellSize + cellGap) },
-                    ]}
-                  >
-                    {m.month}
-                  </Text>
-                )
-              )}
+        <View style={styles.body}>
+          {/* Fixed gutter: the year in view and the weekday names */}
+          <View style={styles.gutter}>
+            <View style={styles.monthLabels}>
+              <Text
+                testID="activity-heatmap-year"
+                style={[styles.yearLabel, styles.monthLabelAbsolute, isDark && styles.textLight]}
+              >
+                {pinnedYear}
+              </Text>
             </View>
+            {labels.weekdays.map((day, idx) => (
+              <Text
+                key={idx}
+                numberOfLines={1}
+                style={[styles.dayLabel, isDark && styles.textDark, { height: HEATMAP_PITCH }]}
+              >
+                {day}
+              </Text>
+            ))}
+          </View>
 
-            {/* Grid with day labels */}
-            <View style={styles.gridContainer}>
-              <View style={styles.dayLabels}>
-                {DAYS.map((day, idx) => (
-                  <Text
-                    key={idx}
-                    style={[
-                      styles.dayLabel,
-                      isDark && styles.textDark,
-                      { height: cellSize + cellGap },
-                    ]}
-                  >
-                    {day}
-                  </Text>
-                ))}
+          {/* Horizontally scrollable heatmap grid */}
+          <ScrollView
+            ref={scrollRef}
+            testID="activity-heatmap-scroll"
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            onLayout={onViewportLayout}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+          >
+            <View>
+              {/* Month labels, January carrying its year */}
+              <View style={[styles.monthLabels, { width: GRID_WIDTH }]}>
+                {labels.months.map((m) =>
+                  m.year !== undefined ? (
+                    <View
+                      key={m.col}
+                      style={[styles.monthLabelContainer, { left: m.col * HEATMAP_PITCH }]}
+                    >
+                      <Text style={[styles.yearLabel, isDark && styles.textLight]}>{m.year}</Text>
+                      <Text style={[styles.monthLabel, isDark && styles.textDark]}>{m.name}</Text>
+                    </View>
+                  ) : (
+                    <Text
+                      key={m.col}
+                      style={[
+                        styles.monthLabel,
+                        styles.monthLabelAbsolute,
+                        isDark && styles.textDark,
+                        { left: m.col * HEATMAP_PITCH },
+                      ]}
+                    >
+                      {m.name}
+                    </Text>
+                  )
+                )}
               </View>
 
               <View>
-                <Canvas style={{ width: gridWidth, height: gridHeight }}>
+                <Canvas style={{ width: GRID_WIDTH, height: GRID_HEIGHT }}>
                   <Picture picture={heatmapPicture} />
                 </Canvas>
                 {highlightPos && (
@@ -272,16 +322,25 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                       {
                         left: highlightPos.x - 2,
                         top: highlightPos.y - 2,
-                        width: cellSize + 4,
-                        height: cellSize + 4,
+                        width: CELL_SIZE + 4,
+                        height: CELL_SIZE + 4,
                       },
                     ]}
                   />
                 )}
               </View>
             </View>
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </View>
+
+        {coverage === RangeCoverage.NotFetched && (
+          <Text
+            testID="activity-heatmap-partial"
+            style={[styles.partial, isDark && styles.textDark]}
+          >
+            {t('stats.rangePartlyDownloaded')}
+          </Text>
+        )}
 
         {/* Legend */}
         <View style={styles.legend}>
@@ -291,7 +350,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
               key={idx}
               style={[
                 styles.legendCell,
-                { backgroundColor: color, width: cellSize, height: cellSize },
+                { backgroundColor: color, width: CELL_SIZE, height: CELL_SIZE },
               ]}
             />
           ))}
@@ -318,6 +377,23 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
+  },
+  range: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    marginTop: spacing.xxs,
+  },
+  partial: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  body: {
+    flexDirection: 'row',
+  },
+  gutter: {
+    width: GUTTER_WIDTH,
+    marginRight: GUTTER_MARGIN,
   },
   textLight: {
     color: colors.textOnDark,
@@ -348,13 +424,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
   },
-  gridContainer: {
-    flexDirection: 'row',
-  },
-  dayLabels: {
-    width: 20,
-    marginRight: spacing.xs,
-  },
   dayLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
@@ -374,7 +443,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xs,
   },
   legendCell: {
-    borderRadius: spacing.xxs,
+    borderRadius: layout.borderRadiusXs,
   },
   highlightCell: {
     position: 'absolute',

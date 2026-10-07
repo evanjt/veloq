@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
 import { paceCurveOf } from '@/features/stats/lib/curveRecords';
 import { paceSnapshotDate } from '@/features/stats/lib/paceSnapshot';
+import { PACE_SNAPSHOT_WINDOW_DAYS } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { RangeCoverage } from 'veloqrs';
 import type { PaceCurve } from '@/types';
@@ -34,6 +36,7 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   // fetched", which is the cue to ask Rust for it; the empty curve is what the
   // chart draws in the meantime.
   const query = useQuery<DatedPaceCurve | null>({
+    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => {
       // The engine answers `null` for a window never fetched and for a body
@@ -70,12 +73,13 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     retryBody: body.retry,
   };
 
-  // Snapshot critical speed for trend tracking (idempotent: INSERT OR REPLACE by date+sport)
+  // The engine stores the sync window's snapshot with the curve body.
   const lastSnapshotted = useRef<string | null>(null);
   const endDate = result.data?.endDate;
   useEffect(() => {
     const cs = result.data?.criticalSpeed;
     if (cs == null || cs <= 0) return;
+    if (days === PACE_SNAPSHOT_WINDOW_DAYS && (sport === 'Run' || sport === 'Swim')) return;
     const key = `${sport}:${cs}`;
     if (lastSnapshotted.current === key) return;
     lastSnapshotted.current = key;
@@ -101,57 +105,6 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
 /** Empty axes while the separate coverage and body status explain the wait. */
 function emptyPaceCurve(sport: string): PaceCurve {
   return { type: 'pace', sport, distances: [], times: [], pace: [] };
-}
-
-// Standard distances for running pace curve (in meters)
-export const PACE_CURVE_DISTANCES = [
-  { meters: 400, label: '400m' },
-  { meters: 800, label: '800m' },
-  { meters: 1000, label: '1K' },
-  { meters: 1609.34, label: 'Mile' },
-  { meters: 3000, label: '3K' },
-  { meters: 5000, label: '5K' },
-  { meters: 10000, label: '10K' },
-  { meters: 21097.5, label: 'Half' },
-];
-
-// Standard distances for swimming pace curve (in meters)
-export const SWIM_PACE_CURVE_DISTANCES = [
-  { meters: 100, label: '100m' },
-  { meters: 200, label: '200m' },
-  { meters: 400, label: '400m' },
-  { meters: 800, label: '800m' },
-  { meters: 1500, label: '1500m' },
-  { meters: 3800, label: '3.8K' },
-];
-
-/**
- * Get pace at a specific distance
- * @param curve - The pace curve data
- * @param targetDistance - Target distance in meters
- * @returns Pace in m/s at that distance, or null if not found
- */
-export function getPaceAtDistance(
-  curve: PaceCurve | undefined,
-  targetDistance: number
-): number | null {
-  if (!curve?.distances || !curve?.pace || curve.distances.length === 0) return null;
-
-  // Find exact match first
-  const exactIndex = curve.distances.findIndex((d) => Math.abs(d - targetDistance) < 1);
-  if (exactIndex !== -1 && curve.pace[exactIndex]) return curve.pace[exactIndex];
-
-  // Find closest distance
-  let closestIndex = 0;
-  let closestDiff = Math.abs(curve.distances[0] - targetDistance);
-  for (let i = 1; i < curve.distances.length; i++) {
-    const diff = Math.abs(curve.distances[i] - targetDistance);
-    if (diff < closestDiff) {
-      closestDiff = diff;
-      closestIndex = i;
-    }
-  }
-  return curve.pace[closestIndex] || null;
 }
 
 /**

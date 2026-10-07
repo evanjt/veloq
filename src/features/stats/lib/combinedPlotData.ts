@@ -11,7 +11,9 @@ import { type ChartConfig, type ChartTypeId } from '@/features/activity';
 import { measuresPower } from '@/shared/activity/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
-import { finiteExtent } from '@/shared/charts/extent';
+import { finiteExtent, type Extent } from '@/shared/charts/extent';
+import { KM_TO_MI, MPS_TO_KPH } from '@/shared/format/format';
+import { paceMinutesFromSpeed, speedFromPaceMinutes } from '@/shared/math/kinematics';
 
 /**
  * One input series derived from a chart config + streams. The colour is not
@@ -22,6 +24,80 @@ export interface DataSeries {
   id: ChartTypeId;
   config: ChartConfig;
   rawData: number[];
+}
+
+/**
+ * One sample as the chart shows it, in the athlete's units. A missing sample
+ * reads '-', the chart's absent mark, rather than NaN.
+ */
+export function formatScrubValue(
+  config: ChartConfig,
+  raw: number | undefined,
+  isMetric: boolean
+): string {
+  if (raw == null || !Number.isFinite(raw)) return '-';
+  if (isStoppedSample(config, raw)) return '-';
+  const value = !isMetric && config.convertToImperial ? config.convertToImperial(raw) : raw;
+  const formatted = config.formatValue
+    ? config.formatValue(value, isMetric)
+    : Math.round(value).toString();
+  return formatted || '-';
+}
+
+type Motion = NonNullable<ChartConfig['motion']>;
+
+/** A sample of a speed or pace series in m/s. */
+function sampleSpeed(motion: Motion, value: number): number {
+  return motion.kind === 'pace'
+    ? speedFromPaceMinutes(value, motion.perMetres)
+    : value / MPS_TO_KPH;
+}
+
+/**
+ * A finite sample of a pace series at or under the stop threshold. A stop has
+ * no pace, so the scrub reads it as absent and the line leaves it out. A speed
+ * series keeps its stops, where 0.0 km/h is a real reading.
+ */
+function isStoppedSample(config: ChartConfig, raw: number): boolean {
+  const motion = config.motion;
+  return (
+    motion?.kind === 'pace' &&
+    Number.isFinite(raw) &&
+    sampleSpeed(motion, raw) < motion.stoppedBelowMs
+  );
+}
+
+/** The finite samples of a series, less its stops when it is a speed or pace. */
+function movingSamples(config: ChartConfig, rawData: readonly number[]): number[] {
+  const finite = rawData.filter((v) => Number.isFinite(v));
+  const motion = config.motion;
+  if (!motion) return finite;
+  return finite.filter((v) => sampleSpeed(motion, v) >= motion.stoppedBelowMs);
+}
+
+function mean(values: readonly number[]): number {
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+/**
+ * A series' average in its own units, or null with nothing to average. A
+ * speed averages over moving samples, and a pace is the pace of that mean
+ * speed rather than the mean of the paces, which a stop would pull towards 0.
+ */
+export function seriesAverage(config: ChartConfig, rawData: readonly number[]): number | null {
+  const samples = movingSamples(config, rawData);
+  if (samples.length === 0) return null;
+  const motion = config.motion;
+  if (motion?.kind !== 'pace') return mean(samples);
+  return paceMinutesFromSpeed(mean(samples.map((v) => sampleSpeed(motion, v))), motion.perMetres);
+}
+
+/**
+ * A series' y extent. A pace leaves its stops out, which read as pace 0 and a
+ * crawl as hours per kilometre, either of which would flatten the moving pace.
+ */
+export function seriesExtent(config: ChartConfig, rawData: readonly number[]): Extent | null {
+  return finiteExtent(config.motion?.kind === 'pace' ? movingSamples(config, rawData) : rawData);
 }
 
 /** A series with its min/max range and an optional "preview" flag. */
@@ -131,7 +207,8 @@ export function buildChartData(
   const seriesRanges = series.map((s) => {
     // A stream with no finite sample normalises against a flat range. Its points
     // are non-finite anyway, so the chart draws a gap rather than a floor line.
-    const extent = finiteExtent(s.rawData);
+    // A pace with no moving sample does the same, its stops on the floor.
+    const extent = seriesExtent(s.config, s.rawData);
     if (!extent) return { min: 0, max: 0, range: 1 };
     return { min: extent.min, max: extent.max, range: extent.max - extent.min || 1 };
   });
@@ -144,7 +221,7 @@ export function buildChartData(
     } else {
       // Distance in km or miles
       const distKm = xSource[i] / 1000;
-      xValue = isMetric ? distKm : distKm * 0.621371;
+      xValue = isMetric ? distKm : distKm * KM_TO_MI;
     }
 
     const point: Record<string, number> = { x: xValue };
@@ -152,6 +229,10 @@ export function buildChartData(
     // Add normalized value for each series (0-1 range)
     series.forEach((s, idx) => {
       const rawVal = s.rawData[i] ?? 0;
+      if (isStoppedSample(s.config, rawVal)) {
+        point[s.id] = NaN;
+        return;
+      }
       const { min, range } = seriesRanges[idx];
       const normalized = (rawVal - min) / range;
       point[s.id] = Math.max(0, Math.min(1, normalized));
@@ -177,7 +258,8 @@ export function buildChartData(
  *
  * For altitude (`defaultMetric === 'gain'`) the "average" is the cumulative
  * positive delta (total elevation gain) with a `+` prefix. For everything
- * else, it is an arithmetic mean of valid samples.
+ * else, it is `seriesAverage`. Both format through `formatScrubValue`, so the
+ * idle chip and a scrub of the same value read alike.
  *
  * Returns one entry per available chart, including a `maxValueWidth` string
  * so callers can lock the chip width during scrubbing.
@@ -193,14 +275,14 @@ export function computeAllAverages(
     if (!config) continue;
     const rawData = config.getStream?.(streams);
     if (!rawData || rawData.length === 0) continue;
+    // Every sample a scrub can read, so the chip is locked to the widest. A
+    // pace scrub reads a stop as absent, so its stops are left out.
+    const scrubExtent = seriesExtent(config, rawData);
+    if (!scrubExtent && !finiteExtent(rawData)) continue;
+    const maxFormatted = formatScrubValue(config, scrubExtent?.max, isMetric);
 
-    const validValues = rawData.filter((v) => Number.isFinite(v));
-    const extent = finiteExtent(validValues);
-    if (!extent) continue;
-
-    let computed: number;
-    let valuePrefix = '';
-
+    let formatted: string;
+    let widest: string;
     if (config.defaultMetric === 'gain') {
       // Sum of positive deltas (elevation gain)
       let gain = 0;
@@ -211,42 +293,13 @@ export function computeAllAverages(
         const delta = rawData[i] - rawData[i - 1];
         if (delta > 0) gain += delta;
       }
-      computed = gain;
-      valuePrefix = '+';
+      formatted = `+${formatScrubValue(config, gain, isMetric)}`;
+      // The gain holds while idle and a scrub shows altitude, so the chip
+      // takes the wider of the two.
+      widest = formatted.length >= maxFormatted.length ? formatted : maxFormatted;
     } else {
-      computed = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
-    }
-
-    if (!isMetric && config.convertToImperial) {
-      computed = config.convertToImperial(computed);
-    }
-    const formatted =
-      valuePrefix +
-      (config.formatValue
-        ? config.formatValue(computed, isMetric)
-        : Math.round(computed).toString());
-
-    // Compute widest formatted value for stable chip width
-    let maxFormatted: string;
-    if (config.defaultMetric === 'gain') {
-      // Gain is fixed - use it as max width; also check max altitude for scrub case
-      let maxRaw = extent.max;
-      if (!isMetric && config.convertToImperial) {
-        maxRaw = config.convertToImperial(maxRaw);
-      }
-      const maxAltFormatted = config.formatValue
-        ? config.formatValue(maxRaw, isMetric)
-        : Math.round(maxRaw).toString();
-      // Use the wider of gain formatted or max altitude formatted
-      maxFormatted = formatted.length >= maxAltFormatted.length ? formatted : maxAltFormatted;
-    } else {
-      let maxRaw = extent.max;
-      if (!isMetric && config.convertToImperial) {
-        maxRaw = config.convertToImperial(maxRaw);
-      }
-      maxFormatted = config.formatValue
-        ? config.formatValue(maxRaw, isMetric)
-        : Math.round(maxRaw).toString();
+      formatted = formatScrubValue(config, seriesAverage(config, rawData) ?? undefined, isMetric);
+      widest = maxFormatted;
     }
 
     const unit = isMetric ? config.unit || '' : config.unitImperial || config.unit || '';
@@ -257,7 +310,7 @@ export function computeAllAverages(
       value: formatted,
       unit,
       color: config.color,
-      maxValueWidth: maxFormatted,
+      maxValueWidth: widest,
     });
   }
   return results;
@@ -350,7 +403,7 @@ export function computeIntervalBands(
     } else {
       const toUnit = (v: number) => {
         const km = v / 1000;
-        return isMetric ? km : km * 0.621371;
+        return isMetric ? km : km * KM_TO_MI;
       };
       startX = toUnit(xSource[startIdx]);
       endX = toUnit(xSource[endIdx]);

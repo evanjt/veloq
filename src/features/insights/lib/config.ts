@@ -5,17 +5,13 @@ import type { InsightCategory } from '../types';
  * and score bonus used by the rules pipeline lives here. Generators and the
  * push scheduler both import from this file - one edit affects both.
  *
- * Each field is annotated with the rule it implements (G1–G4, R5–R8, D9–D12)
- * and the research citation in the plan file
- * (/home/evan/.claude/plans/hi-couoe-you-tak3-vivid-lemur.md).
+ * Each field is annotated with the rule it implements (G1, G3, R5–R8, D9–D11).
  */
 
 /**
- * The one knob that matters most. Drives both the event-recency gate (G1) and
- * the proximity gate (G2). Rationale: Peak-End / Rhodes & Kates 2015 - affective
- * recall is short, so an insight's *triggering event* must have happened in the
- * last 4 weeks; Fogg B=MAP / COM-B - a section outside the last-28-day active
- * region fails the "opportunity" leg of the action line.
+ * The one knob that matters most. Drives the event-recency gate (G1).
+ * Rationale: Peak-End / Rhodes & Kates 2015 - affective recall is short, so an
+ * insight's *triggering event* must have happened in the last 4 weeks.
  */
 export const ACTIVE_WINDOW_DAYS = 28;
 
@@ -29,10 +25,11 @@ export interface InsightsConfig {
 
   /** G3 - minimum lifetime repetitions for trend-type insights. */
   repetition: {
-    section_trend_min: number;
     /** The declining branch alone, which has to earn more than an improvement. */
-    section_trend_declining_min: number;
     efficiency_trend_min: number;
+    efficiency_trend_declining_min: number;
+    /** Outings a section needs to hold a recent-record slot. */
+    section_pr_min_outings: number;
     stale_pr_min_lifetime: number;
     strength_min_sets: number;
   };
@@ -41,35 +38,47 @@ export interface InsightsConfig {
   thresholds: {
     volumeChangePct: number;
     minFtpChangeWatts: number;
-    minFtpGainPercent: number;
-    minProgressChangePct: number;
+    minFtpDeclineWatts: number;
+    minPaceChangePercent: number;
+    minPaceDeclinePercent: number;
+    staleMinGainPercent: number;
     /** R6 - lower/upper bounds of the flow corridor on |delta|/stddev. */
     signalFloorDelta: number;
     signalCeilingDelta: number;
+    /** Most stale PR opportunities the engine returns for the one group card. */
+    staleMaxOpportunities: number;
+    /** Smallest rounded heart-rate change, in bpm, an efficiency trend may report. */
+    efficiencyMinHrChangeBpm: number;
   };
 
-  /** G2 - proximity gate. */
-  proximity: {
-    enabled: boolean;
-    /** km of padding added to the last-28d bbox before rejecting. */
-    paddingKm: number;
-    /** Skip the gate if fewer than this many activities fall in the window. */
-    minActivitiesForRegion: number;
+  /** Caps on what the engine reads and what the panel keeps. */
+  limits: {
+    /** Ranked sections requested per sport. */
+    rankedPerSport: number;
+    /** Efficiency candidates taken from each sport's ranked list. */
+    efficiencyPerSport: number;
+    /** Section stories (stale PR, efficiency trend) the panel keeps in total. */
+    sectionStories: number;
+  };
+
+  /** Trailing windows, in days, the engine reads over. */
+  windows: {
+    /** The window the HRV verdict is read over. */
+    hrvDays: number;
   };
 
   /** R5/R7 + category base bonuses. Tunable without code changes. */
   scoring: {
+    /**
+     * Points between two adjacent priority levels. Priority is the prior, and
+     * the step is sized so the computed terms can carry an insight across one
+     * level on a typical spread.
+     */
+    priorityStep: number;
     /** R4 - points a confidence of 1 is worth. */
     confidenceWeight: number;
     /** R9 - points a section the engine rates at its ceiling is worth. */
     rankingWeight: number;
-    /** R9 - how the engine's four component scores blend for an insight. */
-    rankingWeights: {
-      recency: number;
-      improvement: number;
-      anomaly: number;
-      engagement: number;
-    };
     /**
      * R4 - observations at which a category's claim is as well founded as it
      * gets. Categories absent from this table have no population to count and
@@ -93,16 +102,8 @@ export interface InsightsConfig {
     maxPerCategoryOverride: Partial<Record<InsightCategory, number>>;
   };
 
-  /** D11 - push notification scheduler. */
-  push: {
-    enabled: boolean;
-    maxPerWeek: number;
-    minHoursBetween: number;
-  };
-
   debug: {
     logCandidates: boolean;
-    showDebugPanel: boolean;
   };
 }
 
@@ -128,17 +129,9 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
   },
 
   repetition: {
-    section_trend_min: 3, // Lally 2010 - trend needs ≥3 repetitions
-    // A decline is the one card that tells the athlete they got worse, and it
-    // arrives during the bad patch that produced it. Three traversals inside
-    // the 28-day window is as likely to be weather, traffic or one tired day,
-    // so the declining branch waits for five: the smallest floor a single bad
-    // week on a section ridden every other day cannot reach on its own.
-    // The asymmetry is the decision that the panel is a mirror: a negative
-    // fact is shown when the evidence supports it, and this is what supporting
-    // it means for a trend. Ten is still what saturates the confidence.
-    section_trend_declining_min: 5,
     efficiency_trend_min: 3,
+    efficiency_trend_declining_min: 5,
+    section_pr_min_outings: 3, // a record is earned by returning
     stale_pr_min_lifetime: 2, // had to have been meaningful at least once
     strength_min_sets: 4,
   },
@@ -146,32 +139,36 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
   thresholds: {
     volumeChangePct: 0.15,
     minFtpChangeWatts: 5,
-    minFtpGainPercent: 3,
-    minProgressChangePct: 15,
+    minFtpDeclineWatts: 10,
+    minPaceChangePercent: 1,
+    minPaceDeclinePercent: 2,
+    staleMinGainPercent: 3,
     signalFloorDelta: 0.5,
     signalCeilingDelta: 2.0,
+    staleMaxOpportunities: 3,
+    efficiencyMinHrChangeBpm: 1,
   },
 
-  proximity: {
-    enabled: true,
-    paddingKm: 25,
-    minActivitiesForRegion: 5,
+  limits: {
+    rankedPerSport: 50,
+    efficiencyPerSport: 5,
+    sectionStories: 2,
+  },
+
+  windows: {
+    hrvDays: 7,
   },
 
   scoring: {
+    // The computed terms reach about 90 at their ceilings and about 40 on a
+    // typical spread, so a 25-point step keeps priority a strong prior while
+    // letting a well-founded insight outrank a bare one a level above it.
+    priorityStep: 25,
     confidenceWeight: 30,
-    // R9 sits between confidence (30) and the category base (up to 15): the
-    // engine's read on a section should be able to reorder within a priority
-    // and never across one.
+    // R9 sits between confidence (30) and the category base (up to 15), and
+    // under the priority step, so alone it reorders within a priority and
+    // never across one.
     rankingWeight: 20,
-    // The engine's own weights, from `persistence/sections/ranking.rs`, which
-    // is the blend the sections tab's Relevance sort already ranks by. The
-    // default reproduces a formula that ships rather than inventing one.
-    //
-    // Read the components and never `relevanceScore`: that field IS this blend
-    // of these four, so a term taking it beside them would weigh every
-    // component twice.
-    rankingWeights: { recency: 0.35, improvement: 0.3, anomaly: 0.2, engagement: 0.15 },
     // Each saturation is a multiple of the category's repetition floor, which
     // is the point the generator may speak at all. Reaching it means the claim
     // has as much behind it as this generator can put there; below it the
@@ -186,6 +183,7 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
       hrv_trend: 7,
       period_comparison: 10,
       section_trend: 10,
+      route: 10,
       stale_pr: 10,
       strength_balance: 8,
       strength_progression: 6,
@@ -199,6 +197,7 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
       fitness_milestone: 10,
       hrv_trend: 8,
       section_trend: 7,
+      route: 7,
       strength_balance: 6,
       period_comparison: 5,
       strength_progression: 4,
@@ -212,19 +211,11 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     // Section/route insights are Veloq's niche - allow a bit more headroom.
     maxPerCategoryOverride: {
       section_pr: 3,
-      stale_pr: 3,
     },
-  },
-
-  push: {
-    enabled: true,
-    maxPerWeek: 4,
-    minHoursBetween: 18,
   },
 
   debug: {
     logCandidates: __dev__,
-    showDebugPanel: __dev__,
   },
 };
 

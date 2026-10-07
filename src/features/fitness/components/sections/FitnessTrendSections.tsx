@@ -6,42 +6,45 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CollapsibleSection } from '@/shared/ui';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
+import { type DecouplingSource } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import {
   SPORT_TEXT_COLORS,
   SPORT_TEXT_COLORS_DARK,
   type PrimarySport,
 } from '@/features/fitness/stores';
-import { formatPaceCompact } from '@/shared/format/format';
+import { formatPaceCompact, paceUnitLabel } from '@/shared/format/format';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
 import { colors, darkColors, spacing, layout, typography, opacity, verdictColor } from '@/theme';
 import { trendIcon, trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
 import { type TimeRange } from '@/features/wellness';
-import type { ZoneDistribution, eFTPPoint, ActivityStreams } from '@/types';
+import type { ZoneDistribution } from '@/types';
+import type { FtpTrendView } from '../../lib/ftpTrendView';
+import type { RangeCoverage } from 'veloqrs';
 
 interface FitnessTrendSectionsProps {
   sportMode: PrimarySport;
   timeRange: TimeRange;
   powerZones: ZoneDistribution[] | undefined;
   hrZones: ZoneDistribution[] | undefined;
+  /** Whether the period the zone charts are captioned with was downloaded. */
+  zoneCoverage: RangeCoverage;
   loadingActivities: boolean;
   hasActivities: boolean;
   dominantZone: { name: string; percentage: number } | null;
   zonesExpanded: boolean;
   onZonesToggle: (expanded: boolean) => void;
   // eFTP trend (cycling)
-  eftpHistory: eFTPPoint[] | undefined;
-  currentFTP: number | null | undefined;
+  eftpTrend: FtpTrendView | undefined;
   ftpTrend: TrendDirection | null;
   trendsExpanded: boolean;
   onTrendsToggle: (expanded: boolean) => void;
   // Running thresholds
   thresholdPace: number | undefined;
   runLthr: number | undefined;
-  // Decoupling (cycling)
-  decouplingStreams: ActivityStreams | undefined;
-  decouplingValue: { value: number; isGood: boolean } | null;
-  loadingStreams: boolean;
+  // Decoupling (cycling), the stored value of the ride it names
+  decouplingSource: DecouplingSource | null;
   efficiencyExpanded: boolean;
   onEfficiencyToggle: (expanded: boolean) => void;
 }
@@ -51,36 +54,35 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   timeRange,
   powerZones,
   hrZones,
+  zoneCoverage,
   loadingActivities,
   hasActivities,
   dominantZone,
   zonesExpanded,
   onZonesToggle,
-  eftpHistory,
-  currentFTP,
+  eftpTrend,
   ftpTrend,
   trendsExpanded,
   onTrendsToggle,
   thresholdPace,
   runLthr,
-  decouplingStreams,
-  decouplingValue,
-  loadingStreams,
+  decouplingSource,
   efficiencyExpanded,
   onEfficiencyToggle,
 }: FitnessTrendSectionsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   // A headline number is text, and the sport fills are 2.3:1 to 3.6:1 on the
   // light card. The text pair is the same hues at text grade.
   const sportText = isDark ? SPORT_TEXT_COLORS_DARK : SPORT_TEXT_COLORS;
 
-  // The chart below plots `eftpHistory`, so the header states a number only
-  // when that series has one. A row that offers a figure its own chart calls
+  // The chart and the arrow read the engine's daily series, so the headline is that series'
+  // latest estimate, never the FTP setting, and it is stated only when the series has one. A row that offers a figure its own chart calls
   // "no data" is worse than an empty row.
   const headerFtp = curveHeaderValue({
-    value: currentFTP,
-    hasSeries: (eftpHistory?.length ?? 0) > 0,
+    value: eftpTrend?.latest,
+    hasSeries: (eftpTrend?.series.length ?? 0) > 0,
     isLoading: loadingActivities && !hasActivities,
   });
 
@@ -116,6 +118,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                       data={powerZones}
                       type="power"
                       periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
+                      coverage={zoneCoverage}
                     />
                   </View>
                 )}
@@ -124,6 +127,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                     data={hrZones}
                     type="hr"
                     periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
+                    coverage={zoneCoverage}
                   />
                 </View>
               </>
@@ -146,7 +150,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
               headerFtp ? (
                 <View style={styles.headerValueRow}>
                   <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
-                    {headerFtp}w
+                    {headerFtp} {t('units.watts')}
                   </Text>
                   {ftpTrend && (
                     <MaterialCommunityIcons
@@ -166,7 +170,12 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <FTPTrendChart data={eftpHistory} height={180} />
+                <FTPTrendChart
+                  data={eftpTrend?.series}
+                  change={eftpTrend?.change}
+                  changePercent={eftpTrend?.changePercent}
+                  height={180}
+                />
               )}
             </View>
           </CollapsibleSection>
@@ -186,11 +195,12 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             headerRight={
               thresholdPace ? (
                 <Text style={[styles.headerValue, { color: sportText.Running }]}>
-                  {formatPaceCompact(thresholdPace)}/km
+                  {formatPaceCompact(thresholdPace, isMetric)}
+                  {paceUnitLabel(isMetric)}
                 </Text>
               ) : runLthr ? (
                 <Text style={[styles.headerValue, { color: sportText.Running }]}>
-                  {runLthr} bpm
+                  {runLthr} {t('units.bpm')}
                 </Text>
               ) : null
             }
@@ -210,7 +220,9 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                       {t('statsScreen.pace')}
                     </Text>
                     <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
-                      {thresholdPace ? `${formatPaceCompact(thresholdPace)}/km` : '-'}
+                      {thresholdPace
+                        ? `${formatPaceCompact(thresholdPace, isMetric)}${paceUnitLabel(isMetric)}`
+                        : '-'}
                     </Text>
                   </View>
                   {runLthr && (
@@ -221,7 +233,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                           {t('statsScreen.heartRate')}
                         </Text>
                         <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
-                          {runLthr} bpm
+                          {runLthr} {t('units.bpm')}
                         </Text>
                       </View>
                     </>
@@ -244,33 +256,20 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             onToggle={onEfficiencyToggle}
             estimatedHeight={160}
             headerRight={
-              decouplingValue ? (
-                <Text
-                  style={[
-                    styles.headerValue,
-                    {
-                      color: verdictColor(decouplingValue.isGood ? 'positive' : 'caution', isDark),
-                    },
-                  ]}
-                >
-                  {Number.isFinite(decouplingValue.value)
-                    ? `${decouplingValue.value.toFixed(1)}%`
-                    : '-'}
+              decouplingSource ? (
+                <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
+                  {decouplingSource.decoupling.toFixed(1)}%
                 </Text>
               ) : null
             }
           >
             <View style={styles.collapsibleContent}>
-              {loadingStreams && !decouplingStreams ? (
+              {loadingActivities && !decouplingSource ? (
                 <View style={styles.zoneLoadingContainer}>
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <DecouplingChart
-                  power={decouplingStreams?.watts}
-                  heartrate={decouplingStreams?.heartrate}
-                  height={120}
-                />
+                <DecouplingChart source={decouplingSource} height={120} />
               )}
             </View>
           </CollapsibleSection>
