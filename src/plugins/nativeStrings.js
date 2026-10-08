@@ -121,6 +121,15 @@ const APPLE_STRINGS = [
   { key: 'HRV trends', path: 'systemSurfaces.insightKind.hrvTrend' },
   { key: 'Efficiency trends', path: 'systemSurfaces.insightKind.efficiencyTrend' },
   { key: 'Changed sections', path: 'systemSurfaces.insightKind.sectionChanged' },
+  { key: 'Strength', path: 'insights.strength' },
+  { key: 'The muscles you trained, shaded by sets.', path: 'systemSurfaces.strengthDescription' },
+  { key: 'Period', path: 'systemSurfaces.strengthPeriod' },
+  {
+    key: 'Choose which days the widget shades.',
+    path: 'systemSurfaces.strengthPeriodDescription',
+  },
+  { key: 'Last 30 days', path: 'stats.last30Days' },
+  { key: 'This Month', path: 'stats.thisMonth' },
 ];
 
 /**
@@ -154,6 +163,9 @@ const ANDROID_STRINGS = [
   { name: 'widget_insights_more', path: 'systemSurfaces.insightsMore' },
   { name: 'widget_insights_kinds_choose', path: 'systemSurfaces.insightKindsDescription' },
   { name: 'widget_insights_save', path: 'common.save' },
+  { name: 'widget_strength_label', path: 'insights.strength' },
+  { name: 'widget_strength_description', path: 'systemSurfaces.strengthDescription' },
+  { name: 'widget_strength_choose', path: 'systemSurfaces.strengthWindowDescription' },
   { name: 'widget_insight_kind_section_pr', path: 'systemSurfaces.insightKind.sectionPr' },
   { name: 'widget_insight_kind_section_trend', path: 'systemSurfaces.insightKind.sectionTrend' },
   { name: 'widget_insight_kind_route', path: 'systemSurfaces.insightKind.route' },

@@ -15,6 +15,7 @@ import {
   updateWidgetSnapshot,
 } from '@/features/home/lib/widgetBridge';
 import { WIDGET_STRING_KEYS } from '@/features/home/lib/widgetSnapshot';
+import { demoStrengthSets } from '@/features/strength/light';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 const mockEngine = {
@@ -113,6 +114,22 @@ describe('signed out', () => {
     const context = JSON.parse(mockEngine.composeWidgetSnapshot.mock.calls[0][0]);
     expect(context.demo).toBe(true);
     expect(WIDGET_STRING_KEYS).toContain('demo.banner');
+  });
+
+  it('hands the engine every demo strength set, so the strength widget draws the sample body', () => {
+    updateWidgetSnapshot();
+
+    const library = mockEngine.composeWidgetSnapshot.mock.calls[0][3] as {
+      activities: { activityId: string }[];
+      exerciseSets: { activityId: string; setOrder: number }[];
+    };
+    const seeded = Object.values(demoStrengthSets).flat();
+    expect(seeded.length).toBeGreaterThan(0);
+    expect(library.exerciseSets).toEqual(seeded);
+    const activityIds = new Set(library.activities.map((a) => a.activityId));
+    for (const set of library.exerciseSets) {
+      expect(activityIds.has(set.activityId)).toBe(true);
+    }
   });
 
   it('stores a context marked as a sample, so a native refresh leaves the file standing', () => {

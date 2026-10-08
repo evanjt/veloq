@@ -1,15 +1,14 @@
 /**
- * Scenario: the engine throws while the route's excluded laps are read.
+ * Scenario: the section chart hook is rendered with no chart payload while the
+ * engine's chart read throws.
  *
- * Expected behaviour: the hook hands the thrown value back as `error` beside
- * its empty value, so a screen can say the read failed instead of drawing a
- * route with no excluded laps.
+ * Expected behaviour: the hook reads nothing itself and draws an empty chart,
+ * since the screen read supplies the payload.
  */
 
-import { act, renderHook } from '@testing-library/react-native';
+import { renderHook } from '@testing-library/react-native';
 
 import { getEngine } from '@/shared/native/engine';
-import { useExcludedActivities } from '@/features/routes/hooks/useExcludedActivities';
 import { useSectionChartData } from '@/features/routes/hooks/useSectionChartData';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -19,10 +18,6 @@ const lockFailed = { tag: 'Database', inner: { msg: 'poisoned' } };
 
 const engine = {
   subscribe: () => () => undefined,
-  getExcludedRouteActivityIds: jest.fn(() => ['a1']),
-  getExcludedRoutePerformances: jest.fn(() => {
-    throw lockFailed;
-  }),
   getSectionChartData: jest.fn(() => {
     throw lockFailed;
   }),
@@ -31,25 +26,6 @@ const engine = {
 beforeEach(() => {
   jest.clearAllMocks();
   (getEngine as jest.Mock).mockReturnValue(engine);
-});
-
-describe('useExcludedActivities', () => {
-  it('hands a thrown performances read back as an error', () => {
-    const { result } = renderHook(() => useExcludedActivities('route-1', undefined));
-    expect(result.current.excludedReadError).toBeUndefined();
-
-    act(() => result.current.handleToggleShowExcluded());
-
-    expect(result.current.excludedReadError).toBe(lockFailed);
-    expect(result.current.excludedChartData).toEqual([]);
-  });
-
-  it('carries no error while the excluded laps are hidden', () => {
-    const { result } = renderHook(() => useExcludedActivities('route-1', undefined));
-
-    expect(result.current.excludedReadError).toBeUndefined();
-    expect(engine.getExcludedRoutePerformances).not.toHaveBeenCalled();
-  });
 });
 
 describe('useSectionChartData', () => {

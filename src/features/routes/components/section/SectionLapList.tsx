@@ -1,8 +1,9 @@
 /**
  * Laps of the activities that crossed the section more than once. Collapsed,
- * one row per activity for the one holding the best lap and the most recent
+ * one row per activity for the one holding the record lap and the most recent
  * few. Show all opens every lap, each with its own exclude. An excluded lap
- * stays listed, muted, with an undo.
+ * stays listed, muted, with an undo. The record lap is the one the engine
+ * names, and carries the trophy.
  */
 
 import React, { useState } from 'react';
@@ -37,21 +38,30 @@ function bestLapTime(r: SectionPerformanceRecord): number | null {
   return best;
 }
 
-/** The activity holding the best lap, then the most recent, newest first. */
+function holdsRecord(r: SectionPerformanceRecord): boolean {
+  return r.laps.some((lap) => lap.isRecord);
+}
+
+/** The activities holding a record lap and the most recent, newest first. */
 function collapsedActivities(lapped: SectionPerformanceRecord[]): SectionPerformanceRecord[] {
   const recent = [...lapped].sort((a, b) => b.activityDate.getTime() - a.activityDate.getTime());
   const keep = new Set(recent.slice(0, RECENT_ACTIVITIES));
-  let best: SectionPerformanceRecord | null = null;
-  let bestTime = Infinity;
   for (const r of lapped) {
-    const time = bestLapTime(r);
-    if (time !== null && time < bestTime) {
-      best = r;
-      bestTime = time;
-    }
+    if (holdsRecord(r)) keep.add(r);
   }
-  if (best) keep.add(best);
   return recent.filter((r) => keep.has(r));
+}
+
+function RecordMark({ testID, isDark }: { testID: string; isDark: boolean }) {
+  return (
+    <View testID={testID}>
+      <MaterialCommunityIcons
+        name="trophy"
+        size={12}
+        color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
+      />
+    </View>
+  );
 }
 
 export function SectionLapList({
@@ -98,6 +108,9 @@ export function SectionLapList({
                     })}
                   </Text>
                 </View>
+                {holdsRecord(r) ? (
+                  <RecordMark testID={`section-lap-record-${r.activityId}`} isDark={isDark} />
+                ) : null}
                 {best !== null ? (
                   <Text
                     style={[styles.lapTime, isDark && styles.textDark]}
@@ -143,6 +156,9 @@ export function SectionLapList({
                         {t('sections.lap', { n: i + 1 })}
                         {lap.direction === 'reverse' ? ` · ${t('sections.reverse')}` : ''}
                       </Text>
+                      {lap.isRecord ? (
+                        <RecordMark testID={`section-lap-record-${id}`} isDark={isDark} />
+                      ) : null}
                       <Text style={[styles.lapTime, isDark && styles.textDark]}>
                         {formatDuration(lap.time)}
                       </Text>

@@ -1,7 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { colors, darkColors, brand, insightToneColor } from '@/theme/colors';
+import {
+  bodyDiagram,
+  brand,
+  colors,
+  darkColors,
+  insightToneColor,
+  strengthRamp,
+} from '@/theme/colors';
 import { widgetPalette, widgetRecord } from '@/shared/theme/widgetTheme';
 
 // Scenario: the widget natives render only from these resolved palettes (via the
@@ -101,6 +108,34 @@ describe('widgetPalette', () => {
     for (const file of generated) {
       expect(readFileSync(join(__dirname, '../..', file), 'utf8')).not.toMatch(/text_?muted/i);
     }
+  });
+
+  it('carries the body fill and the five-step strength ramp the body diagram draws, on both platforms', () => {
+    expect(widgetPalette.light.bodyFill).toBe(bodyDiagram.fillLight);
+    expect(widgetPalette.dark.bodyFill).toBe(bodyDiagram.fillDark);
+    for (const p of [widgetPalette.light, widgetPalette.dark]) {
+      expect(p.strengthRamp).toHaveLength(5);
+      expect(p.strengthRamp).toEqual([...strengthRamp]);
+    }
+
+    const root = join(__dirname, '../..');
+    const read = (file: string) => readFileSync(join(root, file), 'utf8');
+    const light = read('widget/android/res/values/widget_theme.xml');
+    const night = read('widget/android/res/values-night/widget_theme.xml');
+    expect(light).toContain(`<color name="widget_body_fill">${bodyDiagram.fillLight}</color>`);
+    expect(night).toContain(`<color name="widget_body_fill">${bodyDiagram.fillDark}</color>`);
+    strengthRamp.forEach((hex, i) => {
+      expect(light).toContain(`<color name="widget_strength_ramp_${i + 1}">${hex}</color>`);
+      expect(night).toContain(`<color name="widget_strength_ramp_${i + 1}">${hex}</color>`);
+    });
+
+    const swift = read('widget/ios/VeloqWidget/WidgetTheme.swift');
+    expect(swift).toContain(`static let bodyFill = Color(hex: "${bodyDiagram.fillLight}")`);
+    expect(swift).toContain(`static let bodyFill = Color(hex: "${bodyDiagram.fillDark}")`);
+    const ramp = `static let strengthRamp = [${strengthRamp
+      .map((hex) => `Color(hex: "${hex}")`)
+      .join(', ')}]`;
+    expect(swift.split(ramp)).toHaveLength(3);
   });
 
   it('keeps light and dark palettes key-aligned', () => {

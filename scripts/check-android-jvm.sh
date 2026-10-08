@@ -17,10 +17,15 @@ if [ "$root" != "$main" ]; then
   fi
 fi
 
-# Expo generation owns android/. Without --clean it fills in what is missing and
-# applies the config to what is there, so a tree generated earlier keeps its
-# Gradle outputs.
-./scripts/with-android-build-lock.sh env CI=1 npx expo prebuild --platform android --no-install
+# Expo generation owns android/. A tree that builds the other identity is
+# regenerated from clean first, since a generation over it leaves the other
+# Kotlin package beside the new one. Then, without --clean, generation fills in
+# what is missing and applies the config to what is there, so a tree generated
+# earlier keeps its Gradle outputs.
+./scripts/with-android-build-lock.sh sh -ec '
+  node scripts/prepare-native.mjs --platform android
+  CI=1 npx expo prebuild --platform android --no-install
+'
 
 export GRADLE_USER_HOME="$root/modules/veloqrs/rust/target/gradle-user"
 npm run test:android:unit

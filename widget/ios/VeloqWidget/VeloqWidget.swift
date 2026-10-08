@@ -43,9 +43,9 @@ struct VeloqProvider: TimelineProvider {
 }
 
 struct VeloqWidgetEntryView: View {
-  @Environment(\.widgetFamily) private var family
   @Environment(\.colorScheme) private var colorScheme
   let entry: VeloqEntry
+  let family: WidgetFamily
 
   private var size: SummarySize {
     switch family {
@@ -77,7 +77,7 @@ struct VeloqWidget: Widget {
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: VeloqProvider()) { entry in
-      VeloqWidgetEntryView(entry: entry)
+      WidgetFamilyReader { VeloqWidgetEntryView(entry: entry, family: $0) }
     }
     .configurationDisplayName("Summary")
     .description("Your summary card from the app at a glance.")
@@ -130,6 +130,7 @@ struct RecordWidgetView: View {
           .frame(width: 26, height: 26)
       }
       Text("Record")
+        .measuredText("record")
         .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
         .foregroundColor(WidgetTheme.Record.foreground)
     }
@@ -172,6 +173,17 @@ struct VeloqWidgetLauncher {
     } else {
       VeloqWidgets.main()
     }
+  }
+}
+
+/// WidgetKit's family is read-only in the environment, so each widget reads it here and hands it
+/// to a view that takes it as a value, which a capture can then draw at every family.
+struct WidgetFamilyReader<Content: View>: View {
+  @Environment(\.widgetFamily) private var family
+  let content: (WidgetFamily) -> Content
+
+  var body: some View {
+    content(family)
   }
 }
 

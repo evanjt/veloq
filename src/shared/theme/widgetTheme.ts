@@ -11,10 +11,12 @@
  */
 import {
   activityTypeColors,
+  bodyDiagram,
   brand,
   colors,
   darkColors,
   insightToneColor,
+  strengthRamp,
   verdictColor,
 } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
@@ -68,6 +70,10 @@ export interface WidgetPalette {
   toneInfo: string;
   toneOpportunity: string;
   border: string;
+  /** The body diagram's fill for a part with no volume, under the ramp. */
+  bodyFill: string;
+  /** The body diagram's volume shades, lightest first: shade n is index n - 1. */
+  strengthRamp: readonly string[];
 }
 
 export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
@@ -105,6 +111,8 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     toneInfo: insightToneColor('info', false),
     toneOpportunity: insightToneColor('opportunity', false),
     border: colors.border,
+    bodyFill: bodyDiagram.fillLight,
+    strengthRamp,
   },
   dark: {
     background: darkColors.background,
@@ -140,6 +148,8 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     toneInfo: insightToneColor('info', true),
     toneOpportunity: insightToneColor('opportunity', true),
     border: darkColors.border,
+    bodyFill: bodyDiagram.fillDark,
+    strengthRamp,
   },
 };
 
@@ -174,6 +184,10 @@ export const widgetLayout = {
   radiusInner: layout.borderRadiusSm, // 8
   padding: spacing.md,
   gap: spacing.sm,
+  /** One line at `widgetType.hero`, the fixed box a hero figure shrinks to fit across. */
+  heroLine: 44,
+  /** One line at `widgetType.metric`, the same for a metric figure. */
+  metricLine: 30,
 } as const;
 
 /**
@@ -187,4 +201,6 @@ export const widgetType = {
   value: 18,
   label: 12,
   caption: 10,
+  /** The smallest a line shrinks to when it is fitted to its box rather than cut off. */
+  floor: 8,
 } as const;

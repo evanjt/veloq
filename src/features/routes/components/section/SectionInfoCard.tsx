@@ -4,7 +4,7 @@
  */
 
 import { useMetricSystem } from '@/shared/app';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Card, Shimmer } from '@/shared/ui';
@@ -12,14 +12,17 @@ import { useTranslation } from 'react-i18next';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { formatAxisDate, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
-import type { PerformanceDataPoint, DirectionStats, ActivityType } from '@/types';
+import type { DirectionStats, ActivityType } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 const INFO_CARD_PLACEHOLDER_HEIGHT = 96;
 const REVERSE_COLOR = colors.reverseDirection;
 
 export interface SectionInfoCardProps {
-  chartData: (PerformanceDataPoint & { x: number })[];
+  /** The oldest included attempt in the range, as the engine dates it. */
+  firstActivityDate: Date | null;
+  /** The newest included attempt in the range, as the engine dates it. */
+  lastActivityDate: Date | null;
   bestForwardRecord: SectionPerformanceRecord | null;
   bestReverseRecord: SectionPerformanceRecord | null;
   forwardStats: DirectionStats | null;
@@ -34,7 +37,8 @@ export interface SectionInfoCardProps {
 }
 
 export function SectionInfoCard({
-  chartData,
+  firstActivityDate: firstDate,
+  lastActivityDate: lastDate,
   bestForwardRecord,
   bestReverseRecord,
   forwardStats,
@@ -50,20 +54,6 @@ export function SectionInfoCard({
   const showsPace = isPaceSport(sportType as ActivityType);
   const isSwimming = isSwimmingActivity(sportType as ActivityType);
   const showPace = showsPace || isSwimming;
-
-  // Compute first and last visited dates from chart data
-  const { firstDate, lastDate } = useMemo(() => {
-    if (chartData.length === 0) return { firstDate: null, lastDate: null };
-
-    let min = chartData[0].date;
-    let max = chartData[0].date;
-    for (const p of chartData) {
-      if (p.isExcluded) continue;
-      if (p.date < min) min = p.date;
-      if (p.date > max) max = p.date;
-    }
-    return { firstDate: min, lastDate: max };
-  }, [chartData]);
 
   const formatBest = (record: SectionPerformanceRecord | null): string | null => {
     if (!record) return null;

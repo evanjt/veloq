@@ -11,7 +11,7 @@ use tracematch::GpsPoint;
 use super::*;
 use crate::RouteGroup;
 use crate::net::geocode::{GeocodeError, GeocodeTransport, Geocoder};
-use crate::net::place_names::name_queued;
+use crate::net::place_names::{OnDemand, name_on_demand, name_queued};
 use crate::persistence::{PersistentEngine, with_persistent_engine};
 use crate::test_globals::{init_global_engine, serial_global_state};
 
@@ -101,11 +101,33 @@ fn store_words() {
     .expect("engine");
 }
 
+/// A start a second after geocoding was last turned on, or now when it never
+/// has been: a ride on ground the athlete rode after the switch.
+fn ridden_after_switch() -> i64 {
+    with_persistent_engine(|e| e.geocoding_enabled_at().unwrap())
+        .expect("engine")
+        .map_or_else(
+            || crate::persistence::attempts::now_ms() / 1000,
+            |at| at / 1000 + 1,
+        )
+}
+
+/// Store a ride over `track` that started at `started`, in epoch seconds.
+fn add_ride(e: &mut PersistentEngine, id: &str, track: Vec<GpsPoint>, started: i64) {
+    e.add_activity(id.to_string(), track, "Ride".to_string())
+        .unwrap();
+    e.update_activity_metadata(id, Some(started), None, None, None)
+        .unwrap();
+}
+
 fn add_route(id: &str, track: Vec<GpsPoint>) {
+    add_route_ridden(id, track, ridden_after_switch());
+}
+
+fn add_route_ridden(id: &str, track: Vec<GpsPoint>, started: i64) {
     with_persistent_engine(|e: &mut PersistentEngine| {
         let ride = format!("{id}-ride");
-        e.add_activity(ride.clone(), track, "Ride".to_string())
-            .unwrap();
+        add_ride(e, &ride, track, started);
         let mut groups = e.groups.clone();
         groups.push(RouteGroup {
             group_id: id.to_string(),
@@ -127,11 +149,27 @@ fn add_route(id: &str, track: Vec<GpsPoint>) {
 }
 
 fn add_section(id: &str, track: Vec<GpsPoint>) {
-    with_persistent_engine(|e| {
+    add_section_ridden(id, track, ridden_after_switch());
+}
+
+/// A section over `track` whose one traversal is a ride that started at
+/// `started`, the row first and the traversal after, as detection writes them.
+fn add_section_ridden(id: &str, track: Vec<GpsPoint>, started: i64) {
+    with_persistent_engine(|e: &mut PersistentEngine| {
         e.db.execute(
             "INSERT INTO sections (id, section_type, sport_type, polyline_json, distance_meters)
              VALUES (?1, 'auto', 'Ride', ?2, 1000)",
             params![id, serde_json::to_string(&track).unwrap()],
+        )
+        .unwrap();
+        let ride = format!("{id}-ride");
+        let last = track.len() - 1;
+        add_ride(e, &ride, track, started);
+        e.db.execute(
+            "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
+                 end_index, distance_meters)
+             VALUES (?1, ?2, 'same', 0, ?3, 1000)",
+            params![id, ride, last],
         )
         .unwrap();
     })
@@ -378,4 +416,282 @@ fn the_words_need_every_placeholder_to_be_used() {
     assert_eq!(place_name_words_from(&conn), None, "an unresolved key");
     store(r#"{"locale":"","loop":"{{place}} Loop","journey":"{{start}} to {{end}}"}"#);
     assert_eq!(place_name_words_from(&conn), None, "no language");
+}
+
+fn ask(provider: &Geocoder<Provider>, kind: NamedKind, id: &str) -> OnDemand {
+    crate::runtime::block_on(name_on_demand(
+        provider,
+        async { Some(ENDPOINT.to_string()) },
+        kind,
+        id,
+    ))
+}
+
+#[test]
+fn an_item_from_before_the_switch_is_named_when_the_athlete_asks() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_on_demand.db");
+    store_words();
+    add_route("old-route", round_trip(NORTHCOTE));
+    add_section("old-section", line(NORTHCOTE, SOUTHBANK));
+    switch(true);
+    let provider = Geocoder::with_transport(Provider::new());
+    assert_eq!(
+        run(&provider),
+        0,
+        "nothing from before the switch is queued"
+    );
+
+    assert_eq!(
+        ask(&provider, NamedKind::Route, "old-route"),
+        OnDemand::Named
+    );
+    assert_eq!(route_name("old-route"), "Northcote Loop");
+    assert_eq!(
+        ask(&provider, NamedKind::Section, "old-section"),
+        OnDemand::Named
+    );
+    assert_eq!(section_name("old-section"), "Northcote to Southbank");
+    assert_eq!(provider.transport().count(), 2, "one request per cell");
+
+    assert_eq!(
+        ask(&provider, NamedKind::Route, "old-route"),
+        OnDemand::Named,
+        "asking again answers from the kept cells"
+    );
+    assert_eq!(provider.transport().count(), 2);
+    assert_eq!(run(&provider), 0, "a name asked for is not queued again");
+
+    switch(false);
+    assert_eq!(route_name("old-route"), "Route 1");
+    switch(true);
+    assert_eq!(route_name("old-route"), "Northcote Loop");
+}
+
+#[test]
+fn asking_for_a_typed_name_or_with_geocoding_off_sends_nothing() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_on_demand_refused.db");
+    store_words();
+    add_route("typed-route", round_trip(NORTHCOTE));
+    add_section("typed-section", line(NORTHCOTE, SOUTHBANK));
+    add_route("plain-route", round_trip(SOUTHBANK));
+    with_persistent_engine(|e| {
+        e.set_route_name("typed-route", Some("Hill repeats"))
+            .unwrap();
+        e.set_section_name("typed-section", Some("The drag"))
+            .unwrap();
+    })
+    .expect("engine");
+    let provider = Geocoder::with_transport(Provider::new());
+
+    assert_eq!(
+        ask(&provider, NamedKind::Route, "plain-route"),
+        OnDemand::Refused,
+        "geocoding is off"
+    );
+    switch(true);
+    assert_eq!(
+        ask(&provider, NamedKind::Route, "typed-route"),
+        OnDemand::Refused
+    );
+    assert_eq!(
+        ask(&provider, NamedKind::Section, "typed-section"),
+        OnDemand::Refused
+    );
+    assert_eq!(
+        ask(&provider, NamedKind::Route, "no-such-route"),
+        OnDemand::Refused
+    );
+    assert_eq!(provider.transport().count(), 0);
+    assert_eq!(route_name("typed-route"), "Hill repeats");
+    assert_eq!(section_name("typed-section"), "The drag");
+    assert_eq!(route_name("plain-route"), "Route 2");
+}
+
+#[test]
+fn a_lookup_asked_for_that_finds_no_place_or_fails_leaves_the_number() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_on_demand_failed.db");
+    store_words();
+    add_route("at-sea", round_trip(OPEN_WATER));
+    add_section(
+        "out-of-reach",
+        line(UNANSWERED, (UNANSWERED.0, UNANSWERED.1 + 0.02)),
+    );
+    add_route("waiting", round_trip(NORTHCOTE));
+    switch(true);
+    let provider = Geocoder::with_transport(Provider::new());
+
+    assert_eq!(
+        ask(&provider, NamedKind::Route, "at-sea"),
+        OnDemand::NoPlace
+    );
+    assert_eq!(
+        ask(&provider, NamedKind::Section, "out-of-reach"),
+        OnDemand::Failed
+    );
+    assert_eq!(route_name("at-sea"), "Route 1");
+    assert_eq!(section_name("out-of-reach"), "Section 1");
+
+    assert_eq!(
+        crate::runtime::block_on(name_on_demand(
+            &provider,
+            async { None },
+            NamedKind::Route,
+            "waiting"
+        )),
+        OnDemand::Failed,
+        "no endpoint"
+    );
+    let asked = provider.transport().count();
+    assert_eq!(ask(&provider, NamedKind::Route, "waiting"), OnDemand::Named);
+    assert_eq!(provider.transport().count(), asked + 1);
+}
+
+#[test]
+fn the_detail_reads_offer_a_name_only_while_geocoding_is_on_and_nothing_was_typed() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_offered.db");
+    add_route("plain-route", round_trip(NORTHCOTE));
+    add_route("typed-route", round_trip(SOUTHBANK));
+    add_section("plain-section", line(NORTHCOTE, SOUTHBANK));
+    add_section("typed-section", round_trip(OPEN_WATER));
+    with_persistent_engine(|e| {
+        e.set_route_name("typed-route", Some("Hill repeats"))
+            .unwrap();
+        e.set_section_name("typed-section", Some("The drag"))
+            .unwrap();
+    })
+    .expect("engine");
+    let offered = || {
+        crate::persistence::read_pool::with_read_conn(|conn| {
+            let route = |id: &str| {
+                crate::persistence::screens::pooled::route_detail_data(conn, id, None, 1)
+                    .can_name_from_places
+            };
+            let section = |id: &str| {
+                crate::persistence::screens::pooled::section_detail_data(conn, id)
+                    .can_name_from_places
+            };
+            [
+                route("plain-route"),
+                route("typed-route"),
+                route("no-such-route"),
+                section("plain-section"),
+                section("typed-section"),
+                section("no-such-section"),
+            ]
+        })
+        .expect("engine")
+    };
+
+    assert_eq!(offered(), [false; 6], "geocoding is off");
+    switch(true);
+    assert_eq!(offered(), [true, false, false, true, false, false]);
+}
+
+/// What the naming pass would ask about, read as the pass reads it.
+fn waiting() -> Vec<(NamedKind, String)> {
+    crate::persistence::read_pool::with_read_conn(|conn| queued(conn).unwrap()).expect("engine")
+}
+
+#[test]
+fn a_wiped_library_resynced_is_never_named_in_bulk_and_the_switch_goes_with_it() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_wiped.db");
+    switch(true);
+    store_words();
+    let library = || {
+        add_route("loop", round_trip(NORTHCOTE));
+        add_route("journey", line(NORTHCOTE, SOUTHBANK));
+        add_section("climb", line(SOUTHBANK, NORTHCOTE));
+    };
+    library();
+    let provider = Geocoder::with_transport(Provider::new());
+    assert_eq!(run(&provider), 3);
+    let asked = provider.transport().count();
+
+    with_persistent_engine(|e| e.clear().unwrap()).expect("engine");
+    assert!(!with_persistent_engine(|e| e.geocoding_enabled()).expect("engine"));
+    assert_eq!(
+        with_persistent_engine(|e| e.geocoding_enabled_at().unwrap()).expect("engine"),
+        None,
+        "the consent belonged to the library that went"
+    );
+
+    store_words();
+    library();
+    assert_eq!(run(&provider), 0);
+    assert_eq!(
+        provider.transport().count(),
+        asked,
+        "nothing sent after the wipe"
+    );
+    assert_eq!(route_name("loop"), "Route 1");
+    assert_eq!(section_name("climb"), "Section 1");
+
+    switch(true);
+    assert_eq!(
+        run(&provider),
+        0,
+        "turning it on again names nothing ridden before"
+    );
+    assert_eq!(provider.transport().count(), asked);
+}
+
+#[test]
+fn history_ridden_before_the_switch_is_never_queued_whenever_it_arrives() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("place_names_history.db");
+    switch(true);
+    store_words();
+    let switched_on = ridden_after_switch() - 1;
+    let a_year_before = switched_on - 365 * 86_400;
+    add_route_ridden("old-route", round_trip(NORTHCOTE), a_year_before);
+    add_section_ridden("old-section", line(NORTHCOTE, SOUTHBANK), a_year_before);
+    add_route_ridden("undated-route", round_trip(SOUTHBANK), a_year_before);
+    with_persistent_engine(|e| {
+        e.update_activity_metadata("undated-route-ride", None, None, None, None)
+            .unwrap()
+    })
+    .expect("engine");
+    let provider = Geocoder::with_transport(Provider::new());
+
+    assert_eq!(waiting(), Vec::new());
+    assert_eq!(run(&provider), 0);
+    assert_eq!(provider.transport().count(), 0);
+    assert_eq!(route_name("old-route"), "Route 1");
+    assert_eq!(section_name("old-section"), "Section 1");
+
+    add_route_ridden("new-route", line(NORTHCOTE, SOUTHBANK), switched_on + 1);
+    add_section_ridden("new-section", line(SOUTHBANK, NORTHCOTE), switched_on + 1);
+    assert_eq!(
+        waiting(),
+        vec![
+            (NamedKind::Route, "new-route".to_string()),
+            (NamedKind::Section, "new-section".to_string()),
+        ]
+    );
+    assert_eq!(run(&provider), 2);
+    assert_eq!(route_name("new-route"), "Northcote to Southbank");
+    assert_eq!(section_name("new-section"), "Southbank to Northcote");
+    assert_eq!(route_name("old-route"), "Route 1");
+
+    with_persistent_engine(|e| {
+        e.update_activity_metadata(
+            "undated-route-ride",
+            Some(switched_on + 1),
+            None,
+            None,
+            None,
+        )
+        .unwrap()
+    })
+    .expect("engine");
+    assert_eq!(
+        waiting(),
+        vec![(NamedKind::Route, "undated-route".to_string())],
+        "a ride whose date was not known yet waits for it rather than being asked about"
+    );
 }

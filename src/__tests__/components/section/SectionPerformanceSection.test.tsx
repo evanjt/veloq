@@ -186,3 +186,61 @@ describe('SectionPerformanceSection while time streams download', () => {
     expect(queryByTestId('section-performance-pending')).toBeNull();
   });
 });
+
+describe('SectionPerformanceSection for a route', () => {
+  const base = {
+    subject: 'route' as const,
+    isDark: false,
+    sportType: 'Ride',
+    trendCurves: {},
+    forwardStats: null,
+    reverseStats: null,
+    bestForwardRecord: null,
+    bestReverseRecord: null,
+    bestForwardIsRecord: false,
+    bestReverseIsRecord: false,
+    onActivitySelect: jest.fn(),
+    sectionTimeRange: 'all' as const,
+    onTimeRangeChange: jest.fn(),
+  };
+
+  it('explains that route times use moving time beside the performance chart', () => {
+    const { getByTestId, queryByTestId } = render(
+      <SectionPerformanceSection {...base} chartData={[effort(1)]} />
+    );
+
+    expect(getByTestId('route-time-method').props.children).toBe('routes.timeMethod');
+    expect(queryByTestId('section-time-method')).toBeNull();
+    expect(enGB.routes.timeMethod).toMatch(/moving time/i);
+  });
+
+  it('keeps the eye on screen when every attempt is excluded', () => {
+    const onToggleShowExcluded = jest.fn();
+    const { getByTestId, getByRole } = render(
+      <SectionPerformanceSection
+        {...base}
+        chartData={[]}
+        hasExcluded
+        showExcluded={false}
+        onToggleShowExcluded={onToggleShowExcluded}
+      />
+    );
+
+    expect(getByTestId('section-performance-empty')).toBeTruthy();
+    fireEvent.press(getByRole('button', { name: 'sections.showExcludedActivities' }));
+    expect(onToggleShowExcluded).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no eye in an empty range with nothing excluded', () => {
+    const { queryByRole } = render(
+      <SectionPerformanceSection
+        {...base}
+        chartData={[]}
+        hasExcluded={false}
+        onToggleShowExcluded={jest.fn()}
+      />
+    );
+
+    expect(queryByRole('button', { name: 'sections.showExcludedActivities' })).toBeNull();
+  });
+});

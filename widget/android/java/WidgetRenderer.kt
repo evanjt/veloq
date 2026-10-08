@@ -43,7 +43,23 @@ object WidgetRenderer {
       SummarySize.LARGE -> renderLarge(context, snap, card, minWidthDp, widgetId)
       SummarySize.MEDIUM -> renderMedium(context, snap, card, minWidthDp, widgetId)
       SummarySize.SMALL -> renderSmall(context, snap, card, minWidthDp, widgetId)
+      SummarySize.SHORT -> renderShort(context, snap, card, widgetId)
     }
+  }
+
+  /** One row tall: the hero, its trend and its line, with no room left for the chart or the age. */
+  private fun renderShort(
+    context: Context,
+    snap: WidgetSnapshot,
+    card: SummaryCard,
+    widgetId: Int,
+  ): RemoteViews {
+    val v = RemoteViews(context.packageName, R.layout.widget_small)
+    bindHero(context, v, snap, card)
+    v.setViewVisibility(R.id.sum_sparkline, View.GONE)
+    v.setViewVisibility(R.id.small_age, View.GONE)
+    bindFitnessTap(context, v, widgetId)
+    return v
   }
 
   private fun renderSmall(
@@ -57,6 +73,8 @@ object WidgetRenderer {
     bindHero(context, v, snap, card)
     bindChart(context, v, R.id.sum_sparkline, snap, card, chartWidthDp(minWidthDp, 140), 40)
     bindFitnessTap(context, v, widgetId)
+    // A host reapplies these views over the ones it shows, which a short placement left hidden.
+    v.setViewVisibility(R.id.small_age, View.VISIBLE)
     bindUpdatedAt(context, v, R.id.small_updated, snap)
     bindRefresh(context, v, snap)
     return v
@@ -266,9 +284,8 @@ object WidgetRenderer {
     minHeightDp: Int,
   ): RemoteViews {
     val size = LastActivityWidget.sizeFor(minWidthDp, minHeightDp)
-    val layout =
-      if (size == SummarySize.SMALL) R.layout.widget_activity_small
-      else R.layout.widget_activity_medium
+    val narrow = size == SummarySize.SHORT || size == SummarySize.SMALL
+    val layout = if (narrow) R.layout.widget_activity_small else R.layout.widget_activity_medium
     val content = snap?.let { LastActivityWidget.content(it, size) }
     val latest = snap?.latest
     if (snap == null || content == null || latest == null) return renderEmptyPrompt(context, layout)
@@ -279,6 +296,8 @@ object WidgetRenderer {
 
     bindLine(v, R.id.act_name, content.name)
     v.setTextColor(R.id.act_name, tint)
+    // The tall size has the rows for a long name to wrap into rather than be cut short.
+    v.setInt(R.id.act_name, "setMaxLines", if (size == SummarySize.LARGE) 4 else 2)
     v.setViewVisibility(
       R.id.act_pr, if (content.isPr && content.name != null) View.VISIBLE else View.GONE)
     bindLine(v, R.id.act_label, content.heroLabel)
@@ -288,10 +307,9 @@ object WidgetRenderer {
     bindLine(v, R.id.act_prs, content.sectionPrs)
     bindLine(v, R.id.act_load, content.load)
     bindLine(v, R.id.act_date, content.date)
-    bindLine(v, R.id.act_demo, snap.demoLabel)
+    bindLine(v, R.id.act_demo, snap.demoLabel.takeUnless { size == SummarySize.SHORT })
     bindFormChange(context, v, content.form)
 
-    val narrow = size == SummarySize.SMALL
     val columnDp = if (narrow) minWidthDp - 16 else (minWidthDp - 40) / 2
     if (content.dots.isEmpty()) {
       v.setViewVisibility(R.id.act_dots, View.GONE)

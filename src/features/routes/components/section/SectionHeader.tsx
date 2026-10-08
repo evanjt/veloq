@@ -11,16 +11,17 @@ import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useMetricSystem } from '@/shared/app';
 import { DetailHero, HeroStatsRow, useHeroMapHeight } from '@/shared/ui';
+import { PlaceNameKind } from 'veloqrs';
 import { SectionNameEditor } from './SectionNameEditor';
+import { PlaceNameButton } from '../PlaceNameButton';
 import { HighlightedSectionMap } from './HighlightedSectionMap';
 import type { MapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
-import { formatDistance, formatElevation } from '@/shared/format/format';
-import { sectionElevation } from '@/features/routes/lib/sectionElevation';
+import { heroStats } from '@/features/routes/lib/heroStats';
 import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
-import { PERIOD_LABEL_KEYS, type Period } from '@/shared/app/period';
+import type { Period } from '@/shared/app/period';
 
 export interface SectionHeaderProps {
   section: FrequentSection;
@@ -30,8 +31,10 @@ export interface SectionHeaderProps {
   iconName: MaterialIconName;
   /** Traversals the chart plots, absent until the lap times are read. */
   activityCount?: number | undefined;
-  /** The sport the count is for, given when the section has more than one. */
+  /** The sport the chart plots, which labels the count when it narrows it. */
   scopeSport?: string | undefined;
+  /** Sports the read offers over the range; the sport labels the count past one. */
+  sportsOffered?: number | undefined;
   /** The sport the screen reads the section in, which styles the map. */
   sportType?: string | undefined;
   /** The range the count is over, left off for all time. */
@@ -54,6 +57,8 @@ export interface SectionHeaderProps {
   onUnflagLift?: (() => void) | undefined;
   /** Called with the typed name, untrimmed, when the rename is saved. */
   onSaveName: (name: string) => void;
+  /** Whether the detail read lets the athlete ask for a name from the section's places. */
+  canNameFromPlaces?: boolean | undefined;
 }
 
 export function SectionHeader({
@@ -63,6 +68,7 @@ export function SectionHeader({
   iconName,
   activityCount,
   scopeSport,
+  sportsOffered = 0,
   sportType,
   scopeRange,
   mapReady,
@@ -79,17 +85,18 @@ export function SectionHeader({
   allActivityTraces,
   onUnflagLift,
   onSaveName,
+  canNameFromPlaces = false,
 }: SectionHeaderProps) {
   const heroHeight = useHeroMapHeight();
   const mapHeight = mapHeightProp ?? heroHeight;
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const elevation = sectionElevation(section);
-  const traversalScope = [
-    t('sections.traversalsCount', { count: activityCount ?? 0 }),
-    ...(scopeSport ? [t(`activityTypes.${scopeSport}`, scopeSport)] : []),
-    ...(scopeRange && scopeRange !== 'all' ? [t(PERIOD_LABEL_KEYS.long[scopeRange])] : []),
-  ].join(' · ');
+  const stats = heroStats(
+    { kind: 'section', section },
+    { count: activityCount, sport: scopeSport, sportsOffered, range: scopeRange ?? 'all' },
+    t,
+    isMetric
+  );
 
   return (
     <DetailHero
@@ -102,6 +109,15 @@ export function SectionHeader({
             iconName={iconName}
             activityColor={activityColor}
             onSaveName={onSaveName}
+            accessory={
+              canNameFromPlaces && !isTrimming ? (
+                <PlaceNameButton
+                  kind={PlaceNameKind.Section}
+                  itemId={section.id}
+                  testID="section-place-name-button"
+                />
+              ) : undefined
+            }
           />
           {section.isLift && (
             <Pressable
@@ -125,28 +141,7 @@ export function SectionHeader({
               )}
             </Pressable>
           )}
-          <HeroStatsRow
-            stats={[
-              formatDistance(section.distanceMeters, isMetric),
-              ...(activityCount != null ? [traversalScope] : []),
-              ...(elevation
-                ? [
-                    elevation.direction === 'loss'
-                      ? `-${formatElevation(elevation.metres, isMetric)}`
-                      : formatElevation(elevation.metres, isMetric),
-                  ]
-                : []),
-              ...(elevation != null &&
-              section.avgGradePercent != null &&
-              Math.abs(section.avgGradePercent) >= 1.0
-                ? [`${section.avgGradePercent.toFixed(1)}%`]
-                : []),
-              ...(section.maxGradePercent != null &&
-              (section.klass === 'climb' || section.klass === 'descent')
-                ? [`${t('sections.maxGrade')} ${section.maxGradePercent.toFixed(1)}%`]
-                : []),
-            ]}
-          />
+          <HeroStatsRow stats={stats} />
         </>
       }
     >

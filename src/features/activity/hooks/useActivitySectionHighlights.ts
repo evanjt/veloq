@@ -9,7 +9,8 @@
  *
  * Section indicators: read from the `activity_indicators` table through
  * `getActivityHighlightsBundle`.
- * Route highlights: computed inline from groups + activity_metrics via getActivityRouteHighlights().
+ * Route highlights: the same bundle's `routeHighlights`, computed in Rust from groups and
+ * activity_metrics.
  *
  * NOTE: The feed badge counts here are derived from the materialised
  * `activity_indicators` table populated by `compute_section_indicators()` in

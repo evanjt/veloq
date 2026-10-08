@@ -2158,7 +2158,9 @@ impl PersistentEngine {
         // gone, and the restore state keeps the previous athlete's section
         // names and activity ids. The export home and the sync history are
         // the athlete's too, and the record zip carries every settings key, so
-        // left behind they would go out in the next athlete's backup.
+        // left behind they would go out in the next athlete's backup. The
+        // consent to geocoding was given by the athlete whose library went:
+        // left on, the next athlete's points go to the provider unasked.
         let library_keys = [
             super::cutover::CUTOVER_KEY,
             super::cutover::CUTOVER_DIFF_KEY,
@@ -2183,6 +2185,8 @@ impl PersistentEngine {
             super::settings_keys::EXPORT_PRIVACY_RADIUS_M,
             super::settings_keys::SYNC_LAST_SUCCESS_AT,
             super::settings_keys::WIDGET_CONTEXT,
+            super::settings_keys::GEOCODING_ENABLED,
+            super::settings_keys::GEOCODING_ENABLED_AT,
             crate::objects::sync::OLDEST_ACTIVITY_DATE_KEY,
             crate::objects::sync::ACTIVITY_YEAR_COUNTS_KEY,
         ];

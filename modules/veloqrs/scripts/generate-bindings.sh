@@ -17,6 +17,39 @@ if [ "$#" -gt 0 ]; then
   OUTPUT_DIR=$(cd "$2" && pwd)
 fi
 
+# The generator npx resolves must be the one the lockfile records. A stale
+# install can reject keys in uniffi.toml or emit bindings unlike the committed
+# ones, and either way the old generated files stay in place, so refuse before
+# building or writing anything. Paths are walked as node resolves them, without
+# following the node_modules symlink a worktree shares with the main checkout.
+node - "$MODULE_DIR" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const name = 'uniffi-bindgen-react-native';
+const nearest = (start, relative) => {
+  for (let dir = start; ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, relative))) return dir;
+    if (dir === path.dirname(dir)) return null;
+  }
+};
+const refuse = (reason) => {
+  console.error(`${reason}. Run npm ci at the repository root before generating bindings.`);
+  process.exit(1);
+};
+const installDir = nearest(process.argv[2], path.join('node_modules', name, 'package.json'));
+if (!installDir) refuse(`${name} is not installed`);
+const lockDir = nearest(process.argv[2], 'package-lock.json');
+if (!lockDir) refuse('No package-lock.json records which generator to run');
+const installed = JSON.parse(
+  fs.readFileSync(path.join(installDir, 'node_modules', name, 'package.json'), 'utf8')
+).version;
+const key = path.relative(lockDir, path.join(installDir, 'node_modules', name)).split(path.sep).join('/');
+const packages = JSON.parse(fs.readFileSync(path.join(lockDir, 'package-lock.json'), 'utf8')).packages || {};
+const locked = packages[key] && packages[key].version;
+if (!locked) refuse(`package-lock.json records no ${name} at ${key}`);
+if (installed !== locked) refuse(`${name} ${installed} is installed but package-lock.json records ${locked}`);
+NODE
+
 cd rust
 HOST=$(rustc -vV | sed -n 's/^host: //p')
 if [ -z "$HOST" ]; then

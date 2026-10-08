@@ -2,7 +2,8 @@
  * Section bounds delegates.
  *
  * Geometry editing for existing sections: trim to a narrower sub-range, reset
- * back to the original polyline, or expand to a user-supplied wider polyline.
+ * back to the original polyline, expand to a user-supplied wider polyline, or
+ * take another activity's line as the reference and hand it back.
  * The edit runs in the engine off the JS thread, re-matches activities and
  * fans out change events via `notifyAll` once it has ended, because both
  * summaries and polylines can change. It resolves with the rides the edit took
@@ -25,7 +26,10 @@ export type SectionBoundsEdit =
       activityId: string;
       startIndex: number;
       endIndex: number;
-    };
+    }
+  /** The stretch of the activity's track that runs the line becomes the line. */
+  | { kind: 'setReference'; sectionId: string; activityId: string }
+  | { kind: 'resetReference'; sectionId: string };
 
 function toEngineEdit(edit: SectionBoundsEdit): FfiSectionBoundsEdit {
   switch (edit.kind) {
@@ -44,6 +48,13 @@ function toEngineEdit(edit: SectionBoundsEdit): FfiSectionBoundsEdit {
         startIndex: edit.startIndex,
         endIndex: edit.endIndex,
       });
+    case 'setReference':
+      return FfiSectionBoundsEdit.SetReference.new({
+        sectionId: edit.sectionId,
+        activityId: edit.activityId,
+      });
+    case 'resetReference':
+      return FfiSectionBoundsEdit.ResetReference.new({ sectionId: edit.sectionId });
     default:
       return edit satisfies never;
   }
@@ -55,7 +66,9 @@ export async function runSectionBoundsEdit(
 ): Promise<FfiDepartedRide[] | null> {
   if (!host.ready) return null;
   validateId(edit.sectionId, 'section ID');
-  if (edit.kind === 'expand') validateId(edit.activityId, 'activity ID');
+  if (edit.kind === 'expand' || edit.kind === 'setReference') {
+    validateId(edit.activityId, 'activity ID');
+  }
   try {
     const departed = await host.timedAsync('runSectionBoundsEdit', () =>
       host.engine.sections().runSectionBoundsEdit(toEngineEdit(edit))

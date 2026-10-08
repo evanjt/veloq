@@ -82,6 +82,9 @@ const TS_EXEMPT = [
   // exposes. A store's own `isInitialized` flag is ours and is not matched.
   'isinitialized()',
   'isinitialized: () =>',
+  // The same mirror as a key of the unreached EngineClient method list, whose
+  // values are reasons. A store's flag holds a boolean and is not matched.
+  "isinitialized: '",
   'i18n.isinitialized',
   "i18n, 'isinitialized'",
   // The UniFFI free function `initialize`, called once before the engine is

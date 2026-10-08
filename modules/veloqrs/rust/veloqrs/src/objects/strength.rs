@@ -28,11 +28,6 @@ use std::sync::Arc;
 /// verdict, written the same way.
 async fn store_parsed_sets(install: u64, activity_id: &str, data: &[u8]) {
     let sets = fit::parse_fit_sets(data);
-    let outcome = if sets.is_empty() {
-        FitOutcome::Empty
-    } else {
-        FitOutcome::Parsed
-    };
     info!(
         "[Strength] Parsed {} sets for {} ({} bytes)",
         sets.len(),
@@ -45,17 +40,10 @@ async fn store_parsed_sets(install: u64, activity_id: &str, data: &[u8]) {
     // whole transaction. The closure is `'static`, so it takes owned data.
     let id = activity_id.to_string();
     let stored = with_persistent_engine_blocking_for(install, move |e| -> Result<(), VeloqError> {
-        if !sets.is_empty() {
-            e.store_exercise_sets(&id, &sets)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })?;
-        }
-        e.mark_fit_outcome(&id, outcome)
+        e.settle_exercise_sets(&id, &sets)
             .map_err(|err| VeloqError::Database {
                 msg: format!("{}", err),
-            })?;
-        Ok(())
+            })
     })
     .await;
     match stored {
@@ -171,12 +159,6 @@ pub(crate) fn import_fit_sets_under(
         msg: format!("{}", e),
     })?;
     let count = sets.len() as u32;
-    let has_sets = !sets.is_empty();
-    let outcome = if has_sets {
-        FitOutcome::Parsed
-    } else {
-        FitOutcome::Empty
-    };
 
     info!(
         "[Strength] Imported {} sets from FIT bytes for {}",
@@ -184,17 +166,10 @@ pub(crate) fn import_fit_sets_under(
     );
 
     let store = |e: &mut crate::persistence::PersistentEngine| -> Result<(), VeloqError> {
-        if has_sets {
-            e.store_exercise_sets(activity_id, &sets)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })?;
-        }
-        e.mark_fit_outcome(activity_id, outcome)
+        e.settle_exercise_sets(activity_id, &sets)
             .map_err(|err| VeloqError::Database {
                 msg: format!("{}", err),
-            })?;
-        Ok(())
+            })
     };
     crate::persistence::with_persistent_engine_for(install, store)
         .ok_or(VeloqError::NotInitialized)??;
@@ -366,38 +341,7 @@ impl StrengthManager {
     ) -> Result<crate::FfiStrengthScreenData, VeloqError> {
         let start_ts = crate::ffi_types::int_from_wire(start_ts);
         let end_ts = crate::ffi_types::int_from_wire(end_ts);
-        with_reader(|conn| {
-            let period = pooled::exercise_sets_in_range(conn, start_ts, end_ts).map_err(|err| {
-                VeloqError::Database {
-                    msg: format!("{}", err),
-                }
-            })?;
-
-            let weekly = week_ranges
-                .into_iter()
-                .map(|range| {
-                    pooled::exercise_sets_in_range(conn, range.start_ts as i64, range.end_ts as i64)
-                        .map(|sets| {
-                            let mut summary = aggregate_strength_sets(&sets);
-                            summary.start_ts = range.start_ts;
-                            summary
-                        })
-                        .map_err(|err| VeloqError::Database {
-                            msg: format!("{}", err),
-                        })
-                })
-                .collect::<Result<Vec<FfiStrengthSummary>, VeloqError>>()?;
-
-            let owed_count = pooled::unprocessed_strength_count_in_range(conn, start_ts, end_ts)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })?;
-
-            Ok(crate::FfiStrengthScreenData {
-                owed_count,
-                ..strength_screen_data(&period, weekly)
-            })
-        })?
+        with_reader(|conn| strength_screen_from(conn, start_ts, end_ts, week_ranges))?
     }
 
     /// Get activities for a specific exercise filtered by muscle group.
@@ -496,37 +440,13 @@ impl StrengthManager {
         activity_id: String,
         sets: Vec<FfiExerciseSet>,
     ) -> Result<(), VeloqError> {
-        let internal: Vec<fit::FitExerciseSet> = sets
-            .iter()
-            .map(|s| fit::FitExerciseSet {
-                set_order: s.set_order,
-                exercise_category: s.exercise_category,
-                exercise_name: s.exercise_name,
-                set_type: s.set_type,
-                repetitions: s.repetitions,
-                weight_kg: s.weight_kg,
-                duration_secs: s.duration_secs,
-                start_time: s.start_time.map(|time| time as i64),
-            })
-            .collect();
-        let has_sets = !internal.is_empty();
-        let outcome = if has_sets {
-            FitOutcome::Parsed
-        } else {
-            FitOutcome::Empty
-        };
-        with_engine(|e| -> Result<(), VeloqError> {
-            if has_sets {
-                e.store_exercise_sets(&activity_id, &internal)
-                    .map_err(|err| VeloqError::Database {
-                        msg: format!("{}", err),
-                    })?;
-            }
-            e.mark_fit_outcome(&activity_id, outcome)
+        let internal: Vec<fit::FitExerciseSet> =
+            sets.iter().map(fit::FitExerciseSet::from).collect();
+        with_engine(|e| {
+            e.settle_exercise_sets(&activity_id, &internal)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
-                })?;
-            Ok(())
+                })
         })??;
 
         // Same reason as the import above, and it is the demo seed's only
@@ -824,10 +744,11 @@ pub fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStr
         })
         .collect();
 
+    // Ties go by slug, so two reads of one window rank it the same.
     muscle_volumes.sort_by(|a, b| {
         b.weighted_sets
-            .partial_cmp(&a.weighted_sets)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .total_cmp(&a.weighted_sets)
+            .then_with(|| a.slug.cmp(&b.slug))
     });
 
     let max_weighted_sets = muscle_volumes.first().map_or(0.0, |m| m.weighted_sets);
@@ -925,6 +846,62 @@ pub fn exercises_by_muscle(
     // The order is the reader's own, by slug, so two reads of one library agree.
     muscles.sort_by(|a, b| a.muscle_slug.cmp(&b.muscle_slug));
     muscles
+}
+
+/// The strength screen read over one period and its trailing weeks, on a
+/// connection the caller holds.
+pub(crate) fn strength_screen_from(
+    conn: &rusqlite::Connection,
+    start_ts: i64,
+    end_ts: i64,
+    week_ranges: Vec<FfiTimestampRange>,
+) -> Result<crate::FfiStrengthScreenData, VeloqError> {
+    let period = pooled::exercise_sets_in_range(conn, start_ts, end_ts).map_err(|err| {
+        VeloqError::Database {
+            msg: format!("{}", err),
+        }
+    })?;
+
+    let weekly = week_ranges
+        .into_iter()
+        .map(|range| {
+            pooled::exercise_sets_in_range(conn, range.start_ts as i64, range.end_ts as i64)
+                .map(|sets| {
+                    let mut summary = aggregate_strength_sets(&sets);
+                    summary.start_ts = range.start_ts;
+                    summary
+                })
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })
+        .collect::<Result<Vec<FfiStrengthSummary>, VeloqError>>()?;
+
+    let owed_count =
+        pooled::unprocessed_strength_count_in_range(conn, start_ts, end_ts).map_err(|err| {
+            VeloqError::Database {
+                msg: format!("{}", err),
+            }
+        })?;
+
+    Ok(crate::FfiStrengthScreenData {
+        owed_count,
+        ..strength_screen_data(&period, weekly)
+    })
+}
+
+/// One window of strength work for the widget: the strength screen's own read
+/// of the same days, so the body is shaded the same on both.
+pub(crate) fn widget_strength_window(
+    conn: &rusqlite::Connection,
+    start_ts: i64,
+    end_ts: i64,
+) -> Result<crate::WidgetStrengthWindow, VeloqError> {
+    let screen = strength_screen_from(conn, start_ts, end_ts, Vec::new())?;
+    Ok(crate::WidgetStrengthWindow {
+        summary: screen.summary,
+        owed_count: screen.owed_count,
+    })
 }
 
 /// The strength tab's whole payload, out of the rows already read. The owed

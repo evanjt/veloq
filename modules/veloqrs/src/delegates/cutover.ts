@@ -11,7 +11,6 @@ import {
   isCutoverRunning as ffiIsCutoverRunning,
   cancelDetectorCutover as ffiCancelDetectorCutover,
   startDetectorCutover as ffiStartDetectorCutover,
-  getCutoverProgress as ffiGetCutoverProgress,
   getCutoverDiff as ffiGetCutoverDiff,
   getChangeCardSupport as ffiGetChangeCardSupport,
   FfiStartOutcome,
@@ -95,11 +94,6 @@ export const CUTOVER_PHASES = [
 /** How far a running cutover has got. */
 export type CutoverPhase = (typeof CUTOVER_PHASES)[number];
 
-export interface CutoverProgress {
-  phase: CutoverPhase;
-  running: boolean;
-}
-
 /**
  * Start the cutover on a Rust worker and return the start verdict.
  */
@@ -127,16 +121,6 @@ export function cancelDetectorCutover(host: DelegateHost): void {
   } catch (e) {
     console.error('[Engine] cancelDetectorCutover threw:', e);
   }
-}
-
-/** Poll the running cutover. An unknown phase reads as idle. */
-export function getCutoverProgress(host: DelegateHost): CutoverProgress | null {
-  if (!host.ready) return null;
-  const p = host.timed('getCutoverProgress', () => ffiGetCutoverProgress());
-  const phase = (CUTOVER_PHASES as readonly string[]).includes(p.phase)
-    ? (p.phase as CutoverPhase)
-    : 'idle';
-  return { phase, running: p.running };
 }
 
 /**

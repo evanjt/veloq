@@ -78,6 +78,22 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// Store the sets a FIT file gave an activity and settle its verdict:
+    /// parsed when it carried any, empty when it carried none.
+    pub fn settle_exercise_sets(
+        &self,
+        activity_id: &str,
+        sets: &[FitExerciseSet],
+    ) -> SqlResult<()> {
+        let outcome = if sets.is_empty() {
+            FitOutcome::Empty
+        } else {
+            FitOutcome::Parsed
+        };
+        self.store_exercise_sets(activity_id, sets)?;
+        self.mark_fit_outcome(activity_id, outcome)
+    }
+
     /// Get cached exercise sets for an activity.
     pub fn get_exercise_sets(&self, activity_id: &str) -> SqlResult<Vec<FitExerciseSet>> {
         pooled::exercise_sets(&self.db, activity_id)

@@ -25,7 +25,7 @@ use crate::{
 mod tests;
 
 /// Bumped when the shape changes, so a native can tell a snapshot it cannot read.
-pub const SCHEMA_VERSION: u32 = 14;
+pub const SCHEMA_VERSION: u32 = 15;
 
 /// Trailing wellness window the sparklines cover.
 pub const SPARKLINE_DAYS: u32 = 30;
@@ -44,6 +44,16 @@ pub const ROUTE_OUTLINE_MAX_POINTS: usize = 150;
 
 /// The most prior attempts the latest activity carries, which keeps the file small.
 pub const LATEST_ATTEMPTS_MAX: usize = 20;
+
+/// The strength screen's month: today and the 29 days before it.
+pub const STRENGTH_WINDOW_DAYS: i64 = 30;
+
+/// The most muscles a strength window ranks by name, which is what the
+/// largest widget lists.
+pub const STRENGTH_TOP_MAX: usize = 4;
+
+/// The strength tab on the 30 days the widget opens with.
+const STRENGTH_URL: &str = "veloq://insights?tab=strength&period=1m";
 
 /// Only attribute impact to a genuinely recent activity.
 const IMPACT_MAX_AGE_DAYS: f64 = 2.0;
@@ -122,6 +132,9 @@ pub struct DateWords {
     pub month_day: DatePattern,
     /// A day and month in another year, as "Jan 5, 2023".
     pub month_day_year: DatePattern,
+    /// Long month names as a label writes one alone, January first. Empty in a
+    /// context stored before they were handed over.
+    pub months: Vec<String>,
 }
 
 /// One date format: its parts in order, and the month names it writes.
@@ -222,6 +235,9 @@ pub struct WidgetSnapshot {
     pub record_shortcuts: Vec<RecordShortcut>,
     pub launcher_shortcuts: Vec<RecordShortcut>,
     pub insights: Vec<WidgetInsight>,
+    /// The strength diagram over the two windows a widget can be placed on,
+    /// present with no strength work too, so a native never words a window.
+    pub strength: StrengthWidget,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -467,6 +483,65 @@ pub struct Display {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrengthWidget {
+    /// `male` or `female`: the body the strength tab draws for this athlete.
+    pub body: &'static str,
+    /// The strength tab on the trailing 30 days.
+    pub url: &'static str,
+    pub windows: StrengthWindows,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct StrengthWindows {
+    /// Today and the 29 days before it.
+    pub last30: StrengthWindow,
+    /// The calendar month to the end of today.
+    pub month: StrengthWindow,
+}
+
+/// One window of the strength diagram, shaded and ranked as the strength
+/// screen does it over the same days.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrengthWindow {
+    /// What a picker calls the window: the strength tab's name for 30 days,
+    /// or the month's name.
+    pub label: String,
+    pub activity_count: u32,
+    pub total_sets: u32,
+    /// Strength sessions in the window whose sets have not been downloaded.
+    pub owed_count: u32,
+    /// The most trained muscle's weighted sets, the top of the shade scale.
+    pub max_weighted_sets: f64,
+    /// Every trained muscle and its shade, most trained first.
+    pub muscles: Vec<StrengthMuscle>,
+    /// The most trained muscles, named and worded, at most `STRENGTH_TOP_MAX`.
+    pub top: Vec<StrengthTopMuscle>,
+    /// What a widget shows in place of the body when the window has no
+    /// strength sessions: none, or sessions whose sets are still owed.
+    pub empty_text: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct StrengthMuscle {
+    pub slug: String,
+    /// 1 (lightest) to `DIAGRAM_SHADES`, against the window's most trained muscle.
+    pub shade: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrengthTopMuscle {
+    pub slug: String,
+    pub name: String,
+    /// Weighted sets, as the strength tab words a muscle's: "7.5 sets".
+    pub sets_text: String,
+    /// Weight times reps in the athlete's unit, absent for bodyweight work.
+    pub volume_text: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct MetricLabels {
     pub form: String,
     pub fitness: String,
@@ -590,6 +665,7 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
         record_shortcuts: ctx.record_shortcuts.clone(),
         launcher_shortcuts: ctx.launcher_shortcuts.clone(),
         insights: ctx.insights.clone(),
+        strength: compose_strength(data, ctx, clock),
     }
 }
 
@@ -1047,13 +1123,18 @@ fn summary_entry(
     }
 }
 
-/// Weight as the app card prints it: one decimal at most, the unit with no space.
-fn weight_text(kg: f64, is_metric: bool) -> String {
-    let (value, unit) = if is_metric {
+/// Kilograms in the athlete's unit, and the unit's label.
+fn display_weight(kg: f64, is_metric: bool) -> (f64, &'static str) {
+    if is_metric {
         (kg, "kg")
     } else {
         (kg * KG_TO_LB, "lbs")
-    };
+    }
+}
+
+/// Weight as the app card prints it: one decimal at most, the unit with no space.
+fn weight_text(kg: f64, is_metric: bool) -> String {
+    let (value, unit) = display_weight(kg, is_metric);
     format!("{}{unit}", js_round(value * 10.0) / 10.0)
 }
 
@@ -1109,6 +1190,193 @@ fn impact_line(form_label: &str, impact: &Impact) -> String {
         ));
     }
     line
+}
+
+// ---------------------------------------------------------------------------
+// Strength
+// ---------------------------------------------------------------------------
+
+fn compose_strength(
+    data: &FfiWidgetSnapshotData,
+    ctx: &WidgetContext,
+    clock: Clock,
+) -> StrengthWidget {
+    let last30_label = translate(ctx, "period.long.1m").to_string();
+    let last30_none = translate(ctx, "strength.noWorkouts").replace("{{period}}", &last30_label);
+    StrengthWidget {
+        body: if data.athlete_sex.as_deref() == Some("F") {
+            "female"
+        } else {
+            "male"
+        },
+        url: STRENGTH_URL,
+        windows: StrengthWindows {
+            last30: strength_window(&data.strength_last30, last30_label, last30_none, ctx),
+            month: strength_window(
+                &data.strength_month,
+                month_label(clock, ctx),
+                translate(ctx, "strength.noWorkoutsThisMonth").to_string(),
+                ctx,
+            ),
+        },
+    }
+}
+
+fn strength_window(
+    window: &crate::WidgetStrengthWindow,
+    label: String,
+    none_text: String,
+    ctx: &WidgetContext,
+) -> StrengthWindow {
+    let summary = &window.summary;
+    let empty_text = (summary.activity_count == 0).then(|| {
+        if window.owed_count > 0 {
+            translate(ctx, "strength.notDownloaded").to_string()
+        } else {
+            none_text
+        }
+    });
+    StrengthWindow {
+        label,
+        activity_count: summary.activity_count,
+        total_sets: summary.total_sets,
+        owed_count: window.owed_count,
+        max_weighted_sets: summary.max_weighted_sets,
+        muscles: summary
+            .muscle_volumes
+            .iter()
+            .map(|m| StrengthMuscle {
+                slug: m.slug.clone(),
+                shade: m.shade,
+            })
+            .collect(),
+        top: summary
+            .muscle_volumes
+            .iter()
+            .take(STRENGTH_TOP_MAX)
+            .map(|m| StrengthTopMuscle {
+                slug: m.slug.clone(),
+                name: phrase(ctx, &muscle_name_key(&m.slug)).unwrap_or_else(|| m.slug.clone()),
+                sets_text: sets_text(m.weighted_sets, ctx),
+                volume_text: volume_text(m.volume_kg, ctx.is_metric),
+            })
+            .collect(),
+        empty_text,
+    }
+}
+
+/// The month the clock falls in, by its long name, else by the short one an
+/// older stored context carries.
+fn month_label(clock: Clock, ctx: &WidgetContext) -> String {
+    use chrono::Datelike;
+    let Some(now) = chrono::DateTime::from_timestamp(clock.now_wall_seconds, 0) else {
+        return String::new();
+    };
+    let month = now.month0() as usize;
+    [&ctx.dates.months, &ctx.dates.month_day.months]
+        .iter()
+        .find_map(|names| names.get(month).filter(|name| !name.is_empty()))
+        .cloned()
+        .unwrap_or_else(|| now.format("%B").to_string())
+}
+
+/// The translation key of a muscle's name: `lower-back` is `strength.muscles.lowerBack`.
+fn muscle_name_key(slug: &str) -> String {
+    let mut key = String::from("strength.muscles.");
+    let mut upper = false;
+    for c in slug.chars() {
+        if c == '-' {
+            upper = true;
+            continue;
+        }
+        key.push(if upper { c.to_ascii_uppercase() } else { c });
+        upper = false;
+    }
+    key
+}
+
+/// Weighted sets as the strength tab prints them: whole counts bare, half
+/// counts with their decimal.
+fn set_count(weighted_sets: f64) -> String {
+    if weighted_sets.fract() == 0.0 {
+        format!("{weighted_sets:.0}")
+    } else {
+        format!("{weighted_sets:.1}")
+    }
+}
+
+/// "7.5 sets", in the plural form the app's translator picks for the count.
+/// A form the language does not have falls back to `other`, and a context
+/// carrying neither prints the count alone.
+fn sets_text(weighted_sets: f64, ctx: &WidgetContext) -> String {
+    let count = set_count(weighted_sets);
+    let key = match plural_category(&ctx.locale, count.parse().unwrap_or(weighted_sets)) {
+        "one" => "strength.setsCount_one",
+        "few" => "strength.setsCount_few",
+        "many" => "strength.setsCount_many",
+        _ => "strength.setsCount_other",
+    };
+    phrase(ctx, key)
+        .or_else(|| phrase(ctx, "strength.setsCount_other"))
+        .map_or_else(
+            || count.clone(),
+            |template| with_slots(template, &[("count", count.clone())]),
+        )
+}
+
+/// Volume as the strength tab prints it, rounded to a whole number in the
+/// athlete's unit. None for bodyweight work, which moved no recorded weight.
+fn volume_text(kg: f64, is_metric: bool) -> Option<String> {
+    let (value, unit) = display_weight(finite(kg), is_metric);
+    let rounded = js_round(value);
+    (rounded > 0.0).then(|| format!("{} {unit}", rounded as i64))
+}
+
+/// The CLDR cardinal category the app's translator picks for `count` in
+/// `locale`'s language, for the languages the app ships and counts below a
+/// million, where the only rules that differ are these. The operands are the
+/// integer part and whether a decimal is shown, as `set_count` writes it.
+fn plural_category(locale: &str, count: f64) -> &'static str {
+    let language = locale.split(['-', '_']).next().unwrap_or("");
+    let whole = count.fract() == 0.0;
+    let i = count.trunc().abs() as u64;
+    match language {
+        "ja" | "zh" => "other",
+        // One for anything under two: 0, 1 and 1.5.
+        "fr" | "pt" => {
+            if i <= 1 {
+                "one"
+            } else {
+                "other"
+            }
+        }
+        // One for 1, and for a fraction whose integer part is 0 or 1.
+        "da" => {
+            if count == 1.0 || (!whole && i <= 1) {
+                "one"
+            } else {
+                "other"
+            }
+        }
+        "pl" => {
+            if !whole {
+                "other"
+            } else if i == 1 {
+                "one"
+            } else if (2..=4).contains(&(i % 10)) && !(12..=14).contains(&(i % 100)) {
+                "few"
+            } else {
+                "many"
+            }
+        }
+        _ => {
+            if whole && i == 1 {
+                "one"
+            } else {
+                "other"
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1184,11 +1452,14 @@ fn phrase(ctx: &WidgetContext, key: &str) -> Option<String> {
 
 /// A phrase with its `{{name}}` slots filled.
 fn fill(ctx: &WidgetContext, key: &str, slots: &[(&str, String)]) -> Option<String> {
-    let mut text = phrase(ctx, key)?;
+    Some(with_slots(phrase(ctx, key)?, slots))
+}
+
+fn with_slots(mut text: String, slots: &[(&str, String)]) -> String {
     for (name, value) in slots {
         text = text.replace(&format!("{{{{{name}}}}}"), value);
     }
-    Some(text)
+    text
 }
 
 /// What the Last activity widget leads with: its rank among the attempts at its
@@ -1684,18 +1955,50 @@ pub fn week_bounds(now_wall_seconds: i64) -> (i64, i64, i64, i64) {
     )
 }
 
+/// The two strength windows in the wall-clock seconds an activity's date is
+/// recorded in: today and the 29 days before it, as the strength screen
+/// bounds its 30 days, and the calendar month, each from midnight on its first
+/// day to the last second of today.
+pub fn strength_bounds(now_wall_seconds: i64) -> [(i64, i64); 2] {
+    use chrono::Datelike;
+    let today = now_wall_seconds.div_euclid(SECONDS_PER_DAY);
+    let end = (today + 1) * SECONDS_PER_DAY - 1;
+    let last30 = (today - (STRENGTH_WINDOW_DAYS - 1)) * SECONDS_PER_DAY;
+    let day_of_month =
+        chrono::DateTime::from_timestamp(now_wall_seconds, 0).map_or(1, |now| i64::from(now.day()));
+    let month = (today - (day_of_month - 1)) * SECONDS_PER_DAY;
+    [(last30, end), (month, end)]
+}
+
 /// The engine's side of the snapshot, read off `conn` for the week `clock` falls in.
 pub fn data_from(conn: &rusqlite::Connection, clock: Clock) -> FfiWidgetSnapshotData {
     let (current_start, current_end, prev_start, prev_end) = week_bounds(clock.now_wall_seconds);
-    crate::persistence::screens::pooled::widget_snapshot_data(
-        conn,
-        current_start,
-        current_end,
-        prev_start,
-        prev_end,
-        FORM_HISTORY_DAYS,
-        ROUTE_OUTLINE_MAX_POINTS as u32,
-    )
+    let [last30, month] = strength_bounds(clock.now_wall_seconds);
+    let strength = |(start, end): (i64, i64)| {
+        crate::objects::strength::widget_strength_window(conn, start, end).unwrap_or_default()
+    };
+    FfiWidgetSnapshotData {
+        strength_last30: strength(last30),
+        strength_month: strength(month),
+        athlete_sex: athlete_sex(conn),
+        ..crate::persistence::screens::pooled::widget_snapshot_data(
+            conn,
+            current_start,
+            current_end,
+            prev_start,
+            prev_end,
+            FORM_HISTORY_DAYS,
+            ROUTE_OUTLINE_MAX_POINTS as u32,
+        )
+    }
+}
+
+/// The `sex` field of the stored intervals.icu profile, or none when there is
+/// no profile or it carries none.
+fn athlete_sex(conn: &rusqlite::Connection) -> Option<String> {
+    let json = crate::persistence::settings::athlete_profile_from(conn)?;
+    let profile: serde_json::Value = serde_json::from_str(&json).ok()?;
+    profile.get("sex")?.as_str().map(str::to_string)
 }
 
 /// The snapshot as the file holds it.
@@ -1726,6 +2029,8 @@ pub struct SampleLibrary {
     pub wellness: Vec<crate::persistence::wellness::WellnessRow>,
     /// Activity id, start time in seconds and the untyped body.
     pub activities: Vec<(String, i64, String)>,
+    /// The strength sets, each under its activity id.
+    pub exercise_sets: Vec<(String, crate::fit::FitExerciseSet)>,
 }
 
 /// The snapshot of a sample library, marked as one. The rows go into a scratch
@@ -1741,6 +2046,14 @@ pub fn sample_snapshot_json(
     scratch.set_sport_settings(&library.sport_settings_json)?;
     scratch.upsert_wellness(&library.wellness)?;
     scratch.upsert_activity_bodies_with_metrics(&library.activities)?;
+    let mut sessions: std::collections::BTreeMap<&str, Vec<crate::fit::FitExerciseSet>> =
+        std::collections::BTreeMap::new();
+    for (activity_id, set) in &library.exercise_sets {
+        sessions.entry(activity_id).or_default().push(set.clone());
+    }
+    for (activity_id, sets) in &sessions {
+        scratch.settle_exercise_sets(activity_id, sets)?;
+    }
     let ctx = WidgetContext {
         demo: true,
         ..ctx.clone()

@@ -61,7 +61,6 @@ describe('SectionChangeCardSlide', () => {
       (getEngine as jest.Mock).mockReturnValue({
         subscribe: () => () => {},
         getChangeCardSupport: () => ALL_BUT_DEVICE,
-        getCutoverProgress: () => progress,
         getRoutesStatusData: () =>
           routesStatus({ cutover: progress as { phase: string; running: boolean } }),
         getCutoverDiff: () => diff,

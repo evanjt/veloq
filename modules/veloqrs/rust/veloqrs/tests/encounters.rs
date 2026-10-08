@@ -301,6 +301,25 @@ fn a_first_traversal_is_not_a_record_however_many_laps_it_holds() {
     assert!(!r[0].is_pr, "one session has beaten nothing but itself");
 }
 
+/// Expected behaviour: two tied laps of one session are not each other's
+/// rivals, so against a slower outing elsewhere the session holds the record,
+/// as the section page says it does.
+#[test]
+fn two_tied_laps_of_one_session_hold_the_record_against_another_outing() {
+    let setup = setup();
+    insert_section(&setup.raw, "s1", "Oval", 400.0);
+    insert_activity(&setup.raw, "a_other", 1_700_000_000, 400.0, 300);
+    insert_traversal(&setup.raw, "s1", "a_other", "same", 0, 400.0, 100.0);
+    insert_activity(&setup.raw, "a_double", 1_700_086_400, 800.0, 300);
+    insert_traversal(&setup.raw, "s1", "a_double", "same", 0, 400.0, 90.0);
+    insert_traversal(&setup.raw, "s1", "a_double", "same", 200, 400.0, 90.0);
+
+    let r = setup.engine.get_activity_section_encounters("a_double");
+    assert_eq!(r.len(), 1);
+    assert!(r[0].is_pr);
+    assert_eq!(r[0].rank, Some(1));
+}
+
 #[test]
 fn not_pr_when_outside_relative_tolerance() {
     // 100s section. Best 90s, this 100s = 11% slower → not PR.

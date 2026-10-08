@@ -188,6 +188,7 @@ fn english() -> WidgetContext {
                 parts: month_day_year,
                 months: months.iter().map(|s| s.to_string()).collect(),
             },
+            months: Vec::new(),
         },
         ..context()
     }

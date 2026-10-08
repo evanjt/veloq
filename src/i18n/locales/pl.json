@@ -1371,6 +1371,10 @@
     "noSectionsMatchFilter": "Brak odcinków pasujących do filtra",
     "placeJourney": "{{start}} - {{end}}",
     "placeLoop": "Pętla {{place}}",
+    "placeNameButton": "Nazwij według miejsc",
+    "placeNameFailedMessage": "Nie udało się wyszukać nazwy miejsca, więc nazwa pozostaje bez zmian. Spróbuj ponownie później.",
+    "placeNameFailedTitle": "Brak nazwy miejsca",
+    "placeNameNoPlaceMessage": "W punkcie początkowym nie znaleziono żadnego miejsca, więc nazwa pozostaje bez zmian.",
     "pointCountHint_one": "{{count}} punkt GPS",
     "pointCountHint_few": "{{count}} punkty GPS",
     "pointCountHint_many": "{{count}} punktów GPS",
@@ -1753,7 +1757,7 @@
       "title": "Nazwy miejsc",
       "attribution": "Nazwy miejsc © współtwórcy OpenStreetMap",
       "noticeTitle": "Używać nazw miejsc?",
-      "noticeBody": "Gdy zostanie znaleziona nowa trasa lub nowy odcinek, jego punkt początkowy i końcowy są wysyłane do usługi Nominatim OpenStreetMap, aby wyszukać nazwę miejsca. Nie są wysyłane żadne istniejące trasy ani odcinki ani nic o Tobie. Obowiązuje polityka użytkowania usługi.",
+      "noticeBody": "Gdy zostanie znaleziona nowa trasa lub nowy odcinek albo gdy poprosisz o nadanie nazwy, jego punkt początkowy i końcowy są wysyłane do usługi Nominatim OpenStreetMap, aby wyszukać nazwę miejsca. Nie są wysyłane żadne inne trasy ani odcinki ani nic o Tobie. Obowiązuje polityka użytkowania usługi.",
       "readPolicy": "Polityka użytkowania",
       "accept": "Zaakceptuj"
     },
@@ -2167,6 +2171,7 @@
     "setColumn": "Seria",
     "snapshot": "Przegląd siły",
     "noWorkouts": "Brak treningów siłowych w ostatnim {{period}}",
+    "noWorkoutsThisMonth": "Brak treningów siłowych w tym miesiącu",
     "noWorkoutsHint": "Wykonaj trening siłowy, aby zobaczyć rozkład grup mięśniowych",
     "notDownloaded": "Treningi siłowe nie zostały jeszcze pobrane",
     "notDownloadedHint": "Dane serii przychodzą razem z plikami treningów. Połącz się, aby je pobrać.",
@@ -2472,6 +2477,8 @@
     "insightsMore": "+{{rest}} więcej",
     "insightKinds": "Rodzaje",
     "insightKindsDescription": "Wybierz rodzaje analiz wyświetlanych w widżecie. Bez wyboru wyświetla wszystkie rodzaje.",
+    "strengthDescription": "Twoje obciążenie treningowe na ciele, mięsień po mięśniu.",
+    "strengthWindowDescription": "Wybierz okres wyświetlany w widżecie.",
     "insightKind": {
       "sectionPr": "Rekordy odcinków",
       "sectionTrend": "Trendy odcinków",
@@ -2485,6 +2492,9 @@
       "efficiencyTrend": "Trendy efektywności",
       "sectionChanged": "Zmienione odcinki"
     },
+    "strengthDescription": "Trenowane mięśnie, cieniowane według serii.",
+    "strengthPeriod": "Okres",
+    "strengthPeriodDescription": "Wybierz dni cieniowane w widżecie.",
     "latest": {
       "rank": "{{rank}} z {{total}}",
       "fastest": "Twój najszybszy",

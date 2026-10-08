@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 /**
- * Derive muscle hit-test polygons from react-native-body-highlighter's own SVG paths.
+ * Derive muscle hit-test polygons from react-native-body-highlighter's own SVG paths,
+ * and the whole body's outlines for the widgets, which cannot run that package.
  *
  * The app renders the body from that package, so hit regions must come from the same
- * geometry or taps drift off the drawing. Run with --check in CI to fail when the
- * package changes shape.
+ * geometry or taps drift off the drawing, and a widget drawing the body from another
+ * source would show a different one. One parse feeds three emitters: TypeScript hit
+ * polygons for the muscles, and Kotlin and Swift outlines of every part. Run with
+ * --check in CI to fail when the package changes shape.
  *
  *   node scripts/generate-muscle-polygons.mjs          # write
  *   node scripts/generate-muscle-polygons.mjs --check  # verify committed output
@@ -350,30 +353,83 @@ function flattenSubpath(sp, tolView) {
 
 const round = (v) => Number(v.toFixed(DP));
 
-function buildSide(parts, side) {
+const ASSETS = {
+  male: { front: 'bodyFront', back: 'bodyBack' },
+  female: { front: 'bodyFemaleFront', back: 'bodyFemaleBack' },
+};
+
+/** The library's parts for one body and side, in the order it paints them. */
+function libraryParts(gender, side) {
+  return Object.values(
+    require(`react-native-body-highlighter/dist/assets/${ASSETS[gender][side]}.js`)
+  )[0];
+}
+
+/** The hit polygons' frame: one half of the 1448-wide sheet, front at the origin. */
+function halfSheet(side) {
   const originX = side === 'front' ? 0 : VIEW_W;
+  return ([x, y]) => [(x - originX) / VIEW_W, y / VIEW_H];
+}
+
+/**
+ * The frame the app shows a body in: the library's wrapper draws each body and side
+ * through its own viewBox into a box twice as tall as it is wide, centred where the
+ * aspect differs (the SVG default). The female viewBoxes differ from the male ones,
+ * so the half-sheet would place the female back past the box's right edge.
+ */
+function drawnBox(gender, side) {
+  const wrapper = gender === 'male' ? 'SvgMaleWrapper' : 'SvgFemaleWrapper';
+  const source = readFileSync(
+    require.resolve(`react-native-body-highlighter/dist/components/${wrapper}.js`),
+    'utf8'
+  );
+  const m = source.match(/viewBox = side === "front" \? "([^"]+)" : "([^"]+)"/);
+  if (!m) throw new Error(`${wrapper}: no viewBox found, the library changed its wrapper`);
+  const [minX, minY, w, h] = m[side === 'front' ? 1 : 2].split(/\s+/).map(Number);
+  const s = Math.min(1 / w, 2 / h);
+  const dx = (1 - w * s) / 2;
+  const dy = (2 - h * s) / 2;
+  return ([x, y]) => [(x - minX) * s + dx, ((y - minY) * s + dy) / 2];
+}
+
+/**
+ * Flatten one side's parts to rings normalised by `frame`, as `[slug, rings]` pairs
+ * in the library's paint order. `keep` picks the parts by slug; a slug listed twice
+ * is merged into its first place.
+ */
+function buildSide(parts, frame, keep) {
   const tolView = TOLERANCE * VIEW_W;
-  const out = {};
+  const out = new Map();
   for (const part of parts) {
-    if (!part.slug || !MUSCLE_SLUGS.has(part.slug)) continue;
+    if (!part.slug || !keep(part.slug)) continue;
     const rings = [];
     for (const group of ['left', 'right', 'common']) {
       for (const d of part.path?.[group] ?? []) {
         for (const sp of parsePath(d)) {
-          const ring = flattenSubpath(sp, tolView).map(([x, y]) => [
-            round((x - originX) / VIEW_W),
-            round(y / VIEW_H),
-          ]);
+          const ring = flattenSubpath(sp, tolView).map((p) => frame(p).map(round));
           if (ring.length >= 3) rings.push(ring);
         }
       }
     }
-    if (rings.length) out[part.slug] = rings;
+    if (rings.length) out.set(part.slug, [...(out.get(part.slug) ?? []), ...rings]);
+  }
+  return [...out];
+}
+
+/** Every part the library draws, muscles and the untrainable parts, for both bodies. */
+export function buildOutlines() {
+  const all = () => true;
+  const out = {};
+  for (const gender of ['male', 'female']) {
+    out[gender] = {};
+    for (const side of ['front', 'back']) {
+      out[gender][side] = buildSide(libraryParts(gender, side), drawnBox(gender, side), all);
+    }
   }
   return out;
 }
 
-function emit(gender, front, back) {
+function emitTypeScript(gender, front, back) {
   const body = (name, data) => {
     const slugs = Object.keys(data).sort();
     const entries = slugs.map((slug) => {
@@ -392,52 +448,227 @@ ${body(`FRONT_${gender.toUpperCase()}`, front)}
 ${body(`BACK_${gender.toUpperCase()}`, back)}`;
 }
 
-const check = process.argv.includes('--check');
+// ------------------------------------------------- widget outlines (Kotlin, Swift)
 
-// Format exactly as the pre-commit hook would, so --check never trips on whitespace.
-const prettier = require('prettier');
-const prettierConfig = {
-  ...JSON.parse(
-    check
-      ? trackedText(ROOT, 'config/.prettierrc')
-      : readFileSync(join(ROOT, 'config/.prettierrc'), 'utf8')
-  ),
-  parser: 'typescript',
-};
-const format = (text) => prettier.format(text, prettierConfig);
+// A widget polygon is stored as integers in ten-thousandths of its box, the
+// precision the hit polygons keep.
+const SCALE = 10 ** DP;
 
-let failed = false;
-let totalPts = 0;
-
-for (const gender of ['male', 'female']) {
-  const f = require(
-    `react-native-body-highlighter/dist/assets/${gender === 'male' ? 'bodyFront' : 'bodyFemaleFront'}.js`
-  );
-  const b = require(
-    `react-native-body-highlighter/dist/assets/${gender === 'male' ? 'bodyBack' : 'bodyFemaleBack'}.js`
-  );
-  const front = buildSide(Object.values(f)[0], 'front');
-  const back = buildSide(Object.values(b)[0], 'back');
-
-  for (const d of [front, back])
-    for (const r of Object.values(d)) for (const p of r) totalPts += p.length;
-
-  const text = await format(emit(gender, front, back));
-  const path = join(OUT_DIR, `${gender}.generated.ts`);
-  if (check) {
-    let existing = '';
-    existing = trackedText(ROOT, relative(ROOT, path)) ?? ''; // missing counts as drift
-    if (existing !== text) {
-      console.error(
-        `muscle polygons: ${gender}.generated.ts is stale, re-run scripts/generate-muscle-polygons.mjs`
-      );
-      failed = true;
-    }
-  } else {
-    writeFileSync(path, text);
-    console.log(`wrote ${path}`);
-  }
+/**
+ * One part's rings as one string: x y pairs separated by spaces, rings by `;`.
+ * A string decoded at first use keeps the Swift type-checker off a large nested
+ * literal and keeps each Kotlin constant well under the class-file limit.
+ */
+export function encodeRings(rings) {
+  return rings
+    .map((ring) =>
+      ring.map(([x, y]) => `${Math.round(x * SCALE)} ${Math.round(y * SCALE)}`).join(' ')
+    )
+    .join(';');
 }
 
-console.log(`muscle polygons: ${totalPts} points across both genders`);
-if (failed) process.exit(1);
+const SETS = [
+  ['male', 'front'],
+  ['male', 'back'],
+  ['female', 'front'],
+  ['female', 'back'],
+];
+
+const camel = (gender, side) => `${gender}${side[0].toUpperCase()}${side.slice(1)}`;
+
+/** The outlines ship inside the app, so each copy carries the library's notice. */
+function licenseNotice() {
+  const text = readFileSync(
+    join(dirname(require.resolve('react-native-body-highlighter/package.json')), 'LICENSE'),
+    'utf8'
+  );
+  return text
+    .trimEnd()
+    .split('\n')
+    .map((line) => (line.trim() === '' ? '//' : `// ${line.trim()}`))
+    .join('\n');
+}
+
+function nativeHeader() {
+  return `// GENERATED by scripts/generate-muscle-polygons.mjs. Do not edit.
+//
+// The body outlines are derived from react-native-body-highlighter's drawing,
+// used under its licence:
+//
+${licenseNotice()}`;
+}
+
+export function emitKotlin(outlines) {
+  const sets = SETS.map(([gender, side]) => {
+    const name = `${gender}_${side}`.toUpperCase();
+    const entries = outlines[gender][side]
+      .map(([slug, rings]) => `    "${slug}" to "${encodeRings(rings)}",`)
+      .join('\n');
+    return `  private val ${name}: Array<Pair<String, String>> = arrayOf(\n${entries}\n  )`;
+  });
+  return `${nativeHeader()}
+package __PKG__.widget
+
+/**
+ * The body the strength diagram draws, part by part, for the widgets, which cannot run the app's
+ * SVG drawing. Each part carries the drawing library's slug, and the parts are listed in the order
+ * the library paints them. A polygon is x0, y0, x1, y1, ... with both axes in 0..1 of the box the
+ * app draws the body in, which is twice as tall as it is wide. A part's polygons fill as one path
+ * with the non-zero rule, as the library's SVG does.
+ */
+object BodyOutline {
+  enum class Side {
+    FRONT,
+    BACK,
+  }
+
+  class Part(val slug: String, val polygons: List<FloatArray>)
+
+  fun parts(female: Boolean, side: Side): List<Part> =
+    when (side) {
+      Side.FRONT -> if (female) femaleFront else maleFront
+      Side.BACK -> if (female) femaleBack else maleBack
+    }
+
+  private val maleFront by lazy { decode(MALE_FRONT) }
+  private val maleBack by lazy { decode(MALE_BACK) }
+  private val femaleFront by lazy { decode(FEMALE_FRONT) }
+  private val femaleBack by lazy { decode(FEMALE_BACK) }
+
+  private const val SCALE = ${SCALE}f
+
+  /** Reads each part's string: x y pairs in ten-thousandths, rings split by a semicolon. */
+  internal fun decode(encoded: Array<Pair<String, String>>): List<Part> =
+    encoded.map { (slug, text) ->
+      Part(
+        slug,
+        text.split(';').map { ring ->
+          val values = ring.split(' ')
+          FloatArray(values.size) { values[it].toInt() / SCALE }
+        },
+      )
+    }
+
+${sets.join('\n\n')}
+}
+`;
+}
+
+export function emitSwift(outlines) {
+  const sets = SETS.map(([gender, side]) => {
+    const entries = outlines[gender][side]
+      .map(([slug, rings]) => `    ("${slug}", "${encodeRings(rings)}"),`)
+      .join('\n');
+    return `  private static let ${camel(gender, side)}Encoded: [(String, String)] = [\n${entries}\n  ]`;
+  });
+  return `${nativeHeader()}
+import CoreGraphics
+
+/// The body the strength diagram draws, part by part, for the widgets, which cannot run the app's
+/// SVG drawing. Each part carries the drawing library's slug, and the parts are listed in the order
+/// the library paints them. Both axes run 0...1 over the box the app draws the body in, which is
+/// twice as tall as it is wide. A part's polygons fill as one path with the non-zero rule, as the
+/// library's SVG does.
+enum BodyOutline {
+  enum Side {
+    case front
+    case back
+  }
+
+  struct Part {
+    let slug: String
+    let polygons: [[CGPoint]]
+  }
+
+  static func parts(female: Bool, side: Side) -> [Part] {
+    switch side {
+    case .front: return female ? femaleFront : maleFront
+    case .back: return female ? femaleBack : maleBack
+    }
+  }
+
+  private static let maleFront = decode(maleFrontEncoded)
+  private static let maleBack = decode(maleBackEncoded)
+  private static let femaleFront = decode(femaleFrontEncoded)
+  private static let femaleBack = decode(femaleBackEncoded)
+
+  private static let scale: CGFloat = ${SCALE}
+
+  /// Reads each part's string: x y pairs in ten-thousandths, rings split by a semicolon.
+  static func decode(_ encoded: [(String, String)]) -> [Part] {
+    encoded.map { slug, text -> Part in
+      let polygons = text.split(separator: ";").map { ring -> [CGPoint] in
+        let values = ring.split(separator: " ").compactMap { Int($0) }
+        return stride(from: 0, to: values.count - 1, by: 2).map { i in
+          CGPoint(x: CGFloat(values[i]) / scale, y: CGFloat(values[i + 1]) / scale)
+        }
+      }
+      return Part(slug: slug, polygons: polygons)
+    }
+  }
+
+${sets.join('\n\n')}
+}
+`;
+}
+
+// ---------------------------------------------------------------- main
+
+async function main() {
+  const check = process.argv.includes('--check');
+
+  // Format exactly as the pre-commit hook would, so --check never trips on whitespace.
+  const prettier = require('prettier');
+  const prettierConfig = {
+    ...JSON.parse(
+      check
+        ? trackedText(ROOT, 'config/.prettierrc')
+        : readFileSync(join(ROOT, 'config/.prettierrc'), 'utf8')
+    ),
+    parser: 'typescript',
+  };
+  const format = (text) => prettier.format(text, prettierConfig);
+
+  let failed = false;
+  let totalPts = 0;
+
+  const write = (path, text) => {
+    if (check) {
+      const existing = trackedText(ROOT, relative(ROOT, path)) ?? ''; // missing counts as drift
+      if (existing !== text) {
+        console.error(
+          `muscle polygons: ${relative(ROOT, path)} is stale, re-run scripts/generate-muscle-polygons.mjs`
+        );
+        failed = true;
+      }
+    } else {
+      writeFileSync(path, text);
+      console.log(`wrote ${path}`);
+    }
+  };
+
+  const muscles = (slug) => MUSCLE_SLUGS.has(slug);
+  for (const gender of ['male', 'female']) {
+    const side = (name) =>
+      Object.fromEntries(buildSide(libraryParts(gender, name), halfSheet(name), muscles));
+    const front = side('front');
+    const back = side('back');
+
+    for (const d of [front, back])
+      for (const r of Object.values(d)) for (const p of r) totalPts += p.length;
+
+    write(
+      join(OUT_DIR, `${gender}.generated.ts`),
+      await format(emitTypeScript(gender, front, back))
+    );
+  }
+
+  const outlines = buildOutlines();
+  write(join(ROOT, 'widget/android/java/BodyOutline.kt'), emitKotlin(outlines));
+  write(join(ROOT, 'widget/ios/VeloqWidget/BodyOutline.swift'), emitSwift(outlines));
+
+  console.log(`muscle polygons: ${totalPts} points across both genders`);
+  if (failed) process.exit(1);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await main();

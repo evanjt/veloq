@@ -33,10 +33,17 @@ object InsightsWidgetRenderer {
     kinds: Set<String>?,
     widgetId: Int,
   ): RemoteViews {
+    val size = InsightsWidget.sizeFor(minWidthDp, minHeightDp)
+    val content = snap?.let { InsightsWidget.content(it, size, kinds) }
+    val first = content?.rows?.firstOrNull()
+    if (size == SummarySize.SHORT && first != null && !WidgetSnapshot.showsEmptyPrompt(snap)) {
+      return renderShort(context, first)
+    }
+
     val v = RemoteViews(context.packageName, R.layout.widget_insights)
     v.setOnClickPendingIntent(R.id.ins_root, WidgetRenderer.deepLink(context, InsightsWidget.TAB_URL, 20))
 
-    if (WidgetSnapshot.showsEmptyPrompt(snap) || snap == null) {
+    if (WidgetSnapshot.showsEmptyPrompt(snap) || snap == null || content == null) {
       bindMessage(
         v, context.getString(R.string.widget_open_app),
         context.getString(R.string.widget_to_see_training))
@@ -47,8 +54,6 @@ object InsightsWidgetRenderer {
       return v
     }
 
-    val size = InsightsWidget.sizeFor(minWidthDp, minHeightDp)
-    val content = InsightsWidget.content(snap, size, kinds)
     if (content.rows.isEmpty()) {
       bindMessage(v, context.getString(R.string.widget_insights_empty), null)
     } else {
@@ -58,6 +63,15 @@ object InsightsWidgetRenderer {
     bindMore(context, v, content.more)
     WidgetRenderer.bindUpdatedAt(context, v, R.id.ins_updated, snap)
     WidgetRenderer.bindRefresh(context, v, snap)
+    return v
+  }
+
+  /** One row tall: the first insight's mark and title, and a tap that opens it. */
+  private fun renderShort(context: Context, insight: WidgetInsight): RemoteViews {
+    val v = RemoteViews(context.packageName, R.layout.widget_insights_short)
+    v.setInt(R.id.ins_dot0, "setColorFilter", toneColor(context, insight.tone))
+    v.setTextViewText(R.id.ins_title0, insight.title)
+    v.setOnClickPendingIntent(R.id.ins_root, WidgetRenderer.deepLink(context, insight.url, 21))
     return v
   }
 
@@ -82,7 +96,6 @@ object InsightsWidgetRenderer {
     size: SummarySize,
   ) {
     val titleLines = if (size == SummarySize.SMALL) 3 else 2
-    val subtitleLines = if (size == SummarySize.MEDIUM) 1 else 2
     for ((i, ids) in ROWS.withIndex()) {
       val insight = rows.getOrNull(i)
       v.setViewVisibility(ids.row, if (insight == null) View.GONE else View.VISIBLE)
@@ -95,7 +108,6 @@ object InsightsWidgetRenderer {
       } else {
         v.setViewVisibility(ids.subtitle, View.VISIBLE)
         v.setTextViewText(ids.subtitle, insight.subtitle)
-        v.setInt(ids.subtitle, "setMaxLines", subtitleLines)
       }
       v.setOnClickPendingIntent(ids.row, WidgetRenderer.deepLink(context, insight.url, 21 + i))
     }

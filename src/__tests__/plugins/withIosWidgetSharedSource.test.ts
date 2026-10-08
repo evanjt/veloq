@@ -115,7 +115,15 @@ describe('a freshly created extension target', () => {
       };
       const nativeRoot = path.dirname(proj.filepath);
       for (const [dir, files] of [
-        [APP_TARGET, [SHARED, 'RecordSportEntity.swift', 'VeloqAppShortcuts.swift']],
+        [
+          APP_TARGET,
+          [
+            SHARED,
+            'RecordSportEntity.swift',
+            'StartRecordingIntent.swift',
+            'VeloqAppShortcuts.swift',
+          ],
+        ],
         [WIDGET_TARGET, options.swiftFiles],
       ] as const) {
         fs.mkdirSync(path.join(nativeRoot, dir));
@@ -141,7 +149,15 @@ describe('a freshly created extension target', () => {
         expect(widgetGroups).toHaveLength(1);
 
         for (const [target, expected] of [
-          [app, [SHARED, 'RecordSportEntity.swift', 'VeloqAppShortcuts.swift']],
+          [
+            app,
+            [
+              SHARED,
+              'RecordSportEntity.swift',
+              'StartRecordingIntent.swift',
+              'VeloqAppShortcuts.swift',
+            ],
+          ],
           [widget, options.swiftFiles],
         ] as const) {
           const phase = proj.pbxSourcesBuildPhaseObj(target);

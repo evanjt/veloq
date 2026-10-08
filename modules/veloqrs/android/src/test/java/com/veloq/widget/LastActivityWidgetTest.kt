@@ -15,8 +15,9 @@ import org.junit.Test
  *
  * Expected behaviour: the matched fixture draws "2 of 14" and the gap with fourteen dots and no
  * load hero; the unmatched fixture draws the load as the hero, with no rank and no dots; the
- * smallest size drops the route and the name for the comparison, the largest adds load and form
- * before and after; a snapshot without the engine's words falls back to the name and figures.
+ * smallest size drops the route and the name for the comparison, a placement one row tall keeps
+ * only the comparison and its dots, the largest adds load and form before and after; a snapshot
+ * without the engine's words falls back to the name and figures.
  */
 class LastActivityWidgetTest {
   private fun dots(count: Int, record: Int, current: Int): JSONArray =
@@ -92,7 +93,7 @@ class LastActivityWidgetTest {
 
   @Test
   fun an_unmatched_activity_leads_with_its_load_and_no_rank_or_dots() {
-    for (size in SummarySize.values()) {
+    for (size in SummarySize.values().filter { it != SummarySize.SHORT }) {
       val c = content(snapshot(loadHeadline), size)
       assertEquals("Load", c.heroLabel)
       assertEquals("62", c.hero)
@@ -111,6 +112,22 @@ class LastActivityWidgetTest {
     assertEquals("2 of 14", c.hero)
     assertEquals("Section PRs 3", c.sectionPrs)
     assertEquals("Today", c.date)
+    assertNull(c.form)
+  }
+
+  @Test
+  fun a_placement_one_row_tall_draws_only_the_comparison_and_its_dots() {
+    val c = content(snapshot(matchedHeadline), SummarySize.SHORT)
+
+    assertEquals("2 of 14", c.hero)
+    assertEquals("1:35 off your best", c.detail)
+    assertEquals(14, c.dots.size)
+    assertNull("the route's name has no row to wrap into", c.heroLabel)
+    assertNull(c.name)
+    assertFalse(c.showsRoute)
+    assertNull(c.sectionPrs)
+    assertNull(c.date)
+    assertNull(c.load)
     assertNull(c.form)
   }
 
@@ -193,5 +210,8 @@ class LastActivityWidgetTest {
     assertEquals(SummarySize.MEDIUM, LastActivityWidget.sizeFor(250, 110))
     assertEquals(SummarySize.MEDIUM, LastActivityWidget.sizeFor(250, 179))
     assertEquals(SummarySize.LARGE, LastActivityWidget.sizeFor(250, 180))
+    assertEquals(SummarySize.SHORT, LastActivityWidget.sizeFor(130, 51))
+    assertEquals(SummarySize.SHORT, LastActivityWidget.sizeFor(276, 51))
+    assertEquals(SummarySize.SMALL, LastActivityWidget.sizeFor(0, 0))
   }
 }

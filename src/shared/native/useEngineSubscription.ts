@@ -99,7 +99,7 @@ export function useEngineSubscription(events: EngineEvent[]): number {
  *
  *     const readSections = useEngineRead(['sections']);
  *     const rows = useMemo(
- *       () => readSections((engine) => engine.getExcludedRouteActivityIds(id)),
+ *       () => readSections((engine) => engine.getSectionById(id)),
  *       [id, readSections]
  *     );
  *

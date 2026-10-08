@@ -27,6 +27,22 @@ pub struct FitExerciseSet {
     pub start_time: Option<i64>,
 }
 
+/// A set handed over the FFI, as demo mode and the sample library carry them.
+impl From<&crate::FfiExerciseSet> for FitExerciseSet {
+    fn from(set: &crate::FfiExerciseSet) -> Self {
+        Self {
+            set_order: set.set_order,
+            exercise_category: set.exercise_category,
+            exercise_name: set.exercise_name,
+            set_type: set.set_type,
+            repetitions: set.repetitions,
+            weight_kg: set.weight_kg,
+            duration_secs: set.duration_secs,
+            start_time: set.start_time.map(|time| time as i64),
+        }
+    }
+}
+
 /// Errors from parsing a FIT binary file.
 #[derive(Debug, thiserror::Error)]
 pub enum FitParseError {

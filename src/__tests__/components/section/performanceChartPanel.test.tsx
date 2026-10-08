@@ -12,7 +12,7 @@ import { Rect } from '@shopify/react-native-skia';
 
 import { PerformanceChartPanel } from '@/features/routes/components/section/PerformanceChartPanel';
 import { AttemptHistogramChart } from '@/features/routes/components/section/AttemptHistogramChart';
-import { RouteDetailChart } from '@/features/routes/components/RouteDetailChart';
+import { SectionPerformanceSection } from '@/features/routes/components/section/SectionPerformanceSection';
 import type { PerformanceDataPoint } from '@/types';
 import type { FfiAttemptHistogram, FfiAttemptHistograms } from 'veloqrs';
 import { colors } from '@/theme';
@@ -145,6 +145,20 @@ describe('PerformanceChartPanel', () => {
     expect(tree.getByTestId('attempt-histogram-caption').props.children).toContain('"attempts":5');
   });
 
+  it("labels the histogram's line Best while the direction holds no record", () => {
+    const tree = render(panel({ bestForwardIsRecord: false }));
+    fireEvent.press(tree.getByTestId('chart-plot-histogram'));
+
+    expect(tree.getByTestId('attempt-histogram-record-key')).toHaveTextContent('sections.best');
+  });
+
+  it("labels the histogram's line PR once the direction holds a record", () => {
+    const tree = render(panel({ bestForwardIsRecord: true }));
+    fireEvent.press(tree.getByTestId('chart-plot-histogram'));
+
+    expect(tree.getByTestId('attempt-histogram-record-key')).toHaveTextContent('sections.legendPr');
+  });
+
   it('keeps the chosen direction when the plot changes', () => {
     const tree = render(panel());
 
@@ -198,7 +212,7 @@ describe('PerformanceChartPanel', () => {
   });
 
   it('shows the scatter legend under the scatter only', () => {
-    const tree = render(panel({ highlightedActivityId: 'act-0' }));
+    const tree = render(panel({ highlightedActivityId: 'act-0', bestForwardIsRecord: true }));
     expect(tree.queryByText('sections.legendPr')).toBeTruthy();
 
     fireEvent.press(tree.getByTestId('chart-plot-histogram'));
@@ -290,14 +304,15 @@ describe('AttemptHistogramChart', () => {
   });
 });
 
-describe('RouteDetailChart', () => {
+describe('the route page chart', () => {
   it('mounts the panel and offers the plot switch', () => {
     const tree = render(
-      <RouteDetailChart
+      <SectionPerformanceSection
+        subject="route"
         chartData={CHART_DATA}
         trendCurves={{}}
         histograms={HISTOGRAMS}
-        activityType="Ride"
+        sportType="Ride"
         isDark={false}
         bestForwardRecord={null}
         bestReverseRecord={null}
@@ -313,6 +328,8 @@ describe('RouteDetailChart', () => {
         showExcluded={false}
         hasExcluded={false}
         onToggleShowExcluded={jest.fn()}
+        sectionTimeRange="all"
+        onTimeRangeChange={jest.fn()}
       />
     );
 

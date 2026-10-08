@@ -5,9 +5,15 @@
 
 # A fixed path, never one the environment chooses: a session with its own temp
 # directory would take a lock nobody else can see, which is the same as no lock
-# at all.
-_veloq_lock_dir="/tmp/claude-$(id -u)"
-[ -d "$_veloq_lock_dir" ] || _veloq_lock_dir="/tmp"
+# at all. `VELOQ_DEVICE_LOCK_DIR` is for the tests that prove the path is
+# derived from the serial: deriving it under the machine's directory queues them
+# behind whatever the fleet is measuring on a handset of that serial.
+if [ -n "${VELOQ_DEVICE_LOCK_DIR:-}" ]; then
+  _veloq_lock_dir="$VELOQ_DEVICE_LOCK_DIR"
+else
+  _veloq_lock_dir="/tmp/claude-$(id -u)"
+  [ -d "$_veloq_lock_dir" ] || _veloq_lock_dir="/tmp"
+fi
 
 # The serial the run will reach. `ANDROID_SERIAL` is what `adb` itself reads,
 # so a run pinned to one handset locks that handset. With nothing set and one

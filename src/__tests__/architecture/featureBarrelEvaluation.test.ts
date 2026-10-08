@@ -224,7 +224,6 @@ const ROUTES_NAMES = [
   'PreviewSectionPopover',
   'RANGE_DAYS',
   'rescanRefusalKey',
-  'RouteDetailChart',
   'RouteDetailDebugPanel',
   'RouteDetailMap',
   'routeDetailScreenStyles',
@@ -239,6 +238,7 @@ const ROUTES_NAMES = [
   'SectionHeader',
   'SectionHistoryPanel',
   'SectionLapList',
+  'SectionPerformanceSection',
   'SectionsList',
   'sectionSortFor',
   'SectionSparkline',
@@ -266,10 +266,11 @@ const ROUTES_NAMES = [
   'usePreviewDetect',
   'useRepresentativeRoute',
   'useRevealMapOnDraw',
-  'useRouteChartData',
   'useRouteDetailData',
+  'useRouteDetailPerformance',
   'useRouteGroupingPreview',
   'useRouteGroups',
+  'useRouteMapSignatures',
   'useRouteMatch',
   'useRoutePerformances',
   'useRouteReference',
@@ -295,7 +296,6 @@ const ROUTES_NAMES = [
   'useSectionTimeStreamSync',
   'useSectionTrim',
   'useSectionUIState',
-  'useSportTypeFilter',
 ];
 
 describe('the routes barrel evaluates whole, whichever end the app enters from', () => {

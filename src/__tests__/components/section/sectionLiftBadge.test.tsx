@@ -131,7 +131,7 @@ describe('section traversal count scope', () => {
   }
 
   it('names the sport and the range when the section spans sports and the range is not all time', () => {
-    const tree = renderScoped({ scopeSport: 'Run', scopeRange: '6m' });
+    const tree = renderScoped({ scopeSport: 'Run', sportsOffered: 2, scopeRange: '6m' });
 
     expect(
       tree.getByText('sections.traversalsCount · activityTypes.Run · period.long.6m')
@@ -139,13 +139,13 @@ describe('section traversal count scope', () => {
   });
 
   it('names only the range for a single-sport section', () => {
-    const tree = renderScoped({ scopeRange: '1y' });
+    const tree = renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: '1y' });
 
     expect(tree.getByText('sections.traversalsCount · period.long.1y')).toBeTruthy();
   });
 
   it('adds nothing for a single-sport section over all time', () => {
-    const tree = renderScoped({ scopeRange: 'all' });
+    const tree = renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: 'all' });
 
     expect(tree.getByText('sections.traversalsCount')).toBeTruthy();
   });

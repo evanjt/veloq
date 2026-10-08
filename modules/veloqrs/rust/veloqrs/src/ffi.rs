@@ -1225,19 +1225,6 @@ pub fn set_network_online(online: bool) {
     crate::net::connectivity::set_online(online);
 }
 
-/// What was last pushed to [`set_network_online`], and how many seconds ago.
-///
-/// `null` means nothing has ever been pushed. For the debug screen and for
-/// tests that need to see the push landed, not for scheduling: everything
-/// that schedules reads the state in Rust.
-#[uniffi::export]
-pub fn get_network_push() -> Option<NetworkPush> {
-    crate::net::connectivity::last_push().map(|(online, age)| NetworkPush {
-        online,
-        age_seconds: age.as_secs().try_into().unwrap_or(u32::MAX),
-    })
-}
-
 /// Tell the engine whether the athlete is touching the screen.
 ///
 /// Call it with `true` on the first touch and again every couple of seconds
@@ -1254,16 +1241,6 @@ pub fn get_network_push() -> Option<NetworkPush> {
 pub fn set_interacting(interacting: bool) {
     init_logging();
     crate::net::pacing::set_interacting(interacting);
-}
-
-/// The last connectivity state TypeScript pushed, with its age.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct NetworkPush {
-    /// What was pushed.
-    pub online: bool,
-    /// Seconds since the push. Past the staleness window the engine ignores
-    /// the value and tries anyway.
-    pub age_seconds: u32,
 }
 
 /// Start the elevation backfill on a background thread.
@@ -1299,8 +1276,8 @@ pub fn resume_elevation_backfill() -> bool {
     crate::net::elevation_backfill::resume_elevation_backfill()
 }
 
-/// Whether the elevation backfill is paused in this process.
-#[uniffi::export]
+/// Whether the elevation backfill is paused in this process. Read by
+/// [`get_routes_status_data`], which is what TypeScript polls.
 pub fn is_elevation_backfill_paused() -> bool {
     crate::net::elevation_backfill::elevation_backfill_paused()
 }
@@ -1325,8 +1302,8 @@ pub fn get_elevation_backfill_remaining() -> Result<u32, crate::VeloqError> {
     Ok(remaining.try_into().unwrap_or(u32::MAX))
 }
 
-/// Read the elevation backfill's progress. Safe to poll at any time.
-#[uniffi::export]
+/// Read the elevation backfill's progress. Safe to poll at any time. Read by
+/// [`get_routes_status_data`], which is what TypeScript polls.
 pub fn get_elevation_backfill_progress() -> ElevationBackfillProgress {
     let snapshot = crate::net::elevation_backfill::backfill_progress();
     ElevationBackfillProgress {
@@ -1364,28 +1341,8 @@ pub fn stop_stream_backfill() {
     crate::net::stream_backfill::stop_stream_backfill()
 }
 
-/// How many activities the stream backfill still has to ask upstream about.
-/// Zero means the library is fully stocked for the window as it stands.
-///
-/// Raises rather than answering zero when it cannot answer at all: a screen
-/// that offers the backfill reads this, and an absent engine must not read as
-/// the job being done.
-#[uniffi::export]
-pub fn get_stream_backfill_remaining() -> Result<u32, crate::VeloqError> {
-    let remaining = crate::objects::error::with_reader(|conn| {
-        crate::persistence::streams::pooled::backfill_remaining(
-            conn,
-            crate::net::stream_backfill::STREAM_ATTEMPT_LIMIT,
-        )
-    })?
-    .map_err(|e| crate::VeloqError::Database {
-        msg: format!("{}", e),
-    })?;
-    Ok(remaining.try_into().unwrap_or(u32::MAX))
-}
-
-/// Read the stream backfill's progress. Safe to poll at any time.
-#[uniffi::export]
+/// Read the stream backfill's progress. Safe to poll at any time. Read by
+/// [`get_routes_status_data`], which is what TypeScript polls.
 pub fn get_stream_backfill_progress() -> StreamBackfillProgress {
     let snapshot = crate::net::stream_backfill::stream_backfill_progress();
     StreamBackfillProgress {
@@ -1567,8 +1524,8 @@ pub fn cancel_detector_cutover() {
     crate::persistence::cutover::cancel_cutover();
 }
 
-/// How far the running cutover has got.
-#[uniffi::export]
+/// How far the running cutover has got. Read by [`get_routes_status_data`],
+/// which is what TypeScript polls.
 pub fn get_cutover_progress() -> CutoverProgress {
     CutoverProgress {
         phase: crate::persistence::cutover::cutover_phase().to_string(),

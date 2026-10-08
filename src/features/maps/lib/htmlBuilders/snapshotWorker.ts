@@ -120,81 +120,106 @@ ${terrainVisibilityScript()}
     // arrives at parse time and offline alike.
     window._bootStyle = ${JSON.stringify(SNAPSHOT_BOOT_STYLE)};
 
-    window.map = new maplibregl.Map({
-      container: 'map',
-      style: window._bootStyle,
-      // Overwritten by the first render's jumpTo, and it fetches nothing now
-      // that no source is mounted under it.
-      center: [8.5, 47.3],
-      zoom: 10,
-      pitch: 60,
-      attributionControl: false,
-      antialias: true,
-      canvasContextAttributes: {
-        preserveDrawingBuffer: true,
-      },
-      pixelRatio: window.devicePixelRatio || 2,
-    });
+    // Builds the worker's map on the empty style. Run at boot and again by
+    // each recycle, so a rebuilt map carries the same options and handlers.
+    window._bootMap = function() {
+      window.map = new maplibregl.Map({
+        container: 'map',
+        style: window._bootStyle,
+        // Overwritten by the first render's jumpTo, and it fetches nothing now
+        // that no source is mounted under it.
+        center: [8.5, 47.3],
+        zoom: 10,
+        pitch: 60,
+        attributionControl: false,
+        antialias: true,
+        canvasContextAttributes: {
+          preserveDrawingBuffer: true,
+        },
+        pixelRatio: window.devicePixelRatio || 2,
+        // The map lives as long as the feed, and every tile its cache evicts
+        // leaves a GPU texture in a pool only removing the map frees. So it
+        // keeps no tile beyond the preview in hand: a repeat comes back from
+        // the device's tile store, not from GPU memory held for the session.
+        maxTileCacheSize: 0,
+      });
 
-    window.map.on('load', function() {
-      window._rn_log('Map loaded OK (worker ${workerId})');
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'mapReady',
-          workerId: window._workerId,
-        }));
-      }
-    });
-
-    window._tileErrorCount = 0;
-    // Counted apart from the errors above. A 429 or a 503 is the server asking
-    // to be left alone, which is a different event from a decode failure and
-    // the pool answers it by waiting rather than by retrying.
-    window._tileThrottleCount = 0;
-
-    window.map.on('error', function(e) {
-      var msg = e.error ? e.error.message : JSON.stringify(e);
-      // Only count server errors (429, 5xx) and network failures as tile errors.
-      // 404s are expected from regional satellite sources (swisstopo, eox, ign)
-      // that return 404 for tiles outside their coverage area.
-      var status = e.error && e.error.status;
-      if (status === 404 || /HTTP 404/.test(msg)) return;
-      window._rn_log('Map error: ' + msg);
-      if (e.sourceId || (e.error && (status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
-        window._tileErrorCount++;
-        if (status === 429 || status === 503 || /HTTP (429|503)/.test(msg)) {
-          window._tileThrottleCount++;
+      window.map.on('load', function() {
+        window._rn_log('Map loaded OK (worker ${workerId})');
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'mapReady',
+            workerId: window._workerId,
+          }));
         }
-      }
-    });
+      });
 
-    // Track tile loading progress per source
-    window._tileStats = {};
+      window._tileErrorCount = 0;
+      // Counted apart from the errors above. A 429 or a 503 is the server asking
+      // to be left alone, which is a different event from a decode failure and
+      // the pool answers it by waiting rather than by retrying.
+      window._tileThrottleCount = 0;
 
-    window.map.on('data', function(e) {
-      if (e.dataType === 'source' && e.sourceId && e.tile) {
-        if (!window._tileStats[e.sourceId]) {
-          window._tileStats[e.sourceId] = { loaded: 0, total: 0 };
+      window.map.on('error', function(e) {
+        var msg = e.error ? e.error.message : JSON.stringify(e);
+        // Only count server errors (429, 5xx) and network failures as tile errors.
+        // 404s are expected from regional satellite sources (swisstopo, eox, ign)
+        // that return 404 for tiles outside their coverage area.
+        var status = e.error && e.error.status;
+        if (status === 404 || /HTTP 404/.test(msg)) return;
+        window._rn_log('Map error: ' + msg);
+        if (e.sourceId || (e.error && (status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
+          window._tileErrorCount++;
+          if (status === 429 || status === 503 || /HTTP (429|503)/.test(msg)) {
+            window._tileThrottleCount++;
+          }
         }
-        window._tileStats[e.sourceId].loaded++;
-        var s = window._tileStats[e.sourceId];
-        if (s.loaded % 5 === 0 || s.loaded <= 2) {
-          window._rn_log('Tiles [' + e.sourceId + ']: ' + s.loaded + ' loaded');
-        }
-      }
-    });
+      });
 
-    window.map.on('dataloading', function(e) {
-      if (e.dataType === 'source' && e.sourceId) {
-        if (!window._tileStats[e.sourceId]) {
-          window._tileStats[e.sourceId] = { loaded: 0, total: 0 };
+      // Track tile loading progress per source
+      window._tileStats = {};
+
+      window.map.on('data', function(e) {
+        if (e.dataType === 'source' && e.sourceId && e.tile) {
+          if (!window._tileStats[e.sourceId]) {
+            window._tileStats[e.sourceId] = { loaded: 0, total: 0 };
+          }
+          window._tileStats[e.sourceId].loaded++;
+          var s = window._tileStats[e.sourceId];
+          if (s.loaded % 5 === 0 || s.loaded <= 2) {
+            window._rn_log('Tiles [' + e.sourceId + ']: ' + s.loaded + ' loaded');
+          }
         }
-        window._tileStats[e.sourceId].total++;
-      }
-    });
+      });
+
+      window.map.on('dataloading', function(e) {
+        if (e.dataType === 'source' && e.sourceId) {
+          if (!window._tileStats[e.sourceId]) {
+            window._tileStats[e.sourceId] = { loaded: 0, total: 0 };
+          }
+          window._tileStats[e.sourceId].total++;
+        }
+      });
+    };
+    window._bootMap();
+
+    // The map keeps the GPU state of every style it has drawn for as long as
+    // it lives, and this page lives as long as the feed. Removing it loses
+    // its GL context, which is what hands that memory back to the driver.
+    window._recycleMap = function() {
+      try { window.map.remove(); } catch (e) {}
+      window._currentBaseStyle = null;
+      window._currentBaseMode = null;
+      window._bootMap();
+    };
 
 ${heartbeatScript()}
   </script>
 </body>
 </html>`;
+}
+
+/** Rebuilds a worker's map, sent by the pool once it has been idle a while. */
+export function buildRecycleSnapshotMapScript(): string {
+  return 'window._recycleMap && window._recycleMap(); true;';
 }

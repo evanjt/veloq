@@ -8,8 +8,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Scenario: the Insights widget lists the Insights tab's ranked cards, one at the smallest size,
- * two at the next and four at the largest, and a placed widget may be limited to some kinds.
+ * Scenario: the Insights widget lists the Insights tab's ranked cards, one at the smallest size
+ * and at one row tall, two at the next and four at the largest, and a placed widget may be limited to some kinds.
  *
  * Expected behaviour: each size draws that many rows in the tab's order, each row opens its own
  * link, the largest size counts the rows it has no room for, a kind pick removes the other kinds
@@ -49,6 +49,13 @@ class InsightsWidgetTest {
     assertEquals(listOf("a"), ids(SummarySize.SMALL))
     assertEquals(listOf("a", "b"), ids(SummarySize.MEDIUM))
     assertEquals(listOf("a", "b", "c", "d"), ids(SummarySize.LARGE))
+  }
+
+  @Test
+  fun a_placement_one_row_tall_lists_one_insight_and_counts_none_left_out() {
+    assertEquals(SummarySize.SHORT, InsightsWidget.sizeFor(276, 51))
+    assertEquals(listOf("a"), ids(SummarySize.SHORT))
+    assertEquals(0, InsightsWidget.content(snapshot(), SummarySize.SHORT, null).more)
   }
 
   @Test

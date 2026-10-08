@@ -19,10 +19,12 @@ import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
 import { MapDistanceBand, RangeCoverage, SyncState } from 'veloqrs';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { useExcludedActivities } from '@/features/routes/hooks/useExcludedActivities';
 import { useMuscleDetail } from '@/features/strength/hooks/useMuscleDetail';
 import { useDetailCoordinates } from '@/features/activity/hooks/useDetailCoordinates';
-import { useSectionDetailPerformance } from '@/features/routes/hooks/useSectionDetailData';
+import {
+  useRouteDetailPerformance,
+  useSectionDetailPerformance,
+} from '@/features/routes/hooks/useSectionDetailData';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
 import { useLedgerActivityNames } from '@/features/routes/hooks/useLedgerActivityNames';
 import { NO_EVENT_DETAILS } from '@/features/routes/lib/sectionLedger';
@@ -66,22 +68,9 @@ const getActivityCount = jest.fn(() => 0);
 const getStats = jest.fn(() => ({ activityCount: 0, libraryCount: 12 }));
 const libraryCoverage = jest.fn(() => ({ upstream: 400, local: 120 }));
 const rangeCoverage = jest.fn(() => RangeCoverage.NotFetched);
-const getExcludedRouteActivityIds = jest.fn(() => ['act-1']);
-const getExcludedRoutePerformances = jest.fn(() => ({
-  performances: [
-    {
-      activityId: 'act-1',
-      speed: 5,
-      date: 1_700_000_000,
-      name: 'Morning ride',
-      direction: 'same',
-      duration: 600,
-      matchPercentage: 98,
-    },
-  ],
-}));
 const getGpsTrack = jest.fn(() => new Uint8Array([7, 8]).buffer);
 const getSectionDetailPerformance = jest.fn(() => ({ records: [], chart: [] }));
+const getRouteDetailPerformance = jest.fn(() => ({ sportCounts: [] }));
 const getMuscleDetail = jest.fn(() => ({
   slug: 'quads',
   exercises: [{ name: 'Squat', role: 'primary', sets: 3, reps: 8, volumeKg: 900 }],
@@ -142,11 +131,10 @@ const engine = {
   getStats,
   libraryCoverage,
   rangeCoverage,
-  getExcludedRouteActivityIds,
-  getExcludedRoutePerformances,
   getMuscleDetail,
   getGpsTrack,
   getSectionDetailPerformance,
+  getRouteDetailPerformance,
   getWorkoutSections,
   getActivityNames,
   hasStrengthData,
@@ -377,31 +365,6 @@ describe('useRangeCoverage', () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = renderHook(() => useRangeCoverage(30));
     expect(result.current).toBe(RangeCoverage.NotFetched);
-  });
-});
-
-// A stable array: the hook loads the ids in an effect keyed on it, so a fresh
-// literal per render would set state forever.
-const PRECOMPUTED_EXCLUDED = ['act-1'];
-
-describe('useExcludedActivities', () => {
-  it('re-reads the excluded performances when sections change', () => {
-    const { result } = renderHook(() =>
-      useExcludedActivities('route-1', 'Ride', PRECOMPUTED_EXCLUDED)
-    );
-    act(() => result.current.handleToggleShowExcluded());
-    const afterToggle = getExcludedRoutePerformances.mock.calls.length;
-    expect(afterToggle).toBeGreaterThan(0);
-
-    emit('sections');
-    expect(getExcludedRoutePerformances.mock.calls.length).toBe(afterToggle + 1);
-  });
-
-  it('reads nothing while the excluded rows are hidden', () => {
-    renderHook(() => useExcludedActivities('route-1', 'Ride', PRECOMPUTED_EXCLUDED));
-
-    emit('sections');
-    expect(getExcludedRoutePerformances).not.toHaveBeenCalled();
   });
 });
 
@@ -746,5 +709,42 @@ describe('useSectionDetailPerformance', () => {
     const afterMount = getSectionDetailPerformance.mock.calls.length;
     emit('sections');
     expect(getSectionDetailPerformance.mock.calls.length).toBe(afterMount + 1);
+  });
+});
+
+describe('useRouteDetailPerformance', () => {
+  it('re-reads the attempts when the route groups change', () => {
+    renderHook(() => useRouteDetailPerformance('route-1', 0, undefined));
+    const afterMount = getRouteDetailPerformance.mock.calls.length;
+    expect(afterMount).toBeGreaterThan(0);
+
+    emit('groups');
+    expect(getRouteDetailPerformance.mock.calls.length).toBe(afterMount + 1);
+  });
+
+  it('re-reads the attempts when a detection run lands', () => {
+    renderHook(() => useRouteDetailPerformance('route-1', 0, undefined));
+    const afterMount = getRouteDetailPerformance.mock.calls.length;
+
+    emit('detectionApplied');
+    expect(getRouteDetailPerformance.mock.calls.length).toBe(afterMount + 1);
+  });
+
+  it('reads nothing without a route', () => {
+    renderHook(() => useRouteDetailPerformance(undefined, 0, undefined));
+
+    emit('groups');
+    expect(getRouteDetailPerformance).not.toHaveBeenCalled();
+  });
+
+  it('hands a thrown read back as an error', () => {
+    const engineDown = new Error('engine down');
+    getRouteDetailPerformance.mockImplementationOnce(() => {
+      throw engineDown;
+    });
+    const { result } = renderHook(() => useRouteDetailPerformance('route-1', 0, undefined));
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toBe(engineDown);
   });
 });

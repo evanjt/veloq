@@ -79,6 +79,7 @@ jobs:
       # Expo configuration is read again by the Xcode bundling phase and by
       # fastlane, so the identity holds for every step rather than for prebuild.
       APP_VARIANT: ${{ inputs.variant }}
+      # The scheme is the app name scripts/lib/app-identity.js gives the identity, without spaces.
       SCHEME: ${{ inputs.variant == 'production' && 'Veloq' || 'VeloqDev' }}
     outputs:
       version: ${{ steps.version.outputs.version }}

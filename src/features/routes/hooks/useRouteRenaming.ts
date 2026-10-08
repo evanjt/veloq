@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, TextInput } from 'react-native';
 import type { TFunction } from 'i18next';
-import { getEngine } from '@/shared/native/engine';
+import { setRouteName } from '../lib/nameCommands';
 import * as haptics from '@/shared/ui/haptics';
 
 /**
- * `preComputedNames` lets a caller that already read the name map as part of a
- * screen bundle skip this hook's own FFI call.
+ * `routeNames` is the name map the route detail read carries, the one reader
+ * of route names on that screen. Undefined while the read is loading.
  */
 export function useRouteRenaming(
   id: string | undefined,
   routeGroupBaseName: string | undefined,
   t: TFunction,
-  preComputedNames?: Record<string, string>
+  routeNames: Record<string, string> | undefined
 ) {
   // State for route renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -21,10 +21,7 @@ export function useRouteRenaming(
   const nameInputRef = useRef<TextInput>(null);
   const openedWithName = useRef<string | null>(null);
 
-  const readNames = useCallback(
-    () => preComputedNames ?? getEngine()?.getAllRouteNames() ?? {},
-    [preComputedNames]
-  );
+  const readNames = useCallback(() => routeNames ?? {}, [routeNames]);
 
   useEffect(() => {
     if (id) {
@@ -35,14 +32,9 @@ export function useRouteRenaming(
     }
   }, [id, readNames]);
 
-  // Rename function - calls engine directly (no need to load all groups)
+  // Engine fires 'groups' event which triggers subscribers to refresh
   const renameRoute = useCallback((routeId: string, name: string) => {
-    const engine = getEngine();
-    if (!engine) {
-      throw new Error('Route engine not initialised');
-    }
-    engine.setRouteName(routeId, name);
-    // Engine fires 'groups' event which triggers subscribers to refresh
+    setRouteName(routeId, name);
   }, []);
 
   // Handle starting to edit the route name

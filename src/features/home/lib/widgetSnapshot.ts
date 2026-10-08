@@ -22,6 +22,7 @@ import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import type { SampleWidgetLibrary } from 'veloqrs/src/delegates/fitness';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '@/features/settings/light';
+import { MUSCLE_NAME_KEYS, demoStrengthSets } from '@/features/strength/light';
 import {
   widgetInsights,
   type Insight,
@@ -93,6 +94,16 @@ export const WIDGET_STRING_KEYS = [
   'systemSurfaces.latest.load',
   'systemSurfaces.latest.loadVsTypical',
   'systemSurfaces.latest.sectionPrs',
+  'period.long.1m',
+  'strength.noWorkouts',
+  'strength.noWorkoutsThisMonth',
+  'strength.notDownloaded',
+  // Every plural form any locale gives the count, which the engine picks between.
+  'strength.setsCount_one',
+  'strength.setsCount_few',
+  'strength.setsCount_many',
+  'strength.setsCount_other',
+  ...Object.values(MUSCLE_NAME_KEYS),
 ] as const;
 
 /** One piece of a date format, as `Intl.DateTimeFormat.formatToParts` names it. */
@@ -113,6 +124,8 @@ export interface WidgetDateWords {
   weekdays: string[];
   monthDay: WidgetDatePattern;
   monthDayYear: WidgetDatePattern;
+  /** Long month names as a label writes one alone, January first. */
+  months: string[];
 }
 
 /** What the engine composes the snapshot with beside its own rows. */
@@ -262,6 +275,9 @@ export function widgetDateWords(locale: string = getIntlLocale()): WidgetDateWor
     weekdays,
     monthDay: datePattern(locale, { month: 'short', day: 'numeric' }),
     monthDayYear: datePattern(locale, { month: 'short', day: 'numeric', year: 'numeric' }),
+    months: Array.from({ length: 12 }, (_, m) =>
+      new Date(SAMPLE_YEAR, m, SAMPLE_DAY).toLocaleDateString(locale, { month: 'long' })
+    ),
   };
 }
 
@@ -383,13 +399,14 @@ export function gatherWidgetSnapshot(opts: {
 }
 
 /**
- * The library the widgets draw while nobody is signed in, from the fixtures demo
- * mode seeds. The fixtures load inside `demoLibrary`, so a session that never
- * shows them never pays for them.
+ * The library the widgets draw while nobody is signed in, from the fixtures and
+ * the strength sets demo mode seeds. The fixtures load inside `demoLibrary`, so
+ * a session that never shows them never pays for them.
  */
 function sampleLibrary(): SampleWidgetLibrary {
   const { athleteJson, sportSettingsJson, wellness, activities } = demoLibrary();
-  return { athleteJson, sportSettingsJson, wellness, activities };
+  const exerciseSets = Object.values(demoStrengthSets).flat();
+  return { athleteJson, sportSettingsJson, wellness, activities, exerciseSets };
 }
 
 /**

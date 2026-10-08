@@ -1295,6 +1295,10 @@
     "noSectionsMatchFilter": "No sections match filter",
     "placeJourney": "{{start}} to {{end}}",
     "placeLoop": "{{place}} Loop",
+    "placeNameButton": "Name from places",
+    "placeNameFailedMessage": "The place name could not be looked up, so the name stays as it was. Please try again later.",
+    "placeNameFailedTitle": "No place name",
+    "placeNameNoPlaceMessage": "No place was found where this starts, so the name stays as it was.",
     "pointCountHint_one": "{{count}} GPS point",
     "pointCountHint_other": "{{count}} GPS points",
     "renameFailedTitle": "Name could not be saved",
@@ -1560,7 +1564,7 @@
       "title": "Place names",
       "attribution": "Place names © OpenStreetMap contributors",
       "noticeTitle": "Use place names?",
-      "noticeBody": "When a new route or section is found, its start and end point are sent to OpenStreetMap's Nominatim service to look up a place name. No existing route or section is sent, and nothing about you. The service's usage policy applies.",
+      "noticeBody": "When a new route or section is found, or when you ask for one to be named, its start and end point are sent to OpenStreetMap's Nominatim service to look up a place name. No other route or section is sent, and nothing about you. The service's usage policy applies.",
       "readPolicy": "Usage policy",
       "accept": "Accept"
     },
@@ -1999,6 +2003,7 @@
     "setColumn": "Set",
     "snapshot": "Strength snapshot",
     "noWorkouts": "No strength workouts in the last {{period}}",
+    "noWorkoutsThisMonth": "No strength workouts this month",
     "noWorkoutsHint": "Complete a strength workout to see your muscle group breakdown here",
     "notDownloaded": "Strength workouts not downloaded yet",
     "notDownloadedHint": "Your set data arrives with the workout files. Connect to download them.",
@@ -2274,6 +2279,8 @@
     "insightsMore": "+{{rest}} more",
     "insightKinds": "Kinds",
     "insightKindsDescription": "Choose which kinds of insight the widget lists. Choosing none lists every kind.",
+    "strengthDescription": "Your training load on the body, muscle by muscle.",
+    "strengthWindowDescription": "Choose which period the widget shows.",
     "insightKind": {
       "sectionPr": "Section PRs",
       "sectionTrend": "Section trends",
@@ -2287,6 +2294,9 @@
       "efficiencyTrend": "Efficiency trends",
       "sectionChanged": "Changed sections"
     },
+    "strengthDescription": "The muscles you trained, shaded by sets.",
+    "strengthPeriod": "Period",
+    "strengthPeriodDescription": "Choose which days the widget shades.",
     "latest": {
       "rank": "{{rank}} of {{total}}",
       "fastest": "Your fastest",

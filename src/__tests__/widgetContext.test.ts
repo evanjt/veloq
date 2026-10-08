@@ -18,6 +18,7 @@ const NO_DATES = {
   weekdays: [],
   monthDay: { parts: [], months: [] },
   monthDayYear: { parts: [], months: [] },
+  months: [],
 };
 
 describe('the words the engine writes', () => {
@@ -96,6 +97,13 @@ describe('the date words', () => {
     expect(months).toHaveLength(12);
     expect(months[0]).toBe('Jan');
     expect(months[11]).toBe('Dec');
+  });
+
+  it('carry the long month names a label writes alone, which the strength month is called by', () => {
+    expect(widgetDateWords('en-US').months).toHaveLength(12);
+    expect(widgetDateWords('en-US').months[9]).toBe('October');
+    // Alone, not inside a date: Polish names the month in the nominative.
+    expect(widgetDateWords('pl').months[9]).toBe('październik');
   });
 
   it('put the year where the locale puts it', () => {

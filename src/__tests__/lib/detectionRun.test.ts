@@ -16,7 +16,6 @@ function engineWith(overrides: Record<string, unknown> = {}) {
     }),
     pollSectionDetection: jest.fn(() => 'running'),
     pollSectionDetectionRun: jest.fn((_runId: string) => '1:running'),
-    lastSectionDetectionOutcome: jest.fn(() => 'idle'),
     getSectionDetectionProgress: jest.fn(() => ({
       phase: 'analyzing',
       completed: 3,
@@ -86,17 +85,14 @@ describe('following a detection run', () => {
     await expect(settled).resolves.toBe('error');
   });
 
-  it('uses the poll verdict without a second outcome read', async () => {
-    const { engine, announce } = engineWith({
-      lastSectionDetectionOutcome: jest.fn(() => 'error'),
-    });
+  it('settles on the poll verdict when the slot reads idle', async () => {
+    const { engine, announce } = engineWith();
     const { settled } = followDetection(engine as never);
 
     engine.pollSectionDetection.mockReturnValue('idle');
     announce();
 
     await expect(settled).resolves.toBe('idle');
-    expect(engine.lastSectionDetectionOutcome).not.toHaveBeenCalled();
   });
 
   it('keeps the failed verdict after the worker cleared its slot', async () => {
@@ -107,7 +103,6 @@ describe('following a detection run', () => {
     announce();
 
     await expect(settled).resolves.toBe('error');
-    expect(engine.lastSectionDetectionOutcome).not.toHaveBeenCalled();
   });
 
   it('reads a completed run after the worker cleared its slot', async () => {
@@ -118,7 +113,6 @@ describe('following a detection run', () => {
     announce();
 
     await expect(settled).resolves.toBe('complete');
-    expect(engine.lastSectionDetectionOutcome).not.toHaveBeenCalled();
   });
 
   it.each([

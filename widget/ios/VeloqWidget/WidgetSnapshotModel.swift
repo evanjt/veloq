@@ -1,6 +1,6 @@
 import Foundation
 
-// Decodable mirror of src/features/home/lib/widgetSnapshot.ts (schema version 14). The
+// Decodable mirror of src/features/home/lib/widgetSnapshot.ts (schema version 15). The
 // widget only renders this, it never computes. Optional fields decode to nil when the
 // key is missing, so a partial or older-schema snapshot degrades gracefully instead of
 // failing to decode. Version skew happens in both directions: keep every field added
@@ -192,11 +192,16 @@ struct WidgetPaletteData: Codable {
   let toneInfo: String?
   let toneOpportunity: String?
   let border: String
+  /// The body diagram's untrained fill and its volume shades, lightest first. Absent on a
+  /// snapshot written before the strength widget.
+  let bodyFill: String?
+  let strengthRamp: [String]?
 }
 
+/// A scheme the block leaves out draws the generated theme, which comes from the same tokens.
 struct WidgetThemeData: Codable {
-  let light: WidgetPaletteData
-  let dark: WidgetPaletteData
+  let light: WidgetPaletteData?
+  let dark: WidgetPaletteData?
 }
 
 struct WidgetSnapshot: Codable {
@@ -241,6 +246,9 @@ struct WidgetSnapshot: Codable {
   /// The Insights tab's ranked list, in its order and of every kind; each placed Insights widget
   /// filters it for itself. Nil on a snapshot written before schema 11.
   let insights: [WidgetInsight]?
+  /// The strength diagram over the last 30 days and the calendar month. Nil on a snapshot
+  /// written before schema 15.
+  let strength: WidgetStrength?
 }
 
 /// One recent sport: the id, the name a surface shows, and the link that starts it.

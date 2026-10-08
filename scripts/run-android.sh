@@ -4,11 +4,14 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
+# A debug build is Veloq Dev and a release build is Veloq, whatever the caller exported.
 case "${1:-}" in
-debug) variant=debug; app_id=com.veloq.app.dev ;;
-release) variant=release; app_id=com.veloq.app ;;
+debug) variant=debug; APP_VARIANT=dev ;;
+release) variant=release; APP_VARIANT=production ;;
 *) echo "usage: scripts/run-android.sh debug|release" >&2; exit 2 ;;
 esac
+export APP_VARIANT
+app_id=$(node scripts/lib/app-identity.js appId)
 
 # Select the device before either lock. Both adb and the device lock use this serial.
 . scripts/device-lock-path.sh
@@ -22,6 +25,7 @@ export ANDROID_SERIAL
 
 if [ "$variant" = debug ]; then
   scripts/with-android-build-lock.sh sh -ec '
+    node scripts/prepare-native.mjs --platform android
     node scripts/check-toolchain.mjs
     node scripts/sync-android-widgets.mjs
     node scripts/check-native-tree.mjs
@@ -30,9 +34,8 @@ if [ "$variant" = debug ]; then
     node scripts/build-record.js write debug
   '
 else
-  APP_VARIANT=production
-  export APP_VARIANT
   scripts/with-android-build-lock.sh sh -ec '
+    node scripts/prepare-native.mjs --platform android
     node scripts/check-toolchain.mjs
     node scripts/sync-android-widgets.mjs
     node scripts/check-native-tree.mjs

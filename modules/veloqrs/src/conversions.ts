@@ -3,46 +3,12 @@
  */
 
 import type { FfiDetectionProgress } from './generated/veloqrs';
-import type { LatLngShort } from './coords';
 
 /**
  * Progress state for section detection.
  * Alias for the generated FfiDetectionProgress type.
  */
 export type SectionDetectionProgress = FfiDetectionProgress;
-
-/**
- * A user-created custom section.
- * Created by selecting a portion of an activity's GPS track.
- */
-export interface CustomSection {
-  /** Unique section ID */
-  id: string;
-  /** User-defined or auto-generated name */
-  name: string;
-  /** GPS points defining the section */
-  polyline: LatLngShort[];
-  /** Start index in the source activity's GPS track */
-  startIndex: number;
-  /** End index in the source activity's GPS track */
-  endIndex: number;
-  /** Activity ID this section was created from */
-  sourceActivityId: string;
-  /** Sport type (e.g., "Ride", "Run") */
-  sportType: string;
-  /** Section length in meters */
-  distanceMeters: number;
-  /** ISO timestamp when the section was created */
-  createdAt: string;
-}
-
-/**
- * Progress event from fetch operations.
- */
-export interface FetchProgressEvent {
-  completed: number;
-  total: number;
-}
 
 /**
  * Maximum allowed length for user-provided names (route names, section names).

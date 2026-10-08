@@ -2,18 +2,16 @@
  * Section query delegates (read-only).
  *
  * Pure read operations over sections: CRUD list/get, polylines, performances,
- * efficiency trends, calendar summaries, reference info, nearby/merge
- * candidates, matching queries, indicators, encounters, and trace extraction.
+ * calendar summaries, reference info, nearby/merge candidates, matching
+ * queries, indicators, encounters, and trace extraction.
  * No mutations emitted from this module.
  */
 
 import { validateId } from '../../conversions';
 import type {
-  FfiEfficiencyTrend,
   FfiSection,
   FfiMapSection,
   FfiNamedCorridor,
-  FfiRankedSection,
   FfiSectionDetailData,
   FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
@@ -47,13 +45,6 @@ export function getMapSections(
   // forward optional args as-is, do NOT coalesce to null.
   return host.timed('getMapSections', () =>
     host.engine.sections().getMapSections(sportType, minVisits)
-  );
-}
-
-export function getSectionsForActivity(host: DelegateHost, activityId: string): FfiSection[] {
-  if (!host.ready) return [];
-  return host.timed('getSectionsForActivity', () =>
-    host.engine.sections().getSections({ activityId })
   );
 }
 
@@ -106,11 +97,6 @@ export function getFilteredSectionSummaries(
   );
 }
 
-export interface RankedSectionsBySport {
-  sportType: string;
-  sections: FfiRankedSection[];
-}
-
 export function getSectionById(host: DelegateHost, sectionId: string): FfiSection | null {
   if (!host.ready) return null;
   validateId(sectionId, 'section ID');
@@ -146,22 +132,6 @@ export function getSectionPerformances(
   );
 }
 
-/**
- * Batched section-performance fetch. One FFI round-trip for many section
- * IDs instead of N. Backed by `SectionManager.get_performances_batch`.
- * Returns one entry per requested id, in the same order.
- */
-export function getPerformancesBatch(
-  host: DelegateHost,
-  sectionIds: string[],
-  sportType?: string
-): { sectionId: string; result: FfiSectionPerformanceResult }[] {
-  if (!host.ready || sectionIds.length === 0) return [];
-  return host.timed('getPerformancesBatch', () =>
-    host.engine.sections().getPerformancesBatch(sectionIds, sportType)
-  );
-}
-
 export type { FfiWorkoutSection } from '../../generated/veloqrs';
 
 export function getWorkoutSections(
@@ -176,20 +146,6 @@ export function getWorkoutSections(
 }
 export type { FfiSectionChartData };
 export type { FfiSectionChartPoint } from '../../generated/veloqrs';
-
-export function getSectionEfficiencyTrend(
-  host: DelegateHost,
-  sectionId: string,
-  sportType: string
-): FfiEfficiencyTrend | null {
-  if (!host.ready) {
-    return null;
-  }
-  return host.timed(
-    'getSectionEfficiencyTrend',
-    () => host.engine.sections().getEfficiencyTrend(sectionId, sportType) ?? null
-  );
-}
 
 export function getSectionReferenceInfo(
   host: DelegateHost,

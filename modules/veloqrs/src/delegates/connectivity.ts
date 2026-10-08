@@ -14,12 +14,8 @@
 import {
   setNetworkOnline as ffiSetNetworkOnline,
   setInteracting as ffiSetInteracting,
-  getNetworkPush as ffiGetNetworkPush,
-  type NetworkPush,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
-
-export type { NetworkPush };
 
 /**
  * Tell Rust what the network looks like. Call on every transition and on
@@ -32,11 +28,6 @@ export function setNetworkOnline(host: DelegateHost, online: boolean): void {
   } catch (e) {
     console.error('[Engine] setNetworkOnline threw:', e);
   }
-}
-
-/** What was last pushed and how old it is. Null when nothing has been. */
-export function getNetworkPush(host: DelegateHost): NetworkPush | null {
-  return host.timed('getNetworkPush', () => ffiGetNetworkPush() ?? null);
 }
 
 /**

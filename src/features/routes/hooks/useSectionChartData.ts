@@ -26,7 +26,9 @@ export interface UseSectionChartDataResult {
 
   // Stats (from Rust)
   bestTimeValue: number | undefined;
-  lastActivityDate: string | undefined;
+  /** The oldest and newest attempt in the range the engine answered. */
+  firstActivityDate: Date | null;
+  lastActivityDate: Date | null;
 }
 
 export function useSectionChartData({
@@ -62,6 +64,9 @@ export function useSectionChartData({
       lapCount: 1,
       isBest: p.isBest,
       avgPower: p.avgPower ?? undefined,
+      // A route attempt's band and match; false and absent on a section.
+      outsideDistanceBand: p.outsideDistanceBand,
+      matchPercentage: p.matchPercentage ?? undefined,
     }));
 
     return {
@@ -72,11 +77,12 @@ export function useSectionChartData({
     };
   }, [rustChart]);
 
-  const { bestTimeValue, lastActivityDate } = useMemo(() => {
+  const { bestTimeValue, firstActivityDate, lastActivityDate } = useMemo(() => {
     if (!rustChart) {
       return {
         bestTimeValue: undefined as number | undefined,
-        lastActivityDate: undefined as string | undefined,
+        firstActivityDate: null,
+        lastActivityDate: null,
       };
     }
     // Preserve nullable semantics: a missing field stays undefined; a
@@ -86,10 +92,8 @@ export function useSectionChartData({
       v == null ? undefined : Number.isFinite(v) ? v : undefined;
     return {
       bestTimeValue: sanitizeStat(rustChart.bestTimeSecs),
-      lastActivityDate:
-        rustChart.lastActivityDate != null
-          ? (fromUnixSeconds(rustChart.lastActivityDate)?.toISOString() ?? undefined)
-          : undefined,
+      firstActivityDate: fromUnixSeconds(rustChart.firstActivityDate),
+      lastActivityDate: fromUnixSeconds(rustChart.lastActivityDate),
     };
   }, [rustChart]);
 
@@ -99,6 +103,7 @@ export function useSectionChartData({
     maxSpeed,
     hasReverseRuns,
     bestTimeValue,
+    firstActivityDate,
     lastActivityDate,
   };
 }

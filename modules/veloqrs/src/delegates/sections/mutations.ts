@@ -1,15 +1,14 @@
 /**
  * Section mutation delegates.
  *
- * CRUD-style changes: rename, create from GPS slice, delete, set/reset
- * reference activity, rematch a single activity, merge two sections, and
- * recompute activity indicators. Every successful call emits the 'sections'
- * notification so cached summaries refresh.
+ * CRUD-style changes: rename, create from GPS slice, delete, rematch a single
+ * activity, merge two sections, and recompute activity indicators. Every
+ * successful call emits the 'sections' notification so cached summaries
+ * refresh.
  */
 
 import { validateId, validateName } from '../../conversions';
 import type {
-  FfiDepartedRide,
   FfiIndexActivitySummary,
   FfiMergeDropped,
   FfiMergeOutcome,
@@ -119,46 +118,6 @@ export function deleteSection(host: DelegateHost, sectionId: string): boolean {
   } catch (e) {
     console.error('[Engine] deleteSection failed:', sectionId, e);
     return false;
-  }
-}
-
-export function setSectionReference(
-  host: DelegateHost,
-  sectionId: string,
-  activityId: string
-): FfiDepartedRide[] | null {
-  if (!host.ready) return null;
-  validateId(sectionId, 'section ID');
-  validateId(activityId, 'activity ID');
-  try {
-    const departed = host.timed('setSectionReference', () =>
-      host.engine.sections().setReference(sectionId, activityId)
-    );
-    host.notify('sections');
-    return departed;
-  } catch (e) {
-    // empty-on-error: a write; null is its failure and [] is no ride departing.
-    console.error('[Engine] setSectionReference failed:', sectionId, activityId, e);
-    return null;
-  }
-}
-
-export function resetSectionReference(
-  host: DelegateHost,
-  sectionId: string
-): FfiDepartedRide[] | null {
-  if (!host.ready) return null;
-  validateId(sectionId, 'section ID');
-  try {
-    const departed = host.timed('resetSectionReference', () =>
-      host.engine.sections().resetReference(sectionId)
-    );
-    host.notify('sections');
-    return departed;
-  } catch (e) {
-    // empty-on-error: a write; null is its failure and [] is no ride departing.
-    console.error('[Engine] resetSectionReference failed:', sectionId, e);
-    return null;
   }
 }
 

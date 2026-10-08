@@ -3,10 +3,14 @@
  * weighted columns (0dp wide) and gains a `match_parent`-wide child beside them. The wide child
  * takes the whole row, the columns measure 0 wide, and the widget draws only that child.
  *
- * A bare View separator also fails in a widget host because RemoteViews cannot inflate it.
+ * Expected behaviour: the guard fails on that shape and names the layout, and passes when the
+ * wide child sits in a vertical container below the columns.
  *
- * Expected behaviour: the guard names either failing layout, and passes when the wide child
- * sits in a vertical container or a supported view draws the separator.
+ * Scenario: a widget layout gains a plain `View` as a spacer or divider, which RemoteViews refuses,
+ * so the launcher shows its error card in place of the widget.
+ *
+ * Expected behaviour: the guard fails on it in a widget layout and passes it in a configure
+ * screen, which is an ordinary activity.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -85,13 +89,30 @@ it('passes when the wide child is itself weighted', () => {
   expect(runGuard(root).status).toBe(0);
 });
 
-it('fails when a widget layout uses a View that RemoteViews cannot inflate', () => {
+const SPACER = `<View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />`;
+
+it('fails on a plain View in a widget layout, which a launcher refuses to inflate', () => {
   const root = tree(
-    'widget_separator.xml',
-    `<LinearLayout ${NS} android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"><View android:layout_width="match_parent" android:layout_height="1dp" /></LinearLayout>`
+    'widget_spacer.xml',
+    `<LinearLayout ${NS} android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">${AGE}${SPACER}</LinearLayout>`
   );
   const { status, output } = runGuard(root);
   expect(status).not.toBe(0);
-  expect(output).toContain('widget_separator.xml');
-  expect(output).toContain('RemoteViews');
+  expect(output).toContain('widget_spacer.xml: View');
+});
+
+it('passes the same spacer as a FrameLayout', () => {
+  const root = tree(
+    'widget_frame.xml',
+    `<LinearLayout ${NS} android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">${AGE}${SPACER.replace('<View', '<FrameLayout')}</LinearLayout>`
+  );
+  expect(runGuard(root).status).toBe(0);
+});
+
+it('passes a plain View in a configure screen, which is an ordinary activity', () => {
+  const root = tree(
+    'widget_summary_configure.xml',
+    `<LinearLayout ${NS} android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">${AGE}${SPACER}</LinearLayout>`
+  );
+  expect(runGuard(root).status).toBe(0);
 });

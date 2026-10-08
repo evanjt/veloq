@@ -18,11 +18,6 @@ jest.mock('@/shared/native/useEngineSubscription', () => ({
       read({}),
 }));
 
-// The bundle's list keeps its identity between reads, as the screen's does.
-const NONE: string[] = [];
-const ONE = ['a1'];
-const TWO = ['a1', 'a2'];
-
 describe('useExcludedActivities write', () => {
   const engine = {
     excludeActivityFromRoute: jest.fn(),
@@ -36,9 +31,7 @@ describe('useExcludedActivities write', () => {
 
   it('asks for a fresh bundle after an exclusion', () => {
     const onRouteRefresh = jest.fn();
-    const { result } = renderHook(() =>
-      useExcludedActivities('route-1', undefined, NONE, onRouteRefresh)
-    );
+    const { result } = renderHook(() => useExcludedActivities('route-1', onRouteRefresh));
 
     act(() => result.current.handleExcludeActivity('a1'));
 
@@ -48,9 +41,7 @@ describe('useExcludedActivities write', () => {
 
   it('asks for a fresh bundle after an inclusion', () => {
     const onRouteRefresh = jest.fn();
-    const { result } = renderHook(() =>
-      useExcludedActivities('route-1', undefined, ONE, onRouteRefresh)
-    );
+    const { result } = renderHook(() => useExcludedActivities('route-1', onRouteRefresh));
 
     act(() => result.current.handleIncludeActivity('a1'));
 
@@ -58,28 +49,10 @@ describe('useExcludedActivities write', () => {
     expect(onRouteRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('takes the excluded set from the bundle it is handed', () => {
-    const onRouteRefresh = jest.fn();
-    const { result, rerender } = renderHook(
-      ({ ids }: { ids: string[] }) =>
-        useExcludedActivities('route-1', undefined, ids, onRouteRefresh),
-      { initialProps: { ids: ONE } }
-    );
-    expect([...result.current.excludedActivityIds]).toEqual(['a1']);
-
-    act(() => result.current.handleExcludeActivity('a2'));
-    expect([...result.current.excludedActivityIds]).toEqual(['a1']);
-
-    rerender({ ids: TWO });
-    expect([...result.current.excludedActivityIds]).toEqual(['a1', 'a2']);
-  });
-
   it('writes and refreshes nothing without an engine', () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const onRouteRefresh = jest.fn();
-    const { result } = renderHook(() =>
-      useExcludedActivities('route-1', undefined, NONE, onRouteRefresh)
-    );
+    const { result } = renderHook(() => useExcludedActivities('route-1', onRouteRefresh));
 
     act(() => result.current.handleExcludeActivity('a1'));
 

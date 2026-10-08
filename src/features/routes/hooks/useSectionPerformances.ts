@@ -34,6 +34,8 @@ export interface SectionLap {
   avgPower: number | null;
   /** The athlete excluded this lap. Only the lap list's records carry one. */
   excluded: boolean;
+  /** The engine names this lap as the section's record in its direction. */
+  isRecord: boolean;
 }
 
 /**
@@ -132,6 +134,7 @@ export function toPerformanceRecord(
       avgHr: l.avgHr ?? null,
       avgPower: l.avgPower ?? null,
       excluded: l.excluded,
+      isRecord: l.isRecord,
     })),
     lapCount: r.lapCount,
     bestTime: r.bestTime,

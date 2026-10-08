@@ -1039,13 +1039,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     where:
-      'the veloq_summary_widget, veloq_record_widget and veloq_insights_widget preference files',
+      'the veloq_summary_widget, veloq_record_widget, veloq_insights_widget and veloq_strength_widget preference files',
     writers: [
       'widget/android/java/SummaryWidgetChoice.kt',
       'widget/android/java/RecordWidgetChoice.kt',
       'widget/android/java/InsightsWidgetChoice.kt',
+      'widget/android/java/StrengthWidgetChoice.kt',
     ],
-    holds: "each placed widget's hero metric, sport link or insight kinds",
+    holds: "each placed widget's hero metric, sport link, insight kinds or strength window",
     kept: 'the configuration of a placed widget, no athlete data, removed with the widget',
   },
 

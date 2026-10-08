@@ -39,9 +39,13 @@ data class LastActivityContent(
  * activity raised leads, then the section records it set, then the load and form it moved.
  */
 object LastActivityWidget {
-  /** Narrow is Small; a wide one is Medium until it is tall enough for the load and form rows. */
+  /**
+   * One row is Short; narrow is Small; a wide one is Medium until it is tall enough for the load
+   * and form rows.
+   */
   fun sizeFor(widthDp: Int, heightDp: Int): SummarySize =
     when {
+      SummaryWidget.isShort(heightDp) -> SummarySize.SHORT
       widthDp < 200 -> SummarySize.SMALL
       heightDp >= 180 -> SummarySize.LARGE
       else -> SummarySize.MEDIUM
@@ -51,12 +55,14 @@ object LastActivityWidget {
     val latest = snap.latest ?: return null
     val headline = latest.headline
     val leads = headline != null
-    val small = size == SummarySize.SMALL
+    val short = size == SummarySize.SHORT
+    val small = short || size == SummarySize.SMALL
     val large = size == SummarySize.LARGE
     return LastActivityContent(
       name = if (small && leads) null else latest.name,
       showsRoute = !small && latest.routePreview != null,
-      heroLabel = headline?.label?.takeIf { it.isNotEmpty() },
+      // One row holds the comparison and its dots; a route's name could wrap past it.
+      heroLabel = if (short) null else headline?.label?.takeIf { it.isNotEmpty() },
       hero = headline?.hero,
       detail = headline?.detail,
       dots = headline?.dots ?: emptyList(),
@@ -67,11 +73,13 @@ object LastActivityWidget {
             .filter { it.isNotEmpty() }
             .joinToString(" · ")
             .takeIf { it.isNotEmpty() },
-      sectionPrs = latest.sectionPrsText,
+      sectionPrs = if (short) null else latest.sectionPrsText,
       // The load is the hero when there is no ranking, so it is not said twice.
       load = if (large && headline?.kind != "load") latest.loadText else null,
       form = if (large) formChange(snap) else null,
-      date = if (small || large || !leads) latest.dateLabel.takeIf { it.isNotEmpty() } else null,
+      date =
+        if (!short && (small || large || !leads)) latest.dateLabel.takeIf { it.isNotEmpty() }
+        else null,
       isPr = latest.isPr,
     )
   }

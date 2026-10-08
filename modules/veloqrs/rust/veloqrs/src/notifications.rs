@@ -422,9 +422,9 @@ fn section_pr_delta(
         if best.activity_id != activity_id {
             continue;
         }
-        let rival = crate::persistence::records::section_record_rival(result, best);
-        if crate::persistence::records::is_personal_record(best.best_time, rival) {
-            return rival.map(|time| (time - best.best_time) as u32);
+        if crate::persistence::records::is_section_record_pr(result, best) {
+            return crate::persistence::records::section_record_rival(result, best)
+                .map(|time| (time - best.best_time) as u32);
         }
     }
     None

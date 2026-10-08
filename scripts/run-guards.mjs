@@ -118,6 +118,13 @@ const GUARDS = [
     catches: 'an engine export no TypeScript caller reaches and no list accounts for',
   },
   {
+    name: 'ffi:client-reach',
+    kind: 'correctness',
+    cmd: tsx('ffi-usage-report.ts', '--client', '--check'),
+    catches:
+      'an EngineClient method no production code calls, left for the next caller to reach for a fact a screen read already serves',
+  },
+  {
     name: 'ffi:orphans:check',
     kind: 'correctness',
     cmd: node('engine-orphan-report.mjs', '--check'),
@@ -182,7 +189,8 @@ const GUARDS = [
     name: 'lint:muscle-polygons',
     kind: 'correctness',
     cmd: node('generate-muscle-polygons.mjs', '--check'),
-    catches: 'the generated muscle polygons drifting from their source drawing',
+    catches:
+      'the generated muscle polygons or widget body outlines drifting from their source drawing',
   },
   {
     name: 'lint:expo-location-altitude',
@@ -750,7 +758,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-widget-layouts.mjs'),
     catches:
-      'a widget layout where a match_parent child squeezes weighted columns to 0 wide, or a bare View makes RemoteViews fail to inflate',
+      'a widget layout holding a view a launcher refuses to inflate, or a match_parent child beside weighted columns squeezing them to 0 wide',
   },
   {
     name: 'lint:widget-kotlin-arity',
@@ -758,6 +766,13 @@ const GUARDS = [
     cmd: node('lint-widget-kotlin-arity.mjs'),
     catches:
       'a widget Kotlin call passing more arguments than its helper declares, which leaves the tracked source uncompilable in a fresh Android project',
+  },
+  {
+    name: 'lint:widget-text-probes',
+    kind: 'correctness',
+    cmd: node('lint-widget-text-probes.mjs'),
+    catches:
+      'an iOS widget text the capture test never judges, so a cut-off line ships with the capture green',
   },
   {
     name: 'lint:module-link',

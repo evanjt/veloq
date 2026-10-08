@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strength widget, small: the window's name, the front of the body and the age row. Drawn as
+     authored, which is the moment before the first update, it shows the widget's name. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/str_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:orientation="vertical"
+  android:paddingStart="@dimen/widget_padding"
+  android:paddingEnd="@dimen/widget_padding"
+  android:paddingTop="@dimen/widget_gap"
+  android:paddingBottom="@dimen/widget_gap"
+  android:background="@drawable/widget_background">
+
+  <TextView
+    android:id="@+id/str_label"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:visibility="gone"
+    android:maxLines="1"
+    android:ellipsize="end"
+    android:textSize="@dimen/widget_text_caption"
+    android:textColor="@color/widget_text_secondary" />
+
+  <ImageView
+    android:id="@+id/str_front"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:visibility="gone"
+    android:scaleType="fitCenter"
+    android:contentDescription="@null" />
+
+  <ImageView
+    android:id="@+id/str_back"
+    android:layout_width="0dp"
+    android:layout_height="0dp"
+    android:visibility="gone"
+    android:contentDescription="@null" />
+
+  <LinearLayout
+    android:id="@+id/str_message"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:orientation="vertical"
+    android:gravity="center">
+
+    <TextView
+      android:id="@+id/str_empty"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center_horizontal"
+      android:text="@string/widget_strength_label"
+      android:textSize="@dimen/widget_text_label"
+      android:textStyle="bold"
+      android:textColor="@color/widget_text_primary" />
+
+    <TextView
+      android:id="@+id/str_empty_hint"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center_horizontal"
+      android:visibility="gone"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+  </LinearLayout>
+
+  <LinearLayout
+    android:id="@+id/str_age"
+    android:layout_width="match_parent"
+    android:layout_height="48dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+    <TextView
+      android:id="@+id/str_updated"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:maxLines="2"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+    <include layout="@layout/widget_refresh_control" />
+  </LinearLayout>
+</LinearLayout>

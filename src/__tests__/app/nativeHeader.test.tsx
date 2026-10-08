@@ -17,6 +17,7 @@ import {
   SCREEN_HEADERS,
   SCREEN_SHEETS,
   headerLargeTitle,
+  largeTitleScreenOptions,
   sheetScreenOptions,
 } from '@/shared/app/screenHeaders';
 import type { ScreenHeader } from '@/shared/app/screenHeaders';
@@ -144,5 +145,55 @@ describe('large titles', () => {
   it('is false for a headerless entry and for an unknown route', () => {
     expect(headerLargeTitle('none', 'ios', table)).toBe(false);
     expect(headerLargeTitle('missing', 'ios', table)).toBe(false);
+  });
+});
+
+/**
+ * Scenario: on iOS 26 an opaque navigation bar is drawn over its own large title, so the 23
+ * flagged screens showed an empty band where the title belongs, light and dark alike.
+ *
+ * Expected behaviour: a large-title route gives the bar a fully transparent large-title
+ * appearance, which is the one form the native header keeps the title visible under, and leaves
+ * the collapsed bar's background to the stack. Every other route gets no large-title styling.
+ */
+describe('large title options', () => {
+  const table: Record<string, ScreenHeader | null> = {
+    flagged: { titleKey: 'about.title', largeTitle: true },
+    unflagged: { titleKey: 'about.title' },
+    overMapFlagged: { overMap: true, largeTitle: true },
+    none: null,
+  };
+
+  it('makes the large-title appearance transparent on iOS for a flagged route', () => {
+    expect(largeTitleScreenOptions('flagged', 'ios', table)).toEqual({
+      headerLargeTitle: true,
+      headerLargeStyle: { backgroundColor: 'transparent' },
+    });
+  });
+
+  it('leaves the collapsed bar to the stack, so it keeps its opaque surface', () => {
+    expect(largeTitleScreenOptions('flagged', 'ios', table)).not.toHaveProperty('headerStyle');
+  });
+
+  it('gives no large title and no large-title styling everywhere else', () => {
+    for (const [name, os] of [
+      ['flagged', 'android'],
+      ['unflagged', 'ios'],
+      ['overMapFlagged', 'ios'],
+      ['none', 'ios'],
+      ['missing', 'ios'],
+    ]) {
+      expect(largeTitleScreenOptions(name, os, table)).toEqual({ headerLargeTitle: false });
+    }
+  });
+
+  it('covers every flagged route in the real table', () => {
+    const flagged = Object.keys(SCREEN_HEADERS).filter((name) => SCREEN_HEADERS[name]?.largeTitle);
+    expect(flagged.length).toBeGreaterThan(0);
+    for (const name of flagged) {
+      expect(largeTitleScreenOptions(name, 'ios').headerLargeStyle).toEqual({
+        backgroundColor: 'transparent',
+      });
+    }
   });
 });

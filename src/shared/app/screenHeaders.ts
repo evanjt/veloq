@@ -57,7 +57,8 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'exercise/[category]': { titleKey: 'strength.history', largeTitle: true },
   'route/[id]': { overMap: true },
   'section/[id]': { overMap: true },
-  'section/laps/[id]': { titleKey: 'sections.laps', largeTitle: true },
+  // No large title: on iOS 26 the lap list scrolled under a title that never collapsed.
+  'section/laps/[id]': { titleKey: 'sections.laps' },
   'section/history/[id]': { titleKey: 'sectionHistory.title', largeTitle: true },
 
   about: { titleKey: 'about.title', largeTitle: true },
@@ -66,7 +67,8 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'best-efforts': { titleKey: 'bestEffortsScreen.title' },
   'cache-settings': { titleKey: 'settings.dataCache', largeTitle: true },
   'data-sources-settings': { titleKey: 'settings.dataSources', largeTitle: true },
-  debug: { title: 'Developer Dashboard', largeTitle: true },
+  // No large title: on iOS 26 the dashboard scrolled under a title that never collapsed.
+  debug: { title: 'Developer Dashboard' },
   'detection-preview': { titleKey: 'settings.previewSections' },
   'detection-settings': { titleKey: 'settings.sectionDetection', largeTitle: true },
   'display-settings': { titleKey: 'settings.display', largeTitle: true },
@@ -141,6 +143,21 @@ export function headerLargeTitle(
   const header = headers[name];
   if (os !== 'ios' || !header?.largeTitle) return false;
   return !header.overMap && !header.dynamic;
+}
+
+/**
+ * The large-title options a route passes to the stack. iOS 26 draws an opaque bar over its own
+ * large title, so the large-title appearance is made transparent, the one form that keeps the
+ * title visible. The collapsed bar keeps the stack's opaque surface, so content never scrolls
+ * under a bare title on the earlier systems.
+ */
+export function largeTitleScreenOptions(
+  name: string,
+  os: string,
+  headers: Record<string, ScreenHeader | null> = SCREEN_HEADERS
+): { headerLargeTitle: boolean; headerLargeStyle?: { backgroundColor: 'transparent' } } {
+  if (!headerLargeTitle(name, os, headers)) return { headerLargeTitle: false };
+  return { headerLargeTitle: true, headerLargeStyle: { backgroundColor: 'transparent' } };
 }
 
 /**

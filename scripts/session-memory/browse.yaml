@@ -1,5 +1,9 @@
 # Rapid browsing: scroll the feed to load further pages, open the activity at
-# CARD, then switch tabs without waiting for each screen to settle.
+# CARD, then switch tabs without waiting for each screen to settle. A tap made
+# while the feed is still flinging only stops the fling, so the card is tapped
+# once the feed is at rest, and `back` is pressed only from the detail: pressed
+# on the feed it leaves the app, and a backgrounded app is trimmed, which is
+# not the session being measured.
 appId: ${APP_ID}
 ---
 - extendedWaitUntil:
@@ -12,6 +16,12 @@ appId: ${APP_ID}
       - swipe:
           direction: UP
           duration: 150
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: 'activity-card-demo-(test-[0-9]+|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]+)'
+    timeout: 20000
 - tapOn:
     id: 'activity-card-demo-(test-[0-9]+|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]+)'
     index: ${CARD}
@@ -22,7 +32,16 @@ appId: ${APP_ID}
 - swipe:
     direction: UP
     duration: 300
-- back
+- runFlow:
+    when:
+      visible:
+        id: 'activity-detail-screen'
+    commands:
+      - back
+- extendedWaitUntil:
+    visible:
+      id: 'home-screen'
+    timeout: 20000
 - tapOn: 'Map'
 - tapOn: 'Fitness'
 - tapOn: 'Insights'

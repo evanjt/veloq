@@ -84,11 +84,20 @@ const SHARED_DIR = path.join('widget', 'ios', 'shared');
 const SHARED_APP_FILES = [
   'RecordDeepLink.swift',
   'RecordSportEntity.swift',
+  'StartRecordingIntent.swift',
   'VeloqAppShortcuts.swift',
 ];
 
-/** The shared files the extension compiles too; the provider counts in the app only. */
-const SHARED_WIDGET_FILES = ['RecordDeepLink.swift', 'RecordSportEntity.swift'];
+/**
+ * The shared files the extension compiles too; the provider counts in the app only.
+ * The control's intent opens the app, which iOS refuses from an extension, so the
+ * app has to declare it as well for the system to run it there.
+ */
+const SHARED_WIDGET_FILES = [
+  'RecordDeepLink.swift',
+  'RecordSportEntity.swift',
+  'StartRecordingIntent.swift',
+];
 
 function copySharedLiveActivitySources(srcDir, destDir) {
   fs.mkdirSync(destDir, { recursive: true });
@@ -166,7 +175,8 @@ struct VeloqWidgets: WidgetBundle {
   var body: some Widget {
     VeloqWidget()
     VeloqLatestActivityWidget()
-    VeloqInsightsWidget()${record}${liveActivity}
+    VeloqInsightsWidget()
+    VeloqStrengthWidget()${record}${liveActivity}
   }
 }
 
@@ -175,7 +185,8 @@ struct VeloqWidgetsConfigurable: WidgetBundle {
   var body: some Widget {
     VeloqConfigurableWidget()
     VeloqLatestActivityWidget()
-    VeloqConfigurableInsightsWidget()${configurableRecord}${liveActivity}${probe}
+    VeloqConfigurableInsightsWidget()
+    VeloqConfigurableStrengthWidget()${configurableRecord}${liveActivity}${probe}
   }
 }
 `

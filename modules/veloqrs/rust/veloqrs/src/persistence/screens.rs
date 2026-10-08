@@ -1158,6 +1158,8 @@ fn climb_bests(
 /// record: the lock holder from its caches, a pooled reader from SQLite.
 /// Everything past that is arithmetic here, so the two paths give one answer,
 /// and every figure on the screen is taken over one sport and one cutoff.
+/// Each closure is one source a section and a route read differently.
+#[allow(clippy::too_many_arguments)]
 fn section_detail_from<R>(
     sports: &[(String, u32)],
     section_distance: Option<f64>,
@@ -1165,6 +1167,7 @@ fn section_detail_from<R>(
     time_range_days: u32,
     wellness_between: impl FnOnce(&str, &str) -> Vec<crate::FfiWellnessDay>,
     curves_of: impl FnOnce(Option<&str>) -> std::sync::Arc<Option<crate::FfiSectionLapCurves>>,
+    efficiency_of: impl FnOnce(&str) -> Option<crate::FfiEfficiencyTrend>,
     mut read: R,
 ) -> crate::FfiSectionPerformanceData
 where
@@ -1260,6 +1263,8 @@ where
         .as_ref()
         .as_ref()
         .and_then(|curves| crate::persistence::sections::lap_curves::in_range(curves, cutoff));
+    // Over the whole record, like the calendar: a range only filters the chart.
+    let efficiency_trend = sport_type.as_deref().and_then(efficiency_of);
 
     crate::FfiSectionPerformanceData {
         best_forward_is_record,
@@ -1268,10 +1273,7 @@ where
         sport_counts,
         calendar_summary: crate::persistence::fitness::derivations::calendar_from(&all)
             .map(crate::FfiCalendarSummary::from),
-        lap_records: with_excluded_laps(&all.records, &excluded.records)
-            .into_iter()
-            .map(crate::FfiSectionPerformanceRecord::from)
-            .collect(),
+        lap_records: lap_records(&all, &excluded.records),
         performances: crate::FfiSectionPerformanceResult::from(performances),
         chart_data,
         excluded_points,
@@ -1280,13 +1282,14 @@ where
         correlations,
         correlation_floor: crate::persistence::sections::correlations::MIN_PAIRS as u32,
         curves,
+        efficiency_trend,
     }
 }
 
 /// Whether the best a direction shows is that direction's record: the same lap
-/// as the best over the whole included history, and a strict beat of that
-/// history's second best. A ranged view's best that is not the whole record's
-/// is only the best of its range.
+/// as the best over the whole included history, and that history's record. A
+/// ranged view's best that is not the whole record's is only the best of its
+/// range.
 fn shown_best_is_record(
     all: &crate::SectionPerformanceResult,
     shown: Option<&crate::SectionPerformanceRecord>,
@@ -1303,18 +1306,35 @@ fn shown_best_is_record(
     let Some(whole) = whole else {
         return false;
     };
-    if whole.activity_id != shown.activity_id || whole.best_time != shown.best_time {
-        return false;
-    }
-    let times = all
-        .records
-        .iter()
-        .flat_map(|r| &r.laps)
-        .filter(|lap| (lap.direction == "reverse") == reverse && lap.direction != "partial")
-        .filter(|lap| lap.counts_for_record(whole.section_distance))
-        .map(|lap| lap.time);
-    let (best, second) = crate::persistence::records::best_two(times);
-    best.is_some_and(|best| crate::persistence::records::is_personal_record(best, second))
+    whole.activity_id == shown.activity_id
+        && whole.best_time == shown.best_time
+        && crate::persistence::records::is_section_record_pr(all, whole)
+}
+
+/// The lap list's rows: every lap of each activity, the record lap of each
+/// direction over the whole included history flagged.
+fn lap_records(
+    all: &crate::SectionPerformanceResult,
+    excluded: &[crate::SectionPerformanceRecord],
+) -> Vec<crate::FfiSectionPerformanceRecord> {
+    let record_laps: Vec<(&str, &str)> = [false, true]
+        .into_iter()
+        .filter_map(|reverse| crate::persistence::records::section_record_lap(all, reverse))
+        .map(|(record, lap)| (record.activity_id.as_str(), lap.id.as_str()))
+        .collect();
+    with_excluded_laps(&all.records, excluded)
+        .into_iter()
+        .map(crate::FfiSectionPerformanceRecord::from)
+        .map(|mut record| {
+            for lap in &mut record.laps {
+                lap.is_record = !lap.excluded
+                    && record_laps
+                        .iter()
+                        .any(|(activity, id)| *activity == record.activity_id && *id == lap.id);
+            }
+            record
+        })
+        .collect()
 }
 
 /// Each activity's laps, included and excluded together in track order, so a
@@ -1690,6 +1710,14 @@ pub mod pooled {
                     conn, section_id, sport,
                 )
             },
+            |sport| {
+                // This section's name alone: the whole overlay grows with the catalogue.
+                let names = crate::persistence::sections::named::pooled::overlay_names_for(
+                    conn,
+                    &[section_id],
+                );
+                section_efficiency_trend_of(conn, section_id, sport, &names)
+            },
             |sport, rows| match rows {
                 laps::Rows::Included => {
                     pooled::cached_section_performances(conn, section_id, sport)
@@ -1748,6 +1776,8 @@ pub mod pooled {
             latest_comparison,
             ramp_rate: wellness::latest_ramp_rate_to(conn, sparkline_days, &today),
             latest_gps,
+            // The strength windows hang off the composer's clock, which reads them.
+            ..Default::default()
         }
     }
 
@@ -1892,30 +1922,31 @@ pub mod pooled {
             None,
         );
 
-        let distance_meters = group
+        let representative = group
             .as_ref()
-            .and_then(|g| activities::metrics_of(conn, &g.representative_id))
-            .map_or(0.0, |m| m.distance);
+            .and_then(|g| activities::metrics_of(conn, &g.representative_id));
+        let (distance_meters, elevation_gain_meters) =
+            representative.map_or((0.0, 0.0), |m| (m.distance, m.elevation_gain));
         let performances = crate::FfiRoutePerformanceResult::from(performances);
-        let last_activity_date = performances
-            .performances
-            .iter()
-            .map(|p| p.date)
-            .filter(|d| d.is_finite())
-            .max_by(f64::total_cmp);
 
         crate::FfiRouteDetailData {
             activity_count: activity_count(conn),
             groups,
             performances,
             distance_meters,
-            last_activity_date,
+            elevation_gain_meters,
             encoded_representative: routes::representative_route(conn, group_id)
                 .map(|points| crate::persistence::codec::encode_polyline(points.as_slice()))
                 .unwrap_or_default(),
             route_names: routes::all_route_names(conn),
             excluded_activity_ids: excluded,
             map_signatures: activities::map_signatures_for_ids(conn, &activity_ids),
+            can_name_from_places: group.is_some()
+                && crate::persistence::geocoded_names::can_name_from_places(
+                    conn,
+                    crate::persistence::geocoded_names::NamedKind::Route,
+                    group_id,
+                ),
             group: group.map(crate::FfiRouteGroup::from),
         }
     }
@@ -1938,8 +1969,10 @@ pub mod pooled {
         sport_filter: Option<&str>,
     ) -> crate::FfiSectionPerformanceData {
         use crate::persistence::activities::pooled as activities;
+        use crate::persistence::fitness::derivations::{Effort, efficiency_trend};
         use crate::persistence::fitness::performances::{
-            excluded_route_performances, laps, route_attempts, route_performances,
+            excluded_route_performances, is_comparable_attempt, laps, route_attempts,
+            route_performances,
         };
         use crate::persistence::routes::pooled as routes;
 
@@ -1988,6 +2021,34 @@ pub mod pooled {
                     .unwrap_or_default()
             },
             |_| std::sync::Arc::new(None),
+            |sport| {
+                let attempts = route_performances(
+                    &activity_ids,
+                    Some(&match_info),
+                    &excluded,
+                    metrics_of,
+                    None,
+                    Some(sport),
+                );
+                let efforts: Vec<Effort> = attempts
+                    .performances
+                    .iter()
+                    .filter(|p| is_comparable_attempt(p, None))
+                    .filter_map(|p| {
+                        Some(Effort {
+                            time_secs: f64::from(p.moving_time),
+                            avg_hr: f64::from(p.avg_hr.filter(|hr| *hr > 0)?),
+                            distance_meters: p.distance,
+                            date: p.date,
+                        })
+                    })
+                    .collect();
+                let name = group
+                    .as_ref()
+                    .and_then(|g| g.custom_name.as_deref())
+                    .unwrap_or("Route");
+                efficiency_trend(group_id, sport, name, &efforts)
+            },
             |sport, rows| {
                 let attempts = match rows {
                     laps::Rows::Included => route_performances(
@@ -2626,14 +2687,16 @@ pub mod pooled {
         sport_type: &str,
         names: &std::collections::BTreeMap<String, String>,
     ) -> Option<crate::FfiEfficiencyTrend> {
-        let section =
-            crate::persistence::sections::queries::pooled::section(conn, section_id, names)?;
+        let (name, length) =
+            crate::persistence::sections::queries::pooled::section_name_and_length(
+                conn, section_id, names,
+            )?;
         crate::persistence::fitness::derivations::pooled::section_efficiency_trend(
             conn,
             section_id,
             sport_type,
-            section.name.as_deref().unwrap_or("Section"),
-            section.distance_meters,
+            name.as_deref().unwrap_or("Section"),
+            length,
         )
     }
 
@@ -2648,7 +2711,6 @@ pub mod pooled {
     /// detail read above already records.
     pub fn section_detail_data(conn: &Connection, section_id: &str) -> crate::FfiSectionDetailData {
         use crate::persistence::activities::pooled as activities;
-        use crate::persistence::fitness::derivations::pooled as derivations;
         use crate::persistence::sections::merging::pooled as merging;
         use crate::persistence::sections::named::pooled as named;
         use crate::persistence::sections::pooled as sections_mod;
@@ -2696,22 +2758,6 @@ pub mod pooled {
 
         let pinned_version =
             crate::persistence::sections::history::pooled::pinned_section_version(conn, section_id);
-
-        // The trend is held within one sport. With no chip the screen opens on
-        // the sport with the most outings, so that is the one sent ahead.
-        let lead_sport = crate::persistence::fitness::performances::laps::sports(conn, section_id)
-            .into_iter()
-            .next()
-            .map(|(sport, _)| sport);
-        let efficiency_trend = section.as_ref().zip(lead_sport).and_then(|(s, sport)| {
-            derivations::section_efficiency_trend(
-                conn,
-                section_id,
-                &sport,
-                s.name.as_deref().unwrap_or("Section"),
-                s.distance_meters,
-            )
-        });
 
         let retirement = if section.is_some() {
             None
@@ -2761,7 +2807,12 @@ pub mod pooled {
                 })
                 .collect(),
             pinned_version: pinned_version.map(|v| v as f64),
-            efficiency_trend,
+            can_name_from_places: section.is_some()
+                && crate::persistence::geocoded_names::can_name_from_places(
+                    conn,
+                    crate::persistence::geocoded_names::NamedKind::Section,
+                    section_id,
+                ),
             section,
         }
     }
@@ -3052,6 +3103,10 @@ mod fitness_screen_tests;
 mod section_pr_standing_tests;
 
 #[cfg(test)]
+#[path = "tests/section_record.rs"]
+mod section_record_tests;
+
+#[cfg(test)]
 #[path = "tests/sport_settings_fallback.rs"]
 mod sport_settings_fallback_tests;
 
@@ -3121,6 +3176,7 @@ mod tests {
             30,
             |_, _| Vec::new(),
             |_| std::sync::Arc::new(None),
+            |_| None,
             |_, rows| match rows {
                 laps::Rows::Included => all.clone(),
                 laps::Rows::Excluded => std::sync::Arc::new(laps::empty()),
@@ -6086,10 +6142,10 @@ mod tests {
     /// 5 km walk.
     ///
     /// Expected behaviour: the detail read carries the representative's
-    /// distance, the figure the routes list shows, and the newest attempt's
-    /// date across both sports.
+    /// distance, the figure the routes list shows, and its climbing, the
+    /// figure the route hero shows, never the walk's.
     #[test]
-    fn test_route_detail_carries_the_representative_distance_and_newest_date() {
+    fn test_route_detail_carries_the_representative_distance_and_climbing() {
         use tempfile::TempDir;
 
         let _serial = crate::test_globals::serial_global_state();
@@ -6104,8 +6160,10 @@ mod tests {
         }
         let mut ride = widget_metric("a1", 1_700_000_000, 3_600);
         ride.distance = 10_000.0;
+        ride.elevation_gain = 236.0;
         let mut walk = widget_metric("a2", 1_700_086_400, 3_500);
         walk.distance = 5_000.0;
+        walk.elevation_gain = 40.0;
         walk.sport_type = "Walk".into();
         engine
             .set_activity_metrics(vec![ride, walk])
@@ -6116,10 +6174,10 @@ mod tests {
 
         let detail = pooled::route_detail_data(&engine.db, "g1", None, 1);
         assert_eq!(detail.distance_meters, 10_000.0);
-        assert_eq!(detail.last_activity_date, Some(1_700_086_400.0));
+        assert_eq!(detail.elevation_gain_meters, 236.0);
         let unknown = pooled::route_detail_data(&engine.db, "nope", None, 1);
         assert_eq!(unknown.distance_meters, 0.0);
-        assert_eq!(unknown.last_activity_date, None);
+        assert_eq!(unknown.elevation_gain_meters, 0.0);
 
         crate::persistence::read_cache::close();
     }

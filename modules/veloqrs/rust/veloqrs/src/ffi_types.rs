@@ -915,6 +915,9 @@ pub struct FfiSectionLap {
     /// The athlete excluded this traversal: listed so it can be restored,
     /// counted nowhere.
     pub excluded: bool,
+    /// This lap holds the section's record in its direction. Set by the
+    /// section read, false everywhere else.
+    pub is_record: bool,
 }
 
 /// One ledger row of a section.
@@ -1120,6 +1123,7 @@ impl From<crate::SectionLap> for FfiSectionLap {
             avg_hr: l.avg_hr,
             avg_power: l.avg_power,
             excluded: l.excluded,
+            is_record: false,
         }
     }
 }
@@ -1250,16 +1254,6 @@ impl From<crate::SectionPerformanceResult> for FfiSectionPerformanceResult {
             reverse_stats: r.reverse_stats.map(FfiDirectionStats::from),
         }
     }
-}
-
-/// Tier 3.2: one entry of a batched section-performance fetch. Returned
-/// in the same order as the requested section_ids so the TS caller can
-/// map directly without rebuilding lookups.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiSectionPerformanceBatchEntry {
-    pub section_id: String,
-    pub result: FfiSectionPerformanceResult,
 }
 
 /// Tier 5.5: result of a user-initiated section polyline recalc.
@@ -1892,9 +1886,9 @@ impl From<crate::CalendarYearSummary> for FfiCalendarYearSummary {
 pub struct FfiCalendarSummary {
     /// Year summaries (newest first)
     pub years: Vec<FfiCalendarYearSummary>,
-    /// Overall forward/same PR
+    /// The forward record's outing, absent when no outing holds the record
     pub forward_pr: Option<FfiCalendarDirectionBest>,
-    /// Overall reverse PR
+    /// The reverse record's outing, absent when no outing holds the record
     pub reverse_pr: Option<FfiCalendarDirectionBest>,
     /// Section distance in meters
     pub section_distance: f64,
@@ -1963,6 +1957,8 @@ pub struct FfiSampleLibrary {
     pub sport_settings_json: String,
     pub wellness: Vec<FfiWellnessRow>,
     pub activities: Vec<FfiActivityBody>,
+    /// The sets of the library's strength sessions, each naming its activity.
+    pub exercise_sets: Vec<FfiExerciseSet>,
 }
 
 /// The feed's sport chips. Cycling, running and swimming are the engine's
@@ -2597,8 +2593,9 @@ pub struct FfiSectionDetailData {
     pub geometry_versions: Vec<FfiSectionGeometryVersion>,
     /// The pinned version, or `None` when the section follows the newest cut
     pub pinned_version: Option<f64>,
-    /// Efficiency trend, or `None` with too few efforts to call one
-    pub efficiency_trend: Option<FfiEfficiencyTrend>,
+    /// Whether the athlete may ask for the section to be named from its
+    /// places: geocoding is on and they typed no name for it
+    pub can_name_from_places: bool,
 }
 
 /// How many traversals of a section one sport made over the chosen range.
@@ -2655,6 +2652,9 @@ pub struct FfiSectionPerformanceData {
     /// point along it, for the laps inside the range. `None` when neither
     /// direction holds a lap to compare with its reference.
     pub curves: Option<FfiSectionLapCurves>,
+    /// Aerobic efficiency over the answered sport's counted efforts across the
+    /// whole record, or `None` with fewer than three that carry heart rate.
+    pub efficiency_trend: Option<FfiEfficiencyTrend>,
 }
 
 /// Which lap a direction's deltas are measured against.
@@ -2813,9 +2813,10 @@ pub struct FfiRouteDetailData {
     /// The representative activity's distance in meters, the figure the routes
     /// list shows and sorts on. Zero when the route is unknown.
     pub distance_meters: f64,
-    /// Unix timestamp of the newest attempt across every sport, `None` when
-    /// the route has no attempts.
-    pub last_activity_date: Option<f64>,
+    /// The representative activity's elevation gain in meters, the climbing
+    /// the route hero shows beside its distance. Zero when the route is
+    /// unknown.
+    pub elevation_gain_meters: f64,
     /// Representative activity's polyline, delta+varint encoded
     pub encoded_representative: Vec<u8>,
     /// User-set route names by route ID
@@ -2824,6 +2825,9 @@ pub struct FfiRouteDetailData {
     pub excluded_activity_ids: Vec<String>,
     /// Simplified GPS signatures for the route's activities
     pub map_signatures: Vec<FfiMapSignature>,
+    /// Whether the athlete may ask for the route to be named from its
+    /// places: geocoding is on and they typed no name for it
+    pub can_name_from_places: bool,
 }
 
 // ============================================================================
@@ -2854,6 +2858,22 @@ pub struct FfiWidgetSnapshotData {
     /// own from the fitness sparkline, which is a different number from the
     /// same data.
     pub ramp_rate: Option<f64>,
+    /// Strength work over today and the 29 days before it, the strength
+    /// screen's 30-day window
+    pub strength_last30: WidgetStrengthWindow,
+    /// Strength work over the calendar month to the end of today
+    pub strength_month: WidgetStrengthWindow,
+    /// The `sex` of the stored intervals.icu profile, which picks the body the
+    /// strength diagram draws
+    pub athlete_sex: Option<String>,
+}
+
+/// One window of strength work, read as the strength screen reads its period.
+#[derive(Debug, Clone, Default)]
+pub struct WidgetStrengthWindow {
+    pub summary: FfiStrengthSummary,
+    /// Strength activities in the window whose sets have not been downloaded
+    pub owed_count: u32,
 }
 
 /// What the latest activity is compared against, read from the values the
@@ -3811,7 +3831,7 @@ pub struct FfiStrengthBalancePair {
 }
 
 /// Summary of strength training volume over a time period.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, Default, uniffi::Record)]
 pub struct FfiStrengthSummary {
     /// Start of the summary's range in Unix seconds, or zero for an undated aggregate.
     pub start_ts: f64,

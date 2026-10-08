@@ -89,6 +89,79 @@ fn a_pushed_ride_is_on_the_snapshot_composed_from_the_stored_context() {
     crate::persistence::clear_persistent_engine();
 }
 
+/// Scenario: a strength session lands while the app is closed, and the native
+/// refresh composes the widget with no JavaScript.
+///
+/// Expected behaviour: its strength block is the one the app's own write
+/// composes from the same rows, shaded and worded the same.
+#[test]
+fn the_native_path_composes_the_same_strength_block() {
+    let _guard = serial_global_state();
+    let _tmp = crate::test_globals::init_global_engine("widget_native_strength.db");
+    let mut ctx = context();
+    ctx.strings.insert(
+        "strength.muscles.chest".to_string(),
+        "Pectoraux".to_string(),
+    );
+    store_context(&ctx);
+    let today = Clock::now().now_wall_seconds;
+    crate::persistence::with_persistent_engine(|engine| {
+        engine
+            .set_activity_metrics(vec![crate::ActivityMetrics {
+                activity_id: "i901".to_string(),
+                name: "Gym".to_string(),
+                date: today,
+                distance: 0.0,
+                moving_time: 3_600,
+                elapsed_time: 3_600,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: "WeightTraining".to_string(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            }])
+            .expect("the metrics");
+        let bench: Vec<crate::fit::FitExerciseSet> = (0..3)
+            .map(|order| crate::fit::FitExerciseSet {
+                set_order: order,
+                exercise_category: 0,
+                exercise_name: None,
+                set_type: 0,
+                repetitions: Some(8),
+                weight_kg: Some(60.0),
+                duration_secs: None,
+                start_time: None,
+            })
+            .collect();
+        engine
+            .store_exercise_sets("i901", &bench)
+            .expect("the sets");
+        engine
+            .mark_fit_outcome("i901", crate::persistence::FitOutcome::Parsed)
+            .expect("the outcome");
+    })
+    .expect("the engine");
+
+    let native: serde_json::Value =
+        serde_json::from_str(&native_snapshot_json().expect("a snapshot")).expect("JSON");
+    let app: serde_json::Value = serde_json::from_str(
+        &crate::persistence::read_pool::with_read_conn(|conn| {
+            snapshot_json(conn, &ctx, Clock::now())
+        })
+        .expect("an open engine"),
+    )
+    .expect("JSON");
+
+    assert_eq!(native["strength"], app["strength"]);
+    let last30 = &native["strength"]["windows"]["last30"];
+    assert_eq!(last30["activityCount"], 1);
+    assert_eq!(last30["top"][0]["name"], "Pectoraux");
+    crate::persistence::clear_persistent_engine();
+}
+
 /// Scenario: a ride is pushed on an install whose app has never stored a
 /// context, so there are no words to write the snapshot in.
 ///
@@ -149,8 +222,8 @@ fn storing_the_same_context_twice_writes_once() {
 /// The natives read this version to decide what a snapshot carries, so a change
 /// here is a change to what they decode.
 #[test]
-fn the_schema_is_the_one_carrying_the_summary_metrics() {
-    assert_eq!(SCHEMA_VERSION, 14);
+fn the_schema_is_the_one_carrying_the_strength_block() {
+    assert_eq!(SCHEMA_VERSION, 15);
 }
 
 /// Scenario: the library is wiped for the next athlete, then a push for them

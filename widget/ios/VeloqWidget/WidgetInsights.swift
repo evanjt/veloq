@@ -77,12 +77,14 @@ struct InsightRowView: View {
         .padding(.top, 4)
       VStack(alignment: .leading, spacing: 2) {
         Text(row.title)
+          .measuredText("insight title")
           .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
           .foregroundColor(palette.textPrimary)
           .lineLimit(size == .small ? 3 : 2)
           .multilineTextAlignment(.leading)
         if let subtitle = row.subtitle, !subtitle.isEmpty {
           Text(subtitle)
+            .measuredText("insight subtitle")
             .font(.system(size: WidgetTheme.TypeScale.caption))
             .foregroundColor(palette.textSecondary)
             .lineLimit(size == .medium ? 1 : 2)
@@ -96,9 +98,9 @@ struct InsightRowView: View {
 }
 
 struct InsightsWidgetView: View {
-  @Environment(\.widgetFamily) private var family
   @Environment(\.colorScheme) private var colorScheme
   let entry: InsightsEntry
+  let family: WidgetFamily
 
   private var size: InsightsSize {
     switch family {
@@ -146,6 +148,7 @@ struct InsightsWidgetView: View {
       if listing.rows.isEmpty {
         Spacer(minLength: 0)
         Text("No new insights")
+          .measuredText("no insights")
           .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
           .foregroundColor(palette.textPrimary)
           .frame(maxWidth: .infinity)
@@ -159,6 +162,7 @@ struct InsightsWidgetView: View {
         if listing.more > 0 {
           Link(destination: InsightsWidgetModel.tabURL) {
             Text(verbatim: moreText(listing.more))
+              .measuredText("more")
               .font(.system(size: WidgetTheme.TypeScale.label))
               .foregroundColor(palette.primary)
               .lineLimit(1)
@@ -178,7 +182,7 @@ struct VeloqInsightsWidget: Widget {
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: InsightsProvider()) { entry in
-      InsightsWidgetView(entry: entry)
+      WidgetFamilyReader { InsightsWidgetView(entry: entry, family: $0) }
     }
     .configurationDisplayName("Insights")
     .description("The top cards from your Insights tab.")

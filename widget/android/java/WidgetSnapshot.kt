@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * Version skew happens in both directions, so every field added after schema 2 is
  * nullable with a hide/neutral default.
  *
- * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 14).
+ * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 15).
  */
 private const val SNAPSHOT_FILE = "widget-snapshot.json"
 
@@ -178,6 +178,8 @@ data class WidgetSnapshot(
    * before schema 11, with no account, or when the ranking could not run.
    */
   val insights: List<WidgetInsight> = emptyList(),
+  /** The strength diagram over both windows. Null on a snapshot written before the block. */
+  val strength: StrengthBlock? = null,
 ) {
   /** The one a single-sport surface starts. */
   val lastRecordingType: String?
@@ -249,8 +251,57 @@ data class WidgetSnapshot(
         launcherShortcuts = parseShortcuts(root, "launcherShortcuts"),
         demoLabel = display.optString("demoLabel", "").takeIf { it.isNotEmpty() },
         insights = parseInsights(root),
+        strength = parseStrength(root),
       )
     }
+
+    private fun parseStrength(root: JSONObject): StrengthBlock? {
+      val s = root.optJSONObject("strength") ?: return null
+      val windows = s.optJSONObject("windows") ?: return null
+      val last30 = parseStrengthWindow(windows.optJSONObject("last30")) ?: return null
+      val month = parseStrengthWindow(windows.optJSONObject("month")) ?: return null
+      val url = s.optString("url", "")
+      if (url.isEmpty()) return null
+      return StrengthBlock(
+        female = s.optString("body", "") == "female", url = url, last30 = last30, month = month)
+    }
+
+    private fun parseStrengthWindow(w: JSONObject?): StrengthWindow? {
+      if (w == null) return null
+      val muscles = ArrayList<StrengthMuscleShade>()
+      w.optJSONArray("muscles")?.let { arr ->
+        for (i in 0 until arr.length()) {
+          val m = arr.optJSONObject(i) ?: continue
+          val slug = m.optString("slug", "")
+          if (slug.isNotEmpty()) muscles.add(StrengthMuscleShade(slug, m.optInt("shade", 0)))
+        }
+      }
+      val top = ArrayList<StrengthTopMuscle>()
+      w.optJSONArray("top")?.let { arr ->
+        for (i in 0 until arr.length()) {
+          val t = arr.optJSONObject(i) ?: continue
+          val name = t.optString("name", "")
+          if (name.isEmpty()) continue
+          top.add(
+            StrengthTopMuscle(
+              slug = t.optString("slug", ""),
+              name = name,
+              setsText = t.optString("setsText", ""),
+              volumeText = optText(t, "volumeText"),
+            ))
+        }
+      }
+      return StrengthWindow(
+        label = w.optString("label", ""),
+        muscles = muscles,
+        top = top,
+        emptyText = optText(w, "emptyText"),
+      )
+    }
+
+    /** A string field, or null when it is absent, JSON null or empty. */
+    private fun optText(o: JSONObject, key: String): String? =
+      if (o.isNull(key)) null else o.optString(key, "").takeIf { it.isNotEmpty() }
 
     private fun parseInsights(root: JSONObject): List<WidgetInsight> {
       val arr = root.optJSONArray("insights") ?: return emptyList()

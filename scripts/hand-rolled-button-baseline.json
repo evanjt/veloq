@@ -12,7 +12,6 @@
   "src/app/recording-settings.tsx": 3,
   "src/app/recording/review.tsx": 1,
   "src/app/recordings/index.tsx": 1,
-  "src/app/route/[id].tsx": 1,
   "src/app/section-retired.tsx": 1,
   "src/app/sensor-settings.tsx": 1,
   "src/app/settings.tsx": 1,

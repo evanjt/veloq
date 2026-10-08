@@ -1,7 +1,4 @@
-use super::{
-    get_elevation_backfill_remaining, get_routes_status_data, get_stream_backfill_remaining,
-    start_stream_backfill,
-};
+use super::{get_elevation_backfill_remaining, get_routes_status_data, start_stream_backfill};
 use crate::objects::FfiStartOutcome;
 use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
 
@@ -14,7 +11,15 @@ fn test_backfill_counts_writer_held() {
         let status = get_routes_status_data();
         assert_eq!(status.stream_remaining, Some(0));
         assert_eq!(status.elevation_remaining, Some(0));
-        assert_eq!(get_stream_backfill_remaining().expect("stream count"), 0);
+        let stream = crate::objects::error::with_reader(|conn| {
+            crate::persistence::streams::pooled::backfill_remaining(
+                conn,
+                crate::net::stream_backfill::STREAM_ATTEMPT_LIMIT,
+            )
+        })
+        .expect("a reader")
+        .expect("stream count");
+        assert_eq!(stream, 0);
         assert_eq!(
             get_elevation_backfill_remaining().expect("elevation count"),
             0

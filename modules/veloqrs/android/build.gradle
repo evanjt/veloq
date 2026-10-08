@@ -41,6 +41,9 @@ def rustApiLevel = 24
 def rustOutDir = file("${projectDir}/../build/rust/android/" +
   ([rustProfile, rustAbis.join("_")] + (rustFeatures ? [rustFeatures.join("_")] : [])).join("-"))
 
+// Where the widget capture test's sources are written, see writeWidgetCaptureSources.
+def widgetCaptureDir = "${buildDir}/generated/widgetCapture"
+
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
@@ -144,12 +147,40 @@ android {
     test {
       java.srcDirs += [layout.buildDirectory.dir("generated/widgetTestSources")]
     }
+    // The widget capture test draws every provider on a device: the widget Kotlin
+    // and resources as the plugin writes them for the app, and the snapshot
+    // fixtures the engine composes.
+    androidTest {
+      java.srcDirs += ["${widgetCaptureDir}/app/src/main/java"]
+      res.srcDirs += ["${widgetCaptureDir}/app/src/main/res"]
+      assets.srcDirs += ["../../../widget/fixtures"]
+    }
   }
 }
 
-def widgetTestSources = tasks.register("generateWidgetTestSources", Copy) {
+// The test APK's own package, which the widget sources are written for so that
+// their `R` is the one the test's resources are merged into.
+def widgetCaptureSources = tasks.register("writeWidgetCaptureSources", Exec) {
+  def repo = file("../../..")
+  inputs.dir(new File(repo, "widget/android")).withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir(new File(repo, "src/i18n/locales")).withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir(new File(repo, "src/plugins")).withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.file(new File(repo, "scripts/write-widget-test-sources.mjs")).withPathSensitivity(PathSensitivity.RELATIVE)
+  outputs.dir(widgetCaptureDir)
+  workingDir repo
+  commandLine "node", "scripts/write-widget-test-sources.mjs", "--out", widgetCaptureDir, "--pkg", "com.veloq.test"
+}
+tasks.configureEach { task ->
+  if (task.name.contains("AndroidTest") && task.name != "writeWidgetCaptureSources") {
+    task.dependsOn(widgetCaptureSources)
+  }
+}
+
+// A Sync, not a Copy, so a source removed from the list or from widget/ leaves the
+// test sources too rather than compiling on from an earlier run.
+def widgetTestSources = tasks.register("generateWidgetTestSources", Sync) {
   from("../../../widget/android/java") {
-    include "TileLaunch.kt", "WidgetSnapshot.kt", "SummaryWidgetModel.kt", "SnapshotAge.kt", "InsightsWidgetModel.kt", "LastActivityWidgetModel.kt"
+    include "TileLaunch.kt", "WidgetSnapshot.kt", "SummaryWidgetModel.kt", "SnapshotAge.kt", "InsightsWidgetModel.kt", "LastActivityWidgetModel.kt", "BodyOutline.kt", "StrengthWidgetModel.kt"
     filter { line -> line.replace("__PKG__", "com.veloq") }
   }
   into(layout.buildDirectory.dir("generated/widgetTestSources/com/veloq/widget"))

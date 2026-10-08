@@ -484,12 +484,49 @@ pub(crate) mod pooled {
     /// takes its numbered label.
     fn apply_overlay(section: &mut Section, names: &BTreeMap<String, String>) {
         let own = section.is_user_defined || section.section_type != SectionType::Auto;
-        if own && section.name.is_some() {
-            return;
+        section.name = shown_name(&section.id, own, section.name.take(), names);
+    }
+
+    /// The name a section shows under: one the athlete gave a section of
+    /// their own stands, and otherwise the overlay's name for it comes first.
+    fn shown_name(
+        section_id: &str,
+        own: bool,
+        name: Option<String>,
+        names: &BTreeMap<String, String>,
+    ) -> Option<String> {
+        if own && name.is_some() {
+            return name;
         }
-        if let Some(name) = names.get(&section.id) {
-            section.name = Some(name.clone());
-        }
+        names.get(section_id).cloned().or(name)
+    }
+
+    /// One section's shown name and its length, off its row alone, for a read
+    /// that needs no more of it than that. Assembling the section reads its
+    /// activities and its routes, which grow with the library.
+    pub(crate) fn section_name_and_length(
+        conn: &Connection,
+        section_id: &str,
+        names: &BTreeMap<String, String>,
+    ) -> Option<(Option<String>, f64)> {
+        let (name, length, user_defined, section_type) = conn
+            .query_row(
+                "SELECT name, distance_meters, is_user_defined, section_type
+                 FROM sections WHERE id = ?",
+                params![section_id],
+                |row| {
+                    Ok((
+                        row.get::<_, Option<String>>(0)?,
+                        row.get::<_, f64>(1)?,
+                        row.get::<_, Option<i32>>(2)?.unwrap_or(0) != 0,
+                        row.get::<_, String>(3)?,
+                    ))
+                },
+            )
+            .ok()?;
+        let own = user_defined
+            || SectionType::parse(&section_type).unwrap_or(SectionType::Auto) != SectionType::Auto;
+        Some((shown_name(section_id, own, name, names), length))
     }
 
     /// Fill in what `section_from_row` left: the traversal count and the
@@ -900,12 +937,7 @@ pub(crate) mod pooled {
         names: &BTreeMap<String, String>,
     ) {
         let own = summary.is_user_defined || summary.section_type != "auto";
-        if own && summary.name.is_some() {
-            return;
-        }
-        if let Some(name) = names.get(&summary.id) {
-            summary.name = Some(name.clone());
-        }
+        summary.name = shown_name(&summary.id, own, summary.name.take(), names);
     }
 
     /// One section as the row has it, with no overlay. What a cache stores, so

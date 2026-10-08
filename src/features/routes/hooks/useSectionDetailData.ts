@@ -13,7 +13,6 @@ import type {
   Section as NativeSection,
   SectionDetailData,
   SectionPerformanceData,
-  EfficiencyTrend,
 } from 'veloqrs';
 import type { RoutePoint } from '@/types';
 
@@ -22,9 +21,9 @@ import type { RoutePoint } from '@/types';
  *
  * The screen used to make nine reads here. The individual hooks still exist
  * for their other callers and take these fields as pre-computed input. The
- * ledger, the excluded laps and the efficiency trend joined them once the
- * count crept back to seven: all three are keyed on the section id alone, so
- * there was never a reason for them to be their own lock acquisitions.
+ * ledger and the excluded laps joined them once the count crept back to
+ * seven: both are keyed on the section id alone, so there was never a reason
+ * for them to be their own lock acquisitions.
  */
 export interface SectionDetailBundle {
   activityCount: number;
@@ -38,7 +37,8 @@ export interface SectionDetailBundle {
   history: SectionDetailData['history'];
   geometryVersions: SectionDetailData['geometryVersions'];
   pinnedVersion: SectionDetailData['pinnedVersion'];
-  efficiencyTrend: EfficiencyTrend | null;
+  /** Whether the athlete may ask for a name from the section's places. */
+  canNameFromPlaces: boolean;
 }
 
 /** How a section that no longer has a row left the catalogue. */
@@ -70,7 +70,7 @@ function fetchSectionDetailData(engine: Engine, sectionId: string): SectionDetai
       history: result.history,
       geometryVersions: result.geometryVersions,
       pinnedVersion: result.pinnedVersion,
-      efficiencyTrend: result.efficiencyTrend ?? null,
+      canNameFromPlaces: result.canNameFromPlaces,
     }),
     (result) => !result.section
   );
@@ -187,4 +187,31 @@ export function useSectionDetailPerformance(
     if (!read) return { data: null, error: undefined };
     return read.ok ? { data: read.value, error: undefined } : { data: null, error: read.error };
   }, [sectionId, timeRangeDays, sportFilter, enabled, readPerformance]);
+}
+
+/**
+ * Single engine call for a route's attempt times in the section performance
+ * read's shape: chart, calendar, ranged bests, trend, histogram, sport counts
+ * and excluded attempts, for one sport and one range.
+ *
+ * `refreshKey` re-runs the call after an exclusion or a reference change.
+ */
+export function useRouteDetailPerformance(
+  groupId: string | undefined,
+  timeRangeDays: number,
+  sportFilter: string | undefined,
+  refreshKey = 0
+): { data: SectionPerformanceData | null; error: unknown } {
+  const readPerformance = useEngineRead(['groups', 'detectionApplied'], [refreshKey]);
+
+  return useMemo(() => {
+    if (!groupId) return { data: null, error: undefined };
+    const read = readPerformance((engine) =>
+      attemptEngineRead(
+        () => engine.getRouteDetailPerformance(groupId, timeRangeDays, sportFilter) ?? null
+      )
+    );
+    if (!read) return { data: null, error: undefined };
+    return read.ok ? { data: read.value, error: undefined } : { data: null, error: read.error };
+  }, [groupId, timeRangeDays, sportFilter, readPerformance]);
 }

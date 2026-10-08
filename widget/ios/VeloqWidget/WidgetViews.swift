@@ -39,6 +39,9 @@ struct WidgetPalette {
   var toneInfo: Color
   var toneOpportunity: Color
   var border: Color
+  var bodyFill: Color
+  /// The strength shades, lightest first.
+  var strengthRamp: [Color]
 
   static func from(_ d: WidgetPaletteData, fallback f: WidgetPalette) -> WidgetPalette {
     WidgetPalette(
@@ -74,14 +77,17 @@ struct WidgetPalette {
       toneRecord: d.toneRecord.map { Color(hex: $0) } ?? f.toneRecord,
       toneInfo: d.toneInfo.map { Color(hex: $0) } ?? f.toneInfo,
       toneOpportunity: d.toneOpportunity.map { Color(hex: $0) } ?? f.toneOpportunity,
-      border: Color(hex: d.border)
+      border: Color(hex: d.border),
+      bodyFill: d.bodyFill.map { Color(hex: $0) } ?? f.bodyFill,
+      strengthRamp: d.strengthRamp.flatMap { $0.isEmpty ? nil : $0.map { Color(hex: $0) } }
+        ?? f.strengthRamp
     )
   }
 
   static func resolve(_ snapshot: WidgetSnapshot?, _ scheme: ColorScheme) -> WidgetPalette {
     let fallback = scheme == .dark ? darkFallback : lightFallback
-    if let theme = snapshot?.theme {
-      return from(scheme == .dark ? theme.dark : theme.light, fallback: fallback)
+    if let theme = snapshot?.theme, let data = scheme == .dark ? theme.dark : theme.light {
+      return from(data, fallback: fallback)
     }
     return fallback
   }
@@ -130,7 +136,8 @@ struct WidgetPalette {
     tonePositive: WidgetTheme.Light.tonePositive, toneNeutral: WidgetTheme.Light.toneNeutral,
     toneRecord: WidgetTheme.Light.toneRecord, toneInfo: WidgetTheme.Light.toneInfo,
     toneOpportunity: WidgetTheme.Light.toneOpportunity,
-    border: WidgetTheme.Light.border)
+    border: WidgetTheme.Light.border,
+    bodyFill: WidgetTheme.Light.bodyFill, strengthRamp: WidgetTheme.Light.strengthRamp)
 
   static let darkFallback = WidgetPalette(
     background: WidgetTheme.Dark.background, surface: WidgetTheme.Dark.surface,
@@ -153,7 +160,8 @@ struct WidgetPalette {
     tonePositive: WidgetTheme.Dark.tonePositive, toneNeutral: WidgetTheme.Dark.toneNeutral,
     toneRecord: WidgetTheme.Dark.toneRecord, toneInfo: WidgetTheme.Dark.toneInfo,
     toneOpportunity: WidgetTheme.Dark.toneOpportunity,
-    border: WidgetTheme.Dark.border)
+    border: WidgetTheme.Dark.border,
+    bodyFill: WidgetTheme.Dark.bodyFill, strengthRamp: WidgetTheme.Dark.strengthRamp)
 }
 
 // MARK: - formatting helpers
@@ -292,6 +300,7 @@ private struct ChartAxis: View {
       }
       .stroke(palette.border, lineWidth: 0.5)
       Text(String(Int(value.rounded())))
+        .measuredText("axis value")
         .font(.system(size: ChartPlot.axisFontSize))
         .foregroundColor(palette.textSecondary)
         .position(x: (plot.left - 4) / 2, y: min(max(y, 5), plot.bottom))
@@ -374,9 +383,11 @@ struct EmptyWidgetView: View {
         .font(.system(size: WidgetTheme.TypeScale.metric, weight: .semibold))
         .foregroundColor(palette.primary)
       Text("Open Veloq")
+        .measuredText("empty title")
         .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
         .foregroundColor(palette.textPrimary)
       Text("to see your training")
+        .measuredText("empty subtitle")
         .font(.system(size: WidgetTheme.TypeScale.label))
         .foregroundColor(palette.textSecondary)
         .multilineTextAlignment(.center)
@@ -460,9 +471,11 @@ struct SnapshotAgeLine: View {
     return Group {
       if SnapshotAge.isStale(since: seconds, now: snapshotNow ?? Date()) {
         Text(date, format: .dateTime.month(.abbreviated).day().hour().minute())
+          .measuredText("age")
           .foregroundColor(palette.warning)
       } else {
         Text(date, style: .relative)
+          .measuredText("age")
       }
     }
   }
@@ -472,17 +485,19 @@ struct SnapshotAgeLine: View {
       // The sample library is composed afresh for every write, so it has no age
       // to report and the line carries the words that say it is not the
       // athlete's own.
-      Text(demo).modifier(AgeLineStyle(palette: palette))
+      Text(demo).measuredText("demo label").modifier(AgeLineStyle(palette: palette))
     } else if let label = snapshot?.display.dataAsOfLabel {
       if let seconds = snapshot?.dataAsOf, seconds > 0 {
         HStack(spacing: 0) {
           Text(label)
+            .measuredText("age label")
           Text(verbatim: " · ")
+            .measuredText("age separator")
           when(seconds)
         }
         .modifier(AgeLineStyle(palette: palette))
       } else {
-        Text(label).modifier(AgeLineStyle(palette: palette))
+        Text(label).measuredText("age label").modifier(AgeLineStyle(palette: palette))
       }
     } else if let seconds = snapshot?.generatedAt, seconds > 0 {
       when(seconds).modifier(AgeLineStyle(palette: palette))
@@ -585,11 +600,13 @@ private struct SummaryHero: View {
     let color = palette.summaryColor(hero.colorKey, formZone: formZone)
     VStack(alignment: .leading, spacing: 2) {
       Text(hero.label.uppercased())
+        .measuredText("hero label")
         .font(.system(size: WidgetTheme.TypeScale.label))
         .foregroundColor(palette.textSecondary)
         .lineLimit(1)
       HStack(spacing: 4) {
         Text(hero.value)
+          .measuredText("hero value")
           .font(.system(size: valueSize, weight: .bold))
           .foregroundColor(color)
           .lineLimit(1)
@@ -600,6 +617,7 @@ private struct SummaryHero: View {
       }
       if let line = content.heroLine, !line.isEmpty {
         Text(line)
+          .measuredText("hero line")
           .font(.system(size: WidgetTheme.TypeScale.caption, weight: .semibold))
           .foregroundColor(color)
           .lineLimit(1)
@@ -641,12 +659,14 @@ private struct SummarySupportingRow: View {
         }
         VStack(alignment: .leading, spacing: 2) {
           Text(entry.label)
+            .measuredText("metric label")
             .font(.system(size: WidgetTheme.TypeScale.caption))
             .foregroundColor(palette.textSecondary)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
           HStack(spacing: 3) {
             Text(entry.value)
+              .measuredText("metric value")
               .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
               .foregroundColor(palette.summaryColor(entry.colorKey, formZone: formZone))
               .lineLimit(1)

@@ -1,7 +1,7 @@
 /**
- * Aerobic efficiency on one section: heart rate per unit of speed across every matched
- * effort that carried both signals, oldest to newest. The engine computes
- * the series and the regression, this only plots them.
+ * Aerobic efficiency on a section or a route: heart rate per unit of speed across every
+ * counted effort that carried both signals, oldest to newest. The engine computes the
+ * series and the regression in the performance read, this only plots them.
  */
 
 import React from 'react';
@@ -13,8 +13,6 @@ import { Card } from '@/shared/ui';
 import { polylineSvgPath, type XY } from '@/shared/charts';
 import { colors, darkColors, spacing, typography, colorWithOpacity, verdictColor } from '@/theme';
 import { EfficiencyDirection, type EfficiencyPoint, type EfficiencyTrend } from 'veloqrs';
-import { useSectionEfficiencyTrend } from '@/features/routes/hooks/useSectionEfficiencyTrend';
-import { engineErrorKey } from '@/shared/native/engineError';
 
 const CHART_HEIGHT = 56;
 const PAD = 6;
@@ -45,36 +43,16 @@ export function efficiencySeriesVertices(
 }
 
 export interface SectionEfficiencyCardProps {
-  sectionId: string;
-  /** The sport on screen, whose efforts the trend is taken over. */
-  sportType?: string | null | undefined;
+  /** The performance read's trend for the sport on screen, absent while it is read. */
+  trend: EfficiencyTrend | null | undefined;
   isDark: boolean;
   /** Canvas width. The card is full-bleed inside its own padding. */
   width?: number | undefined;
-  /** The screen bundle's trend, so the card makes no engine call of its own. */
-  bundledTrend?: EfficiencyTrend | null | undefined;
 }
 
-export function SectionEfficiencyCard({
-  sectionId,
-  sportType,
-  isDark,
-  width = 280,
-  bundledTrend,
-}: SectionEfficiencyCardProps) {
+export function SectionEfficiencyCard({ trend, isDark, width = 280 }: SectionEfficiencyCardProps) {
   const { t } = useTranslation();
-  const { trend, error } = useSectionEfficiencyTrend(sectionId, sportType, bundledTrend);
 
-  if (error !== undefined) {
-    return (
-      <Text
-        testID="section-efficiency-failure"
-        style={[styles.caption, isDark && styles.captionDark]}
-      >
-        {t(engineErrorKey(error, 'engine.failure.database'))}
-      </Text>
-    );
-  }
   if (!trend) return null;
 
   const vertices = efficiencySeriesVertices(trend.points, width, CHART_HEIGHT);

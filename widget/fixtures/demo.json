@@ -1,0 +1,1089 @@
+{
+  "demo": true,
+  "display": {
+    "demoLabel": "Demo Mode",
+    "formZone": "Grey Zone",
+    "impactLine": "Form -5 → -6 · +88 TSS",
+    "metricLabels": {
+      "fatigue": "Fatigue",
+      "fitness": "Fitness",
+      "form": "Form",
+      "hrv": "HRV",
+      "ramp": "Ramp",
+      "rhr": "RHR"
+    },
+    "perWeekSuffix": "/wk",
+    "recordLabel": "Start Activity",
+    "refreshLabel": "Refresh",
+    "refreshingLabel": "Refreshing",
+    "weekLabel": "Week"
+  },
+  "emptyLibrary": false,
+  "formHistory": {
+    "asPercent": false,
+    "values": [
+      -11,
+      -12,
+      -14,
+      -16,
+      -17,
+      -19,
+      -21,
+      -8,
+      -10,
+      -12,
+      -13,
+      -15,
+      -16,
+      -18,
+      -6,
+      -7,
+      -9,
+      -11,
+      -12,
+      -14,
+      -16,
+      -3,
+      -5,
+      -6,
+      -8,
+      -10,
+      -11,
+      -13,
+      -1,
+      -2,
+      -4,
+      -6,
+      -7,
+      -9,
+      -11,
+      2,
+      0,
+      -1,
+      -3,
+      -5,
+      -6,
+      -8
+    ],
+    "zoneBounds": [
+      -30,
+      -10,
+      5,
+      25
+    ]
+  },
+  "generatedAt": 1733360000,
+  "impact": {
+    "atlDelta": 2.0,
+    "ctlDelta": 1.0,
+    "dateLabel": "Yesterday",
+    "formAfter": -6.0,
+    "formAfterText": "-6",
+    "formAfterZone": "greyZone",
+    "formBefore": -5.0,
+    "formBeforeText": "-5",
+    "formBeforeZone": "greyZone",
+    "tssAdded": 88.0
+  },
+  "insights": [
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "fitness-up",
+      "subtitle": "Ramp of 4.2 a week",
+      "title": "Fitness up 6 this month",
+      "tone": "positive",
+      "url": "veloq://fitness"
+    },
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "route-pr",
+      "subtitle": "1:23 off your best",
+      "title": "2nd best on Harbour Loop",
+      "tone": "record",
+      "url": "veloq://fitness"
+    },
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "hrv-steady",
+      "subtitle": "58 ms over 7 days",
+      "title": "HRV is steady",
+      "tone": "info",
+      "url": "veloq://fitness"
+    },
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "form-fresh",
+      "subtitle": "−8 today",
+      "title": "Form is in the grey zone",
+      "tone": "neutral",
+      "url": "veloq://fitness"
+    },
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "ftp",
+      "subtitle": "Up 6 W in 30 days",
+      "title": "eFTP 251 W",
+      "tone": "positive",
+      "url": "veloq://fitness"
+    }
+  ],
+  "latest": {
+    "activityId": "sample-1",
+    "date": 1733356400.0,
+    "dateLabel": "Yesterday",
+    "distanceLabel": "42.2 km",
+    "distanceM": 42195.0,
+    "durationLabel": "1:30:00",
+    "headline": {
+      "detail": "1:23 off your best",
+      "dots": [
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": true,
+          "record": true
+        }
+      ],
+      "hero": "2 of 14",
+      "kind": "route",
+      "label": "Harbour Loop"
+    },
+    "isPr": true,
+    "loadText": "Load 88",
+    "loadVsTypical": null,
+    "movingTimeS": 5400.0,
+    "name": "Harbour Loop",
+    "route": {
+      "attemptCount": 14,
+      "attemptSeconds": [
+        5900,
+        5750,
+        5820,
+        5700,
+        5660,
+        5610,
+        5800,
+        5590,
+        5640,
+        5577,
+        5720,
+        5680,
+        5600
+      ],
+      "gapLabel": "1:23",
+      "gapSeconds": 83,
+      "name": "Harbour Loop",
+      "rank": 2
+    },
+    "routePreview": {
+      "aspect": 1.43,
+      "points": [
+        [
+          1.0,
+          0.5
+        ],
+        [
+          0.998,
+          0.428
+        ],
+        [
+          0.994,
+          0.358
+        ],
+        [
+          0.986,
+          0.291
+        ],
+        [
+          0.976,
+          0.23
+        ],
+        [
+          0.962,
+          0.174
+        ],
+        [
+          0.946,
+          0.126
+        ],
+        [
+          0.926,
+          0.086
+        ],
+        [
+          0.905,
+          0.053
+        ],
+        [
+          0.88,
+          0.029
+        ],
+        [
+          0.854,
+          0.013
+        ],
+        [
+          0.825,
+          0.003
+        ],
+        [
+          0.794,
+          0.0
+        ],
+        [
+          0.761,
+          0.001
+        ],
+        [
+          0.727,
+          0.006
+        ],
+        [
+          0.691,
+          0.013
+        ],
+        [
+          0.655,
+          0.021
+        ],
+        [
+          0.617,
+          0.029
+        ],
+        [
+          0.578,
+          0.035
+        ],
+        [
+          0.539,
+          0.039
+        ],
+        [
+          0.5,
+          0.041
+        ],
+        [
+          0.461,
+          0.039
+        ],
+        [
+          0.422,
+          0.035
+        ],
+        [
+          0.383,
+          0.029
+        ],
+        [
+          0.345,
+          0.021
+        ],
+        [
+          0.309,
+          0.013
+        ],
+        [
+          0.273,
+          0.006
+        ],
+        [
+          0.239,
+          0.001
+        ],
+        [
+          0.206,
+          0.0
+        ],
+        [
+          0.175,
+          0.003
+        ],
+        [
+          0.146,
+          0.013
+        ],
+        [
+          0.12,
+          0.029
+        ],
+        [
+          0.095,
+          0.053
+        ],
+        [
+          0.074,
+          0.086
+        ],
+        [
+          0.054,
+          0.126
+        ],
+        [
+          0.038,
+          0.174
+        ],
+        [
+          0.024,
+          0.23
+        ],
+        [
+          0.014,
+          0.291
+        ],
+        [
+          0.006,
+          0.358
+        ],
+        [
+          0.002,
+          0.428
+        ],
+        [
+          0.0,
+          0.5
+        ],
+        [
+          0.002,
+          0.572
+        ],
+        [
+          0.006,
+          0.642
+        ],
+        [
+          0.014,
+          0.709
+        ],
+        [
+          0.024,
+          0.77
+        ],
+        [
+          0.038,
+          0.826
+        ],
+        [
+          0.054,
+          0.874
+        ],
+        [
+          0.074,
+          0.914
+        ],
+        [
+          0.095,
+          0.947
+        ],
+        [
+          0.12,
+          0.971
+        ],
+        [
+          0.146,
+          0.987
+        ],
+        [
+          0.175,
+          0.997
+        ],
+        [
+          0.206,
+          1.0
+        ],
+        [
+          0.239,
+          0.999
+        ],
+        [
+          0.273,
+          0.994
+        ],
+        [
+          0.309,
+          0.987
+        ],
+        [
+          0.345,
+          0.979
+        ],
+        [
+          0.383,
+          0.971
+        ],
+        [
+          0.422,
+          0.965
+        ],
+        [
+          0.461,
+          0.961
+        ],
+        [
+          0.5,
+          0.959
+        ],
+        [
+          0.539,
+          0.961
+        ],
+        [
+          0.578,
+          0.965
+        ],
+        [
+          0.617,
+          0.971
+        ],
+        [
+          0.655,
+          0.979
+        ],
+        [
+          0.691,
+          0.987
+        ],
+        [
+          0.727,
+          0.994
+        ],
+        [
+          0.761,
+          0.999
+        ],
+        [
+          0.794,
+          1.0
+        ],
+        [
+          0.825,
+          0.997
+        ],
+        [
+          0.854,
+          0.987
+        ],
+        [
+          0.88,
+          0.971
+        ],
+        [
+          0.905,
+          0.947
+        ],
+        [
+          0.926,
+          0.914
+        ],
+        [
+          0.946,
+          0.874
+        ],
+        [
+          0.962,
+          0.826
+        ],
+        [
+          0.976,
+          0.77
+        ],
+        [
+          0.986,
+          0.709
+        ],
+        [
+          0.994,
+          0.642
+        ],
+        [
+          0.998,
+          0.572
+        ]
+      ]
+    },
+    "sectionPrs": 3,
+    "sectionPrsText": "Section PRs 3",
+    "sportType": "Ride",
+    "stats": [
+      {
+        "id": "distance",
+        "label": "Distance",
+        "value": "42.2 km"
+      },
+      {
+        "id": "movingTime",
+        "label": "Moving Time",
+        "value": "1:30:00"
+      },
+      {
+        "id": "elevationGain",
+        "label": "Elev. Gain",
+        "value": "310 m"
+      }
+    ],
+    "tintHex": "#3B82F6",
+    "trainingLoad": 88.0
+  },
+  "launcherShortcuts": [
+    {
+      "label": "Ride",
+      "type": "Ride",
+      "url": "veloq://record?type=Ride"
+    },
+    {
+      "label": "Run",
+      "type": "Run",
+      "url": "veloq://record?type=Run"
+    }
+  ],
+  "locale": "en-AU",
+  "metrics": {
+    "fatigue": {
+      "deltaVsYesterday": 2.0,
+      "trendDir": "up",
+      "value": 80.0,
+      "verdict": "moved"
+    },
+    "fitness": {
+      "deltaVsYesterday": 0.0,
+      "trendDir": "flat",
+      "value": 72.0,
+      "verdict": "flat"
+    },
+    "form": {
+      "deltaVsYesterday": -2.0,
+      "text": "-8",
+      "trendDir": "down",
+      "value": -8.0,
+      "verdict": "moved",
+      "zone": "greyZone"
+    },
+    "hrv": {
+      "deltaVsYesterday": -1.0,
+      "trendDir": "flat",
+      "value": 58.0,
+      "verdict": "flat"
+    },
+    "rampRate": {
+      "value": 4.2
+    },
+    "rhr": {
+      "deltaVsYesterday": -1.0,
+      "trendDir": "up",
+      "value": 47.0,
+      "verdict": "improved"
+    }
+  },
+  "recordShortcuts": [
+    {
+      "label": "Ride",
+      "type": "Ride",
+      "url": "veloq://record?type=Ride"
+    },
+    {
+      "label": "Run",
+      "type": "Run",
+      "url": "veloq://record?type=Run"
+    }
+  ],
+  "schemaVersion": 15,
+  "sparklines": {
+    "fatigue": [
+      78,
+      80,
+      68,
+      70,
+      72,
+      74,
+      76,
+      78,
+      80,
+      68,
+      70,
+      72,
+      74,
+      76,
+      78,
+      80,
+      68,
+      70,
+      72,
+      74,
+      76,
+      78,
+      80,
+      68,
+      70,
+      72,
+      74,
+      76,
+      78,
+      80
+    ],
+    "fitness": [
+      62,
+      62,
+      62,
+      63,
+      63,
+      63,
+      64,
+      64,
+      64,
+      65,
+      65,
+      66,
+      66,
+      66,
+      67,
+      67,
+      67,
+      68,
+      68,
+      68,
+      69,
+      69,
+      69,
+      70,
+      70,
+      71,
+      71,
+      71,
+      72,
+      72
+    ],
+    "form": [
+      -16,
+      -18,
+      -6,
+      -7,
+      -9,
+      -11,
+      -12,
+      -14,
+      -16,
+      -3,
+      -5,
+      -6,
+      -8,
+      -10,
+      -11,
+      -13,
+      -1,
+      -2,
+      -4,
+      -6,
+      -7,
+      -9,
+      -11,
+      2,
+      0,
+      -1,
+      -3,
+      -5,
+      -6,
+      -8
+    ],
+    "hrv": [
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58
+    ]
+  },
+  "strength": {
+    "body": "male",
+    "url": "veloq://insights?tab=strength&period=1m",
+    "windows": {
+      "last30": {
+        "activityCount": 2,
+        "emptyText": null,
+        "label": "1 month",
+        "maxWeightedSets": 7.0,
+        "muscles": [
+          {
+            "shade": 5,
+            "slug": "gluteal"
+          },
+          {
+            "shade": 5,
+            "slug": "triceps"
+          },
+          {
+            "shade": 4,
+            "slug": "deltoids"
+          },
+          {
+            "shade": 4,
+            "slug": "hamstring"
+          },
+          {
+            "shade": 4,
+            "slug": "lower-back"
+          },
+          {
+            "shade": 3,
+            "slug": "chest"
+          },
+          {
+            "shade": 3,
+            "slug": "quadriceps"
+          },
+          {
+            "shade": 3,
+            "slug": "biceps"
+          },
+          {
+            "shade": 3,
+            "slug": "forearm"
+          },
+          {
+            "shade": 3,
+            "slug": "trapezius"
+          },
+          {
+            "shade": 2,
+            "slug": "calves"
+          }
+        ],
+        "owedCount": 0,
+        "top": [
+          {
+            "name": "Glutes",
+            "setsText": "7 sets",
+            "slug": "gluteal",
+            "volumeText": "4960 kg"
+          },
+          {
+            "name": "Triceps",
+            "setsText": "7 sets",
+            "slug": "triceps",
+            "volumeText": "2640 kg"
+          },
+          {
+            "name": "Deltoids",
+            "setsText": "5 sets",
+            "slug": "deltoids",
+            "volumeText": "1680 kg"
+          },
+          {
+            "name": "Hamstrings",
+            "setsText": "5 sets",
+            "slug": "hamstring",
+            "volumeText": "3680 kg"
+          }
+        ],
+        "totalSets": 17
+      },
+      "month": {
+        "activityCount": 1,
+        "emptyText": null,
+        "label": "December",
+        "maxWeightedSets": 7.0,
+        "muscles": [
+          {
+            "shade": 5,
+            "slug": "gluteal"
+          },
+          {
+            "shade": 4,
+            "slug": "hamstring"
+          },
+          {
+            "shade": 4,
+            "slug": "lower-back"
+          },
+          {
+            "shade": 3,
+            "slug": "chest"
+          },
+          {
+            "shade": 3,
+            "slug": "quadriceps"
+          },
+          {
+            "shade": 3,
+            "slug": "triceps"
+          },
+          {
+            "shade": 2,
+            "slug": "calves"
+          },
+          {
+            "shade": 2,
+            "slug": "deltoids"
+          },
+          {
+            "shade": 2,
+            "slug": "forearm"
+          },
+          {
+            "shade": 2,
+            "slug": "trapezius"
+          }
+        ],
+        "owedCount": 0,
+        "top": [
+          {
+            "name": "Glutes",
+            "setsText": "7 sets",
+            "slug": "gluteal",
+            "volumeText": "4960 kg"
+          },
+          {
+            "name": "Hamstrings",
+            "setsText": "5 sets",
+            "slug": "hamstring",
+            "volumeText": "3680 kg"
+          },
+          {
+            "name": "Lower Back",
+            "setsText": "5 sets",
+            "slug": "lower-back",
+            "volumeText": "3680 kg"
+          },
+          {
+            "name": "Chest",
+            "setsText": "4 sets",
+            "slug": "chest",
+            "volumeText": "1920 kg"
+          }
+        ],
+        "totalSets": 11
+      }
+    }
+  },
+  "summaryCard": {
+    "entries": [
+      {
+        "colorKey": "blue",
+        "id": "fitness",
+        "label": "Fitness",
+        "trendDir": "flat",
+        "value": "72",
+        "verdict": "flat"
+      },
+      {
+        "colorKey": "default",
+        "id": "ftp",
+        "label": "FTP",
+        "trendDir": "flat",
+        "value": "-",
+        "verdict": "flat"
+      },
+      {
+        "colorKey": "default",
+        "id": "weekHours",
+        "label": "Week",
+        "trendDir": "up",
+        "value": "2.6h",
+        "verdict": "improved"
+      }
+    ],
+    "hero": {
+      "colorKey": "formZone",
+      "id": "form",
+      "label": "Form",
+      "trendDir": "down",
+      "value": "-8",
+      "verdict": "moved"
+    },
+    "heroSparkline": [
+      -16,
+      -18,
+      -6,
+      -7,
+      -9,
+      -11,
+      -12,
+      -14,
+      -16,
+      -3,
+      -5,
+      -6,
+      -8,
+      -10,
+      -11,
+      -13,
+      -1,
+      -2,
+      -4,
+      -6,
+      -7,
+      -9,
+      -11,
+      2,
+      0,
+      -1,
+      -3,
+      -5,
+      -6,
+      -8
+    ],
+    "sparkline": "fitnessForm"
+  },
+  "summaryMetrics": [
+    {
+      "colorKey": "default",
+      "id": "hrv",
+      "label": "HRV",
+      "trendDir": "flat",
+      "value": "58",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "rhr",
+      "label": "RHR",
+      "trendDir": "up",
+      "value": "47",
+      "verdict": "improved"
+    },
+    {
+      "colorKey": "default",
+      "id": "weekHours",
+      "label": "Week",
+      "trendDir": "up",
+      "value": "2.6h",
+      "verdict": "improved"
+    },
+    {
+      "colorKey": "default",
+      "id": "weekCount",
+      "label": "#",
+      "trendDir": "up",
+      "value": "2",
+      "verdict": "improved"
+    },
+    {
+      "colorKey": "default",
+      "id": "ftp",
+      "label": "FTP",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "thresholdPace",
+      "label": "Pace",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "css",
+      "label": "CSS",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "blue",
+      "id": "fitness",
+      "label": "Fitness",
+      "trendDir": "flat",
+      "value": "72",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "formZone",
+      "id": "form",
+      "label": "Form",
+      "trendDir": "down",
+      "value": "-8",
+      "verdict": "moved"
+    }
+  ],
+  "theme": {},
+  "weekly": {
+    "count": 2,
+    "deltaPct": 48,
+    "distanceLabel": "73.2 km",
+    "distanceM": 73195.0,
+    "durationLabel": "2:38:20",
+    "durationS": 9500.0,
+    "tss": 142
+  }
+}

@@ -77,9 +77,9 @@ struct RoutePreviewView: View {
 }
 
 struct LatestActivityView: View {
-  @Environment(\.widgetFamily) private var family
   @Environment(\.colorScheme) private var colorScheme
   let entry: VeloqEntry
+  let family: WidgetFamily
 
   private var size: LastActivitySize { family == .systemSmall ? .small : .medium }
 
@@ -132,6 +132,7 @@ struct LatestActivityView: View {
       if let name = content.name {
         HStack(spacing: 4) {
           Text(name)
+            .measuredText("activity name")
             .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
             .foregroundColor(tint)
             .lineLimit(2)
@@ -142,12 +143,14 @@ struct LatestActivityView: View {
       }
       if let label = content.heroLabel {
         Text(label)
+          .measuredText("hero label")
           .font(.system(size: WidgetTheme.TypeScale.caption))
           .foregroundColor(palette.textSecondary)
           .lineLimit(2)
       }
       if let hero = content.hero {
         Text(hero)
+          .measuredText("hero")
           .font(.system(size: WidgetTheme.TypeScale.metric, weight: .semibold))
           .foregroundColor(palette.textPrimary)
           .lineLimit(1)
@@ -155,6 +158,7 @@ struct LatestActivityView: View {
       }
       if let detail = content.detail {
         Text(detail)
+          .measuredText("detail")
           .font(.system(size: WidgetTheme.TypeScale.label))
           .foregroundColor(palette.textSecondary)
           .lineLimit(2)
@@ -164,13 +168,14 @@ struct LatestActivityView: View {
           .padding(.top, 2)
       }
       if let figures = content.figures {
-        captionLine(figures, palette, lines: 2)
+        captionLine("figures", figures, palette, lines: 2)
       }
       if let prs = content.sectionPrs {
-        captionLine(prs, palette, lines: 1)
+        captionLine("section records", prs, palette, lines: 1)
       }
       if let load = content.load {
         Text(load)
+          .measuredText("load")
           .font(.system(size: WidgetTheme.TypeScale.label))
           .foregroundColor(palette.textPrimary)
           .lineLimit(1)
@@ -179,14 +184,17 @@ struct LatestActivityView: View {
         formLine(form, palette)
       }
       if let date = content.date {
-        captionLine(date, palette, lines: 2)
+        captionLine("date", date, palette, lines: 2)
       }
       DemoLabelLine(snapshot: entry.snapshot, palette: palette)
     }
   }
 
-  private func captionLine(_ text: String, _ palette: WidgetPalette, lines: Int) -> some View {
+  private func captionLine(_ name: String, _ text: String, _ palette: WidgetPalette, lines: Int)
+    -> some View
+  {
     Text(text)
+      .measuredText(name)
       .font(.system(size: WidgetTheme.TypeScale.label))
       .foregroundColor(palette.textSecondary)
       .lineLimit(lines)
@@ -195,10 +203,12 @@ struct LatestActivityView: View {
   /// Form before and after, each side in the colour of the zone it sits in.
   private func formLine(_ form: LastActivityForm, _ palette: WidgetPalette) -> some View {
     HStack(spacing: 4) {
-      Text(form.label).foregroundColor(palette.textSecondary)
-      Text(form.before).fontWeight(.semibold).foregroundColor(palette.formTextColor(form.beforeZone))
-      Text(verbatim: "→").foregroundColor(palette.textSecondary)
-      Text(form.after).fontWeight(.semibold).foregroundColor(palette.formTextColor(form.afterZone))
+      Text(form.label).measuredText("form label").foregroundColor(palette.textSecondary)
+      Text(form.before).fontWeight(.semibold).measuredText("form before")
+        .foregroundColor(palette.formTextColor(form.beforeZone))
+      Text(verbatim: "→").measuredText("form arrow").foregroundColor(palette.textSecondary)
+      Text(form.after).fontWeight(.semibold).measuredText("form after")
+        .foregroundColor(palette.formTextColor(form.afterZone))
     }
     .font(.system(size: WidgetTheme.TypeScale.label))
     .lineLimit(1)
@@ -259,6 +269,7 @@ struct DemoLabelLine: View {
   var body: some View {
     if let label = snapshot?.display.demoLabel {
       Text(label)
+        .measuredText("demo label")
         .font(.system(size: WidgetTheme.TypeScale.caption))
         .foregroundColor(palette.textSecondary)
         .lineLimit(1)
@@ -271,7 +282,7 @@ struct VeloqLatestActivityWidget: Widget {
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: LatestActivityProvider()) { entry in
-      LatestActivityView(entry: entry)
+      WidgetFamilyReader { LatestActivityView(entry: entry, family: $0) }
     }
     .configurationDisplayName("Latest Activity")
     .description("Your most recent activity with its route.")

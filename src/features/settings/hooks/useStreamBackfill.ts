@@ -5,9 +5,9 @@
  * every phase it enters, so a mounted row at rest arms its follow on an
  * announced `fetching` or `awaiting_consent`. A live pass is polled and only a
  * live pass is; the poll disarms itself when the pass ends. The row starts one
- * only after a stop. At rest the answer comes from
- * `getStreamBackfillRemaining`, a count of activities with no stored series,
- * which is durable and survives the process the phase does not.
+ * only after a stop. At rest the answer comes from the routes status read's
+ * `streamRemaining`, a count of activities with no stored series, which is
+ * durable and survives the process the phase does not.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';

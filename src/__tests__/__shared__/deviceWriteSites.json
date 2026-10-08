@@ -94,6 +94,7 @@
   "src/shared/storage/terrainPreviewRoot.ts": 2,
   "widget/android/java/InsightsWidgetChoice.kt": 1,
   "widget/android/java/RecordWidgetChoice.kt": 1,
+  "widget/android/java/StrengthWidgetChoice.kt": 1,
   "widget/android/java/SummaryWidgetChoice.kt": 1,
   "widget/android/java/WidgetSnapshot.kt": 1,
   "widget/ios/probe/MemoryProbe.swift": 3,

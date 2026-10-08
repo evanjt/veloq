@@ -1300,6 +1300,247 @@ fn route_performance_of_an_unknown_route_is_empty() {
     assert!(read.calendar_summary.is_none());
 }
 
+/// One attempt at a route that carries a heart rate, or does not.
+struct HeartAttempt {
+    id: &'static str,
+    sport: &'static str,
+    days_ago: i64,
+    distance: f64,
+    moving_time: u32,
+    avg_hr: Option<u16>,
+    excluded: bool,
+}
+
+/// A route whose attempts are `attempts`, all taken the route's own way.
+fn route_of(attempts: &[HeartAttempt]) -> Setup {
+    let mut s = setup();
+    let now = chrono::Utc::now().timestamp();
+    for a in attempts {
+        s.engine
+            .add_activity(a.id.to_string(), line(46.2, 7.35, 60), a.sport.to_string())
+            .expect("add attempt");
+    }
+    s.engine
+        .set_activity_metrics_extended(
+            attempts
+                .iter()
+                .map(|a| veloqrs::FfiActivityMetrics {
+                    distance: a.distance,
+                    moving_time: a.moving_time,
+                    elapsed_time: a.moving_time,
+                    avg_hr: a.avg_hr,
+                    sport_type: a.sport.to_string(),
+                    ..metrics(a.id, now - a.days_ago * 86_400)
+                })
+                .collect(),
+        )
+        .expect("set metrics");
+    let ids: Vec<&str> = attempts.iter().map(|a| a.id).collect();
+    s.raw
+        .execute(
+            "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
+             VALUES ('loop', ?1, ?2, 'Ride', ?3)",
+            params![ids[0], serde_json::to_string(&ids).unwrap(), ids.len()],
+        )
+        .expect("insert group");
+    for a in attempts {
+        s.raw
+            .execute(
+                "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction, excluded)
+                 VALUES ('loop', ?1, 90.0, 'same', ?2)",
+                params![a.id, a.excluded],
+            )
+            .expect("insert match");
+    }
+    s
+}
+
+const fn ride(
+    id: &'static str,
+    days_ago: i64,
+    moving_time: u32,
+    avg_hr: Option<u16>,
+) -> HeartAttempt {
+    HeartAttempt {
+        id,
+        sport: "Ride",
+        days_ago,
+        distance: 1000.0,
+        moving_time,
+        avg_hr,
+        excluded: false,
+    }
+}
+
+#[test]
+fn route_performance_carries_the_efficiency_trend_of_its_counted_attempts() {
+    let _serial_state = crate::serial_state();
+    let s = route_of(&[
+        ride("ride_a", 40, 300, Some(150)),
+        ride("ride_b", 30, 295, Some(148)),
+        ride("ride_c", 20, 290, Some(147)),
+        ride("ride_d", 10, 285, Some(145)),
+        // Timed and in the band, but with no heart rate to weigh.
+        ride("ride_no_hr", 15, 280, None),
+        // Half as long again, so outside the band the route counts.
+        HeartAttempt {
+            distance: 1500.0,
+            ..ride("ride_long", 25, 400, Some(170))
+        },
+        HeartAttempt {
+            excluded: true,
+            ..ride("ride_excluded", 5, 260, Some(175))
+        },
+        HeartAttempt {
+            sport: "Run",
+            ..ride("run_a", 12, 420, Some(160))
+        },
+        HeartAttempt {
+            sport: "Run",
+            ..ride("run_b", 8, 410, Some(158))
+        },
+    ]);
+
+    let read = s.engine.route_detail_performance("loop", 0, Some("Ride"));
+    let trend = read
+        .efficiency_trend
+        .expect("four counted Ride attempts carry heart rate");
+
+    assert_eq!(trend.section_id, "loop");
+    assert_eq!(trend.sport_type, "Ride");
+    assert_eq!(trend.effort_count, 4);
+    let counted = [
+        ("ride_a", 40, 300.0, 150.0),
+        ("ride_b", 30, 295.0, 148.0),
+        ("ride_c", 20, 290.0, 147.0),
+        ("ride_d", 10, 285.0, 145.0),
+    ];
+    let dates: Vec<f64> = read
+        .chart_data
+        .points
+        .iter()
+        .filter(|p| counted.iter().any(|(id, ..)| *id == p.activity_id))
+        .map(|p| p.activity_date)
+        .collect();
+    assert_eq!(dates.len(), 4);
+    let points: Vec<(f64, f64, f64, f64)> = trend
+        .points
+        .iter()
+        .map(|p| (p.date, p.pace_secs_per_km, p.avg_hr, p.hr_pace_ratio))
+        .collect();
+    // Each attempt covered a kilometre, so its pace is its moving time.
+    let expected: Vec<(f64, f64, f64, f64)> = counted
+        .iter()
+        .zip(&dates)
+        .map(|((_, _, time, hr), date)| (*date, *time, *hr, hr * time))
+        .collect();
+    assert_eq!(points, expected);
+    // Heart rate and pace both fell, so a given speed cost less.
+    assert!(trend.trend_slope < 0.0);
+
+    // A range filters the chart, not the trend.
+    let ranged = s.engine.route_detail_performance("loop", 7, Some("Ride"));
+    assert_eq!(
+        format!("{:?}", ranged.efficiency_trend),
+        format!("{:?}", Some(&trend))
+    );
+
+    // Two Run attempts are too few to call a trend.
+    let run = s.engine.route_detail_performance("loop", 0, Some("Run"));
+    assert_eq!(run.sport_type.as_deref(), Some("Run"));
+    assert!(run.efficiency_trend.is_none());
+}
+
+#[test]
+fn route_performance_with_two_heart_rate_attempts_has_no_efficiency_trend() {
+    let _serial_state = crate::serial_state();
+    let s = route_of(&[
+        ride("ride_a", 30, 300, Some(150)),
+        ride("ride_b", 20, 295, Some(148)),
+        ride("ride_c", 10, 290, None),
+    ]);
+
+    let read = s.engine.route_detail_performance("loop", 0, None);
+
+    assert_eq!(read.sport_type.as_deref(), Some("Ride"));
+    assert_eq!(read.chart_data.points.len(), 3);
+    assert!(read.efficiency_trend.is_none());
+}
+
+/// A traversal of `section_id` that carries a heart rate.
+fn insert_heart_traversal(
+    db: &Connection,
+    section_id: &str,
+    activity_id: &str,
+    lap_time_s: f64,
+    avg_hr: f64,
+) {
+    db.execute(
+        "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
+                                         end_index, distance_meters, lap_time, lap_pace, avg_hr, excluded)
+         VALUES (?1, ?2, 'same', 0, 40, 800.0, ?3, ?4, ?5, 0)",
+        params![section_id, activity_id, lap_time_s, 800.0 / lap_time_s, avg_hr],
+    )
+    .expect("insert traversal");
+}
+
+#[test]
+fn section_performance_carries_the_efficiency_trend_of_the_sport_asked_for() {
+    let _serial_state = crate::serial_state();
+    let mut s = setup();
+    let now = chrono::Utc::now().timestamp();
+    // Four rides and three runs over one hill, a day apart, each with a heart rate.
+    let efforts: [(&str, &str, i64, f64, f64); 7] = [
+        ("ride_a", "Ride", 40, 240.0, 150.0),
+        ("ride_b", "Ride", 30, 236.0, 149.0),
+        ("ride_c", "Ride", 20, 232.0, 147.0),
+        ("ride_d", "Ride", 10, 228.0, 146.0),
+        ("run_a", "Run", 35, 320.0, 160.0),
+        ("run_b", "Run", 25, 316.0, 158.0),
+        ("run_c", "Run", 15, 312.0, 157.0),
+    ];
+    for (id, sport, days_ago, _, _) in efforts {
+        s.engine
+            .add_activity(id.to_string(), line(46.2, 7.35, 60), sport.to_string())
+            .expect("add effort");
+        s.engine
+            .set_activity_metrics_extended(vec![veloqrs::FfiActivityMetrics {
+                sport_type: sport.to_string(),
+                ..metrics(id, now - days_ago * 86_400)
+            }])
+            .expect("set metrics");
+    }
+    insert_section(&s.raw, "hill", "auto", "Hill", &line(46.2, 7.35, 30), None);
+    for (id, _, _, lap_time, hr) in efforts {
+        insert_heart_traversal(&s.raw, "hill", id, lap_time, hr);
+    }
+    // The engine's own trend reads the section from the in-memory catalogue.
+    s.engine.load().expect("load the catalogue");
+
+    for sport in ["Ride", "Run"] {
+        let read = s.engine.section_detail_performance("hill", 0, Some(sport));
+        let trend = read
+            .efficiency_trend
+            .as_ref()
+            .unwrap_or_else(|| panic!("a {sport} trend"));
+        assert_eq!(trend.sport_type, sport);
+        assert_eq!(
+            format!("{:?}", read.efficiency_trend),
+            format!("{:?}", s.engine.get_section_efficiency_trend("hill", sport)),
+            "{sport}"
+        );
+    }
+
+    // With no chip the read answers the sport with the most outings, and the
+    // trend is that sport's.
+    let unasked = s.engine.section_detail_performance("hill", 0, None);
+    assert_eq!(unasked.sport_type.as_deref(), Some("Ride"));
+    assert_eq!(
+        unasked.efficiency_trend.map(|t| t.sport_type).as_deref(),
+        Some("Ride")
+    );
+}
+
 // ============================================================================
 // Insights
 // ============================================================================
@@ -2240,13 +2481,13 @@ fn test_section_detail_skips_corrupt_point_density_json() {
     assert!(s.engine.section_detail_data("auto1").section.is_none());
 }
 
-/// The ledger, the excluded laps and the efficiency trend are keyed on the
-/// section id alone, so a visit paid five more lock acquisitions for reads the
-/// first bundle was already positioned to make.
+/// The ledger and the excluded laps are keyed on the section id alone, so a
+/// visit paid more lock acquisitions for reads the first bundle was already
+/// positioned to make.
 #[test]
-fn section_detail_carries_the_ledger_the_laps_and_the_trend() {
+fn section_detail_carries_the_ledger_and_the_laps() {
     let _serial_state = crate::serial_state();
-    let mut s = populated();
+    let s = populated();
     let bundle = s.engine.section_detail_data("auto1");
 
     assert_eq!(
@@ -2260,12 +2501,6 @@ fn section_detail_carries_the_ledger_the_laps_and_the_trend() {
     assert_eq!(
         bundle.pinned_version,
         s.engine.pinned_section_version("auto1").map(|v| v as f64)
-    );
-    assert_eq!(
-        bundle.efficiency_trend.is_some(),
-        s.engine
-            .get_section_efficiency_trend("auto1", "Ride")
-            .is_some()
     );
 }
 
@@ -2513,7 +2748,6 @@ fn section_detail_for_an_unknown_id_carries_no_ledger() {
     assert!(bundle.history.is_empty());
     assert!(bundle.geometry_versions.is_empty());
     assert_eq!(bundle.pinned_version, None);
-    assert!(bundle.efficiency_trend.is_none());
 }
 
 #[test]

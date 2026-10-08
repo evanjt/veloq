@@ -27,7 +27,8 @@ interface Fixture {
 
 /**
  * A working directory whose `node`, `npx`, `npm` and `gradlew` are spies that
- * log their arguments. `npm run bundle:android` re-enters the real recipe, so
+ * log their arguments, except the identity reader, which runs for real since it
+ * writes nothing. `npm run bundle:android` re-enters the real recipe, so
  * the nested lock path is the one under test. The spy for the exporter exits
  * with a sentinel status.
  */
@@ -43,7 +44,7 @@ function fixture(): Fixture {
   };
   spy(
     'node',
-    `case "$*" in *check-native-tree*) exit 0;; esac\necho "node $*" >> "${log}"\ncase "$*" in *bundle-android*) exit 23;; esac`
+    `case "$*" in *check-native-tree*) exit 0;; *app-identity*) exec "${process.execPath}" "$@";; esac\necho "node $*" >> "${log}"\ncase "$*" in *bundle-android*) exit 23;; esac`
   );
   spy('npx', `echo "npx $*" >> "${log}"`);
   spy(
@@ -115,6 +116,7 @@ describe('Android artifact recipes wait for the build lock', () => {
       'android',
       23,
       [
+        'node scripts/prepare-native.mjs --platform android',
         'node scripts/check-toolchain.mjs',
         'node scripts/sync-android-widgets.mjs',
         'node scripts/bundle-android.mjs',
@@ -124,6 +126,7 @@ describe('Android artifact recipes wait for the build lock', () => {
       'android:prod',
       23,
       [
+        'node scripts/prepare-native.mjs --platform android',
         'node scripts/check-toolchain.mjs',
         'node scripts/sync-android-widgets.mjs',
         'node scripts/build-record.js snapshot android release',
@@ -134,7 +137,11 @@ describe('Android artifact recipes wait for the build lock', () => {
     [
       'android:debug',
       23,
-      ['node scripts/sync-android-widgets.mjs', 'node scripts/bundle-android.mjs'],
+      [
+        'node scripts/prepare-native.mjs --platform android',
+        'node scripts/sync-android-widgets.mjs',
+        'node scripts/bundle-android.mjs',
+      ],
     ],
   ])(
     '%s starts no writer while the lock is held',

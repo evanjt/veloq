@@ -14,13 +14,13 @@ export {
   GroupingParamPanel,
   GroupingPreviewMap,
   type GroupingRoute,
+  PlaceNameButton,
   PreviewCentrePicker,
   PreviewDiffStrip,
   PreviewMapView,
   PreviewParamPanel,
   PreviewRunCost,
   PreviewSectionPopover,
-  RouteDetailChart,
   RouteDetailDebugPanel,
   RouteDetailMap,
   routeDetailScreenStyles,
@@ -39,9 +39,11 @@ export {
   SectionDebugPanel,
   SectionDetailLinks,
   sectionDetailStyles,
+  SectionEfficiencyCard,
   SectionHeader,
   SectionHistoryPanel,
   SectionLapList,
+  SectionPerformanceSection,
   type SectionStreamsState,
 } from './components/section';
 export { SectionSparkline } from './components/section/SectionSparkline';
@@ -56,8 +58,8 @@ export {
   useExcludedActivities,
   useLedgerActivityNames,
   useRevealMapOnDraw,
-  useRouteChartData,
   useRouteGroupingPreview,
+  useRouteMapSignatures,
   useRouteGroups,
   useRouteMatch,
   useRoutePerformances,
@@ -74,7 +76,6 @@ export {
   useSectionPerformances,
   useSectionRescan,
   useSectionUIState,
-  useSportTypeFilter,
 } from './hooks';
 export { useActivityRematch } from './hooks/useActivityRematch';
 export { useCutoverSummary, type CutoverSummary } from './hooks/useCutoverSummary';
@@ -87,7 +88,11 @@ export { usePreviewCurrentSections } from './hooks/usePreviewCurrentSections';
 export { usePreviewDetect } from './hooks/usePreviewDetect';
 export { useRouteDetailData } from './hooks/useRouteDetailData';
 export { useRouteReoptimisation } from './hooks/useRouteReoptimisation';
-export { useSectionDetailData, useSectionDetailPerformance } from './hooks/useSectionDetailData';
+export {
+  useSectionDetailData,
+  useSectionDetailPerformance,
+  useRouteDetailPerformance,
+} from './hooks/useSectionDetailData';
 export { useSectionDisplayNames } from './hooks/useSectionDisplayNames';
 export { hasPartialExclusion, useSectionLaps } from './hooks/useSectionLaps';
 export { useSectionLedger } from './hooks/useSectionLedger';
@@ -126,6 +131,7 @@ export { previewRefusalKey } from './lib/previewRefusal';
 export { rescanRefusalKey } from './lib/rescanRefusal';
 export { createMapHighlightStore } from './lib/mapHighlight';
 export { routeHeadline } from './lib/routeHeadline';
+export { heroStats } from './lib/heroStats';
 export {
   DEFAULT_SECTION_HIDE_FLAGS,
   groupSortFor,

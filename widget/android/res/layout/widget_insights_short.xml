@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Insights widget one row tall: the first insight's tone mark and title, the title shrunk to the
+     row rather than cut short, since a row has no room for the subtitle or the age line. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/ins_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:orientation="horizontal"
+  android:gravity="center_vertical"
+  android:paddingStart="@dimen/widget_padding"
+  android:paddingEnd="@dimen/widget_padding"
+  android:paddingTop="@dimen/widget_gap"
+  android:paddingBottom="@dimen/widget_gap"
+  android:background="@drawable/widget_background">
+
+  <ImageView
+    android:id="@+id/ins_dot0"
+    android:layout_width="8dp"
+    android:layout_height="8dp"
+    android:layout_marginEnd="@dimen/widget_gap"
+    android:src="@drawable/widget_tone_dot"
+    android:contentDescription="@null" />
+
+  <TextView
+    android:id="@+id/ins_title0"
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:gravity="center_vertical"
+    android:autoSizeTextType="uniform"
+    android:autoSizeMinTextSize="@dimen/widget_text_floor"
+    android:autoSizeMaxTextSize="@dimen/widget_text_label"
+    android:autoSizeStepGranularity="1sp"
+    android:textSize="@dimen/widget_text_label"
+    android:textStyle="bold"
+    android:textColor="@color/widget_text_primary" />
+</LinearLayout>

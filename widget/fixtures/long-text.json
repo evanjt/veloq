@@ -1,0 +1,1079 @@
+{
+  "display": {
+    "formZone": "Transizione",
+    "impactLine": "Formstatus +1784 → +1571 · +12345 TSS",
+    "metricLabels": {
+      "fatigue": "Affaticamento",
+      "fitness": "Condición física",
+      "form": "Formstatus",
+      "hrv": "心率变异性",
+      "ramp": "Stigningsrate",
+      "rhr": "Ruehpuls"
+    },
+    "perWeekSuffix": "/Woche",
+    "recordLabel": "Rozpocznij aktywność",
+    "refreshLabel": "Aktualisieren",
+    "refreshingLabel": "Actualisation en cours",
+    "weekLabel": "Semaine"
+  },
+  "emptyLibrary": false,
+  "formHistory": {
+    "asPercent": false,
+    "values": [
+      475,
+      262,
+      50,
+      -164,
+      -377,
+      -589,
+      -802,
+      907,
+      694,
+      482,
+      269,
+      55,
+      -157,
+      -370,
+      1339,
+      1126,
+      914,
+      701,
+      487,
+      275,
+      62,
+      1772,
+      1558,
+      1346,
+      1133,
+      919,
+      707,
+      494,
+      2204,
+      1990,
+      1778,
+      1565,
+      1351,
+      1139,
+      926,
+      2636,
+      2422,
+      2210,
+      1997,
+      1784,
+      1571,
+      1358
+    ],
+    "zoneBounds": [
+      -30,
+      -10,
+      5,
+      25
+    ]
+  },
+  "generatedAt": 1733360000,
+  "impact": {
+    "atlDelta": 274.0,
+    "ctlDelta": 61.0,
+    "dateLabel": "Yesterday",
+    "formAfter": 1571.0,
+    "formAfterText": "+1571",
+    "formAfterZone": "transition",
+    "formBefore": 1784.0,
+    "formBeforeText": "+1784",
+    "formBeforeZone": "transition",
+    "tssAdded": 12345.0
+  },
+  "insights": [
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "fitness-up",
+      "subtitle": "Steigerungsrate von 12345 pro Woche über den gesamten Zeitraum gemessen",
+      "title": "Deine Fitness ist in den letzten vier Wochen um 12345 Punkte gestiegen",
+      "tone": "positive",
+      "url": "veloq://fitness"
+    },
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "route-pr",
+      "subtitle": "12:34:56 hinter deiner Bestzeit auf dieser Strecke",
+      "title": "Zweitbeste Zeit auf der Strecke Großer Hafenrundkurs über die Brücke",
+      "tone": "record",
+      "url": "veloq://fitness"
+    },
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "hrv-steady",
+      "subtitle": "12345 ms de moyenne sur la période de référence choisie",
+      "title": "Variabilité de la fréquence cardiaque stable sur sept jours consécutifs",
+      "tone": "info",
+      "url": "veloq://fitness"
+    },
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "form-fresh",
+      "subtitle": "−12345 heute, nach einer sehr langen Belastungsphase",
+      "title": "Tagesform liegt im Übergangsbereich zwischen Erholung und Training",
+      "tone": "caution",
+      "url": "veloq://fitness"
+    },
+    {
+      "category": "fitness",
+      "icon": "trending-up",
+      "id": "ftp",
+      "subtitle": "Subiu 12345 W nos últimos trinta dias de treino",
+      "title": "eFTP de 12345 W, a mais alta estimativa desde o início do registo",
+      "tone": "positive",
+      "url": "veloq://fitness"
+    }
+  ],
+  "latest": {
+    "activityId": "long-1",
+    "date": 1733356400.0,
+    "dateLabel": "Yesterday",
+    "distanceLabel": "12345.7 km",
+    "distanceM": 12345678.0,
+    "durationLabel": "99:59:59",
+    "headline": {
+      "detail": "1:23 hinter deiner Bestzeit",
+      "dots": [
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": true
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": false,
+          "record": false
+        },
+        {
+          "current": true,
+          "record": false
+        }
+      ],
+      "hero": "14 次中第 2 名",
+      "kind": "route",
+      "label": "Grande boucle des collines et du littoral par le col du vent"
+    },
+    "isPr": true,
+    "loadText": "Belastning 12345",
+    "loadVsTypical": null,
+    "movingTimeS": 359999.0,
+    "name": "Grande boucle des collines et du littoral par le col du vent",
+    "route": {
+      "attemptCount": 14,
+      "attemptSeconds": [
+        5900,
+        5750,
+        5820,
+        5700,
+        5660,
+        5610,
+        5800,
+        5590,
+        5640,
+        5577,
+        5720,
+        5680,
+        5600
+      ],
+      "gapLabel": "1:23",
+      "gapSeconds": 83,
+      "name": "Grande boucle des collines et du littoral par le col du vent",
+      "rank": 2
+    },
+    "routePreview": {
+      "aspect": 1.43,
+      "points": [
+        [
+          1.0,
+          0.5
+        ],
+        [
+          0.998,
+          0.428
+        ],
+        [
+          0.994,
+          0.358
+        ],
+        [
+          0.986,
+          0.291
+        ],
+        [
+          0.976,
+          0.23
+        ],
+        [
+          0.962,
+          0.174
+        ],
+        [
+          0.946,
+          0.126
+        ],
+        [
+          0.926,
+          0.086
+        ],
+        [
+          0.905,
+          0.053
+        ],
+        [
+          0.88,
+          0.029
+        ],
+        [
+          0.854,
+          0.013
+        ],
+        [
+          0.825,
+          0.003
+        ],
+        [
+          0.794,
+          0.0
+        ],
+        [
+          0.761,
+          0.001
+        ],
+        [
+          0.727,
+          0.006
+        ],
+        [
+          0.691,
+          0.013
+        ],
+        [
+          0.655,
+          0.021
+        ],
+        [
+          0.617,
+          0.029
+        ],
+        [
+          0.578,
+          0.035
+        ],
+        [
+          0.539,
+          0.039
+        ],
+        [
+          0.5,
+          0.041
+        ],
+        [
+          0.461,
+          0.039
+        ],
+        [
+          0.422,
+          0.035
+        ],
+        [
+          0.383,
+          0.029
+        ],
+        [
+          0.345,
+          0.021
+        ],
+        [
+          0.309,
+          0.013
+        ],
+        [
+          0.273,
+          0.006
+        ],
+        [
+          0.239,
+          0.001
+        ],
+        [
+          0.206,
+          0.0
+        ],
+        [
+          0.175,
+          0.003
+        ],
+        [
+          0.146,
+          0.013
+        ],
+        [
+          0.12,
+          0.029
+        ],
+        [
+          0.095,
+          0.053
+        ],
+        [
+          0.074,
+          0.086
+        ],
+        [
+          0.054,
+          0.126
+        ],
+        [
+          0.038,
+          0.174
+        ],
+        [
+          0.024,
+          0.23
+        ],
+        [
+          0.014,
+          0.291
+        ],
+        [
+          0.006,
+          0.358
+        ],
+        [
+          0.002,
+          0.428
+        ],
+        [
+          0.0,
+          0.5
+        ],
+        [
+          0.002,
+          0.572
+        ],
+        [
+          0.006,
+          0.642
+        ],
+        [
+          0.014,
+          0.709
+        ],
+        [
+          0.024,
+          0.77
+        ],
+        [
+          0.038,
+          0.826
+        ],
+        [
+          0.054,
+          0.874
+        ],
+        [
+          0.074,
+          0.914
+        ],
+        [
+          0.095,
+          0.947
+        ],
+        [
+          0.12,
+          0.971
+        ],
+        [
+          0.146,
+          0.987
+        ],
+        [
+          0.175,
+          0.997
+        ],
+        [
+          0.206,
+          1.0
+        ],
+        [
+          0.239,
+          0.999
+        ],
+        [
+          0.273,
+          0.994
+        ],
+        [
+          0.309,
+          0.987
+        ],
+        [
+          0.345,
+          0.979
+        ],
+        [
+          0.383,
+          0.971
+        ],
+        [
+          0.422,
+          0.965
+        ],
+        [
+          0.461,
+          0.961
+        ],
+        [
+          0.5,
+          0.959
+        ],
+        [
+          0.539,
+          0.961
+        ],
+        [
+          0.578,
+          0.965
+        ],
+        [
+          0.617,
+          0.971
+        ],
+        [
+          0.655,
+          0.979
+        ],
+        [
+          0.691,
+          0.987
+        ],
+        [
+          0.727,
+          0.994
+        ],
+        [
+          0.761,
+          0.999
+        ],
+        [
+          0.794,
+          1.0
+        ],
+        [
+          0.825,
+          0.997
+        ],
+        [
+          0.854,
+          0.987
+        ],
+        [
+          0.88,
+          0.971
+        ],
+        [
+          0.905,
+          0.947
+        ],
+        [
+          0.926,
+          0.914
+        ],
+        [
+          0.946,
+          0.874
+        ],
+        [
+          0.962,
+          0.826
+        ],
+        [
+          0.976,
+          0.77
+        ],
+        [
+          0.986,
+          0.709
+        ],
+        [
+          0.994,
+          0.642
+        ],
+        [
+          0.998,
+          0.572
+        ]
+      ]
+    },
+    "sectionPrs": 3,
+    "sectionPrsText": "Records de sections 3",
+    "sportType": "Ride",
+    "stats": [
+      {
+        "id": "distance",
+        "label": "Distancia",
+        "value": "12345.7 km"
+      },
+      {
+        "id": "movingTime",
+        "label": "Tiempo en movimiento",
+        "value": "99:59:59"
+      },
+      {
+        "id": "elevationGain",
+        "label": "Samlet stigning",
+        "value": "310 m"
+      }
+    ],
+    "tintHex": "#3B82F6",
+    "trainingLoad": 12345.0
+  },
+  "launcherShortcuts": [
+    {
+      "label": "Ciclismo virtual en interiores",
+      "type": "VirtualRide",
+      "url": "veloq://record?type=VirtualRide"
+    },
+    {
+      "label": "Corsa su pista",
+      "type": "Run",
+      "url": "veloq://record?type=Run"
+    }
+  ],
+  "locale": "en-AU",
+  "metrics": {
+    "fatigue": {
+      "deltaVsYesterday": 275.0,
+      "trendDir": "up",
+      "value": 10987.0,
+      "verdict": "moved"
+    },
+    "fitness": {
+      "deltaVsYesterday": 62.0,
+      "trendDir": "up",
+      "value": 12345.0,
+      "verdict": "improved"
+    },
+    "form": {
+      "deltaVsYesterday": -213.0,
+      "text": "+1358",
+      "trendDir": "down",
+      "value": 1358.0,
+      "verdict": "moved",
+      "zone": "transition"
+    },
+    "hrv": {
+      "deltaVsYesterday": -1.0,
+      "trendDir": "flat",
+      "value": 58.0,
+      "verdict": "flat"
+    },
+    "rampRate": {
+      "value": 4.2
+    },
+    "rhr": {
+      "deltaVsYesterday": -1.0,
+      "trendDir": "up",
+      "value": 47.0,
+      "verdict": "improved"
+    }
+  },
+  "recordShortcuts": [
+    {
+      "label": "Ciclismo virtual en interiores",
+      "type": "VirtualRide",
+      "url": "veloq://record?type=VirtualRide"
+    },
+    {
+      "label": "Corsa su pista",
+      "type": "Run",
+      "url": "veloq://record?type=Run"
+    }
+  ],
+  "schemaVersion": 15,
+  "sparklines": {
+    "fatigue": [
+      10712,
+      10987,
+      9339,
+      9614,
+      9888,
+      10163,
+      10438,
+      10712,
+      10987,
+      9339,
+      9614,
+      9888,
+      10163,
+      10438,
+      10712,
+      10987,
+      9339,
+      9614,
+      9888,
+      10163,
+      10438,
+      10712,
+      10987,
+      9339,
+      9614,
+      9888,
+      10163,
+      10438,
+      10712,
+      10987
+    ],
+    "fitness": [
+      10555,
+      10617,
+      10678,
+      10740,
+      10802,
+      10864,
+      10925,
+      10987,
+      11049,
+      11111,
+      11172,
+      11234,
+      11296,
+      11357,
+      11419,
+      11481,
+      11543,
+      11604,
+      11666,
+      11728,
+      11789,
+      11851,
+      11913,
+      11975,
+      12036,
+      12098,
+      12160,
+      12222,
+      12283,
+      12345
+    ],
+    "form": [
+      -157,
+      -370,
+      1339,
+      1126,
+      914,
+      701,
+      487,
+      275,
+      62,
+      1772,
+      1558,
+      1346,
+      1133,
+      919,
+      707,
+      494,
+      2204,
+      1990,
+      1778,
+      1565,
+      1351,
+      1139,
+      926,
+      2636,
+      2422,
+      2210,
+      1997,
+      1784,
+      1571,
+      1358
+    ],
+    "hrv": [
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58,
+      62,
+      61,
+      60,
+      59,
+      58
+    ]
+  },
+  "strength": {
+    "body": "male",
+    "url": "veloq://insights?tab=strength&period=1m",
+    "windows": {
+      "last30": {
+        "activityCount": 2,
+        "emptyText": null,
+        "label": "1 miesiąc",
+        "maxWeightedSets": 92.5,
+        "muscles": [
+          {
+            "shade": 5,
+            "slug": "gluteal"
+          },
+          {
+            "shade": 5,
+            "slug": "lower-back"
+          },
+          {
+            "shade": 3,
+            "slug": "quadriceps"
+          },
+          {
+            "shade": 3,
+            "slug": "hamstring"
+          },
+          {
+            "shade": 2,
+            "slug": "biceps"
+          },
+          {
+            "shade": 2,
+            "slug": "upper-back"
+          },
+          {
+            "shade": 2,
+            "slug": "abs"
+          },
+          {
+            "shade": 2,
+            "slug": "obliques"
+          },
+          {
+            "shade": 2,
+            "slug": "calves"
+          },
+          {
+            "shade": 1,
+            "slug": "adductors"
+          },
+          {
+            "shade": 1,
+            "slug": "forearm"
+          }
+        ],
+        "owedCount": 0,
+        "top": [
+          {
+            "name": "Bilspieren",
+            "setsText": "92.5 series",
+            "slug": "gluteal",
+            "volumeText": "123520 kg"
+          },
+          {
+            "name": "Dolna część pleców",
+            "setsText": "87 series",
+            "slug": "lower-back",
+            "volumeText": "94360 kg"
+          },
+          {
+            "name": "Czworogłowe uda",
+            "setsText": "41 series",
+            "slug": "quadriceps",
+            "volumeText": "82000 kg"
+          },
+          {
+            "name": "Bicipiti femorali",
+            "setsText": "39 series",
+            "slug": "hamstring",
+            "volumeText": "58760 kg"
+          }
+        ],
+        "totalSets": 170
+      },
+      "month": {
+        "activityCount": 1,
+        "emptyText": null,
+        "label": "diciembre",
+        "maxWeightedSets": 92.5,
+        "muscles": [
+          {
+            "shade": 5,
+            "slug": "gluteal"
+          },
+          {
+            "shade": 4,
+            "slug": "lower-back"
+          },
+          {
+            "shade": 3,
+            "slug": "quadriceps"
+          },
+          {
+            "shade": 3,
+            "slug": "hamstring"
+          },
+          {
+            "shade": 2,
+            "slug": "abs"
+          },
+          {
+            "shade": 2,
+            "slug": "obliques"
+          },
+          {
+            "shade": 2,
+            "slug": "calves"
+          },
+          {
+            "shade": 1,
+            "slug": "adductors"
+          }
+        ],
+        "owedCount": 0,
+        "top": [
+          {
+            "name": "Bilspieren",
+            "setsText": "92.5 series",
+            "slug": "gluteal",
+            "volumeText": "123520 kg"
+          },
+          {
+            "name": "Dolna część pleców",
+            "setsText": "72 series",
+            "slug": "lower-back",
+            "volumeText": "81160 kg"
+          },
+          {
+            "name": "Czworogłowe uda",
+            "setsText": "41 series",
+            "slug": "quadriceps",
+            "volumeText": "82000 kg"
+          },
+          {
+            "name": "Bicipiti femorali",
+            "setsText": "39 series",
+            "slug": "hamstring",
+            "volumeText": "58760 kg"
+          }
+        ],
+        "totalSets": 140
+      }
+    }
+  },
+  "summaryCard": {
+    "entries": [
+      {
+        "colorKey": "blue",
+        "id": "fitness",
+        "label": "Condición física",
+        "trendDir": "up",
+        "value": "12345",
+        "verdict": "improved"
+      },
+      {
+        "colorKey": "default",
+        "id": "ftp",
+        "label": "功能阈值功率",
+        "trendDir": "flat",
+        "value": "-",
+        "verdict": "flat"
+      },
+      {
+        "colorKey": "default",
+        "id": "weekHours",
+        "label": "Semaine",
+        "trendDir": "up",
+        "value": "183.3h",
+        "verdict": "improved"
+      }
+    ],
+    "hero": {
+      "colorKey": "formZone",
+      "id": "form",
+      "label": "Formstatus",
+      "trendDir": "down",
+      "value": "+1358",
+      "verdict": "moved"
+    },
+    "heroSparkline": [
+      -157,
+      -370,
+      1339,
+      1126,
+      914,
+      701,
+      487,
+      275,
+      62,
+      1772,
+      1558,
+      1346,
+      1133,
+      919,
+      707,
+      494,
+      2204,
+      1990,
+      1778,
+      1565,
+      1351,
+      1139,
+      926,
+      2636,
+      2422,
+      2210,
+      1997,
+      1784,
+      1571,
+      1358
+    ],
+    "sparkline": "fitnessForm"
+  },
+  "summaryMetrics": [
+    {
+      "colorKey": "default",
+      "id": "hrv",
+      "label": "心率变异性",
+      "trendDir": "flat",
+      "value": "58",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "rhr",
+      "label": "Ruehpuls",
+      "trendDir": "up",
+      "value": "47",
+      "verdict": "improved"
+    },
+    {
+      "colorKey": "default",
+      "id": "weekHours",
+      "label": "Semaine",
+      "trendDir": "up",
+      "value": "183.3h",
+      "verdict": "improved"
+    },
+    {
+      "colorKey": "default",
+      "id": "weekCount",
+      "label": "#",
+      "trendDir": "up",
+      "value": "2",
+      "verdict": "improved"
+    },
+    {
+      "colorKey": "default",
+      "id": "ftp",
+      "label": "功能阈值功率",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "thresholdPace",
+      "label": "Allure",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "default",
+      "id": "css",
+      "label": "临界游泳速度",
+      "trendDir": "flat",
+      "value": "-",
+      "verdict": "flat"
+    },
+    {
+      "colorKey": "blue",
+      "id": "fitness",
+      "label": "Condición física",
+      "trendDir": "up",
+      "value": "12345",
+      "verdict": "improved"
+    },
+    {
+      "colorKey": "formZone",
+      "id": "form",
+      "label": "Formstatus",
+      "trendDir": "down",
+      "value": "+1358",
+      "verdict": "moved"
+    }
+  ],
+  "theme": {},
+  "weekly": {
+    "count": 2,
+    "deltaPct": null,
+    "distanceLabel": "22222.2 km",
+    "distanceM": 22222221.0,
+    "durationLabel": "183:19:58",
+    "durationS": 659998.0,
+    "tss": 35801
+  }
+}

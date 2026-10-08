@@ -450,6 +450,16 @@ impl FitnessManager {
                     .into_iter()
                     .map(|r| (r.activity_id, r.date as i64, r.raw))
                     .collect(),
+                exercise_sets: sample
+                    .exercise_sets
+                    .iter()
+                    .map(|set| {
+                        (
+                            set.activity_id.clone(),
+                            crate::fit::FitExerciseSet::from(set),
+                        )
+                    })
+                    .collect(),
             };
             return crate::widget_snapshot::sample_snapshot_json(&library, &ctx, clock).map_err(
                 |e| VeloqError::Database {

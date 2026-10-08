@@ -1,5 +1,9 @@
 import { runSectionBoundsEdit } from '../../../modules/veloqrs/src/delegates/sections/bounds';
 import type { DelegateHost } from '../../../modules/veloqrs/src/delegates/host';
+import {
+  type FfiSectionBoundsEdit,
+  FfiSectionBoundsEdit_Tags,
+} from '../../../modules/veloqrs/src/generated/veloqrs';
 
 function fixture(edit: jest.Mock) {
   const notifyAll = jest.fn();
@@ -64,5 +68,32 @@ it('makes no engine call before the engine has opened', async () => {
       sectionId: 'sec-1',
     })
   ).resolves.toBeNull();
+  expect(edit).not.toHaveBeenCalled();
+});
+
+it('hands the engine the activity a reference edit names', async () => {
+  const edit = jest.fn((_sent: FfiSectionBoundsEdit) => Promise.resolve([]));
+  const { host } = fixture(edit);
+
+  await runSectionBoundsEdit(host, {
+    kind: 'setReference',
+    sectionId: 'sec-1',
+    activityId: 'a7',
+  });
+  await runSectionBoundsEdit(host, { kind: 'resetReference', sectionId: 'sec-1' });
+
+  expect(edit.mock.calls.map(([sent]) => [sent.tag, sent.inner])).toEqual([
+    [FfiSectionBoundsEdit_Tags.SetReference, { sectionId: 'sec-1', activityId: 'a7' }],
+    [FfiSectionBoundsEdit_Tags.ResetReference, { sectionId: 'sec-1' }],
+  ]);
+});
+
+it('makes no engine call for a reference edit naming no activity', async () => {
+  const edit = jest.fn();
+  const { host } = fixture(edit);
+
+  await expect(
+    runSectionBoundsEdit(host, { kind: 'setReference', sectionId: 'sec-1', activityId: '' })
+  ).rejects.toThrow();
   expect(edit).not.toHaveBeenCalled();
 });

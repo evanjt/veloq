@@ -278,7 +278,7 @@ function SectionDetailScreenContent() {
     [performance]
   );
 
-  const { chartData } = useSectionChartData({
+  const { chartData, firstActivityDate, lastActivityDate } = useSectionChartData({
     preComputedChart: performance?.chartData ?? null,
   });
 
@@ -366,7 +366,8 @@ function SectionDetailScreenContent() {
             activityColor={activityColor}
             iconName={iconName}
             activityCount={traversalCount}
-            scopeSport={showSportChips ? effectiveSportType : undefined}
+            scopeSport={effectiveSportType}
+            sportsOffered={sportCounts.length}
             sportType={effectiveSportType}
             scopeRange={sectionTimeRange}
             mapReady={mapReady}
@@ -382,6 +383,7 @@ function SectionDetailScreenContent() {
             allActivityTraces={allActivityTraces}
             onUnflagLift={isTrimming ? undefined : handleUnflagLift}
             onSaveName={handleSaveName}
+            canNameFromPlaces={detail?.canNameFromPlaces ?? false}
           />
 
           {/* Action row - always visible below map, hidden during trim */}
@@ -453,14 +455,15 @@ function SectionDetailScreenContent() {
           {/* Content below hero - hidden during trim */}
           {!isTrimming && (
             <SectionContentArea
-              efficiencyTrend={detail ? (detail.efficiencyTrend ?? null) : undefined}
+              efficiencyTrend={performance?.efficiencyTrend}
               correlations={performance?.correlations ?? NO_CORRELATIONS}
               correlationFloor={performance?.correlationFloor ?? 0}
               isDark={isDark}
-              section={section}
               isSectionDisabled={isSectionDisabled}
               mergeCandidates={mergeCandidates}
               combinedChartData={combinedChartData}
+              firstActivityDate={firstActivityDate}
+              lastActivityDate={lastActivityDate}
               trendCurves={performance?.trendCurves ?? NO_TREND_CURVES}
               histograms={performance?.histograms ?? NO_HISTOGRAMS}
               curves={performance?.curves}

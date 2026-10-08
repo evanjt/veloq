@@ -1,0 +1,53 @@
+# Regional map section popup. The sections are drawn into the map canvas, so
+# no step can tap one. The map tab takes the section to open as a parameter.
+#
+# A demo section id is its content id, the 100 m earth cell its heart sits in,
+# so it is the same on every device for the same fixture library.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-map
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# The catalogue is cut after the seed lands, which takes minutes on a gate
+# runner, so the link is followed once the cut has begun. The popup re-reads the
+# section as the cut goes on, and the list order is not fixed while it runs.
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+- tapOn:
+    text: "Sections"
+- extendedWaitUntil:
+    visible:
+      id: "section-row-.*"
+    timeout: 300000
+
+- openLink: "veloq://map?section=s_47075_-6085"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "section-popup"
+    timeout: 300000
+
+# The camera fits the section once the record loads, and the section overlay
+# auto-hides below neighbourhood zoom. The popup has to outlast that settle.
+- waitForAnimationToEnd:
+    timeout: 10000
+- assertVisible:
+    id: "section-popup"
+- assertVisible:
+    id: "section-popup-view-details"
+- assertVisible:
+    id: "section-popup-close"
+
+- tapOn:
+    id: "section-popup-close"
+- assertNotVisible:
+    id: "section-popup"

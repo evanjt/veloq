@@ -31,6 +31,11 @@ on:
         required: false
         type: string
         default: "auto"
+      widget-captures:
+        description: "Also build the engine module's test APK, which draws every widget"
+        required: false
+        type: boolean
+        default: false
       retention-days:
         description: "Days the APK artifact is kept"
         required: false
@@ -65,6 +70,9 @@ on:
       producer_commit:
         description: "Commit that built the app, which differs from the checked-out commit when the app came from the cache"
         value: ${{ jobs.build.outputs.producer_commit }}
+      widget-captures-artifact:
+        description: "Name of the uploaded widget capture test APK, empty unless asked for"
+        value: ${{ jobs.build.outputs.widget-captures-artifact }}
 
 env:
   NODE_VERSION: "22"
@@ -89,6 +97,7 @@ jobs:
       is_signed: ${{ steps.signing.outputs.is_signed }}
       apk-artifact: ${{ steps.apk.outputs.name }}
       producer_commit: ${{ steps.producer.outputs.commit }}
+      widget-captures-artifact: ${{ steps.captures.outputs.name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -145,6 +154,7 @@ jobs:
         uses: ./.github/actions/write-google-services-stub
         with:
           secret-contents: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          # The packages scripts/lib/app-identity.js names for each identity.
           package-name: ${{ inputs.variant == 'production' && 'com.veloq.app' || 'com.veloq.app.dev' }}
           allow-stub: ${{ inputs.allow-stub }}
 
@@ -159,7 +169,8 @@ jobs:
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/producer-commit
-          key: android-app-v6-${{ inputs.variant }}-${{ inputs.release && 'with-aab' || 'apk-only' }}-${{ steps.targets.outputs.selection }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
+            ${{ inputs.widget-captures && 'modules/veloqrs/android/build/outputs/apk/androidTest/debug/veloqrs-debug-androidTest.apk' || '' }}
+          key: android-app-v6-${{ inputs.variant }}-${{ inputs.release && 'with-aab' || 'apk-only' }}${{ inputs.widget-captures && '-captures' || '' }}-${{ steps.targets.outputs.selection }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
 
       - name: Skip build (cache hit)
         if: steps.apk-cache.outputs.cache-hit == 'true'
@@ -365,6 +376,17 @@ jobs:
             -PreactNativeArchitectures="$ABIS" \
             --no-daemon
 
+      # The engine module's test APK, which draws every widget from the snapshot
+      # fixtures. Built after the app so it links the library already compiled.
+      - name: Build widget capture test
+        if: steps.apk-cache.outputs.cache-hit != 'true' && inputs.widget-captures
+        env:
+          ABIS: ${{ inputs.abis }}
+        run: |
+          cd android && ./gradlew :veloqrs:assembleDebugAndroidTest \
+            -PreactNativeArchitectures="$ABIS" \
+            --no-daemon
+
       - name: Build Android APK
         if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD == 'true'
         env:
@@ -429,6 +451,22 @@ jobs:
         with:
           name: ${{ steps.apk.outputs.name }}
           path: artifacts/*.apk
+          retention-days: ${{ inputs.retention-days }}
+
+      - name: Name widget capture test
+        id: captures
+        if: inputs.widget-captures
+        env:
+          FILENAME: ${{ steps.version.outputs.filename }}
+        run: echo "name=widget-captures-apk-$FILENAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload widget capture test
+        if: inputs.widget-captures
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.captures.outputs.name }}
+          path: modules/veloqrs/android/build/outputs/apk/androidTest/debug/veloqrs-debug-androidTest.apk
+          if-no-files-found: error
           retention-days: ${{ inputs.retention-days }}
 
       - name: Copy AAB to artifacts
@@ -499,4 +537,5 @@ jobs:
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/producer-commit
+            ${{ inputs.widget-captures && 'modules/veloqrs/android/build/outputs/apk/androidTest/debug/veloqrs-debug-androidTest.apk' || '' }}
           key: ${{ steps.apk-cache.outputs.cache-primary-key }}
