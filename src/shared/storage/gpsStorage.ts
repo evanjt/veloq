@@ -391,7 +391,7 @@ export async function wipeLibrary(): Promise<void> {
   const { deleteClearSnapshot } = require('@/features/settings/lib/clearSnapshot');
   const { deleteSetAsideCopies } = require('@/features/settings/lib/databaseSidecars');
   const { dismissAllNotifications } = require('@/features/settings/lib/notificationService');
-  const { clearWidgetSnapshot } = require('@/features/home/lib/widgetBridge');
+  const { resetWidgetSnapshot } = require('@/features/home/lib/widgetBridge');
   const { deletePanicLog } = require('@/features/settings/lib/databaseSidecars');
   const { forgetMapCameraState } = require('@/features/maps/lib/storage/mapCameraState');
   const { forgetKnownSensors } = require('@/features/sensors/store');
@@ -449,7 +449,7 @@ export async function wipeLibrary(): Promise<void> {
   await dismissAllNotifications();
   // After the engine wipe, so no refresh can write the previous library back
   // once the snapshot is gone.
-  clearWidgetSnapshot();
+  resetWidgetSnapshot();
   // After the engine wipe, whose re-opened handle these settings go through.
   forgetBackupCarrier();
   useNotificationPreferences.getState().reset();

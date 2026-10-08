@@ -6,7 +6,7 @@
  * started and how much moving time it holds, before the athlete chooses.
  */
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import {
   backupMovingMs,
   interruptedRecordingMessage,
@@ -44,7 +44,7 @@ function backup(overrides: Partial<RecordingBackup> = {}): RecordingBackup {
 }
 
 beforeAll(async () => {
-  await initializeI18n('en-GB');
+  await initialiseI18n('en-GB');
 });
 
 describe('the moving time a backup holds', () => {

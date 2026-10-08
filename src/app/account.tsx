@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, ScrollView } from 'react-native';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { StyleSheet } from 'react-native';
+import { ScreenSafeAreaView, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing } from '@/theme';
@@ -14,9 +14,9 @@ function AccountScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScrollView contentContainerStyle={styles.content}>
         <ProfileAccountSection athlete={athlete} />
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

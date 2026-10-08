@@ -960,6 +960,7 @@ impl EngineObserver for SettleRecorder {
     fn gps_tracks_mutated(&self, _activity_ids: Vec<String>) {}
     fn fit_parsed(&self, _activity_id: String) {}
     fn detection_applied(&self) {}
+    fn groups_changed(&self) {}
     fn tiles_generated(&self) {}
     fn backfill_phase(&self, _phase: String) {}
     fn stream_backfill_phase(&self, _phase: String) {}

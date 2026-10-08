@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
 import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui';
 import { Text } from 'react-native-paper';
@@ -8,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import type { DecouplingSource } from '@/features/activity';
+import { tapTo } from '@/shared/app/navigation';
 
 interface DecouplingChartProps {
   /** The ride and the decoupling intervals.icu stored for it, null when none has one */
@@ -61,7 +61,7 @@ export function DecouplingChart({ source, height = 150 }: DecouplingChartProps) 
         variant="ghost"
         size="sm"
         label={`${source.name} · ${formatRelativeDate(source.date)}`}
-        onPress={() => router.push(`/activity/${source.activityId}`)}
+        onPress={() => tapTo(`/activity/${source.activityId}`)}
         style={styles.sourceRide}
       />
       <Text style={[styles.provenance, isDark && styles.textDark]}>

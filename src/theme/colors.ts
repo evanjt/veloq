@@ -793,7 +793,7 @@ export const darkColors = {
   // Zone overrides for dark mode
   zone7: '#B0B0B0', // Zone 7 visibility override (light gray on dark bg)
 
-  // Chart colors for dark mode (optimized for visibility)
+  // Chart colors for dark mode (optimised for visibility)
   chartFitness: brand.blueLight, // Brighter blue for CTL
   chartPurple: '#C084FC', // Custom tag ground; same hue as the ATL series, tuned on its own
   chartFatigue: '#C084FC', // Brighter purple for ATL

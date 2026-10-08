@@ -7,12 +7,16 @@ import type { PerformanceDataPoint } from '../types';
 
 /**
  * `preComputedExcludedIds` lets a caller that already read the exclusions as
- * part of a screen bundle skip this hook's own FFI call.
+ * part of a screen bundle skip this hook's own FFI call. `onRouteRefresh` is
+ * called after each write so the caller re-reads that bundle: the excluded
+ * list and the ranked attempts then come from one read, and the hook holds no
+ * second copy of the set to move ahead of it.
  */
 export function useExcludedActivities(
   id: string | undefined,
   sportFilter: string | undefined,
-  preComputedExcludedIds?: string[]
+  preComputedExcludedIds?: string[],
+  onRouteRefresh?: () => void
 ) {
   // A rematch or a sync changes which attempts are excluded and what the
   // excluded ones read, and neither moves the keys below. The reader is that
@@ -43,9 +47,9 @@ export function useExcludedActivities(
       const engine = getEngine();
       if (!engine) return;
       engine.excludeActivityFromRoute(id, activityId);
-      setExcludedActivityIds((prev) => new Set([...prev, activityId]));
+      onRouteRefresh?.();
     },
-    [id]
+    [id, onRouteRefresh]
   );
 
   const handleIncludeActivity = useCallback(
@@ -54,13 +58,9 @@ export function useExcludedActivities(
       const engine = getEngine();
       if (!engine) return;
       engine.includeActivityInRoute(id, activityId);
-      setExcludedActivityIds((prev) => {
-        const next = new Set(prev);
-        next.delete(activityId);
-        return next;
-      });
+      onRouteRefresh?.();
     },
-    [id]
+    [id, onRouteRefresh]
   );
 
   const handleToggleShowExcluded = useCallback(() => {

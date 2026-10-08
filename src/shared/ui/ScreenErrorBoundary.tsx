@@ -8,6 +8,7 @@ import { useTheme } from '@/shared/app';
 import { Button } from './Button';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
+import { tapBack } from '@/shared/app/navigation';
 
 interface Props {
   children: ReactNode;
@@ -88,7 +89,7 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
             label={t('common.back')}
             variant="secondary"
             size="sm"
-            onPress={() => router.back()}
+            onPress={() => tapBack()}
             style={styles.button}
           />
         )}

@@ -3,7 +3,6 @@ import { View, ScrollView, StyleSheet, Pressable, Text as RNText } from 'react-n
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
@@ -51,6 +50,7 @@ import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
 import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import { tapTo } from '@/shared/app/navigation';
 
 const log = debug.create('ActivityCard');
 
@@ -229,7 +229,7 @@ export const ActivityCard = React.memo(
     const openActivity = useCallback(
       (tab?: 'routes' | 'sections') => {
         prefetchActivityDetailData(activity.id);
-        router.push(`/activity/${activity.id}${tab ? `?tab=${tab}` : ''}`);
+        tapTo(`/activity/${activity.id}${tab ? `?tab=${tab}` : ''}`);
       },
       [activity.id]
     );

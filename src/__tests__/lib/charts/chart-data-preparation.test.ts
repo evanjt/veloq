@@ -116,7 +116,7 @@ describe('buildChartData', () => {
       'distance'
     );
     expect(result.seriesInfo).toHaveLength(2);
-    // Each point should have an x plus two normalized series values
+    // Each point should have an x plus two normalised series values
     result.chartData.forEach((p) => {
       expect(typeof p.x).toBe('number');
       expect(p.power).toBeGreaterThanOrEqual(0);

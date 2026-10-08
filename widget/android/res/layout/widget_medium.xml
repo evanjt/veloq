@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/sum_root"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="vertical"
-  android:padding="@dimen/widget_padding"
+  android:paddingStart="@dimen/widget_padding"
+  android:paddingEnd="@dimen/widget_padding"
+  android:paddingTop="@dimen/widget_gap"
+  android:paddingBottom="@dimen/widget_gap"
   android:background="@drawable/widget_background">
 
   <LinearLayout
@@ -12,22 +16,18 @@
     android:layout_weight="1"
     android:orientation="horizontal">
 
-  <LinearLayout
-    android:layout_width="0dp"
-    android:layout_height="match_parent"
-    android:layout_weight="1"
-    android:orientation="vertical">
-
     <LinearLayout
-      android:id="@+id/med_hero"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
+      android:layout_width="0dp"
+      android:layout_height="match_parent"
+      android:layout_weight="1"
       android:orientation="vertical">
 
       <TextView
-        android:id="@+id/med_form_label"
-        android:layout_width="wrap_content"
+        android:id="@+id/sum_label"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:ellipsize="end"
         android:textSize="@dimen/widget_text_label"
         android:textColor="@color/widget_text_secondary"
         android:textAllCaps="true"
@@ -40,15 +40,16 @@
         android:gravity="bottom">
 
         <TextView
-          android:id="@+id/med_form_value"
+          android:id="@+id/sum_value"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
+          android:maxLines="1"
           android:textSize="@dimen/widget_text_metric"
           android:textStyle="bold"
           android:textColor="@color/widget_text_primary" />
 
         <TextView
-          android:id="@+id/med_form_trend"
+          android:id="@+id/sum_trend"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
           android:layout_marginStart="6dp"
@@ -57,8 +58,8 @@
       </LinearLayout>
 
       <TextView
-        android:id="@+id/med_zone"
-        android:layout_width="wrap_content"
+        android:id="@+id/sum_line"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:maxLines="1"
         android:ellipsize="end"
@@ -68,248 +69,36 @@
     </LinearLayout>
 
     <LinearLayout
-      android:id="@+id/med_fitness_row"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="@dimen/widget_gap"
-      android:orientation="horizontal"
-      android:gravity="center_vertical">
-
-      <TextView
-        android:id="@+id/med_fitness_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="@dimen/widget_text_label"
-        android:textColor="@color/widget_text_secondary" />
-
-      <TextView
-        android:id="@+id/med_fitness_value"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="@dimen/widget_text_label"
-        android:textStyle="bold"
-        android:textColor="@color/widget_blue" />
-
-      <TextView
-        android:id="@+id/med_fitness_trend"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="@dimen/widget_text_caption"
-        android:textColor="@color/widget_trend_flat" />
-    </LinearLayout>
-
-    <LinearLayout
-      android:id="@+id/med_fatigue_row"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="2dp"
-      android:orientation="horizontal"
-      android:gravity="center_vertical">
-
-      <TextView
-        android:id="@+id/med_fatigue_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="@dimen/widget_text_label"
-        android:textColor="@color/widget_text_secondary" />
-
-      <TextView
-        android:id="@+id/med_fatigue_value"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="@dimen/widget_text_label"
-        android:textStyle="bold"
-        android:textColor="@color/widget_fatigue" />
-
-      <TextView
-        android:id="@+id/med_fatigue_trend"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="@dimen/widget_text_caption"
-        android:textColor="@color/widget_trend_flat" />
-    </LinearLayout>
-  </LinearLayout>
-
-  <LinearLayout
-    android:layout_width="0dp"
-    android:layout_height="match_parent"
-    android:layout_weight="1"
-    android:layout_marginStart="@dimen/widget_gap"
-    android:orientation="vertical">
-
-    <ImageView
-      android:id="@+id/med_sparkline"
-      android:layout_width="match_parent"
-      android:layout_height="48dp"
-      android:scaleType="fitXY"
-      android:contentDescription="@null" />
-
-    <LinearLayout
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="@dimen/widget_gap"
-      android:orientation="horizontal"
-      android:gravity="center_vertical">
-
-      <TextView
-        android:id="@+id/med_activity_name"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:textSize="@dimen/widget_text_value"
-        android:textStyle="bold"
-        android:textColor="@color/widget_text_primary" />
+      android:layout_width="0dp"
+      android:layout_height="match_parent"
+      android:layout_weight="1"
+      android:orientation="vertical">
 
       <ImageView
-        android:id="@+id/med_pr"
-        android:layout_width="6dp"
-        android:layout_height="6dp"
-        android:layout_marginStart="4dp"
-        android:src="@drawable/widget_pr_dot"
+        android:id="@+id/sum_sparkline"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:scaleType="fitXY"
         android:contentDescription="@null" />
-    </LinearLayout>
-
-    <TextView
-      android:id="@+id/med_activity_sub"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:maxLines="1"
-      android:ellipsize="end"
-      android:textSize="@dimen/widget_text_label"
-      android:textColor="@color/widget_text_secondary" />
-
-    <LinearLayout
-      android:id="@+id/med_impact_row"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="2dp"
-      android:orientation="horizontal"
-      android:gravity="center_vertical">
 
       <TextView
-        android:id="@+id/med_impact_before"
-        android:layout_width="wrap_content"
+        android:id="@+id/med_updated"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="@dimen/widget_text_label"
-        android:textStyle="bold"
-        android:textColor="@color/widget_text_primary" />
-
-      <TextView
-        android:id="@+id/med_impact_arrow"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="3dp"
-        android:layout_marginEnd="3dp"
-        android:text="→"
-        android:textSize="@dimen/widget_text_label"
-        android:textColor="@color/widget_text_secondary" />
-
-      <TextView
-        android:id="@+id/med_impact_after"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="@dimen/widget_text_label"
-        android:textStyle="bold"
-        android:textColor="@color/widget_text_primary" />
-
-      <TextView
-        android:id="@+id/med_impact_tss"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
-        android:textSize="@dimen/widget_text_label"
-        android:textColor="@color/widget_text_secondary" />
-    </LinearLayout>
-
-    <TextView
-      android:id="@+id/med_impact"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="2dp"
-      android:maxLines="2"
-      android:textSize="@dimen/widget_text_label"
-      android:textColor="@color/widget_primary" />
-
-    <LinearLayout
-      android:id="@+id/med_entry2_row"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="2dp"
-      android:visibility="gone"
-      android:orientation="horizontal"
-      android:gravity="center_vertical">
-
-      <TextView
-        android:id="@+id/med_entry2_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="@dimen/widget_text_label"
-        android:textColor="@color/widget_text_secondary" />
-
-      <TextView
-        android:id="@+id/med_entry2_value"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="@dimen/widget_text_label"
-        android:textStyle="bold"
-        android:textColor="@color/widget_text_primary" />
-
-      <TextView
-        android:id="@+id/med_entry2_trend"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
+        android:gravity="end"
+        android:maxLines="1"
         android:textSize="@dimen/widget_text_caption"
-        android:textColor="@color/widget_trend_flat" />
-    </LinearLayout>
-
-    <LinearLayout
-      android:id="@+id/med_entry3_row"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="2dp"
-      android:visibility="gone"
-      android:orientation="horizontal"
-      android:gravity="center_vertical">
-
-      <TextView
-        android:id="@+id/med_entry3_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="@dimen/widget_text_label"
         android:textColor="@color/widget_text_secondary" />
-
-      <TextView
-        android:id="@+id/med_entry3_value"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="@dimen/widget_text_label"
-        android:textStyle="bold"
-        android:textColor="@color/widget_text_primary" />
-
-      <TextView
-        android:id="@+id/med_entry3_trend"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="@dimen/widget_text_caption"
-        android:textColor="@color/widget_trend_flat" />
     </LinearLayout>
   </LinearLayout>
-  </LinearLayout>
-  <TextView
-    android:id="@+id/med_updated"
+
+  <View
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="1dp"
     android:layout_marginTop="2dp"
-    android:maxLines="1"
-    android:textSize="@dimen/widget_text_caption"
-    android:textColor="@color/widget_text_secondary" />
+    android:layout_marginBottom="2dp"
+    android:background="@color/widget_border" />
+
+  <include layout="@layout/widget_summary_cells" />
 </LinearLayout>

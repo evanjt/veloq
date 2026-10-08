@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, ScrollView } from 'react-native';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { StyleSheet } from 'react-native';
+import { ScreenSafeAreaView, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useSportPreference, type PrimarySport } from '@/features/fitness';
 import { useLanguageStore } from '@/shared/app/LanguageStore';
@@ -27,7 +27,7 @@ function DisplaySettingsScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScrollView contentContainerStyle={styles.content}>
         <DisplaySettings
           themePreference={themePreference}
           onThemeChange={(v) => setThemePreference(v as ThemePreference)}
@@ -39,7 +39,7 @@ function DisplaySettingsScreenContent() {
           language={language ?? 'en-GB'}
           onLanguageChange={(v) => setLanguage(v)}
         />
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

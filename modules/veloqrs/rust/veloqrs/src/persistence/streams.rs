@@ -7,7 +7,9 @@
 //!
 //! It holds the series a track cannot. Coordinates, elevation and time already
 //! live in `gps_tracks` and `time_streams` and are reconstructed from there, so
-//! storing them again would pay twice for the same samples.
+//! storing them again would pay twice for the same samples. An activity with no
+//! track has nothing to reconstruct from, so its rows keep the server's own
+//! sample index and carry the `time` series that addresses it ([`SeriesIndex`]).
 
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
@@ -120,10 +122,20 @@ pub(crate) mod pooled {
 /// The rows the stream backfill still has to ask about, shared by the queue
 /// and its count so the two cannot disagree. `?1` is the attempt limit and
 /// `?2` the retention window in days, or NULL when it is unbounded.
+///
+/// An activity is a candidate when its track is stored, or when it has none and
+/// the census says upstream holds a series for it. An activity upstream holds
+/// a track for that this device has not stored yet belongs to the track fetch,
+/// which widens for it.
 pub(crate) const STREAM_GAP_FROM_WHERE: &str = "FROM activities a
-               JOIN gps_tracks g ON g.activity_id = a.id
+               LEFT JOIN gps_tracks g ON g.activity_id = a.id
                LEFT JOIN activity_stream_backfill b ON b.activity_id = a.id
-              WHERE NOT EXISTS (
+              WHERE (g.activity_id IS NOT NULL
+                     OR EXISTS (
+                        SELECT 1 FROM activity_census c
+                         WHERE c.intervals_id IN (a.id, a.intervals_id)
+                           AND c.has_series = 1 AND c.has_latlng = 0))
+                AND NOT EXISTS (
                         SELECT 1 FROM activity_streams s WHERE s.activity_id = a.id)
                 AND (a.id NOT LIKE 'local-%' OR a.intervals_id IS NOT NULL)
                 AND COALESCE(b.attempts, 0) < ?1
@@ -145,20 +157,40 @@ pub(crate) fn stream_gap_count_sql() -> String {
 }
 
 /// Series that come out of the track and its time stream rather than out of
-/// this store. The writers skip them, since storing them would hold the same
-/// samples twice, and the reader rebuilds them from the track without looking
-/// for a stored copy. Anything outside this set only arrives as a fetched body.
+/// this store. The writers skip them for an activity with a track, since
+/// storing them would hold the same samples twice, and the reader rebuilds them
+/// from the track without looking for a stored copy. Anything outside this set
+/// only arrives as a fetched body.
 pub const FROM_THE_TRACK: [&str; 4] = ["latlng", "altitude", "fixed_altitude", "time"];
 
-/// The rows one activity's response becomes: each series the track does not
-/// already answer, packed with the quantised codec. An empty series is left
-/// out, because a row of nothing would report the activity as stocked.
+/// The index one activity's stored series are addressed by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SeriesIndex {
+    /// The stored track's points, `latlng`'s mask applied. The track and its
+    /// time stream answer [`FROM_THE_TRACK`], so none of those is stored.
+    Track,
+    /// The server's own samples, for an activity with no track. Its `time`
+    /// series is stored with the rest, and a `time` row is what marks an
+    /// activity's rows as in this index: the track index never stores one.
+    Samples,
+}
+
+/// The rows one activity's response becomes: each series the index does not
+/// already answer, packed with the quantised codec. In the track index that is
+/// everything outside [`FROM_THE_TRACK`]; in the server's samples it is every
+/// series but coordinates, which an activity with no track has none of. An
+/// empty series is left out, because a row of nothing would report the
+/// activity as stocked.
 ///
 /// This is the one place the packing rule lives, so a diagnostic that sizes
 /// the store measures exactly what the store writes.
-pub fn pack_activity_streams(raw: &[StreamDto]) -> Vec<(&str, Vec<u8>, usize)> {
+pub fn pack_activity_streams(raw: &[StreamDto], index: SeriesIndex) -> Vec<(&str, Vec<u8>, usize)> {
     raw.iter()
-        .filter(|s| !FROM_THE_TRACK.contains(&s.kind.as_str()) && !s.data.is_empty())
+        .filter(|s| !s.data.is_empty())
+        .filter(|s| match index {
+            SeriesIndex::Track => !FROM_THE_TRACK.contains(&s.kind.as_str()),
+            SeriesIndex::Samples => s.kind != "latlng",
+        })
         .map(|s| {
             let blob = codec::encode_series(&s.data, codec::series_scale(&s.kind));
             (s.kind.as_str(), blob, s.data.len())
@@ -172,8 +204,10 @@ pub fn pack_activity_streams(raw: &[StreamDto]) -> Vec<(&str, Vec<u8>, usize)> {
 pub struct StreamGap {
     pub activity_id: String,
     /// Samples the stored track holds. A response that covers a different
-    /// number is a re-processed activity, not this one's series.
-    pub point_count: usize,
+    /// number is a re-processed activity, not this one's series. `None` for
+    /// an activity with no track, whose series stay in the server's own
+    /// sample index.
+    pub point_count: Option<usize>,
 }
 
 /// The window decision on its own, so a caller filtering a whole sync reads
@@ -232,16 +266,32 @@ impl PersistentEngine {
         )
     }
 
-    /// Store the series of one activity, replacing whatever it held. Series the
-    /// track already answers are skipped, and an empty series is not stored at
-    /// all: a row of nothing would report the activity as stocked and stop the
-    /// fetch that would fill it.
+    /// Store the series of one activity, in its track's index, replacing
+    /// whatever it held. Series the track already answers are skipped, and an
+    /// empty series is not stored at all: a row of nothing would report the
+    /// activity as stocked and stop the fetch that would fill it.
     pub fn store_activity_streams(&self, activity_id: &str, raw: &[StreamDto]) -> SqlResult<()> {
+        self.store_streams_in(activity_id, raw, SeriesIndex::Track)
+    }
+
+    /// Store the series of an activity with no track, in the server's own
+    /// sample index, `time` among them. `raw` is what
+    /// [`crate::net::types::trackless_series`] kept.
+    pub fn store_trackless_streams(&self, activity_id: &str, raw: &[StreamDto]) -> SqlResult<()> {
+        self.store_streams_in(activity_id, raw, SeriesIndex::Samples)
+    }
+
+    fn store_streams_in(
+        &self,
+        activity_id: &str,
+        raw: &[StreamDto],
+        index: SeriesIndex,
+    ) -> SqlResult<()> {
         // One transaction for the body. A series per autocommit paid an fsync
         // apiece under the engine lock, and the prune paid another, so an
         // activity with four series held every screen read out five times.
         self.db.execute_batch("BEGIN IMMEDIATE")?;
-        match self.write_activity_streams(activity_id, raw) {
+        match self.write_activity_streams(activity_id, raw, index) {
             Ok(()) => super::commit_write_txn(&self.db)?,
             Err(e) => {
                 let _ = self.db.execute_batch("ROLLBACK");
@@ -257,8 +307,24 @@ impl PersistentEngine {
         &self,
         activity_id: &str,
         raw: &[StreamDto],
+        index: SeriesIndex,
     ) -> SqlResult<()> {
-        for (kind, blob, samples) in pack_activity_streams(raw) {
+        let packed = pack_activity_streams(raw, index);
+        if index == SeriesIndex::Track && !packed.is_empty() {
+            // Rows in the server's index are addressed against other samples,
+            // so none of them may stay beside these. An activity stored
+            // without a track that later gains one is the case: its rows would
+            // otherwise be read against the track's points. The other way
+            // round needs nothing, since a server-index write is only made for
+            // an activity with no track to have indexed anything by.
+            self.db.execute(
+                "DELETE FROM activity_streams WHERE activity_id = ?1
+                   AND EXISTS (SELECT 1 FROM activity_streams
+                                WHERE activity_id = ?1 AND kind = 'time')",
+                params![activity_id],
+            )?;
+        }
+        for (kind, blob, samples) in packed {
             self.db.execute(
                 "INSERT INTO activity_streams (activity_id, kind, data, sample_count, updated_at)
                  VALUES (?, ?, ?, ?, strftime('%s', 'now'))
@@ -338,6 +404,10 @@ impl PersistentEngine {
     /// the queue in the same breath. An undated activity is in the queue only
     /// when the window is unbounded, which is the same rule the sync widens by.
     ///
+    /// An activity with no track is listed when the census says upstream holds
+    /// a series for it, with no `point_count`: its series keep the server's
+    /// own index.
+    ///
     /// `point_count` rides along because the fetch has to check the series it
     /// gets back still covers the track it will be addressed against. Newest
     /// first, so an athlete watching the progress sees the activities they
@@ -348,7 +418,7 @@ impl PersistentEngine {
         let rows = stmt.query_map(params![attempt_limit, window], |row| {
             Ok(StreamGap {
                 activity_id: row.get(0)?,
-                point_count: row.get::<_, i64>(1)? as usize,
+                point_count: row.get::<_, Option<i64>>(1)?.map(|n| n.max(0) as usize),
             })
         })?;
         rows.collect()
@@ -516,7 +586,113 @@ mod tests {
             queue,
             vec![StreamGap {
                 activity_id: "bare".to_string(),
-                point_count: 120,
+                point_count: Some(120),
+            }]
+        );
+    }
+
+    /// Record what the census says about each activity: whether upstream
+    /// holds a track for it and whether it carries a series beyond one.
+    fn census(engine: &mut PersistentEngine, rows: &[(&str, bool, bool)]) {
+        let entries: Vec<crate::net::types::ActivityCensusEntry> = rows
+            .iter()
+            .map(
+                |(id, has_latlng, has_series)| crate::net::types::ActivityCensusEntry {
+                    id: id.to_string(),
+                    start_date_local: Some("2026-09-01T08:00:00".to_string()),
+                    has_latlng: *has_latlng,
+                    has_series: *has_series,
+                    ..Default::default()
+                },
+            )
+            .collect();
+        engine.record_activity_census("i0", &entries).unwrap();
+    }
+
+    /// Scenario: inside the window sit a strength session the census says
+    /// carries heart rate and no track, a session it says carries nothing, a
+    /// ride with its track stored, and a ride whose track has not landed yet.
+    ///
+    /// Expected behaviour: the queue lists the strength session, with no track
+    /// length to match, beside the stored ride, and not the empty session or
+    /// the ride the track fetch still owes. The count agrees, and storing the
+    /// session's series takes it out.
+    #[test]
+    fn the_queue_lists_a_trackless_activity_only_when_upstream_holds_a_series_for_it() {
+        let (_dir, mut engine) = engine();
+        for id in ["i1", "i2", "i3", "i4"] {
+            activity_aged(&engine, id, 10);
+        }
+        track(&engine, "i3", 50);
+        census(
+            &mut engine,
+            &[
+                ("i1", false, true),
+                ("i2", false, false),
+                ("i3", true, true),
+                ("i4", true, true),
+            ],
+        );
+
+        let mut queue = engine.activities_missing_streams(3).unwrap();
+        queue.sort_by(|a, b| a.activity_id.cmp(&b.activity_id));
+
+        assert_eq!(
+            queue,
+            vec![
+                StreamGap {
+                    activity_id: "i1".to_string(),
+                    point_count: None,
+                },
+                StreamGap {
+                    activity_id: "i3".to_string(),
+                    point_count: Some(50),
+                },
+            ]
+        );
+        assert_eq!(engine.stream_backfill_remaining(3).unwrap(), 2);
+
+        engine
+            .set_stream_body(
+                "i1",
+                "heartrate,time",
+                r#"[{"type":"time","data":[0,1]},{"type":"heartrate","data":[90,91]}]"#,
+            )
+            .unwrap();
+        assert_eq!(
+            engine
+                .activities_missing_streams(3)
+                .unwrap()
+                .iter()
+                .map(|g| g.activity_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["i3"]
+        );
+    }
+
+    /// A trackless activity is matched by the id upstream knows it by, so a
+    /// session recorded on the device and uploaded later joins the queue under
+    /// the census row its upload named.
+    #[test]
+    fn a_trackless_recording_joins_the_queue_through_its_intervals_id() {
+        let (_dir, mut engine) = engine();
+        activity_aged(&engine, "local-gym", 10);
+        engine
+            .db
+            .execute(
+                "UPDATE activities SET intervals_id = 'i7' WHERE id = 'local-gym'",
+                [],
+            )
+            .unwrap();
+        census(&mut engine, &[("i7", false, true)]);
+
+        let queue = engine.activities_missing_streams(3).unwrap();
+
+        assert_eq!(
+            queue,
+            vec![StreamGap {
+                activity_id: "local-gym".to_string(),
+                point_count: None,
             }]
         );
     }

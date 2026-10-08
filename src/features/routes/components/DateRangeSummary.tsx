@@ -9,12 +9,12 @@ import React from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button } from '@/shared/ui';
+import { tapTo } from '@/shared/app/navigation';
 
 interface DateRangeSummaryProps {
   activityCount: number;
@@ -46,7 +46,7 @@ export function DateRangeSummary({
   const themeColors = isDark ? darkColors : colors;
 
   const handleExpandPress = () => {
-    router.push('/sync-settings' as never);
+    tapTo('/sync-settings');
   };
 
   return (

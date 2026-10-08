@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { usePathname } from 'expo-router';
 import { useMapPreferences } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +55,7 @@ import {
   type LngLatBounds,
 } from '../lib/coordinates';
 import { surfaceIsLeaving, useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
+import { tapTo } from '@/shared/app/navigation';
 
 // Stable no-op function reference for disabled callbacks.
 // Inline `() => {}` creates a new reference every render, which destabilises
@@ -107,7 +108,6 @@ export function RegionalMapView({
   selectSectionId,
 }: RegionalMapViewProps) {
   const { t } = useTranslation();
-  const router = useRouter();
   const { getGlobalMapStyle, setGlobalMapStyle } = useMapPreferences();
   const insets = useSafeAreaInsets();
   const [chosenStyle, setMapStyleLocal] = useState<MapStyleType>(getGlobalMapStyle());
@@ -189,7 +189,7 @@ export function RegionalMapView({
     bounds?: LngLatBounds;
   } | null>(null);
 
-  // Initialize satellite attribution from mapCenter when activities load
+  // Initialise satellite attribution from mapCenter when activities load
   useEffect(() => {
     if (mapCenter && !cameraForAttribution) {
       setCameraForAttribution({
@@ -344,7 +344,7 @@ export function RegionalMapView({
   }, [focusActivityId, activities, handleFocusActivity]);
 
   // Auto-show sections when zoomed in to neighborhood level, auto-hide when zoomed out.
-  // Manual toggles (via the control button) take precedence and disable auto-behavior.
+  // Manual toggles (via the control button) take precedence and disable auto-behaviour.
   const { handleRegionDidChange: autoToggleHandleRegionDidChange, toggleSections } =
     useSectionAutoToggle({
       showSections,
@@ -702,7 +702,7 @@ export function RegionalMapView({
           onClose={() => setSelectedSectionId(null)}
           onViewDetails={() => {
             setSelectedSectionId(null);
-            router.push(`/section/${selectedSection.id}`);
+            tapTo(`/section/${selectedSection.id}`);
           }}
         />
       )}

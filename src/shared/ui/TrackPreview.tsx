@@ -4,7 +4,7 @@
  *
  * Lifted out of the routes row so the insight cards draw a section the same
  * way. It takes points already normalised because the routes list holds them
- * that way, and `normalizeTrackPoints` is the conversion for a caller that
+ * that way, and `normaliseTrackPoints` is the conversion for a caller that
  * holds coordinates instead. Either way the box is filled with one scale on
  * both axes, so the points' own proportions are what is drawn.
  */
@@ -26,7 +26,7 @@ export interface NormalisedPoint {
  * is compressed by cos(latitude), one scale serves both axes and the shorter
  * axis is centred, so the longer one spans 0..1. y is flipped for the screen.
  */
-export function normalizeTrackPoints(points: LatLngShort[]): NormalisedPoint[] {
+export function normaliseTrackPoints(points: LatLngShort[]): NormalisedPoint[] {
   return projectRouteToBox(
     points.map((p) => ({ latitude: p.lat, longitude: p.lng })),
     1,

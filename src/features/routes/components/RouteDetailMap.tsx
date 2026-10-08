@@ -5,7 +5,7 @@ import { RouteMapView } from './RouteMapView';
 import { useHeroMapHeight } from '@/shared/ui';
 import { styles } from './RouteDetailScreen.styles';
 import type { buildFinalRouteGroup } from '../lib/buildRouteGroup';
-import type { RoutePoint } from '../types';
+import { useMapHighlight, type MapHighlightStore } from '../lib/mapHighlight';
 import type { ActivityType } from '@/types';
 import type { LatLngShort } from '@/shared/geo/distance';
 
@@ -13,8 +13,8 @@ type FinalRouteGroup = NonNullable<ReturnType<typeof buildFinalRouteGroup>>;
 
 interface RouteDetailMapProps {
   routeGroup: FinalRouteGroup;
-  highlightedActivityId: string | null;
-  highlightedActivityPoints: RoutePoint[] | undefined;
+  /** The chart's scrubbed attempt. Only this map reads it, so a scrub never renders the screen. */
+  highlight: MapHighlightStore;
   signatures: Record<string, { points: LatLngShort[] }>;
   hasMapData: boolean;
   activityColor: string;
@@ -23,14 +23,14 @@ interface RouteDetailMapProps {
 
 export function RouteDetailMap({
   routeGroup,
-  highlightedActivityId,
-  highlightedActivityPoints,
+  highlight,
   signatures,
   hasMapData,
   activityColor,
   selectedSportType,
 }: RouteDetailMapProps) {
   const mapHeight = useHeroMapHeight();
+  const { activityId, lapPoints } = useMapHighlight(highlight);
   return (
     <View testID="route-detail-map" style={styles.mapContainer}>
       {hasMapData ? (
@@ -39,8 +39,8 @@ export function RouteDetailMap({
           selectedSportType={selectedSportType}
           height={mapHeight}
           interactive={false}
-          highlightedActivityId={highlightedActivityId}
-          highlightedLapPoints={highlightedActivityPoints}
+          highlightedActivityId={activityId}
+          highlightedLapPoints={lapPoints}
           enableFullscreen={true}
           activitySignatures={signatures}
         />

@@ -14,7 +14,7 @@ import {
   isSwimmingActivity,
 } from '@/shared/activity/activityUtils';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SectionInsightMap } from './SectionInsightMap';
 import {
@@ -124,7 +124,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
   const contextCopy = getContextCopy(sections, dataPoints, t);
 
   const handleSectionPress = useCallback((id: string) => {
-    navigateTo(`/section/${id}`);
+    tapTo(`/section/${id}`);
   }, []);
 
   return (

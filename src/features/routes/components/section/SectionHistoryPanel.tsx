@@ -6,7 +6,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
@@ -22,6 +21,7 @@ import {
   ledgerDate,
   NO_EVENT_DETAILS,
 } from '@/features/routes/lib/sectionLedger';
+import { tapTo } from '@/shared/app/navigation';
 
 export const MAX_CHIPS = 6;
 
@@ -68,7 +68,7 @@ function SplitTarget({
       variant="ghost"
       size="sm"
       style={[styles.chip, styles.splitTarget, isDark && styles.chipDark]}
-      onPress={() => router.push(`/section/${link.id}`)}
+      onPress={() => tapTo(`/section/${link.id}`)}
     />
   );
 }
@@ -106,7 +106,7 @@ function Chips({
           style={[styles.chip, isDark && styles.chipDark]}
           accessibilityRole="button"
           accessibilityLabel={chipLabel(id, names)}
-          onPress={() => router.push(`/activity/${id}`)}
+          onPress={() => tapTo(`/activity/${id}`)}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons

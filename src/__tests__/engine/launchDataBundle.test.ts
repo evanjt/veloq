@@ -52,7 +52,7 @@ const DB = '/data/routes.db';
 function openClient() {
   const client = EngineClient.getInstance();
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  (client as any).initialized = false;
+  (client as any).initialised = false;
   (client as any).dbPath = null;
   (client as any).engine = null;
   /* eslint-enable @typescript-eslint/no-explicit-any */

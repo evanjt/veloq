@@ -11,179 +11,154 @@ import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
 import __PKG__.R
+import java.time.ZoneId
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Builds the RemoteViews for a widget instance from the snapshot. Picks a layout by the
- * host-reported cell size and binds pre-formatted strings; no computation, no i18n.
- * Dynamic colours come from the generated `widget_*` resources (auto light/dark) plus
- * the snapshot's resolved activity tint. Form values are coloured by the snapshot's
- * zone enum; the widget never derives TSB boundaries.
+ * Builds the RemoteViews for a Summary widget instance from the snapshot. Picks a layout by the
+ * host-reported cell size and binds pre-formatted strings; no computation, no i18n. What each
+ * size draws is decided in [SummaryWidget], so this only places it: the hero, its line and chart,
+ * the supporting row on Medium and Large, and form over its five zones on Large. Dynamic colours
+ * come from the generated `widget_*` resources (auto light/dark). Form values are coloured by the
+ * snapshot's zone enum; the widget never derives TSB boundaries.
  *
- * Small and Medium feature a hero metric chosen per widget instance: tapping the hero
- * broadcasts VeloqWidgetProvider.ACTION_CYCLE_METRIC, which cycles the stored key and
- * re-renders just that widget. "summary" mirrors the in-app summary card settings.
+ * A tap anywhere opens Fitness.
  */
 object WidgetRenderer {
-  private enum class Size {
-    SMALL,
-    MEDIUM,
-    LARGE,
-  }
+  /** Where a tap on the Summary widget goes. */
+  const val FITNESS_URL = "veloq://fitness"
 
   fun render(
     context: Context,
     snap: WidgetSnapshot?,
     minWidthDp: Int,
     minHeightDp: Int,
-    heroKey: String,
+    heroChoice: String?,
     widgetId: Int,
   ): RemoteViews {
-    return when (pickSize(minWidthDp, minHeightDp)) {
-      Size.LARGE -> renderLarge(context, snap, minWidthDp)
-      Size.MEDIUM -> renderMedium(context, snap, heroKey, widgetId, minWidthDp)
-      Size.SMALL -> renderSmall(context, snap, heroKey, widgetId, minWidthDp)
-    }
-  }
-
-  private fun pickSize(w: Int, h: Int): Size =
-    when {
-      h >= 200 && w >= 200 -> Size.LARGE
-      w >= 200 -> Size.MEDIUM
-      else -> Size.SMALL
-    }
-
-  // Everything a small/medium hero block needs for one metric key. "summary" falls
-  // back to form when the snapshot carries no summary block (older snapshot or the
-  // card is disabled in the app).
-  private data class HeroSpec(
-    val label: String,
-    val value: String,
-    val valueColor: Int,
-    val zoneLabel: String?,
-    val trendDir: String,
-    val verdict: String,
-    val delta: String,
-  )
-
-  private fun heroSpec(context: Context, snap: WidgetSnapshot?, key: String): HeroSpec {
-    val formTextColor = zoneTextColor(context, snap?.form?.zone)
-    return when (key) {
-      "fitness" ->
-        HeroSpec(
-          label(snap, "fitness"), value(snap?.fitness), res(context, R.color.widget_blue),
-          null, snap?.fitness?.trendDir ?: "flat",
-          snap?.fitness?.verdict ?: "flat", delta(snap?.fitness))
-      "fatigue" ->
-        HeroSpec(
-          label(snap, "fatigue"), value(snap?.fatigue), res(context, R.color.widget_fatigue),
-          null, snap?.fatigue?.trendDir ?: "flat",
-          snap?.fatigue?.verdict ?: "flat", delta(snap?.fatigue))
-      "hrv" ->
-        HeroSpec(
-          label(snap, "hrv"), value(snap?.hrv), res(context, R.color.widget_text_primary),
-          null, snap?.hrv?.trendDir ?: "flat",
-          snap?.hrv?.verdict ?: "flat", delta(snap?.hrv))
-      "rhr" ->
-        HeroSpec(
-          label(snap, "rhr"), value(snap?.rhr), res(context, R.color.widget_text_primary),
-          null, snap?.rhr?.trendDir ?: "flat",
-          snap?.rhr?.verdict ?: "flat", delta(snap?.rhr))
-      "summary" -> {
-        val hero = snap?.summaryCard?.hero
-        if (hero == null) {
-          heroSpec(context, snap, "form")
-        } else {
-          HeroSpec(
-            hero.label, hero.value, summaryColor(context, hero.colorKey, snap.form.zone),
-            null, hero.trendDir, hero.verdict, "")
-        }
-      }
-      else ->
-        HeroSpec(
-          label(snap, "form"), value(snap?.form),
-          if (snap?.form?.zone != null) formTextColor else res(context, R.color.widget_text_primary),
-          snap?.formZoneLabel, snap?.form?.trendDir ?: "flat",
-          snap?.form?.verdict ?: "flat", delta(snap?.form))
+    if (snap == null || isEmpty(snap)) return renderEmptyPrompt(context)
+    val card = SummaryWidget.card(snap, heroChoice)
+    return when (SummaryWidget.sizeFor(minWidthDp, minHeightDp)) {
+      SummarySize.LARGE -> renderLarge(context, snap, card, minWidthDp, widgetId)
+      SummarySize.MEDIUM -> renderMedium(context, snap, card, minWidthDp, widgetId)
+      SummarySize.SMALL -> renderSmall(context, snap, card, minWidthDp, widgetId)
     }
   }
 
   private fun renderSmall(
     context: Context,
-    snap: WidgetSnapshot?,
-    heroKey: String,
-    widgetId: Int,
+    snap: WidgetSnapshot,
+    card: SummaryCard,
     minWidthDp: Int,
+    widgetId: Int,
   ): RemoteViews {
-    if (isEmpty(snap)) return renderEmptyPrompt(context)
     val v = RemoteViews(context.packageName, R.layout.widget_small)
-    val spec = heroSpec(context, snap, heroKey)
-
-    v.setTextViewText(R.id.small_label, spec.label)
-    v.setTextViewText(R.id.small_value, spec.value)
-    v.setTextColor(R.id.small_value, spec.valueColor)
-    bindZoneLabel(v, R.id.small_zone, spec.zoneLabel, spec.valueColor)
-    v.setTextViewText(R.id.small_trend, trendArrow(spec.trendDir))
-    v.setTextColor(R.id.small_trend, trendColor(context, spec.verdict))
-    v.setTextViewText(R.id.small_delta, spec.delta)
-    bindTrendChart(context, v, R.id.small_sparkline, snap, heroKey, chartWidthDp(minWidthDp, 140), 40)
-    v.setViewVisibility(R.id.small_pr, if (snap?.latest?.isPr == true) View.VISIBLE else View.GONE)
-    bindCycleTap(context, v, R.id.small_hero, widgetId)
+    bindHero(context, v, snap, card)
+    bindChart(context, v, R.id.sum_sparkline, snap, card, chartWidthDp(minWidthDp, 140), 40)
+    bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(context, v, R.id.small_updated, snap)
     return v
   }
 
   private fun renderMedium(
     context: Context,
-    snap: WidgetSnapshot?,
-    heroKey: String,
-    widgetId: Int,
+    snap: WidgetSnapshot,
+    card: SummaryCard,
     minWidthDp: Int,
+    widgetId: Int,
   ): RemoteViews {
-    if (isEmpty(snap)) return renderEmptyPrompt(context)
     val v = RemoteViews(context.packageName, R.layout.widget_medium)
-    val spec = heroSpec(context, snap, heroKey)
-    val card = snap?.summaryCard
-    val summaryMode = heroKey == "summary" && card != null
-
-    v.setTextViewText(R.id.med_form_label, spec.label)
-    v.setTextViewText(R.id.med_form_value, spec.value)
-    v.setTextColor(R.id.med_form_value, spec.valueColor)
-    v.setTextViewText(R.id.med_form_trend, trendArrow(spec.trendDir))
-    v.setTextColor(R.id.med_form_trend, trendColor(context, spec.verdict))
-    bindZoneLabel(v, R.id.med_zone, spec.zoneLabel, spec.valueColor)
-
-    if (summaryMode) {
-      bindEntryRow(context, v, snap, MED_ROW_IDS[0], card!!.entries.getOrNull(0))
-      bindEntryRow(context, v, snap, MED_ROW_IDS[1], card.entries.getOrNull(1))
-      bindEntryRow(context, v, snap, MED_ROW_IDS[2], card.entries.getOrNull(2))
-      bindEntryRow(context, v, snap, MED_ROW_IDS[3], card.entries.getOrNull(3))
-      v.setViewVisibility(R.id.med_activity_name, View.GONE)
-      v.setViewVisibility(R.id.med_pr, View.GONE)
-      v.setViewVisibility(R.id.med_activity_sub, View.GONE)
-      v.setViewVisibility(R.id.med_impact_row, View.GONE)
-      v.setViewVisibility(R.id.med_impact, View.GONE)
-    } else {
-      // Fixed fitness/fatigue rows; the one duplicating the hero is hidden.
-      bindMetricRow(
-        context, v, MED_ROW_IDS[0], label(snap, "fitness"), snap?.fitness,
-        res(context, R.color.widget_blue), visible = heroKey != "fitness")
-      bindMetricRow(
-        context, v, MED_ROW_IDS[1], label(snap, "fatigue"), snap?.fatigue,
-        res(context, R.color.widget_fatigue), visible = heroKey != "fatigue")
-      v.setViewVisibility(R.id.med_entry2_row, View.GONE)
-      v.setViewVisibility(R.id.med_entry3_row, View.GONE)
-      bindLatest(context, v, snap, R.id.med_activity_name, R.id.med_pr, R.id.med_activity_sub)
-      bindImpact(
-        context, v, snap, R.id.med_impact_row, R.id.med_impact_before, R.id.med_impact_after,
-        R.id.med_impact_tss, R.id.med_impact)
-    }
-
-    val chartW = (chartWidthDp(minWidthDp, 300) - 8) / 2
-    bindTrendChart(context, v, R.id.med_sparkline, snap, heroKey, chartW.coerceAtLeast(120), 48)
-    bindCycleTap(context, v, R.id.med_hero, widgetId)
+    bindHero(context, v, snap, card)
+    bindSupporting(context, v, snap, SummaryWidget.supporting(card, SummarySize.MEDIUM))
+    val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
+    bindChart(context, v, R.id.sum_sparkline, snap, card, chartW, 48)
+    bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(context, v, R.id.med_updated, snap)
     return v
+  }
+
+  private fun renderLarge(
+    context: Context,
+    snap: WidgetSnapshot,
+    card: SummaryCard,
+    minWidthDp: Int,
+    widgetId: Int,
+  ): RemoteViews {
+    val v = RemoteViews(context.packageName, R.layout.widget_large)
+    bindHero(context, v, snap, card)
+    bindSupporting(context, v, snap, SummaryWidget.supporting(card, SummarySize.LARGE))
+    val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
+    bindChart(context, v, R.id.sum_sparkline, snap, card, chartW, 52)
+    bindFormZones(context, v, snap, chartWidthDp(minWidthDp, 300), 96)
+
+    // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
+    // with-android-widget.js writes this bool and drops that receiver together.
+    // On since 2026-09-08, so the branch is the off switch rather than the state.
+    if (context.resources.getBoolean(R.bool.widget_record_enabled)) {
+      v.setViewVisibility(R.id.large_record, View.VISIBLE)
+      v.setOnClickPendingIntent(R.id.large_record, recordIntent(context, snap))
+      v.setContentDescription(R.id.large_record, snap.recordLabel)
+    } else {
+      v.setViewVisibility(R.id.large_record, View.GONE)
+    }
+    bindFitnessTap(context, v, widgetId)
+    bindUpdatedAt(context, v, R.id.large_updated, snap)
+    return v
+  }
+
+  private fun bindHero(context: Context, v: RemoteViews, snap: WidgetSnapshot, card: SummaryCard) {
+    val color = summaryColor(context, card.hero.colorKey, snap.form.zone)
+    v.setTextViewText(R.id.sum_label, card.hero.label)
+    v.setTextViewText(R.id.sum_value, card.hero.value)
+    v.setTextColor(R.id.sum_value, color)
+    v.setTextViewText(R.id.sum_trend, trendArrow(card.hero.trendDir))
+    v.setTextColor(R.id.sum_trend, trendColor(context, card.hero.verdict))
+    val line = SummaryWidget.heroLine(snap, card)
+    if (line.isNullOrEmpty()) {
+      v.setViewVisibility(R.id.sum_line, View.GONE)
+    } else {
+      v.setViewVisibility(R.id.sum_line, View.VISIBLE)
+      v.setTextViewText(R.id.sum_line, line)
+      v.setTextColor(R.id.sum_line, color)
+    }
+  }
+
+  private class CellIds(
+    val cell: Int,
+    val divider: Int?,
+    val label: Int,
+    val value: Int,
+    val trend: Int,
+  )
+
+  private val CELL_IDS =
+    arrayOf(
+      CellIds(R.id.sum_cell0, null, R.id.sum_cell0_label, R.id.sum_cell0_value, R.id.sum_cell0_trend),
+      CellIds(R.id.sum_cell1, R.id.sum_div1, R.id.sum_cell1_label, R.id.sum_cell1_value, R.id.sum_cell1_trend),
+      CellIds(R.id.sum_cell2, R.id.sum_div2, R.id.sum_cell2_label, R.id.sum_cell2_value, R.id.sum_cell2_trend),
+      CellIds(R.id.sum_cell3, R.id.sum_div3, R.id.sum_cell3_label, R.id.sum_cell3_value, R.id.sum_cell3_trend),
+    )
+
+  /** One cell per entry, a divider before every cell but the first, nothing for the rest. */
+  private fun bindSupporting(
+    context: Context,
+    v: RemoteViews,
+    snap: WidgetSnapshot,
+    entries: List<SummaryEntry>,
+  ) {
+    for ((i, ids) in CELL_IDS.withIndex()) {
+      val entry = entries.getOrNull(i)
+      val visibility = if (entry == null) View.GONE else View.VISIBLE
+      v.setViewVisibility(ids.cell, visibility)
+      ids.divider?.let { v.setViewVisibility(it, visibility) }
+      if (entry == null) continue
+      v.setTextViewText(ids.label, entry.label)
+      v.setTextViewText(ids.value, entry.value)
+      v.setTextColor(ids.value, summaryColor(context, entry.colorKey, snap.form.zone))
+      v.setTextViewText(ids.trend, trendArrow(entry.trendDir))
+      v.setTextColor(ids.trend, trendColor(context, entry.verdict))
+    }
   }
 
   /**
@@ -196,142 +171,39 @@ object WidgetRenderer {
    *
    * A snapshot from before the field carries zero and the line is hidden, which
    * says nothing rather than saying 1970.
+   *
+   * Past [SnapshotAge.STALE_AFTER_SECONDS] the line is amber and names the time
+   * the snapshot was written. [VeloqWidgetProvider] keeps it true between
+   * snapshots by asking for a redraw on a schedule, since nothing else redraws
+   * a widget whose app is not running.
    */
-  private fun bindUpdatedAt(context: Context, v: RemoteViews, id: Int, snap: WidgetSnapshot?) {
+  internal fun bindUpdatedAt(context: Context, v: RemoteViews, id: Int, snap: WidgetSnapshot?) {
+    // A sample library has no age to report: it is composed afresh for every
+    // write, so the slot carries the words that say it is not the athlete's own.
+    snap?.demoLabel?.let {
+      v.setViewVisibility(id, View.VISIBLE)
+      v.setTextViewText(id, it)
+      v.setTextColor(id, res(context, R.color.widget_text_secondary))
+      return
+    }
     val seconds = snap?.generatedAt ?: 0L
     if (seconds <= 0L) {
       v.setViewVisibility(id, View.GONE)
       return
     }
+    val now = System.currentTimeMillis()
+    val stale = SnapshotAge.isStale(seconds, now)
     val label =
-      DateUtils.getRelativeTimeSpanString(
-        seconds * 1000L,
-        System.currentTimeMillis(),
-        DateUtils.MINUTE_IN_MILLIS,
-        DateUtils.FORMAT_ABBREV_RELATIVE)
+      if (stale) {
+        SnapshotAge.absolute(seconds, ZoneId.systemDefault(), Locale.getDefault())
+      } else {
+        DateUtils.getRelativeTimeSpanString(
+          seconds * 1000L, now, DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE)
+      }
     v.setViewVisibility(id, View.VISIBLE)
     v.setTextViewText(id, label)
-  }
-
-  private class RowIds(val row: Int, val label: Int, val value: Int, val trend: Int)
-
-  private val MED_ROW_IDS =
-    arrayOf(
-      RowIds(R.id.med_fitness_row, R.id.med_fitness_label, R.id.med_fitness_value, R.id.med_fitness_trend),
-      RowIds(R.id.med_fatigue_row, R.id.med_fatigue_label, R.id.med_fatigue_value, R.id.med_fatigue_trend),
-      RowIds(R.id.med_entry2_row, R.id.med_entry2_label, R.id.med_entry2_value, R.id.med_entry2_trend),
-      RowIds(R.id.med_entry3_row, R.id.med_entry3_label, R.id.med_entry3_value, R.id.med_entry3_trend),
-    )
-
-  private fun bindMetricRow(
-    context: Context,
-    v: RemoteViews,
-    ids: RowIds,
-    text: String,
-    m: Metric?,
-    valueColor: Int,
-    visible: Boolean,
-  ) {
-    if (!visible) {
-      v.setViewVisibility(ids.row, View.GONE)
-      return
-    }
-    v.setViewVisibility(ids.row, View.VISIBLE)
-    v.setTextViewText(ids.label, text)
-    v.setTextViewText(ids.value, value(m))
-    v.setTextColor(ids.value, valueColor)
-    v.setTextViewText(ids.trend, m?.let { trendArrow(it.trendDir) } ?: "")
-    v.setTextColor(ids.trend, trendColor(context, m?.verdict ?: "flat"))
-  }
-
-  private fun bindEntryRow(
-    context: Context,
-    v: RemoteViews,
-    snap: WidgetSnapshot?,
-    ids: RowIds,
-    entry: SummaryEntry?,
-  ) {
-    if (entry == null) {
-      v.setViewVisibility(ids.row, View.GONE)
-      return
-    }
-    v.setViewVisibility(ids.row, View.VISIBLE)
-    v.setTextViewText(ids.label, entry.label)
-    v.setTextViewText(ids.value, entry.value)
-    v.setTextColor(ids.value, summaryColor(context, entry.colorKey, snap?.form?.zone))
-    v.setTextViewText(ids.trend, trendArrow(entry.trendDir))
-    v.setTextColor(ids.trend, trendColor(context, entry.verdict))
-  }
-
-  private fun renderLarge(context: Context, snap: WidgetSnapshot?, minWidthDp: Int): RemoteViews {
-    if (isEmpty(snap)) return renderEmptyPrompt(context)
-    val v = RemoteViews(context.packageName, R.layout.widget_large)
-    val formTextColor = zoneTextColor(context, snap?.form?.zone)
-
-    v.setTextViewText(R.id.large_form_label, label(snap, "form"))
-    v.setTextViewText(R.id.large_form_value, value(snap?.form))
-    v.setTextColor(R.id.large_form_value, formTextColor)
-    bindTrend(context, v, R.id.large_form_trend, snap?.form)
-
-    v.setTextViewText(R.id.large_fitness_label, label(snap, "fitness"))
-    v.setTextViewText(R.id.large_fitness_value, value(snap?.fitness))
-    v.setTextColor(R.id.large_fitness_value, res(context, R.color.widget_blue))
-    bindTrend(context, v, R.id.large_fitness_trend, snap?.fitness)
-
-    v.setTextViewText(R.id.large_fatigue_label, label(snap, "fatigue"))
-    v.setTextViewText(R.id.large_fatigue_value, value(snap?.fatigue))
-    v.setTextColor(R.id.large_fatigue_value, res(context, R.color.widget_fatigue))
-    bindTrend(context, v, R.id.large_fatigue_trend, snap?.fatigue)
-
-    val ramp = snap?.rampRate
-    if (ramp == null) {
-      v.setViewVisibility(R.id.large_ramp, View.GONE)
-    } else {
-      v.setViewVisibility(R.id.large_ramp, View.VISIBLE)
-      val rounded = (ramp * 10).roundToInt() / 10.0
-      v.setTextViewText(R.id.large_ramp, "${label(snap, "ramp")} ${if (rounded >= 0) "+" else ""}$rounded${snap?.perWeekSuffix ?: "/wk"}")
-    }
-
-    bindTrendChart(context, v, R.id.large_sparkline, snap, "form", chartWidthDp(minWidthDp, 300), 60)
-
-    v.setTextViewText(R.id.large_weekly, weeklyLine(snap))
-    val deltaPct = snap?.weekly?.deltaPct
-    if (deltaPct == null) {
-      v.setViewVisibility(R.id.large_weekly_delta, View.GONE)
-    } else {
-      v.setViewVisibility(R.id.large_weekly_delta, View.VISIBLE)
-      v.setTextViewText(R.id.large_weekly_delta, "${if (deltaPct >= 0) "+" else ""}$deltaPct%")
-      val deltaRes = if (deltaPct >= 0) R.color.widget_trend_up else R.color.widget_trend_down
-      v.setTextColor(R.id.large_weekly_delta, res(context, deltaRes))
-    }
-
-    bindLatest(context, v, snap, R.id.large_activity_name, R.id.large_pr, R.id.large_activity_sub)
-    bindImpact(
-      context, v, snap, R.id.large_impact_row, R.id.large_impact_before, R.id.large_impact_after,
-      R.id.large_impact_tss, R.id.large_impact)
-
-    v.setTextViewText(R.id.large_hrv_label, label(snap, "hrv"))
-    v.setTextViewText(R.id.large_hrv_value, value(snap?.hrv))
-    bindTrend(context, v, R.id.large_hrv_trend, snap?.hrv)
-    v.setTextViewText(R.id.large_rhr_label, label(snap, "rhr"))
-    v.setTextViewText(R.id.large_rhr_value, value(snap?.rhr))
-    bindTrend(context, v, R.id.large_rhr_trend, snap?.rhr)
-
-    // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
-    // with-android-widget.js writes this bool and drops that receiver together.
-    // On since 2026-09-08, so the branch is the off switch rather than the state.
-    if (context.resources.getBoolean(R.bool.widget_record_enabled)) {
-      v.setViewVisibility(R.id.large_record, View.VISIBLE)
-      v.setOnClickPendingIntent(R.id.large_record, recordIntent(context, snap))
-      v.setContentDescription(
-        R.id.large_record,
-        snap?.recordLabel ?: context.getString(R.string.widget_record),
-      )
-    } else {
-      v.setViewVisibility(R.id.large_record, View.GONE)
-    }
-    bindUpdatedAt(context, v, R.id.large_updated, snap)
-    return v
+    v.setTextColor(
+      id, res(context, if (stale) R.color.widget_warning else R.color.widget_text_secondary))
   }
 
   // ---- latest activity widget ---------------------------------------------------
@@ -346,45 +218,83 @@ object WidgetRenderer {
     layout: Int = R.layout.widget_activity_small,
   ): RemoteViews {
     val v = RemoteViews(context.packageName, layout)
+    v.setViewVisibility(R.id.act_name, View.VISIBLE)
     v.setTextViewText(R.id.act_name, context.getString(R.string.widget_open_app))
     v.setTextColor(R.id.act_name, res(context, R.color.widget_text_primary))
+    v.setViewVisibility(R.id.act_sub, View.VISIBLE)
     v.setTextViewText(R.id.act_sub, context.getString(R.string.widget_to_see_training))
     v.setViewVisibility(R.id.act_preview, View.GONE)
     v.setViewVisibility(R.id.act_pr, View.GONE)
-    v.setViewVisibility(R.id.act_tss, View.GONE)
     v.setOnClickPendingIntent(R.id.act_root, deepLink(context, "veloq://", 3))
     return v
   }
 
   private fun isEmpty(snap: WidgetSnapshot?): Boolean = WidgetSnapshot.showsEmptyPrompt(snap)
 
-  fun renderActivity(context: Context, snap: WidgetSnapshot?, minWidthDp: Int): RemoteViews {
-    val layout = if (minWidthDp >= 200) R.layout.widget_activity_medium else R.layout.widget_activity_small
-    val v = RemoteViews(context.packageName, layout)
+  /**
+   * The Last activity widget. [LastActivityWidget] decides which lines a size has room for; this
+   * places them, scales the route to the half it is drawn in, and paints the attempt dots.
+   */
+  fun renderActivity(
+    context: Context,
+    snap: WidgetSnapshot?,
+    minWidthDp: Int,
+    minHeightDp: Int,
+  ): RemoteViews {
+    val size = LastActivityWidget.sizeFor(minWidthDp, minHeightDp)
+    val layout =
+      if (size == SummarySize.SMALL) R.layout.widget_activity_small
+      else R.layout.widget_activity_medium
+    val content = snap?.let { LastActivityWidget.content(it, size) }
     val latest = snap?.latest
+    if (snap == null || content == null || latest == null) return renderEmptyPrompt(context, layout)
 
-    if (latest == null) return renderEmptyPrompt(context, layout)
-
+    val v = RemoteViews(context.packageName, layout)
+    val d = context.resources.displayMetrics.density
     val tint = tintOrDefault(context, latest.tintHex)
-    v.setTextViewText(R.id.act_name, latest.name)
-    v.setTextColor(R.id.act_name, tint)
-    v.setTextViewText(R.id.act_sub, latest.subtitle())
-    v.setViewVisibility(R.id.act_pr, if (latest.isPr) View.VISIBLE else View.GONE)
 
-    val tss = latest.trainingLoad
-    if (tss == null) {
-      v.setViewVisibility(R.id.act_tss, View.GONE)
+    bindLine(v, R.id.act_name, content.name)
+    v.setTextColor(R.id.act_name, tint)
+    v.setViewVisibility(
+      R.id.act_pr, if (content.isPr && content.name != null) View.VISIBLE else View.GONE)
+    bindLine(v, R.id.act_label, content.heroLabel)
+    bindLine(v, R.id.act_hero, content.hero)
+    bindLine(v, R.id.act_detail, content.detail)
+    bindLine(v, R.id.act_sub, content.figures)
+    bindLine(v, R.id.act_prs, content.sectionPrs)
+    bindLine(v, R.id.act_load, content.load)
+    bindLine(v, R.id.act_date, content.date)
+    bindLine(v, R.id.act_demo, snap.demoLabel)
+    bindFormChange(context, v, content.form)
+
+    val narrow = size == SummarySize.SMALL
+    val columnDp = if (narrow) minWidthDp - 16 else (minWidthDp - 40) / 2
+    if (content.dots.isEmpty()) {
+      v.setViewVisibility(R.id.act_dots, View.GONE)
     } else {
-      v.setViewVisibility(R.id.act_tss, View.VISIBLE)
-      v.setTextViewText(R.id.act_tss, "$tss TSS")
+      val colors =
+        AttemptDotsBitmap.Colors(
+          earlier = res(context, R.color.widget_text_secondary),
+          record = res(context, R.color.widget_gold),
+          current = tint)
+      v.setImageViewBitmap(
+        R.id.act_dots,
+        AttemptDotsBitmap.render(
+          content.dots, (columnDp.coerceAtLeast(40) * d).roundToInt(), (10 * d).roundToInt(), colors))
+      v.setViewVisibility(R.id.act_dots, View.VISIBLE)
     }
 
     val preview = latest.routePreview
-    if (preview == null) {
+    if (!content.showsRoute || preview == null) {
       v.setViewVisibility(R.id.act_preview, View.GONE)
     } else {
-      val d = context.resources.displayMetrics.density
-      val bmp = RoutePreviewBitmap.render(preview, (140 * d).roundToInt(), (100 * d).roundToInt(), tint)
+      val heightDp = (if (minHeightDp > 0) minHeightDp else 110) - 16
+      val bmp =
+        RoutePreviewBitmap.render(
+          preview,
+          (columnDp.coerceAtLeast(60) * d).roundToInt(),
+          (heightDp.coerceAtLeast(60) * d).roundToInt(),
+          tint)
       v.setImageViewBitmap(R.id.act_preview, bmp)
       v.setViewVisibility(R.id.act_preview, View.VISIBLE)
     }
@@ -392,6 +302,31 @@ object WidgetRenderer {
     val url = latest.activityId?.let { "veloq://activity/$it" } ?: "veloq://"
     v.setOnClickPendingIntent(R.id.act_root, deepLink(context, url, 3))
     return v
+  }
+
+  /** A line of text, or nothing at all when there is none. */
+  private fun bindLine(v: RemoteViews, id: Int, text: String?) {
+    if (text.isNullOrEmpty()) {
+      v.setViewVisibility(id, View.GONE)
+    } else {
+      v.setViewVisibility(id, View.VISIBLE)
+      v.setTextViewText(id, text)
+    }
+  }
+
+  /** Form before and after, each side in the colour of the zone it sits in. */
+  private fun bindFormChange(context: Context, v: RemoteViews, form: FormChange?) {
+    if (form == null) {
+      v.setViewVisibility(R.id.act_form, View.GONE)
+      return
+    }
+    v.setViewVisibility(R.id.act_form, View.VISIBLE)
+    v.setTextViewText(R.id.act_form_label, form.label)
+    v.setTextViewText(R.id.act_form_arrow, "→")
+    v.setTextViewText(R.id.act_form_before, form.before)
+    v.setTextColor(R.id.act_form_before, zoneTextColor(context, form.beforeZone))
+    v.setTextViewText(R.id.act_form_after, form.after)
+    v.setTextColor(R.id.act_form_after, zoneTextColor(context, form.afterZone))
   }
 
   // ---- intents ------------------------------------------------------------------
@@ -420,7 +355,7 @@ object WidgetRenderer {
     requestCode: Int
   ): PendingIntent = deepLink(context, recordUrl(snap, configured), requestCode)
 
-  private fun deepLink(context: Context, url: String, requestCode: Int): PendingIntent {
+  internal fun deepLink(context: Context, url: String, requestCode: Int): PendingIntent {
     val intent =
       Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
         `package` = context.packageName
@@ -432,36 +367,13 @@ object WidgetRenderer {
       PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
   }
 
-  private fun bindCycleTap(context: Context, v: RemoteViews, id: Int, widgetId: Int) {
+  /** The whole widget opens Fitness; an instance the host has not numbered yet gets no tap. */
+  private fun bindFitnessTap(context: Context, v: RemoteViews, widgetId: Int) {
     if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
-    val intent =
-      Intent(context, VeloqWidgetProvider::class.java).apply {
-        action = VeloqWidgetProvider.ACTION_CYCLE_METRIC
-        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-      }
-    val pi =
-      PendingIntent.getBroadcast(
-        context, widgetId, intent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    v.setOnClickPendingIntent(id, pi)
+    v.setOnClickPendingIntent(R.id.sum_root, deepLink(context, FITNESS_URL, 4))
   }
 
   // ---- shared binding helpers -------------------------------------------------
-
-  private fun bindTrend(context: Context, v: RemoteViews, id: Int, m: Metric?) {
-    v.setTextViewText(id, m?.let { trendArrow(it.trendDir) } ?: "")
-    v.setTextColor(id, trendColor(context, m?.verdict ?: "flat"))
-  }
-
-  private fun bindZoneLabel(v: RemoteViews, id: Int, zoneLabel: String?, color: Int) {
-    if (zoneLabel.isNullOrEmpty()) {
-      v.setViewVisibility(id, View.GONE)
-    } else {
-      v.setViewVisibility(id, View.VISIBLE)
-      v.setTextViewText(id, zoneLabel)
-      v.setTextColor(id, color)
-    }
-  }
 
   // Launchers can report 0 before the first options callback; fall back per size.
   private fun chartWidthDp(minWidthDp: Int, fallbackDp: Int): Int =
@@ -476,44 +388,28 @@ object WidgetRenderer {
       grid = res(context, R.color.widget_border),
     )
 
-  // Which chart a hero key shows: the TSB heroes and the summary "fitnessForm" mode
-  // all render the feed-style fitness+fatigue+form-bar chart; HRV renders its own
-  // single series. No tap action - the chart is display-only.
-  private fun bindTrendChart(
+  /** The chart beside the hero, or nothing when the card hides it or the series is too short. */
+  private fun bindChart(
     context: Context,
     v: RemoteViews,
     id: Int,
-    snap: WidgetSnapshot?,
-    heroKey: String,
+    snap: WidgetSnapshot,
+    card: SummaryCard,
     widthDp: Int,
     heightDp: Int,
   ) {
-    val kind =
-      if (heroKey == "summary") snap?.summaryCard?.sparkline ?: "fitnessForm"
-      else
-        when (heroKey) {
-          "form", "fitness", "fatigue" -> "fitnessForm"
-          "hrv" -> "hrv"
-          else -> "none"
-        }
-
     val d = context.resources.displayMetrics.density
     val w = (widthDp * d).roundToInt()
     val h = (heightDp * d).roundToInt()
-
     val bmp =
-      when {
-        kind == "fitnessForm" && (snap?.fitnessSparkline?.size ?: 0) >= 2 ->
-          FitnessChart.fitnessBitmap(
-            snap!!.fitnessSparkline,
-            snap.fatigueSparkline,
-            w, h, d, chartColors(context))
-        kind == "hrv" && (snap?.hrvSparkline?.size ?: 0) >= 2 ->
+      when (val chart = SummaryWidget.chart(snap, card)) {
+        is SummaryChart.Dual ->
+          FitnessChart.fitnessBitmap(chart.fitness, chart.fatigue, w, h, d, chartColors(context))
+        is SummaryChart.Single ->
           FitnessChart.singleBitmap(
-            snap!!.hrvSparkline, res(context, R.color.widget_primary), w, h, d, chartColors(context))
-        else -> null
+            chart.values, res(context, R.color.widget_primary), w, h, d, chartColors(context))
+        SummaryChart.None -> null
       }
-
     if (bmp == null) {
       v.setViewVisibility(id, View.GONE)
     } else {
@@ -522,93 +418,45 @@ object WidgetRenderer {
     }
   }
 
-  private fun bindLatest(
+  /** Form over its five zones under the card, hidden with its title when the snapshot has none. */
+  private fun bindFormZones(
     context: Context,
     v: RemoteViews,
-    snap: WidgetSnapshot?,
-    nameId: Int,
-    prId: Int,
-    subId: Int,
+    snap: WidgetSnapshot,
+    widthDp: Int,
+    heightDp: Int,
   ) {
-    val latest = snap?.latest
-    if (latest == null) {
-      v.setViewVisibility(nameId, View.GONE)
-      v.setViewVisibility(prId, View.GONE)
-      v.setViewVisibility(subId, View.GONE)
+    val chart = SummaryWidget.formZones(snap)
+    if (chart == null) {
+      v.setViewVisibility(R.id.sum_form_title, View.GONE)
+      v.setViewVisibility(R.id.sum_form_zones, View.GONE)
       return
     }
-    v.setViewVisibility(nameId, View.VISIBLE)
-    v.setViewVisibility(subId, View.VISIBLE)
-    v.setTextViewText(nameId, latest.name)
-    v.setTextColor(nameId, tintOrDefault(context, latest.tintHex))
-    v.setTextViewText(subId, joinDot(latest.distanceLabel, latest.durationLabel, latest.dateLabel))
-    v.setViewVisibility(prId, if (latest.isPr) View.VISIBLE else View.GONE)
-  }
-
-  // Structured before-after impact, each value tinted by its own zone; falls back to
-  // the flat pre-composed line when the structured fields are absent (older snapshot).
-  private fun bindImpact(
-    context: Context,
-    v: RemoteViews,
-    snap: WidgetSnapshot?,
-    rowId: Int,
-    beforeId: Int,
-    afterId: Int,
-    tssId: Int,
-    flatId: Int,
-  ) {
-    val impact = snap?.impact
-    if (impact != null) {
-      v.setViewVisibility(rowId, View.VISIBLE)
-      v.setViewVisibility(flatId, View.GONE)
-      v.setTextViewText(beforeId, impact.beforeText ?: impact.formBefore.roundToInt().toString())
-      v.setTextColor(beforeId, zoneTextColor(context, impact.beforeZone))
-      v.setTextViewText(afterId, impact.afterText ?: impact.formAfter.roundToInt().toString())
-      v.setTextColor(afterId, zoneTextColor(context, impact.afterZone))
-      val tss = impact.tssAdded
-      if (tss == null) {
-        v.setViewVisibility(tssId, View.GONE)
-      } else {
-        v.setViewVisibility(tssId, View.VISIBLE)
-        v.setTextViewText(tssId, "${if (tss >= 0) "+" else ""}$tss TSS")
-      }
-      return
-    }
-    v.setViewVisibility(rowId, View.GONE)
-    val flat = snap?.impactLine
-    if (flat.isNullOrEmpty()) {
-      v.setViewVisibility(flatId, View.GONE)
-    } else {
-      v.setViewVisibility(flatId, View.VISIBLE)
-      v.setTextViewText(flatId, flat)
-    }
+    val d = context.resources.displayMetrics.density
+    val colors =
+      FitnessChart.ZoneColors(
+        zones =
+          mapOf(
+            "highRisk" to res(context, R.color.widget_form_high_risk),
+            "optimal" to res(context, R.color.widget_form_optimal),
+            "greyZone" to res(context, R.color.widget_form_grey_zone),
+            "fresh" to res(context, R.color.widget_form_fresh),
+            "transition" to res(context, R.color.widget_form_transition),
+          ),
+        line = res(context, R.color.widget_text_primary),
+        casing = res(context, R.color.widget_chart_casing),
+        axisText = res(context, R.color.widget_text_secondary),
+      )
+    v.setViewVisibility(R.id.sum_form_title, View.VISIBLE)
+    v.setTextViewText(R.id.sum_form_title, snap.metricLabels["form"] ?: "Form")
+    v.setViewVisibility(R.id.sum_form_zones, View.VISIBLE)
+    v.setImageViewBitmap(
+      R.id.sum_form_zones,
+      FitnessChart.formZonesBitmap(
+        chart, (widthDp * d).roundToInt(), (heightDp * d).roundToInt(), d, colors))
   }
 
   // ---- formatting -------------------------------------------------------------
-
-  private fun label(snap: WidgetSnapshot?, key: String): String =
-    snap?.metricLabels?.get(key) ?: key.replaceFirstChar { it.uppercase() }
-
-  private fun value(m: Metric?): String =
-    m?.display() ?: "-"
-
-  private fun delta(m: Metric?): String {
-    val d = m?.delta ?: return ""
-    val r = d.roundToInt()
-    return "${if (r >= 0) "+" else ""}$r"
-  }
-
-  private fun weeklyLine(snap: WidgetSnapshot?): String {
-    val w = snap?.weekly ?: return ""
-    val parts = mutableListOf("${snap.weekLabel} ${w.count}")
-    if (w.durationLabel.isNotEmpty()) parts.add(w.durationLabel)
-    if (w.distanceLabel.isNotEmpty()) parts.add(w.distanceLabel)
-    parts.add("${w.tss} TSS")
-    return parts.joinToString(" · ")
-  }
-
-  private fun joinDot(vararg parts: String): String =
-    parts.filter { it.isNotEmpty() }.joinToString(" · ")
 
   private fun trendArrow(dir: String): String =
     when (dir) {
@@ -653,7 +501,7 @@ object WidgetRenderer {
       else -> res(context, R.color.widget_text_primary)
     }
 
-  private fun res(context: Context, id: Int): Int = ContextCompat.getColor(context, id)
+  internal fun res(context: Context, id: Int): Int = ContextCompat.getColor(context, id)
 
   private fun tintOrDefault(context: Context, hex: String): Int =
     try {

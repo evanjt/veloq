@@ -7,6 +7,11 @@ const {
   targetUuidByName,
 } = require("./with-ios-widget");
 const { ensureTargetDependencySections } = require("./xcodeTargetDependency");
+const {
+  applyEngineLinkSettings,
+  ensureRustPhase,
+  targetBuildSettings,
+} = require("./xcodeEngineLink");
 
 /**
  * Injects the iOS Notification Service Extension during prebuild, the way
@@ -32,23 +37,6 @@ const { ensureTargetDependencySections } = require("./xcodeTargetDependency");
 const TARGET = "VeloqPushExtension";
 const SOURCE_DIR = path.join("push", "ios", TARGET);
 const BRIDGING_HEADER = `${TARGET}-Bridging-Header.h`;
-
-/**
- * The Rust static library, which the extension links directly rather than
- * through the `Veloqrs` pod: that pod depends on React, and an extension has
- * neither React nor a JavaScript runtime. Only the four C symbols in
- * `push/c.rs` are called, and the linker keeps what they reach.
- *
- * Its own phase builds it, for the SDK and architectures of this build, into
- * the target's temporary directory. The pod's phase builds the same library
- * for the app, but nothing orders this target after the pod, and the builder
- * serialises the two and compiles once.
- */
-const LIBRARY = "veloqrs_ffi";
-const RUST_PHASE = "Build Rust library";
-const RUST_DIR = "$(TARGET_TEMP_DIR)/VeloqrsFFI";
-const RUST_SCRIPT =
-  '"$SRCROOT/../modules/veloqrs/scripts/xcode-build-rust.sh" "$SRCROOT" "$TARGET_TEMP_DIR/VeloqrsFFI"';
 
 /** Every Swift file the extension compiles, read from the tracked tree. */
 function pushSwiftFiles(projectRoot) {
@@ -96,75 +84,13 @@ function applyPushExtensionBuildSettings(settings, { version, buildNumber }) {
   settings.GENERATE_INFOPLIST_FILE = "NO";
   settings.CURRENT_PROJECT_VERSION = `"${buildNumber}"`;
   settings.MARKETING_VERSION = `"${version}"`;
-  // The four C entries are declared once, here, for every Swift file in the
-  // target. Without it `veloq_push_prepare` is an unresolved identifier and
-  // the build says nothing about a missing header.
-  settings.SWIFT_OBJC_BRIDGING_HEADER = `"${TARGET}/${BRIDGING_HEADER}"`;
-  settings.OTHER_LDFLAGS = `"$(inherited) -l${LIBRARY}"`;
-  // A list, because React Native's pod install puts the Swift library path
-  // in front of this setting with a string insert, which glues it onto a
-  // single path rather than adding one.
-  settings.LIBRARY_SEARCH_PATHS = ['"$(inherited)"', `"${RUST_DIR}"`];
-  // The phase writes into the Rust tree and the build directory, which a
-  // sandboxed script may not touch.
-  settings.ENABLE_USER_SCRIPT_SANDBOXING = "NO";
-  // A target written before the phase existed linked one slice of a bundle
-  // per SDK. Those paths would now name a library nothing rebuilds.
-  for (const key of Object.keys(settings)) {
-    if (key.startsWith('"LIBRARY_SEARCH_PATHS[sdk=')) delete settings[key];
-  }
+  applyEngineLinkSettings(settings, `${TARGET}/${BRIDGING_HEADER}`);
   // `apple.ccacheEnabled` has the pod install write CC, LD, CXX and LDPLUSPLUS
   // across the whole project as `$(REACT_NATIVE_PATH)/scripts/xcode/...`, and
   // REACT_NATIVE_PATH resolves from PODS_ROOT, which only a pod target carries.
   // The widget hit this first; give the extension the same path from its own
   // SRCROOT.
   settings.REACT_NATIVE_PATH = '"$(SRCROOT)/../node_modules/react-native"';
-}
-
-/** A project value with the quotes the writer may or may not have kept. */
-function unquoted(value) {
-  return String(value ?? "").replace(/^"(.*)"$/, "$1");
-}
-
-/**
- * The target's own build configurations, the ones carrying its settings.
- * Matched on the bare name: the pod install saves the project again and
- * drops the quotes this plugin wrote around it.
- */
-function pushExtensionSettings(proj) {
-  const configurations = proj.pbxXCBuildConfigurationSection();
-  return Object.values(configurations)
-    .map((entry) => entry && entry.buildSettings)
-    .filter((settings) => settings && unquoted(settings.PRODUCT_NAME) === TARGET);
-}
-
-/**
- * The phase that builds the Rust library, first in the target so it runs
- * before the link. Added to a target an earlier prebuild wrote without it.
- */
-function ensureRustPhase(proj, targetUuid) {
-  const target = proj.pbxNativeTargetSection()[targetUuid];
-  const scripts = proj.hash.project.objects.PBXShellScriptBuildPhase ?? {};
-  const present = target.buildPhases.some(
-    (phase) => scripts[phase.value] && unquoted(scripts[phase.value].name) === RUST_PHASE
-  );
-  if (present) return;
-  const { uuid, buildPhase } = proj.addBuildPhase(
-    [],
-    "PBXShellScriptBuildPhase",
-    RUST_PHASE,
-    targetUuid,
-    {
-      shellPath: "/bin/sh",
-      shellScript: RUST_SCRIPT,
-      outputPaths: [`"${RUST_DIR}/lib${LIBRARY}.a"`],
-    }
-  );
-  // The builder decides whether anything changed, from every input of the
-  // library, so Xcode runs the phase on every build rather than guessing.
-  buildPhase.alwaysOutOfDate = 1;
-  const added = target.buildPhases.findIndex((phase) => phase.value === uuid);
-  target.buildPhases.unshift(...target.buildPhases.splice(added, 1));
 }
 
 /** Create the extension target, its phases and its group. */
@@ -197,7 +123,7 @@ function configurePushExtensionProject(proj, { swiftFiles, bundleId, version, bu
   const targetUuid = targetUuidByName(proj, TARGET) ?? createPushExtensionTarget(proj, bundleId);
   addMissingSourceFiles(proj, targetUuid, swiftFiles, TARGET);
   ensureRustPhase(proj, targetUuid);
-  for (const settings of pushExtensionSettings(proj)) {
+  for (const settings of targetBuildSettings(proj, TARGET)) {
     applyPushExtensionBuildSettings(settings, { version, buildNumber });
   }
 }

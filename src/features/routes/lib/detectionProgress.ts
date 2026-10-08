@@ -5,7 +5,7 @@
 
 const PHASE_DISPLAY_NAMES: Record<string, string> = {
   loading: 'Loading tracks',
-  analyzing: 'Analyzing activities',
+  analyzing: 'Analysing activities',
   saving: 'Saving sections',
   recomputing_indicators: 'Computing indicators',
   diffing: 'Comparing catalogues',

@@ -3,8 +3,9 @@ import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
+import * as haptics from '@/shared/ui/haptics';
 import {
   colors,
   darkColors,
@@ -32,10 +33,15 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
+  const handleClose = useCallback(() => {
+    haptics.light();
+    onClose();
+  }, [onClose]);
+
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
       onClose();
-      navigateTo(insight.navigationTarget);
+      tapTo(insight.navigationTarget);
     }
   }, [insight?.navigationTarget, onClose]);
 
@@ -69,7 +75,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           <Pressable
             style={pressable(styles.closeButton)}
             android_ripple={pressRipple}
-            onPress={onClose}
+            onPress={handleClose}
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel={t('common.close')}

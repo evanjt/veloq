@@ -10,7 +10,7 @@ import {
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import { canDrawProfilePhoto, Shimmer, pressable, pressRipple } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
@@ -400,7 +400,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                   testID={`summary-card-metric-${index}`}
                   style={pressable(styles.supportingMetric)}
                   android_ripple={pressRipple}
-                  onPress={() => navigateTo(metric.navigationTarget)}
+                  onPress={() => tapTo(metric.navigationTarget)}
                 >
                   <Text style={[styles.metricLabel, isDark && styles.textSecondary]}>
                     {metric.label}

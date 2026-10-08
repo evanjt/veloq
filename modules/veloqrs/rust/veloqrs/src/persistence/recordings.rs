@@ -566,10 +566,11 @@ impl PersistentEngine {
         Ok(())
     }
 
-    /// The engine key the recording was written under, so a background retry
-    /// can still reconcile the upload.
+    /// The engine key the recording was written under. A ride whose upload
+    /// already landed is reconciled in the same call; one this call could not
+    /// reconcile still owes it, and the upload worker's sweep finishes it.
     pub fn set_recording_engine_activity(
-        &self,
+        &mut self,
         id: &str,
         engine_activity_id: &str,
     ) -> SqlResult<()> {
@@ -577,7 +578,32 @@ impl PersistentEngine {
             "UPDATE recordings SET engine_activity_id = ? WHERE id = ?",
             params![engine_activity_id, id],
         )?;
+        self.reconcile_recording_upload(id)?;
         Ok(())
+    }
+
+    /// Write the id intervals.icu gave a landed ride onto its provisional row,
+    /// then mark the ride reconciled. True when it did both; false when the
+    /// ride has no key or no server id yet, or is already settled. False from
+    /// `record_upload` is settled too: the row already carries an id or has
+    /// gone. An interruption between the two writes leaves the ride owing its
+    /// reconcile, and the next call finds the row settled and marks it.
+    pub fn reconcile_recording_upload(&mut self, id: &str) -> SqlResult<bool> {
+        let Some(ride) = self.get_recording(id)? else {
+            return Ok(false);
+        };
+        let (Some(engine_id), Some(intervals_id)) = (
+            ride.engine_activity_id.as_deref(),
+            ride.intervals_activity_id.as_deref(),
+        ) else {
+            return Ok(false);
+        };
+        if ride.engine_reconciled {
+            return Ok(false);
+        }
+        self.record_upload(engine_id, intervals_id)?;
+        self.set_recording_reconciled(id)?;
+        Ok(true)
     }
 
     // The per-destination writers below apply the named transition and drop
@@ -954,6 +980,60 @@ mod tests {
                 .iter()
                 .all(|r| r.engine_reconciled)
         );
+    }
+
+    /// Scenario: a ride's upload landed while its save had written no engine
+    /// row, and launch writes the row and attaches its key afterwards.
+    /// Expected behaviour: attaching the key writes the server's id onto the
+    /// row and settles the ride's reconcile in the same call, so no interrupted
+    /// second call can leave a keyed row the next sync stores a second time.
+    #[test]
+    fn attaching_a_key_to_a_landed_ride_reconciles_its_row() {
+        let (_dir, mut e) = engine();
+        e.db.execute(
+            "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+             VALUES ('local-r1', 'Ride', 0, 0, 0, 0)",
+            [],
+        )
+        .unwrap();
+        let mut landed = entry("r1", 1_000, "uploaded");
+        landed.intervals_activity_id = Some("i42".into());
+        e.insert_recording(&landed).unwrap();
+
+        e.set_recording_engine_activity("r1", "local-r1").unwrap();
+
+        let row = e.get_recording("r1").unwrap().unwrap();
+        assert_eq!(row.engine_activity_id.as_deref(), Some("local-r1"));
+        assert!(row.engine_reconciled);
+        assert_eq!(e.intervals_id("local-r1").as_deref(), Some("i42"));
+
+        // A second attach finds it settled and changes nothing.
+        e.set_recording_engine_activity("r1", "local-r1").unwrap();
+        assert!(e.get_recording("r1").unwrap().unwrap().engine_reconciled);
+        assert_eq!(e.intervals_id("local-r1").as_deref(), Some("i42"));
+    }
+
+    /// Scenario: the review save attaches the key of a ride that has not
+    /// uploaded yet.
+    /// Expected behaviour: there is no server id to write, so the row keeps
+    /// none and the ride still owes its reconcile.
+    #[test]
+    fn attaching_a_key_to_an_unsent_ride_leaves_its_reconcile_owed() {
+        let (_dir, mut e) = engine();
+        e.db.execute(
+            "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+             VALUES ('local-r1', 'Ride', 0, 0, 0, 0)",
+            [],
+        )
+        .unwrap();
+        e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
+
+        e.set_recording_engine_activity("r1", "local-r1").unwrap();
+
+        let row = e.get_recording("r1").unwrap().unwrap();
+        assert_eq!(row.engine_activity_id.as_deref(), Some("local-r1"));
+        assert!(!row.engine_reconciled);
+        assert_eq!(e.intervals_id("local-r1"), None);
     }
 
     fn stamped(id: &str, created_at: i64, athlete: Option<&str>) -> FfiRecordingEntry {

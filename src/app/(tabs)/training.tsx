@@ -38,6 +38,7 @@ import { useRevealChart } from '@/shared/app/useRevealChart';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { SmoothingSheetInput } from '@/app/sheets/smoothing';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { onPullRefresh } from '@/shared/ui/haptics';
 
 const trainingChartCard = (chart: TrainingChart) => TRAINING_CHART_CARD[chart];
 
@@ -121,16 +122,20 @@ function HealthScreenContent() {
   const isFetching = wellnessFetching;
 
   // Handle pull-to-refresh - invalidate all training-related queries
-  const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    requestRefresh();
-    await Promise.all([
-      refetchWellness(),
-      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.stats.all }),
-    ]);
-    setIsRefreshing(false);
-  }, [refetchWellness, queryClient, requestRefresh]);
+  const onRefresh = useMemo(
+    () =>
+      onPullRefresh(async () => {
+        setIsRefreshing(true);
+        requestRefresh();
+        await Promise.all([
+          refetchWellness(),
+          queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.stats.all }),
+        ]);
+        setIsRefreshing(false);
+      }),
+    [refetchWellness, queryClient, requestRefresh]
+  );
 
   // Wellness is the one read that replaces the tab. The engine aggregates name
   // their own failure inside the card that reads them.

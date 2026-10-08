@@ -52,6 +52,14 @@ const PALETTE_KEYS: (keyof WidgetPalette)[] = [
   'trendUp',
   'trendDown',
   'trendFlat',
+  'warning',
+  'toneNegative',
+  'toneCaution',
+  'tonePositive',
+  'toneNeutral',
+  'toneRecord',
+  'toneInfo',
+  'toneOpportunity',
   'border',
 ];
 
@@ -77,8 +85,16 @@ ${swiftPalette('Light', widgetPalette.light)}
 ${swiftPalette('Dark', widgetPalette.dark)}
 
   enum Record {
-    static let gradientStart = Color(hex: "${widgetRecord.gradientStart}")
-    static let gradientEnd = Color(hex: "${widgetRecord.gradientEnd}")
+    enum Light {
+      static let gradientStart = Color(hex: "${widgetRecord.light.gradientStart}")
+      static let gradientEnd = Color(hex: "${widgetRecord.light.gradientEnd}")
+    }
+
+    enum Dark {
+      static let gradientStart = Color(hex: "${widgetRecord.dark.gradientStart}")
+      static let gradientEnd = Color(hex: "${widgetRecord.dark.gradientEnd}")
+    }
+
     static let foreground = Color(hex: "${widgetRecord.foreground}")
   }
 
@@ -111,8 +127,8 @@ function androidLight(): string {
 <!-- ${GEN} -->
 <resources>
 ${androidColors(widgetPalette.light)}
-  <color name="widget_record_grad_start">${widgetRecord.gradientStart}</color>
-  <color name="widget_record_grad_end">${widgetRecord.gradientEnd}</color>
+  <color name="widget_record_grad_start">${widgetRecord.light.gradientStart}</color>
+  <color name="widget_record_grad_end">${widgetRecord.light.gradientEnd}</color>
   <color name="widget_record_foreground">${widgetRecord.foreground}</color>
   <dimen name="widget_radius">${widgetLayout.radius}dp</dimen>
   <dimen name="widget_radius_inner">${widgetLayout.radiusInner}dp</dimen>
@@ -132,6 +148,8 @@ function androidNight(): string {
 <!-- ${GEN} -->
 <resources>
 ${androidColors(widgetPalette.dark)}
+  <color name="widget_record_grad_start">${widgetRecord.dark.gradientStart}</color>
+  <color name="widget_record_grad_end">${widgetRecord.dark.gradientEnd}</color>
 </resources>
 `;
 }

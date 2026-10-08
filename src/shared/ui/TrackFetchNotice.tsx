@@ -16,13 +16,13 @@ import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
 
 import { useTheme } from '@/shared/app/useTheme';
 import { useBannerPadsStatusBar } from '@/shared/app/TopSafeAreaContext';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { amberBanner, typography, spacing, layout } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
+import { tapTo } from '@/shared/app/navigation';
 
 export function TrackFetchNotice() {
   const { t } = useTranslation();
@@ -64,7 +64,7 @@ export function TrackFetchNotice() {
               testID="track-fetch-notice-open"
               accessibilityRole="button"
               accessibilityLabel={t('activitySummary.openActivity')}
-              onPress={() => router.push(`/activity/${failedIds[0]}`)}
+              onPress={() => tapTo(`/activity/${failedIds[0]}`)}
               hitSlop={8}
               style={pressable(styles.action)}
               android_ripple={pressRipple}

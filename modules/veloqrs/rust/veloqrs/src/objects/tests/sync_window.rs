@@ -62,6 +62,7 @@ fn test_failed_census_uses_fixed_window_despite_stored_rows() {
         created: None,
         icu_sync_date: None,
         has_latlng: false,
+        has_series: false,
     };
     crate::persistence::with_persistent_engine(|engine| {
         engine
@@ -145,6 +146,7 @@ fn test_widened_window_requests_only_owed_day() {
             created: None,
             icu_sync_date: Some(format!("{day}T09:00:00Z")),
             has_latlng: false,
+            has_series: false,
         })
         .collect();
     crate::persistence::with_persistent_engine(|engine| {
@@ -241,6 +243,7 @@ fn test_failed_body_write_keeps_changed_day_owed() {
         created: None,
         icu_sync_date: Some(format!("{day}T09:00:00Z")),
         has_latlng: false,
+        has_series: false,
     };
     crate::persistence::with_persistent_engine(|engine| {
         engine.record_activity_census("i1", std::slice::from_ref(&entry)).expect("census");
@@ -315,6 +318,7 @@ fn test_failed_metrics_write_rolls_back_body_and_leaves_summary_owed() {
         created: None,
         icu_sync_date: Some(format!("{day}T09:00:00Z")),
         has_latlng: false,
+        has_series: false,
     };
     crate::persistence::with_persistent_engine(|engine| {
         engine.record_activity_census("i1", &[entry]).expect("census");
@@ -365,6 +369,7 @@ fn test_changed_summary_invalidates_stored_interval_body() {
         created: None,
         icu_sync_date: Some(format!("{day}T09:00:00Z")),
         has_latlng: false,
+        has_series: false,
     };
     crate::persistence::with_persistent_engine(|engine| {
         engine
@@ -453,6 +458,7 @@ fn test_launch_plans_old_changed_rows_without_old_never_fetched_rows() {
         created: None,
         icu_sync_date: Some(format!("{day}T09:00:00Z")),
         has_latlng: false,
+        has_series: false,
     })
     .collect();
     crate::persistence::with_persistent_engine(|engine| {
@@ -581,6 +587,7 @@ fn test_old_changed_head_prefetch_keeps_never_fetched_body_outside_library() {
         created: None,
         icu_sync_date: Some("old".into()),
         has_latlng: false,
+        has_series: false,
     })
     .collect();
     crate::persistence::with_persistent_engine(|engine| {
@@ -669,6 +676,7 @@ fn test_scattered_old_changes_keep_unchanged_days_outside_windows() {
                 created: None,
                 icu_sync_date: Some("old".into()),
                 has_latlng: false,
+                has_series: false,
             }
         })
         .collect();
@@ -681,6 +689,7 @@ fn test_scattered_old_changes_keep_unchanged_days_outside_windows() {
             created: None,
             icu_sync_date: Some("old".into()),
             has_latlng: false,
+            has_series: false,
         });
     }
     crate::persistence::with_persistent_engine(|engine| {
@@ -784,6 +793,7 @@ fn test_many_scattered_old_changes_use_one_request_per_changed_day() {
                 created: None,
                 icu_sync_date: Some("old".into()),
                 has_latlng: false,
+                has_series: false,
             }
         })
         .collect();
@@ -935,6 +945,7 @@ pub(super) fn upgraded_library(recent: &str, old: &str) {
             created: None,
             icu_sync_date: Some("v1".into()),
             has_latlng: false,
+            has_series: false,
         })
         .collect();
     crate::persistence::with_persistent_engine(|engine| {

@@ -6,7 +6,7 @@ import { StrengthExerciseList } from '@/features/strength/components/StrengthExe
 const mockRouterPush = jest.fn();
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  useRouter: () => ({ push: mockRouterPush }),
+  router: { push: (...args: unknown[]) => mockRouterPush(...args) },
 }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));

@@ -6,7 +6,7 @@ import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import type { TFunc } from '../types';
 import { sectionRowKey, sectionWithSport } from '../lib/cardSport';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -24,7 +24,7 @@ import { DataPointRow } from './DataPointRow';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
-import { TrackPreview, normalizeTrackPoints } from '@/shared/ui/TrackPreview';
+import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { verdictIcon, verdictRung } from '@/shared/format/trend';
 import type { LatLngShort } from '@/shared/geo/distance';
 
@@ -47,7 +47,7 @@ function SectionPreview({
   points?: LatLngShort[] | undefined;
 }) {
   const { isDark } = useTheme();
-  const normalised = useMemo(() => normalizeTrackPoints(points ?? []), [points]);
+  const normalised = useMemo(() => normaliseTrackPoints(points ?? []), [points]);
   if (normalised.length < 2) return null;
   return (
     <View style={styles.sectionPreview}>
@@ -251,7 +251,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
               key={sectionRowKey(section)}
               style={pressable([styles.sectionCard, isDark && styles.sectionCardDark])}
               android_ripple={pressRipple}
-              onPress={() => navigateTo(`/section/${section.sectionId}`)}
+              onPress={() => tapTo(`/section/${section.sectionId}`)}
             >
               <SectionPreview sectionId={section.sectionId} points={section.previewPoints} />
               <View style={styles.sectionContent}>

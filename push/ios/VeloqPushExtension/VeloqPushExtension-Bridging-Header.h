@@ -4,6 +4,9 @@
 // JavaScript, no JSI and no JNI, and it links the static library directly
 // rather than through the `Veloqrs` pod, which depends on React.
 //
+// The push extension and the widget extension both compile against this
+// header: the widget's copy is written at prebuild.
+//
 // The extension uses these entries. A string answer hands ownership
 // over with it: give it back to
 // `veloq_push_string_free` and to nothing else.
@@ -18,6 +21,7 @@ bool veloq_push_prepare(const char *db_path, const char *access_token, const cha
 void veloq_push_record_refusal(const char *db_path, const char *activity_id, const char *reason);
 char *veloq_push_payload_reason(const char *top_level_keys, const char *body_keys);
 char *veloq_push_activity(const char *activity_id, const char *athlete_id);
+char *veloq_push_widget_snapshot(void);
 void veloq_push_string_free(char *text);
 
 #endif

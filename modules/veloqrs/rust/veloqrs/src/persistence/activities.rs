@@ -588,8 +588,9 @@ fn signature_from_parts(
 /// connection.
 pub(crate) mod pooled {
     use super::{
-        Bounds, CENSUS_ROW_OWED, CENSUS_TRACK_SETTLED_OUT, CENSUS_TRACK_UNAVAILABLE,
-        LibraryCoverage, RangeCoverage, RouteSignature, SqlResult, signature_from_parts,
+        Bounds, CENSUS_ROW_OWED, CENSUS_TRACK_SETTLED_OUT, CENSUS_TRACK_STORED,
+        CENSUS_TRACK_UNAVAILABLE, LibraryCoverage, RangeCoverage, RouteSignature, SqlResult,
+        signature_from_parts,
     };
     use rusqlite::{Connection, OptionalExtension, params};
     use tracematch::GpsPoint;
@@ -816,17 +817,15 @@ pub(crate) mod pooled {
                 "SELECT COUNT(*),
                         COUNT(*) FILTER (WHERE NOT ({owed})),
                         COUNT(*) FILTER (WHERE c.has_latlng = 1 AND NOT ({refused})),
-                        COUNT(*) FILTER (WHERE c.has_latlng = 1 AND NOT ({refused}) AND EXISTS (
-                             SELECT 1 FROM gps_tracks g
-                             WHERE g.activity_id = c.intervals_id
-                                OR g.activity_id = (SELECT a.id FROM activities a
-                                                    WHERE a.intervals_id = c.intervals_id)))
+                        COUNT(*) FILTER (WHERE c.has_latlng = 1 AND NOT ({refused})
+                                           AND {stored})
                  FROM activity_census c
                  WHERE c.athlete_id = ?1
                    AND c.start_date_local IS NOT NULL
                    AND date(c.start_date_local) >= date(?2)",
                 owed = CENSUS_ROW_OWED.as_str(),
                 refused = CENSUS_TRACK_SETTLED_OUT.as_str(),
+                stored = CENSUS_TRACK_STORED,
             ),
             params![athlete_id, window_oldest],
             |row| {
@@ -845,6 +844,60 @@ pub(crate) mod pooled {
                 LibraryCoverage::default()
             }
         }
+    }
+
+    /// The tracks a GPS pass still owes inside a day range, newest first: the
+    /// census says the activity has one upstream, its body is stored, the
+    /// device holds no track for it and the engine has not given up on it.
+    /// The sport is the body's own `type`, then the metrics row's, then
+    /// `Ride`. The start is the local wall-clock time read as UTC, as the
+    /// stored dates are.
+    pub(crate) fn gps_fetch_candidates(
+        conn: &Connection,
+        athlete_id: &str,
+        oldest: &str,
+        newest: &str,
+    ) -> Vec<crate::ffi::ActivitySportMapping> {
+        if athlete_id.is_empty() {
+            return Vec::new();
+        }
+        let read = || -> SqlResult<Vec<crate::ffi::ActivitySportMapping>> {
+            let mut stmt = conn.prepare(&format!(
+                "SELECT c.intervals_id,
+                        COALESCE(NULLIF(json_extract(b.raw, '$.type'), ''),
+                                 NULLIF(m.sport_type, ''),
+                                 'Ride'),
+                        CAST(strftime('%s', c.start_date_local) AS REAL)
+                 FROM activity_census c
+                 JOIN activity_bodies b
+                   ON b.rowid = (SELECT b2.rowid FROM activity_bodies b2
+                                 WHERE b2.activity_id = c.intervals_id
+                                    OR b2.intervals_id = c.intervals_id
+                                 LIMIT 1)
+                 LEFT JOIN activity_metrics m ON m.activity_id = b.activity_id
+                 WHERE c.athlete_id = ?1
+                   AND c.has_latlng = 1
+                   AND NOT ({settled_out})
+                   AND NOT {stored}
+                   AND c.start_date_local IS NOT NULL
+                   AND date(c.start_date_local) BETWEEN date(?2) AND date(?3)
+                 ORDER BY c.start_date_local DESC, c.intervals_id",
+                settled_out = CENSUS_TRACK_SETTLED_OUT.as_str(),
+                stored = CENSUS_TRACK_STORED,
+            ))?;
+            stmt.query_map(params![athlete_id, oldest, newest], |row| {
+                Ok(crate::ffi::ActivitySportMapping {
+                    activity_id: row.get(0)?,
+                    sport_type: row.get(1)?,
+                    start_date: row.get(2)?,
+                })
+            })?
+            .collect()
+        };
+        read().unwrap_or_else(|e| {
+            log::warn!("veloqrs: [census] gps fetch candidate read failed: {}", e);
+            Vec::new()
+        })
     }
 
     /// The census ids whose track was refused for good at the version the
@@ -1013,22 +1066,6 @@ pub(crate) mod pooled {
             |row| row.get(0),
         )
         .unwrap_or(false)
-    }
-
-    /// The activities and moving seconds stored in an inclusive date range,
-    /// which is everything the offline estimate scales on.
-    pub(crate) fn offline_range_totals(
-        conn: &Connection,
-        oldest: i64,
-        newest: i64,
-    ) -> rusqlite::Result<(u32, u64)> {
-        conn.query_row(
-            "SELECT COUNT(*), COALESCE(SUM(moving_time), 0)
-             FROM activity_metrics
-             WHERE date >= ? AND date <= ?",
-            params![oldest, newest],
-            |r| Ok((r.get::<_, i64>(0)? as u32, r.get::<_, i64>(1)? as u64)),
-        )
     }
 
     /// The stored signature line for each of `ids`, for the route detail map.
@@ -1238,6 +1275,46 @@ pub(crate) mod pooled {
         })
     }
 
+    /// The load an activity of `sport_type` usually carries: the median
+    /// recorded load among the sport family's activities in the `days` up to
+    /// `date`, the activity `except_id` left out. An activity with no recorded
+    /// load, which is stored as none or zero, is not a measured zero and is not
+    /// counted. None when nothing in the window has one.
+    pub(crate) fn typical_training_load(
+        conn: &Connection,
+        sport_type: &str,
+        except_id: &str,
+        date: i64,
+        days: i64,
+    ) -> Option<f64> {
+        let sports = crate::sport::family_of(sport_type);
+        let marks = vec!["?"; sports.len()].join(",");
+        let query = format!(
+            "SELECT training_load FROM activity_metrics
+             WHERE sport_type IN ({marks}) AND date >= ? AND date <= ?
+               AND activity_id != ? AND training_load > 0
+             ORDER BY training_load"
+        );
+        let from = date - days * 86_400;
+        let mut params: Vec<&dyn rusqlite::ToSql> =
+            sports.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        params.extend([&from as &dyn rusqlite::ToSql, &date, &except_id]);
+        let mut stmt = conn
+            .prepare_cached(&query)
+            .map_err(|e| log::warn!("[widget] typical load: {e:?}"))
+            .ok()?;
+        let loads: Vec<f64> = stmt
+            .query_map(params.as_slice(), |row| row.get::<_, f64>(0))
+            .map(|rows| rows.flatten().filter(|load| load.is_finite()).collect())
+            .unwrap_or_default();
+        let middle = loads.len() / 2;
+        match loads.len() {
+            0 => None,
+            n if n % 2 == 1 => Some(loads[middle]),
+            _ => Some((loads[middle - 1] + loads[middle]) / 2.0),
+        }
+    }
+
     /// Load a stored signature. A corrupt points blob names itself in the log
     /// before the read gives up, so route grouping never drops an activity in
     /// silence.
@@ -1315,6 +1392,14 @@ static CENSUS_TRACK_SETTLED_OUT: LazyLock<String> = LazyLock::new(|| {
         *CENSUS_TRACK_UNAVAILABLE
     )
 });
+
+/// A census row whose track is on the device, filed under either of its ids.
+/// Refers to the alias `c`.
+const CENSUS_TRACK_STORED: &str = "EXISTS (
+         SELECT 1 FROM gps_tracks g
+         WHERE g.activity_id = c.intervals_id
+            OR g.activity_id = (SELECT a.id FROM activities a
+                                WHERE a.intervals_id = c.intervals_id))";
 
 /// Why a track can never be stored from what the server returned.
 ///
@@ -2745,23 +2830,6 @@ impl PersistentEngine {
         self.activity_metadata.len()
     }
 
-    /// What making an inclusive date range available offline will cost.
-    ///
-    /// Read rather than guessed: the byte figure scales on the moving seconds
-    /// already stored for the range, because per activity the cost spans
-    /// fifty-fold and per moving second it holds to about a third.
-    pub fn estimate_offline_range(
-        &self,
-        oldest: i64,
-        newest: i64,
-    ) -> rusqlite::Result<crate::net::offline_prefetch::OfflineEstimate> {
-        let (activities, moving_seconds) = pooled::offline_range_totals(&self.db, oldest, newest)?;
-        Ok(crate::net::offline_prefetch::estimate_range(
-            activities,
-            moving_seconds,
-        ))
-    }
-
     /// Flag the catalogue as owing a detect. Used where a caller knows the
     /// pool moved under a run that has already reported its own result.
     pub fn mark_sections_dirty(&mut self) {
@@ -2806,13 +2874,14 @@ impl PersistentEngine {
                 let mut stmt = tx.prepare(
                     "INSERT INTO activity_census
                          (athlete_id, intervals_id, start_date_local, created, icu_sync_date,
-                          has_latlng, census_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                          has_latlng, has_series, census_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
                      ON CONFLICT(athlete_id, intervals_id) DO UPDATE SET
                          start_date_local = excluded.start_date_local,
                          created = excluded.created,
                          icu_sync_date = excluded.icu_sync_date,
                          has_latlng = excluded.has_latlng,
+                         has_series = excluded.has_series,
                          census_at = excluded.census_at",
                 )?;
                 for entry in entries {
@@ -2823,6 +2892,7 @@ impl PersistentEngine {
                         entry.created,
                         entry.icu_sync_date,
                         entry.has_latlng,
+                        entry.has_series,
                         stamp
                     ])?;
                 }
@@ -3064,6 +3134,17 @@ impl PersistentEngine {
         tx.commit()
     }
 
+    /// The tracks a GPS pass still owes for an athlete between two local
+    /// days, inclusive, newest first. See `pooled::gps_fetch_candidates`.
+    pub fn gps_fetch_candidates(
+        &self,
+        athlete_id: &str,
+        oldest: &str,
+        newest: &str,
+    ) -> Vec<crate::ffi::ActivitySportMapping> {
+        pooled::gps_fetch_candidates(&self.db, athlete_id, oldest, newest)
+    }
+
     /// The activities whose track failed the limit of settled runs and whose
     /// upstream version has not moved since. Not fetch candidates.
     pub fn unavailable_track_ids(&self, athlete_id: &str) -> Vec<String> {
@@ -3073,7 +3154,8 @@ impl PersistentEngine {
     /// The census as last recorded for an athlete.
     pub fn activity_census(&self, athlete_id: &str) -> Vec<ActivityCensusEntry> {
         let mut stmt = match self.db.prepare(
-            "SELECT intervals_id, start_date_local, created, icu_sync_date, has_latlng
+            "SELECT intervals_id, start_date_local, created, icu_sync_date, has_latlng,
+                    has_series
              FROM activity_census WHERE athlete_id = ?",
         ) {
             Ok(stmt) => stmt,
@@ -3089,6 +3171,7 @@ impl PersistentEngine {
                 created: row.get(2)?,
                 icu_sync_date: row.get(3)?,
                 has_latlng: row.get(4)?,
+                has_series: row.get(5)?,
             })
         });
         match rows {

@@ -13,6 +13,7 @@ fn test_sync_activities_window_covered_writer_held() {
             created: None,
             icu_sync_date: Some("v1".into()),
             has_latlng: false,
+            has_series: false,
         };
         engine
             .record_activity_census("1", &[entry])

@@ -94,7 +94,6 @@
       "yourFitness": "あなたのフィットネス（CTL）",
       "yourForm": "あなたのフォーム"
     },
-    "tapToClose": "タップして閉じる",
     "timeInHRZones": "心拍ゾーン別時間",
     "timeInPowerZones": "パワーゾーン別時間",
     "viewDetails": "詳細を表示",
@@ -381,7 +380,6 @@
     "confirm": "確認",
     "creating": "作成中...",
     "delete": "削除",
-    "done": "完了",
     "remove": "削除",
     "rename": "名前を変更",
     "restore": "復元",
@@ -1602,6 +1600,14 @@
     "sizeAtLeast": "{{size}}以上",
     "recording": "記録",
     "permissions": "権限",
+    "placeNames": {
+      "title": "地名",
+      "attribution": "地名 © OpenStreetMap contributors",
+      "noticeTitle": "地名を使用しますか?",
+      "noticeBody": "新しいルートまたはセクションが見つかると、その開始地点と終了地点が地名の検索のために OpenStreetMap の Nominatim サービスに送信されます。既存のルートやセクション、あなたに関する情報は送信されません。サービスの利用ポリシーが適用されます。",
+      "readPolicy": "利用ポリシー",
+      "accept": "同意する"
+    },
     "cacheAndDatabase": "キャッシュとデータベース",
     "heatmapGeneration": "ヒートマップ",
     "heatmapDescription": "デバイスのストレージを使用します。容量を節約するには無効にしてください。",
@@ -1827,6 +1833,7 @@
     "tracksDownloaded": "{{total}}件中{{completed}}件のGPSログをダウンロード"
   },
   "time": {
+    "asOfLastSync": "最後の同期時点のデータ",
     "current": "現在",
     "daysAgo_one": "{{count}}日前",
     "daysAgo_other": "{{count}}日前",
@@ -2216,7 +2223,7 @@
     "toSeeTraining": "トレーニングを確認",
     "record": "記録",
     "recordDescription": "アクティビティの記録を開始します。",
-    "dashboardDescription": "フォーム、フィットネス、最新のアクティビティをひと目で確認。",
+    "summaryDescription": "アプリのサマリーカードをひと目で確認。",
     "latestActivity": "最新のアクティビティ",
     "latestActivityDescription": "ルート付きの最新アクティビティ。",
     "metric": "指標",
@@ -2231,6 +2238,33 @@
     "startSportDescription": "選択したスポーツで記録できる状態でVeloqを開きます。",
     "recordingControl": "記録の操作",
     "action": "アクション",
+    "insights": "インサイト",
+    "insightsDescription": "インサイトタブの上位カード。",
+    "insightsEmpty": "新しいインサイトはありません",
+    "insightsMore": "ほか{{rest}}件",
+    "insightKinds": "種類",
+    "insightKindsDescription": "ウィジェットに表示するインサイトの種類を選択します。未選択の場合はすべての種類を表示します。",
+    "insightKind": {
+      "sectionPr": "セクションのPR",
+      "sectionTrend": "区間の推移",
+      "route": "ルート記録",
+      "stalePr": "古いPR",
+      "fitnessMilestone": "フィットネスの節目",
+      "periodComparison": "期間比較",
+      "strengthProgression": "筋力の向上",
+      "strengthBalance": "筋力バランス",
+      "hrvTrend": "HRVの推移",
+      "efficiencyTrend": "効率の推移",
+      "sectionChanged": "変更された区間"
+    },
+    "latest": {
+      "rank": "{{total}} 回中 {{rank}} 位",
+      "fastest": "自己最速",
+      "offBest": "自己ベストとの差 {{gap}}",
+      "load": "負荷",
+      "loadVsTypical": "いつもの負荷との差 {{percent}}",
+      "sectionPrs": "セクションのPR {{number}}"
+    },
     "phrases": {
       "startRide": "{{app}}でライドを開始",
       "startRecording": "{{app}}で記録を開始",

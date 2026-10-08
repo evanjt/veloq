@@ -1,15 +1,15 @@
 /**
  * The one-time offer to restore on an empty signed-in library.
  *
- * Shown over the feed when no platform record was applied, so an athlete on a
- * new phone is told that a backup in a file or on a WebDAV server can come back.
- * Dismissing it, or restoring, answers it for good.
+ * Shown in the restore sheet route when no platform record was applied, so an
+ * athlete on a new phone is told that a backup in a file or on a WebDAV server
+ * can come back. Dismissing it, swiping the sheet away, or restoring, answers it
+ * for good.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { getIntlLocale } from '@/shared/format/format';
 
 import { useImportDatabaseBackup } from '../hooks/useBackup';
@@ -30,11 +30,10 @@ import { restoreBackendEntry } from '../lib/restoreBackendEntry';
 import { WebdavConfigForm } from './WebdavConfigForm';
 
 interface RestorePromptSheetProps {
-  visible: boolean;
   onClose: () => void;
 }
 
-export function RestorePromptSheet({ visible, onClose }: RestorePromptSheetProps) {
+export function RestorePromptSheet({ onClose }: RestorePromptSheetProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { importDatabaseBackup, importing } = useImportDatabaseBackup();
@@ -43,6 +42,9 @@ export function RestorePromptSheet({ visible, onClose }: RestorePromptSheetProps
   const [listing, setListing] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const running = useRef(false);
+
+  // A swipe-down unmounts the sheet without a tap, and counts as the dismiss.
+  useEffect(() => answerRestorePrompt, []);
 
   const finish = useCallback(() => {
     answerRestorePrompt();
@@ -93,91 +95,85 @@ export function RestorePromptSheet({ visible, onClose }: RestorePromptSheetProps
   const busy = importing || restoring !== null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={finish}>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View testID="restore-prompt-sheet" style={[styles.sheet, isDark && styles.sheetDark]}>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-            <Text style={[styles.title, isDark && styles.textLight]}>
-              {t('backup.restorePromptTitle')}
-            </Text>
-            <Text style={[styles.body, isDark && styles.textSecondary]}>
-              {t('backup.restorePromptMessage')}
-            </Text>
-            <Button
-              testID="restore-prompt-file"
-              label={importing ? t('backup.importing') : t('backup.restoreFromFile')}
-              variant="secondary"
-              onPress={handleFile}
-              disabled={busy}
-            />
-            <Button
-              testID="restore-prompt-webdav"
-              label={t('backup.restoreFromWebdav')}
-              variant="secondary"
-              onPress={() => setShowWebdav((shown) => !shown)}
-              disabled={busy}
-            />
-            {showWebdav && (
-              <>
-                <WebdavConfigForm
-                  onConfigChange={() => setEntries(null)}
-                  onRemoved={() => setEntries(null)}
-                />
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View testID="restore-prompt-sheet" style={[styles.sheet, isDark && styles.sheetDark]}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+          <Text style={[styles.title, isDark && styles.textLight]}>
+            {t('backup.restorePromptTitle')}
+          </Text>
+          <Text style={[styles.body, isDark && styles.textSecondary]}>
+            {t('backup.restorePromptMessage')}
+          </Text>
+          <Button
+            testID="restore-prompt-file"
+            label={importing ? t('backup.importing') : t('backup.restoreFromFile')}
+            variant="secondary"
+            onPress={handleFile}
+            disabled={busy}
+          />
+          <Button
+            testID="restore-prompt-webdav"
+            label={t('backup.restoreFromWebdav')}
+            variant="secondary"
+            onPress={() => setShowWebdav((shown) => !shown)}
+            disabled={busy}
+          />
+          {showWebdav && (
+            <>
+              <WebdavConfigForm
+                onConfigChange={() => setEntries(null)}
+                onRemoved={() => setEntries(null)}
+              />
+              <Button
+                testID="restore-prompt-list"
+                label={t('backup.restoreFromDestination')}
+                variant="secondary"
+                onPress={handleList}
+                loading={listing}
+                disabled={busy}
+              />
+              {entries?.length === 0 && (
+                <Text style={[styles.body, isDark && styles.textSecondary]}>
+                  {t('backup.noBackupsAtDestination')}
+                </Text>
+              )}
+              {entries?.map((entry) => (
                 <Button
-                  testID="restore-prompt-list"
-                  label={t('backup.restoreFromDestination')}
-                  variant="secondary"
-                  onPress={handleList}
-                  loading={listing}
+                  key={entry.id}
+                  testID={`restore-prompt-entry-${entry.id}`}
+                  label={t('backup.restoreDatedBackup', {
+                    date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
+                  })}
+                  variant="ghost"
+                  onPress={() => handleRestore(entry)}
+                  loading={restoring === entry.id}
                   disabled={busy}
                 />
-                {entries?.length === 0 && (
-                  <Text style={[styles.body, isDark && styles.textSecondary]}>
-                    {t('backup.noBackupsAtDestination')}
-                  </Text>
-                )}
-                {entries?.map((entry) => (
-                  <Button
-                    key={entry.id}
-                    testID={`restore-prompt-entry-${entry.id}`}
-                    label={t('backup.restoreDatedBackup', {
-                      date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
-                    })}
-                    variant="ghost"
-                    onPress={() => handleRestore(entry)}
-                    loading={restoring === entry.id}
-                    disabled={busy}
-                  />
-                ))}
-              </>
-            )}
-            <Button
-              testID="restore-prompt-dismiss"
-              label={t('backup.restorePromptDismiss')}
-              variant="ghost"
-              onPress={finish}
-              disabled={busy}
-            />
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+              ))}
+            </>
+          )}
+          <Button
+            testID="restore-prompt-dismiss"
+            label={t('backup.restorePromptDismiss')}
+            variant="ghost"
+            onPress={finish}
+            disabled={busy}
+          />
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  flex: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: opacity.overlay.scrim,
   },
   sheet: {
-    maxHeight: '90%',
-    borderTopLeftRadius: layout.borderRadius,
-    borderTopRightRadius: layout.borderRadius,
+    flex: 1,
     backgroundColor: colors.surface,
   },
   sheetDark: {

@@ -1,11 +1,11 @@
 import { View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import type { ActivityType } from '@/types';
 import { styles } from '../RecordingScreen.styles';
+import { tapBack } from '@/shared/app/navigation';
 
 export function ManualEntryHeader({
   activityType,
@@ -21,7 +21,7 @@ export function ManualEntryHeader({
         name="arrow-left"
         size={24}
         color={textPrimary}
-        onPress={() => router.back()}
+        onPress={() => tapBack()}
         style={styles.manualBackBtn}
       />
       <Text style={[styles.manualTitle, { color: textPrimary }]}>

@@ -12,4 +12,15 @@
  */
 const INCLUDE_RECORD_WIDGET = true;
 
-module.exports = { INCLUDE_RECORD_WIDGET };
+/**
+ * Whether the iOS widget extension compiles the memory probe: an intent that
+ * opens the engine inside the extension's process and writes its memory
+ * readings to a file in the App Group container. It measures the headroom the
+ * platform grants an extension, and is built only for that run. Off, the probe's
+ * sources are not copied into the extension and nothing about it is compiled.
+ * Turning it off after a build that had it needs a clean prebuild, like any
+ * Swift file removed from the extension.
+ */
+const INCLUDE_MEMORY_PROBE = false;
+
+module.exports = { INCLUDE_MEMORY_PROBE, INCLUDE_RECORD_WIDGET };

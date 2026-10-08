@@ -22,71 +22,99 @@ const PACE_CURVE_WINDOWS = [42, 90, 365];
 type DemoEngine = NonNullable<ReturnType<typeof getEngine>>;
 type DemoCurves = typeof import('@/shared/demo/fitness/curves');
 
+/**
+ * The fixture library as the rows the engine stores. Seeding the engine and the
+ * sample the widgets draw while signed out both read it, so the two cannot show
+ * different demo libraries.
+ */
+export interface DemoLibrary {
+  /** Raw JSON, matching what the live write-through stores. */
+  athleteJson: string;
+  sportSettingsJson: string;
+  wellness: Parameters<DemoEngine['upsertWellness']>[0];
+  activities: Parameters<DemoEngine['upsertActivityBodies']>[0];
+  /** The start of the oldest activity, absent with none. */
+  oldestActivity: string | undefined;
+}
+
+export function demoLibrary(): DemoLibrary {
+  // Deferred require, matching fetchDemoGps: the fixtures are ~400KB and a
+  // live-mode session must never pay for them.
+  const { fixtures, getWellness } =
+    require('@/data/demo/fixtures') as typeof import('@/data/demo/fixtures');
+  const curves =
+    require('@/shared/demo/fitness/curves') as typeof import('@/shared/demo/fitness/curves');
+
+  const wellness = getWellness() as unknown as WellnessData[];
+  const activities = fixtures.activities as unknown as Activity[];
+  return {
+    // The records model fewer fields than the hooks read, so the body is the
+    // source of truth.
+    athleteJson: JSON.stringify(fixtures.athlete),
+    sportSettingsJson: JSON.stringify(curves.demoSportSettings),
+    wellness: wellness.map((w) =>
+      present({
+        date: w.id,
+        ctl: w.ctl,
+        atl: w.atl,
+        rampRate: w.rampRate,
+        hrv: w.hrv,
+        restingHr: w.restingHR,
+        weight: w.weight,
+        sleepSecs: w.sleepSecs,
+        sleepScore: w.sleepScore,
+        soreness: w.soreness,
+        fatigue: w.fatigue,
+        stress: w.stress,
+        mood: w.mood,
+        motivation: w.motivation,
+        // The wellness screens read the body, not the typed columns, so a
+        // demo day without one would render as a gap.
+        raw: JSON.stringify(w),
+      })
+    ),
+    activities: activities.map((a) => ({
+      activityId: a.id,
+      date: Math.floor(new Date(a.start_date_local).getTime() / 1000),
+      raw: JSON.stringify(a),
+    })),
+    oldestActivity:
+      activities.length > 0
+        ? activities.reduce(
+            (min, a) => (a.start_date_local < min ? a.start_date_local : min),
+            activities[0].start_date_local
+          )
+        : undefined,
+  };
+}
+
 export function seedDemoEngine(): void {
   const engine = getEngine();
   if (!engine) return;
 
   try {
-    // Deferred require, matching fetchDemoGps: the fixtures are ~400KB and a
-    // live-mode session must never pay for them.
-    const { fixtures, getWellness } =
-      require('@/data/demo/fixtures') as typeof import('@/data/demo/fixtures');
     const curves =
       require('@/shared/demo/fitness/curves') as typeof import('@/shared/demo/fitness/curves');
+    const library = demoLibrary();
 
-    // Raw JSON, matching what the live write-through stores. The records model
-    // fewer fields than the hooks read, so the body is the source of truth.
-    engine.setAthleteProfile(JSON.stringify(fixtures.athlete));
-    engine.setSportSettings(JSON.stringify(curves.demoSportSettings));
+    engine.setAthleteProfile(library.athleteJson);
+    engine.setSportSettings(library.sportSettingsJson);
 
-    const wellness = getWellness() as unknown as WellnessData[];
-    if (wellness.length > 0) {
-      engine.upsertWellness(
-        wellness.map((w) =>
-          present({
-            date: w.id,
-            ctl: w.ctl,
-            atl: w.atl,
-            rampRate: w.rampRate,
-            hrv: w.hrv,
-            restingHr: w.restingHR,
-            weight: w.weight,
-            sleepSecs: w.sleepSecs,
-            sleepScore: w.sleepScore,
-            soreness: w.soreness,
-            fatigue: w.fatigue,
-            stress: w.stress,
-            mood: w.mood,
-            motivation: w.motivation,
-            // The wellness screens read the body, not the typed columns, so a
-            // demo day without one would render as a gap.
-            raw: JSON.stringify(w),
-          })
-        )
-      );
+    if (library.wellness.length > 0) {
+      engine.upsertWellness(library.wellness);
       // Rust announces a wellness write by kind; a seeded one has to say so
       // too, or the wellness screens never hear the fixtures landed.
       engine.announceBodyStored?.('wellness');
     }
 
-    const activities = fixtures.activities as unknown as Activity[];
-    if (activities.length > 0) {
+    if (library.activities.length > 0) {
       // The engine derives metrics from the bodies it stores for the feed.
-      engine.upsertActivityBodies(
-        activities.map((a) => ({
-          activityId: a.id,
-          date: Math.floor(new Date(a.start_date_local).getTime() / 1000),
-          raw: JSON.stringify(a),
-        }))
-      );
-      const oldest = activities.reduce(
-        (min, a) => (a.start_date_local < min ? a.start_date_local : min),
-        activities[0].start_date_local
-      );
-      engine.setSetting('oldest_activity_date', oldest);
+      engine.upsertActivityBodies(library.activities);
+      if (library.oldestActivity) engine.setSetting('oldest_activity_date', library.oldestActivity);
     }
 
-    seedActivityBodies(engine, activities);
+    const { fixtures } = require('@/data/demo/fixtures') as typeof import('@/data/demo/fixtures');
+    seedActivityBodies(engine, fixtures.activities as unknown as Activity[]);
     seedCurves(engine, curves);
     seedCalendarEvents(engine);
 

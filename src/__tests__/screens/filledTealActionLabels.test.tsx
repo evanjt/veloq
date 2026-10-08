@@ -31,6 +31,7 @@ jest.mock('@/shared/app', () => ({
 }));
 jest.mock('@/shared/ui', () => ({
   ScreenSafeAreaView: require('react-native').View,
+  ScreenScrollView: require('react-native').ScrollView,
   EmptyState: () => null,
   TAB_BAR_SAFE_PADDING: 0,
 }));

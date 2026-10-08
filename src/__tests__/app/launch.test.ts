@@ -17,11 +17,11 @@ import { exportRecordBackup } from '@/features/settings/lib/backup';
 import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
 
-import { initializeApp } from '@/shared/app/launch';
+import { initialiseApp } from '@/shared/app/launch';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useLanguageStore } from '@/shared/app/LanguageStore';
 import { i18n } from '@/i18n';
-import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
+import { initialiseDebugStore } from '@/features/settings/stores/DebugStore';
 
 type Call = { name: string; key?: string };
 
@@ -69,7 +69,7 @@ const mockEngine = {
 };
 
 jest.mock('@/features/settings/stores/DebugStore', () => ({
-  initializeDebugStore: jest.fn().mockResolvedValue(undefined),
+  initialiseDebugStore: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/shared/native/engine', () => ({
@@ -151,16 +151,16 @@ beforeEach(() => {
   mockRouteDbPath = '/data/routes.db';
   jest.clearAllMocks();
   useAuthStore.setState({ isAuthenticated: false, isLoading: true, athleteId: null });
-  useLanguageStore.setState({ language: null, isInitialized: false });
+  useLanguageStore.setState({ language: null, isInitialised: false });
 });
 
-describe('initializeApp', () => {
+describe('initialiseApp', () => {
   it('opens the engine after auth and before any setting is read', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     migratedLibrary();
     const getItem = jest.spyOn(AsyncStorage, 'getItem');
 
-    await expect(initializeApp()).resolves.toBeNull();
+    await expect(initialiseApp()).resolves.toBeNull();
 
     const open = calls.findIndex((c) => c.name === 'initWithPath');
     const firstRead = calls.findIndex((c) => c.name === 'getSetting');
@@ -175,7 +175,7 @@ describe('initializeApp', () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     migratedLibrary();
 
-    await expect(initializeApp()).resolves.toBeNull();
+    await expect(initialiseApp()).resolves.toBeNull();
 
     // The move is only a consistent snapshot of the database and its journal
     // while no connection is open, so it cannot follow initWithPath.
@@ -191,7 +191,7 @@ describe('initializeApp', () => {
     stored.delete('veloq-unit-preference');
     const getItem = jest.spyOn(AsyncStorage, 'getItem');
 
-    await initializeApp();
+    await initialiseApp();
 
     expect(getItem.mock.calls.map(([key]) => key)).toEqual(['veloq-unit-preference']);
   });
@@ -200,7 +200,7 @@ describe('initializeApp', () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     stored.set('veloq-language-preference', 'fr');
 
-    await initializeApp();
+    await initialiseApp();
 
     expect(useLanguageStore.getState().language).toBe('fr');
     expect(i18n.language).toBe('fr');
@@ -210,7 +210,7 @@ describe('initializeApp', () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     stored.set('veloq-tile-cache', JSON.stringify({ cacheMode: 'aggressive', budgetMb: 200 }));
 
-    await initializeApp();
+    await initialiseApp();
 
     const tileReads = calls.filter((c) => c.name === 'getSetting' && c.key === 'veloq-tile-cache');
     expect(tileReads).toHaveLength(1);
@@ -220,7 +220,7 @@ describe('initializeApp', () => {
     keychain({});
     const getItem = jest.spyOn(AsyncStorage, 'getItem');
 
-    await expect(initializeApp()).resolves.toBeNull();
+    await expect(initialiseApp()).resolves.toBeNull();
 
     expect(mockEngine.initWithPath).not.toHaveBeenCalled();
     expect(getItem).toHaveBeenCalled();
@@ -231,7 +231,7 @@ describe('initializeApp', () => {
   it('never probes the engine for a legacy purchaser', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
 
-    await initializeApp();
+    await initialiseApp();
 
     expect(mockEngine.getActivityCount).not.toHaveBeenCalled();
   });
@@ -241,7 +241,7 @@ describe('initializeApp', () => {
     const mark = jest.fn();
     Object.assign(performance, { mark });
 
-    await initializeApp();
+    await initialiseApp();
 
     const names = mark.mock.calls.map(([name]) => name).filter((n) => n.startsWith('launch:'));
     expect(names).toEqual(['launch:auth', 'launch:engine', 'launch:stores']);
@@ -250,7 +250,7 @@ describe('initializeApp', () => {
   it('hands the basemap tile store its directory under documents', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
 
-    await initializeApp();
+    await initialiseApp();
 
     const basemap = jest.requireMock('veloqrs').basemapStore();
     expect(basemap.setPath).toHaveBeenCalledWith(expect.stringMatching(/basemap-tiles$/));
@@ -261,7 +261,7 @@ describe('initializeApp', () => {
   it('hands the basemap store the tile limit once it has its directory', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
 
-    await initializeApp();
+    await initialiseApp();
 
     const basemap = jest.requireMock('veloqrs').basemapStore();
     expect(basemap.setBudget).toHaveBeenCalledWith(50 * 1_000_000);
@@ -274,7 +274,7 @@ describe('initializeApp', () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
 
-    await initializeApp();
+    await initialiseApp();
 
     const basemap = jest.requireMock('veloqrs').basemapStore();
     const [path] = basemap.setPath.mock.calls[0] as [string];
@@ -289,7 +289,7 @@ describe('initializeApp', () => {
     mockRouteDbPath = '/group/app/routes.db';
     const { excludeExistingFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
 
-    await initializeApp();
+    await initialiseApp();
 
     const marked = excludeExistingFromBackup.mock.calls.map(([path]: [string]) => path);
     expect(marked).toEqual(
@@ -309,7 +309,7 @@ describe('initializeApp', () => {
     mockRouteDbPath = '/data/documents/routes.db';
     const { excludeExistingFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
 
-    await initializeApp();
+    await initialiseApp();
 
     const marked = excludeExistingFromBackup.mock.calls.map(([path]: [string]) => path);
     expect(marked).toEqual(
@@ -327,7 +327,7 @@ describe('initializeApp', () => {
       '@/shared/native/backupExclusion'
     );
 
-    await initializeApp();
+    await initialiseApp();
 
     const marked = [...excludeFromBackup.mock.calls, ...excludeExistingFromBackup.mock.calls].map(
       ([path]: [string]) => path
@@ -341,7 +341,7 @@ describe('initializeApp', () => {
     excludeExistingFromBackup.mockReturnValue(false);
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    await expect(initializeApp()).resolves.toBeNull();
+    await expect(initialiseApp()).resolves.toBeNull();
 
     expect(warn.mock.calls.some(([m]) => String(m).includes('routes.db'))).toBe(true);
     warn.mockRestore();
@@ -352,7 +352,7 @@ describe('initializeApp', () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
 
-    await initializeApp();
+    await initialiseApp();
 
     const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
     expect(marked).toContain('/data/documents/terrain_previews/');
@@ -362,7 +362,7 @@ describe('initializeApp', () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
 
-    await initializeApp();
+    await initialiseApp();
 
     const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
     expect(marked).toContain('file:///data/documents/backups/');
@@ -372,7 +372,7 @@ describe('initializeApp', () => {
     keychain({});
     const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
 
-    await initializeApp();
+    await initialiseApp();
 
     const marked = excludeFromBackup.mock.calls.map(([path]: [string]) => path);
     expect(marked).toContain('file:///data/documents/backups/');
@@ -386,7 +386,7 @@ describe('initializeApp', () => {
     });
     const { excludeFromBackup } = jest.requireMock('@/shared/native/backupExclusion');
 
-    await initializeApp();
+    await initialiseApp();
 
     // The terrain previews are excluded on every launch and have nothing to do
     // with the tile store, so the assertion is about the tile tree's path.
@@ -396,16 +396,16 @@ describe('initializeApp', () => {
 
   it('resolves to the failed area and never to the engine message', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
-    (initializeDebugStore as jest.Mock).mockRejectedValueOnce(new Error('debug store unreadable'));
+    (initialiseDebugStore as jest.Mock).mockRejectedValueOnce(new Error('debug store unreadable'));
 
-    await expect(initializeApp()).resolves.toEqual(['other']);
+    await expect(initialiseApp()).resolves.toEqual(['other']);
   });
 
   it('resumes a paused record import once the engine is open', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     migratedLibrary();
 
-    await initializeApp();
+    await initialiseApp();
     await new Promise((resolve) => setImmediate(resolve));
 
     const open = calls.findIndex((c) => c.name === 'initWithPath');
@@ -417,7 +417,7 @@ describe('initializeApp', () => {
   it('starts no import resume while signed out', async () => {
     keychain({});
 
-    await initializeApp();
+    await initialiseApp();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(mockEngine.restoreRecordJson).not.toHaveBeenCalled();
@@ -428,7 +428,7 @@ describe('initializeApp', () => {
     migratedLibrary();
     mockEngine.restoreRecordJson.mockRejectedValueOnce(new Error('database or disk is full'));
 
-    await expect(initializeApp()).resolves.toBeNull();
+    await expect(initialiseApp()).resolves.toBeNull();
     await new Promise((resolve) => setImmediate(resolve));
     expect(mockEngine.restoreRecordJson).toHaveBeenCalledTimes(1);
   });
@@ -476,7 +476,7 @@ describe('backup temporary files', () => {
     keychain({});
     seedBackupFiles();
 
-    await initializeApp();
+    await initialiseApp();
     await finishBackupWork();
 
     expect([...mockFiles].sort()).toEqual([...retainedFiles].sort());
@@ -508,7 +508,7 @@ describe('backup temporary files', () => {
     await opened.promise;
     const sharedUri = jest.mocked(shareExistingFile).mock.calls[0][0];
     try {
-      await expect(initializeApp()).resolves.toBeNull();
+      await expect(initialiseApp()).resolves.toBeNull();
       expect(mockFiles.has(sharedUri)).toBe(true);
     } finally {
       sharing.resolve();
@@ -524,7 +524,7 @@ describe('backup temporary files', () => {
     await expect(exportRecordBackup()).rejects.toThrow('share unavailable');
     expect(mockFiles.size).toBe(1);
 
-    await initializeApp();
+    await initialiseApp();
     await finishBackupWork();
 
     expect(mockFiles.size).toBe(0);
@@ -541,7 +541,7 @@ describe('backup temporary files', () => {
       });
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
-      if (trigger === 'launch') await expect(initializeApp()).resolves.toBeNull();
+      if (trigger === 'launch') await expect(initialiseApp()).resolves.toBeNull();
       else await expect(exportRecordBackup()).resolves.toBe('complete');
       await finishBackupWork();
 
@@ -558,7 +558,7 @@ describe('backup temporary files', () => {
       .mocked(FileSystem.readDirectoryAsync)
       .mockRejectedValueOnce(new Error('directory unreadable'));
 
-    await expect(initializeApp()).resolves.toBeNull();
+    await expect(initialiseApp()).resolves.toBeNull();
     await finishBackupWork();
 
     expect(mockFiles.has('file:///data/documents/veloq-record-abandoned.tmp')).toBe(false);

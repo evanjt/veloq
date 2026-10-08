@@ -21,7 +21,6 @@ import {
   type FfiStartResult,
   RangeCoverage,
   type LibraryCoverage,
-  type FfiOfflineEstimate,
   type FfiSyncStatus,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
@@ -32,9 +31,6 @@ export type SyncAuthMethod = 'oauth' | 'api_key';
 
 /** The generated record. `state` is the `SyncState` enum, not a word. */
 export type SyncStatus = FfiSyncStatus;
-
-/** What a date range costs to make available offline. */
-export type OfflineEstimate = FfiOfflineEstimate;
 
 /** Set the credential once. Never passed per request. */
 export function setSyncCredentials(
@@ -51,24 +47,6 @@ export function setSyncCredentials(
 /** Forget the credential (logout). */
 export function clearSyncCredentials(host: DelegateHost): void {
   host.write('clearSyncCredentials', () => host.engine.sync().clearCredentials());
-}
-
-/**
- * What making an inclusive date range available offline will cost, in requests
- * and bytes, so the athlete is told before they spend it.
- *
- * Null before the engine is ready, which is the caller's cue to show nothing
- * rather than a zero: a zero here reads as "free".
- */
-export function offlineEstimate(
-  host: DelegateHost,
-  oldest: number,
-  newest: number
-): OfflineEstimate | null {
-  if (!host.ready) return null;
-  return (
-    host.timed('offlineEstimate', () => host.engine.sync().offlineEstimate(oldest, newest)) ?? null
-  );
 }
 
 /** Start a sync. Returns instantly, naming why when it refuses so a caller can

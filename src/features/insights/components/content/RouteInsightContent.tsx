@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
 import { brand, colors, darkColors, spacing, typography, verdictColor } from '@/theme';
@@ -39,7 +39,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
   return (
     <Row
       testID={`route-insight-row-${route.rowKey}`}
-      onPress={() => navigateTo(route.navigationTarget)}
+      onPress={() => tapTo(route.navigationTarget)}
       accessibilityLabel={label}
     >
       <View style={styles.rowMain}>

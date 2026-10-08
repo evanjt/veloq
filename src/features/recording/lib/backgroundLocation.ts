@@ -74,7 +74,7 @@ async function restoreSessionFromBackup(): Promise<boolean> {
   // defaults until they are loaded.
   const { useRecordingPreferences } = require('../stores/RecordingPreferencesStore');
   if (!useRecordingPreferences.getState().isLoaded) {
-    await useRecordingPreferences.getState().initialize();
+    await useRecordingPreferences.getState().initialise();
   }
 
   // A foreground launch may have started or restored a session during the load.

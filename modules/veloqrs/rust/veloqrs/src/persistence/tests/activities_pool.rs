@@ -9,6 +9,7 @@ fn test_census_coverage_pooled_owed_and_fetched() {
         created: None,
         icu_sync_date: Some("v1".into()),
         has_latlng: false,
+        has_series: false,
     };
     engine
         .record_activity_census("athlete", &[census])

@@ -33,7 +33,7 @@ const listeners = new Map<string, Set<(payload?: Payload) => void>>();
 
 const engine = {
   getPreviewTrack: jest.fn(() => ({ encodedCoords: 'xx' })),
-  getStreamBody: jest.fn(() => null),
+  getActivityStreams: jest.fn(() => null),
   syncActivityStreams: jest.fn(),
   subscribe: jest.fn((event: string, cb: (payload?: Payload) => void) => {
     const set = listeners.get(event) ?? new Set<typeof cb>();
@@ -141,18 +141,18 @@ it('waits for a preview line before considering the stream body', async () => {
 
   expect(result.current.isLoading).toBe(true);
   expect(result.current.coordinates).toHaveLength(0);
-  expect(engine.getStreamBody).not.toHaveBeenCalled();
+  expect(engine.getActivityStreams).not.toHaveBeenCalled();
   await act(async () => settlePreview([{ latitude: 46.2, longitude: 7.3 }]));
   await waitFor(() => expect(result.current.coordinates).toHaveLength(1));
   expect(result.current.isLoading).toBe(false);
-  expect(engine.getStreamBody).not.toHaveBeenCalled();
+  expect(engine.getActivityStreams).not.toHaveBeenCalled();
 });
 
 it('reads the stream body once after the preview query settles empty', async () => {
   engine.getPreviewTrack.mockReturnValueOnce(null as never);
   renderHook(() => useCard('a1'), { wrapper });
 
-  await waitFor(() => expect(engine.getStreamBody).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(engine.getActivityStreams).toHaveBeenCalledTimes(1));
 });
 
 it('reads the stream body once when the preview read throws', async () => {
@@ -161,5 +161,5 @@ it('reads the stream body once when the preview read throws', async () => {
   });
   renderHook(() => useCard('a1'), { wrapper });
 
-  await waitFor(() => expect(engine.getStreamBody).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(engine.getActivityStreams).toHaveBeenCalledTimes(1));
 });

@@ -16,7 +16,7 @@ import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { trailingWeekRanges } from '@/shared/time/trailingWeeks';
 
 import { strengthTabState, type StrengthTabState } from '../lib/strengthTabState';
-import { normalizeStrengthProgression, normalizeStrengthSummary } from '../lib/analysis';
+import { normaliseStrengthProgression, normaliseStrengthSummary } from '../lib/analysis';
 import { demoStrengthSets } from '../demo';
 import type { StrengthPeriod, StrengthScreenData } from '../types';
 
@@ -118,10 +118,10 @@ export function useStrengthScreenData(period: StrengthPeriod) {
         weeks.map((week) => ({ startTs: week.startTs, endTs: week.endTs }))
       );
       return {
-        summary: normalizeStrengthSummary(data.summary),
+        summary: normaliseStrengthSummary(data.summary),
         weeks,
-        weekly: data.weekly.map((raw) => normalizeStrengthSummary(raw)),
-        progressions: data.progressions.map((raw) => normalizeStrengthProgression(raw)),
+        weekly: data.weekly.map((raw) => normaliseStrengthSummary(raw)),
+        progressions: data.progressions.map((raw) => normaliseStrengthProgression(raw)),
         exercises: data.exercises.map((muscle) => ({
           muscleSlug: muscle.muscleSlug,
           exercises: muscle.exercises.map((exercise) => ({

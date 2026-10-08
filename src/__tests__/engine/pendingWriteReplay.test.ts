@@ -10,7 +10,7 @@
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 
-import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { initialiseRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => require('../../../modules/veloqrs/src/EngineClient').EngineClient.getInstance(),
@@ -64,7 +64,7 @@ const DB = '/data/routes.db';
 function closedClient() {
   const client = EngineClient.getInstance();
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  (client as any).initialized = false;
+  (client as any).initialised = false;
   (client as any).dbPath = null;
   (client as any).engine = null;
   (client as any).pendingWrites = [];
@@ -82,7 +82,7 @@ describe('writes made before the engine opens', () => {
   it('replays the saved detection opt-out when the engine opens', async () => {
     const client = closedClient();
 
-    await initializeRouteSettings();
+    await initialiseRouteSettings();
     expect(mockSettings.setSetting).not.toHaveBeenCalled();
 
     expect(client.initWithPath(DB)).toBe(true);

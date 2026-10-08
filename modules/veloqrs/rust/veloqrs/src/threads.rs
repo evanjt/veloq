@@ -74,6 +74,21 @@ where
     })
 }
 
+/// Zero the calling thread's `errno`, so a `-1` from `getpriority` can be told from a priority.
+///
+/// glibc and Bionic name the accessor differently.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn clear_errno() {
+    // SAFETY: the C library hands back the calling thread's own `errno`, which is always valid.
+    unsafe {
+        #[cfg(target_os = "android")]
+        let location = libc::__errno();
+        #[cfg(not(target_os = "android"))]
+        let location = libc::__errno_location();
+        *location = 0;
+    }
+}
+
 /// Lower the calling thread below the JavaScript and render threads.
 ///
 /// A new thread starts at its creator's priority, which for a worker begun from
@@ -85,10 +100,10 @@ pub fn lower_background_priority() {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     {
         const BACKGROUND_NICE: libc::c_int = 10;
-        // SAFETY: both calls take plain integers and touch only the calling thread.
+        // SAFETY: the calls take plain integers and touch only the calling thread.
         unsafe {
             let tid = libc::gettid() as libc::id_t;
-            *libc::__errno_location() = 0;
+            clear_errno();
             let current = libc::getpriority(libc::PRIO_PROCESS, tid);
             if current >= BACKGROUND_NICE {
                 return;
@@ -119,7 +134,7 @@ mod tests {
     fn nice_of_current_thread() -> i32 {
         // SAFETY: reads the calling thread's own priority.
         unsafe {
-            *libc::__errno_location() = 0;
+            clear_errno();
             libc::getpriority(libc::PRIO_PROCESS, libc::gettid() as libc::id_t)
         }
     }

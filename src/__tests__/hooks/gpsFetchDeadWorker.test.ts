@@ -25,12 +25,7 @@ jest.mock('@/features/routes/lib/gpsDownloadPoll', () => ({
   runProgressReader: jest.fn(() => () => undefined),
 }));
 
-const activity = (id: string) =>
-  ({
-    id,
-    type: 'Ride',
-    start_date_local: '2026-01-01T08:00:00',
-  }) as never;
+const activity = (id: string) => ({ activityId: id, sportType: 'Ride' });
 
 async function runToExhaustion() {
   const written: SyncProgress[] = [];

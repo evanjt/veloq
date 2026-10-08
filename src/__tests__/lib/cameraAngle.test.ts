@@ -190,7 +190,7 @@ describe('calculateTerrainCamera', () => {
     });
   });
 
-  describe('bearing normalization', () => {
+  describe('bearing normalisation', () => {
     it('returns bearing in 0-360 range', () => {
       const coords = line(10, 45, 10.1, 45.1, 20);
       const altitude = Array.from({ length: 20 }, (_, i) => 200 + (i / 19) * 500);

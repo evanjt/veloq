@@ -7,6 +7,7 @@ export { StrengthProgressionCard } from './components/StrengthProgressionCard';
 export { StrengthExerciseList } from './components/StrengthExerciseList';
 export { default as ExerciseDetailScreen } from './components/ExerciseDetailScreen';
 export { StrengthBalanceView } from './components/StrengthBalanceView';
+export { StrengthPairsInfoSheet } from './components/StrengthPairsInfoSheet';
 
 export { useExerciseSets, useMuscleGroups, useStrengthCardData } from './hooks/useExerciseSets';
 export { useMuscleDetail } from './hooks/useMuscleDetail';
@@ -23,8 +24,8 @@ export { type MuscleSlug } from './lib/exerciseMuscleMap';
 export { MUSCLE_NAME_KEYS, muscleName, balancePairName } from './lib/muscleNames';
 export {
   buildStrengthBalancePairs,
-  normalizeStrengthProgression,
-  normalizeStrengthSummary,
+  normaliseStrengthProgression,
+  normaliseStrengthSummary,
   selectExercises,
   selectProgression,
   listBalancePairNames,

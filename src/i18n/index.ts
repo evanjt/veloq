@@ -67,9 +67,9 @@ function ensureLocaleLoaded(locale: string): void {
 }
 
 /**
- * Initialize i18n with the detected or saved locale
+ * Initialise i18n with the detected or saved locale
  */
-export async function initializeI18n(savedLocale?: SupportedLocale | null): Promise<void> {
+export async function initialiseI18n(savedLocale?: SupportedLocale | null): Promise<void> {
   const locale = savedLocale || getDeviceLocale();
 
   await i18n.use(initReactI18next).init({

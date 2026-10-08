@@ -115,8 +115,8 @@ describe('the hook, offline with a new track', () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     mockGetNativeModule.mockReturnValue({
       engine: {
-        getActivityIds: () => [],
-        getRefusedTrackIds: () => [],
+        getActivityCount: () => 0,
+        getGpsFetchCandidates: () => [{ activityId: 'a1', sportType: 'Ride' }],
         getUnprocessedStrengthIds: mockStrengthIds,
         batchFetchExerciseSets: () => 0,
         pollSectionDetection: mockPollDetection,

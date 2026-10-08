@@ -269,26 +269,8 @@ impl FitnessManager {
     /// Idempotent on `date`; call whenever the TS wellness query refreshes.
     fn upsert_wellness(&self, rows: Vec<crate::FfiWellnessRow>) -> Result<(), VeloqError> {
         with_engine(|e| {
-            let mapped: Vec<crate::persistence::wellness::WellnessRow> = rows
-                .into_iter()
-                .map(|r| crate::persistence::wellness::WellnessRow {
-                    date: r.date,
-                    ctl: r.ctl,
-                    atl: r.atl,
-                    ramp_rate: r.ramp_rate,
-                    hrv: r.hrv,
-                    resting_hr: r.resting_hr,
-                    weight: r.weight,
-                    sleep_secs: r.sleep_secs.map(|v| v as i64),
-                    sleep_score: r.sleep_score,
-                    soreness: r.soreness,
-                    fatigue: r.fatigue,
-                    stress: r.stress,
-                    mood: r.mood,
-                    motivation: r.motivation,
-                    raw: r.raw,
-                })
-                .collect();
+            let mapped: Vec<crate::persistence::wellness::WellnessRow> =
+                rows.into_iter().map(wellness_row_from_ffi).collect();
             e.upsert_wellness(&mapped)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
@@ -411,11 +393,16 @@ impl FitnessManager {
     /// `now_seconds` stamps the snapshot and `now_wall_seconds` is the same
     /// moment on the zoneless wall clock activity dates are recorded in, which
     /// is what the week bounds and the relative dates are judged on.
+    ///
+    /// `sample` is the library the widgets draw while no account is signed in.
+    /// With one, the snapshot is composed from it and marked as the sample,
+    /// whatever the engine holds.
     fn compose_widget_snapshot(
         &self,
         context_json: String,
         now_seconds: f64,
         now_wall_seconds: f64,
+        sample: Option<crate::FfiSampleLibrary>,
     ) -> Result<String, VeloqError> {
         let now_seconds = crate::ffi_types::int_from_wire(now_seconds);
         let now_wall_seconds = crate::ffi_types::int_from_wire(now_wall_seconds);
@@ -427,6 +414,29 @@ impl FitnessManager {
             now_seconds,
             now_wall_seconds,
         };
+        // A sample library is composed in a scratch database of its own, so the
+        // athlete's database is neither read nor written and need not be open.
+        if let Some(sample) = sample {
+            let library = crate::widget_snapshot::SampleLibrary {
+                athlete_json: sample.athlete_json,
+                sport_settings_json: sample.sport_settings_json,
+                wellness: sample
+                    .wellness
+                    .into_iter()
+                    .map(wellness_row_from_ffi)
+                    .collect(),
+                activities: sample
+                    .activities
+                    .into_iter()
+                    .map(|r| (r.activity_id, r.date as i64, r.raw))
+                    .collect(),
+            };
+            return crate::widget_snapshot::sample_snapshot_json(&library, &ctx, clock).map_err(
+                |e| VeloqError::Database {
+                    msg: format!("sample widget snapshot: {e}"),
+                },
+            );
+        }
         // Off the engine lock: every read behind this is committed rows. The
         // writer runs on every background transition and every settled sync,
         // which is exactly when the lock is held by the sync itself.
@@ -463,6 +473,27 @@ impl FitnessManager {
                     msg: format!("{e}"),
                 })
         })?
+    }
+}
+
+/// A wellness row as the app hands it over, in the shape the store takes.
+fn wellness_row_from_ffi(r: crate::FfiWellnessRow) -> crate::persistence::wellness::WellnessRow {
+    crate::persistence::wellness::WellnessRow {
+        date: r.date,
+        ctl: r.ctl,
+        atl: r.atl,
+        ramp_rate: r.ramp_rate,
+        hrv: r.hrv,
+        resting_hr: r.resting_hr,
+        weight: r.weight,
+        sleep_secs: r.sleep_secs.map(|v| v as i64),
+        sleep_score: r.sleep_score,
+        soreness: r.soreness,
+        fatigue: r.fatigue,
+        stress: r.stress,
+        mood: r.mood,
+        motivation: r.motivation,
+        raw: r.raw,
     }
 }
 

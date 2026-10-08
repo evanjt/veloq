@@ -5,7 +5,7 @@ import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { getAllSlides } from '@/features/settings/components/whatsNew/slides';
@@ -66,7 +66,7 @@ export function FooterSection() {
         accessibilityRole="button"
         accessibilityLabel={t('about.title')}
         style={pressable(styles.toggleRow)}
-        onPress={() => navigateTo('/about')}
+        onPress={() => tapTo('/about')}
         android_ripple={pressRipple}
       >
         <View style={styles.toggleInfo}>
@@ -115,7 +115,7 @@ export function FooterSection() {
           accessibilityLabel={t('settings.developerDashboard')}
           testID="settings-developer-dashboard-link"
           style={pressable(styles.toggleRow)}
-          onPress={() => navigateTo('/debug')}
+          onPress={() => tapTo('/debug')}
           android_ripple={pressRipple}
         >
           <View style={styles.toggleInfo}>

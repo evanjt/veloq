@@ -3,7 +3,6 @@ import { View, StyleSheet, Switch, Pressable } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
 import {
   colors,
   darkColors,
@@ -30,6 +29,7 @@ import {
   paceUnitLabel,
   formatDuration,
 } from '@/shared/format/format';
+import { tapTo } from '@/shared/app/navigation';
 
 interface PaceCurveChartProps {
   sport?: string;
@@ -181,7 +181,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   // Navigate to activity when tapped
   const handleActivityTap = useCallback(() => {
     if (displayData?.activityId) {
-      router.push(`/activity/${displayData.activityId}`);
+      tapTo(`/activity/${displayData.activityId}`);
     }
   }, [displayData]);
 

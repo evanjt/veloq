@@ -9,10 +9,10 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
 import { formatDuration, formatPace, formatSwimPace, getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { Card, pressable, pressRipple } from '@/shared/ui';
+import { tapTo } from '@/shared/app/navigation';
 
 const REVERSE_COLOR = colors.reverseDirection;
 
@@ -218,7 +218,7 @@ export function SectionStatsCards({
                               android_ripple={pressRipple}
                               accessibilityRole="button"
                               accessibilityLabel={fwd.bestActivityName}
-                              onPress={() => router.push(`/activity/${fwd.bestActivityId}`)}
+                              onPress={() => tapTo(`/activity/${fwd.bestActivityId}`)}
                             >
                               <View
                                 style={[styles.calendarDirDot, { backgroundColor: activityColor }]}
@@ -272,7 +272,7 @@ export function SectionStatsCards({
                               android_ripple={pressRipple}
                               accessibilityRole="button"
                               accessibilityLabel={rev.bestActivityName}
-                              onPress={() => router.push(`/activity/${rev.bestActivityId}`)}
+                              onPress={() => tapTo(`/activity/${rev.bestActivityId}`)}
                             >
                               <View
                                 style={[styles.calendarDirDot, { backgroundColor: REVERSE_COLOR }]}

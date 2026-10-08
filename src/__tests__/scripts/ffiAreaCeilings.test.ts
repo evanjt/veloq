@@ -16,7 +16,7 @@ import os from 'os';
 import path from 'path';
 
 import { areaOf, surfaceOverCeiling, surfaceUnderCeiling } from '../../../scripts/lib/ffiUsage';
-import { gitFreeEnv, initFixtureRepo } from '../__shared__/gitFixture';
+import { gitFreeEnv, initFixtureRepo, runGit } from '../__shared__/gitFixture';
 
 const CEILINGS = path.join(__dirname, '../../../scripts/ffi-area-ceilings.json');
 const REPORT = path.join(__dirname, '../../../scripts/ffi-usage-report.ts');
@@ -137,6 +137,8 @@ describe('the committed ceilings', () => {
 
     expect(typeof note).toBe('string');
     expect(note).toContain('getGpsTrack');
+    expect(note).toContain('setInteracting');
+    expect(note).toContain('RouteManager.liveOverlaps');
   });
 
   it('lists every area sorted, so a diff reads as one line per change', () => {
@@ -376,5 +378,169 @@ describe('the guard under a hook’s environment', () => {
 
     expect(output).toContain('no area reaches the engine at all');
     expect(status).toBe(1);
+  });
+});
+
+/**
+ * Scenario: the area guard and the engine-surface lint hold the tree to a
+ * committed ceiling, so a change that adds a call and adds the name to the
+ * ceiling in the same commit satisfies both.
+ *
+ * Expected behaviour: the merge guard reads the ceilings at the merge base and
+ * in the index, and refuses an area whose list is longer, a new area, or a
+ * higher engine-surface number, naming each. A name that replaces another in
+ * the same area passes.
+ */
+describe('a ceiling raised against its merge base', () => {
+  const GROWTH = path.join(__dirname, '../../../scripts/lint-ratchet-growth.mjs');
+  const SURFACE = 'node scripts/lint-engine-surface.mjs --engine-ceiling 96 --store-ceiling 19';
+
+  const ceilingsAt = (areas: Record<string, string[]>): string =>
+    JSON.stringify({ '//': 'a note', ...areas }, null, 2);
+
+  /** A repository with the ceilings committed, returning its root and the base sha. */
+  function baseRepo(areas: Record<string, string[]>, surface = SURFACE): [string, string] {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ratchet-growth-'));
+    roots.push(root);
+    fs.mkdirSync(path.join(root, 'scripts'));
+    fs.writeFileSync(path.join(root, 'scripts/ffi-area-ceilings.json'), ceilingsAt(areas));
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ scripts: { 'lint:engine-surface': surface } })
+    );
+    initFixtureRepo(root);
+    runGit(['commit', '-q', '-m', 'base'], root);
+    return [root, runGit(['rev-parse', 'HEAD'], root).trim()];
+  }
+
+  function stage(root: string, areas: Record<string, string[]>, surface = SURFACE): void {
+    fs.writeFileSync(path.join(root, 'scripts/ffi-area-ceilings.json'), ceilingsAt(areas));
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ scripts: { 'lint:engine-surface': surface } })
+    );
+    runGit(['add', 'scripts/ffi-area-ceilings.json', 'package.json'], root);
+  }
+
+  function growth(root: string, base?: string): { status: number; output: string } {
+    const result = spawnSync('node', [GROWTH, ...(base ? ['--base', base] : [])], {
+      cwd: root,
+      encoding: 'utf8',
+      env: gitFreeEnv(),
+    });
+    return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
+  }
+
+  it('refuses a name added to an area, naming the area and the name', () => {
+    const [root, base] = baseRepo({ 'features/maps': ['setNetworkOnline'] });
+    stage(root, { 'features/maps': ['VeloqEngine.getInsightsData', 'setNetworkOnline'] });
+
+    const { status, output } = growth(root, base);
+
+    expect(status).toBe(1);
+    expect(output).toContain('features/maps lists 2 export(s)');
+    expect(output).toContain('+ VeloqEngine.getInsightsData');
+    expect(output).not.toContain('+ setNetworkOnline');
+  });
+
+  it('refuses an area the base did not list', () => {
+    const [root, base] = baseRepo({ 'features/maps': ['setNetworkOnline'] });
+    stage(root, {
+      'features/maps': ['setNetworkOnline'],
+      'features/strength': ['getMuscleDetail'],
+    });
+
+    const { status, output } = growth(root, base);
+
+    expect(status).toBe(1);
+    expect(output).toContain('features/strength is a new area');
+    expect(output).toContain('+ getMuscleDetail');
+  });
+
+  it('passes a name that replaces another in the same area', () => {
+    const [root, base] = baseRepo({ 'features/maps': ['setNetworkOnline'] });
+    stage(root, { 'features/maps': ['VeloqEngine.launchData'] });
+
+    expect(growth(root, base).status).toBe(0);
+  });
+
+  it('passes a list that fell and an area that was removed', () => {
+    const [root, base] = baseRepo({
+      'features/maps': ['a', 'b'],
+      'features/strength': ['getMuscleDetail'],
+    });
+    stage(root, { 'features/maps': ['a'] });
+
+    expect(growth(root, base).status).toBe(0);
+  });
+
+  it.each([
+    ['engine-ceiling', '--engine-ceiling 97 --store-ceiling 19'],
+    ['store-ceiling', '--engine-ceiling 96 --store-ceiling 20'],
+  ])('refuses a higher %s', (flag, args) => {
+    const [root, base] = baseRepo({ 'features/maps': ['a'] });
+    stage(root, { 'features/maps': ['a'] }, `node scripts/lint-engine-surface.mjs ${args}`);
+
+    const { status, output } = growth(root, base);
+
+    expect(status).toBe(1);
+    expect(output).toContain(`--${flag}`);
+  });
+
+  it('passes a lower number', () => {
+    const [root, base] = baseRepo({ 'features/maps': ['a'] });
+    stage(
+      root,
+      { 'features/maps': ['a'] },
+      'node scripts/lint-engine-surface.mjs --engine-ceiling 90 --store-ceiling 19'
+    );
+
+    expect(growth(root, base).status).toBe(0);
+  });
+
+  it('refuses a number removed from the script', () => {
+    const [root, base] = baseRepo({ 'features/maps': ['a'] });
+    stage(
+      root,
+      { 'features/maps': ['a'] },
+      'node scripts/lint-engine-surface.mjs --store-ceiling 19'
+    );
+
+    const { status, output } = growth(root, base);
+
+    expect(status).toBe(1);
+    expect(output).toContain('no longer passes --engine-ceiling');
+  });
+
+  it('refuses a base that is not a commit rather than passing', () => {
+    const [root] = baseRepo({ 'features/maps': ['a'] });
+
+    const { status, output } = growth(root, '0'.repeat(40));
+
+    expect(status).toBe(1);
+    expect(output).toContain('is not a commit');
+  });
+
+  it('says it compared nothing when no base is given', () => {
+    const [root] = baseRepo({ 'features/maps': ['a'] });
+
+    const { status, output } = growth(root);
+
+    expect(status).toBe(0);
+    expect(output).toContain('no merge base');
+  });
+
+  it('reads the base from the merge-gate variable', () => {
+    const [root, base] = baseRepo({ 'features/maps': ['a'] });
+    stage(root, { 'features/maps': ['a', 'b'] });
+
+    const result = spawnSync('node', [GROWTH], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...gitFreeEnv(), VELOQ_MERGE_BASE: base },
+    });
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}${result.stderr}`).toContain('+ b');
   });
 });

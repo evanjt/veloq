@@ -3,7 +3,6 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
@@ -12,6 +11,7 @@ import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
 import { pressable, pressRipple } from '@/shared/ui';
 
 import { muscleName } from '../lib/muscleNames';
+import { tapTo } from '@/shared/app/navigation';
 
 interface StrengthExerciseListProps {
   selectedVolume: MuscleVolume;
@@ -26,7 +26,6 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const router = useRouter();
   const selectedMuscleName = muscleName(selectedVolume.slug, t);
 
   return (
@@ -43,7 +42,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
             index > 0 && styles.itemBorder,
             index > 0 && isDark && styles.itemBorderDark,
           ])}
-          onPress={() => router.push(`/exercise/${exercise.exerciseCategory}`)}
+          onPress={() => tapTo(`/exercise/${exercise.exerciseCategory}`)}
           accessibilityRole="link"
           accessibilityLabel={t('strength.openExerciseHistory', {
             exercise: exercise.exerciseName,

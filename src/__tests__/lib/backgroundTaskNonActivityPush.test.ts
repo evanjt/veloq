@@ -3,7 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 
 import { presentActivityNotification } from '@/features/settings/lib/notificationService';
 import { readInsightFingerprint } from '@/features/insights/lib/fingerprintStore';
-import { diffInsights, initializeInsightsStore, useInsightsStore } from '@/features/insights/store';
+import { diffInsights, initialiseInsightsStore, useInsightsStore } from '@/features/insights/store';
 import type { Insight } from '@/features/insights/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
@@ -77,7 +77,7 @@ describe('background task on a push with no activity', () => {
     async (eventType) => {
       await deliver(eventType);
       await deliver(eventType);
-      await initializeInsightsStore();
+      await initialiseInsightsStore();
 
       expect(presentActivityNotification).not.toHaveBeenCalled();
       expect(await readInsightFingerprint()).toBe('');

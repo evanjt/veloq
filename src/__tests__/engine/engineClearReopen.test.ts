@@ -41,7 +41,7 @@ const DB = '/data/routes.db';
 function openClient() {
   const client = EngineClient.getInstance();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (client as any).initialized = false;
+  (client as any).initialised = false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (client as any).dbPath = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -211,7 +211,7 @@ describe('EngineClient.clear', () => {
   it('refuses rather than reporting a wipe when there is no database to open', async () => {
     const client = EngineClient.getInstance();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (client as any).initialized = false;
+    (client as any).initialised = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (client as any).dbPath = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

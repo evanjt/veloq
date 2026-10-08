@@ -88,3 +88,40 @@ describe('when the platform rejects the haptic', () => {
     expect(() => haptics.light()).not.toThrow();
   });
 });
+
+describe('onPullRefresh', () => {
+  beforeEach(() => {
+    mocked.impactAsync.mockImplementation(() => Promise.resolve());
+  });
+
+  it('fires one medium impact before the handler runs, on every call', async () => {
+    const order: string[] = [];
+    mocked.impactAsync.mockImplementation(() => {
+      order.push('haptic');
+      return Promise.resolve();
+    });
+    const handler = jest.fn(() => {
+      order.push('handler');
+    });
+    const wrapped = haptics.onPullRefresh(handler);
+
+    wrapped();
+    expect(order).toEqual(['haptic', 'handler']);
+    expect(mocked.impactAsync).toHaveBeenCalledWith('medium');
+
+    wrapped();
+    expect(mocked.impactAsync).toHaveBeenCalledTimes(2);
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns what the handler returns', async () => {
+    const wrapped = haptics.onPullRefresh(() => Promise.resolve(7));
+    await expect(wrapped()).resolves.toBe(7);
+  });
+
+  it('fires once and passes a rejection through', async () => {
+    const wrapped = haptics.onPullRefresh(() => Promise.reject(new Error('offline')));
+    await expect(wrapped()).rejects.toThrow('offline');
+    expect(mocked.impactAsync).toHaveBeenCalledTimes(1);
+  });
+});

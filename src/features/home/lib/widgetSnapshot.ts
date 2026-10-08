@@ -7,18 +7,27 @@
  * no JavaScript running. What only the app knows, the translated words, the date
  * names, the palette, the summary card settings and the recent sports, it hands
  * over as a context. The engine stores that context so the worker composes in the
- * same words. `composeWidgetContext` is pure; `gatherWidgetSnapshot` is the entry
- * point the write hooks call.
+ * same words. A native-only refresh keeps the insights of the last context the
+ * app stored, since ranking them takes the app's JavaScript. `composeWidgetContext`
+ * is pure; `gatherWidgetSnapshot` is the entry point the write hooks call.
  */
 import { getIntlLocale } from '@/shared/format';
 import { getEngine, isEngineReady } from '@/shared/native/engine';
+import { demoLibrary } from '@/shared/app/seedDemoEngine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRecentRecordingTypes, getRecordedRecordingTypes } from '@/shared/recording';
 import { activityTypeColors } from '@/theme/colors';
 import { widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
+import type { SampleWidgetLibrary } from 'veloqrs/src/delegates/fitness';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '@/features/settings/light';
+import {
+  widgetInsights,
+  type Insight,
+  type TFunc,
+  type WidgetInsight,
+} from '@/features/insights/light';
 
 /**
  * One recent sport: the id, the name a surface shows, and the deep link that
@@ -60,6 +69,7 @@ export const WIDGET_STRING_KEYS = [
   'metrics.ftp',
   'metrics.pace',
   'metrics.css',
+  'metrics.weight',
   'fitnessScreen.rampRate',
   'fitnessScreen.perWeek',
   'formZones.highRisk',
@@ -69,6 +79,18 @@ export const WIDGET_STRING_KEYS = [
   'formZones.transition',
   'time.today',
   'time.yesterday',
+  'time.asOfLastSync',
+  'activity.distance',
+  'activity.power',
+  'recording.fields.movingTime',
+  'recording.fields.elevationGain',
+  'demo.banner',
+  'systemSurfaces.latest.rank',
+  'systemSurfaces.latest.fastest',
+  'systemSurfaces.latest.offBest',
+  'systemSurfaces.latest.load',
+  'systemSurfaces.latest.loadVsTypical',
+  'systemSurfaces.latest.sectionPrs',
 ] as const;
 
 /** One piece of a date format, as `Intl.DateTimeFormat.formatToParts` names it. */
@@ -117,6 +139,19 @@ export interface WidgetContext {
    * so a Siri phrase can offer every sport while the icon offers three.
    */
   launcherShortcuts: WidgetRecordShortcut[];
+  /**
+   * The Insights tab's ranked list, in its order and of every kind: each placed
+   * widget filters the kinds for itself and shows as many rows as its size
+   * allows. Empty when there is none.
+   */
+  insights: WidgetInsight[];
+  /** The library behind the snapshot is the sample one, so every widget wears the demo label. */
+  demo: boolean;
+  /**
+   * The snapshot is composed from a library the app supplies and not from the
+   * engine's rows, so a native refresh leaves the file to the app.
+   */
+  sample: boolean;
 }
 
 export interface WidgetContextInput {
@@ -134,6 +169,12 @@ export interface WidgetContextInput {
   recordedRecordingTypes?: string[] | null | undefined;
   /** The locale's date words; read from `Intl` when absent. */
   dates?: WidgetDateWords | undefined;
+  /** The Insights tab's ranked list, best first. */
+  insights?: readonly Insight[] | undefined;
+  /** The snapshot is of the sample library: demo mode, or nobody signed in. */
+  demo?: boolean | undefined;
+  /** The snapshot is composed from a library the app supplies. */
+  sample?: boolean | undefined;
 }
 
 /** What the bridge writes: the snapshot file, and the launcher's own copy of the shortcuts. */
@@ -162,6 +203,9 @@ export function composeWidgetContext(input: WidgetContextInput): WidgetContext {
       t
     ),
     launcherShortcuts: launcher.slice(0, RECORD_SHORTCUT_LIMIT),
+    insights: widgetInsights(input.insights ?? []),
+    demo: input.demo === true,
+    sample: input.sample === true,
   };
 }
 
@@ -272,9 +316,16 @@ export function gatherWidgetSnapshot(opts: {
   formAsPercent?: boolean | undefined;
   now?: Date | undefined;
   translate?: ((key: string) => string) | undefined;
+  /**
+   * The app's translator with parameters, which the insight copy interpolates.
+   * Absent lists no insights: a key printed as itself is not copy.
+   */
+  translateInsight?: TFunc | undefined;
 }): WidgetSnapshotPayload | null {
   const engine = getEngine();
-  if (!engine || !isEngineReady()) return null;
+  if (!engine) return null;
+  if (!isEngineReady()) return null;
+  const sampleOnly = showsSampleLibrary();
 
   let summaryPrefs: SummaryCardPreferences | null = null;
   try {
@@ -284,6 +335,11 @@ export function gatherWidgetSnapshot(opts: {
   }
 
   const context = composeWidgetContext({
+    // No account, no insights either: they rank the athlete's own library.
+    insights:
+      opts.translateInsight && !sampleOnly
+        ? rankedInsights(opts.translateInsight, opts.isMetric)
+        : [],
     locale: opts.locale,
     isMetric: opts.isMetric,
     formAsPercent: opts.formAsPercent,
@@ -294,13 +350,20 @@ export function gatherWidgetSnapshot(opts: {
     // gate, and clearing them is also what takes them off the icon on sign-out.
     recentRecordingTypes: signedIn() ? getRecentRecordingTypes() : [],
     recordedRecordingTypes: signedIn() ? getRecordedRecordingTypes() : [],
+    demo: showsDemoLibrary(),
+    sample: sampleOnly,
   });
   const contextJson = JSON.stringify(context);
   const { nowSeconds, nowWallSeconds } = clock(opts.now ?? new Date());
 
   let json: string | undefined;
   try {
-    json = engine.composeWidgetSnapshot(contextJson, nowSeconds, nowWallSeconds);
+    json = engine.composeWidgetSnapshot(
+      contextJson,
+      nowSeconds,
+      nowWallSeconds,
+      sampleOnly ? sampleLibrary() : undefined
+    );
   } catch {
     // empty-on-error: the widget keeps its last snapshot when this one is unknown.
     // The read answers NotInitialized when the database is not open, and that is
@@ -310,9 +373,65 @@ export function gatherWidgetSnapshot(opts: {
   }
   if (!json) return null;
   // Stored after a composition that worked, so the push worker composes in the
-  // same words and the same settings as the file the app just wrote.
+  // same words and the same settings as the file the app just wrote. A sample's
+  // context is stored too, marked, so the worker leaves its file alone instead
+  // of redrawing a previous athlete's stored rows over it.
   engine.setWidgetContext(contextJson);
   return { json, launcherShortcuts: context.launcherShortcuts };
+}
+
+/**
+ * The library the widgets draw while nobody is signed in, from the fixtures demo
+ * mode seeds. The fixtures load inside `demoLibrary`, so a session that never
+ * shows them never pays for them.
+ */
+function sampleLibrary(): SampleWidgetLibrary {
+  const { athleteJson, sportSettingsJson, wellness, activities } = demoLibrary();
+  return { athleteJson, sportSettingsJson, wellness, activities };
+}
+
+/**
+ * The list the Insights tab shows, ranked the way it ranks them. A read or a
+ * ranking that fails gives none, so the widget lists no insights rather than
+ * the file failing to write.
+ */
+function rankedInsights(t: TFunc, isMetric: boolean): Insight[] {
+  try {
+    // Loaded here and not at the top: the ranking reaches the routes and strength
+    // screens, and a widget refresh that runs headless must be able to load this
+    // module without them.
+    const { computeInsightsFromData, fetchInsightsDataFromEngine } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('@/features/insights') as typeof import('@/features/insights');
+    const data = fetchInsightsDataFromEngine()?.insightsData ?? null;
+    return computeInsightsFromData(data, t, isMetric).insights;
+  } catch {
+    // empty-on-error: the snapshot is still worth writing without its insight rows, and a widget with none lists none.
+    return [];
+  }
+}
+
+/**
+ * Whether the credentials have been read and nobody is signed in, demo mode
+ * included in "somebody". Before the read the answer is unknown, and a widget
+ * must not swap a signed-in athlete's numbers for the sample while it waits.
+ */
+export function showsSampleLibrary(): boolean {
+  try {
+    const { isLoading, authMethod } = useAuthStore.getState();
+    return !isLoading && authMethod == null;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether the numbers on the widgets are the sample library's: nobody signed in, or demo mode. */
+export function showsDemoLibrary(): boolean {
+  try {
+    return showsSampleLibrary() || useAuthStore.getState().authMethod === 'demo';
+  } catch {
+    return false;
+  }
 }
 
 /** Whether anyone is signed in; a failed read counts as nobody. */

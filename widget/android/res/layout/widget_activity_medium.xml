@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Last activity, wide: the route scaled to the left half; on the right the name, the comparison,
+     every attempt as a dot and the section records. A taller placement also fills the load, the
+     form before and after, and the date. The renderer hides what a size or a snapshot lacks. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/act_root"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="horizontal"
-  android:padding="@dimen/widget_padding"
+  android:paddingStart="@dimen/widget_padding"
+  android:paddingEnd="@dimen/widget_padding"
+  android:paddingTop="@dimen/widget_gap"
+  android:paddingBottom="@dimen/widget_gap"
   android:background="@drawable/widget_background">
 
   <ImageView
@@ -35,7 +41,7 @@
         android:layout_height="wrap_content"
         android:maxLines="2"
         android:ellipsize="end"
-        android:textSize="@dimen/widget_text_value"
+        android:textSize="@dimen/widget_text_label"
         android:textStyle="bold"
         android:textColor="@color/widget_text_primary" />
 
@@ -45,8 +51,58 @@
         android:layout_height="6dp"
         android:layout_marginStart="4dp"
         android:src="@drawable/widget_pr_dot"
+        android:visibility="gone"
         android:contentDescription="@null" />
     </LinearLayout>
+
+    <TextView
+      android:id="@+id/act_date"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:visibility="gone"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+
+    <TextView
+      android:id="@+id/act_label"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:visibility="gone"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+
+    <TextView
+      android:id="@+id/act_hero"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:visibility="gone"
+      android:maxLines="1"
+      android:textSize="@dimen/widget_text_metric"
+      android:textStyle="bold"
+      android:textColor="@color/widget_text_primary" />
+
+    <TextView
+      android:id="@+id/act_detail"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:visibility="gone"
+      android:maxLines="2"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_label"
+      android:textColor="@color/widget_text_secondary" />
+
+    <ImageView
+      android:id="@+id/act_dots"
+      android:layout_width="match_parent"
+      android:layout_height="10dp"
+      android:layout_marginTop="2dp"
+      android:visibility="gone"
+      android:scaleType="fitStart"
+      android:contentDescription="@null" />
 
     <TextView
       android:id="@+id/act_sub"
@@ -58,13 +114,77 @@
       android:textColor="@color/widget_text_secondary" />
 
     <TextView
-      android:id="@+id/act_tss"
+      android:id="@+id/act_prs"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:visibility="gone"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_label"
+      android:textColor="@color/widget_text_secondary" />
+
+    <TextView
+      android:id="@+id/act_load"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:visibility="gone"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_label"
+      android:textColor="@color/widget_text_primary" />
+
+    <LinearLayout
+      android:id="@+id/act_form"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:visibility="gone"
+      android:orientation="horizontal">
+
+      <TextView
+        android:id="@+id/act_form_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textColor="@color/widget_text_secondary" />
+
+      <TextView
+        android:id="@+id/act_form_before"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+
+      <TextView
+        android:id="@+id/act_form_arrow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textColor="@color/widget_text_secondary" />
+
+      <TextView
+        android:id="@+id/act_form_after"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+    </LinearLayout>
+
+    <TextView
+      android:id="@+id/act_demo"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
-      android:layout_marginTop="2dp"
       android:visibility="gone"
+      android:maxLines="1"
       android:textSize="@dimen/widget_text_label"
-      android:textStyle="bold"
-      android:textColor="@color/widget_text_primary" />
+      android:textColor="@color/widget_text_secondary" />
   </LinearLayout>
 </LinearLayout>

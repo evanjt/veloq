@@ -11,7 +11,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import SmoothingSheet from '@/app/sheets/smoothing';
 import { openSheet } from '@/shared/app/sheetRequest';
 import { SMOOTHING_PRESETS, type SmoothingWindow } from '@/shared/math/smoothing';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -34,7 +34,7 @@ function open(current: SmoothingWindow) {
 }
 
 beforeAll(async () => {
-  await initializeI18n();
+  await initialiseI18n();
 });
 beforeEach(() => {
   mockPush.mockClear();

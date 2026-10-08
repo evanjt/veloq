@@ -24,6 +24,7 @@ import type { StartVerdict } from 'veloqrs';
 import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { FrequentSection } from '@/types';
 import { debug } from '@/shared/debug/debug';
+import * as haptics from '@/shared/ui/haptics';
 import { renameFailureMessageKey } from '../lib/sectionRenameFailure';
 
 const log = debug.create('SectionActions');
@@ -168,6 +169,8 @@ export function useSectionActions({
         return;
       }
 
+      haptics.success();
+
       // Update local state immediately for instant feedback
       const previousName = customName ?? section?.name ?? null;
       setCustomName(trimmedName);
@@ -198,6 +201,7 @@ export function useSectionActions({
           text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
+            haptics.medium();
             try {
               await removeSection(id);
               router.back();

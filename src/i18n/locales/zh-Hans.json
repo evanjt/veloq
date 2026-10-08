@@ -94,7 +94,6 @@
       "yourFitness": "您的体能 (CTL)",
       "yourForm": "您的状态"
     },
-    "tapToClose": "点击任意处关闭",
     "timeInHRZones": "心率区间时间",
     "timeInPowerZones": "功率区间时间",
     "viewDetails": "查看详情",
@@ -381,7 +380,6 @@
     "confirm": "确认",
     "creating": "创建中...",
     "delete": "删除",
-    "done": "完成",
     "remove": "移除",
     "rename": "重命名",
     "restore": "恢复",
@@ -1602,6 +1600,14 @@
     "sizeAtLeast": "至少 {{size}}",
     "recording": "录制",
     "permissions": "权限",
+    "placeNames": {
+      "title": "地名",
+      "attribution": "地名 © OpenStreetMap 贡献者",
+      "noticeTitle": "使用地名?",
+      "noticeBody": "发现新的路线或路段时,其起点和终点会发送到 OpenStreetMap 的 Nominatim 服务以查询地名。不会发送任何已有的路线或路段,也不会发送任何与您有关的信息。该服务的使用政策适用。",
+      "readPolicy": "使用政策",
+      "accept": "接受"
+    },
     "cacheAndDatabase": "缓存和数据库",
     "heatmapGeneration": "热力图",
     "heatmapDescription": "使用设备存储空间。禁用可节省空间。",
@@ -1827,6 +1833,7 @@
     "tracksDownloaded": "已下载 {{total}} 条轨迹中的 {{completed}} 条"
   },
   "time": {
+    "asOfLastSync": "数据截至上次同步",
     "current": "当前",
     "daysAgo_one": "{{count}} 天前",
     "daysAgo_other": "{{count}} 天前",
@@ -2216,7 +2223,7 @@
     "toSeeTraining": "查看您的训练",
     "record": "记录",
     "recordDescription": "开始记录活动。",
-    "dashboardDescription": "一览您的状态、体能和最近活动。",
+    "summaryDescription": "一览应用中的摘要卡片。",
     "latestActivity": "最近活动",
     "latestActivityDescription": "您最近的活动及其路线。",
     "metric": "指标",
@@ -2231,6 +2238,33 @@
     "startSportDescription": "打开 Veloq，准备记录所选运动。",
     "recordingControl": "记录控制",
     "action": "操作",
+    "insights": "洞察",
+    "insightsDescription": "“洞察”标签页中排名靠前的卡片。",
+    "insightsEmpty": "没有新的洞察",
+    "insightsMore": "另有 {{rest}} 条",
+    "insightKinds": "类型",
+    "insightKindsDescription": "选择小组件列出的洞察类型。未选择时列出所有类型。",
+    "insightKind": {
+      "sectionPr": "路段个人纪录",
+      "sectionTrend": "路段趋势",
+      "route": "路线纪录",
+      "stalePr": "旧个人纪录",
+      "fitnessMilestone": "体能里程碑",
+      "periodComparison": "周期对比",
+      "strengthProgression": "力量进展",
+      "strengthBalance": "力量平衡",
+      "hrvTrend": "HRV 趋势",
+      "efficiencyTrend": "效率趋势",
+      "sectionChanged": "已变更的路段"
+    },
+    "latest": {
+      "rank": "{{total}} 次中第 {{rank}} 名",
+      "fastest": "最快的一次",
+      "offBest": "比最佳成绩慢 {{gap}}",
+      "load": "负荷",
+      "loadVsTypical": "较日常负荷 {{percent}}",
+      "sectionPrs": "路段个人纪录 {{number}}"
+    },
     "phrases": {
       "startRide": "在{{app}}开始骑行",
       "startRecording": "在{{app}}开始记录",

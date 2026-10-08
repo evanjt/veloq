@@ -39,8 +39,11 @@ jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
 const mockGetNativeModule = getNativeModule as jest.MockedFunction<typeof getNativeModule>;
 
 function activity(id: string): Activity {
-  return { id, stream_types: ['latlng'] } as unknown as Activity;
+  return { id } as unknown as Activity;
 }
+
+/** The ids the engine says still owe a track; the activities handed to the hook only trigger a run. */
+let owed: string[] = [];
 
 /** A promise plus the handle that settles it, so a run can be held open. */
 function deferred(): { promise: Promise<void>; resolve: () => void } {
@@ -57,14 +60,15 @@ describe('a run refused while another is in flight', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetGlobalSyncState();
+    owed = ['a1'];
     // The run has to start inside the act() that triggers it. The queue the
     // real manager keeps is not what this test is about.
     idle = stubIdleScheduler('immediate');
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     mockGetNativeModule.mockReturnValue({
       engine: {
-        getActivityIds: () => [],
-        getRefusedTrackIds: () => [],
+        getActivityCount: () => 0,
+        getGpsFetchCandidates: () => owed.map((activityId) => ({ activityId, sportType: 'Ride' })),
         getUnprocessedStrengthIds: () => [],
         batchFetchExerciseSets: () => 0,
         pollSectionDetection: () => 'idle',
@@ -91,6 +95,7 @@ describe('a run refused while another is in flight', () => {
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
 
     // The settle's refresh, while the head's tracks are still downloading.
+    owed = ['a1', 'a2'];
     await act(async () => {
       rerender({ activities: [...head, activity('a2')] });
     });
@@ -102,8 +107,8 @@ describe('a run refused while another is in flight', () => {
     });
 
     expect(mockFetchApiGps).toHaveBeenCalledTimes(2);
-    const [secondRun] = mockFetchApiGps.mock.calls[1] as [Activity[]];
-    expect(secondRun.map((a) => a.id)).toEqual(['a1', 'a2']);
+    const [secondRun] = mockFetchApiGps.mock.calls[1] as [{ activityId: string }[]];
+    expect(secondRun.map((c) => c.activityId)).toEqual(['a1', 'a2']);
   });
 
   it('drops the debt when the library is wiped under it', async () => {

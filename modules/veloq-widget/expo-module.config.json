@@ -1,7 +1,8 @@
 {
   "platforms": ["apple", "android"],
   "apple": {
-    "modules": ["VeloqWidgetModule"]
+    "modules": ["VeloqWidgetModule"],
+    "appDelegateSubscribers": ["VeloqWidgetRefreshSubscriber"]
   },
   "android": {
     "modules": ["com.veloq.widget.VeloqWidgetModule"]

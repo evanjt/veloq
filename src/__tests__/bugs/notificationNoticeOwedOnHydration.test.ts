@@ -47,7 +47,7 @@ beforeEach(() => {
 
 function hydrate(pair: object) {
   stored.value = JSON.stringify(pair);
-  return useNotificationPreferences.getState().initialize();
+  return useNotificationPreferences.getState().initialise();
 }
 
 describe('an install already receiving notifications', () => {
@@ -77,7 +77,7 @@ describe('an install already receiving notifications', () => {
   });
 
   it('is never owed on a fresh install or to an install that accepted', async () => {
-    await useNotificationPreferences.getState().initialize();
+    await useNotificationPreferences.getState().initialise();
     expect(isPrivacyNoticeOwed(useNotificationPreferences.getState())).toBe(false);
     expect(mockSetSetting).not.toHaveBeenCalled();
 

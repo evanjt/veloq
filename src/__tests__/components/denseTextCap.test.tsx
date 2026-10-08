@@ -94,7 +94,7 @@ describe('the dense text cap', () => {
     const y = render(
       <ChartYAxisLabel
         yAxisSeries={series}
-        yAxisAvgInfo={{ normalized: 0.5, raw: 5 }}
+        yAxisAvgInfo={{ normalised: 0.5, raw: 5 }}
         showYAxisAccent={false}
         chartPaddingTop={10}
         chartPaddingBottom={20}

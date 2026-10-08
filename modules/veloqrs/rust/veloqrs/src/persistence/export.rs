@@ -510,6 +510,9 @@ mod snapshot_copy_tests {
         let live = dir.path().join("live.db");
         let copy = dir.path().join("copy.db");
         let before = count(&source);
+        source
+            .execute_batch("CREATE TABLE small (n INTEGER)")
+            .unwrap();
 
         let stop = Arc::new(AtomicBool::new(false));
         let writer = {
@@ -524,9 +527,6 @@ mod snapshot_copy_tests {
                 }
             })
         };
-        source
-            .execute_batch("CREATE TABLE IF NOT EXISTS small (n INTEGER)")
-            .unwrap();
 
         let (tx, rx) = mpsc::channel();
         let (live_path, copy_path) = (

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pressable, View, FlatList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +12,7 @@ import { IconButton } from '@/shared/ui/IconButton';
 import { ALL_DATA_FIELDS } from '@/features/recording';
 import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import type { DataFieldType } from '@/types';
+import { tapBack } from '@/shared/app/navigation';
 
 /**
  * The data field picker for a recording tile, a sheet route opened with `openSheet` and answered
@@ -40,7 +40,7 @@ function FieldPickerSheetContent() {
         <Text accessibilityRole="header" style={[styles.title, { color: textPrimary }]}>
           {t('recording.settingsDataFields', 'Data Fields')}
         </Text>
-        <IconButton onPress={() => router.back()} accessibilityLabel={t('common.close')}>
+        <IconButton onPress={() => tapBack()} accessibilityLabel={t('common.close')}>
           <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
         </IconButton>
       </View>

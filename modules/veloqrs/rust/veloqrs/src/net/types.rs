@@ -138,7 +138,7 @@ mod activity_fields_tests;
 /// and lng in `data2`; numeric gaps come through as JSON null.
 ///
 /// Serialised as well as deserialised, because a body rebuilt from the stored
-/// track is handed to the same `parseStreams` a live response goes through.
+/// track is read by the same `parse_streams` a live response goes through.
 /// `data2` is skipped when absent so a reconstruction is byte-shaped like a
 /// server response rather than carrying a null the wire never sends.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -175,7 +175,34 @@ pub struct ParsedStreams {
     pub latlng: Vec<[f64; 2]>,
     pub altitude: Vec<f64>,
     pub altitude_is_fixed: bool,
+    /// The detail charts' other series, in the same index space. Empty when
+    /// the response did not carry the series.
+    pub heartrate: Vec<f64>,
+    pub watts: Vec<f64>,
+    pub cadence: Vec<f64>,
+    pub velocity_smooth: Vec<f64>,
+    pub distance: Vec<f64>,
+    pub grade_smooth: Vec<f64>,
+    pub temp: Vec<f64>,
+    /// W' balance, joules remaining.
+    pub wbal: Vec<f64>,
+    /// Grade-adjusted pace in minutes per kilometre, from `ga_velocity`.
+    pub gap: Vec<f64>,
     pub misaligned: Vec<SeriesLengthMismatch>,
+}
+
+/// Minutes per kilometre for one speed sample in metres per second. A missing
+/// sample stays NaN so a chart reads it as absent; a stopped or non-finite
+/// speed reads 0 rather than an infinite pace.
+fn pace_minutes_from_sample(speed_ms: f64) -> f64 {
+    if speed_ms.is_nan() {
+        return f64::NAN;
+    }
+    if speed_ms <= 0.0 || !speed_ms.is_finite() {
+        return 0.0;
+    }
+    let pace = 1000.0 / speed_ms / 60.0;
+    if pace.is_finite() { pace } else { 0.0 }
 }
 
 fn fill(v: &[Option<f64>]) -> Vec<f64> {
@@ -318,13 +345,63 @@ pub fn storable_series(raw: &[StreamDto]) -> Vec<StreamDto> {
         .collect()
 }
 
+/// The series worth storing for an activity with no track, in the server's
+/// own sample index, which its `time` series addresses.
+///
+/// With no coordinates there is no mask and no stored track to line up with,
+/// so the index the server sent is the only one there is, and `time` is kept
+/// as the store's record of it. Nothing comes back without a `time` series to
+/// index by, or with one that is all gaps, nor from a response that carries coordinates, which belongs to
+/// [`storable_series`]. A series of another length than `time`'s, or one that
+/// is all gaps, is dropped for the reasons that function gives, and a response
+/// holding nothing beyond its clock comes back empty: a lone `time` row would
+/// report the activity as stocked.
+pub fn trackless_series(raw: &[StreamDto]) -> Vec<StreamDto> {
+    if raw.iter().any(|s| s.kind == "latlng") {
+        return Vec::new();
+    }
+    let Some(samples) = raw.iter().find(|s| s.kind == "time").map(|s| s.data.len()) else {
+        return Vec::new();
+    };
+    let kept: Vec<StreamDto> = raw
+        .iter()
+        .filter(|s| {
+            let aligned = s.data.len() == samples;
+            if !aligned {
+                log::warn!(
+                    "[Streams] series {} carries {} samples, the time index covers {}, not stored",
+                    s.kind,
+                    s.data.len(),
+                    samples
+                );
+            }
+            aligned
+        })
+        .filter_map(|s| {
+            let data: Vec<Option<f64>> =
+                s.data.iter().map(|v| v.filter(|v| v.is_finite())).collect();
+            data.iter().any(Option::is_some).then(|| StreamDto {
+                kind: s.kind.clone(),
+                data,
+                data2: None,
+            })
+        })
+        .collect();
+    let indexed = kept.iter().any(|s| s.kind == "time");
+    if !indexed || kept.iter().all(|s| s.kind == "time") {
+        return Vec::new();
+    }
+    kept
+}
+
 /// Convert raw stream objects into the parsed shape: zip latlng data/data2,
-/// prefer `fixed_altitude` over `altitude`, convert `ga_velocity` (m/s) to gap
-/// pace (min/km).
+/// prefer a usable `fixed_altitude` over `altitude`, convert `ga_velocity` (m/s)
+/// to gap pace (min/km).
 ///
 /// The `latlng` validity mask governs every series, so all of them come back the
-/// same length in one index space. TypeScript's `parseStreams` applies the same
-/// rule, so the chart cursor and the map cursor index the same samples.
+/// same length in one index space, so the chart cursor and the map cursor index
+/// the same samples. The detail charts' series ride along, for
+/// `chart_streams_from_body`.
 pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
     let mut out = ParsedStreams::default();
     let mut misaligned = Vec::new();
@@ -357,6 +434,24 @@ pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
             }
             "fixed_altitude" => {
                 fixed_altitude = Some(select("fixed_altitude", mask, &s.data, &mut misaligned));
+            }
+            "heartrate" => out.heartrate = select("heartrate", mask, &s.data, &mut misaligned),
+            "watts" => out.watts = select("watts", mask, &s.data, &mut misaligned),
+            "cadence" => out.cadence = select("cadence", mask, &s.data, &mut misaligned),
+            "velocity_smooth" => {
+                out.velocity_smooth = select("velocity_smooth", mask, &s.data, &mut misaligned)
+            }
+            "distance" => out.distance = select("distance", mask, &s.data, &mut misaligned),
+            "grade_smooth" => {
+                out.grade_smooth = select("grade_smooth", mask, &s.data, &mut misaligned)
+            }
+            "temp" => out.temp = select("temp", mask, &s.data, &mut misaligned),
+            "w_bal" => out.wbal = select("w_bal", mask, &s.data, &mut misaligned),
+            "ga_velocity" => {
+                out.gap = select("ga_velocity", mask, &s.data, &mut misaligned)
+                    .into_iter()
+                    .map(pace_minutes_from_sample)
+                    .collect()
             }
             _ => {}
         }
@@ -510,6 +605,23 @@ pub struct ActivityCensusEntry {
     /// `stream_types` at all is false, because a field the API omits is not a
     /// track.
     pub has_latlng: bool,
+    /// Whether `stream_types` names a series the stream pass would store,
+    /// beyond the coordinates and the time index. What lets an activity with
+    /// no track join that pass without asking about every one that has
+    /// nothing to give, read through [`carries_a_storable_series`].
+    pub has_series: bool,
+}
+
+/// Whether an activity whose `stream_types` reads `types` carries a series the
+/// stream pass asks for and would store: anything in `DEFAULT_STREAM_TYPES`
+/// but `latlng`, which is the track, and `time`, which only indexes the rest.
+pub fn carries_a_storable_series(types: &[String]) -> bool {
+    use crate::net::endpoints::DEFAULT_STREAM_TYPES;
+    types.iter().any(|kind| {
+        kind != "latlng"
+            && kind != "time"
+            && DEFAULT_STREAM_TYPES.split(',').any(|asked| asked == kind)
+    })
 }
 
 /// Count activities per calendar year, keyed by the `YYYY` prefix of
@@ -535,6 +647,20 @@ pub fn activity_counts_by_year(activities: &[ActivityRecord]) -> BTreeMap<String
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_series_the_stream_pass_does_not_ask_for_is_not_one_it_would_store() {
+        let types = |kinds: &[&str]| kinds.iter().map(|k| k.to_string()).collect::<Vec<_>>();
+
+        assert!(carries_a_storable_series(&types(&["time", "heartrate"])));
+        assert!(carries_a_storable_series(&types(&["altitude"])));
+        assert!(!carries_a_storable_series(&types(&["time", "latlng"])));
+        assert!(
+            !carries_a_storable_series(&types(&["time", "an_unasked_series"])),
+            "a series the pass never asks for never arrives to be stored"
+        );
+        assert!(!carries_a_storable_series(&[]));
+    }
 
     /// The writer drops every kind the reader rebuilds from the track, so a
     /// kind added to the shared list is never stored and then never read.

@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -11,6 +10,7 @@ import { IconButton, ToggleButton } from '@/shared/ui';
 import { formatFileSize } from '@/shared/format/format';
 import { BYTES_PER_BUDGET_MB, TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { tapBack } from '@/shared/app/navigation';
 
 export interface TileCacheBudgetSheetInput {
   budgetMb: number;
@@ -28,7 +28,7 @@ function TileCacheBudgetSheetContent() {
     <View testID="settings-tile-cache-picker" style={[styles.sheet, { backgroundColor: surface }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: primary }]}>{t('settings.tileCacheLimit')}</Text>
-        <IconButton onPress={() => router.back()} accessibilityLabel={t('common.close')}>
+        <IconButton onPress={() => tapBack()} accessibilityLabel={t('common.close')}>
           <MaterialCommunityIcons name="close" size={24} color={secondary} />
         </IconButton>
       </View>

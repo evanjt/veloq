@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 import { SupportingDataSection } from '../SupportingDataSection';
@@ -35,7 +35,7 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
 
   const handleSectionPress = useCallback(() => {
     if (!sectionId) return;
-    navigateTo(`/section/${sectionId}`);
+    tapTo(`/section/${sectionId}`);
   }, [sectionId]);
 
   return (

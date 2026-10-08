@@ -88,5 +88,15 @@ step=rustfmt
 step=rust-test-tree
 (cd modules/veloqrs/rust && cargo check --tests -p veloqrs --features synthetic)
 (cd modules/veloqrs/rust && cargo check --tests -p tracematch --features synthetic)
+# The Android target, which no host check compiles. Code behind `cfg(target_os)` is
+# invisible to a Linux build, and Bionic differs from glibc in names the host
+# tests never reach (`errno` is one). `cargo ndk` supplies the NDK compiler the C
+# dependencies need, which a bare `--target` check does not. The library is built
+# as shipped and the test tree with the suites' feature on, since the test
+# helpers carry their own `cfg`s. A compile check only, so it needs the target and
+# cargo-ndk but runs nothing on a device.
+step=rust-android
+(cd modules/veloqrs/rust && cargo ndk -t arm64-v8a check -p veloqrs)
+(cd modules/veloqrs/rust && cargo ndk -t arm64-v8a check --tests -p veloqrs --features synthetic)
 step=suites
 ./scripts/check-merge-tests.sh

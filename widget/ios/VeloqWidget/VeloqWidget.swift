@@ -4,7 +4,8 @@ import WidgetKit
 struct VeloqEntry: TimelineEntry {
   let date: Date
   let snapshot: WidgetSnapshot?
-  var heroKey: String = "form"
+  /// What this widget was configured with; unconfigured follows the app's summary card.
+  var placement: SummaryPlacement = .followCard
 }
 
 // Refresh is push-driven from the app (WidgetCenter.reloadAllTimelines). The long
@@ -12,6 +13,18 @@ struct VeloqEntry: TimelineEntry {
 func nextRefreshDate() -> Date {
   Calendar.current.date(byAdding: .hour, value: 4, to: Date())
     ?? Date().addingTimeInterval(14_400)
+}
+
+/// The entry now, and a second one at the moment the snapshot turns stale, so the age line
+/// changes colour then and not at the next reload.
+func summaryTimeline(_ entry: VeloqEntry) -> Timeline<VeloqEntry> {
+  let refresh = nextRefreshDate()
+  var entries = [entry]
+  if let stale = SnapshotAge.staleDate(entry.snapshot), stale > entry.date, stale < refresh {
+    entries.append(
+      VeloqEntry(date: stale, snapshot: entry.snapshot, placement: entry.placement))
+  }
+  return Timeline(entries: entries, policy: .after(refresh))
 }
 
 struct VeloqProvider: TimelineProvider {
@@ -25,7 +38,7 @@ struct VeloqProvider: TimelineProvider {
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<VeloqEntry>) -> Void) {
     let entry = VeloqEntry(date: Date(), snapshot: WidgetSnapshotStore.load())
-    completion(Timeline(entries: [entry], policy: .after(nextRefreshDate())))
+    completion(summaryTimeline(entry))
   }
 }
 
@@ -34,18 +47,21 @@ struct VeloqWidgetEntryView: View {
   @Environment(\.colorScheme) private var colorScheme
   let entry: VeloqEntry
 
+  private var size: SummarySize {
+    switch family {
+    case .systemSmall: return .small
+    case .systemLarge: return .large
+    default: return .medium
+    }
+  }
+
   var body: some View {
     let palette = WidgetPalette.resolve(entry.snapshot, colorScheme)
-    Group {
-      switch family {
-      case .systemSmall:
-        SmallWidgetView(snapshot: entry.snapshot, palette: palette, heroKey: entry.heroKey)
-      case .systemLarge:
-        LargeWidgetView(snapshot: entry.snapshot, palette: palette)
-      default:
-        MediumWidgetView(snapshot: entry.snapshot, palette: palette, heroKey: entry.heroKey)
-      }
-    }
+    SummaryWidgetView(
+      snapshot: entry.snapshot, palette: palette, size: size, placement: entry.placement
+    )
+    .environment(\.snapshotNow, entry.date)
+    .widgetURL(SummaryDeepLink.fitness)
     .widgetBackground(
       LinearGradient(
         colors: [palette.surface, palette.background],
@@ -53,9 +69,9 @@ struct VeloqWidgetEntryView: View {
   }
 }
 
-// iOS 15/16 dashboard: fixed form hero. iOS 17+ replaces this with the
-// AppIntent-configurable variant in WidgetMetricIntent.swift (same kind, so
-// placed widgets survive the upgrade).
+// iOS 15/16 Summary widget: the summary card as the app has it. iOS 17+ replaces this with the
+// AppIntent-configurable variant in WidgetMetricIntent.swift (same kind, so placed widgets
+// survive the upgrade).
 struct VeloqWidget: Widget {
   let kind = "VeloqWidget"
 
@@ -63,8 +79,8 @@ struct VeloqWidget: Widget {
     StaticConfiguration(kind: kind, provider: VeloqProvider()) { entry in
       VeloqWidgetEntryView(entry: entry)
     }
-    .configurationDisplayName("Veloq")
-    .description("Your form, fitness, and latest activity at a glance.")
+    .configurationDisplayName("Summary")
+    .description("Your summary card from the app at a glance.")
     .supportedFamilies([.systemLarge, .systemMedium, .systemSmall])
   }
 }
@@ -100,6 +116,7 @@ struct RecordProvider: TimelineProvider {
 }
 
 struct RecordWidgetView: View {
+  @Environment(\.colorScheme) private var colorScheme
   let url: URL
 
   var body: some View {
@@ -120,7 +137,9 @@ struct RecordWidgetView: View {
     .widgetURL(url)
     .widgetBackground(
       LinearGradient(
-        colors: [WidgetTheme.Record.gradientStart, WidgetTheme.Record.gradientEnd],
+        colors: colorScheme == .dark
+          ? [WidgetTheme.Record.Dark.gradientStart, WidgetTheme.Record.Dark.gradientEnd]
+          : [WidgetTheme.Record.Light.gradientStart, WidgetTheme.Record.Light.gradientEnd],
         startPoint: .top, endPoint: .bottom))
   }
 }

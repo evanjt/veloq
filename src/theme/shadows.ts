@@ -8,7 +8,7 @@ export const mapTextShadow: Pick<TextStyle, 'textShadowOffset' | 'textShadowRadi
 };
 
 /**
- * Platform-specific shadow utilities for iOS optimization.
+ * Platform-specific shadow utilities for iOS optimisation.
  *
  * iOS renders shadows differently than Android's elevation system:
  * - iOS uses Core Animation shadows (shadowColor, shadowOffset, shadowOpacity, shadowRadius)
@@ -22,7 +22,7 @@ type ShadowStyle = Pick<
 >;
 
 /**
- * Creates platform-optimized shadow styles.
+ * Creates platform-optimised shadow styles.
  * iOS shadows are boosted for better visibility on physical devices.
  */
 export function createShadow(
@@ -63,7 +63,7 @@ export function createShadow(
 
 /**
  * Pre-defined shadow presets for common UI elements.
- * Optimized for both iOS and Android visual parity.
+ * Optimised for both iOS and Android visual parity.
  */
 export const shadows = {
   /** Subtle shadow for cards and containers (elevation 2) */

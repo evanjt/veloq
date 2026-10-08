@@ -1,7 +1,8 @@
-import { Alert } from 'react-native';
+import { Alert, type AlertButton } from 'react-native';
 import { act, renderHook } from '@testing-library/react-native';
 
 import { useSectionActions } from '@/features/routes/hooks/useSectionActions';
+import * as haptics from '@/shared/ui/haptics';
 import { SectionRenameError } from '@/features/routes/lib/sectionRenameFailure';
 import type { FrequentSection } from '@/types';
 
@@ -16,9 +17,20 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
   useSectionRescan: () => ({ rescan: jest.fn(), isScanning: false }),
 }));
 
+jest.mock('@/shared/ui/haptics', () => ({
+  selection: jest.fn(),
+  light: jest.fn(),
+  medium: jest.fn(),
+  success: jest.fn(),
+}));
+
+const mockRemoveSection = jest.fn();
 const mockRenameSection = jest.fn<Promise<void>, [string, string]>();
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
-  useSectionCommands: () => ({ removeSection: jest.fn(), renameSection: mockRenameSection }),
+  useSectionCommands: () => ({
+    removeSection: mockRemoveSection,
+    renameSection: mockRenameSection,
+  }),
 }));
 
 const section: FrequentSection = {
@@ -79,5 +91,54 @@ describe('a refused section rename', () => {
     });
 
     expect(Alert.alert).toHaveBeenCalledWith('sections.renameFailedTitle', 'sections.nameTaken');
+  });
+});
+
+describe('section haptics', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  });
+
+  it.each(['', '   '])('fires nothing when the name is %j', async (name) => {
+    const hook = mount();
+    await act(async () => {
+      hook.result.current.handleSaveName(name);
+    });
+    expect(mockRenameSection).not.toHaveBeenCalled();
+    expect(haptics.success).not.toHaveBeenCalled();
+  });
+
+  it('fires one success when a name passes its checks', async () => {
+    mockRenameSection.mockResolvedValueOnce(undefined);
+    const hook = mount();
+    await act(async () => {
+      hook.result.current.handleSaveName('New climb');
+    });
+    expect(mockRenameSection).toHaveBeenCalledWith('s1', 'New climb');
+    expect(haptics.success).toHaveBeenCalledTimes(1);
+  });
+
+  function confirmButtons(): AlertButton[] {
+    const hook = mount();
+    act(() => hook.result.current.handleDeleteSection());
+    return (Alert.alert as jest.Mock).mock.calls[0][2] as AlertButton[];
+  }
+
+  it('fires nothing when the delete confirm is cancelled', () => {
+    const cancel = confirmButtons().find((b) => b.style === 'cancel');
+    cancel?.onPress?.();
+    expect(haptics.medium).not.toHaveBeenCalled();
+    expect(mockRemoveSection).not.toHaveBeenCalled();
+  });
+
+  it('fires one medium impact when the delete is accepted', async () => {
+    mockRemoveSection.mockResolvedValueOnce(undefined);
+    const destructive = confirmButtons().find((b) => b.style === 'destructive');
+    await act(async () => {
+      await destructive?.onPress?.();
+    });
+    expect(haptics.medium).toHaveBeenCalledTimes(1);
+    expect(mockRemoveSection).toHaveBeenCalledWith('s1');
   });
 });

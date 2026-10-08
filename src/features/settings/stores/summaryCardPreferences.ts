@@ -69,7 +69,7 @@ const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
 
 interface DashboardPreferencesState {
   summaryCard: SummaryCardPreferences;
-  isInitialized: boolean;
+  isInitialised: boolean;
 
   // Actions
   setSummaryCardPreferences: (prefs: Partial<SummaryCardPreferences>) => void;
@@ -77,7 +77,7 @@ interface DashboardPreferencesState {
 
 export const useDashboardPreferences = create<DashboardPreferencesState>((set) => ({
   summaryCard: DEFAULT_SUMMARY_CARD,
-  isInitialized: false,
+  isInitialised: false,
 
   setSummaryCardPreferences: (prefs) => {
     set((state) => {
@@ -135,7 +135,7 @@ async function persistSummaryCard(summaryCard: SummaryCardPreferences): Promise<
   }
 }
 
-export async function initializeDashboardPreferences(): Promise<void> {
+export async function initialiseDashboardPreferences(): Promise<void> {
   try {
     const storedSummaryCard = await getSetting(SUMMARY_CARD_STORAGE_KEY);
 
@@ -156,15 +156,15 @@ export async function initializeDashboardPreferences(): Promise<void> {
 
     useDashboardPreferences.setState({
       summaryCard,
-      isInitialized: true,
+      isInitialised: true,
     });
   } catch (error) {
     if (__DEV__) {
-      console.warn('[DashboardPreferences] Failed to initialize:', error);
+      console.warn('[DashboardPreferences] Failed to initialise:', error);
     }
     useDashboardPreferences.setState({
       summaryCard: DEFAULT_SUMMARY_CARD,
-      isInitialized: true,
+      isInitialised: true,
     });
   }
 }

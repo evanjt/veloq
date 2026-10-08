@@ -54,7 +54,7 @@ struct VeloqRecordingLiveActivity: Widget {
         RecordingGlyph(isPaused: context.state.isPaused)
       }
       .widgetURL(URL(string: "veloq://record"))
-      .keylineTint(WidgetTheme.Record.gradientStart)
+      .keylineTint(WidgetTheme.Record.Light.gradientStart)
     }
   }
 }
@@ -131,7 +131,7 @@ private struct RecordingTrace: View {
     if trace.points.count >= 2 {
       RoutePreviewShape(points: trace.points, aspect: trace.aspect)
         .stroke(
-          WidgetTheme.Record.gradientStart,
+          WidgetTheme.Record.Light.gradientStart,
           style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
         )
     }
@@ -144,7 +144,7 @@ private struct RecordingGlyph: View {
 
   var body: some View {
     Image(systemName: isPaused ? "pause.circle.fill" : "record.circle.fill")
-      .foregroundStyle(isPaused ? WidgetTheme.Light.gold : WidgetTheme.Record.gradientStart)
+      .foregroundStyle(isPaused ? WidgetTheme.Light.gold : WidgetTheme.Record.Light.gradientStart)
   }
 }
 
@@ -162,7 +162,7 @@ private struct RecordingControl: View {
           .frame(width: 44, height: 44)
       }
       .buttonStyle(.plain)
-      .tint(WidgetTheme.Record.gradientStart)
+      .tint(WidgetTheme.Record.Light.gradientStart)
     } else {
       Link(destination: URL(string: "veloq://record")!) {
         Image(systemName: state.isPaused ? "play.fill" : "pause.fill")

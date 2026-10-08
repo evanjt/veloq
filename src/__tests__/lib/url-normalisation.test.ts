@@ -1,7 +1,7 @@
-import { normalizeWebdavUrl } from '@/features/settings/lib/autobackup/backends/webdavBackend';
+import { normaliseWebdavUrl } from '@/features/settings/lib/autobackup/backends/webdavBackend';
 
-describe('normalizeWebdavUrl', () => {
-  it('normalizes trailing slashes, whitespace, and bare/root URLs', () => {
+describe('normaliseWebdavUrl', () => {
+  it('normalises trailing slashes, whitespace, and bare/root URLs', () => {
     const cases: [string, string][] = [
       [
         'https://cloud.example.com/remote.php/dav/files/user',
@@ -21,7 +21,7 @@ describe('normalizeWebdavUrl', () => {
     ];
 
     for (const [input, expected] of cases) {
-      expect(normalizeWebdavUrl(input)).toBe(expected);
+      expect(normaliseWebdavUrl(input)).toBe(expected);
     }
   });
 });

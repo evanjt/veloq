@@ -114,7 +114,7 @@ jest.mock('@/features/maps', () => ({
   deleteCameraOverride: jest.fn(),
   getCameraOverride: () => null,
   setCameraOverride: jest.fn(),
-  sectionCreationMessageKey: jest.fn(),
+  submitSectionCreation: jest.fn(),
   hasTerrainPreview: (id: string, style: string, is3D: boolean) =>
     mockCached.has(`${id}-${style}-${is3D}`),
   getTerrainPreviewUri: (id: string, style: string, is3D: boolean) =>

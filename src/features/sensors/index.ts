@@ -1,6 +1,6 @@
 export { useSensorSession } from './hooks/useSensorSession';
 export { useSensorIssue } from './hooks/useSensorIssue';
-export { useSensorStore, initializeKnownSensors } from './store';
+export { useSensorStore, initialiseKnownSensors } from './store';
 export {
   startScan,
   stopScan,

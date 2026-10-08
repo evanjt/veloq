@@ -1,17 +1,16 @@
 import React, { useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Switch } from 'react-native';
+import { View, StyleSheet, Pressable, Switch } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { ToggleButton } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { MPS_TO_KPH, formatElevation, formatSpeed } from '@/shared/format/format';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { useRecordingPreferences, type GpsAccuracyMode } from '@/features/recording';
 import { DEFAULT_AUTO_PAUSE_KMH, type SportCategory } from '@/shared/recording';
 import type { DataFieldType } from '@/types';
@@ -70,7 +69,6 @@ function RecordingSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const insets = useSafeAreaInsets();
 
   const autoPauseEnabled = useRecordingPreferences((s) => s.autoPauseEnabled);
   const autoPauseThresholds = useRecordingPreferences((s) => s.autoPauseThresholds);
@@ -145,11 +143,8 @@ function RecordingSettingsScreenContent() {
       testID="recording-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
-        ]}
+      <ScreenScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
       >
         {/* Upload Section */}
         <View style={styles.section}>
@@ -194,7 +189,7 @@ function RecordingSettingsScreenContent() {
               },
             ])}
             android_ripple={pressRipple}
-            onPress={() => navigateTo('/recordings')}
+            onPress={() => tapTo('/recordings')}
           >
             <MaterialCommunityIcons name="folder-play-outline" size={20} color={textSecondary} />
             <Text style={[styles.linkText, { color: textPrimary }]}>
@@ -447,7 +442,7 @@ function RecordingSettingsScreenContent() {
             testID="settings-sensors-link"
             style={pressable([styles.linkCard, { backgroundColor: surface, borderColor: border }])}
             android_ripple={pressRipple}
-            onPress={() => navigateTo('/sensor-settings')}
+            onPress={() => tapTo('/sensor-settings')}
           >
             <MaterialCommunityIcons name="bluetooth" size={20} color={textSecondary} />
             <Text style={[styles.linkText, { color: textPrimary }]}>
@@ -467,14 +462,14 @@ function RecordingSettingsScreenContent() {
             accessibilityLabel={t('settings.units')}
             style={pressable([styles.linkCard, { backgroundColor: surface, borderColor: border }])}
             android_ripple={pressRipple}
-            onPress={() => navigateTo('/display-settings')}
+            onPress={() => tapTo('/display-settings')}
           >
             <MaterialCommunityIcons name="ruler" size={20} color={textSecondary} />
             <Text style={[styles.linkText, { color: textPrimary }]}>{t('settings.units')}</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
           </Pressable>
         </View>
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

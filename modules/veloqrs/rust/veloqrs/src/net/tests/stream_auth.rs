@@ -8,7 +8,7 @@ fn test_stream_walk_sign_out_stops_before_next_batch() {
     let queue: Vec<_> = (0..2 * BATCH)
         .map(|id| StreamGap {
             activity_id: format!("a{id}"),
-            point_count: 3,
+            point_count: Some(3),
         })
         .collect();
 

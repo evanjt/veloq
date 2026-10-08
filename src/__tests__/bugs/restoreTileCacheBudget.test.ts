@@ -11,7 +11,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { reinitializeAllStores } from '@/features/settings/lib/backup';
+import { reinitialiseAllStores } from '@/features/settings/lib/backup';
 import {
   getTileCacheBudgetMb,
   useTileCacheSettings,
@@ -40,44 +40,44 @@ jest.mock('@/shared/storage', () => ({
 }));
 
 jest.mock('@/shared/app/ThemeProvider', () => ({
-  initializeTheme: jest.fn().mockResolvedValue(undefined),
+  initialiseTheme: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/shared/app/LanguageStore', () => ({
-  initializeLanguage: jest.fn().mockResolvedValue(undefined),
+  initialiseLanguage: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/shared/app/UnitPreferenceStore', () => ({
-  initializeUnitPreference: jest.fn().mockResolvedValue(undefined),
+  initialiseUnitPreference: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/fitness/stores', () => ({
-  initializeSportPreference: jest.fn().mockResolvedValue(undefined),
+  initialiseSportPreference: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/summaryCardPreferences', () => ({
-  initializeDashboardPreferences: jest.fn().mockResolvedValue(undefined),
+  initialiseDashboardPreferences: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/insights/store', () => ({
-  initializeInsightsStore: jest.fn().mockResolvedValue(undefined),
+  initialiseInsightsStore: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/recording/stores/RecordingPreferencesStore', () => ({
-  initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),
+  initialiseRecordingPreferences: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
-  initializeRouteSettings: jest.fn().mockResolvedValue(undefined),
+  initialiseRouteSettings: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/DebugStore', () => ({
-  initializeDebugStore: jest.fn().mockResolvedValue(undefined),
+  initialiseDebugStore: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/NotificationPreferencesStore', () => ({
-  initializeNotificationPreferences: jest.fn().mockResolvedValue(undefined),
+  initialiseNotificationPreferences: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/NotificationPromptStore', () => ({
-  initializeNotificationPrompt: jest.fn().mockResolvedValue(undefined),
+  initialiseNotificationPrompt: jest.fn().mockResolvedValue(undefined),
   useNotificationPrompt: { getState: () => ({ reset: jest.fn() }) },
 }));
 jest.mock('@/shared/app/SupportStore', () => ({
-  initializeSupportStore: jest.fn().mockResolvedValue(undefined),
+  initialiseSupportStore: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/WhatsNewStore', () => ({
-  initializeWhatsNewStore: jest.fn().mockResolvedValue(undefined),
+  initialiseWhatsNewStore: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/maps/lib/storage/mapCameraState', () => ({
   reloadMapCameraState: jest.fn().mockResolvedValue(undefined),
@@ -106,7 +106,7 @@ describe('a restore reloads the tile cache budget', () => {
     basemap().setBudget.mockClear();
 
     await AsyncStorage.setItem(TILE_CACHE_KEY, JSON.stringify({ budgetMb: 100 }));
-    await reinitializeAllStores();
+    await reinitialiseAllStores();
 
     expect(getTileCacheBudgetMb()).toBe(100);
     expect(basemap().setBudget).toHaveBeenCalledWith(100 * MB);

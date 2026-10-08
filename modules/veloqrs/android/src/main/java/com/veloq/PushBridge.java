@@ -72,6 +72,18 @@ public final class PushBridge {
     return nativeWidgetSnapshot();
   }
 
+  /**
+   * Opens the engine, pulls the last fortnight of wellness and composes the
+   * widget snapshot, as one object holding the pull's status and the
+   * snapshot. Null when the engine will not open or no context is stored,
+   * and the widgets keep the file they have.
+   */
+  public static String widgetRefresh(
+      String dbPath, String authMethod, String secret, String athleteId) {
+    load();
+    return nativeWidgetRefresh(dbPath, authMethod, secret, athleteId);
+  }
+
   private static void load() {
     if (!loaded) {
       synchronized (PushBridge.class) {
@@ -98,4 +110,7 @@ public final class PushBridge {
   private static native void nativeRecordFailure(String activityId, String reason);
 
   private static native String nativeWidgetSnapshot();
+
+  private static native String nativeWidgetRefresh(
+      String dbPath, String authMethod, String secret, String athleteId);
 }

@@ -5,17 +5,17 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ScreenSafeAreaView, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { getAllSectionDisplayNames, ledgerDate } from '@/features/routes';
 import { getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { tapTo } from '@/shared/app/navigation';
 
 function SectionRetiredScreenContent() {
   const { t } = useTranslation();
@@ -35,7 +35,7 @@ function SectionRetiredScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
-      <ScrollView contentContainerStyle={styles.content} testID="section-retired-list">
+      <ScreenScrollView contentContainerStyle={styles.content} testID="section-retired-list">
         {retired.length === 0 ? (
           <Text style={[styles.empty, isDark && styles.textSecondaryDark]}>
             {t('sectionHistory.retiredEmpty')}
@@ -61,7 +61,7 @@ function SectionRetiredScreenContent() {
               {r.into && (
                 <TouchableOpacity
                   testID={`section-retired-${r.sectionId}-into`}
-                  onPress={() => router.push(`/section/${r.into}`)}
+                  onPress={() => tapTo(`/section/${r.into}`)}
                   accessibilityRole="button"
                   accessibilityLabel={t('sectionHistory.retiredInto', {
                     name: names[r.into] ?? r.into,
@@ -76,7 +76,7 @@ function SectionRetiredScreenContent() {
             </View>
           ))
         )}
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

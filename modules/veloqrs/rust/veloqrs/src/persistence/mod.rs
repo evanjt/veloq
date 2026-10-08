@@ -89,6 +89,8 @@ pub(crate) mod record_restore;
 pub mod recordings;
 pub(crate) mod records;
 pub use recordings::{FfiRecordingEntry, MAX_AUTO_RETRIES};
+#[doc(hidden)]
+pub mod regroup;
 pub mod route_grouping_preview;
 mod route_identity;
 pub(crate) mod route_lines;

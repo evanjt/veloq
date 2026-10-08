@@ -7,7 +7,7 @@
  * loaded yet is never the thing that gets stored.
  */
 
-import { initializeI18n, changeLanguage, i18n } from '@/i18n';
+import { initialiseI18n, changeLanguage, i18n } from '@/i18n';
 import {
   NOTIFICATION_TEMPLATE_KEYS,
   pushNotificationTemplates,
@@ -22,7 +22,7 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 beforeAll(async () => {
-  await initializeI18n('en-AU');
+  await initialiseI18n('en-AU');
 });
 
 beforeEach(async () => {

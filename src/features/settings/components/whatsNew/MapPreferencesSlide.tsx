@@ -14,10 +14,10 @@ export function MapPreferencesSlide() {
   const { preferences, setDefaultStyle, setTerrain3DMode } = useMapPreferences();
 
   // Default to satellite + smart when the slide first appears in What's New
-  const hasInitialized = useRef(false);
+  const hasInitialised = useRef(false);
   useEffect(() => {
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
+    if (!hasInitialised.current) {
+      hasInitialised.current = true;
       setDefaultStyle('satellite');
       setTerrain3DMode(null, 'smart');
     }

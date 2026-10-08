@@ -25,7 +25,7 @@ import { i18n } from '@/i18n';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getSetting, setSetting, removeSetting } from '@/shared/storage';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
-import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
+import { initialiseUnitPreference } from '@/shared/app/UnitPreferenceStore';
 
 // The maps barrel reaches the engine binding, which registers a TurboModule at
 // import time, so the graph this renders cannot load without the stub.
@@ -109,44 +109,44 @@ jest.mock('@/shared/storage/databaseStamps', () => ({
 }));
 
 jest.mock('@/shared/app/ThemeProvider', () => ({
-  initializeTheme: jest.fn().mockResolvedValue(undefined),
+  initialiseTheme: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/shared/app/LanguageStore', () => ({
-  initializeLanguage: jest.fn().mockResolvedValue(undefined),
+  initialiseLanguage: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/shared/app/UnitPreferenceStore', () => ({
-  initializeUnitPreference: jest.fn().mockResolvedValue(undefined),
+  initialiseUnitPreference: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/fitness/stores', () => ({
-  initializeSportPreference: jest.fn().mockResolvedValue(undefined),
+  initialiseSportPreference: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/summaryCardPreferences', () => ({
-  initializeDashboardPreferences: jest.fn().mockResolvedValue(undefined),
+  initialiseDashboardPreferences: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/insights/store', () => ({
-  initializeInsightsStore: jest.fn().mockResolvedValue(undefined),
+  initialiseInsightsStore: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/maps/lib/storage/tileCacheSettings', () => ({
-  initializeTileCacheSettings: jest.fn().mockResolvedValue(undefined),
+  initialiseTileCacheSettings: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/recording/stores/RecordingPreferencesStore', () => ({
-  initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),
+  initialiseRecordingPreferences: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/DebugStore', () => ({
-  initializeDebugStore: jest.fn().mockResolvedValue(undefined),
+  initialiseDebugStore: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/NotificationPreferencesStore', () => ({
-  initializeNotificationPreferences: jest.fn().mockResolvedValue(undefined),
+  initialiseNotificationPreferences: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/NotificationPromptStore', () => ({
-  initializeNotificationPrompt: jest.fn().mockResolvedValue(undefined),
+  initialiseNotificationPrompt: jest.fn().mockResolvedValue(undefined),
   useNotificationPrompt: { getState: () => ({ reset: jest.fn() }) },
 }));
 jest.mock('@/shared/app/SupportStore', () => ({
-  initializeSupportStore: jest.fn().mockResolvedValue(undefined),
+  initialiseSupportStore: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/WhatsNewStore', () => ({
-  initializeWhatsNewStore: jest.fn().mockResolvedValue(undefined),
+  initialiseWhatsNewStore: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/maps/lib/storage/mapCameraState', () => ({
   reloadMapCameraState: jest.fn().mockResolvedValue(undefined),
@@ -512,11 +512,11 @@ describe('paused record import', () => {
 
   it('reloads the in-memory settings once the import is placed, and only then', async () => {
     await resumeRecordImport();
-    expect(initializeUnitPreference).not.toHaveBeenCalled();
+    expect(initialiseUnitPreference).not.toHaveBeenCalled();
 
     mockEngine.getUnplacedBackupRecords.mockResolvedValueOnce(PAUSED);
     await resumeRecordImport();
-    expect(initializeUnitPreference).toHaveBeenCalledTimes(1);
+    expect(initialiseUnitPreference).toHaveBeenCalledTimes(1);
   });
 
   it('leaves a closed engine alone', async () => {
@@ -530,12 +530,12 @@ describe('paused record import', () => {
     await discardRecordImport();
     expect(mockEngine.discardRecordImport).toHaveBeenCalledTimes(1);
     expect(mockEngine.restoreRecordJson).not.toHaveBeenCalled();
-    expect(initializeUnitPreference).not.toHaveBeenCalled();
+    expect(initialiseUnitPreference).not.toHaveBeenCalled();
   });
 
   it('rejects a discard on a closed engine rather than reporting it done', async () => {
     mockEngineState.ready = false;
-    await expect(discardRecordImport()).rejects.toThrow('Engine not initialized');
+    await expect(discardRecordImport()).rejects.toThrow('Engine not initialised');
     expect(mockEngine.discardRecordImport).not.toHaveBeenCalled();
   });
 
@@ -544,7 +544,7 @@ describe('paused record import', () => {
     mockEngine.restoreRecordJson.mockRejectedValueOnce(new Error('database or disk is full'));
     await expect(resumeRecordImport()).rejects.toThrow('disk is full');
     expect(mockEngine.syncNow).not.toHaveBeenCalled();
-    expect(initializeUnitPreference).not.toHaveBeenCalled();
+    expect(initialiseUnitPreference).not.toHaveBeenCalled();
   });
 });
 

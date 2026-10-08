@@ -10,7 +10,7 @@ interface DebugState {
   enabled: boolean;
   isLoaded: boolean;
 
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   unlock: () => Promise<void>;
   setEnabled: (enabled: boolean) => Promise<void>;
 }
@@ -20,7 +20,7 @@ export const useDebugStore = create<DebugState>((set) => ({
   enabled: false,
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(DEBUG_MODE_KEY);
       if (stored) {
@@ -49,9 +49,9 @@ export const useDebugStore = create<DebugState>((set) => ({
   },
 }));
 
-/** Initialize debug store and wire up FFI metric recording */
-export async function initializeDebugStore(): Promise<void> {
-  await useDebugStore.getState().initialize();
+/** Initialise debug store and wire up FFI metric recording */
+export async function initialiseDebugStore(): Promise<void> {
+  await useDebugStore.getState().initialise();
   syncDebugToFFI();
 }
 

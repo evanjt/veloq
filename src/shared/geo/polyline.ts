@@ -162,7 +162,7 @@ export function convertLatLngTuples(tuples: [number, number][]): LatLng[] {
  * Convert bounds from API format to consistent { minLat, maxLat, minLng, maxLng }.
  * Auto-detects if bounds are in [[lat, lng], [lat, lng]] or [[lng, lat], [lng, lat]] format.
  */
-export function normalizeBounds(bounds: [[number, number], [number, number]]): {
+export function normaliseBounds(bounds: [[number, number], [number, number]]): {
   minLat: number;
   maxLat: number;
   minLng: number;
@@ -218,7 +218,7 @@ export function normalizeBounds(bounds: [[number, number], [number, number]]): {
  * Get center point from bounds as [longitude, latitude] for MapLibre.
  */
 export function getBoundsCenter(bounds: [[number, number], [number, number]]): [number, number] {
-  const { minLat, maxLat, minLng, maxLng } = normalizeBounds(bounds);
+  const { minLat, maxLat, minLng, maxLng } = normaliseBounds(bounds);
   return [
     (minLng + maxLng) / 2, // longitude
     (minLat + maxLat) / 2, // latitude

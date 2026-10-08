@@ -13,11 +13,19 @@ import { Alert, type AlertButton } from 'react-native';
 import { render, waitFor } from '@testing-library/react-native';
 
 import { DataCacheSection } from '@/features/settings/components/DataCacheSection';
+import * as haptics from '@/shared/ui/haptics';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+
+jest.mock('@/shared/ui/haptics', () => ({
+  selection: jest.fn(),
+  light: jest.fn(),
+  medium: jest.fn(),
+  success: jest.fn(),
+}));
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -213,6 +221,24 @@ describe('clearing the cache with the heatmap tiles', () => {
     await mockPanels.onClearMapCache?.();
 
     expect(alert).not.toHaveBeenCalled();
+  });
+});
+
+describe('clear cache haptic', () => {
+  it('fires one medium impact when the confirm is accepted and none when it is cancelled', async () => {
+    jest.clearAllMocks();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
+    render(<DataCacheSection />);
+
+    mockPanels.onClearCache?.();
+    const buttons = alert.mock.calls[0][2] as AlertButton[];
+    buttons.find((button) => button.style === 'cancel')?.onPress?.();
+    expect(haptics.medium).not.toHaveBeenCalled();
+
+    await buttons.find((button) => button.style === 'destructive')?.onPress?.();
+    expect(haptics.medium).toHaveBeenCalledTimes(1);
+    alert.mockRestore();
   });
 });
 

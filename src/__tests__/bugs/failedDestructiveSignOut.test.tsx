@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { ProfileAccountSection } from '@/features/settings/components/ProfileAccountSection';
+import * as haptics from '@/shared/ui/haptics';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
@@ -15,6 +16,12 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({ cancelQueries: jest.fn(async () => {}), clear: jest.fn() }),
+}));
+jest.mock('@/shared/ui/haptics', () => ({
+  selection: jest.fn(),
+  light: jest.fn(),
+  medium: jest.fn(),
+  success: jest.fn(),
 }));
 jest.mock('@/shared/storage', () => ({
   ...jest.requireActual('@/shared/storage'),
@@ -40,6 +47,7 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 beforeEach(() => {
+  jest.mocked(haptics.medium).mockClear();
   jest.mocked(clearAccountData).mockReset();
   jest.mocked(clearAuthOnly).mockReset();
   mockRecordings.clear();
@@ -94,4 +102,49 @@ it('reports a failed destructive wipe without signing out', async () => {
   } finally {
     alert.mockRestore();
   }
+});
+
+/**
+ * Scenario: both sign-outs confirm through an alert.
+ * Expected behaviour: accepting fires one medium impact; cancelling fires none.
+ */
+describe.each([
+  ['settings-logout-button', 'a plain sign-out'],
+  ['settings-logout-clear-button', 'a sign-out that clears the data'],
+])('%s haptic (%s)', (button) => {
+  async function openConfirm() {
+    useAuthStore.setState({
+      authMethod: 'oauth',
+      clearCredentials: jest.fn(async () => {}),
+    });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    render(<ProfileAccountSection />);
+    fireEvent.press(screen.getByTestId(button));
+    return { alert, buttons: alert.mock.calls[0][2] };
+  }
+
+  it('fires one medium impact when accepted', async () => {
+    const { alert, buttons } = await openConfirm();
+    try {
+      expect(haptics.medium).not.toHaveBeenCalled();
+      await act(async () => {
+        buttons?.find((b) => b.style === 'destructive')?.onPress?.();
+      });
+      expect(haptics.medium).toHaveBeenCalledTimes(1);
+    } finally {
+      alert.mockRestore();
+    }
+  });
+
+  it('fires nothing when cancelled', async () => {
+    const { alert, buttons } = await openConfirm();
+    try {
+      await act(async () => {
+        buttons?.find((b) => b.style === 'cancel')?.onPress?.();
+      });
+      expect(haptics.medium).not.toHaveBeenCalled();
+    } finally {
+      alert.mockRestore();
+    }
+  });
 });

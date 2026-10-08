@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, ScrollView } from 'react-native';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { StyleSheet } from 'react-native';
+import { ScreenSafeAreaView, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
 import { BackupSection } from '@/features/settings';
@@ -11,9 +11,9 @@ function BackupSettingsScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScrollView contentContainerStyle={styles.content}>
         <BackupSection />
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

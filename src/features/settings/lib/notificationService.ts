@@ -24,7 +24,7 @@ const CHANNEL_ID = 'veloq-insights';
 const immediatelyOn = (channelId: string) => (Platform.OS === 'android' ? { channelId } : null);
 
 /** Set up notification handlers and channels. Call once at app startup. */
-export function initializeNotifications(): void {
+export function initialiseNotifications(): void {
   // Configure how notifications appear when app is in foreground
   Notifications.setNotificationHandler({
     handleNotification: async () => {

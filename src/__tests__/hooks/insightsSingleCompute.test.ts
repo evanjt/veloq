@@ -64,7 +64,6 @@ describe('the insights read on a tab visit', () => {
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
     mockFetch.mockReturnValue({
       insightsData: { sportTypes: [] },
-      summaryCardData: null,
     } as unknown as ReturnType<typeof fetchInsightsDataFromEngine>);
     idle = stubIdleScheduler('queued');
   });

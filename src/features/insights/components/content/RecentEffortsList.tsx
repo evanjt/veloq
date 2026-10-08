@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
 import { colors, darkColors, spacing, opacity, brand, ink, layout, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes';
@@ -37,7 +37,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
   }, [records, bests]);
 
   const handlePress = useCallback((activityId: string) => {
-    navigateTo(`/activity/${activityId}`);
+    tapTo(`/activity/${activityId}`);
   }, []);
 
   if (recentEfforts.length === 0) return null;

@@ -5,9 +5,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useLocateUser } from '@/features/maps/hooks/useLocateUser';
-import { normalizeBounds } from '@/shared/geo/polyline';
+import { normaliseBounds } from '@/shared/geo/polyline';
 import { planClusterZoom, stackedOn } from '@/features/maps/lib/clusterZoom';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import { sectionIdsAtTap } from '@/features/maps/lib/sectionIdsAtTap';
@@ -30,6 +29,7 @@ import {
 } from './regionalMapLayerSpecs';
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
 import { REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
+import { tapTo } from '@/shared/app/navigation';
 
 /** The ease onto a cluster whose leaves never arrived. */
 const CLUSTER_EXPAND_DURATION_MS = 400;
@@ -117,8 +117,6 @@ export function useMapHandlers({
   markUserInteracted,
   setSpider,
 }: UseMapHandlersOptions): UseMapHandlersResult {
-  const router = useRouter();
-
   // The 2D surface is unmounted while 3D shows, so a camera move has to go to
   // whichever of the two is on screen.
   const cameraTarget = useCallback(
@@ -127,7 +125,7 @@ export function useMapHandlers({
   );
 
   // Ref to access current selected without adding it as callback dependency
-  // This keeps callbacks stable for React.memo optimization
+  // This keeps callbacks stable for React.memo optimisation
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
 
@@ -244,18 +242,18 @@ export function useMapHandlers({
   const handleViewDetails = useCallback(() => {
     const current = selectedRef.current;
     if (current) {
-      router.push(`/activity/${current.activity.id}`);
+      tapTo(`/activity/${current.activity.id}`);
       setSelected(null);
     }
-  }, [router, setSelected]);
+  }, [setSelected]);
 
   const fitToActivity = useCallback(
     (activity: ActivityBoundsItem) => {
-      const normalized = normalizeBounds(activity.bounds);
+      const normalised = normaliseBounds(activity.bounds);
       cameraTarget()?.fitBounds(
         {
-          sw: [normalized.minLng, normalized.minLat],
-          ne: [normalized.maxLng, normalized.maxLat],
+          sw: [normalised.minLng, normalised.minLat],
+          ne: [normalised.maxLng, normalised.maxLat],
         },
         REGIONAL_FIT_PADDING,
         500

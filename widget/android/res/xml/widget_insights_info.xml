@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+  android:minWidth="110dp"
+  android:minHeight="110dp"
+  android:minResizeWidth="110dp"
+  android:minResizeHeight="40dp"
+  android:targetCellWidth="4"
+  android:targetCellHeight="2"
+  android:maxResizeWidth="500dp"
+  android:maxResizeHeight="500dp"
+  android:resizeMode="horizontal|vertical"
+  android:widgetCategory="home_screen"
+  android:description="@string/widget_insights_description"
+  android:configure="__PKG__.widget.InsightsWidgetConfigureActivity"
+  android:widgetFeatures="reconfigurable|configuration_optional"
+  android:initialLayout="@layout/widget_insights"
+  android:previewLayout="@layout/widget_insights" />

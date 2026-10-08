@@ -15,7 +15,7 @@ import { RangeCoverage, type TrainingScreenWindows } from 'veloqrs';
 
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
@@ -70,7 +70,7 @@ function renderCards() {
 }
 
 beforeAll(async () => {
-  await initializeI18n();
+  await initialiseI18n();
 });
 
 beforeEach(() => {

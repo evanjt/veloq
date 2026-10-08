@@ -11,7 +11,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { StyleSheet, type StyleProp, type TextStyle } from 'react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { verdictColor } from '@/theme/colors';
 import { FTPTrendChart } from '@/features/stats/components/FTPTrendChart';
 
@@ -39,7 +39,7 @@ function badgeColor(node: { props: { style?: unknown } }) {
 
 describe('the eFTP change badge', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('colours a fall as negative', () => {

@@ -5,11 +5,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type InitFn = () => Promise<void>;
 
-// Writes each corrupt payload, runs initialize, and runs the caller's assertion.
+// Writes each corrupt payload, runs initialise, and runs the caller's assertion.
 // `expect` is passed in so this file holds no test framework state.
 export async function eachCorruptPayloadRecovers(
   storageKey: string,
-  initialize: InitFn,
+  initialise: InitFn,
   payloads: string[],
   assertRecovered: () => void,
   beforeEachPayload?: () => void
@@ -18,7 +18,7 @@ export async function eachCorruptPayloadRecovers(
     await AsyncStorage.clear();
     await AsyncStorage.setItem(storageKey, payload);
     beforeEachPayload?.();
-    await initialize();
+    await initialise();
     assertRecovered();
   }
 }

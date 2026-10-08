@@ -85,7 +85,7 @@ export const SectionRow = memo(function SectionRow({
     const [minLng, minLat] = mapBounds.sw;
     const [maxLng, maxLat] = mapBounds.ne;
 
-    // Calculate range for SVG normalization
+    // Calculate range for SVG normalisation
     const latRange = maxLat - minLat || 0.001;
     const lngRange = maxLng - minLng || 0.001;
     const range = Math.max(latRange, lngRange);
@@ -93,8 +93,8 @@ export const SectionRow = memo(function SectionRow({
     return { minLat, maxLat, minLng, maxLng, range };
   }, [polyline]);
 
-  // Normalize point to SVG coordinates
-  const normalizePoint = useCallback(
+  // Normalise point to SVG coordinates
+  const normalisePoint = useCallback(
     (lat: number, lng: number): { x: number; y: number } => {
       if (!bounds) return { x: 0, y: 0 };
       return {
@@ -109,16 +109,16 @@ export const SectionRow = memo(function SectionRow({
     [bounds]
   );
 
-  // Normalize section polyline
+  // Normalise section polyline
   const sectionPolylineString = useMemo(() => {
     if (!polyline?.length || !bounds) return '';
     return polyline
       .map((p) => {
-        const { x, y } = normalizePoint(p.lat, p.lng);
+        const { x, y } = normalisePoint(p.lat, p.lng);
         return `${x},${y}`;
       })
       .join(' ');
-  }, [polyline, bounds, normalizePoint]);
+  }, [polyline, bounds, normalisePoint]);
 
   const hasSectionPolyline = sectionPolylineString.length > 0;
 
@@ -133,12 +133,12 @@ export const SectionRow = memo(function SectionRow({
   // Get start/end points for markers
   const polylinePoints = useMemo(() => {
     if (!polyline?.length || !bounds) return null;
-    const normalized = polyline.map((p) => normalizePoint(p.lat, p.lng));
+    const normalised = polyline.map((p) => normalisePoint(p.lat, p.lng));
     return {
-      start: normalized[0],
-      end: normalized[normalized.length - 1],
+      start: normalised[0],
+      end: normalised[normalised.length - 1],
     };
-  }, [polyline, bounds, normalizePoint]);
+  }, [polyline, bounds, normalisePoint]);
 
   return (
     <View style={styles.wrapper}>

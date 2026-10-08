@@ -45,7 +45,7 @@ interface RecordingPreferencesState {
   batteryOptDismissed: boolean;
   isLoaded: boolean;
   // Actions
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   addRecentType: (type: ActivityType) => void;
   setAutoPause: (enabled: boolean) => void;
   setAutoPauseThreshold: (sport: string, kmh: number) => void;
@@ -74,7 +74,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
   batteryOptDismissed: false,
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
@@ -137,7 +137,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
       }
     } catch {
       if (__DEV__) {
-        console.warn('[RecordingPreferences] Failed to initialize');
+        console.warn('[RecordingPreferences] Failed to initialise');
       }
       set({ isLoaded: true });
     }
@@ -260,6 +260,6 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
   }
 }
 
-export async function initializeRecordingPreferences(): Promise<void> {
-  await useRecordingPreferences.getState().initialize();
+export async function initialiseRecordingPreferences(): Promise<void> {
+  await useRecordingPreferences.getState().initialise();
 }

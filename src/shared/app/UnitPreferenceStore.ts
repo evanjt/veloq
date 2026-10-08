@@ -24,7 +24,7 @@ interface UnitPreferenceState {
   isLoaded: boolean;
 
   // Actions
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   setUnitPreference: (pref: UnitPreference) => Promise<void>;
   setIntervalsPreferences: (prefs: IntervalsUnitPreferences) => void;
 }
@@ -50,7 +50,7 @@ export const useUnitPreference = create<UnitPreferenceState>((set) => ({
   intervalsPreferences: null,
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(UNIT_PREFERENCE_KEY);
       if (stored && ['auto', 'metric', 'imperial'].includes(stored)) {
@@ -118,8 +118,8 @@ export function getIntervalsUnitSystem(
 }
 
 /**
- * Initialize unit preference (call during app startup).
+ * Initialise unit preference (call during app startup).
  */
-export async function initializeUnitPreference(): Promise<void> {
-  await useUnitPreference.getState().initialize();
+export async function initialiseUnitPreference(): Promise<void> {
+  await useUnitPreference.getState().initialise();
 }

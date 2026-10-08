@@ -61,6 +61,7 @@ jest.mock('@/features/settings/components', () => ({
   BackgroundJobsActivityBar: () => null,
   ElevationBackfillStatus: () => null,
   CutoverStatus: () => null,
+  PlaceNamesSwitch: () => null,
 }));
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({

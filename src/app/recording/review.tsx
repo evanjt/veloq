@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
-  ScrollView,
   StyleSheet,
   TextInput,
   Pressable,
@@ -10,13 +9,13 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { replaceTo } from '@/shared/app/navigation';
+import { replaceTo, tapBack } from '@/shared/app/navigation';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
-import { Button, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { Button, ScreenScrollView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
@@ -178,7 +177,7 @@ function ReviewScreenContent() {
   }, []);
 
   const handleBack = useCallback(() => {
-    router.back();
+    tapBack();
   }, []);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -227,11 +226,8 @@ function ReviewScreenContent() {
       )}
 
       {/* Bottom sheet content */}
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
-        ]}
+      <ScreenScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Activity Name */}
@@ -399,7 +395,7 @@ function ReviewScreenContent() {
             </Text>
           </Animated.View>
         </View>
-      </ScrollView>
+      </ScreenScrollView>
     </View>
   );
 }

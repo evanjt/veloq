@@ -45,6 +45,7 @@ import {
   type FfiTrainingScreenWindows,
   type FfiFitnessScreenData,
   type FfiPreviewTrack,
+  type FfiActivityStreams,
   type FfiActivityDetailData,
   type FfiActivityFitnessImpact,
   type FfiActivityLedgerChange,
@@ -206,6 +207,8 @@ export type TrainingScreenWindows = FfiTrainingScreenWindows;
 // Fitness screen types
 export type FitnessScreenData = FfiFitnessScreenData;
 export type PreviewTrack = FfiPreviewTrack;
+/** An activity's chart series as float buffers, `latlng` in the track encoding. */
+export type ActivityStreamBuffers = FfiActivityStreams;
 // Activity detail batch types
 export type ActivityDetailData = FfiActivityDetailData;
 export type ActivityFitnessImpact = FfiActivityFitnessImpact;

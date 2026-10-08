@@ -18,6 +18,7 @@ import {
 } from '@/features/activity/hooks/useActivities';
 import { getEngine } from '@/shared/native/engine';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { streamBuffers } from '../__shared__/streamBuffers';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -26,7 +27,7 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 const engine = {
   getActivityBody: jest.fn(() => JSON.stringify({ id: 'a1', name: 'Morning ride' })),
   getIntervalBody: jest.fn(() => JSON.stringify({ icu_intervals: [], icu_groups: [] })),
-  getStreamBody: jest.fn(() => JSON.stringify({ time: [0, 1, 2] })),
+  getActivityStreams: jest.fn(() => streamBuffers({ time: [0, 1, 2] })),
   syncActivityDetail: jest.fn(),
   syncActivityIntervals: jest.fn(),
   syncActivityStreams: jest.fn(),

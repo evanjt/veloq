@@ -77,7 +77,7 @@ export interface Map3DHtmlConfig {
   /**
    * Current live map style (may differ from `initStyle` if the user has
    * changed it since HTML was last generated). Used only for the heatmap
-   * `isLightMap` calculation; preserves the quirky existing behavior where
+   * `isLightMap` calculation; preserves the quirky existing behaviour where
    * `mapStyle` isn't a useMemo dependency but is still captured by closure.
    */
   mapStyle: MapStyleType;
@@ -95,7 +95,7 @@ export interface Map3DHtmlConfig {
  * Build the complete HTML string for the 3D terrain WebView.
  *
  * All interpolations match the positions of the inline template that used to
- * live in `Map3DWebView.tsx`. Any edits here must preserve runtime behavior.
+ * live in `Map3DWebView.tsx`. Any edits here must preserve runtime behaviour.
  */
 export function buildMap3DHtml(config: Map3DHtmlConfig): string {
   const {

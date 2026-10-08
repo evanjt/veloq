@@ -1,5 +1,5 @@
 /**
- * Hook for automatic route re-optimization when cache expands.
+ * Hook for automatic route re-optimisation when cache expands.
  *
  * When the user expands their date range (e.g., from 90 days to 365 days),
  * historical activities are fetched and added to the route engine. This hook
@@ -12,22 +12,22 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getEngine } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
 
-const log = debug.create('RouteReoptimization');
+const log = debug.create('RouteReoptimisation');
 
 /**
- * Hook for automatic route re-optimization on cache expansion.
+ * Hook for automatic route re-optimisation on cache expansion.
  *
  * Monitors the sync date range for expansions (when user adds historical data)
  * and triggers route re-computation to improve route quality.
  *
  * ```tsx
  * function App() {
- *   useRouteReoptimization();
+ *   useRouteReoptimisation();
  *   // ... rest of app
  * }
  * ```
  */
-export function useRouteReoptimization() {
+export function useRouteReoptimisation() {
   const hasExpanded = useSyncDateRange((s) => s.hasExpanded);
   const markExpansionProcessed = useSyncDateRange((s) => s.markExpansionProcessed);
 
@@ -36,7 +36,7 @@ export function useRouteReoptimization() {
 
     const engine = getEngine();
     if (!engine) {
-      log.warn('Engine not initialized');
+      log.warn('Engine not initialised');
       return;
     }
 

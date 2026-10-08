@@ -149,7 +149,7 @@ android {
 
 def widgetTestSources = tasks.register("generateWidgetTestSources", Copy) {
   from("../../../widget/android/java") {
-    include "TileLaunch.kt", "WidgetSnapshot.kt"
+    include "TileLaunch.kt", "WidgetSnapshot.kt", "SummaryWidgetModel.kt", "SnapshotAge.kt", "InsightsWidgetModel.kt", "LastActivityWidgetModel.kt"
     filter { line -> line.replace("__PKG__", "com.veloq") }
   }
   into(layout.buildDirectory.dir("generated/widgetTestSources/com/veloq/widget"))

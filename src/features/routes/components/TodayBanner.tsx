@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useTodayWorkout, useWorkoutSections, type WorkoutSection } from '@/features/home';
@@ -30,6 +29,7 @@ import {
 import type { CalendarEvent } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { pressable, pressRipple } from '@/shared/ui';
+import { tapTo } from '@/shared/app/navigation';
 
 const PR_RECENCY_DAYS = 7;
 
@@ -192,7 +192,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
             key={section.id}
             style={pressable(styles.sectionRow)}
             android_ripple={pressRipple}
-            onPress={() => router.push(`/section/${section.id}`)}
+            onPress={() => tapTo(`/section/${section.id}`)}
             accessibilityRole="button"
             accessibilityLabel={section.name}
           >

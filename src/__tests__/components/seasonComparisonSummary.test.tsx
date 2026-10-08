@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RangeCoverage } from 'veloqrs';
 
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
-import { changeLanguage, initializeI18n } from '@/i18n';
+import { changeLanguage, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { capturePans, holdAndScrub, longPressPan } from '../__shared__/chartScrub';
 import { trainingScreenRead } from '../__shared__/trainingScreenRead';
@@ -195,7 +195,7 @@ describe('SeasonComparison over a range never downloaded', () => {
 
 describe('SeasonComparison in the app language', () => {
   beforeAll(async () => {
-    await initializeI18n();
+    await initialiseI18n();
     await changeLanguage('ja');
   });
   afterAll(async () => {

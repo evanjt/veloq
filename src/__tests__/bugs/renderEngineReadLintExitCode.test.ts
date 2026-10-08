@@ -367,7 +367,7 @@ describe('render-time engine read lint', () => {
       'src/features/x/lib/read.ts':
         "import { getEngine } from '@/shared/native/engine';\n" +
         'export function readBody(id: string) {\n' +
-        '  return getEngine()?.getStreamBody(id) ?? null;\n' +
+        '  return getEngine()?.getActivityStreams(id) ?? null;\n' +
         '}\n',
       'src/features/x/hooks/useThing.ts':
         "import { readBody } from '@/features/x/lib/read';\n" +
@@ -377,7 +377,7 @@ describe('render-time engine read lint', () => {
     });
     const { status, output } = runLint(root);
     expect(status).toBe(1);
-    expect(output).toContain('useThing.ts:3  useThing  engine.getStreamBody  via readBody:3');
+    expect(output).toContain('useThing.ts:3  useThing  engine.getActivityStreams  via readBody:3');
   });
 
   it('follows a relative import and one through a barrel', () => {
@@ -385,7 +385,7 @@ describe('render-time engine read lint', () => {
       'src/features/x/lib/read.ts':
         "import { getEngine } from '@/shared/native/engine';\n" +
         'export function readBody(id: string) {\n' +
-        '  return getEngine()?.getStreamBody(id) ?? null;\n' +
+        '  return getEngine()?.getActivityStreams(id) ?? null;\n' +
         '}\n',
       'src/features/x/lib/index.ts': "export { readBody } from './read';\n",
       'src/features/x/hooks/useNear.ts':
@@ -397,8 +397,8 @@ describe('render-time engine read lint', () => {
     });
     const { status, output } = runLint(root);
     expect(status).toBe(1);
-    expect(output).toContain('useNear.ts:3  useNear  engine.getStreamBody');
-    expect(output).toContain('useBarrel.ts:3  useBarrel  engine.getStreamBody');
+    expect(output).toContain('useNear.ts:3  useNear  engine.getActivityStreams');
+    expect(output).toContain('useBarrel.ts:3  useBarrel  engine.getActivityStreams');
   });
 
   it('passes an imported helper called from inside a queryFn', () => {
@@ -406,7 +406,7 @@ describe('render-time engine read lint', () => {
       'src/features/x/lib/read.ts':
         "import { getEngine } from '@/shared/native/engine';\n" +
         'export function readBody(id: string) {\n' +
-        '  return getEngine()?.getStreamBody(id) ?? null;\n' +
+        '  return getEngine()?.getActivityStreams(id) ?? null;\n' +
         '}\n',
       'src/features/x/hooks/useThing.ts':
         "import { useQuery } from '@tanstack/react-query';\n" +

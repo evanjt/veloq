@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Pressable, View, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Stack, router } from 'expo-router';
+import { Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -22,6 +22,7 @@ import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUti
 import { ACTIVITY_CATEGORIES } from '@/features/recording';
 import type { ActivityType } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
+import { tapBack } from '@/shared/app/navigation';
 
 /**
  * The activity type picker, a sheet route opened with `openSheet` and answered
@@ -107,7 +108,7 @@ function ActivityTypeSheetContent() {
       <View style={[styles.header, !isRecording && styles.headerBordered]}>
         <Text style={[styles.title, { color: textPrimary }]}>{t(titleKey, titleFallback)}</Text>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => tapBack()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel={t('common.close')}

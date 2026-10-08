@@ -3,7 +3,9 @@
 // once: `normalize_features` beside `normalised`, `materialized` beside
 // `ensure_visit_count_denormalisation`. A grep for one form then misses the
 // other, which is how the pair survived three readings. The tracematch
-// submodule is the same engine and is read the same way.
+// submodule is the same engine and is read the same way, and so is the
+// TypeScript beside it, where `normalizeTrackPoints` sat on the line that
+// declared `NormalisedPoint`.
 //
 // EXEMPT holds the words that are not ours to spell. They fall into four
 // groups and each needs a reason, not just an entry.
@@ -25,6 +27,11 @@ const TRACEMATCH_SOURCES = 'src';
 // was ever scanned. Only the values are read: a key is a shared identifier
 // across all seventeen locales and renaming one is not a spelling change.
 const LOCALES = ['src/i18n/locales/en-AU.json', 'src/i18n/locales/en-GB.json'];
+
+// The TypeScript this project writes. Generated bindings and generated data
+// tables are written by a tool, not by us.
+const TS_ROOTS = ['src', 'modules/veloqrs/src', 'scripts'];
+const TS_GENERATED_DIR = 'modules/veloqrs/src/generated/';
 
 // American -> Australian, for words this project invented.
 const BANNED = [
@@ -67,6 +74,69 @@ const EXEMPT = [
   '"colorkey"',
 ];
 
+// Not ours to spell, in TypeScript only. `color` is not banned there at all:
+// every style key and component prop is spelled that way. The rest are vendor,
+// platform and UniFFI names, matched case-insensitively as substrings.
+const TS_EXEMPT = [
+  // The UniFFI engine method, which EngineClient mirrors, and the flag i18next
+  // exposes. A store's own `isInitialized` flag is ours and is not matched.
+  'isinitialized()',
+  'isinitialized: () =>',
+  'i18n.isinitialized',
+  "i18n, 'isinitialized'",
+  // The UniFFI free function `initialize`, called once before the engine is
+  // created, and the test mocks of the generated module that carry it.
+  'generated.default.initialize',
+  'mockgenerated.initialize',
+  'default: { initialize:',
+  'initialize: jest.fn()',
+  'initialize: () => {',
+  // The name uniffi-bindgen generates for the contract check, quoted in a comment.
+  'uniffiensureinitialized',
+  // expo-notifications' handler result type.
+  'notificationbehavior',
+  // React Native's KeyboardAvoidingView prop.
+  'behavior={',
+  // React Native's ScrollView prop.
+  'contentinsetadjustmentbehavior',
+  // The Android intent action that opens the battery optimisation settings.
+  'ignore_battery_optimization_settings',
+  // Node's path normalisation.
+  'posix.normalize',
+  // intervals.icu's webhook event type.
+  'activity_analyzed',
+  // The phase token TypeScript keys on, single quoted as it is in TypeScript.
+  "'analyzing'",
+  // The scale name the engine parses and returns as data.
+  "'optimized'",
+  '"optimized"',
+  // Locale keys, shared by all seventeen locale files, so renaming one is a
+  // translation change and not a spelling change.
+  'analyzingroutes',
+  'reanalyzesections',
+  'reanalyzewarning',
+];
+
+// Exempt patterns that depend on case, which the lowercased substring lists above
+// cannot tell apart: `.initializer` against `.initializeRange`. They are applied
+// to the line as written.
+const TS_EXEMPT_PATTERNS = [
+  // The TypeScript compiler API's property on a variable declaration or an
+  // assignment, read by the scripts that parse source.
+  /\.initializer\b/g,
+  // The phase token as the key of a table, unquoted.
+  /^\s*analyzing:/g,
+];
+
+// Tests of the guards themselves, whose fixtures are the American spelling on
+// purpose: a guard test needs a line that fails.
+const TS_FIXTURE_FILES = [
+  'src/__tests__/bugs/auSpellingLintExitCode.test.ts',
+  'src/__tests__/bugs/guardsReadTheIndex.test.ts',
+  'src/__tests__/bugs/lintGuardGitEnv.test.ts',
+  'src/__tests__/i18n/enUsRegister.test.ts',
+];
+
 // Left as spelled, in the tracematch submodule only. `ScaleName::Optimized`
 // is a public variant whose snake_case name is also the string the scale
 // parser accepts and `as_str` returns, and `sections::optimized` is a public
@@ -98,7 +168,9 @@ refuseEmptyListing(INDEXED, 'Spelling guard');
 const TRACEMATCH_INDEXED = tracematchSources(root);
 
 function sources() {
-  const own = [...INDEXED.keys()].filter((file) => file.startsWith(ROOT) && file.endsWith('.rs'));
+  const own = [...INDEXED.keys()].filter(
+    (file) => (file.startsWith(ROOT) && file.endsWith('.rs')) || isTypeScript(file)
+  );
   return [...own, ...TRACEMATCH_INDEXED.keys()];
 }
 
@@ -108,10 +180,28 @@ function indexedText(file) {
   return bytes === undefined ? null : bytes.toString('utf8');
 }
 
-function withoutExempt(line, inTracematch = false) {
-  let rest = line.toLowerCase();
-  if (inTracematch && TRACEMATCH_EXEMPT_LINES.some((pattern) => pattern.test(rest))) return ' ';
-  for (const word of inTracematch ? [...EXEMPT, ...TRACEMATCH_EXEMPT] : EXEMPT) {
+function isTypeScript(file) {
+  if (!/\.tsx?$/.test(file) || file.endsWith('.generated.ts')) return false;
+  if (file.startsWith(TS_GENERATED_DIR) || TS_FIXTURE_FILES.includes(file)) return false;
+  return TS_ROOTS.some((dir) => file.startsWith(`${dir}/`));
+}
+
+function withoutExempt(line, kind) {
+  let rest = line;
+  if (kind === 'typescript') {
+    for (const pattern of TS_EXEMPT_PATTERNS) rest = rest.replace(pattern, ' ');
+  }
+  rest = rest.toLowerCase();
+  if (kind === 'tracematch' && TRACEMATCH_EXEMPT_LINES.some((pattern) => pattern.test(rest))) {
+    return ' ';
+  }
+  const exempt =
+    kind === 'tracematch'
+      ? [...EXEMPT, ...TRACEMATCH_EXEMPT]
+      : kind === 'typescript'
+        ? [...EXEMPT, ...TS_EXEMPT]
+        : EXEMPT;
+  for (const word of exempt) {
     rest = rest.split(word).join(' ');
   }
   return rest;
@@ -192,10 +282,15 @@ const failures = [];
 for (const file of sources()) {
   const text = indexedText(file);
   if (text === null) continue;
-  const inTracematch = TRACEMATCH_INDEXED.has(file);
+  const kind = TRACEMATCH_INDEXED.has(file)
+    ? 'tracematch'
+    : isTypeScript(file)
+      ? 'typescript'
+      : 'crate';
+  const banned = kind === 'typescript' ? BANNED.filter(([bad]) => bad !== 'color') : BANNED;
   text.split('\n').forEach((line, i) => {
-    const rest = withoutExempt(line, inTracematch);
-    for (const [bad, good] of BANNED) {
+    const rest = withoutExempt(line, kind);
+    for (const [bad, good] of banned) {
       if (rest.includes(bad)) {
         failures.push(`${file}:${i + 1}  ${bad} -> ${good}  ${line.trim()}`);
         break;
@@ -214,5 +309,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  'Spelling guard: the crate, tracematch and the English locales are Australian English throughout.'
+  'Spelling guard: the crate, tracematch, the TypeScript and the English locales are Australian English throughout.'
 );

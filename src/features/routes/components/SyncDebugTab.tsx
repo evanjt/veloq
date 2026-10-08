@@ -11,6 +11,7 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead, engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
 import { i18n } from '@/i18n';
+import * as haptics from '@/shared/ui/haptics';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PersistentEngineStats } from 'veloqrs';
@@ -184,6 +185,7 @@ export function SyncDebugTab() {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
+            haptics.medium();
             setIsRemoving(true);
             let removed = 0;
             const removedIds: string[] = [];
@@ -234,6 +236,7 @@ export function SyncDebugTab() {
           text: 'Clear & Re-sync',
           style: 'destructive',
           onPress: () => {
+            haptics.medium();
             void engine.clear().then(
               () => {
                 queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
@@ -375,7 +378,7 @@ export function SyncDebugTab() {
             {`Could not read engine stats: ${engineErrorTag(engineStatsRead.error) ?? String(engineStatsRead.error)}`}
           </Text>
         ) : (
-          <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialized</Text>
+          <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialised</Text>
         )}
       </Section>
 
@@ -445,6 +448,7 @@ export function SyncDebugTab() {
           </View>
           <Button
             variant="destructive"
+            opensConfirm
             onPress={handleRemoveActivities}
             disabled={isRemoving || !apiActivities?.length}
             icon={<MaterialCommunityIcons name="delete-outline" size={18} color={ink.white} />}
@@ -455,6 +459,7 @@ export function SyncDebugTab() {
         <View style={styles.hardResyncSection}>
           <Button
             variant="destructive"
+            opensConfirm
             onPress={handleHardResync}
             disabled={!engine}
             icon={<MaterialCommunityIcons name="nuke" size={18} color={ink.white} />}

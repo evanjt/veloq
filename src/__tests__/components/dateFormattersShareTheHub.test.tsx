@@ -9,7 +9,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import * as hub from '@/shared/format/format';
 import { SectionInfoCard } from '@/features/routes/components/section/SectionInfoCard';
 import { MethodologySection } from '@/features/insights/components/MethodologySection';
@@ -21,7 +21,7 @@ jest.mock('@/shared/app', () => ({
 }));
 
 beforeAll(async () => {
-  await initializeI18n('en-AU');
+  await initialiseI18n('en-AU');
 });
 
 afterEach(() => {

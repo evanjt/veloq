@@ -52,7 +52,7 @@ interface RouteSettingsState {
   isLoaded: boolean;
 
   // Actions
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   setEnabled: (enabled: boolean) => Promise<void>;
 }
 
@@ -60,7 +60,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
   settings: DEFAULT_SETTINGS,
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(ROUTE_SETTINGS_KEY);
       if (stored) {
@@ -122,7 +122,7 @@ export function isRouteMatchingEnabled(): boolean {
   return useRouteSettings.getState().settings.enabled;
 }
 
-// Initialize route settings (call during app startup)
-export async function initializeRouteSettings(): Promise<void> {
-  await useRouteSettings.getState().initialize();
+// Initialise route settings (call during app startup)
+export async function initialiseRouteSettings(): Promise<void> {
+  await useRouteSettings.getState().initialise();
 }

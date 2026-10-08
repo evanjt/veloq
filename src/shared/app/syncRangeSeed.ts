@@ -12,10 +12,10 @@ interface LaunchWindowStats {
  */
 export function seedSyncRange(
   stats: LaunchWindowStats | undefined,
-  initializeRange: (oldest: string, newest: string) => void
+  initialiseRange: (oldest: string, newest: string) => void
 ): boolean {
   if (!stats?.newestDate || !stats.activityWindowOldest) return false;
-  initializeRange(
+  initialiseRange(
     stats.activityWindowOldest,
     formatLocalDate(new Date(Number(stats.newestDate) * 1000))
   );

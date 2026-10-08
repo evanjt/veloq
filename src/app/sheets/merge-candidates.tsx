@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, FlatList, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { MergeCandidate } from 'veloqrs';
@@ -14,6 +13,7 @@ import { formatDistance } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { MergeCandidatesSheetInput } from '@/features/routes';
+import { tapBack } from '@/shared/app/navigation';
 
 /**
  * The merge candidates list, a sheet route opened with `openSheet` when a section has several
@@ -80,7 +80,7 @@ function MergeCandidatesSheetContent() {
         <Button
           testID="merge-candidates-cancel"
           label={t('common.cancel')}
-          onPress={() => router.back()}
+          onPress={() => tapBack()}
           variant="ghost"
         />
       </View>

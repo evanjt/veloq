@@ -1,15 +1,14 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
-import { router, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
 import { useRouteSettings, useSectionRescan, rescanRefusalKey } from '@/features/routes';
 import {
   Button,
   ScreenSafeAreaView,
+  ScreenScrollView,
   TAB_BAR_SAFE_PADDING,
   pressable,
   pressRipple,
@@ -18,16 +17,17 @@ import {
   BackgroundJobsActivityBar,
   CutoverStatus,
   ElevationBackfillStatus,
+  PlaceNamesSwitch,
 } from '@/features/settings';
 import { colors, darkColors, spacing, layout, typography, slopToMinTapTarget } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { tapTo } from '@/shared/app/navigation';
 
 const PREVIEW_ROW_HEIGHT = 44;
 
 function DetectionSettingsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
 
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
@@ -72,11 +72,8 @@ function DetectionSettingsScreenContent() {
       testID="detection-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
-        ]}
+      <ScreenScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_SAFE_PADDING }]}
         showsVerticalScrollIndicator={false}
       >
         <BackgroundJobsActivityBar />
@@ -94,6 +91,8 @@ function DetectionSettingsScreenContent() {
           </View>
         </View>
 
+        <PlaceNamesSwitch />
+
         <View
           style={{ opacity: routeMatchingEnabled ? 1 : 0.4 }}
           pointerEvents={routeMatchingEnabled ? 'auto' : 'none'}
@@ -104,7 +103,7 @@ function DetectionSettingsScreenContent() {
               { backgroundColor: surface, borderColor: border },
             ])}
             android_ripple={pressRipple}
-            onPress={() => router.push('/detection-preview' as Href)}
+            onPress={() => tapTo('/detection-preview')}
             accessibilityRole="button"
             accessibilityLabel={t('settings.previewSections')}
             hitSlop={slopToMinTapTarget(PREVIEW_ROW_HEIGHT)}
@@ -123,7 +122,7 @@ function DetectionSettingsScreenContent() {
               { backgroundColor: surface, borderColor: border },
             ])}
             android_ripple={pressRipple}
-            onPress={() => router.push('/route-grouping-preview' as Href)}
+            onPress={() => tapTo('/route-grouping-preview')}
             accessibilityRole="button"
             accessibilityLabel={t('settings.previewRouteGrouping')}
             hitSlop={slopToMinTapTarget(PREVIEW_ROW_HEIGHT)}
@@ -187,7 +186,7 @@ function DetectionSettingsScreenContent() {
           <CutoverStatus />
         </View>
         <ElevationBackfillStatus />
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

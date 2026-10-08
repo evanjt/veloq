@@ -12,7 +12,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 import { FitnessHeaderStats } from '@/features/fitness/components/FitnessHeaderStats';
 import { formZoneLabel } from '@/features/fitness/lib/fitness';
 
@@ -24,7 +24,7 @@ const values = { fitness: 40, fatigue: 55, form: -15 };
 
 describe('the form zone label', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   afterEach(async () => {

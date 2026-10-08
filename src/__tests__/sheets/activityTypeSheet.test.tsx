@@ -11,7 +11,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import ActivityTypeSheet from '@/app/sheets/activity-type';
 import { openSheet } from '@/shared/app/sheetRequest';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import type { ActivityType } from '@/types';
 
 const mockPush = jest.fn();
@@ -43,7 +43,7 @@ function open(input: Input) {
 }
 
 beforeAll(async () => {
-  await initializeI18n();
+  await initialiseI18n();
 });
 beforeEach(() => {
   mockPush.mockClear();

@@ -17,7 +17,6 @@ import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useSections } from '@/features/routes/hooks/useSections';
@@ -30,7 +29,7 @@ import { DataRangeFooter } from './DataRangeFooter';
 import { SectionsListHeader } from './SectionsListHeader';
 import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useSectionCommands } from '@/features/routes/hooks/useCustomSections';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import {
   FLOW_ADD_ONE,
   FLOW_SECTION_OPEN,
@@ -317,7 +316,7 @@ export const SectionsList = memo(function SectionsList({
   // Navigate to section detail page
   const handleSectionPress = useCallback((id: string) => {
     markFlow(FLOW_SECTION_OPEN);
-    navigateTo(`/section/${id}`);
+    tapTo(`/section/${id}`);
   }, []);
 
   // Handle accepting all auto sections
@@ -544,7 +543,7 @@ export const SectionsList = memo(function SectionsList({
           testID="sections-retired-link"
           variant="ghost"
           style={styles.retiredLink}
-          onPress={() => router.push('/section-retired' as Href)}
+          onPress={() => tapTo('/section-retired')}
           icon={<MaterialCommunityIcons name="history" size={16} color={colors.primary} />}
           label={t('sectionHistory.seeRetired')}
         />
@@ -552,7 +551,7 @@ export const SectionsList = memo(function SectionsList({
           testID="sections-named-corridors-link"
           variant="ghost"
           style={styles.retiredLink}
-          onPress={() => router.push('/named-corridors' as Href)}
+          onPress={() => tapTo('/named-corridors')}
           icon={<MaterialCommunityIcons name="tag-outline" size={16} color={colors.primary} />}
           label={t('namedCorridors.link')}
         />

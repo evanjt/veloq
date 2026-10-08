@@ -167,3 +167,45 @@ pub extern "system" fn Java_com_veloq_PushBridge_nativeWidgetSnapshot<'local>(
         }
     })
 }
+
+/// `com.veloq.PushBridge.nativeWidgetRefresh`. Opens the engine at `db_path`,
+/// pulls the last fortnight of wellness and composes the widget snapshot, as
+/// one object holding the pull's status and the snapshot. Null when the engine
+/// will not open or no context has been stored, and then the caller keeps the
+/// file it has.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_veloq_PushBridge_nativeWidgetRefresh<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    db_path: JString<'local>,
+    auth_method: JString<'local>,
+    secret: JString<'local>,
+    athlete_id: JString<'local>,
+) -> jstring {
+    crate::ffi_refuse_on_panic("push widget refresh", std::ptr::null_mut(), || {
+        let (Some(db_path), Some(auth_method), Some(secret), Some(athlete_id)) = (
+            read(&mut env, &db_path),
+            read(&mut env, &auth_method),
+            read(&mut env, &secret),
+            read(&mut env, &athlete_id),
+        ) else {
+            log::warn!("[push] widget refresh was handed a string it could not read");
+            return std::ptr::null_mut();
+        };
+
+        let credential = crate::widget_refresh::NativeCredential::Method {
+            method: &auth_method,
+            secret: &secret,
+            athlete_id: &athlete_id,
+        };
+        match crate::widget_refresh::refresh_snapshot(&db_path, credential) {
+            Some(refresh) => env
+                .new_string(refresh.to_json())
+                .map_or(std::ptr::null_mut(), |s| s.into_raw()),
+            None => {
+                log::warn!("[push] no widget refresh: engine closed or no stored context");
+                std::ptr::null_mut()
+            }
+        }
+    })
+}

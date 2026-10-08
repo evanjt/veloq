@@ -7,7 +7,8 @@ use rusqlite::Connection;
 use super::*;
 use crate::persistence::WorkerPoll;
 use crate::persistence::persistent_engine_ffi::{SECTION_DETECTION_HANDLE, persistent_engine_init};
-use crate::persistence::sections::detection::{ApplyOn, pause_next_group_write};
+use crate::persistence::regroup::pause_next_group_write;
+use crate::persistence::sections::detection::ApplyOn;
 use crate::test_globals::{seeded_global_engine, serial_global_state};
 use crate::with_persistent_engine;
 

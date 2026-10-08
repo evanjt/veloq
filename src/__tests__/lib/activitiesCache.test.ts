@@ -1,5 +1,5 @@
 /**
- * Scenario: the persisted query cache is restored before `AuthStore.initialize()`
+ * Scenario: the persisted query cache is restored before `AuthStore.initialise()`
  * finishes reading SecureStore, so no athlete id is known yet.
  * Expected behaviour: staleness is still detected without one.
  */

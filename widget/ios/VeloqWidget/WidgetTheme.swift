@@ -29,6 +29,14 @@ enum WidgetTheme {
     static let trendUp = Color(hex: "#15803D")
     static let trendDown = Color(hex: "#7F1D1D")
     static let trendFlat = Color(hex: "#A1A1AA")
+    static let warning = Color(hex: "#92400E")
+    static let toneNegative = Color(hex: "#7F1D1D")
+    static let toneCaution = Color(hex: "#92400E")
+    static let tonePositive = Color(hex: "#15803D")
+    static let toneNeutral = Color(hex: "#52525B")
+    static let toneRecord = Color(hex: "#806A22")
+    static let toneInfo = Color(hex: "#42A5F5")
+    static let toneOpportunity = Color(hex: "#FF9800")
     static let border = Color(hex: "#E4E4E7")
   }
 
@@ -57,12 +65,28 @@ enum WidgetTheme {
     static let trendUp = Color(hex: "#86EFAC")
     static let trendDown = Color(hex: "#F25C5C")
     static let trendFlat = Color(hex: "#52525B")
+    static let warning = Color(hex: "#FBBF24")
+    static let toneNegative = Color(hex: "#F25C5C")
+    static let toneCaution = Color(hex: "#F59E0B")
+    static let tonePositive = Color(hex: "#86EFAC")
+    static let toneNeutral = Color(hex: "#A1A1AA")
+    static let toneRecord = Color(hex: "#E8C96E")
+    static let toneInfo = Color(hex: "#42A5F5")
+    static let toneOpportunity = Color(hex: "#FF9800")
     static let border = Color(hex: "#27272A")
   }
 
   enum Record {
-    static let gradientStart = Color(hex: "#14B8A6")
-    static let gradientEnd = Color(hex: "#0D9488")
+    enum Light {
+      static let gradientStart = Color(hex: "#14B8A6")
+      static let gradientEnd = Color(hex: "#0D9488")
+    }
+
+    enum Dark {
+      static let gradientStart = Color(hex: "#0D9488")
+      static let gradientEnd = Color(hex: "#0F766E")
+    }
+
     static let foreground = Color(hex: "#FFFFFF")
   }
 

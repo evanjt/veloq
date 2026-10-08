@@ -40,7 +40,7 @@ interface SportPreferenceState {
   isLoaded: boolean;
 
   // Actions
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   setPrimarySport: (sport: PrimarySport) => Promise<void>;
 }
 
@@ -48,7 +48,7 @@ export const useSportPreference = create<SportPreferenceState>((set) => ({
   primarySport: 'Cycling', // Default
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(SPORT_PREFERENCE_KEY);
       if (stored && ['Cycling', 'Running', 'Swimming'].includes(stored)) {
@@ -70,7 +70,7 @@ export const useSportPreference = create<SportPreferenceState>((set) => ({
   },
 }));
 
-// Initialize sport preference (call during app startup)
-export async function initializeSportPreference(): Promise<void> {
-  await useSportPreference.getState().initialize();
+// Initialise sport preference (call during app startup)
+export async function initialiseSportPreference(): Promise<void> {
+  await useSportPreference.getState().initialise();
 }

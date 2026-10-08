@@ -71,16 +71,16 @@ module.exports = { resolve };
       { cwd: fixture, encoding: 'utf8' }
     );
     expect(exercise.status).toBe(0);
-    const behavior = JSON.parse(exercise.stdout.trim().split('\n').at(-1)!);
-    expect(behavior.simulator).toEqual(
+    const behaviour = JSON.parse(exercise.stdout.trim().split('\n').at(-1)!);
+    expect(behaviour.simulator).toEqual(
       expect.arrayContaining(['CODE_SIGN_IDENTITY=-', 'CODE_SIGNING_ALLOWED=YES'])
     );
-    expect(behavior.callsAfterSimulator).toBe(0);
-    expect(behavior.physical).toEqual(
+    expect(behaviour.callsAfterSimulator).toBe(0);
+    expect(behaviour.physical).toEqual(
       expect.arrayContaining(['DEVELOPMENT_TEAM=TEAM', '-allowProvisioningUpdates'])
     );
-    expect(behavior.callsAfterPhysical).toBe(1);
-    expect(behavior.missingIdentityThrows).toBe(true);
+    expect(behaviour.callsAfterPhysical).toBe(1);
+    expect(behaviour.missingIdentityThrows).toBe(true);
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }

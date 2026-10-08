@@ -8,7 +8,7 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { Card } from '@/shared/ui/Card';
@@ -19,7 +19,7 @@ import { useRepresentativeRoute } from '@/features/routes/hooks/useEngine';
 import { toActivityType } from '@/features/routes/types';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
-import { TrackPreview, normalizeTrackPoints } from '@/shared/ui/TrackPreview';
+import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import {
   ROW_MARGIN_BOTTOM,
   ROW_MARGIN_HORIZONTAL,
@@ -65,7 +65,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   // Get preview points from the route's representative.
   const previewPoints = useMemo(() => {
     if (isRouteGroup(route)) {
-      return representativePoints ? normalizeTrackPoints(representativePoints) : [];
+      return representativePoints ? normaliseTrackPoints(representativePoints) : [];
     } else {
       // DiscoveredRouteInfo - use previewPoints directly
       return route.previewPoints || [];
@@ -84,7 +84,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   // which `batchGroupToRouteGroup` always builds empty, so it never had a row
   // to draw. Every row the list renders is navigable.
   const handlePress = () => {
-    if (navigable) navigateTo(`/route/${route.id}`);
+    if (navigable) tapTo(`/route/${route.id}`);
   };
 
   return (

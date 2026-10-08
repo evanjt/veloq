@@ -35,6 +35,7 @@ import {
 } from 'react-native';
 
 import { useTheme } from '@/shared/app';
+import * as haptics from '@/shared/ui/haptics';
 import {
   colorWithOpacity,
   colors,
@@ -56,6 +57,11 @@ export interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   disabled?: boolean;
+  /**
+   * The press opens a confirmation. A destructive button then fires no haptic of its own: the
+   * confirm's accept does, once.
+   */
+  opensConfirm?: boolean;
   /** Swaps the label for a spinner and refuses the press, without resizing. */
   loading?: boolean;
   /** Sits beside the label, inside the same tap target. */
@@ -124,6 +130,7 @@ export function Button({
   size = 'md',
   disabled = false,
   loading = false,
+  opensConfirm = false,
   icon,
   style,
   testID,
@@ -132,6 +139,14 @@ export function Button({
   const { isDark } = useTheme();
   const skin = paint(variant, isDark);
   const inert = disabled || loading;
+  // A destructive button acts on press, so it carries the weight of the act itself.
+  const handlePress =
+    variant === 'destructive' && !opensConfirm
+      ? () => {
+          haptics.medium();
+          onPress();
+        }
+      : onPress;
 
   return (
     <Pressable
@@ -142,7 +157,7 @@ export function Button({
       hitSlop={BUTTON_SLOP[size]}
       android_ripple={inert ? undefined : ripple}
       disabled={inert}
-      onPress={onPress}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.base,
         styles[size],

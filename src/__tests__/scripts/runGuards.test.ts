@@ -56,6 +56,7 @@ const NOT_GATES: Record<string, string> = {
   'check-retired-history.sh':
     'land-branch.sh and the merge hooks, with the target and the incoming branch as arguments',
   'check-staged-tree.sh': 'pre-commit, before and after the gates run',
+  'check-submodule-pin-pushed.sh': 'pre-push, with the pushed refs on stdin',
 };
 
 /** Every script shaped like a guard, whatever it is written in. */
@@ -82,7 +83,7 @@ function unaccounted(
 
 describe('every guard', () => {
   it.each(GUARDS.map((g) => [g.name, g] as const))('%s names what it catches', (_name, g) => {
-    expect(['correctness', 'style', 'environment', 'build']).toContain(g.kind);
+    expect(['correctness', 'style', 'environment', 'build', 'merge']).toContain(g.kind);
     expect(g.catches.trim().length).toBeGreaterThan(20);
   });
 
@@ -191,7 +192,7 @@ describe('the runner', () => {
     expect(output).toContain('1 of 3 all guards failed');
   });
 
-  it.each(['style', 'environment', 'build'])(
+  it.each(['style', 'environment', 'build', 'merge'])(
     'runs %s guards at land and in CI but not at commit',
     (kind) => {
       const deferred: Guard = { ...guard('deferred', 'exit 1'), kind };

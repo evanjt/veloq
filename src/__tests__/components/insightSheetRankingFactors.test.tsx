@@ -14,7 +14,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
-import { changeLanguage, initializeI18n } from '@/i18n';
+import { changeLanguage, initialiseI18n } from '@/i18n';
 import { InsightDetailSheet } from '@/features/insights/components/InsightDetailSheet';
 import type { Insight } from '@/types';
 import type { SectionRankingScores } from '@/features/insights/types';
@@ -55,7 +55,7 @@ function insight(overrides: Partial<Insight> = {}, scores?: SectionRankingScores
 const sheet = (i: Insight) => render(<InsightDetailSheet insight={i} onClose={() => undefined} />);
 
 describe('the ranking factors group on an insight sheet', () => {
-  beforeAll(() => initializeI18n('en-GB'));
+  beforeAll(() => initialiseI18n('en-GB'));
   beforeEach(() => changeLanguage('en-GB'));
 
   it('shows on a ranking-only insight with no methodology text', () => {

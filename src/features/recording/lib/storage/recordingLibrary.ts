@@ -115,7 +115,7 @@ async function archiveUnadoptable(sourceKey: string, value: unknown): Promise<vo
  */
 function library(requireReady = false): NonNullable<ReturnType<typeof getEngine>> {
   const engine = getEngine();
-  if (!engine || (requireReady && !engine.ready)) throw new Error('Engine not initialized');
+  if (!engine || (requireReady && !engine.ready)) throw new Error('Engine not initialised');
   return engine;
 }
 
@@ -301,20 +301,15 @@ export async function recordingFitExists(entry: RecordingLibraryEntry): Promise<
 // ─── Status transitions ───────────────────────────────────────────────────────
 
 /**
- * Remember the engine key the recording was written under. It lives in the
- * index so a background retry can still reconcile the upload.
+ * Remember the engine key the recording was written under. A ride whose upload
+ * already landed has the server's id written onto that row and is marked
+ * reconciled by the same engine call.
  */
 export async function attachEngineActivity(
   id: string,
   engineActivityId: string
 ): Promise<RecordingLibraryEntry | null> {
   library().attachRecordingEngineActivity(id, engineActivityId);
-  return getRecording(id);
-}
-
-/** The engine row now carries the id intervals.icu gave the upload. */
-export async function markRecordingReconciled(id: string): Promise<RecordingLibraryEntry | null> {
-  library().markRecordingReconciled(id);
   return getRecording(id);
 }
 

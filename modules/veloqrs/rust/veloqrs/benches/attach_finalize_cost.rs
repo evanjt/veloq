@@ -12,6 +12,10 @@
 //! sync arm ingests a handful of activities first, so the regroup takes the
 //! incremental path a real sync reaches rather than the full rebuild.
 //!
+//! The worker arm splits the regroup the way the off-lock worker runs it: the
+//! compute on a connection of its own, which holds no lock, and the swap, which
+//! is all the write lock is held for.
+//!
 //! Baseline only, nothing asserts. Run in release:
 //!   cargo test --release --features synthetic --bench attach_finalize_cost -- --ignored --nocapture
 
@@ -159,6 +163,43 @@ fn attach_finalize_cost_baseline() {
             sections,
             activities,
             start.elapsed().as_secs_f64() * 1000.0,
+        );
+    }
+}
+
+#[test]
+#[ignore] // ~1 min per scale; the regroup worker's two phases
+fn regroup_worker_cost_baseline() {
+    for scale in [1, 5] {
+        println!("--- scale {scale} ---");
+        let (mut engine, _tmp) = build_engine(scale);
+        let sections = engine.get_sections().len();
+        let added = ingest_new(&mut engine, scale);
+        let activities = engine.activity_count();
+
+        let snapshot = engine.regroup_snapshot();
+        let start = Instant::now();
+        let computed = snapshot.compute();
+        report(
+            &format!("regroup worker compute, {added} new, off the lock"),
+            sections,
+            activities,
+            start.elapsed().as_secs_f64() * 1000.0,
+        );
+
+        let start = Instant::now();
+        let swap = engine.swap_regroup(&computed);
+        let held = start.elapsed().as_secs_f64() * 1000.0;
+        report(
+            &format!(
+                "regroup worker swap under the lock (adopt={:.1} ms, indicators={:.1} ms, owed={})",
+                swap.adopt.as_secs_f64() * 1000.0,
+                swap.indicators.as_secs_f64() * 1000.0,
+                swap.owed
+            ),
+            sections,
+            activities,
+            held,
         );
     }
 }

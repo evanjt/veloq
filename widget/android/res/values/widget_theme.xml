@@ -25,6 +25,14 @@
   <color name="widget_trend_up">#15803D</color>
   <color name="widget_trend_down">#7F1D1D</color>
   <color name="widget_trend_flat">#A1A1AA</color>
+  <color name="widget_warning">#92400E</color>
+  <color name="widget_tone_negative">#7F1D1D</color>
+  <color name="widget_tone_caution">#92400E</color>
+  <color name="widget_tone_positive">#15803D</color>
+  <color name="widget_tone_neutral">#52525B</color>
+  <color name="widget_tone_record">#806A22</color>
+  <color name="widget_tone_info">#42A5F5</color>
+  <color name="widget_tone_opportunity">#FF9800</color>
   <color name="widget_border">#E4E4E7</color>
   <color name="widget_record_grad_start">#14B8A6</color>
   <color name="widget_record_grad_end">#0D9488</color>

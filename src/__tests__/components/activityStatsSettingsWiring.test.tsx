@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 
 import { InsightfulStats } from '@/features/activity/components/stats/InsightfulStats';
 import { HRZonesChart } from '@/features/activity/components/HRZonesChart';
@@ -48,15 +48,13 @@ beforeEach(() => {
 });
 
 describe('InsightfulStats', () => {
-  it('shows the engine impact beside training load and its three signed parts', () => {
+  it('shows the engine impact beside training load', () => {
     const activity = { ...ride, icu_training_load: 100 } as Activity;
     const impact = { fitness: 100 / 42, fatigue: 100 / 7, form: 100 / 42 - 100 / 7 };
     const card = render(<InsightfulStats activity={activity} fitnessImpact={impact} />);
     expect(card.getByText('activity.stats.trainingLoad')).toBeTruthy();
-    fireEvent.press(card.getByText('activity.stats.fitnessImpact'));
+    expect(card.getByText('activity.stats.fitnessImpact')).toBeTruthy();
     expect(card.getAllByText('+2.4').length).toBeGreaterThan(0);
-    expect(card.getByText('+14.3')).toBeTruthy();
-    expect(card.getByText('-11.9')).toBeTruthy();
   });
 
   it('omits the impact when the engine has no load', () => {

@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, StyleSheet, ActivityIndicator, Linking } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Text } from 'react-native-paper';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -12,6 +11,7 @@ import { useExerciseSets } from '../hooks/useExerciseSets';
 import { formatWeight } from '@/shared/format/weight';
 import type { ExerciseGroup } from 'veloqrs';
 import { Button } from '@/shared/ui';
+import { tapTo } from '@/shared/app/navigation';
 
 interface ExerciseTableProps {
   activityId: string;
@@ -29,7 +29,6 @@ export function ExerciseTable({
   exerciseGroups,
 }: ExerciseTableProps) {
   const { t } = useTranslation();
-  const router = useRouter();
   const isMetric = useMetricSystem();
   const { session, isLoading, outcome } = useExerciseSets(activityId, activityType);
 
@@ -104,7 +103,7 @@ export function ExerciseTable({
                 label={t('strength.history')}
                 variant="ghost"
                 size="sm"
-                onPress={() => router.push(`/exercise/${group.exerciseCategory}`)}
+                onPress={() => tapTo(`/exercise/${group.exerciseCategory}`)}
               />
             </View>
             {group.bestSet && (

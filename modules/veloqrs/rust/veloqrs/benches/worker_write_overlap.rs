@@ -55,6 +55,7 @@ impl EngineObserver for Applied {
     fn detection_applied(&self) {
         self.0.fetch_add(1, Ordering::SeqCst);
     }
+    fn groups_changed(&self) {}
     fn tiles_generated(&self) {}
     fn backfill_phase(&self, _phase: String) {}
     fn stream_backfill_phase(&self, _phase: String) {}

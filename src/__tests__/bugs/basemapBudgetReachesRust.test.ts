@@ -37,13 +37,13 @@ describe('the tile limit reaches the Rust store', () => {
   it('hands over the stored limit when the setting loads', async () => {
     await AsyncStorage.setItem(TILE_CACHE_KEY, JSON.stringify({ budgetMb: 400 }));
 
-    await useTileCacheSettings.getState().initialize();
+    await useTileCacheSettings.getState().initialise();
 
     expect(basemap().setBudget).toHaveBeenLastCalledWith(400 * MB);
   });
 
   it('hands over the default when nothing is stored', async () => {
-    await useTileCacheSettings.getState().initialize();
+    await useTileCacheSettings.getState().initialise();
 
     expect(basemap().setBudget).toHaveBeenLastCalledWith(50 * MB);
   });

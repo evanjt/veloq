@@ -3,7 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import { BackgroundJobsActivityBar } from '@/features/settings/components/BackgroundJobsActivityBar';
 import type { BackgroundJob } from '@/features/settings/hooks/useBackgroundJobs';
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
@@ -28,7 +28,7 @@ function job(id: BackgroundJob['id'], over: Partial<BackgroundJob> = {}): Backgr
 
 describe('BackgroundJobsActivityBar', () => {
   beforeAll(async () => {
-    await initializeI18n('en-GB');
+    await initialiseI18n('en-GB');
   });
 
   beforeEach(async () => {

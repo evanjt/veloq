@@ -7,6 +7,7 @@
  */
 
 import type {
+  FfiActivityBody,
   FfiBestEffortsData,
   FfiDayLoad,
   FfiFeedSeen,
@@ -20,13 +21,14 @@ import type {
   FfiSummaryCardData,
   FfiTrainingScreenData,
   FfiTrainingScreenWindows,
+  FfiWellnessRow,
   FfiWellnessSummary,
   FfiZoneDistribution,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import { present } from './optional';
 
-// Pre-initialization defaults (typed to match UniFFI-generated types)
+// Pre-initialisation defaults (typed to match UniFFI-generated types)
 const EMPTY_PERIOD_STATS: FfiPeriodStats = {
   count: 0,
   totalDuration: 0,
@@ -279,28 +281,28 @@ export interface HrvTrendResult {
 export function upsertWellness(host: DelegateHost, rows: WellnessRowInput[]): void {
   if (rows.length === 0) return;
   host.write('upsertWellness', () =>
-    host.engine.fitness().upsertWellness(
-      rows.map((r) =>
-        present({
-          date: r.date,
-          ctl: r.ctl ?? undefined,
-          atl: r.atl ?? undefined,
-          rampRate: r.rampRate ?? undefined,
-          hrv: r.hrv ?? undefined,
-          restingHr: r.restingHr ?? undefined,
-          weight: r.weight ?? undefined,
-          sleepSecs: r.sleepSecs,
-          sleepScore: r.sleepScore ?? undefined,
-          soreness: r.soreness ?? undefined,
-          fatigue: r.fatigue ?? undefined,
-          stress: r.stress ?? undefined,
-          mood: r.mood ?? undefined,
-          motivation: r.motivation ?? undefined,
-          raw: r.raw ?? undefined,
-        })
-      )
-    )
+    host.engine.fitness().upsertWellness(rows.map(wellnessRowToFfi))
   );
+}
+
+function wellnessRowToFfi(r: WellnessRowInput): FfiWellnessRow {
+  return present({
+    date: r.date,
+    ctl: r.ctl ?? undefined,
+    atl: r.atl ?? undefined,
+    rampRate: r.rampRate ?? undefined,
+    hrv: r.hrv ?? undefined,
+    restingHr: r.restingHr ?? undefined,
+    weight: r.weight ?? undefined,
+    sleepSecs: r.sleepSecs,
+    sleepScore: r.sleepScore ?? undefined,
+    soreness: r.soreness ?? undefined,
+    fatigue: r.fatigue ?? undefined,
+    stress: r.stress ?? undefined,
+    mood: r.mood ?? undefined,
+    motivation: r.motivation ?? undefined,
+    raw: r.raw ?? undefined,
+  });
 }
 
 /**
@@ -484,21 +486,45 @@ export function getWeeklySummaries(
   return rows;
 }
 
+/** A sample library for the widgets: the rows a scratch database is filled with. */
+export interface SampleWidgetLibrary {
+  athleteJson: string;
+  sportSettingsJson: string;
+  wellness: WellnessRowInput[];
+  activities: FfiActivityBody[];
+}
+
 /**
  * The home-screen widget snapshot as the JSON the widgets read, composed by the
  * engine from its rows and `contextJson`, the words and settings only the app
  * knows. Undefined when the engine is not open; a failed read throws, which the
  * caller reads as "unknown" and keeps the last file.
+ *
+ * With a `sample` the snapshot is composed from that library in a scratch
+ * database the engine drops with the call, so the athlete's own database is
+ * neither read nor written.
  */
 export function composeWidgetSnapshot(
   host: DelegateHost,
   contextJson: string,
   nowSeconds: number,
-  nowWallSeconds: number
+  nowWallSeconds: number,
+  sample?: SampleWidgetLibrary
 ): string | undefined {
   if (!host.ready) return undefined;
   return host.timed('composeWidgetSnapshot', () =>
-    host.engine.fitness().composeWidgetSnapshot(contextJson, nowSeconds, nowWallSeconds)
+    host.engine.fitness().composeWidgetSnapshot(
+      contextJson,
+      nowSeconds,
+      nowWallSeconds,
+      sample &&
+        present({
+          athleteJson: sample.athleteJson,
+          sportSettingsJson: sample.sportSettingsJson,
+          wellness: sample.wellness.map(wellnessRowToFfi),
+          activities: sample.activities,
+        })
+    )
   );
 }
 

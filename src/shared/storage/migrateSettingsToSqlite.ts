@@ -1,7 +1,7 @@
 /**
  * One-time migration: AsyncStorage preferences → SQLite settings table.
  *
- * Runs on app boot after the Rust engine initializes. Idempotent - uses
+ * Runs on app boot after the Rust engine initialises. Idempotent - uses
  * separate sentinels for the initial copy and missing-preference repair.
  * Does NOT delete AsyncStorage keys (backward compat for one release).
  */

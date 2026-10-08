@@ -28,7 +28,7 @@ export { SyncErrorBanner } from './SyncErrorBanner';
 export { EngineReadFailure } from './EngineReadFailure';
 export { EngineReadFailureRetry } from './EngineReadFailureRetry';
 export { TrackFetchNotice } from './TrackFetchNotice';
-export { TrackPreview, normalizeTrackPoints, type NormalisedPoint } from './TrackPreview';
+export { TrackPreview, normaliseTrackPoints, type NormalisedPoint } from './TrackPreview';
 export { ShaderWarmup } from './ShaderWarmup';
 export { ChartErrorBoundary } from './ChartErrorBoundary';
 export { ComponentErrorBoundary } from './ComponentErrorBoundary';
@@ -39,6 +39,7 @@ export { DetailHero, HeroNameRow, HeroStatsRow, HERO_HEADER_HEIGHT } from './Det
 export { useHeroMapHeight, HERO_MAP_FRACTION } from './useHeroMapHeight';
 export { SignalStatus, signalColor, type SignalLevel } from './SignalStatus';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
+export { ScreenScrollView, screenListInsets } from './ScreenScrollView';
 export { TipButtons } from './TipButtons';
 export { canDrawProfilePhoto } from './profileAvatar';
 export { pressable, pressRipple, PRESS_OPACITY } from './pressFeedback';

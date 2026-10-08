@@ -1,5 +1,5 @@
 /**
- * Global banner shown when the Rust route engine fails to initialize.
+ * Global banner shown when the Rust route engine fails to initialise.
  * Displays a warning with retry button. Non-dismissible - engine is required
  * for routes, sections, and fitness data.
  *

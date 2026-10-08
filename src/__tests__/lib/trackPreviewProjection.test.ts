@@ -6,7 +6,7 @@
  * centred in the box on the axis it does not fill.
  */
 
-import { fitTrackToBox, normalizeTrackPoints } from '@/shared/ui/TrackPreview';
+import { fitTrackToBox, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 
 const WIDTH = 48;
 const HEIGHT = 36;
@@ -16,7 +16,7 @@ function extent(values: number[]): number {
   return Math.max(...values) - Math.min(...values);
 }
 
-describe('normalizeTrackPoints', () => {
+describe('normaliseTrackPoints', () => {
   it('keeps a near-straight east-west road flat', () => {
     // 10 km east-west at 47 degrees north with 40 m of north-south wander.
     const lngSpan = 10_000 / (111_320 * Math.cos((47 * Math.PI) / 180));
@@ -27,7 +27,7 @@ describe('normalizeTrackPoints', () => {
       { lat: 47, lng: 7 + lngSpan },
     ];
 
-    const outline = normalizeTrackPoints(points);
+    const outline = normaliseTrackPoints(points);
     const spreadX = extent(outline.map((p) => p.x));
     const spreadY = extent(outline.map((p) => p.y));
 
@@ -36,7 +36,7 @@ describe('normalizeTrackPoints', () => {
   });
 
   it('centres a north-south line horizontally', () => {
-    const outline = normalizeTrackPoints([
+    const outline = normaliseTrackPoints([
       { lat: 46.2, lng: 7.35 },
       { lat: 46.21, lng: 7.35 },
       { lat: 46.22, lng: 7.35 },
@@ -49,7 +49,7 @@ describe('normalizeTrackPoints', () => {
   it('compresses longitude so a square loop is not drawn wide', () => {
     const lat = 47;
     const lngStep = 0.01 / Math.cos((lat * Math.PI) / 180);
-    const outline = normalizeTrackPoints([
+    const outline = normaliseTrackPoints([
       { lat, lng: 7 },
       { lat, lng: 7 + lngStep },
       { lat: lat + 0.01, lng: 7 + lngStep },
@@ -60,8 +60,8 @@ describe('normalizeTrackPoints', () => {
   });
 
   it('returns nothing for fewer than two points', () => {
-    expect(normalizeTrackPoints([])).toEqual([]);
-    expect(normalizeTrackPoints([{ lat: 46, lng: 7 }])).toEqual([]);
+    expect(normaliseTrackPoints([])).toEqual([]);
+    expect(normaliseTrackPoints([{ lat: 46, lng: 7 }])).toEqual([]);
   });
 });
 

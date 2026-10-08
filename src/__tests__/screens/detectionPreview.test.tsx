@@ -9,7 +9,7 @@ import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewP
 import { PreviewDiffStrip } from '@/features/routes/components/preview/PreviewDiffStrip';
 import { PreviewRunCost } from '@/features/routes/components/preview/PreviewRunCost';
 import DetectionPreviewScreen from '@/app/detection-preview';
-import { initializeI18n, changeLanguage } from '@/i18n';
+import { initialiseI18n, changeLanguage } from '@/i18n';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { layout } from '@/theme';
 import type {
@@ -1435,7 +1435,7 @@ describe('the preview against a catalogue that has not caught up', () => {
   });
 
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   beforeEach(async () => {

@@ -631,7 +631,7 @@ impl super::PersistentEngine {
     /// **The GPS track and the stored upstream bodies are deliberately not
     /// here, and this is where that is written down.** The screen reads them
     /// through `get_gps_track`, `get_activity_body`, `get_activity_bodies`,
-    /// `get_interval_body` and `get_stream_body`, and it should keep doing so.
+    /// `get_interval_body` and `get_activity_streams`, and it should keep doing so.
     /// A track is the largest thing an activity owns and a body is the
     /// upstream JSON whole; pulling either in here would put both on the mount
     /// path of every activity opened, which is the cost the narrowing above
@@ -1609,19 +1609,22 @@ pub mod pooled {
         let today = crate::persistence::wellness::today_iso();
         let latest = crate::persistence::activities::pooled::latest_metrics(conn);
 
-        let (latest_is_pr, latest_gps) = match latest.as_ref() {
+        let (latest_is_pr, latest_comparison, latest_gps) = match latest.as_ref() {
             Some(m) => {
                 let ids = [m.activity_id.clone()];
+                let highlights =
+                    crate::persistence::fitness::derivations::pooled::route_highlights(conn, &ids);
                 let is_pr = holds_a_record(
-                    &crate::persistence::fitness::derivations::pooled::route_highlights(conn, &ids),
+                    &highlights,
                     &crate::persistence::indicators::pooled::activity_indicators(conn, &ids),
                 );
+                let comparison = latest_comparison(conn, m, highlights.first());
                 let gps = crate::persistence::activities::pooled::gps_track(conn, &m.activity_id)
                     .map(|points| super::stride_track(points, max_gps_points))
                     .unwrap_or_default();
-                (is_pr, gps)
+                (is_pr, comparison, gps)
             }
-            None => (false, Vec::new()),
+            None => (false, crate::WidgetLatestComparison::default(), Vec::new()),
         };
 
         crate::FfiWidgetSnapshotData {
@@ -1631,9 +1634,97 @@ pub mod pooled {
             summary: widget_summary_card(conn, current_start, current_end, prev_start, prev_end),
             latest: latest.map(crate::FfiActivityMetrics::from),
             latest_is_pr,
+            latest_comparison,
             ramp_rate: wellness::latest_ramp_rate_to(conn, sparkline_days, &today),
             latest_gps,
         }
+    }
+
+    /// What the latest activity is measured against, from the same reads the
+    /// feed card and the route screen make: its place among the attempts at its
+    /// route, the sections it holds a record on, and, for an activity with no
+    /// route to be judged on, the load that sport usually carries.
+    fn latest_comparison(
+        conn: &Connection,
+        latest: &crate::ActivityMetrics,
+        highlight: Option<&crate::FfiActivityRouteHighlight>,
+    ) -> crate::WidgetLatestComparison {
+        use crate::persistence::activities::pooled as activities;
+
+        let route = highlight.and_then(|h| route_standing(conn, &latest.activity_id, h));
+        let typical_load = if route.is_none() {
+            activities::typical_training_load(
+                conn,
+                &latest.sport_type,
+                &latest.activity_id,
+                latest.date,
+                TYPICAL_LOAD_DAYS,
+            )
+        } else {
+            None
+        };
+        // The names overlay only renames a section, and a count needs none.
+        let encounters =
+            crate::persistence::fitness::derivations::pooled::activity_section_encounters(
+                conn,
+                &latest.activity_id,
+                &std::collections::BTreeMap::new(),
+            );
+        crate::WidgetLatestComparison {
+            route,
+            section_pr_count: encounters.iter().filter(|e| e.is_pr).count() as u32,
+            typical_load,
+        }
+    }
+
+    /// The days before an activity the load it is judged against is taken from.
+    const TYPICAL_LOAD_DAYS: i64 = 28;
+
+    /// Where the activity stands among the attempts at the route `highlight`
+    /// names, read as the route screen reads it. None when there is no other
+    /// attempt to stand among.
+    fn route_standing(
+        conn: &Connection,
+        activity_id: &str,
+        highlight: &crate::FfiActivityRouteHighlight,
+    ) -> Option<crate::WidgetRouteStanding> {
+        use crate::persistence::activities::pooled as activities;
+        use crate::persistence::fitness::performances::{
+            is_comparable_attempt, route_performances,
+        };
+        use crate::persistence::routes::pooled as routes;
+
+        let group = routes::group_by_id(conn, &highlight.route_id)?;
+        let excluded = routes::excluded_route_activity_ids(conn, &highlight.route_id);
+        let match_info = routes::match_info(conn, &highlight.route_id);
+        let result = route_performances(
+            &group.activity_ids,
+            Some(&match_info),
+            &excluded,
+            |id| activities::metrics_of(conn, id),
+            Some(activity_id),
+            None,
+        );
+        if result.attempt_count < 2 {
+            return None;
+        }
+        let direction = result
+            .performances
+            .iter()
+            .find(|p| p.is_current)
+            .map(|p| p.direction.as_str());
+        Some(crate::WidgetRouteStanding {
+            route_name: highlight.route_name.clone(),
+            rank: result.current_rank,
+            attempt_count: result.attempt_count,
+            time_delta_seconds: highlight.time_delta_seconds,
+            prior_attempt_seconds: result
+                .performances
+                .iter()
+                .filter(|p| !p.is_current && is_comparable_attempt(p, direction))
+                .map(|p| p.moving_time)
+                .collect(),
+        })
     }
 
     /// Whether the activity holds a record, by either of the two things that
@@ -2225,6 +2316,7 @@ pub mod pooled {
             weekly_totals,
             ftp_trend,
             run_pace_trend,
+            swim_pace_trend,
             recent_prs,
             section_count,
             sport_types,
@@ -3433,6 +3525,53 @@ mod tests {
         assert!(pooled_insights_data(&engine, &params).recent_prs.is_empty());
     }
 
+    /// Scenario: the insights screen draws a swim pace card, and the summary card
+    /// read was the only place it could take the swim trend from.
+    ///
+    /// Expected behaviour: the insights read carries the swim trend, equal to the
+    /// one the summary card read gives for the same library.
+    #[test]
+    fn test_insights_carries_the_swim_pace_trend() {
+        use crate::persistence::fitness::derivations::pooled::SYNC_PACE_WINDOW_DAYS;
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("directory");
+        let path = dir.path().join("swim_insights.db");
+        let engine = engine_with_a_recent_section_record(path.to_str().unwrap());
+        engine.save_pace_snapshot(
+            "Swim",
+            1.0,
+            None,
+            None,
+            1_700_000_000,
+            SYNC_PACE_WINDOW_DAYS,
+        );
+        engine.save_pace_snapshot(
+            "Swim",
+            1.25,
+            None,
+            None,
+            1_700_200_000,
+            SYNC_PACE_WINDOW_DAYS,
+        );
+        let params = coverage_params();
+
+        let data = pooled_insights_data(&engine, &params);
+
+        crate::persistence::read_pool::bind(&engine.db_path);
+        let card = crate::persistence::read_pool::with_read_conn(|conn| {
+            pooled::summary_card(conn, 0, 1, 0, 1)
+        })
+        .expect("summary card");
+        crate::persistence::read_pool::close();
+        assert_eq!(data.swim_pace_trend.sample_count, 2);
+        assert_eq!(data.swim_pace_trend.gain_percent, Some(25.0));
+        assert_eq!(data.swim_pace_trend.delta_seconds, Some(20.0));
+        assert_eq!(
+            format!("{:?}", data.swim_pace_trend),
+            format!("{:?}", card.swim_pace_trend)
+        );
+    }
+
     #[test]
     fn test_insights_ranks_sports_without_pattern_detection() {
         // Ranked sections carry every eligible sport without pattern detection.
@@ -3556,6 +3695,7 @@ mod tests {
                 created: None,
                 icu_sync_date: Some("v1".into()),
                 has_latlng: false,
+                has_series: false,
             });
             bodies.push((id.clone(), date, "{}".into()));
             engine
@@ -4752,6 +4892,246 @@ mod tests {
             power_zone_times: None,
             hr_zone_times: None,
         }
+    }
+
+    /// Fourteen rides over one route, one a day, `latest` the newest: the best
+    /// takes 3000 s and the newest 3095 s, so the newest is second.
+    fn seed_route_of_fourteen(engine: &mut crate::persistence::PersistentEngine) {
+        let ids: Vec<String> = (0..14).map(|i| format!("a{i}")).collect();
+        let metrics: Vec<_> = ids
+            .iter()
+            .enumerate()
+            .map(|(i, id)| {
+                let moving_time = match i {
+                    3 => 3_000,
+                    13 => 3_095,
+                    _ => 3_200 + i as u32,
+                };
+                widget_metric(id, 1_700_000_000 + i as i64 * 86_400, moving_time)
+            })
+            .collect();
+        engine.set_activity_metrics(metrics).expect("metrics");
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
+                 VALUES ('g1', 'a0', ?1, 'Ride', 14)",
+                rusqlite::params![serde_json::to_string(&ids).unwrap()],
+            )
+            .expect("group");
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_names (route_id, custom_name) VALUES ('g1', 'Lake loop')",
+                [],
+            )
+            .expect("name");
+    }
+
+    #[test]
+    fn the_widget_read_ranks_the_latest_ride_second_of_fourteen_attempts() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("widget_route_standing.db");
+        let mut engine =
+            crate::persistence::PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        seed_route_of_fourteen(&mut engine);
+
+        let data = pooled::widget_snapshot_data(&engine.db, 0, 1, 0, 1, 42, 150);
+        let route = data.latest_comparison.route.expect("the route it rode");
+        assert_eq!(route.route_name, "Lake loop");
+        assert_eq!(route.rank, Some(2));
+        assert_eq!(route.attempt_count, 14);
+        assert_eq!(route.time_delta_seconds, Some(95), "behind the 3000 s best");
+        assert_eq!(route.prior_attempt_seconds.len(), 13);
+        assert_eq!(route.prior_attempt_seconds[0], 3_200, "oldest first");
+        assert_eq!(route.prior_attempt_seconds[3], 3_000, "a3 holds the best");
+        assert_eq!(route.prior_attempt_seconds[4], 3_204, "a4 follows it");
+        assert_eq!(
+            data.latest_comparison.typical_load, None,
+            "a matched route needs no typical load"
+        );
+
+        crate::persistence::read_cache::close();
+    }
+
+    #[test]
+    fn the_widget_read_leaves_out_attempts_the_athlete_excluded_from_the_route() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("widget_route_excluded.db");
+        let mut engine =
+            crate::persistence::PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        seed_route_of_fourteen(&mut engine);
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction, excluded)
+                 VALUES ('g1', 'a5', 100.0, 'same', 1)",
+                [],
+            )
+            .expect("exclusion");
+
+        let route = pooled::widget_snapshot_data(&engine.db, 0, 1, 0, 1, 42, 150)
+            .latest_comparison
+            .route
+            .expect("the route it rode");
+        assert_eq!(route.attempt_count, 13);
+        assert_eq!(route.prior_attempt_seconds.len(), 12);
+        assert!(!route.prior_attempt_seconds.contains(&3_205));
+
+        crate::persistence::read_cache::close();
+    }
+
+    #[test]
+    fn the_widget_read_gives_a_lone_route_member_no_standing_and_falls_back_to_load() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("widget_route_alone.db");
+        let mut engine =
+            crate::persistence::PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        let mut prior = widget_metric("prior", 1_700_000_000, 3_000);
+        prior.training_load = Some(40.0);
+        let latest = widget_metric("latest", 1_700_086_400, 3_000);
+        engine
+            .set_activity_metrics(vec![prior, latest])
+            .expect("metrics");
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
+                 VALUES ('g1', 'latest', '[\"latest\"]', 'Ride', 1)",
+                [],
+            )
+            .expect("group");
+
+        let data = pooled::widget_snapshot_data(&engine.db, 0, 1, 0, 1, 42, 150);
+        assert_eq!(data.latest_comparison.route, None);
+        assert_eq!(data.latest_comparison.typical_load, Some(40.0));
+
+        crate::persistence::read_cache::close();
+    }
+
+    /// The typical load is the median of the same sport's recorded loads in
+    /// the four weeks before the latest activity, the latest itself left out.
+    #[test]
+    fn the_widget_read_takes_the_typical_load_from_the_same_sport_in_the_four_weeks_before() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("widget_typical_load.db");
+        let mut engine =
+            crate::persistence::PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        const DAY: i64 = 86_400;
+        let latest_date = 1_700_000_000 + 40 * DAY;
+        let ride = |id: &str, days_before: i64, sport: &str, load: Option<f64>| {
+            let mut m = widget_metric(id, latest_date - days_before * DAY, 3_600);
+            m.sport_type = sport.into();
+            m.training_load = load;
+            m
+        };
+        let mut latest = ride("latest", 0, "Ride", Some(90.0));
+        latest.training_load = Some(90.0);
+        engine
+            .set_activity_metrics(vec![
+                latest,
+                ride("r1", 2, "Ride", Some(40.0)),
+                ride("r2", 9, "Ride", Some(60.0)),
+                ride("r3", 27, "Ride", Some(80.0)),
+                ride("r4", 29, "Ride", Some(500.0)),
+                ride("no_load", 5, "Ride", None),
+                ride("zero_load", 6, "Ride", Some(0.0)),
+                ride("a_run", 3, "Run", Some(300.0)),
+            ])
+            .expect("metrics");
+
+        let data = pooled::widget_snapshot_data(&engine.db, 0, 1, 0, 1, 42, 150);
+        assert_eq!(data.latest_comparison.route, None);
+        assert_eq!(
+            data.latest_comparison.typical_load,
+            Some(60.0),
+            "the median of 40, 60 and 80, not the 500 outside the window or the run"
+        );
+
+        crate::persistence::read_cache::close();
+    }
+
+    #[test]
+    fn the_widget_read_has_no_typical_load_when_nothing_of_that_sport_came_before() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("widget_typical_none.db");
+        let mut engine =
+            crate::persistence::PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        engine
+            .set_activity_metrics(vec![widget_metric("only", 1_700_000_000, 3_600)])
+            .expect("metrics");
+
+        let data = pooled::widget_snapshot_data(&engine.db, 0, 1, 0, 1, 42, 150);
+        assert_eq!(data.latest_comparison.typical_load, None);
+        assert_eq!(data.latest_comparison.section_pr_count, 0);
+
+        crate::persistence::read_cache::close();
+    }
+
+    #[test]
+    fn the_widget_read_counts_the_sections_the_latest_activity_set_a_record_on() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("widget_section_prs.db");
+        let mut engine =
+            crate::persistence::PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        engine
+            .set_activity_metrics(vec![
+                widget_metric("old", 1_700_000_000, 3_600),
+                widget_metric("new", 1_700_086_400, 3_600),
+            ])
+            .expect("metrics");
+        for (id, start) in [("old", 1_700_000_000_i64), ("new", 1_700_086_400)] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng,
+                                              start_date, name, distance_meters, duration_secs)
+                     VALUES (?1, 'Ride', 46.0, 46.1, 7.0, 7.1, ?2, ?1, 40000.0, 3600)",
+                    rusqlite::params![id, start],
+                )
+                .expect("activity");
+        }
+        // `fast` and `faster` are beaten by the new ride; `slow` is not.
+        for section in ["fast", "faster", "slow"] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                                           distance_meters, disabled, version)
+                     VALUES (?1, 'auto', ?1, 'Ride', '[]', 800.0, 0, 1)",
+                    rusqlite::params![section],
+                )
+                .expect("section");
+        }
+        for (section, activity, lap) in [
+            ("fast", "old", 240.0),
+            ("fast", "new", 230.0),
+            ("faster", "old", 240.0),
+            ("faster", "new", 200.0),
+            ("slow", "old", 240.0),
+            ("slow", "new", 250.0),
+        ] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
+                                                     end_index, distance_meters, lap_time, lap_pace, excluded)
+                     VALUES (?1, ?2, 'same', 0, 0, 800.0, ?3, ?4, 0)",
+                    rusqlite::params![section, activity, lap, 800.0 / lap],
+                )
+                .expect("traversal");
+        }
+
+        let data = pooled::widget_snapshot_data(&engine.db, 0, 1, 0, 1, 42, 150);
+        assert_eq!(data.latest_comparison.section_pr_count, 2);
+
+        crate::persistence::read_cache::close();
     }
 
     #[test]

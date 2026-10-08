@@ -10,7 +10,7 @@ use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::PersistentEngine;
 use super::fitness::derivations::pooled::SYNC_PACE_WINDOW_DAYS;
-use super::streams::FROM_THE_TRACK;
+use super::streams::{FROM_THE_TRACK, SeriesIndex};
 
 pub(crate) mod pooled {
     use super::*;
@@ -46,6 +46,15 @@ pub(crate) mod pooled {
         }
         let stored = crate::persistence::streams::pooled::activity_streams(conn, activity_id)
             .unwrap_or_default();
+        // A `time` row means the rows were written in the server's own index,
+        // for an activity that had no track. Its selection is answered from
+        // them while it still has none.
+        if wanted.iter().any(|kind| FROM_THE_TRACK.contains(kind))
+            && stored.iter().any(|item| item.kind == "time")
+            && !track_stored(conn, activity_id)
+        {
+            return serde_json::to_string(&samples_selection(&wanted, &stored)?).ok();
+        }
         let available = |kind: &&str| {
             FROM_THE_TRACK.contains(kind) || stored.iter().any(|item| &item.kind.as_str() == kind)
         };
@@ -73,6 +82,39 @@ pub(crate) mod pooled {
                 .collect()
         };
         serde_json::to_string(&items).ok()
+    }
+
+    pub(crate) fn track_stored(conn: &Connection, activity_id: &str) -> bool {
+        conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM gps_tracks WHERE activity_id = ?)",
+            params![activity_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false)
+    }
+
+    /// A selection answered from rows in the server's own index, for an
+    /// activity with no track. The fetches that store a clock without
+    /// coordinates, the stream pass and the detail screen's, both ask for
+    /// every series the screen draws, so a wanted series that is not among
+    /// the rows is one upstream does not have, and it is left out the way the
+    /// server's own body leaves it out. A selection that does not ask for
+    /// `time` is not a chart of this activity, a map preview say, and is not
+    /// served.
+    fn samples_selection(
+        wanted: &[&str],
+        stored: &[crate::net::types::StreamDto],
+    ) -> Option<Vec<crate::net::types::StreamDto>> {
+        if !wanted.contains(&"time") {
+            return None;
+        }
+        Some(
+            wanted
+                .iter()
+                .filter_map(|kind| stored.iter().find(|item| &item.kind.as_str() == kind))
+                .cloned()
+                .collect(),
+        )
     }
 
     fn track_series(
@@ -521,18 +563,29 @@ impl PersistentEngine {
         match serde_json::from_str::<Vec<crate::net::types::StreamDto>>(raw) {
             // A body carrying coordinates goes through the same mask the sync
             // uses, or this writer stores the server's index space over rows
-            // the track addresses. A body without them carries no mask
-            // to apply, and `storable_series` answers empty for one, so it is
-            // stored as it arrived.
+            // the track addresses. A body without them carries no mask to
+            // apply. For an activity with no track the server's index is the
+            // only one, so the body is kept in it, with the clock that
+            // addresses it when it carries one, and the detail screen is
+            // answered from it once the body is evicted. For one whose track
+            // is stored it goes in as it arrived.
             Ok(parsed) => {
-                let masked;
-                let to_store = if parsed.iter().any(|s| s.kind == "latlng") {
-                    masked = crate::net::types::storable_series(&parsed);
-                    &masked
+                let (to_store, index) = if parsed.iter().any(|s| s.kind == "latlng") {
+                    (
+                        crate::net::types::storable_series(&parsed),
+                        SeriesIndex::Track,
+                    )
+                } else if pooled::track_stored(&self.db, activity_id) {
+                    (parsed, SeriesIndex::Track)
+                } else if parsed.iter().any(|s| s.kind == "time") {
+                    (
+                        crate::net::types::trackless_series(&parsed),
+                        SeriesIndex::Samples,
+                    )
                 } else {
-                    &parsed
+                    (parsed, SeriesIndex::Samples)
                 };
-                self.write_activity_streams(activity_id, to_store)?;
+                self.write_activity_streams(activity_id, &to_store, index)?;
             }
             Err(e) => log::warn!(
                 "veloqrs: [Streams] {} body for {} did not parse, caching it unstored: {}",
@@ -1775,6 +1828,108 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    /// The detail screen's selection, as `streamTypesKey` sorts it.
+    const DETAIL: &str = "altitude,cadence,distance,fixed_altitude,ga_velocity,grade_smooth,\
+                          heartrate,latlng,temp,time,velocity_smooth,w_bal,watts";
+
+    /// What the server sends for a strength session: its clock and its heart
+    /// rate, and nothing a track would carry.
+    const STRENGTH: &str =
+        r#"[{"type":"time","data":[0,1,2,4]},{"type":"heartrate","data":[90,95,null,101]}]"#;
+
+    /// Scenario: a strength session recorded with heart rate and no
+    /// coordinates has its detail body fetched once, and longer activities
+    /// opened afterwards evict that body from the cache.
+    ///
+    /// Expected behaviour: the detail selection is still answered from the
+    /// device, in the server's own sample index, carrying what the server's
+    /// body carried and leaving out the coordinates and altitude it never had.
+    #[test]
+    fn a_trackless_activity_answers_its_detail_selection_once_its_body_is_evicted() {
+        let (_dir, engine) = engine();
+        engine.set_stream_body("gym", DETAIL, STRENGTH).unwrap();
+        engine.db.execute("DELETE FROM stream_bodies", []).unwrap();
+
+        let raw = engine
+            .read_stream_body("gym", DETAIL)
+            .unwrap()
+            .expect("the session's chart is on the device");
+        let items = parse_body(&raw);
+
+        assert_eq!(
+            items.iter().map(|s| s.kind.as_str()).collect::<Vec<_>>(),
+            vec!["heartrate", "time"]
+        );
+        assert_eq!(
+            series(&items, "time").unwrap().data,
+            vec![Some(0.0), Some(1.0), Some(2.0), Some(4.0)]
+        );
+        assert_eq!(
+            series(&items, "heartrate").unwrap().data,
+            vec![Some(90.0), Some(95.0), None, Some(101.0)]
+        );
+        assert!(
+            engine
+                .read_stream_body("gym", "altitude,latlng")
+                .unwrap()
+                .is_none(),
+            "a selection with no clock asks for a line this activity has not got"
+        );
+    }
+
+    /// Scenario: an activity stored without a track later gains one, and its
+    /// next wide fetch stores series in the track's index space.
+    ///
+    /// Expected behaviour: nothing written in the server's index survives
+    /// beside them, so no series is addressed against the wrong samples.
+    #[test]
+    fn series_stored_without_a_track_do_not_survive_one_arriving() {
+        let (_dir, mut engine) = engine();
+        engine.set_stream_body("gym", DETAIL, STRENGTH).unwrap();
+        engine
+            .add_activity("gym".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+        engine
+            .store_activity_streams(
+                "gym",
+                &[crate::net::types::StreamDto {
+                    kind: "watts".to_string(),
+                    data: vec![Some(100.0); 4],
+                    data2: None,
+                }],
+            )
+            .unwrap();
+
+        assert_eq!(engine.stored_stream_kinds("gym").unwrap(), vec!["watts"]);
+    }
+
+    /// The track's own reconstruction is untouched: a ride with a track and
+    /// its series stored serves the track's coordinates, and never a `time`
+    /// series from the store, which keeps none for it.
+    #[test]
+    fn a_ride_with_a_track_stores_no_clock_of_its_own() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("ride".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+        let lats: Vec<String> = elevated_track(4)
+            .iter()
+            .map(|p| p.latitude.to_string())
+            .collect();
+        let lngs: Vec<String> = elevated_track(4)
+            .iter()
+            .map(|p| p.longitude.to_string())
+            .collect();
+        let body = format!(
+            r#"[{{"type":"latlng","data":[{}],"data2":[{}]}},{{"type":"time","data":[0,1,2,3]}},{{"type":"watts","data":[1,2,3,4]}}]"#,
+            lats.join(","),
+            lngs.join(",")
+        );
+        engine.set_stream_body("ride", DETAIL, &body).unwrap();
+
+        assert_eq!(engine.stored_stream_kinds("ride").unwrap(), vec!["watts"]);
     }
 
     #[test]

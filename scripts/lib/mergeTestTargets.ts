@@ -68,6 +68,13 @@ export interface MergeTargets {
   tracematchLib: boolean;
   /** TypeScript files to hand to `jest --findRelatedTests`. */
   typescript: string[];
+  /**
+   * Other files to hand to the same command: data Jest imports, and the tests
+   * that read a changed file through `fs`.
+   */
+  related: string[];
+  /** Whether the whole app project has to run, for a data file no test can be placed on. */
+  jestApp: boolean;
   androidJvm: boolean;
   iosProject: boolean;
   rustLint: boolean;
@@ -165,6 +172,27 @@ interface SuiteDependencies {
   includedBy: Map<string, Set<string>>;
   /** Each suite, to the files it compiles or reads. */
   files: Map<string, Set<string>>;
+  /** The suites whose sources name the fixture directory at all. */
+  fixtureDirReaders: Set<string>;
+}
+
+const FIXTURE_DIR = `${RUST_TEST_DIR}fixtures`;
+
+/** A source that opens something under the fixture directory, whatever it names. */
+const NAMES_FIXTURE_DIR = /tests\/fixtures|["']fixtures["']/;
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Whether a source names a file by its own name. A suite builds a fixture path
+ * from the directory and a bare name, so the literal `tests/fixtures/<name>`
+ * never appears and the name is all there is to match.
+ */
+function namesFile(source: string, file: string): boolean {
+  const base = file.slice(file.lastIndexOf('/') + 1);
+  return new RegExp(`(?<![\\w.-])${escapeRegExp(base)}(?![\\w-])`).test(source);
 }
 
 function suiteDependencies(): SuiteDependencies {
@@ -172,6 +200,8 @@ function suiteDependencies(): SuiteDependencies {
   const path = require('node:path');
   const includedBy = new Map<string, Set<string>>();
   const files = new Map<string, Set<string>>();
+  const fixtureDirReaders = new Set<string>();
+  const fixtures = filesUnder(FIXTURE_DIR, () => true);
   for (const target of testRoots()) {
     const pending = [target.path];
     const seen = new Set<string>();
@@ -186,14 +216,19 @@ function suiteDependencies(): SuiteDependencies {
       includedBy.set(file, suites);
       const source = fs.readFileSync(path.join(__dirname, '../..', file), 'utf8') as string;
       pending.push(...modulePaths(source, file));
-      for (const included of includedFiles(source, file)) {
+      const read = [
+        ...includedFiles(source, file),
+        ...fixtures.filter((fixture) => namesFile(source, fixture)),
+      ];
+      for (const included of read) {
         const consumers = includedBy.get(included) ?? new Set<string>();
         consumers.add(target.name);
         includedBy.set(included, consumers);
       }
+      if (NAMES_FIXTURE_DIR.test(source)) fixtureDirReaders.add(target.name);
     }
   }
-  return { includedBy, files };
+  return { includedBy, files, fixtureDirReaders };
 }
 
 /** The pseudo-module for items defined in `lib.rs` itself. */
@@ -206,19 +241,26 @@ function readRepoFile(file: string): string {
   ) as string;
 }
 
-/** Every `.rs` file under a directory, as repository paths. */
-function rustFilesUnder(dir: string): string[] {
+/** Every file under a directory whose name `keep` accepts, as repository paths; none when it is absent. */
+function filesUnder(dir: string, keep: (name: string) => boolean): string[] {
   const fs = require('node:fs');
   const path = require('node:path');
   const found: string[] = [];
+  // A checkout need not carry every root the planner looks under.
+  if (!fs.existsSync(path.join(__dirname, '../..', dir))) return found;
   for (const entry of fs.readdirSync(path.join(__dirname, '../..', dir), {
     withFileTypes: true,
   }) as { name: string; isDirectory(): boolean }[]) {
+    if (entry.name === 'node_modules') continue;
     const child = path.posix.join(dir, entry.name);
-    if (entry.isDirectory()) found.push(...rustFilesUnder(child));
-    else if (entry.name.endsWith('.rs')) found.push(child);
+    if (entry.isDirectory()) found.push(...filesUnder(child, keep));
+    else if (keep(entry.name)) found.push(child);
   }
   return found;
+}
+
+function rustFilesUnder(dir: string): string[] {
+  return filesUnder(dir, (name) => name.endsWith('.rs'));
 }
 
 /** The first path segment after `src/`, which names the top-level module a source file belongs to. */
@@ -368,6 +410,45 @@ function suitesReaching(changed: string[], files: Map<string, Set<string>>): str
   return [...suites];
 }
 
+interface SourceReaders {
+  /** The crate sources that read a changed file other than by declaring it a module. */
+  readers: string[];
+  /** The changed files no crate source reads. */
+  unread: string[];
+  /** Whether any crate source opens something under the fixture directory. */
+  namesFixtureDir: boolean;
+}
+
+/**
+ * Which crate sources read the changed data files, through `include_str!`,
+ * `include_bytes!` or a fixture's own name. Only their unit tests read a file
+ * under `tests/`, so these plan `--lib` and not the suites reaching the module.
+ * No test root declares them, so the file reaches them only through here.
+ */
+function sourceReaders(data: string[]): SourceReaders {
+  if (data.length === 0) return { readers: [], unread: [], namesFixtureDir: false };
+  const readers = new Set<string>();
+  const read = new Set<string>();
+  let namesFixtureDir = false;
+  for (const file of rustFilesUnder(`${CRATE}src`)) {
+    const source = readRepoFile(file);
+    const included = includedFiles(source, file);
+    if (NAMES_FIXTURE_DIR.test(source)) namesFixtureDir = true;
+    for (const path of data) {
+      const isFixture = path.startsWith(`${FIXTURE_DIR}/`);
+      if (included.includes(path) || (isFixture && namesFile(source, path))) {
+        readers.add(file);
+        read.add(path);
+      }
+    }
+  }
+  return {
+    readers: [...readers],
+    unread: data.filter((path) => !read.has(path)),
+    namesFixtureDir,
+  };
+}
+
 /**
  * The suites a path drags in beyond the one it names.
  *
@@ -396,7 +477,9 @@ function touchesSchema(path: string): boolean {
  * through, and the integration suites alone do not cover it.
  */
 function touchesRustSource(path: string): boolean {
-  return path.startsWith(`${CRATE}src/`) || path === `${CRATE}Cargo.toml`;
+  return (
+    path.startsWith(`${CRATE}src/`) || path === `${CRATE}Cargo.toml` || touchesTracematch(path)
+  );
 }
 
 /**
@@ -412,6 +495,69 @@ function touchesTracematch(path: string): boolean {
 
 function isTypeScript(path: string): boolean {
   return /\.(ts|tsx)$/.test(path) && !path.startsWith('modules/veloqrs/src/generated/');
+}
+
+/** Roots whose files Jest can import or a test can read. */
+const JEST_ROOTS = ['src/', 'scripts/', 'config/', 'modules/veloqrs/src/'];
+
+function underJestRoot(path: string): boolean {
+  return (
+    JEST_ROOTS.some((root) => path.startsWith(root)) &&
+    !path.startsWith('modules/veloqrs/src/generated/')
+  );
+}
+
+/** Files Jest resolves through `require` or `import`, so `--findRelatedTests` follows them. */
+function isImportableData(path: string): boolean {
+  return underJestRoot(path) && /\.(json|js|jsx|mjs|cjs)$/.test(path);
+}
+
+/** Changed files a test could read at runtime: data, not code and not prose. */
+function isReadableData(path: string): boolean {
+  return (
+    !isTypeScript(path) &&
+    !/\.(rs|md|toml|lock|kt|swift|java|gradle|plist|pbxproj)$/.test(path) &&
+    /\.[a-z0-9]+$/i.test(path) &&
+    !touchesTracematch(path)
+  );
+}
+
+interface JestPlan {
+  related: string[];
+  app: boolean;
+}
+
+/**
+ * The Jest suites a changed non-TypeScript file can break. Importable data goes
+ * to `--findRelatedTests`. A test that reads a file through `fs` names it, so
+ * those tests are planned by the file's own name or by its directory. A file under the app that no test can be placed on plans
+ * the whole app project.
+ */
+function jestPlan(changed: string[]): JestPlan {
+  const data = changed.filter(isReadableData);
+  const related = new Set(changed.filter(isImportableData));
+  if (data.length === 0) return { related: [...related], app: false };
+  const tests = JEST_ROOTS.flatMap((root) =>
+    filesUnder(root.slice(0, -1), (name) => /\.test\.tsx?$/.test(name))
+  ).map((file) => ({ file, source: readRepoFile(file) }));
+  let app = false;
+  for (const path of data) {
+    const named = tests.filter(({ source }) => namesFile(source, path));
+    // A test that scans a directory names the directory and not each file in
+    // it. `fixtures` is the name every fixture directory shares, so it places
+    // nothing.
+    const directory = path.split('/').slice(-2, -1)[0];
+    const inDirectory =
+      !directory || directory === 'fixtures'
+        ? []
+        : tests.filter(({ source }) =>
+            new RegExp(`(?<=[/'"\`])${escapeRegExp(directory)}(?=[/'"\`])`).test(source)
+          );
+    for (const { file } of [...named, ...inDirectory]) related.add(file);
+    const placed = named.length > 0 || inDirectory.length > 0 || isImportableData(path);
+    if (!placed && path.startsWith('src/')) app = true;
+  }
+  return { related: [...related].sort(), app };
 }
 
 /**
@@ -460,14 +606,27 @@ function definesEngineEntryPoint(path: string): boolean {
 /** The suites to run for a set of changed paths. */
 export function mergeTestTargets(changed: string[]): MergeTargets {
   const unrunnable = unrunnableSuites();
-  const { includedBy, files } = suiteDependencies();
+  const { includedBy, files, fixtureDirReaders } = suiteDependencies();
+  const crateData = changed.filter(
+    (path) => path.startsWith(CRATE) && !path.endsWith('.rs') && !path.startsWith(`${CRATE}src/`)
+  );
+  const { readers, unread, namesFixtureDir } = sourceReaders(crateData);
+  // A fixture no suite and no crate source names is read some way this planner
+  // cannot see, so every suite that opens the fixture directory stands in.
+  const unplaced = unread.filter(
+    (path) => path.startsWith(`${FIXTURE_DIR}/`) && !includedBy.has(path)
+  );
+  const tracematch = changed.some(touchesTracematch) ? [...files.keys()] : [];
   const named = [
     ...changed.flatMap((path) => [...(includedBy.get(path) ?? [])]),
     ...suitesReaching(changed, files),
+    ...(unplaced.length > 0 ? [...fixtureDirReaders] : []),
+    ...tracematch,
   ];
   const schema = changed.some(touchesSchema) ? SCHEMA_SUITES : [];
   const manifest = changed.includes(`${CRATE}Cargo.toml`) ? ['app'] : [];
   const layout = changed.some(touchesTestLayout) ? [LAYOUT_SUITE] : [];
+  const jest = jestPlan(changed);
   const rustAll = changed.some((path) =>
     [
       'modules/veloqrs/rust/Cargo.toml',
@@ -480,9 +639,14 @@ export function mergeTestTargets(changed: string[]): MergeTargets {
   );
   return {
     rustTests: rustTests.sort(),
-    rustLib: changed.some(touchesRustSource),
+    rustLib:
+      changed.some(touchesRustSource) ||
+      readers.length > 0 ||
+      (unplaced.length > 0 && namesFixtureDir),
     tracematchLib: changed.some(touchesTracematch),
     typescript: changed.filter(isTypeScript).sort(),
+    related: jest.related,
+    jestApp: jest.app,
     androidJvm: changed.some((path) => path.startsWith('modules/veloqrs/android/')),
     iosProject: changed.some(
       (path) =>
@@ -506,6 +670,8 @@ export function hasTargets(targets: MergeTargets): boolean {
     targets.rustLib ||
     targets.tracematchLib ||
     targets.typescript.length > 0 ||
+    targets.related.length > 0 ||
+    targets.jestApp ||
     targets.androidJvm ||
     targets.iosProject ||
     targets.rustLint ||
@@ -607,10 +773,14 @@ export function mergeTestCommands(
       bitwiseCommand('TRACEMATCH_CORPUS', corpora.private, 'real-corpus', 'full_corpus_bitwise')
     );
   }
-  if (targets.typescript.length > 0) {
+  const jestFiles = [...targets.typescript, ...targets.related];
+  if (jestFiles.length > 0) {
     commands.push(
-      `npx jest --config config/jest.config.js --findRelatedTests --passWithNoTests ${targets.typescript.map(shellQuote).join(' ')}`
+      `npx jest --config config/jest.config.js --findRelatedTests --passWithNoTests ${jestFiles.map(shellQuote).join(' ')}`
     );
+  }
+  if (targets.jestApp) {
+    commands.push('npx jest --config config/jest.config.js --selectProjects app');
   }
   if (targets.androidJvm) commands.push('./scripts/check-android-jvm.sh');
   if (targets.iosProject) {

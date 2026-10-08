@@ -20,7 +20,7 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 const engine = {
-  getStreamBody: jest.fn(),
+  getActivityStreams: jest.fn(),
   syncActivityStreams: jest.fn(),
 };
 
@@ -54,12 +54,12 @@ describe('streamTypesKey', () => {
   });
 
   it('reads and requests the shipped selections under the same key', () => {
-    engine.getStreamBody.mockReturnValue(null);
+    engine.getActivityStreams.mockReturnValue(null);
 
     readStreams('a1', DETAIL_STREAM_TYPES);
     requestStreams('a1', DETAIL_STREAM_TYPES);
 
-    const readKey = engine.getStreamBody.mock.calls[0][1];
+    const readKey = engine.getActivityStreams.mock.calls[0][1];
     const requestKey = engine.syncActivityStreams.mock.calls[0][1];
     expect(readKey).toBe(requestKey);
     expect(readKey).toBe(streamTypesKey(DETAIL_STREAM_TYPES));

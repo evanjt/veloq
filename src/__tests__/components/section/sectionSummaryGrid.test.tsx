@@ -8,7 +8,7 @@
 import React from 'react';
 import { render, within } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { SectionInfoCard } from '@/features/routes/components/section/SectionInfoCard';
 
 const record = (bestTime: number) => ({ bestTime, bestPace: 3, sectionDistance: 2000 }) as never;
@@ -35,7 +35,7 @@ function card(props: Record<string, unknown>) {
 
 describe('Summary card layout', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('puts two directions in three rows of two values', () => {

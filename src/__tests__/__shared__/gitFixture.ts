@@ -44,9 +44,19 @@ const IDENTITY = {
  */
 const SESSION_SWITCH = /^VELOQ_/;
 
+/**
+ * A fixture's commits are never signed. A machine with `commit.gpgsign=true`
+ * would otherwise ask for a key on every fixture commit and fail them all.
+ */
+const UNSIGNED = {
+  GIT_CONFIG_COUNT: '1',
+  GIT_CONFIG_KEY_0: 'commit.gpgsign',
+  GIT_CONFIG_VALUE_0: 'false',
+};
+
 /** `process.env` with every inherited git pointer and session switch removed. */
 export function gitFreeEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...base, ...IDENTITY };
+  const env: NodeJS.ProcessEnv = { ...base, ...IDENTITY, ...UNSIGNED };
   for (const key of INHERITED) delete env[key];
   for (const key of Object.keys(env)) if (SESSION_SWITCH.test(key)) delete env[key];
   return env;

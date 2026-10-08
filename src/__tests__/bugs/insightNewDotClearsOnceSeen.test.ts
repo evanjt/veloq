@@ -80,7 +80,6 @@ describe('the new dot on a stale PR and a section-changed card', () => {
     (getEngine as jest.Mock).mockReturnValue({ subscribe: jest.fn(() => () => {}) });
     (fetchInsightsDataFromEngine as jest.Mock).mockReturnValue({
       insightsData: { sportTypes: [] },
-      summaryCardData: null,
     });
     (computeInsightsFromData as jest.Mock).mockImplementation(() => ({
       insights: generated(),

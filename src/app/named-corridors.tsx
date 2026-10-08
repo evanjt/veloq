@@ -6,15 +6,15 @@
  */
 
 import React, { useMemo } from 'react';
-import { Pressable, View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Pressable, View, StyleSheet, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
   IconButton,
   ScreenSafeAreaView,
+  ScreenScrollView,
   TAB_BAR_SAFE_PADDING,
   pressable,
   pressRipple,
@@ -30,6 +30,7 @@ import { projectRouteToBox } from '@/shared/geo/routePreview';
 import { getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { tapTo } from '@/shared/app/navigation';
 
 const PREVIEW_WIDTH = 64;
 const PREVIEW_HEIGHT = 44;
@@ -83,7 +84,7 @@ function NamedCorridorsScreenContent() {
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
-      <ScrollView contentContainerStyle={styles.content} testID="named-corridors-list">
+      <ScreenScrollView contentContainerStyle={styles.content} testID="named-corridors-list">
         {corridors.length === 0 ? (
           <Text
             testID="named-corridors-empty"
@@ -121,7 +122,7 @@ function NamedCorridorsScreenContent() {
                   ) : (
                     <Pressable
                       testID={`named-corridor-${corridor.intentId}-open`}
-                      onPress={() => router.push(`/section/${corridor.sectionId}`)}
+                      onPress={() => tapTo(`/section/${corridor.sectionId}`)}
                       style={pressable()}
                       android_ripple={pressRipple}
                       accessibilityRole="button"
@@ -158,7 +159,7 @@ function NamedCorridorsScreenContent() {
             </View>
           ))
         )}
-      </ScrollView>
+      </ScreenScrollView>
     </ScreenSafeAreaView>
   );
 }

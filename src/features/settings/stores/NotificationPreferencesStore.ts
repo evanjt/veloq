@@ -36,7 +36,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
 
 interface NotificationPreferencesState extends NotificationPreferences {
   isLoaded: boolean;
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   setEnabled: (enabled: boolean) => void;
   acceptPrivacy: () => void;
   setCategoryEnabled: (
@@ -57,7 +57,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
   ...DEFAULT_PREFERENCES,
   isLoaded: false,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
@@ -245,6 +245,6 @@ export async function retryPendingUnregister(athleteId: string): Promise<void> {
   }
 }
 
-export async function initializeNotificationPreferences(): Promise<void> {
-  await useNotificationPreferences.getState().initialize();
+export async function initialiseNotificationPreferences(): Promise<void> {
+  await useNotificationPreferences.getState().initialise();
 }

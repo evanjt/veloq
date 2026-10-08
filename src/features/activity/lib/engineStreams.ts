@@ -1,23 +1,25 @@
 /**
  * Read activity streams from the engine, asking Rust for anything absent.
  *
- * Rust stores the intervals.icu response body untouched and `parseStreams`
- * stays the single transform, so what the charts render is what they rendered
- * when the fetch lived in axios. Streams are the largest payloads the API
- * returns, so the engine keeps a bounded cache rather than a full mirror.
+ * Rust stores the intervals.icu response body untouched and parses it on the
+ * read, so the series cross the bridge as float buffers and nothing is parsed
+ * on the JavaScript thread. Streams are the largest payloads the API returns,
+ * so the engine keeps a bounded cache rather than a full mirror.
  *
  * A miss is not the end of the read. Rust rebuilds latlng, altitude and time
  * from the points and times the activity ingest already stored, so a map
  * preview costs nothing over the wire however long ago the body aged out. A
  * selection it cannot serve whole, the detail set among them, still reads as
  * absent and is re-requested: a partial body would look stocked and cost the
- * athlete their power and heart rate.
+ * athlete their power and heart rate. An activity with no track has nothing
+ * to rebuild from, and its selection is answered from the series stored in
+ * the server's own sample index, which hold everything upstream had for it.
  */
 
-import { parseStreams } from '@/features/activity/lib/streams';
+import { streamsFromBuffers } from '@/features/activity/lib/streams';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
-import type { ActivityStreams, RawStreamItem } from '@/types';
+import type { ActivityStreams } from '@/types';
 import type { StartOutcome, StartResult } from 'veloqrs';
 
 /** The full series set the detail charts render. */
@@ -51,23 +53,14 @@ export function streamTypesKey(types: readonly string[]): string {
   return [...types].sort().join(',');
 }
 
-/** Streams parsed from the stored body, or null when nothing is stored. */
+/** Streams read from the stored body, or null when nothing is stored. */
 export function readStreams(activityId: string, types: readonly string[]): ActivityStreams | null {
   const engine = getEngine();
-  if (!engine?.getStreamBody || !activityId) return null;
+  if (!engine?.getActivityStreams || !activityId) return null;
 
-  const body = engine.getStreamBody(activityId, streamTypesKey(types));
-  if (!body) return demoStreams(activityId);
-  try {
-    const parsed = JSON.parse(body);
-    // A live fetch stores the intervals.icu array untouched.
-    return Array.isArray(parsed)
-      ? parseStreams(parsed as RawStreamItem[])
-      : (parsed as ActivityStreams);
-  } catch {
-    // empty-on-error: a stored stream body that does not parse is a corrupt row, and the caller refetches it; no engine read throws here.
-    return null;
-  }
+  const buffers = engine.getActivityStreams(activityId, streamTypesKey(types));
+  if (!buffers) return demoStreams(activityId);
+  return streamsFromBuffers(buffers);
 }
 
 /**

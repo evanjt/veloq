@@ -99,10 +99,10 @@ describe('OAuth service', () => {
       }
     });
 
-    it('throws if oauth state has not been initialized', () => {
+    it('throws if oauth state has not been initialised', () => {
       // Fresh module-level state is null; calling buildAuthorizationUrl
       // before startOAuthFlow must throw
-      expect(() => buildAuthorizationUrl()).toThrow(/state not initialized/i);
+      expect(() => buildAuthorizationUrl()).toThrow(/state not initialised/i);
     });
 
     it('produces a URL containing client_id, redirect_uri, scope, and state when state is set', async () => {

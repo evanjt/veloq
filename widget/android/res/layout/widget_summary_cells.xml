@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The supporting row of the Summary widget: up to four cells split by dividers. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:orientation="horizontal">
+
+  <LinearLayout
+    android:id="@+id/sum_cell0"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:orientation="vertical"
+    android:paddingStart="0dp"
+    android:paddingEnd="4dp">
+
+    <TextView
+      android:id="@+id/sum_cell0_label"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      android:gravity="center_vertical">
+
+      <TextView
+        android:id="@+id/sum_cell0_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+
+      <TextView
+        android:id="@+id/sum_cell0_trend"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:textSize="@dimen/widget_text_caption"
+        android:textColor="@color/widget_trend_flat" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <View
+    android:id="@+id/sum_div1"
+    android:layout_width="1dp"
+    android:layout_height="match_parent"
+    android:background="@color/widget_border" />
+
+  <LinearLayout
+    android:id="@+id/sum_cell1"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp">
+
+    <TextView
+      android:id="@+id/sum_cell1_label"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      android:gravity="center_vertical">
+
+      <TextView
+        android:id="@+id/sum_cell1_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+
+      <TextView
+        android:id="@+id/sum_cell1_trend"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:textSize="@dimen/widget_text_caption"
+        android:textColor="@color/widget_trend_flat" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <View
+    android:id="@+id/sum_div2"
+    android:layout_width="1dp"
+    android:layout_height="match_parent"
+    android:background="@color/widget_border" />
+
+  <LinearLayout
+    android:id="@+id/sum_cell2"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp">
+
+    <TextView
+      android:id="@+id/sum_cell2_label"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      android:gravity="center_vertical">
+
+      <TextView
+        android:id="@+id/sum_cell2_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+
+      <TextView
+        android:id="@+id/sum_cell2_trend"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:textSize="@dimen/widget_text_caption"
+        android:textColor="@color/widget_trend_flat" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <View
+    android:id="@+id/sum_div3"
+    android:layout_width="1dp"
+    android:layout_height="match_parent"
+    android:background="@color/widget_border" />
+
+  <LinearLayout
+    android:id="@+id/sum_cell3"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp">
+
+    <TextView
+      android:id="@+id/sum_cell3_label"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      android:gravity="center_vertical">
+
+      <TextView
+        android:id="@+id/sum_cell3_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textSize="@dimen/widget_text_label"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+
+      <TextView
+        android:id="@+id/sum_cell3_trend"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:textSize="@dimen/widget_text_caption"
+        android:textColor="@color/widget_trend_flat" />
+    </LinearLayout>
+  </LinearLayout>
+</LinearLayout>

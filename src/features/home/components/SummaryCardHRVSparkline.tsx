@@ -69,9 +69,9 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
 
   const hasRhr = rhrData && rhrData.length === hrvData.length;
 
-  // HRV and RHR live on independent y-scales. Normalize both to 0-100 so they
+  // HRV and RHR live on independent y-scales. Normalise both to 0-100 so they
   // share one domain ([-6, 106]) - RHR inverted (higher HR = worse = lower).
-  const normalized = useMemo(() => {
+  const normalised = useMemo(() => {
     const hrvMin = Math.min(...hrvData);
     const hrvMax = Math.max(...hrvData);
     const hrvRange = hrvMax - hrvMin || 1;
@@ -138,16 +138,16 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   const skiaPaths = useMemo(() => {
     const plotHeight = CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM;
     const hrvSvg = buildMonotoneSvg(
-      normalized.hrv,
+      normalised.hrv,
       HRV_DOMAIN_MIN,
       HRV_DOMAIN_MAX,
       chartWidth,
       PLOT_TOP,
       plotHeight
     );
-    const rhrSvg = normalized.rhr
+    const rhrSvg = normalised.rhr
       ? buildMonotoneSvg(
-          normalized.rhr,
+          normalised.rhr,
           HRV_DOMAIN_MIN,
           HRV_DOMAIN_MAX,
           chartWidth,
@@ -156,7 +156,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
         )
       : null;
     const areaSvg = buildMonotoneAreaSvg(
-      normalized.hrv,
+      normalised.hrv,
       HRV_DOMAIN_MIN,
       HRV_DOMAIN_MAX,
       chartWidth,
@@ -169,7 +169,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
       rhr: rhrSvg ? Skia.Path.MakeFromSVGString(rhrSvg) : null,
       area: areaSvg ? Skia.Path.MakeFromSVGString(areaSvg) : null,
     };
-  }, [normalized, chartWidth]);
+  }, [normalised, chartWidth]);
 
   if (hrvData.length < SPARKLINE_MIN_DAYS || width <= 0) {
     return <View style={{ width, height: CHART_HEIGHT }} />;

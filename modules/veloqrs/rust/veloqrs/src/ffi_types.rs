@@ -79,6 +79,30 @@ pub struct FfiMergeOutcome {
     pub departed: Vec<FfiDepartedRide>,
 }
 
+/// An activity's chart series as they cross the bridge: no JSON, no per-value
+/// objects. Every series but `latlng` is its samples as little-endian 64-bit
+/// floats, read through a `Float64Array`, and a gap is NaN. `latlng` is the
+/// engine's one track encoding, unframed. A series the activity does not have
+/// is an empty buffer. All the series share one index space, so sample `i` of
+/// one is sample `i` of every other.
+#[derive(Debug, Clone, Default, PartialEq, uniffi::Record)]
+pub struct FfiActivityStreams {
+    pub latlng: Vec<u8>,
+    pub time: Vec<u8>,
+    pub altitude: Vec<u8>,
+    pub heartrate: Vec<u8>,
+    pub watts: Vec<u8>,
+    pub cadence: Vec<u8>,
+    pub velocity_smooth: Vec<u8>,
+    pub distance: Vec<u8>,
+    pub grade_smooth: Vec<u8>,
+    pub temp: Vec<u8>,
+    /// W' balance in joules remaining.
+    pub wbal: Vec<u8>,
+    /// Grade-adjusted pace in minutes per kilometre.
+    pub gap: Vec<u8>,
+}
+
 /// Lightweight map signature for rendering activity traces on the map.
 /// Contains simplified GPS points (max ~100 via Douglas-Peucker) as encoded coords.
 #[derive(Debug, Clone, uniffi::Record)]
@@ -1919,6 +1943,16 @@ pub struct FfiActivityBody {
     pub raw: String,
 }
 
+/// The rows of a sample library, in the shapes the stores take them, for the
+/// widgets to draw while no account is signed in.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSampleLibrary {
+    pub athlete_json: String,
+    pub sport_settings_json: String,
+    pub wellness: Vec<FfiWellnessRow>,
+    pub activities: Vec<FfiActivityBody>,
+}
+
 /// The feed's sport chips. Cycling, running and swimming are the engine's
 /// families and Other takes every sport outside them, so a sport nobody listed
 /// still answers to a chip.
@@ -2220,6 +2254,8 @@ pub struct FfiInsightsData {
     pub ftp_trend: FfiFtpTrend,
     /// Running pace trend
     pub run_pace_trend: FfiPaceTrend,
+    /// Swimming pace trend
+    pub swim_pace_trend: FfiPaceTrend,
     /// Up to 3 recent section PRs (best times set in last 7 days)
     pub recent_prs: Vec<FfiRecentPR>,
     /// Sections held by the engine, for the section-readiness check
@@ -2788,6 +2824,9 @@ pub struct FfiWidgetSnapshotData {
     pub latest: Option<FfiActivityMetrics>,
     /// Whether the latest activity carries a route or section record
     pub latest_is_pr: bool,
+    /// What the latest activity is measured against: its route, the sections
+    /// it set a record on, and the load it usually carries
+    pub latest_comparison: WidgetLatestComparison,
     /// The latest activity's GPS track, empty for indoor activities
     pub latest_gps: Vec<FfiGpsPoint>,
     /// The ramp rate intervals.icu computed, off the newest wellness day that
@@ -2795,6 +2834,33 @@ pub struct FfiWidgetSnapshotData {
     /// own from the fitness sparkline, which is a different number from the
     /// same data.
     pub ramp_rate: Option<f64>,
+}
+
+/// What the latest activity is compared against, read from the values the
+/// feed card and the route screen already show.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct WidgetLatestComparison {
+    /// The route the activity rode, when it has at least one other attempt
+    pub route: Option<WidgetRouteStanding>,
+    /// How many sections the activity holds the record on
+    pub section_pr_count: u32,
+    /// The median recorded load of the same sport's activities in the four
+    /// weeks before it, the load an activity with no route is judged against
+    pub typical_load: Option<f64>,
+}
+
+/// Where the latest activity stands among the attempts at its route.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct WidgetRouteStanding {
+    pub route_name: String,
+    /// The route screen's rank among comparable attempts, one a strict record
+    pub rank: Option<u32>,
+    /// Timed comparable attempts in the activity's direction, itself included
+    pub attempt_count: u32,
+    /// Seconds behind the route record, zero for the record itself
+    pub time_delta_seconds: Option<i32>,
+    /// Moving time of every other comparable attempt, oldest first
+    pub prior_attempt_seconds: Vec<u32>,
 }
 
 // ============================================================================

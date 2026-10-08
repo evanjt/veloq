@@ -17,9 +17,9 @@ type LanguageChoice = string;
 
 interface LanguageState {
   /** Current language choice (explicit locale) */
-  language: LanguageChoice | null; // null only before initialization
-  /** Whether the store has been initialized */
-  isInitialized: boolean;
+  language: LanguageChoice | null; // null only before initialisation
+  /** Whether the store has been initialised */
+  isInitialised: boolean;
   /** Set a language choice */
   setLanguage: (language: LanguageChoice) => Promise<void>;
 }
@@ -30,7 +30,7 @@ interface LanguageState {
  */
 export function resolveLanguageToLocale(language: LanguageChoice | null): SupportedLocale {
   if (language === null) {
-    // Pre-initialization state - use device locale
+    // Pre-initialisation state - use device locale
     return getDeviceLocale();
   }
 
@@ -54,7 +54,7 @@ export function resolveLanguageToLocale(language: LanguageChoice | null): Suppor
  */
 export const useLanguageStore = create<LanguageState>((set) => ({
   language: null,
-  isInitialized: false,
+  isInitialised: false,
 
   setLanguage: async (language) => {
     // Save preference (always an explicit locale)
@@ -82,11 +82,11 @@ export const useLanguageStore = create<LanguageState>((set) => ({
 }));
 
 /**
- * Initialize language on app start.
+ * Initialise language on app start.
  * Call this early in _layout.tsx before rendering.
  * On first launch, detects device locale and saves it as the explicit choice.
  */
-export async function initializeLanguage(): Promise<SupportedLocale> {
+export async function initialiseLanguage(): Promise<SupportedLocale> {
   try {
     const saved = await getSetting(STORAGE_KEY);
 
@@ -94,19 +94,19 @@ export async function initializeLanguage(): Promise<SupportedLocale> {
       // Neutral 'es' has no picker entry, so installs that saved it move to the default variant
       const language = saved === 'es' ? 'es-419' : saved;
       if (language !== saved) await setSetting(STORAGE_KEY, language);
-      useLanguageStore.setState({ language, isInitialized: true });
+      useLanguageStore.setState({ language, isInitialised: true });
       return resolveLanguageToLocale(language);
     }
 
     // No saved preference - detect device locale and save it as explicit choice
     const deviceLocale = getDeviceLocale();
     await setSetting(STORAGE_KEY, deviceLocale);
-    useLanguageStore.setState({ language: deviceLocale, isInitialized: true });
+    useLanguageStore.setState({ language: deviceLocale, isInitialised: true });
     return deviceLocale;
   } catch {
     // On error, still try to detect and save device locale
     const deviceLocale = getDeviceLocale();
-    useLanguageStore.setState({ language: deviceLocale, isInitialized: true });
+    useLanguageStore.setState({ language: deviceLocale, isInitialised: true });
     return deviceLocale;
   }
 }

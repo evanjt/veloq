@@ -6,7 +6,7 @@ import { IDLE_EXTENDED_FETCH, isExtendedFetchRunning } from '@/shared/app/extend
  * - Range expansion and locking
  * - Generation counter for race condition prevention
  * - GPS sync progress state machine
- * - Delayed unlock behavior
+ * - Delayed unlock behaviour
  */
 
 import { formatLocalDate } from '@/shared/format/format';

@@ -24,7 +24,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 const mockRouterPush = jest.fn();
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
-  useRouter: () => ({ push: mockRouterPush }),
+  router: { push: (...args: unknown[]) => mockRouterPush(...args) },
 }));
 
 const engine = {

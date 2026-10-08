@@ -10,7 +10,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { changeLanguage, initializeI18n } from '@/i18n';
+import { changeLanguage, initialiseI18n } from '@/i18n';
 import { FitnessMilestoneContent } from '@/features/insights/components/content/FitnessMilestoneContent';
 import type { Insight } from '@/types';
 
@@ -39,7 +39,7 @@ function summary(insight: Insight): string {
   return textOf(render(<FitnessMilestoneContent insight={insight} />).toJSON()).join(' ');
 }
 
-const LOCALES: Parameters<typeof initializeI18n>[0][] = [
+const LOCALES: Parameters<typeof initialiseI18n>[0][] = [
   'da',
   'de-CH',
   'de-DE',
@@ -65,7 +65,7 @@ describe('the pace milestone summary', () => {
   });
 
   it.each(LOCALES)('quotes a per mile unit and no kilometre unit in %s', async (locale) => {
-    await initializeI18n(locale);
+    await initialiseI18n(locale);
     const text = summary(paceInsight('/mi', '8:56', '8:30'));
 
     expect(text).toMatch(/8:56[^.]*\/mi[^.]*8:30[^.]*\/mi/);
@@ -73,7 +73,7 @@ describe('the pace milestone summary', () => {
   });
 
   it.each(LOCALES)('quotes a per 100 yard unit and no metre unit in %s', async (locale) => {
-    await initializeI18n(locale);
+    await initialiseI18n(locale);
     const text = summary(paceInsight('/100yd', '1:52', '1:48'));
 
     expect(text).toMatch(/1:52[^.]*\/100yd[^.]*1:48[^.]*\/100yd/);
@@ -81,7 +81,7 @@ describe('the pace milestone summary', () => {
   });
 
   it('keeps the metric units for a metric athlete', async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
 
     expect(summary(paceInsight('/km', '8:56', '8:30'))).toMatch(/8:30[^.]*\/km/);
     expect(summary(paceInsight('/100m', '1:52', '1:48'))).toMatch(/1:48[^.]*\/100m/);

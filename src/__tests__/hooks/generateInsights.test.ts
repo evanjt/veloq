@@ -990,7 +990,7 @@ describe('generateInsights - additional edge cases', () => {
     const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
     // bestTime = 0 is not NaN, so Number.isFinite(0) = true. It passes the guard.
     // This may or may not be intentional (a 0-second PR is nonsensical).
-    // The test documents the current behavior.
+    // The test documents the current behaviour.
     expect(prInsights).toHaveLength(1);
   });
 

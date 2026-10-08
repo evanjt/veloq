@@ -13,7 +13,6 @@ import { epochMsToStartDateLocal, startDateLocalToEpochSeconds } from '@/shared/
 import {
   attachEngineActivity,
   listRecordings,
-  markRecordingReconciled,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import type { Activity, RecordingLibraryEntry } from '@/types';
 
@@ -77,36 +76,6 @@ export async function writeProvisionalActivity(
 }
 
 /**
- * Write the id intervals.icu gave the ride onto its provisional row, and mark
- * the entry reconciled when the engine took it. Without it the next sync
- * stores the ride again under the server's own key.
- */
-export async function recordProvisionalUpload(
-  entry: RecordingLibraryEntry,
-  intervalsActivityId: string | undefined
-): Promise<boolean> {
-  if (!entry.engineActivityId || !intervalsActivityId) return false;
-  // The engine has to be open before the boolean below can be read. The
-  // delegate answers false for a closed engine without reaching Rust, which
-  // reads exactly like Rust's own "already carries an id", and settling on
-  // that loses the ride to a duplicate on the next sync.
-  if (!engine.ready) {
-    log.warn(`Engine closed, leaving the upload of ${entry.id} for the next pass`);
-    return false;
-  }
-  try {
-    // False here is Rust's own: the row already carries an id or has gone.
-    // Both are settled, so the entry is done either way.
-    engine.recordActivityUpload(entry.engineActivityId, intervalsActivityId);
-  } catch (err) {
-    log.warn(`Could not record the upload of ${entry.id}: ${String(err)}`);
-    return false;
-  }
-  await markRecordingReconciled(entry.id);
-  return true;
-}
-
-/**
  * Write the engine row for every recording whose save never got one, and
  * answer how many were written.
  *
@@ -136,13 +105,7 @@ export async function replayProvisionalWrites(): Promise<number> {
     const engineActivityId = await writeProvisionalActivity(entry);
     if (!engineActivityId) continue;
     written += 1;
-    const attached = (await attachEngineActivity(entry.id, engineActivityId)) ?? {
-      ...entry,
-      engineActivityId,
-    };
-    if (attached.intervalsActivityId) {
-      await recordProvisionalUpload(attached, attached.intervalsActivityId);
-    }
+    await attachEngineActivity(entry.id, engineActivityId);
   }
   if (written > 0) log.log(`Wrote ${written} engine row(s) a save had missed`);
   return written;

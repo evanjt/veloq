@@ -20,7 +20,7 @@ beforeEach(() => {
 async function relaunch(): Promise<void> {
   await Promise.resolve();
   useUploadPermissionStore.setState({ grantedScopes: null, isLoaded: false });
-  await useUploadPermissionStore.getState().initialize();
+  await useUploadPermissionStore.getState().initialise();
 }
 
 it('keeps granted scopes after the banner is dismissed and the app relaunches', async () => {

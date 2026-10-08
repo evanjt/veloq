@@ -10,7 +10,7 @@
 
 import { Alert } from 'react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { promptInterruptedRecording } from '@/features/recording/lib/interruptedRecording';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -71,7 +71,7 @@ function lastAlert(): { body: string; buttons: AlertButton[] } {
 }
 
 beforeAll(async () => {
-  await initializeI18n('en-GB');
+  await initialiseI18n('en-GB');
 });
 
 beforeEach(() => {

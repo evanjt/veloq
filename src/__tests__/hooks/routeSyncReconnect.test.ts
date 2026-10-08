@@ -44,8 +44,8 @@ describe('the route sync on reconnect', () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     (getNativeModule as jest.Mock).mockReturnValue({
       engine: {
-        getActivityIds: () => [],
-        getRefusedTrackIds: () => [],
+        getActivityCount: () => 0,
+        getGpsFetchCandidates: () => [{ activityId: 'a1', sportType: 'Ride' }],
         getUnprocessedStrengthIds: () => [],
         batchFetchExerciseSets: () => 0,
         pollSectionDetection: mockPollDetection,

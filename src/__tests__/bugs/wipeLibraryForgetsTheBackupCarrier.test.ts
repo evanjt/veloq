@@ -708,6 +708,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'push/ios/VeloqPushExtension/VeloqPushPayload.swift',
       'modules/veloqrs/android/src/main/java/com/veloq/ActivityPushWorker.kt',
       `${RUST}/persistence/mod.rs`,
+      `${RUST}/persistence/regroup.rs`,
       `${RUST}/persistence/sections/detection.rs`,
       `${RUST}/persistence/tiles.rs`,
       'modules/veloqrs/src/EngineClient.ts',
@@ -731,6 +732,12 @@ const DEVICE_WRITES: DeviceWrite[] = [
     writers: [`${RUST}/persistence/mod.rs`, `${RUST}/persistence/file_lock.rs`],
     holds: 'nothing: an empty file the init takes a lock on',
     kept: 'it holds no data, and the next open takes it again',
+  },
+  {
+    where: 'the periodic widget redraw, a WorkManager schedule on Android',
+    writers: ['modules/veloqrs/android/src/main/java/com/veloq/WidgetAgeRefreshWorker.kt'],
+    holds: 'nothing: a schedule that redraws the widgets from the snapshot file every 15 minutes',
+    kept: 'it holds no athlete data, and it cancels itself when the last widget is removed',
   },
   {
     where: 'veloq_panic.log beside the database',
@@ -997,7 +1004,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   {
     where: 'widget-snapshot.json, in the App Group on iOS and filesDir on Android, and its .tmp',
     writers: [
-      'modules/veloq-widget/ios/VeloqWidgetModule.swift',
+      'modules/veloq-widget/ios/WidgetSnapshotFile.swift',
       'modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt',
       'modules/veloqrs/android/src/main/java/com/veloq/WidgetSnapshotFile.kt',
       'widget/ios/VeloqWidget/WidgetSnapshotModel.swift',
@@ -1009,18 +1016,26 @@ const DEVICE_WRITES: DeviceWrite[] = [
     wiped: { widget: true },
   },
   {
+    where: 'memory-probe.jsonl, in the App Group on iOS, written only by a probe build',
+    writers: ['widget/ios/probe/MemoryProbe.swift'],
+    holds: 'the device model, boot time and memory readings, and whether the keychain answered',
+    kept: 'it holds no athlete data, and only a build with the probe flag on writes it; the probe is removed once its readings are recorded',
+  },
+  {
     where: "the Android launcher's dynamic record shortcuts",
     writers: ['modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt'],
     holds: 'the sports most recently recorded',
     wiped: { widget: true },
   },
   {
-    where: 'the veloq_widget_prefs and veloq_record_widget preference files',
+    where:
+      'the veloq_summary_widget, veloq_record_widget and veloq_insights_widget preference files',
     writers: [
-      'widget/android/java/VeloqWidgetProvider.kt',
+      'widget/android/java/SummaryWidgetChoice.kt',
       'widget/android/java/RecordWidgetChoice.kt',
+      'widget/android/java/InsightsWidgetChoice.kt',
     ],
-    holds: "each placed widget's metric or sport link",
+    holds: "each placed widget's hero metric, sport link or insight kinds",
     kept: 'the configuration of a placed widget, no athlete data, removed with the widget',
   },
 

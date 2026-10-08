@@ -10,7 +10,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { HeroNameRow } from '@/shared/ui/DetailHero';
 import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips';
 import { SectionsListFiltersBar } from '@/features/routes/components/SectionsListFiltersBar';
@@ -53,7 +53,7 @@ function reach(node: { props: { style?: unknown; hitSlop?: Slop } }) {
 
 describe('tap-target floor', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('holds the rename save and cancel controls to the minimum', () => {

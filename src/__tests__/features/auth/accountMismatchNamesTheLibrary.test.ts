@@ -9,7 +9,7 @@
 
 import { Alert } from 'react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { promptAccountMismatch } from '@/features/auth/lib/accountChange';
 
 jest.mock('@/shared/native/engine', () => ({
@@ -33,7 +33,7 @@ function promptBody(activityCount: number): string {
 }
 
 beforeAll(async () => {
-  await initializeI18n('en-GB');
+  await initialiseI18n('en-GB');
 });
 
 beforeEach(() => {

@@ -17,7 +17,7 @@ import {
   restoreRecordBackup,
 } from '@/features/settings/lib/backup';
 import { holdImportWhileSignedOut } from '@/features/settings/lib/heldImport';
-import { i18n, initializeI18n } from '@/i18n';
+import { i18n, initialiseI18n } from '@/i18n';
 
 jest.mock('@/features/settings/lib/backup', () => ({
   restoreBackup: jest.fn(async () => ({ unplacedCount: 0 })),
@@ -47,7 +47,7 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 beforeAll(async () => {
-  await initializeI18n('en-GB');
+  await initialiseI18n('en-GB');
 });
 
 beforeEach(() => {

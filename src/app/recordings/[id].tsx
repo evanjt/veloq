@@ -27,6 +27,7 @@ import {
 } from '@/features/recording';
 import type { RecordingLibraryEntry } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import * as haptics from '@/shared/ui/haptics';
 
 function RecordingDetailScreenContent() {
   const { t } = useTranslation();
@@ -102,6 +103,7 @@ function RecordingDetailScreenContent() {
           text: t('recording.library.delete', 'Delete'),
           style: 'destructive',
           onPress: async () => {
+            haptics.medium();
             await remove(entry.id);
             router.back();
           },
@@ -222,6 +224,7 @@ function RecordingDetailScreenContent() {
             testID="recording-delete-button"
             label={t('recording.library.delete', 'Delete')}
             variant="destructive"
+            opensConfirm
             onPress={handleDelete}
             icon={
               <MaterialCommunityIcons

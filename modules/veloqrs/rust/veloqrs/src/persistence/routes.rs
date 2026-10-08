@@ -981,23 +981,42 @@ impl PersistentEngine {
     /// leaving a regroup that is owed still owed. The flag cannot tell the
     /// regroup this run answered from a store made while it ran, so it stays
     /// set and the next read regroups over the adopted catalogue.
+    ///
+    /// Every way a worker's commit reaches the engine ends here, so this is
+    /// where readers are told the catalogue changed. The announcement is
+    /// queued, and the reader it wakes reads through the lock this hold has.
     pub(crate) fn adopt_committed_groups(&mut self) {
         let dirty = self.groups_dirty;
         self.reload_groups_from_db();
         // Re-asserting a flag that was already set invalidates nothing new, so
         // the epoch stays where it was: a run reads a moved epoch as a store.
         self.groups_dirty = dirty;
+        crate::objects::observer::notify(crate::objects::observer::Announcement::GroupsChanged);
     }
 
-    /// Adopt the groups a finished detection run left in the database. The
-    /// grouping stays owed when the run could not commit its regroup, and when
-    /// anything marked it stale after the run captured `epoch_at_spawn`: the
-    /// run grouped the library as it stood at spawn, so a store made since is
-    /// in no route yet.
+    /// Adopt the groups a finished detection run or regroup pass left in the
+    /// database. The grouping stays owed when the run could not commit its
+    /// regroup, and when anything marked it stale after the run captured
+    /// `epoch_at_spawn`: the run grouped the library as it stood at spawn, so a
+    /// store made since is in no route yet.
+    ///
+    /// The lock take has already followed a commit made off the engine, so a
+    /// generation that matches the database's has nothing left to load. A flag
+    /// that stays set keeps its epoch: a regroup still in flight reads a moved
+    /// epoch as a store, and re-asserting the flag stores nothing.
     pub(crate) fn adopt_run_groups(&mut self, regroup_owed: bool, epoch_at_spawn: u64) {
         let owed = regroup_owed || self.groups_dirty_epoch != epoch_at_spawn;
-        self.reload_groups_from_db();
-        self.set_groups_dirty(owed);
+        let was_owed = self.groups_dirty;
+        let current = super::route_identity::read_group_generation(&self.db)
+            .is_ok_and(|generation| generation == self.group_generation);
+        if !current {
+            self.adopt_committed_groups();
+        }
+        if owed && was_owed {
+            self.groups_dirty = true;
+        } else {
+            self.set_groups_dirty(owed);
+        }
     }
 
     /// Adopt a group write committed on another connection that no caller

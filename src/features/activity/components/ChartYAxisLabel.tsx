@@ -6,7 +6,7 @@ import type { SeriesInfo } from '@/features/stats';
 
 interface ChartYAxisLabelProps {
   yAxisSeries: SeriesInfo;
-  yAxisAvgInfo: { normalized: number; raw: number } | null;
+  yAxisAvgInfo: { normalised: number; raw: number } | null;
   showYAxisAccent: boolean;
   chartPaddingTop: number;
   chartPaddingBottom: number;
@@ -85,7 +85,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
               left: 4,
               top:
                 chartPaddingTop +
-                (1 - yAxisAvgInfo.normalized) * (height - chartPaddingTop - chartPaddingBottom) -
+                (1 - yAxisAvgInfo.normalised) * (height - chartPaddingTop - chartPaddingBottom) -
                 labelHeight / 2,
             },
           ]}

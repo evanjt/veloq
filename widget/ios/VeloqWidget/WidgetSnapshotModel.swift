@@ -1,6 +1,6 @@
 import Foundation
 
-// Decodable mirror of src/features/home/lib/widgetSnapshot.ts (schema version 7). The
+// Decodable mirror of src/features/home/lib/widgetSnapshot.ts (schema version 14). The
 // widget only renders this, it never computes. Optional fields decode to nil when the
 // key is missing, so a partial or older-schema snapshot degrades gracefully instead of
 // failing to decode. Version skew happens in both directions: keep every field added
@@ -55,6 +55,22 @@ struct WidgetRoutePreview: Codable {
   let aspect: Double
 }
 
+/// One attempt on the matched route, in date order. The latest is last, the fastest is the record.
+struct WidgetAttemptDot: Codable {
+  let current: Bool?
+  let record: Bool?
+}
+
+/// What the Last activity widget leads with, worded by the engine: `route` for the rank among the
+/// attempts and the gap to the record, `load` for the load against the typical one.
+struct WidgetHeadline: Codable {
+  let kind: String?
+  let label: String?
+  let hero: String
+  let detail: String?
+  let dots: [WidgetAttemptDot]?
+}
+
 struct WidgetLatest: Codable {
   let activityId: String?
   let name: String
@@ -66,6 +82,12 @@ struct WidgetLatest: Codable {
   let tintHex: String
   let isPr: Bool?
   let routePreview: WidgetRoutePreview?
+  /// Nil in a snapshot written before schema 14, or when the app handed the engine no words.
+  let headline: WidgetHeadline?
+  /// "Load 62", already worded; nil without a recorded load.
+  let loadText: String?
+  /// "Section PRs 3", already worded; nil when the activity holds none.
+  let sectionPrsText: String?
 }
 
 struct WidgetImpact: Codable {
@@ -99,6 +121,14 @@ struct WidgetSummaryCard: Codable {
   let sparkline: String
 }
 
+/// Form per day, oldest first, in the unit the athlete reads it in; a day with no value is nil.
+/// `zoneBounds` are where the first four zones end, in the same unit as the values.
+struct WidgetFormHistory: Codable {
+  let values: [Double?]
+  let asPercent: Bool
+  let zoneBounds: [Double]
+}
+
 struct WidgetMetricLabels: Codable {
   let form: String
   let fitness: String
@@ -117,6 +147,13 @@ struct WidgetDisplay: Codable {
   let perWeekSuffix: String?
   let formZone: String?
   let impactLine: String?
+  /// The words that say the numbers are as of the last sync. Present only on a
+  /// snapshot a background refresh composed after its pull did not land.
+  let dataAsOfLabel: String?
+  /// The small label every widget draws when the numbers come from the sample
+  /// library, in demo mode and while nobody is signed in. Absent on a real
+  /// library.
+  let demoLabel: String?
 }
 
 struct WidgetPaletteData: Codable {
@@ -144,6 +181,16 @@ struct WidgetPaletteData: Codable {
   let trendUp: String
   let trendDown: String
   let trendFlat: String
+  /// Absent on a snapshot written before the stale age line.
+  let warning: String?
+  /// One per insight tone. Absent on a snapshot written before the insights widget.
+  let toneNegative: String?
+  let toneCaution: String?
+  let tonePositive: String?
+  let toneNeutral: String?
+  let toneRecord: String?
+  let toneInfo: String?
+  let toneOpportunity: String?
   let border: String
 }
 
@@ -160,6 +207,9 @@ struct WidgetSnapshot: Codable {
 
   let schemaVersion: Int
   let generatedAt: Double
+  /// When the sync the numbers came from finished, in seconds. Present only
+  /// beside `display.dataAsOfLabel`, and absent when no sync time is known.
+  let dataAsOf: Double?
   let locale: String
   /// True when the library has no activity and no wellness, so the metrics are
   /// zeros and not measurements. Nil on a snapshot written before schema 8.
@@ -170,6 +220,12 @@ struct WidgetSnapshot: Codable {
   let latest: WidgetLatest?
   let impact: WidgetImpact?
   let summaryCard: WidgetSummaryCard?
+  /// Six weeks of form for the large size. Nil on a snapshot written before schema 11, or with
+  /// no form series.
+  let formHistory: WidgetFormHistory?
+  /// One entry for every metric the summary card can show, which a placement picks its own hero
+  /// and supporting row from. Nil on a snapshot written before schema 12.
+  let summaryMetrics: [WidgetSummaryEntry]?
   let display: WidgetDisplay
   let theme: WidgetThemeData
   /// Recent sports capped at what a launcher shows, most recent first,
@@ -182,6 +238,9 @@ struct WidgetSnapshot: Codable {
   /// it; the widget's configure picker takes all of it, because a rider who
   /// swims once a month still wants that widget.
   let recordShortcuts: [WidgetRecordShortcut]?
+  /// The Insights tab's ranked list, in its order and of every kind; each placed Insights widget
+  /// filters it for itself. Nil on a snapshot written before schema 11.
+  let insights: [WidgetInsight]?
 }
 
 /// One recent sport: the id, the name a surface shows, and the link that starts it.

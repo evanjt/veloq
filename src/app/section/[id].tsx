@@ -68,6 +68,7 @@ import type {
   FfiSectionTrendCurves,
 } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { tapTo } from '@/shared/app/navigation';
 
 /** Trimming needs room to place the handles, so the map grows past the hero fraction. */
 const EDIT_MAP_FRACTION = 0.6;
@@ -494,12 +495,12 @@ function SectionDetailScreenContent() {
                 hasLaps={lapRecords.some((record) => record.laps.length > 1)}
                 historyCount={ledger.history.length}
                 onOpenLaps={() =>
-                  router.push({
+                  tapTo({
                     pathname: '/section/laps/[id]',
                     params: { id, range: sectionTimeRange, sport: effectiveSportType ?? '' },
                   })
                 }
-                onOpenHistory={() => router.push(`/section/history/${id}`)}
+                onOpenHistory={() => tapTo(`/section/history/${id}`)}
               />
             </SectionContentArea>
           )}

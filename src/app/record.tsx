@@ -50,7 +50,7 @@ import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { requestNotificationPermission } from '@/features/settings';
 import { getEngine } from '@/shared/native/engine';
 import { readCalendarEvents } from '@/features/home';
-import { navigateTo, replaceTo } from '@/shared/app/navigation';
+import { navigateTo, replaceTo, tapTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { ActivityType, CalendarEvent } from '@/types';
@@ -113,7 +113,7 @@ function RecordScreenContent() {
 
   useEffect(() => {
     if (!isLoaded) {
-      useRecordingPreferences.getState().initialize();
+      useRecordingPreferences.getState().initialise();
     }
   }, [isLoaded]);
 
@@ -213,7 +213,7 @@ function RecordScreenContent() {
             <View style={styles.headerActions}>
               <IconButton
                 testID="record-library"
-                onPress={() => navigateTo('/recordings')}
+                onPress={() => tapTo('/recordings')}
                 accessibilityLabel={t('recording.library.title', 'My Recordings')}
               >
                 <MaterialCommunityIcons
@@ -224,7 +224,7 @@ function RecordScreenContent() {
               </IconButton>
               <IconButton
                 testID="record-settings"
-                onPress={() => navigateTo('/recording-settings')}
+                onPress={() => tapTo('/recording-settings')}
                 accessibilityLabel={t('settings.title', 'Settings')}
               >
                 <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />

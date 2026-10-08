@@ -38,3 +38,17 @@ export function medium(): void {
 export function success(): void {
   fire(() => ExpoHaptics.notificationAsync(ExpoHaptics.NotificationFeedbackType.Success));
 }
+
+/**
+ * Wraps a pull-to-refresh handler so the pull marks the moment it commits: one
+ * medium impact, then the handler, before any state is set or work awaited. The
+ * handler's result, a promise included, is returned as it is.
+ */
+export function onPullRefresh<Args extends unknown[], Result>(
+  handler: (...args: Args) => Result
+): (...args: Args) => Result {
+  return (...args) => {
+    medium();
+    return handler(...args);
+  };
+}

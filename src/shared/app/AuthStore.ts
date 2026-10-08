@@ -180,7 +180,7 @@ interface AuthState {
   sessionExpired: SessionExpiredReason;
 
   // Actions
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   setCredentials: (apiKey: string, athleteId: string) => Promise<void>;
   setOAuthCredentials: (
     accessToken: string,
@@ -210,7 +210,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authMethod: null,
   sessionExpired: null,
 
-  initialize: async () => {
+  initialise: async () => {
     try {
       // Read the three separately: a rejection on one is not an answer about
       // the other two, and it is worth one more try before it is taken as one.
@@ -448,7 +448,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // The stored API key survives, because the login form has one field and
     // the re-entry prefills it from here. The athlete id goes with the token, or
-    // `initialize()` reads the pair back and signs the rejected key straight
+    // `initialise()` reads the pair back and signs the rejected key straight
     // in again. Only an explicit sign-out deletes the key itself.
     await Promise.all([
       deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
@@ -506,7 +506,7 @@ export function getStoredCredentials(): {
 }
 
 // A headless start runs no React tree, so the layout effect that calls
-// `initialize()` never fires and every synchronous credential read returns
+// `initialise()` never fires and every synchronous credential read returns
 // null. The background task reaches the engine before anything has hydrated,
 // so it asks for the credential here instead of assuming somebody else has.
 // The promise is shared because two rungs of the task can arrive at once, and
@@ -519,7 +519,7 @@ export function ensureCredentialsHydrated(): Promise<void> {
   if (!hydrating) {
     hydrating = useAuthStore
       .getState()
-      .initialize()
+      .initialise()
       .finally(() => {
         hydrating = null;
       });

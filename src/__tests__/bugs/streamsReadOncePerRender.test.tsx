@@ -13,12 +13,15 @@ import React from 'react';
 
 import { useActivityStreams } from '@/features/activity/hooks/useActivities';
 import { getEngine } from '@/shared/native/engine';
+import { streamBuffers } from '../__shared__/streamBuffers';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const engine = {
-  getStreamBody: jest.fn(() => JSON.stringify({ time: [0, 1, 2] })),
+  getActivityStreams: jest.fn(
+    () => streamBuffers({ time: [0, 1, 2] }) as ReturnType<typeof streamBuffers> | null
+  ),
   syncActivityStreams: jest.fn(),
   subscribe: jest.fn((_channel: string, _listener: () => void) => () => {}),
 };
@@ -49,22 +52,22 @@ describe('the streams hook reads the body once', () => {
     });
     await waitFor(() => expect(result.current.data?.time).toEqual([0, 1, 2]));
 
-    const afterFirstPaint = engine.getStreamBody.mock.calls.length;
+    const afterFirstPaint = engine.getActivityStreams.mock.calls.length;
     for (let frame = 0; frame < 20; frame++) rerender(undefined);
 
-    expect(engine.getStreamBody.mock.calls.length).toBe(afterFirstPaint);
+    expect(engine.getActivityStreams.mock.calls.length).toBe(afterFirstPaint);
   });
 
   it('reads the body once for the first paint, not twice', async () => {
     const { result } = renderHook(() => useActivityStreams('a1'), { wrapper });
     await waitFor(() => expect(result.current.data?.time).toEqual([0, 1, 2]));
 
-    expect(engine.getStreamBody).toHaveBeenCalledTimes(1);
+    expect(engine.getActivityStreams).toHaveBeenCalledTimes(1);
   });
 
   /** Nothing stored is the cue to ask Rust, and it must still fire exactly once. */
   it('asks the engine for a body it does not hold, once', async () => {
-    engine.getStreamBody.mockReturnValue(null as unknown as string);
+    engine.getActivityStreams.mockReturnValue(null);
 
     const { rerender } = renderHook(() => useActivityStreams('a2'), {
       wrapper,
@@ -79,7 +82,7 @@ describe('the streams hook reads the body once', () => {
   it('reads nothing without an id', async () => {
     renderHook(() => useActivityStreams(''), { wrapper });
 
-    expect(engine.getStreamBody).not.toHaveBeenCalled();
+    expect(engine.getActivityStreams).not.toHaveBeenCalled();
     expect(engine.syncActivityStreams).not.toHaveBeenCalled();
   });
 });
@@ -87,7 +90,7 @@ describe('the streams hook reads the body once', () => {
 describe('stream download state', () => {
   it('keeps waiting after SQLite finishes, retries a timeout, and observes the stored body', async () => {
     jest.useFakeTimers();
-    engine.getStreamBody.mockReturnValue(null as unknown as string);
+    engine.getActivityStreams.mockReturnValue(null);
     const { result } = renderHook(() => useActivityStreams('pending'), {
       wrapper,
     });
@@ -99,7 +102,7 @@ describe('stream download state', () => {
     act(() => result.current.retryBody());
     expect(result.current.bodyStatus).toBe('waiting');
     expect(engine.syncActivityStreams).toHaveBeenCalledTimes(2);
-    engine.getStreamBody.mockReturnValue(JSON.stringify({ time: [0, 1] }));
+    engine.getActivityStreams.mockReturnValue(streamBuffers({ time: [0, 1] }));
     await act(async () => {
       engine.subscribe.mock.calls.find(([channel]) => channel === 'bodyStored')?.[1]();
     });
@@ -110,7 +113,7 @@ describe('stream download state', () => {
   });
 
   it('recognises a fetched empty body', async () => {
-    engine.getStreamBody.mockReturnValue('[]');
+    engine.getActivityStreams.mockReturnValue(streamBuffers());
     const { result } = renderHook(() => useActivityStreams('empty'), {
       wrapper,
     });

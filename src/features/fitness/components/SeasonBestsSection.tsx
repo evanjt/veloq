@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
@@ -20,6 +19,7 @@ import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '
 import { type BestEffort, type ClimbBest, type ClimbStatus } from '@/features/stats';
 import { ClimbingBestRows } from './ClimbingBestRows';
 import { ClimbingStatusNote } from './ClimbingStatusNote';
+import { tapTo } from '@/shared/app/navigation';
 
 interface SeasonBestsSectionProps {
   efforts: BestEffort[];
@@ -61,7 +61,7 @@ export function SeasonBestsSection({
       accessibilityLabel={t('bestEffortsScreen.title')}
       testID="season-bests-view-all"
       style={pressable([styles.viewAllRow, isDark && styles.viewAllRowDark])}
-      onPress={() => router.push('/best-efforts')}
+      onPress={() => tapTo('/best-efforts')}
     >
       <Text style={[styles.viewAllText, { color: sportText }]}>{t('bestEffortsScreen.title')}</Text>
       <MaterialCommunityIcons name="chevron-right" size={18} color={sportColor} />
@@ -128,7 +128,7 @@ export function SeasonBestsSection({
                   android_ripple={pressRipple}
                   accessibilityRole="button"
                   accessibilityLabel={activityName}
-                  onPress={() => router.push(`/activity/${effort.activityId}`)}
+                  onPress={() => tapTo(`/activity/${effort.activityId}`)}
                   style={pressable()}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >

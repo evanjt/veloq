@@ -25,7 +25,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 use veloqrs::net::types::StreamDto;
-use veloqrs::persistence::streams::pack_activity_streams;
+use veloqrs::persistence::streams::{SeriesIndex, pack_activity_streams};
 
 #[derive(Deserialize)]
 struct Activity {
@@ -93,7 +93,13 @@ fn measure(dir: &Path, acts: &[Activity], wire: &HashMap<String, usize>) -> Vec<
             eprintln!("{}: body did not parse", a.id);
             continue;
         };
-        let packed = pack_activity_streams(&raw);
+        // A body with no coordinates is stored in the server's own index.
+        let index = if raw.iter().any(|s| s.kind == "latlng") {
+            SeriesIndex::Track
+        } else {
+            SeriesIndex::Samples
+        };
+        let packed = pack_activity_streams(&raw, index);
         out.push(Measured {
             id: a.id.clone(),
             sport: a.sport.clone().unwrap_or_else(|| "Unknown".into()),

@@ -365,6 +365,12 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'StrengthManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'SyncManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
 
+  // The engine writes every activity_metrics row from the body it stores, so
+  // no TypeScript caller remains. The export stays until its inbound record
+  // loses the fields the engine now derives.
+  'ActivityManager.setMetrics':
+    'the engine writes the metrics row itself; the export is removed with the record it takes',
+
   // The basemap tile store. Reached by the offline map work rather than a
   // screen, so none of it has a caller here yet.
   'BasemapManager.setPath':
@@ -396,13 +402,6 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     'reached through a dynamic property off the native module, so no static call exists to find',
   // The engine can answer what shape a week's load had; no screen asks yet,
   // and the surface that would draw it is its own item.
-
-  // The place names switch lives in the engine before the settings row that
-  // offers it behind its consent dialog exists.
-  'SettingsManager.geocodingEnabled':
-    'the place names switch, read by the settings row that offers it once that row exists',
-  'SettingsManager.setGeocodingEnabled':
-    'the place names switch, written by the consent dialog once that dialog exists',
 };
 
 /**

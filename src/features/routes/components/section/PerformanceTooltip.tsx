@@ -13,7 +13,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import {
   formatPace,
   formatSpeed,
@@ -93,7 +93,7 @@ export function PerformanceTooltip({
         style={[styles.selectedTooltip, isDark && styles.selectedTooltipDark]}
         accessibilityRole="button"
         accessibilityLabel={selectedPoint.activityName}
-        onPress={() => navigateTo(`/activity/${selectedPoint.activityId}`)}
+        onPress={() => tapTo(`/activity/${selectedPoint.activityId}`)}
         activeOpacity={0.7}
       >
         <View style={styles.tooltipLeft}>

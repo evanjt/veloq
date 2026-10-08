@@ -82,20 +82,6 @@ struct Credentials {
     athlete_id: String,
 }
 
-/// What making a date range available offline will cost, for the surface that
-/// asks before it starts.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiOfflineEstimate {
-    /// Activities stored in the range.
-    pub activities: u32,
-    /// Their moving seconds, which the byte figure scales on.
-    pub moving_seconds: f64,
-    /// Requests the pass will make.
-    pub requests: u32,
-    /// Bytes it will pull, as response bodies.
-    pub bytes: f64,
-}
-
 /// The status fields TypeScript reads / subscribes to.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSyncStatus {
@@ -3134,20 +3120,56 @@ async fn sync_activity_history_summary(
     Ok(())
 }
 
+/// How many days of wellness a targeted refresh pulls. Only the last fortnight
+/// can have changed in a way a screen or a widget shows, and the upsert is
+/// keyed on date, so the narrow window merges into the year a full sync stored.
+pub(crate) const WELLNESS_REFRESH_DAYS: i64 = 14;
+
 /// Persist a year of wellness, typed columns plus the untyped body per day.
 async fn sync_wellness(
     install: u64,
     transport: &Transport,
     athlete_id: &str,
 ) -> Result<(), NetError> {
+    sync_wellness_window(
+        install,
+        transport,
+        athlete_id,
+        WELLNESS_DAYS,
+        Lane::Backfill,
+    )
+    .await
+}
+
+/// The targeted wellness pull: the trailing `days` on the interactive lane,
+/// without the rest of the profile slice. For a caller that wants current form
+/// and fitness and is waiting on the answer.
+pub(crate) async fn refresh_wellness(
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+    days: i64,
+) -> Result<(), NetError> {
+    sync_wellness_window(install, transport, athlete_id, days, Lane::Interactive).await
+}
+
+/// Persist the trailing `days` of wellness, typed columns plus the untyped body
+/// per day.
+async fn sync_wellness_window(
+    install: u64,
+    transport: &Transport,
+    athlete_id: &str,
+    days: i64,
+    lane: Lane,
+) -> Result<(), NetError> {
     let newest = chrono::Local::now().date_naive();
-    let oldest = newest - chrono::Duration::days(WELLNESS_DAYS);
+    let oldest = newest - chrono::Duration::days(days);
     let days = endpoints::fetch_wellness_with_bodies(
         transport,
         athlete_id,
         &oldest.to_string(),
         &newest.to_string(),
-        Lane::Backfill,
+        lane,
     )
     .await?;
     if days.is_empty() {
@@ -3307,32 +3329,6 @@ impl SyncManager {
     /// Forget the credential (logout).
     fn clear_credentials(&self) {
         SYNC_SERVICE.clear_credentials();
-    }
-
-    /// What making an inclusive date range available offline will cost, in
-    /// requests and in bytes, so the athlete is told before they spend it on a
-    /// connection that may be metered.
-    ///
-    /// Read from the moving seconds already stored for the range rather than
-    /// from an activity count: per activity the cost spans fifty-fold across a
-    /// real library and per moving second it holds to about a third.
-    fn offline_estimate(&self, oldest: f64, newest: f64) -> Result<FfiOfflineEstimate, VeloqError> {
-        let oldest = crate::ffi_types::int_from_wire(oldest);
-        let newest = crate::ffi_types::int_from_wire(newest);
-        with_reader(|conn| {
-            let (activities, moving_seconds) =
-                crate::persistence::activities::pooled::offline_range_totals(conn, oldest, newest)
-                    .map_err(|err| VeloqError::Database {
-                        msg: format!("{}", err),
-                    })?;
-            let estimate = crate::net::offline_prefetch::estimate_range(activities, moving_seconds);
-            Ok(FfiOfflineEstimate {
-                activities: estimate.activities,
-                moving_seconds: estimate.moving_seconds as f64,
-                requests: estimate.requests,
-                bytes: estimate.bytes as f64,
-            })
-        })?
     }
 
     /// Start a sync. Returns instantly, naming whether the job started and, if
@@ -4531,6 +4527,7 @@ mod tests {
                 created: Some(format!("{date}T08:00:00Z")),
                 icu_sync_date: Some(format!("{date}T09:00:00Z")),
                 has_latlng: false,
+                has_series: false,
             })
             .collect();
         crate::persistence::with_persistent_engine(move |engine| {
@@ -4592,6 +4589,7 @@ mod tests {
                 created: Some(format!("{date}T08:00:00Z")),
                 icu_sync_date: Some(format!("{date}T09:00:00Z")),
                 has_latlng: false,
+                has_series: false,
             })
             .collect();
         crate::persistence::with_persistent_engine(move |engine| {
@@ -4693,6 +4691,7 @@ mod tests {
                     created: None,
                     icu_sync_date: Some("v1".into()),
                     has_latlng: false,
+                    has_series: false,
                 }],
             ).expect("census");
             engine
@@ -4952,6 +4951,7 @@ mod tests {
             created: Some(format!("{day}T08:00:00Z")),
             icu_sync_date: Some(format!("{day}T09:00:00Z")),
             has_latlng: false,
+            has_series: false,
         }];
         crate::persistence::with_persistent_engine(move |engine| {
             engine
@@ -5008,6 +5008,7 @@ mod tests {
                 created: Some(format!("{date}T08:00:00Z")),
                 icu_sync_date: Some(format!("{date}T09:00:00Z")),
                 has_latlng: false,
+                has_series: false,
             })
             .collect();
         crate::persistence::with_persistent_engine(move |engine| {
@@ -5070,6 +5071,7 @@ mod tests {
                 created: Some(format!("{date}T08:00:00Z")),
                 icu_sync_date: Some(format!("{date}T09:00:00Z")),
                 has_latlng: false,
+                has_series: false,
             })
             .collect();
         crate::persistence::with_persistent_engine(move |engine| {
@@ -5147,6 +5149,7 @@ mod tests {
                 created: Some(format!("{date}T08:00:00Z")),
                 icu_sync_date: Some(format!("{date}T09:00:00Z")),
                 has_latlng: false,
+                has_series: false,
             })
             .collect();
         crate::persistence::with_persistent_engine(move |engine| {
@@ -6274,6 +6277,7 @@ mod tests {
                 created: Some("2025-01-15T08:00:00Z".into()),
                 icu_sync_date: Some("2025-01-15T09:00:00Z".into()),
                 has_latlng: false,
+                has_series: false,
             },
             crate::net::types::ActivityCensusEntry {
                 id: "w2".into(),
@@ -6281,6 +6285,7 @@ mod tests {
                 created: Some("2025-01-16T08:00:00Z".into()),
                 icu_sync_date: Some("2025-01-16T09:00:00Z".into()),
                 has_latlng: false,
+                has_series: false,
             },
         ];
         crate::persistence::with_persistent_engine(move |engine| {
@@ -6351,6 +6356,7 @@ mod tests {
                 created: Some(format!("{date}T08:00:00Z")),
                 icu_sync_date: Some(format!("{date}T09:00:00Z")),
                 has_latlng: false,
+                has_series: false,
             }
         }
 
@@ -7084,6 +7090,7 @@ mod body_count_tests {
         fn gps_tracks_mutated(&self, _activity_ids: Vec<String>) {}
         fn fit_parsed(&self, _activity_id: String) {}
         fn detection_applied(&self) {}
+        fn groups_changed(&self) {}
         fn tiles_generated(&self) {}
         fn backfill_phase(&self, _phase: String) {}
         fn stream_backfill_phase(&self, _phase: String) {}

@@ -13,7 +13,7 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { Button, ToggleButton } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
 import { ChipSelector } from '@/shared/ui/ChipSelector';
@@ -74,7 +74,7 @@ function chipShape(node: Node) {
 
 describe('compact controls', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it('draws Button at its rung and reaches the minimum through slop, at either size', () => {

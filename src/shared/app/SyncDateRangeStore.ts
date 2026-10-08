@@ -52,7 +52,7 @@ interface SyncDateRangeState {
    * read behind the feed.
    */
   extendedFetch: ExtendedFetchState;
-  /** Whether the range has expanded since last sync (triggers route re-optimization) */
+  /** Whether the range has expanded since last sync (triggers route re-optimisation) */
   hasExpanded: boolean;
   /** GPS sync progress (shared across all screens) */
   gpsSyncProgress: GpsSyncProgress;
@@ -93,7 +93,7 @@ interface SyncDateRangeState {
   /** Update the sync date range - expands to include requested range */
   expandRange: (oldest: string, newest: string) => ExpandRangeResult;
   /** Restore range from engine without triggering re-computation */
-  initializeRange: (oldest: string, newest: string) => void;
+  initialiseRange: (oldest: string, newest: string) => void;
   /** Reset to the default activity window and lock expansion */
   reset: () => void;
   /** The engine accepted a window download. */
@@ -102,7 +102,7 @@ interface SyncDateRangeState {
   syncStateChanged: (syncing: boolean) => void;
   /** The pickup deadline ran out on a window the engine never reported. */
   expirePickup: () => void;
-  /** Mark expansion as processed (call after route re-optimization) */
+  /** Mark expansion as processed (call after route re-optimisation) */
   markExpansionProcessed: () => void;
   /** Update GPS sync progress (called from GlobalDataSync) */
   setGpsSyncProgress: (progress: GpsSyncProgress) => void;
@@ -195,12 +195,12 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     return 'unchanged';
   },
 
-  initializeRange: (oldest: string, newest: string) => {
+  initialiseRange: (oldest: string, newest: string) => {
     const current = get();
     if (oldest < current.oldest || newest > current.newest) {
       if (__DEV__) {
         log.log(
-          `[SyncDateRange] Initialized range from engine: ${oldest} - ${newest} (no recomputation)`
+          `[SyncDateRange] Initialised range from engine: ${oldest} - ${newest} (no recomputation)`
         );
       }
       set({ oldest, newest });

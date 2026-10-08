@@ -5,6 +5,7 @@ import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { feedHeadIds } from '@/shared/activity/feedHead';
 import { headFirst } from '@/features/routes/lib/gpsFetchOrder';
+import { demoGpsCandidates } from '@/features/routes/lib/demoGpsCandidates';
 
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
@@ -151,36 +152,27 @@ export function useRouteDataSync(
           return;
         }
 
-        // Check engine state for already-synced activities
-        const engineActivityIds = new Set(nativeModule.engine.getActivityIds());
-
-        // Filter to activities with GPS that aren't already in the engine and
-        // whose track the engine has not refused for good
-        const refusedTrackIds = new Set(nativeModule.engine.getRefusedTrackIds());
-        const withGps = headFirst(
-          activitiesToSync.filter(
-            (a) =>
-              a.stream_types?.includes('latlng') &&
-              !engineActivityIds.has(a.id) &&
-              !refusedTrackIds.has(a.id)
-          ),
-          feedHeadIds()
-        );
+        // The tracks still owed. A live library asks the engine, which answers
+        // from the census without parsing a stored body: marked with a track
+        // upstream, not on the device, not refused for good or given up on.
+        // Demo mode pulls no census, so the fixtures say it themselves.
+        const { oldest, newest } = useSyncDateRange.getState();
+        const candidates = isDemo
+          ? demoGpsCandidates(activitiesToSync, new Set(nativeModule.engine.getActivityIds()))
+          : nativeModule.engine.getGpsFetchCandidates(oldest, newest);
+        const engineActivityCount = nativeModule.engine.getActivityCount();
+        const withGps = headFirst(candidates, feedHeadIds(), (c) => c.activityId);
 
         // Published before the first fetch goes out, so a card already on
         // screen stops asking for its own copy of a track this run is about
         // to bring. Cleared by the store when the run reaches a terminal
         // status, which every exit below passes through.
-        setGpsSyncPendingIds(withGps.map((a) => a.id));
+        setGpsSyncPendingIds(withGps.map((c) => c.activityId));
 
         if (__DEV__) {
-          const totalGps = activitiesToSync.filter((a) =>
-            a.stream_types?.includes('latlng')
-          ).length;
           log.log(
-            `[RouteDataSync] Activities: ${activitiesToSync.length} total, ` +
-              `${totalGps} with GPS, ${withGps.length} new to sync, ` +
-              `${engineActivityIds.size} already in engine, isDemo: ${isDemo}`
+            `[RouteDataSync] ${withGps.length} new to sync, ` +
+              `${engineActivityCount} already in engine, isDemo: ${isDemo}`
           );
         }
 
@@ -337,12 +329,12 @@ export function useRouteDataSync(
           if (isMountedRef.current && !abortController.signal.aborted) {
             updateProgress({
               status: 'complete',
-              completed: engineActivityIds.size,
-              total: engineActivityIds.size,
+              completed: engineActivityCount,
+              total: engineActivityCount,
               percent: 100,
               analysingInBackground: stillAnalysing,
               message: stillAnalysing
-                ? i18n.t('cache.syncedStillAnalysing', { count: engineActivityIds.size })
+                ? i18n.t('cache.syncedStillAnalysing', { count: engineActivityCount })
                 : online
                   ? i18n.t('cache.allActivitiesSynced')
                   : i18n.t('cache.offlineUsingCached'),

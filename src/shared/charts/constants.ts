@@ -25,7 +25,7 @@ export const CHART_CONFIG = {
   /**
    * Minimum distance for pan gesture.
    *
-   * Minimum movement in pixels before pan gesture is recognized.
+   * Minimum movement in pixels before pan gesture is recognised.
    * Prevents accidental pans from finger tremors.
    *
    * @defaultValue 10

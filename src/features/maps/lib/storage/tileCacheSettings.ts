@@ -21,7 +21,7 @@ const STORAGE_KEY = 'veloq-tile-cache';
 interface TileCacheSettingsState {
   budgetMb: number;
   isLoaded: boolean;
-  initialize: () => Promise<void>;
+  initialise: () => Promise<void>;
   setBudgetMb: (mb: number) => Promise<void>;
 }
 
@@ -44,7 +44,7 @@ export const useTileCacheSettings = create<TileCacheSettingsState>((set) => ({
    * Load the ceiling from storage. Launch runs it, and so does a restore, and
    * either way the store is brought under the ceiling it read.
    */
-  initialize: async () => {
+  initialise: async () => {
     let budgetMb = DEFAULT_TILE_CACHE_BUDGET_MB;
     let parsed: Record<string, unknown> = {};
     try {
@@ -79,8 +79,8 @@ export function getTileCacheBudgetMb(): number {
   return useTileCacheSettings.getState().budgetMb;
 }
 
-export async function initializeTileCacheSettings(): Promise<void> {
-  await useTileCacheSettings.getState().initialize();
+export async function initialiseTileCacheSettings(): Promise<void> {
+  await useTileCacheSettings.getState().initialise();
 }
 
 /** An older install's proactive cache mode is flattened to ambient in place. */

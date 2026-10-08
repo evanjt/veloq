@@ -12,6 +12,7 @@ import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { Card } from '@/shared/ui/Card';
@@ -152,4 +153,27 @@ describe('the feed card long-press', () => {
       Platform.OS = originalOS;
     }
   });
+});
+
+describe('the feed card press', () => {
+  it.each(['ios', 'android'] as const)(
+    'fires one light impact and opens the activity on %s',
+    (os) => {
+      const originalOS = Platform.OS;
+      Platform.OS = os;
+      (Haptics.impactAsync as jest.Mock).mockClear();
+      (router.push as jest.Mock).mockClear();
+      try {
+        renderCard();
+
+        fireEvent.press(screen.getByTestId('activity-card-a1'));
+
+        expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
+        expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
+        expect(router.push).toHaveBeenCalledWith('/activity/a1');
+      } finally {
+        Platform.OS = originalOS;
+      }
+    }
+  );
 });

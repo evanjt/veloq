@@ -21,7 +21,7 @@
 import { computeInsightsFromData } from '@/features/insights/lib/computeInsightsData';
 import * as sectionDisplayNames from '@/features/routes/lib/sectionDisplayNames';
 import { LoadMetric } from 'veloqrs';
-import type { FfiImprovementBasis, InsightsData, SummaryCardData } from 'veloqrs';
+import type { FfiImprovementBasis, InsightsData } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { datedSeries } from '../__shared__/datedSeries';
@@ -138,6 +138,7 @@ function buildFfiData(): InsightsData {
       sampleCount: 24,
       history: [],
     },
+    swimPaceTrend: { sampleCount: 0, history: [] },
     recentPrs: [
       {
         sectionId: 'sec-ride-climb-A',
@@ -219,44 +220,6 @@ function buildFfiData(): InsightsData {
   };
 }
 
-function buildSummaryCardData(): SummaryCardData {
-  return {
-    // The insights bundle does not read the card's wellness half; it is here
-    // because the record carries it.
-    wellness: {
-      fitness: 60,
-      fitnessTrend: '↑',
-      form: 20,
-      formTrend: '→',
-      hrv: 70,
-      rhr: 48,
-    },
-    currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
-    prevWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),
-    ftpTrend: {
-      latestFtp: 285,
-      latestDate: 1_745_000_000,
-      previousFtp: 270,
-      previousDate: 1_700_000_000,
-      sampleCount: 24,
-      history: [],
-      changes: [],
-    },
-    runPaceTrend: {
-      latestPace: 4.55,
-      latestDate: 1_745_000_000,
-      previousPace: 4.7,
-      previousDate: 1_700_000_000,
-      sampleCount: 24,
-      history: [],
-    },
-    swimPaceTrend: {
-      sampleCount: 24,
-      history: [],
-    },
-  };
-}
-
 /**
  * The bundle carries everything now, including the two answers only Rust gives:
  * the HRV verdict, and the stale-PR filter, whose row here is Ride Neglected C
@@ -273,7 +236,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   });
 
   it('produces a ranked insight list with unique ids given fixture FFI data', () => {
-    const { insights } = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(buildFfiData(), t);
 
     expect(insights.length).toBeGreaterThan(0);
 
@@ -289,7 +252,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   });
 
   it('adds one route card from the engine route rows and moves no other card', () => {
-    const without = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData()).insights;
+    const without = computeInsightsFromData(buildFfiData(), t).insights;
     const routeRow = (routeId: string, routeName: string, over: Record<string, unknown>) => ({
       routeId,
       routeName,
@@ -315,7 +278,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
       routeSlowerCount: 0,
     } as InsightsData;
 
-    const { insights } = computeInsightsFromData(ffiData, t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(ffiData, t);
 
     const routeCards = insights.filter((i) => i.category === 'route');
     expect(routeCards).toHaveLength(1);
@@ -337,7 +300,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
       stats: makePeriod(3, 3600, 40_000, tss),
     }));
 
-    const { insights } = computeInsightsFromData(ffiData, t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(ffiData, t);
 
     const weekly = insights.find((insight) => insight.supportingData?.history?.kind === 'bars');
     expect(weekly?.supportingData?.history).toMatchObject({
@@ -356,7 +319,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   });
 
   it('returns [] when ffiData is null', () => {
-    const { insights } = computeInsightsFromData(null, t, null);
+    const { insights } = computeInsightsFromData(null, t);
     expect(insights).toEqual([]);
   });
 
@@ -389,7 +352,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
       ],
     } as unknown as InsightsData;
 
-    const { insights } = computeInsightsFromData(ffiData, t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(ffiData, t);
 
     const changed = insights.find((i) => i.id.startsWith('section_changed-sec-moved'));
     expect(JSON.stringify(changed)).toContain('Harbour Climb');
@@ -399,15 +362,42 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
     getNames.mockRestore();
   });
 
+  it('draws the swim pace card from the swim trend the bundle carries', () => {
+    const now = new Date('2026-10-01T12:00:00Z');
+    jest.useFakeTimers().setSystemTime(now);
+    const yesterday = Math.floor(now.getTime() / 1000) - 86_400;
+    const base = computeInsightsFromData(buildFfiData(), t).insights;
+    const ffiData = {
+      ...buildFfiData(),
+      swimPaceTrend: {
+        latestPace: 1.25,
+        latestDate: yesterday,
+        previousPace: 1.0,
+        previousDate: yesterday - 40 * 86_400,
+        gainPercent: 25,
+        deltaSeconds: 20,
+        sampleCount: 6,
+        history: [],
+      },
+    } as InsightsData;
+
+    const { insights } = computeInsightsFromData(ffiData, t);
+
+    jest.useRealTimers();
+
+    expect(base.some((i) => i.id === 'fitness_milestone-swim-pace')).toBe(false);
+    expect(insights.some((i) => i.id === 'fitness_milestone-swim-pace')).toBe(true);
+  });
+
   it('does not crash when wellness is empty (rest-day framing path)', () => {
-    const { insights } = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(buildFfiData(), t);
     // Should still produce at least the section-pattern insights derived
     // from FFI data alone.
     expect(Array.isArray(insights)).toBe(true);
   });
 
   it('carries the engine ranking breakdown onto section-trend insights', () => {
-    const { insights } = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(buildFfiData(), t);
 
     const trend = insights.find((i) => i.id.startsWith('section_trend-'));
     if (!trend) throw new Error('expected a section-trend insight');
@@ -433,7 +423,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   });
 
   it('carries the signed change and its basis, and leaves them off when absent', () => {
-    const { insights } = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(buildFfiData(), t);
     const trends = insights.filter((i) => i.category === 'section_trend');
     const sections = trends.flatMap((i) => i.supportingData?.sections ?? []);
     const withChange = sections.find((s) => s.sectionId.endsWith('climb-A'));
@@ -459,7 +449,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   });
 
   it('carries improving and declining sections in one summary', () => {
-    const { insights } = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(buildFfiData(), t);
 
     const trends = insights.filter((i) => i.category === 'section_trend');
     expect(trends).toHaveLength(1);
@@ -484,7 +474,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
       routeSlowerCount: 0,
     } as InsightsData;
 
-    const { insights } = computeInsightsFromData(ffiData, t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(ffiData, t);
 
     expect(insights.filter((i) => i.id.startsWith('section_trend-'))).toEqual([]);
   });
@@ -492,13 +482,13 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   it('builds no section trends with route matching off while the engine reports sections', () => {
     (isRouteMatchingEnabled as jest.Mock).mockReturnValueOnce(false);
 
-    const { insights } = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(buildFfiData(), t);
 
     expect(insights.filter((i) => i.id.startsWith('section_trend-'))).toEqual([]);
   });
 
   it('section-derived insights only reference sections present in the FFI ranked-batch', () => {
-    const { insights } = computeInsightsFromData(buildFfiData(), t, buildSummaryCardData());
+    const { insights } = computeInsightsFromData(buildFfiData(), t);
 
     const allowedSectionIds = new Set(
       ['Ride', 'Run'].flatMap((sport) => makeRankedSections(sport)).map((r) => r.sectionId)

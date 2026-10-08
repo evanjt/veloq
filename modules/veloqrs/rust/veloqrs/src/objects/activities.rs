@@ -125,9 +125,15 @@ impl ActivityManager {
         })
     }
 
-    /// The activities whose track the engine refused for good at the version
-    /// the census still names. An empty list when no athlete is set.
-    fn get_refused_track_ids(&self) -> Result<Vec<String>, VeloqError> {
+    /// The tracks a GPS pass still owes between two local days, inclusive,
+    /// newest first: the census marks a track upstream, the body is stored,
+    /// the device holds no track and the engine has not given up on it. Each
+    /// carries what `start_fetch_and_store` takes. Empty when no athlete is set.
+    fn get_gps_fetch_candidates(
+        &self,
+        oldest: String,
+        newest: String,
+    ) -> Result<Vec<crate::ffi::ActivitySportMapping>, VeloqError> {
         with_reader(|conn| {
             let athlete_id = crate::persistence::settings::setting_from(
                 conn,
@@ -136,7 +142,11 @@ impl ActivityManager {
             .ok()
             .flatten();
             athlete_id
-                .map(|id| crate::persistence::activities::pooled::refused_track_ids(conn, &id))
+                .map(|id| {
+                    crate::persistence::activities::pooled::gps_fetch_candidates(
+                        conn, &id, &oldest, &newest,
+                    )
+                })
                 .unwrap_or_default()
         })
     }
@@ -310,15 +320,16 @@ impl ActivityManager {
         })?
     }
 
-    /// A stream payload for an activity and series selection: the cached
+    /// An activity's chart series for a series selection: from the cached
     /// server body, or one rebuilt from the points and times the ingest
     /// already stored. `None` when neither can answer the selection, which is
-    /// what makes the caller fetch.
-    fn get_stream_body(
+    /// what makes the caller fetch. The body is parsed here and its series
+    /// cross as float buffers, so the JavaScript thread parses nothing.
+    fn get_activity_streams(
         &self,
         activity_id: String,
         types: String,
-    ) -> Result<Option<String>, VeloqError> {
+    ) -> Result<Option<crate::FfiActivityStreams>, VeloqError> {
         let install = crate::persistence::engine_install();
         let (body, stale) = with_reader(|conn| {
             crate::persistence::bodies::pooled::stream_body(conn, &activity_id, &types).map_err(
@@ -342,7 +353,7 @@ impl ActivityManager {
                 });
             }
         }
-        Ok(body)
+        Ok(body.and_then(|body| crate::net::chart_streams::chart_streams_from_body(&body)))
     }
 
     fn set_time_streams(
@@ -421,17 +432,6 @@ impl ActivityManager {
                 announce_milestones,
             )
         })
-    }
-
-    /// Write the id intervals.icu gave a locally keyed ride once its upload
-    /// landed. False when no row was waiting for one.
-    fn record_upload(&self, activity_id: String, intervals_id: String) -> Result<bool, VeloqError> {
-        with_engine(|e| {
-            e.record_upload(&activity_id, &intervals_id)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
-        })?
     }
 
     pub fn remove(&self, activity_id: String) -> Result<(), VeloqError> {

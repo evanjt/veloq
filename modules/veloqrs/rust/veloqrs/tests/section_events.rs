@@ -507,7 +507,7 @@ fn a_revert_to_a_missing_version_is_refused() {
 fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
     use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
     let corpus = LifecycleCorpus::generate(&LifecycleConfig {
-        bucket_a_count: 60,
+        bucket_a_count: 80,
         bucket_b_delta_count: 90,
         bucket_d_delta_count: 3,
         bucket_e_delta_count: 0,

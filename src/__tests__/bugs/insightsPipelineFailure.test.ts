@@ -64,7 +64,7 @@ describe('a throwing insights pipeline', () => {
   it('reports a failure and logs the error', () => {
     const broken = data({ currentWeek: null });
 
-    const result = computeInsightsFromData(broken, t, null);
+    const result = computeInsightsFromData(broken, t);
 
     expect(result.failed).toBe(true);
     expect(result.insights).toEqual([]);
@@ -72,8 +72,8 @@ describe('a throwing insights pipeline', () => {
   });
 
   it('reports no failure for an empty library', () => {
-    expect(computeInsightsFromData(data(), t, null).failed).toBe(false);
-    expect(computeInsightsFromData(null, t, null)).toEqual({ insights: [], failed: false });
+    expect(computeInsightsFromData(data(), t).failed).toBe(false);
+    expect(computeInsightsFromData(null, t)).toEqual({ insights: [], failed: false });
   });
 
   it('drops the one record whose polyline will not decode', () => {
@@ -83,7 +83,7 @@ describe('a throwing insights pipeline', () => {
     });
     const input = data({ recentPrs: [pr('bad'), pr('good')] });
 
-    const result = computeInsightsFromData(input, t, null);
+    const result = computeInsightsFromData(input, t);
 
     expect(result.failed).toBe(false);
     const ids = result.insights.map((i) => i.id).join(',');

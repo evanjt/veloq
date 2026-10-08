@@ -52,3 +52,19 @@ export async function backupIsFound(): Promise<boolean> {
 export function answerRestorePrompt(): void {
   markPlatformRecordAnswered();
 }
+
+/**
+ * Offers the restore once the library is known to be empty: when the launch
+ * found no activities, a backup can be seen and nothing has answered the offer.
+ * `isCurrent` is read before and after the backup lookup, so a launch that has
+ * been superseded in the meantime offers nothing.
+ */
+export async function offerRestorePrompt(
+  launchCount: number,
+  isCurrent: () => boolean,
+  show: () => void
+): Promise<void> {
+  if (launchCount > 0 || !isCurrent()) return;
+  const found = await backupIsFound();
+  if (isCurrent() && restorePromptDue(launchCount, found)) show();
+}

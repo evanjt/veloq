@@ -14,7 +14,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import * as Location from 'expo-location';
 
 import RecordScreen from '@/app/record';
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
@@ -104,7 +104,7 @@ const planned: CalendarEvent = {
 } as CalendarEvent;
 
 beforeAll(async () => {
-  await initializeI18n('en-AU');
+  await initialiseI18n('en-AU');
 });
 
 beforeEach(() => {

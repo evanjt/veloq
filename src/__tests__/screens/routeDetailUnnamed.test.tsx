@@ -106,11 +106,6 @@ jest.mock('@/features/routes/hooks/useRoutePerformances', () => ({
 jest.mock('@/features/routes/hooks', () => ({
   ...jest.requireActual('@/features/routes/hooks/useRouteRenaming'),
   ...jest.requireMock('@/features/routes/hooks/useRoutePerformances'),
-  useRouteHighlight: () => ({
-    highlightedActivityId: null,
-    highlightedActivityPoints: null,
-    handleActivitySelect: jest.fn(),
-  }),
   useSportTypeFilter: () => ({
     selectedSportType: null,
     setSelectedSportType: jest.fn(),

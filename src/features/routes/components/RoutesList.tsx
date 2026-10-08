@@ -318,7 +318,7 @@ export const RoutesList = memo(function RoutesList({
         showsVerticalScrollIndicator={false}
         onEndReached={hasMore ? onLoadMore : undefined}
         onEndReachedThreshold={0.5}
-        // Performance optimizations
+        // Performance optimisations
         removeClippedSubviews
         maxToRenderPerBatch={10}
         windowSize={5}

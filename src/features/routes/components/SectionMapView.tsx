@@ -2,7 +2,7 @@
  * Hero map view for section detail page.
  * Displays the section polyline (medoid trace) prominently.
  *
- * Performance optimization: Pre-loads all activity traces as a FeatureCollection
+ * Performance optimisation: Pre-loads all activity traces as a FeatureCollection
  * and uses filter expressions to show/hide them. This avoids expensive shape
  * geometry updates when the user scrubs through different activities.
  *

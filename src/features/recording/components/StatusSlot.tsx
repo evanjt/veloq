@@ -12,7 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { colors, colorWithOpacity, darkColors, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { selectStatusMessage, type StatusSlotInput } from '../lib/statusSlot';
@@ -90,7 +90,7 @@ function StatusSlotInner({
         <Pressable
           style={pressable([styles.row, styles.warnRow])}
           android_ripple={pressRipple}
-          onPress={() => navigateTo('/sensor-settings')}
+          onPress={() => tapTo('/sensor-settings')}
           accessibilityRole="button"
           accessibilityLabel={message.text}
         >

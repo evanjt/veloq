@@ -12,13 +12,11 @@
 
 import {
   writeProvisionalActivity,
-  recordProvisionalUpload,
   replayProvisionalWrites,
 } from '@/features/recording/lib/storage/provisionalActivity';
 import {
   attachEngineActivity,
   listRecordings,
-  markRecordingReconciled,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { engine } from 'veloqrs';
 import type { RecordingLibraryEntry } from '@/types';
@@ -31,8 +29,6 @@ jest.mock('veloqrs', () =>
       saveProvisionalActivity: jest.fn(() => true),
       addActivities: jest.fn(async () => {}),
       upsertActivityBodies: jest.fn(),
-      setActivityMetrics: jest.fn(),
-      recordActivityUpload: jest.fn(() => true),
     },
   })
 );
@@ -44,18 +40,14 @@ jest.mock('@/shared/app/AuthStore', () => ({
 
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   listRecordings: jest.fn(async () => []),
-  markRecordingReconciled: jest.fn(async () => null),
   attachEngineActivity: jest.fn(async () => null),
 }));
 
 const mockList = listRecordings as jest.Mock;
-const mockMarkReconciled = markRecordingReconciled as jest.Mock;
 const mint = engine.provisionalActivityId as unknown as jest.Mock;
 const addActivities = engine.addActivities as unknown as jest.Mock;
 const upsertBodies = engine.upsertActivityBodies as unknown as jest.Mock;
-const setMetrics = engine.setActivityMetrics as unknown as jest.Mock;
 const saveProvisional = engine.saveProvisionalActivity as unknown as jest.Mock;
-const recordUpload = engine.recordActivityUpload as unknown as jest.Mock;
 
 /** The stub's readiness, which is what the delegate's false actually means. */
 function setReady(ready: boolean): void {
@@ -94,7 +86,6 @@ beforeEach(() => {
   (engine as unknown as { ready: boolean }).ready = true;
   mint.mockReturnValue('local-deadbeef');
   saveProvisional.mockReset().mockReturnValue(true);
-  recordUpload.mockReturnValue(true);
   mockList.mockResolvedValue([]);
 });
 
@@ -110,7 +101,6 @@ describe('writeProvisionalActivity', () => {
     expect(row.activityId).toBe('local-deadbeef');
     expect(addActivities).not.toHaveBeenCalled();
     expect(upsertBodies).not.toHaveBeenCalled();
-    expect(setMetrics).not.toHaveBeenCalled();
     const body = JSON.parse(row.raw);
     expect(body.id).toBe('local-deadbeef');
     expect(body.name).toBe('Evening Ride');
@@ -154,7 +144,6 @@ describe('writeProvisionalActivity', () => {
     expect(await writeProvisionalActivity(ENTRY)).toBeNull();
     expect(addActivities).not.toHaveBeenCalled();
     expect(upsertBodies).not.toHaveBeenCalled();
-    expect(setMetrics).not.toHaveBeenCalled();
   });
 
   it('answers null rather than throwing when a write fails, so the save still stands', async () => {
@@ -220,86 +209,6 @@ describe('writeProvisionalActivity', () => {
   });
 });
 
-describe('recordProvisionalUpload', () => {
-  it('writes the id the server gave the ride onto the provisional row', async () => {
-    await recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242');
-
-    expect(recordUpload).toHaveBeenCalledWith('local-deadbeef', 'i4242');
-    expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
-  });
-
-  it('does nothing for a recording that never got a provisional row', async () => {
-    await recordProvisionalUpload(ENTRY, 'i4242');
-
-    expect(recordUpload).not.toHaveBeenCalled();
-    expect(mockMarkReconciled).not.toHaveBeenCalled();
-  });
-
-  it('does nothing when the upload came back without an id', async () => {
-    await recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, undefined);
-
-    expect(recordUpload).not.toHaveBeenCalled();
-  });
-
-  it('leaves the entry unreconciled when the engine refuses the write', async () => {
-    recordUpload.mockImplementationOnce(() => {
-      throw new Error('engine closed');
-    });
-
-    await expect(
-      recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
-    ).resolves.toBe(false);
-    expect(mockMarkReconciled).not.toHaveBeenCalled();
-  });
-
-  it('counts a row that already carries the id as reconciled', async () => {
-    recordUpload.mockReturnValueOnce(false);
-
-    await expect(
-      recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
-    ).resolves.toBe(true);
-    expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
-  });
-
-  /**
-   * A closed engine is the case the reconcile pass exists for. The delegate
-   * answers false there without reaching Rust, which reads exactly like Rust's
-   * own "already carries an id", so settling on it loses the ride to a
-   * duplicate on the next sync.
-   */
-  it('does not settle a ride the closed engine never took', async () => {
-    setReady(false);
-
-    await expect(
-      recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
-    ).resolves.toBe(false);
-    expect(recordUpload).not.toHaveBeenCalled();
-    expect(mockMarkReconciled).not.toHaveBeenCalled();
-  });
-
-  it('settles a ride the engine did take', async () => {
-    recordUpload.mockReturnValueOnce(true);
-
-    await expect(
-      recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
-    ).resolves.toBe(true);
-    expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
-  });
-
-  /**
-   * Rust's own false is settled: the row already carries an id or has gone.
-   * The entry is done and must not be retried forever.
-   */
-  it('settles a ride whose row already carries the id', async () => {
-    recordUpload.mockReturnValueOnce(false);
-
-    await expect(
-      recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
-    ).resolves.toBe(true);
-    expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
-  });
-});
-
 /**
  * Scenario: the engine write at save failed, or the engine was closed, so the
  * ride is in the library with no row in the engine. It misses the feed, the
@@ -323,16 +232,21 @@ describe('replayProvisionalWrites', () => {
       expect.anything()
     );
     expect(mockAttach).toHaveBeenCalledWith(ENTRY.id, 'local-deadbeef');
-    expect(recordUpload).not.toHaveBeenCalled();
   });
 
-  it('writes the id an upload already landed onto the replayed row', async () => {
+  it('replays the row of a ride whose upload already landed', async () => {
     const uploaded = { ...ENTRY, uploadStatus: 'uploaded' as const, intervalsActivityId: 'i123' };
     mockList.mockResolvedValue([uploaded]);
-    mockAttach.mockResolvedValue({ ...uploaded, engineActivityId: 'local-deadbeef' });
 
-    await replayProvisionalWrites();
-    expect(recordUpload).toHaveBeenCalledWith('local-deadbeef', 'i123');
+    expect(await replayProvisionalWrites()).toBe(1);
+    expect(mockAttach).toHaveBeenCalledWith(uploaded.id, 'local-deadbeef');
+  });
+
+  it('skips a ride marked uploaded with no id to put on its row', async () => {
+    mockList.mockResolvedValue([{ ...ENTRY, uploadStatus: 'uploaded' as const }]);
+
+    expect(await replayProvisionalWrites()).toBe(0);
+    expect(saveProvisional).not.toHaveBeenCalled();
   });
 
   it('leaves an entry that already has its row alone', async () => {

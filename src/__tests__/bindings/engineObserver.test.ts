@@ -126,3 +126,19 @@ it('refreshes the sections channel when a detection run ends', async () => {
   expect(seen).toEqual(['sections']);
   off();
 });
+
+it('refreshes the groups channel when a regroup is swapped in', async () => {
+  const { client, observer } = clientWithFakeEngine();
+  const seen: string[] = [];
+  const off = client.subscribe('groups', () => seen.push('groups'));
+  const heard: string[] = [];
+  const offEvent = client.subscribe('groupsChanged', () => heard.push('groupsChanged'));
+
+  observer.groupsChanged();
+  await flush();
+
+  expect(seen).toEqual(['groups']);
+  expect(heard).toEqual(['groupsChanged']);
+  off();
+  offEvent();
+});

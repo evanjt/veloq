@@ -1,15 +1,16 @@
 /**
- * InsightfulStats - Activity stats display with detail modals.
+ * InsightfulStats - Activity stats display with a detail sheet.
  *
  * Refactored to use extracted components:
  * - useActivityStats: Stats computation hook
  * - StatCard: Individual stat card display
- * - StatDetailModal: Modal for detailed stat info
+ * - StatDetailSheet: the detail of one stat, shown in the stat sheet route
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, Linking } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
+import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
@@ -19,7 +20,6 @@ import type { ActivityFitnessImpact } from 'veloqrs';
 import { DEFAULT_MAX_HR } from '../../lib/hrZones';
 import { useActivityStats } from './useActivityStats';
 import { StatCard } from './StatCard';
-import { StatDetailModal } from './StatDetailModal';
 import { Card } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui';
 import type { StatDetail } from './types';
@@ -44,7 +44,7 @@ export function InsightfulStats({
 }: InsightfulStatsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const [selectedStat, setSelectedStat] = useState<StatDetail | null>(null);
+  const openSheet = useSheetOpener();
 
   // Use extracted hook for stats computation
   const isMetric = useMetricSystem();
@@ -58,13 +58,12 @@ export function InsightfulStats({
     newGround,
   });
 
-  const handleStatPress = useCallback((stat: StatDetail) => {
-    setSelectedStat(stat);
-  }, []);
-
-  const closeModal = useCallback(() => {
-    setSelectedStat(null);
-  }, []);
+  const handleStatPress = useCallback(
+    (stat: StatDetail) => {
+      void openSheet<StatDetail, never>('sheets/stat-detail', stat);
+    },
+    [openSheet]
+  );
 
   // Open activity in intervals.icu website
   const openInIntervalsICU = useCallback(async () => {
@@ -100,8 +99,6 @@ export function InsightfulStats({
             <StatCard key={index} stat={stat} isDark={isDark} onPress={handleStatPress} />
           ))}
         </View>
-
-        <StatDetailModal stat={selectedStat} isDark={isDark} onClose={closeModal} />
       </Card>
     </View>
   );

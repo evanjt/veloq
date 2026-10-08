@@ -94,7 +94,6 @@
       "yourFitness": "Jouw fitheid (CTL)",
       "yourForm": "Jouw vorm"
     },
-    "tapToClose": "Tik om te sluiten",
     "timeInHRZones": "Tijd in HF-zones",
     "timeInPowerZones": "Tijd in vermogenszones",
     "viewDetails": "Details bekijken",
@@ -381,7 +380,6 @@
     "confirm": "Bevestigen",
     "creating": "Aanmaken...",
     "delete": "Verwijderen",
-    "done": "Klaar",
     "remove": "Verwijderen",
     "rename": "Hernoemen",
     "restore": "Herstellen",
@@ -1602,6 +1600,14 @@
     "sizeAtLeast": "Minstens {{size}}",
     "recording": "Opname",
     "permissions": "Machtigingen",
+    "placeNames": {
+      "title": "Plaatsnamen",
+      "attribution": "Plaatsnamen © OpenStreetMap-bijdragers",
+      "noticeTitle": "Plaatsnamen gebruiken?",
+      "noticeBody": "Wanneer een nieuwe route of sectie wordt gevonden, worden het start- en eindpunt naar de Nominatim-dienst van OpenStreetMap gestuurd om een plaatsnaam op te zoeken. Bestaande routes en secties worden niet verstuurd, en niets over jou. Het gebruiksbeleid van de dienst is van toepassing.",
+      "readPolicy": "Gebruiksbeleid",
+      "accept": "Accepteren"
+    },
     "cacheAndDatabase": "Cache & Databank",
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Gebruikt opslagruimte op het apparaat. Schakel uit om ruimte te besparen.",
@@ -1827,6 +1833,7 @@
     "tracksDownloaded": "{{completed}} van {{total}} tracks gedownload"
   },
   "time": {
+    "asOfLastSync": "Gegevens van de laatste synchronisatie",
     "current": "Huidig",
     "daysAgo_one": "{{count}} dag geleden",
     "daysAgo_other": "{{count}} dagen geleden",
@@ -2216,7 +2223,7 @@
     "toSeeTraining": "om je training te zien",
     "record": "Opnemen",
     "recordDescription": "Begin met het opnemen van een activiteit.",
-    "dashboardDescription": "Je vorm, fitheid en laatste activiteit in één oogopslag.",
+    "summaryDescription": "Je samenvattingskaart uit de app in één oogopslag.",
     "latestActivity": "Laatste activiteit",
     "latestActivityDescription": "Je meest recente activiteit met de route.",
     "metric": "Meetwaarde",
@@ -2231,6 +2238,33 @@
     "startSportDescription": "Opent Veloq klaar om de gekozen sport op te nemen.",
     "recordingControl": "Opnamebediening",
     "action": "Actie",
+    "insights": "Inzichten",
+    "insightsDescription": "De bovenste kaarten van je tabblad Inzichten.",
+    "insightsEmpty": "Geen nieuwe inzichten",
+    "insightsMore": "+{{rest}} meer",
+    "insightKinds": "Soorten",
+    "insightKindsDescription": "Kies welke soorten inzichten de widget toont. Zonder keuze toont hij alle soorten.",
+    "insightKind": {
+      "sectionPr": "Sectie-PR's",
+      "sectionTrend": "Sectietrends",
+      "route": "Routerecords",
+      "stalePr": "Oude PR's",
+      "fitnessMilestone": "Fitnessmijlpalen",
+      "periodComparison": "Periodevergelijkingen",
+      "strengthProgression": "Krachtprogressie",
+      "strengthBalance": "Krachtbalans",
+      "hrvTrend": "HRV-trends",
+      "efficiencyTrend": "Efficiëntietrends",
+      "sectionChanged": "Gewijzigde secties"
+    },
+    "latest": {
+      "rank": "{{rank}} van {{total}}",
+      "fastest": "Je snelste",
+      "offBest": "{{gap}} van je beste",
+      "load": "Belasting",
+      "loadVsTypical": "{{percent}} t.o.v. je gebruikelijke belasting",
+      "sectionPrs": "Sectie-PR's {{number}}"
+    },
     "phrases": {
       "startRide": "Start een rit met {{app}}",
       "startRecording": "Start opname met {{app}}",

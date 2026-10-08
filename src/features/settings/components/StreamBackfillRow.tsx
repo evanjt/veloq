@@ -50,11 +50,12 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
   // the row stays away rather than claiming the work is done.
   if (!isRunning && (remaining === null || remaining === 0)) return null;
 
-  // A null size is an engine that could not price the queue, so the count
-  // stands alone rather than claiming a download of nothing.
+  // A null size is an engine that could not price the queue, and a zero size
+  // on a queue that owes activities is one with no known moving time. Either
+  // way the count stands alone rather than claiming a download of nothing.
   const value = isRunning
     ? t('settings.streamBackfillProgress', { completed, total })
-    : remainingBytes === null
+    : remainingBytes === null || remainingBytes <= 0
       ? t('settings.streamBackfillOwed', { count: remaining ?? 0 })
       : t('settings.streamBackfillOwedSized', {
           count: remaining ?? 0,

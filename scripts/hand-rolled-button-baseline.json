@@ -30,7 +30,6 @@
   "src/features/activity/components/ChartTypeSelector.tsx": 1,
   "src/features/activity/components/SectionInlinePlot.tsx": 1,
   "src/features/activity/components/stats/StatCard.tsx": 1,
-  "src/features/activity/components/stats/StatDetailModal.tsx": 1,
   "src/features/auth/components/ApiKeyLoginForm.tsx": 1,
   "src/features/auth/components/LanguagePicker.tsx": 3,
   "src/features/fitness/components/ActivityDotsChart.tsx": 1,
@@ -90,7 +89,6 @@
   "src/features/settings/components/whatsNew/WhatsNewModal.tsx": 1,
   "src/features/stats/components/PaceCurveChart.tsx": 1,
   "src/features/strength/components/StrengthActivityCard.tsx": 2,
-  "src/features/strength/components/StrengthBalanceView.tsx": 2,
   "src/features/strength/components/StrengthBodyDiagram.tsx": 1,
   "src/features/strength/components/StrengthExerciseList.tsx": 1,
   "src/shared/app/DemoBanner.tsx": 1

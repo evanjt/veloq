@@ -25,12 +25,24 @@ const path = require("path");
 const { INCLUDE_RECORD_WIDGET } = require("./widgetFlags");
 const { writeAndroidStrings } = require("./nativeStrings");
 
-// Dashboard (all sizes, tap-to-cycle hero), Latest Activity, and the
-// Quick-Record button. Excluded receivers are actively removed so an incremental
-// prebuild can't keep a stale registration.
+// Summary (all sizes, hero chosen when placed), Latest Activity, Insights (kinds
+// chosen when placed), and the Quick-Record button. Excluded receivers are actively removed so an incremental
+// prebuild can't keep a stale registration. A label names the widget in the
+// gallery; one without it shows the application name.
 const RECEIVERS = [
-  { name: ".widget.VeloqWidgetProvider", info: "@xml/veloq_widget_info", include: true },
+  {
+    name: ".widget.VeloqWidgetProvider",
+    info: "@xml/veloq_widget_info",
+    label: "@string/widget_summary_label",
+    include: true,
+  },
   { name: ".widget.VeloqActivityWidgetProvider", info: "@xml/widget_activity_info", include: true },
+  {
+    name: ".widget.VeloqInsightsWidgetProvider",
+    info: "@xml/widget_insights_info",
+    label: "@string/widget_insights_label",
+    include: true,
+  },
   {
     name: ".widget.VeloqRecordWidgetProvider",
     info: "@xml/widget_record_info",
@@ -118,12 +130,16 @@ function applyReceivers(app) {
         app.receiver = app.receiver.filter((r) => r.$?.["android:name"] !== name);
       }
     }
-    for (const { name, info, include } of RECEIVERS) {
+    for (const { name, info, label, include } of RECEIVERS) {
       if (!include) continue;
       const exists = app.receiver.some((r) => r.$?.["android:name"] === name);
       if (exists) continue;
       app.receiver.push({
-        $: { "android:name": name, "android:exported": "true" },
+        $: {
+          "android:name": name,
+          "android:exported": "true",
+          ...(label ? { "android:label": label } : {}),
+        },
         "intent-filter": [
           {
             action: [{ $: { "android:name": "android.appwidget.action.APPWIDGET_UPDATE" } }],
@@ -166,18 +182,18 @@ function applyServices(app, include = INCLUDE_RECORD_WIDGET) {
   });
 }
 
-// The configure activity rides the same gate as the widget it configures.
-// Removed rather than skipped, so an incremental prebuild cannot keep a stale
-// registration pointing at a class that is no longer compiled.
-const CONFIGURE_ACTIVITY = ".widget.RecordWidgetConfigureActivity";
+// The pickers a placed widget opens. The Record one rides the same gate as the
+// widget it configures; the Summary and Insights ones belong to widgets that are
+// always in the gallery. Both are removed rather than skipped, so an incremental prebuild cannot
+// keep a stale registration pointing at a class that is no longer compiled.
+const SUMMARY_CONFIGURE_ACTIVITY = ".widget.SummaryWidgetConfigureActivity";
+const INSIGHTS_CONFIGURE_ACTIVITY = ".widget.InsightsWidgetConfigureActivity";
+const RECORD_CONFIGURE_ACTIVITY = ".widget.RecordWidgetConfigureActivity";
 
-function applyActivities(app, include = INCLUDE_RECORD_WIDGET) {
-  app.activity = app.activity || [];
-  app.activity = app.activity.filter((a) => a.$?.["android:name"] !== CONFIGURE_ACTIVITY);
-  if (!include) return;
-  app.activity.push({
+function configureActivity(name) {
+  return {
     $: {
-      "android:name": CONFIGURE_ACTIVITY,
+      "android:name": name,
       // The launcher starts it, so it is reachable from outside the app.
       "android:exported": "true",
       "android:excludeFromRecents": "true",
@@ -188,7 +204,21 @@ function applyActivities(app, include = INCLUDE_RECORD_WIDGET) {
         action: [{ $: { "android:name": "android.appwidget.action.APPWIDGET_CONFIGURE" } }],
       },
     ],
-  });
+  };
+}
+
+function applyActivities(app, includeRecord = INCLUDE_RECORD_WIDGET) {
+  const pickers = [
+    { name: SUMMARY_CONFIGURE_ACTIVITY, include: true },
+    { name: INSIGHTS_CONFIGURE_ACTIVITY, include: true },
+    { name: RECORD_CONFIGURE_ACTIVITY, include: includeRecord },
+  ];
+  app.activity = (app.activity || []).filter(
+    (a) => !pickers.some((p) => p.name === a.$?.["android:name"])
+  );
+  for (const { name, include } of pickers) {
+    if (include) app.activity.push(configureActivity(name));
+  }
 }
 
 function withWidgetReceiver(config) {

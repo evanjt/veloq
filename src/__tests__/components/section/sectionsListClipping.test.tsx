@@ -2,7 +2,7 @@ import React from 'react';
 import { FlatList, Platform } from 'react-native';
 import { render } from '@testing-library/react-native';
 
-import { initializeI18n } from '@/i18n';
+import { initialiseI18n } from '@/i18n';
 import { SectionsList } from '@/features/routes/components/SectionsList';
 import type { SectionWithPolyline } from 'veloqrs';
 
@@ -67,7 +67,7 @@ const record = (
 
 describe('SectionsList row clipping', () => {
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   it.each(['android', 'ios'] as const)('clips offscreen rows on %s', (os) => {

@@ -13,9 +13,11 @@ import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { decodeCoords } from 'veloqrs';
+import type { ActivityStreamBuffers } from 'veloqrs';
 import { useDetailCoordinates } from '@/features/activity/hooks/useDetailCoordinates';
 import { useActivityDetailStreams } from '@/features/activity/hooks/useActivities';
 import { getEngine } from '@/shared/native/engine';
+import { streamBuffers } from '../__shared__/streamBuffers';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('veloqrs', () =>
@@ -31,7 +33,7 @@ const EMPTY = new Uint8Array([]).buffer;
 // engine has to carry the channel it subscribes on.
 const engine = {
   getGpsTrack: jest.fn(() => BLOB),
-  getStreamBody: jest.fn<string | null, []>(() => null),
+  getActivityStreams: jest.fn<ActivityStreamBuffers | null, []>(() => null),
   syncActivityStreams: jest.fn(),
   subscribe: () => () => {},
 };
@@ -45,7 +47,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   (getEngine as jest.Mock).mockReturnValue(engine);
   engine.getGpsTrack.mockReturnValue(BLOB);
-  engine.getStreamBody.mockReturnValue(null);
+  engine.getActivityStreams.mockReturnValue(null);
   (decodeCoords as jest.Mock).mockReturnValue(POINTS);
 });
 
@@ -58,7 +60,8 @@ function renderDetailStreams() {
 
 describe('the detail stream read and stored-track fallback', () => {
   it('waits for a stream body containing latlng without reading the stored track', async () => {
-    engine.getStreamBody.mockReturnValue(JSON.stringify({ latlng: [[46.2, 7.35]] }));
+    engine.getActivityStreams.mockReturnValue(streamBuffers({ latlng: BLOB }));
+    (decodeCoords as jest.Mock).mockReturnValue([{ latitude: 46.2, longitude: 7.35 }]);
     const { result, rerender, unmount, client } = renderDetailStreams();
 
     expect(engine.getGpsTrack).not.toHaveBeenCalled();

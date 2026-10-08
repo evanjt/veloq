@@ -35,5 +35,6 @@ pub use sync::{
     FfiCallKind, FfiCallOutcome, FfiSyncStatus, SYNC_SERVICE, SyncManager, SyncState,
     current_session, current_transport, park_auth_expired, set_credentials_from_native,
 };
+pub(crate) use sync::{WELLNESS_REFRESH_DAYS, refresh_wellness};
 #[cfg(test)]
-pub(crate) use sync::{clear_test_credentials, test_credentials};
+pub(crate) use sync::{clear_test_credentials, test_base_url, test_credentials};

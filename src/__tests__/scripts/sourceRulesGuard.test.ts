@@ -564,15 +564,14 @@ describe('metrics-one-writer', () => {
   it('fails a metrics write from the background insight task', () => {
     const root = fixture({
       'src/features/insights/backgroundInsightTask.ts': [
-        "const { toActivityMetrics } = require('@/shared/activity/activityMetrics');",
-        'engine.setActivityMetrics([toActivityMetrics(activity)]);',
+        'engine.setActivityMetrics([buildRow(activity)]);',
       ].join('\n'),
     });
 
     const { status, output } = runRule('metrics-one-writer', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('src/features/insights/backgroundInsightTask.ts:2');
+    expect(output).toContain('src/features/insights/backgroundInsightTask.ts:1');
   });
 
   it('fails a write through the raw binding or a destructured writer', () => {
@@ -975,5 +974,134 @@ describe('no-geocoding', () => {
     );
 
     expect(status).toBe(0);
+  });
+});
+
+describe('large-title-scroll', () => {
+  const headers = (largeTitle: boolean) =>
+    [
+      'export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {',
+      '  login: null,',
+      `  about: { titleKey: 'about.title', largeTitle: ${largeTitle} },`,
+      "  'best-efforts': { titleKey: 'bestEffortsScreen.title', largeTitle: true },",
+      '};',
+    ].join('\n');
+  const SCROLL = [
+    "import { ScreenScrollView } from '@/shared/ui';",
+    'export default () => <ScreenScrollView><View /></ScreenScrollView>;',
+  ].join('\n');
+  const LIST = [
+    "import { screenListInsets } from '@/shared/ui';",
+    'export default () => (',
+    '  <FlatList data={[]} renderItem={() => <View />} {...screenListInsets} />',
+    ');',
+  ].join('\n');
+  const CLEAN = {
+    'src/shared/app/screenHeaders.ts': headers(true),
+    'src/app/about.tsx': SCROLL,
+    'src/app/best-efforts/index.tsx': LIST,
+  };
+
+  it('passes a large-title route that renders ScreenScrollView, or a FlatList with the insets', () => {
+    expect(runRule('large-title-scroll', fixture(CLEAN)).status).toBe(0);
+  });
+
+  it('fails a large-title route whose file renders a bare ScrollView, and names it', () => {
+    const root = fixture({
+      ...CLEAN,
+      'src/app/about.tsx': 'export default () => <ScrollView><View /></ScrollView>;\n',
+    });
+
+    const { status, output } = runRule('large-title-scroll', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/app/about.tsx');
+  });
+
+  it('fails a FlatList that does not spread the insets', () => {
+    const root = fixture({
+      ...CLEAN,
+      'src/app/best-efforts/index.tsx':
+        'export default () => <FlatList data={[]} renderItem={() => <View />} />;\n',
+    });
+
+    expect(runRule('large-title-scroll', root).output).toContain('src/app/best-efforts/index.tsx');
+  });
+
+  it('does not take a mention in a comment or a string for the component', () => {
+    const root = fixture({
+      ...CLEAN,
+      'src/app/about.tsx': [
+        '// <ScreenScrollView> goes here',
+        "const note = '<ScreenScrollView>';",
+        'export default () => <ScrollView />;',
+      ].join('\n'),
+    });
+
+    expect(runRule('large-title-scroll', root).status).toBe(1);
+  });
+
+  it('leaves a route without the flag alone', () => {
+    const root = fixture({
+      ...CLEAN,
+      'src/shared/app/screenHeaders.ts': headers(false).replace('largeTitle: true', 'x: 1'),
+      'src/app/about.tsx': 'export default () => <ScrollView />;\n',
+      'src/app/best-efforts/index.tsx': 'export default () => <ScrollView />;\n',
+    });
+
+    expect(runRule('large-title-scroll', root).status).toBe(0);
+  });
+
+  it('fails a flagged route that has no screen file', () => {
+    const { 'src/app/about.tsx': _gone, ...rest } = CLEAN;
+
+    expect(runRule('large-title-scroll', fixture(rest)).output).toContain('about');
+  });
+
+  it('fails when the header table is gone', () => {
+    const { 'src/shared/app/screenHeaders.ts': _gone, ...rest } = CLEAN;
+
+    expect(runRule('large-title-scroll', fixture(rest)).status).toBe(1);
+  });
+
+  describe('a route that re-exports a feature screen', () => {
+    const ROUTE = [
+      "import { PlainScreen } from '@/features/plain';",
+      'export default PlainScreen;',
+    ].join('\n');
+    const BARREL = [
+      "export { default as PlainScreen } from './components/PlainScreen';",
+      "export { default as OtherScreen } from './components/OtherScreen';",
+    ].join('\n');
+    const REEXPORTED = {
+      ...CLEAN,
+      'src/app/about.tsx': ROUTE,
+      'src/features/plain/index.ts': BARREL,
+      'src/features/plain/components/PlainScreen.tsx': SCROLL,
+      'src/features/plain/components/OtherScreen.tsx': SCROLL,
+    };
+
+    it('passes when the screen the route exports renders ScreenScrollView', () => {
+      expect(runRule('large-title-scroll', fixture(REEXPORTED)).status).toBe(0);
+    });
+
+    it('fails when that screen renders a bare ScrollView, though a sibling in the barrel does not', () => {
+      const root = fixture({
+        ...REEXPORTED,
+        'src/features/plain/components/PlainScreen.tsx':
+          'export default () => <ScrollView><View /></ScrollView>;\n',
+      });
+
+      const { status, output } = runRule('large-title-scroll', root);
+
+      expect(status).toBe(1);
+      expect(output).toContain('src/app/about.tsx');
+    });
+
+    it('fails when the export it names cannot be found', () => {
+      const root = fixture({ ...REEXPORTED, 'src/features/plain/index.ts': 'export {};\n' });
+
+      expect(runRule('large-title-scroll', root).output).toContain('src/app/about.tsx');
+    });
   });
 });

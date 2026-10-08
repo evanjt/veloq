@@ -8,7 +8,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   useRecordingPreferences,
-  initializeRecordingPreferences,
+  initialiseRecordingPreferences,
 } from '@/features/recording/stores/RecordingPreferencesStore';
 import type { DataFieldType } from '@/types';
 
@@ -44,11 +44,11 @@ describe('RecordingPreferencesStore', () => {
   });
 
   // ============================================================
-  // Initialization defaults
+  // Initialisation defaults
   // ============================================================
 
   describe('defaults', () => {
-    it('initializes with valid default auto-pause thresholds', () => {
+    it('initialises with valid default auto-pause thresholds', () => {
       const state = useRecordingPreferences.getState();
       expect(state.autoPauseEnabled).toBe(true);
       expect(state.autoPauseThresholds).toEqual(DEFAULT_AUTO_PAUSE_THRESHOLDS);
@@ -56,12 +56,12 @@ describe('RecordingPreferencesStore', () => {
       expect(state.recentActivityTypes).toEqual([]);
     });
 
-    it('isLoaded starts as false before initialization', () => {
+    it('isLoaded starts as false before initialisation', () => {
       expect(useRecordingPreferences.getState().isLoaded).toBe(false);
     });
 
-    it('isLoaded becomes true after initialization with no stored data', async () => {
-      await initializeRecordingPreferences();
+    it('isLoaded becomes true after initialisation with no stored data', async () => {
+      await initialiseRecordingPreferences();
       expect(useRecordingPreferences.getState().isLoaded).toBe(true);
     });
   });
@@ -74,12 +74,12 @@ describe('RecordingPreferencesStore', () => {
     /**
      * BUG FOUND: Broken JSON triggers the catch block, which sets isLoaded=true
      * but does NOT reset state to defaults - the store keeps whatever state it
-     * had before. This is correct behavior (defaults are already set), but
+     * had before. This is correct behaviour (defaults are already set), but
      * let's verify.
      */
     it('recovers from invalid JSON without crashing', async () => {
       await AsyncStorage.setItem(STORAGE_KEY, '{broken json!!!');
-      await initializeRecordingPreferences();
+      await initialiseRecordingPreferences();
       expect(useRecordingPreferences.getState().isLoaded).toBe(true);
       // Should retain defaults, not garbage
       expect(useRecordingPreferences.getState().autoPauseEnabled).toBe(true);
@@ -120,14 +120,14 @@ describe('RecordingPreferencesStore', () => {
         resetStore();
         await AsyncStorage.clear();
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        await initializeRecordingPreferences();
+        await initialiseRecordingPreferences();
         assert();
       }
     });
 
     it('recovers when AsyncStorage.getItem throws', async () => {
       (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('Storage error'));
-      await initializeRecordingPreferences();
+      await initialiseRecordingPreferences();
       expect(useRecordingPreferences.getState().isLoaded).toBe(true);
       expect(useRecordingPreferences.getState().autoPauseEnabled).toBe(true);
     });
@@ -254,7 +254,7 @@ describe('RecordingPreferencesStore recorded sports', () => {
       STORAGE_KEY,
       JSON.stringify({ recentActivityTypes: ['Run', 'Ride'] })
     );
-    await initializeRecordingPreferences();
+    await initialiseRecordingPreferences();
     const state = useRecordingPreferences.getState();
     expect(state.recordedActivityTypes).toEqual(['Run', 'Ride']);
   });
@@ -271,7 +271,7 @@ describe('RecordingPreferencesStore recorded sports', () => {
       recordedActivityTypes: [],
       isLoaded: false,
     });
-    await initializeRecordingPreferences();
+    await initialiseRecordingPreferences();
     const state = useRecordingPreferences.getState();
     expect(state.recentActivityTypes).toEqual(['Swim', 'Hike', 'Walk', 'Run']);
     expect(state.recordedActivityTypes).toEqual(['Swim', 'Hike', 'Walk', 'Run', 'Ride']);

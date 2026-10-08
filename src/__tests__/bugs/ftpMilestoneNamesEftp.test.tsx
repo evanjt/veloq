@@ -10,7 +10,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { changeLanguage, i18n, initializeI18n } from '@/i18n';
+import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
 import type { TFunc } from '@/features/insights/types';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import { FitnessMilestoneContent } from '@/features/insights/components/content/FitnessMilestoneContent';
@@ -79,7 +79,7 @@ describe('the fitness milestone sheet', () => {
   }
 
   beforeAll(async () => {
-    await initializeI18n('en-AU');
+    await initialiseI18n('en-AU');
   });
 
   afterEach(async () => {

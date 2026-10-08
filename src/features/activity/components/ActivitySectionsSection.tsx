@@ -31,7 +31,7 @@ import {
   groupSectionEncounters,
   type SectionEncounterGroup,
 } from '@/features/activity/lib/groupSectionEncounters';
-import { navigateTo } from '@/shared/app/navigation';
+import { tapTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
@@ -415,7 +415,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Handle section press navigation
   const handleSectionPress = useCallback(
     (sectionId: string) => {
-      navigateTo(`/section/${sectionId}?activityId=${activityId}`);
+      tapTo(`/section/${sectionId}?activityId=${activityId}`);
     },
     [activityId]
   );
@@ -548,7 +548,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
             accessibilityLabel={displayName}
             style={pressable(styles.scanMatchInfo)}
             android_ripple={pressRipple}
-            onPress={() => navigateTo(`/section/${match.sectionId}?activityId=${activityId}`)}
+            onPress={() => tapTo(`/section/${match.sectionId}?activityId=${activityId}`)}
           >
             <Text
               numberOfLines={2}

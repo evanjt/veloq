@@ -24,6 +24,104 @@ object FitnessChart {
     val grid: Int,
   )
 
+  /** What the form chart paints with: a fill per zone key, the line, its casing and the labels. */
+  data class ZoneColors(
+    val zones: Map<String, Int>,
+    val line: Int,
+    val casing: Int,
+    val axisText: Int,
+  )
+
+  /**
+   * Form per day over its five zones: each zone is a faint band between its bounds, the bounds
+   * are labelled in the left gutter, and the line breaks across a day with no value.
+   */
+  fun formZonesBitmap(
+    chart: FormZoneChart,
+    widthPx: Int,
+    heightPx: Int,
+    density: Float,
+    colors: ZoneColors,
+  ): Bitmap {
+    val w = max(1, widthPx)
+    val h = max(1, heightPx)
+    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bmp)
+
+    val text =
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = colors.axisText
+        textSize = 9f * density
+      }
+    val bounds = chart.bands.dropLast(1).map { it.to }
+    val gutter = (bounds.maxOfOrNull { text.measureText(it.roundToInt().toString()) } ?: 0f) + 4f * density
+    val plot =
+      Plot(
+        left = gutter,
+        top = 0f,
+        right = w.toFloat(),
+        bottom = h.toFloat(),
+        domainMin = chart.min,
+        domainMax = chart.max,
+      )
+
+    for (band in chart.bands) {
+      val fill =
+        Paint().apply {
+          color = colors.zones[band.zone] ?: colors.axisText
+          alpha = ZONE_BAND_ALPHA
+        }
+      canvas.drawRect(plot.left, plot.yOf(band.to), plot.right, plot.yOf(band.from), fill)
+    }
+
+    val textH = text.fontMetrics.let { it.descent - it.ascent }
+    for (bound in bounds) {
+      val label = bound.roundToInt().toString()
+      val baseline = (plot.yOf(bound) + textH / 2f - text.fontMetrics.descent).coerceIn(textH, h - 1f)
+      canvas.drawText(label, gutter - 4f * density - text.measureText(label), baseline, text)
+    }
+
+    val step = if (chart.values.size > 1) (plot.right - plot.left) / (chart.values.size - 1) else 0f
+    // A day with no value breaks the line, so each run of measured days is drawn on its own.
+    val runs = ArrayList<MutableList<Pair<Float, Float>>>()
+    var run: MutableList<Pair<Float, Float>>? = null
+    chart.values.forEachIndexed { i, value ->
+      if (value == null) {
+        run = null
+        return@forEachIndexed
+      }
+      val point = Pair(plot.left + i * step, plot.yOf(value))
+      val open = run
+      if (open == null) {
+        run = mutableListOf(point).also { runs.add(it) }
+      } else {
+        open.add(point)
+      }
+    }
+    for ((color, width) in listOf(colors.casing to 2f * density, colors.line to 1.5f * density)) {
+      val stroke =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+          this.color = color
+          style = Paint.Style.STROKE
+          strokeWidth = width
+          strokeCap = Paint.Cap.ROUND
+          strokeJoin = Paint.Join.ROUND
+        }
+      for (points in runs) {
+        if (points.size == 1) {
+          canvas.drawPoint(points[0].first, points[0].second, stroke)
+          continue
+        }
+        val path = Path().apply { moveTo(points[0].first, points[0].second) }
+        for (p in points.drop(1)) path.lineTo(p.first, p.second)
+        canvas.drawPath(path, stroke)
+      }
+    }
+    return bmp
+  }
+
+  private const val ZONE_BAND_ALPHA = 70
+
   /** Feed-style chart: fitness + fatigue lines, axis rail. */
   fun fitnessBitmap(
     fitness: List<Float>,

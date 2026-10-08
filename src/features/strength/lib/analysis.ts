@@ -58,7 +58,7 @@ export function buildStrengthBalancePairs(
  * The engine's progression record as it crosses the FFI, with `changePct`
  * absent rather than null and `trend` still a bare string.
  */
-export function normalizeStrengthProgression(raw: {
+export function normaliseStrengthProgression(raw: {
   muscleSlug: string;
   weeklyWeightedSets: number[];
   recentAverage: number;
@@ -85,7 +85,7 @@ export function normalizeStrengthProgression(raw: {
  * filled and the verdict typed. The strength tab and the insights both read
  * one, so both map it here.
  */
-export function normalizeStrengthSummary(raw: {
+export function normaliseStrengthSummary(raw: {
   startTs?: number;
   muscleVolumes?: {
     slug: string;

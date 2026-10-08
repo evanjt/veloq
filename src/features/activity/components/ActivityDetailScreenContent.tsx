@@ -49,7 +49,7 @@ import {
   type MapStyleType,
   type SectionCreationError,
   type SectionCreationResult,
-  sectionCreationMessageKey,
+  submitSectionCreation,
   setCameraOverride,
   type TerrainCamera,
 } from '@/features/maps';
@@ -363,32 +363,16 @@ export function ActivityDetailScreenContent() {
 
   // Handle section creation completion
   const handleSectionCreated = useCallback(
-    async (result: SectionCreationResult) => {
-      if (!activity) return;
-
-      setSectionCreationState('creating');
-      setSectionCreationError(null);
-
-      try {
-        await createSection({
-          startIndex: result.startIndex,
-          endIndex: result.endIndex,
-          sourceActivityId: activity.id,
-          sportType: activity.type,
-        });
-
-        setSectionCreationMode(false);
-        setSectionCreationState(undefined);
-      } catch (error) {
-        setSectionCreationState('error');
-        setSectionCreationError({
-          message: t(sectionCreationMessageKey(error)),
-          technicalDetails: error instanceof Error ? error.message : undefined,
-          activityId: activity.id,
-          indices: { start: result.startIndex, end: result.endIndex },
-        });
-      }
-    },
+    (result: SectionCreationResult) =>
+      submitSectionCreation({
+        result,
+        activity,
+        createSection,
+        translate: (key) => t(key),
+        setMode: setSectionCreationMode,
+        setState: setSectionCreationState,
+        setError: setSectionCreationError,
+      }),
     [activity, createSection, t]
   );
 

@@ -1,6 +1,6 @@
 /**
  * Scenario: the generated binding registers the `EngineObserver` vtable at the
- * end of its `initialize()`, and nothing ever called it. `setObserver` still
+ * end of its `initialise()`, and nothing ever called it. `setObserver` still
  * handed Rust a handle, so every notify from a Rust thread reached a null
  * vtable cell and panicked inside uniffi. Forty-five identical entries in the
  * device panic log, and every screen quietly back on its polling timer.
@@ -47,11 +47,11 @@ describe('the engine observer vtable', () => {
 
   it('registers the binding before handing Rust the observer', () => {
     const calls: string[] = [];
-    mockGenerated.initialize.mockImplementation(() => calls.push('initialize'));
+    mockGenerated.initialize.mockImplementation(() => calls.push('initialise'));
     mockGenerated.VeloqEngine.create.mockReturnValue(engineStub(calls));
 
     expect(freshClient().initWithPath('/tmp/a.db')).toBe(true);
-    expect(calls).toEqual(['initialize', 'setObserver']);
+    expect(calls).toEqual(['initialise', 'setObserver']);
   });
 
   it('withholds the observer when the binding will not initialise', () => {

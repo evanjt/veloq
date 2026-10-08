@@ -48,6 +48,10 @@ pub trait EngineObserver: Send + Sync {
     fn fit_parsed(&self, activity_id: String);
     /// A section detection run was applied to the catalogue.
     fn detection_applied(&self);
+    /// A background regroup was swapped in, so the route groups, the route
+    /// indicators and everything read through them differ from what a reader
+    /// fetched before. Carries no payload, the reader fetches again.
+    fn groups_changed(&self);
     /// A heatmap tile pass finished.
     fn tiles_generated(&self);
     /// The elevation backfill entered `phase`.
@@ -86,6 +90,7 @@ pub(crate) enum Announcement {
     GpsTracksMutated(Vec<String>),
     FitParsed(String),
     DetectionApplied,
+    GroupsChanged,
     TilesGenerated,
     BackfillPhase(String),
     StreamBackfillPhase(String),
@@ -110,6 +115,7 @@ impl Announcement {
             Self::GpsTracksMutated(ids) => observer.gps_tracks_mutated(ids.clone()),
             Self::FitParsed(id) => observer.fit_parsed(id.clone()),
             Self::DetectionApplied => observer.detection_applied(),
+            Self::GroupsChanged => observer.groups_changed(),
             Self::TilesGenerated => observer.tiles_generated(),
             Self::BackfillPhase(phase) => observer.backfill_phase(phase.clone()),
             Self::StreamBackfillPhase(phase) => observer.stream_backfill_phase(phase.clone()),
@@ -134,6 +140,7 @@ impl Announcement {
             Self::GpsTracksMutated(_) => "gps_tracks_mutated",
             Self::FitParsed(_) => "fit_parsed",
             Self::DetectionApplied => "detection_applied",
+            Self::GroupsChanged => "groups_changed",
             Self::TilesGenerated => "tiles_generated",
             Self::BackfillPhase(_) => "backfill_phase",
             Self::StreamBackfillPhase(_) => "stream_backfill_phase",
@@ -441,6 +448,9 @@ pub(crate) mod recorder {
         fn detection_applied(&self) {
             self.push("detection_applied");
         }
+        fn groups_changed(&self) {
+            self.push("groups_changed");
+        }
         fn tiles_generated(&self) {
             self.push("tiles_generated");
         }
@@ -617,6 +627,7 @@ mod tests {
             fn gps_tracks_mutated(&self, _: Vec<String>) {}
             fn fit_parsed(&self, _: String) {}
             fn detection_applied(&self) {}
+            fn groups_changed(&self) {}
             fn tiles_generated(&self) {}
             fn backfill_phase(&self, _: String) {}
             fn stream_backfill_phase(&self, _: String) {}
@@ -966,6 +977,7 @@ mod tests {
                 gps_tracks_mutated(activity_ids: Vec<String>);
                 fit_parsed(activity_id: String);
                 detection_applied();
+                groups_changed();
                 tiles_generated();
                 backfill_phase(phase: String);
                 stream_backfill_phase(phase: String);

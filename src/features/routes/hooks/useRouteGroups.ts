@@ -60,7 +60,7 @@ interface UseRouteGroupsResult {
   totalCount: number;
   /** Number of processed activities */
   processedCount: number;
-  /** Whether the store is initialized */
+  /** Whether the store is initialised */
   /** Rename a route (triggers refresh via engine events) */
   renameRoute: (routeId: string, name: string) => void;
   /** What the engine threw, when the read failed. Empty groups with no error is an empty library. */
@@ -83,7 +83,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
   const renameRoute = useCallback((routeId: string, name: string) => {
     const engine = getEngine();
     if (!engine) {
-      throw new Error('Route engine not initialized');
+      throw new Error('Route engine not initialised');
     }
     engine.setRouteName(routeId, name);
     // No need to manually refresh - engine fires 'groups' event which
